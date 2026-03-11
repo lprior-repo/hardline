@@ -69,6 +69,70 @@ enum Commands {
         command: ConfigCommands,
     },
 
+    /// Git stash operations
+    Stash {
+        #[command(subcommand)]
+        command: StashCommands,
+    },
+
+    /// Git tag operations
+    Tag {
+        #[command(subcommand)]
+        command: TagCommands,
+    },
+
+    /// Fetch from remotes
+    Fetch {
+        /// Remote to fetch from (default: all)
+        remote: Option<String>,
+
+        /// Prune remote-tracking branches
+        #[arg(short, long)]
+        prune: bool,
+
+        /// Fetch all tags
+        #[arg(short, long)]
+        tags: bool,
+
+        /// Fetch from all remotes
+        #[arg(short, long)]
+        all: bool,
+    },
+
+    /// Pull from remote
+    Pull,
+
+    /// Push to remote
+    Push {
+        /// Remote to push to
+        #[arg(short, long, default_value = "origin")]
+        remote: String,
+
+        /// Branch to push
+        #[arg(short, long)]
+        branch: Option<String>,
+
+        /// Set upstream tracking branch
+        #[arg(short, long)]
+        set_upstream: bool,
+
+        /// Force push
+        #[arg(short, long)]
+        force: bool,
+
+        /// Force push with lease
+        #[arg(long)]
+        force_with_lease: bool,
+
+        /// Push tags
+        #[arg(short, long)]
+        tags: bool,
+
+        /// Delete remote branch
+        #[arg(short, long)]
+        delete: bool,
+    },
+
     /// Health check
     Doctor {
         /// Run full diagnostics
@@ -289,6 +353,113 @@ enum ConfigCommands {
     List,
 }
 
+#[derive(Subcommand)]
+enum StashCommands {
+    /// Save changes to stash
+    Save {
+        /// Stash message
+        #[arg(short, long)]
+        message: Option<String>,
+
+        /// Include untracked files
+        #[arg(short, long)]
+        include_untracked: bool,
+
+        /// Interactively select hunks to stash
+        #[arg(short, long)]
+        patch: bool,
+    },
+
+    /// Apply and remove stash
+    Pop {
+        /// Stash to pop
+        stash: Option<String>,
+
+        /// Also restore staged changes
+        #[arg(short, long)]
+        index: bool,
+    },
+
+    /// List stashed changes
+    List,
+
+    /// Drop a stash
+    Drop {
+        /// Stash reference
+        stash: String,
+
+        /// Force drop without confirmation
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// Show stash contents
+    Show {
+        /// Stash reference
+        stash: Option<String>,
+
+        /// Show diffstat only
+        #[arg(short, long)]
+        stat: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum TagCommands {
+    /// Create a tag
+    Create {
+        /// Tag name
+        name: String,
+
+        /// Annotated tag message
+        #[arg(short, long)]
+        message: Option<String>,
+
+        /// Tag specific commit
+        #[arg(short, long)]
+        commit: Option<String>,
+
+        /// Replace existing tag
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// List tags
+    List {
+        /// Pattern to match
+        #[arg(short, long)]
+        pattern: Option<String>,
+
+        /// Sort by key
+        #[arg(long)]
+        sort: Option<String>,
+    },
+
+    /// Delete a tag
+    Delete {
+        /// Tag to delete
+        tag: String,
+
+        /// Delete remote tag
+        #[arg(short, long)]
+        remote: bool,
+    },
+
+    /// Push tags to remote
+    Push {
+        /// Specific tag to push
+        tag: Option<String>,
+
+        /// Remote to push to
+        #[arg(short, long, default_value = "origin")]
+        remote: String,
+
+        /// Force push
+        #[arg(short, long)]
+        force: bool,
+    },
+}
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
@@ -386,6 +557,61 @@ fn run_command(cli: Cli) -> Result<()> {
             ConfigCommands::Set { key, value } => commands::config::set(&key, &value),
             ConfigCommands::List {} => commands::config::list(),
         },
+
+        Commands::Stash { command } => match command {
+            StashCommands::Save {
+                message,
+                include_untracked,
+                patch,
+            } => commands::stash::save(message.as_deref(), include_untracked, patch),
+            StashCommands::Pop { stash, index } => commands::stash::pop(stash.as_deref(), index),
+            StashCommands::List {} => commands::stash::list(),
+            StashCommands::Drop { stash, force } => commands::stash::drop(&stash, force),
+            StashCommands::Show { stash, stat } => commands::stash::show(stash.as_deref(), stat),
+        },
+
+        Commands::Tag { command } => match command {
+            TagCommands::Create {
+                name,
+                message,
+                commit,
+                force,
+            } => commands::tag::create(&name, message.as_deref(), commit.as_deref(), force),
+            TagCommands::List { pattern, sort } => {
+                commands::tag::list(pattern.as_deref(), sort.as_deref())
+            }
+            TagCommands::Delete { tag, remote } => commands::tag::delete(&tag, remote),
+            TagCommands::Push { tag, remote, force } => {
+                commands::tag::push(tag.as_deref(), &remote, force)
+            }
+        },
+
+        Commands::Fetch {
+            remote,
+            prune,
+            tags,
+            all,
+        } => commands::sync::fetch(remote.as_deref(), prune, tags, all),
+
+        Commands::Pull {} => commands::sync::pull(),
+
+        Commands::Push {
+            remote,
+            branch,
+            set_upstream,
+            force,
+            force_with_lease,
+            tags,
+            delete,
+        } => commands::sync::push(
+            &remote,
+            branch.as_deref(),
+            set_upstream,
+            force,
+            force_with_lease,
+            tags,
+            delete,
+        ),
 
         Commands::Doctor { full } => commands::doctor::run(full),
 
