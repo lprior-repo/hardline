@@ -3,7 +3,7 @@
 //! One CLI for workspace isolation (Isolate) and queue management (Stak).
 
 use clap::{Parser, Subcommand};
-use scp_core::Result;
+use scp_core::{output::Output, Result};
 use std::process::ExitCode;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -20,6 +20,10 @@ struct Cli {
     /// Enable verbose output
     #[arg(short, long, global = true)]
     verbose: bool,
+
+    /// Suppress normal output
+    #[arg(short, long, global = true)]
+    quiet: bool,
 
     /// Output format
     #[arg(short, long, global = true, default_value = "human")]
@@ -70,6 +74,13 @@ enum Commands {
         /// Run full diagnostics
         #[arg(short, long)]
         full: bool,
+    },
+
+    /// Show status (short or detailed)
+    Status {
+        /// Short output (single line)
+        #[arg(short, long)]
+        short: bool,
     },
 }
 
@@ -157,6 +168,27 @@ enum WorkspaceCommands {
 
     /// Show current branch
     BranchCurrent,
+
+    /// Fork a workspace from current or another workspace
+    Fork {
+        /// Name of the new workspace
+        name: String,
+
+        /// Source workspace to fork from (default: current)
+        from: Option<String>,
+    },
+
+    /// Merge workspace into main
+    Merge {
+        /// Workspace name to merge
+        name: String,
+    },
+
+    /// Add an existing path as a workspace
+    Add {
+        /// Path to add
+        path: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -258,15 +290,26 @@ enum ConfigCommands {
 }
 
 fn main() -> ExitCode {
-    // Initialize logging
+    let cli = Cli::parse();
+
+    // Set up verbosity for output module
+    Output::set_verbose(cli.verbose, cli.quiet);
+
+    // Initialize logging with appropriate level
+    let log_level = if cli.quiet {
+        "error".to_string()
+    } else if cli.verbose {
+        "debug".to_string()
+    } else {
+        "info".to_string()
+    };
+
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()),
+            std::env::var("RUST_LOG").unwrap_or_else(|_| log_level),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
-
-    let cli = Cli::parse();
 
     // Run the appropriate command
     let result = run_command(cli);
@@ -305,6 +348,11 @@ fn run_command(cli: Cli) -> Result<()> {
             WorkspaceCommands::Branch { name } => commands::workspace::branch_create(&name),
             WorkspaceCommands::BranchDelete { name } => commands::workspace::branch_delete(&name),
             WorkspaceCommands::BranchCurrent {} => commands::workspace::branch_current(),
+            WorkspaceCommands::Add { path } => commands::workspace::add(&path),
+            WorkspaceCommands::Fork { name, from } => {
+                commands::workspace::fork(&name, from.as_deref())
+            }
+            WorkspaceCommands::Merge { name } => commands::workspace::merge(&name),
         },
 
         Commands::Queue { command } => match command {
@@ -340,5 +388,7 @@ fn run_command(cli: Cli) -> Result<()> {
         },
 
         Commands::Doctor { full } => commands::doctor::run(full),
+
+        Commands::Status { short } => commands::status::run(short),
     }
 }

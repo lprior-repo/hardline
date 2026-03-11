@@ -252,6 +252,18 @@ pub enum Error {
     /// Invalid configuration
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),
+
+    /// Clone operation failed
+    #[error("Clone failed: {0}")]
+    CloneFailed(String),
+
+    /// Record operation failed
+    #[error("Record failed: {0}")]
+    RecordFailed(String),
+
+    /// Invalid repository URL
+    #[error("Invalid repository URL: {0}")]
+    InvalidRepoUrl(String),
 }
 
 impl Clone for Error {
@@ -345,6 +357,9 @@ impl Clone for Error {
                 retries: *retries,
             },
             Error::InvalidConfig(s) => Error::InvalidConfig(s.clone()),
+            Error::CloneFailed(s) => Error::CloneFailed(s.clone()),
+            Error::RecordFailed(s) => Error::RecordFailed(s.clone()),
+            Error::InvalidRepoUrl(s) => Error::InvalidRepoUrl(s.clone()),
         }
     }
 }
@@ -460,6 +475,9 @@ impl Error {
             Error::Internal(_) => 90,
             Error::Unimplemented(_) => 91,
             Error::InvalidConfig(_) => 92,
+            Error::CloneFailed(_) => 93,
+            Error::RecordFailed(_) => 94,
+            Error::InvalidRepoUrl(_) => 95,
         }
     }
 }

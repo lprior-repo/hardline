@@ -83,6 +83,12 @@ pub trait VcsBackend: Send + Sync {
 
     /// Delete a workspace
     fn delete_workspace(&self, name: &str) -> Result<()>;
+
+    /// Fork a workspace from another workspace
+    fn fork_workspace(&self, source: &str, target: &str) -> Result<()>;
+
+    /// Merge a workspace into main
+    fn merge_workspace(&self, name: &str) -> Result<()>;
 }
 
 /// Status of working copy
@@ -337,6 +343,31 @@ impl VcsBackend for JjBackend {
         }
         Ok(())
     }
+
+    fn fork_workspace(&self, source: &str, target: &str) -> Result<()> {
+        let output = self.run_jj(&["workspace", "add", target, "-b", source])?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("already exists") || stderr.contains("exists") {
+                return Err(Error::WorkspaceExists(target.to_string()));
+            }
+            return Err(Error::VcsConflict(
+                "workspace fork".to_string(),
+                stderr.to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn merge_workspace(&self, name: &str) -> Result<()> {
+        let output = self.run_jj(&["workspace", "root", "--name", name])?;
+        if !output.status.success() {
+            return Err(Error::WorkspaceNotFound(name.to_string()));
+        }
+        self.rebase("main")?;
+        self.push()?;
+        Ok(())
+    }
 }
 
 /// Git backend implementation
@@ -513,6 +544,41 @@ impl VcsBackend for GitBackend {
         Err(Error::Unimplemented(
             "Git workspaces use worktrees instead".into(),
         ))
+    }
+
+    fn fork_workspace(&self, source: &str, target: &str) -> Result<()> {
+        let worktree_path = self.repo_path.join(target);
+        let output =
+            self.run_git(&["worktree", "add", &worktree_path.to_string_lossy(), source])?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("already exists") {
+                return Err(Error::WorkspaceExists(target.to_string()));
+            }
+            return Err(Error::VcsConflict(
+                "worktree add".to_string(),
+                stderr.to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn merge_workspace(&self, name: &str) -> Result<()> {
+        let worktree_path = self.repo_path.join(name);
+        if !worktree_path.exists() {
+            return Err(Error::WorkspaceNotFound(name.to_string()));
+        }
+        self.switch_branch("main")?;
+        let output = self.run_git(&["merge", name])?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if stderr.contains("conflict") {
+                return Err(Error::VcsConflict("merge".to_string(), stderr.to_string()));
+            }
+            return Err(Error::VcsConflict("merge".to_string(), stderr.to_string()));
+        }
+        self.push()?;
+        Ok(())
     }
 }
 

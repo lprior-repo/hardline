@@ -57,6 +57,7 @@ pub mod types;
 pub mod validation;
 pub mod vcs;
 pub mod output_format;
+pub mod output;
 pub mod watcher;
 pub mod workspace_state;
 
@@ -103,6 +104,7 @@ pub use vcs::{
     VcsType, Workspace,
 };
 pub use output_format::OutputFormat;
+pub use output::{Output, Verbosity};
 pub use watcher::{BeadsStatus, FileWatcher, WatchEvent};
 pub use workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition};
 
