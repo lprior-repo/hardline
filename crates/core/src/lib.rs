@@ -30,11 +30,15 @@
 // Module declarations
 pub mod agent;
 pub mod architecture_boundaries;
+pub mod beads;
 pub mod checkpoint;
+pub mod cli_contracts;
 pub mod config;
 pub mod conflict;
 pub mod contracts;
+pub mod coordination;
 pub mod dag;
+pub mod domain;
 pub mod error;
 pub mod fix;
 pub mod functional;
@@ -58,8 +62,11 @@ pub mod validation;
 pub mod vcs;
 pub mod output_format;
 pub mod output;
+pub mod output_jsonl;
 pub mod watcher;
 pub mod workspace_state;
+pub mod metadata;
+pub mod workspace_integrity;
 
 #[cfg(test)]
 mod config_property_tests;

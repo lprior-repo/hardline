@@ -48,6 +48,10 @@ pub enum Error {
     #[error("Session '{0}' is locked by '{1}'")]
     SessionLocked(String, String),
 
+    /// Not the lock holder
+    #[error("Agent '{1}' does not hold lock on session '{0}'")]
+    NotLockHolder(String, String),
+
     /// Session in invalid state for operation
     #[error("Session '{0}' is {1}, expected {2}")]
     SessionInvalidState(String, String, String),
@@ -277,6 +281,7 @@ impl Clone for Error {
             Error::SessionNotFound(s) => Error::SessionNotFound(s.clone()),
             Error::SessionExists(s) => Error::SessionExists(s.clone()),
             Error::SessionLocked(s, s2) => Error::SessionLocked(s.clone(), s2.clone()),
+            Error::NotLockHolder(s, s2) => Error::NotLockHolder(s.clone(), s2.clone()),
             Error::SessionInvalidState(s, s2, s3) => {
                 Error::SessionInvalidState(s.clone(), s2.clone(), s3.clone())
             }
@@ -420,7 +425,8 @@ impl Error {
             Error::SessionNotFound(_) => 14,
             Error::SessionExists(_) => 15,
             Error::SessionLocked(_, _) => 16,
-            Error::SessionInvalidState(_, _, _) => 17,
+            Error::NotLockHolder(_, _) => 17,
+            Error::SessionInvalidState(_, _, _) => 18,
 
             // Queue errors
             Error::QueueEmpty => 20,

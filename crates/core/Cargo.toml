@@ -51,6 +51,7 @@ notify-debouncer-mini = { workspace = true }
 
 # Parsing
 regex = { workspace = true }
+strum = { workspace = true }
 
 # Hex
 hex = { workspace = true }

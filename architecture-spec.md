@@ -457,17 +457,161 @@ struct SessionName(String); // not String
 enum WorkspaceState { Created, Working, Ready, Merged }  // not Option + bool
 ```
 
-### 13.5 Moon CI/CD
+### 13.5 Moon CI/CD (with Remote Cache)
 
 ```yaml
+# .moon/tasks.yml - based on isolate's battle-tested config
+
+$schema: "https://moonrepo.dev/schemas/tasks.json"
+
 tasks:
-  build:    cargo build
-  test:     cargo test
-  lint:     cargo clippy -- -D warnings
-  fmt:      cargo fmt --check
-  doctor:   cargo run --bin scp doctor
-  ci:       [fmt, lint, test, build]
+  # ========================================================================
+  # STAGE 1: CODE FORMATTING & LINTING
+  # ========================================================================
+
+  fmt:
+    command: "cargo fmt --all --check"
+    inputs: ["crates/**/*.rs", "Cargo.toml", "rustfmt.toml"]
+    options:
+      cache: true
+      runInCI: true
+
+  fmt-fix:
+    command: "cargo fmt --all"
+    inputs: ["crates/**/*.rs"]
+    options:
+      cache: false
+
+  clippy:
+    command: "cargo clippy --workspace --all-targets -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -A clippy::missing_const_for_fn -W clippy::pedantic"
+    description: "Lint with Clippy (strict mode)"
+    deps: ["check"]
+    inputs: ["crates/**/*.rs", "Cargo.toml", ".clippy.toml"]
+    options:
+      cache: true
+
+  deny:
+    command: "cargo deny check"
+    options:
+      cache: true
+
+  # ========================================================================
+  # STAGE 2: TESTING
+  # ========================================================================
+
+  test:
+    command: "cargo nextest run --workspace --all-features"
+    deps: ["build"]
+    inputs: ["crates/**/*.rs", "Cargo.toml"]
+    options:
+      cache: true
+      runInCI: true
+
+  test-doc:
+    command: "cargo test --doc"
+    deps: ["build"]
+    options:
+      cache: true
+
+  # ========================================================================
+  # STAGE 3: BUILD
+  # ========================================================================
+
+  check:
+    command: "cargo check --workspace --all-features"
+    inputs: ["crates/**/*.rs", "Cargo.toml"]
+    options:
+      cache: true
+
+  build:
+    command: "cargo build --release --workspace"
+    deps: ["check"]
+    outputs: ["/target/release/scp"]
+    options:
+      cache: true
+      runInCI: true
+
+  build-docs:
+    command: "cargo doc --no-deps --document-private-items"
+    deps: ["build"]
+    options:
+      cache: true
+
+  # ========================================================================
+  # STAGE 4: SECURITY & QUALITY
+  # ========================================================================
+
+  audit:
+    command: "cargo audit"
+    options:
+      cache: false
+
+  semgrep:
+    command: "semgrep scan --config auto"
+    inputs: ["crates/**/*.rs"]
+    options:
+      cache: true
+
+  # ========================================================================
+  # STAGE 5: COVERAGE
+  # ========================================================================
+
+  coverage:
+    command: "cargo llvm-cov --workspace --fail-under-lines 90"
+    deps: ["build"]
+    options:
+      cache: false
+      runInCI: true
+
+  # ========================================================================
+  # STAGE 6: LINE LIMITS (Architectural Drift)
+  # ========================================================================
+
+  check-lines:
+    command: "./scripts/check-line-limits.sh"
+    inputs: ["crates/**/*.rs"]
+    options:
+      cache: false
+
+  # ========================================================================
+  # COMPOSITE PIPELINES
+  # ========================================================================
+
+  quick:
+    command: "cargo fmt --all --check && cargo clippy --workspace -- -D warnings"
+    options:
+      cache: false
+
+  ci:
+    command: "cargo fmt --all --check && cargo clippy --workspace -- -D warnings && cargo nextest run --workspace"
+    options:
+      cache: false
+      runInCI: true
+
+  # ========================================================================
+  # CONVENIENCE
+  # ========================================================================
+
+  install:
+    command: "cargo build --release --bin scp && cp target/release/scp ~/.local/bin/scp"
+    deps: ["build"]
+    options:
+      cache: false
+
+  clean:
+    command: "cargo clean"
+    options:
+      cache: false
 ```
+
+**Moon config benefits:**
+- Remote cache via moonrepo (your existing setup)
+- Task dependencies auto-resolved
+- Parallel execution
+- `moon run :ci` = full pipeline
+- `moon run :quick` = fast feedback
+- Custom line limit enforcement
+- Semantic grep for security
 
 ### 13.6 Testing Strategy (Testing Trophy)
 
@@ -590,6 +734,11 @@ gix = "0.78"
 | **criterion** | Benchmarking | Performance validation |
 | **pretty_assertions** | Better test diffs | Easier debugging |
 | **tempfile** | Test temp files | Safe test I/O |
+| **cargo-deny** | Dependency audits | Block unsafe deps |
+| **cargo-mutants** | Mutation testing | Verify test quality |
+| **insta** | Snapshot testing | Lock API contracts |
+| **kani** | Model checking | Proofs for invariants |
+| **dylint** | Custom lints | Architectural enforcement |
 
 ### 15.4 Consider for Future
 
@@ -757,6 +906,242 @@ tracing::info!(session_id = %id, state = ?state, "Session state changed");
 // Domain: pure, no logging
 fn transition(&self, event: Event) -> Result<State, Error> { ... }
 ```
+
+---
+
+## 19. Engineering Harness for AI Agents
+
+### 19.1 Crate Boundaries as Architectural Walls
+
+```text
+workspace/
+├── Cargo.toml              # [workspace] members
+├── moon.toml               # Moon workspace config
+├── .moon/
+│   └── tasks.yml          # Task definitions with caching
+├── crates/
+│   ├── domain/             # Pure business logic, no I/O
+│   ├── application/        # Use cases, orchestration
+│   ├── infrastructure/     # DB, HTTP, external services
+│   └── cli/                # CLI handlers
+├── deny.toml               # cargo-deny config
+└── .cargo/mutants.toml    # cargo-mutants config
+```
+
+```toml
+# moon.toml
+projects = ['crates/*']
+tasksTag = ':'
+
+[environments]
+ci = { platform = 'linux' }
+local = { platform = 'linux' }
+```
+
+**DDD layer enforcement:**
+- Domain crate's `Cargo.toml` lists ZERO dependencies
+- Application depends only on domain
+- Infrastructure can depend on anything
+- Compiler enforces: if domain references infra → compilation fails
+
+### 19.2 Typestate Pattern (Invalid States Unrepresentable)
+
+```rust
+use std::marker::PhantomData;
+
+struct Created;
+struct Working;
+struct Ready;
+struct Merged;
+
+struct Workspace<S> {
+    id: WorkspaceId,
+    name: WorkspaceName,
+    _state: PhantomData<S>,
+}
+
+impl Workspace<Created> {
+    fn activate(self) -> Workspace<Working> {
+        Workspace { id: self.id, name: self.name, _state: PhantomData }
+    }
+}
+
+impl Workspace<Working> {
+    fn mark_ready(self) -> Workspace<Ready> { ... }
+}
+
+// Workspace<Created>.mark_ready() won't compile - invalid transition!
+```
+
+**Benefits:**
+- Invalid transitions are compile errors
+- IDE suggests only valid methods for current state
+- Zero runtime cost (PhantomData is zero-sized)
+
+### 19.3 Railway-Oriented Programming
+
+```rust
+async fn handle_create_session(input: CreateSessionInput) -> Result<Session, UseCaseError> {
+    let validated = validate_input(input)?;
+    let checked = check_bead_available(validated, &self.repo).await?;
+    let session = build_session(checked)?;
+    save_session(session, &self.repo).await
+}
+```
+
+### 19.4 Cargo Lints for Enforcement
+
+```toml
+# Cargo.toml
+[lints.rust]
+unsafe_code = "forbid"
+unwrap_used = "deny"
+panic = "deny"
+todo = "deny"
+unused_must_use = "deny"
+
+[workspace.lints.rust]
+# Domain: strict
+domain = { level = "deny", priority = 10 }
+
+# Infrastructure: relaxed
+infrastructure = { level = "warn", priority = 1 }
+```
+
+### 19.5 Mutation Testing (cargo-mutants)
+
+```toml
+# .cargo/mutants.toml
+examine_globs = ["crates/domain/**/*.rs"]
+exclude_re = ["impl Debug", "impl Display"]
+```
+
+```bash
+# CI gate - fail if any mutant survives
+cargo mutants --in-diff pr.diff
+```
+
+### 19.6 Snapshot Testing (insta)
+
+```rust
+#[test]
+fn test_session_json_output() {
+    let session = Session { id: SessionId::new(), ... };
+    insta::assert_json_snapshot!(session);
+}
+```
+
+### 19.7 Custom Lints (dylint)
+
+```rust
+// lints/no_unwrap_in_domain/src/lib.rs
+dylint_linting::declare_lint! {
+    pub NO_UNWRAP_IN_DOMAIN, Deny,
+    "`.unwrap()` is forbidden in domain layer"
+}
+```
+
+### 19.8 Ralph Wiggum Loop (Deterministic Verification)
+
+```bash
+# Verify script - deterministic cage for agents
+# Run via: moon run :ci
+
+#!/bin/bash
+set -e
+
+echo "Running verification..."
+
+# 1. Format (always run)
+moon run :fmt
+
+# 2. Lint (cached)
+moon run :clippy
+
+# 3. Dependency audit (cached)  
+moon run :deny
+
+# 4. Type check (cached)
+moon run :check
+
+# 5. Tests (cached)
+moon run :test
+
+# 6. Architectural drift (line limits)
+moon run :check-lines
+
+# 7. Mutations (expensive, skip in fast path)
+moon run :mutants || echo "Mutation check failed"
+
+# 8. Coverage
+moon run :coverage
+
+echo "✓ All gates passed"
+```
+
+```json
+// .claude/hooks.json - Claude Code hooks
+{
+  "hooks": {
+    "Stop": [{
+      "hooks": [{ "type": "command", "command": "moon run :ci" }]
+    }]
+  }
+}
+```
+
+**Ralph Wiggum Loop pattern (from continuous-deployment skill):**
+```bash
+# After every small slice:
+jj diff
+moon run :ci
+
+# If ci fails unrelated:
+moon run :<crate>:test
+
+# Keep jj diff tiny - validate often
+```
+
+### 19.9 AGENTS.md Structure
+
+```markdown
+# SCP - Source Control Plane
+
+## Architecture
+- DDD layers: domain/ → application/ → infrastructure/ → cli/
+- Dependency rule: inner NEVER depend on outer
+- All code: Functional Rust, zero unwrap/panic
+
+## Commands
+- Build: `cargo build --workspace`
+- Test: `cargo nextest run`
+- Verify: `./verify.sh`
+
+## Conventions
+- Error handling: thiserror in domain, anyhow in shell
+- State machines: use typestate pattern
+- Tests: BDD naming, property-based for invariants
+
+## Gotchas
+- Don't use .unwrap() in domain crate
+- Don't import infrastructure in domain
+- All functions return Result<T, Error>
+```
+
+### 19.10 Verification Stack Summary
+
+| Layer | Tool | What it Catches |
+|-------|------|-----------------|
+| 1 | Crate boundaries | Dependency violations |
+| 2 | Compiler | Type errors |
+| 3 | cargo fmt | Style |
+| 4 | cargo clippy | Idioms |
+| 5 | cargo dylint | Custom rules |
+| 6 | cargo nextest | Unit/property tests |
+| 7 | insta | API drift |
+| 8 | cargo-mutants | Weak tests |
+| 9 | cargo llvm-cov | Dead code |
+| 10 | verify.sh hook | Pre-commit cage |
 ```
 
 ### 13.5 Performance
