@@ -2,6 +2,7 @@
 //!
 //! All errors return Result<T, Error> - zero panic, zero unwrap.
 
+use serde::Serialize;
 use thiserror::Error;
 
 /// Unified error type for SCP (Source Control Plane).

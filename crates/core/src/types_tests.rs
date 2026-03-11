@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::types::SessionName;
 
 #[test]
@@ -72,7 +70,7 @@ fn given_name_at_max_length_when_create_then_success() {
 
 #[test]
 fn given_string_when_from_str_then_parses() {
-    let result = SessionName::from_str("test-name");
+    let result = SessionName::parse("test-name");
     assert!(result.is_ok());
     assert_eq!(result.unwrap().as_str(), "test-name");
 }

@@ -377,26 +377,31 @@ struct Fix {
 ### Phase 1: Stabilize SCP (Week 1)
 - Fix broken crates: scenarios, orchestrator, twins
 - Ensure current code compiles with zero warnings
-- Add missing doc comments
+- Apply DDD structure to existing code
+- Study reference implementations (effectum, triagebot, git-stack)
 
 ### Phase 2: Consolidate Crates (Week 2)
 - Move isolate-core → crates/session
 - Move isolate → crates/cli (integrate commands)
 - Move stak-core → crates/queue
 - Move stak → crates/cli (integrate commands)
+- Apply functional Rust rules (zero unwrap, no mut)
 
 ### Phase 3: Add Stax Features (Week 3)
 - Create crates/stack with GitHub integration
 - Create crates/tui for terminal UI
 - Create crates/snapshot for undo/redo
+- Apply Scott Wlaschin DDD strictly
+- Migrate git2 → gix (gitoxide)
 
 ### Phase 4: Integration (Week 4)
 - Unify error handling across all crates
 - Ensure single binary with all commands
 - Test 600+ agent scenarios
+- Enforce file/function line limits
 
 ### Phase 5: Polish (Week 5)
-- Add comprehensive tests
+- Add comprehensive tests (Testing Trophy)
 - Generate documentation
 - Release v1.0
 
@@ -428,7 +433,31 @@ infrastructure/ # DB, VCS, network I/O
 api/            # HTTP/CLI endpoints
 ```
 
-### 13.4 Moon CI/CD
+### 13.4 Functional Rust Rules
+
+```rust
+// ENFORCED:
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![forbid(unsafe_code)]
+
+// ZERO unwrap/panic - use:
+match result {
+    Ok(v) => v,
+    Err(e) => return Err(e),
+}
+
+// NO mut - use:
+let new_state = old_state.transition(...);
+
+// NO primitive obsession:
+struct BeadId(String);     // not String
+struct SessionName(String); // not String
+enum WorkspaceState { Created, Working, Ready, Merged }  // not Option + bool
+```
+
+### 13.5 Moon CI/CD
 
 ```yaml
 tasks:
@@ -438,6 +467,296 @@ tasks:
   fmt:      cargo fmt --check
   doctor:   cargo run --bin scp doctor
   ci:       [fmt, lint, test, build]
+```
+
+### 13.6 Testing Strategy (Testing Trophy)
+
+All tests follow:
+- **Kent Beck TDD**: Tests are isolated, deterministic, read like a story
+- **Dan North BDD**: Given-When-Then structure, names describe behavior
+- **Dave Farley ATDD**: Tests as executable specs, separate intent from execution
+- **Testing Trophy**: Real execution first, integration/E2E heavy
+
+**Test requirements:**
+- Every state transition tested
+- Every error variant tested
+- Happy path + unhappy path + edge cases
+- Property-based tests for invariants
+
+---
+
+## 14. Architectural Drift Enforcement
+
+### 14.1 File/Function Line Limits
+
+```bash
+# scripts/check-lines.sh
+find crates -name "*.rs" -exec wc -l {} \; | awk '$1 > 300 { print $2 }'
+```
+
+### 14.2 DDD Layer Enforcement
+
+```rust
+// In domain layer - compile-time checks:
+// No tokio, sqlx, reqwest imports allowed
+#[cfg(test)]
+mod tests {
+    // Domain tests only - no I/O
+}
+
+// infrastructure/ layer can depend on tokio, sqlx
+// domain/ layer has ZERO external crate dependencies
+```
+
+### 14.3 Clippy Lints for DDD
+
+```toml
+[lints.rust]
+# Structural
+max_size_of_struct = "warn"
+struct_excessive_bools = "warn"
+struct_field_names_should_be_sentence_case = "allow"
+
+# Functional
+unused_must_use = "deny"
+unwrap_used = "deny"
+panicking_doc_comments = "deny"
+
+# DDD
+option_as_state = "deny"
+fn_params_excessive_bools = "deny"
+```
+
+### 14.4 Automated Gates
+
+```yaml
+# .moon/tasks.yml
+tasks:
+  check-lines:
+    command: ./scripts/check-line-limits.sh
+    fail: true
+
+  check-ddd:
+    command: cargo check --message-format=json | jq -s 'map(select(.reason == "compiler-message"))'
+
+  architectural-drift:
+    deps: [check-lines, check-ddd, lint, fmt]
+    command: echo "Architectural gates passed"
+```
+
+---
+
+## 15. Library Strategy
+
+### 15.1 Core Dependencies (Already Present)
+
+| Library | Purpose | Status |
+|---------|---------|--------|
+| tokio | Async runtime | Keep |
+| sqlx | DB + async | Keep |
+| petgraph | DAG algorithms | Keep |
+| jj-lib | JJ VCS integration | Keep |
+| thiserror | Error enums | Keep |
+| anyhow | Boundary errors | Keep |
+| serde | Serialization | Keep |
+| chrono | Time | Keep |
+| clap | CLI | Keep |
+| im, rpds | Persistent data structures | Keep |
+| tap | Method chaining | Keep |
+
+### 15.2 Replace: git2 → gix (gitoxide - Pure Rust)
+
+```toml
+# BEFORE (C dependency)
+git2 = "0.19"
+
+# AFTER (Pure Rust - gitoxide)
+gix = "0.78"
+```
+
+**gitoxide (gix) benefits:**
+- Pure Rust, no C dependencies (removes libssh2, openssl-sys)
+- Faster compile times
+- Better error messages
+- Actively maintained
+- Used by Jujutsu itself
+
+### 15.3 Suggested Additions
+
+| Library | Purpose | Benefit |
+|---------|---------|---------|
+| **nom** | Parsing combinators | Replace regex for performance |
+| **proptest** | Property-based testing | Exhaustive test generation |
+| **criterion** | Benchmarking | Performance validation |
+| **pretty_assertions** | Better test diffs | Easier debugging |
+| **tempfile** | Test temp files | Safe test I/O |
+
+### 15.4 Consider for Future
+
+| Library | Purpose | When Needed |
+|---------|---------|-------------|
+| **restate** | Durable execution | If implementing long-running workflows |
+| **ratatui** | TUI | When building interactive UI |
+| **octocrab** | GitHub API | When GitHub integration needed |
+
+### 15.5 Remove/Batch
+
+| Library | Action | Reason |
+|---------|--------|--------|
+| askama | Remove if unused | Template overhead |
+| kdl | Keep if used | Good for config |
+| fs2 | Remove | Use std::fs |
+| walkdir | Keep | Useful |
+
+---
+
+## 16. Reference Implementations to Study
+
+### 16.1 Queue/Merge Queue
+
+| Repo | Purpose | What to Steal |
+|------|---------|---------------|
+| **rust-lang/triagebot** | Rust's merge queue | GitHub PR queue state machine, async handlers |
+| **dimfeld/effectum** | SQLite-backed local queue | Worker loop, job locking, pending→complete |
+| **ayys/fang** | Background job processor | WorkerPool, Runnable trait, concurrent tasks |
+
+### 16.2 Stacked Branches
+
+| Repo | Purpose | What to Steal |
+|------|---------|---------------|
+| **git-stack** (epage) | Local stacked branch management | Git DAG manipulation, rebase automation |
+| **jj-spr** | JJ + GitHub PR bridge | JJ commits → Stacked PRs conversion |
+| **arxanas/git-branchless** | Git branchless workflow | DAG manipulation, conflict handling |
+
+### 16.3 Implementation Patterns
+
+**Queue Worker (from effectum):**
+```rust
+// Pending -> Processing -> Complete loop
+async fn worker_loop(&self) -> Result<()> {
+    loop {
+        let job = self.db.claim_next_pending().await?;
+        if let Some(job) = job {
+            self.process(job).await?;
+            self.db.mark_complete(job.id).await?;
+        } else {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    }
+}
+```
+
+**GitHub Integration (from triagebot):**
+```rust
+// Listen for PR events, update queue state
+async fn handle_pull_request(&self, event: PullRequestEvent) -> Result<()> {
+    match event.action {
+        Action::Opened | Action::Synchronize => self.queue.enqueue(event.pr),
+        Action::Closed => self.queue.mark_merged(event.pr),
+        _ => Ok(()),
+    }
+}
+```
+
+**Stack Management (from git-stack):**
+```rust
+// Rebase stack in topological order
+fn restack(&self, stack: &Stack) -> Result<()> {
+    for branch in stack.topological_order() {
+        self.git.rebase(branch, stack.parent(branch))?;
+    }
+}
+```
+
+---
+
+## 16. VCS Abstraction (Pure Rust)
+
+### 16.1 JJ Backend (jj-lib)
+
+```rust
+// Pure Rust - jj-lib handles operation log
+use jj_lib::repo::Repo;
+use jj_lib::workspace::Workspace;
+```
+
+### 16.2 Git Backend (gix - Pure Rust)
+
+```rust
+// Replace git2 with gix (pure Rust)
+use gix::Repository;
+use gix::actor::Actor;
+```
+
+### 16.3 Unified Trait
+
+```rust
+pub trait VcsBackend {
+    // Workspaces - JJ specific
+    fn workspace_create(&self, name: &str) -> Result<WorkspaceId>;
+    fn workspace_list(&self) -> Result<Vec<WorkspaceInfo>>;
+    fn workspace_switch(&self, id: &WorkspaceId) -> Result<()>;
+    
+    // Branches - common
+    fn current_branch(&self) -> Result<Option<BranchName>>;
+    fn create_branch(&self, name: &BranchName) -> Result<()>;
+    fn delete_branch(&self, name: &BranchName) -> Result<()>;
+    
+    // Commits - common
+    fn status(&self) -> Result<VcsStatus>;
+    fn commit(&self, message: &str) -> Result<CommitHash>;
+    fn log(&self, count: usize) -> Result<Vec<Commit>>;
+    
+    // Operation log - JJ only
+    fn operation_log(&self) -> Result<Vec<Operation>>;
+    fn undo(&self, operation_id: &str) -> Result<()>;
+}
+```
+
+---
+
+## 18. Reduced Maintenance Strategies
+
+### 18.1 Zero-Maintenance Patterns
+
+1. **Immutable data structures** - No defensive copying, rpds/im handle it
+2. **Parser combinators (nom)** - Generate parsers, not maintain them
+3. **Property-based tests** - Test invariants, not every case
+4. **Contract tests** - Test interfaces, not implementations
+
+### 18.2 Code Generation
+
+```rust
+// Generate error variants from macro
+scp_error! {
+    SessionNotFound(SessionId),
+    WorkspaceNotFound(WorkspaceId),
+    BeadNotFound(BeadId),
+}
+
+// Generate state transitions
+state_machine! {
+    WorkspaceState: Created -> Working -> Ready -> Merged
+                                   \-> Conflict -> Working
+                                   \-> Abandoned
+}
+```
+
+### 18.3 Batched Changes
+
+- **Trunk-based flow**: Small changes, daily merges
+- **Delete aggressively**: Code is liability
+- **Regenerate over maintain**: If complex, regenerate
+
+### 18.4 Observability
+
+```rust
+// Structured logging only in infrastructure
+tracing::info!(session_id = %id, state = ?state, "Session state changed");
+
+// Domain: pure, no logging
+fn transition(&self, event: Event) -> Result<State, Error> { ... }
+```
 ```
 
 ### 13.5 Performance

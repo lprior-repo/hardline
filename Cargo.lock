@@ -3180,9 +3180,17 @@ name = "scp-vcs"
 version = "0.5.0"
 dependencies = [
  "chrono",
+ "git2",
+ "hex",
+ "jj-lib",
  "scp-core",
  "serde",
+ "sqlx",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
  "tokio-test",
+ "url",
 ]
 
 [[package]]
@@ -4132,6 +4140,7 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
+ "serde_derive",
 ]
 
 [[package]]

@@ -45,13 +45,6 @@ impl std::fmt::Display for AgentId {
     }
 }
 
-/// Source of queue item (for agent context)
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum QueueSource {
-    Workspace(String),
-    Direct,
-}
-
 /// Agent activity state
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum AgentActivity {

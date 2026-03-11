@@ -40,6 +40,16 @@ pub enum ConfigScope {
     Env,
 }
 
+impl fmt::Display for ConfigScope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ConfigScope::Global => write!(f, "Global"),
+            ConfigScope::Project => write!(f, "Project"),
+            ConfigScope::Env => write!(f, "Env"),
+        }
+    }
+}
+
 /// A configuration value with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfigValue {
@@ -236,7 +246,7 @@ impl ConfigManager {
     }
 
     /// Parse TOML content
-    fn parse_toml(&self, content: &str) -> Result<HashMap<String, String>> {
+    pub(crate) fn parse_toml(&self, content: &str) -> Result<HashMap<String, String>> {
         let mut values = HashMap::new();
 
         for line in content.lines() {

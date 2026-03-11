@@ -61,6 +61,17 @@ pub mod output;
 pub mod watcher;
 pub mod workspace_state;
 
+#[cfg(test)]
+mod config_property_tests;
+#[cfg(test)]
+mod error_tests;
+#[cfg(test)]
+mod json_tests;
+#[cfg(test)]
+mod session_state_tests;
+#[cfg(test)]
+mod types_tests;
+
 // Re-exports
 pub use agent::{
     get_agent_registry, Agent, AgentActivity, AgentId, AgentRegistry, AgentStatus, MemAgentRegistry,
