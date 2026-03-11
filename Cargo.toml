@@ -1,0 +1,136 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+toml = "0.8"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Database
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Collections & functional
+im = { version = "15.1", features = ["serde"] }
+rpds = "1.2"
+itertools = "0.13"
+either = "1.13"
+tap = "1.0"
+
+# String utilities
+strum = { version = "0.26", features = ["derive"] }
+
+# Templating
+askama = "0.12"
+
+# File system
+directories = "6"
+fs2 = "0.4"
+notify = "6"
+notify-debouncer-mini = "0.4"
+walkdir = "2"
+
+# Parsing
+regex = "1.11"
+kdl = "4.7"
+
+# Process
+which = "6.0"
+
+# Graph algorithms
+petgraph = "0.6"
+
+# Hex encoding/decoding
+hex = "0.4"
+faster-hex = "0.10"
+
+# JJ (Jujutsu)
+jj-lib = "0.38"
+
+# Git
+git2 = "0.19"
+
+# Dev dependencies
+tokio-test = "0.4"
+proptest = "1.0"
+tempfile = "3.0"
+serial_test = "3.0"
+criterion = "0.5"
+doc-comment = "0.3"
+
+[workspace.package]
+version = "0.5.0"
+edition = "2021"
+rust-version = "1.80"
+authors = ["Source Control Plane Contributors"]
+license = "MIT"
+repository = "https://github.com/source-control-plane/scp"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "allow"
+dead_code = "deny"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+# Zero unwrap law - enforced at crate level via lib.rs attributes
+# Source code: deny unwrap/panic/todo/unimplemented
+# Tests: allow anything
+
+# Quality enforcement (with priority)
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+
+# Specific allows
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+redundant_pub_crate = "allow"
+type_complexity = "allow"
+return_self_not_must_use = "allow"
+trivially_copy_pass_by_ref = "allow"
+map_unwrap_or = "allow"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+# Benchmark profile - optimized for accurate measurements
+[profile.bench]
+inherits = "release"
+debug = true
+strip = false
