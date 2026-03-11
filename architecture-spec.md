@@ -404,19 +404,56 @@ struct Fix {
 
 ## 13. Non-Functional Requirements
 
-### 13.1 Performance
+### 13.1 Code Standards
+
+All code follows:
+- **Functional Rust**: Data → Calc → Actions, no mut, zero unwrap/panic
+- **Scott Wlaschin DDD**: Domain layer (pure) → Application layer → Infrastructure
+- **Railway-Oriented Programming**: All functions return `Result<T, Error>`
+- **Bitter Truth**: Output-focused, disposable code, massive compute for solution space
+
+### 13.2 File/Function Limits
+- **Max 300 lines per file** - enforced by linter
+- **Max 40 lines per function** - enforced by linter
+
+### 13.3 DDD Layer Structure
+```
+domain/           # Pure types, state machines, no I/O
+├── entities/   # Aggregate roots
+├── value_objects/
+├── events/
+└── state/      # State machines
+application/     # Use cases, orchestrates domain
+infrastructure/ # DB, VCS, network I/O
+api/            # HTTP/CLI endpoints
+```
+
+### 13.4 Moon CI/CD
+
+```yaml
+tasks:
+  build:    cargo build
+  test:     cargo test
+  lint:     cargo clippy -- -D warnings
+  fmt:      cargo fmt --check
+  doctor:   cargo run --bin scp doctor
+  ci:       [fmt, lint, test, build]
+```
+
+### 13.5 Performance
 - Agent spawn: < 100ms
 - Queue processing: < 50ms per entry
 - Stack restack: < 1s per branch
 - TUI render: 60fps
 
 ### 13.2 Durability
-- **Single SQLite database** with WAL mode for all operations
-- Write-ahead logging for crash recovery
-- Periodic checkpoints to prevent WAL unbounded growth
+- **Single SQLite database** with async tokio runtime
+- WAL mode with periodic checkpoints for crash recovery
+- Batched non-critical writes for performance
 - fsync on critical commits
-- Alternative: RocksDB for high-concurrency scenarios
+- Event-sourcing via append-only operation_log table
 - Doctor command for integrity checking and recovery
+- PostgreSQL migration path supported (same schema)
 - 99.999% data durability
 
 ### 13.3 Scalability
@@ -425,7 +462,7 @@ struct Fix {
 - 10,000+ queue entries
 - Horizontal scaling via worktree isolation
 
-### 9.4 Security
+### 13.4 Security
 - No secrets in logs
 - Input validation at all boundaries
 - SQL injection prevention
@@ -441,6 +478,10 @@ struct Fix {
 | 600+ agent coordination overhead | OPEN | Stateless server, local persistence |
 | GitHub API rate limiting | OPEN | Aggressive caching, queuing |
 | Stack rebase performance | OPEN | Parallel rebase, DAG optimization |
+| Database corruption | LOW | WAL + doctor command |
+| WAL unbounded growth | MEDIUM | Auto-checkpoint + monitoring |
+| Stale agent detection | MEDIUM | Heartbeat timeout |
+| Cross-agent visibility | HIGH | Agent registry + JSON API |
 
 ---
 
@@ -449,7 +490,7 @@ struct Fix {
 ### 11.1 Single Database Design
 
 ```
-Single SQLite database at: .scp/state.db
+Single SQLite database at: .scp/state.db (or PostgreSQL when scaled)
 
 Tables:
 ├── sessions          # Agent session state
@@ -463,14 +504,18 @@ Tables:
 └── locks           # Distributed lock tracking
 ```
 
-### 11.2 WAL Configuration
+### 11.2 SQLite Configuration
 
-```sql
-PRAGMA journal_mode = WAL;
-PRAGMA synchronous = NORMAL;  -- or FULL for critical
-PRAGMA wal_autocheckpoint = 1000;
-PRAGMA cache_size = -64000;   -- 64MB cache
-PRAGMA temp_store = MEMORY;
+```rust
+// WAL mode for concurrency
+// Batched writes for performance
+// Async with tokio
+
+let pool = SqlitePool::connect(&db_url).await?;
+sqlx::query("PRAGMA journal_mode = WAL")
+    .execute(&pool).await?;
+sqlx::query("PRAGMA synchronous = NORMAL")
+    .execute(&pool).await?;
 ```
 
 ### 11.3 Durability Guarantees
@@ -642,3 +687,10 @@ struct Heartbeat {
 - [ ] 100 concurrent agents can operate without corruption
 - [ ] Recovery from JJ operation log works
 - [ ] JSON output for all commands
+- [ ] Single SQLite database with async tokio
+- [ ] Doctor command checks and fixes integrity issues
+- [ ] Agent list shows all agents and their states
+- [ ] Agent status shows what any agent is working on
+- [ ] Agent can page another agent with message
+- [ ] Heartbeat system detects stale agents
+- [ ] Work distribution shows who is working on what
