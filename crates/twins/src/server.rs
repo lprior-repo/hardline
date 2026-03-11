@@ -126,20 +126,25 @@ async fn twin_handler(
     let response = &endpoint.response;
     let status = response.status;
 
-    let mut builder = Response::builder().status(status);
+    let builder = Response::builder().status(status);
 
-    for (key, value) in &response.headers {
-        let name = HeaderName::from_bytes(key.as_bytes())
-            .map_err(|_| ServerError::InvalidHeader(key.clone()))?;
-        builder = builder.header(&name, value.as_str());
-    }
+    let builder = response
+        .headers
+        .iter()
+        .try_fold(builder, |acc, (key, value)| {
+            let name = HeaderName::from_bytes(key.as_bytes())
+                .map_err(|_| ServerError::InvalidHeader(key.clone()))?;
+            Ok(acc.header(&name, value.as_str()))
+        })?;
 
     let response_body = serde_json::to_string(&response.body)
         .map_err(|e| ServerError::SerializationError(e.to_string()))?;
 
-    if !response_body.is_empty() {
-        builder = builder.header("content-type", "application/json");
-    }
+    let builder = if !response_body.is_empty() {
+        builder.header("content-type", "application/json")
+    } else {
+        builder
+    };
 
     let record = RequestRecord::new(
         method.to_string(),
@@ -151,9 +156,11 @@ async fn twin_handler(
         Some(response_body.clone()),
     );
 
-    let mut state_guard = state.state.write().await;
-    let new_state = state_guard.add_record(record);
-    *state_guard = new_state;
+    let new_state = {
+        let state_guard = state.state.read().await;
+        state_guard.add_record(record)
+    };
+    *state.state.write().await = new_state;
 
     let body = Body::from(response_body);
     builder
@@ -209,9 +216,11 @@ async fn inspect_requests(State(state): State<AppState>) -> Result<impl IntoResp
 }
 
 async fn clear_state(State(state): State<AppState>) -> impl IntoResponse {
-    let mut state_guard = state.state.write().await;
-    *state_guard = InMemoryTwinState::new();
-    drop(state_guard);
+    let new_state = {
+        let state_guard = state.state.read().await;
+        state_guard.clear()
+    };
+    *state.state.write().await = new_state;
 
     (StatusCode::OK, r#"{"status":"cleared"}"#)
 }
@@ -219,15 +228,24 @@ async fn clear_state(State(state): State<AppState>) -> impl IntoResponse {
 pub fn build_router(definition: TwinDefinition) -> Router {
     let app_state = AppState::new(definition);
 
-    let mut router = Router::new()
+    let base_router = Router::new()
         .route("/_inspect/state", get(inspect_state))
         .route("/_inspect/requests", get(inspect_requests))
         .route("/_inspect/clear", post(clear_state));
 
-    for endpoint in &app_state.definition.endpoints {
-        let path = endpoint.path.clone();
-        let method = endpoint.method;
+    let routes: Vec<_> = app_state
+        .definition
+        .endpoints
+        .iter()
+        .map(|endpoint| {
+            let path = endpoint.path.clone();
+            let method = endpoint.method;
+            (path, method)
+        })
+        .collect();
 
+    let mut router = base_router;
+    for (path, method) in routes {
         router = match method {
             HttpMethod::GET => router.route(&path, get(twin_handler)),
             HttpMethod::POST => router.route(&path, post(twin_handler)),

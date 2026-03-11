@@ -8,6 +8,54 @@ use crate::domain::SessionName as DomainSessionName;
 use crate::{types::SessionStatus, WorkspaceState};
 
 #[test]
+fn test_output_line_errors() {
+    assert_eq!(
+        OutputLineError::EmptyMessage.to_string(),
+        "message is required but was empty"
+    );
+    assert_eq!(
+        OutputLineError::EmptyTitle.to_string(),
+        "title is required but was empty"
+    );
+    assert_eq!(
+        OutputLineError::EmptyDescription.to_string(),
+        "description is required but was empty"
+    );
+    assert_eq!(
+        OutputLineError::EmptySessionName.to_string(),
+        "session name is required but was empty"
+    );
+    assert_eq!(
+        OutputLineError::NoActions.to_string(),
+        "at least one action is required"
+    );
+    assert_eq!(
+        OutputLineError::PlanStepOverflow.to_string(),
+        "plan step count exceeds u32::MAX"
+    );
+    assert_eq!(
+        OutputLineError::RecoveryActionOverflow.to_string(),
+        "recovery action count exceeds u32::MAX"
+    );
+    assert_eq!(
+        OutputLineError::RelativePath.to_string(),
+        "workspace path must be absolute"
+    );
+    assert_eq!(
+        OutputLineError::InvalidWarningCode("W".into()).to_string(),
+        "invalid warning code: W"
+    );
+    assert_eq!(
+        OutputLineError::InvalidActionVerb("V".into()).to_string(),
+        "invalid action verb: V"
+    );
+    assert_eq!(
+        OutputLineError::InvalidActionTarget("T".into()).to_string(),
+        "invalid action target: T"
+    );
+}
+
+#[test]
 fn test_summary_new_validates_empty_message() {
     // Message::new validates input and returns OutputLineError for empty strings
     let msg_result = Message::new("");

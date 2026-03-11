@@ -667,4 +667,43 @@ mod tests {
         assert!(bead.is_closed());
         assert_eq!(bead.closed_at(), Some(now));
     }
+
+    #[test]
+    fn test_concurrent_state_transitions() {
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        let bead = Arc::new(Mutex::new(create_test_bead()));
+        let mut handles = vec![];
+
+        for i in 0..10 {
+            let bead_clone = Arc::clone(&bead);
+            handles.push(thread::spawn(move || {
+                let mut locked_bead = bead_clone.lock().unwrap();
+
+                // Attempt various state transitions
+                if i % 3 == 0 {
+                    if let Ok(new_bead) = locked_bead.start() {
+                        *locked_bead = new_bead;
+                    }
+                } else if i % 3 == 1 {
+                    if let Ok(new_bead) = locked_bead.update_title(format!("Title {}", i)) {
+                        *locked_bead = new_bead;
+                    }
+                } else {
+                    if let Ok(new_bead) = locked_bead.block() {
+                        *locked_bead = new_bead;
+                    }
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        // Just verify the lock isn't poisoned and we can access the bead
+        let final_bead = bead.lock().unwrap();
+        assert!(final_bead.is_active() || final_bead.is_blocked() || final_bead.is_closed());
+    }
 }

@@ -56,14 +56,14 @@ fn given_special_chars_when_create_then_error() {
 
 #[test]
 fn given_name_too_long_when_create_then_error() {
-    let long_name = "a".repeat(65);
+    let long_name = "a".repeat(64);
     let result = SessionName::new(long_name);
     assert!(result.is_err());
 }
 
 #[test]
 fn given_name_at_max_length_when_create_then_success() {
-    let max_name = "a".repeat(64);
+    let max_name = "a".repeat(63);
     let result = SessionName::new(max_name);
     assert!(result.is_ok());
 }
@@ -103,16 +103,16 @@ fn given_different_names_when_compare_then_not_equal() {
 }
 
 #[test]
-fn given_max_length_constant_then_is_64() {
-    let exactly_64: String = "a".repeat(64);
+fn given_max_length_constant_then_is_63() {
+    let exactly_63: String = "a".repeat(63);
     assert!(
-        SessionName::new(&exactly_64).is_ok(),
-        "64 chars should be valid"
+        SessionName::new(&exactly_63).is_ok(),
+        "63 chars should be valid"
     );
 
-    let too_long: String = "a".repeat(65);
+    let too_long: String = "a".repeat(64);
     assert!(
         SessionName::new(&too_long).is_err(),
-        "65 chars should be invalid"
+        "64 chars should be invalid"
     );
 }

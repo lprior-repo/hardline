@@ -3,12 +3,7 @@
 use scp_core::{get_jj_command_sync, Error, Result};
 use std::process::Output;
 
-pub fn run(path: &str, revision: Option<&str>) -> Result<()> {
-    let output = run_jj_cat(path, revision)?;
-    print_output(output)
-}
-
-fn run_jj_cat(path: &str, revision: Option<&str>) -> Result<Output> {
+fn build_jj_cat_command(path: &str, revision: Option<&str>) -> std::process::Command {
     let mut cmd = get_jj_command_sync();
     cmd.arg("cat").arg(path);
 
@@ -17,7 +12,17 @@ fn run_jj_cat(path: &str, revision: Option<&str>) -> Result<Output> {
         cmd.arg(rev);
     }
 
-    cmd.output()
+    cmd
+}
+
+pub fn run(path: &str, revision: Option<&str>) -> Result<()> {
+    let output = run_jj_cat(path, revision)?;
+    print_output(output)
+}
+
+fn run_jj_cat(path: &str, revision: Option<&str>) -> Result<Output> {
+    build_jj_cat_command(path, revision)
+        .output()
         .map_err(|e| Error::JjCommandError {
             operation: "jj cat".to_string(),
             msg: e.to_string(),

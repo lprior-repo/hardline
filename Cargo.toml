@@ -1,5 +1,6 @@
 [workspace]
-members = ["crates/*", "crates/orchestrator"]
+members = ["crates/*", "crates/orchestrator", "crates/stack", "fuzz"]
+exclude = ["crates/scenarios"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -72,15 +73,21 @@ faster-hex = "0.10"
 jj-lib = "0.38"
 
 # Git
-git2 = "0.19"
+gix = "0.78"
 
 # Dev dependencies
 tokio-test = "0.4"
-proptest = "1.0"
-tempfile = "3.0"
+proptest = "1.5"
+pretty_assertions = "1.4"
+tempfile = "3.14"
 serial_test = "3.0"
 criterion = "0.5"
 doc-comment = "0.3"
+
+# Testing tools
+cargo-deny = "0.16"
+cargo-mutants = "0.8"
+insta = { version = "1.40", features = ["yaml"] }
 
 [workspace.package]
 version = "0.5.0"

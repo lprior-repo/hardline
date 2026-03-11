@@ -73,12 +73,11 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_bead_issue_is_blocked() {
-        let blocked = BeadIssue {
+    fn create_dummy_issue(status: IssueStatus, blocked_by: Option<Vec<String>>) -> BeadIssue {
+        BeadIssue {
             id: "test".to_string(),
             title: "Test".to_string(),
-            status: IssueStatus::Blocked,
+            status,
             priority: None,
             issue_type: None,
             description: None,
@@ -86,159 +85,149 @@ mod tests {
             assignee: None,
             parent: None,
             depends_on: None,
-            blocked_by: Some(vec!["other".to_string()]),
+            blocked_by,
             created_at: Utc::now(),
             updated_at: Utc::now(),
-            closed_at: None,
-        };
-
-        let unblocked = BeadIssue {
-            id: "test2".to_string(),
-            title: "Test2".to_string(),
-            status: IssueStatus::Open,
-            priority: None,
-            issue_type: None,
-            description: None,
-            labels: None,
-            assignee: None,
-            parent: None,
-            depends_on: None,
-            blocked_by: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            closed_at: None,
-        };
-
-        assert!(blocked.is_blocked());
-        assert!(!unblocked.is_blocked());
+            closed_at: if status == IssueStatus::Closed {
+                Some(Utc::now())
+            } else {
+                None
+            },
+        }
     }
 
     #[test]
-    fn test_bead_issue_is_open() {
-        let open = BeadIssue {
-            id: "test".to_string(),
-            title: "Test".to_string(),
-            status: IssueStatus::Open,
-            priority: None,
-            issue_type: None,
-            description: None,
-            labels: None,
-            assignee: None,
-            parent: None,
-            depends_on: None,
-            blocked_by: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            closed_at: None,
-        };
-
-        let in_progress = BeadIssue {
-            id: "test2".to_string(),
-            title: "Test2".to_string(),
-            status: IssueStatus::InProgress,
-            priority: None,
-            issue_type: None,
-            description: None,
-            labels: None,
-            assignee: None,
-            parent: None,
-            depends_on: None,
-            blocked_by: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            closed_at: None,
-        };
-
-        let closed = BeadIssue {
-            id: "test3".to_string(),
-            title: "Test3".to_string(),
-            status: IssueStatus::Closed,
-            priority: None,
-            issue_type: None,
-            description: None,
-            labels: None,
-            assignee: None,
-            parent: None,
-            depends_on: None,
-            blocked_by: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            closed_at: Some(Utc::now()),
-        };
-
-        assert!(open.is_open());
-        assert!(in_progress.is_open());
-        assert!(!closed.is_open());
+    fn given_blocked_issue_when_is_blocked_called_then_returns_true() {
+        let issue = create_dummy_issue(IssueStatus::Blocked, Some(vec!["other".to_string()]));
+        assert!(issue.is_blocked());
     }
 
     #[test]
-    fn test_priority_conversion() {
+    fn given_unblocked_issue_when_is_blocked_called_then_returns_false() {
+        let issue = create_dummy_issue(IssueStatus::Open, None);
+        assert!(!issue.is_blocked());
+    }
+
+    #[test]
+    fn given_open_issue_when_is_open_called_then_returns_true() {
+        let issue = create_dummy_issue(IssueStatus::Open, None);
+        assert!(issue.is_open());
+    }
+
+    #[test]
+    fn given_in_progress_issue_when_is_open_called_then_returns_true() {
+        let issue = create_dummy_issue(IssueStatus::InProgress, None);
+        assert!(issue.is_open());
+    }
+
+    #[test]
+    fn given_closed_issue_when_is_open_called_then_returns_false() {
+        let issue = create_dummy_issue(IssueStatus::Closed, None);
+        assert!(!issue.is_open());
+    }
+
+    #[test]
+    fn given_valid_u32_zero_when_from_u32_then_returns_p0() {
         assert_eq!(Priority::from_u32(0), Some(Priority::P0));
-        assert_eq!(Priority::from_u32(4), Some(Priority::P4));
-        assert_eq!(Priority::from_u32(5), None);
+    }
 
+    #[test]
+    fn given_valid_u32_four_when_from_u32_then_returns_p4() {
+        assert_eq!(Priority::from_u32(4), Some(Priority::P4));
+    }
+
+    #[test]
+    fn given_invalid_u32_five_when_from_u32_then_returns_none() {
+        assert_eq!(Priority::from_u32(5), None);
+    }
+
+    #[test]
+    fn given_priority_p0_when_to_u32_then_returns_zero() {
         assert_eq!(Priority::P0.to_u32(), 0);
+    }
+
+    #[test]
+    fn given_priority_p4_when_to_u32_then_returns_four() {
         assert_eq!(Priority::P4.to_u32(), 4);
     }
 
     #[test]
-    fn test_bead_filter_builder() {
-        let filter = BeadFilter::new()
-            .with_status(IssueStatus::Open)
-            .with_label("bug")
-            .with_assignee("test")
-            .blocked_only()
-            .limit(10);
-
+    fn given_new_filter_when_with_status_called_then_status_is_set() {
+        let filter = BeadFilter::new().with_status(IssueStatus::Open);
         assert!(filter.status.contains(&IssueStatus::Open));
+    }
+
+    #[test]
+    fn given_new_filter_when_with_label_called_then_label_is_set() {
+        let filter = BeadFilter::new().with_label("bug");
         assert!(filter.labels.contains(&"bug".to_string()));
+    }
+
+    #[test]
+    fn given_new_filter_when_with_assignee_called_then_assignee_is_set() {
+        let filter = BeadFilter::new().with_assignee("test");
         assert_eq!(filter.assignee, Some("test".to_string()));
+    }
+
+    #[test]
+    fn given_new_filter_when_blocked_only_called_then_blocked_only_is_true() {
+        let filter = BeadFilter::new().blocked_only();
         assert!(filter.blocked_only);
+    }
+
+    #[test]
+    fn given_new_filter_when_limit_called_then_limit_is_set() {
+        let filter = BeadFilter::new().limit(10);
         assert_eq!(filter.limit, Some(10));
     }
 
     #[test]
-    fn test_beads_summary() {
+    fn given_mixed_issues_when_summary_from_issues_then_total_is_correct() {
         let issues = vec![
-            BeadIssue {
-                id: "1".to_string(),
-                title: "Open".to_string(),
-                status: IssueStatus::Open,
-                priority: None,
-                issue_type: None,
-                description: None,
-                labels: None,
-                assignee: None,
-                parent: None,
-                depends_on: None,
-                blocked_by: None,
-                created_at: Utc::now(),
-                updated_at: Utc::now(),
-                closed_at: None,
-            },
-            BeadIssue {
-                id: "2".to_string(),
-                title: "Closed".to_string(),
-                status: IssueStatus::Closed,
-                priority: None,
-                issue_type: None,
-                description: None,
-                labels: None,
-                assignee: None,
-                parent: None,
-                depends_on: None,
-                blocked_by: None,
-                created_at: Utc::now(),
-                updated_at: Utc::now(),
-                closed_at: Some(Utc::now()),
-            },
+            create_dummy_issue(IssueStatus::Open, None),
+            create_dummy_issue(IssueStatus::Closed, None),
         ];
-
         let summary = BeadsSummary::from_issues(&issues);
         assert_eq!(summary.total, 2);
+    }
+
+    #[test]
+    fn given_mixed_issues_when_summary_from_issues_then_open_is_correct() {
+        let issues = vec![
+            create_dummy_issue(IssueStatus::Open, None),
+            create_dummy_issue(IssueStatus::Closed, None),
+        ];
+        let summary = BeadsSummary::from_issues(&issues);
         assert_eq!(summary.open, 1);
+    }
+
+    #[test]
+    fn given_mixed_issues_when_summary_from_issues_then_closed_is_correct() {
+        let issues = vec![
+            create_dummy_issue(IssueStatus::Open, None),
+            create_dummy_issue(IssueStatus::Closed, None),
+        ];
+        let summary = BeadsSummary::from_issues(&issues);
         assert_eq!(summary.closed, 1);
+    }
+
+    #[test]
+    fn given_mixed_issues_when_summary_from_issues_then_active_is_correct() {
+        let issues = vec![
+            create_dummy_issue(IssueStatus::Open, None),
+            create_dummy_issue(IssueStatus::Closed, None),
+        ];
+        let summary = BeadsSummary::from_issues(&issues);
         assert_eq!(summary.active(), 1);
+    }
+
+    #[test]
+    fn given_mixed_issues_when_summary_from_issues_then_has_blockers_is_false() {
+        let issues = vec![
+            create_dummy_issue(IssueStatus::Open, None),
+            create_dummy_issue(IssueStatus::Closed, None),
+        ];
+        let summary = BeadsSummary::from_issues(&issues);
         assert!(!summary.has_blockers());
     }
 }

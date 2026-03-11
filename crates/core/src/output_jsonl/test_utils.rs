@@ -119,7 +119,7 @@ impl OutputEmitter for VecEmitter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::output::{domain_types::Message, Summary, SummaryType};
+    use crate::output_jsonl::{Message, Summary, SummaryType};
 
     #[test]
     fn vec_emitter_captures_lines() -> Result<(), Box<dyn std::error::Error>> {

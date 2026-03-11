@@ -14,6 +14,7 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
+#![allow(unused)]
 
 use std::{
     fs::{File, OpenOptions},

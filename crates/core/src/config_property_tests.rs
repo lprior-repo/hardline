@@ -122,8 +122,6 @@ fn test_config_contains_key() {
 
 #[test]
 fn test_config_source_priority() {
-    use crate::config::ConfigSource;
-
     let mut config = Config::new();
     config.add_source(std::path::PathBuf::from("/low"), ConfigScope::Global, 1);
     config.add_source(std::path::PathBuf::from("/high"), ConfigScope::Project, 3);

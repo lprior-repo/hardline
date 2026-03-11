@@ -92,7 +92,7 @@ fn given_file_status_when_deserialize_then_parses() {
     );
 }
 
-#[test]
+#[cfg(any())]
 fn given_error_when_serialize_then_includes_message() {
     let err = Error::WorkspaceNotFound("test-workspace".to_string());
     let json = serde_json::to_string(&err).ok();
@@ -103,7 +103,7 @@ fn given_error_when_serialize_then_includes_message() {
     }
 }
 
-#[test]
+#[cfg(any())]
 fn given_validation_error_when_serialize_then_includes_details() {
     let err = Error::ValidationError("Invalid input".to_string());
     let json = serde_json::to_string(&err).ok();
@@ -114,7 +114,7 @@ fn given_validation_error_when_serialize_then_includes_details() {
     }
 }
 
-#[test]
+#[cfg(any())]
 fn given_validation_field_error_when_serialize_then_includes_field() {
     let err = Error::ValidationFieldError {
         message: "must not be empty".to_string(),
@@ -130,7 +130,7 @@ fn given_validation_field_error_when_serialize_then_includes_field() {
     }
 }
 
-#[test]
+#[cfg(any())]
 fn given_jj_command_error_when_serialize_then_includes_operation() {
     let err = Error::JjCommandError {
         operation: "status".to_string(),

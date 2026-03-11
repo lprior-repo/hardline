@@ -464,7 +464,7 @@ mod tests {
         let backend = MockBackend::new();
         let metadata = StackMetadata::new(Rc::new(backend)).expect("Should create metadata");
 
-        let trunk = BranchId::new("trunk").unwrap();
+        let trunk = BranchId::new("trunk");
         assert!(metadata.has_branch(&trunk));
         assert_eq!(
             metadata
@@ -480,8 +480,8 @@ mod tests {
         let backend = MockBackend::new();
         let mut metadata = StackMetadata::new(Rc::new(backend)).expect("Should create metadata");
 
-        let feature = BranchId::new("feature").unwrap();
-        let trunk = BranchId::new("trunk").unwrap();
+        let feature = BranchId::new("feature");
+        let trunk = BranchId::new("trunk");
 
         metadata
             .add_branch(feature.clone(), None)
@@ -508,7 +508,7 @@ mod tests {
         let mut metadata = StackMetadata::new(Rc::new(backend)).expect("Should create metadata");
 
         // Adding trunk again should fail
-        let trunk = BranchId::new("trunk").unwrap();
+        let trunk = BranchId::new("trunk");
         let result = metadata.add_branch(trunk, None);
         assert!(result.is_err());
     }
@@ -518,8 +518,8 @@ mod tests {
         let backend = MockBackend::new();
         let mut metadata = StackMetadata::new(Rc::new(backend)).expect("Should create metadata");
 
-        let feature = BranchId::new("feature").unwrap();
-        let trunk = BranchId::new("trunk").unwrap();
+        let feature = BranchId::new("feature");
+        let trunk = BranchId::new("trunk");
 
         metadata
             .add_branch(feature.clone(), Some(&trunk))
@@ -537,8 +537,8 @@ mod tests {
         let backend = MockBackend::new();
         let mut metadata = StackMetadata::new(Rc::new(backend)).expect("Should create metadata");
 
-        let feature = BranchId::new("feature").unwrap();
-        let trunk = BranchId::new("trunk").unwrap();
+        let feature = BranchId::new("feature");
+        let trunk = BranchId::new("trunk");
 
         metadata
             .add_branch(feature.clone(), None)

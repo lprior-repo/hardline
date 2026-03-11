@@ -3,12 +3,7 @@
 use scp_core::{get_jj_command_sync, Error, Result};
 use std::process::Output;
 
-pub fn run(revision: Option<&str>) -> Result<()> {
-    let output = run_jj_abs(revision)?;
-    print_output(output)
-}
-
-fn run_jj_abs(revision: Option<&str>) -> Result<Output> {
+fn build_jj_abs_command(revision: Option<&str>) -> std::process::Command {
     let mut cmd = get_jj_command_sync();
     cmd.arg("abs");
 
@@ -16,7 +11,17 @@ fn run_jj_abs(revision: Option<&str>) -> Result<Output> {
         cmd.arg(rev);
     }
 
-    cmd.output()
+    cmd
+}
+
+pub fn run(revision: Option<&str>) -> Result<()> {
+    let output = run_jj_abs(revision)?;
+    print_output(output)
+}
+
+fn run_jj_abs(revision: Option<&str>) -> Result<Output> {
+    build_jj_abs_command(revision)
+        .output()
         .map_err(|e| Error::JjCommandError {
             operation: "jj abs".to_string(),
             msg: e.to_string(),

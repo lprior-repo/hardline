@@ -35,7 +35,7 @@ enum Commands {
     /// Initialize SCP in current directory
     Init {
         /// VCS type to use (jj/git)
-        #[arg(short, long, default_value = "jj")]
+        #[arg(long, default_value = "jj")]
         vcs: String,
     },
 

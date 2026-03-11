@@ -183,18 +183,22 @@ pub fn log(limit: Option<usize>) -> Result<()> {
     Ok(())
 }
 
-/// Show diff of changes
-pub fn diff(path: Option<&str>) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
-
-    // Run jj diff
+/// Build JJ diff command
+fn build_jj_diff_command(cwd: &std::path::Path, path: Option<&str>) -> Command {
     let mut cmd = Command::new("jj");
     cmd.arg("diff");
     if let Some(p) = path {
         cmd.arg(p);
     }
-    cmd.current_dir(&cwd);
+    cmd.current_dir(cwd);
+    cmd
+}
 
+/// Show diff of changes
+pub fn diff(path: Option<&str>) -> Result<()> {
+    let cwd = std::env::current_dir().map_err(Error::Io)?;
+
+    let mut cmd = build_jj_diff_command(&cwd, path);
     let output = cmd.output().map_err(Error::Io)?;
 
     if output.status.success() {
@@ -377,8 +381,11 @@ pub fn next() -> Result<()> {
         return Err(Error::WorkspaceNotFound("no workspaces exist".to_string()));
     }
 
-    let mut sorted_names: Vec<&str> = workspaces.iter().map(|w| w.name.as_str()).collect();
-    sorted_names.sort();
+    let sorted_names: Vec<&str> = {
+        let mut names: Vec<&str> = workspaces.iter().map(|w| w.name.as_str()).collect();
+        names.sort();
+        names
+    };
 
     let current_ws = workspaces.iter().find(|w| w.is_current);
 
@@ -418,8 +425,11 @@ pub fn prev() -> Result<()> {
         return Err(Error::WorkspaceNotFound("no workspaces exist".to_string()));
     }
 
-    let mut sorted_names: Vec<&str> = workspaces.iter().map(|w| w.name.as_str()).collect();
-    sorted_names.sort();
+    let sorted_names: Vec<&str> = {
+        let mut names: Vec<&str> = workspaces.iter().map(|w| w.name.as_str()).collect();
+        names.sort();
+        names
+    };
 
     let current_ws = workspaces.iter().find(|w| w.is_current);
 

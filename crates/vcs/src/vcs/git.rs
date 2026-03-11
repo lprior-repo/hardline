@@ -1,4 +1,4 @@
-//! Git backend implementation using git2 for read operations
+//! Git backend implementation using gix for read operations
 //!
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -7,18 +7,20 @@
 #![forbid(unsafe_code)]
 
 //! This module provides:
-//! - `GitBackend` - VCS backend implementation using libgit2 (git2 crate)
+//! - `GitBackend` - VCS backend implementation using gix (pure Rust)
 //! - `GitBackendConfig` - Configuration for `GitBackend` creation
 //!
 //! # Design
-//! - Uses git2 for read operations (status, branches, commits)
+//! - Uses gix for read operations (status, branches, commits)
 //! - Uses Git CLI (2.38+) for rebase operations (--update-refs support)
-//! - Caches the `git2::Repository` handle for performance
+//! - Caches the `gix::Repository` handle for performance
 //! - Thread-safe for read operations via Mutex
 
 use std::path::Path;
 use std::process::Command;
 use std::sync::Mutex;
+
+use gix::Repository;
 
 use crate::vcs::{
     BackendType, BranchName, CommitId, RepoStatus, RepositoryPath, VcsBackend, VcsError,
@@ -31,18 +33,18 @@ const MIN_GIT_VERSION: (u32, u32) = (2, 38);
 // GitBackend
 // ============================================================================
 
-/// Git backend implementation using git2 for read operations
+/// Git backend implementation using gix for read operations
 ///
 /// # Invariants
 /// - Repository is always a non-bare Git repository
 /// - Repository path is absolute and canonical
-/// - `git2::Repository` is opened once and cached
+/// - `gix::Repository` is opened once and cached
 /// - Thread-safe for read operations via Mutex
 pub struct GitBackend {
     /// Absolute path to the repository root
     path: RepositoryPath,
-    /// Cached git2 repository handle (wrapped in Mutex for thread safety)
-    repo: Mutex<git2::Repository>,
+    /// Cached gix repository handle (wrapped in Mutex for thread safety)
+    repo: Mutex<Repository>,
 }
 
 /// Configuration for `GitBackend` creation
@@ -68,7 +70,7 @@ impl GitBackend {
     /// - P2: Path is a directory
     /// - P3: Path is inside a Git repository
     /// - P4: Repository is NOT bare
-    /// - P5: git2 can open the repository
+    /// - P5: gix can open the repository
     ///
     /// # Postconditions
     /// - Q1: Returns `Ok(GitBackend)` with valid repo handle
@@ -81,7 +83,7 @@ impl GitBackend {
     /// - `VcsError::PathNotDirectory` if path is a file
     /// - `VcsError::NoVcsFound` if not a git repository
     /// - `VcsError::BareRepositoryNotSupported` if bare repo
-    /// - `VcsError::GitOpenFailed` if git2 fails to open
+    /// - `VcsError::GitOpenFailed` if gix fails to open
     pub fn open(path: impl AsRef<Path>) -> Result<Self, VcsError> {
         Self::open_with_config(path, &GitBackendConfig::default())
     }
@@ -99,13 +101,10 @@ impl GitBackend {
 
         let repo_path = RepositoryPath::new(path)?;
 
-        let repo = git2::Repository::discover(repo_path.as_path()).map_err(|e| {
-            let message = e.message().to_string();
-            VcsError::GitOpenFailed {
-                path: repo_path.as_path().to_path_buf(),
-                message,
-                source: Some(e),
-            }
+        let repo = gix::discover(repo_path.as_path()).map_err(|e| VcsError::GitOpenFailed {
+            path: repo_path.as_path().to_path_buf(),
+            message: e.to_string(),
+            source: None,
         })?;
 
         if repo.is_bare() {
@@ -114,7 +113,7 @@ impl GitBackend {
             ));
         }
 
-        let workdir = repo.workdir().ok_or_else(|| {
+        let workdir = repo.work_dir().ok_or_else(|| {
             VcsError::BareRepositoryNotSupported(repo_path.as_path().to_path_buf())
         })?;
 
@@ -206,10 +205,11 @@ impl VcsBackend for GitBackend {
 
         match head {
             Ok(head) => {
-                let branch_name = head
-                    .shorthand()
-                    .filter(|name| !name.is_empty() && head.is_branch());
-
+                let reference = head.detach();
+                if reference.is_empty() || reference.symbolic_target().is_some() {
+                    return Ok(None);
+                }
+                let branch_name = reference.shorthand();
                 branch_name
                     .map(|name| {
                         BranchName::new(name).map_err(|_| {
@@ -219,22 +219,14 @@ impl VcsBackend for GitBackend {
                     .transpose()
             }
             Err(e) => {
-                if e.code() == git2::ErrorCode::UnbornBranch {
-                    if let Ok(reference) = repo.head() {
-                        if let Some(name) = reference.shorthand().filter(|n| !n.is_empty()) {
-                            return BranchName::new(name).map(Some).map_err(|_| {
-                                VcsError::GitReferenceError(format!("Invalid branch name: {name}"))
-                            });
-                        }
-                    }
-                    return Ok(None);
-                }
-                if e.code() == git2::ErrorCode::NotFound {
+                if e.kind() == gix::reference::head::existing::ErrorKind::NotFound
+                    || e.kind() == gix::reference::head::existing::ErrorKind::Unborn
+                {
                     return Ok(None);
                 }
                 Err(VcsError::GitReferenceError(format!(
                     "Failed to read HEAD: {}",
-                    e.message()
+                    e
                 )))
             }
         }
@@ -256,28 +248,18 @@ impl VcsBackend for GitBackend {
             VcsError::GitReferenceError("Failed to acquire repository lock".to_string())
         })?;
 
-        let branches = repo.branches(Some(git2::BranchType::Local)).map_err(|e| {
-            VcsError::GitReferenceError(format!("Failed to list branches: {}", e.message()))
-        })?;
+        let references = repo
+            .references()
+            .map_err(|e| VcsError::GitReferenceError(format!("Failed to list branches: {}", e)))?;
 
-        let mut result = branches
-            .map(|branch_result| {
-                let (branch, _branch_type) = branch_result.map_err(|e| {
-                    VcsError::GitReferenceError(format!("Failed to read branch: {}", e.message()))
-                })?;
-
-                let name = branch.name().map_err(|e| {
-                    VcsError::GitReferenceError(format!(
-                        "Failed to get branch name: {}",
-                        e.message()
-                    ))
-                })?;
-
-                Ok(name.and_then(|value| BranchName::new(value).ok()))
+        let mut result = references
+            .local_branches()
+            .filter_map(|branch_result| {
+                branch_result.ok().and_then(|branch| {
+                    let name = branch.name().ok().flatten()?;
+                    BranchName::new(name).ok()
+                })
             })
-            .collect::<Result<Vec<Option<BranchName>>, VcsError>>()?
-            .into_iter()
-            .flatten()
             .collect::<Vec<_>>();
 
         result.sort_by(|a, b| a.as_str().cmp(b.as_str()));
@@ -302,36 +284,41 @@ impl VcsBackend for GitBackend {
                 VcsError::GitReferenceError("Failed to acquire repository lock".to_string())
             })?;
 
-            let mut opts = git2::StatusOptions::new();
+            let mut opts = gix::status::Options::default();
             opts.include_untracked(false)
                 .include_ignored(false)
-                .include_unmodified(false)
-                .recurse_untracked_dirs(false);
+                .include_unmodified(false);
 
             let statuses = repo
-                .statuses(Some(&mut opts))
+                .status_files_with_index(opts, std::iter::empty::<&std::path::Path>())
                 .map_err(|e| VcsError::GitOpenFailed {
                     path: self.path.as_path().to_path_buf(),
-                    message: format!("Failed to get status: {}", e.message()),
-                    source: Some(e),
+                    message: format!("Failed to get status: {}", e),
+                    source: None,
                 })?;
 
-            statuses
-                .iter()
-                .fold((0u32, 0u32, 0u32), |(added, modified, deleted), entry| {
-                    let status = entry.status();
+            let mut added = 0u32;
+            let mut modified = 0u32;
+            let mut deleted = 0u32;
 
-                    let next_added =
-                        added.saturating_add(u32::from(status.contains(git2::Status::INDEX_NEW)));
-                    let next_modified = modified
-                        .saturating_add(u32::from(status.contains(git2::Status::INDEX_MODIFIED)))
-                        .saturating_add(u32::from(status.contains(git2::Status::WT_MODIFIED)));
-                    let next_deleted = deleted
-                        .saturating_add(u32::from(status.contains(git2::Status::INDEX_DELETED)))
-                        .saturating_add(u32::from(status.contains(git2::Status::WT_DELETED)));
+            for entry in statuses {
+                let entry = entry.map_err(|e| VcsError::GitOpenFailed {
+                    path: self.path.as_path().to_path_buf(),
+                    message: format!("Failed to read status entry: {}", e),
+                    source: None,
+                })?;
+                let change = entry.index_to_worktree_entry();
+                if let Some(change) = change {
+                    match change.kind() {
+                        gix::status::change::Kind::New => added += 1,
+                        gix::status::change::Kind::Modified => modified += 1,
+                        gix::status::change::Kind::Deleted => deleted += 1,
+                        _ => {}
+                    }
+                }
+            }
 
-                    (next_added, next_modified, next_deleted)
-                })
+            (added, modified, deleted)
         };
 
         let has_changes = added > 0 || modified > 0 || deleted > 0;
@@ -365,23 +352,27 @@ impl VcsBackend for GitBackend {
             VcsError::GitReferenceError("Failed to acquire repository lock".to_string())
         })?;
 
-        let result = repo.revparse_single(id.as_str());
+        let revision = id.as_str();
 
-        match result {
+        match repo.rev_parse(revision) {
             Ok(obj) => {
-                let is_commit = obj.kind() == Some(git2::ObjectType::Commit);
+                let is_commit = obj.kind == gix::object::Kind::Commit;
                 Ok(is_commit)
             }
-            Err(e) => match e.code() {
-                git2::ErrorCode::NotFound
-                | git2::ErrorCode::Ambiguous
-                | git2::ErrorCode::InvalidSpec => Ok(false),
-                _ => Err(VcsError::GitOpenFailed {
-                    path: self.path.as_path().to_path_buf(),
-                    message: format!("Failed to lookup commit: {}", e.message()),
-                    source: Some(e),
-                }),
-            },
+            Err(e) => {
+                let is_not_found = e.to_string().contains("not found")
+                    || e.to_string().contains("ambiguous")
+                    || e.to_string().contains("invalid");
+                if is_not_found {
+                    Ok(false)
+                } else {
+                    Err(VcsError::GitOpenFailed {
+                        path: self.path.as_path().to_path_buf(),
+                        message: format!("Failed to lookup commit: {}", e),
+                        source: None,
+                    })
+                }
+            }
         }
     }
 
@@ -976,5 +967,190 @@ mod tests {
 
         let result = GitBackend::open_with_config(&path, &config);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_snapshot_commit_message() {
+        let (_temp, path) = create_test_repo();
+
+        fs::write(path.join("file.txt"), "content\n").expect("Failed to write file");
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git add");
+
+        Command::new("git")
+            .args(["commit", "-m", "Add initial file"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git commit");
+
+        let output = Command::new("git")
+            .args(["log", "--format=%B", "-1"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git log");
+
+        let message = String::from_utf8_lossy(&output.stdout).to_string();
+
+        insta::assert_snapshot!("commit_message_single", message);
+    }
+
+    #[test]
+    fn test_snapshot_commit_message_multiline() {
+        let (_temp, path) = create_test_repo();
+
+        fs::write(path.join("file.txt"), "content\n").expect("Failed to write file");
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git add");
+
+        Command::new("git")
+            .args([
+                "commit",
+                "-m",
+                "Add feature\n\nThis is the body of the commit.\nWith multiple lines.",
+            ])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git commit");
+
+        let output = Command::new("git")
+            .args(["log", "--format=%B", "-1"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git log");
+
+        let message = String::from_utf8_lossy(&output.stdout).to_string();
+
+        insta::assert_snapshot!("commit_message_multiline", message);
+    }
+
+    #[test]
+    fn test_snapshot_diff_single_file() {
+        let (_temp, path) = create_test_repo();
+
+        fs::write(path.join("file.txt"), "content\n").expect("Failed to write file");
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git add");
+
+        Command::new("git")
+            .args(["commit", "-m", "Initial commit"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git commit");
+
+        fs::write(path.join("file.txt"), "modified content\n").expect("Failed to modify file");
+
+        let output = Command::new("git")
+            .args(["diff"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git diff");
+
+        let diff = String::from_utf8_lossy(&output.stdout).to_string();
+
+        insta::assert_snapshot!("diff_single_file", diff);
+    }
+
+    #[test]
+    fn test_snapshot_diff_binary_file() {
+        let (_temp, path) = create_test_repo();
+
+        fs::write(path.join("file.txt"), "content\n").expect("Failed to write file");
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git add");
+
+        Command::new("git")
+            .args(["commit", "-m", "Initial commit"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git commit");
+
+        fs::write(path.join("binary.bin"), b"\x00\x01\x02\x03").expect("Failed to write binary");
+
+        let output = Command::new("git")
+            .args(["diff", "--binary"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git diff");
+
+        let diff = String::from_utf8_lossy(&output.stdout).to_string();
+
+        insta::assert_snapshot!("diff_binary_file", diff);
+    }
+
+    #[test]
+    fn test_snapshot_tree_output() {
+        let (_temp, path) = create_test_repo();
+
+        fs::write(path.join("file.txt"), "content\n").expect("Failed to write file");
+        fs::create_dir(path.join("subdir")).expect("Failed to create dir");
+        fs::write(path.join("subdir", "nested.txt"), "nested\n").expect("Failed to write nested");
+
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git add");
+
+        Command::new("git")
+            .args(["commit", "-m", "Add files and dirs"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git commit");
+
+        let output = Command::new("git")
+            .args(["ls-tree", "-R", "HEAD"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git ls-tree");
+
+        let tree = String::from_utf8_lossy(&output.stdout).to_string();
+
+        insta::assert_snapshot!("tree_output", tree);
+    }
+
+    #[test]
+    fn test_snapshot_diff_with_renamed_file() {
+        let (_temp, path) = create_test_repo();
+
+        fs::write(path.join("old.txt"), "content\n").expect("Failed to write file");
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git add");
+
+        Command::new("git")
+            .args(["commit", "-m", "Initial commit"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git commit");
+
+        Command::new("git")
+            .args(["mv", "old.txt", "new.txt"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git mv");
+
+        let output = Command::new("git")
+            .args(["diff", "--cached"])
+            .current_dir(&path)
+            .output()
+            .expect("Failed to git diff");
+
+        let diff = String::from_utf8_lossy(&output.stdout).to_string();
+
+        insta::assert_snapshot!("diff_renamed_file", diff);
     }
 }

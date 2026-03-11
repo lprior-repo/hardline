@@ -378,6 +378,9 @@ fn validate_task_id(s: &str) -> Result<(), IdentifierError> {
     Ok(())
 }
 
+// Note: kani proofs are in a separate module for model checking
+// They require the kani model checker to be installed
+
 /// Validate a bead ID (same as task ID)
 #[allow(dead_code)]
 fn validate_bead_id(s: &str) -> Result<(), IdentifierError> {

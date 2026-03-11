@@ -18,7 +18,7 @@
 //! - `detect_backend` - Detect VCS type from filesystem
 //!
 //! # Module Structure
-//! - `git` - Git backend implementation using git2
+//! - `git` - Git backend implementation using gix (pure Rust)
 //! - `jj` - JJ backend implementation using jj-lib
 
 pub mod git;
@@ -101,9 +101,9 @@ pub enum VcsError {
         path: PathBuf,
         /// Error message
         message: String,
-        /// Source error from git2
+        /// Source error from gix
         #[source]
-        source: Option<git2::Error>,
+        source: Option<gix::discover::Error>,
     },
 
     /// Repository is bare (no working tree) - stacking requires working tree

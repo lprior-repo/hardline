@@ -4,17 +4,13 @@ use std::process::Command;
 
 use scp_core::{output::Output, vcs::detect_vcs, Error, Result};
 
-pub fn create(name: &str, message: Option<&str>, commit: Option<&str>, force: bool) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
-
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
-
-    if vcs_type != scp_core::vcs::VcsType::Git {
-        return Err(Error::InvalidState(
-            "tag is only supported for Git repositories".to_string(),
-        ));
-    }
-
+fn build_git_tag_create_command(
+    cwd: &std::path::Path,
+    name: &str,
+    message: Option<&str>,
+    commit: Option<&str>,
+    force: bool,
+) -> Command {
     let mut cmd = Command::new("git");
     cmd.arg("tag");
 
@@ -29,7 +25,84 @@ pub fn create(name: &str, message: Option<&str>, commit: Option<&str>, force: bo
         cmd.arg(name).arg(commit_ref);
     }
 
-    let output = cmd.current_dir(&cwd).output().map_err(Error::Io)?;
+    cmd.current_dir(cwd);
+    cmd
+}
+
+fn build_git_tag_list_command(
+    cwd: &std::path::Path,
+    pattern: Option<&str>,
+    sort: Option<&str>,
+) -> Command {
+    let mut cmd = Command::new("git");
+    cmd.arg("tag");
+
+    if let Some(pat) = pattern {
+        cmd.arg("-l").arg(pat);
+    } else {
+        cmd.arg("-l");
+    }
+
+    if let Some(sort_key) = sort {
+        cmd.arg("--sort").arg(sort_key);
+    }
+
+    cmd.current_dir(cwd);
+    cmd
+}
+
+fn build_git_tag_delete_command(cwd: &std::path::Path, tag: &str) -> Command {
+    let mut cmd = Command::new("git");
+    cmd.args(["tag", "-d", tag]).current_dir(cwd);
+    cmd
+}
+
+fn build_git_tag_delete_remote_command(cwd: &std::path::Path, tag: &str) -> Command {
+    let mut cmd = Command::new("git");
+    cmd.args(["push", "origin", "--delete", tag])
+        .current_dir(cwd);
+    cmd
+}
+
+fn build_git_tag_push_command(
+    cwd: &std::path::Path,
+    remote: &str,
+    tag: &str,
+    force: bool,
+) -> Command {
+    let mut cmd = Command::new("git");
+    cmd.arg("push").arg(remote).arg(tag);
+    if force {
+        cmd.arg("--force");
+    }
+    cmd.current_dir(cwd);
+    cmd
+}
+
+fn build_git_tag_push_all_command(cwd: &std::path::Path, remote: &str, force: bool) -> Command {
+    let mut cmd = Command::new("git");
+    cmd.arg("push").arg(remote).arg("--tags");
+    if force {
+        cmd.arg("--force");
+    }
+    cmd.current_dir(cwd);
+    cmd
+}
+
+pub fn create(name: &str, message: Option<&str>, commit: Option<&str>, force: bool) -> Result<()> {
+    let cwd = std::env::current_dir().map_err(Error::Io)?;
+
+    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+
+    if vcs_type != scp_core::vcs::VcsType::Git {
+        return Err(Error::InvalidState(
+            "tag is only supported for Git repositories".to_string(),
+        ));
+    }
+
+    let output = build_git_tag_create_command(&cwd, name, message, commit, force)
+        .output()
+        .map_err(Error::Io)?;
 
     if output.status.success() {
         Output::success(&format!("Created tag: {}", name));
@@ -55,20 +128,9 @@ pub fn list(pattern: Option<&str>, sort: Option<&str>) -> Result<()> {
         ));
     }
 
-    let mut cmd = Command::new("git");
-    cmd.arg("tag");
-
-    if let Some(pat) = pattern {
-        cmd.arg("-l").arg(pat);
-    } else {
-        cmd.arg("-l");
-    }
-
-    if let Some(sort_key) = sort {
-        cmd.arg("--sort").arg(sort_key);
-    }
-
-    let output = cmd.current_dir(&cwd).output().map_err(Error::Io)?;
+    let output = build_git_tag_list_command(&cwd, pattern, sort)
+        .output()
+        .map_err(Error::Io)?;
 
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -100,15 +162,11 @@ pub fn delete(tag: &str, remote: bool) -> Result<()> {
     }
 
     let output = if remote {
-        Command::new("git")
-            .args(["push", "origin", "--delete", tag])
-            .current_dir(&cwd)
+        build_git_tag_delete_remote_command(&cwd, tag)
             .output()
             .map_err(Error::Io)?
     } else {
-        Command::new("git")
-            .args(["tag", "-d", tag])
-            .current_dir(&cwd)
+        build_git_tag_delete_command(&cwd, tag)
             .output()
             .map_err(Error::Io)?
     };
@@ -139,19 +197,13 @@ pub fn push(tag: Option<&str>, remote: &str, force: bool) -> Result<()> {
     }
 
     let output = if let Some(t) = tag {
-        let mut cmd = Command::new("git");
-        cmd.arg("push").arg(remote).arg(t);
-        if force {
-            cmd.arg("--force");
-        }
-        cmd.current_dir(&cwd).output().map_err(Error::Io)?
+        build_git_tag_push_command(&cwd, remote, t, force)
+            .output()
+            .map_err(Error::Io)?
     } else {
-        let mut cmd = Command::new("git");
-        cmd.arg("push").arg(remote).arg("--tags");
-        if force {
-            cmd.arg("--force");
-        }
-        cmd.current_dir(&cwd).output().map_err(Error::Io)?
+        build_git_tag_push_all_command(&cwd, remote, force)
+            .output()
+            .map_err(Error::Io)?
     };
 
     if output.status.success() {

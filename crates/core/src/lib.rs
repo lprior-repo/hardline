@@ -2,33 +2,25 @@
 //!
 //! Unified core for workspace isolation (Isolate) and queue management (Stak).
 //!
-//! # Architecture
+//! # Architecture (DDD)
 //!
-//! - `error` - Unified error types with suggestions and exit codes
-//! - `lock` - Lock management for workspaces, sessions, and queues
-//! - `queue` - Queue management with priority support
-//! - `vcs` - VCS abstraction (JJ/Git backends)
-//! - `events` - Unified event system
+//! - `domain` - Pure domain types, entities, and business logic
+//! - `application` - Use cases and service orchestration
+//! - `infrastructure` - External integrations (DB, VCS, network)
 //!
 //! # Zero Unwrap Law
 //!
 //! All fallible operations return `Result<T, Error>`. No unwrap, no panic.
-//!
-//! # Example
-//!
-//! ```ignore
-//! use scp_core::{Result, Error};
-//!
-//! fn example() -> Result<()> {
-//!     // All operations return Result
-//!     let item = QueueItem::direct("feature branch");
-//!     queue.enqueue(item)?;
-//!     Ok(())
-//! }
-//! ```
+
+#![deny(warnings)]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![forbid(unsafe_code)]
 
 // Module declarations
 pub mod agent;
+pub mod application;
 pub mod architecture_boundaries;
 pub mod beads;
 pub mod checkpoint;
@@ -40,11 +32,12 @@ pub mod coordination;
 pub mod dag;
 pub mod domain;
 pub mod error;
+pub mod events;
 pub mod fix;
 pub mod functional;
-pub mod events;
 pub mod hooks;
 pub mod hints;
+pub mod infrastructure;
 pub mod introspection;
 pub mod jj;
 pub mod jj_operation_sync;
@@ -125,6 +118,15 @@ pub use output_format::OutputFormat;
 pub use output::{Output, Verbosity};
 pub use watcher::{BeadsStatus, FileWatcher, WatchEvent};
 pub use workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition};
+
+pub use application::{
+    CoordinationService, CoordinationServiceImpl, QueueService, QueueServiceImpl,
+    create_coordination_service, create_queue_service,
+};
+pub use infrastructure::{
+    DatabaseConfig, DatabaseService, SqliteDatabaseService, VcsIntegrationService,
+    VcsIntegrationServiceImpl, create_database_service, create_vcs_integration_service,
+};
 
 /// SCP version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

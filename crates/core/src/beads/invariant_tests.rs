@@ -44,6 +44,7 @@ fn issue_id_strategy() -> impl Strategy<Value = String> {
 }
 
 /// Generate valid issue IDs for vector contexts (simpler)
+#[allow(dead_code)]
 fn simple_issue_id_strategy() -> impl Strategy<Value = String> {
     "[a-z0-9-]{1,20}".prop_filter("valid ID", |s| {
         !s.is_empty() && s.len() <= IssueId::MAX_LENGTH

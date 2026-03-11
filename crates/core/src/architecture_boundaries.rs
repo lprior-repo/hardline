@@ -32,6 +32,7 @@ pub trait InfrastructureLayer {}
 
 /// Verifies that a type implements DomainLayer marker.
 /// This will fail at compile time if the type doesn't implement the trait.
+#[allow(dead_code)]
 const fn assert_domain<T: DomainLayer>() {}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -179,6 +180,7 @@ fn session_types_dont_require_tokio_runtime() {
 
 /// Phantom type to detect if a type would pull in infrastructure dependencies.
 /// If a type transitively depends on tokio::runtime::Runtime, this would fail.
+#[allow(dead_code)]
 struct NoRuntimeDependency<T>(PhantomData<T>);
 
 #[test]

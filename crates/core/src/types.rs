@@ -15,10 +15,11 @@ use crate::workspace_state::WorkspaceState;
 pub struct SessionName(String);
 
 impl SessionName {
-    const MAX_LENGTH: usize = 64;
+    const MAX_LENGTH: usize = 63;
 
     pub fn parse(name: impl Into<String>) -> Result<Self> {
         let name = name.into();
+        let name = name.trim().to_string();
         if name.is_empty() {
             return Err(Error::InvalidState(
                 "Session name cannot be empty".to_string(),
@@ -34,14 +35,14 @@ impl SessionName {
             .chars()
             .next()
             .ok_or_else(|| Error::InvalidState("Session name cannot be empty".to_string()))?;
-        if !first_char.is_alphabetic() {
+        if !first_char.is_ascii_alphabetic() {
             return Err(Error::InvalidState(
                 "Session name must start with a letter".to_string(),
             ));
         }
         let valid_chars = name
             .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_');
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
         if !valid_chars {
             return Err(Error::InvalidState(
                 "Session name can only contain letters, numbers, dashes, and underscores"
@@ -509,6 +510,36 @@ impl BeadsSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_session_name_adversarial(s in ".*") {
+            let res = SessionName::parse(s.clone());
+
+            // Check properties that the implementation *should* satisfy
+            if let Ok(name) = res {
+                let name_str = name.as_str();
+                prop_assert!(!name_str.is_empty(), "Empty string allowed");
+                prop_assert!(name_str.len() <= SessionName::MAX_LENGTH, "Max length exceeded: {} > {}", name_str.len(), SessionName::MAX_LENGTH);
+
+                let first_char = name_str.chars().next().unwrap();
+                prop_assert!(first_char.is_ascii_alphabetic(), "First char not alphabetic: {}", first_char);
+
+                let valid_chars = name_str.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+                prop_assert!(valid_chars, "Contains invalid chars: {}", name_str);
+            } else {
+                let trimmed = s.trim();
+                // If it failed, it must violate one of the rules.
+                let violates_rules = trimmed.is_empty()
+                    || trimmed.len() > SessionName::MAX_LENGTH
+                    || !trimmed.chars().next().map_or(false, |c| c.is_ascii_alphabetic())
+                    || !trimmed.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+
+                prop_assert!(violates_rules, "Valid string was rejected: {:?}", s);
+            }
+        }
+    }
 
     #[test]
     fn test_session_status_transitions() {
@@ -685,16 +716,16 @@ mod tests {
 
     #[test]
     fn test_session_name_max_length() {
-        let exactly_64: String = "a".repeat(64);
+        let exactly_63: String = "a".repeat(63);
         assert!(
-            SessionName::parse(&exactly_64).is_ok(),
-            "64 chars should be valid"
+            SessionName::parse(&exactly_63).is_ok(),
+            "63 chars should be valid"
         );
 
-        let too_long: String = "a".repeat(65);
+        let too_long: String = "a".repeat(64);
         assert!(
             SessionName::parse(&too_long).is_err(),
-            "65 chars should be invalid"
+            "64 chars should be invalid"
         );
     }
 
