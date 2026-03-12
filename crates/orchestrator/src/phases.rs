@@ -8,9 +8,10 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
 
 use crate::{
+    cleanup::{CleanupContext, CleanupManager, PhaseType},
     metrics::{Metrics, PhaseMetrics, ScenarioResult},
     persistence::StateStore,
-    state::{Pipeline, PipelineState},
+    state::{Pipeline, PipelineId, PipelineState},
 };
 
 /// Result of a phase execution
@@ -39,6 +40,7 @@ pub struct PipelineExecutor {
     metrics: Metrics,
     scenarios_path: PathBuf,
     linter_path: Option<PathBuf>,
+    cleanup_manager: CleanupManager,
 }
 
 impl PipelineExecutor {
@@ -54,6 +56,7 @@ impl PipelineExecutor {
             metrics: Metrics::new(),
             scenarios_path,
             linter_path,
+            cleanup_manager: CleanupManager::new(),
         })
     }
 
@@ -65,6 +68,65 @@ impl PipelineExecutor {
     #[must_use]
     pub fn metrics(&self) -> &Metrics {
         &self.metrics
+    }
+
+    #[must_use]
+    pub fn cleanup_manager(&self) -> &CleanupManager {
+        &self.cleanup_manager
+    }
+
+    /// Validate precondition P1: pipeline must be in non-terminal state
+    #[must_use]
+    pub fn can_run_pipeline(&self, pipeline: &Pipeline) -> bool {
+        !pipeline.state.is_terminal()
+    }
+
+    /// Run cleanup after a phase failure
+    pub fn cleanup_after_failure(&self, pipeline_id: &PipelineId) -> Result<()> {
+        let pipeline = self.store.get(pipeline_id)?.clone();
+
+        let phase_type = PhaseType::from_state(pipeline.state);
+
+        if let Some(phase) = phase_type {
+            let context = CleanupContext::new(pipeline_id.clone(), phase);
+            let result = self.cleanup_manager.cleanup(&context);
+
+            if !result.success {
+                warn!(
+                    "Cleanup had errors for pipeline {}: {:?}",
+                    pipeline_id.0, result.errors
+                );
+            }
+
+            info!(
+                "Cleanup completed for pipeline {}: {} resources cleaned",
+                pipeline_id.0,
+                result.cleaned_resources.len()
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Attempt rollback for a specific phase
+    pub fn rollback_phase(&self, pipeline: &Pipeline, phase: PhaseType) -> Result<()> {
+        let context = CleanupContext::new(pipeline.id.clone(), phase);
+        let result = self.cleanup_manager.rollback(&context);
+
+        if !result.success {
+            error!(
+                "Rollback failed for pipeline {} phase {:?}: {:?}",
+                pipeline.id.0, phase, result.errors
+            );
+            return Err(anyhow::anyhow!("Rollback failed: {:?}", result.errors));
+        }
+
+        info!(
+            "Rollback completed for pipeline {} phase {:?}",
+            pipeline.id.0, phase
+        );
+
+        Ok(())
     }
 
     pub fn create_pipeline(&mut self, spec_path: String) -> Result<Pipeline> {
@@ -342,6 +404,8 @@ impl PipelineExecutor {
         if let Some(pipeline) = pipeline_opt {
             let _ = self.store.update(pipeline);
         }
+        // Invoke cleanup for failed phase
+        let _ = self.cleanup_after_failure(id);
         Decision::Fail
     }
 
@@ -355,6 +419,11 @@ impl PipelineExecutor {
         if let Some(pipeline) = pipeline_opt {
             let _ = self.store.update(pipeline);
         }
+        // Invoke cleanup + rollback for failed phase
+        let _ = self.cleanup_after_failure(id);
+        if let Ok(pipeline) = self.store.get(id) {
+            let _ = self.rollback_phase(pipeline, PhaseType::UniverseSetup);
+        }
         Decision::Escalate
     }
 
@@ -367,6 +436,11 @@ impl PipelineExecutor {
         });
         if let Some(pipeline) = pipeline_opt {
             let _ = self.store.update(pipeline);
+        }
+        // Invoke cleanup + rollback for failed phase
+        let _ = self.cleanup_after_failure(id);
+        if let Ok(pipeline) = self.store.get(id) {
+            let _ = self.rollback_phase(pipeline, PhaseType::AgentDevelopment);
         }
         Decision::Escalate
     }
