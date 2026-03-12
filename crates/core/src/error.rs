@@ -296,6 +296,37 @@ pub enum Error {
     /// Invalid task state transition
     #[error("Invalid state transition for task '{0}': {1}")]
     InvalidTaskStateTransition(String, String),
+
+    // ========================================================================
+    // Wait/Batch Command Errors (10xxx)
+    // ========================================================================
+    /// Wait operation timeout
+    #[error("Wait timeout: session '{0}' did not meet condition '{1}' within timeout")]
+    WaitTimeout(String, String),
+
+    /// Invalid wait mode
+    #[error("Invalid wait mode: {0}")]
+    InvalidWaitMode(String),
+
+    /// Batch is empty
+    #[error("Batch must contain at least one command")]
+    BatchEmpty,
+
+    /// Batch size exceeded
+    #[error("Batch size exceeded: {0} commands (max: 100)")]
+    BatchSizeExceeded(usize),
+
+    /// Batch command failed
+    #[error("Batch command failed: {0}")]
+    BatchCommandFailed(String),
+
+    /// Checkpoint error
+    #[error("Checkpoint error: {0}")]
+    CheckpointError(String),
+
+    /// Batch rollback failed
+    #[error("Batch rollback failed: {0}")]
+    BatchRollbackFailed(String),
 }
 
 impl Clone for Error {
@@ -402,6 +433,13 @@ impl Clone for Error {
             Error::InvalidTaskStateTransition(s1, s2) => {
                 Error::InvalidTaskStateTransition(s1.clone(), s2.clone())
             }
+            Error::WaitTimeout(s1, s2) => Error::WaitTimeout(s1.clone(), s2.clone()),
+            Error::InvalidWaitMode(s) => Error::InvalidWaitMode(s.clone()),
+            Error::BatchEmpty => Error::BatchEmpty,
+            Error::BatchSizeExceeded(n) => Error::BatchSizeExceeded(*n),
+            Error::BatchCommandFailed(s) => Error::BatchCommandFailed(s.clone()),
+            Error::CheckpointError(s) => Error::CheckpointError(s.clone()),
+            Error::BatchRollbackFailed(s) => Error::BatchRollbackFailed(s.clone()),
         }
     }
 }
@@ -530,6 +568,15 @@ impl Error {
             Error::TaskLocked(_) => 63,
             Error::InvalidTaskId(_) => 64,
             Error::InvalidTaskStateTransition(_, _) => 65,
+
+            // Wait/Batch errors
+            Error::WaitTimeout(_, _) => 55,
+            Error::InvalidWaitMode(_) => 80,
+            Error::BatchEmpty => 80,
+            Error::BatchSizeExceeded(_) => 80,
+            Error::BatchCommandFailed(_) => 56,
+            Error::CheckpointError(_) => 58,
+            Error::BatchRollbackFailed(_) => 57,
         }
     }
 }
