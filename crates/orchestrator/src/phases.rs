@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
@@ -358,7 +358,7 @@ impl PipelineExecutor {
     }
 
     fn record_spec_review_metrics(
-        &self,
+        &mut self,
         pipeline: &Pipeline,
         start: DateTime<Utc>,
         quality_score: u32,
@@ -572,7 +572,7 @@ impl PipelineExecutor {
     ) -> Result<Decision, PhaseError> {
         error!("Agent development failed: {message}");
         self.perform_failure_handling(id, message, PhaseType::AgentDevelopment)
-            .map(|result| Decision::Escalate)
+            .map(|_result| Decision::Escalate)
     }
 
     /// Common failure handling: cleanup, rollback, persist

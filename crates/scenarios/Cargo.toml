@@ -1,35 +1,32 @@
 [package]
 name = "scenarios"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.5.0"
+edition = "2021"
+rust-version = "1.80"
+authors = ["Source Control Plane Contributors"]
+license = "MIT"
+repository = "https://github.com/source-control-plane/scp"
 
 [dependencies]
-tokio = { workspace = true, features = ["full"] }
-async-trait.workspace = true
-futures.workspace = true
-anyhow.workspace = true
-thiserror.workspace = true
-serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
-serde_yaml.workspace = true
-reqwest = { workspace = true, features = ["json"] }
-tracing.workspace = true
-tracing-subscriber.workspace = true
-regex.workspace = true
-chrono.workspace = true
-im.workspace = true
-itertools.workspace = true
+tokio = { version = "1.40", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+reqwest = { version = "0.12", features = ["json"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+regex = "1.10"
+chrono = "0.4"
+im = "15.1"
+itertools = "0.13"
 
 [dev-dependencies]
-tokio-test.workspace = true
-tempfile.workspace = true
+tokio-test = "0.4"
+tempfile = "3.10"
 
 [lints.rust]
 unsafe_code = "forbid"
-
-[features]
-default = []
