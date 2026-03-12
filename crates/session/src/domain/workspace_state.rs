@@ -2,23 +2,34 @@
 //!
 //! This module provides the WorkspaceState enum and WorkspaceStateMachine
 //! for managing the lifecycle of session workspaces.
+//!
+//! State lifecycle: Created → Working → Ready → Merged | Conflict | Abandoned
+
+use serde::{Deserialize, Serialize};
 
 /// Workspace state for session-based workspaces.
 ///
-/// Lifecycle: Created → Working → Ready → Merged/Conflict/Abandoned
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// Lifecycle: Created → Working → Ready → Merged | Conflict | Abandoned
+///
+/// - Created: Workspace has been created
+/// - Working: Workspace is being actively worked on
+/// - Ready: Workspace is ready for review/merge
+/// - Merged: Workspace has been merged (terminal state)
+/// - Conflict: Workspace has merge conflicts (terminal state)
+/// - Abandoned: Workspace was abandoned (terminal state)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum WorkspaceState {
-    /// Workspace has been created but work hasn't started
+    /// Workspace has been created
     Created,
-    /// Workspace is actively being worked on
+    /// Workspace is being actively worked on
     Working,
-    /// Workspace work is complete and ready for merge
+    /// Workspace is ready for review/merge
     Ready,
-    /// Workspace has been successfully merged
+    /// Workspace has been merged (terminal state)
     Merged,
-    /// Workspace has merge conflicts
+    /// Workspace has merge conflicts (terminal state)
     Conflict,
-    /// Workspace was abandoned
+    /// Workspace was abandoned (terminal state)
     Abandoned,
 }
 
@@ -41,24 +52,36 @@ impl WorkspaceState {
         matches!(self, Self::Merged | Self::Conflict | Self::Abandoned)
     }
 
-    /// Check if this state is ready (ready for merge decision)
+    /// Check if this state is ready (ready for merge/review)
     #[must_use]
     pub fn is_ready(self) -> bool {
         self == Self::Ready
     }
 
+    /// Check if this state is working (active work)
+    #[must_use]
+    pub fn is_working(self) -> bool {
+        self == Self::Working
+    }
+
     /// Check if a transition from this state to target is valid
+    /// State machine: Created → Working → Ready → Merged | Conflict | Abandoned
     #[must_use]
     pub const fn can_transition_to(self, target: Self) -> bool {
         match (self, target) {
-            // Forward progression: Created → Working → Ready
+            // Created → Working: start working on workspace
             (Self::Created, Self::Working) => true,
+            // Working → Ready: mark as ready for review
             (Self::Working, Self::Ready) => true,
-            // From Ready: can go to terminal states
+            // Working → Abandoned: abandon during work
+            (Self::Working, Self::Abandoned) => true,
+            // Ready → Merged: merge successful
             (Self::Ready, Self::Merged) => true,
+            // Ready → Conflict: merge conflicts detected
             (Self::Ready, Self::Conflict) => true,
+            // Ready → Abandoned: abandon after conflicts
             (Self::Ready, Self::Abandoned) => true,
-            // Self-loops are not allowed (use explicit no-op if needed)
+            // Self-loops are not allowed
             _ => false,
         }
     }
@@ -104,10 +127,7 @@ impl WorkspaceStateMachine {
         if from.can_transition_to(to) {
             Ok(to)
         } else {
-            Err(crate::error::SessionError::InvalidTransition {
-                from: format!("{:?}", from),
-                to: format!("{:?}", to),
-            })
+            Err(crate::error::SessionError::InvalidTransition { from, to })
         }
     }
 
@@ -121,6 +141,12 @@ impl WorkspaceStateMachine {
     #[must_use]
     pub fn is_terminal(state: WorkspaceState) -> bool {
         state.is_terminal()
+    }
+
+    /// Check if a state is working
+    #[must_use]
+    pub fn is_working(state: WorkspaceState) -> bool {
+        state.is_working()
     }
 
     /// Check if a state is ready
@@ -167,24 +193,24 @@ mod tests {
     }
 
     #[test]
-    fn workspace_state_ready_to_abandoned_transition_succeeds() {
+    fn workspace_state_working_to_abandoned_transition_succeeds() {
         let result =
-            WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Abandoned);
+            WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Abandoned);
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), WorkspaceState::Abandoned);
     }
 
     #[test]
-    fn workspace_state_invalid_created_to_merged_fails() {
+    fn workspace_state_invalid_created_to_ready_fails() {
         let result =
-            WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Merged);
+            WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Ready);
         assert!(result.is_err());
     }
 
     #[test]
-    fn workspace_state_invalid_ready_to_created_fails() {
+    fn workspace_state_invalid_merged_to_working_fails() {
         let result =
-            WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Created);
+            WorkspaceStateMachine::transition(WorkspaceState::Merged, WorkspaceState::Working);
         assert!(result.is_err());
     }
 
@@ -195,7 +221,7 @@ mod tests {
             WorkspaceState::Conflict,
             WorkspaceState::Abandoned,
         ] {
-            let result = WorkspaceStateMachine::transition(terminal, WorkspaceState::Created);
+            let result = WorkspaceStateMachine::transition(terminal, WorkspaceState::Working);
             assert!(
                 result.is_err(),
                 "Terminal state {:?} should not transition",
@@ -212,7 +238,7 @@ mod tests {
         ));
         assert!(!WorkspaceStateMachine::can_transition(
             WorkspaceState::Created,
-            WorkspaceState::Merged
+            WorkspaceState::Ready
         ));
     }
 
@@ -233,13 +259,25 @@ mod tests {
         assert!(WorkspaceStateMachine::is_ready(WorkspaceState::Ready));
         assert!(!WorkspaceStateMachine::is_ready(WorkspaceState::Created));
         assert!(!WorkspaceStateMachine::is_ready(WorkspaceState::Working));
-        assert!(!WorkspaceStateMachine::is_ready(WorkspaceState::Merged));
+    }
+
+    #[test]
+    fn workspace_state_is_working_identifies_working_state() {
+        assert!(WorkspaceStateMachine::is_working(WorkspaceState::Working));
+        assert!(!WorkspaceStateMachine::is_working(WorkspaceState::Created));
+        assert!(!WorkspaceStateMachine::is_working(WorkspaceState::Ready));
     }
 
     #[test]
     fn workspace_state_valid_transitions_lists_correct_targets() {
         let created_targets = WorkspaceState::Created.valid_transitions();
         assert_eq!(created_targets, vec![WorkspaceState::Working]);
+
+        let working_targets = WorkspaceState::Working.valid_transitions();
+        assert_eq!(
+            working_targets,
+            vec![WorkspaceState::Ready, WorkspaceState::Abandoned]
+        );
 
         let ready_targets = WorkspaceState::Ready.valid_transitions();
         assert_eq!(

@@ -2,17 +2,25 @@
 //!
 //! Provides task management commands: list, show, claim, yield, start, done
 
-use crate::commands::task_types::{Task, TaskState};
+use crate::commands::task_types::{Priority, Task, TaskId, TaskState, Title};
 use crate::commands::task_validation::{
     acquire_task_lock, transition_to_claimed, transition_to_done, transition_to_started,
     transition_to_yielded, validate_claimed_by_user, validate_not_claimed_by_other,
-    validate_not_closed, validate_task_exists, validate_task_id,
+    validate_not_closed, validate_task_exists,
 };
 use scp_core::{error::Error, lock::LockManager, Result as CoreResult};
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use std::sync::{Arc, RwLock};
 
-/// Global task storage
+/// Global task storage - singleton using LazyLock for thread-safe initialization
+static TASK_STORE: LazyLock<Arc<TaskStore>> = LazyLock::new(|| Arc::new(TaskStore::new()));
+
+/// Global lock manager - singleton using LazyLock
+static LOCK_MANAGER: LazyLock<Arc<dyn LockManager>> =
+    LazyLock::new(|| Arc::new(scp_core::lock::MemLockManager::new()) as Arc<dyn LockManager>);
+
+/// Global in-memory task store with RwLock for interior mutability
 struct TaskStore {
     tasks: RwLock<HashMap<String, Task>>,
 }
@@ -28,7 +36,7 @@ impl TaskStore {
         self.tasks
             .read()
             .map(|tasks| tasks.values().cloned().collect())
-            .unwrap_or_default()
+            .unwrap_or_else(|_| Vec::new())
     }
 
     fn get(&self, id: &str) -> Option<Task> {
@@ -43,10 +51,10 @@ impl TaskStore {
             .tasks
             .write()
             .map_err(|e| Error::Internal(e.to_string()))?;
-        if !tasks.contains_key(&task.id) {
-            return Err(Error::TaskNotFound(task.id));
+        if !tasks.contains_key(task.id.as_str()) {
+            return Err(Error::TaskNotFound(task.id.to_string()));
         }
-        tasks.insert(task.id.clone(), task);
+        tasks.insert(task.id.to_string(), task);
         Ok(())
     }
 
@@ -55,28 +63,42 @@ impl TaskStore {
             .tasks
             .write()
             .map_err(|e| Error::Internal(e.to_string()))?;
-        if tasks.contains_key(&task.id) {
-            return Err(Error::TaskAlreadyClaimed(task.id, "exists".to_string()));
+        if tasks.contains_key(task.id.as_str()) {
+            return Err(Error::TaskAlreadyClaimed(
+                task.id.to_string(),
+                "exists".to_string(),
+            ));
         }
-        tasks.insert(task.id.clone(), task);
+        tasks.insert(task.id.to_string(), task);
         Ok(())
     }
 }
 
+/// Get the global task store singleton
 fn get_task_store() -> Arc<TaskStore> {
-    Arc::new(TaskStore::new())
+    TASK_STORE.clone()
 }
 
+/// Get the global lock manager singleton
 fn get_lock_manager() -> Arc<dyn LockManager> {
-    Arc::new(scp_core::lock::MemLockManager::new()) as Arc<dyn LockManager>
+    LOCK_MANAGER.clone()
 }
 
 /// Initialize with some demo tasks
 fn init_demo_tasks(store: &TaskStore) -> CoreResult<()> {
     let tasks = vec![
-        Task::new("task-001", "Implement user authentication"),
-        Task::new("task-002", "Add database migration"),
-        Task::new("task-003", "Fix memory leak in worker"),
+        Task::new(
+            TaskId::new("task-001").map_err(|e| Error::InvalidTaskId(e.to_string()))?,
+            Title::new("Implement user authentication"),
+        ),
+        Task::new(
+            TaskId::new("task-002").map_err(|e| Error::InvalidTaskId(e.to_string()))?,
+            Title::new("Add database migration"),
+        ),
+        Task::new(
+            TaskId::new("task-003").map_err(|e| Error::InvalidTaskId(e.to_string()))?,
+            Title::new("Fix memory leak in worker"),
+        ),
     ];
     for task in tasks {
         store.insert(task)?;
@@ -96,9 +118,9 @@ fn display_tasks(tasks: &[Task]) {
 
     println!("Tasks ({}):", tasks.len());
     for task in tasks {
-        let assignee = task.assignee.as_deref().unwrap_or("-");
+        let assignee = task.assignee.as_ref().map(|a| a.as_str()).unwrap_or("-");
         let state = format!("{:?}", task.state);
-        let priority = task.priority.as_deref().unwrap_or("-");
+        let priority = task.priority.as_ref().map(|p| p.as_str()).unwrap_or("-");
         println!("  {} [{}] {} - {}", task.id, priority, state, assignee);
     }
 }
@@ -115,7 +137,10 @@ fn display_task(task: &Task) {
     }
     println!(
         "  Assignee: {:?}",
-        task.assignee.as_deref().unwrap_or("unassigned")
+        task.assignee
+            .as_ref()
+            .map(|a| a.as_str())
+            .unwrap_or("unassigned")
     );
     println!("  Created: {}", task.created_at);
     println!("  Updated: {}", task.updated_at);
@@ -142,10 +167,9 @@ pub fn list() -> CoreResult<()> {
 }
 
 /// Show details of a specific task
-pub fn show(task_id: &str) -> CoreResult<()> {
-    if task_id.is_empty() {
-        return Err(Error::InvalidTaskId("Task ID cannot be empty".to_string()));
-    }
+pub fn show(task_id: &str, _user: &str) -> CoreResult<()> {
+    // Validate task ID at parse time
+    let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
 
     let store = get_task_store();
     let task = store
@@ -157,30 +181,34 @@ pub fn show(task_id: &str) -> CoreResult<()> {
 }
 
 /// Claim a task (assign to current user)
-pub fn claim(task_id: &str) -> CoreResult<()> {
-    validate_task_id(task_id)?;
+pub fn claim(task_id: &str, user: &str) -> CoreResult<()> {
+    // Validate task ID at parse time
+    let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
+
     let store = get_task_store();
     let lock = get_lock_manager();
-    let _guard = acquire_task_lock(&*lock, task_id, "current-user")?;
+    let _guard = acquire_task_lock(&*lock, task_id, user)?;
 
     let task = validate_task_exists(store.get(task_id), task_id)?;
-    validate_not_claimed_by_other(&task, "current-user")?;
+    validate_not_claimed_by_other(&task, user)?;
 
-    let updated = transition_to_claimed(task, "current-user");
+    let updated = transition_to_claimed(task, user);
     store.update(updated)?;
     println!("Task {} claimed", task_id);
     Ok(())
 }
 
 /// Yield a task (release assignment)
-pub fn yield_task(task_id: &str) -> CoreResult<()> {
-    validate_task_id(task_id)?;
+pub fn yield_task(task_id: &str, user: &str) -> CoreResult<()> {
+    // Validate task ID at parse time
+    let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
+
     let store = get_task_store();
     let lock = get_lock_manager();
-    let _guard = acquire_task_lock(&*lock, task_id, "current-user")?;
+    let _guard = acquire_task_lock(&*lock, task_id, user)?;
 
     let task = validate_task_exists(store.get(task_id), task_id)?;
-    validate_claimed_by_user(&task, "current-user")?;
+    validate_claimed_by_user(&task, user)?;
 
     let updated = transition_to_yielded(task);
     store.update(updated)?;
@@ -189,14 +217,16 @@ pub fn yield_task(task_id: &str) -> CoreResult<()> {
 }
 
 /// Start working on a task (transition to InProgress)
-pub fn start(task_id: &str) -> CoreResult<()> {
-    validate_task_id(task_id)?;
+pub fn start(task_id: &str, user: &str) -> CoreResult<()> {
+    // Validate task ID at parse time
+    let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
+
     let store = get_task_store();
     let lock = get_lock_manager();
-    let _guard = acquire_task_lock(&*lock, task_id, "current-user")?;
+    let _guard = acquire_task_lock(&*lock, task_id, user)?;
 
     let task = validate_task_exists(store.get(task_id), task_id)?;
-    validate_claimed_by_user(&task, "current-user")?;
+    validate_claimed_by_user(&task, user)?;
 
     let updated = transition_to_started(task);
     store.update(updated)?;
@@ -205,14 +235,16 @@ pub fn start(task_id: &str) -> CoreResult<()> {
 }
 
 /// Complete a task (transition to Closed)
-pub fn done(task_id: &str) -> CoreResult<()> {
-    validate_task_id(task_id)?;
+pub fn done(task_id: &str, user: &str) -> CoreResult<()> {
+    // Validate task ID at parse time
+    let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
+
     let store = get_task_store();
     let lock = get_lock_manager();
-    let _guard = acquire_task_lock(&*lock, task_id, "current-user")?;
+    let _guard = acquire_task_lock(&*lock, task_id, user)?;
 
     let task = validate_task_exists(store.get(task_id), task_id)?;
-    validate_claimed_by_user(&task, "current-user")?;
+    validate_claimed_by_user(&task, user)?;
     validate_not_closed(&task)?;
 
     let updated = transition_to_done(task);

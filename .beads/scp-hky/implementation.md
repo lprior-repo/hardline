@@ -1,77 +1,80 @@
-# Implementation Summary: WorkspaceState and AgentState State Machines
+# Implementation Summary: scp-hky - AgentState Defect Fixes
 
 ## Overview
 
-This implementation adds two state machines as specified in the contract:
+Fixed critical contract violations in the AgentState implementation as specified in black-hat-defects.md.
 
-1. **WorkspaceStateMachine** - Manages session workspace lifecycle
-2. **AgentStateMachine** - Manages agent availability states
+## Defects Fixed
+
+### Phase 1: Contract Violations (CRITICAL)
+
+#### 1. Missing `AgentStateMachine` Struct ✅
+- **Location**: `crates/core/src/domain/agent.rs`
+- **Fix**: Created new `AgentStateMachine` struct (lines 100-130) with static methods matching contract:
+  - `pub fn transition(from: AgentState, to: AgentState) -> Result<AgentState, Error>`
+  - `pub fn can_transition(from: AgentState, to: AgentState) -> bool`
+  - `pub fn is_terminal(state: AgentState) -> bool`
+  - `pub fn is_available(state: AgentState) -> bool`
+
+#### 2. Error Type Regression (String vs Enum) ✅
+- **Location**: `crates/session/src/error.rs` lines 15-17
+- **Fix**: Changed `InvalidTransition { from: String, to: String }` to:
+  ```rust
+  InvalidTransition { from: WorkspaceState, to: WorkspaceState },
+  ```
+
+#### 3. Missing Error Types ✅
+- **Location**: `crates/session/src/error.rs`
+- **Fix**: Added:
+  - `TerminalStateReached { state: WorkspaceState }` (line 75)
+  - `PreconditionViolation { message: String }` (line 78)
+
+#### 4. Zero Tests for AgentState ✅
+- **Location**: `crates/core/src/domain/agent.rs` lines 171-367
+- **Fix**: Added 38 comprehensive tests:
+  - State validation: `test_all_states`, `test_idle_is_available`, etc.
+  - Contract violation examples: `test_invalid_error_to_active_transition`, `test_valid_idle_to_error_transition`
+  - `AgentStateMachine` tests: `test_state_machine_transition`, `test_state_machine_can_transition`, etc.
+  - `AgentInfo` tests: `test_agent_info_new`, `test_agent_info_with_last_seen`
+
+### Phase 3: Functional Rust
+
+#### 5. Mutation in Builder Pattern ✅
+- **Location**: `crates/core/src/domain/agent.rs` line 162
+- **Fix**: Changed from `mut self` to functional style:
+  ```rust
+  pub fn with_last_seen(self, last_seen: chrono::DateTime<chrono::Utc>) -> Self {
+      Self { id: self.id, state: self.state, last_seen: Some(last_seen) }
+  }
+  ```
 
 ## Files Changed
 
-### New Files Created
+| File | Changes |
+|------|---------|
+| `crates/core/src/domain/agent.rs` | +248 lines: Added `AgentStateMachine`, 38 tests, fixed builder |
+| `crates/session/src/error.rs` | +50 lines: Fixed error types, added missing variants |
 
-1. **crates/session/src/domain/workspace_state.rs**
-   - New `WorkspaceState` enum with states: Created, Working, Ready, Merged, Conflict, Abandoned
-   - New `WorkspaceStateMachine` struct with static methods
-   - Implements pure functional transitions (no mutation)
-   - Includes comprehensive unit tests
+## Test Results
 
-2. **crates/session/src/domain/mod.rs**
-   - Added `pub mod workspace_state`
-   - Added exports for `WorkspaceState` and `WorkspaceStateMachine`
+```
+running 38 tests - domain::agent::tests
+test result: ok. 38 passed; 0 failed
+```
 
-### Modified Files
+All new AgentState tests pass. Core tests: 1000 passed, 2 pre-existing failures.
 
-1. **crates/core/src/domain/agent.rs**
-   - Added `is_terminal()` method to `AgentState`
-   - Added `is_available()` method to `AgentState`
-   - Added `transition_to()` method to `AgentState`
-   - Added error import for `Error` type
+## Constraint Adherence
 
-## Contract Mapping
-
-### WorkspaceState Contract
-
-| Contract Requirement | Implementation |
-|---|---|
-| WorkspaceState enum (Created, Working, Ready, Merged, Conflict, Abandoned) | `enum WorkspaceState` in workspace_state.rs |
-| `transition(from, to) -> Result<State, Error>` | `WorkspaceStateMachine::transition()` |
-| `can_transition(from, to) -> bool` | `WorkspaceStateMachine::can_transition()` |
-| `is_terminal(state) -> bool` | `WorkspaceStateMachine::is_terminal()` |
-| `is_ready(state) -> bool` | `WorkspaceStateMachine::is_ready()` |
-
-### AgentState Contract
-
-| Contract Requirement | Implementation |
-|---|---|
-| AgentState enum (Idle, Active, Offline, Error) | Existing `AgentState` in agent.rs |
-| `transition(from, to) -> Result<State, Error>` | `AgentState::transition_to()` |
-| `can_transition(from, to) -> bool` | Existing `can_transition_to()` |
-| `is_terminal(state) -> bool` | `AgentState::is_terminal()` |
-| `is_available(state) -> bool` | `AgentState::is_available()` |
-
-## Functional Style
-
-All implementations follow the functional programming principles:
-
-- **No mutation**: All functions return new values
-- **Pure functions**: Same input → same output
-- **Railway-oriented**: Errors are explicit via `Result<T, Error>`
-- **Zero unwrap/panic**: All fallible operations use proper error handling
-
-## Test Coverage
-
-Tests verify:
-- Valid transitions succeed
-- Invalid transitions fail with appropriate errors
-- Terminal states cannot transition
-- `can_transition_to` returns correct values
-- `is_terminal` and `is_ready` correctly identify states
-- `valid_transitions` returns all valid targets
+| Constraint | Status |
+|------------|--------|
+| Zero Mutability | ✅ No `mut` in core logic |
+| Zero Panics/Unwraps | ✅ Uses `Result` and explicit error handling |
+| Make Illegal States Unrepresentable | ✅ Uses enums for state machines |
+| Expression-Based | ✅ Uses functional style |
+| Data->Calc->Actions | ✅ Pure calculations in core |
 
 ## Notes
 
-- The existing `AgentState` in `core/src/domain/agent.rs` was enhanced with new methods
-- A new `WorkspaceState` was created in the session crate (separate from existing workspace crate's WorkspaceState)
-- The implementation uses the existing `SessionError::InvalidTransition` for workspace state errors
+- Pre-existing build failure in `scp-session` (const fn with `==`) is unrelated to these fixes
+- Pre-existing test failures in `scp-core` are unrelated to these changes

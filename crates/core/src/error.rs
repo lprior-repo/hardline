@@ -296,6 +296,44 @@ pub enum Error {
     /// Invalid task state transition
     #[error("Invalid state transition for task '{0}': {1}")]
     InvalidTaskStateTransition(String, String),
+
+    // ========================================================================
+    // Wait Command Errors (5xxx)
+    // ========================================================================
+    /// Wait operation timed out
+    #[error("Wait timeout for session '{0}' waiting for {1}")]
+    WaitTimeout(String, String),
+
+    /// Invalid wait mode specified
+    #[error("Invalid wait mode: {0}")]
+    InvalidWaitMode(String),
+
+    /// Invalid session name
+    #[error("Invalid session name: {0}")]
+    InvalidSessionName(String),
+
+    // ========================================================================
+    // Batch Command Errors (5xxx)
+    // ========================================================================
+    /// Batch command list is empty
+    #[error("Batch command list is empty")]
+    BatchEmpty,
+
+    /// A command in the batch failed
+    #[error("Batch command failed: {0}")]
+    BatchCommandFailed(String),
+
+    /// Rollback of batch failed
+    #[error("Batch rollback failed: {0}")]
+    BatchRollbackFailed(String),
+
+    /// Checkpoint operation failed
+    #[error("Checkpoint error: {0}")]
+    CheckpointError(String),
+
+    /// Batch size exceeds maximum allowed
+    #[error("Batch size exceeds maximum of {0}")]
+    BatchSizeExceeded(usize),
 }
 
 impl Clone for Error {
@@ -402,6 +440,14 @@ impl Clone for Error {
             Error::InvalidTaskStateTransition(s1, s2) => {
                 Error::InvalidTaskStateTransition(s1.clone(), s2.clone())
             }
+            Error::WaitTimeout(s1, s2) => Error::WaitTimeout(s1.clone(), s2.clone()),
+            Error::InvalidWaitMode(s) => Error::InvalidWaitMode(s.clone()),
+            Error::InvalidSessionName(s) => Error::InvalidSessionName(s.clone()),
+            Error::BatchEmpty => Error::BatchEmpty,
+            Error::BatchCommandFailed(s) => Error::BatchCommandFailed(s.clone()),
+            Error::BatchRollbackFailed(s) => Error::BatchRollbackFailed(s.clone()),
+            Error::CheckpointError(s) => Error::CheckpointError(s.clone()),
+            Error::BatchSizeExceeded(n) => Error::BatchSizeExceeded(*n),
         }
     }
 }
@@ -492,6 +538,16 @@ impl Error {
             Error::AgentNotFound(_) => 50,
             Error::AgentExists(_) => 51,
             Error::AgentTimeout(_) => 52,
+
+            // Wait/Batch errors
+            Error::WaitTimeout(_, _) => 55,
+            Error::InvalidWaitMode(_) => 80,
+            Error::InvalidSessionName(_) => 82,
+            Error::BatchEmpty => 80,
+            Error::BatchCommandFailed(_) => 56,
+            Error::BatchRollbackFailed(_) => 57,
+            Error::CheckpointError(_) => 58,
+            Error::BatchSizeExceeded(_) => 80,
 
             // State/Conflict errors
             Error::InvalidState(_) => 70,
