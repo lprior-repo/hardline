@@ -1,4 +1,5 @@
 use crate::domain::value_objects::BranchName;
+use crate::{Result, StackError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,10 +41,10 @@ impl Stack {
         }
     }
 
-    pub fn add_branch(&mut self, branch: StackBranch) -> Result<(), StackError> {
+    pub fn add_branch(&mut self, branch: StackBranch) -> Result<()> {
         if let Some(parent) = &branch.parent {
-            if !self.branches.iter().any(|b| b.name() == parent) && parent != &self.main_branch {
-                return Err(StackError::OrphanedBranch(branch.name().to_string()));
+            if !self.branches.iter().any(|b| &b.name == parent) && parent != &self.main_branch {
+                return Err(StackError::OrphanedBranch(branch.name.to_string()));
             }
         }
         self.branches.push(branch);
@@ -73,7 +74,7 @@ impl Stack {
         petgraph::algo::toposort(&graph, None)
             .unwrap_or_default()
             .iter()
-            .map(|&idx| graph.node_weight(idx).unwrap())
+            .map(|idx| *graph.node_weight(*idx).unwrap())
             .collect()
     }
 
@@ -81,7 +82,7 @@ impl Stack {
         let mut result = Vec::new();
         let mut current = branch.clone();
 
-        while let Some(b) = self.branches.iter().find(|b| b.name() == &current) {
+        while let Some(b) = self.branches.iter().find(|b| &b.name == &current) {
             if let Some(parent) = &b.parent {
                 result.push(parent.clone());
                 current = parent.clone();
@@ -98,7 +99,7 @@ impl Stack {
         let mut to_visit = vec![branch.clone()];
 
         while let Some(current) = to_visit.pop() {
-            if let Some(b) = self.branches.iter().find(|b| b.name() == &current) {
+            if let Some(b) = self.branches.iter().find(|b| &b.name == &current) {
                 for child in &b.children {
                     result.push(child.clone());
                     to_visit.push(child.clone());

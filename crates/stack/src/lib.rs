@@ -5,9 +5,10 @@
 #![forbid(unsafe_code)]
 
 pub mod domain;
-pub mod github;
 pub mod engine;
 pub mod error;
+pub mod github;
 
-pub use domain::entities::{Stack, StackBranch, BranchName, PrInfo, PrState};
-pub use error::{StackError, Result};
+pub use domain::entities::{PrInfo, PrState, Stack, StackBranch};
+pub use domain::value_objects::BranchName;
+pub use error::{Result, StackError};

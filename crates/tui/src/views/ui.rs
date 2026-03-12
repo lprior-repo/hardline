@@ -1,6 +1,6 @@
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout},
     style::Style,
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::app::TuiApp;
 
-pub fn render(f: &mut Frame<CrosstermBackend<std::io::Stdout>>, app: &mut TuiApp) {
+pub fn render(f: &mut Frame, _app: &mut TuiApp) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

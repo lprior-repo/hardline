@@ -3881,6 +3881,7 @@ dependencies = [
  "scp-core",
  "scp-workspace",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
@@ -3932,6 +3933,7 @@ dependencies = [
  "scp-core",
  "scp-snapshot",
  "scp-stack",
+ "thiserror 2.0.18",
  "tokio",
 ]
 

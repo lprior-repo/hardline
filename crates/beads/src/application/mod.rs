@@ -162,7 +162,7 @@ impl<R: BeadRepository> BeadService<R> {
     }
 
     pub async fn delete_bead(&self, id: &BeadId) -> Result<BeadEvent> {
-        let bead = self.get_bead(id).await?;
+        let _bead = self.get_bead(id).await?;
         self.repository.delete(id).await?;
 
         Ok(BeadEvent::Deleted {

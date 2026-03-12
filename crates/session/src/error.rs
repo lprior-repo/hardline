@@ -28,6 +28,15 @@ pub enum SessionError {
 
     #[error("Invalid identifier: {0}")]
     InvalidIdentifier(String),
+
+    #[error("Invalid path: {0}")]
+    InvalidPath(String),
+
+    #[error("Invalid priority: {0}")]
+    InvalidPriority(String),
+
+    #[error("Invalid issue type: {0}")]
+    InvalidIssueType(String),
 }
 
 pub type Result<T> = std::result::Result<T, SessionError>;

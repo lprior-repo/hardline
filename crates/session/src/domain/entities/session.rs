@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::domain::events::SessionEvent;
 use crate::domain::value_objects::{BeadId, SessionName, WorkspaceId};
 use crate::error::SessionError;
 
@@ -21,7 +22,8 @@ impl SessionState {
     }
 
     pub fn transition_to(&self, new: Self) -> Result<Self, SessionError> {
-        match (self, new) {
+        let current = self.clone();
+        match (current, new.clone()) {
             (Self::Created, Self::Active) => Ok(new),
             (Self::Created, Self::Failed) => Ok(new),
             (Self::Active, Self::Syncing) => Ok(new),
@@ -34,7 +36,7 @@ impl SessionState {
             (Self::Paused, Self::Active) => Ok(new),
             (Self::Paused, Self::Failed) => Ok(new),
             (a, b) if a == b => Ok(b),
-            _ => Err(SessionError::InvalidTransition {
+            (a, b) => Err(SessionError::InvalidTransition {
                 from: format!("{:?}", a),
                 to: format!("{:?}", b),
             }),

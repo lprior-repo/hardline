@@ -63,6 +63,12 @@ enum Commands {
         command: SessionCommands,
     },
 
+    /// Task management (beads)
+    Task {
+        #[command(subcommand)]
+        command: TaskCommands,
+    },
+
     /// Configuration management
     Config {
         #[command(subcommand)]
@@ -146,6 +152,18 @@ enum Commands {
         #[arg(short, long)]
         short: bool,
     },
+
+    /// Switch to a workspace
+    Switch {
+        /// Workspace name
+        name: String,
+    },
+
+    /// Show current context (workspace, branch, VCS status)
+    Context,
+
+    /// Alias for context - shows current location
+    Whereami,
 }
 
 #[derive(Subcommand)]
@@ -330,6 +348,42 @@ enum SessionCommands {
 
     /// Show session status
     Status,
+}
+
+#[derive(Subcommand)]
+enum TaskCommands {
+    /// List all tasks
+    List,
+
+    /// Show task details
+    Show {
+        /// Task ID
+        task_id: String,
+    },
+
+    /// Claim a task (assign to self)
+    Claim {
+        /// Task ID
+        task_id: String,
+    },
+
+    /// Yield a task (release assignment)
+    Yield {
+        /// Task ID
+        task_id: String,
+    },
+
+    /// Start working on a task
+    Start {
+        /// Task ID
+        task_id: String,
+    },
+
+    /// Complete a task
+    Done {
+        /// Task ID
+        task_id: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -552,6 +606,15 @@ fn run_command(cli: Cli) -> Result<()> {
             SessionCommands::Status {} => commands::session::status(),
         },
 
+        Commands::Task { command } => match command {
+            TaskCommands::List {} => commands::task::list(),
+            TaskCommands::Show { task_id } => commands::task::show(&task_id),
+            TaskCommands::Claim { task_id } => commands::task::claim(&task_id),
+            TaskCommands::Yield { task_id } => commands::task::yield_task(&task_id),
+            TaskCommands::Start { task_id } => commands::task::start(&task_id),
+            TaskCommands::Done { task_id } => commands::task::done(&task_id),
+        },
+
         Commands::Config { command } => match command {
             ConfigCommands::Get { key } => commands::config::get(&key),
             ConfigCommands::Set { key, value } => commands::config::set(&key, &value),
@@ -616,5 +679,11 @@ fn run_command(cli: Cli) -> Result<()> {
         Commands::Doctor { full } => commands::doctor::run(full),
 
         Commands::Status { short } => commands::status::run(short),
+
+        Commands::Switch { name } => commands::workspace::switch(&name),
+
+        Commands::Context {} => commands::context::run(),
+
+        Commands::Whereami {} => commands::context::whereami(),
     }
 }

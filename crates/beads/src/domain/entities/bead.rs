@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use super::super::value_objects::{
     BeadDescription, BeadId, BeadState, BeadTitle, BeadType, Labels, Priority,
 };
-use crate::error::{BeadError, Result};
+use crate::error::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bead {
