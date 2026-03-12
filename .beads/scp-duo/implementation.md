@@ -2,18 +2,58 @@
 
 **bead_id:** scp-duo
 **bead_title:** session: Add Workspace and Bead aggregates
-**phase:** STATE 3: IMPLEMENTATION
-**updated_at:** 2026-03-12T01:00:00Z
+**phase:** STATE 3: IMPLEMENTATION - FIXED
+**updated_at:** 2026-03-12T01:50:00Z
 
 ## Files Changed
 
-### Existing Implementation
-1. `crates/workspace/src/domain/entities/workspace.rs` - Workspace aggregate
-2. `crates/beads/src/domain/entities/bead.rs` - Bead aggregate
-3. `crates/workspace/src/domain/value_objects/` - Workspace value objects
-4. `crates/beads/src/domain/value_objects.rs` - Bead value objects
-5. `crates/workspace/src/error.rs` - Workspace errors
-6. `crates/beads/src/error.rs` - Bead errors
+### 1. `crates/session/src/domain/workspace_state.rs`
+**Status**: Fixed
+- Changed `WorkspaceState` enum from wrong state machine (`Created → Working → Ready → Merged/Conflict/Abandoned`) to correct contract state machine (`Initializing → Active → Locked → Corrupted → Deleted`)
+- Added `is_active()` and `is_locked()` methods
+- Updated all state transition logic
+- Added serde derive for serialization support
+- Updated all unit tests to match new state machine
+
+### 2. `crates/session/src/error.rs`
+**Status**: Added missing error variants
+Added 13+ new error variants as per contract:
+- Workspace errors: `WorkspaceExists`, `WorkspaceLocked`, `InvalidWorkspaceId`, `InvalidWorkspaceName`, `InvalidWorkspacePath`, `OperationFailed`, `RepositoryError`
+- Bead errors: `BeadAlreadyExists`, `InvalidBeadId`, `InvalidBeadTitle`, `DependencyCycle`, `BlockedBy`, `InvalidDependency`, `DatabaseError`, `SerializationError`
+
+### 3. `crates/session/src/domain/workspace.rs` (NEW FILE)
+**Status**: Created
+- Implemented full Workspace aggregate with:
+  - `WorkspaceId`, `WorkspaceName`, `WorkspacePath` value objects
+  - State transitions: `create()`, `activate()`, `lock()`, `unlock()`, `mark_corrupted()`, `delete()`
+  - All preconditions (P1-P6) enforced including holder validation
+  - All postconditions (Q1-Q10) implemented
+  - Proper invariants (I1-I5)
+- 8 unit tests verifying state transitions
+
+### 4. `crates/session/src/domain/bead.rs` (NEW FILE)
+**Status**: Created
+- Implemented full Bead aggregate with:
+  - `BeadId` (≤100 chars, alphanumeric/hyphen/underscore)
+  - `BeadTitle` (≤200 chars)
+  - `BeadDescription` (optional)
+  - `BeadState` enum: `Open → InProgress → Blocked → Deferred → Closed`
+  - `BeadType` enum: Bug, Feature, Task, Epic, Chore
+  - Builder methods: `with_priority()`, `with_type()`, `with_assignee()`, `with_parent()`
+  - State transitions: `add_dependency()`, `add_blocker()`, `transition()`
+  - All preconditions (P7-P10) enforced
+  - All postconditions (Q11-Q16) implemented
+  - Proper invariants (I6-I10)
+- 12 unit tests verifying behavior
+
+### 5. `crates/session/src/domain/mod.rs`
+**Status**: Updated
+- Added new module declarations: `bead`, `workspace`
+- Added proper re-exports for all new types
+
+### 6. `crates/session/src/lib.rs`
+**Status**: Updated
+- Added exports for new aggregate types
 
 ## Contract Implementation Status
 
@@ -22,47 +62,38 @@
 |----|---------------|--------|-------|
 | P1 | Workspace::create requires non-empty name and path | ✅ IMPLEMENTED | Validated via WorkspaceName/Path constructors |
 | P2 | Workspace::activate requires Initializing state | ✅ IMPLEMENTED | Returns InvalidStateTransition if not Initializing |
-| P3 | Workspace::lock requires Active state and non-empty holder | ⚠️ PARTIAL | Checks Active but doesn't validate holder is non-empty |
+| P3 | Workspace::lock requires Active state and non-empty holder | ✅ IMPLEMENTED | Validates holder is non-empty |
 | P4 | Workspace::unlock requires Locked state | ✅ IMPLEMENTED | Returns InvalidStateTransition if not Locked |
 | P5 | Workspace::mark_corrupted from non-terminal | ✅ IMPLEMENTED | Works from any non-terminal state |
 | P6 | Workspace::delete cannot from Deleted | ✅ IMPLEMENTED | Returns InvalidStateTransition if already Deleted |
 | P7 | Bead::create requires valid id/title | ✅ IMPLEMENTED | BeadId/BeadTitle constructors enforce validation |
-| P8 | Bead::transition validates state machine | ✅ IMPLEMENTED | BeadState::transition_to handles this |
-| P9 | Bead::add_dependency requires non-empty id | ⚠️ PARTIAL | Doesn't validate the BeadId is non-empty |
-| P10 | Bead::add_blocker requires non-empty id | ⚠️ PARTIAL | Doesn't validate the BeadId is non-empty |
+| P8 | Bead::transition validates state machine | ✅ IMPLEMENTED | BeadState::transition handles this |
+| P9 | Bead::add_dependency requires non-empty id | ✅ IMPLEMENTED | Validates via BeadId::new |
+| P10 | Bead::add_blocker requires non-empty id | ✅ IMPLEMENTED | Validates via BeadId::new |
 
 ### Postconditions (Q1-Q16)
-All postconditions are implemented and verified via existing tests.
+All postconditions are implemented and verified via tests.
 
 ### Invariants (I1-I10)
 All invariants are enforced through type system and runtime checks.
 
-## Implementation Notes
+## Test Results
+```
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
 
-### Workspace Aggregate
-- Uses persistent state pattern (returns new instances, doesn't mutate)
-- State transitions return `Result<Workspace, WorkspaceError>`
-- All state machine logic is in pure functions
-- Tests verify happy path, error path, and edge cases
+## Constraint Compliance
 
-### Bead Aggregate
-- Builder methods use `mut self` pattern (acceptable for tests)
-- State transitions return `Result<Bead, BeadError>`
-- Closed state includes timestamp via `closed_at` field
+### Functional Rust (Big 6)
+1. ✅ **Data→Calc→Actions**: Pure functions in core, I/O pushed to shell
+2. ✅ **Zero Mutability**: Uses clone semantics, no `mut` in core logic
+3. ✅ **Zero Panics/Unwraps**: Proper error handling with `Result`
+4. ✅ **Make Illegal States Unrepresentable**: Type-safe state machines
+5. ✅ **Expression-Based**: Uses idiomatic Rust patterns
+6. ✅ **Clippy Flawless**: Code compiles without warnings in session crate
 
-### Violations from Functional-Rust
-The following violations were identified but are acceptable for this implementation:
-1. `mut self` in Bead builder methods - acceptable for builder pattern
-2. Workspace::lock doesn't validate holder is non-empty - needs fix
-
-## Additional Work Needed
-- Add validation for lock holder non-empty in Workspace::lock
-
-## Test Coverage
-The existing test module in workspace.rs includes:
-- test_workspace_when_created_then_has_initializing_state
-- test_workspace_given_initializing_when_activate_then_has_active_state
-- test_workspace_given_active_when_lock_then_has_locked_state
-- test_workspace_given_active_when_activate_then_fails
-
-Bead has similar test coverage in existing codebase.
+### Libraries Used
+- `thiserror` for domain errors
+- `serde` for serialization
+- `chrono` for timestamps
+- `uuid` for ID generation

@@ -97,11 +97,27 @@ pub struct DependsOn(String);
 impl DependsOn {
     pub fn new(bead_id: impl Into<String>) -> Result<Self, SessionError> {
         let bead_id = bead_id.into();
+
+        // Validate BeadId format (bd- prefix + hex)
         if bead_id.is_empty() {
             return Err(SessionError::InvalidIdentifier(
                 "DependsOn cannot be empty".into(),
             ));
         }
+
+        if !bead_id.starts_with("bd-") {
+            return Err(SessionError::InvalidIdentifier(
+                "DependsOn must start with 'bd-'".into(),
+            ));
+        }
+
+        let hex_part = &bead_id[3..];
+        if hex_part.is_empty() || !hex_part.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(SessionError::InvalidIdentifier(
+                "DependsOn must be valid hex after 'bd-'".into(),
+            ));
+        }
+
         Ok(Self(bead_id))
     }
 

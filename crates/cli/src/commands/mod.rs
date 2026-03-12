@@ -2,6 +2,7 @@
 
 pub mod abs;
 pub mod agent;
+pub mod batch;
 pub mod cat;
 pub mod config;
 pub mod conflicts;
