@@ -12,11 +12,16 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
+pub mod cleanup;
 pub mod metrics;
 pub mod persistence;
 pub mod phases;
 pub mod state;
 
+pub use cleanup::{
+    CleanupContext, CleanupError, CleanupHandler, CleanupManager, CleanupResult, PhaseType,
+    ResourceId,
+};
 pub use metrics::{Metrics, PhaseMetrics, ScenarioResult};
 pub use persistence::StateStore;
 pub use phases::PipelineExecutor;

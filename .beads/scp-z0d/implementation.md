@@ -4,7 +4,8 @@
 - bead_id: scp-z0d
 - bead_title: "orchestrator: Add rollback and cleanup on failure"
 - phase: IMPLEMENTATION
-- updated_at: 2026-03-11T00:00:00Z
+- updated_at: 2026-03-11T20:30:00Z
+- status: COMPLETED
 
 ## Overview
 Implemented cleanup and rollback functionality for pipeline phases in the orchestrator crate. When phases fail mid-pipeline, cleanup handlers are invoked to release resources and rollback side effects.
