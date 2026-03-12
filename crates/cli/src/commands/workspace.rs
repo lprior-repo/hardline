@@ -10,6 +10,26 @@ use scp_core::{
 
 /// Create a new workspace
 pub fn spawn(name: &str, sync: bool) -> Result<()> {
+    // P1: Validate workspace name is not empty
+    if name.is_empty() {
+        return Err(Error::InvalidIdentifier(
+            "workspace name cannot be empty".to_string(),
+        ));
+    }
+
+    // P1: Validate workspace name format (must start with letter)
+    if !name
+        .chars()
+        .next()
+        .map(|c| c.is_alphabetic())
+        .unwrap_or(false)
+    {
+        return Err(Error::InvalidIdentifier(format!(
+            "workspace name must start with a letter, got '{}'",
+            name
+        )));
+    }
+
     Output::info(&format!("Creating workspace '{}'...", name));
 
     let cwd = std::env::current_dir().map_err(Error::Io)?;
@@ -123,6 +143,21 @@ pub fn sync(_name: Option<&str>, all: bool) -> Result<()> {
 /// Complete workspace and merge
 pub fn done(name: Option<&str>) -> Result<()> {
     let workspace_name = name.unwrap_or("current");
+
+    // Don't use "current" for existence check - it will fail
+    if name.is_some() {
+        let workspace_name = name.unwrap();
+
+        let cwd = std::env::current_dir().map_err(Error::Io)?;
+        let backend = vcs::create_backend(&cwd)?;
+
+        // P3: Check workspace exists
+        let workspaces = backend.list_workspaces()?;
+        if !workspaces.iter().any(|w| w.name == workspace_name) {
+            return Err(Error::WorkspaceNotFound(workspace_name.to_string()));
+        }
+    }
+
     Output::info(&format!("Completing workspace '{}'...", workspace_name));
 
     let cwd = std::env::current_dir().map_err(Error::Io)?;
@@ -144,6 +179,14 @@ pub fn done(name: Option<&str>) -> Result<()> {
 /// Abort workspace
 pub fn abort(name: Option<&str>) -> Result<()> {
     let workspace_name = name.unwrap_or("current");
+
+    // P5: Prevent aborting main workspace
+    if workspace_name == "main" {
+        return Err(Error::InvalidOperation(
+            "cannot abort the main workspace".to_string(),
+        ));
+    }
+
     println!("Aborting workspace '{}'...", workspace_name);
 
     let cwd = std::env::current_dir().map_err(Error::Io)?;

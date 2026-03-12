@@ -268,6 +268,34 @@ pub enum Error {
     /// Invalid repository URL
     #[error("Invalid repository URL: {0}")]
     InvalidRepoUrl(String),
+
+    /// Invalid operation
+    #[error("Invalid operation: {0}")]
+    InvalidOperation(String),
+
+    /// Task not found
+    #[error("Task not found: {0}")]
+    TaskNotFound(String),
+
+    /// Task already claimed
+    #[error("Task '{0}' is already claimed by '{1}'")]
+    TaskAlreadyClaimed(String, String),
+
+    /// Task not claimed
+    #[error("Task '{0}' is not claimed")]
+    TaskNotClaimed(String),
+
+    /// Task locked
+    #[error("Task '{0}' is locked")]
+    TaskLocked(String),
+
+    /// Invalid task ID
+    #[error("Invalid task ID: {0}")]
+    InvalidTaskId(String),
+
+    /// Invalid task state transition
+    #[error("Invalid state transition for task '{0}': {1}")]
+    InvalidTaskStateTransition(String, String),
 }
 
 impl Clone for Error {
@@ -365,6 +393,15 @@ impl Clone for Error {
             Error::CloneFailed(s) => Error::CloneFailed(s.clone()),
             Error::RecordFailed(s) => Error::RecordFailed(s.clone()),
             Error::InvalidRepoUrl(s) => Error::InvalidRepoUrl(s.clone()),
+            Error::InvalidOperation(s) => Error::InvalidOperation(s.clone()),
+            Error::TaskNotFound(s) => Error::TaskNotFound(s.clone()),
+            Error::TaskAlreadyClaimed(s1, s2) => Error::TaskAlreadyClaimed(s1.clone(), s2.clone()),
+            Error::TaskNotClaimed(s) => Error::TaskNotClaimed(s.clone()),
+            Error::TaskLocked(s) => Error::TaskLocked(s.clone()),
+            Error::InvalidTaskId(s) => Error::InvalidTaskId(s.clone()),
+            Error::InvalidTaskStateTransition(s1, s2) => {
+                Error::InvalidTaskStateTransition(s1.clone(), s2.clone())
+            }
         }
     }
 }
@@ -484,6 +521,15 @@ impl Error {
             Error::CloneFailed(_) => 93,
             Error::RecordFailed(_) => 94,
             Error::InvalidRepoUrl(_) => 95,
+            Error::InvalidOperation(_) => 96,
+
+            // Task errors
+            Error::TaskNotFound(_) => 60,
+            Error::TaskAlreadyClaimed(_, _) => 61,
+            Error::TaskNotClaimed(_) => 62,
+            Error::TaskLocked(_) => 63,
+            Error::InvalidTaskId(_) => 64,
+            Error::InvalidTaskStateTransition(_, _) => 65,
         }
     }
 }
