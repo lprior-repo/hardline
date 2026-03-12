@@ -4,39 +4,35 @@
 
 ### Changes Made
 
-#### 1. New Module: `policies.rs`
+#### 1. New Module: `policies/` (refactored from single file)
 
-Created a new module `crates/orchestrator/src/policies.rs` containing:
+Created a new module `crates/orchestrator/src/policies/` with submodules:
 
-- **ConfigError** - Configuration errors for policy creation
-  - InvalidTimeout, InvalidBaseDelay, InvalidMaxDelay
-  - InvalidFailureThreshold, InvalidRecoveryTimeout
+- **policies/errors.rs** - Error types
+  - ConfigError: InvalidTimeout, InvalidBaseDelay, InvalidMaxDelay
+  - OrchestratorError: PhaseTimeout, RetriesExhausted, CircuitBreakerOpen, DeadlineExceeded, PhaseExecution
 
-- **OrchestratorError** - Runtime errors during execution
-  - PhaseTimeout, RetriesExhausted, CircuitBreakerOpen
-  - DeadlineExceeded, PhaseExecution
-
-- **PhaseTimeout** - Timeout configuration for phases
+- **policies/timeout.rs** - PhaseTimeout
   - `new(duration_ms)` - Create with validation (P1)
   - `is_expired(started_at)` - Check if timeout elapsed (Q1)
   - `elapsed_ms(started_at)` - Get elapsed time
 
-- **RetryPolicy** - Exponential backoff retry configuration
+- **policies/retry.rs** - RetryPolicy
   - `new(max_retries, base_delay_ms, max_delay_ms)` - Create with validation (P2-P4)
   - `calculate_delay(attempt)` - Exponential backoff calculation (Q6)
 
-- **CircuitBreaker** - Circuit breaker state machine
+- **policies/circuit.rs** - CircuitBreaker
   - `new(failure_threshold, recovery_timeout_ms)` - Create with validation (P5-P6)
   - `record_success()` - Clear failures (Q4)
   - `record_failure()` - Increment failures, open if threshold reached (Q3)
   - `can_execute()` - Check if requests allowed (Q5)
 
-- **Deadline** - Global pipeline deadline
+- **policies/deadline.rs** - Deadline
   - `from_now(duration_ms)` - Create deadline from now
   - `is_exceeded()` - Check if deadline passed
   - `remaining_ms()` - Get remaining time
 
-- **PolicyConfig** - Combined configuration wrapper
+- **policies/mod.rs** - Module exports and PolicyConfig
 
 #### 2. Updated Module: `phases.rs`
 
@@ -71,7 +67,7 @@ Created a new module `crates/orchestrator/src/policies.rs` containing:
 
 ### Test Coverage
 
-Added comprehensive unit tests in `policies.rs`:
+All tests pass (37 total):
 
 - test_phase_timeout_new_valid
 - test_phase_timeout_new_zero
@@ -89,9 +85,31 @@ Added comprehensive unit tests in `policies.rs`:
 - test_deadline_is_exceeded
 - test_deadline_remaining_ms
 - test_policy_config_new_valid
+- Plus existing tests for cleanup, metrics, persistence, phases, state
 
-### Files Modified
+### Files Changed
 
-1. `crates/orchestrator/src/lib.rs` - Added module and exports
-2. `crates/orchestrator/src/policies.rs` - New file with policy types
-3. `crates/orchestrator/src/phases.rs` - Added policy support to executor
+**Added:**
+- `crates/orchestrator/src/policies/mod.rs` (73 lines)
+- `crates/orchestrator/src/policies/timeout.rs` (63 lines)
+- `crates/orchestrator/src/policies/retry.rs` (99 lines)
+- `crates/orchestrator/src/policies/circuit.rs` (166 lines)
+- `crates/orchestrator/src/policies/deadline.rs` (63 lines)
+- `crates/orchestrator/src/policies/errors.rs` (130 lines)
+
+**Modified:**
+- `crates/orchestrator/src/lib.rs` - Added module and exports
+- `crates/orchestrator/src/phases.rs` - Added policy support
+
+**Removed:**
+- `crates/orchestrator/src/policies.rs` - Replaced by policies/ module
+
+### Architectural Drift Fix
+
+Refactored from single 543-line file into 6 files, all under 300 lines:
+- timeout.rs: 63 lines
+- retry.rs: 99 lines  
+- circuit.rs: 166 lines
+- deadline.rs: 63 lines
+- errors.rs: 130 lines
+- mod.rs: 73 lines

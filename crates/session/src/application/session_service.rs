@@ -1,7 +1,5 @@
-use crate::domain::entities::{Session, SessionId, SessionState};
-use crate::domain::events::{
-    SessionCompletedEvent, SessionCreatedEvent, SessionEvent, SessionFailedEvent,
-};
+use crate::domain::entities::{Session, SessionId};
+use crate::domain::events::SessionEvent;
 use crate::domain::value_objects::SessionName;
 use crate::error::{Result, SessionError};
 

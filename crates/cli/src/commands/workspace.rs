@@ -58,6 +58,13 @@ pub fn spawn(name: &str, sync: bool) -> Result<()> {
 
 /// Switch to a workspace
 pub fn switch(name: &str) -> Result<()> {
+    // P1: Validate workspace name is not empty
+    if name.is_empty() {
+        return Err(Error::InvalidIdentifier(
+            "workspace name cannot be empty".to_string(),
+        ));
+    }
+
     Output::info(&format!("Switching to workspace '{}'...", name));
 
     let cwd = std::env::current_dir().map_err(Error::Io)?;

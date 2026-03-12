@@ -12,6 +12,7 @@ ratatui = "0.28"
 crossterm = "0.28"
 tokio.workspace = true
 anyhow.workspace = true
+thiserror = "2.0"
 
 [dev-dependencies]
 insta.workspace = true

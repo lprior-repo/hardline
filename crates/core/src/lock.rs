@@ -20,6 +20,8 @@ pub enum LockType {
     Queue(String),
     /// Agent lock
     Agent(String),
+    /// Task/Bead lock (for TTL locking)
+    Task(String),
 }
 
 impl std::fmt::Display for LockType {
@@ -29,6 +31,7 @@ impl std::fmt::Display for LockType {
             LockType::Session(name) => write!(f, "session:{}", name),
             LockType::Queue(name) => write!(f, "queue:{}", name),
             LockType::Agent(name) => write!(f, "agent:{}", name),
+            LockType::Task(name) => write!(f, "task:{}", name),
         }
     }
 }
@@ -128,6 +131,7 @@ impl LockManager for MemLockManager {
                     }
                     LockType::Queue(_) => Error::QueueLocked(info.holder.clone()),
                     LockType::Agent(name) => Error::AgentExists(name.clone()),
+                    LockType::Task(name) => Error::TaskLocked(name.clone()),
                 });
             }
         }

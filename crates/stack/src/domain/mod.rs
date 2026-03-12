@@ -1,5 +1,5 @@
 pub mod entities;
 pub mod value_objects;
 
-pub use entities::{Stack, StackBranch, PrInfo, PrState};
+pub use entities::{PrInfo, PrState, Stack, StackBranch};
 pub use value_objects::BranchName;
