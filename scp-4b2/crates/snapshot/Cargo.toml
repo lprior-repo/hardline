@@ -1,0 +1,24 @@
+[package]
+name = "scp-snapshot"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+scp-core = { path = "../core" }
+scp-vcs = { path = "../vcs" }
+tokio.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid = { version = "1", features = ["v4"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[dev-dependencies]
+tempfile.workspace = true

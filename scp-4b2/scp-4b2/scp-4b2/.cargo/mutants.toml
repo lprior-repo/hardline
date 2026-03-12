@@ -1,0 +1,2 @@
+examine_globs = ["crates/**/src/**/*.rs"]
+exclude_re = ["impl Debug", "impl Display", "impl Clone", "impl Default"]

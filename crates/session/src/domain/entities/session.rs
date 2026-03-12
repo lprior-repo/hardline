@@ -36,10 +36,7 @@ impl SessionState {
             (Self::Paused, Self::Active) => Ok(new),
             (Self::Paused, Self::Failed) => Ok(new),
             (a, b) if a == b => Ok(b),
-            (a, b) => Err(SessionError::InvalidTransition {
-                from: format!("{:?}", a),
-                to: format!("{:?}", b),
-            }),
+            (a, b) => Err(SessionError::InvalidSessionTransition { from: a, to: b }),
         }
     }
 }
@@ -148,7 +145,8 @@ impl Session {
     }
 
     pub fn transition(&self, event: SessionEvent) -> Result<Self, SessionError> {
-        let new_state = match (&self.state, &event) {
+        let current = self.state;
+        let new_state = match (current, event) {
             (SessionState::Created, SessionEvent::Activated) => SessionState::Active,
             (SessionState::Active, SessionEvent::Syncing) => SessionState::Syncing,
             (SessionState::Active, SessionEvent::Paused) => SessionState::Paused,
@@ -160,9 +158,9 @@ impl Session {
             (SessionState::Paused, SessionEvent::Activated) => SessionState::Active,
             (SessionState::Paused, SessionEvent::Failed) => SessionState::Failed,
             (a, b) => {
-                return Err(SessionError::InvalidTransition {
-                    from: format!("{:?}", a),
-                    to: format!("{:?}", b),
+                return Err(SessionError::InvalidSessionTransition {
+                    from: a,
+                    to: Self::next_state_for_error(a, b),
                 });
             }
         };
@@ -176,6 +174,23 @@ impl Session {
             state: new_state,
             created_at: self.created_at,
         })
+    }
+
+    /// Helper to determine target state for error reporting
+    fn next_state_for_error(current: SessionState, event: SessionEvent) -> SessionState {
+        match (current, event) {
+            (SessionState::Created, SessionEvent::Activated) => SessionState::Active,
+            (SessionState::Active, SessionEvent::Syncing) => SessionState::Syncing,
+            (SessionState::Active, SessionEvent::Paused) => SessionState::Paused,
+            (SessionState::Active, SessionEvent::Failed) => SessionState::Failed,
+            (SessionState::Syncing, SessionEvent::Synced) => SessionState::Synced,
+            (SessionState::Syncing, SessionEvent::Failed) => SessionState::Failed,
+            (SessionState::Synced, SessionEvent::Activated) => SessionState::Active,
+            (SessionState::Synced, SessionEvent::Completed) => SessionState::Completed,
+            (SessionState::Paused, SessionEvent::Activated) => SessionState::Active,
+            (SessionState::Paused, SessionEvent::Failed) => SessionState::Failed,
+            (s, _) => s,
+        }
     }
 
     pub fn transition_branch(&self, new_branch: BranchState) -> Result<Self, SessionError> {
