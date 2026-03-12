@@ -1,0 +1,12 @@
+[package]
+name = "scp-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[dev-dependencies]
+kani = "0.42"
+
+[kani]
+unwind = false
