@@ -22,6 +22,26 @@ pub mod identifiers;
 
 use crate::error::{Error, Result};
 
+/// Shell metacharacters that must be filtered for security
+const SHELL_METACHARACTERS: &[char] = &[
+    ';', '&', '$', '#', '(', ')', '*', '?', '|', '>', '<', '[', ']', '{', '\'', '"', '`', '\n', ',',
+];
+
+fn contains_shell_metachar(s: &str) -> bool {
+    s.chars().any(|c| SHELL_METACHARACTERS.contains(&c))
+}
+
+fn validate_no_shell_metachar(s: &str, field_name: &str) -> Result<()> {
+    if contains_shell_metachar(s) {
+        return Err(Error::ValidationFieldError {
+            message: format!("{} must not contain shell metacharacters", field_name),
+            field: field_name.to_string(),
+            value: Some(s.to_string()),
+        });
+    }
+    Ok(())
+}
+
 pub fn validate_session_name(s: &str) -> Result<()> {
     let trimmed = s.trim();
 
@@ -68,6 +88,8 @@ pub fn validate_session_name(s: &str) -> Result<()> {
         });
     }
 
+    validate_no_shell_metachar(trimmed, "session name")?;
+
     Ok(())
 }
 
@@ -104,6 +126,8 @@ pub fn validate_agent_id(s: &str) -> Result<()> {
         });
     }
 
+    validate_no_shell_metachar(s, "agent ID")?;
+
     Ok(())
 }
 
@@ -135,6 +159,8 @@ pub fn validate_workspace_name(s: &str) -> Result<()> {
         });
     }
 
+    validate_no_shell_metachar(s, "workspace name")?;
+
     Ok(())
 }
 
@@ -164,6 +190,8 @@ pub fn validate_task_id(s: &str) -> Result<()> {
             value: Some(s.to_string()),
         });
     }
+
+    validate_no_shell_metachar(s, "task ID")?;
 
     Ok(())
 }
@@ -208,6 +236,8 @@ pub fn validate_absolute_path(s: &str) -> Result<()> {
             value: Some(s.to_string()),
         });
     }
+
+    validate_no_shell_metachar(s, "path")?;
 
     #[cfg(unix)]
     {
@@ -361,10 +391,78 @@ mod tests {
         assert!(validate_absolute_path("./path").is_err());
     }
 
+    // Shell metacharacter filtering tests
     #[test]
-    fn test_validate_workspace_name_safe_rejects_metachars() {
-        assert!(validate_workspace_name_safe("my$workspace").is_err());
-        assert!(validate_workspace_name_safe("my`workspace").is_err());
-        assert!(validate_workspace_name_safe("my;workspace").is_err());
+    fn test_validate_session_name_rejects_ampersand() {
+        assert!(validate_session_name("foo&bar").is_err());
+    }
+
+    #[test]
+    fn test_validate_session_name_rejects_semicolon() {
+        assert!(validate_session_name("foo;bar").is_err());
+    }
+
+    #[test]
+    fn test_validate_session_name_rejects_dollar_sign() {
+        assert!(validate_session_name("foo$bar").is_err());
+    }
+
+    #[test]
+    fn test_validate_session_name_rejects_pipe() {
+        assert!(validate_session_name("foo|bar").is_err());
+    }
+
+    #[test]
+    fn test_validate_session_name_rejects_backtick() {
+        assert!(validate_session_name("foo`bar").is_err());
+    }
+
+    #[test]
+    fn test_validate_agent_id_rejects_shell_metacharacters() {
+        assert!(validate_agent_id("agent$test").is_err());
+        assert!(validate_agent_id("agent&test").is_err());
+        assert!(validate_agent_id("agent|test").is_err());
+    }
+
+    #[test]
+    fn test_validate_workspace_name_rejects_shell_metacharacters() {
+        assert!(validate_workspace_name("work|space").is_err());
+        assert!(validate_workspace_name("work;space").is_err());
+        assert!(validate_workspace_name("work$space").is_err());
+    }
+
+    #[test]
+    fn test_validate_task_id_rejects_shell_metacharacters() {
+        assert!(validate_task_id("bd-abc;def").is_err());
+        assert!(validate_task_id("bd-abc&def").is_err());
+    }
+
+    #[test]
+    fn test_validate_absolute_path_rejects_shell_metacharacters() {
+        assert!(validate_absolute_path("/path/with`backtick`").is_err());
+        assert!(validate_absolute_path("/path;cmd").is_err());
+        assert!(validate_absolute_path("/path&test").is_err());
+    }
+
+    #[test]
+    fn test_session_name_rejects_null_byte() {
+        assert!(validate_session_name("foo\0bar").is_err());
+    }
+
+    #[test]
+    fn test_absolute_path_rejects_null_byte() {
+        assert!(validate_absolute_path("/path\0/invalid").is_err());
+    }
+
+    #[test]
+    fn test_contains_shell_metachar_helper() {
+        assert!(contains_shell_metachar("foo&bar"));
+        assert!(contains_shell_metachar("foo;bar"));
+        assert!(contains_shell_metachar("foo$bar"));
+        assert!(contains_shell_metachar("foo|bar"));
+        assert!(contains_shell_metachar("foo`bar"));
+        assert!(!contains_shell_metachar("foo_bar"));
+        assert!(!contains_shell_metachar("foo-bar"));
+        assert!(!contains_shell_metachar("foo123"));
     }
 }
