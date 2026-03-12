@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use tracing::{debug, error, info, warn};
 
 use crate::{
@@ -13,6 +14,31 @@ use crate::{
     persistence::StateStore,
     state::{Pipeline, PipelineId, PipelineState},
 };
+
+/// Errors that can occur during phase execution
+#[derive(Debug, Clone, Error)]
+pub enum PhaseError {
+    #[error("Spec review failed: {0}")]
+    SpecReviewFailed(String),
+
+    #[error("Universe setup failed: {0}")]
+    SetupFailed(String),
+
+    #[error("Agent development failed: {0}")]
+    DevelopmentFailed(String),
+
+    #[error("Scenario validation failed: {0}")]
+    ValidationFailed(String),
+
+    #[error("Cleanup/rollback failed: {0}")]
+    CleanupFailed(String),
+
+    #[error("State persistence failed: {0}")]
+    PersistenceFailed(String),
+
+    #[error("Invalid state transition: {0}")]
+    InvalidStateTransition(String),
+}
 
 /// Result of a phase execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,25 +108,25 @@ impl PipelineExecutor {
     }
 
     /// Run cleanup after a phase failure
-    pub fn cleanup_after_failure(&self, pipeline_id: &PipelineId) -> Result<()> {
-        let pipeline = self.store.get(pipeline_id)?.clone();
-
+    pub fn cleanup_after_failure(&self, pipeline: &Pipeline) -> Result<(), PhaseError> {
         let phase_type = PhaseType::from_state(pipeline.state);
 
         if let Some(phase) = phase_type {
-            let context = CleanupContext::new(pipeline_id.clone(), phase);
+            let context = CleanupContext::new(pipeline.id.clone(), phase);
             let result = self.cleanup_manager.cleanup(&context);
 
-            if !result.success {
+            if !result.success_flag() {
+                let error_msg = result.errors().join("; ");
                 warn!(
-                    "Cleanup had errors for pipeline {}: {:?}",
-                    pipeline_id.0, result.errors
+                    "Cleanup had errors for pipeline {}: {}",
+                    pipeline.id.0, error_msg
                 );
+                return Err(PhaseError::CleanupFailed(error_msg));
             }
 
             info!(
                 "Cleanup completed for pipeline {}: {} resources cleaned",
-                pipeline_id.0,
+                pipeline.id.0,
                 result.cleaned_resources.len()
             );
         }
@@ -109,16 +135,17 @@ impl PipelineExecutor {
     }
 
     /// Attempt rollback for a specific phase
-    pub fn rollback_phase(&self, pipeline: &Pipeline, phase: PhaseType) -> Result<()> {
+    pub fn rollback_phase(&self, pipeline: &Pipeline, phase: PhaseType) -> Result<(), PhaseError> {
         let context = CleanupContext::new(pipeline.id.clone(), phase);
         let result = self.cleanup_manager.rollback(&context);
 
-        if !result.success {
+        if !result.success_flag() {
+            let error_msg = result.errors().join("; ");
             error!(
-                "Rollback failed for pipeline {} phase {:?}: {:?}",
-                pipeline.id.0, phase, result.errors
+                "Rollback failed for pipeline {} phase {:?}: {}",
+                pipeline.id.0, phase, error_msg
             );
-            return Err(anyhow::anyhow!("Rollback failed: {:?}", result.errors));
+            return Err(PhaseError::CleanupFailed(error_msg));
         }
 
         info!(
@@ -136,78 +163,164 @@ impl PipelineExecutor {
         Ok(pipeline)
     }
 
-    pub fn run_pipeline(&mut self, pipeline_id: &crate::state::PipelineId) -> Result<Decision> {
+    /// Run the complete pipeline - entry point (delegates to smaller functions)
+    pub fn run_pipeline(&mut self, pipeline_id: &PipelineId) -> Result<Decision, PhaseError> {
         info!("Starting pipeline: {}", pipeline_id.0);
 
-        let mut pipeline = self.store.get(pipeline_id)?.clone();
+        let mut pipeline = self
+            .store
+            .get(pipeline_id)
+            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .clone();
 
         if !pipeline.state.is_terminal() {
             info!("Recovering pipeline from state: {:?}", pipeline.state);
         }
 
-        if pipeline.state == PipelineState::Pending || pipeline.state == PipelineState::SpecReview {
-            let result = self.spec_review(&mut pipeline)?;
+        // Run phases sequentially, propagating failures
+        self.run_spec_review_phase(&mut pipeline)?;
+        self.run_universe_setup_phase(&mut pipeline)?;
+        self.run_agent_development_phase(&mut pipeline)?;
+        self.run_validation_phase(pipeline_id, &mut pipeline)
+    }
+
+    fn run_spec_review_phase(
+        &mut self,
+        pipeline: &mut Pipeline,
+    ) -> Result<PhaseResult, PhaseError> {
+        if pipeline.state != PipelineState::Pending && pipeline.state != PipelineState::SpecReview {
+            return Ok(PhaseResult {
+                success: true,
+                message: "Skipped".to_string(),
+                quality_score: None,
+                scenario_results: vec![],
+            });
+        }
+
+        let result = self
+            .spec_review(pipeline)
+            .map_err(|e| PhaseError::SpecReviewFailed(e.to_string()))?;
+
+        if result.success {
+            Ok(result)
+        } else {
+            self.handle_spec_failure(&pipeline.id, result.message)
+        }
+    }
+
+    fn run_universe_setup_phase(
+        &mut self,
+        pipeline: &mut Pipeline,
+    ) -> Result<PhaseResult, PhaseError> {
+        if pipeline.state != PipelineState::UniverseSetup {
+            return Ok(PhaseResult {
+                success: true,
+                message: "Skipped".to_string(),
+                quality_score: None,
+                scenario_results: vec![],
+            });
+        }
+
+        let result = self
+            .universe_setup(pipeline)
+            .map_err(|e| PhaseError::SetupFailed(e.to_string()))?;
+
+        if result.success {
+            Ok(result)
+        } else {
+            self.handle_setup_failure(&pipeline.id, result.message)
+        }
+    }
+
+    fn run_agent_development_phase(
+        &mut self,
+        pipeline: &mut Pipeline,
+    ) -> Result<Decision, PhaseError> {
+        while pipeline.state == PipelineState::AgentDevelopment {
+            let result = self
+                .agent_development(pipeline)
+                .map_err(|e| PhaseError::DevelopmentFailed(e.to_string()))?;
+
             if !result.success {
-                return Ok(self.handle_spec_failure(pipeline_id, result.message));
+                return self.handle_dev_failure(&pipeline.id, result.message);
             }
         }
+        Ok(Decision::Accept)
+    }
 
-        if pipeline.state == PipelineState::UniverseSetup {
-            let result = self.universe_setup(&mut pipeline)?;
-            if !result.success {
-                return Ok(self.handle_setup_failure(pipeline_id, result.message));
+    fn run_validation_phase(
+        &mut self,
+        pipeline_id: &PipelineId,
+        pipeline: &mut Pipeline,
+    ) -> Result<Decision, PhaseError> {
+        while pipeline.state == PipelineState::Validation {
+            let (decision, _result) = self
+                .validation(pipeline)
+                .map_err(|e| PhaseError::ValidationFailed(e.to_string()))?;
+
+            let continue_loop = self.handle_validation_decision(pipeline_id, pipeline, decision)?;
+            if continue_loop {
+                continue;
             }
+            return Ok(decision);
         }
 
-        while pipeline.state == PipelineState::AgentDevelopment
-            || pipeline.state == PipelineState::Validation
-        {
-            if pipeline.state == PipelineState::AgentDevelopment {
-                let result = self.agent_development(&mut pipeline)?;
-                if !result.success {
-                    return Ok(self.handle_dev_failure(pipeline_id, result.message));
-                }
+        self.get_final_decision(pipeline_id)
+    }
+
+    fn handle_validation_decision(
+        &mut self,
+        pipeline_id: &PipelineId,
+        pipeline: &mut Pipeline,
+        decision: Decision,
+    ) -> Result<bool, PhaseError> {
+        match decision {
+            Decision::Accept => {
+                self.finalize_acceptance(pipeline_id)
+                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                Ok(false)
             }
-
-            if pipeline.state == PipelineState::Validation {
-                let (decision, _result) = self.validation(&mut pipeline)?;
-
-                match decision {
-                    Decision::Accept => {
-                        self.finalize_acceptance(pipeline_id)?;
-                        return Ok(Decision::Accept);
-                    }
-                    Decision::Retry if pipeline.can_iterate() => {
-                        pipeline.iteration += 1;
-                        self.store.update(pipeline.clone())?;
-                        info!(
-                            "Retrying agent development, iteration {}",
-                            pipeline.iteration
-                        );
-                    }
-                    Decision::Retry => {
-                        warn!("Max iterations reached, escalating");
-                        self.escalate(pipeline_id, "Max iterations reached")?;
-                        return Ok(Decision::Escalate);
-                    }
-                    Decision::Escalate => {
-                        self.escalate(pipeline_id, "Validation escalated")?;
-                        return Ok(Decision::Escalate);
-                    }
-                    Decision::Fail => {
-                        self.fail(pipeline_id, "Validation failed")?;
-                        return Ok(Decision::Fail);
-                    }
-                }
+            Decision::Retry if pipeline.can_iterate() => {
+                pipeline.iteration += 1;
+                self.store
+                    .update(pipeline.clone())
+                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                info!(
+                    "Retrying agent development, iteration {}",
+                    pipeline.iteration
+                );
+                Ok(true)
+            }
+            Decision::Retry => {
+                warn!("Max iterations reached, escalating");
+                self.escalate(pipeline_id, "Max iterations reached")
+                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                Ok(false)
+            }
+            Decision::Escalate => {
+                self.escalate(pipeline_id, "Validation escalated")
+                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                Ok(false)
+            }
+            Decision::Fail => {
+                self.fail(pipeline_id, "Validation failed")
+                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                Ok(false)
             }
         }
+    }
 
-        match pipeline.state {
+    fn get_final_decision(&self, pipeline_id: &PipelineId) -> Result<Decision, PhaseError> {
+        let final_pipeline = self
+            .store
+            .get(pipeline_id)
+            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+        match final_pipeline.state {
             PipelineState::Accepted => Ok(Decision::Accept),
             PipelineState::Escalated => Ok(Decision::Escalate),
             PipelineState::Failed => Ok(Decision::Fail),
             _ => {
-                error!("Unexpected terminal state: {:?}", pipeline.state);
+                error!("Unexpected terminal state: {:?}", final_pipeline.state);
                 Ok(Decision::Fail)
             }
         }
@@ -218,17 +331,9 @@ impl PipelineExecutor {
         info!("Running spec review for: {}", pipeline.spec_path);
 
         pipeline.transition_to(PipelineState::SpecReview)?;
-
         let quality_score = self.run_linter(&pipeline.spec_path);
 
-        let duration = Utc::now().signed_duration_since(start);
-        self.metrics.record_phase(PhaseMetrics {
-            pipeline_id: pipeline.id.0.clone(),
-            phase: "spec_review".to_string(),
-            started_at: start,
-            duration_secs: duration.num_seconds() as f64,
-            success: quality_score >= pipeline.quality_threshold,
-        });
+        self.record_spec_review_metrics(pipeline, start, quality_score);
 
         if quality_score >= pipeline.quality_threshold {
             pipeline.transition_to(PipelineState::UniverseSetup)?;
@@ -250,6 +355,22 @@ impl PipelineExecutor {
                 scenario_results: vec![],
             })
         }
+    }
+
+    fn record_spec_review_metrics(
+        &self,
+        pipeline: &Pipeline,
+        start: DateTime<Utc>,
+        quality_score: u32,
+    ) {
+        let duration = Utc::now().signed_duration_since(start);
+        self.metrics.record_phase(PhaseMetrics {
+            pipeline_id: pipeline.id.0.clone(),
+            phase: "spec_review".to_string(),
+            started_at: start,
+            duration_secs: duration.num_seconds() as f64,
+            success: quality_score >= pipeline.quality_threshold,
+        });
     }
 
     #[must_use]
@@ -394,58 +515,118 @@ impl PipelineExecutor {
         }
     }
 
-    fn handle_spec_failure(&mut self, id: &crate::state::PipelineId, message: String) -> Decision {
+    /// Handle spec review failure - cleanup FIRST, then persist state
+    fn handle_spec_failure(
+        &mut self,
+        id: &PipelineId,
+        message: String,
+    ) -> Result<PhaseResult, PhaseError> {
         error!("Spec review failed: {message}");
+
+        // Fetch pipeline for cleanup
+        let pipeline = self
+            .store
+            .get(id)
+            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .clone();
+
+        // D2 FIX: Cleanup FIRST, then persist state after (Q4 violation fix)
+        self.cleanup_after_failure(&pipeline)
+            .map_err(|e| PhaseError::CleanupFailed(e.to_string()))?;
+
+        // Now persist state after cleanup completes
         let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
             let _ = p.transition_to(PipelineState::Failed);
-            p.set_error(message);
+            p.set_error(message.clone());
             p.clone()
         });
         if let Some(pipeline) = pipeline_opt {
-            let _ = self.store.update(pipeline);
+            self.store
+                .update(pipeline)
+                .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
         }
-        // Invoke cleanup for failed phase
-        let _ = self.cleanup_after_failure(id);
-        Decision::Fail
+
+        Ok(PhaseResult {
+            success: false,
+            message,
+            quality_score: None,
+            scenario_results: vec![],
+        })
     }
 
-    fn handle_setup_failure(&mut self, id: &crate::state::PipelineId, message: String) -> Decision {
+    /// Handle universe setup failure - cleanup + rollback FIRST, then persist
+    fn handle_setup_failure(
+        &mut self,
+        id: &PipelineId,
+        message: String,
+    ) -> Result<PhaseResult, PhaseError> {
         error!("Universe setup failed: {message}");
-        let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
-            let _ = p.transition_to(PipelineState::Escalated);
-            p.set_error(message);
-            p.clone()
-        });
-        if let Some(pipeline) = pipeline_opt {
-            let _ = self.store.update(pipeline);
-        }
-        // Invoke cleanup + rollback for failed phase
-        let _ = self.cleanup_after_failure(id);
-        if let Ok(pipeline) = self.store.get(id) {
-            let _ = self.rollback_phase(pipeline, PhaseType::UniverseSetup);
-        }
-        Decision::Escalate
+        self.perform_failure_handling(id, message, PhaseType::UniverseSetup)
     }
 
-    fn handle_dev_failure(&mut self, id: &crate::state::PipelineId, message: String) -> Decision {
+    /// Handle agent development failure - cleanup + rollback FIRST, then persist
+    fn handle_dev_failure(
+        &mut self,
+        id: &PipelineId,
+        message: String,
+    ) -> Result<Decision, PhaseError> {
         error!("Agent development failed: {message}");
+        self.perform_failure_handling(id, message, PhaseType::AgentDevelopment)
+            .map(|result| Decision::Escalate)
+    }
+
+    /// Common failure handling: cleanup, rollback, persist
+    fn perform_failure_handling(
+        &mut self,
+        id: &PipelineId,
+        message: String,
+        phase: PhaseType,
+    ) -> Result<PhaseResult, PhaseError> {
+        // Fetch pipeline for cleanup
+        let pipeline = self
+            .store
+            .get(id)
+            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .clone();
+
+        // Cleanup FIRST
+        self.cleanup_after_failure(&pipeline)
+            .map_err(|e| PhaseError::CleanupFailed(e.to_string()))?;
+
+        // Propagate rollback error instead of ignoring
+        self.rollback_phase(&pipeline, phase)
+            .map_err(|e| PhaseError::CleanupFailed(e.to_string()))?;
+
+        // Persist state after cleanup completes
+        self.persist_failure_state(id, message.clone())?;
+
+        Ok(PhaseResult {
+            success: false,
+            message,
+            quality_score: None,
+            scenario_results: vec![],
+        })
+    }
+
+    fn persist_failure_state(
+        &mut self,
+        id: &PipelineId,
+        message: String,
+    ) -> Result<(), PhaseError> {
         let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
             let _ = p.transition_to(PipelineState::Escalated);
             p.set_error(message);
             p.clone()
         });
         if let Some(pipeline) = pipeline_opt {
-            let _ = self.store.update(pipeline);
+            self.store
+                .update(pipeline)
+                .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
         }
-        // Invoke cleanup + rollback for failed phase
-        let _ = self.cleanup_after_failure(id);
-        if let Ok(pipeline) = self.store.get(id) {
-            let _ = self.rollback_phase(pipeline, PhaseType::AgentDevelopment);
-        }
-        Decision::Escalate
+        Ok(())
     }
 
-    fn finalize_acceptance(&mut self, id: &crate::state::PipelineId) -> Result<()> {
+    fn finalize_acceptance(&mut self, id: &PipelineId) -> Result<()> {
         let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
             let _ = p.transition_to(PipelineState::Accepted);
             p.clone()
@@ -492,8 +673,11 @@ impl PipelineExecutor {
             .collect()
     }
 
-    pub fn recover_pipeline(&mut self, pipeline_id: &crate::state::PipelineId) -> Result<Decision> {
-        let pipeline = self.store.get(pipeline_id)?;
+    pub fn recover_pipeline(&mut self, pipeline_id: &PipelineId) -> Result<Decision, PhaseError> {
+        let pipeline = self
+            .store
+            .get(pipeline_id)
+            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
 
         if pipeline.state.is_terminal() {
             info!("Pipeline {} already in terminal state", pipeline_id.0);

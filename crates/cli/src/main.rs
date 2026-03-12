@@ -359,30 +359,50 @@ enum TaskCommands {
     Show {
         /// Task ID
         task_id: String,
+
+        /// User performing the action
+        #[arg(long, default_value = "current-user")]
+        user: String,
     },
 
     /// Claim a task (assign to self)
     Claim {
         /// Task ID
         task_id: String,
+
+        /// User performing the action
+        #[arg(long, default_value = "current-user")]
+        user: String,
     },
 
     /// Yield a task (release assignment)
     Yield {
         /// Task ID
         task_id: String,
+
+        /// User performing the action
+        #[arg(long, default_value = "current-user")]
+        user: String,
     },
 
     /// Start working on a task
     Start {
         /// Task ID
         task_id: String,
+
+        /// User performing the action
+        #[arg(long, default_value = "current-user")]
+        user: String,
     },
 
     /// Complete a task
     Done {
         /// Task ID
         task_id: String,
+
+        /// User performing the action
+        #[arg(long, default_value = "current-user")]
+        user: String,
     },
 }
 
@@ -608,11 +628,11 @@ fn run_command(cli: Cli) -> Result<()> {
 
         Commands::Task { command } => match command {
             TaskCommands::List {} => commands::task::list(),
-            TaskCommands::Show { task_id } => commands::task::show(&task_id),
-            TaskCommands::Claim { task_id } => commands::task::claim(&task_id),
-            TaskCommands::Yield { task_id } => commands::task::yield_task(&task_id),
-            TaskCommands::Start { task_id } => commands::task::start(&task_id),
-            TaskCommands::Done { task_id } => commands::task::done(&task_id),
+            TaskCommands::Show { task_id, user } => commands::task::show(&task_id, &user),
+            TaskCommands::Claim { task_id, user } => commands::task::claim(&task_id, &user),
+            TaskCommands::Yield { task_id, user } => commands::task::yield_task(&task_id, &user),
+            TaskCommands::Start { task_id, user } => commands::task::start(&task_id, &user),
+            TaskCommands::Done { task_id, user } => commands::task::done(&task_id, &user),
         },
 
         Commands::Config { command } => match command {

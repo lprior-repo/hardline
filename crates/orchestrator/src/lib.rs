@@ -16,6 +16,7 @@ pub mod cleanup;
 pub mod metrics;
 pub mod persistence;
 pub mod phases;
+pub mod policies;
 pub mod state;
 
 pub use cleanup::{
@@ -24,5 +25,9 @@ pub use cleanup::{
 };
 pub use metrics::{Metrics, PhaseMetrics, ScenarioResult};
 pub use persistence::StateStore;
-pub use phases::PipelineExecutor;
+pub use phases::{PhaseError, PipelineExecutor};
+pub use policies::{
+    CircuitBreaker, CircuitBreakerState, ConfigError, Deadline, OrchestratorError, PhaseTimeout,
+    PolicyConfig, RetryPolicy,
+};
 pub use state::{Pipeline, PipelineId, PipelineState};

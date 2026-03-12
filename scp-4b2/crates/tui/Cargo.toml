@@ -1,0 +1,18 @@
+[package]
+name = "scp-tui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+scp-core = { path = "../core" }
+scp-stack = { path = "../stack" }
+scp-snapshot = { path = "../snapshot" }
+ratatui = "0.28"
+crossterm = "0.28"
+tokio.workspace = true
+anyhow.workspace = true
+thiserror = "2.0"
+
+[dev-dependencies]
+insta.workspace = true

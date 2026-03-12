@@ -85,21 +85,27 @@ pub enum CleanupError {
     RollbackFailed(String),
 }
 
+/// Status of cleanup operation
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CleanupStatus {
+    Success,
+    Failed(Vec<String>),
+}
+
 /// Result of cleanup operation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CleanupResult {
-    pub success: bool,
+    pub status: CleanupStatus,
     pub cleaned_resources: Vec<ResourceId>,
-    pub errors: Vec<String>,
 }
 
 impl CleanupResult {
     #[must_use]
     pub fn success() -> Self {
         Self {
-            success: true,
+            status: CleanupStatus::Success,
             cleaned_resources: Vec::new(),
-            errors: Vec::new(),
         }
     }
 
@@ -111,9 +117,30 @@ impl CleanupResult {
 
     #[must_use]
     pub fn with_error(mut self, error: String) -> Self {
-        self.errors.push(error);
-        self.success = false;
+        let errors = match &mut self.status {
+            CleanupStatus::Success => {
+                vec![error]
+            }
+            CleanupStatus::Failed(errs) => {
+                errs.push(error);
+                errs.clone()
+            }
+        };
+        self.status = CleanupStatus::Failed(errors);
         self
+    }
+
+    #[must_use]
+    pub fn success_flag(&self) -> bool {
+        matches!(self.status, CleanupStatus::Success)
+    }
+
+    #[must_use]
+    pub fn errors(&self) -> Vec<String> {
+        match &self.status {
+            CleanupStatus::Success => Vec::new(),
+            CleanupStatus::Failed(errs) => errs.clone(),
+        }
     }
 }
 

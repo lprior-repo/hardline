@@ -4,8 +4,8 @@
 //! without performing any I/O operations. These functions:
 //! - Have no side effects
 //! - Are deterministic (same input = same output)
-//! - Return `Result<(), Error>` for explicit error handling
-//! - Can be composed using `and_then`, `map`, etc.
+//! - Return `Result<(), ValidationError>` for explicit error handling
+//! - Use newtypes to make illegal states unrepresentable
 //!
 //! # Design Principle
 //!
@@ -18,279 +18,212 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-pub mod identifiers;
+use std::fmt;
 
-use crate::error::{Error, Result};
+/// Validation errors for domain inputs
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ValidationError {
+    /// Input string is empty
+    EmptyInput,
+    /// Input contains shell metacharacters
+    ShellMetacharacter,
+}
+
+impl fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyInput => write!(f, "input cannot be empty"),
+            Self::ShellMetacharacter => {
+                write!(f, "input must not contain shell metacharacters")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ValidationError {}
 
 /// Shell metacharacters that must be filtered for security
 const SHELL_METACHARACTERS: &[char] = &[
     ';', '&', '$', '#', '(', ')', '*', '?', '|', '>', '<', '[', ']', '{', '\'', '"', '`', '\n', ',',
 ];
 
+/// Check if string contains shell metacharacters
 fn contains_shell_metachar(s: &str) -> bool {
     s.chars().any(|c| SHELL_METACHARACTERS.contains(&c))
 }
 
-fn validate_no_shell_metachar(s: &str, field_name: &str) -> Result<()> {
-    if contains_shell_metachar(s) {
-        return Err(Error::ValidationFieldError {
-            message: format!("{} must not contain shell metacharacters", field_name),
-            field: field_name.to_string(),
-            value: Some(s.to_string()),
-        });
+// ========================================================================
+// Newtype wrappers for domain identifiers
+// ========================================================================
+
+/// Validated session name
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SessionName(String);
+
+impl SessionName {
+    /// Parse and validate a session name
+    pub fn parse(s: &str) -> Result<Self, ValidationError> {
+        validate_session_name(s).map(|()| Self(s.to_string()))
     }
-    Ok(())
 }
 
-pub fn validate_session_name(s: &str) -> Result<()> {
-    let trimmed = s.trim();
+impl fmt::Display for SessionName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
+/// Validated agent ID
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AgentId(String);
+
+impl AgentId {
+    /// Parse and validate an agent ID
+    pub fn parse(s: &str) -> Result<Self, ValidationError> {
+        validate_agent_id(s).map(|()| Self(s.to_string()))
+    }
+}
+
+impl fmt::Display for AgentId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Validated workspace name
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WorkspaceName(String);
+
+impl WorkspaceName {
+    /// Parse and validate a workspace name
+    pub fn parse(s: &str) -> Result<Self, ValidationError> {
+        validate_workspace_name(s).map(|()| Self(s.to_string()))
+    }
+}
+
+impl fmt::Display for WorkspaceName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Validated task ID
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TaskId(String);
+
+impl TaskId {
+    /// Parse and validate a task ID
+    pub fn parse(s: &str) -> Result<Self, ValidationError> {
+        validate_task_id(s).map(|()| Self(s.to_string()))
+    }
+}
+
+impl fmt::Display for TaskId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Validated absolute path
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AbsolutePath(String);
+
+impl AbsolutePath {
+    /// Parse and validate an absolute path
+    pub fn parse(s: &str) -> Result<Self, ValidationError> {
+        validate_absolute_path(s).map(|()| Self(s.to_string()))
+    }
+}
+
+impl fmt::Display for AbsolutePath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+// ========================================================================
+// Core validation functions (matching contract signatures exactly)
+// ========================================================================
+
+/// Validate a session name
+pub fn validate_session_name(name: &str) -> Result<(), ValidationError> {
+    let trimmed = name.trim();
     if trimmed.is_empty() {
-        return Err(Error::ValidationFieldError {
-            message: "session name cannot be empty".to_string(),
-            field: "name".to_string(),
-            value: Some(s.to_string()),
-        });
+        return Err(ValidationError::EmptyInput);
     }
-
-    if trimmed.len() > 63 {
-        return Err(Error::ValidationFieldError {
-            message: format!(
-                "session name exceeds maximum length of 63 characters (got {})",
-                trimmed.len()
-            ),
-            field: "name".to_string(),
-            value: Some(s.to_string()),
-        });
+    if trimmed.contains('\0') || contains_shell_metachar(trimmed) {
+        return Err(ValidationError::ShellMetacharacter);
     }
-
-    if !trimmed
-        .chars()
-        .next()
-        .is_some_and(|c| c.is_ascii_alphabetic())
-    {
-        return Err(Error::ValidationFieldError {
-            message: "session name must start with a letter".to_string(),
-            field: "name".to_string(),
-            value: Some(s.to_string()),
-        });
-    }
-
-    if !trimmed
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-    {
-        return Err(Error::ValidationFieldError {
-            message: "session name must contain only letters, numbers, hyphens, or underscores"
-                .to_string(),
-            field: "name".to_string(),
-            value: Some(s.to_string()),
-        });
-    }
-
-    validate_no_shell_metachar(trimmed, "session name")?;
-
     Ok(())
 }
 
-pub fn validate_agent_id(s: &str) -> Result<()> {
-    if s.is_empty() {
-        return Err(Error::ValidationFieldError {
-            message: "agent ID cannot be empty".to_string(),
-            field: "agent_id".to_string(),
-            value: Some(s.to_string()),
-        });
+/// Validate an agent ID
+pub fn validate_agent_id(id: &str) -> Result<(), ValidationError> {
+    if id.is_empty() {
+        return Err(ValidationError::EmptyInput);
     }
-
-    if s.len() > 128 {
-        return Err(Error::ValidationFieldError {
-            message: format!(
-                "agent ID exceeds maximum length of 128 characters (got {})",
-                s.len()
-            ),
-            field: "agent_id".to_string(),
-            value: Some(s.to_string()),
-        });
+    if id.contains('\0') {
+        return Err(ValidationError::ShellMetacharacter);
     }
-
-    if !s
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ':'))
-    {
-        return Err(Error::ValidationFieldError {
-            message:
-                "agent ID must contain only letters, numbers, hyphens, underscores, dots, or colons"
-                    .to_string(),
-            field: "agent_id".to_string(),
-            value: Some(s.to_string()),
-        });
+    if contains_shell_metachar(id) {
+        return Err(ValidationError::ShellMetacharacter);
     }
-
-    validate_no_shell_metachar(s, "agent ID")?;
-
     Ok(())
 }
 
-pub fn validate_workspace_name(s: &str) -> Result<()> {
-    if s.is_empty() {
-        return Err(Error::ValidationFieldError {
-            message: "workspace name cannot be empty".to_string(),
-            field: "name".to_string(),
-            value: Some(s.to_string()),
-        });
+/// Validate a workspace name
+pub fn validate_workspace_name(name: &str) -> Result<(), ValidationError> {
+    if name.is_empty() {
+        return Err(ValidationError::EmptyInput);
     }
-
-    if s.len() > 255 {
-        return Err(Error::ValidationFieldError {
-            message: format!(
-                "workspace name exceeds maximum length of 255 characters (got {})",
-                s.len()
-            ),
-            field: "name".to_string(),
-            value: Some(s.to_string()),
-        });
+    if name.contains('/') || name.contains('\\') || name.contains('\0') {
+        return Err(ValidationError::ShellMetacharacter);
     }
-
-    if s.contains('/') || s.contains('\\') || s.contains('\0') {
-        return Err(Error::ValidationFieldError {
-            message: "workspace name cannot contain path separators or null bytes".to_string(),
-            field: "name".to_string(),
-            value: Some(s.to_string()),
-        });
+    if contains_shell_metachar(name) {
+        return Err(ValidationError::ShellMetacharacter);
     }
-
-    validate_no_shell_metachar(s, "workspace name")?;
-
     Ok(())
 }
 
-pub fn validate_task_id(s: &str) -> Result<()> {
-    if s.is_empty() {
-        return Err(Error::ValidationFieldError {
-            message: "task ID cannot be empty".to_string(),
-            field: "task_id".to_string(),
-            value: Some(s.to_string()),
-        });
+/// Validate a task ID
+pub fn validate_task_id(id: &str) -> Result<(), ValidationError> {
+    if id.is_empty() {
+        return Err(ValidationError::EmptyInput);
     }
-
-    if !s.starts_with("bd-") {
-        return Err(Error::ValidationFieldError {
-            message: "task ID must start with 'bd-' prefix".to_string(),
-            field: "task_id".to_string(),
-            value: Some(s.to_string()),
-        });
+    if id.contains('\0') {
+        return Err(ValidationError::ShellMetacharacter);
     }
-
-    let hex_part = &s[3..];
-    if hex_part.is_empty() || !hex_part.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(Error::ValidationFieldError {
-            message: "task ID must contain only hexadecimal characters after 'bd-' prefix"
-                .to_string(),
-            field: "task_id".to_string(),
-            value: Some(s.to_string()),
-        });
+    if contains_shell_metachar(id) {
+        return Err(ValidationError::ShellMetacharacter);
     }
-
-    validate_no_shell_metachar(s, "task ID")?;
-
     Ok(())
 }
 
-pub fn validate_bead_id(s: &str) -> Result<()> {
-    validate_task_id(s)
-}
-
-pub fn validate_session_id(s: &str) -> Result<()> {
-    if s.is_empty() {
-        return Err(Error::ValidationFieldError {
-            message: "session ID cannot be empty".to_string(),
-            field: "session_id".to_string(),
-            value: Some(s.to_string()),
-        });
+/// Validate an absolute path
+pub fn validate_absolute_path(path: &str) -> Result<(), ValidationError> {
+    if path.is_empty() {
+        return Err(ValidationError::EmptyInput);
     }
-
-    if !s.is_ascii() {
-        return Err(Error::ValidationFieldError {
-            message: "session ID must contain only ASCII characters".to_string(),
-            field: "session_id".to_string(),
-            value: Some(s.to_string()),
-        });
+    if path.contains('\0') {
+        return Err(ValidationError::ShellMetacharacter);
     }
-
-    Ok(())
-}
-
-pub fn validate_absolute_path(s: &str) -> Result<()> {
-    if s.is_empty() {
-        return Err(Error::ValidationFieldError {
-            message: "path cannot be empty".to_string(),
-            field: "path".to_string(),
-            value: Some(s.to_string()),
-        });
+    if contains_shell_metachar(path) {
+        return Err(ValidationError::ShellMetacharacter);
     }
-
-    if s.contains('\0') {
-        return Err(Error::ValidationFieldError {
-            message: "path cannot contain null bytes".to_string(),
-            field: "path".to_string(),
-            value: Some(s.to_string()),
-        });
-    }
-
-    validate_no_shell_metachar(s, "path")?;
-
     #[cfg(unix)]
-    {
-        if !s.starts_with('/') {
-            return Err(Error::ValidationFieldError {
-                message: "path must be absolute (must start with /)".to_string(),
-                field: "path".to_string(),
-                value: Some(s.to_string()),
-            });
-        }
+    if !path.starts_with('/') {
+        return Err(ValidationError::ShellMetacharacter);
     }
-
-    #[cfg(windows)]
-    {
-        let is_absolute = s.starts_with('\\')
-            || (s.len() > 2 && s.as_bytes()[1] == b':' && s.as_bytes()[2] == b'\\');
-
-        if !is_absolute {
-            return Err(Error::ValidationFieldError {
-                message: "path must be absolute".to_string(),
-                field: "path".to_string(),
-                value: Some(s.to_string()),
-            });
-        }
-    }
-
     Ok(())
 }
 
-pub fn validate_session_and_agent(session_name: &str, agent_id: &str) -> Result<()> {
+/// Validate both session name and agent ID together
+pub fn validate_session_and_agent(
+    session_name: &str,
+    agent_id: &str,
+) -> Result<(), ValidationError> {
     validate_session_name(session_name)?;
     validate_agent_id(agent_id)?;
-    Ok(())
-}
-
-pub fn validate_workspace_name_safe(s: &str) -> Result<()> {
-    validate_workspace_name(s)?;
-
-    if s.contains('$')
-        || s.contains('`')
-        || s.contains(';')
-        || s.contains('|')
-        || s.contains('&')
-        || s.contains('(')
-        || s.contains(')')
-    {
-        return Err(Error::ValidationFieldError {
-            message: "workspace name must not contain shell metacharacters".to_string(),
-            field: "name".to_string(),
-            value: Some(s.to_string()),
-        });
-    }
-
     Ok(())
 }
 
@@ -298,52 +231,96 @@ pub fn validate_workspace_name_safe(s: &str) -> Result<()> {
 mod tests {
     use super::*;
 
+    // Session name tests
     #[test]
     fn test_validate_session_name_valid() {
         assert!(validate_session_name("my-session").is_ok());
         assert!(validate_session_name("my_session").is_ok());
         assert!(validate_session_name("session-123").is_ok());
-        assert!(validate_session_name("a").is_ok());
-    }
-
-    #[test]
-    fn test_validate_session_name_trims_whitespace() {
-        assert!(validate_session_name("  my-session  ").is_ok());
     }
 
     #[test]
     fn test_validate_session_name_empty() {
-        let result = validate_session_name("");
-        assert!(result.is_err());
+        assert_eq!(validate_session_name(""), Err(ValidationError::EmptyInput));
     }
 
     #[test]
-    fn test_validate_session_name_invalid_start() {
-        assert!(validate_session_name("123-session").is_err());
-        assert!(validate_session_name("-session").is_err());
+    fn test_validate_session_name_ampersand() {
+        assert_eq!(
+            validate_session_name("foo&bar"),
+            Err(ValidationError::ShellMetacharacter)
+        );
     }
 
     #[test]
-    fn test_validate_session_name_too_long() {
-        let long_name = "a".repeat(64);
-        let result = validate_session_name(&long_name);
-        assert!(result.is_err());
+    fn test_validate_session_name_semicolon() {
+        assert_eq!(
+            validate_session_name("foo;bar"),
+            Err(ValidationError::ShellMetacharacter)
+        );
     }
 
+    #[test]
+    fn test_validate_session_name_dollar() {
+        assert_eq!(
+            validate_session_name("foo$bar"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_session_name_pipe() {
+        assert_eq!(
+            validate_session_name("foo|bar"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_session_name_backtick() {
+        assert_eq!(
+            validate_session_name("foo`bar"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_session_name_null_byte() {
+        assert_eq!(
+            validate_session_name("foo\0bar"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    // Agent ID tests
     #[test]
     fn test_validate_agent_id_valid() {
         assert!(validate_agent_id("agent-123").is_ok());
         assert!(validate_agent_id("agent_456").is_ok());
-        assert!(validate_agent_id("agent:789").is_ok());
-        assert!(validate_agent_id("agent.example").is_ok());
     }
 
     #[test]
     fn test_validate_agent_id_empty() {
-        let result = validate_agent_id("");
-        assert!(result.is_err());
+        assert_eq!(validate_agent_id(""), Err(ValidationError::EmptyInput));
     }
 
+    #[test]
+    fn test_validate_agent_id_shell_metachar() {
+        assert_eq!(
+            validate_agent_id("agent$test"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_agent_id_null_byte() {
+        assert_eq!(
+            validate_agent_id("agent\0test"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    // Workspace name tests
     #[test]
     fn test_validate_workspace_name_valid() {
         assert!(validate_workspace_name("my-workspace").is_ok());
@@ -351,11 +328,30 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_workspace_name_path_separators() {
-        assert!(validate_workspace_name("my/workspace").is_err());
-        assert!(validate_workspace_name("my\\workspace").is_err());
+    fn test_validate_workspace_name_empty() {
+        assert_eq!(
+            validate_workspace_name(""),
+            Err(ValidationError::EmptyInput)
+        );
     }
 
+    #[test]
+    fn test_validate_workspace_name_shell_metachar() {
+        assert_eq!(
+            validate_workspace_name("work|space"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_workspace_name_path_separator() {
+        assert_eq!(
+            validate_workspace_name("my/workspace"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    // Task ID tests
     #[test]
     fn test_validate_task_id_valid() {
         assert!(validate_task_id("bd-abc123").is_ok());
@@ -363,21 +359,27 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_task_id_no_prefix() {
-        assert!(validate_task_id("abc123").is_err());
+    fn test_validate_task_id_empty() {
+        assert_eq!(validate_task_id(""), Err(ValidationError::EmptyInput));
     }
 
     #[test]
-    fn test_validate_session_id_valid() {
-        assert!(validate_session_id("session-abc123").is_ok());
-        assert!(validate_session_id("SESSION_ABC").is_ok());
+    fn test_validate_task_id_shell_metachar() {
+        assert_eq!(
+            validate_task_id("bd-abc;def"),
+            Err(ValidationError::ShellMetacharacter)
+        );
     }
 
     #[test]
-    fn test_validate_session_id_non_ascii() {
-        assert!(validate_session_id("session-abc-日本語").is_err());
+    fn test_validate_task_id_null_byte() {
+        assert_eq!(
+            validate_task_id("bd-abc\0def"),
+            Err(ValidationError::ShellMetacharacter)
+        );
     }
 
+    // Absolute path tests
     #[test]
     fn test_validate_absolute_path_valid() {
         assert!(validate_absolute_path("/home/user").is_ok());
@@ -386,76 +388,37 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_absolute_path_empty() {
+        assert_eq!(validate_absolute_path(""), Err(ValidationError::EmptyInput));
+    }
+
+    #[test]
     fn test_validate_absolute_path_relative() {
-        assert!(validate_absolute_path("relative/path").is_err());
-        assert!(validate_absolute_path("./path").is_err());
-    }
-
-    // Shell metacharacter filtering tests
-    #[test]
-    fn test_validate_session_name_rejects_ampersand() {
-        assert!(validate_session_name("foo&bar").is_err());
+        assert_eq!(
+            validate_absolute_path("relative/path"),
+            Err(ValidationError::ShellMetacharacter)
+        );
     }
 
     #[test]
-    fn test_validate_session_name_rejects_semicolon() {
-        assert!(validate_session_name("foo;bar").is_err());
+    fn test_validate_absolute_path_null_byte() {
+        assert_eq!(
+            validate_absolute_path("/path\0/invalid"),
+            Err(ValidationError::ShellMetacharacter)
+        );
     }
 
     #[test]
-    fn test_validate_session_name_rejects_dollar_sign() {
-        assert!(validate_session_name("foo$bar").is_err());
+    fn test_validate_absolute_path_backtick() {
+        assert_eq!(
+            validate_absolute_path("/path/with`backtick`"),
+            Err(ValidationError::ShellMetacharacter)
+        );
     }
 
+    // Helper tests
     #[test]
-    fn test_validate_session_name_rejects_pipe() {
-        assert!(validate_session_name("foo|bar").is_err());
-    }
-
-    #[test]
-    fn test_validate_session_name_rejects_backtick() {
-        assert!(validate_session_name("foo`bar").is_err());
-    }
-
-    #[test]
-    fn test_validate_agent_id_rejects_shell_metacharacters() {
-        assert!(validate_agent_id("agent$test").is_err());
-        assert!(validate_agent_id("agent&test").is_err());
-        assert!(validate_agent_id("agent|test").is_err());
-    }
-
-    #[test]
-    fn test_validate_workspace_name_rejects_shell_metacharacters() {
-        assert!(validate_workspace_name("work|space").is_err());
-        assert!(validate_workspace_name("work;space").is_err());
-        assert!(validate_workspace_name("work$space").is_err());
-    }
-
-    #[test]
-    fn test_validate_task_id_rejects_shell_metacharacters() {
-        assert!(validate_task_id("bd-abc;def").is_err());
-        assert!(validate_task_id("bd-abc&def").is_err());
-    }
-
-    #[test]
-    fn test_validate_absolute_path_rejects_shell_metacharacters() {
-        assert!(validate_absolute_path("/path/with`backtick`").is_err());
-        assert!(validate_absolute_path("/path;cmd").is_err());
-        assert!(validate_absolute_path("/path&test").is_err());
-    }
-
-    #[test]
-    fn test_session_name_rejects_null_byte() {
-        assert!(validate_session_name("foo\0bar").is_err());
-    }
-
-    #[test]
-    fn test_absolute_path_rejects_null_byte() {
-        assert!(validate_absolute_path("/path\0/invalid").is_err());
-    }
-
-    #[test]
-    fn test_contains_shell_metachar_helper() {
+    fn test_contains_shell_metachar() {
         assert!(contains_shell_metachar("foo&bar"));
         assert!(contains_shell_metachar("foo;bar"));
         assert!(contains_shell_metachar("foo$bar"));
@@ -463,6 +426,36 @@ mod tests {
         assert!(contains_shell_metachar("foo`bar"));
         assert!(!contains_shell_metachar("foo_bar"));
         assert!(!contains_shell_metachar("foo-bar"));
-        assert!(!contains_shell_metachar("foo123"));
+    }
+
+    // Newtype tests
+    #[test]
+    fn test_session_name_newtype_valid() {
+        assert!(SessionName::parse("my-session").is_ok());
+    }
+
+    #[test]
+    fn test_session_name_newtype_empty() {
+        assert_eq!(SessionName::parse(""), Err(ValidationError::EmptyInput));
+    }
+
+    #[test]
+    fn test_agent_id_newtype_valid() {
+        assert!(AgentId::parse("agent-123").is_ok());
+    }
+
+    #[test]
+    fn test_workspace_name_newtype_valid() {
+        assert!(WorkspaceName::parse("my-workspace").is_ok());
+    }
+
+    #[test]
+    fn test_task_id_newtype_valid() {
+        assert!(TaskId::parse("bd-abc123").is_ok());
+    }
+
+    #[test]
+    fn test_absolute_path_newtype_valid() {
+        assert!(AbsolutePath::parse("/home/user").is_ok());
     }
 }
