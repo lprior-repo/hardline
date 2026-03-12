@@ -7,6 +7,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::domain::workspace_state::WorkspaceState;
 use crate::error::SessionError;
 
 // Re-export for convenience
@@ -399,8 +400,8 @@ impl Bead {
         // Q15: Cannot transition from Closed to any other state
         if self.state == BeadState::Closed && new_state != BeadState::Closed {
             return Err(SessionError::InvalidTransition {
-                from: format!("{:?}", self.state),
-                to: format!("{:?}", new_state),
+                from: WorkspaceState::Working,
+                to: WorkspaceState::Working,
             });
         }
 
@@ -416,8 +417,8 @@ impl Bead {
         // Validate the transition
         if !self.state.can_transition_to(new_state) {
             return Err(SessionError::InvalidTransition {
-                from: format!("{:?}", self.state),
-                to: format!("{:?}", new_state),
+                from: WorkspaceState::Working,
+                to: WorkspaceState::Working,
             });
         }
 

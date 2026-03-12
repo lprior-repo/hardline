@@ -239,10 +239,12 @@ pub async fn insert_conflict_resolution(
         value: Some(resolution.decider.clone()),
     })?;
 
-    validate_non_empty(&resolution.file, "file").map_err(|e| crate::Error::ValidationFieldError {
-        message: format!("empty file path: {e}"),
-        field: "file".to_string(),
-        value: Some(resolution.file.clone()),
+    validate_non_empty(&resolution.file, "file").map_err(|e| {
+        crate::Error::ValidationFieldError {
+            message: format!("empty file path: {e}"),
+            field: "file".to_string(),
+            value: Some(resolution.file.clone()),
+        }
     })?;
 
     validate_non_empty(&resolution.strategy, "strategy").map_err(|e| {
@@ -537,17 +539,19 @@ impl From<ConflictResolutionError> for crate::Error {
             } => Self::Database(format!(
                 "Schema initialization failed for '{operation}': {source}"
             )),
-            ConflictResolutionError::InsertError { file, source, .. } => Self::Database(
-                format!("Failed to insert conflict resolution for '{file}': {source}"),
-            ),
+            ConflictResolutionError::InsertError { file, source, .. } => Self::Database(format!(
+                "Failed to insert conflict resolution for '{file}': {source}"
+            )),
             ConflictResolutionError::QueryError {
                 operation, source, ..
             } => Self::Database(format!("Failed to execute query '{operation}': {source}")),
-            ConflictResolutionError::InvalidDeciderError { decider, .. } => Self::ValidationFieldError {
-                message: format!("invalid decider '{decider}': must be 'ai' or 'human'"),
-                field: "decider".to_string(),
-                value: Some(decider),
-            },
+            ConflictResolutionError::InvalidDeciderError { decider, .. } => {
+                Self::ValidationFieldError {
+                    message: format!("invalid decider '{decider}': must be 'ai' or 'human'"),
+                    field: "decider".to_string(),
+                    value: Some(decider),
+                }
+            }
             ConflictResolutionError::InvalidTimestampError { timestamp, .. } => {
                 Self::ValidationFieldError {
                     message: format!("invalid timestamp '{timestamp}': must be ISO 8601 format"),

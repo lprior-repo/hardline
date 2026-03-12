@@ -122,10 +122,12 @@ impl FileWatcher {
                 }
             },
         )
-        .map_err(|e| Error::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Failed to create file watcher: {e}"),
-        )))?;
+        .map_err(|e| {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to create file watcher: {e}"),
+            ))
+        })?;
 
         // Watch each workspace's beads database
         workspaces.iter().try_for_each(|workspace| {
@@ -290,25 +292,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_query_beads_status_with_database() -> Result<()> {
-        let temp_dir = TempDir::new()
-            .map_err(|e| Error::Io(std::io::Error::new(
+        let temp_dir = TempDir::new().map_err(|e| {
+            Error::Io(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to create temp dir: {e}"),
-            )))?;
+            ))
+        })?;
         let beads_dir = temp_dir.path().join(".beads");
-        fs::create_dir(&beads_dir)
-            .map_err(|e| Error::Io(std::io::Error::new(
+        fs::create_dir(&beads_dir).map_err(|e| {
+            Error::Io(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to create beads dir: {e}"),
-            )))?;
+            ))
+        })?;
 
         let db_path = beads_dir.join("beads.db");
-        let path_str = db_path
-            .to_str()
-            .ok_or_else(|| Error::Io(std::io::Error::new(
+        let path_str = db_path.to_str().ok_or_else(|| {
+            Error::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "Invalid UTF-8 in path".to_string(),
-            )))?;
+            ))
+        })?;
         let db_url = format!("sqlite:///{path_str}?mode=rwc");
         let pool = SqlitePool::connect(&db_url)
             .await
@@ -369,7 +373,9 @@ mod tests {
                 assert_eq!(blocked, 1);
                 assert_eq!(closed, 3);
             } else {
-                return Err(Error::InvalidState("Expected Counts, got NoBeads".to_string()));
+                return Err(Error::InvalidState(
+                    "Expected Counts, got NoBeads".to_string(),
+                ));
             }
         }
         Ok(())

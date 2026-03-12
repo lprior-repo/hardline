@@ -127,7 +127,11 @@ impl ChaosFs {
         std::fs::read_to_string(path)
     }
 
-    pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(&self, path: P, contents: C) -> std::io::Result<()> {
+    pub fn write<P: AsRef<Path>, C: AsRef<[u8]>>(
+        &self,
+        path: P,
+        contents: C,
+    ) -> std::io::Result<()> {
         self.injector.inject_io_error()?;
         std::fs::write(path, contents)
     }
@@ -241,7 +245,7 @@ mod tests {
     }
 
     struct DummyNetworkService;
-    
+
     #[async_trait::async_trait]
     impl NetworkService for DummyNetworkService {
         async fn fetch(&self, _url: &str) -> Result<String> {
@@ -281,7 +285,7 @@ mod tests {
         let start = std::time::Instant::now();
         let result = chaos_net.fetch("http://example.com").await;
         let duration = start.elapsed();
-        
+
         assert!(result.is_ok());
         assert!(duration >= Duration::from_millis(50));
     }

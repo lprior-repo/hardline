@@ -271,8 +271,7 @@ mod tests {
 
         let checkpoint_id: String = {
             let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
-            guard_result
-                .map_or_else(String::new, |g| g.id().to_string())
+            guard_result.map_or_else(String::new, |g| g.id().to_string())
         };
 
         if !checkpoint_id.is_empty() {

@@ -145,7 +145,7 @@ impl Session {
     }
 
     pub fn transition(&self, event: SessionEvent) -> Result<Self, SessionError> {
-        let current = self.state;
+        let current = &self.state;
         let new_state = match (current, event) {
             (SessionState::Created, SessionEvent::Activated) => SessionState::Active,
             (SessionState::Active, SessionEvent::Syncing) => SessionState::Syncing,
@@ -159,8 +159,8 @@ impl Session {
             (SessionState::Paused, SessionEvent::Failed) => SessionState::Failed,
             (a, b) => {
                 return Err(SessionError::InvalidSessionTransition {
-                    from: a,
-                    to: Self::next_state_for_error(a, b),
+                    from: a.clone(),
+                    to: Self::next_state_for_error(a.clone(), b),
                 });
             }
         };
