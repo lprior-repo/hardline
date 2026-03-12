@@ -97,8 +97,8 @@ async fn acquire_lock_with_backoff() -> Result<MutexGuardClosing<'static, ()>> {
                     tokio::time::sleep(current_timeout).await;
                     current_timeout *= 2;
                 } else {
-                    let timeout_ms = u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis())
-                        .unwrap_or(u64::MAX);
+                    let timeout_ms =
+                        u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis()).unwrap_or(u64::MAX);
                     return Err(Error::LockTimeout {
                         operation: "workspace creation".to_string(),
                         timeout_ms,

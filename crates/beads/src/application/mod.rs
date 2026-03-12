@@ -21,12 +21,12 @@ impl<R: BeadRepository> BeadService<R> {
         title: impl TryInto<BeadTitle>,
         description: Option<String>,
     ) -> Result<(Bead, BeadEvent)> {
-        let id = id.try_into().map_err(|_| {
-            BeadError::InvalidId("Failed to convert ID".into())
-        })?;
-        let title = title.try_into().map_err(|_| {
-            BeadError::InvalidTitle("Failed to convert title".into())
-        })?;
+        let id = id
+            .try_into()
+            .map_err(|_| BeadError::InvalidId("Failed to convert ID".into()))?;
+        let title = title
+            .try_into()
+            .map_err(|_| BeadError::InvalidTitle("Failed to convert title".into()))?;
 
         if self.repository.exists(&id).await {
             return Err(BeadError::AlreadyExists(id.to_string()));
@@ -84,11 +84,7 @@ impl<R: BeadRepository> BeadService<R> {
         Ok((updated, event))
     }
 
-    pub async fn set_priority(
-        &self,
-        id: &BeadId,
-        priority: Priority,
-    ) -> Result<(Bead, BeadEvent)> {
+    pub async fn set_priority(&self, id: &BeadId, priority: Priority) -> Result<(Bead, BeadEvent)> {
         let mut bead = self.get_bead(id).await?;
         bead.priority = Some(priority);
         self.repository.update(&bead).await?;

@@ -4,19 +4,25 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
-pub mod domain;
 pub mod application;
-pub mod infrastructure;
+pub mod domain;
 pub mod error;
+pub mod infrastructure;
 
 // Re-export core types
-pub use domain::entities::session::{Session, SessionId, SessionState, BranchState};
-pub use domain::value_objects::{
-    SessionName, WorkspaceId, BeadId, AgentId, WorkspaceName, TaskId, AbsolutePath,
-    Title, Description, Labels, DependsOn, Priority, IssueType,
+pub use domain::bead::{
+    Bead, BeadDescription, BeadId as BdId, BeadState, BeadTitle, BeadType, Priority as BeadPriority,
 };
-pub use domain::events::{SessionEvent, SessionCreatedEvent, SessionCompletedEvent, SessionFailedEvent};
-pub use domain::workspace::{Workspace, WorkspaceId as WsId, WorkspaceName as WsName, WorkspacePath};
-pub use domain::bead::{Bead, BeadId as BdId, BeadState, BeadTitle, BeadDescription, BeadType, Priority as BeadPriority};
+pub use domain::entities::session::{BranchState, Session, SessionId, SessionState};
+pub use domain::events::{
+    SessionCompletedEvent, SessionCreatedEvent, SessionEvent, SessionFailedEvent,
+};
+pub use domain::value_objects::{
+    AbsolutePath, AgentId, BeadId, DependsOn, Description, IssueType, Labels, Priority,
+    SessionName, TaskId, Title, WorkspaceId, WorkspaceName,
+};
+pub use domain::workspace::{
+    Workspace, WorkspaceId as WsId, WorkspaceName as WsName, WorkspacePath,
+};
 pub use domain::workspace_state::{WorkspaceState, WorkspaceStateMachine};
-pub use error::{SessionError, Result};
+pub use error::{Result, SessionError};

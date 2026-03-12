@@ -116,11 +116,7 @@ async fn twin_handler(
 
     let request_headers: HashMap<String, String> = headers
         .iter()
-        .filter_map(|(k, v)| {
-            v.to_str()
-                .ok()
-                .map(|s| (k.to_string(), s.to_string()))
-        })
+        .filter_map(|(k, v)| v.to_str().ok().map(|s| (k.to_string(), s.to_string())))
         .collect();
 
     let response = &endpoint.response;
