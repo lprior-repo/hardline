@@ -10,23 +10,33 @@
    - Added `InvalidIssueType` error variant
 
 2. **crates/session/src/domain/value_objects/mod.rs**
-   - Added 10 new value objects:
-     - `AgentId` - Unique identifier for an agent
-     - `WorkspaceName` - Name of a workspace (max 100 chars)
-     - `TaskId` - Unique identifier for a task
+   - Added 11 new value objects:
+     - `AgentId` - Unique identifier for an agent (not empty)
+     - `WorkspaceName` - Name of a workspace (max 100 chars, trimmed, not empty)
+     - `TaskId` - Unique identifier for a task (not empty)
      - `AbsolutePath` - Absolute file system path (must start with /)
-     - `Title` - Title of a work item (max 200 chars)
+     - `Title` - Title of a work item (max 200 chars, trimmed, not empty)
      - `Description` - Description of a work item (max 10000 chars)
      - `Labels` - Collection of labels (max 50, no duplicates)
-     - `DependsOn` - Dependency reference to another bead
+     - `DependsOn` - Dependency reference to another bead (not empty)
      - `Priority` - Priority level (0-4)
      - `IssueType` - Type of issue (bug, feature, task, epic, chore)
+     - (Existing) `BeadId` - Already existed, kept for compatibility
 
 3. **crates/session/src/domain/mod.rs**
    - Updated exports to include new value objects
 
 4. **crates/session/src/lib.rs**
    - Updated public API exports to include new value objects
+
+5. **crates/session/Cargo.toml**
+   - Added serde_json dependency
+
+### Additional Fixes (Pre-existing Issues)
+- Fixed module ambiguity (removed duplicate .rs files)
+- Fixed transition_to function in session.rs
+- Fixed unused imports in session_service.rs
+- Fixed test issues in session.rs and events/mod.rs
 
 ### Contract Clause Mapping
 
@@ -57,3 +67,4 @@
 - [x] Zero mut in source code
 - [x] All types use Result for error handling
 - [x] All types are properly documented
+- [x] All tests pass

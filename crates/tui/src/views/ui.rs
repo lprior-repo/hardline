@@ -1,5 +1,4 @@
 use ratatui::{
-    backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::Style,
     widgets::{Block, Borders, List, ListItem, Paragraph},

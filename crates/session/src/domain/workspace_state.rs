@@ -3,12 +3,10 @@
 //! This module provides the WorkspaceState enum and WorkspaceStateMachine
 //! for managing the lifecycle of session workspaces.
 
-use serde::{Deserialize, Serialize};
-
 /// Workspace state for session-based workspaces.
 ///
 /// Lifecycle: Created → Working → Ready → Merged/Conflict/Abandoned
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WorkspaceState {
     /// Workspace has been created but work hasn't started
     Created,
@@ -45,7 +43,7 @@ impl WorkspaceState {
 
     /// Check if this state is ready (ready for merge decision)
     #[must_use]
-    pub const fn is_ready(self) -> bool {
+    pub fn is_ready(self) -> bool {
         self == Self::Ready
     }
 

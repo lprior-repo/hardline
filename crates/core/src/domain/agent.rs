@@ -67,6 +67,33 @@ impl AgentState {
             .copied()
             .collect()
     }
+
+    /// Check if this state is terminal
+    /// AgentState has no terminal states per spec - any state can transition to Offline or Error
+    #[must_use]
+    pub const fn is_terminal(self) -> bool {
+        false
+    }
+
+    /// Check if this state is available (can process work)
+    /// Available states are Idle and Active
+    #[must_use]
+    pub const fn is_available(self) -> bool {
+        matches!(self, Self::Idle | Self::Active)
+    }
+
+    /// Attempt to transition to a new state
+    /// Returns Ok(new_state) if transition is valid, Err(message) otherwise
+    pub fn transition_to(self, target: Self) -> Result<Self, String> {
+        if self.can_transition_to(&target) {
+            Ok(target)
+        } else {
+            Err(format!(
+                "Invalid transition from {:?} to {:?}",
+                self, target
+            ))
+        }
+    }
 }
 
 impl std::fmt::Display for AgentState {

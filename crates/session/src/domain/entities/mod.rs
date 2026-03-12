@@ -1,3 +1,3 @@
 pub mod session;
 
-pub use session::{Session, SessionId, SessionState, BranchState};
+pub use session::{BranchState, Session, SessionId, SessionState};
