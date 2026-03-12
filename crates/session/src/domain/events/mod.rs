@@ -95,7 +95,10 @@ mod tests {
     fn test_session_created_event() {
         let name = SessionName::parse("test").expect("valid");
         let event = SessionCreatedEvent::new("session-1".into(), name);
-        assert_eq!(event.timestamp, Utc::now());
+        // Just verify the timestamp is recent (within the last second)
+        let now = Utc::now();
+        let diff = (now - event.timestamp).num_nanoseconds().unwrap_or(0);
+        assert!(diff.abs() < 1_000_000_000, "timestamp should be recent");
     }
 
     #[test]

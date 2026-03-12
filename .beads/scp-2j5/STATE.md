@@ -72,3 +72,14 @@ STATUS: PERFECT
 ---
 
 # STATE 8: LANDING AND CLEANUP
+
+STATUS: COMPLETED
+
+- jj describe: Set commit message
+- jj bookmark set main: Moved bookmark to new commit
+- jj git push --bookmark main: Pushed to origin
+- bd close scp-2j5: Closed bead
+
+---
+
+# COMPLETE

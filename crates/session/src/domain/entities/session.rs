@@ -247,11 +247,11 @@ mod tests {
                 name: "main".into(),
             })
             .expect("valid");
-        assert_eq!(on_main.branch_name(), Some("main"));
+        assert_eq!(on_main.branch.branch_name(), Some("main"));
 
         let detached = on_main
             .transition_branch(BranchState::Detached)
             .expect("valid");
-        assert!(detached.is_detached());
+        assert!(detached.branch.is_detached());
     }
 }
