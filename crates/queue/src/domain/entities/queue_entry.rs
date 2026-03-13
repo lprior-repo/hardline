@@ -64,11 +64,19 @@ pub struct QueueEntry {
 }
 
 impl QueueEntry {
-    pub fn enqueue(session_id: String, bead_id: Option<String>, priority: Priority) -> Self {
+    pub fn enqueue(
+        session_id: String,
+        bead_id: Option<String>,
+        priority: Priority,
+    ) -> Result<Self, QueueError> {
+        let trimmed = session_id.trim().to_string();
+        if trimmed.is_empty() {
+            return Err(QueueError::InvalidQueueEntryId("empty id".into()));
+        }
         let now = Utc::now();
-        Self {
+        Ok(Self {
             id: QueueEntryId::generate(),
-            session_id,
+            session_id: trimmed,
             bead_id,
             priority,
             position: QueuePosition::default(),
@@ -77,7 +85,7 @@ impl QueueEntry {
             updated_at: now,
             retry_count: 0,
             error_message: None,
-        }
+        })
     }
 
     pub fn claim(&self) -> Result<Self, QueueError> {
@@ -202,26 +210,122 @@ impl QueueEntry {
     }
 }
 
+pub trait QueueDsl {
+    fn enqueue_session(&mut self, session_name: &str) -> &mut Self;
+    fn with_high_priority(&mut self) -> &mut Self;
+    fn with_low_priority(&mut self) -> &mut Self;
+    fn with_critical_priority(&mut self) -> &mut Self;
+    fn execute(&mut self) -> Result<QueueEntry, QueueError>;
+}
+
+pub struct QueueEntryBuilder {
+    session_name: Option<String>,
+    bead_id: Option<String>,
+    priority: Priority,
+}
+
+impl QueueEntryBuilder {
+    pub fn new() -> Self {
+        Self {
+            session_name: None,
+            bead_id: None,
+            priority: Priority::default(),
+        }
+    }
+
+    pub fn with_session(mut self, session: &str) -> Self {
+        self.session_name = Some(session.to_string());
+        self
+    }
+
+    pub fn with_bead(mut self, bead_id: &str) -> Self {
+        self.bead_id = Some(bead_id.to_string());
+        self
+    }
+
+    pub fn with_priority(mut self, priority: Priority) -> Self {
+        self.priority = priority;
+        self
+    }
+
+    pub fn with_high_priority(mut self) -> Self {
+        self.priority = Priority::high();
+        self
+    }
+
+    pub fn with_low_priority(mut self) -> Self {
+        self.priority = Priority::low();
+        self
+    }
+
+    pub fn with_critical_priority(mut self) -> Self {
+        self.priority = Priority::critical();
+        self
+    }
+
+    pub fn enqueue(self) -> Result<QueueEntry, QueueError> {
+        let session = self.session_name.ok_or_else(|| {
+            QueueError::InvalidQueueEntryId("session name required".into())
+        })?;
+        QueueEntry::enqueue(session, self.bead_id, self.priority)
+    }
+}
+
+impl Default for QueueEntryBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl QueueDsl for QueueEntryBuilder {
+    fn enqueue_session(&mut self, session_name: &str) -> &mut Self {
+        self.session_name = Some(session_name.to_string());
+        self
+    }
+
+    fn with_high_priority(&mut self) -> &mut Self {
+        self.priority = Priority::high();
+        self
+    }
+
+    fn with_low_priority(&mut self) -> &mut Self {
+        self.priority = Priority::low();
+        self
+    }
+
+    fn with_critical_priority(&mut self) -> &mut Self {
+        self.priority = Priority::critical();
+        self
+    }
+
+    fn execute(&mut self) -> Result<QueueEntry, QueueError> {
+        let session = self.session_name.take().ok_or_else(|| {
+            QueueError::InvalidQueueEntryId("session name required".into())
+        })?;
+        QueueEntry::enqueue(session, self.bead_id.clone(), self.priority)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn queue_entry_when_created_then_has_pending_status() {
-        let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default());
+        let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default()).unwrap();
         assert_eq!(entry.status, QueueStatus::Pending);
     }
 
     #[test]
     fn queue_entry_given_pending_when_claim_then_has_claimed_status() {
-        let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default());
+        let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default()).unwrap();
         let claimed = entry.claim().unwrap();
         assert_eq!(claimed.status, QueueStatus::Claimed);
     }
 
     #[test]
     fn queue_entry_given_merged_when_claim_then_fails() {
-        let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default());
+        let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default()).unwrap();
         let merged = entry
             .claim()
             .and_then(|e| e.start_rebase())
@@ -236,7 +340,7 @@ mod tests {
 
     #[test]
     fn queue_entry_can_retry_returns_true_for_failed_retryable_under_limit() {
-        let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default());
+        let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default()).unwrap();
         let failed = entry
             .claim()
             .and_then(|e| e.start_rebase())
@@ -244,5 +348,38 @@ mod tests {
             .and_then(|e| e.mark_failed_retryable("error".into()))
             .unwrap();
         assert!(failed.can_retry());
+    }
+
+    #[test]
+    fn queue_entry_rejects_empty_session_id() {
+        let result = QueueEntry::enqueue("".to_string(), None, Priority::default());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn queue_entry_rejects_whitespace_session_id() {
+        let result = QueueEntry::enqueue("   ".to_string(), None, Priority::default());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn queue_entry_builder_works() {
+        let entry = QueueEntryBuilder::new()
+            .with_session("test-session")
+            .with_high_priority()
+            .enqueue()
+            .unwrap();
+        assert_eq!(entry.session_id, "test-session");
+        assert_eq!(entry.status, QueueStatus::Pending);
+    }
+
+    #[test]
+    fn queue_entry_dsl_works() {
+        let mut builder = QueueEntryBuilder::new();
+        builder
+            .enqueue_session("dsl-session")
+            .with_critical_priority()
+            .execute()
+            .unwrap();
     }
 }
