@@ -162,6 +162,11 @@ impl<T: DatabaseService + 'static> DatabaseService for ChaosDatabaseService<T> {
         self.inner.execute(query).await
     }
 
+    async fn query(&self, query: &str) -> Result<Vec<Vec<String>>> {
+        self.injector.inject_db_error()?;
+        self.inner.query(query).await
+    }
+
     fn pool(&self) -> &SqlitePool {
         self.inner.pool()
     }
@@ -196,7 +201,7 @@ impl<T: NetworkService> NetworkService for ChaosNetworkService<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infrastructure::database::{DatabaseConfig, SqliteDatabaseService};
+    use crate::infrastructure::database::SqliteDatabaseService;
 
     #[test]
     fn test_chaos_fs_resilience() {
@@ -226,17 +231,17 @@ mod tests {
         assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::StorageFull);
     }
 
-    #[test]
-    fn test_chaos_db_resilience() {
+    #[tokio::test]
+    async fn test_chaos_db_resilience() {
         let config = ChaosConfig {
             io_error_probability: 1.0, // Always fail
             ..Default::default()
         };
         let injector = Arc::new(ChaosInjector::new(config));
-        let inner_db = SqliteDatabaseService::new(DatabaseConfig::in_memory());
+        let inner_db = SqliteDatabaseService::in_memory().await.unwrap();
         let chaos_db = ChaosDatabaseService::new(inner_db, injector);
 
-        let result = chaos_db.execute("SELECT 1");
+        let result = chaos_db.execute("SELECT 1").await;
         assert!(result.is_err());
         if let Err(Error::Io(e)) = result {
             assert_eq!(e.kind(), std::io::ErrorKind::Other);
