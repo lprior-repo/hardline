@@ -8,6 +8,7 @@
 
 pub mod chaos;
 pub mod database;
+pub mod database_types;
 pub mod operation_log;
 pub mod vcs_integration;
 
@@ -17,6 +18,7 @@ pub use chaos::{
 pub use database::{
     create_database_service, DatabaseConfig, DatabaseService, SqliteDatabaseService,
 };
+pub use database_types::{DatabasePath, MaxConnections};
 pub use operation_log::{OperationLogEntry, OperationLogError};
 pub use vcs_integration::{
     create_vcs_integration_service, VcsIntegrationService, VcsIntegrationServiceImpl,
