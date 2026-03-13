@@ -90,7 +90,7 @@ impl SessionState {
     /// Returns true if this is a terminal state.
     #[must_use]
     pub const fn is_terminal(self) -> bool {
-        false
+        matches!(self, Self::Completed | Self::Failed)
     }
 
     /// Returns all possible session states as a slice.

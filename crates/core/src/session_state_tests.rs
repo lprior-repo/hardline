@@ -74,10 +74,38 @@ fn given_active_state_when_get_valid_states_then_returns_three() {
 }
 
 #[test]
-fn given_all_states_when_check_is_terminal_then_all_false() {
-    for state in SessionState::all_states() {
-        assert!(!state.is_terminal());
-    }
+fn given_completed_state_when_check_is_terminal_then_true() {
+    assert!(SessionState::Completed.is_terminal());
+}
+
+#[test]
+fn given_failed_state_when_check_is_terminal_then_true() {
+    assert!(SessionState::Failed.is_terminal());
+}
+
+#[test]
+fn given_created_state_when_check_is_terminal_then_false() {
+    assert!(!SessionState::Created.is_terminal());
+}
+
+#[test]
+fn given_active_state_when_check_is_terminal_then_false() {
+    assert!(!SessionState::Active.is_terminal());
+}
+
+#[test]
+fn given_syncing_state_when_check_is_terminal_then_false() {
+    assert!(!SessionState::Syncing.is_terminal());
+}
+
+#[test]
+fn given_synced_state_when_check_is_terminal_then_false() {
+    assert!(!SessionState::Synced.is_terminal());
+}
+
+#[test]
+fn given_paused_state_when_check_is_terminal_then_false() {
+    assert!(!SessionState::Paused.is_terminal());
 }
 
 #[test]
