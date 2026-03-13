@@ -2,7 +2,7 @@
 bead_id: scp-fim
 bead_title: Create SQLite schema for workspaces
 phase: contract
-updated_at: 2026-03-12T00:00:00Z
+updated_at: 2026-03-13T18:30:00Z
 ---
 
 # Contract Specification: SQLite Schema for workspaces
@@ -101,6 +101,15 @@ updated_at: 2026-03-12T00:00:00Z
 
 - **[I3]**: State transitions follow valid state machine rules
   - Enforced: `WorkspaceStateMachine::can_transition()` validates
+  - Valid transitions:
+    - Initializing → Active
+    - Active → Locked
+    - Active → Corrupted
+    - Locked → Active
+    - Locked → Corrupted
+    - Corrupted → Deleted
+    - Any state → Deleted (via soft delete)
+  - Invalid transitions produce `WorkspaceError::InvalidStateTransition`
 
 - **[I4]**: lock_holder is Some only when state = Locked
   - Enforced: Business logic ensures consistency
@@ -157,6 +166,25 @@ impl WorkspaceRepository for SqliteWorkspaceRepository { ... }
 | State valid enum | Compile-time | `enum WorkspaceState { ... }` |
 | Migration idempotent | Runtime-checked | `CREATE TABLE IF NOT EXISTS` |
 
+## Property-Based Testing Requirements
+
+For validation functions, the following properties must hold (tested via proptest):
+
+- **WorkspaceId::generate()**:
+  - Format: Always produces `ws-<uuid>` format
+  - Uniqueness: High probability of unique IDs across many generations
+  - Determinism: Same seed produces same output (if applicable)
+
+- **WorkspaceName::new()**:
+  - Valid input: Non-empty strings are accepted
+  - Invalid input: Empty strings are rejected with `InvalidWorkspaceName`
+  - Length bounds: Should accept names up to 255 characters
+
+- **WorkspacePath::new()**:
+  - Valid input: Absolute paths are accepted
+  - Invalid input: Relative paths are rejected with `InvalidWorkspacePath`
+  - Normalization: Paths should be normalized (trailing slashes removed)
+
 ## Violation Examples
 
 - **VIOLATES P3**: `repo.get(&WorkspaceId::parse("".into()).unwrap())` -- should produce `Err(WorkspaceError::InvalidWorkspaceId("empty id".into()))`
@@ -170,6 +198,12 @@ impl WorkspaceRepository for SqliteWorkspaceRepository { ... }
 - **VIOLATES Q1**: Running migration on invalid pool -- should produce `Err(WorkspaceError::OperationFailed("connection failed".into()))`
 
 - **VIOLATES Q3**: Saving workspace with duplicate name -- should produce `Err(WorkspaceError::WorkspaceExists(name.into()))`
+
+- **VIOLATES I3**: `WorkspaceStateMachine::transition(WorkspaceState::Active, WorkspaceState::Initializing)` -- should produce `Err(WorkspaceError::InvalidStateTransition(...))`
+
+- **VIOLATES I3**: `WorkspaceStateMachine::transition(WorkspaceState::Initializing, WorkspaceState::Locked)` -- should produce `Err(WorkspaceError::InvalidStateTransition(...))`
+
+- **VIOLATES I3**: `WorkspaceStateMachine::transition(WorkspaceState::Deleted, WorkspaceState::Active)` -- should produce `Err(WorkspaceError::InvalidStateTransition(...))`
 
 ## Ownership Contracts
 
