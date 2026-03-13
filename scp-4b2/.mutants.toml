@@ -1,7 +1,0 @@
-# .mutants.toml
-# Configuration for cargo-mutants
-
-exclude_mutations = [
-    "tracing::*",
-    "log::*",
-]
