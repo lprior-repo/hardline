@@ -5,8 +5,9 @@
 
 use crate::error::{Error, Result};
 use crate::infrastructure::database::DatabaseService;
+use async_trait::async_trait;
 use rand::Rng;
-use serde::Deserialize;
+use sqlx::SqlitePool;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -154,15 +155,15 @@ impl<T: DatabaseService> ChaosDatabaseService<T> {
     }
 }
 
-impl<T: DatabaseService> DatabaseService for ChaosDatabaseService<T> {
-    fn execute(&self, query: &str) -> Result<()> {
+#[async_trait]
+impl<T: DatabaseService + 'static> DatabaseService for ChaosDatabaseService<T> {
+    async fn execute(&self, query: &str) -> Result<()> {
         self.injector.inject_db_error()?;
-        self.inner.execute(query)
+        self.inner.execute(query).await
     }
 
-    fn query<D: for<'de> Deserialize<'de>>(&self, query: &str) -> Result<Vec<D>> {
-        self.injector.inject_db_error()?;
-        self.inner.query(query)
+    fn pool(&self) -> &SqlitePool {
+        self.inner.pool()
     }
 }
 
