@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::domain::value_objects::{BeadId, BeadState};
+
 #[derive(Error, Debug)]
 pub enum BeadError {
     #[error("Bead not found: {0}")]
@@ -14,8 +16,26 @@ pub enum BeadError {
     #[error("Invalid title: {0}")]
     InvalidTitle(String),
 
-    #[error("Invalid state transition: {from} -> {to}")]
-    InvalidStateTransition { from: String, to: String },
+    #[error("Invalid state transition: {from:?} -> {to:?}")]
+    InvalidStateTransition {
+        from: BeadState,
+        to: BeadState,
+    },
+
+    #[error("Bead already claimed: {bead_id}")]
+    BeadAlreadyClaimed {
+        bead_id: BeadId,
+    },
+
+    #[error("Bead not found: {bead_id}")]
+    BeadNotFound {
+        bead_id: BeadId,
+    },
+
+    #[error("Precondition violated: {message}")]
+    PreconditionViolated {
+        message: String,
+    },
 
     #[error("Dependency cycle detected: {0}")]
     DependencyCycle(String),

@@ -66,8 +66,8 @@ impl<R: BeadRepository> BeadService<R> {
 
         if !bead.can_transition_to(&new_state) {
             return Err(BeadError::InvalidStateTransition {
-                from: format!("{:?}", old_state),
-                to: format!("{:?}", new_state),
+                from: old_state.clone(),
+                to: new_state.clone(),
             });
         }
 

@@ -10,6 +10,6 @@ pub mod error;
 pub mod infrastructure;
 
 pub use application::BeadService;
-pub use domain::{Bead, BeadEvent, BeadId, BeadState, BeadTitle, BeadType, Labels, Priority};
+pub use domain::{AgentId, Bead, BeadEvent, BeadId, BeadState, BeadTitle, BeadType, Labels, Priority};
 pub use error::{BeadError, Result};
 pub use infrastructure::{BeadRepository, InMemoryBeadRepository};

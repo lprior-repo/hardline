@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::value_objects::{BeadId, BeadState, BeadTitle, Priority};
+use crate::domain::{BeadId, BeadState, BeadTitle, Priority};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BeadEvent {
