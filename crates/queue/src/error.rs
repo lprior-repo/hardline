@@ -27,4 +27,24 @@ pub enum QueueError {
     RepositoryError(String),
 }
 
+#[derive(Error, Debug)]
+pub enum MigrationError {
+    #[error("Database connection failed: {0}")]
+    DatabaseError(String),
+
+    #[error("Migration failed: {0}")]
+    MigrationFailed(String),
+
+    #[error("Table already exists with incompatible schema")]
+    SchemaConflict,
+
+    #[error("Invalid migration: {0}")]
+    InvalidMigration(String),
+
+    #[error("Rollback failed: {0}")]
+    RollbackFailed(String),
+}
+
 pub type Result<T> = std::result::Result<T, QueueError>;
+
+pub type MigrationResult<T> = std::result::Result<T, MigrationError>;

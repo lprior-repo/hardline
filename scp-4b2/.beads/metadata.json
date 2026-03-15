@@ -1,7 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_database": "scp",
-  "project_id": "daf5acbb-da7c-4e0f-8619-b5246a19c96b"
-}
