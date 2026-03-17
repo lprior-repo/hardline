@@ -1,217 +1,107 @@
-//! Tag commands (ported from stak CLI)
-
-use std::process::Command;
+//! Tag commands using gitoxide
 
 use scp_core::{output::Output, vcs::detect_vcs, Error, Result};
+use scp_vcs::gix::{repository, tag};
 
-fn build_git_tag_create_command(
-    cwd: &std::path::Path,
-    name: &str,
-    message: Option<&str>,
-    commit: Option<&str>,
-    force: bool,
-) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.arg("tag");
-
-    if force {
-        cmd.arg("-f");
-    }
-
-    if let Some(msg) = message {
-        cmd.arg("-a").arg(name).arg("-m").arg(msg);
-    } else {
-        let commit_ref = commit.unwrap_or("HEAD");
-        cmd.arg(name).arg(commit_ref);
-    }
-
-    cmd.current_dir(cwd);
-    cmd
-}
-
-fn build_git_tag_list_command(
-    cwd: &std::path::Path,
-    pattern: Option<&str>,
-    sort: Option<&str>,
-) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.arg("tag");
-
-    if let Some(pat) = pattern {
-        cmd.arg("-l").arg(pat);
-    } else {
-        cmd.arg("-l");
-    }
-
-    if let Some(sort_key) = sort {
-        cmd.arg("--sort").arg(sort_key);
-    }
-
-    cmd.current_dir(cwd);
-    cmd
-}
-
-fn build_git_tag_delete_command(cwd: &std::path::Path, tag: &str) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.args(["tag", "-d", tag]).current_dir(cwd);
-    cmd
-}
-
-fn build_git_tag_delete_remote_command(cwd: &std::path::Path, tag: &str) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.args(["push", "origin", "--delete", tag])
-        .current_dir(cwd);
-    cmd
-}
-
-fn build_git_tag_push_command(
-    cwd: &std::path::Path,
-    remote: &str,
-    tag: &str,
-    force: bool,
-) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.arg("push").arg(remote).arg(tag);
-    if force {
-        cmd.arg("--force");
-    }
-    cmd.current_dir(cwd);
-    cmd
-}
-
-fn build_git_tag_push_all_command(cwd: &std::path::Path, remote: &str, force: bool) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.arg("push").arg(remote).arg("--tags");
-    if force {
-        cmd.arg("--force");
-    }
-    cmd.current_dir(cwd);
-    cmd
-}
-
-pub fn create(name: &str, message: Option<&str>, commit: Option<&str>, force: bool) -> Result<()> {
+pub fn list(pattern: Option<&str>, _sort: Option<&str>) -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
 
     let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
 
-    if vcs_type != scp_core::vcs::VcsType::Git {
-        return Err(Error::InvalidState(
-            "tag is only supported for Git repositories".to_string(),
-        ));
-    }
+    match vcs_type {
+        scp_core::vcs::VcsType::Git => {
+            let repo = repository::open(&cwd)
+                .map_err(|e| Error::VcsConflict(format!("Failed to open repo: {}", e), e.to_string()))?;
 
-    let output = build_git_tag_create_command(&cwd, name, message, commit, force)
-        .output()
-        .map_err(Error::Io)?;
+            let tags = tag::list(&repo, pattern)
+                .map_err(|e| Error::VcsConflict("list tags".to_string(), e.to_string()))?;
 
-    if output.status.success() {
-        Output::success(&format!("Created tag: {}", name));
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "git tag".to_string(),
-            stderr.to_string(),
-        ));
-    }
-
-    Ok(())
-}
-
-pub fn list(pattern: Option<&str>, sort: Option<&str>) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
-
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
-
-    if vcs_type != scp_core::vcs::VcsType::Git {
-        return Err(Error::InvalidState(
-            "tag is only supported for Git repositories".to_string(),
-        ));
-    }
-
-    let output = build_git_tag_list_command(&cwd, pattern, sort)
-        .output()
-        .map_err(Error::Io)?;
-
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if stdout.trim().is_empty() {
-            Output::info("No tags found");
-        } else {
-            print!("{}", stdout);
+            if tags.is_empty() {
+                Output::info("No tags found");
+            } else {
+                for t in tags {
+                    println!("{}", t);
+                }
+            }
+            Ok(())
         }
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "git tag list".to_string(),
-            stderr.to_string(),
-        ));
+        scp_core::vcs::VcsType::Jujutsu => {
+            Err(Error::VcsConflict("Jujutsu tags not supported".to_string(), "Jujutsu".to_string()))
+        }
     }
-
-    Ok(())
 }
 
-pub fn delete(tag: &str, remote: bool) -> Result<()> {
+pub fn create(name: &str, message: Option<&str>, _commit: Option<&str>, force: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
 
     let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
 
-    if vcs_type != scp_core::vcs::VcsType::Git {
-        return Err(Error::InvalidState(
-            "tag is only supported for Git repositories".to_string(),
-        ));
+    match vcs_type {
+        scp_core::vcs::VcsType::Git => {
+            let repo = repository::open(&cwd)
+                .map_err(|e| Error::VcsConflict(format!("Failed to open repo: {}", e), e.to_string()))?;
+
+            let msg = message.unwrap_or("");
+            tag::create(&repo, name, msg, force)
+                .map_err(|e| Error::VcsConflict("create tag".to_string(), e.to_string()))?;
+
+            Output::success(&format!("Created tag: {}", name));
+            Ok(())
+        }
+        scp_core::vcs::VcsType::Jujutsu => {
+            Err(Error::VcsConflict("Jujutsu tags not supported".to_string(), "Jujutsu".to_string()))
+        }
     }
-
-    let output = if remote {
-        build_git_tag_delete_remote_command(&cwd, tag)
-            .output()
-            .map_err(Error::Io)?
-    } else {
-        build_git_tag_delete_command(&cwd, tag)
-            .output()
-            .map_err(Error::Io)?
-    };
-
-    if output.status.success() {
-        let scope = if remote { "remote" } else { "local" };
-        Output::success(&format!("Deleted {} tag: {}", scope, tag));
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "git tag delete".to_string(),
-            stderr.to_string(),
-        ));
-    }
-
-    Ok(())
 }
 
-pub fn push(tag: Option<&str>, remote: &str, force: bool) -> Result<()> {
+pub fn delete(name: &str, remote: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
 
     let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
 
-    if vcs_type != scp_core::vcs::VcsType::Git {
-        return Err(Error::InvalidState(
-            "tag is only supported for Git repositories".to_string(),
-        ));
+    match vcs_type {
+        scp_core::vcs::VcsType::Git => {
+            if remote {
+                return Err(Error::VcsConflict("Remote tag delete not yet implemented".to_string(), "remote".to_string()));
+            }
+            
+            let repo = repository::open(&cwd)
+                .map_err(|e| Error::VcsConflict(format!("Failed to open repo: {}", e), e.to_string()))?;
+
+            tag::delete(&repo, name, false)
+                .map_err(|e| Error::VcsConflict("delete tag".to_string(), e.to_string()))?;
+
+            Output::success(&format!("Deleted local tag: {}", name));
+            Ok(())
+        }
+        scp_core::vcs::VcsType::Jujutsu => {
+            Err(Error::VcsConflict("Jujutsu tags not supported".to_string(), "Jujutsu".to_string()))
+        }
     }
+}
 
-    let output = if let Some(t) = tag {
-        build_git_tag_push_command(&cwd, remote, t, force)
-            .output()
-            .map_err(Error::Io)?
-    } else {
-        build_git_tag_push_all_command(&cwd, remote, force)
-            .output()
-            .map_err(Error::Io)?
-    };
+pub fn push(tag: Option<&str>, remote: &str, _force: bool) -> Result<()> {
+    let cwd = std::env::current_dir().map_err(Error::Io)?;
 
-    if output.status.success() {
-        Output::success(&format!("Pushed tags to {}", remote));
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsPushFailed(stderr.to_string()));
+    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+
+    match vcs_type {
+        scp_core::vcs::VcsType::Git => {
+            if tag.is_none() {
+                return Err(Error::VcsConflict("Push all tags not yet implemented".to_string(), "all tags".to_string()));
+            }
+            
+            let repo = repository::open(&cwd)
+                .map_err(|e| Error::VcsConflict(format!("Failed to open repo: {}", e), e.to_string()))?;
+
+            let t = tag.unwrap();
+            tag::push(&repo, remote, t)
+                .map_err(|e| Error::VcsPushFailed(e.to_string()))?;
+            Output::success(&format!("Pushed tag {} to {}", t, remote));
+            Ok(())
+        }
+        scp_core::vcs::VcsType::Jujutsu => {
+            Err(Error::VcsConflict("Jujutsu tags not supported".to_string(), "Jujutsu".to_string()))
+        }
     }
-
-    Ok(())
 }

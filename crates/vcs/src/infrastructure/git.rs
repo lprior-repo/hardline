@@ -4,7 +4,7 @@ use crate::domain::entities::{Branch, Commit, Workspace};
 use crate::domain::traits::VcsBackend;
 use crate::domain::value_objects::VcsStatus;
 use crate::error::{Result, VcsError};
-use chrono::Utc;
+use crate::gix;
 use std::path::PathBuf;
 
 pub struct GitBackend {
@@ -20,136 +20,62 @@ impl GitBackend {
         Self::new(path.into())
     }
 
-    fn run_git(&self, args: &[&str]) -> Result<std::process::Output> {
-        std::process::Command::new("git")
-            .args(args)
-            .current_dir(&self.repo_path)
-            .output()
-            .map_err(VcsError::Io)
+    fn repo(&self) -> Result<::gix::Repository> {
+        gix::repository::open(&self.repo_path).map_err(VcsError::from)
     }
 }
 
 impl VcsBackend for GitBackend {
     fn current_branch(&self) -> Result<String> {
-        let output = self.run_git(&["rev-parse", "--abbrev-ref", "HEAD"])?;
-        if !output.status.success() {
-            return Err(VcsError::Conflict(
-                "git".into(),
-                "Failed to get branch".into(),
-            ));
-        }
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        let repo = self.repo()?;
+        gix::branch::current(&repo).map_err(VcsError::from)
     }
 
     fn list_branches(&self) -> Result<Vec<Branch>> {
-        let output = self.run_git(&["branch", "-a"])?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        let current = self.current_branch()?;
-        let mut branches = Vec::new();
-
-        for line in stdout.lines() {
-            let name = line.trim().trim_start_matches("* ").to_string();
-            if !name.is_empty() {
-                branches.push(Branch::new(name.clone(), name == current, None));
-            }
-        }
-        Ok(branches)
+        let repo = self.repo()?;
+        gix::branch::list(&repo, false).map_err(VcsError::from)
     }
 
     fn create_branch(&self, name: &str) -> Result<()> {
-        let output = self.run_git(&["branch", name])?;
-        if !output.status.success() {
-            return Err(VcsError::BranchExists(name.to_string()));
-        }
-        Ok(())
+        let repo = self.repo()?;
+        gix::branch::create(&repo, name, false).map_err(VcsError::from)
     }
 
     fn switch_branch(&self, name: &str) -> Result<()> {
-        let output = self.run_git(&["checkout", name])?;
-        if !output.status.success() {
-            return Err(VcsError::BranchNotFound(name.to_string()));
-        }
-        Ok(())
+        let repo = self.repo()?;
+        gix::branch::switch(&repo, name, false).map_err(VcsError::from)
     }
 
     fn push(&self) -> Result<()> {
-        let output = self.run_git(&["push"])?;
-        if !output.status.success() {
-            return Err(VcsError::PushFailed(
-                String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
-        }
-        Ok(())
+        let repo = self.repo()?;
+        gix::remote::push(&repo, "origin", None, false, false, false)
+            .map_err(VcsError::from)
     }
 
     fn pull(&self) -> Result<()> {
-        let output = self.run_git(&["pull"])?;
-        if !output.status.success() {
-            return Err(VcsError::PullFailed(
-                String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
-        }
+        let repo = self.repo()?;
+        gix::remote::pull(&repo, None, false).map_err(VcsError::from)?;
         Ok(())
     }
 
-    fn rebase(&self, onto: &str) -> Result<()> {
-        let output = self.run_git(&["rebase", onto])?;
-        if !output.status.success() {
-            return Err(VcsError::RebaseFailed(
-                String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
-        }
-        Ok(())
+    fn rebase(&self, _onto: &str) -> Result<()> {
+        // Stub - rebase is complex
+        Err(VcsError::Unimplemented("rebase not yet implemented with gix".into()))
     }
 
-    fn merge(&self, branch: &str) -> Result<()> {
-        let output = self.run_git(&["merge", branch])?;
-        if !output.status.success() {
-            return Err(VcsError::Conflict(
-                branch.to_string(),
-                String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
-        }
-        Ok(())
+    fn merge(&self, _branch: &str) -> Result<()> {
+        // Stub - merge requires more complex implementation
+        Err(VcsError::Unimplemented("merge not yet implemented with gix".into()))
     }
 
     fn log(&self, limit: usize) -> Result<Vec<Commit>> {
-        let output = self.run_git(&["log", &format!("-n{}", limit)])?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        let mut commits = Vec::new();
-        for line in stdout.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("commit ") {
-                let id = trimmed.trim_start_matches("commit ").to_string();
-                commits.push(Commit::new(
-                    id,
-                    "".to_string(),
-                    "unknown".to_string(),
-                    Utc::now(),
-                    vec![],
-                ));
-            } else if line.starts_with("    ") && !commits.is_empty() {
-                if let Some(last) = commits.last_mut() {
-                    last.message = trimmed.to_string();
-                }
-            }
-        }
-        Ok(commits)
+        let repo = self.repo()?;
+        gix::commit::log(&repo, limit).map_err(VcsError::from)
     }
 
     fn status(&self) -> Result<VcsStatus> {
-        let output = self.run_git(&["status", "--porcelain"])?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        if stdout.is_empty() {
-            Ok(VcsStatus::Clean)
-        } else if stdout.contains("UU") {
-            Ok(VcsStatus::Conflicted)
-        } else {
-            Ok(VcsStatus::Dirty)
-        }
+        let repo = self.repo()?;
+        gix::status::status(&repo).map_err(VcsError::from)
     }
 
     fn is_initialized(&self) -> Result<bool> {
@@ -169,9 +95,12 @@ impl VcsBackend for GitBackend {
     }
 
     fn list_workspaces(&self) -> Result<Vec<Workspace>> {
-        Err(VcsError::Unimplemented(
-            "Git workspaces use worktrees instead".into(),
-        ))
+        let repo = self.repo()?;
+        let worktrees = gix::worktree::list(&repo).map_err(VcsError::from)?;
+        Ok(worktrees
+            .into_iter()
+            .map(|w| Workspace::new(w.path.to_string_lossy().to_string(), w.branch.unwrap_or_default(), w.is_main))
+            .collect())
     }
 
     fn delete_workspace(&self, _name: &str) -> Result<()> {
@@ -182,19 +111,9 @@ impl VcsBackend for GitBackend {
 
     fn fork_workspace(&self, source: &str, target: &str) -> Result<()> {
         let worktree_path = self.repo_path.join(target);
-        let output =
-            self.run_git(&["worktree", "add", &worktree_path.to_string_lossy(), source])?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            if stderr.contains("already exists") {
-                return Err(VcsError::WorkspaceExists(target.to_string()));
-            }
-            return Err(VcsError::Conflict(
-                "worktree add".to_string(),
-                stderr.to_string(),
-            ));
-        }
-        Ok(())
+        let repo = self.repo()?;
+        gix::worktree::add(&repo, &worktree_path, Some(source))
+            .map_err(VcsError::from)
     }
 
     fn merge_workspace(&self, name: &str) -> Result<()> {
@@ -203,14 +122,7 @@ impl VcsBackend for GitBackend {
             return Err(VcsError::WorkspaceNotFound(name.to_string()));
         }
         self.switch_branch("main")?;
-        let output = self.run_git(&["merge", name])?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            if stderr.contains("conflict") {
-                return Err(VcsError::Conflict("merge".to_string(), stderr.to_string()));
-            }
-            return Err(VcsError::Conflict("merge".to_string(), stderr.to_string()));
-        }
+        self.merge(name)?;
         self.push()?;
         Ok(())
     }

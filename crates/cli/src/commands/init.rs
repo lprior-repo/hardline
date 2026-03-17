@@ -1,6 +1,7 @@
 //! Initialize command
 
 use scp_core::Result;
+use scp_vcs::gix::repository;
 
 /// Initialize SCP in current directory
 pub fn run(vcs_type: &str) -> Result<()> {
@@ -40,24 +41,19 @@ pub fn run(vcs_type: &str) -> Result<()> {
             Ok(())
         }
         "git" => {
-            // Similar for git
-            if cwd.join(".git").exists() {
-                println!("Already initialized with Git");
-                return Ok(());
+            // Check if already initialized using gix
+            match repository::open(&cwd) {
+                Ok(_) => {
+                    println!("Already initialized with Git");
+                    return Ok(());
+                }
+                Err(_) => {
+                    // Repository doesn't exist, proceed with initialization
+                }
             }
 
-            let output = std::process::Command::new("git")
-                .args(["init"])
-                .current_dir(&cwd)
-                .output()
-                .map_err(|e| scp_core::Error::Io(e))?;
-
-            if !output.status.success() {
-                return Err(scp_core::Error::Internal(format!(
-                    "Failed to init git: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                )));
-            }
+            // Initialize git using gix
+            repository::init(&cwd).map_err(|e| scp_core::Error::Internal(e.to_string()))?;
 
             println!("✓ Initialized Git in {:?}", cwd);
             Ok(())

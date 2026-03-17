@@ -21,6 +21,7 @@
 pub mod application;
 pub mod domain;
 pub mod error;
+pub mod gix;
 pub mod infrastructure;
 
 pub use application::{create_vcs_service, VcsService, VcsServiceImpl};
