@@ -14,6 +14,7 @@
 //! - Functional patterns: iterators, combinators, no for loops
 
 use chrono::{DateTime, Utc};
+use itertools::Itertools;
 use std::cmp::Ordering;
 
 use crate::domain::identifiers::{QueueEntryId, SessionName};
@@ -514,9 +515,7 @@ impl Queue {
         F: Fn(&QueueEntry) -> K,
         K: Ord,
     {
-        let mut entries = self.entries.iter().collect::<Vec<_>>();
-        entries.sort_by_key(|e| f(e));
-        entries
+        self.entries.iter().sorted_by_key(|e| f(e)).collect()
     }
 
     /// Partition entries by predicate.

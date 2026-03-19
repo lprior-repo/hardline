@@ -42,11 +42,9 @@ fn insert_workspace_into_map(
 
 fn remove_workspace_from_map(id: &WorkspaceId, map: &mut HashMap<String, Workspace>) -> Result<()> {
     let key = id.as_str().to_string();
-    if map.remove(&key).is_some() {
-        Ok(())
-    } else {
-        Err(WorkspaceError::WorkspaceNotFound(id.as_str().into()))
-    }
+    map.remove(&key)
+        .map(|_| ())
+        .ok_or_else(|| WorkspaceError::WorkspaceNotFound(id.as_str().into()))
 }
 
 fn find_workspace_by_name<'a>(
@@ -107,8 +105,8 @@ impl WorkspaceRepository for InMemoryWorkspaceRepository {
     }
 
     fn delete(&self, id: &WorkspaceId) -> Result<()> {
-        let map = lock_workspace_map(&self.workspaces);
-        remove_workspace_from_map(id, &map)
+        let mut map = lock_workspace_map(&self.workspaces);
+        remove_workspace_from_map(id, &mut map)
     }
 }
 

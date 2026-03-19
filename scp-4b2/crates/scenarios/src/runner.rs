@@ -118,19 +118,8 @@ impl ScenarioRunner {
 
     /// Run a scenario and return the result
     pub async fn run(&self, scenario: &Scenario) -> ScenarioResult {
-        let mut context = RunContext::default();
-        let mut step_results = Vec::new();
-
-        for (index, step) in scenario.steps.iter().enumerate() {
-            let step_result = self.execute_step(step, index, &mut context).await;
-            step_results.push(step_result);
-
-            // Stop on first failure
-            if !step_results.last().is_some_and(|r| r.passed) {
-                break;
-            }
-        }
-
+        let context = RunContext::default();
+        let step_results = Self::execute_scenario_steps(scenario, self).await;
         let passed = step_results.iter().all(|r| r.passed);
 
         ScenarioResult {
@@ -138,6 +127,23 @@ impl ScenarioRunner {
             passed,
             step_results,
         }
+    }
+
+    /// Execute all scenario steps with early exit on failure - pure async iteration
+    async fn execute_scenario_steps(scenario: &Scenario, runner: &ScenarioRunner) -> Vec<StepResult> {
+        let mut context = RunContext::default();
+        let mut results = Vec::new();
+
+        for (index, step) in scenario.steps.iter().enumerate() {
+            let step_result = runner.execute_step(step, index, &mut context).await;
+            results.push(step_result);
+
+            if !results.last().is_some_and(|r| r.passed) {
+                break;
+            }
+        }
+
+        results
     }
 
     /// Execute a single step
@@ -322,10 +328,9 @@ impl ScenarioRunner {
             return Some(value.clone());
         }
 
-        path.split('.')
-            .try_fold(value.clone(), |current, part| {
-                Self::navigate_path_part(&current, part)
-            })
+        path.split('.').try_fold(value.clone(), |current, part| {
+            Self::navigate_path_part(&current, part)
+        })
     }
 
     /// Navigate a single path part - pure calculation
@@ -358,25 +363,28 @@ impl ScenarioRunner {
 
     /// Execute an assert step
     fn execute_assert(step: &AssertStep, index: usize, context: &RunContext) -> StepResult {
-        Self::run_assertion(&step.assertion, step, context)
-            .map_or_else(
-                |e| StepResult {
-                    step_index: index,
-                    step_type: "assert".to_string(),
-                    passed: false,
-                    error: Some(e.to_string()),
-                },
-                |passed| StepResult {
-                    step_index: index,
-                    step_type: "assert".to_string(),
-                    passed,
-                    error: passed.then_some("Assertion failed".to_string()),
-                },
-            )
+        Self::run_assertion(&step.assertion, step, context).map_or_else(
+            |e| StepResult {
+                step_index: index,
+                step_type: "assert".to_string(),
+                passed: false,
+                error: Some(e.to_string()),
+            },
+            |passed| StepResult {
+                step_index: index,
+                step_type: "assert".to_string(),
+                passed,
+                error: passed.then_some("Assertion failed".to_string()),
+            },
+        )
     }
 
     /// Run assertion and return pass/fail - pure calculation
-    fn run_assertion(assertion: &AssertionType, step: &AssertStep, context: &RunContext) -> Result<bool, RunnerError> {
+    fn run_assertion(
+        assertion: &AssertionType,
+        step: &AssertStep,
+        context: &RunContext,
+    ) -> Result<bool, RunnerError> {
         match assertion {
             AssertionType::Equals => Ok(Self::assert_equals(step, context)),
             AssertionType::NotEquals => Ok(Self::assert_not_equals(step, context)),
