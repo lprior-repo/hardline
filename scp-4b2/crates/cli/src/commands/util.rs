@@ -38,20 +38,42 @@ fn now() -> Result<()> {
     Ok(())
 }
 
+/// Extracts relevant environment variables as a vector of (name, value) pairs.
+/// This is a pure calculation with no I/O side effects.
+fn extract_env_vars() -> Vec<(&'static str, Option<String>)> {
+    ["VCS", "EDITOR"]
+        .into_iter()
+        .map(|key| (key, std::env::var(key).ok()))
+        .collect()
+}
+
+/// Formats env info for display - pure data transformation.
+fn format_env_display(version: &str, cwd: Option<&std::path::Path>, env_vars: &[(&str, Option<String>)]) -> Vec<String> {
+    std::iter::once(format!("SCP Version: {}", version))
+        .chain(cwd.map(|path| format!("CWD: {}", path.display())))
+        .chain(env_vars.iter().filter_map(|(key, val)| {
+            val.as_ref().map(|v| format!("{}: {}", key, v))
+        }))
+        .collect()
+}
+
+    lines.extend(
+        env_vars
+            .iter()
+            .filter_map(|(key, val)| val.as_ref().map(|v| format!("{}: {}", key, v))),
+    );
+
+    lines
+}
+
 fn env_info() -> Result<()> {
-    println!("SCP Version: {}", env!("CARGO_PKG_VERSION"));
+    let version = env!("CARGO_PKG_VERSION");
+    let cwd = std::env::current_dir().ok();
+    let env_vars = extract_env_vars();
 
-    if let Ok(cwd) = std::env::current_dir() {
-        println!("CWD: {}", cwd.display());
-    }
-
-    if let Ok(vcs) = std::env::var("VCS") {
-        println!("VCS: {}", vcs);
-    }
-
-    if let Ok(editor) = std::env::var("EDITOR") {
-        println!("EDITOR: {}", editor);
-    }
+    format_env_display(version, cwd.as_deref(), &env_vars)
+        .into_iter()
+        .for_each(|line| println!("{}", line));
 
     Ok(())
 }
