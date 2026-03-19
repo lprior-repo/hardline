@@ -76,14 +76,19 @@ impl Default for VcsType {
     }
 }
 
+/// Constructs a default workspace configuration with standard settings.
+fn build_default_workspace_config() -> Option<WorkspaceConfig> {
+    Some(WorkspaceConfig {
+        vcs_type: VcsType::default(),
+        default_branch: "main".into(),
+        auto_sync: true,
+    })
+}
+
 impl Workspace {
     pub fn create(name: WorkspaceName, path: WorkspacePath) -> Result<Self, WorkspaceError> {
         let now = Utc::now();
-        let config = Some(WorkspaceConfig {
-            vcs_type: VcsType::default(),
-            default_branch: "main".into(),
-            auto_sync: true,
-        });
+        let config = build_default_workspace_config();
         Ok(Self::with_updated_state(
             &WorkspaceId::generate(),
             &name,
