@@ -73,7 +73,7 @@ faster-hex = "0.10"
 jj-lib = "0.38"
 
 # Git
-gix = "0.78"
+gix = { version = "0.78", features = ["status"] }
 
 # Dev dependencies
 tokio-test = "0.4"

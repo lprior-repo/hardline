@@ -59,12 +59,10 @@ impl VcsBackend for GitBackend {
     }
 
     fn rebase(&self, _onto: &str) -> Result<()> {
-        // Stub - rebase is complex
         Err(VcsError::Unimplemented("rebase not yet implemented with gix".into()))
     }
 
     fn merge(&self, _branch: &str) -> Result<()> {
-        // Stub - merge requires more complex implementation
         Err(VcsError::Unimplemented("merge not yet implemented with gix".into()))
     }
 

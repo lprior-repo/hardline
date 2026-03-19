@@ -36,6 +36,11 @@ pub enum GitError {
 
     #[error("Gitoxide init error: {0}")]
     GixInit(#[from] gix::init::Error),
+
+    #[error("Gitoxide status error: {0}")]
+    GixStatus(#[from] gix::status::Error),
+    #[error("Gitoxide status iter error: {0}")]
+    GixStatusIter(#[from] gix::status::into_iter::Error),
 }
 
 /// Result type for GitError operations
@@ -92,6 +97,8 @@ impl From<GitError> for VcsError {
             GitError::Gix(gix_err) => VcsError::Unimplemented(gix_err.to_string()),
             GitError::GixDiscover(gix_err) => VcsError::Unimplemented(gix_err.to_string()),
             GitError::GixInit(gix_err) => VcsError::Unimplemented(gix_err.to_string()),
+            GitError::GixStatus(err) => VcsError::Unimplemented(err.to_string()),
+            GitError::GixStatusIter(err) => VcsError::Unimplemented(err.to_string()),
         }
     }
 }

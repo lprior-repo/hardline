@@ -5,8 +5,8 @@
 #![forbid(unsafe_code)]
 
 pub mod domain;
-pub mod storage;
 pub mod error;
+pub mod storage;
 
 pub use domain::snapshot::{Snapshot, SnapshotId};
-pub use error::{SnapshotError, Result};
+pub use error::{Result, SnapshotError};

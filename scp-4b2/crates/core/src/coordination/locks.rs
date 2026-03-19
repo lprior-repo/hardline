@@ -202,10 +202,7 @@ impl LockManager {
                     expires_at: existing_expires,
                 });
             }
-            return Err(Error::SessionLocked(
-                session.to_string(),
-                holder_agent_id,
-            ));
+            return Err(Error::SessionLocked(session.to_string(), holder_agent_id));
         }
 
         // CRITICAL: Check session exists BEFORE creating a new lock
@@ -253,10 +250,7 @@ impl LockManager {
                         })?;
 
                 let holder_agent_id = holder.map_or_else(|| "unknown".to_string(), |(id,)| id);
-                return Err(Error::SessionLocked(
-                    session.to_string(),
-                    holder_agent_id,
-                ));
+                return Err(Error::SessionLocked(session.to_string(), holder_agent_id));
             }
 
             return Err(Error::Database(format!(
@@ -317,10 +311,7 @@ impl LockManager {
                 });
             }
             // Another agent holds the lock - fail fast
-            return Err(Error::SessionLocked(
-                session.to_string(),
-                holder_agent_id,
-            ));
+            return Err(Error::SessionLocked(session.to_string(), holder_agent_id));
         }
 
         // CRITICAL: Check session exists BEFORE creating lock
@@ -389,10 +380,7 @@ impl LockManager {
 
                     let holder_agent_id = holder.map_or_else(|| "unknown".to_string(), |(id,)| id);
 
-                    Err(Error::SessionLocked(
-                        session.to_string(),
-                        holder_agent_id,
-                    ))
+                    Err(Error::SessionLocked(session.to_string(), holder_agent_id))
                 } else {
                     Err(Error::Database(format!("Failed to acquire lock: {e}")))
                 }
@@ -411,9 +399,7 @@ impl LockManager {
             .await;
 
         match query_result {
-            Ok(None) => {
-                Err(Error::SessionNotFound(session.to_string()))
-            }
+            Ok(None) => Err(Error::SessionNotFound(session.to_string())),
             Ok(Some(_)) => {
                 // Session exists
                 Ok(())
@@ -425,9 +411,7 @@ impl LockManager {
                 if error_msg.contains("no such table") || error_msg.contains("does not exist") {
                     Ok(())
                 } else {
-                    Err(Error::Database(format!(
-                        "Failed to query sessions: {e}"
-                    )))
+                    Err(Error::Database(format!("Failed to query sessions: {e}")))
                 }
             }
         }
@@ -1124,7 +1108,10 @@ mod tests {
                 .collect();
 
         // Count successes and failures
-        let successful_locks = results.iter().filter(|r| std::result::Result::is_ok(r)).count();
+        let successful_locks = results
+            .iter()
+            .filter(|r| std::result::Result::is_ok(r))
+            .count();
 
         let failed_locks = results
             .iter()
@@ -1286,7 +1273,10 @@ mod tests {
                 .map(|r| r.map_err(|e| Error::Internal(e.to_string())))
                 .collect::<Result<Vec<_>>>()?;
 
-        let successful_locks = results.iter().filter(|r| std::result::Result::is_ok(r)).count();
+        let successful_locks = results
+            .iter()
+            .filter(|r| std::result::Result::is_ok(r))
+            .count();
         let session_locked_errors = results
             .iter()
             .filter(|r| matches!(r, Err(Error::SessionLocked(..))))

@@ -2,7 +2,7 @@
 //!
 //! Pure functions for task validation and state transitions
 
-use crate::commands::task_types::{Assignee, Task, TaskState};
+use crate::commands::task_types::{Assignee, Task, TaskId, TaskState};
 use scp_core::{
     error::Error, lock::LockGuard, lock::LockManager, lock::LockType, Result as CoreResult,
 };

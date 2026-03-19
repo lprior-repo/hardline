@@ -93,12 +93,22 @@ pub struct TwinDefinition {
 }
 
 impl TwinDefinition {
+    /// Parse a twin definition from YAML string.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DefinitionError`] if parsing fails or validation does not pass.
     pub fn from_yaml(yaml: &str) -> Result<Self, DefinitionError> {
         let def = serde_yaml::from_str::<Self>(yaml)?;
         def.validate()?;
         Ok(def)
     }
 
+    /// Parse a twin definition from YAML bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DefinitionError`] if parsing fails or validation does not pass.
     pub fn from_yaml_bytes(bytes: &[u8]) -> Result<Self, DefinitionError> {
         let def = serde_yaml::from_slice::<Self>(bytes)?;
         def.validate()?;

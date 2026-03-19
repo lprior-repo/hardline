@@ -41,3 +41,13 @@ fn test_workspace_commit_help() {
         .assert()
         .success();
 }
+
+#[test]
+fn test_stash_save_help() {
+    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    cmd.arg("stash")
+        .arg("save")
+        .arg("--help")
+        .assert()
+        .success();
+}

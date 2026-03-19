@@ -32,7 +32,7 @@ impl StackEngine {
     }
 }
 
-const fn not_found_error(operation: &str) -> Result<Stack> {
+fn not_found_error(operation: &str) -> Result<Stack> {
     Err(StackError::NotFound(format!(
         "{operation} {OPERATION_NOT_IMPLEMENTED}"
     )))

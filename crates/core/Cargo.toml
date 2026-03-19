@@ -41,6 +41,7 @@ petgraph = { workspace = true }
 
 # VCS
 jj-lib = { workspace = true }
+gix = { workspace = true }
 
 # File system
 directories = { workspace = true }

@@ -54,7 +54,7 @@ pub fn log(repo: &gix::Repository, limit: usize) -> GitResult<Vec<Commit>> {
             name: "message".to_string(),
             reason: e.to_string(),
         })?;
-        let message_str = String::from_utf8_lossy(message.as_bytes()).to_string();
+        let message_str = String::from_utf8_lossy(message.as_bytes()).trim().to_string();
         
         let author = commit.author().map_err(|e| GitError::InvalidRef {
             name: "author".to_string(),
@@ -104,7 +104,7 @@ pub fn find(repo: &gix::Repository, oid_str: &str) -> GitResult<Commit> {
         name: "message".to_string(),
         reason: e.to_string(),
     })?;
-    let message_str = String::from_utf8_lossy(message.as_bytes()).to_string();
+    let message_str = String::from_utf8_lossy(message.as_bytes()).trim().to_string();
     
     let author = commit.author().map_err(|e| GitError::InvalidRef {
         name: "author".to_string(),
@@ -143,7 +143,7 @@ pub fn current(repo: &gix::Repository) -> GitResult<Commit> {
         name: "message".to_string(),
         reason: e.to_string(),
     })?;
-    let message_str = String::from_utf8_lossy(message.as_bytes()).to_string();
+    let message_str = String::from_utf8_lossy(message.as_bytes()).trim().to_string();
     
     let author = commit.author().map_err(|e| GitError::InvalidRef {
         name: "author".to_string(),

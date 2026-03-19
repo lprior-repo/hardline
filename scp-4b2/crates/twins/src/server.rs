@@ -28,6 +28,65 @@ use crate::{
     state::{InMemoryTwinState, RequestRecord, TwinState},
 };
 
+// ---------------------------------------------------------------------------
+// Pure calculation functions (Data → Calc)
+// ---------------------------------------------------------------------------
+
+fn extract_request_headers(headers: &HeaderMap) -> HashMap<String, String> {
+    headers
+        .iter()
+        .filter_map(|(k, v)| v.to_str().ok().map(|s| (k.to_string(), s.to_string())))
+        .collect()
+}
+
+fn parse_body_bytes(body_bytes: &[u8]) -> Option<String> {
+    if body_bytes.is_empty() {
+        None
+    } else {
+        String::from_utf8(body_bytes.to_vec()).ok()
+    }
+}
+
+fn serialize_response_body(body: &serde_json::Value) -> Result<String, ServerError> {
+    serde_json::to_string(body).map_err(|e| ServerError::SerializationError(e.to_string()))
+}
+
+fn create_request_record(
+    method: &Method,
+    path: String,
+    request_headers: HashMap<String, String>,
+    request_body: Option<String>,
+    endpoint: &Endpoint,
+) -> Result<RequestRecord, ServerError> {
+    let response_body = serialize_response_body(&endpoint.response.body)?;
+    Ok(RequestRecord::new(
+        method.to_string(),
+        path,
+        request_headers,
+        request_body,
+        endpoint.response.status,
+        endpoint.response.headers.clone(),
+        Some(response_body),
+    ))
+}
+
+fn endpoint_to_route(endpoint: &Endpoint) -> (String, HttpMethod) {
+    (endpoint.path.clone(), endpoint.method)
+}
+
+fn method_to_http_method(method: &Method) -> Option<HttpMethod> {
+    match method.as_str() {
+        "GET" => Some(HttpMethod::GET),
+        "POST" => Some(HttpMethod::POST),
+        "PUT" => Some(HttpMethod::PUT),
+        "DELETE" => Some(HttpMethod::DELETE),
+        "PATCH" => Some(HttpMethod::PATCH),
+        "OPTIONS" => Some(HttpMethod::OPTIONS),
+        "HEAD" => Some(HttpMethod::HEAD),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum ServerError {
     #[error("Failed to parse request body: {0}")]
@@ -70,16 +129,7 @@ impl AppState {
 
     #[must_use]
     pub fn find_endpoint(&self, method: &Method, path: &str) -> Option<&Endpoint> {
-        let http_method = match method.as_str() {
-            "GET" => HttpMethod::GET,
-            "POST" => HttpMethod::POST,
-            "PUT" => HttpMethod::PUT,
-            "DELETE" => HttpMethod::DELETE,
-            "PATCH" => HttpMethod::PATCH,
-            "OPTIONS" => HttpMethod::OPTIONS,
-            "HEAD" => HttpMethod::HEAD,
-            _ => return None,
-        };
+        let http_method = method_to_http_method(method)?;
 
         self.definition
             .endpoints
@@ -108,53 +158,30 @@ async fn twin_handler(
         .await
         .map_err(|e| ServerError::BodyParseError(e.to_string()))?;
 
-    let request_body_str = if body_bytes.is_empty() {
-        None
-    } else {
-        String::from_utf8(body_bytes.to_vec()).ok()
-    };
-
-    let request_headers: HashMap<String, String> = headers
-        .iter()
-        .filter_map(|(k, v)| {
-            v.to_str()
-                .ok()
-                .map(|s| (k.to_string(), s.to_string()))
-        })
-        .collect();
+    let request_body_str = parse_body_bytes(&body_bytes);
+    let request_headers = extract_request_headers(&headers);
 
     let response = &endpoint.response;
-    let status = response.status;
 
-    let builder = Response::builder().status(status);
-
+    let builder = Response::builder().status(response.status);
     let builder = response
         .headers
         .iter()
         .try_fold(builder, |acc, (key, value)| {
-            let name = HeaderName::from_bytes(key.as_bytes())
-                .map_err(|_| ServerError::InvalidHeader(key.clone()))?;
-            Ok(acc.header(&name, value.as_str()))
+            HeaderName::from_bytes(key.as_bytes())
+                .map_err(|_| ServerError::InvalidHeader(key.clone()))
+                .map(|name| acc.header(&name, value.as_str()))
         })?;
 
-    let response_body = serde_json::to_string(&response.body)
-        .map_err(|e| ServerError::SerializationError(e.to_string()))?;
+    let response_body = serialize_response_body(&response.body)?;
 
-    let builder = if !response_body.is_empty() {
-        builder.header("content-type", "application/json")
-    } else {
+    let builder = if response_body.is_empty() {
         builder
+    } else {
+        builder.header("content-type", "application/json")
     };
 
-    let record = RequestRecord::new(
-        method.to_string(),
-        path,
-        request_headers,
-        request_body_str,
-        response.status,
-        response.headers.clone(),
-        Some(response_body.clone()),
-    );
+    let record = create_request_record(&method, path, request_headers, request_body_str, endpoint)?;
 
     let new_state = {
         let state_guard = state.state.read().await;
@@ -225,28 +252,15 @@ async fn clear_state(State(state): State<AppState>) -> impl IntoResponse {
     (StatusCode::OK, r#"{"status":"cleared"}"#)
 }
 
-pub fn build_router(definition: TwinDefinition) -> Router {
-    let app_state = AppState::new(definition);
-
+pub fn build_router(definition: &TwinDefinition) -> Router {
     let base_router = Router::new()
         .route("/_inspect/state", get(inspect_state))
         .route("/_inspect/requests", get(inspect_requests))
         .route("/_inspect/clear", post(clear_state));
 
-    let routes: Vec<_> = app_state
-        .definition
-        .endpoints
-        .iter()
-        .map(|endpoint| {
-            let path = endpoint.path.clone();
-            let method = endpoint.method;
-            (path, method)
-        })
-        .collect();
-
-    let mut router = base_router;
-    for (path, method) in routes {
-        router = match method {
+    let twin_router = definition.endpoints.iter().map(endpoint_to_route).fold(
+        base_router,
+        |router, (path, method)| match method {
             HttpMethod::GET => router.route(&path, get(twin_handler)),
             HttpMethod::POST => router.route(&path, post(twin_handler)),
             HttpMethod::PUT => router.route(&path, put(twin_handler)),
@@ -254,18 +268,25 @@ pub fn build_router(definition: TwinDefinition) -> Router {
             HttpMethod::PATCH => router.route(&path, patch(twin_handler)),
             HttpMethod::OPTIONS => router.route(&path, options(twin_handler)),
             HttpMethod::HEAD => router.route(&path, head(twin_handler)),
-        };
-    }
+        },
+    );
 
-    router
+    let app_state = AppState::new(definition.clone());
+
+    twin_router
         .fallback(any(not_found_handler))
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())
 }
 
+/// Start the twin HTTP server.
+///
+/// # Errors
+///
+/// Returns [`ServerError`] if binding to the port fails or the server errors during serving.
 pub async fn start_server(definition: TwinDefinition) -> Result<(), ServerError> {
     let port = definition.port;
-    let router = build_router(definition);
+    let router = build_router(&definition);
 
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
 
@@ -305,7 +326,7 @@ endpoints:
     #[test]
     fn test_build_router() {
         let definition = TwinDefinition::from_yaml(TEST_YAML).expect("Should parse");
-        let _router = build_router(definition);
+        let _router = build_router(&definition);
     }
 
     #[tokio::test]

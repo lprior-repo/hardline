@@ -80,11 +80,17 @@ impl WorkspaceGuard {
         let forget_result = workspace_forget(&self.name).await;
 
         let remove_result = match tokio::fs::try_exists(&self.path).await {
-            Ok(true) => tokio::fs::remove_dir_all(&self.path)
-                .await
-                .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to remove workspace directory: {e}")))),
+            Ok(true) => tokio::fs::remove_dir_all(&self.path).await.map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Failed to remove workspace directory: {e}"),
+                ))
+            }),
             Ok(false) => Ok(()),
-            Err(e) => Err(Error::Io(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to check workspace existence: {e}")))),
+            Err(e) => Err(Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to check workspace existence: {e}"),
+            ))),
         };
 
         forget_result.and(remove_result)
@@ -109,10 +115,17 @@ impl WorkspaceGuard {
             });
 
         let remove_result = match self.path.try_exists() {
-            Ok(true) => std::fs::remove_dir_all(&self.path)
-                .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to remove workspace directory: {e}")))),
+            Ok(true) => std::fs::remove_dir_all(&self.path).map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Failed to remove workspace directory: {e}"),
+                ))
+            }),
             Ok(false) => Ok(()),
-            Err(e) => Err(Error::Io(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to check workspace existence: {e}")))),
+            Err(e) => Err(Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to check workspace existence: {e}"),
+            ))),
         };
 
         forget_result.and(remove_result)
@@ -244,13 +257,18 @@ fn conflict_recovery_hint(
 
 pub async fn workspace_create(name: &str, path: &Path) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::ConfigInvalid("workspace name cannot be empty".into()));
+        return Err(Error::ConfigInvalid(
+            "workspace name cannot be empty".into(),
+        ));
     }
 
     if let Some(parent) = path.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to create workspace directory: {e}"))))?;
+        tokio::fs::create_dir_all(parent).await.map_err(|e| {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to create workspace directory: {e}"),
+            ))
+        })?;
     }
 
     let output = get_jj_command()
@@ -291,7 +309,9 @@ pub async fn create_workspace(name: &str, path: &Path) -> Result<WorkspaceGuard>
 
 pub async fn workspace_forget(name: &str) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::ConfigInvalid("workspace name cannot be empty".into()));
+        return Err(Error::ConfigInvalid(
+            "workspace name cannot be empty".into(),
+        ));
     }
 
     let output = get_jj_command()

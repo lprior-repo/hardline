@@ -72,16 +72,33 @@ pub async fn log_recovery(message: &str, config: &RecoveryConfig) -> Result<()> 
             .create(true)
             .append(true)
             .open(&log_path)
-            .map_err(|e| Error::Io(std::io::Error::new(e.kind(), format!("Failed to open recovery log: {e}"))))?;
+            .map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    e.kind(),
+                    format!("Failed to open recovery log: {e}"),
+                ))
+            })?;
 
-        file.lock_exclusive()
-            .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to lock recovery log: {e}"))))?;
+        file.lock_exclusive().map_err(|e| {
+            Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to lock recovery log: {e}"),
+            ))
+        })?;
 
-        file.write_all(log_entry.as_bytes())
-            .map_err(|e| Error::Io(std::io::Error::new(e.kind(), format!("Failed to write to recovery log: {e}"))))?;
+        file.write_all(log_entry.as_bytes()).map_err(|e| {
+            Error::Io(std::io::Error::new(
+                e.kind(),
+                format!("Failed to write to recovery log: {e}"),
+            ))
+        })?;
 
-        file.sync_all()
-            .map_err(|e| Error::Io(std::io::Error::new(e.kind(), format!("Failed to flush recovery log: {e}"))))?;
+        file.sync_all().map_err(|e| {
+            Error::Io(std::io::Error::new(
+                e.kind(),
+                format!("Failed to flush recovery log: {e}"),
+            ))
+        })?;
 
         Ok::<(), Error>(())
     })
@@ -167,10 +184,7 @@ pub async fn repair_database(db_path: &Path, config: &RecoveryConfig) -> Result<
             )));
         }
         RecoveryPolicy::Warn => {
-            eprintln!(
-                "⚠  Repairing corrupted database: {}",
-                db_path.display()
-            );
+            eprintln!("⚠  Repairing corrupted database: {}", db_path.display());
             log_recovery(
                 &format!("Repairing database: {}", db_path.display()),
                 config,

@@ -156,7 +156,17 @@ impl ScenarioRunner {
 
     /// Execute an HTTP step
     async fn execute_http(&self, step: &HttpStep, context: &mut RunContext) -> StepResult {
-        let mut request = match step.method {
+        let request = self.build_request(step);
+
+        match request.send().await {
+            Ok(response) => self.handle_http_response(response, context).await,
+            Err(e) => Self::make_http_error_result(e),
+        }
+    }
+
+    /// Build HTTP request from step config - pure calculation
+    fn build_request(&self, step: &HttpStep) -> reqwest::RequestBuilder {
+        let request = match step.method {
             HttpMethod::Get => self.client.get(&step.url),
             HttpMethod::Post => self.client.post(&step.url),
             HttpMethod::Put => self.client.put(&step.url),
@@ -164,101 +174,143 @@ impl ScenarioRunner {
             HttpMethod::Delete => self.client.delete(&step.url),
         };
 
-        // Add headers
-        for (key, value) in &step.headers {
-            request = request.header(key, value);
-        }
+        let with_headers = step
+            .headers
+            .iter()
+            .fold(request, |req, (key, value)| req.header(key, value));
 
-        // Add body if present
-        if let Some(body) = &step.body {
-            let body_str = serde_json::to_string(body)
-                .map_err(|e| RunnerError::SerializationError(e.to_string()))
-                .unwrap_or_default();
-            request = request.body(body_str);
-        }
-
-        // Execute request
-        match request.send().await {
-            Ok(response) => {
-                let status = response.status().as_u16();
-                let mut headers = HashMap::new();
-                for (key, value) in response.headers() {
-                    if let Ok(v) = value.to_str() {
-                        headers.insert(key.to_string(), v.to_string());
-                    }
-                }
-
-                let body = match response.json::<Value>().await {
-                    Ok(v) => v,
-                    Err(_) => Value::Null,
-                };
-
-                context.last_response = Some(HttpResponseData {
-                    status,
-                    headers,
-                    body: body.clone(),
-                });
-
-                StepResult {
-                    step_index: 0,
-                    step_type: "http".to_string(),
-                    passed: (200..400).contains(&status),
-                    error: if status >= 400 {
-                        Some(format!("HTTP error: {status}"))
-                    } else {
-                        None
-                    },
-                }
+        match step.body.as_ref() {
+            Some(body) => {
+                let body_str = serde_json::to_string(body).map_or(String::new(), |s| s);
+                with_headers.body(body_str)
             }
-            Err(e) => StepResult {
-                step_index: 0,
-                step_type: "http".to_string(),
-                passed: false,
-                error: Some(format!("Request failed: {e}")),
-            },
+            None => with_headers,
+        }
+    }
+
+    /// Handle successful HTTP response - pure calculation
+    fn handle_http_response(
+        &self,
+        response: reqwest::Response,
+        context: &mut RunContext,
+    ) -> StepResult {
+        let status = response.status().as_u16();
+        let headers = Self::collect_response_headers(&response);
+        let body = Self::extract_response_body(response);
+
+        context.last_response = Some(HttpResponseData {
+            status,
+            headers: headers.clone(),
+            body: body.clone(),
+        });
+
+        Self::make_http_success_result(status, headers, body)
+    }
+
+    /// Collect headers from HTTP response - pure calculation
+    fn collect_response_headers(response: &reqwest::Response) -> HashMap<String, String> {
+        response
+            .headers()
+            .iter()
+            .filter_map(|(k, v)| v.to_str().ok().map(|s| (k.to_string(), s.to_string())))
+            .collect()
+    }
+
+    /// Extract body from HTTP response - async but pure transformation
+    async fn extract_response_body(response: reqwest::Response) -> Value {
+        response.json::<Value>().await.unwrap_or(Value::Null)
+    }
+
+    /// Build HTTP success result - pure calculation
+    fn make_http_success_result(
+        status: u16,
+        _headers: HashMap<String, String>,
+        _body: Value,
+    ) -> StepResult {
+        StepResult {
+            step_index: 0,
+            step_type: "http".to_string(),
+            passed: (200..400).contains(&status),
+            error: (status >= 400).then(|| format!("HTTP error: {status}")),
+        }
+    }
+
+    /// Build HTTP error result - pure calculation
+    fn make_http_error_result(e: reqwest::Error) -> StepResult {
+        StepResult {
+            step_index: 0,
+            step_type: "http".to_string(),
+            passed: false,
+            error: Some(format!("Request failed: {e}")),
         }
     }
 
     /// Execute an extract step
     fn execute_extract(step: &ExtractStep, index: usize, context: &mut RunContext) -> StepResult {
-        let Some(response) = &context.last_response else {
-            return StepResult {
-                step_index: index,
-                step_type: "extract".to_string(),
-                passed: false,
-                error: Some("No HTTP response available".to_string()),
-            };
-        };
+        match context.last_response.as_ref() {
+            None => Self::make_extract_no_response_result(index),
+            Some(response) => Self::execute_extract_from_response(step, index, context, response),
+        }
+    }
 
-        // Simple JSONPath-like extraction (supports "$.path.to.value" and "path.to.value")
-        let value = Self::extract_json_path(&response.body, &step.path);
+    /// Handle extract when no response available - pure calculation
+    fn make_extract_no_response_result(index: usize) -> StepResult {
+        StepResult {
+            step_index: index,
+            step_type: "extract".to_string(),
+            passed: false,
+            error: Some("No HTTP response available".to_string()),
+        }
+    }
 
-        match value {
-            Some(val) => {
-                let val_str = if let Some(s) = val.as_str() {
-                    s.to_string()
-                } else {
-                    serde_json::to_string(&val).unwrap_or_default()
-                };
+    /// Execute extraction from response - pure calculation
+    fn execute_extract_from_response(
+        step: &ExtractStep,
+        index: usize,
+        context: &mut RunContext,
+        response: &HttpResponseData,
+    ) -> StepResult {
+        Self::extract_json_path(&response.body, &step.path).map_or_else(
+            || Self::make_extract_failure_result(step, index),
+            |val| Self::store_extracted_value(step, index, context, val),
+        )
+    }
 
-                context.variables.insert(step.r#as.clone(), val_str);
+    /// Store extracted value in context - pure calculation
+    fn store_extracted_value(
+        step: &ExtractStep,
+        index: usize,
+        context: &mut RunContext,
+        val: Value,
+    ) -> StepResult {
+        let val_str = Self::value_to_string(&val);
+        context.variables.insert(step.r#as.clone(), val_str);
+        StepResult {
+            step_index: index,
+            step_type: "extract".to_string(),
+            passed: true,
+            error: None,
+        }
+    }
 
-                StepResult {
-                    step_index: index,
-                    step_type: "extract".to_string(),
-                    passed: true,
-                    error: None,
-                }
-            }
-            None => StepResult {
-                step_index: index,
-                step_type: "extract".to_string(),
-                passed: false,
-                error: Some(format!(
-                    "Failed to extract {} from {}",
-                    step.path, step.from
-                )),
-            },
+    /// Convert JSON value to string - pure calculation
+    fn value_to_string(val: &Value) -> String {
+        val.as_str()
+            .map(String::from)
+            .or_else(|| serde_json::to_string(val).ok())
+            .unwrap_or_default()
+    }
+
+    /// Build extract failure result - pure calculation
+    fn make_extract_failure_result(step: &ExtractStep, index: usize) -> StepResult {
+        StepResult {
+            step_index: index,
+            step_type: "extract".to_string(),
+            passed: false,
+            error: Some(format!(
+                "Failed to extract {} from {}",
+                step.path, step.from
+            )),
         }
     }
 
@@ -270,115 +322,129 @@ impl ScenarioRunner {
             return Some(value.clone());
         }
 
-        let parts: Vec<&str> = path.split('.').collect();
-        let mut current = value.clone();
+        path.split('.')
+            .try_fold(value.clone(), |current, part| {
+                Self::navigate_path_part(&current, part)
+            })
+    }
 
-        for part in parts {
-            // Handle array indexing like "items[0]"
-            let (key, index) = if let Some(idx_start) = part.find('[') {
-                let key = &part[..idx_start];
-                let idx_str = part[idx_start + 1..].trim_end_matches(']');
-                let idx = idx_str.parse::<usize>().ok()?;
-                (key, Some(idx))
-            } else {
-                (part, None)
-            };
+    /// Navigate a single path part - pure calculation
+    fn navigate_path_part(current: &Value, part: &str) -> Option<Value> {
+        let (key, idx) = Self::parse_path_part(part);
 
-            current = match &current {
-                Value::Object(map) => map.get(key)?.clone(),
-                Value::Array(arr) => {
-                    let idx = index.unwrap_or(0);
-                    arr.get(idx)?.clone()
+        match (current, key, idx) {
+            (Value::Object(map), Some(k), None) => map.get(k).cloned(),
+            (Value::Array(arr), None, Some(i)) => arr.get(i).cloned(),
+            (Value::Array(arr), Some(k), Some(i)) => arr.get(i).and_then(|item| {
+                if let Value::Object(map) = item {
+                    map.get(k).cloned()
+                } else {
+                    None
                 }
-                _ => return None,
-            };
+            }),
+            _ => None,
         }
+    }
 
-        Some(current)
+    /// Parse a path part into (key, array_index) - pure calculation
+    fn parse_path_part(part: &str) -> (Option<&str>, Option<usize>) {
+        part.find('[').map_or((Some(part), None), |idx_start| {
+            let key = &part[..idx_start];
+            let idx_str = part[idx_start + 1..].trim_end_matches(']');
+            let idx = idx_str.parse::<usize>().ok();
+            (Some(key), idx)
+        })
     }
 
     /// Execute an assert step
     fn execute_assert(step: &AssertStep, index: usize, context: &RunContext) -> StepResult {
-        let assertion = step.assertion;
-
-        let result: Result<bool, RunnerError> = match assertion {
-            AssertionType::Equals => {
-                let actual =
-                    ScenarioRunner::resolve_template(step.equals.as_deref().unwrap_or(""), context);
-                let expected = step.expected.as_deref().unwrap_or("");
-                Ok(actual == expected)
-            }
-            AssertionType::NotEquals => {
-                let actual =
-                    ScenarioRunner::resolve_template(step.equals.as_deref().unwrap_or(""), context);
-                let expected = step.expected.as_deref().unwrap_or("");
-                Ok(actual != expected)
-            }
-            AssertionType::Exists => {
-                let value = step.exists.as_deref().unwrap_or("");
-                let resolved = ScenarioRunner::resolve_template(value, context);
-                Ok(!resolved.is_empty())
-            }
-            AssertionType::NotExists => {
-                let value = step.not_exists.as_deref().unwrap_or("");
-                let resolved = ScenarioRunner::resolve_template(value, context);
-                Ok(resolved.is_empty())
-            }
-            AssertionType::Contains => {
-                let actual =
-                    ScenarioRunner::resolve_template(step.equals.as_deref().unwrap_or(""), context);
-                let expected = step.expected.as_deref().unwrap_or("");
-                Ok(actual.contains(expected))
-            }
-            AssertionType::NotContains => {
-                let actual =
-                    ScenarioRunner::resolve_template(step.equals.as_deref().unwrap_or(""), context);
-                let expected = step.expected.as_deref().unwrap_or("");
-                Ok(!actual.contains(expected))
-            }
-        };
-
-        match result {
-            Ok(passed) => StepResult {
-                step_index: index,
-                step_type: "assert".to_string(),
-                passed,
-                error: if passed {
-                    None
-                } else {
-                    Some("Assertion failed".to_string())
+        Self::run_assertion(&step.assertion, step, context)
+            .map_or_else(
+                |e| StepResult {
+                    step_index: index,
+                    step_type: "assert".to_string(),
+                    passed: false,
+                    error: Some(e.to_string()),
                 },
-            },
-            Err(e) => StepResult {
-                step_index: index,
-                step_type: "assert".to_string(),
-                passed: false,
-                error: Some(e.to_string()),
-            },
+                |passed| StepResult {
+                    step_index: index,
+                    step_type: "assert".to_string(),
+                    passed,
+                    error: passed.then_some("Assertion failed".to_string()),
+                },
+            )
+    }
+
+    /// Run assertion and return pass/fail - pure calculation
+    fn run_assertion(assertion: &AssertionType, step: &AssertStep, context: &RunContext) -> Result<bool, RunnerError> {
+        match assertion {
+            AssertionType::Equals => Ok(Self::assert_equals(step, context)),
+            AssertionType::NotEquals => Ok(Self::assert_not_equals(step, context)),
+            AssertionType::Exists => Ok(Self::assert_exists(step, context)),
+            AssertionType::NotExists => Ok(Self::assert_not_exists(step, context)),
+            AssertionType::Contains => Ok(Self::assert_contains(step, context)),
+            AssertionType::NotContains => Ok(Self::assert_not_contains(step, context)),
         }
+    }
+
+    /// Assert equals - pure calculation
+    fn assert_equals(step: &AssertStep, context: &RunContext) -> bool {
+        let actual = Self::resolve_or_empty(step.equals.as_deref(), context);
+        let expected = Self::resolve_or_empty(step.expected.as_deref(), context);
+        actual == expected
+    }
+
+    /// Assert not equals - pure calculation
+    fn assert_not_equals(step: &AssertStep, context: &RunContext) -> bool {
+        let actual = Self::resolve_or_empty(step.equals.as_deref(), context);
+        let expected = Self::resolve_or_empty(step.expected.as_deref(), context);
+        actual != expected
+    }
+
+    /// Assert exists - pure calculation
+    fn assert_exists(step: &AssertStep, context: &RunContext) -> bool {
+        !Self::resolve_or_empty(step.exists.as_deref(), context).is_empty()
+    }
+
+    /// Assert not exists - pure calculation
+    fn assert_not_exists(step: &AssertStep, context: &RunContext) -> bool {
+        Self::resolve_or_empty(step.not_exists.as_deref(), context).is_empty()
+    }
+
+    /// Assert contains - pure calculation
+    fn assert_contains(step: &AssertStep, context: &RunContext) -> bool {
+        let actual = Self::resolve_or_empty(step.equals.as_deref(), context);
+        let expected = Self::resolve_or_empty(step.expected.as_deref(), context);
+        actual.contains(&expected)
+    }
+
+    /// Assert not contains - pure calculation
+    fn assert_not_contains(step: &AssertStep, context: &RunContext) -> bool {
+        let actual = Self::resolve_or_empty(step.equals.as_deref(), context);
+        let expected = Self::resolve_or_empty(step.expected.as_deref(), context);
+        !actual.contains(&expected)
+    }
+
+    /// Resolve template or return empty string - pure calculation
+    fn resolve_or_empty(opt: Option<&str>, context: &RunContext) -> String {
+        opt.map_or_else(|| String::new(), |s| Self::resolve_template(s, context))
     }
 
     /// Resolve template variables in a string
     /// Replaces `{{variable_name}}` with the actual value
     fn resolve_template(template: &str, context: &RunContext) -> String {
-        let mut result = template.to_string();
-
-        // Simple regex to match {{variable_name}}
-        // This regex is guaranteed to be valid
-        let Ok(re) = regex::Regex::new(r"\{\{(\w+)\}\}") else {
-            return result;
+        let re = match regex::Regex::new(r"\{\{(\w+)\}\}") {
+            Ok(re) => re,
+            Err(_) => return template.to_string(),
         };
 
-        for cap in re.captures_iter(template) {
-            if let Some(var_name) = cap.get(1) {
-                let var = var_name.as_str();
-                if let Some(value) = context.variables.get(var) {
-                    result = result.replace(&format!("{{{{{var}}}}}"), value);
-                }
-            }
-        }
-
-        result
+        let ctx_vars = &context.variables;
+        re.replace_all(template, |caps: &regex::Captures| {
+            caps.get(1)
+                .and_then(|m| ctx_vars.get(m.as_str()).cloned())
+                .unwrap_or_else(|| caps[0].to_string())
+        })
+        .to_string()
     }
 
     /// Run scenario and sanitize feedback for agent

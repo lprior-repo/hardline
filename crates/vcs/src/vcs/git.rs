@@ -1,4 +1,4 @@
-//! Git backend implementation using gix for read operations
+//! Git backend implementation using gix (pure Rust)
 //!
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -11,23 +11,20 @@
 //! - `GitBackendConfig` - Configuration for `GitBackend` creation
 //!
 //! # Design
-//! - Uses gix for read operations (status, branches, commits)
-//! - Uses Git CLI (2.38+) for rebase operations (--update-refs support)
+//! - Uses gix for ALL operations (status, branches, commits, checkout, rebase)
+//! - No shell commands - 100% pure Rust via gix
 //! - Caches the `gix::Repository` handle for performance
 //! - Thread-safe for read operations via Mutex
 
 use std::path::Path;
-use std::process::Command;
 use std::sync::Mutex;
 
 use gix::Repository;
 
+use crate::gix::branch;
 use crate::vcs::{
     BackendType, BranchName, CommitId, RepoStatus, RepositoryPath, VcsBackend, VcsError,
 };
-
-/// Minimum required Git CLI version for rebase operations
-const MIN_GIT_VERSION: (u32, u32) = (2, 38);
 
 // ============================================================================
 // GitBackend
