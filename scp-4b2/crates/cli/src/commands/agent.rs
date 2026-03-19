@@ -65,14 +65,6 @@ pub fn kill(id: &str) -> Result<()> {
     }
 }
 
-/// Format agent activity as a string
-fn format_activity(activity: &AgentActivity) -> &str {
-    match activity {
-        AgentActivity::Idle => "idle",
-        AgentActivity::Working { .. } => "working",
-    }
-}
-
 /// Print detailed status for a single agent
 fn print_agent_status(agent_id: &str, agent: &Agent) {
     println!("Agent '{}':", agent_id);
@@ -86,10 +78,12 @@ fn print_agent_status(agent_id: &str, agent: &Agent) {
         agent.last_seen.format("%Y-%m-%d %H:%M:%S")
     );
     println!("  Actions: {}", agent.actions_count);
-    println!("  Activity: {}", format_activity(&agent.activity));
 
-    if let AgentActivity::Working { session, command } = &agent.activity {
-        println!("  Activity: working on '{}' - {}", session, command);
+    match &agent.activity {
+        AgentActivity::Idle => println!("  Activity: idle"),
+        AgentActivity::Working { session, command } => {
+            println!("  Activity: working on '{}' - {}", session, command);
+        }
     }
 }
 
