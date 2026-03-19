@@ -211,6 +211,19 @@ fn validate_inputs(
     Ok((session, mode))
 }
 
+/// Evaluate a single poll iteration - pure function
+/// Returns Some(state_string) if condition is met, None otherwise
+fn evaluate_poll_iteration(
+    workspaces: &[Workspace],
+    session: &SessionName,
+    mode: &WaitMode,
+) -> Option<String> {
+    find_workspace(workspaces, session.as_str()).and_then(|workspace| {
+        evaluate_condition(Some(workspace), mode)
+            .then(|| workspace_branch_or_empty(Some(workspace)))
+    })
+}
+
 /// Execute the wait loop - main orchestration
 fn execute_wait_loop(
     session: SessionName,
@@ -229,12 +242,8 @@ fn execute_wait_loop(
         // Load workspaces (I/O)
         let workspaces = load_workspaces()?;
 
-        // Find workspace and check condition (pure)
-        let workspace = find_workspace(&workspaces, session.as_str());
-        let condition_met = evaluate_condition(workspace, &mode);
-
-        if condition_met {
-            let state = workspace_branch_or_empty(workspace);
+        // Evaluate condition (pure)
+        if let Some(state) = evaluate_poll_iteration(&workspaces, &session, &mode) {
             println!("Condition met: session '{}' is {}", session, mode.display());
             return Ok(WaitResult::condition_met(session.to_owned(), state));
         }
