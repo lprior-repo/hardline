@@ -82,10 +82,13 @@ impl InMemoryTwinState {
 
 impl TwinState for InMemoryTwinState {
     fn add_record(&self, record: RequestRecord) -> Self {
-        let mut new_records = self.records.clone();
-        new_records.push_back(record);
         Self {
-            records: new_records,
+            records: self
+                .records
+                .iter()
+                .chain(std::iter::once(&record))
+                .cloned()
+                .collect(),
         }
     }
 
