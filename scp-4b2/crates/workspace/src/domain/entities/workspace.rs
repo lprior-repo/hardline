@@ -79,64 +79,73 @@ impl Default for VcsType {
 impl Workspace {
     pub fn create(name: WorkspaceName, path: WorkspacePath) -> Result<Self, WorkspaceError> {
         let now = Utc::now();
-        Ok(Self {
-            id: WorkspaceId::generate(),
-            name,
-            path,
-            state: WorkspaceState::Initializing,
-            created_at: now,
-            updated_at: now,
-            lock_holder: None,
-            config: Some(WorkspaceConfig {
-                vcs_type: VcsType::default(),
-                default_branch: "main".into(),
-                auto_sync: true,
-            }),
-        })
+        let config = Some(WorkspaceConfig {
+            vcs_type: VcsType::default(),
+            default_branch: "main".into(),
+            auto_sync: true,
+        });
+        Ok(Self::with_updated_state(
+            &WorkspaceId::generate(),
+            &name,
+            &path,
+            WorkspaceState::Initializing,
+            now,
+            None,
+            &config,
+        ))
     }
 
     pub fn activate(&self) -> Result<Self, WorkspaceError> {
-        if self.state != WorkspaceState::Initializing {
-            return Err(WorkspaceError::InvalidStateTransition {
-                from: format!("{:?}", self.state),
-                to: "Active".into(),
-            });
-        }
-        Ok(self.transition_to(WorkspaceState::Active))
+        self.validate_state_transition(WorkspaceState::Initializing, WorkspaceState::Active)
+            .map(|()| self.transition_to(WorkspaceState::Active))
     }
 
     pub fn lock(&self, holder: String) -> Result<Self, WorkspaceError> {
-        if self.state != WorkspaceState::Active {
-            return Err(WorkspaceError::InvalidStateTransition {
-                from: format!("{:?}", self.state),
-                to: "Locked".into(),
-            });
-        }
-        Ok(self.transition_to_with_lock(WorkspaceState::Locked, Some(holder)))
+        self.validate_state_transition(WorkspaceState::Active, WorkspaceState::Locked)
+            .map(|()| self.transition_to_with_lock(WorkspaceState::Locked, Some(holder)))
     }
 
     pub fn unlock(&self) -> Result<Self, WorkspaceError> {
-        if self.state != WorkspaceState::Locked {
-            return Err(WorkspaceError::InvalidStateTransition {
-                from: format!("{:?}", self.state),
-                to: "Active".into(),
-            });
-        }
-        Ok(self.transition_to_with_lock(WorkspaceState::Active, None))
+        self.validate_state_transition(WorkspaceState::Locked, WorkspaceState::Active)
+            .map(|()| self.transition_to_with_lock(WorkspaceState::Active, None))
     }
 
     pub fn mark_corrupted(&self) -> Result<Self, WorkspaceError> {
-        Ok(self.transition_to_with_lock(WorkspaceState::Corrupted, None))
+        self.validate_state_transition(WorkspaceState::Active, WorkspaceState::Corrupted)
+            .map(|()| self.transition_to_with_lock(WorkspaceState::Corrupted, None))
     }
 
     pub fn delete(&self) -> Result<Self, WorkspaceError> {
-        if matches!(self.state, WorkspaceState::Deleted) {
+        self.validate_not_in_state(WorkspaceState::Deleted, "Deleted")
+            .map(|()| self.transition_to(WorkspaceState::Deleted))
+    }
+
+    fn validate_state_transition(
+        &self,
+        expected_from: WorkspaceState,
+        target_to: WorkspaceState,
+    ) -> Result<(), WorkspaceError> {
+        if self.state != expected_from {
             return Err(WorkspaceError::InvalidStateTransition {
                 from: format!("{:?}", self.state),
-                to: "Deleted".into(),
+                to: format!("{:?}", target_to),
             });
         }
-        Ok(self.transition_to(WorkspaceState::Deleted))
+        Ok(())
+    }
+
+    fn validate_not_in_state(
+        &self,
+        forbidden_state: WorkspaceState,
+        target_to: &'static str,
+    ) -> Result<(), WorkspaceError> {
+        if matches!(self.state, s if s == forbidden_state) {
+            return Err(WorkspaceError::InvalidStateTransition {
+                from: format!("{:?}", self.state),
+                to: target_to.into(),
+            });
+        }
+        Ok(())
     }
 
     fn transition_to(&self, new_state: WorkspaceState) -> Self {
@@ -148,15 +157,35 @@ impl Workspace {
         new_state: WorkspaceState,
         lock_holder: Option<String>,
     ) -> Self {
+        Self::with_updated_state(
+            &self.id,
+            &self.name,
+            &self.path,
+            new_state,
+            self.created_at,
+            lock_holder,
+            &self.config,
+        )
+    }
+
+    fn with_updated_state(
+        id: &WorkspaceId,
+        name: &WorkspaceName,
+        path: &WorkspacePath,
+        state: WorkspaceState,
+        created_at: DateTime<Utc>,
+        lock_holder: Option<String>,
+        config: &Option<WorkspaceConfig>,
+    ) -> Self {
         Self {
-            id: self.id.clone(),
-            name: self.name.clone(),
-            path: self.path.clone(),
-            state: new_state,
-            created_at: self.created_at,
+            id: id.clone(),
+            name: name.clone(),
+            path: path.clone(),
+            state,
+            created_at,
             updated_at: Utc::now(),
             lock_holder,
-            config: self.config.clone(),
+            config: config.clone(),
         }
     }
 
