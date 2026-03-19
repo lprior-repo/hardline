@@ -151,17 +151,14 @@ pub fn sync(_name: Option<&str>, all: bool) -> Result<()> {
 pub fn done(name: Option<&str>) -> Result<()> {
     let workspace_name = name.unwrap_or("current");
 
-    // Don't use "current" for existence check - it will fail
-    if name.is_some() {
-        let workspace_name = name.unwrap();
-
+    // Validate workspace exists if name was provided
+    if let Some(ws_name) = name {
         let cwd = std::env::current_dir().map_err(Error::Io)?;
         let backend = vcs::create_backend(&cwd)?;
 
-        // P3: Check workspace exists
         let workspaces = backend.list_workspaces()?;
-        if !workspaces.iter().any(|w| w.name == workspace_name) {
-            return Err(Error::WorkspaceNotFound(workspace_name.to_string()));
+        if !workspaces.iter().any(|w| w.name == ws_name) {
+            return Err(Error::WorkspaceNotFound(ws_name.to_string()));
         }
     }
 
