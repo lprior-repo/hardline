@@ -19,9 +19,8 @@ fn calculate_enqueue_position(current_len: usize) -> QueuePosition {
 }
 
 // Pure calculation: create entry with assigned position
-fn assign_position_to_entry(mut entry: QueueEntry, position: QueuePosition) -> QueueEntry {
-    entry.position = position;
-    entry
+fn assign_position_to_entry(entry: QueueEntry, position: QueuePosition) -> QueueEntry {
+    QueueEntry { position, ..entry }
 }
 
 // Pure calculation: check if entry is pending dequeue
