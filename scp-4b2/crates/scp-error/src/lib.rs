@@ -279,96 +279,94 @@ pub enum JjConflictType {
 }
 
 impl Error {
+    #[must_use]
     pub fn suggestion(&self) -> Option<String> {
         match self {
-            Error::WorkspaceNotFound(_) => {
+            WorkspaceNotFound(_) => {
                 Some("Try 'scp workspace list' to see available workspaces".into())
             }
-            Error::SessionNotFound(_) => {
-                Some("Try 'scp session list' to see available sessions".into())
-            }
-            Error::QueueEmpty => {
+            SessionNotFound(_) => Some("Try 'scp session list' to see available sessions".into()),
+            QueueEmpty => {
                 Some("No items in queue. Use 'scp queue enqueue <branch>' to add one".into())
             }
-            Error::WorkspaceLocked(_, holder) => {
-                Some(format!("Use 'scp agent kill {}' to force release", holder))
+            WorkspaceLocked(_, holder) => {
+                Some(format!("Use 'scp agent kill {holder}' to force release"))
             }
-            Error::VcsNotInitialized => Some("Run 'scp init' to initialize VCS".into()),
-            Error::WorkingCopyDirty => {
-                Some("Commit or stash your changes before continuing".into())
-            }
+            VcsNotInitialized => Some("Run 'scp init' to initialize VCS".into()),
+            WorkingCopyDirty => Some("Commit or stash your changes before continuing".into()),
             _ => None,
         }
     }
 
-    pub fn exit_code(&self) -> i32 {
+    #[must_use]
+    pub const fn exit_code(&self) -> i32 {
         match self {
-            Error::WorkspaceNotFound(_) => 10,
-            Error::WorkspaceExists(_) => 11,
-            Error::WorkspaceLocked(_, _) => 12,
-            Error::WorkspaceConflict(_) => 13,
-            Error::SessionNotFound(_) => 14,
-            Error::SessionExists(_) => 15,
-            Error::SessionLocked(_, _) => 16,
-            Error::NotLockHolder(_, _) => 17,
-            Error::SessionInvalidState(_, _, _) => 18,
-            Error::BeadNotFound(_) => 19,
-            Error::BeadAlreadyExists(_) => 20,
-            Error::QueueEmpty => 30,
-            Error::QueueItemNotFound(_) => 31,
-            Error::QueueLocked(_) => 32,
-            Error::QueueProcessing => 33,
-            Error::QueueInvalidPosition(_) => 34,
-            Error::QueueFull(_) => 35,
-            Error::VcsNotInitialized => 40,
-            Error::VcsConflict(_, _) => 41,
-            Error::VcsPushFailed(_) => 42,
-            Error::VcsPullFailed(_) => 43,
-            Error::VcsRebaseFailed(_) => 44,
-            Error::BranchNotFound(_) => 45,
-            Error::BranchExists(_) => 46,
-            Error::CommitNotFound(_) => 47,
-            Error::WorkingCopyDirty => 48,
-            Error::JjCommandError { .. } => 49,
-            Error::JjWorkspaceConflict { .. } => 50,
-            Error::ConfigNotFound(_) => 60,
-            Error::ConfigInvalid(_) => 61,
-            Error::ConfigPermission(_) => 62,
-            Error::InvalidConfig(_) => 63,
-            Error::InvalidRepoUrl(_) => 64,
-            Error::AgentNotFound(_) => 70,
-            Error::AgentExists(_) => 71,
-            Error::AgentTimeout(_) => 72,
-            Error::InvalidState(_) => 80,
-            Error::NotFound(_) => 81,
-            Error::InvalidOperation(_) => 82,
-            Error::ValidationError(_) => 90,
-            Error::ValidationFieldError { .. } => 91,
-            Error::InvalidIdentifier(_) => 92,
-            Error::IoError(_) => 100,
-            Error::JsonParseError(_) => 102,
-            Error::YamlParseError(_) => 103,
-            Error::Database(_) => 104,
-            Error::Serialization(_) => 105,
-            Error::LockTimeout { .. } => 110,
-            Error::CloneFailed(_) => 111,
-            Error::RecordFailed(_) => 112,
-            Error::Persistence(_) => 113,
-            Error::StateTransition(_) => 114,
-            Error::ScenarioError(_) => 120,
-            Error::RunnerError(_) => 121,
-            Error::DefinitionError(_) => 122,
-            Error::ServerError(_) => 123,
-            Error::SyncError(_) => 124,
-            Error::Internal(_) => 130,
-            Error::Unimplemented(_) => 131,
-            Error::InvariantViolation(_) => 132,
-            Error::InvalidBeadId(_) => 133,
-            Error::InvalidBeadTitle(_) => 134,
-            Error::BeadInvalidStateTransition { .. } => 135,
-            Error::BeadDependencyCycle(_) => 136,
-            Error::BeadBlockedBy(_) => 137,
-            Error::BeadInvalidDependency(_) => 138,
+            WorkspaceNotFound(_) => 10,
+            WorkspaceExists(_) => 11,
+            WorkspaceLocked(_, _) => 12,
+            WorkspaceConflict(_) => 13,
+            SessionNotFound(_) => 14,
+            SessionExists(_) => 15,
+            SessionLocked(_, _) => 16,
+            NotLockHolder(_, _) => 17,
+            SessionInvalidState(_, _, _) => 18,
+            BeadNotFound(_) => 19,
+            BeadAlreadyExists(_) => 20,
+            QueueEmpty => 30,
+            QueueItemNotFound(_) => 31,
+            QueueLocked(_) => 32,
+            QueueProcessing => 33,
+            QueueInvalidPosition(_) => 34,
+            QueueFull(_) => 35,
+            VcsNotInitialized => 40,
+            VcsConflict(_, _) => 41,
+            VcsPushFailed(_) => 42,
+            VcsPullFailed(_) => 43,
+            VcsRebaseFailed(_) => 44,
+            BranchNotFound(_) => 45,
+            BranchExists(_) => 46,
+            CommitNotFound(_) => 47,
+            WorkingCopyDirty => 48,
+            JjCommandError { .. } => 49,
+            JjWorkspaceConflict { .. } => 50,
+            ConfigNotFound(_) => 60,
+            ConfigInvalid(_) => 61,
+            ConfigPermission(_) => 62,
+            InvalidConfig(_) => 63,
+            InvalidRepoUrl(_) => 64,
+            AgentNotFound(_) => 70,
+            AgentExists(_) => 71,
+            AgentTimeout(_) => 72,
+            InvalidState(_) => 80,
+            NotFound(_) => 81,
+            InvalidOperation(_) => 82,
+            ValidationError(_) => 90,
+            ValidationFieldError { .. } => 91,
+            InvalidIdentifier(_) => 92,
+            IoError(_) => 100,
+            JsonParseError(_) => 102,
+            YamlParseError(_) => 103,
+            Database(_) => 104,
+            Serialization(_) => 105,
+            LockTimeout { .. } => 110,
+            CloneFailed(_) => 111,
+            RecordFailed(_) => 112,
+            Persistence(_) => 113,
+            StateTransition(_) => 114,
+            ScenarioError(_) => 120,
+            RunnerError(_) => 121,
+            DefinitionError(_) => 122,
+            ServerError(_) => 123,
+            SyncError(_) => 124,
+            Internal(_) => 130,
+            Unimplemented(_) => 131,
+            InvariantViolation(_) => 132,
+            InvalidBeadId(_) => 133,
+            InvalidBeadTitle(_) => 134,
+            BeadInvalidStateTransition { .. } => 135,
+            BeadDependencyCycle(_) => 136,
+            BeadBlockedBy(_) => 137,
+            BeadInvalidDependency(_) => 138,
         }
     }
 }

@@ -134,13 +134,14 @@ fn given_two_different_states_when_compare_then_not_equal() {
 }
 
 #[test]
-fn given_state_when_clone_then_independent() {
+fn given_state_when_copy_then_independent() {
     let state1 = SessionState::Created;
-    let state2 = state1.clone();
+    let state2 = state1;
     assert_eq!(state1, state2);
 }
 
 #[test]
+#[allow(dead_code)]
 fn given_state_when_copy_then_independent() {
     let state1 = SessionState::Failed;
     let state2 = state1;

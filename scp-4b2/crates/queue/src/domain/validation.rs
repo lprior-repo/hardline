@@ -125,13 +125,7 @@ impl Validator {
     pub fn finalize(mut self) -> ValidationResult<()> {
         match self.errors.len() {
             0 => Ok(()),
-            1 => {
-                if let Some(error) = self.errors.pop_front() {
-                    Err(error)
-                } else {
-                    Ok(())
-                }
-            }
+            1 => self.errors.pop_front().map_or(Ok(()), Err),
             _ => Err(ValidationError::Multiple(self.errors.into())),
         }
     }
@@ -163,35 +157,34 @@ where
 
 /// Railway combinator: Validate a value is within a range
 pub fn validate_range(value: u32, min: u32, max: u32, field: &str) -> ValidationResult<u32> {
-    if value < min {
-        Err(ValidationError::BelowMinimum {
+    match value {
+        v if v < min => Err(ValidationError::BelowMinimum {
             field: field.to_string(),
             value,
             min,
-        })
-    } else if value > max {
-        Err(ValidationError::ExceedsMaximum {
+        }),
+        v if v > max => Err(ValidationError::ExceedsMaximum {
             field: field.to_string(),
             value,
             max,
-        })
-    } else {
-        Ok(value)
+        }),
+        _ => Ok(value),
     }
 }
 
 /// Railway combinator: Chain multiple validations, returning the first error
 pub fn validate_all<T>(results: Vec<ValidationResult<T>>) -> ValidationResult<Vec<T>> {
-    // Collect all successful values, fail fast on first error
-    // Uses early return pattern for error short-circuiting
-    let mut values = Vec::with_capacity(results.len());
-    for result in results {
-        match result {
-            Ok(v) => values.push(v),
-            Err(e) => return Err(e),
-        }
-    }
-    Ok(values)
+    let capacity = results.len();
+    results
+        .into_iter()
+        .fold(Ok(Vec::with_capacity(capacity)), |acc, result| {
+            acc.and_then(|mut vals| {
+                result.map(|v| {
+                    vals.push(v);
+                    vals
+                })
+            })
+        })
 }
 
 #[cfg(test)]

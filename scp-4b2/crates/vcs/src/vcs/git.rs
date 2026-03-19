@@ -21,6 +21,8 @@ use std::process::Command;
 use std::sync::Mutex;
 
 use gix::Repository;
+use itertools::Itertools;
+use tap::Tap;
 
 use crate::vcs::{
     BackendType, BranchName, CommitId, RepoStatus, RepositoryPath, VcsBackend, VcsError,
@@ -28,6 +30,61 @@ use crate::vcs::{
 
 /// Minimum required Git CLI version for rebase operations
 const MIN_GIT_VERSION: (u32, u32) = (2, 38);
+
+// ============================================================================
+// Helper Pure Functions
+// ============================================================================
+
+/// Count status changes from status entries (pure calculation)
+fn count_status_changes(
+    statuses: impl Iterator<Item = Result<gix::status::index::IndexFile, gix::status::index::Error>>,
+) -> Result<(u32, u32, u32), VcsError> {
+    statuses
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| entry.index_to_worktree_entry())
+        .map(|change| change.kind())
+        .counts()
+        .into_iter()
+        .fold(Ok((0u32, 0u32, 0u32)), |acc, (kind, count)| {
+            acc.map(|(mut a, mut m, mut d)| {
+                match kind {
+                    gix::status::change::Kind::New => a += count as u32,
+                    gix::status::change::Kind::Modified => m += count as u32,
+                    gix::status::change::Kind::Deleted => d += count as u32,
+                    _ => {}
+                }
+                (a, m, d)
+            })
+        })
+}
+
+/// Validate that branch and parent exist (pure validation)
+fn validate_branches_exist(
+    branch: &BranchName,
+    parent: &BranchName,
+    branches: &[BranchName],
+    current: Option<&BranchName>,
+) -> Result<(), VcsError> {
+    let is_current = current.is_some_and(|c| c.as_str() == branch.as_str());
+    let branch_exists = is_current || branches.iter().any(|b| b.as_str() == branch.as_str());
+
+    branch_exists
+        .then_some(())
+        .ok_or_else(|| VcsError::NotFound {
+            entity: "Branch",
+            id: branch.as_str().to_string(),
+        })?;
+
+    let parent_exists =
+        parent.as_str() == "trunk" || branches.iter().any(|b| b.as_str() == parent.as_str());
+
+    parent_exists
+        .then_some(())
+        .ok_or_else(|| VcsError::NotFound {
+            entity: "Parent branch",
+            id: parent.as_str().to_string(),
+        })
+}
 
 // ============================================================================
 // GitBackend
@@ -252,7 +309,7 @@ impl VcsBackend for GitBackend {
             .references()
             .map_err(|e| VcsError::GitReferenceError(format!("Failed to list branches: {}", e)))?;
 
-        let mut result = references
+        references
             .local_branches()
             .filter_map(|branch_result| {
                 branch_result.ok().and_then(|branch| {
@@ -260,11 +317,9 @@ impl VcsBackend for GitBackend {
                     BranchName::new(name).ok()
                 })
             })
-            .collect::<Vec<_>>();
-
-        result.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-
-        Ok(result)
+            .sorted_by(|a, b| a.as_str().cmp(b.as_str()))
+            .collect::<Vec<_>>()
+            .pipe(Ok)
     }
 
     /// Get repository status
@@ -297,28 +352,7 @@ impl VcsBackend for GitBackend {
                     source: None,
                 })?;
 
-            let mut added = 0u32;
-            let mut modified = 0u32;
-            let mut deleted = 0u32;
-
-            for entry in statuses {
-                let entry = entry.map_err(|e| VcsError::GitOpenFailed {
-                    path: self.path.as_path().to_path_buf(),
-                    message: format!("Failed to read status entry: {}", e),
-                    source: None,
-                })?;
-                let change = entry.index_to_worktree_entry();
-                if let Some(change) = change {
-                    match change.kind() {
-                        gix::status::change::Kind::New => added += 1,
-                        gix::status::change::Kind::Modified => modified += 1,
-                        gix::status::change::Kind::Deleted => deleted += 1,
-                        _ => {}
-                    }
-                }
-            }
-
-            (added, modified, deleted)
+            count_status_changes(statuses)?
         };
 
         let has_changes = added > 0 || modified > 0 || deleted > 0;
@@ -398,29 +432,7 @@ impl VcsBackend for GitBackend {
         let branches = self.list_branches()?;
         let current = self.current_branch()?;
 
-        let is_current_branch = current
-            .as_ref()
-            .map(|b| b.as_str() == branch.as_str())
-            .unwrap_or(false);
-        let branch_exists =
-            is_current_branch || branches.iter().any(|b| b.as_str() == branch.as_str());
-
-        branch_exists
-            .then_some(())
-            .ok_or_else(|| VcsError::NotFound {
-                entity: "Branch",
-                id: branch.as_str().to_string(),
-            })?;
-
-        let parent_exists =
-            parent.as_str() == "trunk" || branches.iter().any(|b| b.as_str() == parent.as_str());
-
-        parent_exists
-            .then_some(())
-            .ok_or_else(|| VcsError::NotFound {
-                entity: "Parent branch",
-                id: parent.as_str().to_string(),
-            })?;
+        validate_branches_exist(branch, parent, &branches, current.as_ref())?;
 
         let original_branch = current;
 

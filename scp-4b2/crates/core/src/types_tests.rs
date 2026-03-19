@@ -4,7 +4,7 @@ use crate::types::SessionName;
 fn given_valid_session_name_when_create_then_success() {
     let result = SessionName::new("valid-name");
     assert!(result.is_ok());
-    let name = result.ok().unwrap();
+    let name = result.unwrap();
     assert_eq!(name.as_str(), "valid-name");
 }
 
@@ -30,7 +30,7 @@ fn given_dash_name_when_create_then_success() {
 fn given_empty_name_when_create_then_error() {
     let result = SessionName::new("");
     assert!(result.is_err());
-    let err = result.err().unwrap();
+    let err = result.unwrap_err();
     assert!(err.to_string().to_lowercase().contains("empty"));
 }
 
@@ -38,7 +38,7 @@ fn given_empty_name_when_create_then_error() {
 fn given_number_prefix_when_create_then_error() {
     let result = SessionName::new("123feature");
     assert!(result.is_err());
-    let err = result.err().unwrap();
+    let err = result.unwrap_err();
     assert!(err.to_string().to_lowercase().contains("letter"));
 }
 
@@ -77,28 +77,28 @@ fn given_string_when_from_str_then_parses() {
 
 #[test]
 fn given_session_name_when_as_str_then_returns_inner() {
-    let name = SessionName::new("test-name").ok().unwrap();
+    let name = SessionName::new("test-name").unwrap();
     assert_eq!(name.as_str(), "test-name");
 }
 
 #[test]
 fn given_session_name_when_clone_then_independent() {
-    let name1 = SessionName::new("test").ok().unwrap();
+    let name1 = SessionName::new("test").unwrap();
     let name2 = name1.clone();
     assert_eq!(name1.as_str(), name2.as_str());
 }
 
 #[test]
 fn given_same_name_when_compare_then_equal() {
-    let name1 = SessionName::new("test").ok().unwrap();
-    let name2 = SessionName::new("test").ok().unwrap();
+    let name1 = SessionName::new("test").unwrap();
+    let name2 = SessionName::new("test").unwrap();
     assert_eq!(name1, name2);
 }
 
 #[test]
 fn given_different_names_when_compare_then_not_equal() {
-    let name1 = SessionName::new("test1").ok().unwrap();
-    let name2 = SessionName::new("test2").ok().unwrap();
+    let name1 = SessionName::new("test1").unwrap();
+    let name2 = SessionName::new("test2").unwrap();
     assert_ne!(name1, name2);
 }
 
