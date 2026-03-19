@@ -148,34 +148,20 @@ impl Session {
     }
 
     pub fn transition(&self, event: SessionEvent) -> Result<Self, SessionError> {
-        let new_state = match (&self.state, &event) {
-            (SessionState::Created, SessionEvent::Activated) => SessionState::Active,
-            (SessionState::Active, SessionEvent::Syncing) => SessionState::Syncing,
-            (SessionState::Active, SessionEvent::Paused) => SessionState::Paused,
-            (SessionState::Active, SessionEvent::Failed) => SessionState::Failed,
-            (SessionState::Syncing, SessionEvent::Synced) => SessionState::Synced,
-            (SessionState::Syncing, SessionEvent::Failed) => SessionState::Failed,
-            (SessionState::Synced, SessionEvent::Activated) => SessionState::Active,
-            (SessionState::Synced, SessionEvent::Completed) => SessionState::Completed,
-            (SessionState::Paused, SessionEvent::Activated) => SessionState::Active,
-            (SessionState::Paused, SessionEvent::Failed) => SessionState::Failed,
-            (a, b) => {
-                return Err(SessionError::InvalidTransition {
-                    from: format!("{:?}", a),
-                    to: format!("{:?}", b),
-                });
-            }
-        };
+        let new_state = calculate_transition_state(&self.state, &event)?;
+        Ok(self.with_state(new_state))
+    }
 
-        Ok(Self {
+    fn with_state(&self, state: SessionState) -> Self {
+        Self {
             id: self.id.clone(),
             name: self.name.clone(),
             workspace: self.workspace.clone(),
             bead: self.bead.clone(),
             branch: self.branch.clone(),
-            state: new_state,
+            state,
             created_at: self.created_at,
-        })
+        }
     }
 
     pub fn transition_branch(&self, new_branch: BranchState) -> Result<Self, SessionError> {
@@ -197,6 +183,28 @@ impl Session {
             self.state,
             SessionState::Active | SessionState::Syncing | SessionState::Synced
         )
+    }
+}
+
+fn calculate_transition_state(
+    current_state: &SessionState,
+    event: &SessionEvent,
+) -> Result<SessionState, SessionError> {
+    match (current_state, event) {
+        (SessionState::Created, SessionEvent::Activated) => Ok(SessionState::Active),
+        (SessionState::Active, SessionEvent::Syncing) => Ok(SessionState::Syncing),
+        (SessionState::Active, SessionEvent::Paused) => Ok(SessionState::Paused),
+        (SessionState::Active, SessionEvent::Failed) => Ok(SessionState::Failed),
+        (SessionState::Syncing, SessionEvent::Synced) => Ok(SessionState::Synced),
+        (SessionState::Syncing, SessionEvent::Failed) => Ok(SessionState::Failed),
+        (SessionState::Synced, SessionEvent::Activated) => Ok(SessionState::Active),
+        (SessionState::Synced, SessionEvent::Completed) => Ok(SessionState::Completed),
+        (SessionState::Paused, SessionEvent::Activated) => Ok(SessionState::Active),
+        (SessionState::Paused, SessionEvent::Failed) => Ok(SessionState::Failed),
+        (a, b) => Err(SessionError::InvalidTransition {
+            from: format!("{:?}", a),
+            to: format!("{:?}", b),
+        }),
     }
 }
 

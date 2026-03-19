@@ -4,15 +4,17 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
-pub mod domain;
 pub mod application;
-pub mod infrastructure;
+pub mod domain;
 pub mod error;
+pub mod infrastructure;
 
-pub use domain::entities::session::{Session, SessionId, SessionState, BranchState};
-pub use domain::value_objects::{
-    SessionName, WorkspaceId, BeadId, AgentId, WorkspaceName, TaskId, AbsolutePath,
-    Title, Description, Labels, DependsOn, Priority, IssueType,
+pub use domain::entities::session::{BranchState, Session, SessionId, SessionState};
+pub use domain::events::{
+    SessionCompletedEvent, SessionCreatedEvent, SessionEvent, SessionFailedEvent,
 };
-pub use domain::events::{SessionEvent, SessionCreatedEvent, SessionCompletedEvent, SessionFailedEvent};
-pub use error::{SessionError, Result};
+pub use domain::value_objects::{
+    AbsolutePath, AgentId, BeadId, DependsOn, Description, IssueType, Labels, Priority,
+    SessionName, TaskId, Title, WorkspaceId, WorkspaceName,
+};
+pub use error::{Result, SessionError};
