@@ -397,24 +397,28 @@ impl Queue {
         id: &QueueEntryId,
         new_status: QueueStatus,
     ) -> ValidationResult<Self> {
+        // Validate entry exists and transition is valid
         self.find(id)
             .ok_or_else(|| ValidationError::NotFound {
                 field: "entry".to_string(),
                 value: id.to_string(),
             })
-            .and_then(|entry| entry.status.transition_to(new_status))
-            .map(|_| {
-                self.entries
-                    .iter()
-                    .position(|e| &e.id == id)
-                    .map(|idx| {
-                        let mut new_entries = self.entries.clone();
-                        new_entries[idx].status = new_status;
-                        Self {
-                            entries: new_entries,
-                        }
-                    })
-                    .unwrap_or_else(|| self.clone())
+            .and_then(|entry| entry.status.transition_to(new_status))?;
+
+        // Find position and update, properly propagating errors
+        self.entries
+            .iter()
+            .position(|e| &e.id == id)
+            .ok_or_else(|| ValidationError::NotFound {
+                field: "entry".to_string(),
+                value: id.to_string(),
+            })
+            .and_then(|idx| {
+                let mut new_entries = self.entries.clone();
+                new_entries[idx].status = new_status;
+                Ok(Self {
+                    entries: new_entries,
+                })
             })
     }
 
