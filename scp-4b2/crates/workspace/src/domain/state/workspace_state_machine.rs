@@ -5,15 +5,16 @@ pub struct WorkspaceStateMachine;
 
 impl WorkspaceStateMachine {
     pub fn can_transition(from: WorkspaceState, to: WorkspaceState) -> bool {
-        match (from, to) {
-            (WorkspaceState::Initializing, WorkspaceState::Active) => true,
-            (WorkspaceState::Active, WorkspaceState::Locked) => true,
-            (WorkspaceState::Locked, WorkspaceState::Active) => true,
-            (WorkspaceState::Active, WorkspaceState::Corrupted) => true,
-            (WorkspaceState::Locked, WorkspaceState::Corrupted) => true,
-            (_, WorkspaceState::Deleted) => true,
-            _ => false,
-        }
+        matches!(
+            (from, to),
+            (WorkspaceState::Initializing, WorkspaceState::Active)
+                | (WorkspaceState::Active, WorkspaceState::Locked)
+                | (WorkspaceState::Locked, WorkspaceState::Active)
+                | (WorkspaceState::Active, WorkspaceState::Corrupted)
+                | (WorkspaceState::Locked, WorkspaceState::Corrupted)
+                | (WorkspaceState::Active, WorkspaceState::Deleted)
+                | (WorkspaceState::Locked, WorkspaceState::Deleted)
+        )
     }
 
     pub fn validate_transition(

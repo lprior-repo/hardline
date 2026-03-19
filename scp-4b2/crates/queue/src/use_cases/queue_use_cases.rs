@@ -104,6 +104,12 @@ fn generate_entry_id(session: &SessionName) -> UseCaseResult<QueueEntryId> {
         .map_err(|_| DomainError::InvalidSessionName("failed to create entry ID".to_string()))
 }
 
+/// Create a new queue entry for enqueueing.
+fn create_entry(session: SessionName, priority: u32) -> UseCaseResult<QueueEntry> {
+    let id = generate_entry_id(&session)?;
+    QueueEntry::new(id, session, priority)
+}
+
 /// Enqueue a session into the queue
 ///
 /// This use case validates the session name and priority, checks for duplicates,
@@ -111,25 +117,10 @@ fn generate_entry_id(session: &SessionName) -> UseCaseResult<QueueEntryId> {
 /// based on priority ordering.
 pub fn enqueue_session(queue: Queue, session_name: &str, priority: u32) -> UseCaseResult<Queue> {
     let session = parse_session_name(session_name)?;
-
-    if priority > MAX_PRIORITY {
-        return Err(DomainError::InvalidPriority(priority));
-    }
-
-    if queue.find_by_session(&session).is_some() {
-        return Err(DomainError::SessionAlreadyExists(
-            session.as_str().to_string(),
-        ));
-    }
-
-    let timestamp = Utc::now().timestamp();
-    let id = QueueEntryId::new(format!("{}-{}", session.as_str(), timestamp))
-        .map_err(|_| DomainError::InvalidSessionName("failed to create entry ID".to_string()))?;
-
-    let entry = QueueEntry::new(id, session, priority)?;
-
-    let new_queue = queue.enqueue(entry);
-    Ok(new_queue)
+    validate_priority(priority)?;
+    check_session_not_exists(&session, &queue)?;
+    let entry = create_entry(session, priority)?;
+    Ok(queue.enqueue(entry))
 }
 
 /// Dequeue a session from the queue
@@ -142,10 +133,9 @@ pub fn dequeue_session(queue: Queue, session_name: &str) -> UseCaseResult<Queue>
     let entry_id = queue
         .find_by_session(&session)
         .ok_or_else(|| DomainError::SessionNotFound(session.as_str().to_string()))?
-        .id
-        .clone();
+        .id;
 
-    let (new_queue, _removed) = queue.dequeue(&entry_id);
+    let (new_queue, _removed) = queue.dequeue(entry_id);
     Ok(new_queue)
 }
 
@@ -207,26 +197,23 @@ pub fn insert_at_position(
     })
 }
 
-/// Remove the entry at a specific position
-pub fn remove_at_position(queue: Queue, position: usize) -> UseCaseResult<Queue> {
-    if position >= queue.len() {
-        return Err(DomainError::PositionOutOfBounds {
-            position,
-            length: queue.len(),
-        });
-    }
-
-    let entries = queue.entries();
-    let entry = entries
+/// Extract the entry ID at a specific position using iterator pipeline.
+fn entry_id_at_position(queue: &Queue, position: usize) -> UseCaseResult<&QueueEntryId> {
+    queue
+        .entries()
         .get(position)
+        .map(|entry| &entry.id)
         .ok_or_else(|| DomainError::PositionOutOfBounds {
             position,
             length: queue.len(),
-        })?;
+        })
+}
 
-    let entry_id = entry.id.clone();
+/// Remove the entry at a specific position
+pub fn remove_at_position(queue: Queue, position: usize) -> UseCaseResult<Queue> {
+    let entry_id = entry_id_at_position(&queue, position)?;
 
-    let (new_queue, _removed) = queue.dequeue(&entry_id);
+    let (new_queue, _removed) = queue.dequeue(entry_id);
     Ok(new_queue)
 }
 
