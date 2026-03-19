@@ -147,10 +147,12 @@ impl QueueEntry {
                 to: "FailedRetryable".into(),
             });
         }
-        let mut new_entry = self.transition_to(QueueStatus::FailedRetryable);
-        new_entry.retry_count += 1;
-        new_entry.error_message = Some(error);
-        Ok(new_entry)
+        let transitioned = self.transition_to(QueueStatus::FailedRetryable);
+        Ok(Self {
+            retry_count: transitioned.retry_count + 1,
+            error_message: Some(error),
+            ..transitioned
+        })
     }
 
     pub fn mark_failed_terminal(&self, error: String) -> Result<Self, QueueError> {
@@ -160,9 +162,11 @@ impl QueueEntry {
                 to: "FailedTerminal".into(),
             });
         }
-        let mut new_entry = self.transition_to(QueueStatus::FailedTerminal);
-        new_entry.error_message = Some(error);
-        Ok(new_entry)
+        let transitioned = self.transition_to(QueueStatus::FailedTerminal);
+        Ok(Self {
+            error_message: Some(error),
+            ..transitioned
+        })
     }
 
     pub fn cancel(&self) -> Result<Self, QueueError> {

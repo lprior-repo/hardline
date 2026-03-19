@@ -121,11 +121,14 @@ impl Stack {
 
     pub fn topological_order(&self) -> Vec<&StackBranch> {
         let graph = self.build_dependency_graph();
-        let sorted_indices = petgraph::algo::toposort(&graph, None).unwrap_or_default();
-        sorted_indices
-            .iter()
-            .filter_map(|idx| graph.node_weight(*idx).map(|b| *b))
-            .collect()
+        petgraph::algo::toposort(&graph, None)
+            .map(|sorted_indices| {
+                sorted_indices
+                    .iter()
+                    .filter_map(|idx| graph.node_weight(*idx).map(|b| *b))
+                    .collect()
+            })
+            .unwrap_or_else(|_| self.branches.iter().collect())
     }
 
     fn build_dependency_graph(&self) -> petgraph::Graph<&StackBranch, ()> {
@@ -149,43 +152,48 @@ impl Stack {
     }
 
     pub fn ancestors(&self, branch: &BranchName) -> Vec<BranchName> {
-        self.collect_ancestors(branch, Vec::new())
+        self.find_branch(branch)
+            .and_then(|b| self.ancestors_from_branch(b))
+            .unwrap_or_default()
     }
 
-    fn collect_ancestors(&self, branch: &BranchName, acc: Vec<BranchName>) -> Vec<BranchName> {
-        match self.branches.iter().find(|b| &b.name == branch) {
-            Some(b) => match &b.parent {
-                Some(parent) => {
-                    let mut new_acc = acc;
-                    new_acc.push(parent.clone());
-                    self.collect_ancestors(parent, new_acc)
+    fn find_branch(&self, name: &BranchName) -> Option<&StackBranch> {
+        self.branches.iter().find(|b| &b.name == name)
+    }
+
+    fn ancestors_from_branch(&self, branch: &StackBranch) -> Option<Vec<BranchName>> {
+        branch.parent.as_ref().map(|parent| {
+            let mut result = vec![parent.clone()];
+            let mut current = parent;
+            while let Some(b) = self.find_branch(current) {
+                if let Some(p) = &b.parent {
+                    result.push(p.clone());
+                    current = p;
+                } else {
+                    break;
                 }
-                None => acc,
-            },
-            None => acc,
-        }
+            }
+            result
+        })
     }
 
     pub fn descendants(&self, branch: &BranchName) -> Vec<BranchName> {
-        self.collect_descendants(&[branch.clone()])
+        self.find_branch(branch)
+            .map(|b| self.collect_descendants(&b.children))
+            .unwrap_or_default()
     }
 
     fn collect_descendants(&self, branches: &[BranchName]) -> Vec<BranchName> {
         branches
             .iter()
-            .flat_map(|name| {
-                self.branches
-                    .iter()
-                    .find(|b| &b.name == name)
-                    .map(|b| {
-                        let children: Vec<BranchName> = b.children.iter().cloned().collect();
-                        let grand_children = self.collect_descendants(&children);
-                        children
-                            .into_iter()
-                            .chain(grand_children)
-                            .collect::<Vec<_>>()
-                    })
-                    .unwrap_or_default()
+            .filter_map(|name| self.find_branch(name))
+            .flat_map(|b| {
+                let children: Vec<BranchName> = b.children.iter().cloned().collect();
+                let grand_children = self.collect_descendants(&children);
+                children
+                    .into_iter()
+                    .chain(grand_children)
+                    .collect::<Vec<_>>()
             })
             .collect()
     }

@@ -86,19 +86,31 @@ impl QueueEntryView {
     }
 }
 
+/// Parse and validate a session name for enqueue operations.
+fn parse_session_name(session_name: &str) -> UseCaseResult<SessionName> {
+    SessionName::new(session_name).map_err(|_| {
+        DomainError::InvalidSessionName(if session_name.trim().is_empty() {
+            "cannot be empty".to_string()
+        } else {
+            format!("invalid characters in '{}'", session_name)
+        })
+    })
+}
+
+/// Generate a unique entry ID from session name and current timestamp.
+fn generate_entry_id(session: &SessionName) -> UseCaseResult<QueueEntryId> {
+    let timestamp = Utc::now().timestamp();
+    QueueEntryId::new(format!("{}-{}", session.as_str(), timestamp))
+        .map_err(|_| DomainError::InvalidSessionName("failed to create entry ID".to_string()))
+}
+
 /// Enqueue a session into the queue
 ///
 /// This use case validates the session name and priority, checks for duplicates,
 /// and returns a new queue with the session added at the appropriate position
 /// based on priority ordering.
 pub fn enqueue_session(queue: Queue, session_name: &str, priority: u32) -> UseCaseResult<Queue> {
-    let session = SessionName::new(session_name).map_err(|_| {
-        DomainError::InvalidSessionName(if session_name.trim().is_empty() {
-            "cannot be empty".to_string()
-        } else {
-            format!("invalid characters in '{}'", session_name)
-        })
-    })?;
+    let session = parse_session_name(session_name)?;
 
     if priority > MAX_PRIORITY {
         return Err(DomainError::InvalidPriority(priority));
@@ -125,13 +137,7 @@ pub fn enqueue_session(queue: Queue, session_name: &str, priority: u32) -> UseCa
 /// This use case validates the session name and removes it from the queue,
 /// returning a new queue without the session.
 pub fn dequeue_session(queue: Queue, session_name: &str) -> UseCaseResult<Queue> {
-    let session = SessionName::new(session_name).map_err(|_| {
-        DomainError::InvalidSessionName(if session_name.trim().is_empty() {
-            "cannot be empty".to_string()
-        } else {
-            format!("invalid characters in '{}'", session_name)
-        })
-    })?;
+    let session = parse_session_name(session_name)?;
 
     let entry_id = queue
         .find_by_session(&session)
@@ -141,6 +147,38 @@ pub fn dequeue_session(queue: Queue, session_name: &str) -> UseCaseResult<Queue>
 
     let (new_queue, _removed) = queue.dequeue(&entry_id);
     Ok(new_queue)
+}
+
+/// Validate that a priority value is within acceptable bounds.
+fn validate_priority(priority: u32) -> UseCaseResult<()> {
+    if priority > MAX_PRIORITY {
+        Err(DomainError::InvalidPriority(priority))
+    } else {
+        Ok(())
+    }
+}
+
+/// Validate that a position is within queue bounds.
+fn validate_position(position: usize, queue: &Queue) -> UseCaseResult<()> {
+    if position > queue.len() {
+        Err(DomainError::PositionOutOfBounds {
+            position,
+            length: queue.len(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+/// Check if a session already exists in the queue.
+fn check_session_not_exists(session: &SessionName, queue: &Queue) -> UseCaseResult<()> {
+    if queue.find_by_session(session).is_some() {
+        Err(DomainError::SessionAlreadyExists(
+            session.as_str().to_string(),
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 /// Insert a session at a specific position in the queue
@@ -153,34 +191,12 @@ pub fn insert_at_position(
     position: usize,
     priority: u32,
 ) -> UseCaseResult<Queue> {
-    let session = SessionName::new(session_name).map_err(|_| {
-        DomainError::InvalidSessionName(if session_name.trim().is_empty() {
-            "cannot be empty".to_string()
-        } else {
-            format!("invalid characters in '{}'", session_name)
-        })
-    })?;
+    let session = parse_session_name(session_name)?;
+    validate_priority(priority)?;
+    validate_position(position, &queue)?;
+    check_session_not_exists(&session, &queue)?;
 
-    if priority > MAX_PRIORITY {
-        return Err(DomainError::InvalidPriority(priority));
-    }
-
-    if position > queue.len() {
-        return Err(DomainError::PositionOutOfBounds {
-            position,
-            length: queue.len(),
-        });
-    }
-
-    if queue.find_by_session(&session).is_some() {
-        return Err(DomainError::SessionAlreadyExists(
-            session.as_str().to_string(),
-        ));
-    }
-
-    let timestamp = Utc::now().timestamp();
-    let id = QueueEntryId::new(format!("{}-{}", session.as_str(), timestamp))
-        .map_err(|_| DomainError::InvalidSessionName("failed to create entry ID".to_string()))?;
+    let id = generate_entry_id(&session)?;
     let entry = QueueEntry::new(id, session, priority)?;
 
     queue.with_entry(position, entry).map_err(|e| match e {
