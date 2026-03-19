@@ -122,18 +122,13 @@ impl Stack {
     pub fn topological_order(&self) -> Vec<&StackBranch> {
         let graph = self.build_dependency_graph();
         petgraph::algo::toposort(&graph, None)
-            .map(|sorted_indices| Self::sorted_indices_to_branches(&graph, sorted_indices))
+            .map(|sorted_indices| {
+                sorted_indices
+                    .into_iter()
+                    .filter_map(|idx| graph.node_weight(idx).copied())
+                    .collect()
+            })
             .unwrap_or_else(|_| self.branches.iter().collect())
-    }
-
-    fn sorted_indices_to_branches<'a>(
-        graph: &'a petgraph::Graph<&'a StackBranch, ()>,
-        sorted_indices: petgraph::graph::NodeIndices,
-    ) -> Vec<&'a StackBranch> {
-        sorted_indices
-            .into_iter()
-            .filter_map(|idx| graph.node_weight(idx))
-            .collect()
     }
 
     fn build_dependency_graph(&self) -> petgraph::Graph<&StackBranch, ()> {
@@ -167,7 +162,7 @@ impl Stack {
     pub fn ancestors(&self, branch: &BranchName) -> Vec<BranchName> {
         self.find_branch(branch)
             .and_then(|b| self.ancestors_from_branch(b))
-            .unwrap_or_else(Vec::new)
+            .unwrap_or_default()
     }
 
     fn find_branch(&self, name: &BranchName) -> Option<&StackBranch> {
@@ -187,7 +182,7 @@ impl Stack {
     pub fn descendants(&self, branch: &BranchName) -> Vec<BranchName> {
         self.find_branch(branch)
             .map(|b| self.flatten_children(&b.children))
-            .unwrap_or_else(Vec::new)
+            .unwrap_or_default()
     }
 
     fn flatten_children(&self, branches: &[BranchName]) -> Vec<BranchName> {
@@ -195,7 +190,7 @@ impl Stack {
             .iter()
             .filter_map(|name| self.find_branch(name))
             .flat_map(|b| {
-                let children: Vec<BranchName> = b.children.iter().cloned().collect();
+                let children: Vec<BranchName> = b.children.to_vec();
                 std::iter::once(b.name.clone()).chain(self.flatten_children(&children))
             })
             .collect()

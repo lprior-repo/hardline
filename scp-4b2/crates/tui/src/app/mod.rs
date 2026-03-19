@@ -55,6 +55,12 @@ impl TuiApp {
     pub fn set_status(&mut self, _message: String) {}
 }
 
+impl Default for TuiApp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub fn run() -> Result<()> {
     let _app = TuiApp::new();
     Ok(())

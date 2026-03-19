@@ -14,7 +14,7 @@ fn check_dependency(name: &str) -> Result<bool> {
         .arg("--version")
         .output()
         .map(|o| o.status.success())
-        .map_err(|e| Error::Io(e))
+        .map_err(Error::Io)
 }
 
 fn check_config_exists() -> Result<bool> {
@@ -47,7 +47,7 @@ fn disk_usage_lines(path: &std::path::Path) -> Vec<String> {
                 .map(|l| format!("  Disk: {}", l))
                 .collect()
         })
-        .unwrap_or_else(Vec::new)
+        .unwrap_or_default()
 }
 
 #[cfg(not(unix))]
@@ -86,7 +86,7 @@ fn full_diagnostics_messages(cwd: &std::path::Path) -> Vec<String> {
     let status_message = vcs::create_backend(cwd)
         .ok()
         .and_then(|be| be.status().ok())
-        .and_then(|s| working_copy_status_message(s));
+        .and_then(working_copy_status_message);
 
     [
         disk_lines,

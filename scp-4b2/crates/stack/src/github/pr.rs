@@ -1,3 +1,1 @@
-pub mod pr {
-    pub struct Pr;
-}
+pub struct Pr;

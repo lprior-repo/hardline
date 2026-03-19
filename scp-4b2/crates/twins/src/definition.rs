@@ -131,21 +131,20 @@ impl TwinDefinition {
     }
 
     fn validate_endpoints(endpoints: &[Endpoint]) -> Result<(), DefinitionError> {
-        endpoints
-            .is_empty()
-            .then(|| Err(DefinitionError::MissingField("endpoints".to_string())))
-            .unwrap_or_else(|| {
-                endpoints
-                    .iter()
-                    .enumerate()
-                    .map(|(i, ep)| Self::check_endpoint_path(i, ep))
-                    .collect::<Result<Vec<_>, _>>()
-                    .map(|_| ())
-            })
+        if endpoints.is_empty() {
+            Err(DefinitionError::MissingField("endpoints".to_string()))
+        } else {
+            endpoints
+                .iter()
+                .enumerate()
+                .map(|(i, ep)| Self::check_endpoint_path(i, ep))
+                .collect::<Result<Vec<_>, _>>()
+                .map(|_| ())
+        }
     }
 
     fn check_endpoint_path(i: usize, endpoint: &Endpoint) -> Result<(), DefinitionError> {
-        endpoint.path.starts_with('/').then(|| ()).ok_or_else(|| {
+        endpoint.path.starts_with('/').then_some(()).ok_or_else(|| {
             DefinitionError::InvalidEndpoint(format!("Endpoint {i}: path must start with /"))
         })
     }

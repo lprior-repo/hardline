@@ -534,7 +534,7 @@ fn determine_log_level(quiet: bool, verbose: bool) -> &'static str {
 }
 
 fn setup_tracing(log_level: &str) {
-    let env_filter = std::env::var("RUST_LOG").map_or_else(|_| log_level.to_string(), |v| v);
+    let env_filter = std::env::var("RUST_LOG").unwrap_or_else(|_| log_level.to_string());
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(env_filter))
         .with(tracing_subscriber::fmt::layer())
@@ -543,7 +543,9 @@ fn setup_tracing(log_level: &str) {
 
 fn handle_error(e: scp_core::Error) -> ExitCode {
     eprintln!("Error: {}", e);
-    e.suggestion().map(|s| eprintln!("{}", s));
+    if let Some(s) = e.suggestion() {
+        eprintln!("{}", s);
+    }
     ExitCode::from(e.exit_code() as u8)
 }
 
@@ -564,7 +566,7 @@ fn run_command(cli: Cli) -> Result<()> {
             tags,
             all,
         } => commands::sync::fetch(remote.as_deref(), prune, tags, all),
-        Commands::Pull {} => commands::sync::pull(),
+        Commands::Pull => commands::sync::pull(),
         Commands::Push {
             remote,
             branch,
@@ -585,8 +587,8 @@ fn run_command(cli: Cli) -> Result<()> {
         Commands::Doctor { full } => commands::doctor::run(full),
         Commands::Status { short } => commands::status::run(short),
         Commands::Switch { name } => commands::workspace::switch(&name),
-        Commands::Context {} => commands::context::run(),
-        Commands::Whereami {} => commands::context::whereami(),
+        Commands::Context => commands::context::run(),
+        Commands::Whereami => commands::context::whereami(),
     }
 }
 
@@ -594,19 +596,19 @@ fn run_workspace_command(command: WorkspaceCommands) -> Result<()> {
     match command {
         WorkspaceCommands::Spawn { name, sync } => commands::workspace::spawn(&name, sync),
         WorkspaceCommands::Switch { name } => commands::workspace::switch(&name),
-        WorkspaceCommands::List {} => commands::workspace::list(),
-        WorkspaceCommands::Status {} => commands::workspace::status(),
+        WorkspaceCommands::List => commands::workspace::list(),
+        WorkspaceCommands::Status => commands::workspace::status(),
         WorkspaceCommands::Sync { name, all } => commands::workspace::sync(name.as_deref(), all),
         WorkspaceCommands::Done { name } => commands::workspace::done(name.as_deref()),
         WorkspaceCommands::Abort { name } => commands::workspace::abort(name.as_deref()),
         WorkspaceCommands::Log { limit } => commands::workspace::log(limit),
         WorkspaceCommands::Diff { path } => commands::workspace::diff(path.as_deref()),
-        WorkspaceCommands::Uncommitted {} => commands::workspace::uncommitted(),
+        WorkspaceCommands::Uncommitted => commands::workspace::uncommitted(),
         WorkspaceCommands::Commit { message } => commands::workspace::commit(&message),
-        WorkspaceCommands::Branches {} => commands::workspace::branches(),
+        WorkspaceCommands::Branches => commands::workspace::branches(),
         WorkspaceCommands::Branch { name } => commands::workspace::branch_create(&name),
         WorkspaceCommands::BranchDelete { name } => commands::workspace::branch_delete(&name),
-        WorkspaceCommands::BranchCurrent {} => commands::workspace::branch_current(),
+        WorkspaceCommands::BranchCurrent => commands::workspace::branch_current(),
         WorkspaceCommands::Add { path } => commands::workspace::add(&path),
         WorkspaceCommands::Fork { name, from } => commands::workspace::fork(&name, from.as_deref()),
         WorkspaceCommands::Merge { name } => commands::workspace::merge(&name),
@@ -615,22 +617,22 @@ fn run_workspace_command(command: WorkspaceCommands) -> Result<()> {
 
 fn run_queue_command(command: QueueCommands) -> Result<()> {
     match command {
-        QueueCommands::List {} => commands::queue::list(),
+        QueueCommands::List => commands::queue::list(),
         QueueCommands::Enqueue { branch, priority } => {
             commands::queue::enqueue(&branch, priority.as_deref())
         }
-        QueueCommands::Dequeue {} => commands::queue::dequeue(),
+        QueueCommands::Dequeue => commands::queue::dequeue(),
         QueueCommands::Process { checks } => commands::queue::process(checks),
         QueueCommands::Insert { position, branch } => commands::queue::insert(position, &branch),
         QueueCommands::Remove { branch } => commands::queue::remove(&branch),
-        QueueCommands::Status {} => commands::queue::status(),
+        QueueCommands::Status => commands::queue::status(),
     }
 }
 
 fn run_agent_command(command: AgentCommands) -> Result<()> {
     match command {
         AgentCommands::Create { name } => commands::agent::create(&name),
-        AgentCommands::List {} => commands::agent::list(),
+        AgentCommands::List => commands::agent::list(),
         AgentCommands::Kill { id } => commands::agent::kill(&id),
         AgentCommands::Status { id } => commands::agent::status(id.as_deref()),
     }
@@ -638,14 +640,14 @@ fn run_agent_command(command: AgentCommands) -> Result<()> {
 
 fn run_session_command(command: SessionCommands) -> Result<()> {
     match command {
-        SessionCommands::List {} => commands::session::list(),
-        SessionCommands::Status {} => commands::session::status(),
+        SessionCommands::List => commands::session::list(),
+        SessionCommands::Status => commands::session::status(),
     }
 }
 
 fn run_task_command(command: TaskCommands) -> Result<()> {
     match command {
-        TaskCommands::List {} => commands::task::list(),
+        TaskCommands::List => commands::task::list(),
         TaskCommands::Show { task_id } => commands::task::show(&task_id),
         TaskCommands::Claim { task_id } => commands::task::claim(&task_id),
         TaskCommands::Yield { task_id } => commands::task::yield_task(&task_id),
@@ -658,7 +660,7 @@ fn run_config_command(command: ConfigCommands) -> Result<()> {
     match command {
         ConfigCommands::Get { key } => commands::config::get(&key),
         ConfigCommands::Set { key, value } => commands::config::set(&key, &value),
-        ConfigCommands::List {} => commands::config::list(),
+        ConfigCommands::List => commands::config::list(),
     }
 }
 
@@ -670,7 +672,7 @@ fn run_stash_command(command: StashCommands) -> Result<()> {
             patch,
         } => commands::stash::save(message.as_deref(), include_untracked, patch),
         StashCommands::Pop { stash, index } => commands::stash::pop(stash.as_deref(), index),
-        StashCommands::List {} => commands::stash::list(),
+        StashCommands::List => commands::stash::list(),
         StashCommands::Drop { stash, force } => commands::stash::drop(&stash, force),
         StashCommands::Show { stash, stat } => commands::stash::show(stash.as_deref(), stat),
     }

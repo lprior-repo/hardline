@@ -303,17 +303,14 @@ fn register_twin_endpoints(router: Router<AppState>, endpoints: &[Endpoint]) -> 
     endpoints
         .iter()
         .map(endpoint_to_route)
-        .fold(router, |r, (path, method)| {
-            let r = match method {
-                HttpMethod::GET => r.route(&path, get(twin_handler)),
-                HttpMethod::POST => r.route(&path, post(twin_handler)),
-                HttpMethod::PUT => r.route(&path, put(twin_handler)),
-                HttpMethod::DELETE => r.route(&path, delete(twin_handler)),
-                HttpMethod::PATCH => r.route(&path, patch(twin_handler)),
-                HttpMethod::OPTIONS => r.route(&path, options(twin_handler)),
-                HttpMethod::HEAD => r.route(&path, head(twin_handler)),
-            };
-            r
+        .fold(router, |r, (path, method)| match method {
+            HttpMethod::GET => r.route(&path, get(twin_handler)),
+            HttpMethod::POST => r.route(&path, post(twin_handler)),
+            HttpMethod::PUT => r.route(&path, put(twin_handler)),
+            HttpMethod::DELETE => r.route(&path, delete(twin_handler)),
+            HttpMethod::PATCH => r.route(&path, patch(twin_handler)),
+            HttpMethod::OPTIONS => r.route(&path, options(twin_handler)),
+            HttpMethod::HEAD => r.route(&path, head(twin_handler)),
         })
 }
 

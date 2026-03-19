@@ -4,7 +4,7 @@ use scp_core::{vcs, Result};
 
 /// List sessions
 pub fn list() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(|e| scp_core::Error::Io(e))?;
+    let cwd = std::env::current_dir().map_err(scp_core::Error::Io)?;
 
     let backend = vcs::create_backend(&cwd)?;
     let workspaces = backend.list_workspaces()?;
@@ -51,7 +51,7 @@ fn format_recent_commits(log: &[scp_core::vcs::Commit], limit: usize) -> Vec<(St
 
 /// Show session status
 pub fn status() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(|e| scp_core::Error::Io(e))?;
+    let cwd = std::env::current_dir().map_err(scp_core::Error::Io)?;
 
     let backend = vcs::create_backend(&cwd)?;
 

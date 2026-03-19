@@ -104,6 +104,9 @@ impl Validator {
     }
 
     /// Validate a predicate, adding an error if it fails.
+    ///
+    /// # Errors
+    /// Returns `Err` if the predicate is false, containing the error.
     pub fn check(&mut self, predicate: bool, error: ValidationError) -> ValidationResult<()> {
         if predicate {
             Ok(())
@@ -144,6 +147,9 @@ impl Validator {
 }
 
 /// Railway combinator: Validate a value using a predicate
+///
+/// # Errors
+/// Returns `Err` if the predicate returns false.
 pub fn validate_that<T, F>(value: T, predicate: F, error_msg: &str) -> ValidationResult<T>
 where
     F: FnOnce(&T) -> bool,
@@ -156,6 +162,9 @@ where
 }
 
 /// Railway combinator: Validate a value is within a range
+///
+/// # Errors
+/// Returns `Err` if the value is below minimum or exceeds maximum.
 pub fn validate_range(value: u32, min: u32, max: u32, field: &str) -> ValidationResult<u32> {
     match value {
         v if v < min => Err(ValidationError::BelowMinimum {
@@ -173,16 +182,17 @@ pub fn validate_range(value: u32, min: u32, max: u32, field: &str) -> Validation
 }
 
 /// Railway combinator: Chain multiple validations, returning the first error
+///
+/// # Errors
+/// Returns the first error if any validation fails.
 pub fn validate_all<T>(results: Vec<ValidationResult<T>>) -> ValidationResult<Vec<T>> {
     let capacity = results.len();
     results
         .into_iter()
-        .fold(Ok(Vec::with_capacity(capacity)), |acc, result| {
-            acc.and_then(|mut vals| {
-                result.map(|v| {
-                    vals.push(v);
-                    vals
-                })
+        .try_fold(Vec::with_capacity(capacity), |mut vals, result| {
+            result.map(|v| {
+                vals.push(v);
+                vals
             })
         })
 }

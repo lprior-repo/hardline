@@ -184,6 +184,7 @@ impl QueueStatus {
     ///
     /// # Errors
     /// Returns `ValidationError::InvalidStateTransition` if the transition is not allowed.
+    #[allow(clippy::match_same_arms)]
     pub fn transition_to(self, new_status: Self) -> ValidationResult<Self> {
         match (self, new_status) {
             // Valid transitions from Pending
@@ -345,7 +346,7 @@ impl QueueEntry {
     }
 }
 
-/// Partial equality for QueueEntry (ignores timestamp)
+/// Partial equality for `QueueEntry` (ignores timestamp)
 impl PartialEq for QueueEntry {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
@@ -388,13 +389,13 @@ impl Queue {
 
     /// Get the number of entries in the queue.
     #[must_use]
-    pub const fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.entries.len()
     }
 
     /// Check if the queue is empty.
     #[must_use]
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
@@ -438,8 +439,7 @@ impl Queue {
         entries[insert_pos..]
             .iter()
             .position(|e| e.priority != priority)
-            .map(|offset| insert_pos + offset)
-            .unwrap_or(entries.len())
+            .map_or(entries.len(), |offset| insert_pos + offset)
     }
 
     /// Add an entry to the queue, returning a new Queue.
@@ -447,6 +447,7 @@ impl Queue {
     /// Uses binary search to maintain priority order.
     /// For equal priorities, inserts at the end to maintain FIFO order.
     #[must_use]
+    #[allow(clippy::needless_pass_by_value)]
     pub fn enqueue(&self, entry: QueueEntry) -> Self {
         let final_pos = Self::find_fifo_insert_position(&self.entries, entry.priority);
         Self {
@@ -454,7 +455,7 @@ impl Queue {
         }
     }
 
-    /// Remove an entry from the queue by ID, returning (new_queue, removed_entry).
+    /// Remove an entry from the queue by ID, returning (`new_queue`, `removed_entry`).
     ///
     /// Uses functional patterns to find and remove the entry.
     #[must_use]
@@ -464,15 +465,16 @@ impl Queue {
             .position(|e| &e.id == id)
             .and_then(|idx| remove_entry_at(&self.entries, idx))
             .map(|(entries, removed)| (Self { entries }, Some(removed)))
-            .unwrap_or_else(|| (self.clone(), None))
+            .unwrap_or((self.clone(), None))
     }
 
-    /// Insert an entry at a specific position, returning Result<Queue, ValidationError>.
+    /// Insert an entry at a specific position, returning `Result<Queue, ValidationError>`.
     ///
     /// Uses Railway-Oriented Programming for validation.
     ///
     /// # Errors
     /// Returns `ValidationError::OutOfBounds` if position is invalid.
+    #[allow(clippy::needless_pass_by_value)]
     pub fn with_entry(&self, position: usize, entry: QueueEntry) -> ValidationResult<Self> {
         if position > self.entries.len() {
             return Err(ValidationError::OutOfBounds {
@@ -486,7 +488,7 @@ impl Queue {
         })
     }
 
-    /// Update an entry's status by ID, returning Result<Queue, ValidationError>.
+    /// Update an entry's status by ID, returning `Result<Queue, ValidationError>`.
     ///
     /// # Errors
     /// Returns `ValidationError::NotFound` if the entry doesn't exist or
@@ -514,7 +516,7 @@ impl Queue {
 
         remove_entry_at(&self.entries, position)
             .map(|(entries, removed)| (Self { entries }, removed))
-            .ok_or_else(|| ValidationError::OutOfBounds {
+            .ok_or(ValidationError::OutOfBounds {
                 position,
                 length: self.entries.len(),
             })

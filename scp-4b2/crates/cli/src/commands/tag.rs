@@ -11,7 +11,7 @@ fn build_git_tag_create_command(
     commit: Option<&str>,
     force: bool,
 ) -> Command {
-    let commit_ref = commit.unwrap_or_else(|| "HEAD");
+    let commit_ref = commit.unwrap_or("HEAD");
     let mut cmd = Command::new("git");
     cmd.arg("tag");
 
@@ -120,11 +120,11 @@ fn format_success_message(prefix: &str, name: &str) -> String {
 
 /// Prints tags to stdout, or info message if none found.
 fn print_tags(stdout: &str) {
-    stdout
-        .trim()
-        .is_empty()
-        .then(|| Output::info("No tags found"))
-        .unwrap_or_else(|| print!("{}", stdout));
+    if stdout.trim().is_empty() {
+        Output::info("No tags found");
+    } else {
+        print!("{}", stdout);
+    }
 }
 
 pub fn create(name: &str, message: Option<&str>, commit: Option<&str>, force: bool) -> Result<()> {

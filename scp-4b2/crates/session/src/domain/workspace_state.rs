@@ -6,9 +6,10 @@
 /// Workspace state for session-based workspaces.
 ///
 /// Lifecycle: Created → Working → Ready → Merged/Conflict/Abandoned
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum WorkspaceState {
     /// Workspace has been created but work hasn't started
+    #[default]
     Created,
     /// Workspace is actively being worked on
     Working,
@@ -70,12 +71,6 @@ impl WorkspaceState {
             .into_iter()
             .filter(|&target| self.can_transition_to(target))
             .collect()
-    }
-}
-
-impl Default for WorkspaceState {
-    fn default() -> Self {
-        Self::Created
     }
 }
 
