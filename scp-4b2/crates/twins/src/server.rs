@@ -323,15 +323,17 @@ endpoints:
         created: true
 ";
 
+    #[allow(clippy::unwrap_used, clippy::expect_used)]
     #[test]
     fn test_build_router() {
-        let definition = TwinDefinition::from_yaml(TEST_YAML).expect("Should parse");
+        let definition = TwinDefinition::from_yaml(TEST_YAML).unwrap();
         let _router = build_router(&definition);
     }
 
+    #[allow(clippy::unwrap_used, clippy::expect_used)]
     #[tokio::test]
     async fn test_find_endpoint() {
-        let definition = TwinDefinition::from_yaml(TEST_YAML).expect("Should parse");
+        let definition = TwinDefinition::from_yaml(TEST_YAML).unwrap();
         let state = AppState::new(definition);
 
         let endpoint = state.find_endpoint(&Method::GET, "/api/test");
