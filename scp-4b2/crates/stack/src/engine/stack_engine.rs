@@ -1,36 +1,45 @@
 use crate::domain::entities::Stack;
-use crate::error::Result;
+use crate::error::{Result, StackError};
+
+const OPERATION_NOT_IMPLEMENTED: &str = "not yet implemented";
 
 pub struct StackEngine;
 
 impl StackEngine {
+    #[must_use]
     pub fn load_stack() -> Result<Stack> {
-        Err(crate::error::StackError::NotFound(
-            "Stack loading not yet implemented".to_string(),
-        ))
+        not_found_error("Stack loading")
     }
 
+    #[must_use]
     pub fn sync_stack() -> Result<Stack> {
-        Err(crate::error::StackError::NotFound(
-            "Stack sync not yet implemented".to_string(),
-        ))
+        not_found_error("Stack sync")
     }
 
+    #[must_use]
     pub fn restack_branch(_branch: &str) -> Result<()> {
-        Err(crate::error::StackError::NotFound(
-            "Restack not yet implemented".to_string(),
-        ))
+        not_found_error_void("Restack")
     }
 
+    #[must_use]
     pub fn create_branch(_name: &str, _parent: Option<&str>) -> Result<()> {
-        Err(crate::error::StackError::NotFound(
-            "Create branch not yet implemented".to_string(),
-        ))
+        not_found_error_void("Create branch")
     }
 
+    #[must_use]
     pub fn delete_branch(_name: &str) -> Result<()> {
-        Err(crate::error::StackError::NotFound(
-            "Delete branch not yet implemented".to_string(),
-        ))
+        not_found_error_void("Delete branch")
     }
+}
+
+const fn not_found_error(operation: &str) -> Result<Stack> {
+    Err(StackError::NotFound(format!(
+        "{operation} {OPERATION_NOT_IMPLEMENTED}"
+    )))
+}
+
+fn not_found_error_void(operation: &str) -> Result<()> {
+    Err(StackError::NotFound(format!(
+        "{operation} {OPERATION_NOT_IMPLEMENTED}"
+    )))
 }
