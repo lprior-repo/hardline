@@ -167,28 +167,32 @@ impl Sanitizer {
             return "PASS".to_string();
         }
 
-        let output = std::iter::once("FAIL".to_string()).chain(
-            result
-                .step_results
-                .iter()
-                .filter(|step_result| !step_result.passed)
-                .filter_map(|step_result| {
-                    step_result.error.as_ref().map(|error| (step_result, error))
-                })
-                .flat_map(|(step_result, error)| {
-                    let error_type = Self::extract_error_type(error);
-                    let stack_trace = Self::sanitize_value(error);
-                    [
-                        format!(
-                            "  Step {} ({}) - {}",
-                            step_result.step_index, step_result.step_type, error_type
-                        ),
-                        format!("    at <{stack_trace}>"),
-                    ]
-                }),
-        );
+        std::iter::once("FAIL".to_string())
+            .chain(Self::format_failed_steps_with_stack(result))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 
-        output.collect::<Vec<_>>().join("\n")
+    /// Format failed steps with stack trace - pure calculation
+    fn format_failed_steps_with_stack(
+        result: &ScenarioResult,
+    ) -> impl Iterator<Item = String> + '_ {
+        result
+            .step_results
+            .iter()
+            .filter(|step_result| !step_result.passed)
+            .filter_map(|step_result| step_result.error.as_ref().map(|error| (step_result, error)))
+            .flat_map(|(step_result, error)| {
+                let error_type = Self::extract_error_type(error);
+                let stack_trace = Self::sanitize_value(error);
+                [
+                    format!(
+                        "  Step {} ({}) - {}",
+                        step_result.step_index, step_result.step_type, error_type
+                    ),
+                    format!("    at <{stack_trace}>"),
+                ]
+            })
     }
 
     /// Level 4: +assertion locations (no values)
@@ -197,58 +201,58 @@ impl Sanitizer {
             return "PASS".to_string();
         }
 
-        let output = std::iter::once("FAIL".to_string()).chain(
-            result
-                .step_results
-                .iter()
-                .filter(|step_result| !step_result.passed)
-                .filter_map(|step_result| {
-                    step_result.error.as_ref().map(|error| (step_result, error))
-                })
-                .flat_map(|(step_result, error)| {
-                    let error_type = Self::extract_error_type(error);
-                    [
-                        format!(
-                            "  Step {} ({}) - {}",
-                            step_result.step_index, step_result.step_type, error_type
-                        ),
-                        format!("    Assertion at step {}", step_result.step_index),
-                    ]
-                }),
-        );
+        std::iter::once("FAIL".to_string())
+            .chain(Self::format_failed_steps_with_location(result))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 
-        output.collect::<Vec<_>>().join("\n")
+    /// Format failed steps with assertion location - pure calculation
+    fn format_failed_steps_with_location(
+        result: &ScenarioResult,
+    ) -> impl Iterator<Item = String> + '_ {
+        result
+            .step_results
+            .iter()
+            .filter(|step_result| !step_result.passed)
+            .filter_map(|step_result| step_result.error.as_ref().map(|error| (step_result, error)))
+            .flat_map(|(step_result, error)| {
+                let error_type = Self::extract_error_type(error);
+                [
+                    format!(
+                        "  Step {} ({}) - {}",
+                        step_result.step_index, step_result.step_type, error_type
+                    ),
+                    format!("    Assertion at step {}", step_result.step_index),
+                ]
+            })
     }
 
     /// Level 5: Full (development only)
     fn sanitize_level5(result: &ScenarioResult) -> String {
-        let scenario_name = format!("Scenario: {}", result.scenario_name);
-        let status = if result.passed { "PASS" } else { "FAIL" };
-
-        let step_lines: Vec<String> = if result.passed {
-            vec![]
-        } else {
-            result
-                .step_results
-                .iter()
-                .flat_map(|step_result| {
-                    let status_str = if step_result.passed { "OK" } else { "FAIL" };
-                    let step_line = format!(
-                        "  Step {} ({}): {}",
-                        step_result.step_index, step_result.step_type, status_str
-                    );
-                    step_result.error.as_ref().map_or_else(Vec::new, |error| {
-                        vec![step_line, format!("    Error: {error}")]
-                    })
-                })
-                .collect()
-        };
-
-        std::iter::once(scenario_name)
-            .chain(std::iter::once(status.to_string()))
-            .chain(step_lines.into_iter())
+        std::iter::once(format!("Scenario: {}", result.scenario_name))
+            .chain(std::iter::once(if result.passed {
+                "PASS".to_string()
+            } else {
+                "FAIL".to_string()
+            }))
+            .chain(Self::format_step_details(result))
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    /// Format step details for level 5 output - pure calculation
+    fn format_step_details(result: &ScenarioResult) -> impl Iterator<Item = String> + '_ {
+        result.step_results.iter().flat_map(|step_result| {
+            let status_str = if step_result.passed { "OK" } else { "FAIL" };
+            let step_line = format!(
+                "  Step {} ({}): {}",
+                step_result.step_index, step_result.step_type, status_str
+            );
+            step_result.error.as_ref().map_or_else(Vec::new, |error| {
+                vec![step_line, format!("    Error: {error}")]
+            })
+        })
     }
 
     /// Extract just the error type from an error message

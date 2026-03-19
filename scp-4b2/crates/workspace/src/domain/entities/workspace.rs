@@ -101,54 +101,81 @@ impl Workspace {
     }
 
     pub fn activate(&self) -> Result<Self, WorkspaceError> {
-        self.validate_state_transition(WorkspaceState::Initializing, WorkspaceState::Active)
-            .map(|()| self.transition_to(WorkspaceState::Active))
+        Self::validate_state_transition(
+            self.state,
+            WorkspaceState::Initializing,
+            format!("{:?}", WorkspaceState::Active),
+        )
+        .map(|()| self.transition_to(WorkspaceState::Active))
     }
 
     pub fn lock(&self, holder: String) -> Result<Self, WorkspaceError> {
-        self.validate_state_transition(WorkspaceState::Active, WorkspaceState::Locked)
-            .map(|()| self.transition_to_with_lock(WorkspaceState::Locked, Some(holder)))
+        Self::validate_state_transition(
+            self.state,
+            WorkspaceState::Active,
+            format!("{:?}", WorkspaceState::Locked),
+        )
+        .map(|()| self.transition_to_with_lock(WorkspaceState::Locked, Some(holder)))
     }
 
     pub fn unlock(&self) -> Result<Self, WorkspaceError> {
-        self.validate_state_transition(WorkspaceState::Locked, WorkspaceState::Active)
-            .map(|()| self.transition_to_with_lock(WorkspaceState::Active, None))
+        Self::validate_state_transition(
+            self.state,
+            WorkspaceState::Locked,
+            format!("{:?}", WorkspaceState::Active),
+        )
+        .map(|()| self.transition_to_with_lock(WorkspaceState::Active, None))
     }
 
     pub fn mark_corrupted(&self) -> Result<Self, WorkspaceError> {
-        self.validate_state_transition(WorkspaceState::Active, WorkspaceState::Corrupted)
-            .map(|()| self.transition_to_with_lock(WorkspaceState::Corrupted, None))
+        Self::validate_state_transition(
+            self.state,
+            WorkspaceState::Active,
+            format!("{:?}", WorkspaceState::Corrupted),
+        )
+        .map(|()| self.transition_to_with_lock(WorkspaceState::Corrupted, None))
     }
 
     pub fn delete(&self) -> Result<Self, WorkspaceError> {
-        self.validate_not_in_state(WorkspaceState::Deleted, "Deleted")
+        Self::validate_not_in_state(self.state, WorkspaceState::Deleted, "Deleted")
             .map(|()| self.transition_to(WorkspaceState::Deleted))
     }
 
+    /// Formats a state transition error from the current state to a target state.
+    fn format_state_transition_error(
+        from: WorkspaceState,
+        to: impl Into<String>,
+    ) -> WorkspaceError {
+        WorkspaceError::InvalidStateTransition {
+            from: format!("{:?}", from),
+            to: to.into(),
+        }
+    }
+
     fn validate_state_transition(
-        &self,
+        current_state: WorkspaceState,
         expected_from: WorkspaceState,
-        target_to: WorkspaceState,
+        target_to: impl Into<String>,
     ) -> Result<(), WorkspaceError> {
-        if self.state != expected_from {
-            return Err(WorkspaceError::InvalidStateTransition {
-                from: format!("{:?}", self.state),
-                to: format!("{:?}", target_to),
-            });
+        if current_state != expected_from {
+            return Err(Self::format_state_transition_error(
+                current_state,
+                target_to,
+            ));
         }
         Ok(())
     }
 
     fn validate_not_in_state(
-        &self,
+        current_state: WorkspaceState,
         forbidden_state: WorkspaceState,
         target_to: &'static str,
     ) -> Result<(), WorkspaceError> {
-        if matches!(self.state, s if s == forbidden_state) {
-            return Err(WorkspaceError::InvalidStateTransition {
-                from: format!("{:?}", self.state),
-                to: target_to.into(),
-            });
+        if current_state == forbidden_state {
+            return Err(Self::format_state_transition_error(
+                current_state,
+                target_to,
+            ));
         }
         Ok(())
     }

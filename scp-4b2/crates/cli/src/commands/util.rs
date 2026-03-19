@@ -17,6 +17,7 @@ pub enum UtilCommands {
     Id,
 }
 
+#[allow(dead_code)]
 pub fn run(_command: UtilCommands) -> Result<()> {
     Ok(())
 }

@@ -129,18 +129,19 @@ impl ScenarioRunner {
         }
     }
 
-    /// Execute all scenario steps with early exit on failure - pure async iteration
+    /// Execute all scenario steps with early exit on failure
     async fn execute_scenario_steps(
         scenario: &Scenario,
         runner: &ScenarioRunner,
     ) -> Vec<StepResult> {
+        let steps = scenario.steps.iter().enumerate();
         let mut context = RunContext::default();
         let mut results = Vec::new();
+        let mut step_iter = steps;
 
-        for (index, step) in scenario.steps.iter().enumerate() {
+        while let Some((index, step)) = step_iter.next() {
             let step_result = runner.execute_step(step, index, &mut context).await;
             results.push(step_result);
-
             if !results.last().is_some_and(|r| r.passed) {
                 break;
             }

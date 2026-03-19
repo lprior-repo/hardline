@@ -2,6 +2,16 @@ use crate::domain::entities::{Workspace, WorkspaceId, WorkspaceState};
 use crate::domain::value_objects::{WorkspaceName, WorkspacePath};
 use crate::error::{Result, WorkspaceError};
 
+/// Extracts the lock holder string, returning empty string if None.
+fn extract_lock_holder(lock_holder: &Option<String>) -> String {
+    lock_holder.as_deref().unwrap_or("").to_string()
+}
+
+/// Checks if a workspace is in a recoverable state (Corrupted).
+fn is_recoverable_state(state: WorkspaceState) -> bool {
+    state == WorkspaceState::Corrupted
+}
+
 pub struct WorkspaceService;
 
 impl WorkspaceService {
@@ -25,14 +35,14 @@ impl WorkspaceService {
         if workspace.is_locked() {
             return Err(WorkspaceError::WorkspaceLocked(
                 workspace.id.as_str().into(),
-                workspace.lock_holder.clone().unwrap_or_default(),
+                extract_lock_holder(&workspace.lock_holder),
             ));
         }
         workspace.delete()
     }
 
     pub fn recover_workspace(workspace: &Workspace) -> Result<Workspace> {
-        if workspace.state == WorkspaceState::Corrupted {
+        if is_recoverable_state(workspace.state) {
             workspace.unlock()?.activate()
         } else {
             Err(WorkspaceError::InvalidStateTransition {
