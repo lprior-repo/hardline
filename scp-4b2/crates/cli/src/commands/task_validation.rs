@@ -3,6 +3,7 @@
 //! Pure functions for task validation and state transitions
 
 use crate::commands::task_types::{Task, TaskState};
+use chrono::Utc;
 use scp_core::{
     error::Error, lock::LockGuard, lock::LockManager, lock::LockType, Result as CoreResult,
 };
@@ -60,38 +61,45 @@ pub fn acquire_task_lock(
         .map_err(|_| Error::TaskLocked(task_id.to_string()))
 }
 
+/// Get current timestamp (extracted for testability)
+fn now() -> chrono::DateTime<Utc> {
+    Utc::now()
+}
+
 /// Transition task to claimed state
 pub fn transition_to_claimed(task: Task, user: &str) -> Task {
-    let mut t = task;
-    t.assignee = Some(user.to_string());
-    t.state = TaskState::InProgress;
-    t.updated_at = chrono::Utc::now();
-    t
+    Task {
+        assignee: Some(user.to_string()),
+        state: TaskState::InProgress,
+        updated_at: now(),
+        ..task
+    }
 }
 
 /// Transition task to yielded (open) state
 pub fn transition_to_yielded(task: Task) -> Task {
-    let mut t = task;
-    t.assignee = None;
-    t.state = TaskState::Open;
-    t.updated_at = chrono::Utc::now();
-    t
+    Task {
+        assignee: None,
+        state: TaskState::Open,
+        updated_at: now(),
+        ..task
+    }
 }
 
 /// Transition task to started state
 pub fn transition_to_started(task: Task) -> Task {
-    let mut t = task;
-    t.state = TaskState::InProgress;
-    t.updated_at = chrono::Utc::now();
-    t
+    Task {
+        state: TaskState::InProgress,
+        updated_at: now(),
+        ..task
+    }
 }
 
 /// Transition task to done (closed) state
 pub fn transition_to_done(task: Task) -> Task {
-    let mut t = task;
-    t.state = TaskState::Closed {
-        closed_at: chrono::Utc::now(),
-    };
-    t.updated_at = chrono::Utc::now();
-    t
+    Task {
+        state: TaskState::Closed { closed_at: now() },
+        updated_at: now(),
+        ..task
+    }
 }
