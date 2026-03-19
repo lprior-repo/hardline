@@ -173,21 +173,22 @@ impl Sanitizer {
                 .iter()
                 .filter(|step_result| !step_result.passed)
                 .filter_map(|step_result| {
-                    step_result.error.as_ref().map(|error| {
-                        let error_type = Self::extract_error_type(error);
-                        let stack_trace = Self::sanitize_value(error);
-                        [
-                            format!(
-                                "  Step {} ({}) - {}",
-                                step_result.step_index, step_result.step_type, error_type
-                            ),
-                            format!("    at <{stack_trace}>"),
-                        ]
-                    })
+                    step_result.error.as_ref().map(|error| (step_result, error))
+                })
+                .flat_map(|(step_result, error)| {
+                    let error_type = Self::extract_error_type(error);
+                    let stack_trace = Self::sanitize_value(error);
+                    [
+                        format!(
+                            "  Step {} ({}) - {}",
+                            step_result.step_index, step_result.step_type, error_type
+                        ),
+                        format!("    at <{stack_trace}>"),
+                    ]
                 }),
         );
 
-        output.flatten().collect::<Vec<_>>().join("\n")
+        output.collect::<Vec<_>>().join("\n")
     }
 
     /// Level 4: +assertion locations (no values)
@@ -202,43 +203,52 @@ impl Sanitizer {
                 .iter()
                 .filter(|step_result| !step_result.passed)
                 .filter_map(|step_result| {
-                    step_result.error.as_ref().map(|error| {
-                        let error_type = Self::extract_error_type(error);
-                        [
-                            format!(
-                                "  Step {} ({}) - {}",
-                                step_result.step_index, step_result.step_type, error_type
-                            ),
-                            format!("    Assertion at step {}", step_result.step_index),
-                        ]
-                    })
+                    step_result.error.as_ref().map(|error| (step_result, error))
+                })
+                .flat_map(|(step_result, error)| {
+                    let error_type = Self::extract_error_type(error);
+                    [
+                        format!(
+                            "  Step {} ({}) - {}",
+                            step_result.step_index, step_result.step_type, error_type
+                        ),
+                        format!("    Assertion at step {}", step_result.step_index),
+                    ]
                 }),
         );
 
-        output.flatten().collect::<Vec<_>>().join("\n")
+        output.collect::<Vec<_>>().join("\n")
     }
 
     /// Level 5: Full (development only)
     fn sanitize_level5(result: &ScenarioResult) -> String {
-        let header = std::iter::once(format!("Scenario: {}", result.scenario_name));
-        let status_line = if result.passed {
-            std::iter::once("PASS".to_string())
+        let scenario_name = format!("Scenario: {}", result.scenario_name);
+        let status = if result.passed { "PASS" } else { "FAIL" };
+
+        let step_lines: Vec<String> = if result.passed {
+            vec![]
         } else {
-            std::iter::once("FAIL".to_string()).chain(result.step_results.iter().flat_map(
-                |step_result| {
-                    let status = if step_result.passed { "OK" } else { "FAIL" };
+            result
+                .step_results
+                .iter()
+                .flat_map(|step_result| {
+                    let status_str = if step_result.passed { "OK" } else { "FAIL" };
                     let step_line = format!(
                         "  Step {} ({}): {}",
-                        step_result.step_index, step_result.step_type, status
+                        step_result.step_index, step_result.step_type, status_str
                     );
                     step_result.error.as_ref().map_or_else(Vec::new, |error| {
                         vec![step_line, format!("    Error: {error}")]
                     })
-                },
-            ))
+                })
+                .collect()
         };
 
-        header.chain(status_line).collect::<Vec<_>>().join("\n")
+        std::iter::once(scenario_name)
+            .chain(std::iter::once(status.to_string()))
+            .chain(step_lines.into_iter())
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     /// Extract just the error type from an error message
