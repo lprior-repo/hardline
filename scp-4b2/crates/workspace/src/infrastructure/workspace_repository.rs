@@ -70,7 +70,7 @@ fn filter_active_workspaces(map: &HashMap<String, Workspace>) -> Vec<Workspace> 
 // Helper to safely acquire mutex lock, treating poison as unrecoverable
 fn lock_workspace_map(
     workspaces: &Mutex<HashMap<String, Workspace>>,
-) -> std::sync::MutexGuard<HashMap<String, Workspace>> {
+) -> std::sync::MutexGuard<'_, HashMap<String, Workspace>> {
     // In normal operation, the lock will not be poisoned since we own the mutex
     // If poisoned, we treat it as unrecoverable and panic
     match workspaces.lock() {
