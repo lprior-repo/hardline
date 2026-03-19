@@ -47,16 +47,10 @@ impl ChaosInjector {
     pub fn inject_io_error(&self) -> std::io::Result<()> {
         let mut rng = rand::rng();
         if rng.random_bool(self.config.io_error_probability) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Chaos: random IO error",
-            ));
+            return Err(std::io::Error::other("Chaos: random IO error"));
         }
         if rng.random_bool(self.config.disk_full_probability) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::StorageFull,
-                "Chaos: disk full",
-            ));
+            return Err(std::io::Error::other("Chaos: disk full"));
         }
         if rng.random_bool(self.config.process_kill_probability) {
             eprintln!("Chaos: process killed during IO!");
@@ -78,10 +72,7 @@ impl ChaosInjector {
     pub fn inject_network_error(&self) -> std::io::Result<()> {
         let mut rng = rand::rng();
         if rng.random_bool(self.config.network_error_probability) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::ConnectionReset,
-                "Chaos: network error",
-            ));
+            return Err(std::io::Error::other("Chaos: network error"));
         }
         if rng.random_bool(self.config.process_kill_probability) {
             eprintln!("Chaos: process killed during Network call!");
@@ -93,15 +84,10 @@ impl ChaosInjector {
     pub fn inject_db_error(&self) -> Result<()> {
         let mut rng = rand::rng();
         if rng.random_bool(self.config.io_error_probability) {
-            return Err(Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Chaos: database IO error",
-            )));
+            return Err(Error::Io(std::io::Error::other("Chaos: database IO error")));
         }
         if rng.random_bool(self.config.disk_full_probability) {
-            return Err(Error::Io(std::io::Error::new(
-                std::io::ErrorKind::StorageFull,
-                "Chaos: database disk full",
+            return Err(Error::Io(std::io::Error::other("Chaos: database disk full")));
             )));
         }
         if rng.random_bool(self.config.process_kill_probability) {

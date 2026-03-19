@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Error, Result};
 
 /// Hook event types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum HookEvent {
     /// Before a rebase operation
     PreRebase,
@@ -36,6 +36,7 @@ pub enum HookEvent {
     /// Before a commit
     PreCommit,
     /// After a commit
+    #[default]
     PostCommit,
     /// Before workspace switch
     PreSwitch,
@@ -94,12 +95,6 @@ impl HookEvent {
             Self::PreWorkspaceDelete,
             Self::PostWorkspaceDelete,
         ]
-    }
-}
-
-impl Default for HookEvent {
-    fn default() -> Self {
-        Self::PostCommit
     }
 }
 
@@ -238,10 +233,7 @@ impl HookRunner {
 
     /// Register a hook
     pub fn register(&mut self, hook: Hook) {
-        self.hooks
-            .entry(hook.event)
-            .or_insert_with(Vec::new)
-            .push(hook);
+        self.hooks.entry(hook.event).or_default().push(hook);
     }
 
     /// Unregister a hook by name

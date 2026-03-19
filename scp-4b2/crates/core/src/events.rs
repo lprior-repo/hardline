@@ -183,7 +183,7 @@ fn uuid_simple() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .expect("system time is before UNIX_EPOCH")
         .as_nanos();
     format!("{:x}", now)
 }

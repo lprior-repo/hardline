@@ -377,17 +377,18 @@ impl Clone for Error {
                 value: value.clone(),
             },
             Error::InvalidIdentifier(s) => Error::InvalidIdentifier(s.clone()),
-            Error::Io(_) => Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                self.to_string(),
-            )),
+            Error::Io(_) => Error::Io(std::io::Error::other(self.to_string())),
             Error::IoError(s) => Error::IoError(s.clone()),
-            Error::JsonParse(_) => {
-                Error::JsonParse(serde_json::from_str::<serde_json::Value>("{}").unwrap_err())
-            }
-            Error::YamlParse(_) => {
-                Error::YamlParse(serde_yaml::from_str::<serde_yaml::Value>(":").unwrap_err())
-            }
+            Error::JsonParse(_) => Error::JsonParse(
+                serde_json::from_str::<serde_json::Value>("{}")
+                    .err()
+                    .unwrap(),
+            ),
+            Error::YamlParse(_) => Error::YamlParse(
+                serde_yaml::from_str::<serde_yaml::Value>(":")
+                    .err()
+                    .unwrap(),
+            ),
             Error::Database(s) => Error::Database(s.clone()),
             Error::Internal(s) => Error::Internal(s.clone()),
             Error::Unimplemented(s) => Error::Unimplemented(s.clone()),
@@ -468,11 +469,11 @@ impl Error {
     /// Returns a human-readable suggestion for fixing the error.
     pub fn suggestion(&self) -> Option<String> {
         match self {
-            Error::WorkspaceNotFound(_name) => Some(format!(
-                "Try 'scp workspace list' to see available workspaces"
-            )),
+            Error::WorkspaceNotFound(_name) => {
+                Some("Try 'scp workspace list' to see available workspaces".to_string())
+            }
             Error::SessionNotFound(_name) => {
-                Some(format!("Try 'scp session list' to see available sessions"))
+                Some("Try 'scp session list' to see available sessions".to_string())
             }
             Error::QueueEmpty => {
                 Some("No items in queue. Use 'scp queue enqueue <branch>' to add one".to_string())
