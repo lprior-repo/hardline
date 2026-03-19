@@ -112,9 +112,7 @@ impl Workspace {
                 to: "Locked".into(),
             });
         }
-        let mut workspace = self.transition_to(WorkspaceState::Locked);
-        workspace.lock_holder = Some(holder);
-        Ok(workspace)
+        Ok(self.transition_to_with_lock(WorkspaceState::Locked, Some(holder)))
     }
 
     pub fn unlock(&self) -> Result<Self, WorkspaceError> {
@@ -124,15 +122,11 @@ impl Workspace {
                 to: "Active".into(),
             });
         }
-        let mut workspace = self.transition_to(WorkspaceState::Active);
-        workspace.lock_holder = None;
-        Ok(workspace)
+        Ok(self.transition_to_with_lock(WorkspaceState::Active, None))
     }
 
     pub fn mark_corrupted(&self) -> Result<Self, WorkspaceError> {
-        let mut workspace = self.transition_to(WorkspaceState::Corrupted);
-        workspace.lock_holder = None;
-        Ok(workspace)
+        Ok(self.transition_to_with_lock(WorkspaceState::Corrupted, None))
     }
 
     pub fn delete(&self) -> Result<Self, WorkspaceError> {
@@ -146,6 +140,14 @@ impl Workspace {
     }
 
     fn transition_to(&self, new_state: WorkspaceState) -> Self {
+        self.transition_to_with_lock(new_state, self.lock_holder.clone())
+    }
+
+    fn transition_to_with_lock(
+        &self,
+        new_state: WorkspaceState,
+        lock_holder: Option<String>,
+    ) -> Self {
         Self {
             id: self.id.clone(),
             name: self.name.clone(),
@@ -153,7 +155,7 @@ impl Workspace {
             state: new_state,
             created_at: self.created_at,
             updated_at: Utc::now(),
-            lock_holder: self.lock_holder.clone(),
+            lock_holder,
             config: self.config.clone(),
         }
     }
