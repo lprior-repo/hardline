@@ -110,7 +110,8 @@ fn handle_success_output(output: &std::process::Output, success_msg: &str) -> Re
 }
 
 fn stdout_if_present(stdout: &[u8]) {
-    let trimmed = String::from_utf8_lossy(stdout).trim();
+    let output = String::from_utf8_lossy(stdout);
+    let trimmed = output.trim();
     if !trimmed.is_empty() {
         print!("{}", trimmed);
     }
@@ -122,7 +123,7 @@ fn stderr_to_string(stderr: &[u8]) -> String {
 
 /// Execute jj fetch and rebase, handling errors at each step
 fn execute_jj_pull(cwd: &std::path::Path) -> Result<()> {
-    let (fetch_cmd, rebase_cmd) = build_jj_pull_commands(cwd);
+    let (mut fetch_cmd, mut rebase_cmd) = build_jj_pull_commands(cwd);
 
     let fetch_output = fetch_cmd.output().map_err(Error::Io)?;
     if !fetch_output.status.success() {
