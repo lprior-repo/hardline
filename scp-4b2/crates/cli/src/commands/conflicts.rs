@@ -23,10 +23,9 @@ fn format_status_message(status: VcsStatus) -> &'static str {
 #[allow(dead_code)]
 fn get_current_dir() -> Result<std::path::PathBuf> {
     std::env::current_dir().map_err(|e| {
-        Error::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Failed to get current directory: {e}"),
-        ))
+        Error::Io(std::io::Error::other(format!(
+            "Failed to get current directory: {e}"
+        )))
     })
 }
 

@@ -122,17 +122,17 @@ impl Stack {
     pub fn topological_order(&self) -> Vec<&StackBranch> {
         let graph = self.build_dependency_graph();
         petgraph::algo::toposort(&graph, None)
-            .map(|sorted_indices| sorted_indices_to_branches(&graph, sorted_indices))
+            .map(|sorted_indices| Self::sorted_indices_to_branches(&graph, sorted_indices))
             .unwrap_or_else(|_| self.branches.iter().collect())
     }
 
-    fn sorted_indices_to_branches(
-        graph: &petgraph::Graph<&StackBranch, ()>,
+    fn sorted_indices_to_branches<'a>(
+        graph: &'a petgraph::Graph<&'a StackBranch, ()>,
         sorted_indices: petgraph::graph::NodeIndices,
-    ) -> Vec<&StackBranch> {
+    ) -> Vec<&'a StackBranch> {
         sorted_indices
-            .iter()
-            .filter_map(|idx| graph.node_weight(*idx))
+            .into_iter()
+            .filter_map(|idx| graph.node_weight(idx))
             .collect()
     }
 
@@ -140,15 +140,15 @@ impl Stack {
         self.branches
             .iter()
             .fold(petgraph::Graph::new(), |graph, branch| {
-                add_branch_edges(graph, &self.branches, branch)
+                Self::add_branch_edges(graph, &self.branches, branch)
             })
     }
 
-    fn add_branch_edges(
-        mut graph: petgraph::Graph<&StackBranch, ()>,
-        branches: &[StackBranch],
-        branch: &StackBranch,
-    ) -> petgraph::Graph<&StackBranch, ()> {
+    fn add_branch_edges<'a>(
+        mut graph: petgraph::Graph<&'a StackBranch, ()>,
+        branches: &'a [StackBranch],
+        branch: &'a StackBranch,
+    ) -> petgraph::Graph<&'a StackBranch, ()> {
         let indices: std::collections::HashMap<&BranchName, _> = branches
             .iter()
             .map(|b| (&b.name, graph.add_node(b)))

@@ -448,7 +448,7 @@ impl Queue {
     /// For equal priorities, inserts at the end to maintain FIFO order.
     #[must_use]
     pub fn enqueue(&self, entry: QueueEntry) -> Self {
-        let final_pos = find_fifo_insert_position(&self.entries, entry.priority);
+        let final_pos = Self::find_fifo_insert_position(&self.entries, entry.priority);
         Self {
             entries: insert_entry_at(&self.entries, final_pos, &entry),
         }

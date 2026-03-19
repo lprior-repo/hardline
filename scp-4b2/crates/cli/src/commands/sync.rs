@@ -142,7 +142,7 @@ fn stderr_to_string(stderr: &[u8]) -> String {
 
 /// Execute jj fetch and rebase, handling errors at each step
 fn execute_jj_pull(cwd: &std::path::Path) -> Result<()> {
-    let (fetch_cmd, rebase_cmd) = build_jj_pull_commands(cwd);
+    let (mut fetch_cmd, mut rebase_cmd) = build_jj_pull_commands(cwd);
 
     let fetch_output = fetch_cmd.output().map_err(Error::Io)?;
     if !fetch_output.status.success() {
@@ -180,9 +180,15 @@ fn add_branch_arg(cmd: &mut Command, branch: Option<&str>) {
 /// Add force arguments based on force mode
 fn add_force_arg(cmd: &mut Command, force_mode: ForceMode) {
     match force_mode {
-        ForceMode::None => {}
-        ForceMode::Force => cmd.arg("--force"),
-        ForceMode::ForceWithLease => cmd.arg("--force-with-lease"),
+        ForceMode::None => {
+            let _ = cmd;
+        }
+        ForceMode::Force => {
+            cmd.arg("--force");
+        }
+        ForceMode::ForceWithLease => {
+            cmd.arg("--force-with-lease");
+        }
     }
 }
 

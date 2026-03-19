@@ -144,7 +144,9 @@ endpoints:
 
     #[test]
     fn test_parse_valid_yaml() {
-        let def = TwinDefinition::from_yaml(VALID_YAML).expect("Should parse valid YAML");
+        let def = TwinDefinition::from_yaml(VALID_YAML);
+        assert!(def.is_ok(), "Should parse valid YAML: {:?}", def.err());
+        let def = def.unwrap();
         assert_eq!(def.name, "sendgrid");
         assert_eq!(def.port, 3001);
         assert_eq!(def.endpoints.len(), 1);

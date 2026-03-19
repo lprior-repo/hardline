@@ -28,6 +28,50 @@ use crate::{
     state::{InMemoryTwinState, RequestRecord, TwinState},
 };
 
+// ---------------------------------------------------------------------------
+// Pure calculation functions (Data → Calc)
+// ---------------------------------------------------------------------------
+
+/// Converts HeaderMap to a HashMap of String → String
+fn extract_headers(headers: &HeaderMap) -> HashMap<String, String> {
+    headers
+        .iter()
+        .filter_map(|(k, v)| v.to_str().ok().map(|s| (k.to_string(), s.to_string())))
+        .collect()
+}
+
+/// Serializes response body to JSON string
+fn serialize_response_body(body: &serde_json::Value) -> Result<String, ServerError> {
+    serde_json::to_string(body).map_err(|e| ServerError::SerializationError(e.to_string()))
+}
+
+/// Builds a Response with headers and optional body
+fn build_response(
+    status: u16,
+    headers: &HashMap<String, String>,
+    body: String,
+) -> Result<Response, ServerError> {
+    let builder =
+        headers
+            .iter()
+            .try_fold(Response::builder().status(status), |acc, (key, value)| {
+                let name = HeaderName::from_bytes(key.as_bytes())
+                    .map_err(|_| ServerError::InvalidHeader(key.clone()))?;
+                Ok(acc.header(&name, value.as_str()))
+            })?;
+
+    if body.is_empty() {
+        builder
+            .body(Body::empty())
+            .map_err(|e| ServerError::StateError(e.to_string()))
+    } else {
+        builder
+            .header("content-type", "application/json")
+            .body(Body::from(body))
+            .map_err(|e| ServerError::StateError(e.to_string()))
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum ServerError {
     #[error("Failed to parse request body: {0}")]
@@ -114,54 +158,31 @@ async fn twin_handler(
         String::from_utf8(body_bytes.to_vec()).ok()
     };
 
-    let request_headers: HashMap<String, String> = headers
-        .iter()
-        .filter_map(|(k, v)| v.to_str().ok().map(|s| (k.to_string(), s.to_string())))
-        .collect();
-
-    let response = &endpoint.response;
-    let status = response.status;
-
-    let builder = Response::builder().status(status);
-
-    let builder = response
-        .headers
-        .iter()
-        .try_fold(builder, |acc, (key, value)| {
-            let name = HeaderName::from_bytes(key.as_bytes())
-                .map_err(|_| ServerError::InvalidHeader(key.clone()))?;
-            Ok(acc.header(&name, value.as_str()))
-        })?;
-
-    let response_body = serde_json::to_string(&response.body)
-        .map_err(|e| ServerError::SerializationError(e.to_string()))?;
-
-    let builder = if !response_body.is_empty() {
-        builder.header("content-type", "application/json")
-    } else {
-        builder
-    };
+    let request_headers = extract_headers(&headers);
 
     let record = RequestRecord::new(
         method.to_string(),
-        path,
+        path.clone(),
         request_headers,
         request_body_str,
-        response.status,
-        response.headers.clone(),
-        Some(response_body.clone()),
+        endpoint.response.status,
+        endpoint.response.headers.clone(),
+        None,
     );
 
-    let new_state = {
+    {
         let state_guard = state.state.read().await;
-        state_guard.add_record(record)
-    };
-    *state.state.write().await = new_state;
+        let new_state = state_guard.add_record(record);
+        *state.state.write().await = new_state;
+    }
 
-    let body = Body::from(response_body);
-    builder
-        .body(body)
-        .map_err(|e| ServerError::StateError(e.to_string()))
+    let response_body = serialize_response_body(&endpoint.response.body)?;
+
+    build_response(
+        endpoint.response.status,
+        &endpoint.response.headers,
+        response_body,
+    )
 }
 
 async fn not_found_handler(method: Method, Path(path): Path<String>) -> impl IntoResponse {
@@ -233,25 +254,20 @@ pub fn build_router(definition: TwinDefinition) -> Router {
         .definition
         .endpoints
         .iter()
-        .map(|endpoint| {
-            let path = endpoint.path.clone();
-            let method = endpoint.method;
-            (path, method)
-        })
+        .map(|endpoint| (endpoint.path.clone(), endpoint.method))
         .collect();
 
-    let mut router = base_router;
-    for (path, method) in routes {
-        router = match method {
-            HttpMethod::GET => router.route(&path, get(twin_handler)),
-            HttpMethod::POST => router.route(&path, post(twin_handler)),
-            HttpMethod::PUT => router.route(&path, put(twin_handler)),
-            HttpMethod::DELETE => router.route(&path, delete(twin_handler)),
-            HttpMethod::PATCH => router.route(&path, patch(twin_handler)),
-            HttpMethod::OPTIONS => router.route(&path, options(twin_handler)),
-            HttpMethod::HEAD => router.route(&path, head(twin_handler)),
-        };
-    }
+    let router = routes
+        .iter()
+        .fold(base_router, |acc, (path, method)| match method {
+            HttpMethod::GET => acc.route(path, get(twin_handler)),
+            HttpMethod::POST => acc.route(path, post(twin_handler)),
+            HttpMethod::PUT => acc.route(path, put(twin_handler)),
+            HttpMethod::DELETE => acc.route(path, delete(twin_handler)),
+            HttpMethod::PATCH => acc.route(path, patch(twin_handler)),
+            HttpMethod::OPTIONS => acc.route(path, options(twin_handler)),
+            HttpMethod::HEAD => acc.route(path, head(twin_handler)),
+        });
 
     router
         .fallback(any(not_found_handler))
@@ -300,13 +316,24 @@ endpoints:
 
     #[test]
     fn test_build_router() {
-        let definition = TwinDefinition::from_yaml(TEST_YAML).expect("Should parse");
-        let _router = build_router(definition);
+        let definition = TwinDefinition::from_yaml(TEST_YAML);
+        assert!(
+            definition.is_ok(),
+            "Should parse valid YAML: {:?}",
+            definition.err()
+        );
+        let _router = build_router(definition.unwrap());
     }
 
     #[tokio::test]
     async fn test_find_endpoint() {
-        let definition = TwinDefinition::from_yaml(TEST_YAML).expect("Should parse");
+        let definition = TwinDefinition::from_yaml(TEST_YAML);
+        assert!(
+            definition.is_ok(),
+            "Should parse valid YAML: {:?}",
+            definition.err()
+        );
+        let definition = definition.unwrap();
         let state = AppState::new(definition);
 
         let endpoint = state.find_endpoint(&Method::GET, "/api/test");

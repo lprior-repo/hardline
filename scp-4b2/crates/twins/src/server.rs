@@ -292,14 +292,14 @@ async fn clear_state(State(state): State<AppState>) -> impl IntoResponse {
     (StatusCode::OK, r#"{"status":"cleared"}"#)
 }
 
-fn build_inspect_routes() -> Router {
+fn build_inspect_routes() -> Router<AppState> {
     Router::new()
         .route("/_inspect/state", get(inspect_state))
         .route("/_inspect/requests", get(inspect_requests))
         .route("/_inspect/clear", post(clear_state))
 }
 
-fn register_twin_endpoints(router: Router, endpoints: &[Endpoint]) -> Router {
+fn register_twin_endpoints(router: Router<AppState>, endpoints: &[Endpoint]) -> Router<AppState> {
     endpoints
         .iter()
         .map(endpoint_to_route)

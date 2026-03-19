@@ -67,7 +67,8 @@ impl SessionName {
     /// - The name is empty after trimming
     /// - The name contains shell metacharacters
     pub fn new(name: impl Into<String>) -> ValidationResult<Self> {
-        let trimmed = name.into().trim();
+        let name = name.into();
+        let trimmed = name.trim();
         Self::validate(trimmed)?;
         Ok(Self(trimmed.to_string()))
     }
