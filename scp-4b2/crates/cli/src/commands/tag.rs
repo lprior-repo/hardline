@@ -11,22 +11,23 @@ fn build_git_tag_create_command(
     commit: Option<&str>,
     force: bool,
 ) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.arg("tag");
-
-    if force {
-        cmd.arg("-f");
-    }
-
-    if let Some(msg) = message {
-        cmd.args(["-a", name, "-m", msg]);
+    let commit_ref = commit.unwrap_or_else(|| "HEAD");
+    let tag_args = if force {
+        vec!["tag", "-f", name, commit_ref]
     } else {
-        let commit_ref = commit.unwrap_or("HEAD");
-        cmd.arg(name).arg(commit_ref);
-    }
+        vec!["tag", name, commit_ref]
+    };
 
-    cmd.current_dir(cwd);
-    cmd
+    Command::new("git")
+        .args(&tag_args)
+        .pipe(|cmd| {
+            message.map_or(cmd, |msg| {
+                Command::new("git")
+                    .args(["tag", "-a", name, "-m", msg])
+                    .current_dir(cwd)
+            })
+        })
+        .current_dir(cwd)
 }
 
 fn build_git_tag_list_command(

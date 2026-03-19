@@ -46,17 +46,31 @@ fn load_config() -> Result<HashTrieMap<String, String>> {
     }
 }
 
+/// Format a single config entry as a TOML line
+fn format_config_entry(key: &str, value: &str) -> String {
+    format!("{} = {}\n", key, value)
+}
+
+/// Serialize config map to TOML-formatted string
+fn serialize_config(config: &HashTrieMap<String, String>) -> String {
+    let header = String::from("# SCP Configuration\n\n");
+    let entries = config
+        .iter()
+        .map(|(k, v)| format_config_entry(k, v))
+        .collect::<Vec<_>>()
+        .join("");
+    format!("{}{}", header, entries)
+}
+
 /// Save config to file
 fn save_config(config: &HashTrieMap<String, String>) -> Result<()> {
     let config_file = get_config_file()?;
-    if let Some(parent) = config_file.parent() {
-        fs::create_dir_all(parent).map_err(Error::Io)?;
-    }
-    let mut contents = String::from("# SCP Configuration\n\n");
-    for (k, v) in config.iter() {
-        contents.push_str(&format!("{} = {}\n", k, v));
-    }
-    fs::write(&config_file, contents).map_err(Error::Io)
+    config_file
+        .parent()
+        .map(fs::create_dir_all)
+        .transpose()
+        .map_err(Error::Io)?;
+    fs::write(&config_file, serialize_config(config)).map_err(Error::Io)
 }
 
 /// Get config value
@@ -77,15 +91,14 @@ pub fn get(key: &str) -> Result<()> {
 
 /// Set config value
 pub fn set(key: &str, value: &str) -> Result<()> {
-    (key.is_empty())
-        .then(|| Err(Error::ConfigInvalid("Key cannot be empty".into())))
-        .unwrap_or_else(|| {
-            load_config()
-                .map(|config| config.insert(key.to_string(), value.to_string()))
-                .and_then(|new_config| save_config(&new_config))
-                .map(|()| {
-                    println!("✓ Set {} = {}", key, value);
-                })
+    if key.is_empty() {
+        return Err(Error::ConfigInvalid("Key cannot be empty".into()));
+    }
+    load_config()
+        .map(|config| config.insert(key.to_string(), value.to_string()))
+        .and_then(|new_config| save_config(&new_config))
+        .map(|()| {
+            println!("✓ Set {} = {}", key, value);
         })
 }
 

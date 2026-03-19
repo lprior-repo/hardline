@@ -23,6 +23,16 @@ fn vcs_init_args(vcs_type: &str) -> Option<&'static [&'static str]> {
     }
 }
 
+/// Validates VCS type and returns (marker, args) pair.
+/// Returns error for unknown VCS types.
+fn validate_vcs(vcs_type: &str) -> Result<(&'static str, &'static [&'static str])> {
+    let marker = vcs_marker(vcs_type)
+        .ok_or_else(|| Error::ConfigInvalid(format!("Unknown VCS type: {}", vcs_type)))?;
+    let args = vcs_init_args(vcs_type)
+        .ok_or_else(|| Error::ConfigInvalid(format!("Unknown VCS type: {}", vcs_type)))?;
+    Ok((marker, args))
+}
+
 /// Checks if a VCS tool is installed by running `vcs_type --version`.
 fn check_vcs_installed(vcs_type: &str) -> Result<()> {
     std::process::Command::new(vcs_type)
@@ -30,6 +40,11 @@ fn check_vcs_installed(vcs_type: &str) -> Result<()> {
         .output()
         .map_err(Error::Io)
         .map(|_| ())
+}
+
+/// Determines if JJ-specific pre-init check is needed.
+fn needs_jj_install_check(vcs_type: &str) -> bool {
+    vcs_type == "jj"
 }
 
 /// Checks if a VCS is already initialized by looking for its marker directory.
@@ -40,6 +55,16 @@ fn is_vcs_initialized(dir: &Path, marker: &str) -> bool {
 /// Gets the current working directory.
 fn get_cwd() -> Result<std::path::PathBuf> {
     std::env::current_dir().map_err(Error::Io)
+}
+
+/// Formats the already-initialized message for display.
+fn format_already_initialized_msg(vcs_type: &str) -> String {
+    format!("Already initialized with {}", vcs_type)
+}
+
+/// Formats the success message for display.
+fn format_success_msg(vcs_type: &str, dir: &Path) -> String {
+    format!("✓ Initialized {} in {:?}", vcs_type, dir)
 }
 
 /// Runs the VCS init command and validates success.
@@ -66,25 +91,20 @@ fn run_vcs_init(dir: &Path, vcs_type: &str, args: &[&str]) -> Result<()> {
 pub fn run(vcs_type: &str) -> Result<()> {
     println!("Initializing Source Control Plane...");
 
-    let marker = vcs_marker(vcs_type)
-        .ok_or_else(|| Error::ConfigInvalid(format!("Unknown VCS type: {}", vcs_type)))?;
-
-    let args = vcs_init_args(vcs_type)
-        .ok_or_else(|| Error::ConfigInvalid(format!("Unknown VCS type: {}", vcs_type)))?;
-
+    let (marker, args) = validate_vcs(vcs_type)?;
     let cwd = get_cwd()?;
 
-    if vcs_type == "jj" {
-        check_vcs_installed(vcs_type)?;
-    }
+    needs_jj_install_check(vcs_type)
+        .then(|| check_vcs_installed(vcs_type))
+        .transpose()?;
 
     if is_vcs_initialized(&cwd, marker) {
-        println!("Already initialized with JJ");
+        println!("{}", format_already_initialized_msg(vcs_type));
         return Ok(());
     }
 
     run_vcs_init(&cwd, vcs_type, args)?;
 
-    println!("✓ Initialized {} in {:?}", vcs_type, cwd);
+    println!("{}", format_success_msg(vcs_type, &cwd));
     Ok(())
 }

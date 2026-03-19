@@ -16,31 +16,41 @@ fn format_context_lines(
     ]
 }
 
-/// Extract current workspace name from workspace list
-fn extract_current_workspace_name(workspaces: Vec<vcs::Workspace>) -> String {
+/// Pure calculation: extract current workspace name from workspace list
+fn extract_current_workspace_name(workspaces: &[vcs::Workspace]) -> String {
     workspaces
-        .into_iter()
+        .iter()
         .find(|w| w.is_current)
-        .map(|w| w.name)
-        .unwrap_or_else(|| "unknown".to_string())
+        .map(|w| w.name.as_str())
+        .unwrap_or("unknown")
+        .to_string()
+}
+
+/// Pure calculation: gather all context data from backend
+fn gather_context_data(
+    backend: &dyn vcs::VcsBackend,
+    workspaces: &[vcs::Workspace],
+) -> Result<(String, String, vcs::VcsStatus)> {
+    let workspace_name = extract_current_workspace_name(workspaces);
+    let branch = backend.current_branch()?;
+    let vcs_status = backend.status()?;
+    Ok((workspace_name, branch, vcs_status))
+}
+
+/// Action: output context lines
+fn output_context_lines(lines: &[String]) {
+    lines.iter().for_each(|line| Output::info(line));
 }
 
 /// Show current context (workspace, branch, VCS status)
 pub fn run() -> Result<()> {
     let cwd = std::env::current_dir().map_err(scp_core::Error::Io)?;
-
     let backend = vcs::create_backend(&cwd)?;
-
     let workspaces = backend.list_workspaces()?;
-    let workspace_name = extract_current_workspace_name(workspaces);
 
-    let branch = backend.current_branch()?;
-    let vcs_status = backend.status()?;
-
+    let (workspace_name, branch, vcs_status) = gather_context_data(&*backend, &workspaces)?;
     let lines = format_context_lines(&workspace_name, &branch, &vcs_status);
-    for line in &lines {
-        Output::info(line);
-    }
+    output_context_lines(&lines);
 
     Ok(())
 }

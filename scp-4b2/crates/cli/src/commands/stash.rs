@@ -3,6 +3,7 @@
 use std::process::Command;
 
 use scp_core::{output::Output, vcs::detect_vcs, Error, Result};
+use tap::tap::Tap;
 
 fn build_git_stash_save_command(
     cwd: &std::path::Path,
@@ -10,23 +11,24 @@ fn build_git_stash_save_command(
     include_untracked: bool,
     patch: bool,
 ) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.arg("stash").arg("push");
-
-    if let Some(msg) = message {
-        cmd.arg("-m").arg(msg);
-    }
-
-    if include_untracked {
-        cmd.arg("-u");
-    }
-
-    if patch {
-        cmd.arg("-p");
-    }
-
-    cmd.current_dir(cwd);
-    cmd
+    Command::new("git")
+        .tap(|cmd| cmd.arg("stash").arg("push"))
+        .tap(|cmd| {
+            if let Some(msg) = message {
+                cmd.arg("-m").arg(msg);
+            }
+        })
+        .tap(|cmd| {
+            if include_untracked {
+                cmd.arg("-u");
+            }
+        })
+        .tap(|cmd| {
+            if patch {
+                cmd.arg("-p");
+            }
+        })
+        .current_dir(cwd)
 }
 
 fn build_git_stash_pop_command(
@@ -34,52 +36,47 @@ fn build_git_stash_pop_command(
     stash: Option<&str>,
     restore_index: bool,
 ) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.arg("stash").arg("pop");
-
-    if let Some(s) = stash {
-        cmd.arg(s);
-    }
-
-    if restore_index {
-        cmd.arg("--index");
-    }
-
-    cmd.current_dir(cwd);
-    cmd
+    Command::new("git")
+        .tap(|cmd| cmd.arg("stash").arg("pop"))
+        .tap(|cmd| {
+            if let Some(s) = stash {
+                cmd.arg(s);
+            }
+        })
+        .tap(|cmd| {
+            if restore_index {
+                cmd.arg("--index");
+            }
+        })
+        .current_dir(cwd)
 }
 
 fn build_git_stash_list_command(cwd: &std::path::Path) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.args(["stash", "list"]);
-    cmd.current_dir(cwd);
-    cmd
+    Command::new("git").args(["stash", "list"]).current_dir(cwd)
 }
 
 fn build_git_stash_drop_command(cwd: &std::path::Path, stash: &str, force: bool) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.arg("stash").arg("drop");
-
-    if force {
-        cmd.arg("-f");
-    }
-
-    cmd.arg(stash);
-    cmd.current_dir(cwd);
-    cmd
+    Command::new("git")
+        .tap(|cmd| cmd.arg("stash").arg("drop"))
+        .tap(|cmd| {
+            if force {
+                cmd.arg("-f");
+            }
+        })
+        .arg(stash)
+        .current_dir(cwd)
 }
 
 fn build_git_stash_show_command(cwd: &std::path::Path, stash_ref: &str, stat: bool) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.arg("stash").arg("show");
-
-    if stat {
-        cmd.arg("--stat");
-    }
-
-    cmd.arg(stash_ref);
-    cmd.current_dir(cwd);
-    cmd
+    Command::new("git")
+        .tap(|cmd| cmd.arg("stash").arg("show"))
+        .tap(|cmd| {
+            if stat {
+                cmd.arg("--stat");
+            }
+        })
+        .arg(stash_ref)
+        .current_dir(cwd)
 }
 
 // Pure calculation functions (Data→Calc→Actions)
@@ -138,26 +135,28 @@ fn is_output_empty(output: &std::process::Output) -> bool {
 // Action functions that compose pure calculations
 
 pub fn save(message: Option<&str>, include_untracked: bool, patch: bool) -> Result<()> {
-    let cwd = get_current_working_dir()?;
-    validate_git_vcs(&cwd)?;
-
-    let output = execute_git_command(build_git_stash_save_command(
-        &cwd,
-        message,
-        include_untracked,
-        patch,
-    ))?;
-
-    if handle_command_success(&output) {
-        let msg = message.unwrap_or("changes");
-        output_success_message(&format!("Stashed: {}", msg));
-        Ok(())
-    } else {
-        Err(create_vcs_conflict_error(
-            "git stash",
-            &get_stderr_as_string(&output),
-        ))
-    }
+    get_current_working_dir()
+        .and_then(|cwd| validate_git_vcs(&cwd).map(|_| cwd))
+        .and_then(|cwd| {
+            execute_git_command(build_git_stash_save_command(
+                &cwd,
+                message,
+                include_untracked,
+                patch,
+            ))
+        })
+        .and_then(|output| {
+            if handle_command_success(&output) {
+                let msg = message.unwrap_or("changes");
+                output_success_message(&format!("Stashed: {}", msg));
+                Ok(())
+            } else {
+                Err(create_vcs_conflict_error(
+                    "git stash",
+                    &get_stderr_as_string(&output),
+                ))
+            }
+        })
 }
 
 pub fn pop(stash: Option<&str>, restore_index: bool) -> Result<()> {

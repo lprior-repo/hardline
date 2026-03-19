@@ -73,13 +73,17 @@ fn run_dry_run(commands: &[String]) -> Result<()> {
 /// Generate checkpoint ID if checkpointing is enabled
 fn generate_checkpoint_id(enable_checkpoint: bool) -> Option<String> {
     enable_checkpoint.then(|| {
-        let millis = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .ok()
-            .map(|d| d.as_millis())
-            .unwrap_or(0);
+        let millis = current_epoch_millis();
         format!("batch-{}", millis)
     })
+}
+
+/// Get current Unix epoch milliseconds as u128
+fn current_epoch_millis() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0)
 }
 
 /// Execute all commands and collect results
@@ -156,14 +160,12 @@ fn run_success_output(results: &[CommandResult], checkpoint_id: Option<&String>)
 }
 
 /// Parse command string into program and arguments
-fn parse_command_input(cmd: &str) -> Result<(&str, &[&str]), scp_core::Error> {
+fn parse_command_input(cmd: &str) -> Result<(&str, Vec<&str>), scp_core::Error> {
     let parts: Vec<&str> = cmd.split_whitespace().collect();
-    if parts.is_empty() {
-        return Err(scp_core::Error::BatchCommandFailed(
-            "empty command".to_string(),
-        ));
-    }
-    Ok((parts[0], &parts[1..]))
+    parts
+        .first()
+        .map(|program| (program, parts[1..].to_vec()))
+        .ok_or_else(|| scp_core::Error::BatchCommandFailed("empty command".to_string()))
 }
 
 /// Execute a single command
@@ -177,13 +179,18 @@ fn execute_command(cmd: &str) -> Result<String> {
         .output()
         .map_err(|e| scp_core::Error::BatchCommandFailed(format!("failed to execute: {}", e)))?;
 
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        Err(scp_core::Error::BatchCommandFailed(
-            String::from_utf8_lossy(&output.stderr).to_string(),
-        ))
-    }
+    parse_command_output(output)
+}
+
+/// Parse command output into Result<String>
+fn parse_command_output(output: std::process::Output) -> Result<String> {
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).to_string())
+        .ok_or_else(|| {
+            scp_core::Error::BatchCommandFailed(String::from_utf8_lossy(&output.stderr).to_string())
+        })
 }
 
 #[cfg(test)]
