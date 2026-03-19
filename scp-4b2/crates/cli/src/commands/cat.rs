@@ -5,15 +5,14 @@ use std::process::Output;
 use tap::pipe::Pipe;
 
 fn build_jj_cat_command(path: &str, revision: Option<&str>) -> std::process::Command {
-    let args = std::iter::once("cat")
+    let args: Vec<&str> = std::iter::once("cat")
         .chain(std::iter::once(path))
-        .chain(revision.map(|r| ["--revision", r]).into_iter().flatten());
+        .chain(revision.map(|r| ["--revision", r]).into_iter().flatten())
+        .collect();
 
-    args.fold(get_jj_command_sync(), |cmd, arg| {
-        let mut c = cmd;
-        c.arg(arg);
-        c
-    })
+    let mut cmd = get_jj_command_sync();
+    cmd.args(&args);
+    cmd
 }
 
 pub fn run(path: &str, revision: Option<&str>) -> Result<()> {

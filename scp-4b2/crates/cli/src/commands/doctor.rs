@@ -76,25 +76,24 @@ fn working_copy_status_message(status: scp_core::vcs::VcsStatus) -> Option<Strin
 }
 
 fn full_diagnostics_messages(cwd: &std::path::Path) -> Vec<String> {
-    let mut messages = Vec::new();
-
     let disk_lines = disk_usage_lines(cwd);
-    messages.extend(disk_lines);
 
-    let locks = lock_files_in_path(cwd);
-    for lock_path in locks {
-        messages.push(format!("  ⚠ Found lock file: {:?}", lock_path));
-    }
+    let lock_messages = lock_files_in_path(cwd)
+        .iter()
+        .map(|p| format!("  ⚠ Found lock file: {:?}", p))
+        .collect::<Vec<_>>();
 
-    if let Ok(be) = vcs::create_backend(cwd) {
-        if let Ok(status) = be.status() {
-            if let Some(msg) = working_copy_status_message(status) {
-                messages.push(msg);
-            }
-        }
-    }
+    let status_message = vcs::create_backend(cwd)
+        .ok()
+        .and_then(|be| be.status().ok())
+        .and_then(|s| working_copy_status_message(s));
 
-    messages
+    [
+        disk_lines,
+        lock_messages,
+        status_message.into_iter().collect(),
+    ]
+    .concat()
 }
 
 fn print_vcs_check(passed: bool) {
@@ -167,7 +166,6 @@ pub fn run(full: bool) -> Result<()> {
     let vcs_passed = check_vcs_result.as_ref().copied().unwrap_or(false);
     let dep_jj_found = check_dep_jj.as_ref().copied().unwrap_or(false);
     let dep_git_found = check_dep_git.as_ref().copied().unwrap_or(false);
-    let config_result = check_config_result.as_ref().copied().unwrap_or(false);
     let _workspaces_count = check_workspaces_result.as_ref().copied().unwrap_or(0);
 
     print_vcs_check(vcs_passed);
