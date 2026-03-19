@@ -40,7 +40,10 @@ fn remove_entry_at(
     entries: &[QueueEntry],
     position: usize,
 ) -> Option<(Vec<QueueEntry>, QueueEntry)> {
-    let (before, after) = entries.split_at(position)?;
+    if position >= entries.len() {
+        return None;
+    }
+    let (before, after) = entries.split_at(position);
     let removed = after.first()?.clone();
     let new_entries = before.iter().chain(after.iter().skip(1)).cloned().collect();
     Some((new_entries, removed))
@@ -53,7 +56,10 @@ fn replace_entry_at<F>(entries: &[QueueEntry], position: usize, f: F) -> Option<
 where
     F: FnOnce(QueueEntry) -> QueueEntry,
 {
-    let (before, after) = entries.split_at(position)?;
+    if position >= entries.len() {
+        return None;
+    }
+    let (before, after) = entries.split_at(position);
     let updated = f(after.first()?.clone());
     let new_entries = before
         .iter()
@@ -372,17 +378,27 @@ impl Queue {
     /// Add an entry to the queue, returning a new Queue.
     ///
     /// Uses binary search to maintain priority order.
+    /// For equal priorities, inserts at the end to maintain FIFO order.
     #[must_use]
     pub fn enqueue(&self, entry: QueueEntry) -> Self {
         let priority = entry.priority;
 
+        // Find initial position using binary search
         let insert_pos = self
             .entries
             .binary_search_by_key(&priority, |e| e.priority)
             .unwrap_or_else(|pos| pos);
 
+        // For equal priorities, we need to insert AFTER all entries with the same priority
+        // to maintain FIFO order. Skip past all equal-priority entries.
+        let final_pos = self.entries[insert_pos..]
+            .iter()
+            .position(|e| e.priority != priority)
+            .map(|offset| insert_pos + offset)
+            .unwrap_or(self.entries.len());
+
         Self {
-            entries: insert_entry_at(&self.entries, insert_pos, entry),
+            entries: insert_entry_at(&self.entries, final_pos, entry),
         }
     }
 
