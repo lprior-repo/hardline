@@ -451,7 +451,7 @@ impl Prerequisites {
     /// Returns `true` if all prerequisites are satisfied. The result should be checked
     /// before proceeding with operations that require these prerequisites.
     #[must_use]
-    pub const fn all_met(&self) -> bool {
+    pub fn all_met(&self) -> bool {
         self.initialized && self.jj_installed && self.custom.is_empty()
     }
 
@@ -462,7 +462,7 @@ impl Prerequisites {
     /// Returns the count of met prerequisites. The result should be used
     /// for reporting or validation purposes.
     #[must_use]
-    pub const fn count_met(&self) -> usize {
+    pub fn count_met(&self) -> usize {
         let mut count = 0;
         if self.initialized {
             count += 1;
@@ -480,7 +480,7 @@ impl Prerequisites {
     /// Returns the total count of prerequisites. The result should be used
     /// for reporting or validation purposes.
     #[must_use]
-    pub const fn total(&self) -> usize {
+    pub fn total(&self) -> usize {
         2 + self.custom.len()
     }
 }

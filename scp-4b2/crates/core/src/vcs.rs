@@ -150,7 +150,7 @@ impl JjBackend {
             .args(args)
             .current_dir(&self.repo_path)
             .output()
-            .map_err(|e| Error::Io(e))
+            .map_err(Error::Io)
     }
 }
 
@@ -385,7 +385,7 @@ impl GitBackend {
             .args(args)
             .current_dir(&self.repo_path)
             .output()
-            .map_err(|e| Error::Io(e))
+            .map_err(Error::Io)
     }
 }
 

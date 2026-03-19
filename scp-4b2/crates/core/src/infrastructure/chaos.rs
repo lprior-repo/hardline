@@ -88,7 +88,6 @@ impl ChaosInjector {
         }
         if rng.random_bool(self.config.disk_full_probability) {
             return Err(Error::Io(std::io::Error::other("Chaos: database disk full")));
-            )));
         }
         if rng.random_bool(self.config.process_kill_probability) {
             eprintln!("Chaos: process killed during DB op!");

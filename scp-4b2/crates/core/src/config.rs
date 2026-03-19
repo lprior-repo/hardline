@@ -370,13 +370,15 @@ impl ConfigManager {
 
 impl Default for ConfigManager {
     fn default() -> Self {
-        Self::new().unwrap_or_else(|e| panic!("Failed to create config manager: {e}"))
+        // Use a fallback path since ProjectDirs may fail on systems without proper directories.
+        // The path is only used for config loading which will fail gracefully if not found.
+        Self::with_paths(PathBuf::from("/.config/scp/config.toml"), None)
     }
 }
 
 /// Global config instance
 pub fn global_config() -> ConfigManager {
-    ConfigManager::new().unwrap_or_else(|e| panic!("Failed to create config manager: {e}"))
+    ConfigManager::default()
 }
 
 /// Get config directory

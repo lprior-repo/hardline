@@ -2,6 +2,8 @@
 //!
 //! This module provides identifier-specific error types.
 
+#![allow(clippy::missing_errors_doc)]
+
 use crate::error::Error;
 
 pub type IdentifierError = Error;

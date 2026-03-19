@@ -139,6 +139,10 @@ pub struct RepoOperationInfo {
     pub repo_root: PathBuf,
 }
 
+/// Get the current operation for a repository
+///
+/// # Errors
+/// Returns an error if the operation cannot be retrieved.
 pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
     let output = get_jj_command()
         .args(["op", "log", "--no-graph", "--limit", "1", "-T", "id"])
@@ -200,6 +204,10 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
     })
 }
 
+/// Create a workspace that is synced with the given repo
+///
+/// # Errors
+/// Returns an error if the workspace cannot be created.
 pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) -> Result<()> {
     if name.is_empty() {
         return Err(Error::InvalidConfig(
@@ -307,17 +315,13 @@ async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
             .write(true)
             .open(&lock_path)
             .map_err(|e| Error::IoError(format!("Failed to open probe lock file: {e}")))
-            .and_then(|probe| match probe.try_lock_exclusive() {
+            .map(|probe| match probe.try_lock_exclusive() {
                 Ok(()) => {
-                    let unlock_result = probe.unlock();
-                    if let Err(unlock_error) = unlock_result {
-                        return Err(Error::IoError(format!(
-                            "Failed to unlock probe lock file: {unlock_error}"
-                        )));
-                    }
-                    Ok(false)
+                    // Lock acquired - drop probe to release lock
+                    drop(probe);
+                    false
                 }
-                Err(_) => Ok(true),
+                Err(_) => true,
             })?;
 
         if !lock_supported {

@@ -9,6 +9,7 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
+#![allow(clippy::missing_errors_doc)]
 
 use std::path::Path;
 
@@ -74,17 +75,19 @@ pub fn validate_is_writable(path: &Path) -> Result<()> {
             }),
         }
     } else {
-        match path.parent() {
-            Some(parent) => validate_is_writable(parent),
-            None => Err(Error::ValidationFieldError {
-                message: format!(
-                    "Cannot check writability for path without parent: '{}'",
-                    path.display()
-                ),
-                field: "path".to_string(),
-                value: Some(path.display().to_string()),
-            }),
-        }
+        path.parent().map_or_else(
+            || {
+                Err(Error::ValidationFieldError {
+                    message: format!(
+                        "Cannot check writability for path without parent: '{}'",
+                        path.display()
+                    ),
+                    field: "path".to_string(),
+                    value: Some(path.display().to_string()),
+                })
+            },
+            validate_is_writable,
+        )
     }
 }
 

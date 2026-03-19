@@ -7,6 +7,8 @@
 //! - Recovering incomplete sessions
 //! - Periodic cleanup of stale records
 
+#![allow(clippy::io_other_error)]
+
 use std::path::Path;
 
 use fs2::FileExt;
@@ -16,17 +18,12 @@ use tokio::io::AsyncReadExt;
 use crate::error::{Error, Result};
 use crate::Error::Database;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RecoveryPolicy {
-    FailFast,
+    #[default]
     Warn,
+    FailFast,
     Silent,
-}
-
-impl Default for RecoveryPolicy {
-    fn default() -> Self {
-        Self::Warn
-    }
 }
 
 #[derive(Debug, Clone)]

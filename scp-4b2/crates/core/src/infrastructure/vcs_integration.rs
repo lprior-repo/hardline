@@ -21,7 +21,7 @@ impl VcsIntegrationServiceImpl {
 
 impl VcsIntegrationService for VcsIntegrationServiceImpl {
     fn detect_and_create_backend(&self, path: &Path) -> Result<Arc<dyn VcsBackend>> {
-        vcs::create_backend(path).map(|b| Arc::<dyn VcsBackend>::from(b))
+        vcs::create_backend(path).map(Arc::<dyn VcsBackend>::from)
     }
 
     fn get_status(&self, path: &Path) -> Result<VcsStatus> {

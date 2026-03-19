@@ -3,6 +3,8 @@
 //! This module provides safe, functional APIs for managing JJ workspaces.
 //! All operations return `Result` and never panic.
 
+#![allow(clippy::io_other_error)]
+
 use std::{
     path::{Path, PathBuf},
     process::Command as StdCommand,
@@ -187,7 +189,7 @@ pub struct Status {
 
 impl Status {
     #[must_use]
-    pub const fn is_clean(&self) -> bool {
+    pub fn is_clean(&self) -> bool {
         self.modified.is_empty()
             && self.added.is_empty()
             && self.deleted.is_empty()
@@ -195,7 +197,7 @@ impl Status {
     }
 
     #[must_use]
-    pub const fn change_count(&self) -> usize {
+    pub fn change_count(&self) -> usize {
         self.modified.len() + self.added.len() + self.deleted.len() + self.renamed.len()
     }
 }

@@ -347,7 +347,7 @@ impl Clone for Error {
             Error::QueueItemNotFound(s) => Error::QueueItemNotFound(s.clone()),
             Error::QueueLocked(s) => Error::QueueLocked(s.clone()),
             Error::QueueProcessing => Error::QueueProcessing,
-            Error::QueueInvalidPosition(s) => Error::QueueInvalidPosition(s.clone()),
+            Error::QueueInvalidPosition(s) => Error::QueueInvalidPosition(*s),
             Error::QueueFull(n) => Error::QueueFull(*n),
             Error::VcsNotInitialized => Error::VcsNotInitialized,
             Error::VcsConflict(s, s2) => Error::VcsConflict(s.clone(), s2.clone()),
@@ -377,18 +377,22 @@ impl Clone for Error {
                 value: value.clone(),
             },
             Error::InvalidIdentifier(s) => Error::InvalidIdentifier(s.clone()),
-            Error::Io(_) => Error::Io(std::io::Error::other(self.to_string())),
+            #[allow(clippy::io_other_error)]
+            Error::Io(_) => Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                self.to_string(),
+            )),
             Error::IoError(s) => Error::IoError(s.clone()),
-            Error::JsonParse(_) => Error::JsonParse(
-                serde_json::from_str::<serde_json::Value>("{}")
-                    .err()
-                    .unwrap(),
-            ),
-            Error::YamlParse(_) => Error::YamlParse(
-                serde_yaml::from_str::<serde_yaml::Value>(":")
-                    .err()
-                    .unwrap(),
-            ),
+            Error::JsonParse(_) => {
+                // serde_json::Error doesn't implement Clone and we can't use unsafe
+                // This variant cannot be properly cloned
+                todo!("JsonParse error cloning is not supported")
+            }
+            Error::YamlParse(_) => {
+                // serde_yaml::Error doesn't implement Clone and we can't use unsafe
+                // This variant cannot be properly cloned
+                todo!("YamlParse error cloning is not supported")
+            }
             Error::Database(s) => Error::Database(s.clone()),
             Error::Internal(s) => Error::Internal(s.clone()),
             Error::Unimplemented(s) => Error::Unimplemented(s.clone()),

@@ -306,7 +306,7 @@ impl WarningCode {
 
     /// Get the warning code as a string slice
     #[must_use]
-    pub const fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         match self {
             Self::ConfigNotFound => "CONFIG_NOT_FOUND",
             Self::ConfigInvalid => "CONFIG_INVALID",
@@ -321,7 +321,7 @@ impl WarningCode {
 
     /// Check if this is a custom warning code
     #[must_use]
-    pub fn is_custom(&self) -> bool {
+    pub const fn is_custom(&self) -> bool {
         matches!(self, Self::Custom(_))
     }
 }
@@ -449,7 +449,7 @@ impl ActionVerb {
 
     /// Get the action verb as a string slice
     #[must_use]
-    pub const fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         match self {
             Self::Run => "run",
             Self::Execute => "execute",
@@ -473,7 +473,7 @@ impl ActionVerb {
 
     /// Check if this is a custom action verb
     #[must_use]
-    pub fn is_custom(&self) -> bool {
+    pub const fn is_custom(&self) -> bool {
         matches!(self, Self::Custom(_))
     }
 }
@@ -735,7 +735,7 @@ impl ActionResult {
 
     /// Create a pending result
     #[must_use]
-    pub fn pending() -> Self {
+    pub const fn pending() -> Self {
         Self::Pending
     }
 
@@ -842,7 +842,7 @@ impl AgentAssignment {
 
     /// Create unassigned state
     #[must_use]
-    pub fn unassigned() -> Self {
+    pub const fn unassigned() -> Self {
         Self::Unassigned
     }
 

@@ -19,43 +19,43 @@ pub fn filter_issues(issues: &[BeadIssue], filter: &BeadFilter) -> Vec<BeadIssue
         .collect()
 }
 
+#[allow(clippy::unnecessary_map_or)]
 pub fn matches_filter(issue: &BeadIssue, filter: &BeadFilter) -> bool {
     (filter.status.is_empty() || filter.status.contains(&issue.status))
         && (filter.issue_type.is_empty()
             || issue
                 .issue_type
                 .as_ref()
-                .is_some_and(|t| filter.issue_type.contains(t)))
+                .map_or(false, |t| filter.issue_type.contains(t)))
         && (filter
             .priority_min
             .as_ref()
-            .is_none_or(|min| issue.priority.is_none_or(|p| p >= *min)))
+            .map_or(true, |min| issue.priority.map_or(true, |p| p >= *min)))
         && (filter
             .priority_max
             .as_ref()
-            .is_none_or(|max| issue.priority.is_none_or(|p| p <= *max)))
+            .map_or(true, |max| issue.priority.map_or(true, |p| p <= *max)))
         && (filter.labels.is_empty()
-            || issue
-                .labels
-                .as_ref()
-                .is_some_and(|issue_labels| filter.labels.iter().all(|l| issue_labels.contains(l))))
+            || issue.labels.as_ref().map_or(false, |issue_labels| {
+                filter.labels.iter().all(|l| issue_labels.contains(l))
+            }))
         && (filter
             .assignee
             .as_ref()
-            .is_none_or(|assignee| issue.assignee.as_ref() == Some(assignee)))
+            .map_or(true, |assignee| issue.assignee.as_ref() == Some(assignee)))
         && (filter
             .parent
             .as_ref()
-            .is_none_or(|parent| issue.parent.as_ref() == Some(parent)))
+            .map_or(true, |parent| issue.parent.as_ref() == Some(parent)))
         && (!filter.has_parent || issue.parent.is_some())
         && (!filter.blocked_only || issue.is_blocked())
-        && filter.search_text.as_ref().is_none_or(|text| {
+        && filter.search_text.as_ref().map_or(true, |text| {
             let text_lower = text.to_lowercase();
             issue.title.to_lowercase().contains(&text_lower)
                 || issue
                     .description
                     .as_ref()
-                    .is_some_and(|d| d.to_lowercase().contains(&text_lower))
+                    .map_or(false, |d| d.to_lowercase().contains(&text_lower))
         })
 }
 

@@ -17,6 +17,7 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
+#![allow(clippy::missing_errors_doc)]
 
 pub mod identifiers;
 
@@ -34,7 +35,7 @@ fn contains_shell_metachar(s: &str) -> bool {
 fn validate_no_shell_metachar(s: &str, field_name: &str) -> Result<()> {
     if contains_shell_metachar(s) {
         return Err(Error::ValidationFieldError {
-            message: format!("{} must not contain shell metacharacters", field_name),
+            message: format!("{field_name} must not contain shell metacharacters"),
             field: field_name.to_string(),
             value: Some(s.to_string()),
         });

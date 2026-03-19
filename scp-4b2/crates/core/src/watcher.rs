@@ -36,6 +36,8 @@
 //! # }
 //! ```
 
+#![allow(clippy::io_other_error)]
+
 use std::{
     path::{Path, PathBuf},
     time::Duration,

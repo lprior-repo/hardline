@@ -10,18 +10,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// Priority levels for queue items
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub enum Priority {
     Low = 3,
+    #[default]
     Normal = 2,
     High = 1,
     Critical = 0,
-}
-
-impl Default for Priority {
-    fn default() -> Self {
-        Priority::Normal
-    }
 }
 
 /// Status of a queue item
@@ -316,7 +311,7 @@ mod uuid {
             let mut bytes = [0u8; 16];
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_nanos() as u128)
+                .map(|d| d.as_nanos())
                 .unwrap_or(0);
 
             if now == 0 {
@@ -333,9 +328,11 @@ mod uuid {
 
             Self(bytes)
         }
+    }
 
-        pub fn to_string(&self) -> String {
-            format!("{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+    impl std::fmt::Display for Uuid {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
                 self.0[0], self.0[1], self.0[2], self.0[3],
                 self.0[4], self.0[5],
                 self.0[6], self.0[7],
