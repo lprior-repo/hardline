@@ -410,22 +410,25 @@ fn has_invalid_branch_syntax(name: &str) -> bool {
         return true;
     }
 
-    if name.contains("..")
-        || name.contains("@{")
-        || std::path::Path::new(name)
-            .extension()
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("lock"))
-    {
+    if name.contains("..") || name.contains("@{") || has_lock_extension(name) {
         return true;
     }
 
-    if name.chars().any(|char| {
-        char.is_control() || matches!(char, ' ' | '~' | '^' | ':' | '?' | '*' | '[' | '\\')
-    }) {
+    if name.chars().any(is_control_or_reserved_char) {
         return true;
     }
 
     name.split('/').any(str::is_empty)
+}
+
+fn is_control_or_reserved_char(c: char) -> bool {
+    c.is_control() || matches!(c, ' ' | '~' | '^' | ':' | '?' | '*' | '[' | '\\')
+}
+
+fn has_lock_extension(name: &str) -> bool {
+    std::path::Path::new(name)
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("lock"))
 }
 
 impl BranchName {

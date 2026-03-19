@@ -107,8 +107,8 @@ impl WorkspaceRepository for InMemoryWorkspaceRepository {
     }
 
     fn delete(&self, id: &WorkspaceId) -> Result<()> {
-        let mut map = lock_workspace_map(&self.workspaces);
-        remove_workspace_from_map(id, &mut map)
+        let map = lock_workspace_map(&self.workspaces);
+        remove_workspace_from_map(id, &map)
     }
 }
 

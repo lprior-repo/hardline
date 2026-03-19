@@ -4,33 +4,54 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WorkspaceName(String);
 
+const MAX_NAME_LENGTH: usize = 255;
+const VALID_NAME_CHARS: &[char] = &['-', '_'];
+
+fn validate_name_chars(name: &str) -> bool {
+    name.chars()
+        .all(|c| c.is_alphanumeric() || VALID_NAME_CHARS.contains(&c))
+}
+
+fn validate_name(name: &str) -> Result<(), WorkspaceError> {
+    match () {
+        _ if name.is_empty() => Err(WorkspaceError::InvalidWorkspaceName("empty name".into())),
+        _ if name.len() > MAX_NAME_LENGTH => {
+            Err(WorkspaceError::InvalidWorkspaceName("name too long".into()))
+        }
+        _ if !validate_name_chars(name) => Err(WorkspaceError::InvalidWorkspaceName(
+            "name contains invalid characters".into(),
+        )),
+        _ => Ok(()),
+    }
+}
+
+fn make_workspace_name(name: String) -> Result<WorkspaceName, WorkspaceError> {
+    validate_name(&name).map(|_| WorkspaceName(name))
+}
+
 impl WorkspaceName {
     pub fn new(name: String) -> Result<Self, WorkspaceError> {
-        if name.is_empty() {
-            return Err(WorkspaceError::InvalidWorkspaceName("empty name".into()));
-        }
-        if name.len() > 255 {
-            return Err(WorkspaceError::InvalidWorkspaceName("name too long".into()));
-        }
-        if !name
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-        {
-            return Err(WorkspaceError::InvalidWorkspaceName(
-                "name contains invalid characters".into(),
-            ));
-        }
-        Ok(Self(name))
+        make_workspace_name(name)
     }
 
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    pub fn default_name() -> &'static str {
+        "default"
+    }
+}
+
+impl WorkspaceName {
+    fn new_unchecked(name: String) -> Self {
+        Self(name)
+    }
 }
 
 impl Default for WorkspaceName {
     fn default() -> Self {
-        Self::new("default".into()).unwrap()
+        Self::new_unchecked(Self::default_name().into())
     }
 }
 
