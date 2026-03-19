@@ -407,16 +407,17 @@ impl HookManager {
 
     /// Initialize from project config
     pub fn from_project(project_path: &Path) -> Result<Self> {
-        let mut manager = Self::new();
-
-        // Load hooks from .scp/hooks
         let hooks_dir = project_path.join(".scp").join("hooks");
-        if hooks_dir.exists() {
-            let hooks = manager.config.load_hooks(&hooks_dir)?;
-            for hook in hooks {
-                manager.runner.register(hook);
-            }
-        }
+        let hooks = hooks_dir
+            .exists()
+            .then(|| manager.config.load_hooks(&hooks_dir))
+            .flatten()
+            .unwrap_or_default();
+
+        let mut manager = Self::new();
+        hooks
+            .into_iter()
+            .for_each(|hook| manager.runner.register(hook));
 
         Ok(manager)
     }
