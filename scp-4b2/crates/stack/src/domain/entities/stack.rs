@@ -145,7 +145,7 @@ impl Stack {
     }
 
     fn add_branch_edges(
-        graph: petgraph::Graph<&StackBranch, ()>,
+        mut graph: petgraph::Graph<&StackBranch, ()>,
         branches: &[StackBranch],
         branch: &StackBranch,
     ) -> petgraph::Graph<&StackBranch, ()> {
@@ -158,15 +158,10 @@ impl Stack {
             if let (Some(&child_idx), Some(&parent_idx)) =
                 (indices.get(&branch.name), indices.get(parent))
             {
-                let mut new_graph = graph;
-                new_graph.add_edge(parent_idx, child_idx, ());
-                new_graph
-            } else {
-                graph
+                graph.add_edge(parent_idx, child_idx, ());
             }
-        } else {
-            graph
         }
+        graph
     }
 
     pub fn ancestors(&self, branch: &BranchName) -> Vec<BranchName> {
