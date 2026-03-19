@@ -596,7 +596,7 @@ impl Assessment {
     }
 
     #[must_use]
-    pub const fn recommended_action(&self) -> Option<&str> {
+    pub fn recommended_action(&self) -> Option<&str> {
         match &self.capability {
             RecoveryCapability::Recoverable { recommended_action } => {
                 Some(recommended_action.as_str())

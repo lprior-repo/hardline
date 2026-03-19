@@ -321,7 +321,7 @@ impl WarningCode {
 
     /// Check if this is a custom warning code
     #[must_use]
-    pub const fn is_custom(&self) -> bool {
+    pub fn is_custom(&self) -> bool {
         matches!(self, Self::Custom(_))
     }
 }
@@ -473,7 +473,7 @@ impl ActionVerb {
 
     /// Check if this is a custom action verb
     #[must_use]
-    pub const fn is_custom(&self) -> bool {
+    pub fn is_custom(&self) -> bool {
         matches!(self, Self::Custom(_))
     }
 }
@@ -598,7 +598,7 @@ impl Command {
 
     /// Check if the command is empty
     #[must_use]
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 }
@@ -726,7 +726,7 @@ pub enum ActionResult {
 impl ActionResult {
     /// Get the result if completed
     #[must_use]
-    pub const fn result(&self) -> Option<&str> {
+    pub fn result(&self) -> Option<&str> {
         match self {
             Self::Pending => None,
             Self::Completed { result } => Some(result.as_str()),
@@ -735,7 +735,7 @@ impl ActionResult {
 
     /// Create a pending result
     #[must_use]
-    pub const fn pending() -> Self {
+    pub fn pending() -> Self {
         Self::Pending
     }
 
@@ -833,7 +833,7 @@ pub enum AgentAssignment {
 impl AgentAssignment {
     /// Get the agent ID if assigned
     #[must_use]
-    pub const fn agent_id(&self) -> Option<&str> {
+    pub fn agent_id(&self) -> Option<&str> {
         match self {
             Self::Unassigned => None,
             Self::Assigned { agent_id } => Some(agent_id.as_str()),
@@ -842,7 +842,7 @@ impl AgentAssignment {
 
     /// Create unassigned state
     #[must_use]
-    pub const fn unassigned() -> Self {
+    pub fn unassigned() -> Self {
         Self::Unassigned
     }
 
