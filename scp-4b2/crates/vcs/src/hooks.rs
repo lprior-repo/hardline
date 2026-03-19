@@ -12,6 +12,7 @@ use std::process::Command;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use tap::Pipe;
 
 use scp_core::{Error, Result};
 
@@ -201,27 +202,31 @@ pub struct HookEnv {
 
 impl HookEnv {
     pub fn to_env(&self) -> HashMap<String, String> {
-        let mut env = HashMap::new();
-        env.insert("SCP_HOOK_EVENT".to_string(), self.event.name().to_string());
-        env.insert("SCP_HOOK_VCS".to_string(), self.vcs_type.clone());
-
-        if let Some(ws) = &self.workspace {
-            env.insert("SCP_HOOK_WORKSPACE".to_string(), ws.clone());
-        }
-        if let Some(branch) = &self.branch {
-            env.insert("SCP_HOOK_BRANCH".to_string(), branch.clone());
-        }
-        if let Some(path) = &self.repo_path {
-            env.insert(
-                "SCP_HOOK_REPO_PATH".to_string(),
-                path.to_string_lossy().to_string(),
-            );
-        }
-        if let Some(target) = &self.target {
-            env.insert("SCP_HOOK_TARGET".to_string(), target.clone());
-        }
-
-        env
+        use std::iter::once;
+        once(("SCP_HOOK_EVENT".to_string(), self.event.name().to_string()))
+            .chain(once(("SCP_HOOK_VCS".to_string(), self.vcs_type.clone())))
+            .chain(
+                self.workspace
+                    .iter()
+                    .map(|ws| ("SCP_HOOK_WORKSPACE".to_string(), ws.clone())),
+            )
+            .chain(
+                self.branch
+                    .iter()
+                    .map(|b| ("SCP_HOOK_BRANCH".to_string(), b.clone())),
+            )
+            .chain(self.repo_path.iter().map(|p| {
+                (
+                    "SCP_HOOK_REPO_PATH".to_string(),
+                    p.to_string_lossy().to_string(),
+                )
+            }))
+            .chain(
+                self.target
+                    .iter()
+                    .map(|t| ("SCP_HOOK_TARGET".to_string(), t.clone())),
+            )
+            .collect()
     }
 }
 
@@ -258,64 +263,50 @@ impl HookRunner {
 
     /// Run hooks for an event
     pub fn run(&self, event: HookEvent, env: &HookEnv) -> Vec<HookResult> {
-        let mut results = Vec::new();
-        let hooks = self.hooks.get(&event);
-
-        if let Some(hooks) = hooks {
-            for hook in hooks {
-                if !hook.enabled {
-                    continue;
-                }
-
-                let result = self.run_hook(hook, env);
-                results.push(result);
-            }
-        }
-
-        results
+        self.hooks
+            .get(&event)
+            .map(|hooks| {
+                hooks
+                    .iter()
+                    .filter(|hook| hook.enabled)
+                    .map(|hook| self.execute_hook_command(hook, env))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
-    /// Run a single hook
+    /// Run a single hook (action wrapper)
     fn run_hook(&self, hook: &Hook, env: &HookEnv) -> HookResult {
         let start = std::time::Instant::now();
+        self.execute_hook_command(hook, env)
+    }
 
-        // Build command
-        let mut cmd = Command::new(&hook.command);
-        cmd.args(&hook.args);
-
-        // Set environment
-        for (key, value) in env.to_env() {
-            cmd.env(key, value);
-        }
-
-        // Run with timeout
-        let output = match std::process::Command::new("timeout")
+    /// Execute hook command (calculation)
+    fn execute_hook_command(&self, hook: &Hook, env: &HookEnv) -> HookResult {
+        let output = std::process::Command::new("timeout")
             .args([hook.timeout_ms.to_string(), hook.command.clone()])
             .args(&hook.args)
             .envs(env.to_env())
-            .output()
-        {
-            Ok(o) => o,
-            Err(e) => {
-                return HookResult::failure(
-                    hook.event,
-                    format!("Failed to execute hook: {}", e),
-                    start.elapsed().as_millis() as u64,
-                );
-            }
-        };
+            .output();
 
-        let duration = start.elapsed().as_millis() as u64;
+        match output {
+            Ok(o) => Self::create_hook_result(hook.event, o),
+            Err(e) => HookResult::failure(hook.event, format!("Failed to execute hook: {}", e), 0),
+        }
+    }
 
+    /// Create hook result from command output (pure calculation)
+    fn create_hook_result(event: HookEvent, output: std::process::Output) -> HookResult {
+        let duration = output.duration.map_or(0, |d| d.as_millis() as u64);
         if output.status.success() {
             HookResult::success(
-                hook.event,
+                event,
                 String::from_utf8_lossy(&output.stdout).to_string(),
                 duration,
             )
         } else {
             HookResult::failure(
-                hook.event,
+                event,
                 String::from_utf8_lossy(&output.stderr).to_string(),
                 duration,
             )
@@ -324,18 +315,18 @@ impl HookRunner {
 
     /// Get hooks for an event
     pub fn get_hooks(&self, event: HookEvent) -> &[Hook] {
-        self.hooks.get(&event).map(|v| v.as_slice()).unwrap_or(&[])
+        self.hooks
+            .get(&event)
+            .map(Vec::as_slice)
+            .unwrap_or_else(|| &[])
     }
 
     /// List all registered hooks
     pub fn list_hooks(&self) -> Vec<(&HookEvent, &Hook)> {
-        let mut result = Vec::new();
-        for (event, hooks) in &self.hooks {
-            for hook in hooks {
-                result.push((event, hook));
-            }
-        }
-        result
+        self.hooks
+            .iter()
+            .flat_map(|(event, hooks)| hooks.iter().map(move |hook| (event, hook)))
+            .collect()
     }
 }
 
@@ -362,31 +353,22 @@ impl HookConfig {
 
     /// Load hooks from a directory
     pub fn load_hooks(&self, dir: &Path) -> Result<Vec<Hook>> {
-        let mut hooks = Vec::new();
-
         if !dir.exists() {
-            return Ok(hooks);
+            return Ok(Vec::new());
         }
 
-        for entry in std::fs::read_dir(dir).map_err(Error::Io)? {
-            let entry = entry.map_err(Error::Io)?;
-            let path = entry.path();
-
-            if path.is_file() {
-                let name = path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("unknown")
-                    .to_string();
-
-                // Determine event from filename
-                let event = Self::event_from_name(&name).unwrap_or(HookEvent::PostCommit);
-
-                hooks.push(Hook::new(name, event, path.to_string_lossy().to_string()));
-            }
-        }
-
-        Ok(hooks)
+        std::fs::read_dir(dir)
+            .map_err(Error::Io)?
+            .filter_map(std::result::Result::ok)
+            .map(|entry| entry.path())
+            .filter(Path::is_file)
+            .filter_map(|path| {
+                let name = path.file_stem()?.to_str()?.to_string();
+                let event = Self::event_from_name(&name).map_or(HookEvent::PostCommit, |e| e);
+                Some(Hook::new(name, event, path.to_string_lossy().to_string()))
+            })
+            .collect::<Vec<_>>()
+            .pipe(Ok)
     }
 
     /// Determine hook event from filename
