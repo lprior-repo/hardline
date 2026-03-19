@@ -14,7 +14,7 @@ use std::{collections::HashMap, sync::Arc};
 use axum::{
     body::Body,
     extract::{Path, State},
-    http::{header::HeaderName, HeaderMap, Method, Request, StatusCode},
+    http::{self, header::HeaderName, HeaderMap, Method, Request, StatusCode},
     response::{IntoResponse, Response},
     routing::{any, delete, get, head, options, patch, post, put},
     Router,
@@ -68,6 +68,33 @@ fn create_request_record(
         endpoint.response.headers.clone(),
         Some(response_body),
     ))
+}
+
+fn build_response_headers(
+    status: u16,
+    headers: &HashMap<String, String>,
+) -> Result<http::response::Builder, ServerError> {
+    let http_status =
+        StatusCode::from_u16(status).map_err(|_| ServerError::InvalidStatusCode(status))?;
+    let builder = Response::builder().status(http_status);
+    headers.iter().try_fold(builder, |acc, (key, value)| {
+        HeaderName::from_bytes(key.as_bytes())
+            .map_err(|_| ServerError::InvalidHeader(key.clone()))
+            .map(|name| acc.header(&name, value.as_str()))
+    })
+}
+
+fn prepare_response_body(
+    builder: http::response::Builder,
+    body: &serde_json::Value,
+) -> Result<(http::response::Builder, String), ServerError> {
+    let body_str = serialize_response_body(body)?;
+    let builder = if body_str.is_empty() {
+        builder
+    } else {
+        builder.header("content-type", "application/json")
+    };
+    Ok((builder, body_str))
 }
 
 fn endpoint_to_route(endpoint: &Endpoint) -> (String, HttpMethod) {
@@ -163,23 +190,8 @@ async fn twin_handler(
 
     let response = &endpoint.response;
 
-    let builder = Response::builder().status(response.status);
-    let builder = response
-        .headers
-        .iter()
-        .try_fold(builder, |acc, (key, value)| {
-            HeaderName::from_bytes(key.as_bytes())
-                .map_err(|_| ServerError::InvalidHeader(key.clone()))
-                .map(|name| acc.header(&name, value.as_str()))
-        })?;
-
-    let response_body = serialize_response_body(&response.body)?;
-
-    let builder = if response_body.is_empty() {
-        builder
-    } else {
-        builder.header("content-type", "application/json")
-    };
+    let builder = build_response_headers(response.status, &response.headers)?;
+    let (builder, response_body) = prepare_response_body(builder, &response.body)?;
 
     let record = create_request_record(&method, path, request_headers, request_body_str, endpoint)?;
 
@@ -302,6 +314,7 @@ pub async fn start_server(definition: TwinDefinition) -> Result<(), ServerError>
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
