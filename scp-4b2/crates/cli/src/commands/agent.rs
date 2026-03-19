@@ -1,7 +1,7 @@
 //! Agent commands
 
 use scp_core::{
-    agent::{get_agent_registry, Agent, AgentId},
+    agent::{get_agent_registry, Agent, AgentActivity, AgentId},
     Result,
 };
 
@@ -31,8 +31,8 @@ pub fn list() -> Result<()> {
         for agent in &agents {
             let status = agent.status();
             let activity = match &agent.activity {
-                scp_core::agent::AgentActivity::Idle => "idle",
-                scp_core::agent::AgentActivity::Working { session, command } => {
+                AgentActivity::Idle => "idle",
+                AgentActivity::Working { session, command } => {
                     println!(
                         "  - {} [{}] working on '{}': {}",
                         agent.id, status, session, command
@@ -65,59 +65,71 @@ pub fn kill(id: &str) -> Result<()> {
     }
 }
 
+/// Format agent activity as a string
+fn format_activity(activity: &AgentActivity) -> &str {
+    match activity {
+        AgentActivity::Idle => "idle",
+        AgentActivity::Working { .. } => "working",
+    }
+}
+
+/// Print detailed status for a single agent
+fn print_agent_status(agent_id: &str, agent: &Agent) {
+    println!("Agent '{}':", agent_id);
+    println!("  Status: {}", agent.status());
+    println!(
+        "  Registered: {}",
+        agent.registered_at.format("%Y-%m-%d %H:%M:%S")
+    );
+    println!(
+        "  Last seen: {}",
+        agent.last_seen.format("%Y-%m-%d %H:%M:%S")
+    );
+    println!("  Actions: {}", agent.actions_count);
+    println!("  Activity: {}", format_activity(&agent.activity));
+
+    if let AgentActivity::Working { session, command } = &agent.activity {
+        println!("  Activity: working on '{}' - {}", session, command);
+    }
+}
+
+/// Print summary status for all agents
+fn print_agents_summary(agents: &[Agent], active: &[Agent]) {
+    println!("Agent Status:");
+    println!("  Total: {}", agents.len());
+    println!("  Active: {}", active.len());
+
+    if !active.is_empty() {
+        println!("  Active agents:");
+        for agent in active {
+            println!("    - {}", agent.id);
+        }
+    }
+}
+
 /// Show agent status
 pub fn status(id: Option<&str>) -> Result<()> {
     let registry = get_agent_registry();
 
-    if let Some(agent_id) = id {
-        let aid = AgentId::new_checked(agent_id)?;
-
-        match registry.get(&aid)? {
-            Some(agent) => {
-                println!("Agent '{}':", agent_id);
-                println!("  Status: {}", agent.status());
-                println!(
-                    "  Registered: {}",
-                    agent.registered_at.format("%Y-%m-%d %H:%M:%S")
-                );
-                println!(
-                    "  Last seen: {}",
-                    agent.last_seen.format("%Y-%m-%d %H:%M:%S")
-                );
-                println!("  Actions: {}", agent.actions_count);
-
-                match &agent.activity {
-                    scp_core::agent::AgentActivity::Idle => {
-                        println!("  Activity: idle");
-                    }
-                    scp_core::agent::AgentActivity::Working { session, command } => {
-                        println!("  Activity: working on '{}' - {}", session, command);
-                    }
+    match id {
+        Some(agent_id) => {
+            let aid = AgentId::new_checked(agent_id)?;
+            match registry.get(&aid)? {
+                Some(agent) => {
+                    print_agent_status(agent_id, &agent);
+                    Ok(())
                 }
-
-                Ok(())
-            }
-            None => {
-                eprintln!("Agent '{}' not found", agent_id);
-                Err(scp_core::Error::AgentNotFound(agent_id.to_string()))
+                None => {
+                    eprintln!("Agent '{}' not found", agent_id);
+                    Err(scp_core::Error::AgentNotFound(agent_id.to_string()))
+                }
             }
         }
-    } else {
-        // Show all agents summary
-        let agents = registry.list()?;
-        let active = registry.list_active()?;
-
-        println!("Agent Status:");
-        println!("  Total: {}", agents.len());
-        println!("  Active: {}", active.len());
-
-        if !active.is_empty() {
-            println!("  Active agents:");
-            for agent in &active {
-                println!("    - {}", agent.id);
-            }
+        None => {
+            let agents = registry.list()?;
+            let active = registry.list_active()?;
+            print_agents_summary(&agents, &active);
+            Ok(())
         }
-
-        Ok(())
     }
 }

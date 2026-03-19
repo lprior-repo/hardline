@@ -48,32 +48,39 @@ fn build_jj_fetch_command(cwd: &std::path::Path, remote: Option<&str>, all: bool
     cmd
 }
 
+/// Execute fetch command for either Git or Jujutsu
+fn execute_fetch(
+    vcs_type: scp_core::vcs::VcsType,
+    cwd: &std::path::Path,
+    remote: Option<&str>,
+    prune: bool,
+    tags: bool,
+    all: bool,
+) -> Result<std::process::Output> {
+    match vcs_type {
+        scp_core::vcs::VcsType::Git => build_git_fetch_command(cwd, remote, prune, tags, all)
+            .output()
+            .map_err(Error::Io),
+        scp_core::vcs::VcsType::Jujutsu => build_jj_fetch_command(cwd, remote, all)
+            .output()
+            .map_err(Error::Io),
+    }
+}
+
 pub fn fetch(remote: Option<&str>, prune: bool, tags: bool, all: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
-
     let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
 
-    let output = match vcs_type {
-        scp_core::vcs::VcsType::Git => build_git_fetch_command(&cwd, remote, prune, tags, all)
-            .output()
-            .map_err(Error::Io)?,
-        scp_core::vcs::VcsType::Jujutsu => build_jj_fetch_command(&cwd, remote, all)
-            .output()
-            .map_err(Error::Io)?,
-    };
+    let output = execute_fetch(vcs_type, &cwd, remote, prune, tags, all)?;
 
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if !stdout.trim().is_empty() {
-            print!("{}", stdout);
-        }
-        Output::success("Fetched from remote(s)");
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsPullFailed(stderr.to_string()));
-    }
-
-    Ok(())
+    output
+        .status
+        .success()
+        .then(|| {
+            stdout_if_present(&output.stdout);
+            Output::success("Fetched from remote(s)");
+        })
+        .ok_or_else(|| Error::VcsPullFailed(stderr_to_string(&output.stderr)))
 }
 
 fn build_git_pull_command(cwd: &std::path::Path) -> Command {
@@ -90,49 +97,57 @@ fn build_jj_pull_commands(cwd: &std::path::Path) -> (Command, Command) {
     (cmd1, cmd2)
 }
 
+/// Handle successful command output, printing stdout if non-empty
+fn handle_success_output(output: &std::process::Output, success_msg: &str) -> Result<()> {
+    output
+        .status
+        .success()
+        .then(|| {
+            stdout_if_present(&output.stdout);
+            Output::success(success_msg);
+        })
+        .ok_or_else(|| Error::VcsPullFailed(stderr_to_string(&output.stderr)))
+}
+
+fn stdout_if_present(stdout: &[u8]) {
+    let trimmed = String::from_utf8_lossy(stdout).trim();
+    if !trimmed.is_empty() {
+        print!("{}", trimmed);
+    }
+}
+
+fn stderr_to_string(stderr: &[u8]) -> String {
+    String::from_utf8_lossy(stderr).to_string()
+}
+
+/// Execute jj fetch and rebase, handling errors at each step
+fn execute_jj_pull(cwd: &std::path::Path) -> Result<()> {
+    let (fetch_cmd, rebase_cmd) = build_jj_pull_commands(cwd);
+
+    let fetch_output = fetch_cmd.output().map_err(Error::Io)?;
+    if !fetch_output.status.success() {
+        return Err(Error::VcsPullFailed(stderr_to_string(&fetch_output.stderr)));
+    }
+
+    let rebase_output = rebase_cmd.output().map_err(Error::Io)?;
+    rebase_output
+        .status
+        .success()
+        .then(|| Output::success("Pulled and rebased"))
+        .ok_or_else(|| Error::VcsRebaseFailed(stderr_to_string(&rebase_output.stderr)))
+}
+
 pub fn pull() -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
-
     let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
 
     match vcs_type {
-        scp_core::vcs::VcsType::Git => {
-            let mut cmd = build_git_pull_command(&cwd);
-            let output = cmd.output().map_err(Error::Io)?;
-
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                if !stdout.trim().is_empty() {
-                    print!("{}", stdout);
-                }
-                Output::success("Pulled from remote");
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(Error::VcsPullFailed(stderr.to_string()));
-            }
-        }
-        scp_core::vcs::VcsType::Jujutsu => {
-            let (mut fetch_cmd, mut rebase_cmd) = build_jj_pull_commands(&cwd);
-
-            let output = fetch_cmd.output().map_err(Error::Io)?;
-
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(Error::VcsPullFailed(stderr.to_string()));
-            }
-
-            let output = rebase_cmd.output().map_err(Error::Io)?;
-
-            if output.status.success() {
-                Output::success("Pulled and rebased");
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(Error::VcsRebaseFailed(stderr.to_string()));
-            }
-        }
+        scp_core::vcs::VcsType::Git => handle_success_output(
+            &build_git_pull_command(&cwd).output().map_err(Error::Io)?,
+            "Pulled from remote",
+        ),
+        scp_core::vcs::VcsType::Jujutsu => execute_jj_pull(&cwd),
     }
-
-    Ok(())
 }
 
 fn build_git_push_command(
@@ -206,6 +221,55 @@ fn build_jj_push_command(
     cmd
 }
 
+/// Handle push command output with remote name in message
+fn handle_push_output(output: &std::process::Output, remote: &str) -> Result<()> {
+    output
+        .status
+        .success()
+        .then(|| Output::success(&format!("Pushed to {}", remote)))
+        .ok_or_else(|| Error::VcsPushFailed(stderr_to_string(&output.stderr)))
+}
+
+/// Execute git push command
+fn execute_git_push(
+    cwd: &std::path::Path,
+    remote: &str,
+    branch: Option<&str>,
+    set_upstream: bool,
+    force: bool,
+    force_with_lease: bool,
+    tags: bool,
+    delete: bool,
+) -> Result<()> {
+    let output = build_git_push_command(
+        cwd,
+        remote,
+        branch,
+        set_upstream,
+        force,
+        force_with_lease,
+        tags,
+        delete,
+    )
+    .output()
+    .map_err(Error::Io)?;
+    handle_push_output(&output, remote)
+}
+
+/// Execute jj push command
+fn execute_jj_push(
+    cwd: &std::path::Path,
+    remote: &str,
+    branch: Option<&str>,
+    force: bool,
+    delete: bool,
+) -> Result<()> {
+    let output = build_jj_push_command(cwd, branch, force, delete)
+        .output()
+        .map_err(Error::Io)?;
+    handle_push_output(&output, remote)
+}
+
 pub fn push(
     remote: &str,
     branch: Option<&str>,
@@ -216,44 +280,19 @@ pub fn push(
     delete: bool,
 ) -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
-
     let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
 
     match vcs_type {
-        scp_core::vcs::VcsType::Git => {
-            let output = build_git_push_command(
-                &cwd,
-                remote,
-                branch,
-                set_upstream,
-                force,
-                force_with_lease,
-                tags,
-                delete,
-            )
-            .output()
-            .map_err(Error::Io)?;
-
-            if output.status.success() {
-                Output::success(&format!("Pushed to {}", remote));
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(Error::VcsPushFailed(stderr.to_string()));
-            }
-        }
-        scp_core::vcs::VcsType::Jujutsu => {
-            let output = build_jj_push_command(&cwd, branch, force, delete)
-                .output()
-                .map_err(Error::Io)?;
-
-            if output.status.success() {
-                Output::success(&format!("Pushed to {}", remote));
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(Error::VcsPushFailed(stderr.to_string()));
-            }
-        }
+        scp_core::vcs::VcsType::Git => execute_git_push(
+            &cwd,
+            remote,
+            branch,
+            set_upstream,
+            force,
+            force_with_lease,
+            tags,
+            delete,
+        ),
+        scp_core::vcs::VcsType::Jujutsu => execute_jj_push(&cwd, remote, branch, force, delete),
     }
-
-    Ok(())
 }

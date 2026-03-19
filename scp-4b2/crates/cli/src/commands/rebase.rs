@@ -1,121 +1,94 @@
 //! Rebase commands - restack, rebase, move, and duplicate
 
+use std::process::Command;
+
 use scp_core::{Error, Result};
 
-pub fn restack() -> Result<()> {
-    use std::process::Command;
+/// Pure validation: ensures identifier is not empty
+fn validate_identifier(name: &str, description: &str) -> Result<()> {
+    if name.is_empty() {
+        Err(Error::InvalidIdentifier(format!(
+            "{} cannot be empty",
+            description
+        )))
+    } else {
+        Ok(())
+    }
+}
 
+/// Action: runs jj command with given args, returns output
+fn run_jj_command(args: &[&str]) -> Result<std::process::Output> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
 
-    let output = Command::new("jj")
-        .args(["restack"])
-        .current_dir(&cwd)
+    Command::new("jj")
+        .args(args)
+        .current_dir(cwd)
         .output()
-        .map_err(Error::Io)?;
+        .map_err(Error::Io)
+}
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsRebaseFailed(stderr.to_string()));
+/// Pure calculation: processes jj output, returns success or error
+fn process_jj_output(output: &std::process::Output) -> Result<()> {
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        Err(Error::VcsRebaseFailed(stderr))
     }
+}
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    if !stdout.trim().is_empty() {
-        println!("{}", stdout.trim());
+/// Pure calculation: extracts stdout as trimmed string
+fn extract_stdout(output: &std::process::Output) -> String {
+    String::from_utf8_lossy(&output.stdout).trim().to_string()
+}
+
+/// Action: prints stdout if non-empty
+fn print_stdout_if_present(output: &std::process::Output) {
+    let stdout = extract_stdout(output);
+    if !stdout.is_empty() {
+        println!("{}", stdout);
     }
+}
 
-    println!("✓ Restacked successfully");
-    Ok(())
+pub fn restack() -> Result<()> {
+    run_jj_command(&["restack"]).and_then(|output| {
+        process_jj_output(&output)?;
+        print_stdout_if_present(&output);
+        println!("✓ Restacked successfully");
+        Ok(())
+    })
 }
 
 pub fn rebase(dest: &str) -> Result<()> {
-    use std::process::Command;
+    validate_identifier(dest, "destination")?;
 
-    if dest.is_empty() {
-        return Err(Error::InvalidIdentifier(
-            "destination cannot be empty".to_string(),
-        ));
-    }
-
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
-
-    let output = Command::new("jj")
-        .args(["rebase", "-d", dest])
-        .current_dir(&cwd)
-        .output()
-        .map_err(Error::Io)?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsRebaseFailed(stderr.to_string()));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    if !stdout.trim().is_empty() {
-        println!("{}", stdout.trim());
-    }
-
-    println!("✓ Rebased onto {}", dest);
-    Ok(())
+    run_jj_command(&["rebase", "-d", dest]).and_then(|output| {
+        process_jj_output(&output)?;
+        print_stdout_if_present(&output);
+        println!("✓ Rebased onto {}", dest);
+        Ok(())
+    })
 }
 
 pub fn mv(source: &str, dest: &str) -> Result<()> {
-    use std::process::Command;
+    validate_identifier(source, "source")?;
+    validate_identifier(dest, "destination")?;
 
-    if source.is_empty() || dest.is_empty() {
-        return Err(Error::InvalidIdentifier(
-            "source and destination cannot be empty".to_string(),
-        ));
-    }
-
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
-
-    let output = Command::new("jj")
-        .args(["move", "--from", source, "--to", dest])
-        .current_dir(&cwd)
-        .output()
-        .map_err(Error::Io)?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsRebaseFailed(stderr.to_string()));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    if !stdout.trim().is_empty() {
-        println!("{}", stdout.trim());
-    }
-
-    println!("✓ Moved changes from {} to {}", source, dest);
-    Ok(())
+    run_jj_command(&["move", "--from", source, "--to", dest]).and_then(|output| {
+        process_jj_output(&output)?;
+        print_stdout_if_present(&output);
+        println!("✓ Moved changes from {} to {}", source, dest);
+        Ok(())
+    })
 }
 
 pub fn duplicate(revision: &str) -> Result<()> {
-    use std::process::Command;
+    validate_identifier(revision, "revision")?;
 
-    if revision.is_empty() {
-        return Err(Error::InvalidIdentifier(
-            "revision cannot be empty".to_string(),
-        ));
-    }
-
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
-
-    let output = Command::new("jj")
-        .args(["duplicate", revision])
-        .current_dir(&cwd)
-        .output()
-        .map_err(Error::Io)?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsRebaseFailed(stderr.to_string()));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    if !stdout.trim().is_empty() {
-        println!("{}", stdout.trim());
-    }
-
-    println!("✓ Duplicated {}", revision);
-    Ok(())
+    run_jj_command(&["duplicate", revision]).and_then(|output| {
+        process_jj_output(&output)?;
+        print_stdout_if_present(&output);
+        println!("✓ Duplicated {}", revision);
+        Ok(())
+    })
 }
