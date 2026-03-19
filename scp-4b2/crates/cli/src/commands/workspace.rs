@@ -8,42 +8,49 @@ use scp_core::{
     Error, Result,
 };
 
-/// Create a new workspace
-pub fn spawn(name: &str, sync: bool) -> Result<()> {
-    // P1: Validate workspace name is not empty
+/// Validate workspace name format
+fn validate_workspace_name(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(Error::InvalidIdentifier(
             "workspace name cannot be empty".to_string(),
         ));
     }
 
-    // P1: Validate workspace name format (must start with letter)
-    if !name
+    let starts_with_letter = name
         .chars()
         .next()
         .map(|c| c.is_alphabetic())
-        .unwrap_or(false)
-    {
+        .unwrap_or(false);
+
+    if !starts_with_letter {
         return Err(Error::InvalidIdentifier(format!(
             "workspace name must start with a letter, got '{}'",
             name
         )));
     }
 
+    Ok(())
+}
+
+/// Check if workspace exists in list
+fn workspace_exists(workspaces: &[vcs::Workspace], name: &str) -> bool {
+    workspaces.iter().any(|w| w.name == name)
+}
+
+/// Create a new workspace
+pub fn spawn(name: &str, sync: bool) -> Result<()> {
+    validate_workspace_name(name)?;
+
     Output::info(&format!("Creating workspace '{}'...", name));
 
     let cwd = std::env::current_dir().map_err(Error::Io)?;
-
-    // Detect VCS
     let backend = vcs::create_backend(&cwd)?;
 
-    // Check if workspace already exists
     let workspaces = backend.list_workspaces()?;
-    if workspaces.iter().any(|w| w.name == name) {
+    if workspace_exists(&workspaces, name) {
         return Err(Error::WorkspaceExists(name.to_string()));
     }
 
-    // Create workspace
     backend.create_workspace(name)?;
     Output::success(&format!("Created workspace '{}'", name));
 
@@ -56,32 +63,31 @@ pub fn spawn(name: &str, sync: bool) -> Result<()> {
     Ok(())
 }
 
-/// Switch to a workspace
-pub fn switch(name: &str) -> Result<()> {
-    // P1: Validate workspace name is not empty
-    if name.is_empty() {
-        return Err(Error::InvalidIdentifier(
-            "workspace name cannot be empty".to_string(),
-        ));
-    }
-
-    Output::info(&format!("Switching to workspace '{}'...", name));
-
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
-
-    let backend = vcs::create_backend(&cwd)?;
-
-    // Check if workspace exists
+/// Validate workspace switch prerequisites
+fn validate_workspace_switch(backend: &dyn vcs::VcsBackend, name: &str) -> Result<()> {
     let workspaces = backend.list_workspaces()?;
-    if !workspaces.iter().any(|w| w.name == name) {
+    if !workspace_exists(&workspaces, name) {
         return Err(Error::WorkspaceNotFound(name.to_string()));
     }
 
-    // Check for uncommitted changes
     let status = backend.status()?;
     if status != VcsStatus::Clean {
         return Err(Error::WorkingCopyDirty);
     }
+
+    Ok(())
+}
+
+/// Switch to a workspace
+pub fn switch(name: &str) -> Result<()> {
+    validate_workspace_name(name)?;
+
+    Output::info(&format!("Switching to workspace '{}'...", name));
+
+    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let backend = vcs::create_backend(&cwd)?;
+
+    validate_workspace_switch(backend.as_ref(), name)?;
 
     backend.switch_workspace(name)?;
 
@@ -123,22 +129,26 @@ pub fn status() -> Result<()> {
     Ok(())
 }
 
+/// Sync all workspaces with main
+fn sync_all_workspaces(backend: &dyn vcs::VcsBackend) -> Result<()> {
+    let workspaces = backend.list_workspaces()?;
+    for ws in workspaces {
+        if !ws.is_current {
+            backend.switch_workspace(&ws.name)?;
+        }
+        backend.rebase("main")?;
+        Output::success(&format!("Synced {}", ws.name));
+    }
+    Ok(())
+}
+
 /// Sync workspace with main
 pub fn sync(_name: Option<&str>, all: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
-
     let backend = vcs::create_backend(&cwd)?;
 
     if all {
-        // Sync all workspaces
-        let workspaces = backend.list_workspaces()?;
-        for ws in workspaces {
-            if !ws.is_current {
-                backend.switch_workspace(&ws.name)?;
-            }
-            backend.rebase("main")?;
-            Output::success(&format!("Synced {}", ws.name));
-        }
+        sync_all_workspaces(backend.as_ref())?;
     } else {
         backend.rebase("main")?;
         Output::success("Synced with main");
@@ -147,32 +157,32 @@ pub fn sync(_name: Option<&str>, all: bool) -> Result<()> {
     Ok(())
 }
 
-/// Complete workspace and merge
-pub fn done(name: Option<&str>) -> Result<()> {
-    let workspace_name = name.unwrap_or("current");
-
-    // Validate workspace exists if name was provided
+/// Validate workspace exists if name provided
+fn validate_workspace_for_done(name: Option<&str>) -> Result<()> {
     if let Some(ws_name) = name {
         let cwd = std::env::current_dir().map_err(Error::Io)?;
         let backend = vcs::create_backend(&cwd)?;
-
         let workspaces = backend.list_workspaces()?;
-        if !workspaces.iter().any(|w| w.name == ws_name) {
+        if !workspace_exists(&workspaces, ws_name) {
             return Err(Error::WorkspaceNotFound(ws_name.to_string()));
         }
     }
+    Ok(())
+}
+
+/// Complete workspace and merge
+pub fn done(name: Option<&str>) -> Result<()> {
+    let workspace_name = name.unwrap_or("current");
+    validate_workspace_for_done(name)?;
 
     Output::info(&format!("Completing workspace '{}'...", workspace_name));
 
     let cwd = std::env::current_dir().map_err(Error::Io)?;
-
     let backend = vcs::create_backend(&cwd)?;
 
-    // Sync first
     backend.rebase("main")?;
     Output::success("Synced with main");
 
-    // Push
     backend.push()?;
     Output::success("Pushed to remote");
 
@@ -184,7 +194,6 @@ pub fn done(name: Option<&str>) -> Result<()> {
 pub fn abort(name: Option<&str>) -> Result<()> {
     let workspace_name = name.unwrap_or("current");
 
-    // P5: Prevent aborting main workspace
     if workspace_name == "main" {
         return Err(Error::InvalidOperation(
             "cannot abort the main workspace".to_string(),
@@ -194,16 +203,13 @@ pub fn abort(name: Option<&str>) -> Result<()> {
     println!("Aborting workspace '{}'...", workspace_name);
 
     let cwd = std::env::current_dir().map_err(Error::Io)?;
-
     let backend = vcs::create_backend(&cwd)?;
 
-    // Check if workspace exists
     let workspaces = backend.list_workspaces()?;
-    if !workspaces.iter().any(|w| w.name == workspace_name) {
+    if !workspace_exists(&workspaces, workspace_name) {
         return Err(Error::WorkspaceNotFound(workspace_name.to_string()));
     }
 
-    // For JJ, we delete the workspace
     backend.delete_workspace(workspace_name)?;
 
     println!("✓ Workspace '{}' aborted and deleted", workspace_name);
@@ -260,38 +266,55 @@ pub fn diff(path: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+/// Handle clean working copy status
+fn handle_clean_status() {
+    println!("Working copy is clean");
+}
+
+/// Handle dirty working copy status
+fn handle_dirty_status(cwd: &std::path::Path) -> Result<()> {
+    println!("Uncommitted changes:");
+    let output = Command::new("jj")
+        .arg("status")
+        .current_dir(cwd)
+        .output()
+        .map_err(Error::Io)?;
+    print!("{}", String::from_utf8_lossy(&output.stdout));
+    Ok(())
+}
+
+/// Handle conflicted working copy status
+fn handle_conflicted_status(cwd: &std::path::Path) -> Result<()> {
+    println!("Conflicted files:");
+    let output = Command::new("jj")
+        .arg("log")
+        .arg("-r")
+        .arg("@")
+        .arg("-T")
+        .arg("conflicts()")
+        .current_dir(cwd)
+        .output()
+        .map_err(Error::Io)?;
+    print!("{}", String::from_utf8_lossy(&output.stdout));
+    Ok(())
+}
+
+/// Handle detached HEAD status
+fn handle_detached_status() {
+    println!("Detached HEAD");
+}
+
 /// Show uncommitted changes
 pub fn uncommitted() -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
-
     let backend = vcs::create_backend(&cwd)?;
     let status = backend.status()?;
 
     match status {
-        VcsStatus::Clean => println!("Working copy is clean"),
-        VcsStatus::Dirty => {
-            println!("Uncommitted changes:");
-            let output = Command::new("jj")
-                .arg("status")
-                .current_dir(&cwd)
-                .output()
-                .map_err(Error::Io)?;
-            print!("{}", String::from_utf8_lossy(&output.stdout));
-        }
-        VcsStatus::Conflicted => {
-            println!("Conflicted files:");
-            let output = Command::new("jj")
-                .arg("log")
-                .arg("-r")
-                .arg("@")
-                .arg("-T")
-                .arg("conflicts()")
-                .current_dir(&cwd)
-                .output()
-                .map_err(Error::Io)?;
-            print!("{}", String::from_utf8_lossy(&output.stdout));
-        }
-        VcsStatus::Detached => println!("Detached HEAD"),
+        VcsStatus::Clean => handle_clean_status(),
+        VcsStatus::Dirty => handle_dirty_status(&cwd)?,
+        VcsStatus::Conflicted => handle_conflicted_status(&cwd)?,
+        VcsStatus::Detached => handle_detached_status(),
     }
 
     Ok(())
@@ -309,7 +332,6 @@ pub fn commit(message: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Run jj describe to set commit message
     let output = Command::new("jj")
         .args(["describe", "-m", message])
         .current_dir(&cwd)
@@ -362,7 +384,6 @@ pub fn branch_create(name: &str) -> Result<()> {
 pub fn branch_delete(name: &str) -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
 
-    // Run jj bookmark delete
     let output = Command::new("jj")
         .args(["bookmark", "delete", name])
         .current_dir(&cwd)
@@ -417,11 +438,68 @@ pub fn merge(name: &str) -> Result<()> {
     Ok(())
 }
 
+/// Direction for workspace navigation
+enum Direction {
+    Next,
+    Prev,
+}
+
+/// Get sorted workspace names using iterator pipeline
+fn get_sorted_workspace_names(workspaces: &[vcs::Workspace]) -> Vec<String> {
+    let mut names: Vec<String> = workspaces.iter().map(|w| w.name.clone()).collect();
+    names.sort();
+    names
+}
+
+/// Find adjacent workspace name
+fn find_adjacent_workspace(
+    workspaces: &[vcs::Workspace],
+    sorted_names: &[String],
+    direction: Direction,
+) -> Result<String> {
+    let current_ws = workspaces.iter().find(|w| w.is_current);
+
+    match current_ws {
+        Some(current) => {
+            let current_idx = sorted_names
+                .iter()
+                .position(|n| n == &current.name)
+                .ok_or_else(|| Error::Internal("current workspace not in list".to_string()))?;
+            let next_idx = match direction {
+                Direction::Next => (current_idx + 1) % sorted_names.len(),
+                Direction::Prev => {
+                    if current_idx == 0 {
+                        sorted_names.len() - 1
+                    } else {
+                        current_idx - 1
+                    }
+                }
+            };
+            Ok(sorted_names[next_idx].clone())
+        }
+        None => {
+            let idx = match direction {
+                Direction::Next => 0,
+                Direction::Prev => sorted_names.len() - 1,
+            };
+            Ok(sorted_names[idx].clone())
+        }
+    }
+}
+
+/// Validate workspace navigation is possible
+fn validate_workspace_navigation(backend: &dyn vcs::VcsBackend) -> Result<()> {
+    let status = backend.status()?;
+    if status != VcsStatus::Clean {
+        return Err(Error::WorkingCopyDirty);
+    }
+    Ok(())
+}
+
 /// Switch to next workspace (alphabetically)
 #[allow(dead_code)]
 pub fn next() -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
-
     let backend = vcs::create_backend(&cwd)?;
     let workspaces = backend.list_workspaces()?;
 
@@ -429,35 +507,12 @@ pub fn next() -> Result<()> {
         return Err(Error::WorkspaceNotFound("no workspaces exist".to_string()));
     }
 
-    let sorted_names: Vec<&str> = {
-        let mut names: Vec<&str> = workspaces.iter().map(|w| w.name.as_str()).collect();
-        names.sort();
-        names
-    };
-
-    let current_ws = workspaces.iter().find(|w| w.is_current);
-
-    let target_name = match current_ws {
-        Some(current) => {
-            let current_idx = sorted_names
-                .iter()
-                .position(|&n| n == current.name)
-                .ok_or_else(|| Error::Internal("current workspace not in list".to_string()))?;
-            let next_idx = (current_idx + 1) % sorted_names.len();
-            sorted_names[next_idx]
-        }
-        None => sorted_names[0],
-    };
+    let sorted_names = get_sorted_workspace_names(&workspaces);
+    let target_name = find_adjacent_workspace(&workspaces, &sorted_names, Direction::Next)?;
 
     println!("Switching to workspace '{}'...", target_name);
-
-    let status = backend.status()?;
-    if status != VcsStatus::Clean {
-        return Err(Error::WorkingCopyDirty);
-    }
-
-    backend.switch_workspace(target_name)?;
-
+    validate_workspace_navigation(backend.as_ref())?;
+    backend.switch_workspace(&target_name)?;
     println!("✓ Switched to '{}'", target_name);
     Ok(())
 }
@@ -466,7 +521,6 @@ pub fn next() -> Result<()> {
 #[allow(dead_code)]
 pub fn prev() -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
-
     let backend = vcs::create_backend(&cwd)?;
     let workspaces = backend.list_workspaces()?;
 
@@ -474,46 +528,19 @@ pub fn prev() -> Result<()> {
         return Err(Error::WorkspaceNotFound("no workspaces exist".to_string()));
     }
 
-    let sorted_names: Vec<&str> = {
-        let mut names: Vec<&str> = workspaces.iter().map(|w| w.name.as_str()).collect();
-        names.sort();
-        names
-    };
-
-    let current_ws = workspaces.iter().find(|w| w.is_current);
-
-    let target_name = match current_ws {
-        Some(current) => {
-            let current_idx = sorted_names
-                .iter()
-                .position(|&n| n == current.name)
-                .ok_or_else(|| Error::Internal("current workspace not in list".to_string()))?;
-            let prev_idx = if current_idx == 0 {
-                sorted_names.len() - 1
-            } else {
-                current_idx - 1
-            };
-            sorted_names[prev_idx]
-        }
-        None => sorted_names[sorted_names.len() - 1],
-    };
+    let sorted_names = get_sorted_workspace_names(&workspaces);
+    let target_name = find_adjacent_workspace(&workspaces, &sorted_names, Direction::Prev)?;
 
     println!("Switching to workspace '{}'...", target_name);
-
-    let status = backend.status()?;
-    if status != VcsStatus::Clean {
-        return Err(Error::WorkingCopyDirty);
-    }
-
-    backend.switch_workspace(target_name)?;
-
+    validate_workspace_navigation(backend.as_ref())?;
+    backend.switch_workspace(&target_name)?;
     println!("✓ Switched to '{}'", target_name);
     Ok(())
 }
 
-/// Add an existing path as a workspace
-pub fn add(path: &str) -> Result<()> {
-    let workspace_path = std::path::Path::new(path);
+/// Validate path exists and is a directory
+fn validate_workspace_path(path: &str) -> Result<std::path::PathBuf> {
+    let workspace_path = std::path::Path::new(path).to_path_buf();
 
     if !workspace_path.exists() {
         return Err(Error::NotFound(format!("Path does not exist: {}", path)));
@@ -526,23 +553,22 @@ pub fn add(path: &str) -> Result<()> {
         )));
     }
 
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
-    let backend = vcs::create_backend(&cwd)?;
+    Ok(workspace_path)
+}
 
-    let workspaces = backend.list_workspaces()?;
-    let path_str = workspace_path.to_string_lossy().to_string();
+/// Check if workspace path already exists
+fn workspace_path_exists(workspaces: &[vcs::Workspace], path_str: &str) -> Option<String> {
+    workspaces
+        .iter()
+        .find(|ws| ws.name == path_str || ws.branch == path_str)
+        .map(|ws| ws.name.clone())
+}
 
-    for ws in workspaces {
-        if ws.name == path_str || ws.branch == path_str {
-            return Err(Error::WorkspaceExists(ws.name));
-        }
-    }
-
-    println!("Adding workspace at '{}'...", path);
-
+/// Execute jj workspace add command
+fn exec_workspace_add(cwd: &std::path::Path, path: &str) -> Result<()> {
     let output = Command::new("jj")
         .args(["workspace", "add", path])
-        .current_dir(&cwd)
+        .current_dir(cwd)
         .output()
         .map_err(Error::Io)?;
 
@@ -554,6 +580,25 @@ pub fn add(path: &str) -> Result<()> {
         ));
     }
 
+    Ok(())
+}
+
+/// Add an existing path as a workspace
+pub fn add(path: &str) -> Result<()> {
+    let workspace_path = validate_workspace_path(path)?;
+
+    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let backend = vcs::create_backend(&cwd)?;
+
+    let workspaces = backend.list_workspaces()?;
+    let path_str = workspace_path.to_string_lossy().to_string();
+
+    if let Some(existing) = workspace_path_exists(&workspaces, &path_str) {
+        return Err(Error::WorkspaceExists(existing));
+    }
+
+    println!("Adding workspace at '{}'...", path);
+    exec_workspace_add(&cwd, path)?;
     println!("✓ Added workspace at '{}'", path);
 
     Ok(())

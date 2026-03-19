@@ -437,20 +437,27 @@ impl Queue {
             .and_then(|entry| entry.status.transition_to(new_status))?;
 
         // Find position and update, properly propagating errors
-        self.entries
+        let position = self
+            .entries
             .iter()
             .position(|e| &e.id == id)
             .ok_or_else(|| ValidationError::NotFound {
                 field: "entry".to_string(),
                 value: id.to_string(),
-            })
-            .and_then(|idx| {
-                let mut new_entries = self.entries.clone();
-                new_entries[idx].status = new_status;
-                Ok(Self {
-                    entries: new_entries,
-                })
-            })
+            })?;
+
+        let new_entries = replace_entry_at(&self.entries, position, |mut e| {
+            e.status = new_status;
+            e
+        })
+        .ok_or_else(|| ValidationError::NotFound {
+            field: "entry".to_string(),
+            value: id.to_string(),
+        })?;
+
+        Ok(Self {
+            entries: new_entries,
+        })
     }
 
     /// Remove an entry at a specific position.
@@ -464,14 +471,13 @@ impl Queue {
                 length: self.entries.len(),
             });
         }
-        let mut new_entries = self.entries.clone();
-        let removed = new_entries.remove(position);
-        Ok((
-            Self {
-                entries: new_entries,
-            },
-            removed,
-        ))
+
+        remove_entry_at(&self.entries, position)
+            .map(|(entries, removed)| (Self { entries }, removed))
+            .ok_or_else(|| ValidationError::OutOfBounds {
+                position,
+                length: self.entries.len(),
+            })
     }
 
     /// Filter entries by predicate using functional filter.
@@ -522,15 +528,13 @@ impl Queue {
     /// Get entries grouped by status using functional grouping.
     #[must_use]
     pub fn group_by_status(&self) -> Vec<(QueueStatus, Vec<&QueueEntry>)> {
-        use std::collections::HashMap;
+        use itertools::Itertools;
 
         self.entries
             .iter()
-            .fold::<HashMap<QueueStatus, Vec<&QueueEntry>>, _>(HashMap::new(), |mut acc, entry| {
-                acc.entry(entry.status).or_default().push(entry);
-                acc
-            })
+            .chunk_by(|e| e.status)
             .into_iter()
+            .map(|(status, group)| (status, group.collect()))
             .collect()
     }
 
