@@ -65,15 +65,12 @@ fn set_commit_message(commit: Commit, message: &str) -> Commit {
 }
 
 fn attach_messages_to_commits(commits: Vec<Commit>, messages: Vec<&str>) -> Vec<Commit> {
-    let commit_count = commits.len();
     commits
         .into_iter()
         .enumerate()
-        .map(|(idx, commit)| {
-            messages
-                .get(idx)
-                .map(|msg| set_commit_message(commit, msg))
-                .unwrap_or(commit)
+        .map(|(idx, commit)| match messages.get(idx) {
+            Some(msg) => set_commit_message(commit, msg),
+            None => commit,
         })
         .collect()
 }

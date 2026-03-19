@@ -370,13 +370,13 @@ impl ConfigManager {
 
 impl Default for ConfigManager {
     fn default() -> Self {
-        Self::new().expect("Failed to create config manager")
+        Self::new().unwrap_or_else(|e| panic!("Failed to create config manager: {e}"))
     }
 }
 
 /// Global config instance
 pub fn global_config() -> ConfigManager {
-    ConfigManager::new().expect("Failed to create config manager")
+    ConfigManager::new().unwrap_or_else(|e| panic!("Failed to create config manager: {e}"))
 }
 
 /// Get config directory

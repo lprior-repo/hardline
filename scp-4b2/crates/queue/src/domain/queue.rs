@@ -70,6 +70,55 @@ where
     Some(new_entries)
 }
 
+/// Pure calculation: Create a not-found error for an entry.
+fn entry_not_found_error(id: &QueueEntryId) -> ValidationError {
+    ValidationError::NotFound {
+        field: "entry".to_string(),
+        value: id.to_string(),
+    }
+}
+
+/// Pure validation: Validate that an entry exists and transition is valid.
+fn validate_status_update(
+    queue: &Queue,
+    id: &QueueEntryId,
+    new_status: QueueStatus,
+) -> ValidationResult<usize> {
+    queue
+        .find(id)
+        .ok_or_else(|| entry_not_found_error(id))
+        .and_then(|entry| entry.status.transition_to(new_status))?;
+    queue
+        .entries
+        .iter()
+        .position(|e| &e.id == id)
+        .ok_or_else(|| entry_not_found_error(id))
+}
+
+/// Pure calculation: Create a new entry with updated status.
+fn create_status_updated_entry(entry: QueueEntry, new_status: QueueStatus) -> QueueEntry {
+    QueueEntry {
+        status: new_status,
+        ..entry
+    }
+}
+
+/// Pure action: Apply status update and return new queue.
+fn apply_status_update(
+    queue: &Queue,
+    position: usize,
+    new_status: QueueStatus,
+) -> ValidationResult<Queue> {
+    replace_entry_at(&queue.entries, position, |e| {
+        create_status_updated_entry(e, new_status)
+    })
+    .map(|entries| Queue { entries })
+    .ok_or_else(|| ValidationError::NotFound {
+        field: "entry".to_string(),
+        value: "position".to_string(),
+    })
+}
+
 /// Maximum priority value for queue entries
 pub const MAX_PRIORITY: u32 = 100;
 

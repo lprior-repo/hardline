@@ -230,8 +230,8 @@ fn build_jj_push_command(cwd: &std::path::Path, config: &PushConfig<'_>) -> Comm
     } else {
         cmd.arg("git").arg("push");
         add_force_arg(&mut cmd, config.force_mode);
-        if config.branch.is_some() {
-            cmd.arg("--branch").arg(config.branch.unwrap());
+        if let Some(b) = config.branch {
+            cmd.arg("--branch").arg(b);
         }
     }
 

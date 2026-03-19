@@ -326,7 +326,7 @@ impl Issue {
 
     /// Check if the issue is currently blocked.
     #[must_use]
-    pub const fn is_blocked(&self) -> bool {
+    pub fn is_blocked(&self) -> bool {
         self.state.is_blocked() || !self.blocked_by.is_empty()
     }
 

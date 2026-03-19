@@ -147,11 +147,7 @@ impl Sanitizer {
             return "PASS".to_string();
         }
 
-        let error_type = result
-            .step_results
-            .iter()
-            .find(|r| !r.passed)
-            .and_then(|r| r.error.as_ref())
+        let error_type = Self::find_first_error(result)
             .map_or_else(|| "unknown error".to_string(), Self::extract_error_type);
 
         format!("FAIL: {error_type}")
@@ -268,25 +264,22 @@ impl Sanitizer {
 
     /// Extract just the error type from an error message - pure calculation
     fn extract_error_type(error: &str) -> String {
-        let classification: Option<(&str, &[&str])> =
-            Some(("assertion failed", &["assertion", "assert"] as &[&str]));
-        let classification = classification
-            .filter(|(_, keywords)| Self::contains_any(error, keywords))
-            .or_else(|| Some(("network error", &["network", "connection"])))
-            .filter(|(error_type, keywords)| {
-                *error_type == "network error" && Self::contains_any(error, keywords)
-            })
-            .map(|(error_type, _)| error_type);
-
-        if Self::contains_any(error, &["timeout"]) {
-            "timeout".to_string()
-        } else if Self::contains_any(error, &["parse", "serializ"]) {
-            "parse error".to_string()
-        } else if Self::contains_any(error, &["extract"]) {
-            "extraction error".to_string()
-        } else {
-            classification.map_or("execution error".to_string(), |s| s.to_string())
+        if Self::contains_any(error, &["assertion", "assert"]) {
+            return "assertion failed".to_string();
         }
+        if Self::contains_any(error, &["network", "connection"]) {
+            return "network error".to_string();
+        }
+        if Self::contains_any(error, &["timeout"]) {
+            return "timeout".to_string();
+        }
+        if Self::contains_any(error, &["parse", "serializ"]) {
+            return "parse error".to_string();
+        }
+        if Self::contains_any(error, &["extract"]) {
+            return "extraction error".to_string();
+        }
+        "execution error".to_string()
     }
 
     /// Sanitize a value - removes potentially sensitive data

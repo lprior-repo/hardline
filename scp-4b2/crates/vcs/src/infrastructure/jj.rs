@@ -82,18 +82,22 @@ fn parse_workspace_line(line: &str) -> Option<Workspace> {
     ))
 }
 
-fn parse_commit_line(line: &str) -> Option<Commit> {
-    let trimmed = line.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    Some(Commit::new(
+fn build_commit_from_line(trimmed: &str) -> Commit {
+    Commit::new(
         trimmed.to_string(),
         trimmed.to_string(),
         "unknown".to_string(),
         Utc::now(),
         vec![],
-    ))
+    )
+}
+
+fn parse_commit_line(line: &str) -> Option<Commit> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(build_commit_from_line(trimmed))
 }
 
 fn detect_has_changes(stdout: &str) -> bool {
@@ -119,19 +123,15 @@ fn map_status_from_output(stdout: &str) -> VcsStatus {
     }
 }
 
-fn workspace_error_from_stderr(name: &str, stderr: &str) -> VcsError {
-    if stderr.contains("already exists") || stderr.contains("exists") {
-        VcsError::WorkspaceExists(name.to_string())
-    } else {
-        VcsError::Conflict("workspace add".to_string(), stderr.to_string())
-    }
+fn is_workspace_exists_error(stderr: &str) -> bool {
+    stderr.contains("already exists") || stderr.contains("exists")
 }
 
-fn fork_workspace_error_from_stderr(name: &str, stderr: &str) -> VcsError {
-    if stderr.contains("already exists") || stderr.contains("exists") {
+fn workspace_error_from_stderr(name: &str, operation: &str, stderr: &str) -> VcsError {
+    if is_workspace_exists_error(stderr) {
         VcsError::WorkspaceExists(name.to_string())
     } else {
-        VcsError::Conflict("workspace fork".to_string(), stderr.to_string())
+        VcsError::Conflict(operation.to_string(), stderr.to_string())
     }
 }
 
@@ -238,7 +238,7 @@ impl VcsBackend for JjBackend {
         let output = self.run_jj(&["workspace", "add", name])?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(workspace_error_from_stderr(name, &stderr));
+            return Err(workspace_error_from_stderr(name, "workspace add", &stderr));
         }
         Ok(())
     }
@@ -271,7 +271,11 @@ impl VcsBackend for JjBackend {
         let output = self.run_jj(&["workspace", "add", target, "-b", source])?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(fork_workspace_error_from_stderr(target, &stderr));
+            return Err(workspace_error_from_stderr(
+                target,
+                "workspace fork",
+                &stderr,
+            ));
         }
         Ok(())
     }
