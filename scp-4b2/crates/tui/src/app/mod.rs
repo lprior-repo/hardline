@@ -34,13 +34,13 @@ pub struct TuiApp {
 }
 
 impl TuiApp {
-    pub fn new() -> Result<Self> {
-        Ok(Self {
+    pub fn new() -> Self {
+        Self {
             focused_pane: FocusedPane::Stack,
             mode: Mode::Normal,
             needs_refresh: true,
             should_quit: false,
-        })
+        }
     }
 
     pub fn refresh_branches(&mut self) -> Result<()> {
@@ -56,7 +56,6 @@ impl TuiApp {
 }
 
 pub fn run() -> Result<()> {
-    let mut app = TuiApp::new()?;
-    app.needs_refresh = true;
+    let _app = TuiApp::new();
     Ok(())
 }
