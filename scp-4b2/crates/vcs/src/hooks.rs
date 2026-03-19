@@ -423,20 +423,23 @@ impl HookManager {
 
     /// Run pre-operation hooks
     pub fn run_pre(&self, event: HookEvent, env: &HookEnv) -> Vec<HookResult> {
-        // Only run pre- hooks
-        let pre_event = match event {
-            HookEvent::PostRebase => HookEvent::PreRebase,
-            HookEvent::PostPush => HookEvent::PrePush,
-            HookEvent::PostPull => HookEvent::PrePull,
-            HookEvent::PostMerge => HookEvent::PreMerge,
-            HookEvent::PostCommit => HookEvent::PreCommit,
-            HookEvent::PostSwitch => HookEvent::PreSwitch,
-            HookEvent::PostWorkspaceCreate => HookEvent::PreWorkspaceCreate,
-            HookEvent::PostWorkspaceDelete => HookEvent::PreWorkspaceDelete,
-            _ => event,
-        };
+        self.runner.run(Self::pre_event_for(event), env)
+    }
 
-        self.runner.run(pre_event, env)
+    /// Map post-event to its corresponding pre-event (pure calculation)
+    fn pre_event_for(event: HookEvent) -> HookEvent {
+        use HookEvent::*;
+        match event {
+            PostRebase => PreRebase,
+            PostPush => PrePush,
+            PostPull => PrePull,
+            PostMerge => PreMerge,
+            PostCommit => PreCommit,
+            PostSwitch => PreSwitch,
+            PostWorkspaceCreate => PreWorkspaceCreate,
+            PostWorkspaceDelete => PreWorkspaceDelete,
+            other => other,
+        }
     }
 
     /// Run post-operation hooks

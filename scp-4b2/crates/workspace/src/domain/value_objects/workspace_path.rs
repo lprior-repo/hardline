@@ -5,29 +5,49 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspacePath(PathBuf);
 
+fn validate_non_empty_path(path: &str) -> Result<(), WorkspaceError> {
+    if path.is_empty() {
+        Err(WorkspaceError::InvalidWorkspacePath("empty path".into()))
+    } else {
+        Ok(())
+    }
+}
+
+fn to_path_buf(path: &str) -> PathBuf {
+    PathBuf::from(path)
+}
+
+fn is_absolute_path(path_buf: &PathBuf) -> bool {
+    path_buf.is_absolute()
+}
+
+fn resolve_relative(path_buf: PathBuf) -> Result<PathBuf, WorkspaceError> {
+    std::env::current_dir()
+        .map_err(|e| WorkspaceError::InvalidWorkspacePath(e.to_string()))
+        .map(|cwd| cwd.join(path_buf))
+}
+
+fn resolve_path(path_buf: PathBuf) -> Result<PathBuf, WorkspaceError> {
+    if is_absolute_path(&path_buf) {
+        Ok(path_buf)
+    } else {
+        resolve_relative(path_buf)
+    }
+}
+
 impl WorkspacePath {
     pub fn new(path: String) -> Result<Self, WorkspaceError> {
-        if path.is_empty() {
-            return Err(WorkspaceError::InvalidWorkspacePath("empty path".into()));
-        }
-        let path_buf = PathBuf::from(&path);
-        if path_buf.is_absolute() {
-            Ok(Self(path_buf))
-        } else {
-            Ok(Self(
-                std::env::current_dir()
-                    .map_err(|e| WorkspaceError::InvalidWorkspacePath(e.to_string()))?
-                    .join(path_buf),
-            ))
-        }
+        validate_non_empty_path(&path)?;
+        let path_buf = to_path_buf(&path);
+        resolve_path(path_buf).map(Self)
     }
 
     pub fn as_path(&self) -> &PathBuf {
         &self.0
     }
 
-    pub fn as_str(&self) -> &str {
-        self.0.to_str().unwrap_or("")
+    pub fn as_str(&self) -> Option<&str> {
+        self.0.to_str()
     }
 
     pub fn exists(&self) -> bool {

@@ -129,25 +129,74 @@ impl ScenarioRunner {
         }
     }
 
-    /// Execute all scenario steps with early exit on failure
-    async fn execute_scenario_steps(
+    /// Execute all scenario steps with early exit on failure - pure iterator pipeline
+    fn execute_scenario_steps_iter(
         scenario: &Scenario,
         runner: &ScenarioRunner,
     ) -> Vec<StepResult> {
-        let steps = scenario.steps.iter().enumerate();
-        let mut context = RunContext::default();
-        let mut results = Vec::new();
-        let mut step_iter = steps;
+        scenario
+            .steps
+            .iter()
+            .enumerate()
+            .scan(RunContext::default(), |context, (index, step)| {
+                let result = runner.execute_step_sync(step, index, context);
+                Some((result, step.passed))
+            })
+            .take_while(|(_, passed)| *passed)
+            .map(|(result, _)| result)
+            .collect()
+    }
 
-        while let Some((index, step)) = step_iter.next() {
-            let step_result = runner.execute_step(step, index, &mut context).await;
-            results.push(step_result);
-            if !results.last().is_some_and(|r| r.passed) {
-                break;
-            }
+    /// Synchronous step executor for iterator pipeline
+    fn execute_step_sync(&self, step: &Step, index: usize, context: &mut RunContext) -> StepResult {
+        match step {
+            Step::Http(http_step) => self.execute_http_sync(http_step, context),
+            Step::Extract(extract_step) => Self::execute_extract(extract_step, index, context),
+            Step::Assert(assert_step) => Self::execute_assert(assert_step, index, context),
         }
+    }
 
-        results
+    /// Synchronous HTTP execution for pipeline
+    fn execute_http_sync(&self, step: &HttpStep, context: &mut RunContext) -> StepResult {
+        let request = self.build_request(step);
+        let result = crate::block_on(request.send());
+        match result {
+            Ok(response) => self.handle_http_response_sync(response, context),
+            Err(e) => Self::make_http_error_result(e),
+        }
+    }
+
+    /// Handle HTTP response synchronously - pure calculation
+    fn handle_http_response_sync(
+        &self,
+        response: reqwest::blocking::Response,
+        context: &mut RunContext,
+    ) -> StepResult {
+        let status = response.status().as_u16();
+        let headers = Self::collect_response_headers_blocking(&response);
+        let body = Self::extract_response_body_blocking(response);
+
+        context.last_response = Some(HttpResponseData {
+            status,
+            headers: headers.clone(),
+            body: body.clone(),
+        });
+
+        Self::make_http_success_result(status, headers, body)
+    }
+
+    /// Collect headers from blocking response - pure calculation
+    fn collect_response_headers_blocking(response: &reqwest::blocking::Response) -> HashMap<String, String> {
+        response
+            .headers()
+            .iter()
+            .filter_map(|(k, v)| v.to_str().ok().map(|s| (k.to_string(), s.to_string())))
+            .collect()
+    }
+
+    /// Extract body from blocking response - pure calculation
+    fn extract_response_body_blocking(response: reqwest::blocking::Response) -> Value {
+        response.json::<Value>().unwrap_or(Value::Null)
     }
 
     /// Execute a single step

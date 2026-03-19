@@ -40,14 +40,9 @@ fn disk_usage_lines(path: &std::path::Path) -> Vec<String> {
         .arg(path)
         .output()
         .ok()
-        .map(|o| {
-            String::from_utf8_lossy(&o.stdout)
-                .lines()
-                .skip(1)
-                .map(|l| format!("  Disk: {}", l))
-                .collect()
-        })
-        .unwrap_or_default()
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).lines().skip(1).next())
+        .map(|first_line| vec![format!("  Disk: {}", first_line)])
+        .unwrap_or_else(Vec::new)
 }
 
 #[cfg(not(unix))]
