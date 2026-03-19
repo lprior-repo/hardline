@@ -117,7 +117,7 @@ fn print_dependency_check(jj_found: bool, git_found: bool) {
     }
 }
 
-fn print_config_check(result: Result<bool>) {
+fn print_config_check(result: &Result<bool>) {
     println!("\n[3/5] Checking configuration...");
     match result {
         Ok(true) => println!("  ✓ Config valid"),
@@ -130,11 +130,11 @@ fn print_config_check(result: Result<bool>) {
     }
 }
 
-fn print_workspaces_check(result: Result<usize>) {
+fn print_workspaces_check(result: &Result<usize>) {
     println!("\n[4/5] Checking workspaces...");
     match result {
         Ok(count) => {
-            if count > 0 {
+            if *count > 0 {
                 println!("  ✓ {} workspace(s) found", count);
             } else {
                 println!("  ℹ No workspaces (run 'scp workspace spawn <name>')");
@@ -153,27 +153,43 @@ fn print_full_diagnostics(cwd: &std::path::Path) {
     }
 }
 
+/// Diagnostic check results - pure data structure
+struct DiagnosticResults {
+    vcs_available: bool,
+    jj_found: bool,
+    git_found: bool,
+    config_result: Result<bool>,
+    workspaces_result: Result<usize>,
+}
+
+/// Gather all diagnostic results - pure calculation
+fn gather_diagnostic_results() -> DiagnosticResults {
+    DiagnosticResults {
+        vcs_available: check_vcs_available().as_ref().copied().unwrap_or(false),
+        jj_found: check_dependency("jj").as_ref().copied().unwrap_or(false),
+        git_found: check_dependency("git").as_ref().copied().unwrap_or(false),
+        config_result: check_config_exists(),
+        workspaces_result: check_workspaces_count(),
+    }
+}
+
+/// Compute overall pass/fail - pure calculation
+fn compute_all_passed(results: &DiagnosticResults) -> bool {
+    results.vcs_available && (results.jj_found || results.git_found)
+}
+
 /// Run health checks
 pub fn run(full: bool) -> Result<()> {
     println!("Running SCP diagnostics...\n");
 
-    let check_vcs_result = check_vcs_available();
-    let check_dep_jj = check_dependency("jj");
-    let check_dep_git = check_dependency("git");
-    let check_config_result = check_config_exists();
-    let check_workspaces_result = check_workspaces_count();
+    let results = gather_diagnostic_results();
 
-    let vcs_passed = check_vcs_result.as_ref().copied().unwrap_or(false);
-    let dep_jj_found = check_dep_jj.as_ref().copied().unwrap_or(false);
-    let dep_git_found = check_dep_git.as_ref().copied().unwrap_or(false);
-    let _workspaces_count = check_workspaces_result.as_ref().copied().unwrap_or(0);
+    print_vcs_check(results.vcs_available);
+    print_dependency_check(results.jj_found, results.git_found);
+    print_config_check(&results.config_result);
+    print_workspaces_check(&results.workspaces_result);
 
-    print_vcs_check(vcs_passed);
-    print_dependency_check(dep_jj_found, dep_git_found);
-    print_config_check(check_config_result);
-    print_workspaces_check(check_workspaces_result);
-
-    let all_passed = vcs_passed && (dep_jj_found || dep_git_found);
+    let all_passed = compute_all_passed(&results);
 
     if full {
         println!("\n[5/5] Running full diagnostics...");
