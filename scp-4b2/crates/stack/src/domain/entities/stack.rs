@@ -163,37 +163,27 @@ impl Stack {
 
     fn ancestors_from_branch(&self, branch: &StackBranch) -> Option<Vec<BranchName>> {
         branch.parent.as_ref().map(|parent| {
-            let mut result = vec![parent.clone()];
-            let mut current = parent;
-            while let Some(b) = self.find_branch(current) {
-                if let Some(p) = &b.parent {
-                    result.push(p.clone());
-                    current = p;
-                } else {
-                    break;
-                }
-            }
-            result
+            std::iter::successors(Some(parent.clone()), |p| {
+                self.find_branch(p).and_then(|b| b.parent.clone())
+            })
+            .take_while(|p| self.find_branch(p).is_some())
+            .collect()
         })
     }
 
     pub fn descendants(&self, branch: &BranchName) -> Vec<BranchName> {
         self.find_branch(branch)
-            .map(|b| self.collect_descendants(&b.children))
+            .map(|b| self.flatten_children(&b.children))
             .unwrap_or_default()
     }
 
-    fn collect_descendants(&self, branches: &[BranchName]) -> Vec<BranchName> {
+    fn flatten_children(&self, branches: &[BranchName]) -> Vec<BranchName> {
         branches
             .iter()
             .filter_map(|name| self.find_branch(name))
             .flat_map(|b| {
                 let children: Vec<BranchName> = b.children.iter().cloned().collect();
-                let grand_children = self.collect_descendants(&children);
-                children
-                    .into_iter()
-                    .chain(grand_children)
-                    .collect::<Vec<_>>()
+                std::iter::once(b.name.clone()).chain(self.flatten_children(&children))
             })
             .collect()
     }
