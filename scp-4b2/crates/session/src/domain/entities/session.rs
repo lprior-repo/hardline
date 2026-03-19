@@ -215,14 +215,16 @@ fn calculate_transition_state(
         (SessionState::Synced, SessionEvent::Completed) => SessionState::Completed,
         (SessionState::Paused, SessionEvent::Activated) => SessionState::Active,
         (SessionState::Paused, SessionEvent::Failed) => SessionState::Failed,
-        (a, b) => {
-            return Err(SessionError::InvalidTransition {
-                from: state_name(a),
-                to: format!("{:?}", b),
-            });
-        }
+        (a, b) => return Err(invalid_transition_error(a, b)),
     };
     Ok(next)
+}
+
+fn invalid_transition_error(state: &SessionState, event: &SessionEvent) -> SessionError {
+    SessionError::InvalidTransition {
+        from: state_name(state),
+        to: format!("{:?}", event),
+    }
 }
 
 #[cfg(test)]
