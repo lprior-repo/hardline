@@ -75,6 +75,7 @@ fn generate_checkpoint_id(enable_checkpoint: bool) -> Option<String> {
     enable_checkpoint.then(|| {
         let millis = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
+            .ok()
             .map(|d| d.as_millis())
             .unwrap_or(0);
         format!("batch-{}", millis)
@@ -121,12 +122,25 @@ fn run_failure_handling(
     ))
 }
 
+/// Format command result status as unicode symbol
+const fn format_status(success: bool) -> &'static str {
+    if success {
+        "✓"
+    } else {
+        "✗"
+    }
+}
+
 /// Print command results
 fn print_results(results: &[CommandResult]) {
     println!("Results:");
     results.iter().for_each(|result| {
-        let status = if result.success { "✓" } else { "✗" };
-        println!("  {} {}: {}", status, result.command, result.output);
+        println!(
+            "  {} {}: {}",
+            format_status(result.success),
+            result.command,
+            result.output
+        );
     });
 }
 
@@ -134,27 +148,29 @@ fn print_results(results: &[CommandResult]) {
 fn run_success_output(results: &[CommandResult], checkpoint_id: Option<&String>) {
     println!("Batch executed successfully ({} commands)", results.len());
     results.iter().for_each(|result| {
-        let status = if result.success { "✓" } else { "✗" };
-        println!("  {} {}", status, result.command);
+        println!("  {} {}", format_status(result.success), result.command);
     });
     if let Some(id) = checkpoint_id {
         println!("Checkpoint: {}", id);
     }
 }
 
-/// Execute a single command
-fn execute_command(cmd: &str) -> Result<String> {
-    use std::process::Command;
-
+/// Parse command string into program and arguments
+fn parse_command_input(cmd: &str) -> Result<(&str, &[&str]), scp_core::Error> {
     let parts: Vec<&str> = cmd.split_whitespace().collect();
     if parts.is_empty() {
         return Err(scp_core::Error::BatchCommandFailed(
             "empty command".to_string(),
         ));
     }
+    Ok((parts[0], &parts[1..]))
+}
 
-    let program = parts[0];
-    let args = &parts[1..];
+/// Execute a single command
+fn execute_command(cmd: &str) -> Result<String> {
+    use std::process::Command;
+
+    let (program, args) = parse_command_input(cmd)?;
 
     let output = Command::new(program)
         .args(args)
