@@ -10,7 +10,7 @@
 //! - All operations return new Queue instances (persistent data structure)
 //! - Railway-Oriented Programming with `Result` return types
 //! - Pure functions - no I/O, no side effects
-//! - Domain validation errors (ValidationError)
+//! - Domain validation errors (`ValidationError`)
 //! - Functional patterns: iterators, combinators, no for loops
 
 use chrono::{DateTime, Utc};
@@ -23,17 +23,17 @@ use crate::domain::validation::{ValidationError, ValidationResult};
 /// Insert an entry at a specific position in a slice of entries.
 ///
 /// Pure function - no mutation.
-fn insert_entry_at(entries: &[QueueEntry], position: usize, entry: QueueEntry) -> Vec<QueueEntry> {
+fn insert_entry_at(entries: &[QueueEntry], position: usize, entry: &QueueEntry) -> Vec<QueueEntry> {
     let (before, after) = entries.split_at(position);
     before
         .iter()
-        .chain(std::iter::once(&entry))
+        .chain(std::iter::once(entry))
         .chain(after.iter())
         .cloned()
         .collect()
 }
 
-/// Remove an entry at a specific position, returning (new_entries, removed_entry).
+/// Remove an entry at a specific position, returning (`new_entries`, `removed_entry`).
 ///
 /// Pure function - no mutation.
 fn remove_entry_at(
@@ -447,7 +447,7 @@ impl Queue {
             .unwrap_or(self.entries.len());
 
         Self {
-            entries: insert_entry_at(&self.entries, final_pos, entry),
+            entries: insert_entry_at(&self.entries, final_pos, &entry),
         }
     }
 
@@ -479,7 +479,7 @@ impl Queue {
         }
 
         Ok(Self {
-            entries: insert_entry_at(&self.entries, position, entry),
+            entries: insert_entry_at(&self.entries, position, &entry),
         })
     }
 
