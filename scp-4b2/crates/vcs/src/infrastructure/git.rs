@@ -29,127 +29,166 @@ impl GitBackend {
     }
 }
 
+// Pure calculation functions
+
+fn parse_branch_line(line: &str, current_branch: &str) -> Option<Branch> {
+    let name = line.trim().trim_start_matches("* ");
+    if name.is_empty() {
+        None
+    } else {
+        Some(Branch::new(name.to_string(), name == current_branch, None))
+    }
+}
+
+fn parse_git_log_entry(line: &str) -> Option<Commit> {
+    let trimmed = line.trim();
+    trimmed.starts_with("commit ").then(|| {
+        Commit::new(
+            trimmed.trim_start_matches("commit ").to_string(),
+            String::new(),
+            "unknown".to_string(),
+            Utc::now(),
+            vec![],
+        )
+    })
+}
+
+fn classify_vcs_status(stdout: &str) -> VcsStatus {
+    if stdout.is_empty() {
+        VcsStatus::Clean
+    } else if stdout.contains("UU") {
+        VcsStatus::Conflicted
+    } else {
+        VcsStatus::Dirty
+    }
+}
+
+fn handle_worktree_error(stderr: &str, target: &str) -> VcsError {
+    if stderr.contains("already exists") {
+        VcsError::WorkspaceExists(target.to_string())
+    } else {
+        VcsError::Conflict("worktree add".to_string(), stderr.to_string())
+    }
+}
+
 impl VcsBackend for GitBackend {
     fn current_branch(&self) -> Result<String> {
-        let output = self.run_git(&["rev-parse", "--abbrev-ref", "HEAD"])?;
-        if !output.status.success() {
-            return Err(VcsError::Conflict(
-                "git".into(),
-                "Failed to get branch".into(),
-            ));
-        }
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        self.run_git(&["rev-parse", "--abbrev-ref", "HEAD"])
+            .and_then(|output| {
+                if output.status.success() {
+                    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                } else {
+                    Err(VcsError::Conflict(
+                        "git".into(),
+                        "Failed to get branch".into(),
+                    ))
+                }
+            })
     }
 
     fn list_branches(&self) -> Result<Vec<Branch>> {
-        let output = self.run_git(&["branch", "-a"])?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        let current = self.current_branch()?;
-        let mut branches = Vec::new();
-
-        for line in stdout.lines() {
-            let name = line.trim().trim_start_matches("* ").to_string();
-            if !name.is_empty() {
-                branches.push(Branch::new(name.clone(), name == current, None));
-            }
-        }
-        Ok(branches)
+        self.run_git(&["branch", "-a"]).and_then(|output| {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let current = self.current_branch()?;
+            Ok(stdout
+                .lines()
+                .filter_map(|line| parse_branch_line(line, &current))
+                .collect())
+        })
     }
 
     fn create_branch(&self, name: &str) -> Result<()> {
-        let output = self.run_git(&["branch", name])?;
-        if !output.status.success() {
-            return Err(VcsError::BranchExists(name.to_string()));
-        }
-        Ok(())
+        self.run_git(&["branch", name]).and_then(|output| {
+            if output.status.success() {
+                Ok(())
+            } else {
+                Err(VcsError::BranchExists(name.to_string()))
+            }
+        })
     }
 
     fn switch_branch(&self, name: &str) -> Result<()> {
-        let output = self.run_git(&["checkout", name])?;
-        if !output.status.success() {
-            return Err(VcsError::BranchNotFound(name.to_string()));
-        }
-        Ok(())
+        self.run_git(&["checkout", name]).and_then(|output| {
+            if output.status.success() {
+                Ok(())
+            } else {
+                Err(VcsError::BranchNotFound(name.to_string()))
+            }
+        })
     }
 
     fn push(&self) -> Result<()> {
-        let output = self.run_git(&["push"])?;
-        if !output.status.success() {
-            return Err(VcsError::PushFailed(
-                String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
-        }
-        Ok(())
+        self.run_git(&["push"]).and_then(|output| {
+            if output.status.success() {
+                Ok(())
+            } else {
+                Err(VcsError::PushFailed(
+                    String::from_utf8_lossy(&output.stderr).to_string(),
+                ))
+            }
+        })
     }
 
     fn pull(&self) -> Result<()> {
-        let output = self.run_git(&["pull"])?;
-        if !output.status.success() {
-            return Err(VcsError::PullFailed(
-                String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
-        }
-        Ok(())
+        self.run_git(&["pull"]).and_then(|output| {
+            if output.status.success() {
+                Ok(())
+            } else {
+                Err(VcsError::PullFailed(
+                    String::from_utf8_lossy(&output.stderr).to_string(),
+                ))
+            }
+        })
     }
 
     fn rebase(&self, onto: &str) -> Result<()> {
-        let output = self.run_git(&["rebase", onto])?;
-        if !output.status.success() {
-            return Err(VcsError::RebaseFailed(
-                String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
-        }
-        Ok(())
+        self.run_git(&["rebase", onto]).and_then(|output| {
+            if output.status.success() {
+                Ok(())
+            } else {
+                Err(VcsError::RebaseFailed(
+                    String::from_utf8_lossy(&output.stderr).to_string(),
+                ))
+            }
+        })
     }
 
     fn merge(&self, branch: &str) -> Result<()> {
-        let output = self.run_git(&["merge", branch])?;
-        if !output.status.success() {
-            return Err(VcsError::Conflict(
-                branch.to_string(),
-                String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
-        }
-        Ok(())
+        self.run_git(&["merge", branch]).and_then(|output| {
+            if output.status.success() {
+                Ok(())
+            } else {
+                Err(VcsError::Conflict(
+                    branch.to_string(),
+                    String::from_utf8_lossy(&output.stderr).to_string(),
+                ))
+            }
+        })
     }
 
     fn log(&self, limit: usize) -> Result<Vec<Commit>> {
-        let output = self.run_git(&["log", &format!("-n{}", limit)])?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        let mut commits = Vec::new();
-        for line in stdout.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("commit ") {
-                let id = trimmed.trim_start_matches("commit ").to_string();
-                commits.push(Commit::new(
-                    id,
-                    "".to_string(),
-                    "unknown".to_string(),
-                    Utc::now(),
-                    vec![],
-                ));
-            } else if line.starts_with("    ") && !commits.is_empty() {
-                if let Some(last) = commits.last_mut() {
-                    last.message = trimmed.to_string();
-                }
-            }
-        }
-        Ok(commits)
+        self.run_git(&["log", &format!("-n{}", limit)])
+            .map(|output| {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let commits: Vec<Commit> = stdout.lines().filter_map(parse_git_log_entry).collect();
+                let messages: Vec<&str> = stdout
+                    .lines()
+                    .filter(|line| line.starts_with("    "))
+                    .map(|line| line.trim())
+                    .collect();
+                messages.into_iter().fold(commits, |acc, msg| {
+                    let mut result = acc;
+                    if let Some(last) = result.last_mut() {
+                        last.message = msg.to_string();
+                    }
+                    result
+                })
+            })
     }
 
     fn status(&self) -> Result<VcsStatus> {
-        let output = self.run_git(&["status", "--porcelain"])?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        if stdout.is_empty() {
-            Ok(VcsStatus::Clean)
-        } else if stdout.contains("UU") {
-            Ok(VcsStatus::Conflicted)
-        } else {
-            Ok(VcsStatus::Dirty)
-        }
+        self.run_git(&["status", "--porcelain"])
+            .map(|output| classify_vcs_status(&String::from_utf8_lossy(&output.stdout)))
     }
 
     fn is_initialized(&self) -> Result<bool> {
@@ -182,19 +221,15 @@ impl VcsBackend for GitBackend {
 
     fn fork_workspace(&self, source: &str, target: &str) -> Result<()> {
         let worktree_path = self.repo_path.join(target);
-        let output =
-            self.run_git(&["worktree", "add", &worktree_path.to_string_lossy(), source])?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            if stderr.contains("already exists") {
-                return Err(VcsError::WorkspaceExists(target.to_string()));
-            }
-            return Err(VcsError::Conflict(
-                "worktree add".to_string(),
-                stderr.to_string(),
-            ));
-        }
-        Ok(())
+        self.run_git(&["worktree", "add", &worktree_path.to_string_lossy(), source])
+            .and_then(|output| {
+                if output.status.success() {
+                    Ok(())
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    Err(handle_worktree_error(&stderr, target))
+                }
+            })
     }
 
     fn merge_workspace(&self, name: &str) -> Result<()> {
@@ -203,16 +238,15 @@ impl VcsBackend for GitBackend {
             return Err(VcsError::WorkspaceNotFound(name.to_string()));
         }
         self.switch_branch("main")?;
-        let output = self.run_git(&["merge", name])?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            if stderr.contains("conflict") {
-                return Err(VcsError::Conflict("merge".to_string(), stderr.to_string()));
+        self.run_git(&["merge", name]).and_then(|output| {
+            if output.status.success() {
+                Ok(())
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                Err(VcsError::Conflict("merge".to_string(), stderr.to_string()))
             }
-            return Err(VcsError::Conflict("merge".to_string(), stderr.to_string()));
-        }
-        self.push()?;
-        Ok(())
+        })?;
+        self.push()
     }
 }
 
