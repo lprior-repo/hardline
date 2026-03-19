@@ -11,7 +11,11 @@ pub fn list(_repo: &gix::Repository) -> GitResult<Vec<StashEntry>> {
 }
 
 /// Save stash
-pub fn save(_repo: &gix::Repository, _message: Option<&str>, _include_untracked: bool) -> GitResult<()> {
+pub fn save(
+    _repo: &gix::Repository,
+    _message: Option<&str>,
+    _include_untracked: bool,
+) -> GitResult<()> {
     Err(GitError::InvalidRef {
         name: "save".to_string(),
         reason: "Not yet implemented with gix".to_string(),

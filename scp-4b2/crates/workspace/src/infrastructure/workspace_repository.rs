@@ -1,6 +1,7 @@
-use crate::domain::entities::{Workspace, WorkspaceId, WorkspaceState};
+use crate::domain::entities::{Workspace, WorkspaceId};
 use crate::error::{Result, WorkspaceError};
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 pub trait WorkspaceRepository: Send + Sync {
     fn save(&self, workspace: Workspace) -> Result<Workspace>;
@@ -12,13 +13,13 @@ pub trait WorkspaceRepository: Send + Sync {
 }
 
 pub struct InMemoryWorkspaceRepository {
-    workspaces: HashMap<String, Workspace>,
+    workspaces: Mutex<HashMap<String, Workspace>>,
 }
 
 impl InMemoryWorkspaceRepository {
     pub fn new() -> Self {
         Self {
-            workspaces: HashMap::new(),
+            workspaces: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -29,46 +30,85 @@ impl Default for InMemoryWorkspaceRepository {
     }
 }
 
+// Pure calculation helpers
+fn insert_workspace_into_map(
+    workspace: Workspace,
+    map: &mut HashMap<String, Workspace>,
+) -> Workspace {
+    let id = workspace.id.as_str().to_string();
+    map.insert(id, workspace.clone());
+    workspace
+}
+
+fn remove_workspace_from_map(id: &WorkspaceId, map: &mut HashMap<String, Workspace>) -> Result<()> {
+    let key = id.as_str().to_string();
+    if map.remove(&key).is_some() {
+        Ok(())
+    } else {
+        Err(WorkspaceError::WorkspaceNotFound(id.as_str().into()))
+    }
+}
+
+fn find_workspace_by_name<'a>(
+    map: &'a HashMap<String, Workspace>,
+    name: &str,
+) -> Option<&'a Workspace> {
+    map.values().find(|w| w.name.as_str() == name)
+}
+
+fn collect_all_workspaces(map: &HashMap<String, Workspace>) -> Vec<Workspace> {
+    map.values().cloned().collect()
+}
+
+fn filter_active_workspaces(map: &HashMap<String, Workspace>) -> Vec<Workspace> {
+    map.values()
+        .filter(|w| w.state == crate::domain::entities::WorkspaceState::Active)
+        .cloned()
+        .collect()
+}
+
+// Helper to safely acquire mutex lock, treating poison as unrecoverable
+fn lock_workspace_map(
+    workspaces: &Mutex<HashMap<String, Workspace>>,
+) -> std::sync::MutexGuard<HashMap<String, Workspace>> {
+    // In normal operation, the lock will not be poisoned since we own the mutex
+    // If poisoned, we treat it as unrecoverable and panic
+    match workspaces.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    }
+}
+
 impl WorkspaceRepository for InMemoryWorkspaceRepository {
     fn save(&self, workspace: Workspace) -> Result<Workspace> {
-        let mut workspaces = self.workspaces.clone();
-        let id = workspace.id.as_str().to_string();
-        workspaces.insert(id, workspace.clone());
-        Ok(workspace)
+        let workspace_clone = workspace.clone();
+        let mut map = lock_workspace_map(&self.workspaces);
+        Ok(insert_workspace_into_map(workspace_clone, &mut map))
     }
 
     fn get(&self, id: &WorkspaceId) -> Result<Option<Workspace>> {
-        Ok(self.workspaces.get(id.as_str()).cloned())
+        let map = lock_workspace_map(&self.workspaces);
+        Ok(map.get(id.as_str()).cloned())
     }
 
     fn get_by_name(&self, name: &str) -> Result<Option<Workspace>> {
-        Ok(self
-            .workspaces
-            .values()
-            .find(|w| w.name.as_str() == name)
-            .cloned())
+        let map = lock_workspace_map(&self.workspaces);
+        Ok(find_workspace_by_name(&map, name).cloned())
     }
 
     fn list(&self) -> Result<Vec<Workspace>> {
-        Ok(self.workspaces.values().cloned().collect())
+        let map = lock_workspace_map(&self.workspaces);
+        Ok(collect_all_workspaces(&map))
     }
 
     fn list_active(&self) -> Result<Vec<Workspace>> {
-        Ok(self
-            .workspaces
-            .values()
-            .filter(|w| w.state == WorkspaceState::Active)
-            .cloned()
-            .collect())
+        let map = lock_workspace_map(&self.workspaces);
+        Ok(filter_active_workspaces(&map))
     }
 
     fn delete(&self, id: &WorkspaceId) -> Result<()> {
-        let mut workspaces = self.workspaces.clone();
-        if workspaces.remove(id.as_str()).is_some() {
-            Ok(())
-        } else {
-            Err(WorkspaceError::WorkspaceNotFound(id.as_str().into()))
-        }
+        let mut map = lock_workspace_map(&self.workspaces);
+        remove_workspace_from_map(id, &mut map)
     }
 }
 

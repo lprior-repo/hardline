@@ -7,7 +7,7 @@ use std::path::PathBuf;
 pub fn add(_repo: &gix::Repository, path: &PathBuf, _branch: Option<&str>) -> GitResult<()> {
     // Create the worktree directory
     std::fs::create_dir_all(path).map_err(|e| GitError::Io(e))?;
-    
+
     // Stub - worktree support is complex
     Err(GitError::InvalidRef {
         name: "worktree".to_string(),
@@ -18,16 +18,20 @@ pub fn add(_repo: &gix::Repository, path: &PathBuf, _branch: Option<&str>) -> Gi
 /// List worktrees
 pub fn list(repo: &gix::Repository) -> GitResult<Vec<Worktree>> {
     let mut worktrees = Vec::new();
-    
+
     // Add the main worktree
     if let Some(workdir) = repo.workdir() {
         worktrees.push(Worktree {
             path: workdir.to_path_buf(),
             is_main: true,
-            branch: repo.head_name().ok().flatten().map(|n| n.shorten().to_string()),
+            branch: repo
+                .head_name()
+                .ok()
+                .flatten()
+                .map(|n| n.shorten().to_string()),
         });
     }
-    
+
     Ok(worktrees)
 }
 

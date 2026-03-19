@@ -11,7 +11,7 @@ pub fn current(repo: &gix::Repository) -> GitResult<String> {
         name: "HEAD".to_string(),
         reason: e.to_string(),
     })?;
-    
+
     let name = head_name
         .ok_or_else(|| GitError::InvalidRef {
             name: "HEAD".to_string(),
@@ -19,7 +19,7 @@ pub fn current(repo: &gix::Repository) -> GitResult<String> {
         })?
         .shorten()
         .to_string();
-    
+
     Ok(name)
 }
 
@@ -33,12 +33,12 @@ pub fn list(repo: &gix::Repository, all: bool) -> GitResult<Vec<Branch>> {
         name: "references".to_string(),
         reason: e.to_string(),
     })?;
-    
+
     let local_iter = refs.local_branches().map_err(|e| GitError::InvalidRef {
         name: "local_branches".to_string(),
         reason: e.to_string(),
     })?;
-    
+
     for branch_result in local_iter {
         let reference = branch_result.map_err(|e| GitError::InvalidRef {
             name: "branch".to_string(),
@@ -55,12 +55,12 @@ pub fn list(repo: &gix::Repository, all: bool) -> GitResult<Vec<Branch>> {
             name: "references".to_string(),
             reason: e.to_string(),
         })?;
-        
+
         let remote_iter = refs.remote_branches().map_err(|e| GitError::InvalidRef {
             name: "remote_branches".to_string(),
             reason: e.to_string(),
         })?;
-        
+
         for branch_result in remote_iter {
             let reference = branch_result.map_err(|e| GitError::InvalidRef {
                 name: "remote_branch".to_string(),
@@ -117,10 +117,12 @@ pub fn create(repo: &gix::Repository, name: &str, force: bool) -> GitResult<()> 
 /// Delete a branch.
 pub fn delete(repo: &gix::Repository, name: &str, _force: bool) -> GitResult<()> {
     let reference_name = format!("refs/heads/{}", name);
-    let reference = repo.find_reference(&reference_name).map_err(|e| GitError::InvalidRef {
-        name: name.to_string(),
-        reason: e.to_string(),
-    })?;
+    let reference = repo
+        .find_reference(&reference_name)
+        .map_err(|e| GitError::InvalidRef {
+            name: name.to_string(),
+            reason: e.to_string(),
+        })?;
 
     reference.delete().map_err(|e| GitError::InvalidRef {
         name: name.to_string(),
@@ -133,10 +135,12 @@ pub fn delete(repo: &gix::Repository, name: &str, _force: bool) -> GitResult<()>
 /// Switch to a branch (checkout).
 pub fn switch(repo: &gix::Repository, name: &str, _force: bool) -> GitResult<()> {
     let reference_name = format!("refs/heads/{}", name);
-    let reference = repo.find_reference(&reference_name).map_err(|e| GitError::InvalidRef {
-        name: name.to_string(),
-        reason: e.to_string(),
-    })?;
+    let reference = repo
+        .find_reference(&reference_name)
+        .map_err(|e| GitError::InvalidRef {
+            name: name.to_string(),
+            reason: e.to_string(),
+        })?;
 
     // Use the id() method which returns gix::Id
     let oid = reference.id();

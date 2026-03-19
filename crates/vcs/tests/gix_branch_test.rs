@@ -23,11 +23,16 @@ fn test_gix_branch_switch_works() {
         empty_tree,
         gix::refs::transaction::PreviousValue::MustNotExist,
         "create test branch",
-    ).ok();
+    )
+    .ok();
 
     // Try to switch branches - this will fail if implementation uses CLI
     let result = branch::switch(&repo, "testbranch", false);
 
     // The key test: does this use gix or CLI?
-    assert!(result.is_ok(), "branch::switch should use gix, not CLI: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "branch::switch should use gix, not CLI: {:?}",
+        result
+    );
 }

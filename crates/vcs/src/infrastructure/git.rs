@@ -48,8 +48,7 @@ impl VcsBackend for GitBackend {
 
     fn push(&self) -> Result<()> {
         let repo = self.repo()?;
-        gix::remote::push(&repo, "origin", None, false, false, false)
-            .map_err(VcsError::from)
+        gix::remote::push(&repo, "origin", None, false, false, false).map_err(VcsError::from)
     }
 
     fn pull(&self) -> Result<()> {
@@ -59,11 +58,15 @@ impl VcsBackend for GitBackend {
     }
 
     fn rebase(&self, _onto: &str) -> Result<()> {
-        Err(VcsError::Unimplemented("rebase not yet implemented with gix".into()))
+        Err(VcsError::Unimplemented(
+            "rebase not yet implemented with gix".into(),
+        ))
     }
 
     fn merge(&self, _branch: &str) -> Result<()> {
-        Err(VcsError::Unimplemented("merge not yet implemented with gix".into()))
+        Err(VcsError::Unimplemented(
+            "merge not yet implemented with gix".into(),
+        ))
     }
 
     fn log(&self, limit: usize) -> Result<Vec<Commit>> {
@@ -97,7 +100,13 @@ impl VcsBackend for GitBackend {
         let worktrees = gix::worktree::list(&repo).map_err(VcsError::from)?;
         Ok(worktrees
             .into_iter()
-            .map(|w| Workspace::new(w.path.to_string_lossy().to_string(), w.branch.unwrap_or_default(), w.is_main))
+            .map(|w| {
+                Workspace::new(
+                    w.path.to_string_lossy().to_string(),
+                    w.branch.unwrap_or_default(),
+                    w.is_main,
+                )
+            })
             .collect())
     }
 
@@ -110,8 +119,7 @@ impl VcsBackend for GitBackend {
     fn fork_workspace(&self, source: &str, target: &str) -> Result<()> {
         let worktree_path = self.repo_path.join(target);
         let repo = self.repo()?;
-        gix::worktree::add(&repo, &worktree_path, Some(source))
-            .map_err(VcsError::from)
+        gix::worktree::add(&repo, &worktree_path, Some(source)).map_err(VcsError::from)
     }
 
     fn merge_workspace(&self, name: &str) -> Result<()> {

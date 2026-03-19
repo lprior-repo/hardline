@@ -21,7 +21,9 @@ impl DatabasePath {
     pub fn new(path: impl Into<String>) -> Result<Self, Error> {
         let path = path.into();
         if path.is_empty() {
-            return Err(Error::InvalidConfig("Database path cannot be empty".to_string()));
+            return Err(Error::InvalidConfig(
+                "Database path cannot be empty".to_string(),
+            ));
         }
         Ok(Self(path))
     }

@@ -192,7 +192,10 @@ pub fn rollback_migration(connection: &Connection) -> Result<(), MigrationError>
 
     // Drop indexes first (if they exist)
     connection
-        .execute("DROP INDEX IF EXISTS idx_queue_status_priority_position", [])
+        .execute(
+            "DROP INDEX IF EXISTS idx_queue_status_priority_position",
+            [],
+        )
         .map_err(|e| MigrationError::RollbackFailed(e.to_string()))?;
 
     connection

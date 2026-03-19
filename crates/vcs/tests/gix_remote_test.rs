@@ -19,7 +19,8 @@ fn test_gix_remote_push_uses_gix_not_cli() {
         empty_tree,
         gix::refs::transaction::PreviousValue::MustNotExist,
         "init",
-    ).ok();
+    )
+    .ok();
 
     // Test push - THIS IS WHAT WE'RE TESTING
     // This will fail with Network error if implemented, or use CLI if not migrated
@@ -31,8 +32,11 @@ fn test_gix_remote_push_uses_gix_not_cli() {
         Err(e) => {
             // Network error is acceptable - means it's trying to use gix
             let err_str = format!("{:?}", e);
-            assert!(err_str.contains("Network") || err_str.contains("not yet implemented"),
-                "Should be gix-based error, not CLI failure: {:?}", e);
+            assert!(
+                err_str.contains("Network") || err_str.contains("not yet implemented"),
+                "Should be gix-based error, not CLI failure: {:?}",
+                e
+            );
         }
         Ok(_) => panic!("push should not succeed without remote"),
     }

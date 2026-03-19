@@ -7,9 +7,9 @@
 pub mod domain;
 pub mod infrastructure;
 
+pub use domain::{InMemoryQueueRepository, QueueRepository};
 pub use domain::{Queue, QueueEntry, QueueStatus, MAX_PRIORITY};
 pub use domain::{QueueEntryId, SessionName};
 pub use domain::{ValidationError, ValidationResult};
-pub use domain::{QueueRepository, InMemoryQueueRepository};
 
-pub use infrastructure::{run_migrations, verify_migration, rollback_migration, MigrationError};
+pub use infrastructure::{rollback_migration, run_migrations, verify_migration, MigrationError};

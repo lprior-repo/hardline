@@ -7,7 +7,7 @@ use std::path::PathBuf;
 /// Get repository status using gix
 pub fn status(repo: &::gix::Repository) -> GitResult<VcsStatus> {
     let platform = repo.status(gix::progress::Discard)?;
-    
+
     // Use the index_worktree_iter to get index-to-worktree changes
     let mut iw_iter = platform.into_index_worktree_iter(None::<gix::bstr::BString>)?;
 

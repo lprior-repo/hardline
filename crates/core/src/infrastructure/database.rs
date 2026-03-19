@@ -85,7 +85,11 @@ impl SqliteDatabaseService {
             .map_err(|e| Error::Database(e.to_string()))?;
 
         // Enable WAL mode, NORMAL sync, and foreign keys
-        for pragma in &["PRAGMA journal_mode=WAL", "PRAGMA synchronous=NORMAL", "PRAGMA foreign_keys=ON"] {
+        for pragma in &[
+            "PRAGMA journal_mode=WAL",
+            "PRAGMA synchronous=NORMAL",
+            "PRAGMA foreign_keys=ON",
+        ] {
             sqlx::query(pragma)
                 .execute(&pool)
                 .await
@@ -125,34 +129,48 @@ fn parse_column_value(row: &SqliteRow, col_idx: usize) -> Result<String> {
     let type_name = col.type_info().name();
 
     match type_name {
-        "INTEGER" | "INT" => row.try_get::<i64, _>(col_idx).map(|v| v.to_string())
+        "INTEGER" | "INT" => row
+            .try_get::<i64, _>(col_idx)
+            .map(|v| v.to_string())
             .map_err(|e| Error::Database(format!("INTEGER: {}", e))),
-        "REAL" | "FLOAT" | "DOUBLE" => row.try_get::<f64, _>(col_idx).map(|v| v.to_string())
+        "REAL" | "FLOAT" | "DOUBLE" => row
+            .try_get::<f64, _>(col_idx)
+            .map(|v| v.to_string())
             .map_err(|e| Error::Database(format!("REAL: {}", e))),
-        "TEXT" | "BLOB" => row.try_get::<String, _>(col_idx)
+        "TEXT" | "BLOB" => row
+            .try_get::<String, _>(col_idx)
             .map_err(|e| Error::Database(format!("TEXT: {}", e))),
-        "BOOLEAN" => row.try_get::<bool, _>(col_idx).map(|v| v.to_string())
+        "BOOLEAN" => row
+            .try_get::<bool, _>(col_idx)
+            .map(|v| v.to_string())
             .map_err(|e| Error::Database(format!("BOOLEAN: {}", e))),
-        _ => row.try_get::<String, _>(col_idx)
+        _ => row
+            .try_get::<String, _>(col_idx)
             .map_err(|e| Error::Database(format!("{}: {}", type_name, e))),
     }
 }
 
 /// Parse all values from a row into a vector of strings
 fn parse_row_values(row: &SqliteRow) -> Result<Vec<String>> {
-    (0..row.columns().len()).map(|i| parse_column_value(row, i)).collect()
+    (0..row.columns().len())
+        .map(|i| parse_column_value(row, i))
+        .collect()
 }
 
 #[async_trait]
 impl DatabaseService for SqliteDatabaseService {
     async fn execute(&self, query: &str) -> Result<()> {
-        sqlx::query(query).execute(&self.pool).await
+        sqlx::query(query)
+            .execute(&self.pool)
+            .await
             .map_err(|e| Error::Database(e.to_string()))?;
         Ok(())
     }
 
     async fn query(&self, query: &str) -> Result<Vec<Vec<String>>> {
-        let rows = sqlx::query(query).fetch_all(&self.pool).await
+        let rows = sqlx::query(query)
+            .fetch_all(&self.pool)
+            .await
             .map_err(|e| Error::Database(e.to_string()))?;
         rows.iter().map(parse_row_values).collect()
     }
@@ -180,11 +198,16 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_database() -> Result<()> {
         let db = SqliteDatabaseService::in_memory().await?;
-        db.execute("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)").await?;
-        db.execute("INSERT INTO test (name) VALUES ('test1')").await?;
-        db.execute("INSERT INTO test (name) VALUES ('test2')").await?;
+        db.execute("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+            .await?;
+        db.execute("INSERT INTO test (name) VALUES ('test1')")
+            .await?;
+        db.execute("INSERT INTO test (name) VALUES ('test2')")
+            .await?;
         let results: Vec<(i64, String)> = sqlx::query_as("SELECT id, name FROM test ORDER BY id")
-            .fetch_all(db.pool()).await.map_err(|e| Error::Database(e.to_string()))?;
+            .fetch_all(db.pool())
+            .await
+            .map_err(|e| Error::Database(e.to_string()))?;
         assert_eq!(results.len(), 2);
         Ok(())
     }
@@ -192,8 +215,10 @@ mod tests {
     #[tokio::test]
     async fn test_query_method() -> Result<()> {
         let db = SqliteDatabaseService::in_memory().await?;
-        db.execute("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)").await?;
-        db.execute("INSERT INTO test (name) VALUES ('test1')").await?;
+        db.execute("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+            .await?;
+        db.execute("INSERT INTO test (name) VALUES ('test1')")
+            .await?;
         let results = db.query("SELECT id, name FROM test").await?;
         assert_eq!(results[0], vec!["1".to_string(), "test1".to_string()]);
         Ok(())
@@ -241,7 +266,9 @@ mod tests {
         // In-memory databases don't support WAL, but we verify pragma functionality
         let db = SqliteDatabaseService::in_memory().await?;
         let result: (i32,) = sqlx::query_as("PRAGMA foreign_keys")
-            .fetch_one(db.pool()).await.map_err(|e| Error::Database(e.to_string()))?;
+            .fetch_one(db.pool())
+            .await
+            .map_err(|e| Error::Database(e.to_string()))?;
         assert_eq!(result.0, 1);
         Ok(())
     }

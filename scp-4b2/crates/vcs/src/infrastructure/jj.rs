@@ -29,6 +29,93 @@ impl JjBackend {
     }
 }
 
+// ============================================================================
+// Pure Calculation Functions (Data → Calc)
+// ============================================================================
+
+fn parse_branch_line(line: &str) -> Option<Branch> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || trimmed.starts_with('!') {
+        return None;
+    }
+    let name = trimmed.split(':').next().unwrap_or(trimmed).trim();
+    let name = name.trim_start_matches('*').trim();
+    let is_current = trimmed.starts_with('*');
+    Some(Branch::new(name.to_string(), is_current, None))
+}
+
+fn parse_workspace_line(line: &str) -> Option<Workspace> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let name = trimmed.split(':').next().unwrap_or(trimmed).trim();
+    let name = name.trim_start_matches('*').trim();
+    let is_current = trimmed.starts_with('*');
+    Some(Workspace::new(
+        name.to_string(),
+        name.to_string(),
+        is_current,
+    ))
+}
+
+fn parse_commit_line(line: &str) -> Option<Commit> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(Commit::new(
+        trimmed.to_string(),
+        trimmed.to_string(),
+        "unknown".to_string(),
+        Utc::now(),
+        vec![],
+    ))
+}
+
+fn detect_has_changes(stdout: &str) -> bool {
+    stdout.lines().any(|l| {
+        let trimmed = l.trim();
+        trimmed.starts_with("Modified:")
+            || trimmed.starts_with("Added:")
+            || trimmed.starts_with("Removed:")
+    })
+}
+
+fn contains_conflict_marker(stdout: &str) -> bool {
+    stdout.contains("There are conflicts")
+}
+
+fn map_status_from_output(stdout: &str) -> VcsStatus {
+    if contains_conflict_marker(stdout) {
+        VcsStatus::Conflicted
+    } else if detect_has_changes(stdout) {
+        VcsStatus::Dirty
+    } else {
+        VcsStatus::Clean
+    }
+}
+
+fn workspace_error_from_stderr(name: &str, stderr: &str) -> VcsError {
+    if stderr.contains("already exists") || stderr.contains("exists") {
+        VcsError::WorkspaceExists(name.to_string())
+    } else {
+        VcsError::Conflict("workspace add".to_string(), stderr.to_string())
+    }
+}
+
+fn fork_workspace_error_from_stderr(name: &str, stderr: &str) -> VcsError {
+    if stderr.contains("already exists") || stderr.contains("exists") {
+        VcsError::WorkspaceExists(name.to_string())
+    } else {
+        VcsError::Conflict("workspace fork".to_string(), stderr.to_string())
+    }
+}
+
+// ============================================================================
+// VcsBackend Implementation
+// ============================================================================
+
 impl VcsBackend for JjBackend {
     fn current_branch(&self) -> Result<String> {
         let output = self.run_jj(&["log", "-r", "@", "-T", " bookmarks()"])?;
@@ -45,15 +132,7 @@ impl VcsBackend for JjBackend {
         let output = self.run_jj(&["bookmark", "list"])?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        let mut branches = Vec::new();
-        for line in stdout.lines() {
-            let line = line.trim();
-            if !line.is_empty() && !line.starts_with('!') {
-                let name = line.split(':').next().unwrap_or(line).trim();
-                let name = name.trim_start_matches('*').trim();
-                branches.push(Branch::new(name.to_string(), line.starts_with('*'), None));
-            }
-        }
+        let branches = stdout.lines().filter_map(parse_branch_line).collect();
         Ok(branches)
     }
 
@@ -118,42 +197,14 @@ impl VcsBackend for JjBackend {
         let output = self.run_jj(&["log", "-n", &limit.to_string()])?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        let mut commits = Vec::new();
-        for line in stdout.lines() {
-            let line = line.trim();
-            if !line.is_empty() {
-                commits.push(Commit::new(
-                    line.to_string(),
-                    line.to_string(),
-                    "unknown".to_string(),
-                    Utc::now(),
-                    vec![],
-                ));
-            }
-        }
+        let commits = stdout.lines().filter_map(parse_commit_line).collect();
         Ok(commits)
     }
 
     fn status(&self) -> Result<VcsStatus> {
         let output = self.run_jj(&["status"])?;
         let stdout = String::from_utf8_lossy(&output.stdout);
-
-        if stdout.contains("There are conflicts") {
-            return Ok(VcsStatus::Conflicted);
-        }
-
-        let has_changes = stdout.lines().any(|l| {
-            let trimmed = l.trim();
-            trimmed.starts_with("Modified:")
-                || trimmed.starts_with("Added:")
-                || trimmed.starts_with("Removed:")
-        });
-
-        Ok(if has_changes {
-            VcsStatus::Dirty
-        } else {
-            VcsStatus::Clean
-        })
+        Ok(map_status_from_output(&stdout))
     }
 
     fn is_initialized(&self) -> Result<bool> {
@@ -164,13 +215,7 @@ impl VcsBackend for JjBackend {
         let output = self.run_jj(&["workspace", "add", name])?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            if stderr.contains("already exists") || stderr.contains("exists") {
-                return Err(VcsError::WorkspaceExists(name.to_string()));
-            }
-            return Err(VcsError::Conflict(
-                "workspace add".to_string(),
-                stderr.to_string(),
-            ));
+            return Err(workspace_error_from_stderr(name, &stderr));
         }
         Ok(())
     }
@@ -187,20 +232,7 @@ impl VcsBackend for JjBackend {
         let output = self.run_jj(&["workspace", "list"])?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        let mut workspaces = Vec::new();
-        for line in stdout.lines() {
-            let line = line.trim();
-            if !line.is_empty() {
-                let name = line.split(':').next().unwrap_or(line).trim();
-                let is_current = line.starts_with('*');
-                let name = name.trim_start_matches('*').trim();
-                workspaces.push(Workspace::new(
-                    name.to_string(),
-                    name.to_string(),
-                    is_current,
-                ));
-            }
-        }
+        let workspaces = stdout.lines().filter_map(parse_workspace_line).collect();
         Ok(workspaces)
     }
 
@@ -216,13 +248,7 @@ impl VcsBackend for JjBackend {
         let output = self.run_jj(&["workspace", "add", target, "-b", source])?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            if stderr.contains("already exists") || stderr.contains("exists") {
-                return Err(VcsError::WorkspaceExists(target.to_string()));
-            }
-            return Err(VcsError::Conflict(
-                "workspace fork".to_string(),
-                stderr.to_string(),
-            ));
+            return Err(fork_workspace_error_from_stderr(target, &stderr));
         }
         Ok(())
     }
@@ -246,5 +272,85 @@ mod tests {
     fn test_jj_backend_creation() {
         let backend = JjBackend::new_from_path("/tmp/test");
         assert_eq!(backend.repo_path, std::path::PathBuf::from("/tmp/test"));
+    }
+
+    #[test]
+    fn test_parse_branch_line_current() {
+        let branch = parse_branch_line("* main: abc123");
+        assert!(branch.is_some());
+        let branch = branch.unwrap();
+        assert!(branch.is_current);
+        assert_eq!(branch.name, "main");
+    }
+
+    #[test]
+    fn test_parse_branch_line_not_current() {
+        let branch = parse_branch_line("feature: def456");
+        assert!(branch.is_some());
+        let branch = branch.unwrap();
+        assert!(!branch.is_current);
+        assert_eq!(branch.name, "feature");
+    }
+
+    #[test]
+    fn test_parse_branch_line_empty() {
+        assert!(parse_branch_line("").is_none());
+        assert!(parse_branch_line("   ").is_none());
+        assert!(parse_branch_line("! ignored").is_none());
+    }
+
+    #[test]
+    fn test_parse_commit_line() {
+        let commit = parse_commit_line("abc123 test commit");
+        assert!(commit.is_some());
+        let commit = commit.unwrap();
+        assert_eq!(commit.message, "abc123 test commit");
+    }
+
+    #[test]
+    fn test_parse_commit_line_empty() {
+        assert!(parse_commit_line("").is_none());
+        assert!(parse_commit_line("   ").is_none());
+    }
+
+    #[test]
+    fn test_detect_has_changes() {
+        assert!(detect_has_changes("Modified: foo.rs\nAdded: bar.rs"));
+        assert!(detect_has_changes("Removed: baz.rs"));
+        assert!(!detect_has_changes("Only read-only changes"));
+    }
+
+    #[test]
+    fn test_contains_conflict_marker() {
+        assert!(contains_conflict_marker("There are conflicts"));
+        assert!(!contains_conflict_marker("All good"));
+    }
+
+    #[test]
+    fn test_map_status_from_output() {
+        assert_eq!(
+            map_status_from_output("There are conflicts"),
+            VcsStatus::Conflicted
+        );
+        assert_eq!(map_status_from_output("Modified: foo.rs"), VcsStatus::Dirty);
+        assert_eq!(map_status_from_output("Only read-only"), VcsStatus::Clean);
+    }
+
+    #[test]
+    fn test_parse_workspace_line() {
+        let ws = parse_workspace_line("* default: /path/to/workspace");
+        assert!(ws.is_some());
+        let ws = ws.unwrap();
+        assert!(ws.is_current);
+        assert_eq!(ws.name, "default");
+    }
+
+    #[test]
+    fn test_parse_workspace_line_not_current() {
+        let ws = parse_workspace_line("secondary: /path/to/secondary");
+        assert!(ws.is_some());
+        let ws = ws.unwrap();
+        assert!(!ws.is_current);
+        assert_eq!(ws.name, "secondary");
     }
 }

@@ -2,8 +2,8 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 
-use crate::domain::queue::{QueueEntry, QueueStatus};
 use crate::domain::identifiers::QueueEntryId;
+use crate::domain::queue::{QueueEntry, QueueStatus};
 use crate::domain::validation::ValidationError;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
@@ -60,7 +60,7 @@ impl Clone for InMemoryQueueRepository {
             .ok()
             .map(|guard| guard.clone())
             .unwrap_or_else(VecDeque::new);
-        
+
         Self {
             entries: Arc::new(Mutex::new(cloned_entries)),
         }
@@ -69,14 +69,18 @@ impl Clone for InMemoryQueueRepository {
 
 impl QueueRepository for InMemoryQueueRepository {
     fn enqueue(&self, entry: QueueEntry) -> Result<QueueEntry, ValidationError> {
-        let mut entries = self.entries.lock()
+        let mut entries = self
+            .entries
+            .lock()
             .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
         entries.push_back(entry.clone());
         Ok(entry)
     }
 
     fn dequeue(&self) -> Result<Option<QueueEntry>, ValidationError> {
-        let mut entries = self.entries.lock()
+        let mut entries = self
+            .entries
+            .lock()
             .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
         if let Some(entry) = entries.pop_front() {
             if entry.status == QueueStatus::Pending {
@@ -90,13 +94,17 @@ impl QueueRepository for InMemoryQueueRepository {
     }
 
     fn get(&self, id: &QueueEntryId) -> Result<Option<QueueEntry>, ValidationError> {
-        let entries = self.entries.lock()
+        let entries = self
+            .entries
+            .lock()
             .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
         Ok(entries.iter().find(|e| &e.id == id).cloned())
     }
 
     fn update(&self, entry: QueueEntry) -> Result<QueueEntry, ValidationError> {
-        let mut entries = self.entries.lock()
+        let mut entries = self
+            .entries
+            .lock()
             .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
         if let Some(pos) = entries.iter().position(|e| e.id == entry.id) {
             entries[pos] = entry.clone();
@@ -107,7 +115,9 @@ impl QueueRepository for InMemoryQueueRepository {
     }
 
     fn list_pending(&self) -> Result<Vec<QueueEntry>, ValidationError> {
-        let entries = self.entries.lock()
+        let entries = self
+            .entries
+            .lock()
             .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
         Ok(entries
             .iter()
@@ -117,13 +127,17 @@ impl QueueRepository for InMemoryQueueRepository {
     }
 
     fn list_all(&self) -> Result<Vec<QueueEntry>, ValidationError> {
-        let entries = self.entries.lock()
+        let entries = self
+            .entries
+            .lock()
             .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
         Ok(entries.iter().cloned().collect())
     }
 
     fn remove(&self, id: &QueueEntryId) -> Result<(), ValidationError> {
-        let mut entries = self.entries.lock()
+        let mut entries = self
+            .entries
+            .lock()
             .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
         if let Some(pos) = entries.iter().position(|e| &e.id == id) {
             entries.remove(pos);

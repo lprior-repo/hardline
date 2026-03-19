@@ -18,7 +18,9 @@ fn test_core_git_backend_uses_gix() {
         let result = backend.current_branch();
         // If it uses CLI, this is the old implementation
         // If it uses gix, this is the new implementation
-        assert!(result.is_ok() || result.is_err(),
-            "Should be able to get branch (either via gix or error)");
+        assert!(
+            result.is_ok() || result.is_err(),
+            "Should be able to get branch (either via gix or error)"
+        );
     }
 }

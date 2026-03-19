@@ -5,17 +5,17 @@ use crate::error::{GitError, GitResult};
 /// List tags
 pub fn list(repo: &gix::Repository, _pattern: Option<&str>) -> GitResult<Vec<String>> {
     let mut tags = Vec::new();
-    
+
     let refs = repo.references().map_err(|e| GitError::InvalidRef {
         name: "list".to_string(),
         reason: e.to_string(),
     })?;
-    
+
     let tags_iter = refs.tags().map_err(|e| GitError::InvalidRef {
         name: "list".to_string(),
         reason: e.to_string(),
     })?;
-    
+
     for tag_result in tags_iter {
         let reference = tag_result.map_err(|e| GitError::InvalidRef {
             name: "list".to_string(),
@@ -24,7 +24,7 @@ pub fn list(repo: &gix::Repository, _pattern: Option<&str>) -> GitResult<Vec<Str
         let name = reference.name().shorten().to_string();
         tags.push(name);
     }
-    
+
     Ok(tags)
 }
 

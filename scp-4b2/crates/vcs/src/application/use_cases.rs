@@ -19,6 +19,12 @@ impl VcsServiceImpl {
     }
 }
 
+impl Default for VcsServiceImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VcsService for VcsServiceImpl {
     fn detect_and_create_backend(&self, path: &Path) -> Result<Arc<dyn VcsBackend>> {
         match self.detect_vcs_type(path) {
