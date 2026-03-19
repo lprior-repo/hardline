@@ -2,6 +2,7 @@
 
 use std::process::Command;
 
+use itertools::sorted;
 use scp_core::{
     output::Output,
     vcs::{self, VcsStatus},
@@ -446,9 +447,7 @@ enum Direction {
 
 /// Get sorted workspace names using iterator pipeline
 fn get_sorted_workspace_names(workspaces: &[vcs::Workspace]) -> Vec<String> {
-    let mut names: Vec<String> = workspaces.iter().map(|w| w.name.clone()).collect();
-    names.sort();
-    names
+    sorted(workspaces.iter().map(|w| w.name.clone())).collect()
 }
 
 /// Find adjacent workspace name
