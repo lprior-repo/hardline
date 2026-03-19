@@ -14,12 +14,17 @@ impl GitHubClient {
         }
     }
 
+    #[must_use]
+    fn not_implemented_error() -> StackError {
+        StackError::GitHubError("Not yet implemented".to_string())
+    }
+
     pub fn get_pull_request(&self, _pr_number: u32) -> Result<PrInfo> {
-        Err(StackError::GitHubError("Not yet implemented".to_string()))
+        Err(Self::not_implemented_error())
     }
 
     pub fn list_pull_requests(&self) -> Result<Vec<PrInfo>> {
-        Err(StackError::GitHubError("Not yet implemented".to_string()))
+        Err(Self::not_implemented_error())
     }
 
     pub fn create_pull_request(
@@ -28,7 +33,7 @@ impl GitHubClient {
         _head: String,
         _base: String,
     ) -> Result<PrInfo> {
-        Err(StackError::GitHubError("Not yet implemented".to_string()))
+        Err(Self::not_implemented_error())
     }
 
     pub fn update_pull_request(
@@ -37,6 +42,6 @@ impl GitHubClient {
         _title: Option<String>,
         _body: Option<String>,
     ) -> Result<PrInfo> {
-        Err(StackError::GitHubError("Not yet implemented".to_string()))
+        Err(Self::not_implemented_error())
     }
 }
