@@ -88,6 +88,13 @@ fn init_demo_tasks(store: &TaskStore) -> CoreResult<()> {
 // Display functions
 // ============================================================================
 
+fn format_task_line(task: &Task) -> String {
+    let assignee = task.assignee.as_deref().unwrap_or("-");
+    let state = format!("{:?}", task.state);
+    let priority = task.priority.as_deref().unwrap_or("-");
+    format!("  {} [{}] {} - {}", task.id, priority, state, assignee)
+}
+
 fn display_tasks(tasks: &[Task]) {
     if tasks.is_empty() {
         println!("No tasks found");
@@ -95,12 +102,10 @@ fn display_tasks(tasks: &[Task]) {
     }
 
     println!("Tasks ({}):", tasks.len());
-    for task in tasks {
-        let assignee = task.assignee.as_deref().unwrap_or("-");
-        let state = format!("{:?}", task.state);
-        let priority = task.priority.as_deref().unwrap_or("-");
-        println!("  {} [{}] {} - {}", task.id, priority, state, assignee);
-    }
+    tasks
+        .iter()
+        .map(format_task_line)
+        .for_each(|line| println!("{}", line));
 }
 
 fn display_task(task: &Task) {
