@@ -130,7 +130,10 @@ impl ScenarioRunner {
     }
 
     /// Execute all scenario steps with early exit on failure - pure async iteration
-    async fn execute_scenario_steps(scenario: &Scenario, runner: &ScenarioRunner) -> Vec<StepResult> {
+    async fn execute_scenario_steps(
+        scenario: &Scenario,
+        runner: &ScenarioRunner,
+    ) -> Vec<StepResult> {
         let mut context = RunContext::default();
         let mut results = Vec::new();
 
