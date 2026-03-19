@@ -3,7 +3,6 @@
 use std::process::Command;
 
 use scp_core::{output::Output, vcs::detect_vcs, Error, Result};
-use tap::tap::Tap;
 
 fn build_git_stash_save_command(
     cwd: &std::path::Path,
@@ -11,24 +10,22 @@ fn build_git_stash_save_command(
     include_untracked: bool,
     patch: bool,
 ) -> Command {
-    Command::new("git")
-        .tap(|cmd| cmd.arg("stash").arg("push"))
-        .tap(|cmd| {
-            if let Some(msg) = message {
-                cmd.arg("-m").arg(msg);
-            }
-        })
-        .tap(|cmd| {
-            if include_untracked {
-                cmd.arg("-u");
-            }
-        })
-        .tap(|cmd| {
-            if patch {
-                cmd.arg("-p");
-            }
-        })
-        .current_dir(cwd)
+    // Command::arg returns &mut Command, so we build args then set cwd
+    let mut cmd = Command::new("git");
+    cmd.arg("stash");
+    cmd.arg("push");
+    if let Some(msg) = message {
+        cmd.arg("-m");
+        cmd.arg(msg);
+    }
+    if include_untracked {
+        cmd.arg("-u");
+    }
+    if patch {
+        cmd.arg("-p");
+    }
+    cmd.current_dir(cwd);
+    cmd
 }
 
 fn build_git_stash_pop_command(
@@ -36,47 +33,48 @@ fn build_git_stash_pop_command(
     stash: Option<&str>,
     restore_index: bool,
 ) -> Command {
-    Command::new("git")
-        .tap(|cmd| cmd.arg("stash").arg("pop"))
-        .tap(|cmd| {
-            if let Some(s) = stash {
-                cmd.arg(s);
-            }
-        })
-        .tap(|cmd| {
-            if restore_index {
-                cmd.arg("--index");
-            }
-        })
-        .current_dir(cwd)
+    let mut cmd = Command::new("git");
+    cmd.arg("stash");
+    cmd.arg("pop");
+    if let Some(s) = stash {
+        cmd.arg(s);
+    }
+    if restore_index {
+        cmd.arg("--index");
+    }
+    cmd.current_dir(cwd);
+    cmd
 }
 
 fn build_git_stash_list_command(cwd: &std::path::Path) -> Command {
-    Command::new("git").args(["stash", "list"]).current_dir(cwd)
+    let mut cmd = Command::new("git");
+    cmd.args(["stash", "list"]);
+    cmd.current_dir(cwd);
+    cmd
 }
 
 fn build_git_stash_drop_command(cwd: &std::path::Path, stash: &str, force: bool) -> Command {
-    Command::new("git")
-        .tap(|cmd| cmd.arg("stash").arg("drop"))
-        .tap(|cmd| {
-            if force {
-                cmd.arg("-f");
-            }
-        })
-        .arg(stash)
-        .current_dir(cwd)
+    let mut cmd = Command::new("git");
+    cmd.arg("stash");
+    cmd.arg("drop");
+    if force {
+        cmd.arg("-f");
+    }
+    cmd.arg(stash);
+    cmd.current_dir(cwd);
+    cmd
 }
 
 fn build_git_stash_show_command(cwd: &std::path::Path, stash_ref: &str, stat: bool) -> Command {
-    Command::new("git")
-        .tap(|cmd| cmd.arg("stash").arg("show"))
-        .tap(|cmd| {
-            if stat {
-                cmd.arg("--stat");
-            }
-        })
-        .arg(stash_ref)
-        .current_dir(cwd)
+    let mut cmd = Command::new("git");
+    cmd.arg("stash");
+    cmd.arg("show");
+    if stat {
+        cmd.arg("--stat");
+    }
+    cmd.arg(stash_ref);
+    cmd.current_dir(cwd);
+    cmd
 }
 
 // Pure calculation functions (Data→Calc→Actions)
@@ -132,7 +130,7 @@ fn is_output_empty(output: &std::process::Output) -> bool {
     get_stdout_as_string(output).trim().is_empty()
 }
 
-// Action functions that compose pure calculations
+// Action functions that compose pure calculations (expression-based)
 
 pub fn save(message: Option<&str>, include_untracked: bool, patch: bool) -> Result<()> {
     get_current_working_dir()
@@ -160,75 +158,78 @@ pub fn save(message: Option<&str>, include_untracked: bool, patch: bool) -> Resu
 }
 
 pub fn pop(stash: Option<&str>, restore_index: bool) -> Result<()> {
-    let cwd = get_current_working_dir()?;
-    validate_git_vcs(&cwd)?;
-
-    let output = execute_git_command(build_git_stash_pop_command(&cwd, stash, restore_index))?;
-
-    if handle_command_success(&output) {
-        output_success_message("Applied stash and removed from stash list");
-        Ok(())
-    } else {
-        Err(create_vcs_conflict_error(
-            "git stash pop",
-            &get_stderr_as_string(&output),
-        ))
-    }
+    get_current_working_dir()
+        .and_then(|cwd| validate_git_vcs(&cwd).map(|_| cwd))
+        .and_then(|cwd| {
+            execute_git_command(build_git_stash_pop_command(&cwd, stash, restore_index))
+        })
+        .and_then(|output| {
+            if handle_command_success(&output) {
+                output_success_message("Applied stash and removed from stash list");
+                Ok(())
+            } else {
+                Err(create_vcs_conflict_error(
+                    "git stash pop",
+                    &get_stderr_as_string(&output),
+                ))
+            }
+        })
 }
 
 pub fn list() -> Result<()> {
-    let cwd = get_current_working_dir()?;
-    validate_git_vcs(&cwd)?;
-
-    let output = execute_git_command(build_git_stash_list_command(&cwd))?;
-
-    if handle_command_success(&output) {
-        if is_output_empty(&output) {
-            output_info_message("No stashed changes");
-        } else {
-            print_content(&get_stdout_as_string(&output));
-        }
-        Ok(())
-    } else {
-        Err(create_vcs_conflict_error(
-            "git stash list",
-            &get_stderr_as_string(&output),
-        ))
-    }
+    get_current_working_dir()
+        .and_then(|cwd| validate_git_vcs(&cwd).map(|_| cwd))
+        .and_then(|cwd| execute_git_command(build_git_stash_list_command(&cwd)))
+        .and_then(|output| {
+            if handle_command_success(&output) {
+                if is_output_empty(&output) {
+                    output_info_message("No stashed changes");
+                } else {
+                    print_content(&get_stdout_as_string(&output));
+                }
+                Ok(())
+            } else {
+                Err(create_vcs_conflict_error(
+                    "git stash list",
+                    &get_stderr_as_string(&output),
+                ))
+            }
+        })
 }
 
 pub fn drop(stash: &str, force: bool) -> Result<()> {
-    let cwd = get_current_working_dir()?;
-    validate_git_vcs(&cwd)?;
-
-    let output = execute_git_command(build_git_stash_drop_command(&cwd, stash, force))?;
-
-    if handle_command_success(&output) {
-        output_success_message(&format!("Dropped stash: {}", stash));
-        Ok(())
-    } else {
-        Err(create_vcs_conflict_error(
-            "git stash drop",
-            &get_stderr_as_string(&output),
-        ))
-    }
+    get_current_working_dir()
+        .and_then(|cwd| validate_git_vcs(&cwd).map(|_| cwd))
+        .and_then(|cwd| execute_git_command(build_git_stash_drop_command(&cwd, stash, force)))
+        .and_then(|output| {
+            if handle_command_success(&output) {
+                output_success_message(&format!("Dropped stash: {}", stash));
+                Ok(())
+            } else {
+                Err(create_vcs_conflict_error(
+                    "git stash drop",
+                    &get_stderr_as_string(&output),
+                ))
+            }
+        })
 }
 
 pub fn show(stash: Option<&str>, stat: bool) -> Result<()> {
-    let cwd = get_current_working_dir()?;
-    validate_git_vcs(&cwd)?;
-
-    let stash_ref = stash.unwrap_or("stash@{0}");
-
-    let output = execute_git_command(build_git_stash_show_command(&cwd, stash_ref, stat))?;
-
-    if handle_command_success(&output) {
-        print_content(&get_stdout_as_string(&output));
-        Ok(())
-    } else {
-        Err(create_vcs_conflict_error(
-            "git stash show",
-            &get_stderr_as_string(&output),
-        ))
-    }
+    get_current_working_dir()
+        .and_then(|cwd| validate_git_vcs(&cwd).map(|_| cwd))
+        .and_then(|cwd| {
+            let stash_ref = stash.unwrap_or("stash@{0}");
+            execute_git_command(build_git_stash_show_command(&cwd, stash_ref, stat))
+        })
+        .and_then(|output| {
+            if handle_command_success(&output) {
+                print_content(&get_stdout_as_string(&output));
+                Ok(())
+            } else {
+                Err(create_vcs_conflict_error(
+                    "git stash show",
+                    &get_stderr_as_string(&output),
+                ))
+            }
+        })
 }
