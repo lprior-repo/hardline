@@ -3,19 +3,14 @@ use crate::error::WorkspaceError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum WorkspaceState {
+    #[default]
     Initializing,
     Active,
     Locked,
     Corrupted,
     Deleted,
-}
-
-impl Default for WorkspaceState {
-    fn default() -> Self {
-        Self::Initializing
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -63,17 +58,12 @@ pub struct WorkspaceConfig {
     pub auto_sync: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum VcsType {
+    #[default]
     Jj,
     Git,
     Both,
-}
-
-impl Default for VcsType {
-    fn default() -> Self {
-        Self::Jj
-    }
 }
 
 /// Constructs a default workspace configuration with standard settings.

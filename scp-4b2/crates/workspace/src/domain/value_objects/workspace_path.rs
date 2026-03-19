@@ -1,6 +1,6 @@
 use crate::error::WorkspaceError;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspacePath(PathBuf);
@@ -17,7 +17,7 @@ fn to_path_buf(path: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
-fn is_absolute_path(path_buf: &PathBuf) -> bool {
+fn is_absolute_path(path_buf: &Path) -> bool {
     path_buf.is_absolute()
 }
 
