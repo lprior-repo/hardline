@@ -122,39 +122,57 @@ impl Stack {
     pub fn topological_order(&self) -> Vec<&StackBranch> {
         let graph = self.build_dependency_graph();
         petgraph::algo::toposort(&graph, None)
-            .map(|sorted_indices| {
-                sorted_indices
-                    .iter()
-                    .filter_map(|idx| graph.node_weight(*idx).map(|b| *b))
-                    .collect()
-            })
+            .map(|sorted_indices| sorted_indices_to_branches(&graph, sorted_indices))
             .unwrap_or_else(|_| self.branches.iter().collect())
     }
 
-    fn build_dependency_graph(&self) -> petgraph::Graph<&StackBranch, ()> {
-        let mut graph: petgraph::Graph<&StackBranch, ()> = petgraph::Graph::new();
-        let indices: std::collections::HashMap<&BranchName, _> = self
-            .branches
+    fn sorted_indices_to_branches(
+        graph: &petgraph::Graph<&StackBranch, ()>,
+        sorted_indices: petgraph::graph::NodeIndices,
+    ) -> Vec<&StackBranch> {
+        sorted_indices
             .iter()
-            .map(|branch| (&branch.name, graph.add_node(branch)))
+            .filter_map(|idx| graph.node_weight(*idx))
+            .collect()
+    }
+
+    fn build_dependency_graph(&self) -> petgraph::Graph<&StackBranch, ()> {
+        self.branches
+            .iter()
+            .fold(petgraph::Graph::new(), |graph, branch| {
+                add_branch_edges(graph, &self.branches, branch)
+            })
+    }
+
+    fn add_branch_edges(
+        graph: petgraph::Graph<&StackBranch, ()>,
+        branches: &[StackBranch],
+        branch: &StackBranch,
+    ) -> petgraph::Graph<&StackBranch, ()> {
+        let indices: std::collections::HashMap<&BranchName, _> = branches
+            .iter()
+            .map(|b| (&b.name, graph.add_node(b)))
             .collect();
 
-        for branch in &self.branches {
-            if let Some(parent) = &branch.parent {
-                if let (Some(&child_idx), Some(&parent_idx)) =
-                    (indices.get(&branch.name), indices.get(parent))
-                {
-                    graph.add_edge(parent_idx, child_idx, ());
-                }
+        if let Some(parent) = &branch.parent {
+            if let (Some(&child_idx), Some(&parent_idx)) =
+                (indices.get(&branch.name), indices.get(parent))
+            {
+                let mut new_graph = graph;
+                new_graph.add_edge(parent_idx, child_idx, ());
+                new_graph
+            } else {
+                graph
             }
+        } else {
+            graph
         }
-        graph
     }
 
     pub fn ancestors(&self, branch: &BranchName) -> Vec<BranchName> {
         self.find_branch(branch)
             .and_then(|b| self.ancestors_from_branch(b))
-            .unwrap_or_default()
+            .unwrap_or_else(Vec::new)
     }
 
     fn find_branch(&self, name: &BranchName) -> Option<&StackBranch> {
@@ -174,7 +192,7 @@ impl Stack {
     pub fn descendants(&self, branch: &BranchName) -> Vec<BranchName> {
         self.find_branch(branch)
             .map(|b| self.flatten_children(&b.children))
-            .unwrap_or_default()
+            .unwrap_or_else(Vec::new)
     }
 
     fn flatten_children(&self, branches: &[BranchName]) -> Vec<BranchName> {
