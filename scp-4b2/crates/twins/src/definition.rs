@@ -116,23 +116,38 @@ impl TwinDefinition {
     }
 
     fn validate(&self) -> Result<(), DefinitionError> {
-        if self.name.is_empty() {
-            return Err(DefinitionError::MissingField("name".to_string()));
+        Self::validate_name_and_port(&self.name, self.port)?;
+        Self::validate_endpoints(&self.endpoints)
+    }
+
+    fn validate_name_and_port(name: &str, port: u16) -> Result<(), DefinitionError> {
+        if name.is_empty() {
+            Err(DefinitionError::MissingField("name".to_string()))
+        } else if port == 0 {
+            Err(DefinitionError::MissingField("port".to_string()))
+        } else {
+            Ok(())
         }
-        if self.port == 0 {
-            return Err(DefinitionError::MissingField("port".to_string()));
-        }
-        if self.endpoints.is_empty() {
+    }
+
+    fn validate_endpoints(endpoints: &[Endpoint]) -> Result<(), DefinitionError> {
+        if endpoints.is_empty() {
             return Err(DefinitionError::MissingField("endpoints".to_string()));
         }
-        for (i, endpoint) in self.endpoints.iter().enumerate() {
-            if !endpoint.path.starts_with('/') {
-                return Err(DefinitionError::InvalidEndpoint(format!(
-                    "Endpoint {i}: path must start with /"
-                )));
-            }
+        endpoints
+            .iter()
+            .enumerate()
+            .try_for_each(|(i, endpoint)| Self::validate_endpoint_path(i, endpoint))
+    }
+
+    fn validate_endpoint_path(i: usize, endpoint: &Endpoint) -> Result<(), DefinitionError> {
+        if endpoint.path.starts_with('/') {
+            Ok(())
+        } else {
+            Err(DefinitionError::InvalidEndpoint(format!(
+                "Endpoint {i}: path must start with /"
+            )))
         }
-        Ok(())
     }
 }
 
