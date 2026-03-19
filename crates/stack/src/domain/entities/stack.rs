@@ -52,71 +52,81 @@ impl Stack {
     }
 
     pub fn topological_order(&self) -> Vec<&StackBranch> {
-        let mut graph: petgraph::Graph<&StackBranch, ()> = petgraph::Graph::new();
-        let mut indices: std::collections::HashMap<&BranchName, _> =
-            std::collections::HashMap::new();
+        let graph = self.build_dependency_graph();
+        petgraph::algo::toposort(&graph, None)
+            .map(|sorted_indices| {
+                sorted_indices
+                    .into_iter()
+                    .filter_map(|idx| graph.node_weight(idx).map(|b| *b))
+                    .collect()
+            })
+            .unwrap_or_else(|_| self.branches.iter().collect())
+    }
 
-        for branch in &self.branches {
-            let idx = graph.add_node(branch);
-            indices.insert(&branch.name, idx);
-        }
+    fn build_dependency_graph(&self) -> petgraph::Graph<&StackBranch, ()> {
+        let mut graph: petgraph::Graph<&StackBranch, ()> = petgraph::Graph::new();
+        let indices: std::collections::HashMap<&BranchName, _> = self
+            .branches
+            .iter()
+            .map(|branch| (&branch.name, graph.add_node(branch)))
+            .collect();
 
         for branch in &self.branches {
             if let Some(parent) = &branch.parent {
-                if let Some(&child_idx) = indices.get(&branch.name) {
-                    if let Some(&parent_idx) = indices.get(parent) {
-                        graph.add_edge(parent_idx, child_idx, ());
-                    }
+                if let (Some(&child_idx), Some(&parent_idx)) =
+                    (indices.get(&branch.name), indices.get(parent))
+                {
+                    graph.add_edge(parent_idx, child_idx, ());
                 }
             }
         }
-
-        petgraph::algo::toposort(&graph, None)
-            .unwrap_or_default()
-            .iter()
-            .map(|idx| *graph.node_weight(*idx).unwrap())
-            .collect()
+        graph
     }
 
     pub fn ancestors(&self, branch: &BranchName) -> Vec<BranchName> {
-        let mut result = Vec::new();
-        let mut current = branch.clone();
+        self.find_branch(branch)
+            .and_then(|b| self.ancestors_from_branch(b))
+            .unwrap_or_else(Vec::new)
+    }
 
-        while let Some(b) = self.branches.iter().find(|b| &b.name == &current) {
-            if let Some(parent) = &b.parent {
-                result.push(parent.clone());
-                current = parent.clone();
-            } else {
-                break;
-            }
-        }
+    fn find_branch(&self, name: &BranchName) -> Option<&StackBranch> {
+        self.branches.iter().find(|b| &b.name == name)
+    }
 
-        result
+    fn ancestors_from_branch(&self, branch: &StackBranch) -> Option<Vec<BranchName>> {
+        branch.parent.as_ref().map(|parent| {
+            std::iter::successors(Some(parent.clone()), |p| {
+                self.find_branch(p).and_then(|b| b.parent.clone())
+            })
+            .take_while(|p| self.find_branch(p).is_some())
+            .collect()
+        })
     }
 
     pub fn descendants(&self, branch: &BranchName) -> Vec<BranchName> {
-        let mut result = Vec::new();
-        let mut to_visit = vec![branch.clone()];
+        self.find_branch(branch)
+            .map(|b| self.flatten_children(&b.children))
+            .unwrap_or_else(Vec::new)
+    }
 
-        while let Some(current) = to_visit.pop() {
-            if let Some(b) = self.branches.iter().find(|b| &b.name == &current) {
-                for child in &b.children {
-                    result.push(child.clone());
-                    to_visit.push(child.clone());
-                }
-            }
-        }
-
-        result
+    fn flatten_children(&self, branches: &[BranchName]) -> Vec<BranchName> {
+        branches
+            .iter()
+            .filter_map(|name| self.find_branch(name))
+            .flat_map(|b| {
+                let children: Vec<BranchName> = b.children.iter().cloned().collect();
+                std::iter::once(b.name.clone()).chain(self.flatten_children(&children))
+            })
+            .collect()
     }
 
     pub fn current_stack(&self, branch: &BranchName) -> Vec<BranchName> {
-        let mut ancestors = self.ancestors(branch);
-        ancestors.reverse();
-        let mut result = ancestors;
-        result.push(branch.clone());
-        result.extend(self.descendants(branch));
-        result
+        self.ancestors(branch)
+            .into_iter()
+            .rev()
+            .chain(std::iter::once(branch.clone()))
+            .chain(self.descendants(branch))
+            .collect()
     }
 
     pub fn needs_restack(&self) -> Vec<BranchName> {
