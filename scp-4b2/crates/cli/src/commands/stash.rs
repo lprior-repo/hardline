@@ -51,7 +51,8 @@ fn build_git_stash_pop_command(
 
 fn build_git_stash_list_command(cwd: &std::path::Path) -> Command {
     let mut cmd = Command::new("git");
-    cmd.args(["stash", "list"]).current_dir(cwd);
+    cmd.args(["stash", "list"]);
+    cmd.current_dir(cwd);
     cmd
 }
 
@@ -81,151 +82,154 @@ fn build_git_stash_show_command(cwd: &std::path::Path, stash_ref: &str, stat: bo
     cmd
 }
 
+// Pure calculation functions (Data→Calc→Actions)
+
+fn validate_git_vcs(cwd: &std::path::Path) -> Result<()> {
+    detect_vcs(cwd)
+        .filter(|&vcs_type| vcs_type == scp_core::vcs::VcsType::Git)
+        .ok_or(Error::VcsNotInitialized)
+        .and_then(|_| {
+            Err(Error::InvalidState(
+                "stash is only supported for Git repositories".to_string(),
+            ))
+        })
+}
+
+fn execute_git_command(mut cmd: Command) -> Result<std::process::Output> {
+    cmd.output().map_err(Error::Io)
+}
+
+fn handle_command_success(output: &std::process::Output) -> bool {
+    output.status.success()
+}
+
+fn get_stderr_as_string(output: &std::process::Output) -> String {
+    String::from_utf8_lossy(&output.stderr).to_string()
+}
+
+fn get_stdout_as_string(output: &std::process::Output) -> String {
+    String::from_utf8_lossy(&output.stdout).to_string()
+}
+
+fn create_vcs_conflict_error(command: &str, stderr: &str) -> Error {
+    Error::VcsConflict(command.to_string(), stderr.to_string())
+}
+
+fn get_current_working_dir() -> Result<std::path::PathBuf> {
+    std::env::current_dir().map_err(Error::Io)
+}
+
+fn output_success_message(msg: &str) {
+    Output::success(msg);
+}
+
+fn output_info_message(msg: &str) {
+    Output::info(msg);
+}
+
+fn print_content(content: &str) {
+    print!("{}", content);
+}
+
+fn is_output_empty(output: &std::process::Output) -> bool {
+    get_stdout_as_string(output).trim().is_empty()
+}
+
+// Action functions that compose pure calculations
+
 pub fn save(message: Option<&str>, include_untracked: bool, patch: bool) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = get_current_working_dir()?;
+    validate_git_vcs(&cwd)?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+    let output = execute_git_command(build_git_stash_save_command(
+        &cwd,
+        message,
+        include_untracked,
+        patch,
+    ))?;
 
-    if vcs_type != scp_core::vcs::VcsType::Git {
-        return Err(Error::InvalidState(
-            "stash is only supported for Git repositories".to_string(),
-        ));
-    }
-
-    let output = build_git_stash_save_command(&cwd, message, include_untracked, patch)
-        .output()
-        .map_err(Error::Io)?;
-
-    if output.status.success() {
+    if handle_command_success(&output) {
         let msg = message.unwrap_or("changes");
-        Output::success(&format!("Stashed: {}", msg));
+        output_success_message(&format!("Stashed: {}", msg));
+        Ok(())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "git stash".to_string(),
-            stderr.to_string(),
-        ));
+        Err(create_vcs_conflict_error(
+            "git stash",
+            &get_stderr_as_string(&output),
+        ))
     }
-
-    Ok(())
 }
 
 pub fn pop(stash: Option<&str>, restore_index: bool) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = get_current_working_dir()?;
+    validate_git_vcs(&cwd)?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+    let output = execute_git_command(build_git_stash_pop_command(&cwd, stash, restore_index))?;
 
-    if vcs_type != scp_core::vcs::VcsType::Git {
-        return Err(Error::InvalidState(
-            "stash is only supported for Git repositories".to_string(),
-        ));
-    }
-
-    let output = build_git_stash_pop_command(&cwd, stash, restore_index)
-        .output()
-        .map_err(Error::Io)?;
-
-    if output.status.success() {
-        Output::success("Applied stash and removed from stash list");
+    if handle_command_success(&output) {
+        output_success_message("Applied stash and removed from stash list");
+        Ok(())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "git stash pop".to_string(),
-            stderr.to_string(),
-        ));
+        Err(create_vcs_conflict_error(
+            "git stash pop",
+            &get_stderr_as_string(&output),
+        ))
     }
-
-    Ok(())
 }
 
 pub fn list() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = get_current_working_dir()?;
+    validate_git_vcs(&cwd)?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+    let output = execute_git_command(build_git_stash_list_command(&cwd))?;
 
-    if vcs_type != scp_core::vcs::VcsType::Git {
-        return Err(Error::InvalidState(
-            "stash is only supported for Git repositories".to_string(),
-        ));
-    }
-
-    let output = build_git_stash_list_command(&cwd)
-        .output()
-        .map_err(Error::Io)?;
-
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if stdout.trim().is_empty() {
-            Output::info("No stashed changes");
+    if handle_command_success(&output) {
+        if is_output_empty(&output) {
+            output_info_message("No stashed changes");
         } else {
-            print!("{}", stdout);
+            print_content(&get_stdout_as_string(&output));
         }
+        Ok(())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "git stash list".to_string(),
-            stderr.to_string(),
-        ));
+        Err(create_vcs_conflict_error(
+            "git stash list",
+            &get_stderr_as_string(&output),
+        ))
     }
-
-    Ok(())
 }
 
 pub fn drop(stash: &str, force: bool) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = get_current_working_dir()?;
+    validate_git_vcs(&cwd)?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+    let output = execute_git_command(build_git_stash_drop_command(&cwd, stash, force))?;
 
-    if vcs_type != scp_core::vcs::VcsType::Git {
-        return Err(Error::InvalidState(
-            "stash is only supported for Git repositories".to_string(),
-        ));
-    }
-
-    let output = build_git_stash_drop_command(&cwd, stash, force)
-        .output()
-        .map_err(Error::Io)?;
-
-    if output.status.success() {
-        Output::success(&format!("Dropped stash: {}", stash));
+    if handle_command_success(&output) {
+        output_success_message(&format!("Dropped stash: {}", stash));
+        Ok(())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "git stash drop".to_string(),
-            stderr.to_string(),
-        ));
+        Err(create_vcs_conflict_error(
+            "git stash drop",
+            &get_stderr_as_string(&output),
+        ))
     }
-
-    Ok(())
 }
 
 pub fn show(stash: Option<&str>, stat: bool) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
-
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
-
-    if vcs_type != scp_core::vcs::VcsType::Git {
-        return Err(Error::InvalidState(
-            "stash is only supported for Git repositories".to_string(),
-        ));
-    }
+    let cwd = get_current_working_dir()?;
+    validate_git_vcs(&cwd)?;
 
     let stash_ref = stash.unwrap_or("stash@{0}");
 
-    let output = build_git_stash_show_command(&cwd, stash_ref, stat)
-        .output()
-        .map_err(Error::Io)?;
+    let output = execute_git_command(build_git_stash_show_command(&cwd, stash_ref, stat))?;
 
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        print!("{}", stdout);
+    if handle_command_success(&output) {
+        print_content(&get_stdout_as_string(&output));
+        Ok(())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "git stash show".to_string(),
-            stderr.to_string(),
-        ));
+        Err(create_vcs_conflict_error(
+            "git stash show",
+            &get_stderr_as_string(&output),
+        ))
     }
-
-    Ok(())
 }
