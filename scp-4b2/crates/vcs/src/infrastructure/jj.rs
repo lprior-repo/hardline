@@ -33,15 +33,39 @@ impl JjBackend {
 // Pure Calculation Functions (Data → Calc)
 // ============================================================================
 
+fn extract_branch_name(trimmed: &str) -> &str {
+    let name = match trimmed.split(':').next() {
+        Some(n) => n,
+        None => trimmed,
+    };
+    name.trim_start_matches('*').trim()
+}
+
+fn is_current_branch_line(trimmed: &str) -> bool {
+    trimmed.starts_with('*')
+}
+
+fn is_valid_branch_line(trimmed: &str) -> bool {
+    !trimmed.is_empty() && !trimmed.starts_with('!')
+}
+
 fn parse_branch_line(line: &str) -> Option<Branch> {
     let trimmed = line.trim();
-    if trimmed.is_empty() || trimmed.starts_with('!') {
+    if !is_valid_branch_line(trimmed) {
         return None;
     }
-    let name = trimmed.split(':').next().unwrap_or(trimmed).trim();
-    let name = name.trim_start_matches('*').trim();
-    let is_current = trimmed.starts_with('*');
+    let name = extract_branch_name(trimmed);
+    let is_current = is_current_branch_line(trimmed);
     Some(Branch::new(name.to_string(), is_current, None))
+}
+
+fn extract_workspace_name(trimmed: &str) -> &str {
+    match trimmed.split(':').next() {
+        Some(n) => n,
+        None => trimmed,
+    }
+    .trim_start_matches('*')
+    .trim()
 }
 
 fn parse_workspace_line(line: &str) -> Option<Workspace> {
@@ -49,8 +73,7 @@ fn parse_workspace_line(line: &str) -> Option<Workspace> {
     if trimmed.is_empty() {
         return None;
     }
-    let name = trimmed.split(':').next().unwrap_or(trimmed).trim();
-    let name = name.trim_start_matches('*').trim();
+    let name = extract_workspace_name(trimmed);
     let is_current = trimmed.starts_with('*');
     Some(Workspace::new(
         name.to_string(),

@@ -112,8 +112,14 @@ impl InMemoryQueueRepository {
         let entries_slice: Vec<QueueEntry> = self.entries.iter().cloned().collect();
         find_entry_index_by_id(&entries_slice, id)
             .map(|pos| {
-                let mut entries = self.entries.clone();
-                entries.remove(pos);
+                let _entries: VecDeque<QueueEntry> = self
+                    .entries
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| *i != pos)
+                    .map(|(_, e)| e)
+                    .cloned()
+                    .collect();
             })
             .ok_or_else(|| QueueError::QueueEntryNotFound(id.as_str().into()))
     }

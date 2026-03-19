@@ -147,18 +147,23 @@ impl Sanitizer {
             return "PASS".to_string();
         }
 
-        // Find first failure and extract error type
         let error_type = result
             .step_results
             .iter()
             .find(|r| !r.passed)
             .and_then(|r| r.error.as_ref())
-            .map_or_else(
-                || "unknown error".to_string(),
-                |e| Self::extract_error_type(e),
-            );
+            .map_or_else(|| "unknown error".to_string(), Self::extract_error_type);
 
         format!("FAIL: {error_type}")
+    }
+
+    /// Find first error message from failed steps - pure calculation
+    fn find_first_error(result: &ScenarioResult) -> Option<&str> {
+        result
+            .step_results
+            .iter()
+            .find(|r| !r.passed)
+            .and_then(|r| r.error.as_deref())
     }
 
     /// Level 3: +stack trace (no values)
@@ -255,22 +260,32 @@ impl Sanitizer {
         })
     }
 
-    /// Extract just the error type from an error message
-    fn extract_error_type(error: &str) -> String {
-        let lower = error.to_lowercase();
+    /// Check if text contains any of the given substrings (case-insensitive)
+    fn contains_any(text: &str, substrings: &[&str]) -> bool {
+        let lower = text.to_lowercase();
+        substrings.iter().any(|s| lower.contains(s))
+    }
 
-        if lower.contains("assertion") || lower.contains("assert") {
-            "assertion failed".to_string()
-        } else if lower.contains("network") || lower.contains("connection") {
-            "network error".to_string()
-        } else if lower.contains("timeout") {
+    /// Extract just the error type from an error message - pure calculation
+    fn extract_error_type(error: &str) -> String {
+        let classification: Option<(&str, &[&str])> =
+            Some(("assertion failed", &["assertion", "assert"] as &[&str]));
+        let classification = classification
+            .filter(|(_, keywords)| Self::contains_any(error, keywords))
+            .or_else(|| Some(("network error", &["network", "connection"])))
+            .filter(|(error_type, keywords)| {
+                *error_type == "network error" && Self::contains_any(error, keywords)
+            })
+            .map(|(error_type, _)| error_type);
+
+        if Self::contains_any(error, &["timeout"]) {
             "timeout".to_string()
-        } else if lower.contains("parse") || lower.contains("serializ") {
+        } else if Self::contains_any(error, &["parse", "serializ"]) {
             "parse error".to_string()
-        } else if lower.contains("extract") {
+        } else if Self::contains_any(error, &["extract"]) {
             "extraction error".to_string()
         } else {
-            "execution error".to_string()
+            classification.map_or("execution error".to_string(), |s| s.to_string())
         }
     }
 

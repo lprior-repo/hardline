@@ -4,6 +4,25 @@ use std::process::Command;
 
 use scp_core::{output::Output, vcs::detect_vcs, Error, Result};
 
+/// Force push mode configuration
+#[derive(Debug, Clone, Copy)]
+pub enum ForceMode {
+    None,
+    Force,
+    ForceWithLease,
+}
+
+/// Push configuration parameters
+#[derive(Debug, Clone)]
+pub struct PushConfig<'a> {
+    pub remote: &'a str,
+    pub branch: Option<&'a str>,
+    pub set_upstream: bool,
+    pub force_mode: ForceMode,
+    pub tags: bool,
+    pub delete: bool,
+}
+
 fn build_git_fetch_command(
     cwd: &std::path::Path,
     remote: Option<&str>,
@@ -123,7 +142,7 @@ fn stderr_to_string(stderr: &[u8]) -> String {
 
 /// Execute jj fetch and rebase, handling errors at each step
 fn execute_jj_pull(cwd: &std::path::Path) -> Result<()> {
-    let (mut fetch_cmd, mut rebase_cmd) = build_jj_pull_commands(cwd);
+    let (fetch_cmd, rebase_cmd) = build_jj_pull_commands(cwd);
 
     let fetch_output = fetch_cmd.output().map_err(Error::Io)?;
     if !fetch_output.status.success() {
@@ -151,70 +170,68 @@ pub fn pull() -> Result<()> {
     }
 }
 
-fn build_git_push_command(
-    cwd: &std::path::Path,
-    remote: &str,
-    branch: Option<&str>,
-    set_upstream: bool,
-    force: bool,
-    force_with_lease: bool,
-    tags: bool,
-    delete: bool,
-) -> Command {
-    let mut cmd = Command::new("git");
-    cmd.arg("push");
-
-    cmd.arg(remote);
-
+/// Add branch argument if present
+fn add_branch_arg(cmd: &mut Command, branch: Option<&str>) {
     if let Some(b) = branch {
         cmd.arg(b);
     }
+}
 
+/// Add force arguments based on force mode
+fn add_force_arg(cmd: &mut Command, force_mode: ForceMode) {
+    match force_mode {
+        ForceMode::None => {}
+        ForceMode::Force => cmd.arg("--force"),
+        ForceMode::ForceWithLease => cmd.arg("--force-with-lease"),
+    }
+}
+
+/// Add upstream flag if enabled
+fn add_upstream_flag(cmd: &mut Command, set_upstream: bool) {
     if set_upstream {
         cmd.arg("-u");
     }
+}
 
-    if force {
-        cmd.arg("--force");
-    } else if force_with_lease {
-        cmd.arg("--force-with-lease");
-    }
-
+/// Add tags flag if enabled
+fn add_tags_flag(cmd: &mut Command, tags: bool) {
     if tags {
         cmd.arg("--tags");
     }
+}
 
+/// Add delete flag if enabled
+fn add_delete_flag(cmd: &mut Command, delete: bool) {
     if delete {
         cmd.arg("--delete");
     }
+}
 
+fn build_git_push_command(cwd: &std::path::Path, config: &PushConfig<'_>) -> Command {
+    let mut cmd = Command::new("git");
+    cmd.arg("push");
+    cmd.arg(config.remote);
+    add_branch_arg(&mut cmd, config.branch);
+    add_upstream_flag(&mut cmd, config.set_upstream);
+    add_force_arg(&mut cmd, config.force_mode);
+    add_tags_flag(&mut cmd, config.tags);
+    add_delete_flag(&mut cmd, config.delete);
     cmd.current_dir(cwd);
     cmd
 }
 
-fn build_jj_push_command(
-    cwd: &std::path::Path,
-    branch: Option<&str>,
-    force: bool,
-    delete: bool,
-) -> Command {
+fn build_jj_push_command(cwd: &std::path::Path, config: &PushConfig<'_>) -> Command {
     let mut cmd = Command::new("jj");
     cmd.arg("git");
 
-    if delete {
+    if config.delete {
         cmd.arg("push").arg("--deleted-branch");
-        if let Some(b) = branch {
-            cmd.arg(b);
-        }
+        add_branch_arg(&mut cmd, config.branch);
     } else {
         cmd.arg("git").arg("push");
-
-        if force {
-            cmd.arg("--force-push");
-        }
-
-        if let Some(b) = branch {
-            cmd.arg("--branch").arg(b);
+        add_force_arg(&mut cmd, config.force_mode);
+        if config.branch.is_some() {
+            cmd.arg("--branch").arg(config.branch.unwrap());
         }
     }
 
@@ -232,43 +249,19 @@ fn handle_push_output(output: &std::process::Output, remote: &str) -> Result<()>
 }
 
 /// Execute git push command
-fn execute_git_push(
-    cwd: &std::path::Path,
-    remote: &str,
-    branch: Option<&str>,
-    set_upstream: bool,
-    force: bool,
-    force_with_lease: bool,
-    tags: bool,
-    delete: bool,
-) -> Result<()> {
-    let output = build_git_push_command(
-        cwd,
-        remote,
-        branch,
-        set_upstream,
-        force,
-        force_with_lease,
-        tags,
-        delete,
-    )
-    .output()
-    .map_err(Error::Io)?;
-    handle_push_output(&output, remote)
+fn execute_git_push(cwd: &std::path::Path, config: &PushConfig<'_>) -> Result<()> {
+    let output = build_git_push_command(cwd, config)
+        .output()
+        .map_err(Error::Io)?;
+    handle_push_output(&output, config.remote)
 }
 
 /// Execute jj push command
-fn execute_jj_push(
-    cwd: &std::path::Path,
-    remote: &str,
-    branch: Option<&str>,
-    force: bool,
-    delete: bool,
-) -> Result<()> {
-    let output = build_jj_push_command(cwd, branch, force, delete)
+fn execute_jj_push(cwd: &std::path::Path, config: &PushConfig<'_>) -> Result<()> {
+    let output = build_jj_push_command(cwd, config)
         .output()
         .map_err(Error::Io)?;
-    handle_push_output(&output, remote)
+    handle_push_output(&output, config.remote)
 }
 
 pub fn push(
@@ -283,17 +276,23 @@ pub fn push(
     let cwd = std::env::current_dir().map_err(Error::Io)?;
     let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
 
+    let force_mode = match (force, force_with_lease) {
+        (true, false) => ForceMode::Force,
+        (false, true) => ForceMode::ForceWithLease,
+        _ => ForceMode::None,
+    };
+
+    let config = PushConfig {
+        remote,
+        branch,
+        set_upstream,
+        force_mode,
+        tags,
+        delete,
+    };
+
     match vcs_type {
-        scp_core::vcs::VcsType::Git => execute_git_push(
-            &cwd,
-            remote,
-            branch,
-            set_upstream,
-            force,
-            force_with_lease,
-            tags,
-            delete,
-        ),
-        scp_core::vcs::VcsType::Jujutsu => execute_jj_push(&cwd, remote, branch, force, delete),
+        scp_core::vcs::VcsType::Git => execute_git_push(&cwd, &config),
+        scp_core::vcs::VcsType::Jujutsu => execute_jj_push(&cwd, &config),
     }
 }

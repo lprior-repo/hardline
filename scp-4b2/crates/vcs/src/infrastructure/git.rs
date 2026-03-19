@@ -65,17 +65,16 @@ fn set_commit_message(commit: Commit, message: &str) -> Commit {
 }
 
 fn attach_messages_to_commits(commits: Vec<Commit>, messages: Vec<&str>) -> Vec<Commit> {
+    let commit_count = commits.len();
     commits
         .into_iter()
-        .zip_longest(messages.into_iter())
-        .map(
-            |(commit, msg): (Commit, itertools::Either<&str, &str>)| match msg {
-                itertools::Either::Left(m) | itertools::Either::Right(Some(m)) => {
-                    set_commit_message(commit, m)
-                }
-                itertools::Either::Right(None) => commit,
-            },
-        )
+        .enumerate()
+        .map(|(idx, commit)| {
+            messages
+                .get(idx)
+                .map(|msg| set_commit_message(commit, msg))
+                .unwrap_or(commit)
+        })
         .collect()
 }
 

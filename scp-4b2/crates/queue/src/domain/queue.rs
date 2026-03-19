@@ -444,36 +444,8 @@ impl Queue {
         id: &QueueEntryId,
         new_status: QueueStatus,
     ) -> ValidationResult<Self> {
-        // Validate entry exists and transition is valid
-        self.find(id)
-            .ok_or_else(|| ValidationError::NotFound {
-                field: "entry".to_string(),
-                value: id.to_string(),
-            })
-            .and_then(|entry| entry.status.transition_to(new_status))?;
-
-        // Find position and update, properly propagating errors
-        let position = self
-            .entries
-            .iter()
-            .position(|e| &e.id == id)
-            .ok_or_else(|| ValidationError::NotFound {
-                field: "entry".to_string(),
-                value: id.to_string(),
-            })?;
-
-        let new_entries = replace_entry_at(&self.entries, position, |mut e| {
-            e.status = new_status;
-            e
-        })
-        .ok_or_else(|| ValidationError::NotFound {
-            field: "entry".to_string(),
-            value: id.to_string(),
-        })?;
-
-        Ok(Self {
-            entries: new_entries,
-        })
+        validate_status_update(self, id, new_status)
+            .and_then(|position| apply_status_update(self, position, new_status))
     }
 
     /// Remove an entry at a specific position.

@@ -147,6 +147,20 @@ fn method_to_http_method(method: &Method) -> Option<HttpMethod> {
     }
 }
 
+fn endpoint_matches(http_method: HttpMethod, path: &str, endpoint: &Endpoint) -> bool {
+    endpoint.method == http_method && endpoint.path == path
+}
+
+fn find_endpoint_by_method_and_path<'a>(
+    http_method: HttpMethod,
+    path: &str,
+    endpoints: &'a [Endpoint],
+) -> Option<&'a Endpoint> {
+    endpoints
+        .iter()
+        .find(|endpoint| endpoint_matches(http_method, path, endpoint))
+}
+
 #[derive(Debug, Error)]
 pub enum ServerError {
     #[error("Failed to parse request body: {0}")]
@@ -190,11 +204,7 @@ impl AppState {
     #[must_use]
     pub fn find_endpoint(&self, method: &Method, path: &str) -> Option<&Endpoint> {
         let http_method = method_to_http_method(method)?;
-
-        self.definition
-            .endpoints
-            .iter()
-            .find(|e| e.method == http_method && e.path == path)
+        find_endpoint_by_method_and_path(http_method, path, &self.definition.endpoints)
     }
 }
 
@@ -311,7 +321,10 @@ pub fn build_router(definition: &TwinDefinition) -> Router {
     let app_state = AppState::new(definition.clone());
 
     build_inspect_routes()
-        .merge(register_twin_endpoints(Router::new(), &definition.endpoints))
+        .merge(register_twin_endpoints(
+            Router::new(),
+            &definition.endpoints,
+        ))
         .fallback(any(not_found_handler))
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())
