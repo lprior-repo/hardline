@@ -167,7 +167,6 @@ endpoints:
         message_id: 'test-123'
 ";
 
-    #[allow(clippy::unwrap_used, clippy::expect_used)]
     #[test]
     fn test_parse_valid_yaml() {
         let def = TwinDefinition::from_yaml(VALID_YAML).unwrap();

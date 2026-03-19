@@ -48,22 +48,19 @@ fn extract_env_vars() -> Vec<(&'static str, Option<String>)> {
 }
 
 /// Formats env info for display - pure data transformation.
-fn format_env_display(version: &str, cwd: Option<&std::path::Path>, env_vars: &[(&str, Option<String>)]) -> Vec<String> {
+fn format_env_display(
+    version: &str,
+    cwd: Option<&std::path::Path>,
+    env_vars: &[(&str, Option<String>)],
+) -> Vec<String> {
     std::iter::once(format!("SCP Version: {}", version))
         .chain(cwd.map(|path| format!("CWD: {}", path.display())))
-        .chain(env_vars.iter().filter_map(|(key, val)| {
-            val.as_ref().map(|v| format!("{}: {}", key, v))
-        }))
+        .chain(
+            env_vars
+                .iter()
+                .filter_map(|(key, val)| val.as_ref().map(|v| format!("{}: {}", key, v))),
+        )
         .collect()
-}
-
-    lines.extend(
-        env_vars
-            .iter()
-            .filter_map(|(key, val)| val.as_ref().map(|v| format!("{}: {}", key, v))),
-    );
-
-    lines
 }
 
 fn env_info() -> Result<()> {
