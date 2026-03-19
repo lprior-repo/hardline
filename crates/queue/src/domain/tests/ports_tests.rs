@@ -2,9 +2,8 @@
 //! These tests verify the in-memory repository implementation.
 
 use crate::domain::identifiers::QueueEntryId;
-use crate::domain::ports::InMemoryQueueRepository;
+use crate::domain::ports::{InMemoryQueueRepository, QueueRepository};
 use crate::domain::queue::{QueueEntry, QueueStatus};
-use chrono::Utc;
 
 /// Helper to create a test entry
 fn create_test_entry(session: &str) -> QueueEntry {
