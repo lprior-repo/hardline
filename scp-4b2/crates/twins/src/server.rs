@@ -97,6 +97,39 @@ fn prepare_response_body(
     Ok((builder, body_str))
 }
 
+fn extract_request_data(
+    body_bytes: &[u8],
+    headers: &HeaderMap,
+) -> (Option<String>, HashMap<String, String>) {
+    let request_body = parse_body_bytes(body_bytes);
+    let request_headers = extract_request_headers(headers);
+    (request_body, request_headers)
+}
+
+async fn update_state(
+    state: &Arc<RwLock<InMemoryTwinState>>,
+    record: RequestRecord,
+) -> InMemoryTwinState {
+    let current_state = {
+        let guard = state.read().await;
+        guard.add_record(record)
+    };
+    let mut write_guard = state.write().await;
+    *write_guard = current_state.clone();
+    current_state
+}
+
+fn build_twin_response(
+    response: &crate::definition::EndpointResponse,
+) -> Result<Response, ServerError> {
+    let builder = build_response_headers(response.status, &response.headers)?;
+    let (builder, response_body) = prepare_response_body(builder, &response.body)?;
+    let body = Body::from(response_body);
+    builder
+        .body(body)
+        .map_err(|e| ServerError::StateError(e.to_string()))
+}
+
 fn endpoint_to_route(endpoint: &Endpoint) -> (String, HttpMethod) {
     (endpoint.path.clone(), endpoint.method)
 }
@@ -185,26 +218,11 @@ async fn twin_handler(
         .await
         .map_err(|e| ServerError::BodyParseError(e.to_string()))?;
 
-    let request_body_str = parse_body_bytes(&body_bytes);
-    let request_headers = extract_request_headers(&headers);
+    let (request_body, request_headers) = extract_request_data(&body_bytes, &headers);
+    let record = create_request_record(&method, path, request_headers, request_body, endpoint)?;
+    update_state(&state.state, record).await;
 
-    let response = &endpoint.response;
-
-    let builder = build_response_headers(response.status, &response.headers)?;
-    let (builder, response_body) = prepare_response_body(builder, &response.body)?;
-
-    let record = create_request_record(&method, path, request_headers, request_body_str, endpoint)?;
-
-    let new_state = {
-        let state_guard = state.state.read().await;
-        state_guard.add_record(record)
-    };
-    *state.state.write().await = new_state;
-
-    let body = Body::from(response_body);
-    builder
-        .body(body)
-        .map_err(|e| ServerError::StateError(e.to_string()))
+    build_twin_response(&endpoint.response)
 }
 
 async fn not_found_handler(method: Method, Path(path): Path<String>) -> impl IntoResponse {

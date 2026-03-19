@@ -20,6 +20,50 @@ use std::cmp::Ordering;
 use crate::domain::identifiers::{QueueEntryId, SessionName};
 use crate::domain::validation::{ValidationError, ValidationResult};
 
+/// Insert an entry at a specific position in a slice of entries.
+///
+/// Pure function - no mutation.
+fn insert_entry_at(entries: &[QueueEntry], position: usize, entry: QueueEntry) -> Vec<QueueEntry> {
+    let (before, after) = entries.split_at(position);
+    before
+        .iter()
+        .chain(std::iter::once(&entry))
+        .chain(after.iter())
+        .cloned()
+        .collect()
+}
+
+/// Remove an entry at a specific position, returning (new_entries, removed_entry).
+///
+/// Pure function - no mutation.
+fn remove_entry_at(
+    entries: &[QueueEntry],
+    position: usize,
+) -> Option<(Vec<QueueEntry>, QueueEntry)> {
+    let (before, after) = entries.split_at(position)?;
+    let removed = after.first()?.clone();
+    let new_entries = before.iter().chain(after.iter().skip(1)).cloned().collect();
+    Some((new_entries, removed))
+}
+
+/// Replace an entry at a specific position with a transformed version.
+///
+/// Pure function - no mutation.
+fn replace_entry_at<F>(entries: &[QueueEntry], position: usize, f: F) -> Option<Vec<QueueEntry>>
+where
+    F: FnOnce(QueueEntry) -> QueueEntry,
+{
+    let (before, after) = entries.split_at(position)?;
+    let updated = f(after.first()?.clone());
+    let new_entries = before
+        .iter()
+        .chain(std::iter::once(&updated))
+        .chain(after.iter().skip(1))
+        .cloned()
+        .collect();
+    Some(new_entries)
+}
+
 /// Maximum priority value for queue entries
 pub const MAX_PRIORITY: u32 = 100;
 
@@ -337,11 +381,8 @@ impl Queue {
             .binary_search_by_key(&priority, |e| e.priority)
             .unwrap_or_else(|pos| pos);
 
-        let mut new_entries = self.entries.clone();
-        new_entries.insert(insert_pos, entry);
-
         Self {
-            entries: new_entries,
+            entries: insert_entry_at(&self.entries, insert_pos, entry),
         }
     }
 
@@ -350,19 +391,12 @@ impl Queue {
     /// Uses functional patterns to find and remove the entry.
     #[must_use]
     pub fn dequeue(&self, id: &QueueEntryId) -> (Self, Option<QueueEntry>) {
-        match self.entries.iter().position(|e| &e.id == id) {
-            Some(idx) => {
-                let mut new_entries = self.entries.clone();
-                let removed = new_entries.remove(idx);
-                (
-                    Self {
-                        entries: new_entries,
-                    },
-                    Some(removed),
-                )
-            }
-            None => (self.clone(), None),
-        }
+        self.entries
+            .iter()
+            .position(|e| &e.id == id)
+            .and_then(|idx| remove_entry_at(&self.entries, idx))
+            .map(|(entries, removed)| (Self { entries }, Some(removed)))
+            .unwrap_or_else(|| (self.clone(), None))
     }
 
     /// Insert an entry at a specific position, returning Result<Queue, ValidationError>.
@@ -379,11 +413,8 @@ impl Queue {
             });
         }
 
-        let mut new_entries = self.entries.clone();
-        new_entries.insert(position, entry);
-
         Ok(Self {
-            entries: new_entries,
+            entries: insert_entry_at(&self.entries, position, entry),
         })
     }
 

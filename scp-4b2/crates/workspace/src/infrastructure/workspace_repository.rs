@@ -31,22 +31,6 @@ impl Default for InMemoryWorkspaceRepository {
 }
 
 // Pure calculation helpers
-fn insert_workspace_into_map(
-    workspace: Workspace,
-    map: &mut HashMap<String, Workspace>,
-) -> Workspace {
-    let id = workspace.id.as_str().to_string();
-    map.insert(id, workspace.clone());
-    workspace
-}
-
-fn remove_workspace_from_map(id: &WorkspaceId, map: &mut HashMap<String, Workspace>) -> Result<()> {
-    let key = id.as_str().to_string();
-    map.remove(&key)
-        .map(|_| ())
-        .ok_or_else(|| WorkspaceError::WorkspaceNotFound(id.as_str().into()))
-}
-
 fn find_workspace_by_name<'a>(
     map: &'a HashMap<String, Workspace>,
     name: &str,
@@ -80,8 +64,9 @@ fn lock_workspace_map(
 impl WorkspaceRepository for InMemoryWorkspaceRepository {
     fn save(&self, workspace: Workspace) -> Result<Workspace> {
         let workspace_clone = workspace.clone();
-        let mut map = lock_workspace_map(&self.workspaces);
-        Ok(insert_workspace_into_map(workspace_clone, &mut map))
+        let id_str = workspace_clone.id.as_str().to_string();
+        let _old = lock_workspace_map(&self.workspaces).insert(id_str, workspace_clone.clone());
+        Ok(workspace)
     }
 
     fn get(&self, id: &WorkspaceId) -> Result<Option<Workspace>> {
@@ -105,8 +90,11 @@ impl WorkspaceRepository for InMemoryWorkspaceRepository {
     }
 
     fn delete(&self, id: &WorkspaceId) -> Result<()> {
-        let mut map = lock_workspace_map(&self.workspaces);
-        remove_workspace_from_map(id, &mut map)
+        let key_str = id.as_str().to_string();
+        lock_workspace_map(&self.workspaces)
+            .remove(&key_str)
+            .map(|_| ())
+            .ok_or_else(|| WorkspaceError::WorkspaceNotFound(id.as_str().into()))
     }
 }
 
