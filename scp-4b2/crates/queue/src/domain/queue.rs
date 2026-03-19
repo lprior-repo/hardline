@@ -424,28 +424,31 @@ impl Queue {
             .find(|e| e.status == QueueStatus::Pending)
     }
 
+    /// Find the correct insertion position for FIFO ordering within a priority level.
+    ///
+    /// Uses binary search to find the initial position, then scans forward to find
+    /// the position after all entries with the same priority (maintaining FIFO).
+    ///
+    /// Pure function - no mutation.
+    fn find_fifo_insert_position(entries: &[QueueEntry], priority: u32) -> usize {
+        let insert_pos = entries
+            .binary_search_by_key(&priority, |e| e.priority)
+            .unwrap_or_else(|pos| pos);
+
+        entries[insert_pos..]
+            .iter()
+            .position(|e| e.priority != priority)
+            .map(|offset| insert_pos + offset)
+            .unwrap_or(entries.len())
+    }
+
     /// Add an entry to the queue, returning a new Queue.
     ///
     /// Uses binary search to maintain priority order.
     /// For equal priorities, inserts at the end to maintain FIFO order.
     #[must_use]
     pub fn enqueue(&self, entry: QueueEntry) -> Self {
-        let priority = entry.priority;
-
-        // Find initial position using binary search
-        let insert_pos = self
-            .entries
-            .binary_search_by_key(&priority, |e| e.priority)
-            .unwrap_or_else(|pos| pos);
-
-        // For equal priorities, we need to insert AFTER all entries with the same priority
-        // to maintain FIFO order. Skip past all equal-priority entries.
-        let final_pos = self.entries[insert_pos..]
-            .iter()
-            .position(|e| e.priority != priority)
-            .map(|offset| insert_pos + offset)
-            .unwrap_or(self.entries.len());
-
+        let final_pos = find_fifo_insert_position(&self.entries, entry.priority);
         Self {
             entries: insert_entry_at(&self.entries, final_pos, &entry),
         }

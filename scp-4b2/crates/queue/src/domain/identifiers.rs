@@ -67,22 +67,8 @@ impl SessionName {
     /// - The name is empty after trimming
     /// - The name contains shell metacharacters
     pub fn new(name: impl Into<String>) -> ValidationResult<Self> {
-        let name = name.into();
-        let trimmed = name.trim();
-
-        if trimmed.is_empty() {
-            return Err(ValidationError::EmptyValue("SessionName".to_string()));
-        }
-
-        for c in SHELL_METACHARACTERS.chars() {
-            if trimmed.contains(c) {
-                return Err(ValidationError::InvalidCharacters {
-                    field: "SessionName".to_string(),
-                    found: c.to_string(),
-                });
-            }
-        }
-
+        let trimmed = name.into().trim();
+        Self::validate(trimmed)?;
         Ok(Self(trimmed.to_string()))
     }
 
@@ -97,16 +83,15 @@ impl SessionName {
             return Err(ValidationError::EmptyValue("SessionName".to_string()));
         }
 
-        for c in SHELL_METACHARACTERS.chars() {
-            if trimmed.contains(c) {
-                return Err(ValidationError::InvalidCharacters {
+        SHELL_METACHARACTERS
+            .chars()
+            .find(|&c| trimmed.contains(c))
+            .map_or(Ok(()), |found| {
+                Err(ValidationError::InvalidCharacters {
                     field: "SessionName".to_string(),
-                    found: c.to_string(),
-                });
-            }
-        }
-
-        Ok(())
+                    found: found.to_string(),
+                })
+            })
     }
 
     /// Get the session name as a string slice.
