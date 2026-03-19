@@ -22,11 +22,13 @@ fn get_config_file() -> Result<PathBuf> {
 /// Parse a single TOML config line into an optional key-value pair
 fn parse_config_line(line: &str) -> Option<(String, String)> {
     let trimmed = line.trim();
-    (trimmed.is_empty() || trimmed.starts_with('#'))
-        .not()
-        .then(|| ())
-        .and_then(|()| trimmed.split_once('='))
-        .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
+    if trimmed.is_empty() || trimmed.starts_with('#') {
+        None
+    } else {
+        trimmed
+            .split_once('=')
+            .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
+    }
 }
 
 /// Parse config file contents into a HashTrieMap
@@ -36,30 +38,26 @@ fn parse_config_contents(contents: &str) -> HashTrieMap<String, String> {
 
 /// Load config from file
 fn load_config() -> Result<HashTrieMap<String, String>> {
-    get_config_file()
-        .and_then(|config_file| {
-            config_file
-                .exists()
-                .then_some(config_file)
-                .map(|_| fs::read_to_string(&config_file).map_err(|e| Error::Io(e)))
-                .unwrap_or_else(|| Ok(String::new()))
-        })
-        .map(parse_config_contents)
+    let config_file = get_config_file()?;
+    if config_file.exists() {
+        let contents = fs::read_to_string(&config_file).map_err(Error::Io)?;
+        Ok(parse_config_contents(&contents))
+    } else {
+        Ok(HashTrieMap::new())
+    }
 }
 
 /// Save config to file
 fn save_config(config: &HashTrieMap<String, String>) -> Result<()> {
-    get_config_file().and_then(|config_file| {
-        config_file
-            .parent()
-            .map(|parent| fs::create_dir_all(parent).map_err(|e| Error::Io(e)))
-            .unwrap_or_else(|| Ok(()))?;
-        let contents = ["# SCP Configuration", ""]
-            .iter()
-            .chain(config.iter().map(|(k, v)| format!("{} = {}", k, v)))
-            .join("\n");
-        fs::write(&config_file, contents).map_err(|e| Error::Io(e))
-    })
+    let config_file = get_config_file()?;
+    if let Some(parent) = config_file.parent() {
+        fs::create_dir_all(parent).map_err(Error::Io)?;
+    }
+    let mut contents = String::from("# SCP Configuration\n\n");
+    for (k, v) in config.iter() {
+        contents.push_str(&format!("{} = {}\n", k, v));
+    }
+    fs::write(&config_file, contents).map_err(Error::Io)
 }
 
 /// Get config value
