@@ -12,22 +12,24 @@ fn build_git_tag_create_command(
     force: bool,
 ) -> Command {
     let commit_ref = commit.unwrap_or_else(|| "HEAD");
-    let tag_args = if force {
-        vec!["tag", "-f", name, commit_ref]
-    } else {
-        vec!["tag", name, commit_ref]
-    };
+    let mut cmd = Command::new("git");
+    cmd.arg("tag");
 
-    Command::new("git")
-        .args(&tag_args)
-        .pipe(|cmd| {
-            message.map_or(cmd, |msg| {
-                Command::new("git")
-                    .args(["tag", "-a", name, "-m", msg])
-                    .current_dir(cwd)
-            })
-        })
-        .current_dir(cwd)
+    if force {
+        cmd.arg("-f");
+    }
+
+    match message {
+        Some(msg) => {
+            cmd.args(["-a", name, "-m", msg]);
+        }
+        None => {
+            cmd.arg(name).arg(commit_ref);
+        }
+    }
+
+    cmd.current_dir(cwd);
+    cmd
 }
 
 fn build_git_tag_list_command(
@@ -36,21 +38,15 @@ fn build_git_tag_list_command(
     sort: Option<&str>,
 ) -> Command {
     let mut cmd = Command::new("git");
-    cmd.arg("tag");
+    cmd.arg("tag").arg("-l");
 
-    if pattern.is_some() {
-        cmd.arg("-l");
-    } else {
-        cmd.arg("-l");
-    }
-
-    if let Some(pat) = pattern {
+    pattern.iter().for_each(|pat| {
         cmd.arg(pat);
-    }
+    });
 
-    if let Some(sort_key) = sort {
+    sort.iter().for_each(|sort_key| {
         cmd.args(["--sort", sort_key]);
-    }
+    });
 
     cmd.current_dir(cwd);
     cmd
@@ -104,21 +100,31 @@ fn validate_git_vcs(cwd: &std::path::Path) -> Result<()> {
         })
 }
 
+/// Extracts stderr from command output as a formatted string.
+fn extract_stderr(output: &std::process::Output) -> String {
+    String::from_utf8_lossy(&output.stderr).to_string()
+}
+
 /// Processes command output, printing success message or returning error.
 fn process_command_output(output: &std::process::Output, context: &str) -> Result<()> {
-    output.status.success().then(|| ()).ok_or_else(|| {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Error::VcsConflict(context.to_string(), stderr.to_string())
-    })
+    output
+        .status
+        .success()
+        .then_some(())
+        .ok_or_else(|| Error::VcsConflict(context.to_string(), extract_stderr(output)))
+}
+
+fn format_success_message(prefix: &str, name: &str) -> String {
+    format!("{}: {}", prefix, name)
 }
 
 /// Prints tags to stdout, or info message if none found.
 fn print_tags(stdout: &str) {
-    if stdout.trim().is_empty() {
-        Output::info("No tags found");
-    } else {
-        print!("{}", stdout);
-    }
+    stdout
+        .trim()
+        .is_empty()
+        .then(|| Output::info("No tags found"))
+        .unwrap_or_else(|| print!("{}", stdout));
 }
 
 pub fn create(name: &str, message: Option<&str>, commit: Option<&str>, force: bool) -> Result<()> {
@@ -130,7 +136,7 @@ pub fn create(name: &str, message: Option<&str>, commit: Option<&str>, force: bo
         .map_err(Error::Io)?;
 
     process_command_output(&output, "git tag")?;
-    Output::success(&format!("Created tag: {}", name));
+    Output::success(&format_success_message("Created tag", name));
     Ok(())
 }
 
@@ -161,7 +167,10 @@ pub fn delete(tag: &str, remote: bool) -> Result<()> {
 
     process_command_output(&output, "git tag delete")?;
     let scope = if remote { "remote" } else { "local" };
-    Output::success(&format!("Deleted {} tag: {}", scope, tag));
+    Output::success(&format_success_message(
+        &format!("Deleted {} tag", scope),
+        tag,
+    ));
     Ok(())
 }
 
@@ -169,18 +178,19 @@ pub fn push(tag: Option<&str>, remote: &str, force: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
     validate_git_vcs(&cwd)?;
 
-    let output = match tag {
+    let mut cmd = match tag {
         Some(t) => build_git_tag_push_command(&cwd, remote, t, force),
         None => build_git_tag_push_all_command(&cwd, remote, force),
-    }
-    .output()
-    .map_err(Error::Io)?;
+    };
 
-    if output.status.success() {
-        Output::success(&format!("Pushed tags to {}", remote));
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(Error::VcsPushFailed(stderr.to_string()))
-    }
+    let output = cmd.output().map_err(Error::Io)?;
+
+    output
+        .status
+        .success()
+        .then_some(())
+        .ok_or_else(|| Error::VcsPushFailed(extract_stderr(&output)))?;
+
+    Output::success(&format_success_message("Pushed tags to", remote));
+    Ok(())
 }
