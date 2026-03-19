@@ -4,10 +4,10 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
-pub mod views;
-pub mod input;
 pub mod app;
 pub mod error;
+pub mod input;
+pub mod views;
 
 pub use app::TuiApp;
-pub use error::{TuiError, Result};
+pub use error::{Result, TuiError};
