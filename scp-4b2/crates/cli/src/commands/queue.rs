@@ -66,6 +66,29 @@ pub fn dequeue() -> Result<()> {
     }
 }
 
+/// Pure calculation: transition item to processing state
+fn transition_to_processing(item: &QueueItem) -> QueueItem {
+    let mut item = item.clone();
+    item.start_processing();
+    item
+}
+
+/// Pure calculation: transition item to complete state
+fn transition_to_complete(item: &QueueItem) -> QueueItem {
+    let mut item = item.clone();
+    item.complete();
+    item
+}
+
+/// Pure I/O: run checks if enabled, returns branch name for logging
+fn run_checks(checks: bool, _branch: &str) {
+    if checks {
+        println!("  Running pre-flight checks...");
+        // TODO: Run actual checks
+        println!("  ✓ Checks passed");
+    }
+}
+
 /// Process next item in queue
 pub fn process(checks: bool) -> Result<()> {
     let queue = get_queue();
@@ -74,27 +97,18 @@ pub fn process(checks: bool) -> Result<()> {
     let lock = Arc::new(MemLockManager::new()) as Arc<dyn LockManager>;
     let _guard = lock.acquire(LockType::Queue("default".into()), "scp")?;
 
-    let mut item = match queue.dequeue()? {
-        Some(i) => i,
-        None => return Err(scp_core::Error::QueueEmpty),
-    };
+    let item = queue.dequeue()?.ok_or(scp_core::Error::QueueEmpty)?;
 
     println!("Processing '{}'...", item.branch);
 
-    if checks {
-        println!("  Running pre-flight checks...");
-        // TODO: Run actual checks
-        println!("  ✓ Checks passed");
-    }
+    run_checks(checks, &item.branch);
 
-    // Mark as processing
-    item.start_processing();
+    let item = transition_to_processing(&item);
     queue.update(item.clone())?;
 
     // TODO: Actually merge/push
 
-    // Mark complete
-    item.complete();
+    let item = transition_to_complete(&item);
     queue.update(item.clone())?;
 
     println!("✓ Processed '{}'", item.branch);
