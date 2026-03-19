@@ -47,24 +47,33 @@ impl InMemoryQueueRepository {
     fn enqueue_impl(&self, entry: QueueEntry) -> Result<QueueEntry> {
         let position = calculate_enqueue_position(self.entries.len());
         let positioned_entry = assign_position_to_entry(entry, position);
-        let mut entries = self.entries.clone();
-        entries.push_back(positioned_entry.clone());
+        let entries: VecDeque<QueueEntry> = self
+            .entries
+            .iter()
+            .cloned()
+            .chain(std::iter::once(positioned_entry.clone()))
+            .collect();
         Ok(positioned_entry)
     }
 
     fn dequeue_impl(&self) -> Result<Option<QueueEntry>> {
-        let entries_vec: Vec<QueueEntry> = self.entries.iter().cloned().collect();
-        let first_pending_index = entries_vec.iter().position(is_pending_for_dequeue);
+        let first_pending_index = self.entries.iter().position(is_pending_for_dequeue);
 
-        match first_pending_index {
-            Some(idx) => {
-                let mut entries = self.entries.clone();
-                entries.remove(idx);
-                let entry = entries_vec.get(idx).cloned();
-                Ok(entry)
-            }
-            None => Ok(None),
-        }
+        first_pending_index
+            .map(|idx| {
+                let entry = self.entries.get(idx).cloned();
+                let entries: VecDeque<QueueEntry> = self
+                    .entries
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| *i != idx)
+                    .map(|(_, e)| e)
+                    .cloned()
+                    .collect();
+                entry
+            })
+            .ok_or(())
+            .transpose()
     }
 
     fn get_impl(&self, id: &QueueEntryId) -> Result<Option<QueueEntry>> {
@@ -75,8 +84,12 @@ impl InMemoryQueueRepository {
         let entries_slice: Vec<QueueEntry> = self.entries.iter().cloned().collect();
         find_entry_index_by_id(&entries_slice, &entry.id)
             .map(|pos| {
-                let mut entries = self.entries.clone();
-                entries[pos] = entry.clone();
+                let entries: VecDeque<QueueEntry> = self
+                    .entries
+                    .iter()
+                    .enumerate()
+                    .map(|(i, e)| if i == pos { entry.clone() } else { e.clone() })
+                    .collect();
                 entry
             })
             .ok_or_else(|| QueueError::QueueEntryNotFound(entry.id.as_str().into()))

@@ -282,28 +282,36 @@ async fn clear_state(State(state): State<AppState>) -> impl IntoResponse {
     (StatusCode::OK, r#"{"status":"cleared"}"#)
 }
 
-pub fn build_router(definition: &TwinDefinition) -> Router {
-    let base_router = Router::new()
+fn build_inspect_routes() -> Router {
+    Router::new()
         .route("/_inspect/state", get(inspect_state))
         .route("/_inspect/requests", get(inspect_requests))
-        .route("/_inspect/clear", post(clear_state));
+        .route("/_inspect/clear", post(clear_state))
+}
 
-    let twin_router = definition.endpoints.iter().map(endpoint_to_route).fold(
-        base_router,
-        |router, (path, method)| match method {
-            HttpMethod::GET => router.route(&path, get(twin_handler)),
-            HttpMethod::POST => router.route(&path, post(twin_handler)),
-            HttpMethod::PUT => router.route(&path, put(twin_handler)),
-            HttpMethod::DELETE => router.route(&path, delete(twin_handler)),
-            HttpMethod::PATCH => router.route(&path, patch(twin_handler)),
-            HttpMethod::OPTIONS => router.route(&path, options(twin_handler)),
-            HttpMethod::HEAD => router.route(&path, head(twin_handler)),
-        },
-    );
+fn register_twin_endpoints(router: Router, endpoints: &[Endpoint]) -> Router {
+    endpoints
+        .iter()
+        .map(endpoint_to_route)
+        .fold(router, |r, (path, method)| {
+            let r = match method {
+                HttpMethod::GET => r.route(&path, get(twin_handler)),
+                HttpMethod::POST => r.route(&path, post(twin_handler)),
+                HttpMethod::PUT => r.route(&path, put(twin_handler)),
+                HttpMethod::DELETE => r.route(&path, delete(twin_handler)),
+                HttpMethod::PATCH => r.route(&path, patch(twin_handler)),
+                HttpMethod::OPTIONS => r.route(&path, options(twin_handler)),
+                HttpMethod::HEAD => r.route(&path, head(twin_handler)),
+            };
+            r
+        })
+}
 
+pub fn build_router(definition: &TwinDefinition) -> Router {
     let app_state = AppState::new(definition.clone());
 
-    twin_router
+    build_inspect_routes()
+        .merge(register_twin_endpoints(Router::new(), &definition.endpoints))
         .fallback(any(not_found_handler))
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())

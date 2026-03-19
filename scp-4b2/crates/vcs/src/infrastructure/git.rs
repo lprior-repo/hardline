@@ -53,6 +53,38 @@ fn parse_git_log_entry(line: &str) -> Option<Commit> {
     })
 }
 
+fn parse_log_message(line: &str) -> Option<&str> {
+    line.starts_with("    ").then(|| line.trim())
+}
+
+fn set_commit_message(commit: Commit, message: &str) -> Commit {
+    Commit {
+        message: message.to_string(),
+        ..commit
+    }
+}
+
+fn attach_messages_to_commits(commits: Vec<Commit>, messages: Vec<&str>) -> Vec<Commit> {
+    commits
+        .into_iter()
+        .zip_longest(messages.into_iter())
+        .map(
+            |(commit, msg): (Commit, itertools::Either<&str, &str>)| match msg {
+                itertools::Either::Left(m) | itertools::Either::Right(Some(m)) => {
+                    set_commit_message(commit, m)
+                }
+                itertools::Either::Right(None) => commit,
+            },
+        )
+        .collect()
+}
+
+fn parse_git_log_output(stdout: &str) -> Vec<Commit> {
+    let commits: Vec<Commit> = stdout.lines().filter_map(parse_git_log_entry).collect();
+    let messages: Vec<&str> = stdout.lines().filter_map(parse_log_message).collect();
+    attach_messages_to_commits(commits, messages)
+}
+
 fn classify_vcs_status(stdout: &str) -> VcsStatus {
     if stdout.is_empty() {
         VcsStatus::Clean
@@ -168,22 +200,7 @@ impl VcsBackend for GitBackend {
 
     fn log(&self, limit: usize) -> Result<Vec<Commit>> {
         self.run_git(&["log", &format!("-n{}", limit)])
-            .map(|output| {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let commits: Vec<Commit> = stdout.lines().filter_map(parse_git_log_entry).collect();
-                let messages: Vec<&str> = stdout
-                    .lines()
-                    .filter(|line| line.starts_with("    "))
-                    .map(|line| line.trim())
-                    .collect();
-                messages.into_iter().fold(commits, |acc, msg| {
-                    let mut result = acc;
-                    if let Some(last) = result.last_mut() {
-                        last.message = msg.to_string();
-                    }
-                    result
-                })
-            })
+            .map(|output| parse_git_log_output(&String::from_utf8_lossy(&output.stdout)))
     }
 
     fn status(&self) -> Result<VcsStatus> {
