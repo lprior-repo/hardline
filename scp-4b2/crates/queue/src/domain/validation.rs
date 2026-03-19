@@ -182,14 +182,16 @@ pub fn validate_range(value: u32, min: u32, max: u32, field: &str) -> Validation
 
 /// Railway combinator: Chain multiple validations, returning the first error
 pub fn validate_all<T>(results: Vec<ValidationResult<T>>) -> ValidationResult<Vec<T>> {
-    let mut ok_values = Vec::with_capacity(results.len());
+    // Collect all successful values, fail fast on first error
+    // Uses early return pattern for error short-circuiting
+    let mut values = Vec::with_capacity(results.len());
     for result in results {
         match result {
-            Ok(value) => ok_values.push(value),
+            Ok(v) => values.push(v),
             Err(e) => return Err(e),
         }
     }
-    Ok(ok_values)
+    Ok(values)
 }
 
 #[cfg(test)]
