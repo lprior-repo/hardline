@@ -770,7 +770,6 @@ mod tests {
 
         if let Ok(guard) = result {
             assert_eq!(guard.path, temp_dir);
-        } else {
         }
     }
 

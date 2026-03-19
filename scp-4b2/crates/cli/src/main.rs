@@ -520,18 +520,16 @@ fn main() -> ExitCode {
     Output::set_verbose(cli.verbose, cli.quiet);
 
     let log_level = determine_log_level(cli.quiet, cli.verbose);
-    setup_tracing(&log_level);
+    setup_tracing(log_level);
 
     run_command(cli).map_or_else(handle_error, |()| ExitCode::SUCCESS)
 }
 
-fn determine_log_level(quiet: bool, verbose: bool) -> String {
-    if quiet {
-        "error".to_string()
-    } else if verbose {
-        "debug".to_string()
-    } else {
-        "info".to_string()
+fn determine_log_level(quiet: bool, verbose: bool) -> &'static str {
+    match (quiet, verbose) {
+        (true, _) => "error",
+        (_, true) => "debug",
+        _ => "info",
     }
 }
 

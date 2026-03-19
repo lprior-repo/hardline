@@ -1,6 +1,5 @@
 //! Config commands
 
-use itertools::Itertools;
 use rpds::HashTrieMap;
 use scp_core::{Error, Result};
 use std::fs;

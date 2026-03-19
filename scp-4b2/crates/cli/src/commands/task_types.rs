@@ -9,8 +9,6 @@ use chrono::{DateTime, Utc};
 pub enum TaskState {
     Open,
     InProgress,
-    Blocked,
-    Deferred,
     Closed { closed_at: DateTime<Utc> },
 }
 

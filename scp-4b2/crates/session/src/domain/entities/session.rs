@@ -23,23 +23,16 @@ impl SessionState {
 
     pub fn transition_to(&self, new: Self) -> Result<Self, SessionError> {
         let current = self.clone();
-        match (current, new.clone()) {
-            (Self::Created, Self::Active) => Ok(new),
-            (Self::Created, Self::Failed) => Ok(new),
-            (Self::Active, Self::Syncing) => Ok(new),
-            (Self::Active, Self::Paused) => Ok(new),
-            (Self::Active, Self::Failed) => Ok(new),
-            (Self::Syncing, Self::Synced) => Ok(new),
-            (Self::Syncing, Self::Failed) => Ok(new),
-            (Self::Synced, Self::Active) => Ok(new),
-            (Self::Synced, Self::Completed) => Ok(new),
-            (Self::Paused, Self::Active) => Ok(new),
-            (Self::Paused, Self::Failed) => Ok(new),
-            (a, b) if a == b => Ok(b),
-            (a, b) => Err(SessionError::InvalidTransition {
-                from: format!("{:?}", a),
-                to: format!("{:?}", b),
-            }),
+        if current == new {
+            return Ok(new);
+        }
+        if is_valid_state_transition(&current, &new) {
+            Ok(new)
+        } else {
+            Err(SessionError::InvalidTransition {
+                from: state_name(&current),
+                to: state_name(&new),
+            })
         }
     }
 }
@@ -186,26 +179,50 @@ impl Session {
     }
 }
 
+fn is_valid_state_transition(from: &SessionState, to: &SessionState) -> bool {
+    matches!(
+        (from, to),
+        (SessionState::Created, SessionState::Active)
+            | (SessionState::Created, SessionState::Failed)
+            | (SessionState::Active, SessionState::Syncing)
+            | (SessionState::Active, SessionState::Paused)
+            | (SessionState::Active, SessionState::Failed)
+            | (SessionState::Syncing, SessionState::Synced)
+            | (SessionState::Syncing, SessionState::Failed)
+            | (SessionState::Synced, SessionState::Active)
+            | (SessionState::Synced, SessionState::Completed)
+            | (SessionState::Paused, SessionState::Active)
+            | (SessionState::Paused, SessionState::Failed)
+    )
+}
+
+fn state_name(state: &SessionState) -> String {
+    format!("{:?}", state)
+}
+
 fn calculate_transition_state(
     current_state: &SessionState,
     event: &SessionEvent,
 ) -> Result<SessionState, SessionError> {
-    match (current_state, event) {
-        (SessionState::Created, SessionEvent::Activated) => Ok(SessionState::Active),
-        (SessionState::Active, SessionEvent::Syncing) => Ok(SessionState::Syncing),
-        (SessionState::Active, SessionEvent::Paused) => Ok(SessionState::Paused),
-        (SessionState::Active, SessionEvent::Failed) => Ok(SessionState::Failed),
-        (SessionState::Syncing, SessionEvent::Synced) => Ok(SessionState::Synced),
-        (SessionState::Syncing, SessionEvent::Failed) => Ok(SessionState::Failed),
-        (SessionState::Synced, SessionEvent::Activated) => Ok(SessionState::Active),
-        (SessionState::Synced, SessionEvent::Completed) => Ok(SessionState::Completed),
-        (SessionState::Paused, SessionEvent::Activated) => Ok(SessionState::Active),
-        (SessionState::Paused, SessionEvent::Failed) => Ok(SessionState::Failed),
-        (a, b) => Err(SessionError::InvalidTransition {
-            from: format!("{:?}", a),
-            to: format!("{:?}", b),
-        }),
-    }
+    let next = match (current_state, event) {
+        (SessionState::Created, SessionEvent::Activated) => SessionState::Active,
+        (SessionState::Active, SessionEvent::Syncing) => SessionState::Syncing,
+        (SessionState::Active, SessionEvent::Paused) => SessionState::Paused,
+        (SessionState::Active, SessionEvent::Failed) => SessionState::Failed,
+        (SessionState::Syncing, SessionEvent::Synced) => SessionState::Synced,
+        (SessionState::Syncing, SessionEvent::Failed) => SessionState::Failed,
+        (SessionState::Synced, SessionEvent::Activated) => SessionState::Active,
+        (SessionState::Synced, SessionEvent::Completed) => SessionState::Completed,
+        (SessionState::Paused, SessionEvent::Activated) => SessionState::Active,
+        (SessionState::Paused, SessionEvent::Failed) => SessionState::Failed,
+        (a, b) => {
+            return Err(SessionError::InvalidTransition {
+                from: state_name(a),
+                to: format!("{:?}", b),
+            });
+        }
+    };
+    Ok(next)
 }
 
 #[cfg(test)]

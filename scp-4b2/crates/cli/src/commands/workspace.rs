@@ -418,6 +418,7 @@ pub fn merge(name: &str) -> Result<()> {
 }
 
 /// Switch to next workspace (alphabetically)
+#[allow(dead_code)]
 pub fn next() -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
 
@@ -462,6 +463,7 @@ pub fn next() -> Result<()> {
 }
 
 /// Switch to previous workspace (alphabetically)
+#[allow(dead_code)]
 pub fn prev() -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
 

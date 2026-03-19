@@ -141,14 +141,6 @@ fn given_state_when_copy_then_independent() {
 }
 
 #[test]
-#[allow(dead_code)]
-fn given_state_when_copy_then_independent() {
-    let state1 = SessionState::Failed;
-    let state2 = state1;
-    assert_eq!(state1, state2);
-}
-
-#[test]
 fn given_state_when_debug_format_then_no_panic() {
     let state = SessionState::Synced;
     let debug_str = format!("{:?}", state);

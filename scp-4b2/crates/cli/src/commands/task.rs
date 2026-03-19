@@ -2,7 +2,7 @@
 //!
 //! Provides task management commands: list, show, claim, yield, start, done
 
-use crate::commands::task_types::{Task, TaskState};
+use crate::commands::task_types::Task;
 use crate::commands::task_validation::{
     acquire_task_lock, transition_to_claimed, transition_to_done, transition_to_started,
     transition_to_yielded, validate_claimed_by_user, validate_not_claimed_by_other,

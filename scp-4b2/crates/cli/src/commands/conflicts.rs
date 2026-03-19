@@ -1,6 +1,6 @@
 //! Conflict resolution commands
 
-use scp_core::vcs::{VcsBackend, VcsStatus};
+use scp_core::vcs::VcsStatus;
 use scp_core::{Error, Result};
 
 /// Pure calculation: formats the human-readable status message

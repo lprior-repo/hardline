@@ -1,4 +1,5 @@
 use crate::domain::entities::{QueueEntry, QueueEntryId, QueueStatus};
+use crate::domain::value_objects::QueuePosition;
 use crate::error::{QueueError, Result};
 use std::collections::VecDeque;
 
@@ -12,6 +13,27 @@ pub trait QueueRepository: Send + Sync {
     fn remove(&self, id: &QueueEntryId) -> Result<()>;
 }
 
+// Pure calculation: determine position for new entry
+fn calculate_enqueue_position(current_len: usize) -> QueuePosition {
+    QueuePosition::new(current_len)
+}
+
+// Pure calculation: create entry with assigned position
+fn assign_position_to_entry(mut entry: QueueEntry, position: QueuePosition) -> QueueEntry {
+    entry.position = position;
+    entry
+}
+
+// Pure calculation: check if entry is pending dequeue
+fn is_pending_for_dequeue(entry: &QueueEntry) -> bool {
+    entry.status == QueueStatus::Pending
+}
+
+// Pure calculation: find index of entry by id
+fn find_entry_index_by_id(entries: &[QueueEntry], id: &QueueEntryId) -> Option<usize> {
+    entries.iter().position(|e| &e.id == id)
+}
+
 pub struct InMemoryQueueRepository {
     entries: VecDeque<QueueEntry>,
 }
@@ -21,6 +43,67 @@ impl InMemoryQueueRepository {
         Self {
             entries: VecDeque::new(),
         }
+    }
+
+    fn enqueue_impl(&self, entry: QueueEntry) -> Result<QueueEntry> {
+        let position = calculate_enqueue_position(self.entries.len());
+        let positioned_entry = assign_position_to_entry(entry, position);
+        let mut entries = self.entries.clone();
+        entries.push_back(positioned_entry.clone());
+        Ok(positioned_entry)
+    }
+
+    fn dequeue_impl(&self) -> Result<Option<QueueEntry>> {
+        let entries_vec: Vec<QueueEntry> = self.entries.iter().cloned().collect();
+        let first_pending_index = entries_vec.iter().position(is_pending_for_dequeue);
+
+        match first_pending_index {
+            Some(idx) => {
+                let mut entries = self.entries.clone();
+                entries.remove(idx);
+                let entry = entries_vec.get(idx).cloned();
+                Ok(entry)
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn get_impl(&self, id: &QueueEntryId) -> Result<Option<QueueEntry>> {
+        Ok(self.entries.iter().find(|e| &e.id == id).cloned())
+    }
+
+    fn update_impl(&self, entry: QueueEntry) -> Result<QueueEntry> {
+        let entries_slice: Vec<QueueEntry> = self.entries.iter().cloned().collect();
+        find_entry_index_by_id(&entries_slice, &entry.id)
+            .map(|pos| {
+                let mut entries = self.entries.clone();
+                entries[pos] = entry.clone();
+                entry
+            })
+            .ok_or_else(|| QueueError::QueueEntryNotFound(entry.id.as_str().into()))
+    }
+
+    fn list_pending_impl(&self) -> Result<Vec<QueueEntry>> {
+        Ok(self
+            .entries
+            .iter()
+            .filter(|e| is_pending_for_dequeue(e))
+            .cloned()
+            .collect())
+    }
+
+    fn list_all_impl(&self) -> Result<Vec<QueueEntry>> {
+        Ok(self.entries.iter().cloned().collect())
+    }
+
+    fn remove_impl(&self, id: &QueueEntryId) -> Result<()> {
+        let entries_slice: Vec<QueueEntry> = self.entries.iter().cloned().collect();
+        find_entry_index_by_id(&entries_slice, id)
+            .map(|pos| {
+                let mut entries = self.entries.clone();
+                entries.remove(pos);
+            })
+            .ok_or_else(|| QueueError::QueueEntryNotFound(id.as_str().into()))
     }
 }
 
@@ -32,64 +115,31 @@ impl Default for InMemoryQueueRepository {
 
 impl QueueRepository for InMemoryQueueRepository {
     fn enqueue(&self, entry: QueueEntry) -> Result<QueueEntry> {
-        let mut entries = self.entries.clone();
-        let position = entries.len();
-        let entry = QueueEntry {
-            position: crate::domain::value_objects::QueuePosition::new(position),
-            ..entry
-        };
-        entries.push_back(entry.clone());
-        Ok(entry)
+        self.enqueue_impl(entry)
     }
 
     fn dequeue(&self) -> Result<Option<QueueEntry>> {
-        let mut entries = self.entries.clone();
-        if let Some(entry) = entries.pop_front() {
-            if entry.status == QueueStatus::Pending {
-                Ok(Some(entry))
-            } else {
-                Ok(None)
-            }
-        } else {
-            Ok(None)
-        }
+        self.dequeue_impl()
     }
 
     fn get(&self, id: &QueueEntryId) -> Result<Option<QueueEntry>> {
-        Ok(self.entries.iter().find(|e| &e.id == id).cloned())
+        self.get_impl(id)
     }
 
     fn update(&self, entry: QueueEntry) -> Result<QueueEntry> {
-        let mut entries = self.entries.clone();
-        if let Some(pos) = entries.iter().position(|e| e.id == entry.id) {
-            entries[pos] = entry.clone();
-            Ok(entry)
-        } else {
-            Err(QueueError::QueueEntryNotFound(entry.id.as_str().into()))
-        }
+        self.update_impl(entry)
     }
 
     fn list_pending(&self) -> Result<Vec<QueueEntry>> {
-        Ok(self
-            .entries
-            .iter()
-            .filter(|e| e.status == QueueStatus::Pending)
-            .cloned()
-            .collect())
+        self.list_pending_impl()
     }
 
     fn list_all(&self) -> Result<Vec<QueueEntry>> {
-        Ok(self.entries.iter().cloned().collect())
+        self.list_all_impl()
     }
 
     fn remove(&self, id: &QueueEntryId) -> Result<()> {
-        let mut entries = self.entries.clone();
-        if let Some(pos) = entries.iter().position(|e| &e.id == id) {
-            entries.remove(pos);
-            Ok(())
-        } else {
-            Err(QueueError::QueueEntryNotFound(id.as_str().into()))
-        }
+        self.remove_impl(id)
     }
 }
 
@@ -102,27 +152,29 @@ mod tests {
     fn in_memory_repo_enqueue_and_dequeue() {
         let repo = InMemoryQueueRepository::new();
         let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default());
-        let enqueued = repo.enqueue(entry).unwrap();
-        let dequeued = repo.dequeue().unwrap();
+        let enqueued = repo.enqueue(entry).expect("enqueue should succeed");
+        let dequeued = repo.dequeue().expect("dequeue should succeed");
         assert!(dequeued.is_some());
+        assert_eq!(dequeued.map(|e| e.id), Some(enqueued.id));
     }
 
     #[test]
     fn in_memory_repo_get_returns_entry() {
         let repo = InMemoryQueueRepository::new();
         let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default());
-        let enqueued = repo.enqueue(entry).unwrap();
-        let found = repo.get(&enqueued.id).unwrap();
+        let enqueued = repo.enqueue(entry).expect("enqueue should succeed");
+        let found = repo.get(&enqueued.id).expect("get should succeed");
         assert!(found.is_some());
+        assert_eq!(found.map(|e| e.id), Some(enqueued.id));
     }
 
     #[test]
     fn in_memory_repo_remove_deletes_entry() {
         let repo = InMemoryQueueRepository::new();
         let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default());
-        let enqueued = repo.enqueue(entry).unwrap();
-        repo.remove(&enqueued.id).unwrap();
-        let found = repo.get(&enqueued.id).unwrap();
+        let enqueued = repo.enqueue(entry).expect("enqueue should succeed");
+        repo.remove(&enqueued.id).expect("remove should succeed");
+        let found = repo.get(&enqueued.id).expect("get should succeed");
         assert!(found.is_none());
     }
 }

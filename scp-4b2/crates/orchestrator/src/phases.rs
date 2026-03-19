@@ -510,6 +510,7 @@ impl PipelineExecutor {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use tempfile::TempDir;
 
