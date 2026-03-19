@@ -22,6 +22,33 @@ pub fn list() -> Result<()> {
     Ok(())
 }
 
+/// Convert VcsStatus to a human-readable string (pure function)
+const fn vcs_status_to_str(status: scp_core::vcs::VcsStatus) -> &'static str {
+    match status {
+        scp_core::vcs::VcsStatus::Clean => "clean",
+        scp_core::vcs::VcsStatus::Dirty => "dirty",
+        scp_core::vcs::VcsStatus::Conflicted => "conflicted",
+        scp_core::vcs::VcsStatus::Detached => "detached",
+    }
+}
+
+/// Extract the first line from a commit message (pure function)
+fn first_commit_line(message: &str) -> String {
+    message.lines().next().map(String::from).unwrap_or_default()
+}
+
+/// Format a single commit for display (pure function)
+fn format_commit(commit: &scp_core::vcs::Commit) -> (String, String) {
+    let id = commit.id.chars().take(8).collect::<String>();
+    let msg = first_commit_line(&commit.message);
+    (id, msg)
+}
+
+/// Format recent commits for display (pure function)
+fn format_recent_commits(log: &[scp_core::vcs::Commit], limit: usize) -> Vec<(String, String)> {
+    log.iter().take(limit).map(format_commit).collect()
+}
+
 /// Show session status
 pub fn status() -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| scp_core::Error::Io(e))?;
@@ -30,25 +57,20 @@ pub fn status() -> Result<()> {
 
     let branch = backend.current_branch()?;
     let vcs_status = backend.status()?;
-
-    let state = match vcs_status {
-        scp_core::vcs::VcsStatus::Clean => "clean",
-        scp_core::vcs::VcsStatus::Dirty => "dirty",
-        scp_core::vcs::VcsStatus::Conflicted => "conflicted",
-        scp_core::vcs::VcsStatus::Detached => "detached",
-    };
+    let state = vcs_status_to_str(vcs_status);
 
     println!("Session Status:");
     println!("  Branch: {}", branch);
     println!("  State: {}", state);
 
     let log = backend.log(5)?;
-    if !log.is_empty() {
+    let recent = format_recent_commits(&log, 3);
+    if !recent.is_empty() {
         println!("  Recent commits:");
-        for commit in log.iter().take(3) {
-            println!("    - {}", commit.id.chars().take(8).collect::<String>());
-            if !commit.message.is_empty() {
-                println!("      {}", commit.message.lines().next().unwrap_or(""));
+        for (id, msg) in recent {
+            println!("    - {}", id);
+            if !msg.is_empty() {
+                println!("      {}", msg);
             }
         }
     }
