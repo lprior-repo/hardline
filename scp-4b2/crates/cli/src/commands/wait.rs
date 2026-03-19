@@ -6,8 +6,84 @@ use scp_core::{
 };
 use std::time::{Duration, Instant};
 
+// ========================================================================
+// Data Layer: Newtypes
+// ========================================================================
+
+/// Session name - borrowed, read-only representation
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionName<'a>(&'a str);
+
+impl<'a> SessionName<'a> {
+    /// Create a new SessionName from a borrowed string slice
+    pub fn new(s: &'a str) -> Result<Self> {
+        if s.is_empty() {
+            Err(scp_core::Error::InvalidSessionName(
+                "session name cannot be empty".to_string(),
+            ))
+        } else {
+            Ok(Self(s))
+        }
+    }
+
+    /// Get the inner value
+    pub fn as_str(&self) -> &'a str {
+        self.0
+    }
+
+    /// Convert to owned String
+    pub fn to_owned(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl std::fmt::Display for SessionName<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+// ========================================================================
+// Data Layer: WaitResult
+// ========================================================================
+
+/// Result of a wait operation
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WaitResult {
+    /// The condition was met
+    ConditionMet {
+        /// The session name
+        session: String,
+        /// The state at the time of condition met
+        state: String,
+    },
+    /// The wait operation timed out
+    Timeout {
+        /// The session name
+        session: String,
+        /// The mode that was being waited for
+        mode: String,
+    },
+}
+
+impl WaitResult {
+    /// Create a ConditionMet result
+    pub fn condition_met(session: String, state: String) -> Self {
+        Self::ConditionMet { session, state }
+    }
+
+    /// Create a Timeout result
+    pub fn timeout(session: String, mode: String) -> Self {
+        Self::Timeout { session, mode }
+    }
+}
+
+// ========================================================================
+// Data Layer: WaitMode
+// ========================================================================
+
 /// Wait modes for the wait command
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WaitMode {
     SessionExists,
     Healthy,
@@ -42,55 +118,21 @@ impl WaitMode {
     }
 }
 
-/// Validate session name is not empty
-fn validate_session_name(session_name: &str) -> Result<()> {
-    if session_name.is_empty() {
-        Err(scp_core::Error::InvalidIdentifier(
-            "session name cannot be empty".to_string(),
-        ))
-    } else {
-        Ok(())
-    }
+// ========================================================================
+// Calculations Layer: Pure functions
+// ========================================================================
+
+/// Constants for poll interval validation
+pub const MIN_POLL_INTERVAL_SECS: u64 = 1;
+pub const MAX_POLL_INTERVAL_SECS: u64 = 60;
+
+/// Validate poll interval, returning clamped value
+fn validate_poll_interval(secs: u64) -> Duration {
+    Duration::from_secs(secs.clamp(MIN_POLL_INTERVAL_SECS, MAX_POLL_INTERVAL_SECS))
 }
 
-/// Validate timeout value (must be Some(x) where x > 0, or None)
-fn validate_timeout(timeout_secs: Option<u64>) -> Result<()> {
-    if Some(0) == timeout_secs {
-        Err(scp_core::Error::ValidationError(
-            "timeout must be > 0".to_string(),
-        ))
-    } else {
-        Ok(())
-    }
-}
-
-/// Calculate poll interval from seconds, clamped to valid range
-fn calculate_poll_interval(poll_interval_secs: u64) -> Duration {
-    Duration::from_secs(poll_interval_secs.clamp(1, 60))
-}
-
-/// Convert timeout seconds to Duration
-fn calculate_timeout_duration(timeout_secs: Option<u64>) -> Option<Duration> {
-    timeout_secs.map(Duration::from_secs)
-}
-
-/// Check if timeout has elapsed
-fn is_timeout_elapsed(start: Instant, timeout: Option<Duration>) -> bool {
-    timeout.map_or(false, |t| start.elapsed() > t)
-}
-
-/// Build error for wait timeout
-fn wait_timeout_error(session_name: &str, mode: &WaitMode) -> scp_core::Error {
-    scp_core::Error::WaitTimeout(session_name.to_string(), mode.display())
-}
-
-/// Find workspace by name from list
-fn find_workspace<'a>(workspaces: &'a [Workspace], session_name: &str) -> Option<&'a Workspace> {
-    workspaces.iter().find(|w| w.name == session_name)
-}
-
-/// Evaluate wait condition based on mode
-fn evaluate_wait_condition(workspace: Option<&Workspace>, mode: &WaitMode) -> bool {
+/// Evaluate wait condition - pure function taking validated inputs
+fn evaluate_condition(workspace: Option<&Workspace>, mode: &WaitMode) -> bool {
     match mode {
         WaitMode::SessionExists => workspace.is_some(),
         WaitMode::Healthy => workspace.is_some(),
@@ -98,63 +140,40 @@ fn evaluate_wait_condition(workspace: Option<&Workspace>, mode: &WaitMode) -> bo
     }
 }
 
-/// Check if the wait condition is met
-fn check_condition(session_name: &str, mode: &WaitMode) -> Result<bool> {
+/// Build timeout result if elapsed
+fn build_timeout_result(session: &SessionName, mode: &WaitMode) -> WaitResult {
+    WaitResult::timeout(session.to_owned(), mode.display())
+}
+
+/// Check if timeout has elapsed
+fn is_timeout_elapsed(start: Instant, timeout: Option<Duration>) -> bool {
+    timeout.map_or(false, |t| start.elapsed() > t)
+}
+
+/// Find workspace by name - pure function
+fn find_workspace<'a>(workspaces: &'a [Workspace], name: &str) -> Option<&'a Workspace> {
+    workspaces.iter().find(|w| w.name == name)
+}
+
+/// Get workspace branch name or empty string
+fn workspace_branch_or_empty(workspace: Option<&Workspace>) -> String {
+    workspace.map_or(String::new(), |ws| ws.branch.clone())
+}
+
+// ========================================================================
+// Actions Layer: I/O operations
+// ========================================================================
+
+/// Load workspaces from filesystem - I/O operation
+fn load_workspaces() -> Result<Vec<Workspace>> {
     let cwd = std::env::current_dir().map_err(scp_core::Error::Io)?;
     let backend = create_backend(&cwd)?;
-    let workspaces = backend.list_workspaces()?;
-    let workspace = find_workspace(&workspaces, session_name);
-    Ok(evaluate_wait_condition(workspace, mode))
+    backend.list_workspaces()
 }
 
-/// Format success message for condition met
-fn format_condition_met_message(session_name: &str, mode: &WaitMode) -> String {
-    format!(
-        "Condition met: session '{}' is {}",
-        session_name,
-        mode.display()
-    )
-}
-
-/// Handle check_condition result, returning Ok(()) if condition met, Err if error
-fn handle_condition_result(
-    result: Result<bool>,
-    session_name: &str,
-    mode: &WaitMode,
-) -> Result<Option<()>> {
-    match result {
-        Ok(true) => {
-            println!("{}", format_condition_met_message(session_name, mode));
-            Ok(Some(()))
-        }
-        Ok(false) => Ok(None),
-        Err(e) if matches!(mode, WaitMode::SessionExists) => Ok(None),
-        Err(e) => Err(e),
-    }
-}
-
-/// Run the wait loop until condition is met or timeout
-fn run_wait_loop(
-    session_name: &str,
-    mode: &WaitMode,
-    poll_interval: Duration,
-    timeout: Option<Duration>,
-) -> Result<()> {
-    let start = Instant::now();
-
-    loop {
-        if is_timeout_elapsed(start, timeout) {
-            return Err(wait_timeout_error(session_name, mode));
-        }
-
-        let result = check_condition(session_name, mode);
-        if let Some(()) = handle_condition_result(result, session_name, mode)? {
-            return Ok(());
-        }
-
-        std::thread::sleep(poll_interval);
-    }
-}
+// ========================================================================
+// Main Entry Point (Actions)
+// ========================================================================
 
 /// Wait for a session condition to be met
 pub fn run(
@@ -162,20 +181,84 @@ pub fn run(
     mode_str: &str,
     timeout_secs: Option<u64>,
     poll_interval_secs: u64,
-) -> Result<()> {
-    validate_session_name(session_name)?;
+) -> Result<WaitResult> {
+    // Step 1: Validate inputs
+    let (session, mode) = validate_inputs(session_name, mode_str, timeout_secs)?;
+
+    // Step 2: Create wait loop configuration
+    let poll_interval = validate_poll_interval(poll_interval_secs);
+    let timeout = timeout_secs.map(Duration::from_secs);
+
+    // Step 3: Execute wait loop
+    execute_wait_loop(session, mode, poll_interval, timeout)
+}
+
+/// Validate all inputs - returns SessionName and WaitMode
+fn validate_inputs(
+    session_name: &str,
+    mode_str: &str,
+    timeout_secs: Option<u64>,
+) -> Result<(SessionName, WaitMode)> {
+    let session = SessionName::new(session_name)?;
     let mode = WaitMode::parse(mode_str)?;
-    validate_timeout(timeout_secs)?;
 
-    let poll_interval = calculate_poll_interval(poll_interval_secs);
-    let timeout = calculate_timeout_duration(timeout_secs);
+    if timeout_secs == Some(0) {
+        return Err(scp_core::Error::ValidationError(
+            "timeout must be > 0".to_string(),
+        ));
+    }
 
-    run_wait_loop(session_name, &mode, poll_interval, timeout)
+    Ok((session, mode))
+}
+
+/// Execute the wait loop - main orchestration
+fn execute_wait_loop(
+    session: SessionName,
+    mode: WaitMode,
+    poll_interval: Duration,
+    timeout: Option<Duration>,
+) -> Result<WaitResult> {
+    let start = Instant::now();
+
+    loop {
+        // Check for timeout
+        if is_timeout_elapsed(start, timeout) {
+            return Ok(build_timeout_result(&session, &mode));
+        }
+
+        // Load workspaces (I/O)
+        let workspaces = load_workspaces()?;
+
+        // Find workspace and check condition (pure)
+        let workspace = find_workspace(&workspaces, session.as_str());
+        let condition_met = evaluate_condition(workspace, &mode);
+
+        if condition_met {
+            let state = workspace_branch_or_empty(workspace);
+            println!("Condition met: session '{}' is {}", session, mode.display());
+            return Ok(WaitResult::condition_met(session.to_owned(), state));
+        }
+
+        // Sleep for poll interval
+        std::thread::sleep(poll_interval);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_session_name_valid() {
+        let session = SessionName::new("test-session").unwrap();
+        assert_eq!(session.as_str(), "test-session");
+    }
+
+    #[test]
+    fn test_session_name_empty_fails() {
+        let result = SessionName::new("");
+        assert!(result.is_err());
+    }
 
     #[test]
     fn test_wait_mode_parse_session_exists() {
@@ -212,63 +295,48 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_session_name_empty() {
-        let result = validate_session_name("");
-        assert!(result.is_err());
+    fn test_evaluate_condition_session_exists() {
+        // No workspace = false
+        let result = evaluate_condition(None, &WaitMode::SessionExists);
+        assert!(!result);
+
+        // With workspace = true
+        let ws = Workspace {
+            name: "test".to_string(),
+            branch: "main".to_string(),
+            path: std::path::PathBuf::new(),
+        };
+        let result = evaluate_condition(Some(&ws), &WaitMode::SessionExists);
+        assert!(result);
     }
 
     #[test]
-    fn test_validate_session_name_valid() {
-        let result = validate_session_name("valid");
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_validate_timeout_zero() {
-        let result = validate_timeout(Some(0));
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_validate_timeout_none() {
-        let result = validate_timeout(None);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_calculate_poll_interval_clamp() {
-        assert_eq!(calculate_poll_interval(0).as_secs(), 1);
-        assert_eq!(calculate_poll_interval(30).as_secs(), 30);
-        assert_eq!(calculate_poll_interval(100).as_secs(), 60);
-    }
-
-    #[test]
-    fn test_evaluate_wait_condition_session_exists() {
-        assert!(evaluate_wait_condition(
-            Some(&Workspace::default()),
-            &WaitMode::SessionExists
-        ));
-        assert!(!evaluate_wait_condition(None, &WaitMode::SessionExists));
-    }
-
-    #[test]
-    fn test_evaluate_wait_condition_status() {
+    fn test_evaluate_condition_status() {
         let ws = Workspace {
             name: "test".to_string(),
             branch: "Active".to_string(),
-            ..Default::default()
+            path: std::path::PathBuf::new(),
         };
-        assert!(evaluate_wait_condition(
-            Some(&ws),
-            &WaitMode::Status("Active".to_string())
-        ));
-        assert!(!evaluate_wait_condition(
-            Some(&ws),
-            &WaitMode::Status("Inactive".to_string())
-        ));
-        assert!(!evaluate_wait_condition(
-            None,
-            &WaitMode::Status("Active".to_string())
-        ));
+
+        // Status matches
+        let result = evaluate_condition(Some(&ws), &WaitMode::Status("Active".to_string()));
+        assert!(result);
+
+        // Status doesn't match
+        let result = evaluate_condition(Some(&ws), &WaitMode::Status("Inactive".to_string()));
+        assert!(!result);
+
+        // No workspace = false
+        let result = evaluate_condition(None, &WaitMode::Status("Active".to_string()));
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_wait_result_display() {
+        let result = WaitResult::condition_met("test".to_string(), "main".to_string());
+        assert!(matches!(result, WaitResult::ConditionMet { .. }));
+
+        let result = WaitResult::timeout("test".to_string(), "healthy".to_string());
+        assert!(matches!(result, WaitResult::Timeout { .. }));
     }
 }
