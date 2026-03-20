@@ -1,16 +1,27 @@
 //! Policy configurations for orchestrator: timeouts, retries, circuit breakers
 
 pub mod circuit;
+pub mod circuit_breaker;
 pub mod deadline;
 pub mod errors;
 pub mod retry;
+pub mod retry_policy;
 pub mod timeout;
+pub mod timeout_error;
+pub mod timeout_policy;
 
 pub use circuit::{CircuitBreaker, CircuitBreakerState};
+pub use circuit_breaker::{
+    CircuitBreaker as NewCircuitBreaker, CircuitBreakerError as NewCircuitBreakerError,
+    CircuitState,
+};
 pub use deadline::Deadline;
 pub use errors::{ConfigError, OrchestratorError};
 pub use retry::RetryPolicy;
+pub use retry_policy::{RetryPolicy as NewRetryPolicy, RetryPolicyError};
 pub use timeout::PhaseTimeout;
+pub use timeout_error::{PolicyError, TimeoutError};
+pub use timeout_policy::{TimeoutPolicy, TimeoutPolicyError};
 
 /// Combined policy configuration for pipeline execution
 #[derive(Debug, Clone)]

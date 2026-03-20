@@ -27,7 +27,8 @@ pub use metrics::{Metrics, PhaseMetrics, ScenarioResult};
 pub use persistence::StateStore;
 pub use phases::{PhaseError, PipelineExecutor};
 pub use policies::{
-    CircuitBreaker, CircuitBreakerState, ConfigError, Deadline, OrchestratorError, PhaseTimeout,
-    PolicyConfig, RetryPolicy,
+    CircuitBreaker, CircuitBreakerState, CircuitState, ConfigError, Deadline, NewCircuitBreaker,
+    NewCircuitBreakerError, NewRetryPolicy, OrchestratorError, PhaseTimeout, PolicyConfig,
+    PolicyError, RetryPolicy, RetryPolicyError, TimeoutError, TimeoutPolicy, TimeoutPolicyError,
 };
 pub use state::{Pipeline, PipelineId, PipelineState};
