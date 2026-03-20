@@ -116,7 +116,7 @@ fn table_exists(connection: &Connection) -> Result<bool, MigrationError> {
 pub fn run_migrations(connection: &Connection) -> Result<(), MigrationError> {
     // P1: Validate connection is writable by executing a simple query
     connection
-        .execute("SELECT 1", [])
+        .query_row("SELECT 1", [], |_| Ok(()))
         .map_err(|e| MigrationError::DatabaseError(e.to_string()))?;
 
     // P2: Check for existing table
@@ -127,7 +127,7 @@ pub fn run_migrations(connection: &Connection) -> Result<(), MigrationError> {
 
     // Execute migration SQL (P3 validated by SQLite at runtime)
     connection
-        .execute(MIGRATION_SQL, [])
+        .execute_batch(MIGRATION_SQL)
         .map_err(|e| MigrationError::MigrationFailed(e.to_string()))?;
 
     // Verify Q1: Table exists with all columns
@@ -154,12 +154,17 @@ pub fn verify_migration(connection: &Connection) -> Result<bool, MigrationError>
 
     // Simple verification: check if table is queryable with expected structure
     // This verifies all required columns exist and are accessible
+    // LIMIT 0 returns no rows, so QueryReturnedNoRows is expected and indicates success
     connection
         .query_row(
             "SELECT id, session_id, bead_id, priority, position, status, enqueued_at, updated_at, retry_count, error_message FROM queue_entries LIMIT 0",
             [],
             |_| Ok(()),
         )
+        .or_else(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => Ok(()),
+            _ => Err(e),
+        })
         .map_err(|e| MigrationError::MigrationFailed(e.to_string()))?;
 
     // Verify indexes exist by checking query plans use them

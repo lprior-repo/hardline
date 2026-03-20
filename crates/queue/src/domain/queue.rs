@@ -327,14 +327,20 @@ impl Queue {
     /// Add an entry to the queue, returning a new Queue.
     ///
     /// Uses binary search to maintain priority order.
+    /// Entries with the same priority maintain FIFO order (insert after existing entries).
     #[must_use]
     pub fn enqueue(&self, entry: QueueEntry) -> Self {
         let priority = entry.priority;
 
-        let insert_pos = self
+        let base_pos = self
             .entries
             .binary_search_by_key(&priority, |e| e.priority)
             .unwrap_or_else(|pos| pos);
+
+        let mut insert_pos = base_pos;
+        while insert_pos < self.entries.len() && self.entries[insert_pos].priority == priority {
+            insert_pos += 1;
+        }
 
         let mut new_entries = self.entries.clone();
         new_entries.insert(insert_pos, entry);
