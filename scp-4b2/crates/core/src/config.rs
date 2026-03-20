@@ -247,31 +247,26 @@ impl ConfigManager {
 
     /// Parse TOML content
     pub(crate) fn parse_toml(&self, content: &str) -> Result<HashMap<String, String>> {
-        let mut values = HashMap::new();
-
-        for line in content.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
-                continue;
-            }
-
-            if let Some((key, value)) = line.split_once('=') {
-                let key = key.trim();
-                let value = value.trim();
-
-                // Remove quotes if present
-                let value = if (value.starts_with('"') && value.ends_with('"'))
-                    || (value.starts_with('\'') && value.ends_with('\''))
-                {
-                    &value[1..value.len() - 1]
-                } else {
-                    value
-                };
-
-                values.insert(key.to_string(), value.to_string());
-            }
-        }
-
+        let values: HashMap<String, String> = content
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#') && !line.starts_with(';'))
+            .filter_map(|line| {
+                line.split_once('=').map(|(key, value)| {
+                    let key = key.trim().to_string();
+                    let value = value.trim();
+                    // Remove quotes if present (both opening and closing)
+                    let value = if (value.starts_with('"') && value.ends_with('"'))
+                        || (value.starts_with('\'') && value.ends_with('\''))
+                    {
+                        value[1..value.len() - 1].to_string()
+                    } else {
+                        value.to_string()
+                    };
+                    (key, value)
+                })
+            })
+            .collect();
         Ok(values)
     }
 

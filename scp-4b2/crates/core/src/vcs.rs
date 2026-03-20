@@ -170,19 +170,20 @@ impl VcsBackend for JjBackend {
         let output = self.run_jj(&["bookmark", "list"])?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        let mut branches = Vec::new();
-        for line in stdout.lines() {
-            let line = line.trim();
-            if !line.is_empty() && !line.starts_with("!") {
+        let branches: Vec<Branch> = stdout
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('!'))
+            .map(|line| {
                 let name = line.split(':').next().unwrap_or(line).trim();
                 let name = name.trim_start_matches('*').trim();
-                branches.push(Branch {
+                Branch {
                     name: name.to_string(),
                     is_current: line.starts_with('*'),
                     tracking: None,
-                });
-            }
-        }
+                }
+            })
+            .collect();
         Ok(branches)
     }
 
@@ -247,19 +248,18 @@ impl VcsBackend for JjBackend {
         let output = self.run_jj(&["log", "-n", &limit.to_string()])?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        let mut commits = Vec::new();
-        for line in stdout.lines() {
-            let line = line.trim();
-            if !line.is_empty() {
-                commits.push(Commit {
-                    id: line.to_string(),
-                    message: line.to_string(),
-                    author: "unknown".to_string(),
-                    timestamp: Utc::now(),
-                    parents: vec![],
-                });
-            }
-        }
+        let commits: Vec<Commit> = stdout
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(|line| Commit {
+                id: line.to_string(),
+                message: line.to_string(),
+                author: "unknown".to_string(),
+                timestamp: Utc::now(),
+                parents: vec![],
+            })
+            .collect();
         Ok(commits)
     }
 
@@ -319,20 +319,21 @@ impl VcsBackend for JjBackend {
         let output = self.run_jj(&["workspace", "list"])?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        let mut workspaces = Vec::new();
-        for line in stdout.lines() {
-            let line = line.trim();
-            if !line.is_empty() {
+        let workspaces: Vec<Workspace> = stdout
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(|line| {
                 let name = line.split(':').next().unwrap_or(line).trim();
                 let is_current = line.starts_with('*');
                 let name = name.trim_start_matches('*').trim();
-                workspaces.push(Workspace {
+                Workspace {
                     name: name.to_string(),
                     branch: name.to_string(),
                     is_current,
-                });
-            }
-        }
+                }
+            })
+            .collect();
         Ok(workspaces)
     }
 
@@ -406,18 +407,16 @@ impl VcsBackend for GitBackend {
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         let current = self.current_branch()?;
-        let mut branches = Vec::new();
-
-        for line in stdout.lines() {
-            let name = line.trim().trim_start_matches("* ").to_string();
-            if !name.is_empty() {
-                branches.push(Branch {
-                    name: name.clone(),
-                    is_current: name == current,
-                    tracking: None,
-                });
-            }
-        }
+        let branches: Vec<Branch> = stdout
+            .lines()
+            .map(|line| line.trim().trim_start_matches("* ").to_string())
+            .filter(|name| !name.is_empty())
+            .map(|name| Branch {
+                name: name.clone(),
+                is_current: name == current,
+                tracking: None,
+            })
+            .collect();
         Ok(branches)
     }
 
@@ -482,22 +481,33 @@ impl VcsBackend for GitBackend {
         let output = self.run_git(&["log", &format!("-n{}", limit)])?;
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        let mut commits = Vec::new();
-        for line in stdout.lines() {
-            let line = line.trim();
-            if line.starts_with("commit ") {
-                let id = line.trim_start_matches("commit ").to_string();
+        // First pass: group lines by commit
+        let lines: Vec<&str> = stdout.lines().map(str::trim).collect();
+        let mut commits: Vec<Commit> = Vec::new();
+        let mut i = 0;
+
+        while i < lines.len() {
+            if lines[i].starts_with("commit ") {
+                let id = lines[i].trim_start_matches("commit ").to_string();
+                let mut message = String::new();
+                let mut j = i + 1;
+                while j < lines.len() && lines[j].starts_with("    ") {
+                    if !message.is_empty() {
+                        message.push('\n');
+                    }
+                    message.push_str(lines[j].trim());
+                    j += 1;
+                }
                 commits.push(Commit {
                     id,
-                    message: "".to_string(),
+                    message,
                     author: "unknown".to_string(),
                     timestamp: Utc::now(),
                     parents: vec![],
                 });
-            } else if line.starts_with("    ") && !commits.is_empty() {
-                if let Some(last) = commits.last_mut() {
-                    last.message = line.trim().to_string();
-                }
+                i = j;
+            } else {
+                i += 1;
             }
         }
         Ok(commits)
