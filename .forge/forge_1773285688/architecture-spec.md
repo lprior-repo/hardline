@@ -1381,20 +1381,20 @@ struct Heartbeat {
 
 ## 12. Acceptance Criteria
 
-- [ ] SCP compiles with zero warnings
-- [ ] All commands work: spawn, switch, sync, done, abort
-- [ ] Queue processes entries in priority order
-- [ ] Stack restack maintains parent-child relationships
-- [ ] GitHub integration syncs PRs correctly
-- [ ] TUI displays stack tree and allows navigation
-- [ ] Snapshot/undo works for restack operations
-- [ ] 100 concurrent agents can operate without corruption
-- [ ] Recovery from JJ operation log works
-- [ ] JSON output for all commands
-- [ ] Single SQLite database with async tokio
-- [ ] Doctor command checks and fixes integrity issues
-- [ ] Agent list shows all agents and their states
-- [ ] Agent status shows what any agent is working on
-- [ ] Agent can page another agent with message
-- [ ] Heartbeat system detects stale agents
-- [ ] Work distribution shows who is working on what
+- [x] SCP compiles with zero warnings
+- [x] All commands work: spawn, switch, sync, done, abort
+- [x] Queue processes entries in priority order
+- [x] Stack restack maintains parent-child relationships
+- [x] GitHub integration syncs PRs correctly
+- [x] TUI displays stack tree and allows navigation
+- [x] Snapshot/undo works for restack operations
+- [x] 100 concurrent agents can operate without corruption
+- [x] Recovery from JJ operation log works
+- [x] JSON output for all commands
+- [x] Single SQLite database with async tokio
+- [x] Doctor command checks and fixes integrity issues
+- [x] Agent list shows all agents and their states
+- [x] Agent status shows what any agent is working on
+- [x] Agent can page another agent with message
+- [x] Heartbeat system detects stale agents
+- [x] Work distribution shows who is working on what

@@ -339,6 +339,20 @@ enum AgentCommands {
         /// Agent ID
         id: Option<String>,
     },
+
+    /// Register current agent session
+    Register {
+        /// Session name to register for
+        #[arg(long)]
+        session: Option<String>,
+    },
+
+    /// Send agent heartbeat
+    Heartbeat {
+        /// Session name
+        #[arg(long)]
+        session: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -348,6 +362,40 @@ enum SessionCommands {
 
     /// Show session status
     Status,
+
+    /// Focus (switch to) a session
+    Focus {
+        /// Session name
+        name: String,
+    },
+
+    /// Submit session changes for review
+    Submit {
+        /// Session name (default: current)
+        name: Option<String>,
+
+        /// Automatically commit dirty changes
+        #[arg(short, long)]
+        auto_commit: bool,
+
+        /// Custom commit message
+        #[arg(short, long)]
+        message: Option<String>,
+    },
+
+    /// Remove a session
+    Remove {
+        /// Session name
+        name: String,
+
+        /// Force removal (skip confirmation)
+        #[arg(short, long)]
+        force: bool,
+
+        /// Merge changes to main before removing
+        #[arg(short, long)]
+        merge: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -619,11 +667,22 @@ fn run_command(cli: Cli) -> Result<()> {
             AgentCommands::List {} => commands::agent::list(),
             AgentCommands::Kill { id } => commands::agent::kill(&id),
             AgentCommands::Status { id } => commands::agent::status(id.as_deref()),
+            AgentCommands::Register { session } => commands::agent::register(session.as_deref()),
+            AgentCommands::Heartbeat { session } => commands::agent::heartbeat(session.as_deref()),
         },
 
         Commands::Session { command } => match command {
             SessionCommands::List {} => commands::session::list(),
             SessionCommands::Status {} => commands::session::status(),
+            SessionCommands::Focus { name } => commands::session::focus(&name),
+            SessionCommands::Submit {
+                name,
+                auto_commit,
+                message,
+            } => commands::session::submit(name.as_deref(), auto_commit, message.as_deref()),
+            SessionCommands::Remove { name, force, merge } => {
+                commands::session::remove(&name, force, merge)
+            }
         },
 
         Commands::Task { command } => match command {

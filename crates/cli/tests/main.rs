@@ -9,7 +9,7 @@ fn get_bin_path() -> PathBuf {
     if path.ends_with("deps") {
         path.pop();
     }
-    path.join("scp")
+    path.join("scp-cli")
 }
 
 #[test]

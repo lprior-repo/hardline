@@ -3,7 +3,7 @@ use predicates::prelude::*;
 
 #[test]
 fn test_help() {
-    let mut cmd = Command::cargo_bin("scp").unwrap();
+    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
     cmd.arg("--help")
         .assert()
         .success()
@@ -12,19 +12,19 @@ fn test_help() {
 
 #[test]
 fn test_init_help() {
-    let mut cmd = Command::cargo_bin("scp").unwrap();
+    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
     cmd.arg("init").arg("--help").assert().success();
 }
 
 #[test]
 fn test_status_help() {
-    let mut cmd = Command::cargo_bin("scp").unwrap();
+    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
     cmd.arg("status").arg("--help").assert().success();
 }
 
 #[test]
 fn test_workspace_add_help() {
-    let mut cmd = Command::cargo_bin("scp").unwrap();
+    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
     cmd.arg("workspace")
         .arg("add")
         .arg("--help")
@@ -34,7 +34,7 @@ fn test_workspace_add_help() {
 
 #[test]
 fn test_workspace_commit_help() {
-    let mut cmd = Command::cargo_bin("scp").unwrap();
+    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
     cmd.arg("workspace")
         .arg("commit")
         .arg("--help")

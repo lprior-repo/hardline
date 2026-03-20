@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use scp_core::error::Error;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Regex pattern for valid task IDs: alphanumeric with - or _
@@ -13,7 +14,7 @@ static TASK_ID_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_-]+$").expect("Invalid regex pattern"));
 
 /// Task state
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaskState {
     Open,
     InProgress,
@@ -23,7 +24,7 @@ pub enum TaskState {
 }
 
 /// Task ID - newtype for type safety with validation at construction
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TaskId(String);
 
 impl TaskId {
@@ -54,7 +55,7 @@ impl fmt::Display for TaskId {
 }
 
 /// Title - newtype for task titles
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Title(String);
 
 impl Title {
@@ -74,7 +75,7 @@ impl fmt::Display for Title {
 }
 
 /// Priority - newtype for task priority
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Priority(String);
 
 impl Priority {
@@ -94,7 +95,7 @@ impl fmt::Display for Priority {
 }
 
 /// Assignee - newtype for task assignee
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Assignee(String);
 
 impl Assignee {
@@ -114,7 +115,7 @@ impl fmt::Display for Assignee {
 }
 
 /// Task representation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub id: TaskId,
     pub title: Title,

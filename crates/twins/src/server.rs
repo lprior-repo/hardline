@@ -32,7 +32,7 @@ use crate::{
 // Pure calculation functions (Data → Calc)
 // ---------------------------------------------------------------------------
 
-/// Converts HeaderMap to a HashMap of String → String
+/// Converts `HeaderMap` to a `HashMap` of String → String
 fn extract_headers(headers: &HeaderMap) -> HashMap<String, String> {
     headers
         .iter()
@@ -171,8 +171,7 @@ async fn twin_handler(
     );
 
     {
-        let state_guard = state.state.read().await;
-        let new_state = state_guard.add_record(record);
+        let new_state = state.state.read().await.add_record(record);
         *state.state.write().await = new_state;
     }
 
@@ -257,7 +256,7 @@ pub fn build_router(definition: TwinDefinition) -> Router {
         .map(|endpoint| (endpoint.path.clone(), endpoint.method))
         .collect();
 
-    let router = routes
+    let built_router = routes
         .iter()
         .fold(base_router, |acc, (path, method)| match method {
             HttpMethod::GET => acc.route(path, get(twin_handler)),
@@ -269,12 +268,17 @@ pub fn build_router(definition: TwinDefinition) -> Router {
             HttpMethod::HEAD => acc.route(path, head(twin_handler)),
         });
 
-    router
+    built_router
         .fallback(any(not_found_handler))
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())
 }
 
+/// Starts the twin server with the given definition.
+///
+/// # Errors
+///
+/// Returns `ServerError::StartupError` if binding to the port fails.
 pub async fn start_server(definition: TwinDefinition) -> Result<(), ServerError> {
     let port = definition.port;
     let router = build_router(definition);

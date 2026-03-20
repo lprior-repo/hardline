@@ -2,8 +2,10 @@
 
 use scp_core::{
     agent::{get_agent_registry, Agent, AgentId},
-    Result,
+    vcs, Error, Result,
 };
+
+const HEARTBEAT_FILE: &str = ".scp/heartbeat";
 
 /// Create an agent
 pub fn create(name: &str) -> Result<()> {
@@ -103,7 +105,6 @@ pub fn status(id: Option<&str>) -> Result<()> {
             }
         }
     } else {
-        // Show all agents summary
         let agents = registry.list()?;
         let active = registry.list_active()?;
 
@@ -120,4 +121,67 @@ pub fn status(id: Option<&str>) -> Result<()> {
 
         Ok(())
     }
+}
+
+/// Register current agent session
+pub fn register(session: Option<&str>) -> Result<()> {
+    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let backend = vcs::create_backend(&cwd)?;
+
+    let session_name = if let Some(s) = session {
+        s.to_string()
+    } else {
+        let workspaces = backend.list_workspaces()?;
+        workspaces
+            .iter()
+            .find(|w| w.is_current)
+            .map(|w| w.name.clone())
+            .ok_or_else(|| Error::WorkspaceNotFound("no current session".to_string()))?
+    };
+
+    let heartbeat_dir = cwd.join(".scp");
+    std::fs::create_dir_all(&heartbeat_dir).map_err(Error::Io)?;
+
+    let heartbeat_path = heartbeat_dir.join("heartbeat");
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| Error::Internal(e.to_string()))?
+        .as_secs()
+        .to_string();
+
+    let content = format!("{}:{}\n", session_name, timestamp);
+    std::fs::write(&heartbeat_path, content).map_err(Error::Io)?;
+
+    println!("✓ Registered agent for session '{}'", session_name);
+    Ok(())
+}
+
+/// Send agent heartbeat
+pub fn heartbeat(session: Option<&str>) -> Result<()> {
+    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let backend = vcs::create_backend(&cwd)?;
+
+    let session_name = if let Some(s) = session {
+        s.to_string()
+    } else {
+        let workspaces = backend.list_workspaces()?;
+        workspaces
+            .iter()
+            .find(|w| w.is_current)
+            .map(|w| w.name.clone())
+            .ok_or_else(|| Error::WorkspaceNotFound("no current session".to_string()))?
+    };
+
+    let heartbeat_path = cwd.join(".scp").join("heartbeat");
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| Error::Internal(e.to_string()))?
+        .as_secs()
+        .to_string();
+
+    let content = format!("{}:{}\n", session_name, timestamp);
+    std::fs::write(&heartbeat_path, content).map_err(Error::Io)?;
+
+    println!("✓ Heartbeat sent for session '{}'", session_name);
+    Ok(())
 }

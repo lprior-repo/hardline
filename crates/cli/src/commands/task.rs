@@ -10,26 +10,88 @@ use crate::commands::task_validation::{
 };
 use scp_core::{error::Error, lock::LockManager, Result as CoreResult};
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::sync::{Arc, RwLock};
 
 /// Global task storage - singleton using LazyLock for thread-safe initialization
-static TASK_STORE: LazyLock<Arc<TaskStore>> = LazyLock::new(|| Arc::new(TaskStore::new()));
+static TASK_STORE: LazyLock<Arc<TaskStore>> = LazyLock::new(|| Arc::new(TaskStore::load()));
 
 /// Global lock manager - singleton using LazyLock
 static LOCK_MANAGER: LazyLock<Arc<dyn LockManager>> =
     LazyLock::new(|| Arc::new(scp_core::lock::MemLockManager::new()) as Arc<dyn LockManager>);
 
-/// Global in-memory task store with RwLock for interior mutability
+/// Get the tasks directory
+fn get_tasks_dir() -> CoreResult<PathBuf> {
+    let dirs = directories::ProjectDirs::from("com", "scp", "scp")
+        .ok_or_else(|| Error::Internal("Could not determine config directory".into()))?;
+    Ok(dirs.config_dir().to_path_buf())
+}
+
+/// Get the tasks file path
+fn get_tasks_file() -> CoreResult<PathBuf> {
+    Ok(get_tasks_dir()?.join("tasks.json"))
+}
+
+/// Persistent task store that saves to JSON file
 struct TaskStore {
     tasks: RwLock<HashMap<String, Task>>,
+    tasks_file: PathBuf,
 }
 
 impl TaskStore {
-    fn new() -> Self {
+    /// Load tasks from JSON file or create new empty store
+    fn load() -> Self {
+        let tasks_file = get_tasks_file().expect("Failed to get tasks file path");
+        let tasks = if tasks_file.exists() {
+            match fs::read_to_string(&tasks_file) {
+                Ok(contents) => match serde_json::from_str::<Vec<Task>>(&contents) {
+                    Ok(tasks) => {
+                        let map: HashMap<String, Task> = tasks
+                            .into_iter()
+                            .map(|t| (t.id.as_str().to_string(), t))
+                            .collect();
+                        map
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: Failed to parse tasks file: {e}. Starting fresh.");
+                        HashMap::new()
+                    }
+                },
+                Err(e) => {
+                    eprintln!("Warning: Failed to read tasks file: {e}. Starting fresh.");
+                    HashMap::new()
+                }
+            }
+        } else {
+            HashMap::new()
+        };
+
         Self {
-            tasks: RwLock::new(HashMap::new()),
+            tasks: RwLock::new(tasks),
+            tasks_file,
         }
+    }
+
+    /// Save tasks to JSON file
+    fn save(&self) -> CoreResult<()> {
+        let tasks: Vec<Task> = self
+            .tasks
+            .read()
+            .map_err(|e| Error::Internal(e.to_string()))?
+            .values()
+            .cloned()
+            .collect();
+
+        if let Some(parent) = self.tasks_file.parent() {
+            fs::create_dir_all(parent).map_err(Error::Io)?;
+        }
+
+        let contents =
+            serde_json::to_string_pretty(&tasks).map_err(|e| Error::Internal(e.to_string()))?;
+        fs::write(&self.tasks_file, contents).map_err(Error::Io)?;
+        Ok(())
     }
 
     fn list(&self) -> Vec<Task> {
@@ -55,6 +117,8 @@ impl TaskStore {
             return Err(Error::TaskNotFound(task.id.to_string()));
         }
         tasks.insert(task.id.to_string(), task);
+        drop(tasks);
+        self.save()?;
         Ok(())
     }
 
@@ -70,6 +134,8 @@ impl TaskStore {
             ));
         }
         tasks.insert(task.id.to_string(), task);
+        drop(tasks);
+        self.save()?;
         Ok(())
     }
 }
