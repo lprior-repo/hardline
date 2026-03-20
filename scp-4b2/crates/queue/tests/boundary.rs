@@ -1,6 +1,4 @@
-use queue::domain::queue::{Queue, QueueEntry, QueueEntryId};
-use scp_core::domain::identifiers::SessionName;
-use scp_error::Error;
+use scp_queue::domain::queue::{Queue, QueueEntry};
 
 #[test]
 fn test_priority_boundary() {

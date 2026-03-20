@@ -1,4 +1,4 @@
-use scp_core::domain::identifiers::{AgentId, SessionName, WorkspaceName};
+use scp_core::domain::identifiers::{SessionName, WorkspaceName};
 
 #[test]
 fn test_session_name_boundary() {
