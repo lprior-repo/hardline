@@ -195,27 +195,33 @@ pub struct HookEnv {
 
 impl HookEnv {
     pub fn to_env(&self) -> HashMap<String, String> {
-        let mut env = HashMap::new();
-        env.insert("SCP_HOOK_EVENT".to_string(), self.event.name().to_string());
-        env.insert("SCP_HOOK_VCS".to_string(), self.vcs_type.clone());
-
-        if let Some(ws) = &self.workspace {
-            env.insert("SCP_HOOK_WORKSPACE".to_string(), ws.clone());
-        }
-        if let Some(branch) = &self.branch {
-            env.insert("SCP_HOOK_BRANCH".to_string(), branch.clone());
-        }
-        if let Some(path) = &self.repo_path {
-            env.insert(
+        [
+            ("SCP_HOOK_EVENT".to_string(), self.event.name().to_string()),
+            ("SCP_HOOK_VCS".to_string(), self.vcs_type.clone()),
+        ]
+        .into_iter()
+        .chain(
+            self.workspace
+                .as_ref()
+                .map(|ws| ("SCP_HOOK_WORKSPACE".to_string(), ws.clone())),
+        )
+        .chain(
+            self.branch
+                .as_ref()
+                .map(|b| ("SCP_HOOK_BRANCH".to_string(), b.clone())),
+        )
+        .chain(self.repo_path.as_ref().map(|p| {
+            (
                 "SCP_HOOK_REPO_PATH".to_string(),
-                path.to_string_lossy().to_string(),
-            );
-        }
-        if let Some(target) = &self.target {
-            env.insert("SCP_HOOK_TARGET".to_string(), target.clone());
-        }
-
-        env
+                p.to_string_lossy().to_string(),
+            )
+        }))
+        .chain(
+            self.target
+                .as_ref()
+                .map(|t| ("SCP_HOOK_TARGET".to_string(), t.clone())),
+        )
+        .collect()
     }
 }
 
@@ -249,21 +255,16 @@ impl HookRunner {
 
     /// Run hooks for an event
     pub fn run(&self, event: HookEvent, env: &HookEnv) -> Vec<HookResult> {
-        let mut results = Vec::new();
-        let hooks = self.hooks.get(&event);
-
-        if let Some(hooks) = hooks {
-            for hook in hooks {
-                if !hook.enabled {
-                    continue;
-                }
-
-                let result = self.run_hook(hook, env);
-                results.push(result);
-            }
-        }
-
-        results
+        self.hooks
+            .get(&event)
+            .map(|hooks| {
+                hooks
+                    .iter()
+                    .filter(|hook| hook.enabled)
+                    .map(|hook| self.run_hook(hook, env))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// Run a single hook
@@ -303,13 +304,10 @@ impl HookRunner {
 
     /// List all registered hooks
     pub fn list_hooks(&self) -> Vec<(&HookEvent, &Hook)> {
-        let mut result = Vec::new();
-        for (event, hooks) in &self.hooks {
-            for hook in hooks {
-                result.push((event, hook));
-            }
-        }
-        result
+        self.hooks
+            .iter()
+            .flat_map(|(event, hooks)| hooks.iter().map(move |hook| (event, hook)))
+            .collect()
     }
 }
 
@@ -336,28 +334,26 @@ impl HookConfig {
 
     /// Load hooks from a directory
     pub fn load_hooks(&self, dir: &Path) -> Result<Vec<Hook>> {
-        let mut hooks = Vec::new();
-
         if !dir.exists() {
-            return Ok(hooks);
+            return Ok(Vec::new());
         }
 
-        for entry in std::fs::read_dir(dir).map_err(Error::Io)? {
-            let entry = entry.map_err(Error::Io)?;
-            let path = entry.path();
+        let entries = std::fs::read_dir(dir).map_err(Error::Io)?;
 
-            if path.is_file() {
-                let name = path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("unknown")
-                    .to_string();
-
-                let event = Self::event_from_name(&name).unwrap_or(HookEvent::PostCommit);
-
-                hooks.push(Hook::new(name, event, path.to_string_lossy().to_string()));
-            }
-        }
+        let hooks: Vec<Hook> = entries
+            .filter_map(|entry| entry.map_err(Error::Io).ok())
+            .map(|entry| entry.path())
+            .filter(|path| path.is_file())
+            .filter_map(|path| {
+                let name = path.file_stem()?.to_str()?;
+                let event = Self::event_from_name(name).unwrap_or(HookEvent::PostCommit);
+                Some(Hook::new(
+                    name.to_string(),
+                    event,
+                    path.to_string_lossy().to_string(),
+                ))
+            })
+            .collect();
 
         Ok(hooks)
     }

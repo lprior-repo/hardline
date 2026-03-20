@@ -282,27 +282,30 @@ pub fn validate_sync_preconditions(
 /// Parse JJ rebase output to extract revision and conflicts
 #[must_use]
 pub fn parse_rebase_output(output: &str) -> (Option<String>, Vec<String>) {
-    let mut revision = None;
-    let mut conflicts = Vec::new();
+    output
+        .lines()
+        .fold((None, Vec::new()), |(revision, mut conflicts), line| {
+            let trimmed = line.trim();
+            let new_revision = revision.or_else(|| {
+                if trimmed.len() >= 6
+                    && trimmed.len() <= 64
+                    && trimmed.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+                    && !trimmed.contains(':')
+                    && !trimmed.contains(' ')
+                {
+                    Some(trimmed.to_string())
+                } else {
+                    None
+                }
+            });
 
-    for line in output.lines() {
-        let trimmed = line.trim();
-        if trimmed.len() >= 6
-            && trimmed.len() <= 64
-            && trimmed.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
-            && !trimmed.contains(':')
-            && !trimmed.contains(' ')
-        {
-            revision = Some(trimmed.to_string());
-        }
+            let lower = trimmed.to_lowercase();
+            if lower.contains("conflict") || lower.contains("conflicted") {
+                conflicts.push(trimmed.to_string());
+            }
 
-        let lower = trimmed.to_lowercase();
-        if lower.contains("conflict") || lower.contains("conflicted") {
-            conflicts.push(trimmed.to_string());
-        }
-    }
-
-    (revision, conflicts)
+            (new_revision, conflicts)
+        })
 }
 
 /// Determine if rebase output indicates conflicts

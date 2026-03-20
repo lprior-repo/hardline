@@ -152,52 +152,60 @@ fn next_after_init() -> Vec<NextAction> {
 }
 
 fn next_after_add(context: &CommandContext) -> Vec<NextAction> {
-    let mut actions = vec![];
-    if let Some(name) = &context.session_name {
-        actions.push(NextAction {
-            action: "Switch to new session".to_string(),
-            commands: vec![format!("scp session focus {name}")],
-            risk: ActionRisk::Safe,
-            description: Some("Switch to the new session workspace".to_string()),
-        });
-        actions.push(NextAction {
-            action: "Check session status".to_string(),
-            commands: vec![format!("scp session status {name}")],
+    let session_actions = context.session_name.as_ref().map_or_else(Vec::new, |name| {
+        vec![
+            NextAction {
+                action: "Switch to new session".to_string(),
+                commands: vec![format!("scp session focus {name}")],
+                risk: ActionRisk::Safe,
+                description: Some("Switch to the new session workspace".to_string()),
+            },
+            NextAction {
+                action: "Check session status".to_string(),
+                commands: vec![format!("scp session status {name}")],
+                risk: ActionRisk::Safe,
+                description: None,
+            },
+        ]
+    });
+
+    session_actions
+        .into_iter()
+        .chain(std::iter::once(NextAction {
+            action: "List all sessions".to_string(),
+            commands: vec!["scp session list".to_string()],
             risk: ActionRisk::Safe,
             description: None,
-        });
-    }
-    actions.push(NextAction {
-        action: "List all sessions".to_string(),
-        commands: vec!["scp session list".to_string()],
-        risk: ActionRisk::Safe,
-        description: None,
-    });
-    actions
+        }))
+        .collect()
 }
 
 fn next_after_remove(context: &CommandContext) -> Vec<NextAction> {
-    let mut actions = vec![NextAction {
+    let list_action = NextAction {
         action: "List remaining sessions".to_string(),
         commands: vec!["scp session list".to_string()],
         risk: ActionRisk::Safe,
         description: None,
-    }];
-    if context.session_count > 1 {
-        actions.push(NextAction {
-            action: "Clean up stale sessions".to_string(),
-            commands: vec!["scp session clean --dry-run".to_string()],
-            risk: ActionRisk::Safe,
-            description: Some("Preview which sessions would be cleaned".to_string()),
-        });
-    }
-    actions.push(NextAction {
+    };
+
+    let cleanup_action = (context.session_count > 1).then(|| NextAction {
+        action: "Clean up stale sessions".to_string(),
+        commands: vec!["scp session clean --dry-run".to_string()],
+        risk: ActionRisk::Safe,
+        description: Some("Preview which sessions would be cleaned".to_string()),
+    });
+
+    let create_action = NextAction {
         action: "Create a new session".to_string(),
         commands: vec!["scp session add <name>".to_string()],
         risk: ActionRisk::Safe,
         description: None,
-    });
-    actions
+    };
+
+    std::iter::once(list_action)
+        .chain(cleanup_action)
+        .chain(std::iter::once(create_action))
+        .collect()
 }
 
 fn next_after_list(context: &CommandContext) -> Vec<NextAction> {
@@ -226,72 +234,80 @@ fn next_after_list(context: &CommandContext) -> Vec<NextAction> {
 }
 
 fn next_after_focus(context: &CommandContext) -> Vec<NextAction> {
-    let mut actions = vec![];
-    if let Some(name) = &context.session_name {
-        actions.push(NextAction {
-            action: "Check session status".to_string(),
-            commands: vec![format!("scp session status {name}")],
+    let session_actions = context.session_name.as_ref().map_or_else(Vec::new, |name| {
+        vec![
+            NextAction {
+                action: "Check session status".to_string(),
+                commands: vec![format!("scp session status {name}")],
+                risk: ActionRisk::Safe,
+                description: None,
+            },
+            NextAction {
+                action: "Sync session with main".to_string(),
+                commands: vec![format!("scp session sync {name}")],
+                risk: ActionRisk::Medium,
+                description: Some("Rebase session onto latest main".to_string()),
+            },
+        ]
+    });
+
+    session_actions
+        .into_iter()
+        .chain(std::iter::once(NextAction {
+            action: "List all sessions".to_string(),
+            commands: vec!["scp session list".to_string()],
             risk: ActionRisk::Safe,
             description: None,
-        });
-        actions.push(NextAction {
-            action: "Sync session with main".to_string(),
-            commands: vec![format!("scp session sync {name}")],
-            risk: ActionRisk::Medium,
-            description: Some("Rebase session onto latest main".to_string()),
-        });
-    }
-    actions.push(NextAction {
-        action: "List all sessions".to_string(),
-        commands: vec!["scp session list".to_string()],
-        risk: ActionRisk::Safe,
-        description: None,
-    });
-    actions
+        }))
+        .collect()
 }
 
 fn next_after_status(context: &CommandContext) -> Vec<NextAction> {
-    let mut actions = vec![];
-    if let Some(name) = &context.session_name {
-        actions.push(NextAction {
-            action: "Sync session".to_string(),
-            commands: vec![format!("scp session sync {name}")],
-            risk: ActionRisk::Medium,
-            description: Some("Rebase onto latest main".to_string()),
-        });
-        actions.push(NextAction {
-            action: "Remove session".to_string(),
-            commands: vec![format!("scp session remove {name}")],
-            risk: ActionRisk::High,
-            description: Some("Delete session and its workspace".to_string()),
-        });
-    }
-    actions.push(NextAction {
-        action: "List all sessions".to_string(),
-        commands: vec!["scp session list".to_string()],
-        risk: ActionRisk::Safe,
-        description: None,
+    let session_actions = context.session_name.as_ref().map_or_else(Vec::new, |name| {
+        vec![
+            NextAction {
+                action: "Sync session".to_string(),
+                commands: vec![format!("scp session sync {name}")],
+                risk: ActionRisk::Medium,
+                description: Some("Rebase onto latest main".to_string()),
+            },
+            NextAction {
+                action: "Remove session".to_string(),
+                commands: vec![format!("scp session remove {name}")],
+                risk: ActionRisk::High,
+                description: Some("Delete session and its workspace".to_string()),
+            },
+        ]
     });
-    actions
+
+    session_actions
+        .into_iter()
+        .chain(std::iter::once(NextAction {
+            action: "List all sessions".to_string(),
+            commands: vec!["scp session list".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        }))
+        .collect()
 }
 
 fn next_after_sync(context: &CommandContext) -> Vec<NextAction> {
-    let mut actions = vec![];
-    if let Some(name) = &context.session_name {
-        actions.push(NextAction {
-            action: "Check session status".to_string(),
-            commands: vec![format!("scp session status {name}")],
-            risk: ActionRisk::Safe,
-            description: Some("Verify sync result".to_string()),
-        });
-    }
-    actions.push(NextAction {
-        action: "List all sessions".to_string(),
-        commands: vec!["scp session list".to_string()],
+    let session_action = context.session_name.as_ref().map(|name| NextAction {
+        action: "Check session status".to_string(),
+        commands: vec![format!("scp session status {name}")],
         risk: ActionRisk::Safe,
-        description: None,
+        description: Some("Verify sync result".to_string()),
     });
-    actions
+
+    session_action
+        .into_iter()
+        .chain(std::iter::once(NextAction {
+            action: "List all sessions".to_string(),
+            commands: vec!["scp session list".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        }))
+        .collect()
 }
 
 fn next_after_doctor() -> Vec<NextAction> {
@@ -470,70 +486,70 @@ impl Hint {
 ///
 /// Returns error if unable to analyze state
 pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
-    let mut hints = Vec::new();
-
     if state.sessions.is_empty() {
-        hints.push(
-            Hint::suggestion("No sessions yet. Create your first parallel workspace!")
-                .with_command("scp session add <name>")
-                .with_rationale("Sessions enable parallel work on multiple features"),
-        );
-        return Ok(hints);
+        return Ok(vec![Hint::suggestion(
+            "No sessions yet. Create your first parallel workspace!",
+        )
+        .with_command("scp session add <name>")
+        .with_rationale("Sessions enable parallel work on multiple features")]);
     }
 
-    for session in &state.sessions {
-        if session.status == SessionStatus::Active {
-            hints.push(
-                Hint::info(format!("Session '{}' is active", session.name.as_str()))
-                    .with_command(format!("scp session status {}", session.name.as_str()))
-                    .with_rationale("Review session status regularly"),
-            );
-        }
-    }
+    let active_hints = state
+        .sessions
+        .iter()
+        .filter(|s| s.status == SessionStatus::Active)
+        .map(|session| {
+            Hint::info(format!("Session '{}' is active", session.name.as_str()))
+                .with_command(format!("scp session status {}", session.name.as_str()))
+                .with_rationale("Review session status regularly")
+        });
 
-    for session in state
+    let completed_hints = state
         .sessions
         .iter()
         .filter(|s| s.status == SessionStatus::Completed)
-    {
-        let duration = Utc::now() - session.updated_at;
-        let age = duration.num_days();
-        if age > 1 {
-            hints.push(
-                Hint::suggestion(format!(
-                    "Session '{}' completed {} day(s) ago, consider removing",
-                    session.name.as_str(),
-                    age
-                ))
-                .with_command(format!(
-                    "scp session remove {} --merge",
-                    session.name.as_str()
-                ))
-                .with_rationale("Clean up completed work")
-                .with_context(serde_json::json!({
-                    "session": session.name.as_str(),
-                    "age_days": age,
-                })),
-            );
-        }
-    }
+        .filter_map(|session| {
+            let duration = Utc::now() - session.updated_at;
+            let age = duration.num_days();
+            if age > 1 {
+                Some(
+                    Hint::suggestion(format!(
+                        "Session '{}' completed {} day(s) ago, consider removing",
+                        session.name.as_str(),
+                        age
+                    ))
+                    .with_command(format!(
+                        "scp session remove {} --merge",
+                        session.name.as_str()
+                    ))
+                    .with_rationale("Clean up completed work")
+                    .with_context(serde_json::json!({
+                        "session": session.name.as_str(),
+                        "age_days": age,
+                    })),
+                )
+            } else {
+                None
+            }
+        });
 
-    for session in state
+    let failed_hints = state
         .sessions
         .iter()
         .filter(|s| s.status == SessionStatus::Failed)
-    {
-        hints.push(
+        .map(|session| {
             Hint::warning(format!(
                 "Session '{}' failed during creation",
                 session.name.as_str()
             ))
             .with_command(format!("scp session remove {}", session.name.as_str()))
-            .with_rationale("Clean up failed session and retry"),
-        );
-    }
+            .with_rationale("Clean up failed session and retry")
+        });
 
-    Ok(hints)
+    Ok(active_hints
+        .chain(completed_hints)
+        .chain(failed_hints)
+        .collect())
 }
 
 /// Generate hints for a specific error
@@ -598,72 +614,65 @@ pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
 /// as this performs state analysis and generates recommendations.
 #[must_use]
 pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
-    let mut actions = Vec::new();
-
     if !state.initialized {
-        actions.push(NextAction {
+        return vec![NextAction {
             action: "Initialize scp".to_string(),
             commands: vec!["scp init".to_string()],
             risk: ActionRisk::Safe,
             description: None,
-        });
-        return actions;
+        }];
     }
 
     if state.sessions.is_empty() {
-        actions.push(NextAction {
+        return vec![NextAction {
             action: "Create first session".to_string(),
             commands: vec!["scp session add <name>".to_string()],
             risk: ActionRisk::Safe,
             description: None,
-        });
-        return actions;
+        }];
     }
 
-    let has_active = state
+    let base_actions = state
         .sessions
         .iter()
-        .any(|s| s.status == SessionStatus::Active);
-
-    if has_active {
-        actions.push(NextAction {
+        .any(|s| s.status == SessionStatus::Active)
+        .then(|| NextAction {
             action: "Review session status".to_string(),
             commands: vec!["scp session status".to_string()],
             risk: ActionRisk::Safe,
             description: None,
         });
-    }
 
-    let has_completed = state
+    let cleanup_action = state
         .sessions
         .iter()
-        .any(|s| s.status == SessionStatus::Completed);
+        .any(|s| s.status == SessionStatus::Completed)
+        .then(|| {
+            state
+                .sessions
+                .iter()
+                .find(|s| s.status == SessionStatus::Completed)
+                .map(|s| NextAction {
+                    action: "Clean up completed sessions".to_string(),
+                    commands: vec![format!("scp session remove {} --merge", s.name.as_str())],
+                    risk: ActionRisk::Medium,
+                    description: Some("Merge and remove completed session".to_string()),
+                })
+        })
+        .flatten();
 
-    if has_completed {
-        let completed_name = state
-            .sessions
-            .iter()
-            .find(|s| s.status == SessionStatus::Completed)
-            .map(|s| s.name.as_str());
-
-        if let Some(name) = completed_name {
-            actions.push(NextAction {
-                action: "Clean up completed sessions".to_string(),
-                commands: vec![format!("scp session remove {name} --merge",)],
-                risk: ActionRisk::Medium,
-                description: Some("Merge and remove completed session".to_string()),
-            });
-        }
-    }
-
-    actions.push(NextAction {
+    let create_action = NextAction {
         action: "Create new session".to_string(),
         commands: vec!["scp session add <name>".to_string()],
         risk: ActionRisk::Safe,
         description: None,
-    });
+    };
 
-    actions
+    base_actions
+        .into_iter()
+        .chain(cleanup_action)
+        .chain(std::iter::once(create_action))
+        .collect()
 }
 
 /// Generate complete hints response
@@ -712,43 +721,39 @@ fn extract_session_name(error_msg: &str) -> Option<&str> {
 /// as this performs analysis and generates contextual help.
 #[must_use]
 pub fn hints_for_beads(session_name: &str, beads: &BeadsSummary) -> Vec<Hint> {
-    let mut hints = Vec::new();
+    let blocker_hint = beads.has_blockers().then(|| {
+        Hint::warning(format!(
+            "Session '{}' has {} blocked issue(s)",
+            session_name, beads.blocked
+        ))
+        .with_command("bv")
+        .with_rationale("Resolve blockers to make progress")
+        .with_context(serde_json::json!({
+            "session": session_name,
+            "blocked_count": beads.blocked,
+        }))
+    });
 
-    if beads.has_blockers() {
-        hints.push(
-            Hint::warning(format!(
-                "Session '{}' has {} blocked issue(s)",
-                session_name, beads.blocked
-            ))
-            .with_command("bv")
-            .with_rationale("Resolve blockers to make progress")
-            .with_context(serde_json::json!({
-                "session": session_name,
-                "blocked_count": beads.blocked,
-            })),
-        );
-    }
+    let active_hint = (beads.active() > 5).then(|| {
+        Hint::tip(format!(
+            "Session '{}' has {} active issues - consider focusing on fewer tasks",
+            session_name,
+            beads.active()
+        ))
+        .with_rationale("Limiting work in progress improves focus")
+    });
 
-    if beads.active() > 5 {
-        hints.push(
-            Hint::tip(format!(
-                "Session '{}' has {} active issues - consider focusing on fewer tasks",
-                session_name,
-                beads.active()
-            ))
-            .with_rationale("Limiting work in progress improves focus"),
-        );
-    }
+    let empty_hint = (beads.total() == 0).then(|| {
+        Hint::info(format!("Session '{}' has no beads issues", session_name))
+            .with_command("br new")
+            .with_rationale("Track your work with beads for better organization")
+    });
 
-    if beads.total() == 0 {
-        hints.push(
-            Hint::info(format!("Session '{}' has no beads issues", session_name))
-                .with_command("br new")
-                .with_rationale("Track your work with beads for better organization"),
-        );
-    }
-
-    hints
+    blocker_hint
+        .into_iter()
+        .chain(active_hint)
+        .chain(empty_hint)
+        .collect()
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
