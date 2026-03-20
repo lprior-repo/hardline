@@ -24,7 +24,7 @@ impl RetryPolicy {
         let base_delay =
             NonZeroU64::new(base_delay_ms).ok_or(RetryPolicyError::InvalidBaseDelay)?;
 
-        if factor <= 1.0 {
+        if !factor.is_finite() || factor.is_nan() || factor <= 1.0 {
             return Err(RetryPolicyError::InvalidFactor);
         }
 
@@ -33,6 +33,13 @@ impl RetryPolicy {
             Some(d) => NonZeroU64::new(d),
             None => None,
         };
+
+        // Validate monotonicity: max_delay should be >= base_delay
+        if let Some(max) = max_delay {
+            if max.get() < base_delay_ms {
+                return Err(RetryPolicyError::InvalidMaxDelay);
+            }
+        }
 
         Ok(Self {
             max_retries,
@@ -76,7 +83,9 @@ impl RetryPolicy {
     /// Compute the backoff delay for a given attempt number
     /// Formula: base_delay * factor^attempt, capped at max_delay
     pub fn calculate_delay(&self, attempt: u32) -> u64 {
-        let exponential = self.base_delay_ms.get() as f64 * self.factor.powi(attempt as i32);
+        // Use saturating arithmetic to prevent overflow
+        let exponential = (self.base_delay_ms.get() as f64 * self.factor.powi(attempt as i32))
+            .clamp(0.0, u64::MAX as f64);
         let delay = exponential as u64;
 
         match self.max_delay_ms {
@@ -114,7 +123,7 @@ impl std::fmt::Display for RetryPolicyError {
                 write!(f, "factor must be greater than 1.0")
             }
             RetryPolicyError::InvalidMaxDelay => {
-                write!(f, "max_delay must be greater than 0ms")
+                write!(f, "max_delay must be greater than 0ms and >= base_delay")
             }
         }
     }

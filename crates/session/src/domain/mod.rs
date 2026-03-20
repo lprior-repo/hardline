@@ -7,8 +7,9 @@ pub mod workspace_state;
 
 // Re-export value objects from value_objects module
 pub use value_objects::{
-    AbsolutePath, AgentId, DependsOn, Description, IssueType, Labels, Priority, SessionName,
-    TaskId, Title, WorkspaceId as SessionWorkspaceId, WorkspaceName,
+    AbsolutePath, AbsolutePathError, AgentId, DependsOn, Description, IssueType, Labels,
+    PathValidationError, Priority, SessionName, ShellMetacharacterError, TaskId, Title,
+    WorkspaceId as SessionWorkspaceId, WorkspaceName,
 };
 
 // Re-export new aggregates

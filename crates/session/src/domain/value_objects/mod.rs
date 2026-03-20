@@ -3,7 +3,7 @@
 //! This module is split into multiple files to keep each under 300 lines:
 //! - session.rs: SessionName, WorkspaceId, BeadId
 //! - task.rs: AgentId, TaskId, Title, Description
-//! - path.rs: AbsolutePath
+//! - path.rs: AbsolutePath (with submodules for errors and validation)
 //! - metadata.rs: Labels, DependsOn, Priority, IssueType, WorkspaceName
 
 pub mod metadata;
@@ -13,6 +13,6 @@ pub mod task;
 
 // Re-export all types for convenient access
 pub use metadata::{DependsOn, IssueType, Labels, Priority, WorkspaceName};
-pub use path::AbsolutePath;
+pub use path::{AbsolutePath, AbsolutePathError, PathValidationError, ShellMetacharacterError};
 pub use session::{BeadId, IdentifierError, SessionName, WorkspaceId};
 pub use task::{AgentId, Description, TaskId, Title};

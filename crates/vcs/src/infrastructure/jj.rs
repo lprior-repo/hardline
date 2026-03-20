@@ -49,7 +49,7 @@ impl VcsBackend for JjBackend {
         for line in stdout.lines() {
             let line = line.trim();
             if !line.is_empty() && !line.starts_with('!') {
-                let name = line.split(':').next().unwrap_or(line).trim();
+                let name = line.split(':').next().map_or(line.trim(), |s| s.trim());
                 let name = name.trim_start_matches('*').trim();
                 branches.push(Branch::new(name.to_string(), line.starts_with('*'), None));
             }
@@ -191,7 +191,7 @@ impl VcsBackend for JjBackend {
         for line in stdout.lines() {
             let line = line.trim();
             if !line.is_empty() {
-                let name = line.split(':').next().unwrap_or(line).trim();
+                let name = line.split(':').next().map_or(line.trim(), |s| s.trim());
                 let is_current = line.starts_with('*');
                 let name = name.trim_start_matches('*').trim();
                 workspaces.push(Workspace::new(
