@@ -17,6 +17,7 @@ pub mod metrics;
 pub mod persistence;
 pub mod phases;
 pub mod policies;
+pub mod queue;
 pub mod state;
 
 pub use cleanup::{
@@ -30,5 +31,9 @@ pub use policies::{
     CircuitBreaker, CircuitBreakerState, CircuitState, ConfigError, Deadline, NewCircuitBreaker,
     NewCircuitBreakerError, NewRetryPolicy, OrchestratorError, PhaseTimeout, PolicyConfig,
     PolicyError, RetryPolicy, RetryPolicyError, TimeoutError, TimeoutPolicy, TimeoutPolicyError,
+};
+pub use queue::{
+    InMemoryJobRepository, Job, JobOutcome, JobPayload, JobPriority, JobProcessor,
+    JobProcessorConfig, JobRepository, JobResult, JobState, QueueError, QueueResult,
 };
 pub use state::{Pipeline, PipelineId, PipelineState};
