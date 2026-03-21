@@ -3874,6 +3874,8 @@ dependencies = [
  "scp-vcs",
  "serde",
  "serde_json",
+ "shell-words",
+ "sqlx",
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
