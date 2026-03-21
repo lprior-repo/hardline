@@ -2,7 +2,7 @@
 
 use crate::domain::entities::Commit;
 use crate::error::{GitError, GitResult};
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{TimeZone, Utc};
 use gix::bstr::ByteSlice;
 use gix::prelude::ObjectIdExt;
 
