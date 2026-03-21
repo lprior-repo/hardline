@@ -29,7 +29,7 @@ pub use domain::entities::{Branch, Commit, Workspace};
 pub use domain::traits::VcsBackend;
 pub use domain::value_objects::{VcsStatus, VcsType};
 pub use error::{Result, VcsError};
-pub use infrastructure::{GitBackend, JjBackend};
+pub use infrastructure::{GitBackend, GitCliBackend, JjBackend};
 
 #[cfg(test)]
 mod tests {
