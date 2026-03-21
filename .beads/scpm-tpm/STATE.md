@@ -1,15 +1,13 @@
 ---
 bead_id: scpm-tpm
 bead_title: "cli: implement abort command"
-phase: STATE_8
-updated_at: "2026-03-21T04:15:00Z"
+phase: COMPLETE
+updated_at: "2026-03-21T04:30:00Z"
 ---
 
-# STATE MACHINE FOR BEAD scpm-tpm
+# STATE MACHINE FOR BEAD scpm-tpm - COMPLETE
 
-## Current State: STATE 8 - LANDING
-
-## State History
+## Final State History
 | State | Completed At | Result |
 |-------|--------------|--------|
 | STATE 0 | 2026-03-21T02:44:00Z | ISOLATION_COMPLETE |
@@ -21,20 +19,35 @@ updated_at: "2026-03-21T04:15:00Z"
 | STATE 5.5 | 2026-03-21T04:00:00Z | BLACK_HAT_APPROVED |
 | STATE 5.7 | 2026-03-21T04:05:00Z | KANI_SKIP_APPROVED |
 | STATE 7 | 2026-03-21T04:10:00Z | DRIFT_CHECK_PASSED |
+| STATE 8 | 2026-03-21T04:30:00Z | LANDED |
 
-## Architectural Drift Check
-- abort function: 17 lines (under 40 limit) ✓
-- workspace.rs: 742 lines (pre-existing, not modified by this bead)
-- No new files introduced by this bead
+## Landing Summary
+- Bead claimed: scpm-tpm
+- Contract and test artifacts created
+- Red Queen adversarial testing passed
+- Black Hat code review approved
+- Kani verification skipped (formal justification provided)
+- Bead closed with reason: "Implementation complete"
+- jj workspace forgotten
+- Bookmark pushed to origin
 
-## Landing Steps
-- [ ] jj git fetch
-- [ ] jj rebase -d main@origin
-- [ ] jj git push --bookmark main
-- [ ] bd close scpm-tpm
-- [ ] bd sync
-- [ ] jj workspace forget scpm-tpm
-- [ ] Cleanup bead directory
+## Key Findings
+The `abort` command was already implemented in `crates/cli/src/commands/workspace.rs`:
+- Validates workspace exists
+- Prevents aborting main workspace
+- Requires clean working copy
+- Deletes workspace via VCS backend
+
+**Architectural limitation**: The CLI doesn't track workspace state (Merged vs Active) in a database, so the "cannot abort merged workspace" precondition cannot be enforced without database integration.
+
+## Artifacts Created
+- `.beads/scpm-tpm/contract.md` - Contract specification
+- `.beads/scpm-tpm/martin-fowler-tests.md` - Test plan
+- `.beads/scpm-tpm/implementation.md` - Implementation summary
+- `.beads/scpm-tpm/red-queen-report.md` - Adversarial testing results
+- `.beads/scpm-tpm/defects.md` - Black Hat review results
+- `.beads/scpm-tpm/kani-justification.md` - Kani skip justification
+- `.beads/scpm-tpm/STATE.md` - State machine tracking
 
 ## Pipeline
 - [x] STATE 0: Isolation & Calibration
@@ -46,4 +59,6 @@ updated_at: "2026-03-21T04:15:00Z"
 - [x] STATE 5.5: Black Hat Code Review
 - [x] STATE 5.7: Kani Model Checking (Skipped)
 - [x] STATE 7: Architectural Drift Check
-- [ ] STATE 8: Landing
+- [x] STATE 8: Landing
+
+## STATUS: COMPLETE
