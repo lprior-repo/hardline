@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+use crate::workspace_integrity::RepairResult;
 
     use tempfile::TempDir;
 

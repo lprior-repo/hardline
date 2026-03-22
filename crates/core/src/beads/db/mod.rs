@@ -3,12 +3,18 @@
 #![deny(clippy::arithmetic_side_effects)]
 
 // Re-export modules for public API
+#[cfg(test)]
+pub use query::enable_wal_mode;
 pub use query::query_beads;
 pub use schema::ensure_schema;
 pub use write::{delete_bead, insert_bead, update_bead};
 
+// Re-export parsing functions for tests
+#[cfg(test)]
+pub use parsing::{parse_bead_row, parse_datetime, parse_status};
+
 // Module declarations
-mod parsing;
+pub(crate) mod parsing;
 mod query;
 mod schema;
 mod validation;

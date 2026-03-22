@@ -1,14 +1,11 @@
-//! Issue aggregate root - builder pattern.
-//!
-//! This module contains the `IssueBuilder` for creating or updating issues.
-
 use chrono::{DateTime, Utc};
 
 use crate::beads::domain::{
     Assignee, BlockedBy, DependsOn, Description, DomainError, IssueId, IssueState, IssueType,
     Labels, ParentId, Priority, Title,
 };
-use crate::beads::issue::Issue;
+
+use crate::beads::issue_data::Issue;
 
 // ============================================================================
 // Builder Pattern for Issue Construction
@@ -155,6 +152,10 @@ impl IssueBuilder {
     /// # Errors
     ///
     /// Returns `DomainError` if validation fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if ID or title are not set (useful for testing with known-good data).
     pub fn build(self) -> Result<Issue, DomainError> {
         let id = self.id.ok_or(DomainError::EmptyId)?;
         let title = self.title.ok_or(DomainError::EmptyTitle)?;

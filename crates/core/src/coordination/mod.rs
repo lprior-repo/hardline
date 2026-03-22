@@ -19,6 +19,12 @@
 //! - [`conflict_resolutions_entities`] - Conflict resolution domain types
 //! - [`ConflictResolution`] - Represents a resolved conflict
 //!
+//! **Implementation modules:**
+//! - [`conflict_resolutions_schema`] - Schema initialization
+//! - [`conflict_resolutions_insert`] - Insert operations
+//! - [`conflict_resolutions_query`] - Query operations
+//! - [`conflict_resolutions_error`] - Error conversion
+//!
 //! Conflict resolution enables:
 //! - Automatic conflict detection during merges
 //! - Storing resolution decisions for reuse
@@ -54,6 +60,12 @@ pub mod conflict_resolutions;
 pub mod conflict_resolutions_entities;
 pub mod domain_types;
 pub mod locks;
+
+// Private implementation modules for conflict_resolutions
+mod conflict_resolutions_error;
+mod conflict_resolutions_insert;
+mod conflict_resolutions_query;
+mod conflict_resolutions_schema;
 
 pub use conflict_resolutions::{
     get_conflict_resolutions, get_resolutions_by_decider, get_resolutions_by_time_range,

@@ -2,7 +2,7 @@
 //!
 //! # Architecture
 //!
-//! - **Errors**: `SyncError` enum with `From` implementation for `CoreError`
+//! - **Errors**: `SyncError` enum with domain-specific error variants
 
 use thiserror::Error;
 

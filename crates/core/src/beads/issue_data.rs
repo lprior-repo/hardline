@@ -1,12 +1,12 @@
-//! Issue aggregate root - data types.
+//! Issue aggregate root.
 //!
-//! This module defines the `Issue` struct which is the aggregate root
-//! for the issue domain.
+//! This module defines the `Issue` aggregate root which encapsulates
+//! the domain logic for issue management.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::super::domain::{
+use crate::beads::domain::{
     Assignee, BlockedBy, DependsOn, Description, IssueId, IssueState, IssueType,
     Labels, ParentId, Priority, Title,
 };

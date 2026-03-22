@@ -14,7 +14,7 @@ use crate::beads::db::parsing::parse_bead_row;
 /// # Errors
 ///
 /// Returns `BeadsError` if the `PRAGMA` statement fails.
-pub(crate) async fn enable_wal_mode(pool: &SqlitePool) -> Result<(), BeadsError> {
+pub async fn enable_wal_mode(pool: &SqlitePool) -> Result<(), BeadsError> {
     sqlx::query("PRAGMA journal_mode=WAL;")
         .execute(pool)
         .await

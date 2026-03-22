@@ -1,6 +1,6 @@
 //! Queue module tests
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 
 use crate::domain::identifiers::{QueueEntryId, SessionName};
 use crate::domain::queue::entry::QueueEntry;
@@ -95,7 +95,7 @@ fn test_find_by_session_returns_entry() {
     let entry = QueueEntry::new("test-1", "my-session", 10).unwrap();
     let queue = queue.enqueue(entry);
 
-    let session = SessionName::new("my-session").unwrap();
+    let session = SessionName::parse("my-session").unwrap();
     let found = queue.find_by_session(&session);
     assert!(found.is_some());
     assert_eq!(found.unwrap().session.as_str(), "my-session");
@@ -118,7 +118,7 @@ fn test_next_pending_returns_none_when_no_pending() {
     // Create an entry with a terminal status via valid transitions
     let entry = QueueEntry::with_timestamp(
         QueueEntryId::new("test-1").unwrap(),
-        SessionName::new("session-1").unwrap(),
+        SessionName::parse("session-1").unwrap(),
         10,
         Utc::now(),
     )
@@ -693,21 +693,21 @@ fn test_queue_entry_id_empty() {
 
 #[test]
 fn test_session_name_valid() {
-    assert!(SessionName::new("my-session").is_ok());
-    assert!(SessionName::new("  my-session  ").is_ok());
-    assert!(SessionName::new("session_123").is_ok());
-    assert!(SessionName::new("session.with.dots").is_ok());
+    assert!(SessionName::parse("my-session").is_ok());
+    assert!(SessionName::parse("  my-session  ").is_ok());
+    assert!(SessionName::parse("session_123").is_ok());
+    assert!(SessionName::parse("session.with.dots").is_ok());
 }
 
 #[test]
 fn test_session_name_empty() {
     assert!(matches!(
-        SessionName::new(""),
-        Err(crate::domain::validation::ValidationError::EmptyValue(_))
+        SessionName::parse(""),
+        Err(crate::domain::identifiers::IdentifierError::Empty)
     ));
     assert!(matches!(
-        SessionName::new("   "),
-        Err(crate::domain::validation::ValidationError::EmptyValue(_))
+        SessionName::parse("   "),
+        Err(crate::domain::identifiers::IdentifierError::Empty)
     ));
 }
 
@@ -718,8 +718,8 @@ fn test_session_name_rejects_shell_metacharacters() {
         let test_name = format!("session{}name", c);
         assert!(
             matches!(
-                SessionName::new(&test_name),
-                Err(crate::domain::validation::ValidationError::InvalidCharacters { .. })
+                SessionName::parse(&test_name),
+                Err(crate::domain::identifiers::IdentifierError::InvalidCharacters { .. })
             ),
             "Should reject character: {:?}",
             c
@@ -729,8 +729,8 @@ fn test_session_name_rejects_shell_metacharacters() {
 
 #[test]
 fn test_session_name_validate_works() {
-    assert!(SessionName::validate("valid-name").is_ok());
-    assert!(SessionName::validate("invalid$name").is_err());
+    assert!(SessionName::parse("valid-name").is_ok());
+    assert!(SessionName::parse("invalid$name").is_err());
 }
 
 #[test]
@@ -747,7 +747,7 @@ fn test_session_name_try_from() {
 #[test]
 fn test_queue_entry_from_identifiers() {
     let id = QueueEntryId::new("test-1").unwrap();
-    let session = SessionName::new("session").unwrap();
+    let session = SessionName::parse("session").unwrap();
     let entry = QueueEntry::from_identifiers(id, session, 50).unwrap();
     assert_eq!(entry.id.as_str(), "test-1");
     assert_eq!(entry.session.as_str(), "session");
@@ -762,7 +762,7 @@ fn test_queue_entry_from_identifiers() {
 #[test]
 fn test_queue_entry_with_timestamp() {
     let id = QueueEntryId::new("test-1").unwrap();
-    let session = SessionName::new("session").unwrap();
+    let session = SessionName::parse("session").unwrap();
     let timestamp = Utc::now();
     let entry = QueueEntry::with_timestamp(id, session, 50, timestamp).unwrap();
     assert_eq!(entry.enqueued_at, timestamp);
@@ -771,7 +771,7 @@ fn test_queue_entry_with_timestamp() {
 #[test]
 fn test_queue_entry_with_status() {
     let id = QueueEntryId::new("test-1").unwrap();
-    let session = SessionName::new("session").unwrap();
+    let session = SessionName::parse("session").unwrap();
     let timestamp = Utc::now();
     let entry = QueueEntry::with_status(id, session, 50, timestamp, QueueStatus::Claimed).unwrap();
     assert_eq!(entry.status, QueueStatus::Claimed);

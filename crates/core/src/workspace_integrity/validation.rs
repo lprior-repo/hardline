@@ -26,9 +26,9 @@ use crate::{Error, Result};
 #[derive(Debug, Clone)]
 pub struct IntegrityValidator {
     /// Root directory containing workspaces
-    workspaces_root: PathBuf,
+    pub workspaces_root: PathBuf,
     /// Check timeout in milliseconds
-    timeout_ms: u64,
+    pub timeout_ms: u64,
 }
 
 impl IntegrityValidator {

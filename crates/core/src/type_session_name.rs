@@ -13,7 +13,7 @@ use crate::error::{Error, Result};
 pub struct SessionName(String);
 
 impl SessionName {
-    const MAX_LENGTH: usize = 63;
+    pub const MAX_LENGTH: usize = 63;
 
     pub fn parse(name: impl Into<String>) -> Result<Self> {
         let name = name.into();

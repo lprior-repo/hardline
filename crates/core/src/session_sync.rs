@@ -18,21 +18,22 @@
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 
-// Submodules
-mod data;
-mod error;
-mod validation;
-
-// Re-exports - data types
-pub use data::{
+// Re-export data types
+pub use crate::session_sync_data::{
     PreconditionCheck, SessionSyncInput, SessionSyncResult, WorkspaceCleanStatus,
 };
 
-// Re-exports - error types
-pub use error::SyncError;
+// Re-export error types
+pub use crate::session_sync_errors::SyncError;
 
-// Re-exports - validation functions
-pub use validation::{
+// Re-export calculation functions
+pub use crate::session_sync_calculations::{
     create_sync_result, determine_workspace_status, has_conflicts_in_output,
     parse_rebase_output, validate_sync_preconditions,
 };
+
+// Tests
+#[cfg(test)]
+mod tests {
+    include!("session_sync_tests.rs");
+}

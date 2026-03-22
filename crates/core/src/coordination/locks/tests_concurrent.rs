@@ -1,4 +1,5 @@
 //! Concurrent locking tests (isolate-ggji: Lock Race Condition).
+use crate::coordination::locks::{LockManager, LockResponse};
 
 use sqlx::sqlite::SqlitePoolOptions;
 

@@ -5,10 +5,12 @@ mod tests {
     use chrono::Utc;
 
     use crate::types::{AbsolutePath, SessionId, SessionName, ValidatedMetadata};
+    use crate::type_session::Session;
+    use crate::types::BeadsSummary;
     use crate::workspace_state::WorkspaceState;
 
-    use super::types::{ActionRisk, CommandContext, Hint, HintType, NextAction, SystemState};
-    use super::{
+    use crate::hints::types::{ActionRisk, CommandContext, Hint, HintType, NextAction, SystemState};
+    use crate::hints::{
         extract_session_name, generate_hints, generate_hints_response, hints_for_beads,
         hints_for_error, next_actions_for_command, suggest_next_actions,
     };
@@ -17,7 +19,7 @@ mod tests {
     fn create_test_session(name: &str, status: SessionStatus) -> Session {
         Session {
             id: SessionId::parse(format!("id-{name}")).expect("valid id in test"),
-            name: SessionName::new(name).expect("valid session name in test"),
+            name: SessionName::parse(name).expect("valid session name in test"),
             status,
             state: WorkspaceState::default(),
             workspace_path: AbsolutePath::parse("/tmp/test").expect("valid path in test"),
@@ -422,9 +424,9 @@ mod tests {
             jj_repo: true,
         };
 
-        use super::response::SystemContext;
+        use crate::hints::response::SystemContext;
         let response =
-            generate_hints_response(&state).unwrap_or_else(|_| super::response::HintsResponse {
+            generate_hints_response(&state).unwrap_or_else(|_| crate::hints::response::HintsResponse {
                 context: SystemContext {
                     initialized: true,
                     jj_repo: true,

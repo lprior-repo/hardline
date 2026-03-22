@@ -298,9 +298,9 @@ mod tests {
             "test-session".to_string(),
             PathBuf::from("/tmp/test-workspace"),
         );
-        assert_eq!(guard.name, "test-session");
-        assert_eq!(guard.path, PathBuf::from("/tmp/test-workspace"));
-        assert!(guard.active);
+        assert_eq!(guard.name(), "test-session");
+        assert_eq!(guard.path(), PathBuf::from("/tmp/test-workspace"));
+        assert!(guard.is_active());
     }
 
     #[test]
@@ -309,10 +309,10 @@ mod tests {
             "test-session".to_string(),
             PathBuf::from("/tmp/test-workspace"),
         );
-        assert!(guard.active);
+        assert!(guard.is_active());
 
         guard.disarm();
-        assert!(!guard.active);
+        assert!(!guard.is_active());
     }
 
     #[tokio::test]
@@ -327,11 +327,11 @@ mod tests {
 
         let guard_path = temp_dir.clone();
         let mut guard = WorkspaceGuard::new(workspace_name, guard_path);
-        assert!(guard.active);
+        assert!(guard.is_active());
 
         let result = guard.cleanup().await;
 
-        assert!(!guard.active);
+        assert!(!guard.is_active());
 
         let exists_after_cleanup = tokio::fs::try_exists(&temp_dir)
             .await
@@ -349,7 +349,7 @@ mod tests {
         );
 
         guard.disarm();
-        assert!(!guard.active);
+        assert!(!guard.is_active());
 
         let result = guard.cleanup().await;
         assert!(result.is_ok());
@@ -409,9 +409,9 @@ mod tests {
 
         match result {
             Ok(guard) => {
-                assert_eq!(guard.name, "test-workspace");
-                assert_eq!(guard.path, temp_dir);
-                assert!(guard.active);
+                assert_eq!(guard.name(), "test-workspace");
+                assert_eq!(guard.path(), temp_dir);
+                assert!(guard.is_active());
             }
             Err(_e) => {}
         }
@@ -435,7 +435,7 @@ mod tests {
         let result = create_workspace("my-workspace", &temp_dir).await;
 
         if let Ok(guard) = result {
-            assert_eq!(guard.name, "my-workspace");
+            assert_eq!(guard.name(), "my-workspace");
         } else {
         }
     }
@@ -447,7 +447,7 @@ mod tests {
         let result = create_workspace("path-workspace", &temp_dir).await;
 
         if let Ok(guard) = result {
-            assert_eq!(guard.path, temp_dir);
+            assert_eq!(guard.path(), temp_dir);
         } else {
         }
     }

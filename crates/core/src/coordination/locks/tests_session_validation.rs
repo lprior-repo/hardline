@@ -1,4 +1,5 @@
 //! Session validation tests (isolate-1w0d: Lock Non-Existent Session).
+use crate::coordination::locks::{LockManager};
 
 use sqlx::sqlite::SqlitePoolOptions;
 

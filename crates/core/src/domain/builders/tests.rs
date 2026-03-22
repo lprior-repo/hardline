@@ -14,7 +14,7 @@ use crate::domain::builders::summary::SummaryBuilder;
 use crate::domain::builders::workspace_info::{WorkspaceInfoBuilder, WorkspaceInfoState};
 use crate::output_jsonl::{
     domain_types::{IssueId, IssueTitle, Message, PlanDescription, PlanTitle},
-    ActionStatus, ActionTarget, ActionVerb, IssueSeverity, OutputSummaryType,
+    ActionStatus, ActionTarget, ActionVerb, IssueSeverity, SummaryType,
 };
 use crate::types::SessionStatus as TypesSessionStatus;
 use crate::WorkspaceState as TypesWorkspaceState;
@@ -142,7 +142,7 @@ fn test_summary_builder_complete() {
     let message = Message::new("Test message").expect("valid message");
 
     let result = SummaryBuilder::new()
-        .type_field(OutputSummaryType::Info)
+        .type_field(SummaryType::Info)
         .message(message)
         .build();
 

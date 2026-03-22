@@ -23,6 +23,7 @@ pub use crate::type_session_id::SessionId;
 pub use crate::type_session_name::SessionName;
 pub use crate::type_session_path::AbsolutePath;
 pub use crate::type_session_status::{Operation, SessionStatus};
+pub use crate::workspace_state::WorkspaceState;
 
 #[cfg(test)]
 mod tests {

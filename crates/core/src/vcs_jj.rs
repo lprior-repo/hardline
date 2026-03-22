@@ -1,25 +1,23 @@
-//! JJ (Jujutsu) backend implementation.
-
-use chrono::Utc;
-use std::path::PathBuf;
+//! JJ (Jujutsu) backend implementation
 
 use crate::error::{Error, Result};
+use chrono::Utc;
+use std::process::Command;
 
 use super::types::{Branch, Commit, VcsStatus, Workspace};
-use super::backend::VcsBackend;
+use super::VcsBackend;
 
-/// JJ (Jujutsu) backend implementation
 pub struct JjBackend {
-    repo_path: PathBuf,
+    repo_path: std::path::PathBuf,
 }
 
 impl JjBackend {
-    pub fn new(repo_path: PathBuf) -> Self {
+    pub fn new(repo_path: std::path::PathBuf) -> Self {
         Self { repo_path }
     }
 
     fn run_jj(&self, args: &[&str]) -> Result<std::process::Output> {
-        std::process::Command::new("jj")
+        Command::new("jj")
             .args(args)
             .current_dir(&self.repo_path)
             .output()

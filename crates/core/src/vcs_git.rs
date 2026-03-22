@@ -1,25 +1,23 @@
-//! Git backend implementation.
-
-use chrono::Utc;
-use std::path::PathBuf;
+//! Git backend implementation
 
 use crate::error::{Error, Result};
+use chrono::Utc;
+use std::process::Command;
 
 use super::types::{Branch, Commit, VcsStatus, Workspace};
-use super::backend::VcsBackend;
+use super::VcsBackend;
 
-/// Git backend implementation
 pub struct GitBackend {
-    repo_path: PathBuf,
+    repo_path: std::path::PathBuf,
 }
 
 impl GitBackend {
-    pub fn new(repo_path: PathBuf) -> Self {
+    pub fn new(repo_path: std::path::PathBuf) -> Self {
         Self { repo_path }
     }
 
     fn run_git(&self, args: &[&str]) -> Result<std::process::Output> {
-        std::process::Command::new("git")
+        Command::new("git")
             .args(args)
             .current_dir(&self.repo_path)
             .output()
@@ -159,8 +157,6 @@ impl VcsBackend for GitBackend {
     }
 
     fn create_workspace(&self, _name: &str) -> Result<()> {
-        // Git doesn't have native workspace support
-        // Could use git worktree
         Err(Error::Unimplemented(
             "Git workspaces use worktrees instead".into(),
         ))

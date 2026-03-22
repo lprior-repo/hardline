@@ -6,7 +6,7 @@ mod tests {
 
     use crate::domain::identifiers::BeadId;
 
-    use super::Bead;
+    use crate::domain::aggregates::bead::Bead;
 
     fn create_test_bead() -> Bead {
         let id = BeadId::parse("bd-1").expect("valid id");
@@ -75,15 +75,15 @@ mod tests {
 
         // Cannot transition from closed
         let result = closed.start();
-        assert!(matches!(result, Err(super::BeadError::CannotModifyClosed)));
+        assert!(matches!(result, Err(crate::domain::aggregates::bead::BeadError::CannotModifyClosed)));
 
         // Cannot update title
         let result = closed.update_title("New Title");
-        assert!(matches!(result, Err(super::BeadError::CannotModifyClosed)));
+        assert!(matches!(result, Err(crate::domain::aggregates::bead::BeadError::CannotModifyClosed)));
 
         // Cannot update description
         let result = closed.update_description(Some("New description"));
-        assert!(matches!(result, Err(super::BeadError::CannotModifyClosed)));
+        assert!(matches!(result, Err(crate::domain::aggregates::bead::BeadError::CannotModifyClosed)));
     }
 
     #[test]
@@ -132,11 +132,11 @@ mod tests {
 
         // Empty title
         let result = Bead::new(id.clone(), "", None::<String>);
-        assert!(matches!(result, Err(super::BeadError::InvalidTitle(_))));
+        assert!(matches!(result, Err(crate::domain::aggregates::bead::BeadError::InvalidTitle(_))));
 
         // Whitespace-only title
         let result = Bead::new(id, "   ", None::<String>);
-        assert!(matches!(result, Err(super::BeadError::InvalidTitle(_))));
+        assert!(matches!(result, Err(crate::domain::aggregates::bead::BeadError::InvalidTitle(_))));
     }
 
     #[test]
@@ -149,13 +149,13 @@ mod tests {
             id,
             "Test",
             None::<String>,
-            super::BeadState::Open,
-            super::BeadTimestamps::new(created, updated),
+            crate::domain::aggregates::bead::BeadState::Open,
+            crate::domain::aggregates::bead::BeadTimestamps::new(created, updated),
         );
 
         assert!(matches!(
             result,
-            Err(super::BeadError::NonMonotonicTimestamps { .. })
+            Err(crate::domain::aggregates::bead::BeadError::NonMonotonicTimestamps { .. })
         ));
     }
 
@@ -168,7 +168,7 @@ mod tests {
         let closed = bead.close().expect("close valid");
         assert!(matches!(
             closed.validate_can_modify(),
-            Err(super::BeadError::CannotModifyClosed)
+            Err(crate::domain::aggregates::bead::BeadError::CannotModifyClosed)
         ));
     }
 
@@ -181,8 +181,8 @@ mod tests {
             id.clone(),
             "Test Bead",
             Some("Description"),
-            super::BeadState::Open,
-            super::BeadTimestamps::new(now, now),
+            crate::domain::aggregates::bead::BeadState::Open,
+            crate::domain::aggregates::bead::BeadTimestamps::new(now, now),
         )
         .expect("reconstruct valid");
 
@@ -201,8 +201,8 @@ mod tests {
             id,
             "Test Bead",
             None::<String>,
-            super::BeadState::Closed { closed_at: now },
-            super::BeadTimestamps::new(now - chrono::Duration::seconds(10), now),
+            crate::domain::aggregates::bead::BeadState::Closed { closed_at: now },
+            crate::domain::aggregates::bead::BeadTimestamps::new(now - chrono::Duration::seconds(10), now),
         )
         .expect("reconstruct valid");
 

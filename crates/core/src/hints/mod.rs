@@ -27,4 +27,4 @@ pub use generation::{
 pub use next_actions::next_actions_for_command;
 
 // Re-export helper functions
-pub use helpers::hints_for_beads;
+pub use helpers::{extract_session_name, hints_for_beads};

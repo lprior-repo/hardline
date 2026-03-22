@@ -1,13 +1,14 @@
-//! Session sync validation - pure calculation functions
+//! Session sync calculations - pure validation and state transition functions
 //!
 //! # Architecture
 //!
 //! - **Calculations**: Pure validation and state transition functions
 
+use crate::session_sync_data::{
+    PreconditionCheck, SessionSyncResult, WorkspaceCleanStatus,
+};
+use crate::session_sync_errors::SyncError;
 use crate::types::SessionStatus;
-
-use super::data::{PreconditionCheck, WorkspaceCleanStatus};
-use super::error::SyncError;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CALCULATIONS LAYER - Pure validation and state transitions
@@ -25,7 +26,7 @@ pub fn validate_sync_preconditions(
     current_status: Option<SessionStatus>,
     workspace_status: WorkspaceCleanStatus,
     allow_dirty: bool,
-) -> Result<PreconditionCheck, SyncError> {
+) -> std::result::Result<PreconditionCheck, SyncError> {
     let precheck = PreconditionCheck {
         session_exists,
         current_status,
@@ -96,16 +97,20 @@ pub fn has_conflicts_in_output(output: &str) -> bool {
 
 /// Create sync result from rebase output
 #[must_use]
-pub fn create_sync_result(session_name: String, rebase_output: &str) -> super::data::SessionSyncResult {
+pub fn create_sync_result(session_name: String, rebase_output: &str) -> SessionSyncResult {
     let (revision, _conflicts) = parse_rebase_output(rebase_output);
     let had_conflicts = has_conflicts_in_output(rebase_output);
 
-    super::data::SessionSyncResult::new(
+    SessionSyncResult::new(
         session_name,
         revision.unwrap_or_else(|| "unknown".to_string()),
         had_conflicts,
     )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CALCULATIONS - Workspace status detection
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /// Determine workspace clean status from JJ status output
 #[must_use]

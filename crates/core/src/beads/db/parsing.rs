@@ -12,7 +12,7 @@ use crate::beads::types::{BeadIssue, BeadsError, IssueStatus, Priority};
 /// # Errors
 ///
 /// Returns `BeadsError::QueryFailed` if the string is missing or invalid.
-pub(crate) fn parse_datetime(datetime_str: Option<String>) -> Result<DateTime<Utc>, BeadsError> {
+pub fn parse_datetime(datetime_str: Option<String>) -> Result<DateTime<Utc>, BeadsError> {
     datetime_str
         .ok_or_else(|| BeadsError::QueryFailed("Missing required datetime field".to_string()))
         .and_then(|s| {
@@ -27,7 +27,7 @@ pub(crate) fn parse_datetime(datetime_str: Option<String>) -> Result<DateTime<Ut
 /// # Errors
 ///
 /// Returns `BeadsError::QueryFailed` if the status string is invalid.
-pub(crate) fn parse_status(status_str: &str) -> Result<IssueStatus, BeadsError> {
+pub fn parse_status(status_str: &str) -> Result<IssueStatus, BeadsError> {
     status_str.parse().map_err(|_| {
         BeadsError::QueryFailed(format!("Invalid status value '{status_str}'. Expected one of: open, in_progress, done, cancelled"))
     })
@@ -38,7 +38,7 @@ pub(crate) fn parse_status(status_str: &str) -> Result<IssueStatus, BeadsError> 
 /// # Errors
 ///
 /// Returns `BeadsError` if any required field is missing or malformed
-pub(crate) fn parse_bead_row(row: &sqlx::sqlite::SqliteRow) -> Result<BeadIssue, BeadsError> {
+pub fn parse_bead_row(row: &sqlx::sqlite::SqliteRow) -> Result<BeadIssue, BeadsError> {
     let status_str: String = row
         .try_get("status")
         .map_err(|e: sqlx::Error| BeadsError::QueryFailed(format!("Field 'status' error: {e}")))?;

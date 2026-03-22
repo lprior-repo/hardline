@@ -1,4 +1,5 @@
 //! TTL-related regression tests.
+use crate::coordination::locks::{LockManager, LockResponse};
 
 use sqlx::sqlite::SqlitePoolOptions;
 
@@ -56,7 +57,7 @@ async fn regression_lock_with_ttl_maps_contention_race_to_session_locked() -> Re
             .await
             .into_iter()
             .map(|r| r.map_err(|e| Error::Internal(e.to_string())))
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
 
     let successful_locks = results
         .iter()

@@ -1,9 +1,8 @@
-//! VCS backend trait definition.
+//! VCS backend trait definition
 //!
-//! Unified interface for VCS operations across JJ and Git backends.
+//! Unified interface for VCS operations supporting both JJ and Git.
 
 use crate::error::Result;
-
 use super::types::{Branch, Commit, VcsStatus, Workspace};
 
 /// VCS backend trait - unified interface for JJ and Git

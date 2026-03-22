@@ -29,6 +29,10 @@ mod analysis;
 mod db;
 mod domain;
 mod issue;
+mod issue_builder;
+mod issue_data;
+mod issue_impl;
+mod issue_queries;
 mod query;
 mod types;
 
@@ -57,7 +61,8 @@ pub use domain::{
     Labels, ParentId, Priority, Title,
 };
 // Issue aggregate root
-pub use issue::{Issue, IssueBuilder};
+pub use issue_data::Issue;
+pub use issue_builder::IssueBuilder;
 // Query operations
 pub use query::{apply_query, filter_issues, paginate, sort_issues};
 // Legacy types (for backward compatibility)

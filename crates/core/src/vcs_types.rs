@@ -1,6 +1,6 @@
-//! VCS data types for Source Control Plane.
+//! VCS data types - Commit, Branch, Workspace, VcsStatus, VcsType
 //!
-//! Immutable data structures representing VCS concepts.
+//! This module contains all VCS-related data structures.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -62,4 +62,15 @@ pub enum VcsType {
     Jujutsu,
     /// Git VCS
     Git,
+}
+
+/// Detect which VCS is in use in a directory
+pub fn detect_vcs(path: &std::path::Path) -> Option<VcsType> {
+    if path.join(".jj").exists() {
+        Some(VcsType::Jujutsu)
+    } else if path.join(".git").exists() {
+        Some(VcsType::Git)
+    } else {
+        None
+    }
 }

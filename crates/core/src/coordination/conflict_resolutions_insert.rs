@@ -1,22 +1,13 @@
-#![warn(clippy::pedantic)]
-#![warn(clippy::nursery)]
-#![forbid(unsafe_code)]
-
 //! Conflict resolution insert operations.
 //!
-//! This module provides the `insert_conflict_resolution` function
-//! for recording conflict resolution decisions in the audit log.
-//!
-//! # Design Principles
-//!
-//! 1. **Append-Only**: No UPDATE or DELETE operations
-//! 2. **Transparent**: Full audit trail for debugging
-//! 3. **Performant**: Optimized for inserts and queries
+//! Provides async functions for inserting conflict resolution records
+//! into the SQLite database.
 
 use sqlx::sqlite::SqlitePool;
 
 pub use super::conflict_resolutions_entities::{
-    ConflictResolution, ConflictResolutionError,
+    validate_decider, validate_non_empty, validate_timestamp, ConflictResolution,
+    ConflictResolutionError,
 };
 use crate::Result;
 
@@ -38,6 +29,7 @@ use crate::Result;
 /// ## Postconditions
 /// - Record inserted with auto-generated ID
 /// - Returned ID matches inserted record
+/// - `SELECT * FROM conflict_resolutions WHERE id = ?` returns record
 ///
 /// # Errors
 ///
@@ -48,10 +40,11 @@ use crate::Result;
 ///
 /// ```rust,no_run
 /// # use sqlx::SqlitePool;
-/// # use isolate_core::coordination::conflict_resolutions::{insert_conflict_resolution, ConflictResolution};
+/// # use isolate_core::coordination::conflict_resolutions_insert::insert_conflict_resolution;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # let pool = SqlitePool::connect("sqlite:db.sqlite").await?;
+/// use isolate_core::coordination::conflict_resolutions_entities::ConflictResolution;
 /// let resolution = ConflictResolution {
 ///     id: 0,
 ///     timestamp: "2025-02-18T12:34:56Z".to_string(),

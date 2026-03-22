@@ -4,7 +4,8 @@
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::introspection::{DoctorCheck, CheckStatus, DoctorOutput, FlagSpec, suggest_name, Capabilities, IntrospectOutput, Prerequisites, CommandExample, ErrorCondition, CommandIntrospection, ArgumentSpec, SystemState, DependencyInfo};
+    use crate::Error;
 
     #[test]
     fn test_introspect_output_new() {
@@ -91,7 +92,7 @@ mod tests {
     }
 
     #[test]
-    fn test_suggest_name_basic() -> Result<()> {
+    fn test_suggest_name_basic() -> Result<(), Error> {
         let existing = vec!["feature-1".to_string(), "feature-2".to_string()];
         let result = suggest_name("feature-{n}", &existing)?;
         assert_eq!(result.suggested, "feature-3");
@@ -101,7 +102,7 @@ mod tests {
     }
 
     #[test]
-    fn test_suggest_name_gap() -> Result<()> {
+    fn test_suggest_name_gap() -> Result<(), Error> {
         let existing = vec!["test-1".to_string(), "test-3".to_string()];
         let result = suggest_name("test-{n}", &existing)?;
         assert_eq!(result.suggested, "test-2");
@@ -110,7 +111,7 @@ mod tests {
     }
 
     #[test]
-    fn test_suggest_name_no_existing() -> Result<()> {
+    fn test_suggest_name_no_existing() -> Result<(), Error> {
         let existing = vec![];
         let result = suggest_name("bug-{n}", &existing)?;
         assert_eq!(result.suggested, "bug-1");

@@ -161,10 +161,10 @@ fn domain_types_dont_require_tokio_runtime() {
 /// Test that Session types work without tokio runtime.
 #[test]
 fn session_types_dont_require_tokio_runtime() {
-    let name = SessionName::new("test-session");
+    let name = SessionName::parse("test-session");
     assert!(name.is_ok());
 
-    let invalid_name = SessionName::new("123-invalid");
+    let invalid_name = SessionName::parse("123-invalid");
     assert!(invalid_name.is_err());
 
     let state = WorkspaceState::Working;

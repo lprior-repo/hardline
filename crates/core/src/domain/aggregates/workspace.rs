@@ -23,48 +23,11 @@
 
 use std::path::PathBuf;
 
-use thiserror::Error;
+use crate::domain::workspace::WorkspaceState;
 
-use crate::domain::{identifiers::WorkspaceName, workspace::WorkspaceState};
-
-// ============================================================================
-// DOMAIN ERRORS
-// ============================================================================
-
-/// Errors that can occur during workspace operations.
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum WorkspaceError {
-    /// Invalid state transition
-    #[error("invalid state transition: {from:?} -> {to:?}")]
-    InvalidStateTransition {
-        from: WorkspaceState,
-        to: WorkspaceState,
-    },
-
-    /// Workspace path does not exist
-    #[error("workspace path does not exist: {0}")]
-    PathNotFound(PathBuf),
-
-    /// Workspace is not in a ready state
-    #[error("workspace is not ready: {0:?}")]
-    NotReady(WorkspaceState),
-
-    /// Workspace is not active
-    #[error("workspace is not active: {0:?}")]
-    NotActive(WorkspaceState),
-
-    /// Workspace has been removed
-    #[error("workspace has been removed")]
-    Removed,
-
-    /// Cannot use workspace in current state
-    #[error("cannot use workspace in state: {0:?}")]
-    CannotUse(WorkspaceState),
-
-    /// Workspace name already exists
-    #[error("workspace name already exists: {0}")]
-    NameAlreadyExists(WorkspaceName),
-}
+// Re-export from sibling modules (declared in parent)
+pub use crate::domain::aggregates::workspace_error::WorkspaceError;
+pub use crate::domain::aggregates::workspace_builder::WorkspaceBuilder;
 
 // ============================================================================
 // WORKSPACE AGGREGATE ROOT
@@ -77,7 +40,7 @@ pub enum WorkspaceError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Workspace {
     /// Workspace name (unique identifier)
-    pub name: WorkspaceName,
+    pub name: crate::domain::identifiers::WorkspaceName,
     /// Absolute path to workspace directory
     pub path: PathBuf,
     /// Current workspace state
@@ -94,7 +57,10 @@ impl Workspace {
     /// # Errors
     ///
     /// Returns `WorkspaceError::PathNotFound` if path doesn't exist.
-    pub fn create(name: WorkspaceName, path: PathBuf) -> Result<Self, WorkspaceError> {
+    pub fn create(
+        name: crate::domain::identifiers::WorkspaceName,
+        path: PathBuf,
+    ) -> Result<Self, WorkspaceError> {
         if !path.exists() {
             return Err(WorkspaceError::PathNotFound(path));
         }
@@ -112,7 +78,7 @@ impl Workspace {
     ///
     /// Returns `WorkspaceError::PathNotFound` if path doesn't exist.
     pub fn reconstruct(
-        name: WorkspaceName,
+        name: crate::domain::identifiers::WorkspaceName,
         path: PathBuf,
         state: WorkspaceState,
     ) -> Result<Self, WorkspaceError> {
@@ -210,10 +176,6 @@ impl Workspace {
     }
 
     /// Transition to a new state with validation.
-    ///
-    /// # Errors
-    ///
-    /// Returns `WorkspaceError::InvalidStateTransition` if transition is invalid.
     fn transition_to(&self, new_state: WorkspaceState) -> Result<Self, WorkspaceError> {
         if !self.state.can_transition_to(&new_state) {
             return Err(WorkspaceError::InvalidStateTransition {
@@ -308,270 +270,5 @@ impl Workspace {
     #[must_use]
     pub fn builder() -> WorkspaceBuilder {
         WorkspaceBuilder::new()
-    }
-}
-
-// ============================================================================
-// WORKSPACE BUILDER
-// ============================================================================
-
-/// Builder for constructing workspaces.
-///
-/// Provides a fluent interface for workspace creation with validation.
-#[derive(Debug, Default)]
-pub struct WorkspaceBuilder {
-    name: Option<WorkspaceName>,
-    path: Option<PathBuf>,
-    state: Option<WorkspaceState>,
-}
-
-impl WorkspaceBuilder {
-    /// Create a new workspace builder.
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set the workspace name.
-    #[must_use]
-    pub fn name(mut self, name: WorkspaceName) -> Self {
-        self.name = Some(name);
-        self
-    }
-
-    /// Set the workspace path.
-    #[must_use]
-    pub fn path(mut self, path: PathBuf) -> Self {
-        self.path = Some(path);
-        self
-    }
-
-    /// Set the workspace state.
-    #[must_use]
-    pub const fn state(mut self, state: WorkspaceState) -> Self {
-        self.state = Some(state);
-        self
-    }
-
-    /// Build the workspace.
-    ///
-    /// # Errors
-    ///
-    /// Returns `WorkspaceError` if:
-    /// - Required fields are missing
-    /// - Path doesn't exist
-    pub fn build(self) -> Result<Workspace, WorkspaceError> {
-        let name = self.name.ok_or(WorkspaceError::CannotUse(
-            WorkspaceState::Creating, // Using existing error for missing name
-        ))?;
-        let path = self.path.ok_or(WorkspaceError::CannotUse(
-            WorkspaceState::Creating, // Using existing error for missing path
-        ))?;
-
-        match self.state {
-            Some(state) => Workspace::reconstruct(name, path, state),
-            None => Workspace::create(name, path),
-        }
-    }
-}
-
-// ============================================================================
-// TESTS
-// ============================================================================
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn create_test_workspace() -> Workspace {
-        let name = WorkspaceName::parse("test-workspace").expect("valid name");
-        let path = PathBuf::from("/tmp"); // Assume exists for test
-
-        Workspace::create(name, path).expect("workspace created")
-    }
-
-    #[test]
-    fn test_create_workspace() {
-        let workspace = create_test_workspace();
-
-        assert!(workspace.is_creating());
-        assert!(!workspace.is_ready());
-        assert!(!workspace.is_active());
-        assert_eq!(workspace.name.as_str(), "test-workspace");
-    }
-
-    #[test]
-    fn test_creating_to_ready() {
-        let workspace = create_test_workspace();
-
-        let ready = workspace.mark_ready().expect("transition valid");
-
-        assert!(ready.is_ready());
-        assert!(!ready.is_creating());
-    }
-
-    #[test]
-    fn test_ready_to_active() {
-        let workspace = create_test_workspace();
-        let ready = workspace.mark_ready().expect("transition valid");
-
-        let active = ready.mark_active().expect("transition valid");
-
-        assert!(active.is_active());
-        assert!(!active.is_ready());
-    }
-
-    #[test]
-    fn test_active_to_cleaning() {
-        let workspace = create_test_workspace();
-        let ready = workspace.mark_ready().expect("transition valid");
-        let active = ready.mark_active().expect("transition valid");
-
-        let cleaning = active.start_cleaning().expect("transition valid");
-
-        assert!(cleaning.is_cleaning());
-        assert!(!cleaning.is_active());
-    }
-
-    #[test]
-    fn test_cleaning_to_removed() {
-        let workspace = create_test_workspace();
-        let ready = workspace.mark_ready().expect("transition valid");
-        let active = ready.mark_active().expect("transition valid");
-        let cleaning = active.start_cleaning().expect("transition valid");
-
-        let removed = cleaning.mark_removed().expect("transition valid");
-
-        assert!(removed.is_removed());
-        assert!(removed.is_terminal());
-    }
-
-    #[test]
-    fn test_ready_to_removed() {
-        let workspace = create_test_workspace();
-        let ready = workspace.mark_ready().expect("transition valid");
-
-        let removed = ready.mark_removed().expect("transition valid");
-
-        assert!(removed.is_removed());
-    }
-
-    #[test]
-    fn test_creating_to_removed() {
-        let workspace = create_test_workspace();
-
-        let removed = workspace.mark_removed().expect("transition valid");
-
-        assert!(removed.is_removed());
-    }
-
-    #[test]
-    fn test_invalid_state_transition() {
-        let workspace = create_test_workspace();
-
-        // Cannot go from Creating to Active directly
-        let result = workspace.transition_to(WorkspaceState::Active);
-        assert!(matches!(
-            result,
-            Err(WorkspaceError::InvalidStateTransition { .. })
-        ));
-
-        // Removed is terminal
-        let removed = workspace.mark_removed().expect("transition valid");
-        let result = removed.transition_to(WorkspaceState::Creating);
-        assert!(matches!(
-            result,
-            Err(WorkspaceError::InvalidStateTransition { .. })
-        ));
-    }
-
-    #[test]
-    fn test_validate_ready() {
-        let workspace = create_test_workspace();
-
-        // Creating state is not ready
-        let result = workspace.validate_ready();
-        assert!(matches!(result, Err(WorkspaceError::NotReady(_))));
-
-        let ready = workspace.mark_ready().expect("transition valid");
-        assert!(ready.validate_ready().is_ok());
-    }
-
-    #[test]
-    fn test_validate_active() {
-        let workspace = create_test_workspace();
-        let ready = workspace.mark_ready().expect("transition valid");
-
-        // Ready is not active
-        let result = ready.validate_active();
-        assert!(matches!(result, Err(WorkspaceError::NotActive(_))));
-
-        let active = ready.mark_active().expect("transition valid");
-        assert!(active.validate_active().is_ok());
-    }
-
-    #[test]
-    fn test_validate_can_use() {
-        let workspace = create_test_workspace();
-
-        // Creating cannot be used
-        let result = workspace.validate_can_use();
-        assert!(matches!(result, Err(WorkspaceError::CannotUse(_))));
-
-        let ready = workspace.mark_ready().expect("transition valid");
-        assert!(ready.validate_can_use().is_ok());
-
-        let active = ready.mark_active().expect("transition valid");
-        assert!(active.validate_can_use().is_ok());
-    }
-
-    #[test]
-    fn test_path_not_found() {
-        let name = WorkspaceName::parse("test").expect("valid name");
-        let path = PathBuf::from("/nonexistent/path");
-
-        let result = Workspace::create(name, path);
-        assert!(matches!(result, Err(WorkspaceError::PathNotFound(_))));
-    }
-
-    #[test]
-    fn test_change_path() {
-        let workspace = create_test_workspace();
-        let new_path = PathBuf::from("/var/tmp");
-
-        let changed = workspace
-            .change_path(new_path.clone())
-            .expect("path changed");
-        assert_eq!(changed.path, new_path);
-    }
-
-    #[test]
-    fn test_builder() {
-        let name = WorkspaceName::parse("builder-test").expect("valid name");
-        let path = PathBuf::from("/tmp");
-
-        let workspace = Workspace::builder()
-            .name(name.clone())
-            .path(path)
-            .build()
-            .expect("builder works");
-
-        assert_eq!(workspace.name, name);
-        assert!(workspace.is_creating());
-    }
-
-    #[test]
-    fn test_builder_with_state() {
-        let name = WorkspaceName::parse("builder-state").expect("valid name");
-        let path = PathBuf::from("/tmp");
-
-        let workspace = Workspace::builder()
-            .name(name)
-            .path(path)
-            .state(WorkspaceState::Ready)
-            .build()
-            .expect("builder works");
-
-        assert!(workspace.is_ready());
     }
 }

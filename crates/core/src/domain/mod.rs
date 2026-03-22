@@ -140,6 +140,13 @@ pub mod agent;
 pub mod aggregates;
 pub mod builders;
 pub mod error_conversion;
+pub mod error_conversion_builder;
+pub mod error_conversion_context;
+pub mod error_conversion_extension;
+pub mod error_conversion_identifier;
+pub mod error_conversion_repository;
+#[cfg(test)]
+pub mod error_conversion_tests;
 pub mod events;
 pub mod identifiers;
 pub mod macros;

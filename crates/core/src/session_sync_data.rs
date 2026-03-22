@@ -1,4 +1,4 @@
-//! Session sync data types - immutable domain structures
+//! Session sync data types - immutable domain objects
 //!
 //! # Architecture
 //!
@@ -44,11 +44,9 @@ impl SessionSyncInput {
 
     /// Enable dirty workspace allowance
     #[must_use]
-    pub fn with_dirty_allowed(self) -> Self {
-        Self {
-            allow_dirty: true,
-            ..self
-        }
+    pub fn with_dirty_allowed(mut self) -> Self {
+        self.allow_dirty = true;
+        self
     }
 }
 
@@ -71,7 +69,8 @@ impl SessionSyncResult {
     pub fn new(session_name: String, new_revision: String, had_conflicts: bool) -> Self {
         let synced_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_or_else(|_| 0, |d| d.as_secs());
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
 
         Self {
             session_name,

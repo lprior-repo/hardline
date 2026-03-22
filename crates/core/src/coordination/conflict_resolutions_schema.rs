@@ -1,29 +1,11 @@
-#![warn(clippy::pedantic)]
-#![warn(clippy::nursery)]
-#![forbid(unsafe_code)]
-
 //! Conflict resolution schema initialization.
 //!
-//! This module provides the `init_conflict_resolutions_schema` function
-//! for creating the `conflict_resolutions` table and its indexes.
-//!
-//! # Design Principles
-//!
-//! 1. **Append-Only**: No UPDATE or DELETE operations
-//! 2. **Transparent**: Full audit trail for debugging
-//! 3. **Performant**: Optimized for inserts and queries
-//!
-//! # Architecture
-//!
-//! - Infrastructure layer: `sqlx` database operations
-//! - Entity types: `ConflictResolution` in `conflict_resolutions_entities.rs`
-//! - Domain errors: `ConflictResolutionError` in `conflict_resolutions_entities.rs`
+//! Provides async functions for initializing the `conflict_resolutions` table
+//! and its indexes in the SQLite database.
 
 use sqlx::sqlite::SqlitePool;
 
-pub use super::conflict_resolutions_entities::{
-    ConflictResolution, ConflictResolutionError,
-};
+pub use super::conflict_resolutions_entities::ConflictResolutionError;
 use crate::Result;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -54,7 +36,7 @@ use crate::Result;
 ///
 /// ```rust,no_run
 /// # use sqlx::SqlitePool;
-/// # use isolate_core::coordination::conflict_resolutions::init_conflict_resolutions_schema;
+/// # use isolate_core::coordination::conflict_resolutions_schema::init_conflict_resolutions_schema;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let pool = SqlitePool::connect("sqlite:db.sqlite").await?;

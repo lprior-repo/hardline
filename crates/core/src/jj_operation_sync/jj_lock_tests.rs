@@ -7,6 +7,8 @@
 
 use std::fs::{File, OpenOptions};
 
+use fs2::FileExt;
+
 use crate::error::{Error, Result};
 
 use crate::jj_operation_sync::jj_lock::{
