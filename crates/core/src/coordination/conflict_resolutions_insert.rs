@@ -1,0 +1,150 @@
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![forbid(unsafe_code)]
+
+//! Conflict resolution insert operations.
+//!
+//! This module provides the `insert_conflict_resolution` function
+//! for recording conflict resolution decisions in the audit log.
+//!
+//! # Design Principles
+//!
+//! 1. **Append-Only**: No UPDATE or DELETE operations
+//! 2. **Transparent**: Full audit trail for debugging
+//! 3. **Performant**: Optimized for inserts and queries
+
+use sqlx::sqlite::SqlitePool;
+
+pub use super::conflict_resolutions_entities::{
+    ConflictResolution, ConflictResolutionError,
+};
+use crate::Result;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INSERT OPERATIONS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/// Insert a conflict resolution record.
+///
+/// # Contract
+///
+/// ## Preconditions
+/// - `pool` is valid and connected
+/// - `resolution.session` is valid (may check existence)
+/// - `resolution.decider` is "ai" or "human"
+/// - `resolution.timestamp` is valid ISO 8601
+/// - `resolution.file` and `resolution.strategy` are non-empty
+///
+/// ## Postconditions
+/// - Record inserted with auto-generated ID
+/// - Returned ID matches inserted record
+///
+/// # Errors
+///
+/// - `Error::DatabaseError` if insert fails (constraint violation, I/O error)
+/// - `Error::Validation` if validation fails
+///
+/// # Example
+///
+/// ```rust,no_run
+/// # use sqlx::SqlitePool;
+/// # use isolate_core::coordination::conflict_resolutions::{insert_conflict_resolution, ConflictResolution};
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let pool = SqlitePool::connect("sqlite:db.sqlite").await?;
+/// let resolution = ConflictResolution {
+///     id: 0,
+///     timestamp: "2025-02-18T12:34:56Z".to_string(),
+///     session: "my-session".to_string(),
+///     file: "src/main.rs".to_string(),
+///     strategy: "accept_theirs".to_string(),
+///     reason: Some("Automatic resolution".to_string()),
+///     confidence: Some("high".to_string()),
+///     decider: "ai".to_string(),
+/// };
+/// let id = insert_conflict_resolution(&pool, &resolution).await?;
+/// assert!(id > 0);
+/// # Ok(())
+/// # }
+/// ```
+pub async fn insert_conflict_resolution(
+    pool: &SqlitePool,
+    resolution: &ConflictResolution,
+) -> Result<i64> {
+    // Validate inputs
+    validate_decider(&resolution.decider).map_err(|e| crate::Error::ValidationFieldError {
+        message: format!("invalid decider '{}': {e}", resolution.decider),
+        field: "decider".to_string(),
+        value: Some(resolution.decider.clone()),
+    })?;
+
+    validate_non_empty(&resolution.file, "file").map_err(|e| {
+        crate::Error::ValidationFieldError {
+            message: format!("empty file path: {e}"),
+            field: "file".to_string(),
+            value: Some(resolution.file.clone()),
+        }
+    })?;
+
+    validate_non_empty(&resolution.strategy, "strategy").map_err(|e| {
+        crate::Error::ValidationFieldError {
+            message: format!("empty strategy: {e}"),
+            field: "strategy".to_string(),
+            value: Some(resolution.strategy.clone()),
+        }
+    })?;
+
+    validate_non_empty(&resolution.session, "session").map_err(|e| {
+        crate::Error::ValidationFieldError {
+            message: format!("empty session name: {e}"),
+            field: "session".to_string(),
+            value: Some(resolution.session.clone()),
+        }
+    })?;
+
+    validate_timestamp(&resolution.timestamp).map_err(|e| crate::Error::ValidationFieldError {
+        message: format!("invalid timestamp: {e}"),
+        field: "timestamp".to_string(),
+        value: Some(resolution.timestamp.clone()),
+    })?;
+
+    // Insert record
+    let result = sqlx::query(
+        r"
+        INSERT INTO conflict_resolutions (
+            timestamp, session, file, strategy, reason, confidence, decider
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ",
+    )
+    .bind(&resolution.timestamp)
+    .bind(&resolution.session)
+    .bind(&resolution.file)
+    .bind(&resolution.strategy)
+    .bind(&resolution.reason)
+    .bind(&resolution.confidence)
+    .bind(&resolution.decider)
+    .execute(pool)
+    .await
+    .map_err(|e| ConflictResolutionError::InsertError {
+        file: resolution.file.clone(),
+        source: e.to_string(),
+        constraint: e
+            .as_database_error()
+            .and_then(sqlx::error::DatabaseError::code)
+            .map(|c| c.to_string()),
+        recovery: "Ensure decider is 'ai' or 'human' and all required fields are non-empty"
+            .to_string(),
+    })?;
+
+    let id = result.last_insert_rowid();
+
+    // Log success
+    tracing::debug!(
+        "Inserted conflict resolution for file '{}' in session '{}' (id: {id}, decider: {})",
+        resolution.file,
+        resolution.session,
+        resolution.decider
+    );
+
+    Ok(id)
+}

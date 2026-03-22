@@ -14,7 +14,6 @@ use sqlx::Row;
 use tokio::io::AsyncReadExt;
 
 use crate::error::{Error, Result};
-use crate::Error::Database;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecoveryPolicy {
@@ -116,13 +115,13 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
     let metadata = match tokio::fs::metadata(db_path).await {
         Ok(m) => m,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            return Err(Database(format!(
+            return Err(Error::database(format!(
                 "Database file not found: {}",
                 db_path.display()
             )));
         }
         Err(e) => {
-            return Err(Database(format!("Cannot access database: {e}")));
+            return Err(Error::database(format!("Cannot access database: {e}")));
         }
     };
 
@@ -133,7 +132,7 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
         )
         .await
         .ok();
-        return Err(Database(format!(
+        return Err(Error::database(format!(
             "Database file is too small to be valid: {} bytes (expected at least 100)",
             metadata.len(),
         )));
@@ -141,12 +140,12 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
 
     let mut file = tokio::fs::File::open(db_path)
         .await
-        .map_err(|e| Database(format!("Cannot open database: {e}")))?;
+        .map_err(|e| Error::database(format!("Cannot open database: {e}")))?;
 
     let mut header = [0u8; 16];
     file.read_exact(&mut header)
         .await
-        .map_err(|e| Database(format!("Cannot read database header: {e}")))?;
+        .map_err(|e| Error::database(format!("Cannot read database header: {e}")))?;
 
     let expected_magic: &[u8] = &[
         b'S', b'Q', b'L', b'i', b't', b'e', b' ', b'f', b'o', b'r', b'm', b'a', b't', b' ', b'3',
@@ -167,7 +166,7 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
         .await
         .ok();
 
-        return Err(Database(format!(
+        return Err(Error::database(format!(
             "Database file is corrupted (invalid magic bytes): {magic_hex}"
         )));
     }
@@ -178,7 +177,7 @@ pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Resul
 pub async fn repair_database(db_path: &Path, config: &RecoveryConfig) -> Result<()> {
     match config.policy {
         RecoveryPolicy::FailFast => {
-            return Err(Database(format!(
+            return Err(Error::database(format!(
                 "Database repair is disabled in fail-fast mode: {}",
                 db_path.display()
             )));
@@ -243,14 +242,14 @@ pub async fn recover_incomplete_sessions(db_path: &Path, config: &RecoveryConfig
     .bind(cutoff_time)
     .fetch_all(&pool)
     .await
-    .map_err(|e| Database(format!("Failed to query sessions: {e}")))?;
+    .map_err(|e| Error::database(format!("Failed to query sessions: {e}")))?;
 
     let recovered_count = rows.len();
 
     if recovered_count > 0 {
         match config.policy {
             RecoveryPolicy::FailFast => {
-                return Err(Database(format!(
+                return Err(Error::database(format!(
                     "Found {recovered_count} incomplete session(s) older than 5 minutes. Recovery disabled in fail-fast mode.\n\n\
                      Sessions stuck in 'creating' status:\n{}\
                      To fix, run: isolate doctor --fix",
@@ -307,7 +306,7 @@ pub async fn recover_incomplete_sessions(db_path: &Path, config: &RecoveryConfig
                 .bind(&name)
                 .execute(&pool)
                 .await
-                .map_err(|e| Database(format!("Failed to delete session: {e}")))?;
+                .map_err(|e| Error::database(format!("Failed to delete session: {e}")))?;
         }
 
         sqlx::query(
@@ -358,7 +357,7 @@ pub async fn periodic_cleanup(
     .bind(cutoff_time)
     .execute(&pool)
     .await
-    .map_err(|e| Database(format!("Failed to cleanup old sessions: {e}")))?;
+    .map_err(|e| Error::database(format!("Failed to cleanup old sessions: {e}")))?;
 
     let deleted_count = result.rows_affected();
 
@@ -368,7 +367,7 @@ pub async fn periodic_cleanup(
     )
     .execute(&pool)
     .await
-    .map_err(|e| Database(format!("Failed to cleanup orphaned transitions: {e}")))?;
+    .map_err(|e| Error::database(format!("Failed to cleanup orphaned transitions: {e}")))?;
 
     let orphan_count = orphan_result.rows_affected();
 

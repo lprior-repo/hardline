@@ -8,19 +8,19 @@ pub type IdentifierError = Error;
 
 pub fn validate_identifier(s: &str) -> Result<(), Error> {
     if s.is_empty() {
-        return Err(Error::InvalidIdentifier(
+        return Err(Error::invalid_identifier(
             "identifier cannot be empty".to_string(),
         ));
     }
 
     if !s.is_ascii() {
-        return Err(Error::InvalidIdentifier(
+        return Err(Error::invalid_identifier(
             "identifier must contain only ASCII characters".to_string(),
         ));
     }
 
     if s.contains('\0') {
-        return Err(Error::InvalidIdentifier(
+        return Err(Error::invalid_identifier(
             "identifier cannot contain null bytes".to_string(),
         ));
     }

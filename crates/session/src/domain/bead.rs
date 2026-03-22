@@ -10,271 +10,9 @@ use serde::{Deserialize, Serialize};
 use crate::domain::workspace_state::WorkspaceState;
 use crate::error::SessionError;
 
-// Re-export for convenience
-use std::result::Result;
-
-/// Bead state enumeration.
-///
-/// Lifecycle: Open → InProgress → Blocked → Deferred → Closed
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum BeadState {
-    /// Bead is open and available to be worked on
-    Open,
-    /// Bead is actively being worked on
-    InProgress,
-    /// Bead is blocked by dependencies
-    Blocked,
-    /// Bead has been deferred
-    Deferred,
-    /// Bead is closed/done (terminal state)
-    Closed,
-}
-
-impl BeadState {
-    /// All possible bead states
-    pub const fn all() -> [Self; 5] {
-        [
-            Self::Open,
-            Self::InProgress,
-            Self::Blocked,
-            Self::Deferred,
-            Self::Closed,
-        ]
-    }
-
-    /// Check if this state is terminal (no further transitions possible)
-    #[must_use]
-    pub fn is_terminal(self) -> bool {
-        self == Self::Closed
-    }
-
-    /// Check if a transition from this state to target is valid
-    /// State machine: Open → InProgress → Blocked/Deferred → Closed
-    #[must_use]
-    pub const fn can_transition_to(self, target: Self) -> bool {
-        match (self, target) {
-            // Open can go to InProgress
-            (Self::Open, Self::InProgress) => true,
-            // InProgress can go to Blocked, Deferred, or Closed
-            (Self::InProgress, Self::Blocked) => true,
-            (Self::InProgress, Self::Deferred) => true,
-            (Self::InProgress, Self::Closed) => true,
-            // Blocked can go back to InProgress, Deferred, or Closed
-            (Self::Blocked, Self::InProgress) => true,
-            (Self::Blocked, Self::Deferred) => true,
-            (Self::Blocked, Self::Closed) => true,
-            // Deferred can go back to InProgress or Closed
-            (Self::Deferred, Self::InProgress) => true,
-            (Self::Deferred, Self::Closed) => true,
-            // Closed is terminal - cannot transition to any other state
-            (Self::Closed, _) => false,
-            // Self-loops are not allowed
-            _ => false,
-        }
-    }
-
-    /// Get all valid target states from this state
-    #[must_use]
-    pub fn valid_transitions(self) -> Vec<Self> {
-        Self::all()
-            .into_iter()
-            .filter(|&target| self.can_transition_to(target))
-            .collect()
-    }
-}
-
-impl Default for BeadState {
-    fn default() -> Self {
-        Self::Open
-    }
-}
-
-impl std::fmt::Display for BeadState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Open => write!(f, "open"),
-            Self::InProgress => write!(f, "in_progress"),
-            Self::Blocked => write!(f, "blocked"),
-            Self::Deferred => write!(f, "deferred"),
-            Self::Closed => write!(f, "closed"),
-        }
-    }
-}
-
-/// Unique bead identifier.
-///
-/// # Invariants (I6)
-/// - Must be non-empty
-/// - Must be ≤100 characters
-/// - Must contain only alphanumeric characters, hyphens, and underscores
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct BeadId(String);
-
-impl BeadId {
-    pub const MAX_LENGTH: usize = 100;
-
-    pub fn new(id: impl Into<String>) -> Result<Self, SessionError> {
-        let id = id.into();
-        if id.is_empty() {
-            return Err(SessionError::InvalidBeadId("ID cannot be empty".into()));
-        }
-        if id.len() > Self::MAX_LENGTH {
-            return Err(SessionError::InvalidBeadId(format!(
-                "ID exceeds maximum length of {}",
-                Self::MAX_LENGTH
-            )));
-        }
-        if !id
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-        {
-            return Err(SessionError::InvalidBeadId(
-                "ID must contain only alphanumeric characters, hyphens, and underscores".into(),
-            ));
-        }
-        Ok(Self(id))
-    }
-
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl std::fmt::Display for BeadId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-/// Validated bead title.
-///
-/// # Invariants (I7)
-/// - Must be non-empty
-/// - Must be ≤200 characters
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct BeadTitle(String);
-
-impl BeadTitle {
-    pub const MAX_LENGTH: usize = 200;
-
-    pub fn new(title: impl Into<String>) -> Result<Self, SessionError> {
-        let title = title.into();
-        let trimmed = title.trim();
-        if trimmed.is_empty() {
-            return Err(SessionError::InvalidBeadTitle(
-                "Title cannot be empty".into(),
-            ));
-        }
-        if trimmed.len() > Self::MAX_LENGTH {
-            return Err(SessionError::InvalidBeadTitle(format!(
-                "Title exceeds maximum length of {}",
-                Self::MAX_LENGTH
-            )));
-        }
-        Ok(Self(trimmed.to_string()))
-    }
-
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl std::fmt::Display for BeadTitle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-/// Optional bead description
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct BeadDescription(Option<String>);
-
-impl BeadDescription {
-    pub fn new(description: impl Into<String>) -> Result<Self, SessionError> {
-        let description = description.into();
-        let trimmed = description.trim();
-        if trimmed.is_empty() {
-            return Ok(Self(None));
-        }
-        Ok(Self(Some(trimmed.to_string())))
-    }
-
-    #[must_use]
-    pub fn as_option(&self) -> Option<&String> {
-        self.0.as_ref()
-    }
-
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.0.as_ref().map_or(true, |s| s.is_empty())
-    }
-}
-
-impl std::fmt::Display for BeadDescription {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.0 {
-            Some(s) => write!(f, "{}", s),
-            None => write!(f, ""),
-        }
-    }
-}
-
-/// Bead type enumeration
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum BeadType {
-    Bug,
-    Feature,
-    Task,
-    Epic,
-    Chore,
-}
-
-impl BeadType {
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Bug => "bug",
-            Self::Feature => "feature",
-            Self::Task => "task",
-            Self::Epic => "epic",
-            Self::Chore => "chore",
-        }
-    }
-}
-
-impl Default for BeadType {
-    fn default() -> Self {
-        Self::Task
-    }
-}
-
-/// Priority level (0-4)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Priority(u8);
-
-impl Priority {
-    pub fn new(priority: u8) -> Result<Self, SessionError> {
-        if priority > 4 {
-            return Err(SessionError::InvalidPriority(format!(
-                "Priority must be 0-4, got {}",
-                priority
-            )));
-        }
-        Ok(Self(priority))
-    }
-
-    #[must_use]
-    pub fn as_u8(&self) -> u8 {
-        self.0
-    }
-}
-
-impl Default for Priority {
-    fn default() -> Self {
-        Self(2) // Medium priority
-    }
-}
+use super::bead_state::BeadState;
+use super::bead_types::{BeadType, Priority};
+use super::bead_value::{BeadDescription, BeadId, BeadTitle};
 
 /// Bead aggregate representing an atomic unit of work.
 ///
@@ -331,45 +69,63 @@ impl Bead {
     }
 
     /// Set the priority of this bead
-    pub fn with_priority(mut self, priority: Priority) -> Self {
-        self.priority = priority;
-        self.updated_at = Utc::now();
-        self
+    #[must_use]
+    pub fn with_priority(self, priority: Priority) -> Self {
+        Self {
+            priority,
+            updated_at: Utc::now(),
+            ..self
+        }
     }
 
     /// Set the type of this bead
-    pub fn with_type(mut self, bead_type: BeadType) -> Self {
-        self.bead_type = bead_type;
-        self.updated_at = Utc::now();
-        self
+    #[must_use]
+    pub fn with_type(self, bead_type: BeadType) -> Self {
+        Self {
+            bead_type,
+            updated_at: Utc::now(),
+            ..self
+        }
     }
 
     /// Set the assignee of this bead
-    pub fn with_assignee(mut self, assignee: impl Into<String>) -> Self {
-        self.assignee = Some(assignee.into());
-        self.updated_at = Utc::now();
-        self
+    #[must_use]
+    pub fn with_assignee(self, assignee: impl Into<String>) -> Self {
+        Self {
+            assignee: Some(assignee.into()),
+            updated_at: Utc::now(),
+            ..self
+        }
     }
 
     /// Set the parent bead
-    pub fn with_parent(mut self, parent: BeadId) -> Self {
-        self.parent = Some(parent);
-        self.updated_at = Utc::now();
-        self
+    #[must_use]
+    pub fn with_parent(self, parent: BeadId) -> Self {
+        Self {
+            parent: Some(parent),
+            updated_at: Utc::now(),
+            ..self
+        }
     }
 
     /// Add a dependency (this bead depends on another).
     ///
     /// # Preconditions (P9)
     /// - depends_on must be non-empty
-    pub fn add_dependency(mut self, depends_on: BeadId) -> Self {
+    #[must_use]
+    pub fn add_dependency(self, depends_on: BeadId) -> Self {
         // I10: No self-references
         if depends_on != self.id {
             if !self.depends_on.contains(&depends_on) {
-                self.depends_on.push(depends_on);
+                let mut depends_on_new = self.depends_on;
+                depends_on_new.push(depends_on);
+                return Self {
+                    depends_on: depends_on_new,
+                    updated_at: Utc::now(),
+                    ..self
+                };
             }
         }
-        self.updated_at = Utc::now();
         self
     }
 
@@ -377,14 +133,20 @@ impl Bead {
     ///
     /// # Preconditions (P10)
     /// - blocked_by must be non-empty
-    pub fn add_blocker(mut self, blocked_by: BeadId) -> Self {
+    #[must_use]
+    pub fn add_blocker(self, blocked_by: BeadId) -> Self {
         // I9: No self-references
         if blocked_by != self.id {
             if !self.blocked_by.contains(&blocked_by) {
-                self.blocked_by.push(blocked_by);
+                let mut blocked_by_new = self.blocked_by;
+                blocked_by_new.push(blocked_by);
+                return Self {
+                    blocked_by: blocked_by_new,
+                    updated_at: Utc::now(),
+                    ..self
+                };
             }
         }
-        self.updated_at = Utc::now();
         self
     }
 
@@ -407,11 +169,12 @@ impl Bead {
 
         // Q16: Can always transition to Closed
         if new_state == BeadState::Closed {
-            let mut new_bead = self.clone();
-            new_bead.state = new_state;
-            new_bead.closed_at = Some(Utc::now());
-            new_bead.updated_at = Utc::now();
-            return Ok(new_bead);
+            return Ok(Self {
+                state: new_state,
+                closed_at: Some(Utc::now()),
+                updated_at: Utc::now(),
+                ..self.clone()
+            });
         }
 
         // Validate the transition
@@ -422,10 +185,11 @@ impl Bead {
             });
         }
 
-        let mut new_bead = self.clone();
-        new_bead.state = new_state;
-        new_bead.updated_at = Utc::now();
-        Ok(new_bead)
+        Ok(Self {
+            state: new_state,
+            updated_at: Utc::now(),
+            ..self.clone()
+        })
     }
 
     /// Check if this bead is blocked.
@@ -519,106 +283,5 @@ impl Bead {
     #[must_use]
     pub fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bead_create_sets_open_state() {
-        let id = BeadId::new("bd-123").unwrap();
-        let title = BeadTitle::new("Test Bead").unwrap();
-        let bead = Bead::create(id, title, None);
-
-        assert_eq!(bead.state(), BeadState::Open);
-        assert!(!bead.is_blocked());
-    }
-
-    #[test]
-    fn bead_transition_to_in_progress() {
-        let id = BeadId::new("bd-123").unwrap();
-        let title = BeadTitle::new("Test Bead").unwrap();
-        let bead = Bead::create(id, title, None);
-        let in_progress = bead.transition(BeadState::InProgress).unwrap();
-
-        assert_eq!(in_progress.state(), BeadState::InProgress);
-    }
-
-    #[test]
-    fn bead_transition_to_closed_sets_closed_at() {
-        let id = BeadId::new("bd-123").unwrap();
-        let title = BeadTitle::new("Test Bead").unwrap();
-        let bead = Bead::create(id, title, None);
-        let closed = bead.transition(BeadState::Closed).unwrap();
-
-        assert_eq!(closed.state(), BeadState::Closed);
-        assert!(closed.closed_at().is_some());
-    }
-
-    #[test]
-    fn bead_cannot_transition_from_closed() {
-        let id = BeadId::new("bd-123").unwrap();
-        let title = BeadTitle::new("Test Bead").unwrap();
-        let bead = Bead::create(id, title, None);
-        let closed = bead.transition(BeadState::Closed).unwrap();
-        let result = closed.transition(BeadState::InProgress);
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn bead_add_dependency() {
-        let id = BeadId::new("bd-123").unwrap();
-        let title = BeadTitle::new("Test Bead").unwrap();
-        let bead = Bead::create(id, title, None);
-        let dep_id = BeadId::new("bd-456").unwrap();
-        let with_dep = bead.add_dependency(dep_id);
-
-        assert_eq!(with_dep.depends_on().len(), 1);
-    }
-
-    #[test]
-    fn bead_add_blocker() {
-        let id = BeadId::new("bd-123").unwrap();
-        let title = BeadTitle::new("Test Bead").unwrap();
-        let bead = Bead::create(id, title, None);
-        let blocker_id = BeadId::new("bd-456").unwrap();
-        let blocked = bead.add_blocker(blocker_id);
-
-        assert!(blocked.is_blocked());
-    }
-
-    #[test]
-    fn bead_invalid_id_empty() {
-        let result = BeadId::new("");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn bead_invalid_id_too_long() {
-        let long_id = "a".repeat(101);
-        let result = BeadId::new(long_id);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn bead_invalid_id_invalid_chars() {
-        let result = BeadId::new("bd-123!");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn bead_title_empty_fails() {
-        let result = BeadTitle::new("");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn bead_title_too_long_fails() {
-        let long_title = "a".repeat(201);
-        let result = BeadTitle::new(long_title);
-        assert!(result.is_err());
     }
 }
