@@ -146,6 +146,7 @@ pub mod macros;
 pub mod queue;
 pub mod repository;
 pub mod session;
+pub mod session_query;
 pub mod validation;
 pub mod workspace;
 pub mod workflow;

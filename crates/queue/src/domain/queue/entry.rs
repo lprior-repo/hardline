@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 
 use crate::domain::identifiers::{QueueEntryId, SessionName};
-use crate::domain::validation::{ValidationError, ValidationResult};
+use crate::domain::validation::ValidationResult;
 
 use super::status::QueueStatus;
 use super::validation::validate_range;

@@ -1,260 +1,21 @@
-//! JJ workspace lifecycle management
+//! JJ workspace operations - Actions layer
 //!
-//! This module provides safe, functional APIs for managing JJ workspaces.
-//! All operations return `Result` and never panic.
+//! All JJ workspace CRUD operations and repo checks.
 
-use std::{
-    path::{Path, PathBuf},
-    process::Command as StdCommand,
-    sync::OnceLock,
-};
+use std::path::{Path, PathBuf};
 
-use tokio::process::Command;
-
+use crate::jj::command::{get_jj_command, jj_command_error};
+use crate::jj::conflict::{conflict_recovery_hint, detect_workspace_conflict};
+use crate::jj::parse::{parse_diff_stat, parse_status, parse_workspace_list};
+use crate::jj::types::{DiffSummary, Status, WorkspaceInfo};
+use crate::jj::workspace_guard::WorkspaceGuard;
 use crate::{Error, Result};
 
-static JJ_PATH: OnceLock<String> = OnceLock::new();
+// ============================================================================
+// Workspace CRUD Operations
+// ============================================================================
 
-fn resolve_jj_path() -> String {
-    let env_path = std::env::var("SCP_JJ_PATH")
-        .ok()
-        .filter(|value| !value.trim().is_empty());
-
-    let path = env_path.as_ref().map_or_else(search_path_for_jj, |p| {
-        if std::path::Path::new(p).exists() {
-            p.clone()
-        } else {
-            search_path_for_jj()
-        }
-    });
-    path
-}
-
-fn search_path_for_jj() -> String {
-    let paths = std::env::var_os("PATH").unwrap_or_default();
-
-    let found = std::env::split_paths(&paths)
-        .map(|p| p.join("jj"))
-        .find(|p| p.exists())
-        .map(|p| p.to_string_lossy().to_string());
-
-    found.unwrap_or_else(|| "jj".to_string())
-}
-
-pub fn get_jj_command() -> Command {
-    let path = JJ_PATH.get_or_init(resolve_jj_path);
-    Command::new(path.as_str())
-}
-
-pub fn get_jj_command_sync() -> StdCommand {
-    let path = JJ_PATH.get_or_init(resolve_jj_path);
-    StdCommand::new(path)
-}
-
-pub struct WorkspaceGuard {
-    name: String,
-    path: PathBuf,
-    active: bool,
-}
-
-impl WorkspaceGuard {
-    #[must_use]
-    pub const fn new(name: String, path: PathBuf) -> Self {
-        Self {
-            name,
-            path,
-            active: true,
-        }
-    }
-
-    pub const fn disarm(&mut self) {
-        self.active = false;
-    }
-
-    pub async fn cleanup(&mut self) -> Result<()> {
-        if !self.active {
-            return Ok(());
-        }
-
-        self.active = false;
-        let forget_result = workspace_forget(&self.name).await;
-
-        let remove_result = match tokio::fs::try_exists(&self.path).await {
-            Ok(true) => tokio::fs::remove_dir_all(&self.path).await.map_err(|e| {
-                Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Failed to remove workspace directory: {e}"),
-                ))
-            }),
-            Ok(false) => Ok(()),
-            Err(e) => Err(Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to check workspace existence: {e}"),
-            ))),
-        };
-
-        forget_result.and(remove_result)
-    }
-
-    fn perform_cleanup_sync(&self) -> Result<()> {
-        let forget_result = get_jj_command_sync()
-            .args(["workspace", "forget", &self.name])
-            .output()
-            .map_err(|e| jj_command_error("forget workspace", &e))
-            .and_then(|output| {
-                if output.status.success() {
-                    Ok(())
-                } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    Err(Error::JjCommandError {
-                        operation: "forget workspace".to_string(),
-                        msg: stderr.to_string(),
-                        is_not_found: false,
-                    })
-                }
-            });
-
-        let remove_result = match self.path.try_exists() {
-            Ok(true) => std::fs::remove_dir_all(&self.path).map_err(|e| {
-                Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Failed to remove workspace directory: {e}"),
-                ))
-            }),
-            Ok(false) => Ok(()),
-            Err(e) => Err(Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to check workspace existence: {e}"),
-            ))),
-        };
-
-        forget_result.and(remove_result)
-    }
-}
-
-impl Drop for WorkspaceGuard {
-    fn drop(&mut self) {
-        if !self.active {
-            return;
-        }
-
-        if let Err(e) = self.perform_cleanup_sync() {
-            tracing::warn!("Workspace cleanup failed for '{}': {e}", self.name);
-            eprintln!(
-                "Warning: Failed to cleanup workspace '{}': {}",
-                self.name, e
-            );
-        }
-    }
-}
-
-#[allow(clippy::print_stderr)]
-fn jj_command_error(operation: &str, error: &std::io::Error) -> Error {
-    let is_not_found = error.kind() == std::io::ErrorKind::NotFound;
-    eprintln!(
-        "DEBUG: JJ COMMAND ERROR: operation={operation}, error={error}, kind={error_kind:?}, path={path:?}",
-        error_kind = error.kind(),
-        path = JJ_PATH.get()
-    );
-    Error::JjCommandError {
-        operation: operation.to_string(),
-        msg: error.to_string(),
-        is_not_found,
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct WorkspaceInfo {
-    pub name: String,
-    pub path: PathBuf,
-    pub is_stale: bool,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct DiffSummary {
-    pub insertions: usize,
-    pub deletions: usize,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct Status {
-    pub modified: Vec<PathBuf>,
-    pub added: Vec<PathBuf>,
-    pub deleted: Vec<PathBuf>,
-    pub renamed: Vec<(PathBuf, PathBuf)>,
-    pub unknown: Vec<PathBuf>,
-}
-
-impl Status {
-    #[must_use]
-    pub const fn is_clean(&self) -> bool {
-        self.modified.is_empty()
-            && self.added.is_empty()
-            && self.deleted.is_empty()
-            && self.renamed.is_empty()
-    }
-
-    #[must_use]
-    pub const fn change_count(&self) -> usize {
-        self.modified.len() + self.added.len() + self.deleted.len() + self.renamed.len()
-    }
-}
-
-#[must_use]
-fn detect_workspace_conflict(
-    stderr: &str,
-    _workspace_name: &str,
-) -> Option<crate::error::JjConflictType> {
-    stderr.lines().find_map(|line| {
-        let line_lower = line.to_lowercase();
-        if line_lower.contains("already exists")
-            || line_lower.contains("workspace already added")
-            || line_lower.contains("already added")
-        {
-            Some(crate::error::JjConflictType::AlreadyExists)
-        } else if line_lower.contains("concurrent")
-            || line_lower.contains("simultaneous")
-            || line_lower.contains("locked")
-        {
-            Some(crate::error::JjConflictType::ConcurrentModification)
-        } else if line_lower.contains("abandoned") {
-            Some(crate::error::JjConflictType::Abandoned)
-        } else if line_lower.contains("working copy")
-            || line_lower.contains("out of sync")
-            || line_lower.contains("stale")
-        {
-            Some(crate::error::JjConflictType::Stale)
-        } else {
-            None
-        }
-    })
-}
-
-#[must_use]
-fn conflict_recovery_hint(
-    conflict_type: &crate::error::JjConflictType,
-    workspace_name: &str,
-) -> String {
-    match conflict_type {
-        crate::error::JjConflictType::AlreadyExists => {
-            format!(
-                "Recovery options:\n\n 1. Use the existing workspace: jj workspace list\n\n 2. Forget the existing workspace first: jj workspace forget {workspace_name}\n\n 3. Use a different workspace name"
-            )
-        }
-        crate::error::JjConflictType::ConcurrentModification => {
-            "Recovery options:\n\n 1. Wait a moment and retry the operation\n\n 2. Check for other JJ processes: pgrep -fl jj\n\n 3. Verify workspace state: jj workspace list".to_string()
-        }
-        crate::error::JjConflictType::Abandoned => {
-            format!(
-                "Recovery options:\n\n 1. Abandon this workspace: jj workspace forget {workspace_name}\n\n 2. Create a new workspace with a different name\n\n 3. Check repository status: jj status"
-            )
-        }
-        crate::error::JjConflictType::Stale => {
-            "Recovery options:\n\n 1. Update the workspace: jj workspace update-stale\n\n 2. Reload the repository: jj reload\n\n 3. Check for conflicts: jj status".to_string()
-        }
-    }
-}
-
+/// Create a new workspace (without guard)
 pub async fn workspace_create(name: &str, path: &Path) -> Result<()> {
     if name.is_empty() {
         return Err(Error::ConfigInvalid(
@@ -301,12 +62,13 @@ pub async fn workspace_create(name: &str, path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Create a workspace and return a guard for cleanup
 pub async fn create_workspace(name: &str, path: &Path) -> Result<WorkspaceGuard> {
     workspace_create(name, path).await?;
-
     Ok(WorkspaceGuard::new(name.to_string(), path.to_path_buf()))
 }
 
+/// Forget (delete) a workspace
 pub async fn workspace_forget(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(Error::ConfigInvalid(
@@ -332,6 +94,7 @@ pub async fn workspace_forget(name: &str) -> Result<()> {
     Ok(())
 }
 
+/// List all workspaces
 pub async fn workspace_list() -> Result<Vec<WorkspaceInfo>> {
     let output = get_jj_command()
         .args(["workspace", "list"])
@@ -352,45 +115,7 @@ pub async fn workspace_list() -> Result<Vec<WorkspaceInfo>> {
     parse_workspace_list(&stdout)
 }
 
-fn parse_workspace_list(output: &str) -> Result<Vec<WorkspaceInfo>> {
-    output
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| {
-            let parts: Vec<&str> = line.splitn(2, ':').collect();
-            if parts.len() != 2 {
-                return Err(Error::InvalidIdentifier(format!(
-                    "Invalid workspace list format: {line}"
-                )));
-            }
-
-            let name = parts
-                .first()
-                .ok_or_else(|| {
-                    Error::InvalidIdentifier("Missing workspace name in list output".to_string())
-                })?
-                .trim()
-                .to_string();
-            let rest = parts
-                .get(1)
-                .ok_or_else(|| {
-                    Error::InvalidIdentifier("Missing workspace path in list output".to_string())
-                })?
-                .trim();
-
-            let (path_str, is_stale) = rest
-                .strip_suffix("(stale)")
-                .map_or((rest, false), |path_part| (path_part.trim(), true));
-
-            Ok(WorkspaceInfo {
-                name,
-                path: PathBuf::from(path_str),
-                is_stale,
-            })
-        })
-        .collect()
-}
-
+/// Get workspace status
 pub async fn workspace_status(path: &Path) -> Result<Status> {
     let output = get_jj_command()
         .args(["status"])
@@ -412,33 +137,7 @@ pub async fn workspace_status(path: &Path) -> Result<Status> {
     Ok(parse_status(&stdout))
 }
 
-#[must_use]
-pub fn parse_status(output: &str) -> Status {
-    output.lines().fold(Status::default(), |mut status, line| {
-        let line = line.trim();
-        if line.is_empty() {
-            return status;
-        }
-
-        if let Some(rest) = line.strip_prefix('M') {
-            status.modified.push(PathBuf::from(rest.trim()));
-        } else if let Some(rest) = line.strip_prefix('A') {
-            status.added.push(PathBuf::from(rest.trim()));
-        } else if let Some(rest) = line.strip_prefix('D') {
-            status.deleted.push(PathBuf::from(rest.trim()));
-        } else if let Some(rest) = line.strip_prefix('R') {
-            if let Some((old, new)) = rest.split_once("=>") {
-                status
-                    .renamed
-                    .push((PathBuf::from(old.trim()), PathBuf::from(new.trim())));
-            }
-        } else if let Some(rest) = line.strip_prefix('?') {
-            status.unknown.push(PathBuf::from(rest.trim()));
-        }
-        status
-    })
-}
-
+/// Get workspace diff summary
 pub async fn workspace_diff(path: &Path) -> Result<DiffSummary> {
     let output = get_jj_command()
         .args(["diff", "--stat"])
@@ -460,48 +159,21 @@ pub async fn workspace_diff(path: &Path) -> Result<DiffSummary> {
     Ok(parse_diff_stat(&stdout))
 }
 
-#[must_use]
-pub fn parse_diff_stat(output: &str) -> DiffSummary {
-    use regex::Regex;
-    static INSERTIONS_RE: OnceLock<Option<Regex>> = OnceLock::new();
-    static DELETIONS_RE: OnceLock<Option<Regex>> = OnceLock::new();
+// ============================================================================
+// Repo Checks
+// ============================================================================
 
-    let insertions_re = INSERTIONS_RE.get_or_init(|| Regex::new(r"(\d+)\s+insertion").ok());
-    let deletions_re = DELETIONS_RE.get_or_init(|| Regex::new(r"(\d+)\s+deletion").ok());
-
-    let summary_line = output
-        .lines()
-        .find(|line| line.contains("insertion") || line.contains("deletion"))
-        .map_or("", |s| s);
-
-    let insertions = insertions_re
-        .as_ref()
-        .and_then(|re| re.captures(summary_line))
-        .and_then(|caps| caps.get(1))
-        .and_then(|m| m.as_str().parse().ok())
-        .map_or(0, |n: usize| n);
-
-    let deletions = deletions_re
-        .as_ref()
-        .and_then(|re| re.captures(summary_line))
-        .and_then(|caps| caps.get(1))
-        .and_then(|m| m.as_str().parse().ok())
-        .map_or(0, |n: usize| n);
-
-    DiffSummary {
-        insertions,
-        deletions,
-    }
-}
-
+/// Check if JJ is installed
 pub async fn is_jj_installed() -> bool {
     check_jj_installed().await.is_ok()
 }
 
+/// Check if path is inside a JJ repo
 pub async fn is_jj_repo() -> bool {
     check_in_jj_repo().await.is_ok()
 }
 
+/// Verify JJ is installed and working
 pub async fn check_jj_installed() -> Result<()> {
     get_jj_command()
         .arg("--version")
@@ -521,6 +193,7 @@ pub async fn check_jj_installed() -> Result<()> {
         })
 }
 
+/// Find the root of the JJ repo containing the current directory
 pub async fn check_in_jj_repo() -> Result<PathBuf> {
     let output = get_jj_command()
         .args(["root"])
@@ -551,9 +224,14 @@ pub async fn check_in_jj_repo() -> Result<PathBuf> {
     }
 }
 
+// ============================================================================
+// Tests
+// ============================================================================
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::JjConflictType;
 
     #[test]
     fn test_parse_workspace_list() -> Result<()> {
@@ -778,7 +456,7 @@ mod tests {
     fn test_detect_conflict_already_exists() {
         let stderr = "error: workspace 'my-workspace' already exists";
         let result = detect_workspace_conflict(stderr, "my-workspace");
-        assert_eq!(result, Some(crate::error::JjConflictType::AlreadyExists));
+        assert_eq!(result, Some(JjConflictType::AlreadyExists));
     }
 
     #[test]
@@ -787,7 +465,7 @@ mod tests {
         let result = detect_workspace_conflict(stderr, "test");
         assert_eq!(
             result,
-            Some(crate::error::JjConflictType::ConcurrentModification)
+            Some(JjConflictType::ConcurrentModification)
         );
     }
 
@@ -795,14 +473,14 @@ mod tests {
     fn test_detect_conflict_abandoned() {
         let stderr = "error: workspace has been abandoned";
         let result = detect_workspace_conflict(stderr, "old-workspace");
-        assert_eq!(result, Some(crate::error::JjConflictType::Abandoned));
+        assert_eq!(result, Some(JjConflictType::Abandoned));
     }
 
     #[test]
     fn test_detect_conflict_stale() {
         let stderr = "error: working copy is stale";
         let result = detect_workspace_conflict(stderr, "stale-workspace");
-        assert_eq!(result, Some(crate::error::JjConflictType::Stale));
+        assert_eq!(result, Some(JjConflictType::Stale));
     }
 
     #[test]
@@ -814,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_conflict_recovery_hint_already_exists() {
-        let hint = conflict_recovery_hint(&crate::error::JjConflictType::AlreadyExists, "test-ws");
+        let hint = conflict_recovery_hint(&JjConflictType::AlreadyExists, "test-ws");
         assert!(hint.contains("Recovery options"));
         assert!(hint.contains("jj workspace forget test-ws"));
         assert!(hint.contains("jj workspace list"));
@@ -822,10 +500,7 @@ mod tests {
 
     #[test]
     fn test_conflict_recovery_hint_concurrent() {
-        let hint = conflict_recovery_hint(
-            &crate::error::JjConflictType::ConcurrentModification,
-            "test-ws",
-        );
+        let hint = conflict_recovery_hint(&JjConflictType::ConcurrentModification, "test-ws");
         assert!(hint.contains("Recovery options"));
         assert!(hint.contains("Wait a moment"));
         assert!(hint.contains("pgrep -fl jj"));
@@ -833,7 +508,7 @@ mod tests {
 
     #[test]
     fn test_conflict_recovery_hint_abandoned() {
-        let hint = conflict_recovery_hint(&crate::error::JjConflictType::Abandoned, "old-ws");
+        let hint = conflict_recovery_hint(&JjConflictType::Abandoned, "old-ws");
         assert!(hint.contains("Recovery options"));
         assert!(hint.contains("jj workspace forget old-ws"));
         assert!(hint.contains("jj status"));
@@ -841,7 +516,7 @@ mod tests {
 
     #[test]
     fn test_conflict_recovery_hint_stale() {
-        let hint = conflict_recovery_hint(&crate::error::JjConflictType::Stale, "stale-ws");
+        let hint = conflict_recovery_hint(&JjConflictType::Stale, "stale-ws");
         assert!(hint.contains("Recovery options"));
         assert!(hint.contains("jj workspace update-stale"));
         assert!(hint.contains("jj reload"));
