@@ -15,6 +15,7 @@ chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid = { version = "1", features = ["v4"] }
+sqlx = { workspace = true }
 
 [dev-dependencies]
 tokio-test.workspace = true

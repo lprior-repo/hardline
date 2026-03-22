@@ -27,3 +27,8 @@ pub use domain::workspace::{
 };
 pub use domain::workspace_state::{WorkspaceState, WorkspaceStateMachine};
 pub use error::{Result, SessionError, TaskIdError};
+
+// Re-export migration types
+pub use infrastructure::migration::{
+    get_migration_version, migrate_sessions_table, sessions_table_exists, MigrationError,
+};
