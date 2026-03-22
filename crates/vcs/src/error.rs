@@ -75,6 +75,12 @@ pub enum VcsError {
     #[error("Workspace already exists: {0}")]
     WorkspaceExists(String),
 
+    #[error("Git CLI not found in PATH")]
+    GitNotInstalled,
+
+    #[error("Failed to parse git output: {0}")]
+    ParseError(String),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
