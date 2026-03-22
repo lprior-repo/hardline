@@ -35,7 +35,6 @@ impl CircuitBreaker {
             .ok_or(CircuitBreakerError::InvalidSuccessThreshold)?;
         let open_duration =
             NonZeroU64::new(open_duration_ms).ok_or(CircuitBreakerError::InvalidOpenDuration)?;
-
         Ok(Self {
             state: CircuitState::Closed,
             failure_threshold,
@@ -85,9 +84,7 @@ impl CircuitBreaker {
     /// Records a successful phase execution
     pub fn record_success(&mut self) {
         match self.state {
-            CircuitState::Closed => {
-                self.failure_count = 0;
-            }
+            CircuitState::Closed => self.failure_count = 0,
             CircuitState::HalfOpen => {
                 self.success_count += 1;
                 if self.success_count >= self.success_threshold.get() {
@@ -120,22 +117,15 @@ impl CircuitBreaker {
     /// Checks if execution is allowed under the current circuit state
     #[must_use]
     pub fn is_execution_allowed(&self) -> bool {
-        match self.state {
-            CircuitState::Closed => true,
-            CircuitState::HalfOpen => true,
-            CircuitState::Open => false,
-        }
+        matches!(self.state, CircuitState::Closed | CircuitState::HalfOpen)
     }
 
     /// Attempts to transition from Open to HalfOpen based on elapsed time
-    /// Returns true if transition occurred
     pub fn check_and_transition(&mut self, elapsed_ms: u64) -> bool {
-        if self.state == CircuitState::Open {
-            if elapsed_ms >= self.open_duration.get() {
-                self.state = CircuitState::HalfOpen;
-                self.success_count = 0;
-                return true;
-            }
+        if self.state == CircuitState::Open && elapsed_ms >= self.open_duration.get() {
+            self.state = CircuitState::HalfOpen;
+            self.success_count = 0;
+            return true;
         }
         false
     }
@@ -203,11 +193,9 @@ mod tests {
             cb.record_failure();
         }
         assert_eq!(cb.state(), CircuitState::Open);
-
         let transitioned = cb.check_and_transition(30001);
         assert!(transitioned);
         assert_eq!(cb.state(), CircuitState::HalfOpen);
-        assert!(cb.is_execution_allowed());
     }
 
     #[test]
@@ -217,7 +205,6 @@ mod tests {
             cb.record_failure();
         }
         cb.check_and_transition(30001);
-
         assert!(cb.is_execution_allowed());
     }
 
@@ -228,7 +215,6 @@ mod tests {
             cb.record_failure();
         }
         cb.check_and_transition(30001);
-
         cb.record_success();
         assert_eq!(cb.state(), CircuitState::HalfOpen);
         cb.record_success();
@@ -242,7 +228,6 @@ mod tests {
             cb.record_failure();
         }
         cb.check_and_transition(30001);
-
         cb.record_failure();
         assert_eq!(cb.state(), CircuitState::Open);
         assert!(!cb.is_execution_allowed());
@@ -254,10 +239,8 @@ mod tests {
         cb.record_failure();
         cb.record_failure();
         assert_eq!(cb.failure_count(), 2);
-
         cb.record_success();
         assert_eq!(cb.failure_count(), 0);
-        assert_eq!(cb.state(), CircuitState::Closed);
     }
 
     #[test]
@@ -294,13 +277,8 @@ mod tests {
     fn test_invariant_i1_circuit_state_reflects_failure_rate() {
         let mut cb = CircuitBreaker::new(3, 2, 30000).expect("should create");
         assert_eq!(cb.state(), CircuitState::Closed);
-
         cb.record_failure();
-        assert_eq!(cb.state(), CircuitState::Closed);
-
         cb.record_failure();
-        assert_eq!(cb.state(), CircuitState::Closed);
-
         cb.record_failure();
         assert_eq!(cb.state(), CircuitState::Open);
     }

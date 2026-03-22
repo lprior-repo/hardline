@@ -1,0 +1,1262 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running unittests src/lib.rs (target/debug/deps/scp_queue-99cc144eb89cdbcb)
+
+running 85 tests
+test domain::identifiers::tests::test_queue_entry_id_valid ... ok
+test domain::identifiers::tests::test_queue_entry_id_empty ... ok
+test domain::identifiers::tests::test_session_name_try_from ... ok
+test domain::identifiers::tests::test_session_name_empty ... ok
+test domain::identifiers::tests::test_session_name_rejects_shell_metacharacters ... ok
+test domain::identifiers::tests::test_session_name_validate_works ... ok
+test domain::identifiers::tests::test_session_name_valid ... ok
+test domain::queue::tests::test_any_has_high_priority ... ok
+test domain::queue::tests::test_all_have_valid_priority ... ok
+test domain::queue::tests::test_dequeue_removes_entry ... ok
+test domain::queue::tests::test_dequeue_returns_none_for_nonexistent ... ok
+test domain::queue::tests::test_count_active_excludes_terminal ... ok
+test domain::queue::tests::test_enqueue_adds_entry ... ok
+test domain::queue::tests::test_filter_pending_entries ... ok
+test domain::queue::tests::test_find_by_session_returns_entry ... ok
+test domain::queue::tests::test_enqueue_maintains_priority_order ... ok
+test domain::queue::tests::test_find_returns_none_for_nonexistent ... ok
+test domain::queue::tests::test_find_returns_entry ... ok
+test domain::queue::tests::test_fold_total_priority ... ok
+test domain::queue::tests::test_group_by_status ... ok
+test domain::queue::tests::test_invariant_priority_order_maintained_after_enqueues ... ok
+test domain::queue::tests::test_invariant_queue_len_matches_entries_count ... ok
+test domain::queue::tests::test_next_pending_returns_none_when_no_pending ... ok
+test domain::queue::tests::test_map_entry_ids ... ok
+test domain::queue::tests::test_next_pending_returns_pending_entry ... ok
+test domain::queue::tests::test_queue_entry_id_empty ... ok
+test domain::queue::tests::test_queue_entry_id_valid ... ok
+test domain::queue::tests::test_queue_entry_new_accepts_max_priority ... ok
+test domain::queue::tests::test_queue_entry_new_rejects_high_priority ... ok
+test domain::queue::tests::test_queue_new_is_empty ... ok
+test domain::queue::tests::test_remove_at_invalid_position ... ok
+test domain::queue::tests::test_remove_at_valid_position ... ok
+test domain::queue::tests::test_session_name_empty ... ok
+test domain::queue::tests::test_session_name_rejects_shell_metacharacters ... ok
+test domain::queue::tests::test_session_name_valid ... ok
+test domain::queue::tests::test_status_cancelled_is_terminal ... ok
+test domain::queue::tests::test_status_failed_is_failed ... ok
+test domain::queue::tests::test_status_failed_terminal_is_terminal ... ok
+test domain::queue::tests::test_status_merged_is_terminal ... ok
+test domain::queue::tests::test_status_pending_is_not_failed ... ok
+test domain::queue::tests::test_status_pending_is_not_terminal ... ok
+test domain::queue::tests::test_status_pending_to_claimed_transition ... ok
+test domain::queue::tests::test_update_status_invalid_entry_returns_error ... ok
+test domain::queue::tests::test_update_status_invalid_transition_returns_error ... ok
+test domain::queue::tests::test_update_status_valid_chain ... ok
+test domain::queue::tests::test_with_entry_at_invalid_position_returns_error ... ok
+test domain::queue::tests::test_with_entry_at_valid_position ... ok
+test domain::tests::ports_tests::in_memory_repo_clone_creates_independent_copy ... ok
+test domain::tests::ports_tests::in_memory_repo_dequeue_empty_queue_returns_none ... ok
+test domain::tests::ports_tests::in_memory_repo_enqueue_and_dequeue ... ok
+test domain::tests::ports_tests::in_memory_repo_get_nonexistent_returns_none ... ok
+test domain::tests::ports_tests::in_memory_repo_list_pending_filters_correctly ... ok
+test domain::tests::ports_tests::in_memory_repo_remove_deletes_entry ... ok
+test domain::validation::tests::test_validate_all_success ... ok
+test domain::tests::ports_tests::in_memory_repo_update_modifies_entry ... ok
+test domain::validation::tests::test_validate_all_fails_fast ... ok
+test domain::validation::tests::test_validate_range_exceeds_maximum ... ok
+test domain::validation::tests::test_validate_range_in_bounds ... ok
+test domain::validation::tests::test_validate_that_failure ... ok
+test domain::tests::ports_tests::in_memory_repo_get_returns_entry ... ok
+test domain::validation::tests::test_validate_range_below_minimum ... ok
+test domain::validation::tests::test_validate_that_success ... ok
+test domain::validation::tests::test_validator_check ... ok
+test domain::validation::tests::test_validator_collects_multiple_errors ... ok
+test domain::validation::tests::test_validator_no_errors ... ok
+test domain::validation::tests::test_validator_single_error ... ok
+test infrastructure::sqlite_migration::tests::verify_returns_false_when_table_missing ... ok
+test infrastructure::sqlite_migration::tests::migration_fails_when_table_already_exists ... ok
+test infrastructure::sqlite_migration::tests::null_session_id_violates_not_null_constraint ... ok
+test infrastructure::sqlite_migration::tests::verify_returns_true_after_migration ... ok
+test infrastructure::sqlite_migration::tests::negative_retry_count_violates_check_constraint ... ok
+test infrastructure::sqlite_migration::tests::priority_out_of_bounds_violates_check_constraint ... ok
+test infrastructure::sqlite_migration::tests::default_priority_value_is_128 ... ok
+test infrastructure::sqlite_migration::tests::invalid_status_violates_check_constraint ... ok
+test infrastructure::sqlite_migration::tests::migration_creates_queue_entries_table ... ok
+test infrastructure::sqlite_migration::tests::indexes_exist_after_migration ... ok
+test infrastructure::sqlite_migration::tests::duplicate_id_violates_unique_constraint ... ok
+test infrastructure::sqlite_migration::tests::insert_valid_queue_entry_succeeds ... ok
+test infrastructure::sqlite_migration::tests::rollback_removes_table ... ok
+test infrastructure::sqlite_migration::tests::priority_boundary_values_accepted ... ok
+test infrastructure::sqlite_migration::tests::all_valid_status_values_accepted ... ok
+test domain::queue::tests::prop_non_empty_queue_after_push ... ok
+test domain::queue::tests::prop_fifo_within_priority ... ok
+test domain::queue::tests::prop_priority_ordering_invariant ... ok
+test domain::queue::tests::prop_size_bounds ... ok
+
+test result: ok. 85 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests/adversarial_tests.rs (target/debug/deps/adversarial_tests-901fe5922f7b4606)
+
+running 5 tests
+test test_adversarial_max_priority_overflow ... ok
+test test_adversarial_duplicate_entries ... ok
+test test_adversarial_negative_priority ... ok
+test test_adversarial_concurrent_enqueue_dequeue ... ok
+test test_adversarial_concurrent_race_condition_lost_updates ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/boundary.rs (target/debug/deps/boundary-fad9f412e6fe1dc8)
+
+running 2 tests
+test test_priority_boundary ... ok
+test test_collection_boundary ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+   Doc-tests scp_queue
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Checking scp-core v0.5.0 (/home/lewis/src/hardline/crates/core)
+error: redundant field names in struct initialization
+   --> crates/core/src/coordination/conflict_resolutions.rs:564:17
+    |
+564 |                 field: field,
+    |                 ^^^^^^^^^^^^ help: replace it with: `field`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_field_names
+note: the lint level is defined here
+   --> crates/core/src/lib.rs:15:9
+    |
+ 15 | #![deny(warnings)]
+    |         ^^^^^^^^
+    = note: `#[deny(clippy::redundant_field_names)]` implied by `#[deny(warnings)]`
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/beads/domain.rs:536:16
+    |
+536 |         self.0.len()
+    |                ^^^^^
+    |
+    = note: you may want to conditionally increase the MSRV considered by Clippy using the `clippy::msrv` attribute
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+    = note: `#[deny(clippy::incompatible_msrv)]` implied by `#[deny(warnings)]`
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/beads/domain.rs:542:16
+    |
+542 |         self.0.is_empty()
+    |                ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/beads/domain.rs:637:16
+    |
+637 |         self.0.len()
+    |                ^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/beads/domain.rs:643:16
+    |
+643 |         self.0.is_empty()
+    |                ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/beads/domain.rs:702:16
+    |
+702 |         self.0.len()
+    |                ^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/beads/domain.rs:708:16
+    |
+708 |         self.0.is_empty()
+    |                ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable since `1.82.0`
+  --> crates/core/src/beads/query.rs:32:14
+   |
+32 |             .is_none_or(|min| issue.priority.is_none_or(|p| p >= *min)))
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable since `1.82.0`
+  --> crates/core/src/beads/query.rs:32:46
+   |
+32 |             .is_none_or(|min| issue.priority.is_none_or(|p| p >= *min)))
+   |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable since `1.82.0`
+  --> crates/core/src/beads/query.rs:36:14
+   |
+36 |             .is_none_or(|max| issue.priority.is_none_or(|p| p <= *max)))
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable since `1.82.0`
+  --> crates/core/src/beads/query.rs:36:46
+   |
+36 |             .is_none_or(|max| issue.priority.is_none_or(|p| p <= *max)))
+   |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable since `1.82.0`
+  --> crates/core/src/beads/query.rs:45:14
+   |
+45 |             .is_none_or(|assignee| issue.assignee.as_ref() == Some(assignee)))
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable since `1.82.0`
+  --> crates/core/src/beads/query.rs:49:14
+   |
+49 |             .is_none_or(|parent| issue.parent.as_ref() == Some(parent)))
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable since `1.82.0`
+  --> crates/core/src/beads/query.rs:52:40
+   |
+52 |           && filter.search_text.as_ref().is_none_or(|text| {
+   |  ________________________________________^
+53 | |             let text_lower = text.to_lowercase();
+54 | |             issue.title.to_lowercase().contains(&text_lower)
+55 | |                 || issue
+...  |
+58 | |                     .is_some_and(|d| d.to_lowercase().contains(&text_lower))
+59 | |         })
+   | |__________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: used `expect()` on a `Result` value
+   --> crates/core/src/config.rs:373:9
+    |
+373 |         Self::new().expect("Failed to create config manager")
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#expect_used
+note: the lint level is defined here
+   --> crates/core/src/lib.rs:17:9
+    |
+ 17 | #![deny(clippy::expect_used)]
+    |         ^^^^^^^^^^^^^^^^^^^
+
+error: used `expect()` on a `Result` value
+   --> crates/core/src/config.rs:379:5
+    |
+379 |     ConfigManager::new().expect("Failed to create config manager")
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#expect_used
+
+error: variables can be used directly in the `format!` string
+  --> crates/core/src/conflict.rs:75:37
+   |
+75 |               Err(Error::InvalidState(format!(
+   |  _____________________________________^
+76 | |                 "Invalid conflict state transition from {} to {}",
+77 | |                 self, new_state
+78 | |             )))
+   | |_____________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#uninlined_format_args
+   = note: `#[deny(clippy::uninlined_format_args)]` implied by `#[deny(warnings)]`
+
+error: variables can be used directly in the `format!` string
+   --> crates/core/src/conflict.rs:180:48
+    |
+180 |                   return Err(Error::InvalidState(format!(
+    |  ________________________________________________^
+181 | |                     "Branch '{}' has unresolved conflicts",
+182 | |                     branch_id
+183 | |                 )));
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#uninlined_format_args
+
+error: variables can be used directly in the `format!` string
+   --> crates/core/src/conflict.rs:210:44
+    |
+210 |             .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {}", branch_id)))?;
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#uninlined_format_args
+help: change this to
+    |
+210 -             .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {}", branch_id)))?;
+210 +             .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {branch_id}")))?;
+    |
+
+error: variables can be used directly in the `format!` string
+   --> crates/core/src/conflict.rs:223:44
+    |
+223 |             .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {}", branch_id)))?;
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#uninlined_format_args
+help: change this to
+    |
+223 -             .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {}", branch_id)))?;
+223 +             .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {branch_id}")))?;
+    |
+
+error: variables can be used directly in the `format!` string
+   --> crates/core/src/conflict.rs:236:44
+    |
+236 |             .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {}", branch_id)))?;
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#uninlined_format_args
+help: change this to
+    |
+236 -             .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {}", branch_id)))?;
+236 +             .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {branch_id}")))?;
+    |
+
+error: item in documentation is missing backticks
+  --> crates/core/src/domain/agent.rs:73:9
+   |
+73 |     /// AgentState has no terminal states per spec - any state can transition to Offline or Error
+   |         ^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+   = note: `#[deny(clippy::doc_markdown)]` implied by `#[deny(warnings)]`
+help: try
+   |
+73 -     /// AgentState has no terminal states per spec - any state can transition to Offline or Error
+73 +     /// `AgentState` has no terminal states per spec - any state can transition to Offline or Error
+   |
+
+error: item in documentation is missing backticks
+  --> crates/core/src/domain/agent.rs:87:17
+   |
+87 |     /// Returns Ok(new_state) if transition is valid, Err(AgentError::InvalidTransition) otherwise
+   |                 ^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+   |
+87 -     /// Returns Ok(new_state) if transition is valid, Err(AgentError::InvalidTransition) otherwise
+87 +     /// Returns `Ok(new_state)` if transition is valid, Err(AgentError::InvalidTransition) otherwise
+   |
+
+error: item in documentation is missing backticks
+  --> crates/core/src/domain/agent.rs:87:55
+   |
+87 |     /// Returns Ok(new_state) if transition is valid, Err(AgentError::InvalidTransition) otherwise
+   |                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+   |
+87 -     /// Returns Ok(new_state) if transition is valid, Err(AgentError::InvalidTransition) otherwise
+87 +     /// Returns Ok(new_state) if transition is valid, `Err(AgentError::InvalidTransition)` otherwise
+   |
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/core/src/domain/agent.rs:88:5
+   |
+88 |     pub fn transition_to(self, target: Self) -> crate::error::Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+   = note: `#[deny(clippy::missing_errors_doc)]` implied by `#[deny(warnings)]`
+
+error: variables can be used directly in the `format!` string
+  --> crates/core/src/domain/agent.rs:92:37
+   |
+92 |               Err(Error::InvalidState(format!(
+   |  _____________________________________^
+93 | |                 "Invalid transition from {:?} to {:?}",
+94 | |                 self, target
+95 | |             )))
+   | |_____________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#uninlined_format_args
+
+error: item in documentation is missing backticks
+   --> crates/core/src/domain/agent.rs:106:17
+    |
+106 |     /// Returns Ok(new_state) if transition is valid, Err(InvalidTransition) otherwise
+    |                 ^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+    |
+106 -     /// Returns Ok(new_state) if transition is valid, Err(InvalidTransition) otherwise
+106 +     /// Returns `Ok(new_state)` if transition is valid, Err(InvalidTransition) otherwise
+    |
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/domain/agent.rs:107:5
+    |
+107 |     pub fn transition(from: AgentState, to: AgentState) -> crate::error::Result<AgentState> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: this could be a `const fn`
+   --> crates/core/src/domain/agent.rs:113:5
+    |
+113 | /     pub fn can_transition(from: AgentState, to: AgentState) -> bool {
+114 | |         from.can_transition_to(&to)
+115 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+    = note: `#[deny(clippy::missing_const_for_fn)]` implied by `#[deny(warnings)]`
+help: make the function `const`
+    |
+113 |     pub const fn can_transition(from: AgentState, to: AgentState) -> bool {
+    |         +++++
+
+error: item in documentation is missing backticks
+   --> crates/core/src/domain/agent.rs:118:9
+    |
+118 |     /// AgentState has no terminal states per spec - any state can transition to Offline or Error
+    |         ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+    |
+118 -     /// AgentState has no terminal states per spec - any state can transition to Offline or Error
+118 +     /// `AgentState` has no terminal states per spec - any state can transition to Offline or Error
+    |
+
+error: this could be a `const fn`
+   --> crates/core/src/domain/agent.rs:120:5
+    |
+120 | /     pub fn is_terminal(state: AgentState) -> bool {
+121 | |         state.is_terminal()
+122 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+120 |     pub const fn is_terminal(state: AgentState) -> bool {
+    |         +++++
+
+error: this could be a `const fn`
+   --> crates/core/src/domain/agent.rs:127:5
+    |
+127 | /     pub fn is_available(state: AgentState) -> bool {
+128 | |         state.is_available()
+129 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+127 |     pub const fn is_available(state: AgentState) -> bool {
+    |         +++++
+
+error: item in documentation is missing backticks
+  --> crates/core/src/domain/repository/in_memory.rs:21:10
+   |
+21 | /// Uses RwLock for concurrent read access and HashMap for O(1) lookups.
+   |          ^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+   |
+21 - /// Uses RwLock for concurrent read access and HashMap for O(1) lookups.
+21 + /// Uses `RwLock` for concurrent read access and HashMap for O(1) lookups.
+   |
+
+error: item in documentation is missing backticks
+  --> crates/core/src/domain/repository/in_memory.rs:21:48
+   |
+21 | /// Uses RwLock for concurrent read access and HashMap for O(1) lookups.
+   |                                                ^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#doc_markdown
+help: try
+   |
+21 - /// Uses RwLock for concurrent read access and HashMap for O(1) lookups.
+21 + /// Uses RwLock for concurrent read access and `HashMap` for O(1) lookups.
+   |
+
+error: temporary with significant `Drop` can be early dropped
+  --> crates/core/src/domain/repository/in_memory.rs:66:17
+   |
+65 |       fn save(&self, session: &Session) -> RepositoryResult<()> {
+   |  _______________________________________________________________-
+66 | |         let mut sessions = self
+   | |                 ^^^^^^^^
+67 | |             .sessions
+68 | |             .write()
+...  |
+84 | |         Ok(())
+85 | |     }
+   | |_____- temporary `sessions` is currently being dropped at the end of its contained scope
+   |
+   = note: this might lead to unnecessary resource contention
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+   = note: `#[deny(clippy::significant_drop_tightening)]` implied by `#[deny(warnings)]`
+help: drop the temporary after the end of its last usage
+   |
+83 ~         sessions.insert(session.id.clone(), session.clone());
+84 +         drop(sessions);
+   |
+
+error: using `clone` on type `usize` which implements the `Copy` trait
+   --> crates/core/src/error.rs:357:75
+    |
+357 |             Error::QueueInvalidPosition(s) => Error::QueueInvalidPosition(s.clone()),
+    |                                                                           ^^^^^^^^^ help: try dereferencing it: `*s`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#clone_on_copy
+    = note: `#[deny(clippy::clone_on_copy)]` implied by `#[deny(warnings)]`
+
+error: this can be `std::io::Error::other(_)`
+   --> crates/core/src/error.rs:387:39
+    |
+387 |               Error::Io(_) => Error::Io(std::io::Error::new(
+    |  _______________________________________^
+388 | |                 std::io::ErrorKind::Other,
+389 | |                 self.to_string(),
+390 | |             )),
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+    = note: `#[deny(clippy::io_other_error)]` implied by `#[deny(warnings)]`
+help: use `std::io::Error::other`
+    |
+387 ~             Error::Io(_) => Error::Io(std::io::Error::other(
+388 ~                 self.to_string(),
+    |
+
+error: used `unwrap_err()` on a `Result` value
+   --> crates/core/src/error.rs:393:34
+    |
+393 |                 Error::JsonParse(serde_json::from_str::<serde_json::Value>("{}").unwrap_err())
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Ok`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_used
+note: the lint level is defined here
+   --> crates/core/src/lib.rs:16:9
+    |
+ 16 | #![deny(clippy::unwrap_used)]
+    |         ^^^^^^^^^^^^^^^^^^^
+
+error: used `unwrap_err()` on a `Result` value
+   --> crates/core/src/error.rs:396:34
+    |
+396 |                 Error::YamlParse(serde_yaml::from_str::<serde_yaml::Value>(":").unwrap_err())
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is an `Ok`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_used
+
+error: useless use of `format!`
+   --> crates/core/src/error.rs:479:53
+    |
+479 |               Error::WorkspaceNotFound(_name) => Some(format!(
+    |  _____________________________________________________^
+480 | |                 "Try 'scp workspace list' to see available workspaces"
+481 | |             )),
+    | |_____________^ help: consider using `.to_string()`: `"Try 'scp workspace list' to see available workspaces".to_string()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#useless_format
+    = note: `#[deny(clippy::useless_format)]` implied by `#[deny(warnings)]`
+
+error: useless use of `format!`
+   --> crates/core/src/error.rs:483:22
+    |
+483 |                 Some(format!("Try 'scp session list' to see available sessions"))
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: consider using `.to_string()`: `"Try 'scp session list' to see available sessions".to_string()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#useless_format
+
+error: used `unwrap()` on a `Result` value
+   --> crates/core/src/events.rs:184:15
+    |
+184 |       let now = SystemTime::now()
+    |  _______________^
+185 | |         .duration_since(UNIX_EPOCH)
+186 | |         .unwrap()
+    | |_________________^
+    |
+    = note: if this value is an `Err`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_used
+
+error: this `impl` can be derived
+   --> crates/core/src/hooks.rs:100:1
+    |
+100 | / impl Default for HookEvent {
+101 | |     fn default() -> Self {
+102 | |         Self::PostCommit
+103 | |     }
+104 | | }
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#derivable_impls
+    = note: `#[deny(clippy::derivable_impls)]` implied by `#[deny(warnings)]`
+help: replace the manual implementation with a derive attribute and mark the default variant
+    |
+ 19 + #[derive(Default)]
+ 20 | pub enum HookEvent {
+ 21 |     /// Before a rebase operation
+...
+ 39 |     /// After a commit
+ 40 ~     #[default]
+ 41 ~     PostCommit,
+    |
+
+error: use of `or_insert_with` to construct default value
+   --> crates/core/src/hooks.rs:243:14
+    |
+243 |             .or_insert_with(Vec::new)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `or_default()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unwrap_or_default
+    = note: `#[deny(clippy::unwrap_or_default)]` implied by `#[deny(warnings)]`
+
+error: this can be `std::io::Error::other(_)`
+  --> crates/core/src/infrastructure/chaos.rs:51:24
+   |
+51 |               return Err(std::io::Error::new(
+   |  ________________________^
+52 | |                 std::io::ErrorKind::Other,
+53 | |                 "Chaos: random IO error",
+54 | |             ));
+   | |_____________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+help: use `std::io::Error::other`
+   |
+51 ~             return Err(std::io::Error::other(
+52 ~                 "Chaos: random IO error",
+   |
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable since `1.83.0`
+  --> crates/core/src/infrastructure/chaos.rs:58:17
+   |
+58 |                 std::io::ErrorKind::StorageFull,
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: this can be `std::io::Error::other(_)`
+   --> crates/core/src/infrastructure/chaos.rs:97:34
+    |
+ 97 |               return Err(Error::Io(std::io::Error::new(
+    |  __________________________________^
+ 98 | |                 std::io::ErrorKind::Other,
+ 99 | |                 "Chaos: database IO error",
+100 | |             )));
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+help: use `std::io::Error::other`
+    |
+ 97 ~             return Err(Error::Io(std::io::Error::other(
+ 98 ~                 "Chaos: database IO error",
+    |
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable since `1.83.0`
+   --> crates/core/src/infrastructure/chaos.rs:104:17
+    |
+104 |                 std::io::ErrorKind::StorageFull,
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: redundant closure
+  --> crates/core/src/infrastructure/vcs_integration.rs:24:39
+   |
+24 |         vcs::create_backend(path).map(|b| Arc::<dyn VcsBackend>::from(b))
+   |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace the closure with the associated function itself: `Arc::<dyn VcsBackend>::from`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+   = note: `#[deny(clippy::redundant_closure)]` implied by `#[deny(warnings)]`
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/introspection.rs:455:62
+    |
+455 |         self.initialized && self.jj_installed && self.custom.is_empty()
+    |                                                              ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/introspection.rs:484:25
+    |
+484 |         2 + self.custom.len()
+    |                         ^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: this can be `std::io::Error::other(_)`
+  --> crates/core/src/jj.rs:84:27
+   |
+84 |                   Error::Io(std::io::Error::new(
+   |  ___________________________^
+85 | |                     std::io::ErrorKind::Other,
+86 | |                     format!("Failed to remove workspace directory: {e}"),
+87 | |                 ))
+   | |_________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+help: use `std::io::Error::other`
+   |
+84 ~                 Error::Io(std::io::Error::other(
+85 ~                     format!("Failed to remove workspace directory: {e}"),
+   |
+
+error: this can be `std::io::Error::other(_)`
+  --> crates/core/src/jj.rs:90:37
+   |
+90 |               Err(e) => Err(Error::Io(std::io::Error::new(
+   |  _____________________________________^
+91 | |                 std::io::ErrorKind::Other,
+92 | |                 format!("Failed to check workspace existence: {e}"),
+93 | |             ))),
+   | |_____________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+help: use `std::io::Error::other`
+   |
+90 ~             Err(e) => Err(Error::Io(std::io::Error::other(
+91 ~                 format!("Failed to check workspace existence: {e}"),
+   |
+
+error: this can be `std::io::Error::other(_)`
+   --> crates/core/src/jj.rs:119:27
+    |
+119 |                   Error::Io(std::io::Error::new(
+    |  ___________________________^
+120 | |                     std::io::ErrorKind::Other,
+121 | |                     format!("Failed to remove workspace directory: {e}"),
+122 | |                 ))
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+help: use `std::io::Error::other`
+    |
+119 ~                 Error::Io(std::io::Error::other(
+120 ~                     format!("Failed to remove workspace directory: {e}"),
+    |
+
+error: this can be `std::io::Error::other(_)`
+   --> crates/core/src/jj.rs:125:37
+    |
+125 |               Err(e) => Err(Error::Io(std::io::Error::new(
+    |  _____________________________________^
+126 | |                 std::io::ErrorKind::Other,
+127 | |                 format!("Failed to check workspace existence: {e}"),
+128 | |             ))),
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+help: use `std::io::Error::other`
+    |
+125 ~             Err(e) => Err(Error::Io(std::io::Error::other(
+126 ~                 format!("Failed to check workspace existence: {e}"),
+    |
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/jj.rs:191:23
+    |
+191 |         self.modified.is_empty()
+    |                       ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/jj.rs:192:27
+    |
+192 |             && self.added.is_empty()
+    |                           ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/jj.rs:193:29
+    |
+193 |             && self.deleted.is_empty()
+    |                             ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/jj.rs:194:29
+    |
+194 |             && self.renamed.is_empty()
+    |                             ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/jj.rs:199:23
+    |
+199 |         self.modified.len() + self.added.len() + self.deleted.len() + self.renamed.len()
+    |                       ^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/jj.rs:199:42
+    |
+199 |         self.modified.len() + self.added.len() + self.deleted.len() + self.renamed.len()
+    |                                          ^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/jj.rs:199:63
+    |
+199 |         self.modified.len() + self.added.len() + self.deleted.len() + self.renamed.len()
+    |                                                               ^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/jj.rs:199:84
+    |
+199 |         self.modified.len() + self.added.len() + self.deleted.len() + self.renamed.len()
+    |                                                                                    ^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: this can be `std::io::Error::other(_)`
+   --> crates/core/src/jj.rs:267:23
+    |
+267 |               Error::Io(std::io::Error::new(
+    |  _______________________^
+268 | |                 std::io::ErrorKind::Other,
+269 | |                 format!("Failed to create workspace directory: {e}"),
+270 | |             ))
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+help: use `std::io::Error::other`
+    |
+267 ~             Error::Io(std::io::Error::other(
+268 ~                 format!("Failed to create workspace directory: {e}"),
+    |
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/jj_operation_sync.rs:142:1
+    |
+142 | pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/jj_operation_sync.rs:203:1
+    |
+203 | pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) -> Result<()> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable since `1.89.0`
+   --> crates/core/src/jj_operation_sync.rs:312:47
+    |
+312 |                     let unlock_result = probe.unlock();
+    |                                               ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: this `impl` can be derived
+  --> crates/core/src/output.rs:51:1
+   |
+51 | / impl Default for Verbosity {
+52 | |     fn default() -> Self {
+53 | |         Self::Normal
+54 | |     }
+55 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#derivable_impls
+help: replace the manual implementation with a derive attribute and mark the default variant
+   |
+10 + #[derive(Default)]
+11 | pub enum Verbosity {
+12 |     Quiet = 0,
+13 ~     #[default]
+14 ~     Normal = 1,
+   |
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/output_jsonl/domain_types.rs:318:34
+    |
+318 |             Self::Custom(s) => s.as_str(),
+    |                                  ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/output_jsonl/domain_types.rs:470:34
+    |
+470 |             Self::Custom(s) => s.as_str(),
+    |                                  ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/output_jsonl/domain_types.rs:602:16
+    |
+602 |         self.0.is_empty()
+    |                ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/output_jsonl/domain_types.rs:732:55
+    |
+732 |             Self::Completed { result } => Some(result.as_str()),
+    |                                                       ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/output_jsonl/domain_types.rs:839:58
+    |
+839 |             Self::Assigned { agent_id } => Some(agent_id.as_str()),
+    |                                                          ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: current MSRV (Minimum Supported Rust Version) is `1.80.0` but this item is stable in a `const` context since `1.87.0`
+   --> crates/core/src/output_jsonl/types.rs:602:41
+    |
+602 |                 Some(recommended_action.as_str())
+    |                                         ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#incompatible_msrv
+
+error: this `impl` can be derived
+  --> crates/core/src/queue.rs:21:1
+   |
+21 | / impl Default for Priority {
+22 | |     fn default() -> Self {
+23 | |         Priority::Normal
+24 | |     }
+25 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#derivable_impls
+help: replace the manual implementation with a derive attribute and mark the default variant
+   |
+14 + #[derive(Default)]
+15 | pub enum Priority {
+16 |     Low = 3,
+17 ~     #[default]
+18 ~     Normal = 2,
+   |
+
+error: casting to the same type is unnecessary (`u128` -> `u128`)
+   --> crates/core/src/queue.rs:319:26
+    |
+319 |                 .map(|d| d.as_nanos() as u128)
+    |                          ^^^^^^^^^^^^^^^^^^^^ help: try: `d.as_nanos()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#unnecessary_cast
+    = note: `#[deny(clippy::unnecessary_cast)]` implied by `#[deny(warnings)]`
+
+error: implementation of inherent method `to_string(&self) -> String` for type `queue::uuid::Uuid`
+   --> crates/core/src/queue.rs:337:9
+    |
+337 | /         pub fn to_string(&self) -> String {
+338 | |             format!("{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+339 | |                 self.0[0], self.0[1], self.0[2], self.0[3],
+340 | |                 self.0[4], self.0[5],
+...   |
+345 | |         }
+    | |_________^
+    |
+    = help: implement trait `Display` for type `queue::uuid::Uuid` instead
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#inherent_to_string
+    = note: `#[deny(clippy::inherent_to_string)]` implied by `#[deny(warnings)]`
+
+error: this `impl` can be derived
+  --> crates/core/src/recovery.rs:26:1
+   |
+26 | / impl Default for RecoveryPolicy {
+27 | |     fn default() -> Self {
+28 | |         Self::Warn
+29 | |     }
+30 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#derivable_impls
+help: replace the manual implementation with a derive attribute and mark the default variant
+   |
+20 + #[derive(Default)]
+21 | pub enum RecoveryPolicy {
+22 |     FailFast,
+23 ~     #[default]
+24 ~     Warn,
+   |
+
+error: this can be `std::io::Error::other(_)`
+  --> crates/core/src/recovery.rs:83:23
+   |
+83 |               Error::Io(std::io::Error::new(
+   |  _______________________^
+84 | |                 std::io::ErrorKind::Other,
+85 | |                 format!("Failed to lock recovery log: {e}"),
+86 | |             ))
+   | |_____________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+help: use `std::io::Error::other`
+   |
+83 ~             Error::Io(std::io::Error::other(
+84 ~                 format!("Failed to lock recovery log: {e}"),
+   |
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/core/src/validation/domain.rs:65:5
+   |
+65 |     pub fn parse(s: &str) -> Result<Self, ValidationError> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/core/src/validation/domain.rs:82:5
+   |
+82 |     pub fn parse(s: &str) -> Result<Self, ValidationError> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/core/src/validation/domain.rs:99:5
+   |
+99 |     pub fn parse(s: &str) -> Result<Self, ValidationError> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/validation/domain.rs:116:5
+    |
+116 |     pub fn parse(s: &str) -> Result<Self, ValidationError> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/validation/domain.rs:133:5
+    |
+133 |     pub fn parse(s: &str) -> Result<Self, ValidationError> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/validation/domain.rs:149:1
+    |
+149 | pub fn validate_session_name(name: &str) -> Result<(), ValidationError> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/validation/domain.rs:161:1
+    |
+161 | pub fn validate_agent_id(id: &str) -> Result<(), ValidationError> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/validation/domain.rs:175:1
+    |
+175 | pub fn validate_workspace_name(name: &str) -> Result<(), ValidationError> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/validation/domain.rs:189:1
+    |
+189 | pub fn validate_task_id(id: &str) -> Result<(), ValidationError> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/validation/domain.rs:203:1
+    |
+203 | pub fn validate_absolute_path(path: &str) -> Result<(), ValidationError> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/validation/domain.rs:221:1
+    |
+221 | / pub fn validate_session_and_agent(
+222 | |     session_name: &str,
+223 | |     agent_id: &str,
+224 | | ) -> Result<(), ValidationError> {
+    | |________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/core/src/validation/infrastructure.rs:17:1
+   |
+17 | pub fn validate_path_exists(path: &Path) -> Result<()> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/core/src/validation/infrastructure.rs:28:1
+   |
+28 | pub fn validate_is_directory(path: &Path) -> Result<()> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/core/src/validation/infrastructure.rs:39:1
+   |
+39 | pub fn validate_is_file(path: &Path) -> Result<()> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/core/src/validation/infrastructure.rs:50:1
+   |
+50 | pub fn validate_workspace_path(path: &Path) -> Result<()> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/core/src/validation/infrastructure.rs:55:1
+   |
+55 | pub fn validate_is_readable(path: &Path) -> Result<()> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/core/src/validation/infrastructure.rs:66:1
+   |
+66 | pub fn validate_is_writable(path: &Path) -> Result<()> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: use Option::map_or_else instead of an if let/else
+  --> crates/core/src/validation/infrastructure.rs:77:9
+   |
+77 | /         match path.parent() {
+78 | |             Some(parent) => validate_is_writable(parent),
+79 | |             None => Err(Error::ValidationFieldError {
+80 | |                 message: format!(
+...  |
+86 | |             }),
+87 | |         }
+   | |_________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#option_if_let_else
+   = note: `#[deny(clippy::option_if_let_else)]` implied by `#[deny(warnings)]`
+help: try
+   |
+77 ~         path.parent().map_or_else(|| Err(Error::ValidationFieldError {
+78 +                 message: format!(
+79 +                     "Cannot check writability for path without parent: '{}'",
+80 +                     path.display()
+81 +                 ),
+82 +                 field: "path".to_string(),
+83 +                 value: Some(path.display().to_string()),
+84 +             }), |parent| validate_is_writable(parent))
+   |
+
+error: docs for function returning `Result` missing `# Errors` section
+  --> crates/core/src/validation/infrastructure.rs:91:1
+   |
+91 | pub fn validate_directory_empty(path: &Path) -> Result<()> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/validation/infrastructure.rs:111:1
+    |
+111 | pub fn validate_sufficient_space(path: &Path, _required_bytes: u64) -> Result<()> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/validation/infrastructure.rs:116:1
+    |
+116 | pub fn validate_all_paths_exist(paths: &[&Path]) -> Result<()> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: docs for function returning `Result` missing `# Errors` section
+   --> crates/core/src/validation/infrastructure.rs:123:1
+    |
+123 | pub fn validate_any_path_exists(paths: &[&Path]) -> Result<()> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_errors_doc
+
+error: redundant closure
+   --> crates/core/src/vcs.rs:153:22
+    |
+153 |             .map_err(|e| Error::Io(e))
+    |                      ^^^^^^^^^^^^^^^^ help: replace the closure with the tuple variant itself: `Error::Io`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+error: redundant closure
+   --> crates/core/src/vcs.rs:388:22
+    |
+388 |             .map_err(|e| Error::Io(e))
+    |                      ^^^^^^^^^^^^^^^^ help: replace the closure with the tuple variant itself: `Error::Io`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_closure
+
+error: this can be `std::io::Error::other(_)`
+   --> crates/core/src/watcher.rs:126:23
+    |
+126 |               Error::Io(std::io::Error::new(
+    |  _______________________^
+127 | |                 std::io::ErrorKind::Other,
+128 | |                 format!("Failed to create file watcher: {e}"),
+129 | |             ))
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#io_other_error
+help: use `std::io::Error::other`
+    |
+126 ~             Error::Io(std::io::Error::other(
+127 ~                 format!("Failed to create file watcher: {e}"),
+    |
+
+error: could not compile `scp-core` (lib) due to 104 previous errors

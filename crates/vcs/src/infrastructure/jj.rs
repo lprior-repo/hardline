@@ -29,16 +29,45 @@ impl JjBackend {
     }
 }
 
+fn parse_current_branch_from_status(status_output: &str) -> Result<String> {
+    for line in status_output.lines() {
+        let line = line.trim();
+        if line.starts_with("Working copy") {
+            if let Some(after_colon) = line.split(':').nth(1) {
+                let before_pipe = after_colon.split('|').next().map_or(after_colon, |s| s);
+                let parts: Vec<&str> = before_pipe.trim().split_whitespace().collect();
+                if parts.len() >= 4 {
+                    let bookmarks: Vec<&str> = parts
+                        .iter()
+                        .skip(2)
+                        .take(parts.len().saturating_sub(4))
+                        .copied()
+                        .collect();
+                    if !bookmarks.is_empty() {
+                        return Ok(bookmarks.join(" "));
+                    }
+                }
+            }
+        }
+    }
+    Err(VcsError::Conflict(
+        "jj".into(),
+        "Could not determine current branch".into(),
+    ))
+}
+
 impl VcsBackend for JjBackend {
     fn current_branch(&self) -> Result<String> {
-        let output = self.run_jj(&["log", "-r", "@", "-T", " bookmarks()"])?;
+        let output = self.run_jj(&["status"])?;
         if !output.status.success() {
             return Err(VcsError::Conflict(
                 "jj".into(),
                 String::from_utf8_lossy(&output.stderr).to_string(),
             ));
         }
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let branch = parse_current_branch_from_status(&stdout)?;
+        Ok(branch)
     }
 
     fn list_branches(&self) -> Result<Vec<Branch>> {
@@ -49,7 +78,7 @@ impl VcsBackend for JjBackend {
         for line in stdout.lines() {
             let line = line.trim();
             if !line.is_empty() && !line.starts_with('!') {
-                let name = line.split(':').next().unwrap_or(line).trim();
+                let name = line.split(':').next().map_or(line.trim(), |s| s.trim());
                 let name = name.trim_start_matches('*').trim();
                 branches.push(Branch::new(name.to_string(), line.starts_with('*'), None));
             }
@@ -191,7 +220,7 @@ impl VcsBackend for JjBackend {
         for line in stdout.lines() {
             let line = line.trim();
             if !line.is_empty() {
-                let name = line.split(':').next().unwrap_or(line).trim();
+                let name = line.split(':').next().map_or(line.trim(), |s| s.trim());
                 let is_current = line.starts_with('*');
                 let name = name.trim_start_matches('*').trim();
                 workspaces.push(Workspace::new(

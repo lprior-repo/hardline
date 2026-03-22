@@ -2,7 +2,7 @@
 
 use crate::domain::entities::Commit;
 use crate::error::{GitError, GitResult};
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{TimeZone, Utc};
 use gix::bstr::ByteSlice;
 use gix::prelude::ObjectIdExt;
 
@@ -45,10 +45,13 @@ pub fn log(repo: &gix::Repository, limit: usize) -> GitResult<Vec<Commit>> {
             reason: e.to_string(),
         })?;
         let timestamp = time.seconds;
-        let datetime: DateTime<Utc> = Utc
-            .timestamp_opt(timestamp, 0)
-            .single()
-            .unwrap_or_else(Utc::now);
+        let datetime =
+            Utc.timestamp_opt(timestamp, 0)
+                .single()
+                .ok_or_else(|| GitError::InvalidRef {
+                    name: "time".to_string(),
+                    reason: "timestamp out of range".to_string(),
+                })?;
 
         let parent_ids: Vec<String> = commit.parent_ids().map(|id| id.to_string()).collect();
 
@@ -104,10 +107,13 @@ pub fn find(repo: &gix::Repository, oid_str: &str) -> GitResult<Commit> {
         reason: e.to_string(),
     })?;
     let timestamp = time.seconds;
-    let datetime: DateTime<Utc> = Utc
-        .timestamp_opt(timestamp, 0)
-        .single()
-        .unwrap_or_else(Utc::now);
+    let datetime =
+        Utc.timestamp_opt(timestamp, 0)
+            .single()
+            .ok_or_else(|| GitError::InvalidRef {
+                name: "time".to_string(),
+                reason: "timestamp out of range".to_string(),
+            })?;
 
     let parent_ids: Vec<String> = commit.parent_ids().map(|id| id.to_string()).collect();
 
@@ -145,10 +151,13 @@ pub fn current(repo: &gix::Repository) -> GitResult<Commit> {
         reason: e.to_string(),
     })?;
     let timestamp = time.seconds;
-    let datetime: DateTime<Utc> = Utc
-        .timestamp_opt(timestamp, 0)
-        .single()
-        .unwrap_or_else(Utc::now);
+    let datetime =
+        Utc.timestamp_opt(timestamp, 0)
+            .single()
+            .ok_or_else(|| GitError::InvalidRef {
+                name: "time".to_string(),
+                reason: "timestamp out of range".to_string(),
+            })?;
 
     let parent_ids: Vec<String> = commit.parent_ids().map(|id| id.to_string()).collect();
 
