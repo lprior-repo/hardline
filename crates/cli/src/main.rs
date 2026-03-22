@@ -87,6 +87,12 @@ enum Commands {
         command: TagCommands,
     },
 
+    /// Batch command execution (atomic)
+    Batch {
+        #[command(subcommand)]
+        command: BatchCommands,
+    },
+
     /// Fetch from remotes
     Fetch {
         /// Remote to fetch from (default: all)
@@ -582,6 +588,20 @@ enum TagCommands {
     },
 }
 
+#[derive(Subcommand)]
+enum BatchCommands {
+    /// Execute a batch of commands atomically
+    Run {
+        /// Workspace name (default: current workspace)
+        #[arg(short, long)]
+        workspace: Option<String>,
+
+        /// Commands to execute
+        #[arg(trailing_var_arg = true)]
+        commands: Vec<String>,
+    },
+}
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
@@ -725,6 +745,12 @@ fn run_command(cli: Cli) -> Result<()> {
             TagCommands::Delete { tag, remote } => commands::tag::delete(&tag, remote),
             TagCommands::Push { tag, remote, force } => {
                 commands::tag::push(tag.as_deref(), &remote, force)
+            }
+        },
+
+        Commands::Batch { command } => match command {
+            BatchCommands::Run { workspace, commands } => {
+                tokio::runtime::Handle::current().block_on(commands::batch::execute(workspace, commands))
             }
         },
 
