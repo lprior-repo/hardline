@@ -21,6 +21,7 @@ pub mod status;
 pub mod sync;
 pub mod tag;
 pub mod task;
+pub mod task_store;
 pub mod task_types;
 pub mod task_validation;
 pub mod workspace;

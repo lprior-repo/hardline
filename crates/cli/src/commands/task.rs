@@ -2,181 +2,25 @@
 //!
 //! Provides task management commands: list, show, claim, yield, start, done
 
-use crate::commands::task_types::{Priority, Task, TaskId, TaskState, Title};
+use crate::commands::task_store::{get_task_store, init_demo_tasks};
+use crate::commands::task_types::TaskId;
 use crate::commands::task_validation::{
     acquire_task_lock, transition_to_claimed, transition_to_done, transition_to_started,
     transition_to_yielded, validate_claimed_by_user, validate_not_claimed_by_other,
     validate_not_closed, validate_task_exists,
 };
 use scp_core::{error::Error, lock::LockManager, Result as CoreResult};
-use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::LazyLock;
-use std::sync::{Arc, RwLock};
 
-/// Global task storage - singleton using LazyLock for thread-safe initialization
-static TASK_STORE: LazyLock<Arc<TaskStore>> = LazyLock::new(|| Arc::new(TaskStore::load()));
-
-/// Global lock manager - singleton using LazyLock
 static LOCK_MANAGER: LazyLock<Arc<dyn LockManager>> =
     LazyLock::new(|| Arc::new(scp_core::lock::MemLockManager::new()) as Arc<dyn LockManager>);
 
-/// Get the tasks directory
-fn get_tasks_dir() -> CoreResult<PathBuf> {
-    let dirs = directories::ProjectDirs::from("com", "scp", "scp")
-        .ok_or_else(|| Error::Internal("Could not determine config directory".into()))?;
-    Ok(dirs.config_dir().to_path_buf())
-}
-
-/// Get the tasks file path
-fn get_tasks_file() -> CoreResult<PathBuf> {
-    Ok(get_tasks_dir()?.join("tasks.json"))
-}
-
-/// Persistent task store that saves to JSON file
-struct TaskStore {
-    tasks: RwLock<HashMap<String, Task>>,
-    tasks_file: PathBuf,
-}
-
-impl TaskStore {
-    /// Load tasks from JSON file or create new empty store
-    fn load() -> Self {
-        let tasks_file = get_tasks_file().expect("Failed to get tasks file path");
-        let tasks = if tasks_file.exists() {
-            match fs::read_to_string(&tasks_file) {
-                Ok(contents) => match serde_json::from_str::<Vec<Task>>(&contents) {
-                    Ok(tasks) => {
-                        let map: HashMap<String, Task> = tasks
-                            .into_iter()
-                            .map(|t| (t.id.as_str().to_string(), t))
-                            .collect();
-                        map
-                    }
-                    Err(e) => {
-                        eprintln!("Warning: Failed to parse tasks file: {e}. Starting fresh.");
-                        HashMap::new()
-                    }
-                },
-                Err(e) => {
-                    eprintln!("Warning: Failed to read tasks file: {e}. Starting fresh.");
-                    HashMap::new()
-                }
-            }
-        } else {
-            HashMap::new()
-        };
-
-        Self {
-            tasks: RwLock::new(tasks),
-            tasks_file,
-        }
-    }
-
-    /// Save tasks to JSON file
-    fn save(&self) -> CoreResult<()> {
-        let tasks: Vec<Task> = self
-            .tasks
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?
-            .values()
-            .cloned()
-            .collect();
-
-        if let Some(parent) = self.tasks_file.parent() {
-            fs::create_dir_all(parent).map_err(Error::Io)?;
-        }
-
-        let contents =
-            serde_json::to_string_pretty(&tasks).map_err(|e| Error::Internal(e.to_string()))?;
-        fs::write(&self.tasks_file, contents).map_err(Error::Io)?;
-        Ok(())
-    }
-
-    fn list(&self) -> Vec<Task> {
-        self.tasks
-            .read()
-            .map(|tasks| tasks.values().cloned().collect())
-            .unwrap_or_else(|_| Vec::new())
-    }
-
-    fn get(&self, id: &str) -> Option<Task> {
-        self.tasks
-            .read()
-            .ok()
-            .and_then(|tasks| tasks.get(id).cloned())
-    }
-
-    fn update(&self, task: Task) -> CoreResult<()> {
-        let mut tasks = self
-            .tasks
-            .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
-        if !tasks.contains_key(task.id.as_str()) {
-            return Err(Error::TaskNotFound(task.id.to_string()));
-        }
-        tasks.insert(task.id.to_string(), task);
-        drop(tasks);
-        self.save()?;
-        Ok(())
-    }
-
-    fn insert(&self, task: Task) -> CoreResult<()> {
-        let mut tasks = self
-            .tasks
-            .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
-        if tasks.contains_key(task.id.as_str()) {
-            return Err(Error::TaskAlreadyClaimed(
-                task.id.to_string(),
-                "exists".to_string(),
-            ));
-        }
-        tasks.insert(task.id.to_string(), task);
-        drop(tasks);
-        self.save()?;
-        Ok(())
-    }
-}
-
-/// Get the global task store singleton
-fn get_task_store() -> Arc<TaskStore> {
-    TASK_STORE.clone()
-}
-
-/// Get the global lock manager singleton
 fn get_lock_manager() -> Arc<dyn LockManager> {
     LOCK_MANAGER.clone()
 }
 
-/// Initialize with some demo tasks
-fn init_demo_tasks(store: &TaskStore) -> CoreResult<()> {
-    let tasks = vec![
-        Task::new(
-            TaskId::new("task-001").map_err(|e| Error::InvalidTaskId(e.to_string()))?,
-            Title::new("Implement user authentication"),
-        ),
-        Task::new(
-            TaskId::new("task-002").map_err(|e| Error::InvalidTaskId(e.to_string()))?,
-            Title::new("Add database migration"),
-        ),
-        Task::new(
-            TaskId::new("task-003").map_err(|e| Error::InvalidTaskId(e.to_string()))?,
-            Title::new("Fix memory leak in worker"),
-        ),
-    ];
-    for task in tasks {
-        store.insert(task)?;
-    }
-    Ok(())
-}
-
-// ============================================================================
-// Display functions
-// ============================================================================
-
-fn display_tasks(tasks: &[Task]) {
+fn display_tasks(tasks: &[impl TaskDisplay]) {
     if tasks.is_empty() {
         println!("No tasks found");
         return;
@@ -184,39 +28,49 @@ fn display_tasks(tasks: &[Task]) {
 
     println!("Tasks ({}):", tasks.len());
     for task in tasks {
-        let assignee = task.assignee.as_ref().map(|a| a.as_str()).unwrap_or("-");
-        let state = format!("{:?}", task.state);
-        let priority = task.priority.as_ref().map(|p| p.as_str()).unwrap_or("-");
-        println!("  {} [{}] {} - {}", task.id, priority, state, assignee);
+        task.display();
     }
 }
 
-fn display_task(task: &Task) {
-    println!("Task: {}", task.id);
-    println!("  Title: {}", task.title);
-    if let Some(desc) = &task.description {
-        println!("  Description: {}", desc);
-    }
-    println!("  State: {:?}", task.state);
-    if let Some(priority) = &task.priority {
-        println!("  Priority: {}", priority);
-    }
-    println!(
-        "  Assignee: {:?}",
-        task.assignee
-            .as_ref()
-            .map(|a| a.as_str())
-            .unwrap_or("unassigned")
-    );
-    println!("  Created: {}", task.created_at);
-    println!("  Updated: {}", task.updated_at);
+fn display_task(task: &impl TaskDisplay) {
+    task.display_detailed();
 }
 
-// ============================================================================
-// Public command functions
-// ============================================================================
+trait TaskDisplay {
+    fn display(&self);
+    fn display_detailed(&self);
+}
 
-/// List all tasks
+impl TaskDisplay for crate::commands::task_types::Task {
+    fn display(&self) {
+        let assignee = self.assignee.as_ref().map(|a| a.as_str()).unwrap_or("-");
+        let state = format!("{:?}", self.state);
+        let priority = self.priority.as_ref().map(|p| p.as_str()).unwrap_or("-");
+        println!("  {} [{}] {} - {}", self.id, priority, state, assignee);
+    }
+
+    fn display_detailed(&self) {
+        println!("Task: {}", self.id);
+        println!("  Title: {}", self.title);
+        if let Some(desc) = &self.description {
+            println!("  Description: {}", desc);
+        }
+        println!("  State: {:?}", self.state);
+        if let Some(priority) = &self.priority {
+            println!("  Priority: {}", priority);
+        }
+        println!(
+            "  Assignee: {:?}",
+            self.assignee
+                .as_ref()
+                .map(|a| a.as_str())
+                .unwrap_or("unassigned")
+        );
+        println!("  Created: {}", self.created_at);
+        println!("  Updated: {}", self.updated_at);
+    }
+}
+
 pub fn list() -> CoreResult<()> {
     let store = get_task_store();
     let tasks = store.list();
@@ -232,9 +86,7 @@ pub fn list() -> CoreResult<()> {
     Ok(())
 }
 
-/// Show details of a specific task
 pub fn show(task_id: &str, _user: &str) -> CoreResult<()> {
-    // Validate task ID at parse time
     let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
 
     let store = get_task_store();
@@ -246,9 +98,7 @@ pub fn show(task_id: &str, _user: &str) -> CoreResult<()> {
     Ok(())
 }
 
-/// Claim a task (assign to current user)
 pub fn claim(task_id: &str, user: &str) -> CoreResult<()> {
-    // Validate task ID at parse time
     let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
 
     let store = get_task_store();
@@ -264,9 +114,7 @@ pub fn claim(task_id: &str, user: &str) -> CoreResult<()> {
     Ok(())
 }
 
-/// Yield a task (release assignment)
 pub fn yield_task(task_id: &str, user: &str) -> CoreResult<()> {
-    // Validate task ID at parse time
     let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
 
     let store = get_task_store();
@@ -282,9 +130,7 @@ pub fn yield_task(task_id: &str, user: &str) -> CoreResult<()> {
     Ok(())
 }
 
-/// Start working on a task (transition to InProgress)
 pub fn start(task_id: &str, user: &str) -> CoreResult<()> {
-    // Validate task ID at parse time
     let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
 
     let store = get_task_store();
@@ -300,9 +146,7 @@ pub fn start(task_id: &str, user: &str) -> CoreResult<()> {
     Ok(())
 }
 
-/// Complete a task (transition to Closed)
 pub fn done(task_id: &str, user: &str) -> CoreResult<()> {
-    // Validate task ID at parse time
     let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
 
     let store = get_task_store();
