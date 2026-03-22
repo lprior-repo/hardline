@@ -3,6 +3,18 @@ use thiserror::Error;
 use crate::domain::entities::session::SessionState;
 use crate::domain::workspace_state::WorkspaceState;
 
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum TaskIdError {
+    #[error("task ID cannot be empty")]
+    InvalidInput,
+    #[error("task ID must start with 'bd-' prefix")]
+    InvalidPrefix,
+    #[error("task ID suffix must be hexadecimal characters only")]
+    InvalidHex,
+    #[error("task ID suffix after 'bd-' cannot be empty")]
+    EmptySuffix,
+}
+
 #[derive(Error, Debug)]
 pub enum SessionError {
     // Session errors

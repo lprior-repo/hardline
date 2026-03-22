@@ -26,4 +26,4 @@ pub use domain::workspace::{
     Workspace, WorkspaceId as WsId, WorkspaceName as WsName, WorkspacePath,
 };
 pub use domain::workspace_state::{WorkspaceState, WorkspaceStateMachine};
-pub use error::{Result, SessionError};
+pub use error::{Result, SessionError, TaskIdError};
