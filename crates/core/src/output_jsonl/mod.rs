@@ -98,8 +98,17 @@
 //! - **`crate::coordination`** - Coordination output types
 //! - **`crate::beads`** - Beads output types
 
+// Domain types - split into smaller modules
+pub mod action_verb;
 pub mod domain_types;
+pub mod identifier_types;
+pub mod metadata_type;
+pub mod state_enums;
+pub mod target_types;
 pub mod test_utils;
+pub mod text_types;
+pub mod warning_code;
+
 mod types;
 mod writer;
 

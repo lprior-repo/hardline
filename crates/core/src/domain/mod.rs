@@ -143,9 +143,12 @@ pub mod error_conversion;
 pub mod events;
 pub mod identifiers;
 pub mod macros;
+pub mod queue;
 pub mod repository;
 pub mod session;
+pub mod validation;
 pub mod workspace;
+pub mod workflow;
 
 pub use aggregates::{
     Bead, BeadError, BeadState, Session, SessionBuilder, SessionError, Workspace, WorkspaceBuilder,

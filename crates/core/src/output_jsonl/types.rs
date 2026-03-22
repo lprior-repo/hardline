@@ -205,14 +205,6 @@ pub struct Issue {
     pub suggestion: Option<String>,
 }
 
-// Helper function for serde skip condition
-impl IssueScope {
-    #[must_use]
-    pub const fn is_standalone(&self) -> bool {
-        matches!(self, Self::Standalone)
-    }
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum IssueKind {
@@ -355,13 +347,6 @@ pub struct Action {
     pub timestamp: DateTime<Utc>,
 }
 
-// Helper for serde skip condition
-impl ActionResult {
-    #[must_use]
-    pub const fn is_pending(&self) -> bool {
-        matches!(self, Self::Pending)
-    }
-}
 
 impl Action {
     #[must_use]
