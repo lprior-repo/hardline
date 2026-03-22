@@ -212,7 +212,10 @@ mod tests {
         run_migrations(&conn).expect("first migration should succeed");
 
         let result = run_migrations(&conn);
-        assert!(result.is_err(), "second migration should fail with SchemaConflict");
+        assert!(
+            result.is_err(),
+            "second migration should fail with SchemaConflict"
+        );
     }
 
     #[test]
@@ -246,7 +249,10 @@ mod tests {
             )
             .expect("should query indexes");
 
-        assert!(index_exists > 0, "status/priority/position index should exist");
+        assert!(
+            index_exists > 0,
+            "status/priority/position index should exist"
+        );
     }
 
     #[test]
@@ -290,11 +296,7 @@ mod tests {
                 "INSERT INTO queue_entries (id, session_id, priority, position, status, enqueued_at, updated_at, retry_count) VALUES (?1, 'session-1', 128, 0, ?2, datetime('now'), datetime('now'), 0)",
                 [&id, &status_str.to_string()],
             );
-            assert!(
-                result.is_ok(),
-                "status '{}' should be accepted",
-                status
-            );
+            assert!(result.is_ok(), "status '{}' should be accepted", status);
         }
     }
 }
