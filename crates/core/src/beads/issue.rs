@@ -150,8 +150,8 @@ impl Issue {
     pub fn reopen(&mut self) -> Result<(), DomainError> {
         if !self.state.is_closed() {
             return Err(DomainError::InvalidStateTransition {
-                from: self.state,
-                to: IssueState::Open,
+                from: self.state.to_string(),
+                to: IssueState::Open.to_string(),
             });
         }
         self.state = IssueState::Open;
