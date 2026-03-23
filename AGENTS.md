@@ -5,13 +5,23 @@
 ```jsonl
 {"rule":"NO_CLIPPY_EDITS","action":"Fix code, not lint config"}
 {"rule":"MOON_ONLY","cmds":["moon run :quick","moon run :test","moon run :build","moon run :ci","moon run :fmt-fix"],"never":["cargo fmt","cargo test","cargo clippy","cargo build"]}
-{"rule":"CODANNA_MANDATORY","cmds":["semantic_search_with_context","analyze_impact","find_symbol","get_calls","get_callers","search_symbols","semantic_search_docs","get_index_info"],"prefer":["Codanna MCP tools for ALL exploration/search/retrieval"],"fallback":["NONE - Codanna is required"]}
 {"rule":"ZERO_UNWRAP_PANIC_SOURCE_ONLY","action":"Source code (src/) ONLY: zero unwrap/panic. Tests (_tests.rs, #[test]): NO restrictions - anything goes","banned_source":["unwrap()","unwrap_or()","unwrap_or_else()","unwrap_or_default()","expect()","panic!()","todo!()","unimplemented!()"],"allowed_tests":["ALL unwrap/panic allowed - tests are exempt"]}
 {"rule":"GIT_PUSH_MANDATORY","action":"Not done until git push succeeds"}
 {"rule":"FUNCTIONAL_RUST_SKILL","action":"Load functional-rust-generator skill for ALL Rust implementation"}
 {"rule":"DOMAIN_DRIVEN_DESIGN","patterns":["Bounded contexts","Aggregates","Value objects","Domain events","Repository pattern","Factory pattern"],"action":"Model domain logic explicitly; separate domain from infrastructure"}
 {"rule":"MANUAL_TESTING","action":"After implementation: manually test via CLI; verify actual behavior; no mocking reality"}
 ```
+
+## Sub-Agent Development Protocol
+
+- **New Code**: We use sub-agent development. ALWAYS use the `go-skill` (GoMasterOrchestrator) for writing new code.
+- **Code Review**: ALL code must be reviewed by the `qa-enforcer` agent and the `black-hat-reviewer` agent to ensure perfect code hygiene and architectural compliance.
+- **Test Review**: If writing tests, they must ALWAYS be reviewed by the `test-reviewer` agent (enforcing Beck, North, Farley, and the Testing Trophy pattern).
+- **Functional Rust**: ALWAYS invoke the `functional-rust` skill when implementing Rust code to enforce zero-panic architectural purity (Data->Calc->Actions).
+
+## Documentation
+
+- **Location**: All documentation, architectural specs, and codebase guidelines can be found in the `docs/` directory and `architecture-spec.md` at the project root.
 
 ## Workflow
 
