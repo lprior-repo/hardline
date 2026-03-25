@@ -1,0 +1,73 @@
+--- crates/worktree/src/infrastructure/vcs/git_worktree_adapter.rs
++++ replace <impl GitAdapter for Git2WorktreeAdapter>::add_worktree -> Result<String, GitAdapterError> with Ok("xyzzy".into())
+@@ -153,69 +153,17 @@
+     /// Get the underlying git2 repository.
+     pub fn repo(&self) -> &Repository {
+         &self.repo
+     }
+ }
+ 
+ impl GitAdapter for Git2WorktreeAdapter {
+     fn add_worktree(&self, path: &str, source_branch: &str) -> Result<String, GitAdapterError> {
+-        use git2::BranchType;
+-
+-        // Validate path is absolute
+-        if !path.starts_with('/') {
+-            return Err(GitAdapterError::PathExists {
+-                path: path.to_string(),
+-            });
+-        }
+-
+-        // Check if path already exists
+-        let path_obj = Path::new(path);
+-        if path_obj.exists() {
+-            return Err(GitAdapterError::PathExists {
+-                path: path.to_string(),
+-            });
+-        }
+-
+-        // Check if branch exists using git2
+-        let branch_exists = self
+-            .repo
+-            .find_branch(source_branch, BranchType::Local)
+-            .is_ok();
+-
+-        if !branch_exists {
+-            return Err(GitAdapterError::BranchNotFound {
+-                branch: source_branch.to_string(),
+-            });
+-        }
+-
+-        // Execute git worktree add using git commands
+-        let repo_path = self
+-            .repo
+-            .path()
+-            .to_str()
+-            .ok_or_else(|| GitAdapterError::GitError("Invalid repository path".to_string()))?;
+-
+-        let output = Command::new("git")
+-            .args(["worktree", "add", path, source_branch])
+-            .current_dir(repo_path)
+-            .output()
+-            .map_err(|e| {
+-                GitAdapterError::CommandFailed(format!("Failed to execute git command: {}", e))
+-            })?;
+-
+-        if !output.status.success() {
+-            let stderr = String::from_utf8_lossy(&output.stderr);
+-            return Err(GitAdapterError::CommandFailed(format!(
+-                "Git command failed: {}",
+-                stderr.trim()
+-            )));
+-        }
+-
+-        Ok(path.to_string())
++        Ok("xyzzy".into()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn remove_worktree(&self, path: &str) -> Result<(), GitAdapterError> {
+         let repo_path = self
+             .repo
+             .path()
+             .to_str()
+             .ok_or_else(|| GitAdapterError::GitError("Invalid repository path".to_string()))?;

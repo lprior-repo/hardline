@@ -111,7 +111,7 @@ impl FromStr for WorkspaceState {
             "merged" => Ok(Self::Merged),
             "abandoned" => Ok(Self::Abandoned),
             "conflict" => Ok(Self::Conflict),
-            _ => Err(Error::WorkspaceConflict(format!(
+            _ => Err(Error::workspace_conflict(format!(
                 "Invalid workspace state: '{}'. Valid states: created, working, ready, merged, abandoned, conflict",
                 s
             ))),
@@ -174,11 +174,10 @@ impl WorkspaceStateTransition {
         if self.from.can_transition_to(self.to) {
             Ok(())
         } else {
-            Err(Error::SessionInvalidState(
-                self.from.to_string(),
-                self.to.to_string(),
-                "Invalid workspace state transition".to_string(),
-            ))
+            Err(Error::invalid_state(format!(
+                "Invalid state transition: '{}' -> '{}'",
+                self.from, self.to
+            )))
         }
     }
 }

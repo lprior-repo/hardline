@@ -171,6 +171,41 @@ impl Error {
         use super::error_state::StateErrorKind;
         StateErrorKind::ValidationError(msg.into()).into()
     }
+
+    /// Creates a SessionLocked error
+    #[inline]
+    pub fn session_locked(session: impl Into<String>, holder: impl Into<String>) -> Self {
+        use super::error_workspace::SessionErrorKind;
+        SessionErrorKind::Locked(session.into(), holder.into()).into()
+    }
+
+    /// Creates a SessionNotFound error
+    #[inline]
+    pub fn session(msg: impl Into<String>) -> Self {
+        use super::error_workspace::SessionErrorKind;
+        SessionErrorKind::NotFound(msg.into()).into()
+    }
+
+    /// Creates a WorkspaceConflict error
+    #[inline]
+    pub fn workspace_conflict(msg: impl Into<String>) -> Self {
+        use super::error_workspace::WorkspaceErrorKind;
+        WorkspaceErrorKind::Conflict(msg.into()).into()
+    }
+
+    /// Creates a NotLockHolder error
+    #[inline]
+    pub fn not_lock_holder(session: impl Into<String>, agent: impl Into<String>) -> Self {
+        use super::error_workspace::SessionErrorKind;
+        SessionErrorKind::NotLockHolder(session.into(), agent.into()).into()
+    }
+
+    /// Creates a NotFound error (alias for not_found)
+    #[inline]
+    pub fn not_found(msg: impl Into<String>) -> Self {
+        use super::error_state::StateErrorKind;
+        StateErrorKind::NotFound(msg.into()).into()
+    }
 }
 
 // ========================================================================
@@ -196,6 +231,11 @@ impl Error {
         }
     }
 
+    /// Returns a human-readable suggestion for SessionLocked error.
+    pub fn session_locked_suggestion(holder: &str) -> Option<String> {
+        Some(format!("Use 'scp agent kill {holder}' to force release"))
+    }
+
     /// Returns exit code for CLI.
     pub fn exit_code(&self) -> i32 {
         match self {
@@ -207,7 +247,6 @@ impl Error {
             Error::Agent(e) => e.exit_code(),
             Error::Io(e) => e.exit_code(),
             Error::State(e) => e.exit_code(),
-            Error::Internal(e) => e.exit_code(),
             Error::Jj(e) => e.exit_code(),
             Error::Task(e) => e.exit_code(),
             Error::Wait(e) => e.exit_code(),
@@ -222,9 +261,9 @@ impl Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error_workspace::{WorkspaceError, WorkspaceErrorKind};
     use crate::error_queue::{QueueError, QueueErrorKind};
     use crate::error_vcs::{VcsError, VcsErrorKind};
+    use crate::error_workspace::{WorkspaceError, WorkspaceErrorKind};
 
     #[test]
     fn test_error_suggestions() {

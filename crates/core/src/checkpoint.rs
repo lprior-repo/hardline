@@ -95,7 +95,7 @@ impl AutoCheckpoint {
         )
         .execute(&self.db)
         .await
-        .map_err(|e| Error::Database(format!("Failed to create checkpoints table: {e}")))?;
+        .map_err(|e| Error::database(format!("Failed to create checkpoints table: {e}")))?;
 
         Ok(())
     }
@@ -109,7 +109,7 @@ impl AutoCheckpoint {
             .execute(&self.db)
             .await
             .map_err(|e| {
-                Error::Database(format!(
+                Error::database(format!(
                     "Failed to create checkpoint '{checkpoint_id}': {e}"
                 ))
             })?;
@@ -152,7 +152,7 @@ impl CheckpointGuard {
             .execute(&self.db)
             .await
             .map_err(|e| {
-                Error::Database(format!(
+                Error::database(format!(
                     "Failed to commit checkpoint '{}': {e}",
                     self.checkpoint_id
                 ))
@@ -172,7 +172,7 @@ impl CheckpointGuard {
             .execute(&self.db)
             .await
             .map_err(|e| {
-                Error::Database(format!(
+                Error::database(format!(
                     "Failed to mark checkpoint '{}' for restore: {e}",
                     self.checkpoint_id
                 ))
@@ -207,7 +207,7 @@ pub async fn find_pending_restores(db: &SqlitePool) -> Result<Vec<String>> {
     )
     .fetch_all(db)
     .await
-    .map_err(|e| Error::Database(format!("Failed to query pending checkpoints: {e}")))?;
+    .map_err(|e| Error::database(format!("Failed to query pending checkpoints: {e}")))?;
 
     Ok(rows.into_iter().map(|(id,)| id).collect())
 }
@@ -219,7 +219,7 @@ mod tests {
     async fn test_pool() -> Result<SqlitePool> {
         let pool = SqlitePool::connect("sqlite::memory:")
             .await
-            .map_err(|e| Error::Database(format!("Failed to connect to test database: {e}")))?;
+            .map_err(|e| Error::database(format!("Failed to connect to test database: {e}")))?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
         let _ = auto_cp.ensure_table().await;
         Ok(pool)

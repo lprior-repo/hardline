@@ -7,15 +7,15 @@
       "diff_path": null,
       "phase_results": [
         {
-          "phase": "Check",
-          "duration": 20.92951827,
+          "phase": "Build",
+          "duration": 41.057387238,
           "process_status": {
             "Failure": 101
           },
           "argv": [
             "/home/lewis/.rustup/toolchains/1.93.1-x86_64-unknown-linux-gnu/bin/cargo",
-            "check",
-            "--tests",
+            "test",
+            "--no-run",
             "--verbose",
             "--package=scp-core@0.5.0"
           ]
@@ -29,7 +29,7 @@
   "timeout": 0,
   "unviable": 0,
   "success": 0,
-  "start_time": "2026-03-11T13:36:02.453643589Z",
-  "end_time": "2026-03-11T13:36:23.653150462Z",
+  "start_time": "2026-03-11T14:23:58.388184618Z",
+  "end_time": "2026-03-11T14:24:39.733141908Z",
   "cargo_mutants_version": "27.0.0"
 }

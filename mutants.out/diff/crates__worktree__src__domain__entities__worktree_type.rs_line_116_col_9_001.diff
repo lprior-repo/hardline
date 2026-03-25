@@ -1,0 +1,24 @@
+--- crates/worktree/src/domain/entities/worktree_type.rs
++++ replace WorktreeTypeEnum::as_str -> &'static str with "xyzzy"
+@@ -108,20 +108,17 @@
+             "dev" => Ok(Self::Dev),
+             "agent" => Ok(Self::Agent),
+             other => Err(WorktreeTypeParseError::new(other.to_string())),
+         }
+     }
+ 
+     /// Get the string representation.
+     pub fn as_str(&self) -> &'static str {
+-        match self {
+-            Self::Dev => "dev",
+-            Self::Agent => "agent",
+-        }
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl fmt::Display for WorktreeTypeEnum {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         write!(f, "{}", self.as_str())
+     }
+ }

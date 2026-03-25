@@ -19,7 +19,7 @@ impl LockManager {
         .bind(&now_str)
         .fetch_optional(&self.db)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
         match existing {
             Some((holder,)) if holder == agent_id => {
@@ -28,12 +28,12 @@ impl LockManager {
                     .bind(agent_id)
                     .execute(&self.db)
                     .await
-                    .map_err(|e| Error::Database(e.to_string()))?;
+                    .map_err(|e| Error::database(e.to_string()))?;
 
                 self.log_operation(session, agent_id, "unlock").await?;
                 Ok(())
             }
-            Some(_) => Err(Error::NotLockHolder(
+            Some(_) => Err(Error::not_lock_holder(
                 session.to_string(),
                 agent_id.to_string(),
             )),
@@ -59,7 +59,7 @@ impl LockManager {
         .bind(&now_str)
         .fetch_optional(&self.db)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
         match existing {
             Some((holder,)) if holder == agent_id => {
@@ -71,14 +71,14 @@ impl LockManager {
                 .bind(agent_id)
                 .execute(&self.db)
                 .await
-                .map_err(|e| Error::Database(e.to_string()))?;
+                .map_err(|e| Error::database(e.to_string()))?;
 
                 let row: (String,) =
                     sqlx::query_as("SELECT lock_id FROM session_locks WHERE session = ?")
                         .bind(session)
                         .fetch_one(&self.db)
                         .await
-                        .map_err(|e| Error::Database(e.to_string()))?;
+                        .map_err(|e| Error::database(e.to_string()))?;
 
                 Ok(LockResponse {
                     lock_id: row.0,
@@ -87,11 +87,11 @@ impl LockManager {
                     expires_at: new_expires,
                 })
             }
-            Some(_) => Err(Error::NotLockHolder(
+            Some(_) => Err(Error::not_lock_holder(
                 session.to_string(),
                 agent_id.to_string(),
             )),
-            None => Err(Error::NotFound(format!(
+            None => Err(Error::not_found(format!(
                 "No active lock for session '{session}'"
             ))),
         }

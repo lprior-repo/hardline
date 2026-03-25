@@ -1,0 +1,32 @@
+--- crates/worktree/src/infrastructure/persistence/worktree_repository_sqlx.rs
++++ replace <impl WorktreeRepository for SqlxWorktreeRepository>::list -> Result<Vec<Worktree>, WorktreeRepositoryError> with Ok(vec![Default::default()])
+@@ -172,28 +172,17 @@
+                      Some(row) => row.to_worktree().map(Some),
+                      None => Ok(None),
+                  }
+             })
+         })
+     }
+ 
+     fn list(&self, filter: ListFilter) -> Result<Vec<Worktree>, WorktreeRepositoryError> {
+-        let pool = self.pool.clone();
+-
+-        tokio::task::block_in_place(|| {
+-            tokio::runtime::Handle::current().block_on(async move {
+-                let results = build_list_query(&filter, pool).await?;
+-
+-                results
+-                    .into_iter()
+-                    .map(|row| row.to_worktree())
+-                    .collect::<Result<Vec<_>, _>>()
+-            })
+-        })
++        Ok(vec![Default::default()]) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn delete(&self, id: &WorktreeId) -> Result<(), WorktreeRepositoryError> {
+         let pool = self.pool.clone();
+         let id_str = id.to_string();
+ 
+         tokio::task::block_in_place(|| {
+             tokio::runtime::Handle::current().block_on(async move {

@@ -39,7 +39,7 @@ impl From<ConflictResolutionError> for crate::Error {
             }
             ConflictResolutionError::EmptyFieldError { field } => Self::ValidationFieldError {
                 message: format!("empty required field '{field}'"),
-                field: field,
+                field,
                 value: Some(String::new()),
             },
             ConflictResolutionError::InvalidTimeRangeError {

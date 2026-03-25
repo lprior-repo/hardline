@@ -1,8 +1,8 @@
 //! Operation Log Repository
-use sqlx::Row;
 //!
 //! This module provides database operations for the operation_log event store.
 
+use sqlx::Row;
 use sqlx::SqlitePool;
 
 use super::operation_log_types::{OperationLogEntry, OperationLogError};

@@ -1,0 +1,24 @@
+--- crates/worktree/src/application/queries/get_worktree.rs
++++ replace GetWorktreeQuery::for_testing -> Self with Default::default()
+@@ -59,20 +59,17 @@
+     pub fn execute(self) -> Result<GetWorktreeResult, GetWorktreeError> {
+         let worktree = self.repository.get_by_id(&self.id)?;
+ 
+         Ok(GetWorktreeResult { worktree })
+     }
+ 
+     /// Create a query with in-memory repository (for testing).
+     pub fn for_testing(id: WorktreeId) -> Self {
+-        Self {
+-            id,
+-            repository: Box::new(InMemoryWorktreeRepository::new()),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::{AbsolutePath, BranchName, Worktree, WorktreeId, WorktreeName, WorktreeTypeEnum};
+     use chrono::Utc;

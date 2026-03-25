@@ -1,0 +1,22 @@
+--- crates/worktree/src/infrastructure/vcs/git_worktree_adapter.rs
++++ replace GitAdapterBuilder::repo_path -> Self with Default::default()
+@@ -245,18 +245,17 @@
+ pub struct GitAdapterBuilder {
+     repo_path: Option<String>,
+     use_git2: bool,
+ }
+ 
+ impl GitAdapterBuilder {
+     /// Set the repository path.
+     pub fn repo_path(mut self, path: &str) -> Self {
+-        self.repo_path = Some(path.to_string());
+-        self
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Use git2 library instead of git commands.
+     pub fn use_git2(mut self) -> Self {
+         self.use_git2 = true;
+         self
+     }
+ 

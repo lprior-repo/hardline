@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/entities/worktree.rs
++++ replace Worktree::with_state -> Self with Default::default()
+@@ -240,17 +240,17 @@
+     pub fn deactivate(self) -> Option<Self> {
+         self.state.deactivate().map(|state| Self { state, ..self })
+     }
+ 
+     /// Set the state of this worktree.
+     ///
+     /// Returns a new Worktree with the updated state.
+     pub fn with_state(self, state: WorktreeState) -> Self {
+-        Self { state, ..self }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Update the description.
+     pub fn with_description(self, description: Option<String>) -> Self {
+         Self {
+             description,
+             ..self
+         }

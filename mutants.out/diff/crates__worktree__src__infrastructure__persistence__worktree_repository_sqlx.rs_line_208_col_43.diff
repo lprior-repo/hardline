@@ -1,0 +1,21 @@
+--- crates/worktree/src/infrastructure/persistence/worktree_repository_sqlx.rs
++++ replace == with != in <impl WorktreeRepository for SqlxWorktreeRepository>::delete
+@@ -200,17 +200,17 @@
+                 let sql = r#"DELETE FROM worktrees WHERE id = ?"#;
+ 
+                 let result = sqlx::query(sql)
+                     .bind(id_str.clone())
+                     .execute(pool.as_ref())
+                     .await
+                     .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+ 
+-                if result.rows_affected() == 0 {
++                if result.rows_affected() != /* ~ changed by cargo-mutants ~ */ 0 {
+                     Err(WorktreeRepositoryError::not_found(&id_str))
+                 } else {
+                     Ok(())
+                 }
+             })
+         })
+     }
+ 

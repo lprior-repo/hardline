@@ -1,0 +1,25 @@
+--- crates/worktree/src/domain/entities/worktree_state.rs
++++ replace WorktreeState::as_str -> &'static str with "xyzzy"
+@@ -54,21 +54,17 @@
+             None
+         } else {
+             Some(Self::Inactive)
+         }
+     }
+ 
+     /// Get the string representation.
+     pub fn as_str(&self) -> &'static str {
+-        match self {
+-            Self::Created => "created",
+-            Self::Active => "active",
+-            Self::Inactive => "inactive",
+-        }
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl fmt::Display for WorktreeState {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         write!(f, "{}", self.as_str())
+     }
+ }

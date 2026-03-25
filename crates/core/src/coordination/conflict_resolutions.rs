@@ -20,12 +20,21 @@
 //!
 //! # Architecture
 //!
+<<<<<<< Updated upstream
 //! This module re-exports from sibling modules in the `coordination` directory:
 //! - `conflict_resolutions_schema` - Schema initialization
 //! - `conflict_resolutions_insert` - Insert operations
 //! - `conflict_resolutions_query` - Query operations
 //! - `conflict_resolutions_error` - Error conversion
 //! - `conflict_resolutions_entities` (in parent) - Entity types
+=======
+//! This module was split into smaller submodules to improve maintainability:
+//! - [`conflict_resolutions_schema`] - Schema initialization
+//! - [`conflict_resolutions_insert`] - Insert operations
+//! - [`conflict_resolutions_queries`] - Query operations
+//! - [`conflict_resolutions_error_convert`] - Error conversion
+//! - [`conflict_resolutions_entities`] - Entity types and errors
+>>>>>>> Stashed changes
 //!
 //! # Example
 //!
@@ -61,7 +70,10 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! This module re-exports from submodules for backwards compatibility.
 
+<<<<<<< Updated upstream
 // Re-export schema operations from sibling module
 pub use super::conflict_resolutions_schema::init_conflict_resolutions_schema;
 
@@ -78,3 +90,14 @@ pub use super::conflict_resolutions_entities::{
     validate_decider, validate_non_empty, validate_timestamp, ConflictResolution,
     ConflictResolutionError,
 };
+=======
+pub use conflict_resolutions_entities::{
+    validate_decider, validate_non_empty, validate_timestamp, ConflictResolution,
+    ConflictResolutionError,
+};
+pub use conflict_resolutions_schema::init_conflict_resolutions_schema;
+pub use conflict_resolutions_insert::insert_conflict_resolution;
+pub use conflict_resolutions_queries::{
+    get_conflict_resolutions, get_resolutions_by_decider, get_resolutions_by_time_range,
+};
+>>>>>>> Stashed changes

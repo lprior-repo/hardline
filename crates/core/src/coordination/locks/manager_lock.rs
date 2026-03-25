@@ -37,12 +37,12 @@ impl LockManager {
         .bind(&now_str)
         .fetch_optional(&self.db)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
         if let Some((existing_lock_id, holder_agent_id, existing_expires_str)) = existing {
             if holder_agent_id == agent_id {
                 let existing_expires = DateTime::parse_from_rfc3339(&existing_expires_str)
-                    .map_err(|e| Error::ValidationError(e.to_string()))?
+                    .map_err(|e| Error::validation_error(e.to_string()))?
                     .with_timezone(&Utc);
                 return Ok(LockResponse {
                     lock_id: existing_lock_id,
@@ -51,7 +51,7 @@ impl LockManager {
                     expires_at: existing_expires,
                 });
             }
-            return Err(Error::SessionLocked(session.to_string(), holder_agent_id));
+            return Err(Error::session_locked(session.to_string(), holder_agent_id));
         }
 
         self.verify_session_exists(session).await?;
@@ -61,13 +61,13 @@ impl LockManager {
             .bind(&now_str)
             .execute(&self.db)
             .await
-            .map_err(|e| Error::Database(e.to_string()))?;
+            .map_err(|e| Error::database(e.to_string()))?;
 
         let expires_at = now + ttl;
         let expires_str = expires_at.to_rfc3339();
         let nanos = now
             .timestamp_nanos_opt()
-            .ok_or_else(|| Error::ValidationError("Failed to get timestamp nanos".into()))?;
+            .ok_or_else(|| Error::validation_error("Failed to get timestamp nanos".to_string()))?;
         let lock_id = format!("lock-{session}-{nanos}");
 
         let insert_result = sqlx::query(
@@ -89,16 +89,16 @@ impl LockManager {
                         .fetch_optional(&self.db)
                         .await
                         .map_err(|db_err| {
-                            Error::Database(format!(
+                            Error::database(format!(
                                 "Failed to query lock holder after conflict: {db_err}"
                             ))
                         })?;
 
                 let holder_agent_id = holder.map_or_else(|| "unknown".to_string(), |(id,)| id);
-                return Err(Error::SessionLocked(session.to_string(), holder_agent_id));
+                return Err(Error::session_locked(session.to_string(), holder_agent_id));
             }
 
-            return Err(Error::Database(format!(
+            return Err(Error::database(format!(
                 "Failed to acquire lock with TTL: {e}"
             )));
         }
@@ -119,7 +119,7 @@ impl LockManager {
         })
     }
 
-    /// Acquire an exclusive lock on a session.
+  /// Acquire an exclusive lock on a session.
     ///
     /// Returns `SessionLocked` error if another agent holds a valid lock.
     /// Returns `SessionNotFound` error if the session doesn't exist.
@@ -136,12 +136,12 @@ impl LockManager {
         .bind(&now_str)
         .fetch_optional(&self.db)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
         if let Some((existing_lock_id, holder_agent_id, existing_expires_str)) = existing {
             if holder_agent_id == agent_id {
                 let existing_expires = DateTime::parse_from_rfc3339(&existing_expires_str)
-                    .map_err(|e| Error::ValidationError(e.to_string()))?
+                    .map_err(|e| Error::validation_error(e.to_string()))?
                     .with_timezone(&Utc);
                 return Ok(LockResponse {
                     lock_id: existing_lock_id,
@@ -150,7 +150,7 @@ impl LockManager {
                     expires_at: existing_expires,
                 });
             }
-            return Err(Error::SessionLocked(session.to_string(), holder_agent_id));
+            return Err(Error::session_locked(session.to_string(), holder_agent_id));
         }
 
         self.verify_session_exists(session).await?;
@@ -160,13 +160,13 @@ impl LockManager {
             .bind(&now_str)
             .execute(&self.db)
             .await
-            .map_err(|e| Error::Database(e.to_string()))?;
+            .map_err(|e| Error::database(e.to_string()))?;
 
         let expires_at = now + self.ttl;
         let expires_str = expires_at.to_rfc3339();
         let nanos = now
             .timestamp_nanos_opt()
-            .ok_or_else(|| Error::ValidationError("Failed to get timestamp nanos".into()))?;
+            .ok_or_else(|| Error::validation_error("Failed to get timestamp nanos"))?;
         let lock_id = format!("lock-{session}-{nanos}");
 
         let insert_result = sqlx::query(
@@ -205,16 +205,16 @@ impl LockManager {
                             .fetch_optional(&self.db)
                             .await
                             .map_err(|db_err| {
-                                Error::Database(format!(
+                                Error::database(format!(
                                     "Failed to query lock holder after conflict: {db_err}"
                                 ))
                             })?;
 
                     let holder_agent_id = holder.map_or_else(|| "unknown".to_string(), |(id,)| id);
 
-                    Err(Error::SessionLocked(session.to_string(), holder_agent_id))
+                    Err(Error::session_locked(session.to_string(), holder_agent_id))
                 } else {
-                    Err(Error::Database(format!("Failed to acquire lock: {e}")))
+                    Err(Error::database(format!("Failed to acquire lock: {e}")))
                 }
             }
         }

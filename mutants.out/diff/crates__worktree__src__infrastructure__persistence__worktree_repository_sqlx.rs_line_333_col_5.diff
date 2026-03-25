@@ -1,0 +1,28 @@
+--- crates/worktree/src/infrastructure/persistence/worktree_repository_sqlx.rs
++++ replace parse_state -> Result<WorktreeState, WorktreeRepositoryError> with Ok(Default::default())
+@@ -325,24 +325,17 @@
+     query
+         .fetch_all(pool.as_ref())
+         .await
+         .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))
+ }
+ 
+ /// Parse a state string into WorktreeState.
+ fn parse_state(s: &str) -> Result<WorktreeState, WorktreeRepositoryError> {
+-    match s.to_lowercase().as_str() {
+-        "created" => Ok(WorktreeState::Created),
+-        "active" => Ok(WorktreeState::Active),
+-        "inactive" => Ok(WorktreeState::Inactive),
+-        _ => Err(WorktreeRepositoryError::DatabaseError(String::from(
+-            format!("Invalid state: {}", s),
+-        ))),
+-    }
++    Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+ }
+ 
+ /// Parse a worktree type string into WorktreeTypeEnum.
+ fn parse_worktree_type(s: &str) -> Result<WorktreeTypeEnum, WorktreeRepositoryError> {
+     WorktreeTypeEnum::parse(s).map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))
+ }
+ 
+ #[cfg(test)]

@@ -1,15 +1,32 @@
+//! Domain models for the session crate.
+//!
+//! This module contains the core domain logic including:
+//! - Bead aggregate (atomic units of work)
+//! - Workspace management
+//! - Session entities and events
+
 pub mod bead;
+pub mod bead_state;
+pub mod bead_tests;
+pub mod bead_types;
+pub mod bead_value;
 pub mod entities;
 pub mod events;
 pub mod value_objects;
 pub mod workspace;
 pub mod workspace_state;
 
+// Re-export bead components
+pub use bead::Bead;
+pub use bead_state::BeadState;
+pub use bead_types::{BeadType, Priority};
+pub use bead_value::{BeadDescription, BeadId, BeadTitle};
+
 // Re-export value objects from value_objects module
 pub use value_objects::{
     AbsolutePath, AbsolutePathError, AgentId, DependsOn, Description, IssueType, Labels,
-    PathValidationError, Priority, SessionName, ShellMetacharacterError, TaskId, Title,
-    WorkspaceId as SessionWorkspaceId, WorkspaceName,
+    PathValidationError, Priority as SessionPriority, SessionName,
+    ShellMetacharacterError, TaskId, Title, WorkspaceId as SessionWorkspaceId, WorkspaceName,
 };
 
 // Re-export new aggregates

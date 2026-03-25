@@ -1,0 +1,21 @@
+--- crates/worktree/src/application/commands/delete_worktree.rs
++++ delete ! in DeleteWorktreeCommand::execute
+@@ -85,17 +85,17 @@
+ 
+         // Execute Git operations if adapter is available
+         if let Some(ref git_adapter) = self.git_adapter {
+             let git_result = git_adapter
+                 .remove_worktree(worktree.path_str())
+                 .map_err(|e| DeleteWorktreeError::GitError(e.to_string()));
+ 
+             // If not force mode, Git failure should propagate
+-            if !self.force && git_result.is_err() {
++            if  /* ~ changed by cargo-mutants ~ */self.force && git_result.is_err() {
+                 return git_result;
+             }
+         }
+ 
+         // Delete from repository
+         self.repository.delete(&self.id)?;
+ 
+         Ok(())

@@ -1,0 +1,51 @@
+--- crates/worktree/src/infrastructure/persistence/worktree_repository_sqlx.rs
++++ replace WorktreeRow::to_worktree -> Result<Worktree, WorktreeRepositoryError> with Ok(Default::default())
+@@ -254,47 +254,17 @@
+     state: String,
+     source_branch: String,
+     description: Option<String>,
+     created_at: String,
+ }
+ 
+ impl WorktreeRow {
+     fn to_worktree(self) -> Result<Worktree, WorktreeRepositoryError> {
+-        let id = WorktreeId::parse(&self.id)
+-            .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+-
+-        let name = WorktreeName::parse(&self.name)
+-            .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+-
+-        let worktree_type = WorktreeTypeEnum::parse(&self.worktree_type)
+-            .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+-
+-        let path = AbsolutePath::parse(&self.path)
+-            .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+-
+-        let state = parse_state(&self.state)?;
+-
+-        let source_branch = BranchName::parse(&self.source_branch)
+-            .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+-
+-        let created_at = DateTime::parse_from_rfc3339(&self.created_at)
+-            .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?
+-            .into();
+-
+-        Ok(Worktree {
+-            id,
+-            name,
+-            worktree_type,
+-            path,
+-            state,
+-            created_at,
+-            source_branch,
+-            description: self.description,
+-        })
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Build a SQL query for listing worktrees with filters.
+ async fn build_list_query(
+     filter: &ListFilter,
+     pool: Arc<Pool<Sqlite>>,
+ ) -> Result<Vec<WorktreeRow>, WorktreeRepositoryError> {

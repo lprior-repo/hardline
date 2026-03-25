@@ -1,0 +1,23 @@
+--- crates/worktree/src/application/queries/get_worktree.rs
++++ replace GetWorktreeQuery::execute -> Result<GetWorktreeResult, GetWorktreeError> with Ok(Default::default())
+@@ -52,19 +52,17 @@
+     /// Execute the query to get a worktree.
+     ///
+     /// # Returns
+     /// A `GetWorktreeResult` containing the worktree if found.
+     ///
+     /// # Errors
+     /// Returns `GetWorktreeError` if the query fails.
+     pub fn execute(self) -> Result<GetWorktreeResult, GetWorktreeError> {
+-        let worktree = self.repository.get_by_id(&self.id)?;
+-
+-        Ok(GetWorktreeResult { worktree })
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Create a query with in-memory repository (for testing).
+     pub fn for_testing(id: WorktreeId) -> Self {
+         Self {
+             id,
+             repository: Box::new(InMemoryWorktreeRepository::new()),
+         }

@@ -30592,7 +30592,7 @@
     }
   },
   {
-    "diff": "--- crates/core/src/types.rs\n+++ replace BeadsSummary::has_blockers -> bool with true\n@@ -497,17 +497,17 @@\n \n     #[must_use]\n     pub const fn active(&self) -> usize {\n         self.open + self.in_progress\n     }\n \n     #[must_use]\n     pub const fn has_blockers(&self) -> bool {\n-        self.blocked > 0\n+        true /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n",
+    "diff": "--- crates/core/src/types.rs\n+++ replace BeadsSummary::has_blockers -> bool with true\n@@ -497,17 +497,17 @@\n \n     #[must_use]\n     pub const fn active(&self) -> usize {\n         self.open + self.in_progress\n     }\n \n     #[must_use]\n     pub const fn has_blockers(&self) -> bool {\n-        self.blocked > 0\n+        true /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use proptest::prelude::*;\n \n",
     "file": "crates/core/src/types.rs",
     "function": {
       "function_name": "BeadsSummary::has_blockers",
@@ -30624,7 +30624,7 @@
     }
   },
   {
-    "diff": "--- crates/core/src/types.rs\n+++ replace BeadsSummary::has_blockers -> bool with false\n@@ -497,17 +497,17 @@\n \n     #[must_use]\n     pub const fn active(&self) -> usize {\n         self.open + self.in_progress\n     }\n \n     #[must_use]\n     pub const fn has_blockers(&self) -> bool {\n-        self.blocked > 0\n+        false /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n",
+    "diff": "--- crates/core/src/types.rs\n+++ replace BeadsSummary::has_blockers -> bool with false\n@@ -497,17 +497,17 @@\n \n     #[must_use]\n     pub const fn active(&self) -> usize {\n         self.open + self.in_progress\n     }\n \n     #[must_use]\n     pub const fn has_blockers(&self) -> bool {\n-        self.blocked > 0\n+        false /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use proptest::prelude::*;\n \n",
     "file": "crates/core/src/types.rs",
     "function": {
       "function_name": "BeadsSummary::has_blockers",
@@ -30656,7 +30656,7 @@
     }
   },
   {
-    "diff": "--- crates/core/src/types.rs\n+++ replace > with == in BeadsSummary::has_blockers\n@@ -497,17 +497,17 @@\n \n     #[must_use]\n     pub const fn active(&self) -> usize {\n         self.open + self.in_progress\n     }\n \n     #[must_use]\n     pub const fn has_blockers(&self) -> bool {\n-        self.blocked > 0\n+        self.blocked == /* ~ changed by cargo-mutants ~ */ 0\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n",
+    "diff": "--- crates/core/src/types.rs\n+++ replace > with == in BeadsSummary::has_blockers\n@@ -497,17 +497,17 @@\n \n     #[must_use]\n     pub const fn active(&self) -> usize {\n         self.open + self.in_progress\n     }\n \n     #[must_use]\n     pub const fn has_blockers(&self) -> bool {\n-        self.blocked > 0\n+        self.blocked == /* ~ changed by cargo-mutants ~ */ 0\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use proptest::prelude::*;\n \n",
     "file": "crates/core/src/types.rs",
     "function": {
       "function_name": "BeadsSummary::has_blockers",
@@ -30688,7 +30688,7 @@
     }
   },
   {
-    "diff": "--- crates/core/src/types.rs\n+++ replace > with < in BeadsSummary::has_blockers\n@@ -497,17 +497,17 @@\n \n     #[must_use]\n     pub const fn active(&self) -> usize {\n         self.open + self.in_progress\n     }\n \n     #[must_use]\n     pub const fn has_blockers(&self) -> bool {\n-        self.blocked > 0\n+        self.blocked < /* ~ changed by cargo-mutants ~ */ 0\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n",
+    "diff": "--- crates/core/src/types.rs\n+++ replace > with < in BeadsSummary::has_blockers\n@@ -497,17 +497,17 @@\n \n     #[must_use]\n     pub const fn active(&self) -> usize {\n         self.open + self.in_progress\n     }\n \n     #[must_use]\n     pub const fn has_blockers(&self) -> bool {\n-        self.blocked > 0\n+        self.blocked < /* ~ changed by cargo-mutants ~ */ 0\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use proptest::prelude::*;\n \n",
     "file": "crates/core/src/types.rs",
     "function": {
       "function_name": "BeadsSummary::has_blockers",
@@ -30720,7 +30720,7 @@
     }
   },
   {
-    "diff": "--- crates/core/src/types.rs\n+++ replace > with >= in BeadsSummary::has_blockers\n@@ -497,17 +497,17 @@\n \n     #[must_use]\n     pub const fn active(&self) -> usize {\n         self.open + self.in_progress\n     }\n \n     #[must_use]\n     pub const fn has_blockers(&self) -> bool {\n-        self.blocked > 0\n+        self.blocked >= /* ~ changed by cargo-mutants ~ */ 0\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n",
+    "diff": "--- crates/core/src/types.rs\n+++ replace > with >= in BeadsSummary::has_blockers\n@@ -497,17 +497,17 @@\n \n     #[must_use]\n     pub const fn active(&self) -> usize {\n         self.open + self.in_progress\n     }\n \n     #[must_use]\n     pub const fn has_blockers(&self) -> bool {\n-        self.blocked > 0\n+        self.blocked >= /* ~ changed by cargo-mutants ~ */ 0\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use proptest::prelude::*;\n \n",
     "file": "crates/core/src/types.rs",
     "function": {
       "function_name": "BeadsSummary::has_blockers",
@@ -79788,7 +79788,7 @@
     }
   },
   {
-    "diff": "--- crates/core/src/output_jsonl/test_utils.rs\n+++ replace <impl OutputEmitter for VecEmitter>::emit -> io::Result<()> with Ok(())\n@@ -103,21 +103,17 @@\n     #[must_use]\n     pub fn is_empty(&self) -> bool {\n         self.0.read().map_or(true, |guard| guard.is_empty())\n     }\n }\n \n impl OutputEmitter for VecEmitter {\n     fn emit(&self, line: &OutputLine) -> io::Result<()> {\n-        self.0\n-            .write()\n-            .map_err(|_| io::Error::other(\"VecEmitter lock poisoned\"))?\n-            .push(line.clone());\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use crate::output::{domain_types::Message, Summary, SummaryType};\n \n",
+    "diff": "--- crates/core/src/output_jsonl/test_utils.rs\n+++ replace <impl OutputEmitter for VecEmitter>::emit -> io::Result<()> with Ok(())\n@@ -103,21 +103,17 @@\n     #[must_use]\n     pub fn is_empty(&self) -> bool {\n         self.0.read().map_or(true, |guard| guard.is_empty())\n     }\n }\n \n impl OutputEmitter for VecEmitter {\n     fn emit(&self, line: &OutputLine) -> io::Result<()> {\n-        self.0\n-            .write()\n-            .map_err(|_| io::Error::other(\"VecEmitter lock poisoned\"))?\n-            .push(line.clone());\n-        Ok(())\n+        Ok(()) /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use crate::output_jsonl::{Message, Summary, SummaryType};\n \n",
     "file": "crates/core/src/output_jsonl/test_utils.rs",
     "function": {
       "function_name": "<impl OutputEmitter for VecEmitter>::emit",

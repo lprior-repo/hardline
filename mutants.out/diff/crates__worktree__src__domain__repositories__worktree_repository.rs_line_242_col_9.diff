@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/repositories/worktree_repository.rs
++++ replace <impl From<Box<dyn std::error::Error +Send +Sync>> for WorktreeRepositoryError>::from -> Self with Default::default()
+@@ -234,17 +234,17 @@
+         }
+     }
+ }
+ 
+ impl Eq for WorktreeRepositoryError {}
+ 
+ impl From<Box<dyn std::error::Error + Send + Sync>> for WorktreeRepositoryError {
+     fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
+-        WorktreeRepositoryError::DatabaseError(err.to_string())
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl WorktreeRepositoryError {
+     pub fn duplicate_name(name: &str) -> Self {
+         Self::DuplicateName {
+             name: name.to_string(),
+         }

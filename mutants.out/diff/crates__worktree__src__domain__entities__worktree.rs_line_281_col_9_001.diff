@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/entities/worktree.rs
++++ replace Worktree::source_branch_str -> &str with "xyzzy"
+@@ -273,17 +273,17 @@
+ 
+     /// Get the path as a string slice.
+     pub fn path_str(&self) -> &str {
+         self.path.as_str()
+     }
+ 
+     /// Get the source branch as a string slice.
+     pub fn source_branch_str(&self) -> &str {
+-        self.source_branch.as_str()
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl serde::Serialize for Worktree {
+     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+     where
+         S: serde::Serializer,
+     {

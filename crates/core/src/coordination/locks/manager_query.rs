@@ -18,15 +18,15 @@ impl LockManager {
         .bind(&now_str)
         .fetch_all(&self.db)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
         rows.into_iter()
             .map(|(session, agent_id, acquired_str, expires_str)| {
                 let acquired_at = DateTime::parse_from_rfc3339(&acquired_str)
-                    .map_err(|e| Error::ValidationError(e.to_string()))?
+                    .map_err(|e| Error::validation_error(e.to_string()))?
                     .with_timezone(&Utc);
                 let expires_at = DateTime::parse_from_rfc3339(&expires_str)
-                    .map_err(|e| Error::ValidationError(e.to_string()))?
+                    .map_err(|e| Error::validation_error(e.to_string()))?
                     .with_timezone(&Utc);
                 Ok(LockInfo {
                     session,
@@ -49,12 +49,12 @@ impl LockManager {
         .bind(session)
         .fetch_all(&self.db)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
         rows.into_iter()
             .map(|(session, agent_id, operation, timestamp_str)| {
                 let timestamp = DateTime::parse_from_rfc3339(&timestamp_str)
-                    .map_err(|e| Error::ValidationError(e.to_string()))?
+                    .map_err(|e| Error::validation_error(e.to_string()))?
                     .with_timezone(&Utc);
                 Ok(LockAuditEntry {
                     session,
@@ -78,12 +78,12 @@ impl LockManager {
         .bind(&now_str)
         .fetch_optional(&self.db)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
         match existing {
             Some((holder, expires_str)) => {
                 let expires_at = DateTime::parse_from_rfc3339(&expires_str)
-                    .map_err(|e| Error::ValidationError(e.to_string()))?
+                    .map_err(|e| Error::validation_error(e.to_string()))?
                     .with_timezone(&Utc);
                 Ok(LockState {
                     session: session.to_string(),

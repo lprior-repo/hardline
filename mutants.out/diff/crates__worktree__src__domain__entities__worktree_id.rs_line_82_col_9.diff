@@ -1,0 +1,23 @@
+--- crates/worktree/src/domain/entities/worktree_id.rs
++++ replace <impl serde::Deserialize<'de> for WorktreeId>::deserialize -> Result<Self, D::Error> with Ok(Default::default())
+@@ -74,19 +74,17 @@
+     }
+ }
+ 
+ impl<'de> serde::Deserialize<'de> for WorktreeId {
+     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+     where
+         D: serde::Deserializer<'de>,
+     {
+-        Uuid::deserialize(deserializer)
+-            .map(Self)
+-            .map_err(serde::de::Error::custom)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Error types for WorktreeId parsing.
+ #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+ pub enum WorktreeIdParseError {
+     #[error("Invalid UUID format")]
+     InvalidUuid,

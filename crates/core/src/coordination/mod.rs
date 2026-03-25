@@ -58,6 +58,10 @@
 
 pub mod conflict_resolutions;
 pub mod conflict_resolutions_entities;
+pub mod conflict_resolutions_schema;
+pub mod conflict_resolutions_insert;
+pub mod conflict_resolutions_queries;
+pub mod conflict_resolutions_error_convert;
 pub mod domain_types;
 pub mod locks;
 

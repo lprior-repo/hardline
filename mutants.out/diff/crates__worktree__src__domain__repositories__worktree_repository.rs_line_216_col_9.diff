@@ -1,0 +1,39 @@
+--- crates/worktree/src/domain/repositories/worktree_repository.rs
++++ replace <impl PartialEq for WorktreeRepositoryError>::eq -> bool with true
+@@ -208,35 +208,17 @@
+                 WorktreeRepositoryError::RepositoryError(msg.clone())
+             }
+         }
+     }
+ }
+ 
+ impl PartialEq for WorktreeRepositoryError {
+     fn eq(&self, other: &Self) -> bool {
+-        match (self, other) {
+-            (
+-                WorktreeRepositoryError::DuplicateName { name: a },
+-                WorktreeRepositoryError::DuplicateName { name: b },
+-            ) => a == b,
+-            (
+-                WorktreeRepositoryError::NotFound { id: a },
+-                WorktreeRepositoryError::NotFound { id: b },
+-            ) => a == b,
+-            (
+-                WorktreeRepositoryError::DatabaseError(a),
+-                WorktreeRepositoryError::DatabaseError(b),
+-            ) => a == b,
+-            (
+-                WorktreeRepositoryError::RepositoryError(a),
+-                WorktreeRepositoryError::RepositoryError(b),
+-            ) => a == b,
+-            _ => false,
+-        }
++        true /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl Eq for WorktreeRepositoryError {}
+ 
+ impl From<Box<dyn std::error::Error + Send + Sync>> for WorktreeRepositoryError {
+     fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
+         WorktreeRepositoryError::DatabaseError(err.to_string())

@@ -1,0 +1,102 @@
+--- crates/worktree/src/domain/entities/worktree.rs
++++ replace <impl serde::Deserialize<'de> for Worktree>::deserialize::<impl serde::de::Visitor<'de> for WorktreeVisitor>::visit_map -> Result<Worktree, V::Error> with Ok(Default::default())
+@@ -333,98 +333,17 @@
+             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                 formatter.write_str("struct Worktree")
+             }
+ 
+             fn visit_map<V>(self, mut map: V) -> Result<Worktree, V::Error>
+             where
+                 V: MapAccess<'de>,
+             {
+-                let mut id: Option<WorktreeId> = None;
+-                let mut name: Option<WorktreeName> = None;
+-                let mut worktree_type: Option<WorktreeTypeEnum> = None;
+-                let mut path: Option<AbsolutePath> = None;
+-                let mut state: Option<WorktreeState> = None;
+-                let mut created_at: Option<chrono::DateTime<chrono::Utc>> = None;
+-                let mut source_branch: Option<BranchName> = None;
+-                let mut description: Option<String> = None;
+-
+-                while let Some(key) = map.next_key()? {
+-                    match key {
+-                        Field::Id => {
+-                            if id.is_some() {
+-                                return Err(Error::duplicate_field("id"));
+-                            }
+-                            id = Some(map.next_value()?);
+-                        }
+-                        Field::Name => {
+-                            if name.is_some() {
+-                                return Err(Error::duplicate_field("name"));
+-                            }
+-                            name = Some(map.next_value()?);
+-                        }
+-                        Field::WorktreeType => {
+-                            if worktree_type.is_some() {
+-                                return Err(Error::duplicate_field("worktree_type"));
+-                            }
+-                            worktree_type = Some(map.next_value()?);
+-                        }
+-                        Field::Path => {
+-                            if path.is_some() {
+-                                return Err(Error::duplicate_field("path"));
+-                            }
+-                            path = Some(map.next_value()?);
+-                        }
+-                        Field::State => {
+-                            if state.is_some() {
+-                                return Err(Error::duplicate_field("state"));
+-                            }
+-                            state = Some(map.next_value()?);
+-                        }
+-                        Field::CreatedAt => {
+-                            if created_at.is_some() {
+-                                return Err(Error::duplicate_field("created_at"));
+-                            }
+-                            created_at = Some(map.next_value()?);
+-                        }
+-                        Field::SourceBranch => {
+-                            if source_branch.is_some() {
+-                                return Err(Error::duplicate_field("source_branch"));
+-                            }
+-                            source_branch = Some(map.next_value()?);
+-                        }
+-                        Field::Description => {
+-                            if description.is_some() {
+-                                return Err(Error::duplicate_field("description"));
+-                            }
+-                            description = Some(map.next_value()?);
+-                        }
+-                    }
+-                }
+-
+-                let id = id.ok_or_else(|| Error::missing_field("id"))?;
+-                let name = name.ok_or_else(|| Error::missing_field("name"))?;
+-                let worktree_type =
+-                    worktree_type.ok_or_else(|| Error::missing_field("worktree_type"))?;
+-                let path = path.ok_or_else(|| Error::missing_field("path"))?;
+-                let state = state.ok_or_else(|| Error::missing_field("state"))?;
+-                let created_at = created_at.ok_or_else(|| Error::missing_field("created_at"))?;
+-                let source_branch =
+-                    source_branch.ok_or_else(|| Error::missing_field("source_branch"))?;
+-
+-                Ok(Worktree {
+-                    id,
+-                    name,
+-                    worktree_type,
+-                    path,
+-                    state,
+-                    created_at,
+-                    source_branch,
+-                    description,
+-                })
++                Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+             }
+         }
+ 
+         const FIELDS: &[&str] = &[
+             "id",
+             "name",
+             "worktree_type",
+             "path",

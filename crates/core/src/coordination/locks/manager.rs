@@ -50,7 +50,7 @@ impl LockManager {
         )
         .execute(&self.db)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS session_lock_audit (
@@ -63,7 +63,7 @@ impl LockManager {
         )
         .execute(&self.db)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
         Ok(())
     }
@@ -87,7 +87,7 @@ impl LockManager {
         .bind(&now_str)
         .execute(&self.db)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
         Ok(())
     }
@@ -102,14 +102,14 @@ impl LockManager {
             .await;
 
         match query_result {
-            Ok(None) => Err(Error::SessionNotFound(session.to_string())),
+            Ok(None) => Err(Error::session(session.to_string())),
             Ok(Some(_)) => Ok(()),
             Err(e) => {
                 let error_msg = e.to_string();
                 if error_msg.contains("no such table") || error_msg.contains("does not exist") {
                     Ok(())
                 } else {
-                    Err(Error::Database(format!("Failed to query sessions: {e}")))
+                    Err(Error::database(format!("Failed to query sessions: {e}")))
                 }
             }
         }

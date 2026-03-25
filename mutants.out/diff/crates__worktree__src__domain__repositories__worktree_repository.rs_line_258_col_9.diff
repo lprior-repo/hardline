@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/repositories/worktree_repository.rs
++++ replace WorktreeRepositoryError::repository_error -> Self with Default::default()
+@@ -250,17 +250,17 @@
+         }
+     }
+ 
+     pub fn not_found(id: &str) -> Self {
+         Self::NotFound { id: id.to_string() }
+     }
+ 
+     pub fn repository_error(msg: &str) -> Self {
+-        Self::RepositoryError(msg.to_string())
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// In-memory implementation of WorktreeRepository for testing.
+ #[derive(Debug, Default)]
+ pub struct InMemoryWorktreeRepository {
+     worktrees: std::sync::RwLock<HashMap<WorktreeId, Worktree>>,
+ }

@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/repositories/worktree_repository.rs
++++ replace != with == in ListFilter::matches
+@@ -87,17 +87,17 @@
+     fn matches(&self, worktree: &Worktree) -> bool {
+         if let Some(ref worktree_type) = self.worktree_type {
+             if worktree.worktree_type != *worktree_type {
+                 return false;
+             }
+         }
+ 
+         if let Some(state) = self.state {
+-            if worktree.state != state {
++            if worktree.state == /* ~ changed by cargo-mutants ~ */ state {
+                 return false;
+             }
+         }
+ 
+         if let Some(ref prefix) = self.name_prefix {
+             if !worktree.name_str().starts_with(prefix) {
+                 return false;
+             }

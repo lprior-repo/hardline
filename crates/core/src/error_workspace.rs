@@ -2,8 +2,8 @@
 //!
 //! Error codes: 1xxx
 
-use thiserror::Error;
 use crate::error::Error;
+use thiserror::Error;
 
 /// Workspace-related errors
 #[derive(Error, Debug, Clone)]
@@ -82,12 +82,12 @@ impl From<SessionErrorKind> for Error {
 impl WorkspaceError {
     /// Returns a human-readable suggestion for fixing the error.
     pub fn suggestion(&self) -> Option<String> {
-        match self.inner {
+        match &self.inner {
             WorkspaceErrorKind::NotFound(_) => {
                 Some("Try 'scp workspace list' to see available workspaces".to_string())
             }
             WorkspaceErrorKind::Locked(_, holder) => {
-                Some(format!("Use 'scp agent kill {}' to force release", holder))
+                Some(format!("Use 'scp agent kill {holder}' to force release"))
             }
             _ => None,
         }
@@ -107,7 +107,7 @@ impl WorkspaceError {
 impl SessionError {
     /// Returns a human-readable suggestion for fixing the error.
     pub fn suggestion(&self) -> Option<String> {
-        match self.inner {
+        match &self.inner {
             SessionErrorKind::NotFound(_) => {
                 Some("Try 'scp session list' to see available sessions".to_string())
             }

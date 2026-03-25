@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/entities/worktree_type.rs
++++ replace <impl WorktreeType for Dev>::to_string -> String with "xyzzy".into()
+@@ -50,17 +50,17 @@
+         if s.eq_ignore_ascii_case("dev") {
+             Ok(Self)
+         } else {
+             Err(WorktreeTypeParseError::InvalidType(s.to_string()))
+         }
+     }
+ 
+     fn to_string(&self) -> String {
+-        Self::type_name().to_string()
++        "xyzzy".into() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Implementation for Agent worktrees.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+ pub struct Agent;
+ 
+ impl WorktreeType for Agent {

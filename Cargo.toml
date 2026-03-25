@@ -74,6 +74,11 @@ jj-lib = "0.38"
 
 # Git
 gix = { version = "0.78", features = ["status"] }
+git2 = "0.20"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Path utilities
+pathdiff = "0.2"
 
 # Dev dependencies
 tokio-test = "0.4"
