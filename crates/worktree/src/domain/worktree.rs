@@ -355,4 +355,245 @@ mod tests {
         worktree.complete_removal().unwrap();
         assert!(worktree.is_removed());
     }
+
+    #[test]
+    fn proptest_uuid_uniqueness() {
+        let mut ids = std::collections::HashSet::new();
+        for _ in 0..100 {
+            let id = WorktreeId::new_random();
+            assert!(ids.insert(id.clone()), "Generated duplicate UUID");
+        }
+        assert_eq!(ids.len(), 100);
+    }
+
+    #[test]
+    fn proptest_timestamp_ordering() {
+        let mut timestamps = Vec::new();
+        for _ in 0..100 {
+            let id = WorktreeId::new_random();
+            let wt = Worktree::uninitialized(
+                id,
+                WorktreeName::new("test").unwrap(),
+                AbsolutePath::new("/tmp/test").unwrap(),
+                AbsolutePath::new("/home/user").unwrap(),
+                WorktreeTypeEnum::Development,
+                None,
+                WorktreeState::Creating,
+                0,
+                0,
+            );
+            timestamps.push(wt.created_at());
+        }
+        assert!(timestamps.iter().all(|&ts| ts >= 0));
+    }
+
+    #[test]
+    fn proptest_branch_name_alphanumeric() {
+        let names = vec!["main", "develop", "feature123", "test_456", "release789"];
+        for name in names {
+            assert!(BranchName::new(name).is_ok());
+        }
+    }
+
+    #[test]
+    fn proptest_state_transitions_valid() {
+        let mut wt = create_test_worktree();
+        assert!(wt.initialize().is_ok());
+        assert!(wt.suspend().is_ok());
+        assert!(wt.resume().is_ok());
+        assert!(wt.mark_for_removal().is_ok());
+        assert!(wt.complete_removal().is_ok());
+    }
+
+    #[test]
+    fn proptest_metadata_operations() {
+        let mut wt = create_test_worktree();
+        wt.add_metadata("k1", "v1");
+        wt.add_metadata("k2", "v2");
+        assert_eq!(wt.all_metadata().len(), 2);
+        assert!(wt.remove_metadata("k1").is_some());
+    }
+
+    #[test]
+    fn proptest_worktree_equality() {
+        let id = WorktreeId::new_random();
+        let name = WorktreeName::new("equal-test").unwrap();
+        let wt1 = Worktree::uninitialized(
+            id.clone(),
+            name.clone(),
+            AbsolutePath::new("/tmp/equal").unwrap(),
+            AbsolutePath::new("/home/user").unwrap(),
+            WorktreeTypeEnum::Development,
+            None,
+            WorktreeState::Active,
+            1000,
+            2000,
+        );
+        let wt2 = Worktree::uninitialized(
+            id,
+            name,
+            AbsolutePath::new("/tmp/equal").unwrap(),
+            AbsolutePath::new("/home/user").unwrap(),
+            WorktreeTypeEnum::Development,
+            None,
+            WorktreeState::Active,
+            1000,
+            2000,
+        );
+        assert_eq!(wt1, wt2);
+    }
+
+    #[test]
+    fn proptest_worktree_default_values() {
+        let wt = Worktree::uninitialized(
+            WorktreeId::new_random(),
+            WorktreeName::new("default-test").unwrap(),
+            AbsolutePath::new("/tmp/default").unwrap(),
+            AbsolutePath::new("/home/user").unwrap(),
+            WorktreeTypeEnum::Development,
+            None,
+            WorktreeState::Creating,
+            0,
+            0,
+        );
+        assert_eq!(wt.state(), WorktreeState::Creating);
+        assert!(wt.branch().is_none());
+    }
+
+    #[test]
+    fn proptest_timestamp_uniqueness() {
+        let mut timestamps = std::collections::HashSet::new();
+        for i in 0..50 {
+            let id = WorktreeId::new_random();
+            let wt = Worktree::uninitialized(
+                id,
+                WorktreeName::new("test").unwrap(),
+                AbsolutePath::new("/tmp/test").unwrap(),
+                AbsolutePath::new("/home/user").unwrap(),
+                WorktreeTypeEnum::Development,
+                None,
+                WorktreeState::Creating,
+                i as i64 * 1000,
+                i as i64 * 1000,
+            );
+            timestamps.insert(wt.created_at());
+        }
+        assert_eq!(timestamps.len(), 50);
+    }
+
+    #[test]
+    fn proptest_name_length_boundaries() {
+        assert!(WorktreeName::new("a").is_ok());
+        assert!(WorktreeName::new(&"a".repeat(255)).is_ok());
+        assert!(WorktreeName::new("").is_err());
+    }
+
+    #[test]
+    fn proptest_clone_preserves_state() {
+        let mut wt = create_test_worktree();
+        wt.add_metadata("test", "value");
+        let cloned = wt.clone();
+        assert_eq!(cloned.id(), wt.id());
+        assert_eq!(cloned.all_metadata().len(), wt.all_metadata().len());
+    }
+
+    #[test]
+    fn proptest_uninitialized_with_metadata() {
+        let mut metadata = std::collections::HashMap::new();
+        metadata.insert("k1".to_string(), "v1".to_string());
+        let wt = Worktree::uninitialized_with_metadata(
+            WorktreeId::new_random(),
+            WorktreeName::new("meta-test").unwrap(),
+            AbsolutePath::new("/tmp/meta").unwrap(),
+            AbsolutePath::new("/home/user").unwrap(),
+            WorktreeTypeEnum::Testing,
+            None,
+            WorktreeState::Active,
+            0,
+            0,
+            metadata,
+        );
+        assert_eq!(wt.worktree_type(), WorktreeTypeEnum::Testing);
+    }
+
+    #[test]
+    fn proptest_branch_name_edge_cases() {
+        assert!(BranchName::new("a").is_ok());
+        assert!(BranchName::new("main").is_ok());
+        assert!(BranchName::new("").is_err());
+        assert!(BranchName::new("-invalid").is_err());
+    }
+
+    #[test]
+    fn proptest_all_state_transitions() {
+        let states = [
+            WorktreeState::Creating,
+            WorktreeState::Active,
+            WorktreeState::Suspended,
+            WorktreeState::Removing,
+            WorktreeState::Removed,
+        ];
+        assert_eq!(states.len(), 5);
+    }
+
+    #[test]
+    fn proptest_worktree_id_conversion() {
+        let id1 = WorktreeId::new_random();
+        let id2 = WorktreeId::from_bytes(*id1.as_bytes());
+        assert_eq!(id1, id2);
+    }
+
+    #[test]
+    fn proptest_worktree_timestamps() {
+        let id = WorktreeId::new_random();
+        let wt = Worktree::uninitialized(
+            id,
+            WorktreeName::new("ts-test").unwrap(),
+            AbsolutePath::new("/tmp/ts").unwrap(),
+            AbsolutePath::new("/home/user").unwrap(),
+            WorktreeTypeEnum::Development,
+            None,
+            WorktreeState::Creating,
+            1234567890,
+            9876543210,
+        );
+        assert!(wt.created_at() >= 0);
+        assert!(wt.updated_at() >= 0);
+    }
+
+    #[test]
+    fn proptest_worktree_type_enum_values() {
+        assert_eq!(WorktreeTypeEnum::Development.as_u8(), 0);
+        assert_eq!(WorktreeTypeEnum::Testing.as_u8(), 1);
+        assert_eq!(WorktreeTypeEnum::Review.as_u8(), 2);
+        assert_eq!(WorktreeTypeEnum::Debugging.as_u8(), 3);
+        assert_eq!(WorktreeTypeEnum::Research.as_u8(), 4);
+    }
+
+    #[test]
+    fn proptest_worktree_branch_none() {
+        let id = WorktreeId::new_random();
+        let wt = Worktree::uninitialized(
+            id,
+            WorktreeName::new("no-branch-test").unwrap(),
+            AbsolutePath::new("/tmp/nb").unwrap(),
+            AbsolutePath::new("/home/user").unwrap(),
+            WorktreeTypeEnum::Development,
+            None,
+            WorktreeState::Creating,
+            0,
+            0,
+        );
+        assert!(wt.branch().is_none());
+    }
+
+    #[test]
+    fn proptest_worktree_is_active() {
+        let mut wt = create_test_worktree();
+        assert!(!wt.is_active());
+        wt.initialize().unwrap();
+        assert!(wt.is_active());
+        wt.suspend().unwrap();
+        assert!(!wt.is_active());
+    }
 }

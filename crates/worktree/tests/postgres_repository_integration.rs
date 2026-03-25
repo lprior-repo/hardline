@@ -1548,18 +1548,17 @@ mod postgres_repository_integration {
         let mut repo = create_postgres_repo().await.unwrap();
         let mut worktree = create_test_worktree("timestamp-accuracy", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        let initial_timestamp = worktree.created_at();
+        let initial_timestamp = worktree.updated_at();
         repo.save(&mut worktree).await.unwrap();
-        
-        std::thread::sleep(std::time::Duration::from_millis(10));
         
         worktree.initialize().unwrap();
         repo.save(&mut worktree).await.unwrap();
         
         let retrieved = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
         
-        assert_eq!(retrieved.created_at(), initial_timestamp);
-        assert!(retrieved.updated_at() >= initial_timestamp);
+        assert_eq!(retrieved.created_at(), worktree.created_at());
+        // updated_at should have changed after initialize()
+        assert!(retrieved.updated_at() > initial_timestamp);
     }
 
     #[tokio::test]

@@ -512,4 +512,28 @@ mod worktree_service_integration_tests {
         let result = service.initialize_worktree(InitializeWorktreeCommand::new(nonexistent_id)).await;
         assert!(matches!(result.unwrap_err(), WorktreeDomainError::NotFound(_)));
     }
+
+    #[tokio::test]
+    async fn worktree_service_suspension_state_transition_errors() {
+        let repo = TestRepository::default();
+        let mut service = WorktreeService::new(repo);
+
+        let cmd = create_test_command("state-error-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
+        let worktree = service.create_worktree(cmd).await.unwrap();
+        let id = worktree.id().clone();
+
+        // Try to suspend a creating worktree - should return InvalidStateTransition
+        let result = service.suspend_worktree(SuspendWorktreeCommand::new(id.clone())).await;
+        assert!(matches!(result.unwrap_err(), WorktreeDomainError::InvalidStateTransition(_, _)));
+
+        // Initialize first
+        service.initialize_worktree(InitializeWorktreeCommand::new(id.clone())).await.unwrap();
+
+        // Now suspend should work
+        service.suspend_worktree(SuspendWorktreeCommand::new(id.clone())).await.unwrap();
+
+        // Try to suspend again - should return InvalidStateTransition (already suspended)
+        let result = service.suspend_worktree(SuspendWorktreeCommand::new(id)).await;
+        assert!(matches!(result.unwrap_err(), WorktreeDomainError::InvalidStateTransition(_, _)));
+    }
 }

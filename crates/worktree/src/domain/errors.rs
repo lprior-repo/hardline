@@ -25,6 +25,7 @@ pub enum WorktreeDomainError {
 
     /// Cannot remove default branch worktree
     #[error("Cannot remove worktree for default branch")]
+    #[allow(dead_code)]
     CannotRemoveDefaultBranch,
 
     /// Worktree state transition invalid
@@ -33,18 +34,22 @@ pub enum WorktreeDomainError {
 
     /// Source path does not exist
     #[error("Source path does not exist: {0}")]
+    #[allow(dead_code)]
     SourcePathNotFound(String),
 
     /// Repository path is not a valid git repository
     #[error("Not a valid git repository: {0}")]
+    #[allow(dead_code)]
     InvalidRepository(String),
 
     /// Git operation failed
     #[error("Git operation failed: {0}")]
+    #[allow(dead_code)]
     GitError(String),
 
     /// Worktree is not initialized
     #[error("Worktree '{0}' is not initialized")]
+    #[allow(dead_code)]
     NotInitialized(super::WorktreeName),
 
     /// Worktree is already initialized
