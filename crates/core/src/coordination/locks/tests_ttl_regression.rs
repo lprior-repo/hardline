@@ -10,7 +10,7 @@ async fn test_pool() -> Result<sqlx::SqlitePool, Error> {
     SqlitePoolOptions::new()
         .connect("sqlite::memory:")
         .await
-        .map_err(|e| Error::Database(e.to_string()))
+        .map_err(|e| Error::database(e.to_string()))
 }
 
 #[tokio::test]
@@ -29,7 +29,7 @@ async fn regression_lock_with_ttl_maps_contention_race_to_session_locked() -> Re
     )
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     sqlx::query(
         "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
@@ -40,7 +40,7 @@ async fn regression_lock_with_ttl_maps_contention_race_to_session_locked() -> Re
     .bind("/workspace")
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     let tasks: Vec<_> = (0..10)
         .map(|i| {
@@ -69,7 +69,7 @@ async fn regression_lock_with_ttl_maps_contention_race_to_session_locked() -> Re
         .count();
     let database_errors = results
         .iter()
-        .filter(|r| matches!(r, Err(Error::Database(_))))
+        .filter(|r| matches!(r, Err(Error::database(_))))
         .count();
 
     assert_eq!(successful_locks, 1, "expected exactly 1 successful lock");
@@ -101,7 +101,7 @@ async fn regression_lock_with_ttl_fails_fast_before_session_validation() -> Resu
     )
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     sqlx::query(
         "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
@@ -112,7 +112,7 @@ async fn regression_lock_with_ttl_fails_fast_before_session_validation() -> Resu
     .bind("/workspace")
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     let _lock = mgr.lock("ordered-session", "agent-a").await?;
 
@@ -120,7 +120,7 @@ async fn regression_lock_with_ttl_fails_fast_before_session_validation() -> Resu
         .bind("ordered-session")
         .execute(&pool)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
     let result = mgr.lock_with_ttl("ordered-session", "agent-b", 60).await;
     assert!(matches!(

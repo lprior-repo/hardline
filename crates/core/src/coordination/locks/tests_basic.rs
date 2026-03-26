@@ -3,7 +3,7 @@
 use sqlx::sqlite::SqlitePoolOptions;
 
 use crate::Error;
-use crate::coordination::locks::LockManager;
+use crate::coordination::locks::{LockManager, LockOperation};
 use chrono::Duration;
 
 #[allow(dead_code)]
@@ -11,7 +11,7 @@ async fn test_pool() -> Result<sqlx::SqlitePool, Error> {
     SqlitePoolOptions::new()
         .connect("sqlite::memory:")
         .await
-        .map_err(|e| Error::Database(e.to_string()))
+        .map_err(|e| Error::database(e.to_string()))
 }
 
 #[allow(dead_code)]
@@ -198,10 +198,10 @@ async fn test_double_unlock_logs_warning() -> Result<(), Error> {
         "Expected 2 audit entries (lock + unlock)"
     );
 
-    assert_eq!(audit_log[0].operation, "lock");
+    assert_eq!(audit_log[0].operation, LockOperation::Lock);
     assert_eq!(audit_log[0].agent_id, "agent-a");
 
-    assert_eq!(audit_log[1].operation, "unlock");
+    assert_eq!(audit_log[1].operation, LockOperation::Unlock);
     assert_eq!(audit_log[1].agent_id, "agent-a");
 
     mgr.unlock("session-1", "agent-a").await?;
@@ -213,7 +213,7 @@ async fn test_double_unlock_logs_warning() -> Result<(), Error> {
         "Expected 3 audit entries with double unlock warning"
     );
 
-    assert_eq!(audit_log2[2].operation, "double_unlock_warning");
+    assert_eq!(audit_log2[2].operation, LockOperation::DoubleUnlockWarning);
 
     Ok(())
 }

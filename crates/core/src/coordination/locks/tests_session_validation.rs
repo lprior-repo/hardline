@@ -10,7 +10,7 @@ async fn test_pool() -> Result<sqlx::SqlitePool, Error> {
     SqlitePoolOptions::new()
         .connect("sqlite::memory:")
         .await
-        .map_err(|e| Error::Database(e.to_string()))
+        .map_err(|e| Error::database(e.to_string()))
 }
 
 // Test: Lock non-existent session returns error (when sessions table exists)
@@ -30,7 +30,7 @@ async fn lock_nonexistent_session_returns_not_found_error() -> Result<(), Error>
     )
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     let result = mgr.lock("ghost-session", "agent-1").await;
 
@@ -69,7 +69,7 @@ async fn lock_existing_session_succeeds() -> Result<(), Error> {
     )
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     sqlx::query(
         "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
@@ -80,7 +80,7 @@ async fn lock_existing_session_succeeds() -> Result<(), Error> {
     .bind("/workspace")
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     let result = mgr.lock("real-session", "agent-1").await;
 
@@ -111,7 +111,7 @@ async fn lock_deleted_session_fails_with_not_found() -> Result<(), Error> {
     )
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     sqlx::query(
         "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
@@ -122,13 +122,13 @@ async fn lock_deleted_session_fails_with_not_found() -> Result<(), Error> {
     .bind("/workspace")
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     sqlx::query("DELETE FROM sessions WHERE name = ?")
         .bind("ephemeral-session")
         .execute(&pool)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
 
     let result = mgr.lock("ephemeral-session", "agent-1").await;
 
@@ -156,7 +156,7 @@ async fn regression_lock_nonexistent_session_no_longer_creates_orphaned_lock() -
     )
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     let result = mgr.lock("ghost-session", "agent-1").await;
 
