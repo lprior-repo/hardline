@@ -7,6 +7,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::Row;
 
 /// Error types for operation log operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,9 +104,7 @@ impl OperationLogEntry {
 /// # Errors
 ///
 /// Returns `OperationLogError::QueryFailed` if the datetime string is invalid.
-pub fn parse_datetime(
-    datetime_str: Option<String>,
-) -> Result<DateTime<Utc>, OperationLogError> {
+pub fn parse_datetime(datetime_str: Option<String>) -> Result<DateTime<Utc>, OperationLogError> {
     datetime_str
         .ok_or_else(|| {
             OperationLogError::QueryFailed("Missing required datetime field".to_string())
@@ -143,9 +142,9 @@ pub fn parse_operation_log_row(
         .try_get("stream_id")
         .map_err(|e| OperationLogError::QueryFailed(format!("Field 'stream_id' error: {e}")))?;
 
-    let stream_version: i64 = row
-        .try_get("stream_version")
-        .map_err(|e| OperationLogError::QueryFailed(format!("Field 'stream_version' error: {e}")))?;
+    let stream_version: i64 = row.try_get("stream_version").map_err(|e| {
+        OperationLogError::QueryFailed(format!("Field 'stream_version' error: {e}"))
+    })?;
 
     let created_at_str: Option<String> = row
         .try_get("created_at")

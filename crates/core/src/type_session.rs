@@ -2,7 +2,6 @@
 //!
 //! Combines all session-related types into the main Session struct.
 
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -55,7 +54,7 @@ where
 impl Session {
     pub fn validate_pure(&self) -> Result<()> {
         if self.updated_at < self.created_at {
-            return Err(Error::InvalidState(
+            return Err(Error::invalid_state(
                 "Updated timestamp cannot be before created timestamp".to_string(),
             ));
         }

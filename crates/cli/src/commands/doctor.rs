@@ -3,7 +3,7 @@
 use scp_core::{vcs, Error, Result};
 
 fn check_vcs_available() -> Result<bool> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let is_jj = cwd.join(".jj").exists();
     let is_git = cwd.join(".git").exists();
     Ok(is_jj || is_git)
@@ -14,18 +14,18 @@ fn check_dependency(name: &str) -> Result<bool> {
         .arg("--version")
         .output()
         .map(|o| o.status.success())
-        .map_err(|e| Error::Io(e))
+        .map_err(|e| Error::io_error(e.to_string()))
 }
 
 fn check_config_exists() -> Result<bool> {
     let dir = directories::ProjectDirs::from("com", "scp", "scp")
-        .ok_or_else(|| Error::ConfigNotFound("No config dir".into()))?;
+        .ok_or_else(|| Error::config_not_found("No config dir"))?;
     let config_file = dir.config_dir().join("config.toml");
     Ok(config_file.exists())
 }
 
 fn check_workspaces_count() -> Result<usize> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
     let workspaces = backend.list_workspaces()?;
     Ok(workspaces.len())
@@ -142,6 +142,6 @@ pub fn run(full: bool) -> Result<()> {
         Ok(())
     } else {
         println!("✗ Some checks failed - see above for details");
-        Err(Error::Internal("Diagnostics failed".into()))
+        Err(Error::internal("Diagnostics failed"))
     }
 }

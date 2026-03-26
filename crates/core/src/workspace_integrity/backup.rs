@@ -35,14 +35,14 @@ impl BackupManager {
     ) -> Result<BackupMetadata> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| Error::Internal(format!("System time before Unix epoch: {e}")))?;
+            .map_err(|e| Error::invalid_state(format!("System time before Unix epoch: {e}")))?;
         let backup_id = format!("{}_{}", workspace_name, timestamp.as_secs());
 
         // Ensure backup root exists
         tokio::fs::create_dir_all(&self.backup_root)
             .await
             .map_err(|e| {
-                Error::IoError(format!(
+                Error::io_error(format!(
                     "Failed to create backup directory {}: {e}",
                     self.backup_root.display()
                 ))

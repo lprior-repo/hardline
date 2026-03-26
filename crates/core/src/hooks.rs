@@ -350,8 +350,8 @@ impl HookConfig {
             return Ok(hooks);
         }
 
-        for entry in std::fs::read_dir(dir).map_err(Error::Io)? {
-            let entry = entry.map_err(Error::Io)?;
+        for entry in std::fs::read_dir(dir).map_err(|e| Error::io_error(e.to_string()))? {
+            let entry = entry.map_err(|e| Error::io_error(e.to_string()))?;
             let path = entry.path();
 
             if path.is_file() {

@@ -87,10 +87,16 @@ mod tests {
     fn test_invalid_state_transition() {
         let workspace = create_test_workspace();
         let result = workspace.mark_active();
-        assert!(matches!(result, Err(WorkspaceError::InvalidStateTransition { .. })));
+        assert!(matches!(
+            result,
+            Err(WorkspaceError::InvalidStateTransition { .. })
+        ));
         let removed = workspace.mark_removed().expect("transition valid");
         let result = removed.mark_ready();
-        assert!(matches!(result, Err(WorkspaceError::InvalidStateTransition { .. })));
+        assert!(matches!(
+            result,
+            Err(WorkspaceError::InvalidStateTransition { .. })
+        ));
     }
 
     #[test]
@@ -135,7 +141,9 @@ mod tests {
     fn test_change_path() {
         let workspace = create_test_workspace();
         let new_path = PathBuf::from("/var/tmp");
-        let changed = workspace.change_path(new_path.clone()).expect("path changed");
+        let changed = workspace
+            .change_path(new_path.clone())
+            .expect("path changed");
         assert_eq!(changed.path, new_path);
     }
 

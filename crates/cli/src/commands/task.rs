@@ -9,7 +9,7 @@ use crate::commands::task_validation::{
     transition_to_yielded, validate_claimed_by_user, validate_not_claimed_by_other,
     validate_not_closed, validate_task_exists,
 };
-use scp_core::{error::Error, lock::LockManager, Result as CoreResult};
+use scp_core::{error::Error, error_task::TaskErrorKind, lock::LockManager, Result as CoreResult};
 use std::sync::Arc;
 use std::sync::LazyLock;
 
@@ -87,19 +87,19 @@ pub fn list() -> CoreResult<()> {
 }
 
 pub fn show(task_id: &str, _user: &str) -> CoreResult<()> {
-    let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
+    let _task_id = TaskId::new(task_id).map_err(|e| Error::invalid_identifier(e.to_string()))?;
 
     let store = get_task_store();
     let task = store
         .get(task_id)
-        .ok_or_else(|| Error::TaskNotFound(task_id.to_string()))?;
+        .ok_or_else(|| Error::from(TaskErrorKind::NotFound(task_id.to_string())))?;
 
     display_task(&task);
     Ok(())
 }
 
 pub fn claim(task_id: &str, user: &str) -> CoreResult<()> {
-    let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
+    let _task_id = TaskId::new(task_id).map_err(|e| Error::invalid_identifier(e.to_string()))?;
 
     let store = get_task_store();
     let lock = get_lock_manager();
@@ -115,7 +115,7 @@ pub fn claim(task_id: &str, user: &str) -> CoreResult<()> {
 }
 
 pub fn yield_task(task_id: &str, user: &str) -> CoreResult<()> {
-    let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
+    let _task_id = TaskId::new(task_id).map_err(|e| Error::invalid_identifier(e.to_string()))?;
 
     let store = get_task_store();
     let lock = get_lock_manager();
@@ -131,7 +131,7 @@ pub fn yield_task(task_id: &str, user: &str) -> CoreResult<()> {
 }
 
 pub fn start(task_id: &str, user: &str) -> CoreResult<()> {
-    let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
+    let _task_id = TaskId::new(task_id).map_err(|e| Error::invalid_identifier(e.to_string()))?;
 
     let store = get_task_store();
     let lock = get_lock_manager();
@@ -147,7 +147,7 @@ pub fn start(task_id: &str, user: &str) -> CoreResult<()> {
 }
 
 pub fn done(task_id: &str, user: &str) -> CoreResult<()> {
-    let _task_id = TaskId::new(task_id).map_err(|e| Error::InvalidTaskId(e.to_string()))?;
+    let _task_id = TaskId::new(task_id).map_err(|e| Error::invalid_identifier(e.to_string()))?;
 
     let store = get_task_store();
     let lock = get_lock_manager();

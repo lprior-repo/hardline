@@ -1,12 +1,6 @@
 //! Workspace types
 
-use std::process::Command;
-
-use scp_core::{
-    output::Output,
-    vcs::{self, VcsStatus},
-    Error, Result,
-};
+use scp_core::Error;
 
 /// Sync option for spawn command
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,9 +32,7 @@ impl SyncOption {
 /// Enforces regex: ^[a-zA-Z][a-zA-Z0-9_-]*$
 pub fn validate_workspace_name(name: &str) -> Option<Error> {
     if name.is_empty() {
-        return Some(Error::InvalidIdentifier(
-            "workspace name cannot be empty".to_string(),
-        ));
+        return Some(Error::invalid_identifier("workspace name cannot be empty"));
     }
 
     let mut chars = name.chars();
@@ -48,7 +40,7 @@ pub fn validate_workspace_name(name: &str) -> Option<Error> {
 
     // Must start with a letter
     if !first.is_alphabetic() {
-        return Some(Error::InvalidIdentifier(format!(
+        return Some(Error::invalid_identifier(format!(
             "workspace name must start with a letter, got '{}'",
             name
         )));
@@ -56,7 +48,7 @@ pub fn validate_workspace_name(name: &str) -> Option<Error> {
 
     // Remaining chars must be alphanumeric, dash, or underscore
     if !chars.all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-        return Some(Error::InvalidIdentifier(format!(
+        return Some(Error::invalid_identifier(format!(
             "workspace name must be alphanumeric, dash, or underscore only, got '{}'",
             name
         )));

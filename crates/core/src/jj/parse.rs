@@ -16,7 +16,7 @@ pub fn parse_workspace_list(output: &str) -> Result<Vec<WorkspaceInfo>> {
         .map(|line| {
             let parts: Vec<&str> = line.splitn(2, ':').collect();
             if parts.len() != 2 {
-                return Err(Error::InvalidIdentifier(format!(
+                return Err(Error::invalid_identifier(format!(
                     "Invalid workspace list format: {line}"
                 )));
             }
@@ -24,14 +24,14 @@ pub fn parse_workspace_list(output: &str) -> Result<Vec<WorkspaceInfo>> {
             let name = parts
                 .first()
                 .ok_or_else(|| {
-                    Error::InvalidIdentifier("Missing workspace name in list output".to_string())
+                    Error::invalid_identifier("Missing workspace name in list output".to_string())
                 })?
                 .trim()
                 .to_string();
             let rest = parts
                 .get(1)
                 .ok_or_else(|| {
-                    Error::InvalidIdentifier("Missing workspace path in list output".to_string())
+                    Error::invalid_identifier("Missing workspace path in list output".to_string())
                 })?
                 .trim();
 

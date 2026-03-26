@@ -30,7 +30,6 @@ fn create_test_worktree(
         worktree_type,
         branch.map(|b| BranchName::new(b).unwrap()),
     )
-    .unwrap()
 }
 
 /// Helper to create a repository with fresh schema
@@ -62,8 +61,8 @@ mod sqlite_repository_integration {
         let mut wt2 = create_test_worktree("unique-test-2", "/tmp/wt2", "/home/user/proj", WorktreeTypeEnum::Testing, None);
         
         // Save both worktrees
-        repo.save(&mut wt1).await.unwrap();
-        repo.save(&mut wt2).await.unwrap();
+        repo.save(wt1).await.unwrap();
+        repo.save(wt2).await.unwrap();
         
         // Query by both IDs
         let found_wt1 = repo.find_by_id(wt1.id()).await.unwrap();
@@ -129,9 +128,9 @@ mod sqlite_repository_integration {
     #[tokio::test]
     async fn save_worktree_creates_new_entry() {
         let mut repo = create_sqlite_repo().await.unwrap();
-        let mut worktree = create_test_worktree("save-test-1", "/tmp/wt1", "/home/user/proj", WorktreeTypeEnum::Development, Some("main"));
+        let worktree = create_test_worktree("save-test-1", "/tmp/wt1", "/home/user/proj", WorktreeTypeEnum::Development, Some("main"));
         
-        let result = repo.save(&mut worktree).await;
+        let result = repo.save(worktree).await;
         
         assert!(result.is_ok());
         assert_eq!(worktree.name().as_str(), "save-test-1");
@@ -146,7 +145,7 @@ mod sqlite_repository_integration {
         // Replace ID with known value
         // Note: WorktreeId is private, so we test by saving and checking retrieval works
         
-        let result = repo.save(&mut worktree).await;
+        let result = repo.save(worktree).await;
         assert!(result.is_ok());
         
         let retrieved = repo.find_by_id(worktree.id()).await;
@@ -159,7 +158,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("unique-name-test", "/tmp/wt3", "/home/user/proj", WorktreeTypeEnum::Review, Some("feature-x"));
         
-        let save_result = repo.save(&mut worktree).await;
+        let save_result = repo.save(worktree).await;
         assert!(save_result.is_ok());
         
         let name_result = repo.find_by_name("unique-name-test").await;
@@ -173,7 +172,7 @@ mod sqlite_repository_integration {
         let custom_path = "/custom/worktree/path";
         let mut worktree = create_test_worktree("path-test", custom_path, "/home/user/proj", WorktreeTypeEnum::Debugging, None);
         
-        let save_result = repo.save(&mut worktree).await;
+        let save_result = repo.save(worktree).await;
         assert!(save_result.is_ok());
         
         let retrieved = repo.find_by_id(worktree.id()).await;
@@ -187,7 +186,7 @@ mod sqlite_repository_integration {
         let custom_parent = "/custom/parent/repo";
         let mut worktree = create_test_worktree("parent-test", "/tmp/wt", custom_parent, WorktreeTypeEnum::Research, None);
         
-        let save_result = repo.save(&mut worktree).await;
+        let save_result = repo.save(worktree).await;
         assert!(save_result.is_ok());
         
         let retrieved = repo.find_by_id(worktree.id()).await;
@@ -200,7 +199,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("branch-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, Some("develop"));
         
-        let save_result = repo.save(&mut worktree).await;
+        let save_result = repo.save(worktree).await;
         assert!(save_result.is_ok());
         
         let retrieved = repo.find_by_id(worktree.id()).await;
@@ -213,7 +212,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("state-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        let save_result = repo.save(&mut worktree).await;
+        let save_result = repo.save(worktree).await;
         assert!(save_result.is_ok());
         
         let retrieved = repo.find_by_id(worktree.id()).await;
@@ -226,7 +225,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("type-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Testing, None);
         
-        let save_result = repo.save(&mut worktree).await;
+        let save_result = repo.save(worktree).await;
         assert!(save_result.is_ok());
         
         let retrieved = repo.find_by_id(worktree.id()).await;
@@ -240,7 +239,7 @@ mod sqlite_repository_integration {
         let mut worktree = create_test_worktree("update-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, Some("main"));
         
         // First save
-        let first_save = repo.save(&mut worktree).await;
+        let first_save = repo.save(worktree).await;
         assert!(first_save.is_ok());
         
         // Update name
@@ -248,7 +247,7 @@ mod sqlite_repository_integration {
         *worktree.name_mut() = WorktreeName::new("updated-name").unwrap();
         
         // Second save should update
-        let second_save = repo.save(&mut worktree).await;
+        let second_save = repo.save(worktree).await;
         assert!(second_save.is_ok());
         
         // Verify update
@@ -266,7 +265,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("find-id-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        let save_result = repo.save(&mut worktree).await;
+        let save_result = repo.save(worktree).await;
         assert!(save_result.is_ok());
         
         let found = repo.find_by_id(worktree.id()).await;
@@ -299,7 +298,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("query-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        let save_result = repo.save(&mut worktree).await;
+        let save_result = repo.save(worktree).await;
         assert!(save_result.is_ok());
         
         let row_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM worktrees WHERE id = ?")
@@ -315,11 +314,11 @@ mod sqlite_repository_integration {
     async fn find_by_id_with_multiple_worktrees() {
         let mut repo = create_sqlite_repo().await.unwrap();
         
-        let mut wt1 = create_test_worktree("multi-1", "/tmp/wt1", "/home/user/proj", WorktreeTypeEnum::Development, None);
-        let mut wt2 = create_test_worktree("multi-2", "/tmp/wt2", "/home/user/proj", WorktreeTypeEnum::Testing, None);
+        let wt1 = create_test_worktree("multi-1", "/tmp/wt1", "/home/user/proj", WorktreeTypeEnum::Development, None);
+        let wt2 = create_test_worktree("multi-2", "/tmp/wt2", "/home/user/proj", WorktreeTypeEnum::Testing, None);
         
-        repo.save(&mut wt1).await.unwrap();
-        repo.save(&mut wt2).await.unwrap();
+        repo.save(wt1).await.unwrap();
+        repo.save(wt2).await.unwrap();
         
         let found_wt1 = repo.find_by_id(wt1.id()).await;
         assert!(found_wt1.is_ok());
@@ -339,7 +338,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("name-find-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        let save_result = repo.save(&mut worktree).await;
+        let save_result = repo.save(worktree).await;
         assert!(save_result.is_ok());
         
         let found = repo.find_by_name("name-find-test").await;
@@ -361,7 +360,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("CaseSensitive", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let exact_match = repo.find_by_name("CaseSensitive").await;
         assert!(exact_match.is_ok());
@@ -377,7 +376,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("test-worktree_123", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let found = repo.find_by_name("test-worktree_123").await;
         assert!(found.is_ok());
@@ -389,7 +388,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("query-name-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let row_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM worktrees WHERE name = ?")
             .bind("query-name-test")
@@ -406,7 +405,7 @@ mod sqlite_repository_integration {
         let mut worktree1 = create_test_worktree("dup-test", "/tmp/wt1", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
         // First save should succeed
-        let first_save = repo.save(&mut worktree1).await;
+        let first_save = repo.save(worktree1).await;
         assert!(first_save.is_ok());
         
         // Get the ID of the first worktree
@@ -440,7 +439,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("exists-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let exists = repo.name_exists("exists-test").await;
         assert!(exists.is_ok());
@@ -470,7 +469,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("CheckCase", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let exists_exact = repo.name_exists("CheckCase").await;
         assert!(exists_exact.is_ok());
@@ -490,7 +489,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("delete-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let delete_result = repo.delete(worktree.id()).await;
         assert!(delete_result.is_ok());
@@ -514,7 +513,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("clear-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let delete_result = repo.delete(worktree.id()).await;
         assert!(delete_result.is_ok());
@@ -532,7 +531,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("multi-delete-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         // First delete
         let first_delete = repo.delete(worktree.id()).await;
@@ -561,7 +560,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("list-single-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let result = repo.list_all().await;
         assert!(result.is_ok());
@@ -612,7 +611,7 @@ mod sqlite_repository_integration {
         let mut worktree = create_test_worktree("state-trans-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
         // Save in Creating state
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         // Verify initial state
         let saved = repo.find_by_id(worktree.id()).await;
@@ -627,10 +626,10 @@ mod sqlite_repository_integration {
         let mut worktree = create_test_worktree("suspend-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
         worktree.initialize().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         worktree.suspend().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let retrieved = repo.find_by_id(worktree.id()).await;
         assert!(retrieved.is_ok());
@@ -645,12 +644,12 @@ mod sqlite_repository_integration {
         let mut worktree = create_test_worktree("resume-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
         worktree.initialize().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         worktree.suspend().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         worktree.resume().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let retrieved = repo.find_by_id(worktree.id()).await;
         assert!(retrieved.is_ok());
@@ -665,10 +664,10 @@ mod sqlite_repository_integration {
         let mut worktree = create_test_worktree("remove-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
         worktree.initialize().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         worktree.mark_for_removal().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let retrieved = repo.find_by_id(worktree.id()).await;
         assert!(retrieved.is_ok());
@@ -683,12 +682,12 @@ mod sqlite_repository_integration {
         let mut worktree = create_test_worktree("complete-remove-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
         worktree.initialize().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         worktree.mark_for_removal().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         worktree.complete_removal().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let retrieved = repo.find_by_id(worktree.id()).await;
         assert!(retrieved.is_ok());
@@ -705,10 +704,10 @@ mod sqlite_repository_integration {
         let initial_created = worktree.created_at();
         let initial_updated = worktree.updated_at();
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         worktree.initialize().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let retrieved = repo.find_by_id(worktree.id()).await;
         assert!(retrieved.is_ok());
@@ -835,7 +834,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("concurrent-del-save", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let delete_handle = {
             let mut repo_clone = repo.clone();
@@ -872,7 +871,7 @@ mod sqlite_repository_integration {
         worktree.add_metadata("environment", "test");
         worktree.add_metadata("owner", "alice");
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let retrieved = repo.find_by_id(worktree.id()).await;
         assert!(retrieved.is_ok());
@@ -888,7 +887,7 @@ mod sqlite_repository_integration {
         worktree.add_metadata("key2", "value2");
         worktree.add_metadata("key3", "value3");
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let retrieved = repo.find_by_id(worktree.id()).await;
         assert!(retrieved.is_ok());
@@ -904,7 +903,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("type-dev", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let found = repo.find_by_id(worktree.id()).await;
         assert!(found.is_ok());
@@ -916,7 +915,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("type-test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Testing, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let found = repo.find_by_id(worktree.id()).await;
         assert!(found.is_ok());
@@ -928,7 +927,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("type-review", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Review, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let found = repo.find_by_id(worktree.id()).await;
         assert!(found.is_ok());
@@ -940,7 +939,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("type-debug", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Debugging, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let found = repo.find_by_id(worktree.id()).await;
         assert!(found.is_ok());
@@ -952,7 +951,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("type-research", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Research, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let found = repo.find_by_id(worktree.id()).await;
         assert!(found.is_ok());
@@ -968,7 +967,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("branch-main", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, Some("main"));
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let found = repo.find_by_id(worktree.id()).await;
         assert!(found.is_ok());
@@ -980,7 +979,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("branch-feature", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, Some("feature/new-feature"));
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let found = repo.find_by_id(worktree.id()).await;
         assert!(found.is_ok());
@@ -992,7 +991,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("no-branch", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let found = repo.find_by_id(worktree.id()).await;
         assert!(found.is_ok());
@@ -1077,7 +1076,7 @@ mod sqlite_repository_integration {
         let long_name = "a".repeat(255);
         let mut worktree = create_test_worktree(&long_name, "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        let result = repo.save(&mut worktree).await;
+        let result = repo.save(worktree).await;
         assert!(result.is_ok());
     }
 
@@ -1086,7 +1085,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("test!@#$%^&*()", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        let result = repo.save(&mut worktree).await;
+        let result = repo.save(worktree).await;
         assert!(result.is_ok());
     }
 
@@ -1095,7 +1094,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("测试工作树", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        let result = repo.save(&mut worktree).await;
+        let result = repo.save(worktree).await;
         assert!(result.is_ok());
         
         let found = repo.find_by_name("测试工作树").await;
@@ -1108,7 +1107,7 @@ mod sqlite_repository_integration {
         let mut repo = create_sqlite_repo().await.unwrap();
         let mut worktree = create_test_worktree("empty-branch", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
-        let result = repo.save(&mut worktree).await;
+        let result = repo.save(worktree).await;
         assert!(result.is_ok());
     }
 
@@ -1118,19 +1117,19 @@ mod sqlite_repository_integration {
         let mut worktree = create_test_worktree("rapid-state", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
         worktree.initialize().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         worktree.suspend().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         worktree.resume().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         worktree.suspend().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         worktree.resume().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let final_state = repo.find_by_id(worktree.id()).await;
         assert!(final_state.is_ok());
@@ -1147,36 +1146,36 @@ mod sqlite_repository_integration {
         
         // Create
         let mut worktree = create_test_worktree("lifecycle-test", "/tmp/lifecycle", "/home/user/proj", WorktreeTypeEnum::Development, Some("main"));
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         assert!(repo.name_exists("lifecycle-test").await.unwrap());
         
         // Activate
         worktree.initialize().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         let active_wt = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
         assert_eq!(active_wt.state(), WorktreeState::Active);
         
         // Suspend
         worktree.suspend().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         let suspended_wt = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
         assert_eq!(suspended_wt.state(), WorktreeState::Suspended);
         
         // Resume
         worktree.resume().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         let resumed_wt = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
         assert_eq!(resumed_wt.state(), WorktreeState::Active);
         
         // Mark for removal
         worktree.mark_for_removal().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         let removing_wt = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
         assert_eq!(removing_wt.state(), WorktreeState::Removing);
         
         // Complete removal
         worktree.complete_removal().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         let removed_wt = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
         assert_eq!(removed_wt.state(), WorktreeState::Removed);
         
@@ -1254,15 +1253,15 @@ mod sqlite_repository_integration {
         
         // Must initialize first
         worktree.initialize().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         // Now can suspend
         worktree.suspend().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         // Can resume
         worktree.resume().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         // Can't go back to Creating from Active
         let invalid_result = worktree.initialize();
@@ -1275,7 +1274,7 @@ mod sqlite_repository_integration {
         let mut worktree = create_test_worktree("concurrent-update", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
         worktree.initialize().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         // Test metadata persistence with single update first
         {
@@ -1360,10 +1359,10 @@ mod sqlite_repository_integration {
         let mut worktree = create_test_worktree("timestamp-accuracy", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
         
         let initial_timestamp = worktree.updated_at();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         worktree.initialize().unwrap();
-        repo.save(&mut worktree).await.unwrap();
+        repo.save(worktree).await.unwrap();
         
         let retrieved = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
         

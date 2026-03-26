@@ -4,7 +4,7 @@ use scp_core::{output::Output, vcs, Result};
 
 /// Show current context (workspace, branch, VCS status)
 pub fn run() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(scp_core::Error::Io)?;
+    let cwd = std::env::current_dir().map_err(|e| scp_core::Error::io_error(e.to_string()))?;
 
     let backend = vcs::create_backend(&cwd)?;
 

@@ -8,11 +8,11 @@ mod tests {
 
     use chrono::Utc;
 
-    use crate::domain::identifiers::{BeadId, SessionName, WorkspaceName};
     use crate::domain::events::{
         deserialize_event, deserialize_event_bytes, serialize_event, serialize_event_bytes,
         DomainEvent,
     };
+    use crate::domain::identifiers::{BeadId, SessionName, WorkspaceName};
 
     #[test]
     fn test_session_created_event() {

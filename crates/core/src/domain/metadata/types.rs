@@ -44,22 +44,22 @@ impl From<MetadataError> for CoreError {
     fn from(err: MetadataError) -> Self {
         match err {
             MetadataError::BranchNotFound(id) => {
-                CoreError::NotFound(format!("Branch not found: {}", id))
+                CoreError::not_found(format!("Branch not found: {}", id))
             }
             MetadataError::BranchAlreadyExists(id) => {
-                CoreError::InvalidState(format!("Branch already exists: {}", id))
+                CoreError::invalid_state(format!("Branch already exists: {}", id))
             }
             MetadataError::ParentNotFound(id) => {
-                CoreError::NotFound(format!("Parent not found: {}", id))
+                CoreError::not_found(format!("Parent not found: {}", id))
             }
-            MetadataError::CircularReference(id) => CoreError::InvalidState(format!(
+            MetadataError::CircularReference(id) => CoreError::invalid_state(format!(
                 "Circular reference would be created for branch {}",
                 id
             )),
             MetadataError::Backend(msg) => {
-                CoreError::InvalidState(format!("Metadata backend error: {}", msg))
+                CoreError::invalid_state(format!("Metadata backend error: {}", msg))
             }
-            MetadataError::Corrupted => CoreError::InvalidState("Metadata corrupted".to_string()),
+            MetadataError::Corrupted => CoreError::invalid_state("Metadata corrupted".to_string()),
         }
     }
 }

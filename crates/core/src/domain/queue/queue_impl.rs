@@ -5,6 +5,8 @@
 
 use super::entry::QueueEntry;
 use super::status::QueueStatus;
+#[allow(unused_imports)]
+use crate::domain::contracts::{ensures, invariant, requires};
 use crate::domain::identifiers::{QueueEntryId, SessionName};
 use crate::domain::validation::{ValidationError, ValidationResult};
 
@@ -78,6 +80,7 @@ impl Queue {
     /// Add an entry to the queue, returning a new Queue.
     ///
     /// Uses binary search to maintain priority order.
+    #[ensures(self.len() + 1 == ret.len(), "queue length increases by 1")]
     #[must_use]
     pub fn enqueue(&self, entry: QueueEntry) -> Self {
         let priority = entry.priority;
@@ -116,12 +119,6 @@ impl Queue {
         }
     }
 
-    /// Insert an entry at a specific position, returning Result<Queue, ValidationError>.
-    ///
-    /// Uses Railway-Oriented Programming for validation.
-    ///
-    /// # Errors
-    /// Returns `ValidationError::OutOfBounds` if position is invalid.
     pub fn with_entry(&self, position: usize, entry: QueueEntry) -> ValidationResult<Self> {
         if position > self.entries.len() {
             return Err(ValidationError::OutOfBounds {
@@ -153,30 +150,21 @@ impl Queue {
                 field: "entry".to_string(),
                 value: id.to_string(),
             })
-            .and_then(|entry| entry.status.transition_to(new_status))
-            .map(|_| {
-                // Use functional iteration to find and update index
-                self.entries
-                    .iter()
-                    .position(|e| &e.id == id)
-                    .map(|idx| {
-                        let mut new_entries = self.entries.clone();
-                        new_entries[idx].status = new_status;
-                        Self {
-                            entries: new_entries,
-                        }
-                    })
-                    .unwrap_or_else(|| {
-                        // Should never happen since we validated above
-                        self.clone()
-                    })
-            })
+            .and_then(|entry| entry.status.transition_to(new_status))?;
+
+        Ok(self.with_updated_entry_status(id, new_status))
     }
 
-    /// Remove an entry at a specific position.
-    ///
-    /// # Errors
-    /// Returns `ValidationError::OutOfBounds` if the position is invalid.
+    fn with_updated_entry_status(&self, id: &QueueEntryId, new_status: QueueStatus) -> Self {
+        let mut new_entries = self.entries.clone();
+        if let Some(idx) = new_entries.iter().position(|e| &e.id == id) {
+            new_entries[idx].status = new_status;
+        }
+        Self {
+            entries: new_entries,
+        }
+    }
+
     pub fn remove_at(&self, position: usize) -> ValidationResult<(Self, QueueEntry)> {
         if position >= self.entries.len() {
             return Err(ValidationError::OutOfBounds {

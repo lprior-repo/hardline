@@ -12,6 +12,7 @@ pub mod database_types;
 pub mod operation_log;
 pub mod operation_log_schema;
 pub mod operation_log_repository;
+pub mod operation_log_types;
 pub mod vcs_integration;
 
 // operation_log module re-exports its submodules

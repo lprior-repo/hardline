@@ -80,7 +80,7 @@ impl BeadRepository for InMemoryBeadRepository {
         let beads = self.beads.read().await;
         Ok(beads
             .values()
-            .filter(|b| b.state == state)
+            .filter(|b| b.state() == state)
             .cloned()
             .collect())
     }

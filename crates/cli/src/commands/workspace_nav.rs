@@ -21,13 +21,13 @@ pub fn spawn(name: &str, sync: bool) -> Result<()> {
 
     Output::info(&format!("Creating workspace '{}'...", name));
 
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     // Check if workspace already exists
     let workspaces = backend.list_workspaces()?;
     if workspaces.iter().any(|w| w.name == name) {
-        return Err(Error::WorkspaceExists(name.to_string()));
+        return Err(Error::workspace_exists(name));
     }
 
     spawn_with_sync(backend.as_ref(), name, sync)
@@ -37,19 +37,17 @@ pub fn spawn(name: &str, sync: bool) -> Result<()> {
 pub fn switch(name: &str) -> Result<()> {
     // P1: Validate workspace name is not empty
     if name.is_empty() {
-        return Err(Error::InvalidIdentifier(
-            "workspace name cannot be empty".to_string(),
-        ));
+        return Err(Error::invalid_identifier("workspace name cannot be empty"));
     }
 
     Output::info(&format!("Switching to workspace '{}'...", name));
 
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     // Check if workspace exists and working copy is clean
     if !workspace_exists(backend.as_ref(), name)? {
-        return Err(Error::WorkspaceNotFound(name.to_string()));
+        return Err(Error::workspace_not_found(name));
     }
     require_clean_working_copy(backend.as_ref())?;
 
@@ -60,7 +58,7 @@ pub fn switch(name: &str) -> Result<()> {
 
 /// List workspaces
 pub fn list() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let backend = vcs::create_backend(&cwd)?;
     let workspaces = backend.list_workspaces()?;
@@ -80,7 +78,7 @@ pub fn list() -> Result<()> {
 
 /// Show workspace status
 pub fn status() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let backend = vcs::create_backend(&cwd)?;
     let branch = backend.current_branch()?;
@@ -94,12 +92,12 @@ pub fn status() -> Result<()> {
 
 /// Switch to next workspace (alphabetically)
 pub fn next() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;
     if workspaces.is_empty() {
-        return Err(Error::WorkspaceNotFound("no workspaces exist".to_string()));
+        return Err(Error::workspace_not_found("no workspaces exist"));
     }
 
     // Use helper function to find next workspace
@@ -108,7 +106,7 @@ pub fn next() -> Result<()> {
     // P4: Check for dirty working copy
     let status = backend.status()?;
     if status != VcsStatus::Clean {
-        return Err(Error::WorkingCopyDirty);
+        return Err(Error::working_copy_dirty());
     }
 
     Output::info(&format!("Switching to workspace '{}'...", target_name));
@@ -119,12 +117,12 @@ pub fn next() -> Result<()> {
 
 /// Switch to previous workspace (alphabetically)
 pub fn prev() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;
     if workspaces.is_empty() {
-        return Err(Error::WorkspaceNotFound("no workspaces exist".to_string()));
+        return Err(Error::workspace_not_found("no workspaces exist"));
     }
 
     // Use helper function to find previous workspace
@@ -133,7 +131,7 @@ pub fn prev() -> Result<()> {
     // P4: Check for dirty working copy
     let status = backend.status()?;
     if status != VcsStatus::Clean {
-        return Err(Error::WorkingCopyDirty);
+        return Err(Error::working_copy_dirty());
     }
 
     Output::info(&format!("Switching to workspace '{}'...", target_name));

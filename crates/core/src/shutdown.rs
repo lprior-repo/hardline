@@ -160,9 +160,9 @@ pub async fn signal_channels() -> Result<(broadcast::Receiver<()>, broadcast::Re
         use tokio::signal::unix::{signal, SignalKind};
 
         let mut sigint = signal(SignalKind::interrupt())
-            .map_err(|e| Error::ConfigInvalid(format!("Failed to setup SIGINT: {e}")))?;
+            .map_err(|e| Error::io_error(format!("Failed to setup SIGINT: {e}")))?;
         let mut sigterm = signal(SignalKind::terminate())
-            .map_err(|e| Error::ConfigInvalid(format!("Failed to setup SIGTERM: {e}")))?;
+            .map_err(|e| Error::io_error(format!("Failed to setup SIGTERM: {e}")))?;
 
         let (sigint_tx, sigint_rx) = broadcast::channel(1);
         let (sigterm_tx, sigterm_rx) = broadcast::channel(1);

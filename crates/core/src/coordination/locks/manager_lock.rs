@@ -66,7 +66,8 @@ impl LockManager {
             .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
 
         let ttl = if ttl_seconds > 0 {
-            Duration::seconds(i64::try_from(ttl_seconds).unwrap_or(300))
+            // SAFETY: ttl_seconds is validated to be <= 86400, which always fits in i64
+            Duration::seconds(ttl_seconds as i64)
         } else {
             self.ttl
         };

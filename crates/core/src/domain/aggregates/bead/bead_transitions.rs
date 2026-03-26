@@ -78,13 +78,13 @@ impl Bead {
         }
 
         // Validate transition (using domain logic)
-        let _ = self
-            .state
-            .transition_to(new_state)
-            .map_err(|_| BeadError::InvalidStateTransition {
-                from: self.state,
-                to: new_state,
-            })?;
+        let _ =
+            self.state
+                .transition_to(new_state)
+                .map_err(|_| BeadError::InvalidStateTransition {
+                    from: self.state,
+                    to: new_state,
+                })?;
 
         Ok(Self {
             state: new_state,

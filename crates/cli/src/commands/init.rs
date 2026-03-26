@@ -7,7 +7,7 @@ use scp_vcs::gix::repository;
 pub fn run(vcs_type: &str) -> Result<()> {
     println!("Initializing Source Control Plane...");
 
-    let cwd = std::env::current_dir().map_err(|e| scp_core::Error::Io(e))?;
+    let cwd = std::env::current_dir().map_err(|e| scp_core::Error::io_error(e.to_string()))?;
 
     match vcs_type {
         "jj" => {
@@ -15,7 +15,7 @@ pub fn run(vcs_type: &str) -> Result<()> {
             std::process::Command::new("jj")
                 .arg("--version")
                 .output()
-                .map_err(|e| scp_core::Error::Io(e))?;
+                .map_err(|e| scp_core::Error::io_error(e.to_string()))?;
 
             // Check if already initialized
             if cwd.join(".jj").exists() {
@@ -28,10 +28,10 @@ pub fn run(vcs_type: &str) -> Result<()> {
                 .args(["init", "--name", "main"])
                 .current_dir(&cwd)
                 .output()
-                .map_err(|e| scp_core::Error::Io(e))?;
+                .map_err(|e| scp_core::Error::io_error(e.to_string()))?;
 
             if !output.status.success() {
-                return Err(scp_core::Error::Internal(format!(
+                return Err(scp_core::Error::internal(format!(
                     "Failed to init jj: {}",
                     String::from_utf8_lossy(&output.stderr)
                 )));
@@ -53,12 +53,12 @@ pub fn run(vcs_type: &str) -> Result<()> {
             }
 
             // Initialize git using gix
-            repository::init(&cwd).map_err(|e| scp_core::Error::Internal(e.to_string()))?;
+            repository::init(&cwd).map_err(|e| scp_core::Error::internal(e.to_string()))?;
 
             println!("✓ Initialized Git in {:?}", cwd);
             Ok(())
         }
-        _ => Err(scp_core::Error::ConfigInvalid(format!(
+        _ => Err(scp_core::Error::config_invalid(format!(
             "Unknown VCS type: {}",
             vcs_type
         ))),

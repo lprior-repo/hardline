@@ -118,37 +118,63 @@ impl Pipeline {
         &mut self,
         new_state: PipelineState,
     ) -> Result<(), PipelineTransitionError> {
-        match (&self.state, &new_state) {
-            (PipelineState::Pending, PipelineState::SpecReview) => {}
-            (PipelineState::SpecReview, PipelineState::UniverseSetup) => {}
-            (PipelineState::SpecReview, PipelineState::Failed) => {}
-            (PipelineState::SpecReview, PipelineState::Escalated) => {}
-            (PipelineState::UniverseSetup, PipelineState::AgentDevelopment) => {}
-            (PipelineState::UniverseSetup, PipelineState::Failed) => {}
-            (PipelineState::UniverseSetup, PipelineState::Escalated) => {}
-            (PipelineState::AgentDevelopment, PipelineState::Validation) => {}
-            (PipelineState::AgentDevelopment, PipelineState::AgentDevelopment) => {}
-            (PipelineState::AgentDevelopment, PipelineState::Escalated) => {}
-            (PipelineState::Validation, PipelineState::Accepted) => {}
-            (PipelineState::Validation, PipelineState::AgentDevelopment) => {}
-            (PipelineState::Validation, PipelineState::Failed) => {}
-            (PipelineState::Validation, PipelineState::Escalated) => {}
-            (state, _) if state.is_terminal() => {
-                return Err(PipelineTransitionError::AlreadyTerminal { current: *state });
-            }
-            (_, PipelineState::Failed) => {}
-            (_, PipelineState::Escalated) => {}
-            _ => {
-                return Err(PipelineTransitionError::InvalidTransition {
-                    from: self.state,
-                    to: new_state,
-                });
-            }
-        }
+        self.validate_transition(&new_state)?;
 
         self.state = new_state;
         self.updated_at = Utc::now();
         Ok(())
+    }
+
+    fn validate_transition(
+        &self,
+        new_state: &PipelineState,
+    ) -> Result<(), PipelineTransitionError> {
+        if self.is_transition_valid(new_state) {
+            Ok(())
+        } else if self.state.is_terminal() {
+            Err(PipelineTransitionError::AlreadyTerminal {
+                current: self.state,
+            })
+        } else {
+            Err(PipelineTransitionError::InvalidTransition {
+                from: self.state,
+                to: *new_state,
+            })
+        }
+    }
+
+    fn is_transition_valid(&self, new_state: &PipelineState) -> bool {
+        self.is_phase_transition(new_state) || self.is_catchall_transition(new_state)
+    }
+
+    fn is_phase_transition(&self, new_state: &PipelineState) -> bool {
+        matches!(
+            (&self.state, new_state),
+            (PipelineState::Pending, PipelineState::SpecReview)
+                | (PipelineState::SpecReview, PipelineState::UniverseSetup)
+                | (PipelineState::SpecReview, PipelineState::Failed)
+                | (PipelineState::SpecReview, PipelineState::Escalated)
+                | (
+                    PipelineState::UniverseSetup,
+                    PipelineState::AgentDevelopment
+                )
+                | (PipelineState::UniverseSetup, PipelineState::Failed)
+                | (PipelineState::UniverseSetup, PipelineState::Escalated)
+                | (PipelineState::AgentDevelopment, PipelineState::Validation)
+                | (
+                    PipelineState::AgentDevelopment,
+                    PipelineState::AgentDevelopment
+                )
+                | (PipelineState::AgentDevelopment, PipelineState::Escalated)
+                | (PipelineState::Validation, PipelineState::Accepted)
+                | (PipelineState::Validation, PipelineState::AgentDevelopment)
+                | (PipelineState::Validation, PipelineState::Failed)
+                | (PipelineState::Validation, PipelineState::Escalated)
+        )
+    }
+
+    fn is_catchall_transition(&self, new_state: &PipelineState) -> bool {
+        matches!(new_state, PipelineState::Failed | PipelineState::Escalated)
     }
 
     pub fn increment_iteration(&mut self) -> Result<u32, IterationLimitError> {

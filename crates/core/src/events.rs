@@ -149,7 +149,7 @@ impl EventEmitter for MemEventEmitter {
         let mut events = self
             .events
             .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+            .map_err(|e| crate::error::Error::internal(e.to_string()))?;
         events.push(emitted);
 
         Ok(())
@@ -159,7 +159,7 @@ impl EventEmitter for MemEventEmitter {
         let events = self
             .events
             .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+            .map_err(|e| crate::error::Error::internal(e.to_string()))?;
         Ok(events
             .iter()
             .rev()
@@ -172,7 +172,7 @@ impl EventEmitter for MemEventEmitter {
         let mut events = self
             .events
             .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+            .map_err(|e| Error::internal(e.to_string()))?;
         events.clear();
         Ok(())
     }

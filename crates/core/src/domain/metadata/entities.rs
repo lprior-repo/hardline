@@ -4,7 +4,6 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use crate::dag::BranchId;
-use crate::Error;
 
 /// StackMetadata - Storage layer for branch metadata with backend delegation
 #[derive(Clone)]

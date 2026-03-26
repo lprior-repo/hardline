@@ -5,7 +5,7 @@
 use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use scp_core::error::Error;
+use scp_core::{error::Error, error_task::TaskErrorKind};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -32,13 +32,14 @@ impl TaskId {
     pub fn new(id: impl Into<String>) -> Result<Self, Error> {
         let id = id.into();
         if id.is_empty() {
-            return Err(Error::InvalidTaskId("Task ID cannot be empty".to_string()));
+            return Err(TaskErrorKind::InvalidId("Task ID cannot be empty".to_string()).into());
         }
         if !TASK_ID_PATTERN.is_match(&id) {
-            return Err(Error::InvalidTaskId(format!(
+            return Err(TaskErrorKind::InvalidId(format!(
                 "Task ID must be alphanumeric with - or _, got: {}",
                 id
-            )));
+            ))
+            .into());
         }
         Ok(Self(id))
     }

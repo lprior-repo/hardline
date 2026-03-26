@@ -62,7 +62,7 @@ pub fn dequeue() -> Result<()> {
             println!("✓ Dequeued '{}'", item.branch);
             Ok(())
         }
-        None => Err(scp_core::Error::QueueEmpty),
+        None => Err(scp_core::Error::queue_empty()),
     }
 }
 
@@ -76,7 +76,7 @@ pub fn process(checks: bool) -> Result<()> {
 
     let mut item = match queue.dequeue()? {
         Some(i) => i,
-        None => return Err(scp_core::Error::QueueEmpty),
+        None => return Err(scp_core::Error::queue_empty()),
     };
 
     println!("Processing '{}'...", item.branch);
@@ -122,7 +122,7 @@ pub fn remove(branch: &str) -> Result<()> {
     let item = items
         .iter()
         .find(|i| i.branch == branch)
-        .ok_or_else(|| scp_core::Error::QueueItemNotFound(branch.to_string()))?;
+        .ok_or_else(|| scp_core::Error::queue_item_not_found(branch.to_string()))?;
 
     queue.remove(&item.id)?;
     println!("✓ Removed '{}' from queue", branch);

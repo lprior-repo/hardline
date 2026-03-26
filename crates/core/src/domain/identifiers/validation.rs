@@ -5,12 +5,6 @@
 
 use crate::domain::identifiers::error::IdentifierError;
 
-/// Validate a session name according to naming rules
-///
-/// Rules:
-/// - Must start with a letter
-/// - Can contain letters, numbers, hyphens, underscores
-/// - Must be 1-63 characters
 pub fn validate_session_name(s: &str) -> Result<(), IdentifierError> {
     if s.is_empty() {
         return Err(IdentifierError::empty());
@@ -85,11 +79,6 @@ pub fn validate_workspace_name(s: &str) -> Result<(), IdentifierError> {
     Ok(())
 }
 
-/// Validate a task ID (bead ID format)
-///
-/// Rules:
-/// - Must match pattern: bd-{hex}
-/// - Example: bd-abc123def456
 pub fn validate_task_id(s: &str) -> Result<(), IdentifierError> {
     if s.is_empty() {
         return Err(IdentifierError::empty());
@@ -133,11 +122,6 @@ pub fn validate_session_id(s: &str) -> Result<(), IdentifierError> {
     Ok(())
 }
 
-/// Validate an absolute path
-///
-/// Rules:
-/// - Must be absolute (starts with / on Unix, C:\ or similar on Windows)
-/// - Must not contain null bytes
 pub fn validate_absolute_path(s: &str) -> Result<(), IdentifierError> {
     if s.is_empty() {
         return Err(IdentifierError::invalid_format("path cannot be empty"));

@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use crate::domain::workspace_state::WorkspaceState;
 use crate::error::SessionError;
 
-use super::bead_state::BeadState;
-use super::bead_types::{BeadType, Priority};
-use super::bead_value::{BeadDescription, BeadId, BeadTitle};
+pub use super::bead_state::BeadState;
+pub use super::bead_types::{BeadType, Priority};
+pub use super::bead_value::{BeadDescription, BeadId, BeadTitle};
 
 /// Bead aggregate representing an atomic unit of work.
 ///
@@ -159,37 +159,57 @@ impl Bead {
     /// - If transitioning to Closed, closed_at is set
     /// - updated_at is always updated
     pub fn transition(&self, new_state: BeadState) -> Result<Self, SessionError> {
-        // Q15: Cannot transition from Closed to any other state
-        if self.state == BeadState::Closed && new_state != BeadState::Closed {
-            return Err(SessionError::InvalidTransition {
-                from: WorkspaceState::Working,
-                to: WorkspaceState::Working,
-            });
+        if let Err(e) = self.validate_closed_state_transition(new_state) {
+            return Err(e);
         }
-
-        // Q16: Can always transition to Closed
-        if new_state == BeadState::Closed {
-            return Ok(Self {
-                state: new_state,
-                closed_at: Some(Utc::now()),
-                updated_at: Utc::now(),
-                ..self.clone()
-            });
+        if let Ok(bead) = self.try_transition_to_closed(new_state) {
+            return Ok(bead);
         }
-
-        // Validate the transition
-        if !self.state.can_transition_to(new_state) {
-            return Err(SessionError::InvalidTransition {
-                from: WorkspaceState::Working,
-                to: WorkspaceState::Working,
-            });
-        }
+        self.validate_state_transition(new_state)?;
 
         Ok(Self {
             state: new_state,
             updated_at: Utc::now(),
             ..self.clone()
         })
+    }
+
+    fn validate_closed_state_transition(&self, new_state: BeadState) -> Result<(), SessionError> {
+        if self.state == BeadState::Closed && new_state != BeadState::Closed {
+            Err(SessionError::InvalidTransition {
+                from: WorkspaceState::Working,
+                to: WorkspaceState::Working,
+            })
+        } else {
+            Ok(())
+        }
+    }
+
+    fn try_transition_to_closed(&self, new_state: BeadState) -> Result<Self, SessionError> {
+        if new_state == BeadState::Closed {
+            Ok(Self {
+                state: new_state,
+                closed_at: Some(Utc::now()),
+                updated_at: Utc::now(),
+                ..self.clone()
+            })
+        } else {
+            Err(SessionError::InvalidTransition {
+                from: WorkspaceState::Working,
+                to: WorkspaceState::Working,
+            })
+        }
+    }
+
+    fn validate_state_transition(&self, new_state: BeadState) -> Result<(), SessionError> {
+        if self.state.can_transition_to(new_state) {
+            Ok(())
+        } else {
+            Err(SessionError::InvalidTransition {
+                from: WorkspaceState::Working,
+                to: WorkspaceState::Working,
+            })
+        }
     }
 
     /// Check if this bead is blocked.

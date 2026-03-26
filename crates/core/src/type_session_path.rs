@@ -16,7 +16,7 @@ impl AbsolutePath {
     pub fn parse(path: impl Into<PathBuf>) -> Result<Self> {
         let path = path.into();
         if !path.is_absolute() {
-            return Err(Error::InvalidState("Path must be absolute".to_string()));
+            return Err(Error::invalid_state("Path must be absolute".to_string()));
         }
         Ok(Self(path))
     }

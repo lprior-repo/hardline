@@ -39,14 +39,14 @@ fn given_lock_backoff_when_calculated_then_exponential() {
 #[test]
 fn given_file_lock_on_available_file_when_acquired_then_succeeds() -> Result<()> {
     use std::fs;
-    let temp_dir = tempfile::tempdir().map_err(|e| Error::IoError(e.to_string()))?;
+    let temp_dir = tempfile::tempdir().map_err(|e| Error::io_error(e.to_string()))?;
     let lock_path = temp_dir.path().join("test.lock");
     let file = fs::OpenOptions::new()
         .create(true)
         .read(true)
         .write(true)
         .open(&lock_path)
-        .map_err(|e| Error::IoError(e.to_string()))?;
+        .map_err(|e| Error::io_error(e.to_string()))?;
 
     let result = acquire_file_lock_with_timeout(&file, "test lock");
     assert!(result.is_ok());
@@ -57,7 +57,7 @@ fn given_file_lock_on_available_file_when_acquired_then_succeeds() -> Result<()>
 #[test]
 fn given_file_already_locked_when_timeout_acquisition_then_returns_error() -> Result<()> {
     use std::fs;
-    let temp_dir = tempfile::tempdir().map_err(|e| Error::IoError(e.to_string()))?;
+    let temp_dir = tempfile::tempdir().map_err(|e| Error::io_error(e.to_string()))?;
     let lock_path = temp_dir.path().join("test.lock");
 
     let file1 = fs::OpenOptions::new()
@@ -65,17 +65,17 @@ fn given_file_already_locked_when_timeout_acquisition_then_returns_error() -> Re
         .read(true)
         .write(true)
         .open(&lock_path)
-        .map_err(|e| Error::IoError(e.to_string()))?;
+        .map_err(|e| Error::io_error(e.to_string()))?;
 
     file1
         .try_lock_exclusive()
-        .map_err(|e| Error::IoError(e.to_string()))?;
+        .map_err(|e| Error::io_error(e.to_string()))?;
 
     let file2 = fs::OpenOptions::new()
         .read(true)
         .write(true)
         .open(&lock_path)
-        .map_err(|e| Error::IoError(e.to_string()))?;
+        .map_err(|e| Error::io_error(e.to_string()))?;
 
     let result = acquire_file_lock_with_timeout(&file2, "contended lock");
     assert!(result.is_err());
@@ -95,7 +95,7 @@ fn given_file_already_locked_when_timeout_acquisition_then_returns_error() -> Re
 
 #[tokio::test]
 async fn regression_cross_process_lock_blocks_second_holder() -> Result<()> {
-    let repo_root = tempfile::tempdir().map_err(|e| Error::IoError(e.to_string()))?;
+    let repo_root = tempfile::tempdir().map_err(|e| Error::io_error(e.to_string()))?;
     let repo_root_path = repo_root.path().to_path_buf();
 
     let _lock_file_handle = acquire_cross_process_lock(&repo_root_path).await?;
@@ -110,7 +110,7 @@ async fn regression_cross_process_lock_blocks_second_holder() -> Result<()> {
         .read(true)
         .write(true)
         .open(lock_path)
-        .map_err(|e| Error::IoError(e.to_string()))?;
+        .map_err(|e| Error::io_error(e.to_string()))?;
 
     let second_lock_attempt = second_file.try_lock_exclusive();
     assert!(second_lock_attempt.is_err());
@@ -120,7 +120,7 @@ async fn regression_cross_process_lock_blocks_second_holder() -> Result<()> {
 
 #[tokio::test]
 async fn regression_cross_process_lock_releases_on_drop() -> Result<()> {
-    let repo_root = tempfile::tempdir().map_err(|e| Error::IoError(e.to_string()))?;
+    let repo_root = tempfile::tempdir().map_err(|e| Error::io_error(e.to_string()))?;
     let repo_root_path = repo_root.path().to_path_buf();
 
     {
@@ -138,7 +138,7 @@ async fn regression_cross_process_lock_releases_on_drop() -> Result<()> {
         .read(true)
         .write(true)
         .open(lock_path)
-        .map_err(|e| Error::IoError(e.to_string()))?;
+        .map_err(|e| Error::io_error(e.to_string()))?;
 
     let second_lock_attempt = second_file.try_lock_exclusive();
     assert!(
@@ -153,7 +153,7 @@ async fn regression_cross_process_lock_releases_on_drop() -> Result<()> {
 async fn stress_cross_process_lock_keeps_single_holder() -> Result<()> {
     use std::sync::Arc;
 
-    let repo_root = tempfile::tempdir().map_err(|e| Error::IoError(e.to_string()))?;
+    let repo_root = tempfile::tempdir().map_err(|e| Error::io_error(e.to_string()))?;
     let repo_root_path = Arc::new(repo_root.path().to_path_buf());
 
     let task_count = 24usize;

@@ -62,11 +62,12 @@ pub(super) fn acquire_lock_with_backoff() -> impl std::future::Future<Output = R
                     } else {
                         let timeout_ms =
                             u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis()).unwrap_or(u64::MAX);
-                        return Err(Error::LockTimeout {
+                        return Err(crate::error_jj::JjErrorKind::LockTimeout {
                             operation: "workspace creation".to_string(),
                             timeout_ms,
                             retries: MAX_LOCK_RETRIES,
-                        });
+                        }
+                        .into());
                     }
                 }
             }
@@ -74,11 +75,12 @@ pub(super) fn acquire_lock_with_backoff() -> impl std::future::Future<Output = R
 
         let timeout_ms =
             u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis()).unwrap_or(u64::MAX);
-        Err(Error::LockTimeout {
+        Err(crate::error_jj::JjErrorKind::LockTimeout {
             operation: "workspace creation".to_string(),
             timeout_ms,
             retries: MAX_LOCK_RETRIES,
-        })
+        }
+        .into())
     }
 }
 
@@ -91,7 +93,7 @@ pub fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<
             Ok(()) => return Ok(()),
             Err(_) if attempt < HIGH_CONTENTION_MAX_ATTEMPTS - 1 => {
                 let attempt_u32 = u32::try_from(attempt).map_err(|_| {
-                    Error::IoError(format!("Invalid retry attempt: {attempt}"))
+                    Error::io_error(format!("Invalid retry attempt: {attempt}"))
                 })?;
                 let backoff_ms = FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(attempt_u32);
                 let backoff = Duration::from_millis(backoff_ms);
@@ -103,11 +105,12 @@ pub fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<
                 let total_wait_ms: u64 = (0u32..max_attempts_u32)
                     .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i))
                     .sum();
-                return Err(Error::LockTimeout {
+                return Err(crate::error_jj::JjErrorKind::LockTimeout {
                     operation: description.to_string(),
                     timeout_ms: total_wait_ms,
                     retries: HIGH_CONTENTION_MAX_ATTEMPTS,
-                });
+                }
+                .into());
             }
         }
     }
@@ -116,11 +119,12 @@ pub fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<
     let total_wait_ms: u64 = (0u32..max_attempts_u32)
         .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i))
         .sum();
-    Err(Error::LockTimeout {
+    Err(crate::error_jj::JjErrorKind::LockTimeout {
         operation: "file lock acquisition".to_string(),
         timeout_ms: total_wait_ms,
         retries: HIGH_CONTENTION_MAX_ATTEMPTS,
-    })
+    }
+    .into())
 }
 
 /// Acquire cross-process file lock for workspace creation
@@ -128,7 +132,7 @@ pub async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
     let lock_dir = repo_root.join(".isolate");
     tokio::fs::create_dir_all(&lock_dir)
         .await
-        .map_err(|e| Error::IoError(format!("Failed to create lock directory: {e}")))?;
+        .map_err(|e| Error::io_error(format!("Failed to create lock directory: {e}")))?;
 
     let lock_path = lock_dir.join(WORKSPACE_CREATION_LOCK_FILE);
 
@@ -139,7 +143,7 @@ pub async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
             .read(true)
             .write(true)
             .open(&lock_path)
-            .map_err(|e| Error::IoError(format!("Failed to open workspace lock file: {e}")))?;
+            .map_err(|e| Error::io_error(format!("Failed to open workspace lock file: {e}")))?;
 
         acquire_file_lock_with_timeout(&file, "workspace creation cross-process lock")?;
 
@@ -147,12 +151,12 @@ pub async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
             .read(true)
             .write(true)
             .open(&lock_path)
-            .map_err(|e| Error::IoError(format!("Failed to open probe lock file: {e}")))
+            .map_err(|e| Error::io_error(format!("Failed to open probe lock file: {e}")))
             .and_then(|probe| match probe.try_lock_exclusive() {
                 Ok(()) => {
                     let unlock_result = probe.unlock();
                     if let Err(unlock_error) = unlock_result {
-                        return Err(Error::IoError(format!(
+                        return Err(Error::io_error(format!(
                             "Failed to unlock probe lock file: {unlock_error}"
                         )));
                     }
@@ -169,7 +173,7 @@ pub async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
             tracing::warn!("{warning}");
 
             if std::env::var("Isolate_STRICT_LOCKS").is_ok() {
-                return Err(Error::ValidationError(format!(
+                return Err(Error::validation_error(format!(
                     "LOCK_PORTABILITY_UNSUPPORTED: {warning}. Unset Isolate_STRICT_LOCKS to continue with process-local lock fallback",
                 )));
             }
@@ -178,6 +182,5 @@ pub async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
         Ok::<File, Error>(file)
     })
     .await
-    .map_err(|e| Error::IoError(format!("Failed to join lock task: {e}")))?
+    .map_err(|e| Error::io_error(format!("Failed to join lock task: {e}")))?
 }
-

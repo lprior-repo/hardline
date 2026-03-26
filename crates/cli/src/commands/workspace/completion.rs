@@ -1,13 +1,14 @@
 //! Workspace completion commands
 
+use scp_core::output::Output;
 use scp_core::vcs;
+use scp_core::Error;
 
 use super::operations::*;
-use crate::Error;
 
 /// Complete workspace and merge
 pub fn done(name: Option<&str>) -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     // P4: Check for dirty working copy BEFORE any operations
@@ -18,7 +19,7 @@ pub fn done(name: Option<&str>) -> Result<(), Error> {
 
     // P3: Check workspace exists
     if !workspace_exists(backend.as_ref(), &workspace_name)? {
-        return Err(Error::WorkspaceNotFound(workspace_name.clone()));
+        return Err(Error::workspace_not_found(workspace_name.clone()));
     }
 
     Output::info(&format!("Completing workspace '{}'...", workspace_name));
@@ -33,7 +34,7 @@ pub fn done(name: Option<&str>) -> Result<(), Error> {
 
 /// Abort workspace
 pub fn abort(name: Option<&str>) -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     // Resolve workspace name: if None, get current workspace

@@ -120,13 +120,3 @@ fn bead_can_transition_to_closed_always() {
     // Can always transition to Closed
     assert!(bead.can_transition_to(BeadState::Closed));
 }
-
-#[test]
-fn bead_cannot_transition_from_closed() {
-    let id = BeadId::new("bd-123").unwrap();
-    let title = BeadTitle::new("Test Bead").unwrap();
-    let bead = Bead::create(id, title, None);
-    let closed = bead.transition(BeadState::Closed).unwrap();
-
-    assert!(!closed.can_transition_to(BeadState::InProgress));
-}

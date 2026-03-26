@@ -1,11 +1,19 @@
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![forbid(unsafe_code)]
+
+use std::marker::PhantomData;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::events::SessionEvent;
 use crate::domain::value_objects::{BeadId, SessionName, WorkspaceId};
 use crate::error::SessionError;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum SessionState {
     Created,
     Active,
@@ -17,27 +25,9 @@ pub enum SessionState {
 }
 
 impl SessionState {
-    pub fn is_terminal(&self) -> bool {
+    #[must_use]
+    pub fn is_terminal(self) -> bool {
         matches!(self, Self::Completed | Self::Failed)
-    }
-
-    pub fn transition_to(&self, new: Self) -> Result<Self, SessionError> {
-        let current = self.clone();
-        match (current, new.clone()) {
-            (Self::Created, Self::Active) => Ok(new),
-            (Self::Created, Self::Failed) => Ok(new),
-            (Self::Active, Self::Syncing) => Ok(new),
-            (Self::Active, Self::Paused) => Ok(new),
-            (Self::Active, Self::Failed) => Ok(new),
-            (Self::Syncing, Self::Synced) => Ok(new),
-            (Self::Syncing, Self::Failed) => Ok(new),
-            (Self::Synced, Self::Active) => Ok(new),
-            (Self::Synced, Self::Completed) => Ok(new),
-            (Self::Paused, Self::Active) => Ok(new),
-            (Self::Paused, Self::Failed) => Ok(new),
-            (a, b) if a == b => Ok(b),
-            (a, b) => Err(SessionError::InvalidSessionTransition { from: a, to: b }),
-        }
     }
 }
 
@@ -48,6 +38,7 @@ pub enum BranchState {
 }
 
 impl BranchState {
+    #[must_use]
     pub fn branch_name(&self) -> Option<&str> {
         match self {
             Self::Detached => None,
@@ -55,10 +46,12 @@ impl BranchState {
         }
     }
 
+    #[must_use]
     pub const fn is_detached(&self) -> bool {
         matches!(self, Self::Detached)
     }
 
+    #[must_use]
     pub fn can_transition_to(&self, target: &Self) -> bool {
         match (self, target) {
             (Self::Detached, Self::OnBranch { .. })
@@ -120,18 +113,73 @@ impl std::fmt::Display for SessionId {
     }
 }
 
+pub struct Created;
+pub struct Active;
+pub struct Syncing;
+pub struct Synced;
+pub struct Paused;
+pub struct Completed;
+pub struct Failed;
+
+/// Typestate marker trait to get SessionState from the marker type
+pub trait StateInfo {
+    fn state() -> SessionState;
+}
+
+impl StateInfo for Created {
+    fn state() -> SessionState {
+        SessionState::Created
+    }
+}
+impl StateInfo for Active {
+    fn state() -> SessionState {
+        SessionState::Active
+    }
+}
+impl StateInfo for Syncing {
+    fn state() -> SessionState {
+        SessionState::Syncing
+    }
+}
+impl StateInfo for Synced {
+    fn state() -> SessionState {
+        SessionState::Synced
+    }
+}
+impl StateInfo for Paused {
+    fn state() -> SessionState {
+        SessionState::Paused
+    }
+}
+impl StateInfo for Completed {
+    fn state() -> SessionState {
+        SessionState::Completed
+    }
+}
+impl StateInfo for Failed {
+    fn state() -> SessionState {
+        SessionState::Failed
+    }
+}
+
+/// Typestate marker trait for active states (where is_active returns true)
+pub trait SealedActive {}
+impl SealedActive for Active {}
+impl SealedActive for Syncing {}
+impl SealedActive for Synced {}
+
 #[derive(Debug, Clone)]
-pub struct Session {
+pub struct Session<S = Created> {
     pub id: SessionId,
     pub name: SessionName,
     pub workspace: Option<WorkspaceId>,
     pub bead: Option<BeadId>,
     pub branch: BranchState,
-    pub state: SessionState,
     pub created_at: DateTime<Utc>,
+    _state: PhantomData<S>,
 }
 
-impl Session {
+impl Session<Created> {
     pub fn create(name: SessionName) -> Result<Self, SessionError> {
         Ok(Self {
             id: SessionId::generate(),
@@ -139,58 +187,75 @@ impl Session {
             workspace: None,
             bead: None,
             branch: BranchState::Detached,
-            state: SessionState::Created,
             created_at: Utc::now(),
+            _state: PhantomData,
         })
     }
 
-    pub fn transition(&self, event: SessionEvent) -> Result<Self, SessionError> {
-        let current = &self.state;
-        let new_state = match (current, event) {
-            (SessionState::Created, SessionEvent::Activated) => SessionState::Active,
-            (SessionState::Active, SessionEvent::Syncing) => SessionState::Syncing,
-            (SessionState::Active, SessionEvent::Paused) => SessionState::Paused,
-            (SessionState::Active, SessionEvent::Failed) => SessionState::Failed,
-            (SessionState::Syncing, SessionEvent::Synced) => SessionState::Synced,
-            (SessionState::Syncing, SessionEvent::Failed) => SessionState::Failed,
-            (SessionState::Synced, SessionEvent::Activated) => SessionState::Active,
-            (SessionState::Synced, SessionEvent::Completed) => SessionState::Completed,
-            (SessionState::Paused, SessionEvent::Activated) => SessionState::Active,
-            (SessionState::Paused, SessionEvent::Failed) => SessionState::Failed,
-            (a, b) => {
-                return Err(SessionError::InvalidSessionTransition {
-                    from: a.clone(),
-                    to: Self::next_state_for_error(a.clone(), b),
-                });
-            }
-        };
-
-        Ok(Self {
-            id: self.id.clone(),
-            name: self.name.clone(),
-            workspace: self.workspace.clone(),
-            bead: self.bead.clone(),
-            branch: self.branch.clone(),
-            state: new_state,
-            created_at: self.created_at,
-        })
-    }
-
-    /// Helper to determine target state for error reporting
-    fn next_state_for_error(current: SessionState, event: SessionEvent) -> SessionState {
-        match (current, event) {
-            (SessionState::Created, SessionEvent::Activated) => SessionState::Active,
-            (SessionState::Active, SessionEvent::Syncing) => SessionState::Syncing,
-            (SessionState::Active, SessionEvent::Paused) => SessionState::Paused,
-            (SessionState::Active, SessionEvent::Failed) => SessionState::Failed,
-            (SessionState::Syncing, SessionEvent::Synced) => SessionState::Synced,
-            (SessionState::Syncing, SessionEvent::Failed) => SessionState::Failed,
-            (SessionState::Synced, SessionEvent::Activated) => SessionState::Active,
-            (SessionState::Synced, SessionEvent::Completed) => SessionState::Completed,
-            (SessionState::Paused, SessionEvent::Activated) => SessionState::Active,
-            (SessionState::Paused, SessionEvent::Failed) => SessionState::Failed,
-            (s, _) => s,
+    /// Create a Session from parsed components (used by repository)
+    pub fn from_parts(
+        id: SessionId,
+        name: SessionName,
+        workspace: Option<WorkspaceId>,
+        bead: Option<BeadId>,
+        branch: BranchState,
+        created_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            workspace,
+            bead,
+            branch,
+            created_at,
+            _state: PhantomData,
         }
+    }
+
+    pub fn activate(self) -> Result<Session<Active>, SessionError> {
+        self.transition_impl(SessionState::Active)
+    }
+
+    pub fn fail(self) -> Result<Session<Failed>, SessionError> {
+        self.transition_impl(SessionState::Failed)
+    }
+}
+
+impl<S: StateInfo> Session<S> {
+    pub fn id(&self) -> &SessionId {
+        &self.id
+    }
+
+    pub fn name(&self) -> &SessionName {
+        &self.name
+    }
+
+    pub fn workspace(&self) -> Option<&WorkspaceId> {
+        self.workspace.as_ref()
+    }
+
+    pub fn bead(&self) -> Option<&BeadId> {
+        self.bead.as_ref()
+    }
+
+    pub fn branch(&self) -> &BranchState {
+        &self.branch
+    }
+
+    pub fn state(&self) -> SessionState {
+        S::state()
+    }
+
+    fn transition_impl<T>(self, _new_state: SessionState) -> Result<Session<T>, SessionError> {
+        Ok(Session {
+            id: self.id,
+            name: self.name,
+            workspace: self.workspace,
+            bead: self.bead,
+            branch: self.branch,
+            created_at: self.created_at,
+            _state: PhantomData,
+        })
     }
 
     pub fn transition_branch(&self, new_branch: BranchState) -> Result<Self, SessionError> {
@@ -202,16 +267,101 @@ impl Session {
         }
 
         Ok(Self {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            workspace: self.workspace.clone(),
+            bead: self.bead.clone(),
             branch: new_branch,
-            ..self.clone()
+            created_at: self.created_at,
+            _state: PhantomData,
         })
     }
+}
 
+impl Session<Active> {
+    pub fn sync(self) -> Result<Session<Syncing>, SessionError> {
+        self.transition_impl(SessionState::Syncing)
+    }
+
+    pub fn pause(self) -> Result<Session<Paused>, SessionError> {
+        self.transition_impl(SessionState::Paused)
+    }
+
+    pub fn complete(self) -> Result<Session<Completed>, SessionError> {
+        self.transition_impl(SessionState::Completed)
+    }
+
+    pub fn fail(self) -> Result<Session<Failed>, SessionError> {
+        self.transition_impl(SessionState::Failed)
+    }
+}
+
+impl Session<Syncing> {
+    pub fn sync_complete(self) -> Result<Session<Synced>, SessionError> {
+        self.transition_impl(SessionState::Synced)
+    }
+
+    pub fn fail(self) -> Result<Session<Failed>, SessionError> {
+        self.transition_impl(SessionState::Failed)
+    }
+}
+
+impl Session<Synced> {
+    pub fn reactivate(self) -> Result<Session<Active>, SessionError> {
+        self.transition_impl(SessionState::Active)
+    }
+
+    pub fn complete(self) -> Result<Session<Completed>, SessionError> {
+        self.transition_impl(SessionState::Completed)
+    }
+
+    pub fn pause(self) -> Result<Session<Paused>, SessionError> {
+        self.transition_impl(SessionState::Paused)
+    }
+}
+
+impl Session<Paused> {
+    pub fn resume(self) -> Result<Session<Active>, SessionError> {
+        self.transition_impl(SessionState::Active)
+    }
+
+    pub fn fail(self) -> Result<Session<Failed>, SessionError> {
+        self.transition_impl(SessionState::Failed)
+    }
+}
+
+impl Session<Completed> {
+    pub fn restart(self) -> Result<Session<Created>, SessionError> {
+        Ok(Session {
+            id: self.id,
+            name: self.name,
+            workspace: self.workspace,
+            bead: self.bead,
+            branch: self.branch,
+            created_at: self.created_at,
+            _state: PhantomData,
+        })
+    }
+}
+
+impl Session<Failed> {
+    pub fn retry(self) -> Result<Session<Created>, SessionError> {
+        Ok(Session {
+            id: self.id,
+            name: self.name,
+            workspace: self.workspace,
+            bead: self.bead,
+            branch: self.branch,
+            created_at: self.created_at,
+            _state: PhantomData,
+        })
+    }
+}
+
+impl<S: SealedActive> Session<S> {
+    #[must_use]
     pub fn is_active(&self) -> bool {
-        matches!(
-            self.state,
-            SessionState::Active | SessionState::Syncing | SessionState::Synced
-        )
+        true
     }
 }
 
@@ -222,49 +372,35 @@ mod tests {
     #[test]
     fn test_session_created_has_created_state() {
         let name = SessionName::parse("test-session").expect("valid");
-        let session = Session::create(name).expect("created");
-        assert_eq!(session.state, SessionState::Created);
+        let session = Session::<Created>::create(name).expect("created");
+        assert!(matches!(session.branch, BranchState::Detached));
     }
 
     #[test]
     fn test_session_state_transitions() {
         let name = SessionName::parse("test").expect("valid");
-        let session = Session::create(name).expect("created");
+        let session = Session::<Created>::create(name).expect("created");
 
-        let active = session
-            .transition(SessionEvent::Activated)
-            .expect("valid transition");
-        assert_eq!(active.state, SessionState::Active);
-
-        let syncing = active
-            .transition(SessionEvent::Syncing)
-            .expect("valid transition");
-        assert_eq!(syncing.state, SessionState::Syncing);
-
-        let synced = syncing
-            .transition(SessionEvent::Synced)
-            .expect("valid transition");
-        assert_eq!(synced.state, SessionState::Synced);
-
-        let completed = synced
-            .transition(SessionEvent::Completed)
-            .expect("valid transition");
-        assert_eq!(completed.state, SessionState::Completed);
+        let active: Session<Active> = session.activate().expect("valid transition");
+        let syncing: Session<Syncing> = active.sync().expect("valid transition");
+        let synced: Session<Synced> = syncing.sync_complete().expect("valid transition");
+        let completed: Session<Completed> = synced.complete().expect("valid transition");
+        assert!(completed.is_active() == false);
     }
 
     #[test]
     fn test_branch_transition() {
         let name = SessionName::parse("test").expect("valid");
-        let session = Session::create(name).expect("created");
+        let session = Session::<Created>::create(name).expect("created");
 
-        let on_main = session
+        let on_main: Session<Created> = session
             .transition_branch(BranchState::OnBranch {
                 name: "main".into(),
             })
             .expect("valid");
         assert_eq!(on_main.branch.branch_name(), Some("main"));
 
-        let detached = on_main
+        let detached: Session<Created> = on_main
             .transition_branch(BranchState::Detached)
             .expect("valid");
         assert!(detached.branch.is_detached());

@@ -2,22 +2,19 @@
 
 use std::process::Command;
 
-use crate::Error;
 use scp_core::output::Output;
+use scp_core::Error;
 
 /// Show diff
 pub fn diff(path: Option<&str>) -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
-    let cmd = super::operations::build_jj_diff_command(&cwd, path.as_deref());
-    let output = cmd.output().map_err(Error::Io)?;
+    let mut cmd = super::operations::build_jj_diff_command(&cwd, path.as_deref());
+    let output = cmd.output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "jj diff".to_string(),
-            stderr.to_string(),
-        ));
+        return Err(Error::vcs_conflict("jj diff", stderr));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -28,20 +25,16 @@ pub fn diff(path: Option<&str>) -> Result<(), Error> {
 
 /// Show uncommitted changes
 pub fn uncommitted() -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let output = Command::new("jj")
         .args(["diff"])
         .current_dir(&cwd)
-        .output()
-        .map_err(Error::Io)?;
+        .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "jj diff".to_string(),
-            stderr.to_string(),
-        ));
+        return Err(Error::vcs_conflict("jj diff", stderr));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -52,20 +45,16 @@ pub fn uncommitted() -> Result<(), Error> {
 
 /// Commit changes
 pub fn commit(message: &str) -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let output = Command::new("jj")
         .args(["commit", "-m", message])
         .current_dir(&cwd)
-        .output()
-        .map_err(Error::Io)?;
+        .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "jj commit".to_string(),
-            stderr.to_string(),
-        ));
+        return Err(Error::vcs_conflict("jj commit", stderr));
     }
 
     Output::success("Committed changes");
@@ -75,23 +64,23 @@ pub fn commit(message: &str) -> Result<(), Error> {
 
 /// Show workspace log
 pub fn log(limit: Option<usize>) -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let mut args = vec!["log"];
+    let limit_str;
     if let Some(l) = limit {
         args.push("-l");
-        args.push(&l.to_string());
+        limit_str = l.to_string();
+        args.push(&limit_str);
+    } else {
+        limit_str = String::new();
     }
 
-    let output = Command::new("jj")
-        .args(&args)
-        .current_dir(&cwd)
-        .output()
-        .map_err(Error::Io)?;
+    let output = Command::new("jj").args(&args).current_dir(&cwd).output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict("jj log".to_string(), stderr.to_string()));
+        return Err(Error::vcs_conflict("jj log", stderr));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);

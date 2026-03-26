@@ -2,12 +2,11 @@
 
 use scp_core::output::Output;
 use scp_core::vcs;
-
-use crate::Error;
+use scp_core::Error;
 
 /// Next workspace
 pub fn next() -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;
@@ -21,7 +20,7 @@ pub fn next() -> Result<(), Error> {
 
 /// Previous workspace
 pub fn prev() -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;

@@ -7,7 +7,7 @@ use std::path::PathBuf;
 /// Get the config directory
 fn get_config_dir() -> Result<PathBuf> {
     let dir = directories::ProjectDirs::from("com", "scp", "scp")
-        .ok_or_else(|| Error::ConfigNotFound("Could not determine config directory".into()))?;
+        .ok_or_else(|| Error::config_not_found("Could not determine config directory"))?;
     Ok(dir.config_dir().to_path_buf())
 }
 
@@ -25,7 +25,8 @@ fn load_config() -> Result<std::collections::HashMap<String, String>> {
     let mut config = std::collections::HashMap::new();
 
     if config_file.exists() {
-        let contents = fs::read_to_string(&config_file).map_err(|e| Error::Io(e))?;
+        let contents =
+            fs::read_to_string(&config_file).map_err(|e| Error::io_error(e.to_string()))?;
 
         // Simple TOML parsing (key = value)
         for line in contents.lines() {
@@ -50,7 +51,7 @@ fn save_config(config: &std::collections::HashMap<String, String>) -> Result<()>
 
     // Create parent directories
     if let Some(parent) = config_file.parent() {
-        fs::create_dir_all(parent).map_err(|e| Error::Io(e))?;
+        fs::create_dir_all(parent).map_err(|e| Error::io_error(e.to_string()))?;
     }
 
     // Write config
@@ -61,7 +62,7 @@ fn save_config(config: &std::collections::HashMap<String, String>) -> Result<()>
         contents.push_str(&format!("{} = {}\n", key, value));
     }
 
-    fs::write(&config_file, contents).map_err(|e| Error::Io(e))?;
+    fs::write(&config_file, contents).map_err(|e| Error::io_error(e.to_string()))?;
 
     Ok(())
 }
@@ -77,7 +78,7 @@ pub fn get(key: &str) -> Result<()> {
         }
         None => {
             eprintln!("Config key '{}' not found", key);
-            Err(Error::ConfigNotFound(key.to_string()))
+            Err(Error::config_not_found(key.to_string()))
         }
     }
 }
@@ -88,7 +89,7 @@ pub fn set(key: &str, value: &str) -> Result<()> {
 
     // Validate key
     if key.is_empty() {
-        return Err(Error::ConfigInvalid("Key cannot be empty".into()));
+        return Err(Error::config_invalid("Key cannot be empty"));
     }
 
     config.insert(key.to_string(), value.to_string());

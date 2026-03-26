@@ -5,8 +5,7 @@ use std::process::Command;
 
 use scp_core::output::Output;
 use scp_core::vcs::{self, VcsBackend, VcsStatus};
-
-use crate::Error;
+use scp_core::Error;
 
 /// Get sorted workspace names
 #[must_use]
@@ -27,14 +26,14 @@ pub fn find_next_workspace(workspaces: &[vcs::Workspace]) -> Result<String, Erro
             let current_idx = sorted_names
                 .iter()
                 .position(|n| n == &current.name)
-                .ok_or_else(|| Error::Internal("current workspace not in list".to_string()))?;
+                .ok_or_else(|| Error::internal("current workspace not in list"))?;
             let next_idx = (current_idx + 1) % sorted_names.len();
             Ok(sorted_names[next_idx].clone())
         }
         None => sorted_names
             .first()
             .cloned()
-            .ok_or_else(|| Error::WorkspaceNotFound("no workspaces exist".to_string())),
+            .ok_or_else(|| Error::workspace_not_found("no workspaces exist")),
     }
 }
 
@@ -49,7 +48,7 @@ pub fn find_prev_workspace(workspaces: &[vcs::Workspace]) -> Result<String, Erro
             let current_idx = sorted_names
                 .iter()
                 .position(|n| n == &current.name)
-                .ok_or_else(|| Error::Internal("current workspace not in list".to_string()))?;
+                .ok_or_else(|| Error::internal("current workspace not in list"))?;
             let prev_idx = if current_idx == 0 {
                 sorted_names.len() - 1
             } else {
@@ -60,7 +59,7 @@ pub fn find_prev_workspace(workspaces: &[vcs::Workspace]) -> Result<String, Erro
         None => sorted_names
             .last()
             .cloned()
-            .ok_or_else(|| Error::WorkspaceNotFound("no workspaces exist".to_string())),
+            .ok_or_else(|| Error::workspace_not_found("no workspaces exist")),
     }
 }
 
@@ -90,7 +89,7 @@ pub fn workspace_exists(backend: &dyn VcsBackend, name: &str) -> Result<bool, Er
 pub fn require_clean_working_copy(backend: &dyn VcsBackend) -> Result<(), Error> {
     let status = backend.status()?;
     if status != VcsStatus::Clean {
-        return Err(Error::WorkingCopyDirty);
+        return Err(Error::working_copy_dirty());
     }
     Ok(())
 }
@@ -103,7 +102,7 @@ pub fn get_current_workspace_name(backend: &dyn VcsBackend) -> Result<String, Er
         .iter()
         .find(|w| w.is_current)
         .map(|w| w.name.clone())
-        .ok_or_else(|| Error::WorkspaceNotFound("no current workspace".to_string()))
+        .ok_or_else(|| Error::workspace_not_found("no current workspace"))
 }
 
 /// Helper: Resolve workspace name from Option or get current
@@ -134,9 +133,7 @@ pub fn complete_workspace_workflow(backend: &dyn VcsBackend, name: &str) -> Resu
 #[must_use]
 pub fn ensure_not_main_workspace(name: &str) -> Result<(), Error> {
     if name == "main" {
-        return Err(Error::InvalidState(
-            "Cannot complete main workspace".to_string(),
-        ));
+        return Err(Error::invalid_state("Cannot complete main workspace"));
     }
     Ok(())
 }
@@ -167,11 +164,11 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
     let workspace_path = Path::new(path);
 
     if !workspace_path.exists() {
-        return Err(Error::NotFound(format!("Path does not exist: {}", path)));
+        return Err(Error::not_found(format!("Path does not exist: {}", path)));
     }
 
     if !workspace_path.is_dir() {
-        return Err(Error::InvalidState(format!(
+        return Err(Error::invalid_state(format!(
             "Path is not a directory: {}",
             path
         )));
@@ -182,7 +179,7 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
 
     for ws in workspaces {
         if ws.name == path_str || ws.branch == path_str {
-            return Err(Error::WorkspaceExists(ws.name));
+            return Err(Error::workspace_exists(ws.name));
         }
     }
 
@@ -190,15 +187,11 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
 
     let output = Command::new("jj")
         .args(["workspace", "add", path])
-        .output()
-        .map_err(Error::Io)?;
+        .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "workspace add".to_string(),
-            stderr.to_string(),
-        ));
+        return Err(Error::vcs_conflict("workspace add", stderr));
     }
 
     Output::success(&format!("✓ Added workspace at '{}'", path));

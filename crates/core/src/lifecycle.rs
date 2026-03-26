@@ -3,7 +3,6 @@
 //! This module defines the `LifecycleState` trait which all state machine
 //! enums must implement to ensure consistent behavior across modules.
 
-use crate::error::Error;
 use crate::error::Result;
 
 /// Shared contract for all lifecycle state machines
@@ -46,7 +45,7 @@ pub trait LifecycleState: Copy + Eq + Sized + 'static {
         if self.can_transition_to(next) {
             Ok(next)
         } else {
-            Err(Error::InvalidState(format!(
+            Err(crate::error::Error::invalid_state(format!(
                 "Cannot transition from {:?} to {:?}",
                 self, next
             )))

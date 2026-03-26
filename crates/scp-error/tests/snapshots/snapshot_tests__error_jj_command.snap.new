@@ -1,0 +1,6 @@
+---
+source: crates/scp-error/tests/snapshot_tests.rs
+assertion_line: 44
+expression: json
+---
+{"JjCommandError":{"operation":"rebase","msg":"Source and target are the same","is_not_found":false}}

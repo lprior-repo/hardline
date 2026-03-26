@@ -49,7 +49,7 @@ use serde::Serialize;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc;
 
-use crate::{config::WatchConfig, error::Error, Result};
+use crate::{config::WatchConfig, error::Error, error_config::ConfigErrorKind, Result};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -98,14 +98,14 @@ impl FileWatcher {
         workspaces: &[PathBuf],
     ) -> Result<mpsc::Receiver<WatchEvent>> {
         if !config.enabled {
-            return Err(Error::ConfigInvalid("File watcher is disabled".to_string()));
+            return Err(ConfigErrorKind::Invalid("File watcher is disabled".to_string()).into());
         }
 
         if config.debounce_ms < 10 || config.debounce_ms > 5000 {
-            return Err(Error::ConfigInvalid(format!(
+            return Err(ConfigErrorKind::Invalid(format!(
                 "debounce_ms must be between 10 and 5000, got {}",
                 config.debounce_ms
-            )));
+            )).into());
         }
 
         let (tx, rx) = mpsc::channel(100);
@@ -123,10 +123,7 @@ impl FileWatcher {
             },
         )
         .map_err(|e| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to create file watcher: {e}"),
-            ))
+            Error::io_error(format!("Failed to create file watcher: {e}"))
         })?;
 
         // Watch each workspace's beads database
@@ -208,10 +205,10 @@ async fn query_count(pool: &SqlitePool, status: &str) -> Result<u32> {
         .bind(status)
         .fetch_one(pool)
         .await
-        .map_err(|e| Error::Database(format!("Failed to query {status} count: {e}")))?;
+        .map_err(|e| Error::database(format!("Failed to query {status} count: {e}")))?;
 
     u32::try_from(count)
-        .map_err(|_| Error::Database(format!("Issue count exceeds u32::MAX: {count}")))
+        .map_err(|_| Error::database(format!("Issue count exceeds u32::MAX: {count}")))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -237,7 +234,7 @@ mod tests {
         let result = FileWatcher::watch_workspaces(&config, &[]);
         assert!(result.is_err());
         if let Err(e) = result {
-            assert!(matches!(e, Error::ConfigInvalid(_)));
+            assert!(matches!(e, Error::Config(ConfigError { inner: ConfigErrorKind::Invalid(_), .. })));
         }
     }
 
@@ -252,7 +249,7 @@ mod tests {
         let result = FileWatcher::watch_workspaces(&config, &[]);
         assert!(result.is_err());
         if let Err(err) = result {
-            assert!(matches!(err, Error::ConfigInvalid(_)));
+            assert!(matches!(err, Error::Config(ConfigError { inner: ConfigErrorKind::Invalid(_), .. })));
         }
     }
 
@@ -267,7 +264,7 @@ mod tests {
         let result = FileWatcher::watch_workspaces(&config, &[]);
         assert!(result.is_err());
         if let Err(err) = result {
-            assert!(matches!(err, Error::ConfigInvalid(_)));
+            assert!(matches!(err, Error::Config(ConfigError { inner: ConfigErrorKind::Invalid(_), .. })));
         }
     }
 
@@ -279,7 +276,7 @@ mod tests {
 
         let pool = SqlitePool::connect("sqlite::memory:")
             .await
-            .map_err(|e| Error::Database(format!("Failed to create in-memory pool: {e}")))?;
+            .map_err(|e| Error::database(format!("Failed to create in-memory pool: {e}")))?;
 
         let result = query_beads_status(&pool, temp_dir.path()).await;
 
@@ -293,30 +290,21 @@ mod tests {
     #[tokio::test]
     async fn test_query_beads_status_with_database() -> Result<()> {
         let temp_dir = TempDir::new().map_err(|e| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to create temp dir: {e}"),
-            ))
+            Error::io_error(format!("Failed to create temp dir: {e}"))
         })?;
         let beads_dir = temp_dir.path().join(".beads");
         fs::create_dir(&beads_dir).map_err(|e| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to create beads dir: {e}"),
-            ))
+            Error::io_error(format!("Failed to create beads dir: {e}"))
         })?;
 
         let db_path = beads_dir.join("beads.db");
         let path_str = db_path.to_str().ok_or_else(|| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Invalid UTF-8 in path".to_string(),
-            ))
+            Error::io_error("Invalid UTF-8 in path".to_string())
         })?;
         let db_url = format!("sqlite:///{path_str}?mode=rwc");
         let pool = SqlitePool::connect(&db_url)
             .await
-            .map_err(|e| Error::Database(format!("Failed to open DB: {e}")))?;
+            .map_err(|e| Error::database(format!("Failed to open DB: {e}")))?;
 
         sqlx::query(
             "CREATE TABLE issues (
@@ -326,36 +314,36 @@ mod tests {
         )
         .execute(&pool)
         .await
-        .map_err(|e| Error::Database(format!("Failed to create table: {e}")))?;
+        .map_err(|e| Error::database(format!("Failed to create table: {e}")))?;
 
         sqlx::query("INSERT INTO issues (id, status) VALUES ('1', 'open')")
             .execute(&pool)
             .await
-            .map_err(|e| Error::Database(format!("Failed to insert test data: {e}")))?;
+            .map_err(|e| Error::database(format!("Failed to insert test data: {e}")))?;
         sqlx::query("INSERT INTO issues (id, status) VALUES ('2', 'in_progress')")
             .execute(&pool)
             .await
-            .map_err(|e| Error::Database(format!("Failed to insert test data: {e}")))?;
+            .map_err(|e| Error::database(format!("Failed to insert test data: {e}")))?;
         sqlx::query("INSERT INTO issues (id, status) VALUES ('3', 'in_progress')")
             .execute(&pool)
             .await
-            .map_err(|e| Error::Database(format!("Failed to insert test data: {e}")))?;
+            .map_err(|e| Error::database(format!("Failed to insert test data: {e}")))?;
         sqlx::query("INSERT INTO issues (id, status) VALUES ('4', 'blocked')")
             .execute(&pool)
             .await
-            .map_err(|e| Error::Database(format!("Failed to insert test data: {e}")))?;
+            .map_err(|e| Error::database(format!("Failed to insert test data: {e}")))?;
         sqlx::query("INSERT INTO issues (id, status) VALUES ('5', 'closed')")
             .execute(&pool)
             .await
-            .map_err(|e| Error::Database(format!("Failed to insert test data: {e}")))?;
+            .map_err(|e| Error::database(format!("Failed to insert test data: {e}")))?;
         sqlx::query("INSERT INTO issues (id, status) VALUES ('6', 'closed')")
             .execute(&pool)
             .await
-            .map_err(|e| Error::Database(format!("Failed to insert test data: {e}")))?;
+            .map_err(|e| Error::database(format!("Failed to insert test data: {e}")))?;
         sqlx::query("INSERT INTO issues (id, status) VALUES ('7', 'closed')")
             .execute(&pool)
             .await
-            .map_err(|e| Error::Database(format!("Failed to insert test data: {e}")))?;
+            .map_err(|e| Error::database(format!("Failed to insert test data: {e}")))?;
 
         let result = query_beads_status(&pool, temp_dir.path()).await;
         assert!(result.is_ok());
@@ -373,7 +361,7 @@ mod tests {
                 assert_eq!(blocked, 1);
                 assert_eq!(closed, 3);
             } else {
-                return Err(Error::InvalidState(
+                return Err(Error::invalid_state(
                     "Expected Counts, got NoBeads".to_string(),
                 ));
             }

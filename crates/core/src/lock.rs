@@ -4,6 +4,10 @@
 //! Zero panic, zero unwrap - all operations return Result.
 
 use crate::error::{Error, Result};
+use crate::error_agent::AgentErrorKind;
+use crate::error_queue::QueueErrorKind;
+use crate::error_task::TaskErrorKind;
+use crate::error_workspace::{SessionErrorKind, WorkspaceErrorKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -117,21 +121,23 @@ impl LockManager for MemLockManager {
     fn acquire(&self, lock: LockType, holder: &str) -> Result<LockGuard> {
         // Check if already locked
         {
-            let locks = self
-                .locks
-                .read()
-                .map_err(|e| Error::Internal(e.to_string()))?;
+            let locks = self.locks.read().map_err(|e| {
+                crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
+                    e.to_string(),
+                ))
+            })?;
             if let Some(info) = locks.get(&lock) {
                 return Err(match &info.lock_type {
-                    LockType::Workspace(name) => {
-                        Error::WorkspaceLocked(name.clone(), info.holder.clone())
-                    }
+                    LockType::Workspace(name) => Error::from(WorkspaceErrorKind::Locked(
+                        name.clone(),
+                        info.holder.clone(),
+                    )),
                     LockType::Session(name) => {
-                        Error::SessionLocked(name.clone(), info.holder.clone())
+                        Error::from(SessionErrorKind::Locked(name.clone(), info.holder.clone()))
                     }
-                    LockType::Queue(_) => Error::QueueLocked(info.holder.clone()),
-                    LockType::Agent(name) => Error::AgentExists(name.clone()),
-                    LockType::Task(name) => Error::TaskLocked(name.clone()),
+                    LockType::Queue(_) => Error::from(QueueErrorKind::Locked(info.holder.clone())),
+                    LockType::Agent(name) => Error::from(AgentErrorKind::Exists(name.clone())),
+                    LockType::Task(name) => Error::from(TaskErrorKind::Locked(name.clone())),
                 });
             }
         }
@@ -144,10 +150,11 @@ impl LockManager for MemLockManager {
         };
 
         {
-            let mut locks = self
-                .locks
-                .write()
-                .map_err(|e| Error::Internal(e.to_string()))?;
+            let mut locks = self.locks.write().map_err(|e| {
+                crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
+                    e.to_string(),
+                ))
+            })?;
             locks.insert(lock.clone(), lock_info);
         }
 
@@ -162,10 +169,11 @@ impl LockManager for MemLockManager {
     fn try_acquire(&self, lock: LockType, holder: &str) -> Result<Option<LockGuard>> {
         // Try to acquire - if already locked, return None
         {
-            let locks = self
-                .locks
-                .read()
-                .map_err(|e| Error::Internal(e.to_string()))?;
+            let locks = self.locks.read().map_err(|e| {
+                crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
+                    e.to_string(),
+                ))
+            })?;
             if locks.contains_key(&lock) {
                 return Ok(None);
             }
@@ -180,9 +188,11 @@ impl LockManager for MemLockManager {
 
         let locks_ref = Arc::new(RwLock::new(HashMap::new()));
         {
-            let mut locks = locks_ref
-                .write()
-                .map_err(|e| Error::Internal(e.to_string()))?;
+            let mut locks = locks_ref.write().map_err(|e| {
+                crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
+                    e.to_string(),
+                ))
+            })?;
             locks.insert(lock.clone(), lock_info);
         }
 
@@ -197,35 +207,39 @@ impl LockManager for MemLockManager {
     }
 
     fn release(&self, lock: &LockType) -> Result<()> {
-        let mut locks = self
-            .locks
-            .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let mut locks = self.locks.write().map_err(|e| {
+            crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
+                e.to_string(),
+            ))
+        })?;
         locks.remove(lock);
         Ok(())
     }
 
     fn is_locked(&self, lock: &LockType) -> Result<bool> {
-        let locks = self
-            .locks
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let locks = self.locks.read().map_err(|e| {
+            crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
+                e.to_string(),
+            ))
+        })?;
         Ok(locks.contains_key(lock))
     }
 
     fn get_lock_info(&self, lock: &LockType) -> Result<Option<LockInfo>> {
-        let locks = self
-            .locks
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let locks = self.locks.read().map_err(|e| {
+            crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
+                e.to_string(),
+            ))
+        })?;
         Ok(locks.get(lock).cloned())
     }
 
     fn list_locks(&self) -> Result<Vec<LockInfo>> {
-        let locks = self
-            .locks
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let locks = self.locks.read().map_err(|e| {
+            crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
+                e.to_string(),
+            ))
+        })?;
         Ok(locks.values().cloned().collect())
     }
 }

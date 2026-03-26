@@ -148,18 +148,18 @@ fn given_jj_command_error_when_serialize_then_includes_operation() {
 
 #[test]
 fn given_error_with_suggestion() {
-    let err = Error::WorkspaceNotFound("test".into());
+    let err = Error::workspace_not_found("test");
     let suggestion = err.suggestion();
     assert!(suggestion.is_some());
 }
 
 #[test]
 fn given_error_exit_codes() {
-    assert_eq!(Error::WorkspaceNotFound("x".into()).exit_code(), 10);
-    assert_eq!(Error::WorkspaceExists("x".into()).exit_code(), 11);
-    assert_eq!(Error::QueueEmpty.exit_code(), 20);
-    assert_eq!(Error::VcsNotInitialized.exit_code(), 30);
-    assert_eq!(Error::ValidationError("x".into()).exit_code(), 80);
+    assert_eq!(Error::workspace_not_found("x").exit_code(), 10);
+    assert_eq!(Error::workspace_exists("x").exit_code(), 11);
+    assert_eq!(Error::queue_empty().exit_code(), 20);
+    assert_eq!(Error::vcs_not_initialized().exit_code(), 30);
+    assert_eq!(Error::validation_error("x").exit_code(), 80);
 }
 
 #[test]

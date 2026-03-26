@@ -2,18 +2,18 @@
 //!
 //! Error codes: 6xxx
 
-use thiserror::Error;
 use crate::error::Error;
+use thiserror::Error;
 
 /// IO-related errors
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug)]
 #[error(transparent)]
 pub struct IoError {
     #[from]
     inner: IoErrorKind,
 }
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug)]
 pub enum IoErrorKind {
     /// IO error with context
     #[error("IO error: {0}")]

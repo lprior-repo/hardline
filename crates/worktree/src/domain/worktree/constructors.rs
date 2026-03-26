@@ -1,48 +1,51 @@
 //! Worktree constructors and factories
 
-use chrono::Utc;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
-use super::{Worktree, WorktreeId, WorktreeName, WorktreeState, WorktreeTypeEnum};
-use crate::domain::WorktreeDomainError;
+use chrono::Utc;
 
-impl Worktree {
-    /// Create a new worktree with initial validation
+use super::{Worktree, WorktreeState};
+use crate::domain::{AbsolutePath, BranchName, WorktreeId, WorktreeName, WorktreeTypeEnum};
+
+impl Worktree<super::Creating> {
     pub fn new(
         name: WorktreeName,
-        path: super::super::AbsolutePath,
-        parent_path: super::super::AbsolutePath,
+        path: AbsolutePath,
+        parent_path: AbsolutePath,
         worktree_type: WorktreeTypeEnum,
-        branch: Option<super::super::BranchName>,
-    ) -> Result<Self, WorktreeDomainError> {
+        branch: Option<BranchName>,
+    ) -> Self {
         let now = Utc::now().timestamp();
 
-        Ok(Self {
+        Self {
             id: WorktreeId::new_random(),
             name,
             path,
-            state: WorktreeState::Creating,
             worktree_type,
             branch,
             parent_path,
             created_at: now,
             updated_at: now,
             metadata: HashMap::new(),
-        })
+            _state: PhantomData,
+        }
     }
+}
 
-    /// Create an uninitialized worktree (for database loading)
+impl<S> Worktree<S> {
+    #[allow(clippy::too_many_arguments)]
     pub fn uninitialized(
         id: WorktreeId,
         name: WorktreeName,
-        path: super::super::AbsolutePath,
-        parent_path: super::super::AbsolutePath,
+        path: AbsolutePath,
+        parent_path: AbsolutePath,
         worktree_type: WorktreeTypeEnum,
-        branch: Option<super::super::BranchName>,
+        branch: Option<BranchName>,
         state: WorktreeState,
         created_at: i64,
         updated_at: i64,
-    ) -> Self {
+    ) -> Worktree<S> {
         Self::uninitialized_with_metadata(
             id,
             name,
@@ -57,30 +60,30 @@ impl Worktree {
         )
     }
 
-    /// Create an uninitialized worktree with metadata (for database loading)
+    #[allow(clippy::too_many_arguments)]
     pub fn uninitialized_with_metadata(
         id: WorktreeId,
         name: WorktreeName,
-        path: super::super::AbsolutePath,
-        parent_path: super::super::AbsolutePath,
+        path: AbsolutePath,
+        parent_path: AbsolutePath,
         worktree_type: WorktreeTypeEnum,
-        branch: Option<super::super::BranchName>,
-        state: WorktreeState,
+        branch: Option<BranchName>,
+        _state: WorktreeState,
         created_at: i64,
         updated_at: i64,
         metadata: HashMap<String, String>,
-    ) -> Self {
-        Self {
+    ) -> Worktree<S> {
+        Worktree {
             id,
             name,
             path,
-            state,
             worktree_type,
             branch,
             parent_path,
             created_at,
             updated_at,
             metadata,
+            _state: PhantomData,
         }
     }
 }

@@ -290,3 +290,47 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod workspace_state_machine_tests {
+    use super::{WorkspaceState, WorkspaceStateMachine};
+
+    #[test]
+    fn test_workspace_state_sm_happy_path() {
+        let state = WorkspaceState::Created;
+        let result = WorkspaceStateMachine::transition(state, WorkspaceState::Working);
+        assert!(result.is_ok());
+        let state = result.unwrap();
+        let result = WorkspaceStateMachine::transition(state, WorkspaceState::Ready);
+        assert!(result.is_ok());
+        let state = result.unwrap();
+        let result = WorkspaceStateMachine::transition(state, WorkspaceState::Merged);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_terminal());
+    }
+
+    #[test]
+    fn test_workspace_state_sm_conflict_path() {
+        let state = WorkspaceState::Created;
+        let result = WorkspaceStateMachine::transition(state, WorkspaceState::Working);
+        assert!(result.is_ok());
+        let state = result.unwrap();
+        let result = WorkspaceStateMachine::transition(state, WorkspaceState::Ready);
+        assert!(result.is_ok());
+        let state = result.unwrap();
+        let result = WorkspaceStateMachine::transition(state, WorkspaceState::Conflict);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_terminal());
+    }
+
+    #[test]
+    fn test_workspace_state_sm_abandon_early_path() {
+        let state = WorkspaceState::Created;
+        let result = WorkspaceStateMachine::transition(state, WorkspaceState::Working);
+        assert!(result.is_ok());
+        let state = result.unwrap();
+        let result = WorkspaceStateMachine::transition(state, WorkspaceState::Abandoned);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_terminal());
+    }
+}

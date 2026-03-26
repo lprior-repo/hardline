@@ -108,7 +108,7 @@ impl RepairExecutor {
                 RepairStrategy::RecreateWorkspace => 3,
                 RepairStrategy::ForgetAndRecreate => 4,
             })
-            .ok_or_else(|| Error::Internal("No issues found in validation result".to_string()))?;
+            .ok_or_else(|| Error::invalid_state("No issues found in validation result".to_string()))?;
 
         if matches!(
             strategy,
@@ -123,7 +123,7 @@ impl RepairExecutor {
 
         // CRITICAL: Check if workspace directory exists before attempting repair
         // For missing directories, we cannot repair automatically
-        let workspace_exists = tokio::fs::try_exists(&validation.path).await?;
+        let workspace_exists = tokio::fs::try_exists(&validation.path).await.map_err(|e| Error::io_error(e.to_string()))?;
         if !workspace_exists {
             return Ok(RepairResult::failure(
                 &validation.workspace,
@@ -194,7 +194,7 @@ impl RepairExecutor {
                 // File already removed by another process - OK
                 Ok(())
             }
-            Err(e) => Err(Error::IoError(format!(
+            Err(e) => Err(Error::io_error(format!(
                 "Failed to remove lock file {}: {e}",
                 lock_file.display()
             ))),
@@ -211,7 +211,7 @@ impl RepairExecutor {
         let root = workspace_path
             .parent()
             .and_then(|p| p.parent()) // .isolate/workspaces -> root
-            .ok_or_else(|| Error::Internal("Could not determine repository root".to_string()))?;
+            .ok_or_else(|| Error::invalid_state("Could not determine repository root".to_string()))?;
 
         // Forget the workspace
         let forget_output = get_jj_command()
@@ -219,11 +219,11 @@ impl RepairExecutor {
             .current_dir(root)
             .output()
             .await
-            .map_err(|e| Error::JjCommandError {
+            .map_err(|e| Error::from(crate::error_jj::JjErrorKind::CommandError {
                 operation: "forget workspace".to_string(),
                 msg: format!("Failed to forget workspace: {e}"),
                 is_not_found: false,
-            })?;
+            }))?;
 
         if !forget_output.status.success() {
             let stderr = String::from_utf8_lossy(&forget_output.stderr);
@@ -235,12 +235,12 @@ impl RepairExecutor {
         }
 
         // If directory is corrupted but exists, remove it
-        let workspace_exists = tokio::fs::try_exists(workspace_path).await?;
+        let workspace_exists = tokio::fs::try_exists(workspace_path).await.map_err(|e| Error::io_error(e.to_string()))?;
         if workspace_exists {
             tokio::fs::remove_dir_all(workspace_path)
                 .await
                 .map_err(|e| {
-                    Error::IoError(format!(
+                    Error::io_error(format!(
                         "Failed to remove corrupted workspace directory {}: {e}",
                         workspace_path.display()
                     ))

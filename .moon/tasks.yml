@@ -34,6 +34,41 @@ build:
     runInCI: true
 
 ci:
-  command: 'cargo clippy --workspace -- -D warnings && cargo nextest run --workspace'
+  command: 'cargo clippy --workspace -- -D warnings && cargo nextest run --workspace && cargo llvm-cov --workspace --fail-under-lines 90'
   options:
     runInCI: true
+
+dylint:
+  command: 'cargo dylint --workspace'
+  options:
+    runInCI: false
+
+coverage:
+  command: 'cargo llvm-cov --workspace --fail-under-lines 90'
+  options:
+    runInCI: true
+
+mutants:
+  command: 'cargo mutants --workspace --timeout 120'
+  options:
+    runInCI: false
+
+kani:
+  command: 'cargo kani --workspace'
+  options:
+    runInCI: false
+
+loom:
+  command: 'RUSTFLAGS="--cfg loom" cargo test --workspace'
+  options:
+    runInCI: false
+
+verify:
+  command: './scripts/verify.sh'
+  options:
+    runInCI: true
+
+verify-nightly:
+  command: './scripts/verify-nightly.sh'
+  options:
+    runInCI: false

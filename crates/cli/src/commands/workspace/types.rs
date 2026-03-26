@@ -1,7 +1,5 @@
 //! Workspace types and enums
 
-use crate::Error;
-
 /// Sync option for spawn command
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SyncOption {

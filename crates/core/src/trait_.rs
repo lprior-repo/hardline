@@ -2,8 +2,8 @@
 //!
 //! Unified interface for VCS operations supporting both JJ and Git.
 
-use crate::error::Result;
 use super::types::{Branch, Commit, VcsStatus, Workspace};
+use crate::error::Result;
 
 /// VCS backend trait - unified interface for JJ and Git
 pub trait VcsBackend: Send + Sync {
@@ -61,4 +61,7 @@ pub trait VcsBackend: Send + Sync {
 
     /// Merge a workspace into main
     fn merge_workspace(&self, name: &str) -> Result<()>;
+
+    /// Abort workspace - restore working copy to last commit, discarding uncommitted changes
+    fn abort_workspace(&self, name: &str) -> Result<()>;
 }

@@ -1,15 +1,32 @@
-use crate::domain::value_objects::{WorkspaceName, WorkspacePath};
-use crate::error::WorkspaceError;
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![forbid(unsafe_code)]
+
+use std::marker::PhantomData;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::domain::value_objects::{WorkspaceName, WorkspacePath};
+use crate::error::WorkspaceError;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum WorkspaceState {
     Initializing,
     Active,
     Locked,
     Corrupted,
     Deleted,
+}
+
+impl WorkspaceState {
+    #[must_use]
+    pub const fn is_terminal(self) -> bool {
+        matches!(self, Self::Deleted | Self::Corrupted)
+    }
 }
 
 impl Default for WorkspaceState {
@@ -45,18 +62,6 @@ impl Default for WorkspaceId {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Workspace {
-    pub id: WorkspaceId,
-    pub name: WorkspaceName,
-    pub path: WorkspacePath,
-    pub state: WorkspaceState,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub lock_holder: Option<String>,
-    pub config: Option<WorkspaceConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceConfig {
     pub vcs_type: VcsType,
     pub default_branch: String,
@@ -76,14 +81,37 @@ impl Default for VcsType {
     }
 }
 
-impl Workspace {
+#[derive(Clone)]
+pub struct Initializing;
+#[derive(Clone)]
+pub struct Active;
+#[derive(Clone)]
+pub struct Locked;
+#[derive(Clone)]
+pub struct Corrupted;
+#[derive(Clone)]
+pub struct Deleted;
+
+#[derive(Debug, Clone)]
+pub struct Workspace<S = Initializing> {
+    pub id: WorkspaceId,
+    pub name: WorkspaceName,
+    pub path: WorkspacePath,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub lock_holder: Option<String>,
+    pub config: Option<WorkspaceConfig>,
+    pub state: WorkspaceState,
+    pub _state: PhantomData<S>,
+}
+
+impl Workspace<Initializing> {
     pub fn create(name: WorkspaceName, path: WorkspacePath) -> Result<Self, WorkspaceError> {
         let now = Utc::now();
         Ok(Self {
             id: WorkspaceId::generate(),
             name,
             path,
-            state: WorkspaceState::Initializing,
             created_at: now,
             updated_at: now,
             lock_holder: None,
@@ -92,70 +120,47 @@ impl Workspace {
                 default_branch: "main".into(),
                 auto_sync: true,
             }),
+            state: WorkspaceState::Initializing,
+            _state: PhantomData,
         })
     }
 
-    pub fn activate(&self) -> Result<Self, WorkspaceError> {
-        if self.state != WorkspaceState::Initializing {
-            return Err(WorkspaceError::InvalidStateTransition {
-                from: format!("{:?}", self.state),
-                to: "Active".into(),
-            });
-        }
-        Ok(self.transition_to(WorkspaceState::Active))
+    pub fn activate(self) -> Result<Workspace<Active>, WorkspaceError> {
+        self.transition_impl(WorkspaceState::Active)
     }
 
-    pub fn lock(&self, holder: String) -> Result<Self, WorkspaceError> {
-        if self.state != WorkspaceState::Active {
-            return Err(WorkspaceError::InvalidStateTransition {
-                from: format!("{:?}", self.state),
-                to: "Locked".into(),
-            });
-        }
-        let mut workspace = self.transition_to(WorkspaceState::Locked);
-        workspace.lock_holder = Some(holder);
-        Ok(workspace)
+    pub fn delete(self) -> Result<Workspace<Deleted>, WorkspaceError> {
+        self.transition_impl(WorkspaceState::Deleted)
+    }
+}
+
+impl<S> Workspace<S> {
+    pub fn id(&self) -> &WorkspaceId {
+        &self.id
     }
 
-    pub fn unlock(&self) -> Result<Self, WorkspaceError> {
-        if self.state != WorkspaceState::Locked {
-            return Err(WorkspaceError::InvalidStateTransition {
-                from: format!("{:?}", self.state),
-                to: "Active".into(),
-            });
-        }
-        let mut workspace = self.transition_to(WorkspaceState::Active);
-        workspace.lock_holder = None;
-        Ok(workspace)
+    pub fn name(&self) -> &WorkspaceName {
+        &self.name
     }
 
-    pub fn mark_corrupted(&self) -> Result<Self, WorkspaceError> {
-        let mut workspace = self.transition_to(WorkspaceState::Corrupted);
-        workspace.lock_holder = None;
-        Ok(workspace)
+    pub fn path(&self) -> &WorkspacePath {
+        &self.path
     }
 
-    pub fn delete(&self) -> Result<Self, WorkspaceError> {
-        if matches!(self.state, WorkspaceState::Deleted) {
-            return Err(WorkspaceError::InvalidStateTransition {
-                from: format!("{:?}", self.state),
-                to: "Deleted".into(),
-            });
-        }
-        Ok(self.transition_to(WorkspaceState::Deleted))
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
     }
 
-    fn transition_to(&self, new_state: WorkspaceState) -> Self {
-        Self {
-            id: self.id.clone(),
-            name: self.name.clone(),
-            path: self.path.clone(),
-            state: new_state,
-            created_at: self.created_at,
-            updated_at: Utc::now(),
-            lock_holder: self.lock_holder.clone(),
-            config: self.config.clone(),
-        }
+    pub fn updated_at(&self) -> DateTime<Utc> {
+        self.updated_at
+    }
+
+    pub fn lock_holder(&self) -> Option<&str> {
+        self.lock_holder.as_deref()
+    }
+
+    pub fn config(&self) -> Option<&WorkspaceConfig> {
+        self.config.as_ref()
     }
 
     pub fn is_locked(&self) -> bool {
@@ -167,11 +172,78 @@ impl Workspace {
     }
 
     pub fn is_terminal(&self) -> bool {
-        matches!(
-            self.state,
-            WorkspaceState::Deleted | WorkspaceState::Corrupted
-        )
+        self.state.is_terminal()
     }
+
+    fn transition_impl<T>(self, new_state: WorkspaceState) -> Result<Workspace<T>, WorkspaceError> {
+        Ok(Workspace {
+            id: self.id,
+            name: self.name,
+            path: self.path,
+            created_at: self.created_at,
+            updated_at: Utc::now(),
+            lock_holder: self.lock_holder,
+            config: self.config,
+            state: new_state,
+            _state: PhantomData,
+        })
+    }
+
+    fn transition_with_lock_holder<T>(
+        self,
+        lock_holder: Option<String>,
+        new_state: WorkspaceState,
+    ) -> Result<Workspace<T>, WorkspaceError> {
+        Ok(Workspace {
+            id: self.id,
+            name: self.name,
+            path: self.path,
+            created_at: self.created_at,
+            updated_at: Utc::now(),
+            lock_holder,
+            config: self.config,
+            state: new_state,
+            _state: PhantomData,
+        })
+    }
+}
+
+impl Workspace<Active> {
+    pub fn lock(self, holder: String) -> Result<Workspace<Locked>, WorkspaceError> {
+        self.transition_with_lock_holder(Some(holder), WorkspaceState::Locked)
+    }
+
+    pub fn mark_corrupted(self) -> Result<Workspace<Corrupted>, WorkspaceError> {
+        self.transition_with_lock_holder(None, WorkspaceState::Corrupted)
+    }
+
+    pub fn delete(self) -> Result<Workspace<Deleted>, WorkspaceError> {
+        self.transition_with_lock_holder(None, WorkspaceState::Deleted)
+    }
+}
+
+impl Workspace<Locked> {
+    pub fn unlock(self) -> Result<Workspace<Active>, WorkspaceError> {
+        self.transition_with_lock_holder(None, WorkspaceState::Active)
+    }
+
+    pub fn mark_corrupted(self) -> Result<Workspace<Corrupted>, WorkspaceError> {
+        self.transition_with_lock_holder(None, WorkspaceState::Corrupted)
+    }
+
+    pub fn delete(self) -> Result<Workspace<Deleted>, WorkspaceError> {
+        self.transition_with_lock_holder(None, WorkspaceState::Deleted)
+    }
+}
+
+impl Workspace<Corrupted> {
+    pub fn delete(self) -> Result<Workspace<Deleted>, WorkspaceError> {
+        self.transition_with_lock_holder(None, WorkspaceState::Deleted)
+    }
+}
+
+impl Workspace<Deleted> {
+    // Deleted is terminal - no further transitions
 }
 
 #[cfg(test)]
@@ -180,47 +252,47 @@ mod tests {
 
     #[test]
     fn workspace_when_created_then_has_initializing_state() {
-        let workspace = Workspace::create(
+        let workspace = Workspace::<Initializing>::create(
             WorkspaceName::new("test".into()).unwrap(),
             WorkspacePath::new("/tmp/test".into()).unwrap(),
         )
         .unwrap();
-        assert_eq!(workspace.state, WorkspaceState::Initializing);
+        assert!(!workspace.is_active());
     }
 
     #[test]
     fn workspace_given_initializing_when_activate_then_has_active_state() {
-        let workspace = Workspace::create(
+        let workspace = Workspace::<Initializing>::create(
             WorkspaceName::new("test".into()).unwrap(),
             WorkspacePath::new("/tmp/test".into()).unwrap(),
         )
         .unwrap();
-        let activated = workspace.activate().unwrap();
-        assert_eq!(activated.state, WorkspaceState::Active);
+        let activated: Workspace<Active> = workspace.activate().unwrap();
+        assert!(activated.is_active());
     }
 
     #[test]
     fn workspace_given_active_when_lock_then_has_locked_state() {
-        let workspace = Workspace::create(
+        let workspace = Workspace::<Initializing>::create(
             WorkspaceName::new("test".into()).unwrap(),
             WorkspacePath::new("/tmp/test".into()).unwrap(),
         )
         .unwrap();
-        let activated = workspace.activate().unwrap();
-        let locked = activated.lock("agent-1".into()).unwrap();
-        assert_eq!(locked.state, WorkspaceState::Locked);
-        assert_eq!(locked.lock_holder, Some("agent-1".into()));
+        let activated: Workspace<Active> = workspace.activate().unwrap();
+        let locked: Workspace<Locked> = activated.lock("agent-1".into()).unwrap();
+        assert!(locked.is_locked());
+        assert_eq!(locked.lock_holder(), Some("agent-1"));
     }
 
     #[test]
-    fn workspace_given_active_when_activate_then_fails() {
-        let workspace = Workspace::create(
+    fn workspace_given_active_when_mark_corrupted_then_has_corrupted_state() {
+        let workspace = Workspace::<Initializing>::create(
             WorkspaceName::new("test".into()).unwrap(),
             WorkspacePath::new("/tmp/test".into()).unwrap(),
         )
         .unwrap();
-        let activated = workspace.activate().unwrap();
-        let result = activated.activate();
-        assert!(result.is_err());
+        let activated: Workspace<Active> = workspace.activate().unwrap();
+        let corrupted: Workspace<Corrupted> = activated.mark_corrupted().unwrap();
+        assert!(corrupted.is_terminal());
     }
 }

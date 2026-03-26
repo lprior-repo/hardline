@@ -38,14 +38,14 @@ impl BatchCommand {
     pub fn parse(command_str: &str) -> Result<Self> {
         let trimmed = command_str.trim();
         if trimmed.is_empty() {
-            return Err(Error::BatchEmpty);
+            return Err(Error::batch_empty());
         }
 
         let parts: Vec<String> = shell_words::split(trimmed)
-            .map_err(|e| Error::ValidationError(format!("Invalid command syntax: {}", e)))?;
+            .map_err(|e| Error::validation_error(format!("Invalid command syntax: {}", e)))?;
 
         if parts.is_empty() {
-            return Err(Error::BatchEmpty);
+            return Err(Error::batch_empty());
         }
 
         let name = parts[0].clone();
@@ -62,7 +62,7 @@ impl BatchCommand {
 
         let output = cmd
             .output()
-            .map_err(|e| Error::IoError(format!("Failed to execute {}: {}", self.name, e)))?;
+            .map_err(|e| Error::io_error(format!("Failed to execute {}: {}", self.name, e)))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -136,11 +136,11 @@ pub enum BatchExecutionError {
 /// **Calculations (Tier 2)**: Pure function, no I/O
 fn validate_batch(commands: &[BatchCommand]) -> Result<()> {
     if commands.is_empty() {
-        return Err(Error::BatchEmpty);
+        return Err(Error::batch_empty());
     }
 
     if commands.len() > MAX_BATCH_SIZE {
-        return Err(Error::BatchSizeExceeded(MAX_BATCH_SIZE));
+        return Err(Error::batch_size_exceeded(MAX_BATCH_SIZE));
     }
 
     Ok(())
@@ -152,12 +152,12 @@ fn validate_batch(commands: &[BatchCommand]) -> Result<()> {
 fn check_workspace_ready(status: VcsStatus) -> Result<()> {
     match status {
         VcsStatus::Clean => Ok(()),
-        VcsStatus::Dirty => Err(Error::WorkingCopyDirty),
-        VcsStatus::Conflicted => Err(Error::WorkspaceConflict(
-            "Workspace has unresolved conflicts".to_string(),
+        VcsStatus::Dirty => Err(Error::working_copy_dirty()),
+        VcsStatus::Conflicted => Err(Error::workspace_conflict(
+            "Workspace has unresolved conflicts",
         )),
-        VcsStatus::Detached => Err(Error::InvalidState(
-            "Cannot execute batch in detached HEAD state".to_string(),
+        VcsStatus::Detached => Err(Error::invalid_state(
+            "Cannot execute batch in detached HEAD state",
         )),
     }
 }
@@ -179,13 +179,13 @@ pub async fn execute_batch(
     validate_batch(&commands)?;
 
     // TIER 3: I/O - Get VCS backend
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
 
     // Check workspace exists
     let workspaces = backend.list_workspaces()?;
     if !workspaces.iter().any(|w| w.name == workspace_name) {
-        return Err(Error::WorkspaceNotFound(workspace_name.to_string()));
+        return Err(Error::workspace_not_found(workspace_name.to_string()));
     }
 
     // Check workspace status is ready
@@ -193,10 +193,10 @@ pub async fn execute_batch(
     check_workspace_ready(status)?;
 
     // Get database pool for checkpointing
-    let db_pool = get_database_pool()?;
+    let _db_pool = get_database_pool()?;
 
     // Create auto-checkpoint manager
-    let auto_cp = AutoCheckpoint::new(db_pool);
+    let auto_cp = AutoCheckpoint::new(_db_pool);
     auto_cp.ensure_table().await?;
 
     // Create checkpoint guard for batch execution
@@ -204,7 +204,7 @@ pub async fn execute_batch(
         .guard_if_risky(OperationRisk::Risky)
         .await?
         .ok_or_else(|| {
-            Error::Internal("Failed to create checkpoint for batch operation".to_string())
+            Error::internal("Failed to create checkpoint for batch operation")
         })?;
 
     let checkpoint_id = guard.id().to_string();
@@ -226,7 +226,7 @@ pub async fn execute_batch(
                     // First, try to rollback the checkpoint
                     if let Err(rollback_err) = rollback_with_error(&guard, &checkpoint_id).await {
                         // Rollback failed - this is critical and must be propagated
-                        return Err(Error::BatchRollbackFailed(format!(
+                        return Err(Error::batch_rollback_failed(format!(
                             "Rollback failed after command {} failed: {}. Workspace may be in indeterminate state.",
                             index,
                             rollback_err
@@ -246,7 +246,7 @@ pub async fn execute_batch(
             Err(e) => {
                 // Command execution error - need to rollback
                 if let Err(rollback_err) = rollback_with_error(&guard, &checkpoint_id).await {
-                    return Err(Error::BatchRollbackFailed(format!(
+                    return Err(Error::batch_rollback_failed(format!(
                         "Rollback failed after execution error at command {}: {}. Workspace may be in indeterminate state.",
                         index,
                         rollback_err
@@ -264,7 +264,7 @@ pub async fn execute_batch(
             checkpoint_id,
             results,
         }),
-        Err(e) => Err(Error::BatchRollbackFailed(format!(
+        Err(e) => Err(Error::batch_rollback_failed(format!(
             "Failed to commit batch checkpoint: {}",
             e
         ))),
@@ -274,7 +274,7 @@ pub async fn execute_batch(
 /// Rollback the checkpoint and return error if it fails
 async fn rollback_with_error(guard: &CheckpointGuard, checkpoint_id: &str) -> Result<()> {
     guard.rollback().await.map_err(|e| {
-        Error::BatchRollbackFailed(format!(
+        Error::batch_rollback_failed(format!(
             "Failed to rollback checkpoint '{}': {}",
             checkpoint_id, e
         ))
@@ -285,20 +285,21 @@ async fn rollback_with_error(guard: &CheckpointGuard, checkpoint_id: &str) -> Re
 fn find_workspace_path(cwd: &std::path::Path, workspace_name: &str) -> Result<std::path::PathBuf> {
     // For JJ, workspaces are typically in .jj/workspace or similar
     // The cwd is already the repo root, so we use it directly
+    let _ = workspace_name;
     Ok(cwd.to_path_buf())
 }
 
 /// Get the database pool for checkpointing
 fn get_database_pool() -> Result<SqlitePool> {
-    Err(Error::Unimplemented(
-        "Database pool not configured for batch execution".to_string(),
+    Err(Error::unimplemented(
+        "Database pool not configured for batch execution",
     ))
 }
 
 /// Run batch command from CLI
 pub async fn run_batch(workspace: Option<String>, commands: Vec<String>) -> Result<()> {
     if commands.is_empty() {
-        return Err(Error::BatchEmpty);
+        return Err(Error::batch_empty());
     }
 
     let workspace_name = workspace.unwrap_or_else(|| "default".to_string());
@@ -347,7 +348,7 @@ pub async fn run_batch(workspace: Option<String>, commands: Vec<String>) -> Resu
             for (i, cmd_result) in partial_results.iter().enumerate() {
                 Output::info(&format!("  [{}] {}: executed", i, cmd_result.command.name));
             }
-            Err(Error::BatchCommandFailed(error))
+            Err(Error::batch_command_failed(error))
         }
     }
 }

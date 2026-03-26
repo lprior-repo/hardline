@@ -3,7 +3,8 @@
 //! Provides agent coordination types from Stak.
 //! Zero panic, zero unwrap - all operations return Result.
 
-use crate::error::{Error, Result};
+use crate::error::Result;
+use crate::error_agent::AgentErrorKind;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -27,7 +28,7 @@ impl AgentId {
     pub fn new_checked(id: impl Into<String>) -> Result<Self> {
         let id = id.into();
         if id.is_empty() {
-            return Err(Error::AgentNotFound("Agent ID cannot be empty".into()));
+            return Err(AgentErrorKind::NotFound("Agent ID cannot be empty".into()).into());
         }
         Ok(Self(id))
     }
@@ -193,13 +194,12 @@ impl MemAgentRegistry {
 
 impl AgentRegistry for MemAgentRegistry {
     fn register(&self, agent: Agent) -> Result<()> {
-        let mut agents = self
-            .agents
-            .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let mut agents = self.agents.write().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire write lock: {}", e))
+        })?;
 
         if agents.contains_key(&agent.id) {
-            return Err(Error::AgentExists(agent.id.to_string()));
+            return Err(AgentErrorKind::Exists(agent.id.to_string()).into());
         }
 
         agents.insert(agent.id.clone(), agent);
@@ -207,51 +207,46 @@ impl AgentRegistry for MemAgentRegistry {
     }
 
     fn unregister(&self, id: &AgentId) -> Result<Agent> {
-        let mut agents = self
-            .agents
-            .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let mut agents = self.agents.write().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire write lock: {}", e))
+        })?;
 
         agents
             .remove(id)
-            .ok_or_else(|| Error::AgentNotFound(id.to_string()))
+            .ok_or_else(|| AgentErrorKind::NotFound(id.to_string()).into())
     }
 
     fn get(&self, id: &AgentId) -> Result<Option<Agent>> {
-        let agents = self
-            .agents
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let agents = self.agents.read().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire read lock: {}", e))
+        })?;
         Ok(agents.get(id).cloned())
     }
 
     fn heartbeat(&self, id: &AgentId) -> Result<()> {
-        let mut agents = self
-            .agents
-            .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let mut agents = self.agents.write().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire write lock: {}", e))
+        })?;
 
-        let agent = agents
-            .get_mut(id)
-            .ok_or_else(|| Error::AgentNotFound(id.to_string()))?;
+        let agent = agents.get_mut(id).ok_or_else(|| -> crate::error::Error {
+            AgentErrorKind::NotFound(id.to_string()).into()
+        })?;
 
         agent.update_heartbeat();
         Ok(())
     }
 
     fn list(&self) -> Result<Vec<Agent>> {
-        let agents = self
-            .agents
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let agents = self.agents.read().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire read lock: {}", e))
+        })?;
         Ok(agents.values().cloned().collect())
     }
 
     fn list_active(&self) -> Result<Vec<Agent>> {
-        let agents = self
-            .agents
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let agents = self.agents.read().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire read lock: {}", e))
+        })?;
         Ok(agents.values().filter(|a| a.is_active()).cloned().collect())
     }
 }

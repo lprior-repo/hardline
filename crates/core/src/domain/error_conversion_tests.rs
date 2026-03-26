@@ -7,9 +7,7 @@ use std::path::PathBuf;
 use crate::domain::{
     aggregates::{bead::BeadError, session::SessionError, workspace::WorkspaceError},
     builders::BuilderError,
-    error_conversion::{
-        AggregateErrorExt, IdentifierErrorExt,
-    },
+    error_conversion::{AggregateErrorExt, IdentifierErrorExt},
     identifiers::{IdentifierError, SessionName, WorkspaceName},
     repository::RepositoryError,
     workspace::WorkspaceState,

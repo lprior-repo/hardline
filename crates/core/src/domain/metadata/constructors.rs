@@ -3,10 +3,7 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use petgraph::{
-    algo::has_path_connecting,
-    graph::{DiGraph, NodeIndex},
-};
+use petgraph::graph::{DiGraph, NodeIndex};
 
 use crate::dag::BranchId;
 use crate::Error;
@@ -15,7 +12,7 @@ use super::entities::StackMetadata;
 
 impl StackMetadata {
     /// Build a directed graph from parents mapping
-    fn build_graph(&self) -> (DiGraph<BranchId, ()>, BTreeMap<BranchId, NodeIndex>) {
+    pub fn build_graph(&self) -> (DiGraph<BranchId, ()>, BTreeMap<BranchId, NodeIndex>) {
         let (graph, indices) = self.parents.keys().cloned().fold(
             (DiGraph::new(), BTreeMap::new()),
             |(mut graph, mut indices), branch| {
@@ -92,7 +89,7 @@ impl StackMetadata {
         Error,
     > {
         let text = String::from_utf8(data.to_vec())
-            .map_err(|_| Error::InvalidState("Metadata corrupted: invalid UTF-8".to_string()))?;
+            .map_err(|_| Error::invalid_state("Metadata corrupted: invalid UTF-8".to_string()))?;
 
         text.lines().try_fold(
             (BTreeMap::new(), BTreeMap::<BranchId, Vec<BranchId>>::new()),
@@ -104,7 +101,7 @@ impl StackMetadata {
 
                 let parts: Vec<&str> = line.split('|').map(str::trim).collect();
                 if parts.len() != 2 {
-                    return Err(Error::InvalidState(
+                    return Err(Error::invalid_state(
                         "Metadata corrupted: invalid format".to_string(),
                     ));
                 }

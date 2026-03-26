@@ -7,6 +7,9 @@
 use thiserror::Error;
 
 use crate::error::Error as CoreError;
+use crate::error_io::IoErrorKind;
+use crate::error_vcs::VcsErrorKind;
+use crate::error_workspace::SessionErrorKind;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ERROR LAYER - Domain errors using thiserror
@@ -62,30 +65,37 @@ pub enum SyncError {
 impl From<SyncError> for CoreError {
     fn from(err: SyncError) -> Self {
         match err {
-            SyncError::SessionNotFound(session) => CoreError::SessionNotFound(session),
-            SyncError::InvalidSessionStatus { actual, .. } => CoreError::ValidationFieldError {
-                message: format!("Invalid session status: {actual}"),
-                field: "status".to_string(),
-                value: Some(actual),
-            },
-            SyncError::DirtyWorkspace(path) => CoreError::ValidationFieldError {
-                message: format!("Workspace at '{path}' has uncommitted changes"),
-                field: "workspace".to_string(),
-                value: Some(path),
-            },
+            SyncError::SessionNotFound(session) => SessionErrorKind::NotFound(session).into(),
+            SyncError::InvalidSessionStatus { actual, .. } => {
+                crate::error_state::StateErrorKind::ValidationFieldError {
+                    field: "status".to_string(),
+                    message: format!("Invalid session status: {actual}"),
+                    value: Some(actual),
+                }
+                .into()
+            }
+            SyncError::DirtyWorkspace(path) => {
+                crate::error_state::StateErrorKind::ValidationFieldError {
+                    field: "workspace".to_string(),
+                    message: format!("Workspace at '{path}' has uncommitted changes"),
+                    value: Some(path),
+                }
+                .into()
+            }
             SyncError::Conflict {
                 workspace,
                 conflicted_files,
-            } => CoreError::VcsConflict(
+            } => VcsErrorKind::Conflict(
                 workspace,
                 format!("Conflicted files: {}", conflicted_files.join(", ")),
-            ),
+            )
+            .into(),
             SyncError::RebaseFailure {
                 workspace: _,
                 reason,
-            } => CoreError::VcsRebaseFailed(reason),
-            SyncError::JjCommandError(msg) => CoreError::VcsConflict("jj".to_string(), msg),
-            SyncError::IoError(msg) => CoreError::Io(std::io::Error::other(msg)),
+            } => VcsErrorKind::RebaseFailed(reason).into(),
+            SyncError::JjCommandError(msg) => VcsErrorKind::Conflict("jj".to_string(), msg).into(),
+            SyncError::IoError(msg) => IoErrorKind::IoError(msg).into(),
         }
     }
 }

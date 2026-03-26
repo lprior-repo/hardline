@@ -139,6 +139,7 @@
 pub mod agent;
 pub mod aggregates;
 pub mod builders;
+pub mod contracts;
 pub mod error_conversion;
 pub mod error_conversion_builder;
 pub mod error_conversion_context;

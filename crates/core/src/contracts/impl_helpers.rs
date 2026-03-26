@@ -172,10 +172,10 @@ impl Constraint {
                 description: _,
             } => {
                 let re = regex::Regex::new(pattern)
-                    .map_err(|e| Error::ValidationError(format!("Invalid regex pattern: {e}")))?;
+                    .map_err(|e| Error::validation_error(format!("Invalid regex pattern: {e}")))?;
 
                 if !re.is_match(value) {
-                    return Err(Error::ValidationError(format!(
+                    return Err(Error::validation_error(format!(
                         "Value does not match regex pattern: {pattern}"
                     )));
                 }
@@ -184,14 +184,14 @@ impl Constraint {
                 let len = value.len();
                 if let Some(min_len) = min {
                     if len < *min_len {
-                        return Err(Error::ValidationError(format!(
+                        return Err(Error::validation_error(format!(
                             "Length {len} is less than minimum {min_len}"
                         )));
                     }
                 }
                 if let Some(max_len) = max {
                     if len > *max_len {
-                        return Err(Error::ValidationError(format!(
+                        return Err(Error::validation_error(format!(
                             "Length {len} exceeds maximum {max_len}"
                         )));
                     }
@@ -199,7 +199,7 @@ impl Constraint {
             }
             Self::Enum { values } => {
                 if !values.contains(&value.to_string()) {
-                    return Err(Error::ValidationError(format!(
+                    return Err(Error::validation_error(format!(
                         "Value '{value}' is not in allowed values: {values:?}"
                     )));
                 }
@@ -224,12 +224,12 @@ impl Constraint {
             if let Some(min_val) = min {
                 if *inclusive {
                     if value < *min_val {
-                        return Err(Error::ValidationError(format!(
+                        return Err(Error::validation_error(format!(
                             "Value {value} is less than minimum {min_val} (inclusive: {inclusive})"
                         )));
                     }
                 } else if value <= *min_val {
-                    return Err(Error::ValidationError(format!(
+                    return Err(Error::validation_error(format!(
                         "Value {value} is less than or equal to minimum {min_val} (exclusive)"
                     )));
                 }
@@ -237,12 +237,12 @@ impl Constraint {
             if let Some(max_val) = max {
                 if *inclusive {
                     if value > *max_val {
-                        return Err(Error::ValidationError(format!(
+                        return Err(Error::validation_error(format!(
                             "Value {value} exceeds maximum {max_val} (inclusive: {inclusive})"
                         )));
                     }
                 } else if value >= *max_val {
-                    return Err(Error::ValidationError(format!(
+                    return Err(Error::validation_error(format!(
                         "Value {value} is greater than or equal to maximum {max_val} (exclusive)"
                     )));
                 }
@@ -256,7 +256,7 @@ impl Constraint {
         match self {
             Self::PathAbsolute => {
                 if !path.is_absolute() {
-                    return Err(Error::ValidationError(format!(
+                    return Err(Error::validation_error(format!(
                         "Path '{}' must be absolute",
                         path.display()
                     )));
@@ -264,7 +264,7 @@ impl Constraint {
             }
             Self::PathExists { must_be_absolute } => {
                 if *must_be_absolute && !path.is_absolute() {
-                    return Err(Error::ValidationError(format!(
+                    return Err(Error::validation_error(format!(
                         "Path '{}' must be absolute",
                         path.display()
                     )));
@@ -272,7 +272,7 @@ impl Constraint {
                 match path.try_exists() {
                     Ok(true) => {}
                     _ => {
-                        return Err(Error::ValidationError(format!(
+                        return Err(Error::validation_error(format!(
                             "Path '{}' does not exist",
                             path.display()
                         )));

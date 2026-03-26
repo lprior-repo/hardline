@@ -4,7 +4,7 @@ use scp_core::{output::Output, vcs, Error, Result};
 
 /// List sessions
 pub fn list() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(|e| Error::Io(e))?;
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
     let backend = vcs::create_backend(&cwd)?;
     let workspaces = backend.list_workspaces()?;
@@ -24,7 +24,7 @@ pub fn list() -> Result<()> {
 
 /// Show session status
 pub fn status() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(|e| Error::Io(e))?;
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
     let backend = vcs::create_backend(&cwd)?;
 
@@ -59,19 +59,19 @@ pub fn status() -> Result<()> {
 /// Focus (switch to) a session
 pub fn focus(name: &str) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::InvalidIdentifier(
+        return Err(Error::invalid_identifier(
             "session name cannot be empty".to_string(),
         ));
     }
 
     Output::info(&format!("Focusing session '{}'...", name));
 
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;
     if !workspaces.iter().any(|w| w.name == name) {
-        return Err(Error::WorkspaceNotFound(name.to_string()));
+        return Err(Error::workspace_not_found(name.to_string()));
     }
 
     backend.switch_workspace(name)?;
@@ -81,7 +81,7 @@ pub fn focus(name: &str) -> Result<()> {
 
 /// Submit session changes for review
 pub fn submit(name: Option<&str>, auto_commit: bool, message: Option<&str>) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
 
     let workspace_name = if let Some(n) = name {
@@ -92,7 +92,7 @@ pub fn submit(name: Option<&str>, auto_commit: bool, message: Option<&str>) -> R
             .iter()
             .find(|w| w.is_current)
             .map(|w| w.name.clone())
-            .ok_or_else(|| Error::WorkspaceNotFound("no current session".to_string()))?
+            .ok_or_else(|| Error::workspace_not_found("no current session".to_string()))?
     };
 
     Output::info(&format!("Submitting session '{}'...", workspace_name));
@@ -105,20 +105,20 @@ pub fn submit(name: Option<&str>, auto_commit: bool, message: Option<&str>) -> R
                     .args(["describe", "-m", msg])
                     .current_dir(&cwd)
                     .output()
-                    .map_err(Error::Io)?;
+                    .map_err(|e| Error::io_error(e.to_string()))?;
                 if !output.status.success() {
-                    return Err(Error::VcsConflict(
-                        "commit".to_string(),
+                    return Err(Error::vcs_conflict(
+                        "commit",
                         String::from_utf8_lossy(&output.stderr).to_string(),
                     ));
                 }
             } else {
-                return Err(Error::InvalidOperation(
+                return Err(Error::invalid_state(
                     "dirty working copy requires --message".to_string(),
                 ));
             }
         } else {
-            return Err(Error::WorkingCopyDirty);
+            return Err(Error::working_copy_dirty());
         }
     }
 
@@ -132,25 +132,25 @@ pub fn submit(name: Option<&str>, auto_commit: bool, message: Option<&str>) -> R
 /// Remove a session
 pub fn remove(name: &str, force: bool, merge: bool) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::InvalidIdentifier(
+        return Err(Error::invalid_identifier(
             "session name cannot be empty".to_string(),
         ));
     }
 
     if name == "main" {
-        return Err(Error::InvalidOperation(
+        return Err(Error::invalid_state(
             "cannot remove the main session".to_string(),
         ));
     }
 
     Output::info(&format!("Removing session '{}'...", name));
 
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;
     if !workspaces.iter().any(|w| w.name == name) {
-        return Err(Error::WorkspaceNotFound(name.to_string()));
+        return Err(Error::workspace_not_found(name.to_string()));
     }
 
     if merge {

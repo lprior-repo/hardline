@@ -1,0 +1,6 @@
+---
+source: crates/scp-error/tests/snapshot_tests.rs
+assertion_line: 78
+expression: json
+---
+{"LockTimeout":{"operation":"acquire_lock","timeout_ms":5000,"retries":3}}

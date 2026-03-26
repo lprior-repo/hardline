@@ -3,7 +3,8 @@
 //! Contains the main entry point and command dispatch logic.
 
 use crate::cli::args::Cli;
-use clap::Subcommand;
+use crate::commands;
+use clap::{Parser, Subcommand};
 use scp_core::{output::Output, Result};
 use std::process::ExitCode;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -55,7 +56,7 @@ pub fn run_command(cli: Cli) -> Result<()> {
 
         Commands::Workspace { command } => match command {
             crate::cli::workspace_args::WorkspaceCommands::Spawn { name, sync } => {
-                commands::workspace::spawn(&name, sync)
+                commands::workspace::spawn(&name, commands::workspace::SyncOption::from_bool(sync))
             }
             crate::cli::workspace_args::WorkspaceCommands::Switch { name } => {
                 commands::workspace::switch(&name)

@@ -19,12 +19,12 @@ impl SessionName {
         let name = name.into();
         let name = name.trim().to_string();
         if name.is_empty() {
-            return Err(Error::InvalidState(
+            return Err(Error::invalid_state(
                 "Session name cannot be empty".to_string(),
             ));
         }
         if name.len() > Self::MAX_LENGTH {
-            return Err(Error::InvalidState(format!(
+            return Err(Error::invalid_state(format!(
                 "Session name cannot exceed {} characters",
                 Self::MAX_LENGTH
             )));
@@ -32,9 +32,9 @@ impl SessionName {
         let first_char = name
             .chars()
             .next()
-            .ok_or_else(|| Error::InvalidState("Session name cannot be empty".to_string()))?;
+            .ok_or_else(|| Error::invalid_state("Session name cannot be empty".to_string()))?;
         if !first_char.is_ascii_alphabetic() {
-            return Err(Error::InvalidState(
+            return Err(Error::invalid_state(
                 "Session name must start with a letter".to_string(),
             ));
         }
@@ -42,7 +42,7 @@ impl SessionName {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
         if !valid_chars {
-            return Err(Error::InvalidState(
+            return Err(Error::invalid_state(
                 "Session name can only contain letters, numbers, dashes, and underscores"
                     .to_string(),
             ));

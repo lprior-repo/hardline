@@ -1,0 +1,5 @@
+---
+source: crates/scp-error/tests/snapshot_tests.rs
+expression: json
+---
+{"JjWorkspaceConflict":{"conflict_type":"AlreadyExists","workspace_name":"test-workspace","msg":"Workspace already exists","recovery_hint":"Remove the existing workspace first"}}

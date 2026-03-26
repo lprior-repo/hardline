@@ -1,6 +1,10 @@
 //! Git backend implementation
 
-use crate::error::{Error, Result};
+use crate::error::Result;
+use crate::error_internal::InternalErrorKind;
+use crate::error_io::IoErrorKind;
+use crate::error_vcs::VcsErrorKind;
+use crate::error_workspace::WorkspaceErrorKind;
 use chrono::Utc;
 use std::process::Command;
 
@@ -21,7 +25,7 @@ impl GitBackend {
             .args(args)
             .current_dir(&self.repo_path)
             .output()
-            .map_err(Error::Io)
+            .map_err(|e| IoErrorKind::IoError(e.to_string()).into())
     }
 }
 
@@ -29,10 +33,7 @@ impl VcsBackend for GitBackend {
     fn current_branch(&self) -> Result<String> {
         let output = self.run_git(&["rev-parse", "--abbrev-ref", "HEAD"])?;
         if !output.status.success() {
-            return Err(Error::VcsConflict(
-                "git".into(),
-                "Failed to get branch".into(),
-            ));
+            return Err(VcsErrorKind::Conflict("git".into(), "Failed to get branch".into()).into());
         }
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
@@ -60,7 +61,7 @@ impl VcsBackend for GitBackend {
     fn create_branch(&self, name: &str) -> Result<()> {
         let output = self.run_git(&["branch", name])?;
         if !output.status.success() {
-            return Err(Error::BranchExists(name.to_string()));
+            return Err(VcsErrorKind::BranchExists(name.to_string()).into());
         }
         Ok(())
     }
@@ -68,7 +69,7 @@ impl VcsBackend for GitBackend {
     fn switch_branch(&self, name: &str) -> Result<()> {
         let output = self.run_git(&["checkout", name])?;
         if !output.status.success() {
-            return Err(Error::BranchNotFound(name.to_string()));
+            return Err(VcsErrorKind::BranchNotFound(name.to_string()).into());
         }
         Ok(())
     }
@@ -76,9 +77,10 @@ impl VcsBackend for GitBackend {
     fn push(&self) -> Result<()> {
         let output = self.run_git(&["push"])?;
         if !output.status.success() {
-            return Err(Error::VcsPushFailed(
+            return Err(VcsErrorKind::PushFailed(
                 String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
+            )
+            .into());
         }
         Ok(())
     }
@@ -86,9 +88,10 @@ impl VcsBackend for GitBackend {
     fn pull(&self) -> Result<()> {
         let output = self.run_git(&["pull"])?;
         if !output.status.success() {
-            return Err(Error::VcsPullFailed(
+            return Err(VcsErrorKind::PullFailed(
                 String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
+            )
+            .into());
         }
         Ok(())
     }
@@ -96,9 +99,10 @@ impl VcsBackend for GitBackend {
     fn rebase(&self, onto: &str) -> Result<()> {
         let output = self.run_git(&["rebase", onto])?;
         if !output.status.success() {
-            return Err(Error::VcsRebaseFailed(
+            return Err(VcsErrorKind::RebaseFailed(
                 String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
+            )
+            .into());
         }
         Ok(())
     }
@@ -106,10 +110,11 @@ impl VcsBackend for GitBackend {
     fn merge(&self, branch: &str) -> Result<()> {
         let output = self.run_git(&["merge", branch])?;
         if !output.status.success() {
-            return Err(Error::VcsConflict(
+            return Err(VcsErrorKind::Conflict(
                 branch.to_string(),
                 String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
+            )
+            .into());
         }
         Ok(())
     }
@@ -157,27 +162,19 @@ impl VcsBackend for GitBackend {
     }
 
     fn create_workspace(&self, _name: &str) -> Result<()> {
-        Err(Error::Unimplemented(
-            "Git workspaces use worktrees instead".into(),
-        ))
+        Err(InternalErrorKind::Unimplemented("Git workspaces use worktrees instead".into()).into())
     }
 
     fn switch_workspace(&self, _name: &str) -> Result<()> {
-        Err(Error::Unimplemented(
-            "Git workspaces use worktrees instead".into(),
-        ))
+        Err(InternalErrorKind::Unimplemented("Git workspaces use worktrees instead".into()).into())
     }
 
     fn list_workspaces(&self) -> Result<Vec<Workspace>> {
-        Err(Error::Unimplemented(
-            "Git workspaces use worktrees instead".into(),
-        ))
+        Err(InternalErrorKind::Unimplemented("Git workspaces use worktrees instead".into()).into())
     }
 
     fn delete_workspace(&self, _name: &str) -> Result<()> {
-        Err(Error::Unimplemented(
-            "Git workspaces use worktrees instead".into(),
-        ))
+        Err(InternalErrorKind::Unimplemented("Git workspaces use worktrees instead".into()).into())
     }
 
     fn fork_workspace(&self, source: &str, target: &str) -> Result<()> {
@@ -187,12 +184,11 @@ impl VcsBackend for GitBackend {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             if stderr.contains("already exists") {
-                return Err(Error::WorkspaceExists(target.to_string()));
+                return Err(WorkspaceErrorKind::Exists(target.to_string()).into());
             }
-            return Err(Error::VcsConflict(
-                "worktree add".to_string(),
-                stderr.to_string(),
-            ));
+            return Err(
+                VcsErrorKind::Conflict("worktree add".to_string(), stderr.to_string()).into(),
+            );
         }
         Ok(())
     }
@@ -200,18 +196,31 @@ impl VcsBackend for GitBackend {
     fn merge_workspace(&self, name: &str) -> Result<()> {
         let worktree_path = self.repo_path.join(name);
         if !worktree_path.exists() {
-            return Err(Error::WorkspaceNotFound(name.to_string()));
+            return Err(WorkspaceErrorKind::NotFound(name.to_string()).into());
         }
         self.switch_branch("main")?;
         let output = self.run_git(&["merge", name])?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             if stderr.contains("conflict") {
-                return Err(Error::VcsConflict("merge".to_string(), stderr.to_string()));
+                return Err(VcsErrorKind::Conflict("merge".to_string(), stderr.to_string()).into());
             }
-            return Err(Error::VcsConflict("merge".to_string(), stderr.to_string()));
+            return Err(VcsErrorKind::Conflict("merge".to_string(), stderr.to_string()).into());
         }
         self.push()?;
+        Ok(())
+    }
+
+    fn abort_workspace(&self, _name: &str) -> Result<()> {
+        // Abort workspace by restoring working copy to last commit
+        // This uses git checkout -- . to discard uncommitted changes
+        let output = self.run_git(&["checkout", "--", "."])?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(
+                VcsErrorKind::Conflict("git checkout".to_string(), stderr.to_string()).into(),
+            );
+        }
         Ok(())
     }
 }

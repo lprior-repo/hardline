@@ -103,7 +103,7 @@ impl FlagSpec {
         if VALID_CATEGORIES.contains(&category) {
             Ok(())
         } else {
-            Err(Error::ValidationError(format!(
+            Err(Error::validation_error(format!(
                 "Invalid flag category: '{}'. Must be one of: {}",
                 category,
                 VALID_CATEGORIES.join(", ")

@@ -5,12 +5,12 @@
 use std::path::PathBuf;
 
 use crate::domain::identifiers::SessionName;
+use crate::domain::repository::Session;
 use crate::domain::session::BranchState;
 use crate::domain::session_query::{
     apply_query, filter_sessions, paginate_sessions, sort_sessions, SessionFilter, SessionQuery,
     SessionSort, SessionSortField, SortDirection,
 };
-use crate::domain::repository::Session;
 
 // ============================================================================
 // TEST HELPERS
@@ -152,7 +152,10 @@ fn test_session_filter_default() {
 #[test]
 fn test_session_filter_with_status() {
     let filter = SessionFilter::new().with_status(crate::session_state::SessionState::Active);
-    assert_eq!(filter.status, Some(crate::session_state::SessionState::Active));
+    assert_eq!(
+        filter.status,
+        Some(crate::session_state::SessionState::Active)
+    );
 }
 
 #[test]

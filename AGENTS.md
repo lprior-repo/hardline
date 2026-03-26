@@ -172,3 +172,58 @@ For more details, see README.md and docs/QUICKSTART.md.
 - If push fails, resolve and retry until it succeeds
 
 <!-- END BEADS INTEGRATION -->
+
+## Verification Stack
+
+This project uses a multi-layer verification system for NASA-level code quality:
+
+### Layer 1-4: Compile-Time (Scott Wlaschin + DDD)
+- Crate boundaries enforce DDD layer separation
+- cargo-deny blocks banned dependencies
+- Typestates (PhantomData) make invalid states unrepresentable
+- Sealed traits prevent unauthorized implementations
+
+### Layer 5: Custom dylint Lints (47 total)
+- DENY lints: unwrap, panic, mut, tokio/sqlx/reqwest in domain
+- WARN lints: complexity, string performance, clone avoidance, bounds safety
+Run with: cargo dylint --workspace
+
+### Layer 6: trybuild compile-fail tests
+- Proves domain cannot import infrastructure
+- Located in tests/compile_fail/
+
+### Layer 7: insta snapshots
+- API contract locking via golden files
+Run with: cargo insta test --verify-auto
+
+### Layer 8: proptest + state machine tests
+- Property-based testing for invariants
+- State machine tests for exhaustive transitions
+
+### Layer 9: Coverage (90% target)
+- cargo-llvm-cov enforces 90% line coverage
+Run with: cargo llvm-cov --workspace --fail-under-lines 90
+
+### Layer 10: Mutation testing (90% kill rate)
+- cargo-mutants kills weak tests
+Run with: cargo mutants --workspace --timeout 120
+
+### Layer 11-13: Formal Verification (nightly)
+- Kani: Bounded model checking
+- Loom: Concurrency exhaustion  
+- Creusot: Unbounded verification
+Run with: ./scripts/verify-nightly.sh
+
+### Layer 14: contracts crate
+- Design-by-contract runtime checks
+
+### Layer 15: Miri
+- Undefined behavior detection
+Run with: cargo +miri test --workspace
+
+## Commands
+- Full verification: ./scripts/verify.sh
+- Nightly formal: ./scripts/verify-nightly.sh
+- Coverage: cargo llvm-cov --workspace --fail-under-lines 90
+- Mutations: cargo mutants --workspace
+- Kani: cargo kani --workspace

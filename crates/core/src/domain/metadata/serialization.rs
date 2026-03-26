@@ -34,11 +34,11 @@ impl StackMetadata {
         let data = self.serialize_metadata();
         self.backend
             .save(&data)
-            .map_err(|e| Error::InvalidState(format!("Metadata backend error: {}", e)))
+            .map_err(|e| Error::invalid_state(format!("Metadata backend error: {}", e)))
     }
 
     /// Check if adding parent would create a cycle
-    fn would_create_cycle(&self, branch: &super::BranchId, parent: &super::BranchId) -> bool {
+    pub fn would_create_cycle(&self, branch: &super::BranchId, parent: &super::BranchId) -> bool {
         // Can't set parent to self
         if branch == parent {
             return true;

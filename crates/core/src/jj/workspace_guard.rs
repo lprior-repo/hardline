@@ -59,15 +59,11 @@ impl WorkspaceGuard {
 
         let remove_result = match tokio::fs::try_exists(&self.path).await {
             Ok(true) => tokio::fs::remove_dir_all(&self.path).await.map_err(|e| {
-                Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Failed to remove workspace directory: {e}"),
-                ))
+                Error::io_error(format!("Failed to remove workspace directory: {e}"))
             }),
             Ok(false) => Ok(()),
-            Err(e) => Err(Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to check workspace existence: {e}"),
+            Err(e) => Err(Error::io_error(format!(
+                "Failed to check workspace existence: {e}"
             ))),
         };
 
@@ -85,25 +81,22 @@ impl WorkspaceGuard {
                     Ok(())
                 } else {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    Err(Error::JjCommandError {
+                    Err(crate::error_jj::JjErrorKind::CommandError {
                         operation: "forget workspace".to_string(),
                         msg: stderr.to_string(),
                         is_not_found: false,
-                    })
+                    }
+                    .into())
                 }
             });
 
         let remove_result = match self.path.try_exists() {
             Ok(true) => std::fs::remove_dir_all(&self.path).map_err(|e| {
-                Error::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Failed to remove workspace directory: {e}"),
-                ))
+                Error::io_error(format!("Failed to remove workspace directory: {e}"))
             }),
             Ok(false) => Ok(()),
-            Err(e) => Err(Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to check workspace existence: {e}"),
+            Err(e) => Err(Error::io_error(format!(
+                "Failed to check workspace existence: {e}"
             ))),
         };
 

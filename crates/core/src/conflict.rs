@@ -72,7 +72,7 @@ impl ConflictState {
         if is_valid {
             Ok(new_state)
         } else {
-            Err(Error::InvalidState(format!(
+            Err(Error::invalid_state(format!(
                 "Invalid conflict state transition from {} to {}",
                 self, new_state
             )))
@@ -177,7 +177,7 @@ impl ConflictManager {
 
         if let Some(existing) = self.conflicts.get(&branch_id) {
             if existing.needs_resolution() {
-                return Err(Error::InvalidState(format!(
+                return Err(Error::invalid_state(format!(
                     "Branch '{}' has unresolved conflicts",
                     branch_id
                 )));
@@ -207,7 +207,7 @@ impl ConflictManager {
         let conflict = self
             .conflicts
             .get_mut(branch_id)
-            .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {}", branch_id)))?;
+            .ok_or_else(|| Error::not_found(format!("No conflict for branch: {}", branch_id)))?;
 
         conflict.start_resolution()
     }
@@ -220,7 +220,7 @@ impl ConflictManager {
         let conflict = self
             .conflicts
             .get_mut(branch_id)
-            .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {}", branch_id)))?;
+            .ok_or_else(|| Error::not_found(format!("No conflict for branch: {}", branch_id)))?;
 
         conflict.resolve()
     }
@@ -233,7 +233,7 @@ impl ConflictManager {
         let conflict = self
             .conflicts
             .get_mut(branch_id)
-            .ok_or_else(|| Error::NotFound(format!("No conflict for branch: {}", branch_id)))?;
+            .ok_or_else(|| Error::not_found(format!("No conflict for branch: {}", branch_id)))?;
 
         conflict.fail()
     }

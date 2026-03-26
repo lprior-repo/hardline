@@ -207,17 +207,4 @@ mod tests {
         assert!(result2.is_ok());
     }
 }
-pub mod operation_log_types;
-pub mod operation_log_schema;
-pub mod operation_log_repository;
-pub mod operation_log_tests;
 
-// Re-export types for convenience
-pub use operation_log_types::{
-    OperationLogEntry, OperationLogError, parse_datetime, parse_operation_log_row,
-};
-pub use operation_log_schema::ensure_operation_log_schema;
-pub use operation_log_repository::{
-    get_stream_version, insert_operation_log, query_all_operations, query_stream_events,
-};
->>>>>>> Stashed changes

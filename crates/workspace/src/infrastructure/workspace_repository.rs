@@ -112,7 +112,19 @@ mod tests {
         )
         .unwrap();
         let active = workspace.activate().unwrap();
-        repo.save(active).unwrap();
+        // Convert Workspace<Active> to Workspace by using transition_impl
+        let workspace_for_storage = Workspace {
+            id: active.id,
+            name: active.name,
+            path: active.path,
+            created_at: active.created_at,
+            updated_at: active.updated_at,
+            lock_holder: active.lock_holder,
+            config: active.config,
+            state: WorkspaceState::Active,
+            _state: std::marker::PhantomData::<crate::domain::entities::workspace::Initializing>,
+        };
+        repo.save(workspace_for_storage).unwrap();
         let actives = repo.list_active().unwrap();
         assert_eq!(actives.len(), 1);
     }

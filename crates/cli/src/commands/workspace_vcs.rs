@@ -12,7 +12,7 @@ use super::workspace_helpers::build_jj_diff_command;
 
 /// Show workspace log
 pub fn log(limit: Option<usize>) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let backend = vcs::create_backend(&cwd)?;
     let commits = backend.log(limit.unwrap_or(10))?;
@@ -32,17 +32,17 @@ pub fn log(limit: Option<usize>) -> Result<()> {
 
 /// Show diff of changes
 pub fn diff(path: Option<&str>) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let mut cmd = build_jj_diff_command(&cwd, path);
-    let output = cmd.output().map_err(Error::Io)?;
+    let output = cmd.output()?;
 
     if output.status.success() {
         print!("{}", String::from_utf8_lossy(&output.stdout));
     } else {
-        return Err(Error::VcsConflict(
-            "diff".to_string(),
-            String::from_utf8_lossy(&output.stderr).to_string(),
+        return Err(Error::vcs_conflict(
+            "diff",
+            String::from_utf8_lossy(&output.stderr),
         ));
     }
 
@@ -51,7 +51,7 @@ pub fn diff(path: Option<&str>) -> Result<()> {
 
 /// Show uncommitted changes
 pub fn uncommitted() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let backend = vcs::create_backend(&cwd)?;
     let status = backend.status()?;
@@ -63,8 +63,7 @@ pub fn uncommitted() -> Result<()> {
             let output = Command::new("jj")
                 .arg("status")
                 .current_dir(&cwd)
-                .output()
-                .map_err(Error::Io)?;
+                .output()?;
             print!("{}", String::from_utf8_lossy(&output.stdout));
         }
         VcsStatus::Conflicted => {
@@ -76,8 +75,7 @@ pub fn uncommitted() -> Result<()> {
                 .arg("-T")
                 .arg("conflicts()")
                 .current_dir(&cwd)
-                .output()
-                .map_err(Error::Io)?;
+                .output()?;
             print!("{}", String::from_utf8_lossy(&output.stdout));
         }
         VcsStatus::Detached => println!("Detached HEAD"),
@@ -88,7 +86,7 @@ pub fn uncommitted() -> Result<()> {
 
 /// Commit uncommitted changes
 pub fn commit(message: &str) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let backend = vcs::create_backend(&cwd)?;
     let status = backend.status()?;
@@ -102,13 +100,12 @@ pub fn commit(message: &str) -> Result<()> {
     let output = Command::new("jj")
         .args(["describe", "-m", message])
         .current_dir(&cwd)
-        .output()
-        .map_err(Error::Io)?;
+        .output()?;
 
     if !output.status.success() {
-        return Err(Error::VcsConflict(
-            "commit".to_string(),
-            String::from_utf8_lossy(&output.stderr).to_string(),
+        return Err(Error::vcs_conflict(
+            "commit",
+            String::from_utf8_lossy(&output.stderr),
         ));
     }
 
@@ -118,7 +115,7 @@ pub fn commit(message: &str) -> Result<()> {
 
 /// List branches
 pub fn branches() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let backend = vcs::create_backend(&cwd)?;
     let branches = backend.list_branches()?;
@@ -138,7 +135,7 @@ pub fn branches() -> Result<()> {
 
 /// Create a new branch
 pub fn branch_create(name: &str) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let backend = vcs::create_backend(&cwd)?;
     backend.create_branch(name)?;
@@ -149,17 +146,16 @@ pub fn branch_create(name: &str) -> Result<()> {
 
 /// Delete a branch
 pub fn branch_delete(name: &str) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     // Run jj bookmark delete
     let output = Command::new("jj")
         .args(["bookmark", "delete", name])
         .current_dir(&cwd)
-        .output()
-        .map_err(Error::Io)?;
+        .output()?;
 
     if !output.status.success() {
-        return Err(Error::BranchNotFound(name.to_string()));
+        return Err(Error::branch_not_found(name));
     }
 
     println!("✓ Deleted branch '{}'", name);
@@ -168,7 +164,7 @@ pub fn branch_delete(name: &str) -> Result<()> {
 
 /// Show current branch info
 pub fn branch_current() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let backend = vcs::create_backend(&cwd)?;
     let branch = backend.current_branch()?;
@@ -182,17 +178,17 @@ pub fn add(path: &str) -> Result<()> {
     let workspace_path = std::path::Path::new(path);
 
     if !workspace_path.exists() {
-        return Err(Error::NotFound(format!("Path does not exist: {}", path)));
+        return Err(Error::not_found(format!("Path does not exist: {}", path)));
     }
 
     if !workspace_path.is_dir() {
-        return Err(Error::InvalidState(format!(
+        return Err(Error::invalid_state(format!(
             "Path is not a directory: {}",
             path
         )));
     }
 
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;
@@ -200,7 +196,7 @@ pub fn add(path: &str) -> Result<()> {
 
     for ws in workspaces {
         if ws.name == path_str || ws.branch == path_str {
-            return Err(Error::WorkspaceExists(ws.name));
+            return Err(Error::workspace_exists(ws.name));
         }
     }
 
@@ -209,15 +205,11 @@ pub fn add(path: &str) -> Result<()> {
     let output = Command::new("jj")
         .args(["workspace", "add", path])
         .current_dir(&cwd)
-        .output()
-        .map_err(Error::Io)?;
+        .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "workspace add".to_string(),
-            stderr.to_string(),
-        ));
+        return Err(Error::vcs_conflict("workspace add", stderr));
     }
 
     println!("✓ Added workspace at '{}'", path);

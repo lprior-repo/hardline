@@ -73,7 +73,7 @@ pub struct PostgresWorktreeRepository {
 
 #[async_trait::async_trait]
 impl WorktreeRepository for PostgresWorktreeRepository {
-    async fn save(&mut self, worktree: &mut Worktree) -> Result<(), WorktreeDomainError> {
+    async fn save<S: Send>(&mut self, worktree: Worktree<S>) -> Result<(), WorktreeDomainError> {
         let id_bytes = worktree.id().as_bytes();
         
         let query = r#"

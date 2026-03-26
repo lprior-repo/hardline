@@ -30,7 +30,7 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
         .current_dir(root)
         .output()
         .await
-        .map_err(|e| Error::JjCommandError {
+        .map_err(|e| crate::error_jj::JjErrorKind::CommandError {
             operation: "get current operation".to_string(),
             msg: e.to_string(),
             is_not_found: e.kind() == std::io::ErrorKind::NotFound,
@@ -38,11 +38,12 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::JjCommandError {
+        return Err(crate::error_jj::JjErrorKind::CommandError {
             operation: "get current operation".to_string(),
             msg: stderr.to_string(),
             is_not_found: false,
-        });
+        }
+        .into());
     }
 
     let operation_id = String::from_utf8_lossy(&output.stdout)
@@ -50,11 +51,12 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
         .to_string();
 
     if operation_id.is_empty() {
-        return Err(Error::JjCommandError {
+        return Err(crate::error_jj::JjErrorKind::CommandError {
             operation: "get current operation".to_string(),
             msg: "Empty operation ID returned".to_string(),
             is_not_found: false,
-        });
+        }
+        .into());
     }
 
     let root_output = get_jj_command()
@@ -62,7 +64,7 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
         .current_dir(root)
         .output()
         .await
-        .map_err(|e| Error::JjCommandError {
+        .map_err(|e| crate::error_jj::JjErrorKind::CommandError {
             operation: "get repo root".to_string(),
             msg: e.to_string(),
             is_not_found: e.kind() == std::io::ErrorKind::NotFound,
@@ -70,11 +72,12 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
 
     if !root_output.status.success() {
         let stderr = String::from_utf8_lossy(&root_output.stderr);
-        return Err(Error::JjCommandError {
+        return Err(crate::error_jj::JjErrorKind::CommandError {
             operation: "get repo root".to_string(),
             msg: stderr.to_string(),
             is_not_found: false,
-        });
+        }
+        .into());
     }
 
     let repo_root = String::from_utf8_lossy(&root_output.stdout)
@@ -95,9 +98,10 @@ pub async fn create_workspace_synced(
     repo_root: &Path,
 ) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::InvalidConfig(
+        return Err(crate::error_config::ConfigErrorKind::Invalid(
             "workspace name cannot be empty".into(),
-        ));
+        )
+        .into());
     }
 
     let _lock = super::jj_lock::acquire_lock_with_backoff().await?;
@@ -108,7 +112,7 @@ pub async fn create_workspace_synced(
         tokio::fs::create_dir_all(parent)
             .await
             .map_err(|e| {
-                Error::IoError(format!("Failed to create workspace directory: {e}"))
+                Error::io_error(format!("Failed to create workspace directory: {e}"))
             })?;
     }
 
@@ -120,7 +124,7 @@ pub async fn create_workspace_synced(
         .current_dir(repo_root)
         .output()
         .await
-        .map_err(|e| Error::JjCommandError {
+        .map_err(|e| crate::error_jj::JjErrorKind::CommandError {
             operation: "create workspace".to_string(),
             msg: e.to_string(),
             is_not_found: e.kind() == std::io::ErrorKind::NotFound,
@@ -128,11 +132,12 @@ pub async fn create_workspace_synced(
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::JjCommandError {
+        return Err(crate::error_jj::JjErrorKind::CommandError {
             operation: "create workspace".to_string(),
             msg: stderr.to_string(),
             is_not_found: false,
-        });
+        }
+        .into());
     }
 
     super::jj_workspace::verify_workspace_consistency(name, path).await?;
@@ -181,11 +186,9 @@ mod tests {
         assert!(result.is_err());
 
         match result {
-            Err(Error::InvalidConfig(msg)) => {
-                assert!(msg.contains("workspace name cannot be empty"));
-            }
-            Ok(()) => panic!("Expected InvalidConfig error, but got Ok"),
-            Err(other) => panic!("Expected InvalidConfig error, got: {other:?}"),
+            Err(Error::Config(crate::error_config::ConfigError { .. })) => {}
+            Ok(()) => panic!("Expected Config error, but got Ok"),
+            Err(other) => panic!("Expected Config error, got: {other:?}"),
         }
     }
 
@@ -196,13 +199,11 @@ mod tests {
         let result = create_workspace_synced("test", &workspace_path, &repo_root).await;
 
         match result {
-            Err(Error::JjCommandError { .. }) => {}
-            Err(Error::InvalidConfig(msg)) => {
-                assert!(msg.contains("parent directory") || msg.contains("invalid"));
-            }
+            Err(Error::Jj(crate::error_jj::JjError { .. })) => {}
+            Err(Error::Config(crate::error_config::ConfigError { .. })) => {}
             Err(other) => {
                 panic!(
-                    "Expected JjCommandError or InvalidConfig error, got: {other:?}"
+                    "Expected Jj or Config error, got: {other:?}"
                 )
             }
             Ok(()) => {

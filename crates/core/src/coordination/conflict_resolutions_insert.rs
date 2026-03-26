@@ -65,41 +65,41 @@ pub async fn insert_conflict_resolution(
     resolution: &ConflictResolution,
 ) -> Result<i64> {
     // Validate inputs
-    validate_decider(&resolution.decider).map_err(|e| crate::Error::ValidationFieldError {
-        message: format!("invalid decider '{}': {e}", resolution.decider),
-        field: "decider".to_string(),
-        value: Some(resolution.decider.clone()),
-    })?;
+    validate_decider(&resolution.decider).map_err(|e| crate::Error::validation_field_error(
+        "decider",
+        format!("invalid decider '{}': {e}", resolution.decider),
+        Some(resolution.decider.clone()),
+    ))?;
 
     validate_non_empty(&resolution.file, "file").map_err(|e| {
-        crate::Error::ValidationFieldError {
-            message: format!("empty file path: {e}"),
-            field: "file".to_string(),
-            value: Some(resolution.file.clone()),
-        }
+        crate::Error::validation_field_error(
+            "file",
+            format!("empty file path: {e}"),
+            Some(resolution.file.clone()),
+        )
     })?;
 
     validate_non_empty(&resolution.strategy, "strategy").map_err(|e| {
-        crate::Error::ValidationFieldError {
-            message: format!("empty strategy: {e}"),
-            field: "strategy".to_string(),
-            value: Some(resolution.strategy.clone()),
-        }
+        crate::Error::validation_field_error(
+            "strategy",
+            format!("empty strategy: {e}"),
+            Some(resolution.strategy.clone()),
+        )
     })?;
 
     validate_non_empty(&resolution.session, "session").map_err(|e| {
-        crate::Error::ValidationFieldError {
-            message: format!("empty session name: {e}"),
-            field: "session".to_string(),
-            value: Some(resolution.session.clone()),
-        }
+        crate::Error::validation_field_error(
+            "session",
+            format!("empty session name: {e}"),
+            Some(resolution.session.clone()),
+        )
     })?;
 
-    validate_timestamp(&resolution.timestamp).map_err(|e| crate::Error::ValidationFieldError {
-        message: format!("invalid timestamp: {e}"),
-        field: "timestamp".to_string(),
-        value: Some(resolution.timestamp.clone()),
-    })?;
+    validate_timestamp(&resolution.timestamp).map_err(|e| crate::Error::validation_field_error(
+        "timestamp",
+        format!("invalid timestamp: {e}"),
+        Some(resolution.timestamp.clone()),
+    ))?;
 
     // Insert record
     let result = sqlx::query(

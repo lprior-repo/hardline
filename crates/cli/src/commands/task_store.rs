@@ -1,4 +1,4 @@
-use scp_core::{error::Error, Result as CoreResult};
+use scp_core::{error::Error, error_task::TaskErrorKind, Result as CoreResult};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -9,7 +9,7 @@ use super::task_types::{Task, TaskId, Title};
 
 pub fn get_tasks_dir() -> CoreResult<PathBuf> {
     let dirs = directories::ProjectDirs::from("com", "scp", "scp")
-        .ok_or_else(|| Error::Internal("Could not determine config directory".into()))?;
+        .ok_or_else(|| Error::internal("Could not determine config directory"))?;
     Ok(dirs.config_dir().to_path_buf())
 }
 
@@ -68,18 +68,18 @@ impl TaskStore {
         let tasks: Vec<Task> = self
             .tasks
             .read()
-            .map_err(|e| Error::Internal(e.to_string()))?
+            .map_err(|e| Error::internal(e.to_string()))?
             .values()
             .cloned()
             .collect();
 
         if let Some(parent) = self.tasks_file.parent() {
-            fs::create_dir_all(parent).map_err(Error::Io)?;
+            fs::create_dir_all(parent).map_err(|e| Error::io_error(e.to_string()))?;
         }
 
         let contents =
-            serde_json::to_string_pretty(&tasks).map_err(|e| Error::Internal(e.to_string()))?;
-        fs::write(&self.tasks_file, contents).map_err(Error::Io)?;
+            serde_json::to_string_pretty(&tasks).map_err(|e| Error::internal(e.to_string()))?;
+        fs::write(&self.tasks_file, contents).map_err(|e| Error::io_error(e.to_string()))?;
         Ok(())
     }
 
@@ -101,9 +101,9 @@ impl TaskStore {
         let mut tasks = self
             .tasks
             .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+            .map_err(|e| Error::internal(e.to_string()))?;
         if !tasks.contains_key(task.id.as_str()) {
-            return Err(Error::TaskNotFound(task.id.to_string()));
+            return Err(TaskErrorKind::NotFound(task.id.to_string()).into());
         }
         tasks.insert(task.id.to_string(), task);
         drop(tasks);
@@ -115,12 +115,11 @@ impl TaskStore {
         let mut tasks = self
             .tasks
             .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+            .map_err(|e| Error::internal(e.to_string()))?;
         if tasks.contains_key(task.id.as_str()) {
-            return Err(Error::TaskAlreadyClaimed(
-                task.id.to_string(),
-                "exists".to_string(),
-            ));
+            return Err(
+                TaskErrorKind::AlreadyClaimed(task.id.to_string(), "exists".to_string()).into(),
+            );
         }
         tasks.insert(task.id.to_string(), task);
         drop(tasks);
@@ -138,15 +137,15 @@ pub fn get_task_store() -> Arc<TaskStore> {
 pub fn init_demo_tasks(store: &TaskStore) -> CoreResult<()> {
     let tasks = vec![
         Task::new(
-            TaskId::new("task-001").map_err(|e| Error::InvalidTaskId(e.to_string()))?,
+            TaskId::new("task-001").map_err(|e| Error::invalid_identifier(e.to_string()))?,
             Title::new("Implement user authentication"),
         ),
         Task::new(
-            TaskId::new("task-002").map_err(|e| Error::InvalidTaskId(e.to_string()))?,
+            TaskId::new("task-002").map_err(|e| Error::invalid_identifier(e.to_string()))?,
             Title::new("Add database migration"),
         ),
         Task::new(
-            TaskId::new("task-003").map_err(|e| Error::InvalidTaskId(e.to_string()))?,
+            TaskId::new("task-003").map_err(|e| Error::invalid_identifier(e.to_string()))?,
             Title::new("Fix memory leak in worker"),
         ),
     ];

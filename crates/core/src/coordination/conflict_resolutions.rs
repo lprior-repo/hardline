@@ -52,14 +52,8 @@
 //! # }
 //! ```
 
-pub mod conflict_resolutions_entities;
-pub mod conflict_resolutions_error_convert;
-pub mod conflict_resolutions_insert;
-pub mod conflict_resolutions_queries;
-pub mod conflict_resolutions_schema;
-
-pub use conflict_resolutions_entities::*;
-pub use conflict_resolutions_error_convert::*;
-pub use conflict_resolutions_insert::*;
-pub use conflict_resolutions_queries::*;
-pub use conflict_resolutions_schema::*;
+pub use super::conflict_resolutions_insert::insert_conflict_resolution;
+pub use super::conflict_resolutions_query::{
+    get_conflict_resolutions, get_resolutions_by_decider, get_resolutions_by_time_range,
+};
+pub use super::conflict_resolutions_schema::init_conflict_resolutions_schema;

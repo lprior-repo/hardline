@@ -16,33 +16,33 @@ use crate::error::{Error, Result};
 
 pub fn validate_path_exists(path: &Path) -> Result<()> {
     if !path.exists() {
-        return Err(Error::ValidationFieldError {
-            message: format!("Path '{}' does not exist", path.display()),
-            field: "path".to_string(),
-            value: Some(path.display().to_string()),
-        });
+        return Err(Error::validation_field_error(
+            "path",
+            format!("Path '{}' does not exist", path.display()),
+            Some(path.display().to_string()),
+        ));
     }
     Ok(())
 }
 
 pub fn validate_is_directory(path: &Path) -> Result<()> {
     if !path.is_dir() {
-        return Err(Error::ValidationFieldError {
-            message: format!("Path '{}' is not a directory", path.display()),
-            field: "path".to_string(),
-            value: Some(path.display().to_string()),
-        });
+        return Err(Error::validation_field_error(
+            "path",
+            format!("Path '{}' is not a directory", path.display()),
+            Some(path.display().to_string()),
+        ));
     }
     Ok(())
 }
 
 pub fn validate_is_file(path: &Path) -> Result<()> {
     if !path.is_file() {
-        return Err(Error::ValidationFieldError {
-            message: format!("Path '{}' is not a file", path.display()),
-            field: "path".to_string(),
-            value: Some(path.display().to_string()),
-        });
+        return Err(Error::validation_field_error(
+            "path",
+            format!("Path '{}' is not a file", path.display()),
+            Some(path.display().to_string()),
+        ));
     }
     Ok(())
 }
@@ -55,11 +55,11 @@ pub fn validate_workspace_path(path: &Path) -> Result<()> {
 pub fn validate_is_readable(path: &Path) -> Result<()> {
     match std::fs::metadata(path) {
         Ok(_) => Ok(()),
-        Err(e) => Err(Error::ValidationFieldError {
-            message: format!("Path '{}' is not readable: {}", path.display(), e),
-            field: "path".to_string(),
-            value: Some(path.display().to_string()),
-        }),
+        Err(e) => Err(Error::validation_field_error(
+            "path",
+            format!("Path '{}' is not readable: {}", path.display(), e),
+            Some(path.display().to_string()),
+        )),
     }
 }
 
@@ -67,23 +67,23 @@ pub fn validate_is_writable(path: &Path) -> Result<()> {
     if path.is_dir() {
         match std::fs::OpenOptions::new().write(true).open(path) {
             Ok(_) => Ok(()),
-            Err(_) => Err(Error::ValidationFieldError {
-                message: format!("Directory '{}' is not writable", path.display()),
-                field: "path".to_string(),
-                value: Some(path.display().to_string()),
-            }),
+            Err(_) => Err(Error::validation_field_error(
+                "path",
+                format!("Directory '{}' is not writable", path.display()),
+                Some(path.display().to_string()),
+            )),
         }
     } else {
         match path.parent() {
             Some(parent) => validate_is_writable(parent),
-            None => Err(Error::ValidationFieldError {
-                message: format!(
+            None => Err(Error::validation_field_error(
+                "path",
+                format!(
                     "Cannot check writability for path without parent: '{}'",
                     path.display()
                 ),
-                field: "path".to_string(),
-                value: Some(path.display().to_string()),
-            }),
+                Some(path.display().to_string()),
+            )),
         }
     }
 }
@@ -92,19 +92,19 @@ pub fn validate_directory_empty(path: &Path) -> Result<()> {
     match std::fs::read_dir(path) {
         Ok(mut entries) => {
             if entries.next().is_some() {
-                return Err(Error::ValidationFieldError {
-                    message: format!("Directory '{}' is not empty", path.display()),
-                    field: "path".to_string(),
-                    value: Some(path.display().to_string()),
-                });
+                return Err(Error::validation_field_error(
+                    "path",
+                    format!("Directory '{}' is not empty", path.display()),
+                    Some(path.display().to_string()),
+                ));
             }
             Ok(())
         }
-        Err(e) => Err(Error::ValidationFieldError {
-            message: format!("Cannot read directory '{}': {}", path.display(), e),
-            field: "path".to_string(),
-            value: Some(path.display().to_string()),
-        }),
+        Err(e) => Err(Error::validation_field_error(
+            "path",
+            format!("Cannot read directory '{}': {}", path.display(), e),
+            Some(path.display().to_string()),
+        )),
     }
 }
 
@@ -124,8 +124,9 @@ pub fn validate_any_path_exists(paths: &[&Path]) -> Result<()> {
     let exists = paths.iter().any(|&path| path.exists());
 
     if !exists {
-        return Err(Error::ValidationFieldError {
-            message: format!(
+        return Err(Error::validation_field_error(
+            "paths",
+            format!(
                 "None of the provided paths exist: {}",
                 paths
                     .iter()
@@ -133,9 +134,8 @@ pub fn validate_any_path_exists(paths: &[&Path]) -> Result<()> {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            field: "paths".to_string(),
-            value: None,
-        });
+            None,
+        ));
     }
 
     Ok(())

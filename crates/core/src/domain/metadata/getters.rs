@@ -12,7 +12,7 @@ impl StackMetadata {
     pub fn get_parent(&self, branch: BranchId) -> Result<Option<BranchId>, crate::Error> {
         match self.parents.get(&branch) {
             Some(parent) => Ok(parent.clone()),
-            None => Err(crate::Error::NotFound(format!(
+            None => Err(crate::Error::not_found(format!(
                 "Branch not found: {}",
                 branch
             ))),
@@ -31,7 +31,7 @@ impl StackMetadata {
                 if self.parents.contains_key(&parent) {
                     Ok(Vec::new())
                 } else {
-                    Err(crate::Error::NotFound(format!(
+                    Err(crate::Error::not_found(format!(
                         "Parent not found: {}",
                         parent
                     )))

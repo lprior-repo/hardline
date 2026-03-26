@@ -2,10 +2,10 @@
 
 use scp_core::output::Output;
 use scp_core::vcs;
+use scp_core::Error;
 
 use super::operations::*;
 use super::types::SyncOption;
-use crate::Error;
 
 /// Create a new workspace
 pub fn spawn(name: &str, sync: SyncOption) -> Result<(), Error> {
@@ -16,13 +16,13 @@ pub fn spawn(name: &str, sync: SyncOption) -> Result<(), Error> {
 
     Output::info(&format!("Creating workspace '{}'...", name));
 
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     // Check if workspace already exists
     let workspaces = backend.list_workspaces()?;
     if workspaces.iter().any(|w| w.name == name) {
-        return Err(Error::WorkspaceExists(name.to_string()));
+        return Err(Error::workspace_exists(name));
     }
 
     spawn_with_sync(backend.as_ref(), name, sync.is_sync())
@@ -32,19 +32,17 @@ pub fn spawn(name: &str, sync: SyncOption) -> Result<(), Error> {
 pub fn switch(name: &str) -> Result<(), Error> {
     // P1: Validate workspace name is not empty
     if name.is_empty() {
-        return Err(Error::InvalidIdentifier(
-            "workspace name cannot be empty".to_string(),
-        ));
+        return Err(Error::invalid_identifier("workspace name cannot be empty"));
     }
 
     Output::info(&format!("Switching to workspace '{}'...", name));
 
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     // Check if workspace exists and working copy is clean
     if !workspace_exists(backend.as_ref(), name)? {
-        return Err(Error::WorkspaceNotFound(name.to_string()));
+        return Err(Error::workspace_not_found(name));
     }
     require_clean_working_copy(backend.as_ref())?;
 
@@ -55,7 +53,7 @@ pub fn switch(name: &str) -> Result<(), Error> {
 
 /// List workspaces
 pub fn list() -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let backend = vcs::create_backend(&cwd)?;
     let workspaces = backend.list_workspaces()?;
@@ -75,7 +73,7 @@ pub fn list() -> Result<(), Error> {
 
 /// Show workspace status
 pub fn status() -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let backend = vcs::create_backend(&cwd)?;
     let branch = backend.current_branch()?;
@@ -89,7 +87,7 @@ pub fn status() -> Result<(), Error> {
 
 /// Sync workspace with main
 pub fn sync(name: Option<&str>, all: bool) -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
 
     let backend = vcs::create_backend(&cwd)?;
 
@@ -113,7 +111,7 @@ pub fn sync(name: Option<&str>, all: bool) -> Result<(), Error> {
 
 /// Split workspace
 pub fn add(path: &str) -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     split_workspace(backend.as_ref(), path)

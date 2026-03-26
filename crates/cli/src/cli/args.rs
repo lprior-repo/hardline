@@ -5,6 +5,16 @@
 
 use clap::{Parser, Subcommand};
 
+use crate::cli::agent_args::AgentCommands;
+use crate::cli::batch_args::BatchCommands;
+use crate::cli::config_args::ConfigCommands;
+use crate::cli::queue_args::QueueCommands;
+use crate::cli::session_args::SessionCommands;
+use crate::cli::stash_args::StashCommands;
+use crate::cli::tag_args::TagCommands;
+use crate::cli::task_args::TaskCommands;
+use crate::cli::workspace_args::WorkspaceCommands;
+
 /// Main CLI entry point
 #[derive(Parser)]
 #[command(name = "scp")]

@@ -120,6 +120,18 @@ pub enum Error {
 }
 
 // ========================================================================
+// Error conversions
+// ========================================================================
+
+/// Convert std::io::Error to Error::Io(IoError(IoErrorKind::Io(io_error)))
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        use super::error_io::IoErrorKind;
+        IoErrorKind::Io(e).into()
+    }
+}
+
+// ========================================================================
 // Constructors for backwards compatibility
 // ========================================================================
 

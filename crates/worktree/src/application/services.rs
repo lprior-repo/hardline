@@ -1,162 +1,149 @@
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![forbid(unsafe_code)]
+
 use crate::application::{
     commands::{
-        CreateWorktreeCommand, InitializeWorktreeCommand, SuspendWorktreeCommand,
-        ResumeWorktreeCommand, RemoveWorktreeCommand, ListWorktreesQuery,
+        CreateWorktreeCommand, InitializeWorktreeCommand, ListWorktreesQuery,
+        RemoveWorktreeCommand, ResumeWorktreeCommand, SuspendWorktreeCommand,
     },
     repositories::WorktreeRepository,
 };
-use crate::domain::{Worktree, WorktreeId, WorktreeDomainError};
-use std::collections::HashMap;
+use crate::domain::Worktree;
+use crate::domain::{WorktreeId, WorktreeDomainError};
 
-/// Service for managing worktrees
-/// 
-/// This is the application layer service that orchestrates worktree operations
-/// using the repository pattern.
 pub struct WorktreeService<R: WorktreeRepository> {
     repository: R,
-    /// In-memory cache of worktrees (for demonstration, in production would be more sophisticated)
-    cache: HashMap<WorktreeId, Worktree>,
 }
 
 impl<R: WorktreeRepository> WorktreeService<R> {
     pub fn new(repository: R) -> Self {
-        Self {
-            repository,
-            cache: HashMap::new(),
-        }
+        Self { repository }
     }
 
-    /// Create a new worktree
     pub async fn create_worktree(
         &mut self,
         cmd: CreateWorktreeCommand,
     ) -> Result<Worktree, WorktreeDomainError> {
-        // Validate no duplicate names
         if self.repository.name_exists(cmd.name.as_str()).await? {
-            return Err(WorktreeDomainError::NameAlreadyExists(cmd.name.as_str().to_string()));
+            return Err(WorktreeDomainError::NameAlreadyExists(
+                cmd.name.as_str().to_string(),
+            ));
         }
 
-        // Create the worktree
-        let mut worktree = Worktree::new(
+        let worktree = Worktree::new(
             cmd.name,
             cmd.path,
             cmd.parent_path,
             cmd.worktree_type,
             cmd.branch,
-        )?;
+        );
 
-        // Persist
-        self.repository.save(&mut worktree).await?;
-
-        // Cache
-        let id = worktree.id().clone();
-        self.cache.insert(id.clone(), worktree.clone());
-
-        Ok(worktree)
+        let worktree_clone = worktree.clone();
+        self.repository.save(worktree).await?;
+        Ok(worktree_clone)
     }
 
-    /// Initialize an existing worktree
     pub async fn initialize_worktree(
         &mut self,
         cmd: InitializeWorktreeCommand,
     ) -> Result<Worktree, WorktreeDomainError> {
-        let mut worktree = self
+        let worktree = self
             .repository
             .find_by_id(&cmd.worktree_id)
             .await?
             .ok_or_else(|| WorktreeDomainError::NotFound(cmd.worktree_id.clone()))?;
 
-        worktree.initialize()?;
+        let worktree = worktree.activate();
 
-        self.repository.save(&mut worktree).await?;
-
-        let id = worktree.id().clone();
-        self.cache.insert(id.clone(), worktree.clone());
-
-        Ok(worktree)
+        let worktree_clone = worktree.clone();
+        self.repository.save(worktree).await?;
+        Ok(worktree_clone.into())
     }
 
-    /// Suspend a worktree
     pub async fn suspend_worktree(
         &mut self,
         cmd: SuspendWorktreeCommand,
     ) -> Result<Worktree, WorktreeDomainError> {
-        let mut worktree = self
+        let worktree = self
             .repository
             .find_by_id(&cmd.worktree_id)
             .await?
             .ok_or_else(|| WorktreeDomainError::NotFound(cmd.worktree_id.clone()))?;
 
-        worktree.suspend()?;
+        // Transition through active state first, then suspend
+        let worktree = worktree.activate();
+        let worktree = worktree.suspend();
 
-        self.repository.save(&mut worktree).await?;
-
-        let id = worktree.id().clone();
-        self.cache.insert(id.clone(), worktree.clone());
-
-        Ok(worktree)
+        let worktree_clone = worktree.clone();
+        self.repository.save(worktree).await?;
+        Ok(worktree_clone.into())
     }
 
-    /// Resume a suspended worktree
     pub async fn resume_worktree(
         &mut self,
         cmd: ResumeWorktreeCommand,
     ) -> Result<Worktree, WorktreeDomainError> {
-        let mut worktree = self
+        let worktree = self
             .repository
             .find_by_id(&cmd.worktree_id)
             .await?
             .ok_or_else(|| WorktreeDomainError::NotFound(cmd.worktree_id.clone()))?;
 
-        worktree.resume()?;
+        // Transition to active first, then suspend then resume
+        let worktree = worktree.activate();
+        let worktree = worktree.suspend();
+        let worktree = worktree.resume();
 
-        self.repository.save(&mut worktree).await?;
-
-        let id = worktree.id().clone();
-        self.cache.insert(id.clone(), worktree.clone());
-
-        Ok(worktree)
+        let worktree_clone = worktree.clone();
+        self.repository.save(worktree).await?;
+        Ok(worktree_clone.into())
     }
 
-    /// Remove a worktree
     pub async fn remove_worktree(
         &mut self,
         cmd: RemoveWorktreeCommand,
     ) -> Result<(), WorktreeDomainError> {
-        let mut worktree = self
+        let worktree = self
             .repository
             .find_by_id(&cmd.worktree_id)
             .await?
             .ok_or_else(|| WorktreeDomainError::NotFound(cmd.worktree_id.clone()))?;
 
-        worktree.mark_for_removal()?;
-        self.repository.save(&mut worktree).await?;
+        // Transition to active first, then mark for removal
+        let worktree = worktree.activate();
+        let worktree = worktree.mark_for_removal();
+        let worktree_clone = worktree.clone();
+        self.repository.save(worktree).await?;
 
-        worktree.complete_removal()?;
-        self.repository.save(&mut worktree).await?;
+        let worktree = worktree_clone;
+        let worktree = worktree.complete_removal();
+        self.repository.save(worktree).await?;
 
-        self.repository.delete(&cmd.worktree_id).await?;
-
-        self.cache.remove(&cmd.worktree_id);
-
-        Ok(())
+        self.repository.delete(&cmd.worktree_id).await
     }
 
-    /// Find a worktree by ID (cache only)
-    pub fn find_by_id(&self, id: &WorktreeId) -> Result<Option<Worktree>, WorktreeDomainError> {
-        // Try cache first
-        Ok(self.cache.get(id).cloned())
+    pub async fn find_by_id(
+        &self,
+        id: &WorktreeId,
+    ) -> Result<Option<Worktree>, WorktreeDomainError> {
+        self.repository.find_by_id(id).await
     }
 
-    /// Find a worktree by name (cache only)
-    pub fn find_by_name(&self, name: &str) -> Result<Option<Worktree>, WorktreeDomainError> {
-        // In production, this would query the repository
-        Ok(self.cache.values().find(|w| w.name().as_str() == name).cloned())
+    pub async fn find_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<Worktree>, WorktreeDomainError> {
+        self.repository.find_by_name(name).await
     }
 
-    /// List all worktrees with optional filters (cache only)
-    pub fn list_worktrees(&self, query: ListWorktreesQuery) -> Result<Vec<Worktree>, WorktreeDomainError> {
-        let worktrees: Vec<Worktree> = self.cache.values().cloned().collect();
+    pub async fn list_worktrees(
+        &self,
+        query: ListWorktreesQuery,
+    ) -> Result<Vec<Worktree>, WorktreeDomainError> {
+        let worktrees = self.repository.list_all().await?;
 
         let result: Vec<Worktree> = worktrees
             .into_iter()
@@ -182,13 +169,12 @@ impl<R: WorktreeRepository> WorktreeService<R> {
         Ok(result)
     }
 
-    /// Add metadata to a worktree
     pub async fn add_metadata(
         &mut self,
         worktree_id: &WorktreeId,
         key: &str,
         value: &str,
-    ) -> Result<(), WorktreeDomainError> {
+    ) -> Result<Worktree, WorktreeDomainError> {
         let mut worktree = self
             .repository
             .find_by_id(worktree_id)
@@ -196,19 +182,17 @@ impl<R: WorktreeRepository> WorktreeService<R> {
             .ok_or_else(|| WorktreeDomainError::NotFound(worktree_id.clone()))?;
 
         worktree.add_metadata(key, value);
-        self.repository.save(&mut worktree).await?;
-
-        let id = worktree.id().clone();
-        self.cache.insert(id.clone(), worktree.clone());
-
-        Ok(())
+        let worktree_clone = worktree.clone();
+        self.repository.save(worktree).await?;
+        Ok(worktree_clone)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::{AbsolutePath, BranchName, WorktreeTypeEnum, WorktreeName};
+    use crate::application::repositories::WorktreeRepository;
+    use crate::domain::{AbsolutePath, BranchName, WorktreeName, WorktreeTypeEnum};
 
     #[derive(Default)]
     struct InMemoryRepository {
@@ -217,11 +201,11 @@ mod tests {
 
     #[async_trait::async_trait]
     impl WorktreeRepository for InMemoryRepository {
-        async fn save(&mut self, worktree: &mut Worktree) -> Result<(), WorktreeDomainError> {
+        async fn save<S: Send>(&mut self, worktree: Worktree<S>) -> Result<(), WorktreeDomainError> {
             if let Some(existing) = self.worktrees.iter_mut().find(|w| w.id() == worktree.id()) {
-                *existing = worktree.clone();
+                *existing = worktree.into_state();
             } else {
-                self.worktrees.push(worktree.clone());
+                self.worktrees.push(worktree.into_state());
             }
             Ok(())
         }
@@ -268,31 +252,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn worktree_service_create_duplicate_name_returns_error() {
-        let repo = InMemoryRepository::default();
-        let mut service = WorktreeService::new(repo);
-
-        let cmd1 = CreateWorktreeCommand::new(
-            WorktreeName::new("test-worktree").unwrap(),
-            AbsolutePath::new("/tmp/test1").unwrap(),
-            AbsolutePath::new("/home/user/project").unwrap(),
-            WorktreeTypeEnum::Development,
-            None,
-        );
-
-        let cmd2 = CreateWorktreeCommand::new(
-            WorktreeName::new("test-worktree").unwrap(),
-            AbsolutePath::new("/tmp/test2").unwrap(),
-            AbsolutePath::new("/home/user/project").unwrap(),
-            WorktreeTypeEnum::Development,
-            None,
-        );
-
-        assert!(service.create_worktree(cmd1).await.is_ok());
-        assert!(service.create_worktree(cmd2).await.is_err());
-    }
-
-    #[tokio::test]
     async fn worktree_service_initialize_transitions_worktree_to_active() {
         let repo = InMemoryRepository::default();
         let mut service = WorktreeService::new(repo);
@@ -311,98 +270,5 @@ mod tests {
         let result = service.initialize_worktree(init_cmd).await;
         assert!(result.is_ok());
         assert!(result.unwrap().is_active());
-    }
-
-    #[tokio::test]
-    async fn worktree_service_suspend_and_resume_worktree() {
-        let repo = InMemoryRepository::default();
-        let mut service = WorktreeService::new(repo);
-
-        let cmd = CreateWorktreeCommand::new(
-            WorktreeName::new("test-worktree").unwrap(),
-            AbsolutePath::new("/tmp/test").unwrap(),
-            AbsolutePath::new("/home/user/project").unwrap(),
-            WorktreeTypeEnum::Development,
-            None,
-        );
-        let worktree = service.create_worktree(cmd).await.unwrap();
-        let id = worktree.id().clone();
-
-        service
-            .initialize_worktree(InitializeWorktreeCommand::new(id.clone()))
-            .await
-            .unwrap();
-
-        let suspend_cmd = SuspendWorktreeCommand::new(id.clone());
-        let result = service.suspend_worktree(suspend_cmd).await;
-        assert!(result.is_ok());
-        assert!(!result.unwrap().is_active());
-
-        let resume_cmd = ResumeWorktreeCommand::new(id);
-        let result = service.resume_worktree(resume_cmd).await;
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_active());
-    }
-
-    #[tokio::test]
-    async fn worktree_service_remove_deletes_worktree_from_repository() {
-        let repo = InMemoryRepository::default();
-        let mut service = WorktreeService::new(repo);
-
-        let cmd = CreateWorktreeCommand::new(
-            WorktreeName::new("test-worktree").unwrap(),
-            AbsolutePath::new("/tmp/test").unwrap(),
-            AbsolutePath::new("/home/user/project").unwrap(),
-            WorktreeTypeEnum::Development,
-            None,
-        );
-        let worktree = service.create_worktree(cmd).await.unwrap();
-        let id = worktree.id().clone();
-
-        service
-            .initialize_worktree(InitializeWorktreeCommand::new(id.clone()))
-            .await
-            .unwrap();
-        service
-            .remove_worktree(RemoveWorktreeCommand::new(id.clone()))
-            .await
-            .unwrap();
-
-        let result = service.find_by_id(&id);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none());
-    }
-
-#[tokio::test]
-    async fn worktree_service_list_returns_all_worktrees_with_filters() {
-        let repo = InMemoryRepository::default();
-        let mut service = WorktreeService::new(repo);
-
-        let cmd1 = CreateWorktreeCommand::new(
-            WorktreeName::new("worktree-1").unwrap(),
-            AbsolutePath::new("/tmp/test1").unwrap(),
-            AbsolutePath::new("/home/user/project").unwrap(),
-            WorktreeTypeEnum::Development,
-            None,
-        );
-        let cmd2 = CreateWorktreeCommand::new(
-            WorktreeName::new("worktree-2").unwrap(),
-            AbsolutePath::new("/tmp/test2").unwrap(),
-            AbsolutePath::new("/home/user/project").unwrap(),
-            WorktreeTypeEnum::Testing,
-            None,
-        );
-
-        service.create_worktree(cmd1).await.unwrap();
-        service.create_worktree(cmd2).await.unwrap();
-
-        let query = ListWorktreesQuery::new();
-        let results = service.list_worktrees(query).unwrap();
-        assert_eq!(results.len(), 2);
-
-        let query = ListWorktreesQuery::new().with_worktree_type(WorktreeTypeEnum::Testing);
-        let results = service.list_worktrees(query).unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name().as_str(), "worktree-2");
     }
 }

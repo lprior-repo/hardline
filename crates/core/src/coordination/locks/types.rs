@@ -37,7 +37,7 @@ impl Ttl {
     ///
     /// Returns `None` if `seconds > 86400` or `seconds == u64::MAX` (overflow check).
     #[must_use]
-    pub fn new(seconds: u64) -> Option<Self> {
+    pub const fn new(seconds: u64) -> Option<Self> {
         if seconds > Self::MAX_SECS || seconds == u64::MAX {
             None
         } else {
@@ -77,12 +77,12 @@ pub enum LockOperation {
 impl LockOperation {
     /// Convert to string representation for audit logging.
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            LockOperation::Lock => "lock",
-            LockOperation::Unlock => "unlock",
-            LockOperation::Heartbeat => "heartbeat",
-            LockOperation::DoubleUnlockWarning => "double_unlock_warning",
+            Self::Lock => "lock",
+            Self::Unlock => "unlock",
+            Self::Heartbeat => "heartbeat",
+            Self::DoubleUnlockWarning => "double_unlock_warning",
         }
     }
 }
@@ -122,7 +122,7 @@ pub struct LockResponse {
     /// When the lock was acquired
     pub acquired_at: DateTime<Utc>,
 
-    /// When the lock expires (acquired_at + TTL)
+    /// When the lock expires (`acquired_at` + `TTL`)
     pub expires_at: DateTime<Utc>,
 }
 

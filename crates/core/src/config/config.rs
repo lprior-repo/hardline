@@ -17,14 +17,14 @@ pub struct ConflictResolutionConfig {
 impl ConflictResolutionConfig {
     pub fn validate(&self) -> Result<()> {
         if self.autonomy > 100 {
-            return Err(crate::Error::ValidationError(format!(
+            return Err(crate::Error::validation_error(format!(
                 "autonomy must be 0-100, got {}",
                 self.autonomy
             )));
         }
 
         if self.security_keywords.is_empty() {
-            return Err(crate::Error::ValidationError(
+            return Err(crate::Error::validation_error(
                 "security_keywords must not be empty".to_string(),
             ));
         }

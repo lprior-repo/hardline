@@ -18,18 +18,16 @@ use crate::{Error, Result};
 /// Create a new workspace (without guard)
 pub async fn workspace_create(name: &str, path: &Path) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::ConfigInvalid(
+        return Err(crate::error_config::ConfigErrorKind::Invalid(
             "workspace name cannot be empty".into(),
-        ));
+        )
+        .into());
     }
 
     if let Some(parent) = path.parent() {
-        tokio::fs::create_dir_all(parent).await.map_err(|e| {
-            Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to create workspace directory: {e}"),
-            ))
-        })?;
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| Error::io_error(format!("Failed to create workspace directory: {e}")))?;
     }
 
     let output = get_jj_command()
@@ -44,19 +42,21 @@ pub async fn workspace_create(name: &str, path: &Path) -> Result<()> {
 
         if let Some(conflict_type) = detect_workspace_conflict(&stderr, name) {
             let recovery_hint = conflict_recovery_hint(&conflict_type, name);
-            return Err(Error::JjWorkspaceConflict {
+            return Err(crate::error_jj::JjErrorKind::WorkspaceConflict {
                 conflict_type,
                 workspace_name: name.to_string(),
                 msg: stderr.to_string(),
                 recovery_hint,
-            });
+            }
+            .into());
         }
 
-        return Err(Error::JjCommandError {
+        return Err(crate::error_jj::JjErrorKind::CommandError {
             operation: "create workspace".to_string(),
             msg: stderr.to_string(),
             is_not_found: false,
-        });
+        }
+        .into());
     }
 
     Ok(())
@@ -71,9 +71,10 @@ pub async fn create_workspace(name: &str, path: &Path) -> Result<WorkspaceGuard>
 /// Forget (delete) a workspace
 pub async fn workspace_forget(name: &str) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::ConfigInvalid(
+        return Err(crate::error_config::ConfigErrorKind::Invalid(
             "workspace name cannot be empty".into(),
-        ));
+        )
+        .into());
     }
 
     let output = get_jj_command()
@@ -84,11 +85,12 @@ pub async fn workspace_forget(name: &str) -> Result<()> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::JjCommandError {
+        return Err(crate::error_jj::JjErrorKind::CommandError {
             operation: "forget workspace".to_string(),
             msg: stderr.to_string(),
             is_not_found: false,
-        });
+        }
+        .into());
     }
 
     Ok(())
@@ -104,11 +106,12 @@ pub async fn workspace_list() -> Result<Vec<WorkspaceInfo>> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::JjCommandError {
+        return Err(crate::error_jj::JjErrorKind::CommandError {
             operation: "list workspaces".to_string(),
             msg: stderr.to_string(),
             is_not_found: false,
-        });
+        }
+        .into());
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -126,11 +129,12 @@ pub async fn workspace_status(path: &Path) -> Result<Status> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::JjCommandError {
+        return Err(crate::error_jj::JjErrorKind::CommandError {
             operation: "get workspace status".to_string(),
             msg: stderr.to_string(),
             is_not_found: false,
-        });
+        }
+        .into());
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -148,11 +152,12 @@ pub async fn workspace_diff(path: &Path) -> Result<DiffSummary> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::JjCommandError {
+        return Err(crate::error_jj::JjErrorKind::CommandError {
             operation: "get workspace diff".to_string(),
             msg: stderr.to_string(),
             is_not_found: false,
-        });
+        }
+        .into());
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -184,11 +189,12 @@ pub async fn check_jj_installed() -> Result<()> {
             if output.status.success() {
                 Ok(())
             } else {
-                Err(Error::JjCommandError {
+                Err(crate::error_jj::JjErrorKind::CommandError {
                     operation: "check JJ installation".to_string(),
                     msg: "JJ command returned non-zero exit code".to_string(),
                     is_not_found: false,
-                })
+                }
+                .into())
             }
         })
 }
@@ -203,22 +209,24 @@ pub async fn check_in_jj_repo() -> Result<PathBuf> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::JjCommandError {
+        return Err(crate::error_jj::JjErrorKind::CommandError {
             operation: "find JJ repository root".to_string(),
             msg: format!("Not in a JJ repository. {stderr}"),
             is_not_found: false,
-        });
+        }
+        .into());
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let root = stdout.trim();
 
     if root.is_empty() {
-        Err(Error::JjCommandError {
+        Err(crate::error_jj::JjErrorKind::CommandError {
             operation: "find JJ repository root".to_string(),
             msg: "Could not determine JJ repository root".to_string(),
             is_not_found: false,
-        })
+        }
+        .into())
     } else {
         Ok(PathBuf::from(root))
     }

@@ -160,7 +160,10 @@ mod tests {
         let query: SessionQuery = serde_json::from_str(json).unwrap();
         assert_eq!(query.filter.name_contains, Some("test".to_string()));
         assert!(query.filter.on_branch_only);
-        assert_eq!(query.sort.unwrap().field, super::super::SessionSortField::Name);
+        assert_eq!(
+            query.sort.unwrap().field,
+            super::super::SessionSortField::Name
+        );
         assert_eq!(query.offset, Some(5));
         assert_eq!(query.limit, Some(10));
     }

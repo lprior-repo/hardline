@@ -94,16 +94,18 @@ impl ChaosInjector {
     pub fn inject_db_error(&self) -> Result<()> {
         let mut rng = rand::rng();
         if rng.random_bool(self.config.io_error_probability) {
-            return Err(Error::Io(std::io::Error::new(
+            return Err(crate::error_io::IoErrorKind::Io(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 "Chaos: database IO error",
-            )));
+            ))
+            .into());
         }
         if rng.random_bool(self.config.disk_full_probability) {
-            return Err(Error::Io(std::io::Error::new(
+            return Err(crate::error_io::IoErrorKind::Io(std::io::Error::new(
                 std::io::ErrorKind::StorageFull,
                 "Chaos: database disk full",
-            )));
+            ))
+            .into());
         }
         if rng.random_bool(self.config.process_kill_probability) {
             eprintln!("Chaos: process killed during DB op!");
@@ -193,7 +195,9 @@ impl<T: NetworkService> ChaosNetworkService<T> {
 impl<T: NetworkService> NetworkService for ChaosNetworkService<T> {
     async fn fetch(&self, url: &str) -> Result<String> {
         self.injector.inject_network_delay().await;
-        self.injector.inject_network_error().map_err(Error::Io)?;
+        self.injector
+            .inject_network_error()
+            .map_err(|e| Error::io_error(e.to_string()))?;
         self.inner.fetch(url).await
     }
 }

@@ -4,7 +4,7 @@ use chrono::Utc;
 
 use super::Worktree;
 
-impl Worktree {
+impl<S> Worktree<S> {
     /// Add metadata to the worktree
     pub fn add_metadata(&mut self, key: &str, value: &str) {
         self.metadata.insert(key.to_string(), value.to_string());

@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::error_io::IoErrorKind;
 use crate::fix::Fix;
 use crate::json::envelope::SchemaEnvelope;
 use crate::json::envelope_array::SchemaEnvelopeArray;
@@ -143,7 +144,7 @@ fn test_error_detail_skip_none() -> crate::error::Result<()> {
 
 #[test]
 fn test_error_detail_from_validation_error() {
-    let err = crate::error::Error::ValidationError("invalid session name".into());
+    let err = crate::error::Error::validation_error("invalid session name");
     let detail = ErrorDetail::from_error(&err);
 
     assert!(detail.code.contains("VALIDATION") || detail.code.contains("INVALID"));
@@ -152,7 +153,7 @@ fn test_error_detail_from_validation_error() {
 
 #[test]
 fn test_error_detail_from_io_error() {
-    let err = crate::error::Error::IoError("file not found".into());
+    let err = crate::error::Error::io_error("file not found");
     let detail = ErrorDetail::from_error(&err);
 
     assert!(detail.code.contains("UNKNOWN") || detail.message.contains("IO"));
@@ -162,7 +163,7 @@ fn test_error_detail_from_io_error() {
 
 #[test]
 fn test_error_detail_from_not_found_error() {
-    let err = crate::error::Error::NotFound("session not found".into());
+    let err = crate::error::Error::not_found("session not found");
     let detail = ErrorDetail::from_error(&err);
 
     assert!(detail.code.contains("NOT_FOUND") || detail.code.contains("SESSION"));
@@ -172,7 +173,27 @@ fn test_error_detail_from_not_found_error() {
 
 #[test]
 fn test_error_detail_includes_suggestion() {
-    let err = crate::error::Error::NotFound("session not found".into());
+    let err = crate::error::Error::not_found("session not found");
+    let detail = ErrorDetail::from_error(&err);
+
+    assert!(detail.code.contains("UNKNOWN") || detail.message.contains("IO"));
+    assert!(detail.message.contains("file not found"));
+    assert_eq!(detail.exit_code, 3);
+}
+
+#[test]
+fn test_error_detail_from_not_found_error() {
+    let err = crate::error::Error::not_found("session not found");
+    let detail = ErrorDetail::from_error(&err);
+
+    assert!(detail.code.contains("NOT_FOUND") || detail.code.contains("SESSION"));
+    assert!(detail.message.contains("Not found"));
+    assert_eq!(detail.exit_code, 2);
+}
+
+#[test]
+fn test_error_detail_includes_suggestion() {
+    let err = crate::error::Error::not_found("session not found");
     let detail = ErrorDetail::from_error(&err);
 
     // Should have suggestion populated
@@ -218,7 +239,8 @@ fn test_hateoas_link_with_title() {
 #[test]
 fn test_hateoas_link_serialization() -> crate::error::Result<()> {
     let link = HateoasLink::action("sync", "scp sync test", "Sync session");
-    let json = serde_json::to_string(&link).map_err(|e| crate::error::Error::JsonParse(e))?;
+    let json = serde_json::to_string(&link)
+        .map_err(|e| crate::error::Error::from(IoErrorKind::JsonParse(e)))?;
 
     assert!(json.contains("\"rel\":\"sync\""));
     assert!(json.contains("\"href\":\"scp sync test\""));
@@ -264,7 +286,8 @@ fn test_related_resources_serialization() -> crate::error::Result<()> {
         commits: vec!["abc123".to_string()],
         ..Default::default()
     };
-    let json = serde_json::to_string(&related).map_err(|e| crate::error::Error::JsonParse(e))?;
+    let json = serde_json::to_string(&related)
+        .map_err(|e| crate::error::Error::from(IoErrorKind::JsonParse(e)))?;
 
     assert!(json.contains("\"sessions\":[\"s1\"]"));
     assert!(json.contains("\"beads\":[\"scp-1234\"]"));
@@ -327,7 +350,8 @@ fn test_response_meta_serialization() -> crate::error::Result<()> {
         .with_duration(50)
         .with_undo("scp undo")
         .with_agent("agent-x");
-    let json = serde_json::to_string(&meta).map_err(|e| crate::error::Error::JsonParse(e))?;
+    let json = serde_json::to_string(&meta)
+        .map_err(|e| crate::error::Error::from(IoErrorKind::JsonParse(e)))?;
 
     assert!(json.contains("\"command\":\"add test\""));
     assert!(json.contains("\"duration_ms\":50"));
@@ -453,8 +477,8 @@ fn test_schema_envelope_full_serialization() -> crate::error::Result<()> {
         .add_link(HateoasLink::self_link("scp status test-session"))
         .add_link(HateoasLink::related("list", "scp list"));
 
-    let json =
-        serde_json::to_string_pretty(&envelope).map_err(|e| crate::error::Error::JsonParse(e))?;
+    let json = serde_json::to_string_pretty(&envelope)
+        .map_err(|e| crate::error::Error::from(IoErrorKind::JsonParse(e)))?;
 
     assert!(json.contains("$schema"));
     assert!(json.contains("test-session"));
@@ -514,7 +538,7 @@ fn test_is_valid_schema() {
 
 #[test]
 fn test_json_error_from_session_not_found() {
-    let err = crate::error::Error::SessionNotFound("test".to_string());
+    let err = crate::error::Error::session("test");
     let json_error = JsonError::from(&err);
 
     assert!(!json_error.success);
@@ -523,7 +547,7 @@ fn test_json_error_from_session_not_found() {
 
 #[test]
 fn test_json_error_from_workspace_not_found() {
-    let err = crate::error::Error::WorkspaceNotFound("test".to_string());
+    let err = crate::error::Error::workspace_not_found("test");
     let json_error = JsonError::from(&err);
 
     assert!(!json_error.success);
@@ -534,7 +558,7 @@ fn test_json_error_from_workspace_not_found() {
 
 #[test]
 fn test_json_error_from_validation_error() {
-    let err = crate::error::Error::ValidationError("Invalid input".to_string());
+    let err = crate::error::Error::validation_error("Invalid input");
     let json_error = JsonError::from(&err);
 
     assert!(!json_error.success);
@@ -543,7 +567,7 @@ fn test_json_error_from_validation_error() {
 
 #[test]
 fn test_json_error_from_io_error() {
-    let err = crate::error::Error::IoError("disk full".to_string());
+    let err = crate::error::Error::io_error("disk full");
     let json_error = JsonError::from(&err);
 
     assert!(!json_error.success);
@@ -552,11 +576,7 @@ fn test_json_error_from_io_error() {
 
 #[test]
 fn test_json_error_from_jj_not_found() {
-    let err = crate::error::Error::JjCommandError {
-        operation: "test".to_string(),
-        msg: "jj not found".to_string(),
-        is_not_found: true,
-    };
+    let err = crate::error::Error::jj_command_error("test", "jj not found", true);
     let json_error = JsonError::from(&err);
 
     assert!(!json_error.success);

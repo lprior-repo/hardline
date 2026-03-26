@@ -119,7 +119,7 @@ pub use jj::{
 };
 pub use jj_operation_sync::{create_workspace_synced, get_current_operation, RepoOperationInfo};
 pub use lifecycle::LifecycleState;
-pub use lock::{LockGuard, LockInfo, LockManager, LockType, MemLockManager};
+pub use lock::{LockGuard, LockType, MemLockManager};
 pub use moon_gates::{GateError, GateResult, GatesOutcome, GatesStatus, MoonGate};
 pub use output::{Output, Verbosity};
 pub use output_format::OutputFormat;

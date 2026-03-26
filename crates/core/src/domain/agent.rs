@@ -89,7 +89,7 @@ impl AgentState {
         if self.can_transition_to(&target) {
             Ok(target)
         } else {
-            Err(Error::InvalidState(format!(
+            Err(Error::invalid_state(format!(
                 "Invalid transition from {:?} to {:?}",
                 self, target
             )))

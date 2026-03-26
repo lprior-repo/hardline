@@ -65,8 +65,13 @@ impl<R: QueueRepository> QueueService<R> {
                 .and_then(|e| e.mark_merged())
                 .and_then(|e| self.repository.update(e))
         } else {
-            let failed = entry.mark_failed_retryable("Test failed".into())?;
-            self.repository.update(failed)
+            // Transition through states: Pending -> Claimed -> Rebasing -> Testing -> FailedRetryable
+            entry
+                .claim()
+                .and_then(|e| e.start_rebase())
+                .and_then(|e| e.start_testing())
+                .and_then(|e| e.mark_failed_retryable("Test failed".into()))
+                .and_then(|e| self.repository.update(e))
         }
     }
 
@@ -105,7 +110,8 @@ impl<R: QueueRepository> QueueService<R> {
             .get(id)?
             .ok_or_else(|| QueueError::QueueEntryNotFound(id.as_str().to_string()))?;
 
-        if !entry.can_retry() {
+        // can_retry() is only on QueueEntry<FailedRetryable>, check via runtime status
+        if entry.status != QueueStatus::FailedRetryable || entry.retry_count >= 3 {
             return Err(QueueError::InvalidStateTransition {
                 from: format!("{:?}", entry.status),
                 to: "Pending".into(),

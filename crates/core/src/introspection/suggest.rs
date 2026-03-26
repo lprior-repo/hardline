@@ -13,24 +13,24 @@ use super::query::SuggestNameQuery;
 #[allow(clippy::literal_string_with_formatting_args)]
 pub fn suggest_name(pattern: &str, existing_names: &[String]) -> Result<SuggestNameQuery> {
     if !pattern.contains("{n}") {
-        return Err(Error::ValidationError(
+        return Err(Error::validation_error(
             "Pattern must contain {n} placeholder".to_string(),
         ));
     }
 
     let parts: Vec<&str> = pattern.split("{n}").collect();
     if parts.len() != 2 {
-        return Err(Error::ValidationError(
+        return Err(Error::validation_error(
             "Pattern must contain exactly one {n} placeholder".to_string(),
         ));
     }
 
     let prefix = parts
         .first()
-        .ok_or_else(|| Error::ValidationError("Pattern parts missing".to_string()))?;
+        .ok_or_else(|| Error::validation_error("Pattern parts missing".to_string()))?;
     let suffix = parts
         .get(1)
-        .ok_or_else(|| Error::ValidationError("Pattern parts missing suffix".to_string()))?;
+        .ok_or_else(|| Error::validation_error("Pattern parts missing suffix".to_string()))?;
 
     let (used_numbers, matching): (Vec<usize>, Vec<String>) = existing_names
         .iter()

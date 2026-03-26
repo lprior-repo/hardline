@@ -1,0 +1,6 @@
+---
+source: crates/scp-error/tests/snapshot_tests.rs
+assertion_line: 88
+expression: json
+---
+{"BeadInvalidStateTransition":{"from":"open","to":"completed"}}

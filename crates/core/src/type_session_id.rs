@@ -13,13 +13,13 @@ impl SessionId {
     pub fn parse(id: impl Into<String>) -> Result<Self> {
         let id = id.into();
         if id.is_empty() {
-            return Err(Error::InvalidState(
+            return Err(Error::invalid_state(
                 "Session ID cannot be empty".to_string(),
             ));
         }
         let valid_chars = id.chars().all(|c| c.is_alphanumeric() || c == '-');
         if !valid_chars {
-            return Err(Error::InvalidState(
+            return Err(Error::invalid_state(
                 "Session ID can only contain alphanumeric characters and hyphens".to_string(),
             ));
         }

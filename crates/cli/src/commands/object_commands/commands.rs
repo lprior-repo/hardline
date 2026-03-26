@@ -1,6 +1,8 @@
+use super::config::cmd_config;
+use super::doctor::cmd_doctor;
 use super::helpers::{json_arg, verbose_arg};
 use super::legacy_commands::build_legacy_commands;
-use super::{cmd_config, cmd_doctor, cmd_session, cmd_status, cmd_task};
+use super::{cmd_session, cmd_status, cmd_task};
 use clap::Command as ClapCommand;
 
 /// Build the complete object-based CLI

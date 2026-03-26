@@ -26,8 +26,8 @@ use std::path::PathBuf;
 use crate::domain::workspace::WorkspaceState;
 
 // Re-export from sibling modules (declared in parent)
-pub use crate::domain::aggregates::workspace_error::WorkspaceError;
 pub use crate::domain::aggregates::workspace_builder::WorkspaceBuilder;
+pub use crate::domain::aggregates::workspace_error::WorkspaceError;
 
 // ============================================================================
 // WORKSPACE AGGREGATE ROOT

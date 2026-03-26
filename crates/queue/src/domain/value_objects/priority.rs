@@ -18,11 +18,11 @@ impl Priority {
     }
 
     pub fn high() -> Self {
-        Self(300)
+        Self(100)
     }
 
     pub fn critical() -> Self {
-        Self(255)
+        Self(u8::MAX)
     }
 
     pub fn value(&self) -> u8 {
@@ -30,9 +30,6 @@ impl Priority {
     }
 
     pub fn parse(value: u8) -> Result<Self, QueueError> {
-        if value > 255 {
-            return Err(QueueError::InvalidPriority(value.into()));
-        }
         Ok(Self(value))
     }
 }

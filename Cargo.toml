@@ -3,6 +3,14 @@ members = ["crates/*", "crates/orchestrator", "crates/stack", "fuzz"]
 exclude = ["crates/scenarios"]
 resolver = "2"
 
+[workspace.metadata.dylint]
+libraries = [
+    { path = "lints/no_unwrap_in_domain" },
+    { path = "lints/domain_no_infra_import" },
+    { path = "lints/ddd_boundary_violation" },
+    { path = "lints/typestate_required" },
+]
+
 [workspace.dependencies]
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -80,9 +88,14 @@ uuid = { version = "1", features = ["v4", "serde"] }
 # Path utilities
 pathdiff = "0.2"
 
+# Design-by-Contract
+dbc = { package = "contracts", version = "0.6" }
+
 # Dev dependencies
 tokio-test = "0.4"
+trybuild = "1"
 proptest = "1.5"
+loom = "0.7"
 pretty_assertions = "1.4"
 tempfile = "3.14"
 serial_test = "3.0"
@@ -92,7 +105,7 @@ doc-comment = "0.3"
 # Testing tools
 cargo-deny = "0.16"
 cargo-mutants = "0.8"
-insta = { version = "1.40", features = ["yaml"] }
+insta = { version = "1.40", features = ["yaml", "serde"] }
 
 [workspace.package]
 version = "0.5.0"

@@ -18,6 +18,8 @@
 
 use std::path::PathBuf;
 
+#[allow(unused_imports)]
+use crate::domain::contracts::{ensures, requires};
 use thiserror::Error;
 
 use crate::domain::{
@@ -83,6 +85,8 @@ impl Session {
     /// # Errors
     ///
     /// Returns `SessionError::WorkspaceNotFound` if workspace path doesn't exist.
+    #[requires(workspace_path.exists(), "workspace path must exist")]
+    #[ensures(ret.is_ok(), "creation succeeds when preconditions are met")]
     pub fn new(
         id: SessionId,
         name: SessionName,
@@ -127,6 +131,8 @@ impl Session {
     /// # Errors
     ///
     /// Returns `SessionError::InvalidBranchTransition` if transition is invalid.
+    #[requires(self.branch.can_transition_to(&new_branch), "transition must be valid")]
+    #[ensures(ret.is_ok(), "transition succeeds when precondition is met")]
     pub fn transition_branch(&self, new_branch: BranchState) -> Result<Self, SessionError> {
         if !self.branch.can_transition_to(&new_branch) {
             return Err(SessionError::InvalidBranchTransition {

@@ -1,6 +1,9 @@
 //! JJ (Jujutsu) backend implementation
 
-use crate::error::{Error, Result};
+use crate::error::Result;
+use crate::error_io::IoErrorKind;
+use crate::error_vcs::VcsErrorKind;
+use crate::error_workspace::WorkspaceErrorKind;
 use chrono::Utc;
 use std::process::Command;
 
@@ -21,7 +24,7 @@ impl JjBackend {
             .args(args)
             .current_dir(&self.repo_path)
             .output()
-            .map_err(Error::Io)
+            .map_err(|e| IoErrorKind::IoError(e.to_string()).into())
     }
 }
 
@@ -29,10 +32,11 @@ impl VcsBackend for JjBackend {
     fn current_branch(&self) -> Result<String> {
         let output = self.run_jj(&["log", "-r", "@", "-T", " bookmarks()"])?;
         if !output.status.success() {
-            return Err(Error::VcsConflict(
+            return Err(VcsErrorKind::Conflict(
                 "jj".into(),
                 String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
+            )
+            .into());
         }
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
@@ -60,7 +64,7 @@ impl VcsBackend for JjBackend {
     fn create_branch(&self, name: &str) -> Result<()> {
         let output = self.run_jj(&["bookmark", "create", name])?;
         if !output.status.success() {
-            return Err(Error::BranchExists(name.to_string()));
+            return Err(VcsErrorKind::BranchExists(name.to_string()).into());
         }
         Ok(())
     }
@@ -68,7 +72,7 @@ impl VcsBackend for JjBackend {
     fn switch_branch(&self, name: &str) -> Result<()> {
         let output = self.run_jj(&["bookmark", "set", name])?;
         if !output.status.success() {
-            return Err(Error::BranchNotFound(name.to_string()));
+            return Err(VcsErrorKind::BranchNotFound(name.to_string()).into());
         }
         Ok(())
     }
@@ -76,9 +80,10 @@ impl VcsBackend for JjBackend {
     fn push(&self) -> Result<()> {
         let output = self.run_jj(&["git", "push"])?;
         if !output.status.success() {
-            return Err(Error::VcsPushFailed(
+            return Err(VcsErrorKind::PushFailed(
                 String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
+            )
+            .into());
         }
         Ok(())
     }
@@ -86,9 +91,10 @@ impl VcsBackend for JjBackend {
     fn pull(&self) -> Result<()> {
         let output = self.run_jj(&["git", "fetch"])?;
         if !output.status.success() {
-            return Err(Error::VcsPullFailed(
+            return Err(VcsErrorKind::PullFailed(
                 String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
+            )
+            .into());
         }
         Ok(())
     }
@@ -96,9 +102,10 @@ impl VcsBackend for JjBackend {
     fn rebase(&self, onto: &str) -> Result<()> {
         let output = self.run_jj(&["rebase", "-d", onto])?;
         if !output.status.success() {
-            return Err(Error::VcsRebaseFailed(
+            return Err(VcsErrorKind::RebaseFailed(
                 String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
+            )
+            .into());
         }
         Ok(())
     }
@@ -106,10 +113,11 @@ impl VcsBackend for JjBackend {
     fn merge(&self, branch: &str) -> Result<()> {
         let output = self.run_jj(&["merge", branch])?;
         if !output.status.success() {
-            return Err(Error::VcsConflict(
+            return Err(VcsErrorKind::Conflict(
                 branch.to_string(),
                 String::from_utf8_lossy(&output.stderr).to_string(),
-            ));
+            )
+            .into());
         }
         Ok(())
     }
@@ -165,12 +173,11 @@ impl VcsBackend for JjBackend {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             if stderr.contains("already exists") || stderr.contains("exists") {
-                return Err(Error::WorkspaceExists(name.to_string()));
+                return Err(WorkspaceErrorKind::Exists(name.to_string()).into());
             }
-            return Err(Error::VcsConflict(
-                "workspace add".to_string(),
-                stderr.to_string(),
-            ));
+            return Err(
+                VcsErrorKind::Conflict("workspace add".to_string(), stderr.to_string()).into(),
+            );
         }
         Ok(())
     }
@@ -178,7 +185,7 @@ impl VcsBackend for JjBackend {
     fn switch_workspace(&self, name: &str) -> Result<()> {
         let output = self.run_jj(&["workspace", "root", "--name", name])?;
         if !output.status.success() {
-            return Err(Error::WorkspaceNotFound(name.to_string()));
+            return Err(WorkspaceErrorKind::NotFound(name.to_string()).into());
         }
         let workspace_root = String::from_utf8_lossy(&output.stdout).trim().to_string();
         println!("Workspace '{}' is at: {}", name, workspace_root);
@@ -210,7 +217,7 @@ impl VcsBackend for JjBackend {
     fn delete_workspace(&self, name: &str) -> Result<()> {
         let output = self.run_jj(&["workspace", "delete", name])?;
         if !output.status.success() {
-            return Err(Error::WorkspaceNotFound(name.to_string()));
+            return Err(WorkspaceErrorKind::NotFound(name.to_string()).into());
         }
         Ok(())
     }
@@ -220,12 +227,11 @@ impl VcsBackend for JjBackend {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             if stderr.contains("already exists") || stderr.contains("exists") {
-                return Err(Error::WorkspaceExists(target.to_string()));
+                return Err(WorkspaceErrorKind::Exists(target.to_string()).into());
             }
-            return Err(Error::VcsConflict(
-                "workspace fork".to_string(),
-                stderr.to_string(),
-            ));
+            return Err(
+                VcsErrorKind::Conflict("workspace fork".to_string(), stderr.to_string()).into(),
+            );
         }
         Ok(())
     }
@@ -233,10 +239,24 @@ impl VcsBackend for JjBackend {
     fn merge_workspace(&self, name: &str) -> Result<()> {
         let output = self.run_jj(&["workspace", "root", "--name", name])?;
         if !output.status.success() {
-            return Err(Error::WorkspaceNotFound(name.to_string()));
+            return Err(WorkspaceErrorKind::NotFound(name.to_string()).into());
         }
         self.rebase("main")?;
         self.push()?;
+        Ok(())
+    }
+
+    fn abort_workspace(&self, _name: &str) -> Result<()> {
+        // Abort workspace by restoring working copy to last commit
+        // This uses jj restore to discard uncommitted changes
+        let output = self.run_jj(&["restore", "-r", "@"])?;
+        if !output.status.success() {
+            return Err(VcsErrorKind::Conflict(
+                "jj restore".into(),
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            )
+            .into());
+        }
         Ok(())
     }
 }

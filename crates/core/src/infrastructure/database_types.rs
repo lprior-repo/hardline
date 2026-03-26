@@ -21,7 +21,7 @@ impl DatabasePath {
     pub fn new(path: impl Into<String>) -> Result<Self, Error> {
         let path = path.into();
         if path.is_empty() {
-            return Err(Error::InvalidConfig(
+            return Err(Error::config_invalid(
                 "Database path cannot be empty".to_string(),
             ));
         }
@@ -69,7 +69,7 @@ impl MaxConnections {
     /// Returns Error::InvalidConfig if value is 0
     pub fn new(value: u32) -> Result<Self, Error> {
         if value == 0 {
-            return Err(Error::InvalidConfig(
+            return Err(Error::config_invalid(
                 "Max connections must be greater than 0".to_string(),
             ));
         }

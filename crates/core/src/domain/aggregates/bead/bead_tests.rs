@@ -75,15 +75,24 @@ mod tests {
 
         // Cannot transition from closed
         let result = closed.start();
-        assert!(matches!(result, Err(crate::domain::aggregates::bead::BeadError::CannotModifyClosed)));
+        assert!(matches!(
+            result,
+            Err(crate::domain::aggregates::bead::BeadError::CannotModifyClosed)
+        ));
 
         // Cannot update title
         let result = closed.update_title("New Title");
-        assert!(matches!(result, Err(crate::domain::aggregates::bead::BeadError::CannotModifyClosed)));
+        assert!(matches!(
+            result,
+            Err(crate::domain::aggregates::bead::BeadError::CannotModifyClosed)
+        ));
 
         // Cannot update description
         let result = closed.update_description(Some("New description"));
-        assert!(matches!(result, Err(crate::domain::aggregates::bead::BeadError::CannotModifyClosed)));
+        assert!(matches!(
+            result,
+            Err(crate::domain::aggregates::bead::BeadError::CannotModifyClosed)
+        ));
     }
 
     #[test]
@@ -132,11 +141,17 @@ mod tests {
 
         // Empty title
         let result = Bead::new(id.clone(), "", None::<String>);
-        assert!(matches!(result, Err(crate::domain::aggregates::bead::BeadError::InvalidTitle(_))));
+        assert!(matches!(
+            result,
+            Err(crate::domain::aggregates::bead::BeadError::InvalidTitle(_))
+        ));
 
         // Whitespace-only title
         let result = Bead::new(id, "   ", None::<String>);
-        assert!(matches!(result, Err(crate::domain::aggregates::bead::BeadError::InvalidTitle(_))));
+        assert!(matches!(
+            result,
+            Err(crate::domain::aggregates::bead::BeadError::InvalidTitle(_))
+        ));
     }
 
     #[test]
@@ -202,7 +217,10 @@ mod tests {
             "Test Bead",
             None::<String>,
             crate::domain::aggregates::bead::BeadState::Closed { closed_at: now },
-            crate::domain::aggregates::bead::BeadTimestamps::new(now - chrono::Duration::seconds(10), now),
+            crate::domain::aggregates::bead::BeadTimestamps::new(
+                now - chrono::Duration::seconds(10),
+                now,
+            ),
         )
         .expect("reconstruct valid");
 
@@ -246,8 +264,6 @@ mod tests {
 
         // Just verify the lock isn't poisoned and we can access the bead
         let final_bead = bead.lock().unwrap();
-        assert!(
-            final_bead.is_active() || final_bead.is_blocked() || final_bead.is_closed()
-        );
+        assert!(final_bead.is_active() || final_bead.is_blocked() || final_bead.is_closed());
     }
 }

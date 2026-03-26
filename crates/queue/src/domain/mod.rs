@@ -1,3 +1,4 @@
+pub mod entities;
 pub mod identifiers;
 pub mod job;
 pub mod job_id;
@@ -7,6 +8,7 @@ pub mod payload;
 pub mod ports;
 pub mod queue;
 pub mod validation;
+pub mod value_objects;
 
 #[cfg(test)]
 pub mod tests;

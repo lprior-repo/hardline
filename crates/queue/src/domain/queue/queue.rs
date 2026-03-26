@@ -1,8 +1,5 @@
 //! Merge queue - Immutable persistent data structure
 
-
-
-
 use crate::domain::identifiers::{QueueEntryId, SessionName};
 use crate::domain::validation::{ValidationError, ValidationResult};
 

@@ -15,7 +15,7 @@ pub fn run(short: bool) -> Result<()> {
 
 /// Short status - single line output
 fn short_status() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(|e| scp_core::Error::Io(e))?;
+    let cwd = std::env::current_dir().map_err(|e| scp_core::Error::io_error(e.to_string()))?;
 
     let backend = scp_core::vcs::create_backend(&cwd)?;
 

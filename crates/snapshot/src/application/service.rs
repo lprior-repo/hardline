@@ -2,7 +2,7 @@ use crate::domain::snapshot::{
     BranchName, CommitHash, Snapshot, SnapshotFilter, SnapshotId, SnapshotLocation,
     SnapshotMetadata, SnapshotState, SnapshotType, StorageType, WorkspaceId,
 };
-use crate::error::{RepoResult, Result, SnapshotError};
+use crate::error::{RepoResult, Result, SnapshotError, SnapshotRepoError};
 use crate::storage::SnapshotStorage;
 use async_trait::async_trait;
 use chrono::{Duration, Utc};

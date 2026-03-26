@@ -22,21 +22,21 @@ fn build_jj_fetch_command(cwd: &std::path::Path, remote: Option<&str>, all: bool
 }
 
 pub fn fetch(remote: Option<&str>, prune: bool, tags: bool, all: bool) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+    let vcs_type = detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
 
     match vcs_type {
         scp_core::vcs::VcsType::Git => {
-            let repo = repository::open(&cwd).map_err(|e| Error::VcsPullFailed(e.to_string()))?;
+            let repo = repository::open(&cwd).map_err(|e| Error::vcs_pull_failed(e.to_string()))?;
             let _output = remote::fetch(&repo, remote, prune, tags, all)
-                .map_err(|e| Error::VcsPullFailed(e.to_string()))?;
+                .map_err(|e| Error::vcs_pull_failed(e.to_string()))?;
             Output::success("Fetched from remote(s)");
         }
         scp_core::vcs::VcsType::Jujutsu => {
             let output = build_jj_fetch_command(&cwd, remote, all)
                 .output()
-                .map_err(Error::Io)?;
+                .map_err(|e| Error::io_error(e.to_string()))?;
 
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
@@ -46,7 +46,7 @@ pub fn fetch(remote: Option<&str>, prune: bool, tags: bool, all: bool) -> Result
                 Output::success("Fetched from remote(s)");
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(Error::VcsPullFailed(stderr.to_string()));
+                return Err(Error::vcs_pull_failed(stderr.to_string()));
             }
         }
     }
@@ -63,34 +63,38 @@ fn build_jj_pull_commands(cwd: &std::path::Path) -> (Command, Command) {
 }
 
 pub fn pull() -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+    let vcs_type = detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
 
     match vcs_type {
         scp_core::vcs::VcsType::Git => {
-            let repo = repository::open(&cwd).map_err(|e| Error::VcsPullFailed(e.to_string()))?;
+            let repo = repository::open(&cwd).map_err(|e| Error::vcs_pull_failed(e.to_string()))?;
             let _output = remote::pull(&repo, None, false)
-                .map_err(|e| Error::VcsPullFailed(e.to_string()))?;
+                .map_err(|e| Error::vcs_pull_failed(e.to_string()))?;
             Output::success("Pulled from remote");
         }
         scp_core::vcs::VcsType::Jujutsu => {
             let (mut fetch_cmd, mut rebase_cmd) = build_jj_pull_commands(&cwd);
 
-            let output = fetch_cmd.output().map_err(Error::Io)?;
+            let output = fetch_cmd
+                .output()
+                .map_err(|e| Error::io_error(e.to_string()))?;
 
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(Error::VcsPullFailed(stderr.to_string()));
+                return Err(Error::vcs_pull_failed(stderr.to_string()));
             }
 
-            let output = rebase_cmd.output().map_err(Error::Io)?;
+            let output = rebase_cmd
+                .output()
+                .map_err(|e| Error::io_error(e.to_string()))?;
 
             if output.status.success() {
                 Output::success("Pulled and rebased");
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(Error::VcsRebaseFailed(stderr.to_string()));
+                return Err(Error::vcs_rebase_failed(stderr.to_string()));
             }
         }
     }
@@ -137,27 +141,27 @@ pub fn push(
     tags: bool,
     delete: bool,
 ) -> Result<()> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+    let vcs_type = detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
 
     match vcs_type {
         scp_core::vcs::VcsType::Git => {
-            let repo = repository::open(&cwd).map_err(|e| Error::VcsPushFailed(e.to_string()))?;
+            let repo = repository::open(&cwd).map_err(|e| Error::vcs_push_failed(e.to_string()))?;
             remote::push(&repo, remote, branch, force, tags, delete)
-                .map_err(|e| Error::VcsPushFailed(e.to_string()))?;
+                .map_err(|e| Error::vcs_push_failed(e.to_string()))?;
             Output::success(&format!("Pushed to {}", remote));
         }
         scp_core::vcs::VcsType::Jujutsu => {
             let output = build_jj_push_command(&cwd, branch, force, delete)
                 .output()
-                .map_err(Error::Io)?;
+                .map_err(|e| Error::io_error(e.to_string()))?;
 
             if output.status.success() {
                 Output::success(&format!("Pushed to {}", remote));
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(Error::VcsPushFailed(stderr.to_string()));
+                return Err(Error::vcs_push_failed(stderr.to_string()));
             }
         }
     }

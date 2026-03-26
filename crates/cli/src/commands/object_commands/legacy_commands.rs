@@ -1,5 +1,30 @@
 use clap::Command as ClapCommand;
 
+/// Build a command with common arguments
+fn with_common_args(cmd: ClapCommand) -> ClapCommand {
+    cmd.arg(super::helpers::dry_run_arg())
+        .arg(super::helpers::json_arg())
+        .arg(super::helpers::contract_arg())
+        .arg(super::helpers::ai_hints_arg())
+}
+
+/// Build legacy commands (init, add, list, remove)
+pub fn build_legacy_commands() -> ClapCommand {
+    use clap::Command as ClapCommand;
+
+    ClapCommand::new("legacy")
+        .about("Legacy commands for backward compatibility")
+        .subcommand_required(true)
+        .arg(super::helpers::dry_run_arg())
+        .arg(super::helpers::json_arg())
+        .arg(super::helpers::contract_arg())
+        .arg(super::helpers::ai_hints_arg())
+        .subcommand(build_init_command())
+        .subcommand(build_add_command())
+        .subcommand(build_list_command())
+        .subcommand(build_remove_command())
+}
+
 /// Build init command
 pub fn build_init_command() -> ClapCommand {
     ClapCommand::new("init")

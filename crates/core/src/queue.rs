@@ -3,7 +3,8 @@
 //! Combines Stak's queue with Isolate workspace support.
 //! Zero panic, zero unwrap - all operations return Result.
 
-use crate::error::{Error, Result};
+use crate::error::Result;
+use crate::error_queue::QueueErrorKind;
 use crate::lock::LockManager;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -186,10 +187,9 @@ impl MemQueue {
 
 impl QueueManager for MemQueue {
     fn enqueue(&self, item: QueueItem) -> Result<()> {
-        let mut items = self
-            .items
-            .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let mut items = self.items.write().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire lock: {}", e))
+        })?;
 
         let pos = items
             .iter()
@@ -205,10 +205,9 @@ impl QueueManager for MemQueue {
     }
 
     fn dequeue(&self) -> Result<Option<QueueItem>> {
-        let mut items = self
-            .items
-            .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let mut items = self.items.write().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire lock: {}", e))
+        })?;
 
         if let Some(pos) = items.iter().position(|i| i.status == QueueStatus::Pending) {
             let mut item = items.remove(pos);
@@ -220,38 +219,36 @@ impl QueueManager for MemQueue {
     }
 
     fn get(&self, id: &str) -> Result<Option<QueueItem>> {
-        let items = self
-            .items
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let items = self.items.read().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire lock: {}", e))
+        })?;
         Ok(items.iter().find(|i| i.id == id).cloned())
     }
 
     fn remove(&self, id: &str) -> Result<QueueItem> {
-        let mut items = self
-            .items
-            .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let mut items = self.items.write().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire write lock: {}", e))
+        })?;
         let pos = items
             .iter()
             .position(|i| i.id == id)
-            .ok_or_else(|| Error::QueueItemNotFound(id.to_string()))?;
+            .ok_or_else(|| -> crate::error::Error {
+                QueueErrorKind::ItemNotFound(id.to_string()).into()
+            })?;
         Ok(items.remove(pos))
     }
 
     fn list(&self) -> Result<Vec<QueueItem>> {
-        let items = self
-            .items
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let items = self.items.read().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire lock: {}", e))
+        })?;
         Ok(items.clone())
     }
 
     fn list_pending(&self) -> Result<Vec<QueueItem>> {
-        let items = self
-            .items
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let items = self.items.read().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire lock: {}", e))
+        })?;
         let mut pending: Vec<_> = items
             .iter()
             .filter(|i| i.status == QueueStatus::Pending)
@@ -262,39 +259,35 @@ impl QueueManager for MemQueue {
     }
 
     fn len(&self) -> Result<usize> {
-        let items = self
-            .items
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let items = self.items.read().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire lock: {}", e))
+        })?;
         Ok(items.len())
     }
 
     fn is_empty(&self) -> Result<bool> {
-        let items = self
-            .items
-            .read()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let items = self.items.read().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire lock: {}", e))
+        })?;
         Ok(items.is_empty())
     }
 
     fn update(&self, item: QueueItem) -> Result<()> {
-        let mut items = self
-            .items
-            .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let mut items = self.items.write().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire write lock: {}", e))
+        })?;
         if let Some(pos) = items.iter().position(|i| i.id == item.id) {
             items[pos] = item;
             Ok(())
         } else {
-            Err(Error::QueueItemNotFound(item.id))
+            Err(QueueErrorKind::ItemNotFound(item.id).into())
         }
     }
 
     fn clear_completed(&self) -> Result<usize> {
-        let mut items = self
-            .items
-            .write()
-            .map_err(|e| Error::Internal(e.to_string()))?;
+        let mut items = self.items.write().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire write lock: {}", e))
+        })?;
         let len_before = items.len();
         items.retain(|i| {
             i.status != QueueStatus::Completed

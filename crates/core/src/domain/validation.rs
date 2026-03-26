@@ -9,6 +9,8 @@
 //! All validation functions return `Result<T, ValidationError>`
 //! allowing for easy composition with `.and_then()` chains.
 
+#[allow(unused_imports)]
+use crate::domain::contracts::{ensures, requires};
 use std::collections::VecDeque;
 
 /// Type alias for validation results - Railway track
@@ -185,6 +187,8 @@ where
 /// let result = validate_range(15, 1, 10, "priority");
 /// assert!(result.is_err());
 /// ```
+#[requires(min <= max, "min must be <= max")]
+#[ensures(ret.is_ok() || ret.is_err(), "always returns a Result")]
 pub fn validate_range(value: u32, min: u32, max: u32, field: &str) -> ValidationResult<u32> {
     if value < min {
         Err(ValidationError::BelowMinimum {

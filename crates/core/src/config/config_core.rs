@@ -12,7 +12,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{Error, Result};
+use crate::error::Result;
+use crate::error_config::ConfigErrorKind;
 
 /// Configuration key names
 pub mod keys {
@@ -175,7 +176,9 @@ impl ConfigManager {
     /// Create a new config manager
     pub fn new() -> Result<Self> {
         let global_path = directories::ProjectDirs::from("com", "scp", "scp")
-            .ok_or_else(|| Error::ConfigNotFound("Could not determine config directory".into()))?
+            .ok_or_else(|| {
+                crate::error::Error::config_not_found("Could not determine config directory")
+            })?
             .config_dir()
             .join("config.toml");
 
@@ -241,7 +244,8 @@ impl ConfigManager {
 
     /// Load from a TOML file
     fn load_file(&self, path: &Path) -> Result<HashMap<String, String>> {
-        let contents = std::fs::read_to_string(path).map_err(Error::Io)?;
+        let contents = std::fs::read_to_string(path)
+            .map_err(|e| crate::error::Error::io_error(e.to_string()))?;
         self.parse_toml(&contents)
     }
 
@@ -291,20 +295,20 @@ impl ConfigManager {
     pub fn save(&self, config: &Config, scope: ConfigScope) -> Result<()> {
         let path = match scope {
             ConfigScope::Global => &self.global_path,
-            ConfigScope::Project => self
-                .project_path
-                .as_ref()
-                .ok_or_else(|| Error::ConfigNotFound("No project config path set".into()))?,
+            ConfigScope::Project => self.project_path.as_ref().ok_or_else(|| {
+                crate::error::Error::config_not_found("No project config path set")
+            })?,
             ConfigScope::Env => {
-                return Err(Error::ConfigInvalid(
-                    "Cannot save to environment scope".into(),
+                return Err(crate::error::Error::config_invalid(
+                    "Cannot save to environment scope",
                 ))
             }
         };
 
         // Create parent directories
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(Error::Io)?;
+            std::fs::create_dir_all(parent)
+                .map_err(|e| crate::error::Error::io_error(e.to_string()))?;
         }
 
         // Write config
@@ -321,7 +325,7 @@ impl ConfigManager {
             }
         }
 
-        std::fs::write(path, content).map_err(Error::Io)?;
+        std::fs::write(path, content).map_err(|e| crate::error::Error::io_error(e.to_string()))?;
         Ok(())
     }
 
@@ -381,9 +385,12 @@ pub fn global_config() -> ConfigManager {
 
 /// Get config directory
 pub fn config_dir() -> Result<PathBuf> {
-    directories::ProjectDirs::from("com", "scp", "scp")
-        .ok_or_else(|| Error::ConfigNotFound("Could not determine config directory".into()))
-        .map(|dirs| dirs.config_dir().to_path_buf())
+    let dirs = directories::ProjectDirs::from("com", "scp", "scp").ok_or_else(
+        || -> crate::error::Error {
+            ConfigErrorKind::NotFound("Could not determine config directory".into()).into()
+        },
+    )?;
+    Ok(dirs.config_dir().to_path_buf())
 }
 
 /// Configuration for file watching

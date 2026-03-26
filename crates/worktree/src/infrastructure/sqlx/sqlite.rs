@@ -56,7 +56,7 @@ pub struct SqliteWorktreeRepository {
 
 #[async_trait::async_trait]
 impl WorktreeRepository for SqliteWorktreeRepository {
-    async fn save(&mut self, worktree: &mut Worktree) -> Result<(), WorktreeDomainError> {
+    async fn save<S: Send>(&mut self, worktree: Worktree<S>) -> Result<(), WorktreeDomainError> {
         let query = r#"
             INSERT INTO worktrees (id, name, path, parent_path, state, worktree_type, branch, created_at, updated_at, metadata)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

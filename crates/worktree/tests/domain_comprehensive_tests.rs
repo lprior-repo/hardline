@@ -704,7 +704,6 @@ mod worktree_domain_tests {
             WorktreeTypeEnum::Development,
             Some(BranchName::new("main").unwrap()),
         )
-        .unwrap()
     }
 
     #[test]
@@ -730,8 +729,7 @@ mod worktree_domain_tests {
             AbsolutePath::new("/home/user/project").unwrap(),
             WorktreeTypeEnum::Development,
             None,
-        )
-        .unwrap();
+        );
         assert!(worktree.branch().is_none());
     }
 
@@ -743,8 +741,7 @@ mod worktree_domain_tests {
             AbsolutePath::new("/home/user/project").unwrap(),
             WorktreeTypeEnum::Development,
             Some(BranchName::new("develop").unwrap()),
-        )
-        .unwrap();
+        );
         assert_eq!(worktree.branch().unwrap().as_str(), "develop");
     }
 

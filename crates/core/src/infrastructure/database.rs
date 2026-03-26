@@ -82,7 +82,7 @@ impl SqliteDatabaseService {
             .max_connections(config.max_connections.value())
             .connect(&config.connection_url())
             .await
-            .map_err(|e| Error::Database(e.to_string()))?;
+            .map_err(|e| Error::database(e.to_string()))?;
 
         // Enable WAL mode, NORMAL sync, and foreign keys
         for pragma in &[
@@ -93,7 +93,7 @@ impl SqliteDatabaseService {
             sqlx::query(pragma)
                 .execute(&pool)
                 .await
-                .map_err(|e| Error::Database(e.to_string()))?;
+                .map_err(|e| Error::database(e.to_string()))?;
         }
 
         tracing::info!("SQLite database initialized at: {}", config.path.as_str());
@@ -132,21 +132,21 @@ fn parse_column_value(row: &SqliteRow, col_idx: usize) -> Result<String> {
         "INTEGER" | "INT" => row
             .try_get::<i64, _>(col_idx)
             .map(|v| v.to_string())
-            .map_err(|e| Error::Database(format!("INTEGER: {}", e))),
+            .map_err(|e| Error::database(format!("INTEGER: {}", e))),
         "REAL" | "FLOAT" | "DOUBLE" => row
             .try_get::<f64, _>(col_idx)
             .map(|v| v.to_string())
-            .map_err(|e| Error::Database(format!("REAL: {}", e))),
+            .map_err(|e| Error::database(format!("REAL: {}", e))),
         "TEXT" | "BLOB" => row
             .try_get::<String, _>(col_idx)
-            .map_err(|e| Error::Database(format!("TEXT: {}", e))),
+            .map_err(|e| Error::database(format!("TEXT: {}", e))),
         "BOOLEAN" => row
             .try_get::<bool, _>(col_idx)
             .map(|v| v.to_string())
-            .map_err(|e| Error::Database(format!("BOOLEAN: {}", e))),
+            .map_err(|e| Error::database(format!("BOOLEAN: {}", e))),
         _ => row
             .try_get::<String, _>(col_idx)
-            .map_err(|e| Error::Database(format!("{}: {}", type_name, e))),
+            .map_err(|e| Error::database(format!("{}: {}", type_name, e))),
     }
 }
 
@@ -163,7 +163,7 @@ impl DatabaseService for SqliteDatabaseService {
         sqlx::query(query)
             .execute(&self.pool)
             .await
-            .map_err(|e| Error::Database(e.to_string()))?;
+            .map_err(|e| Error::database(e.to_string()))?;
         Ok(())
     }
 
@@ -171,7 +171,7 @@ impl DatabaseService for SqliteDatabaseService {
         let rows = sqlx::query(query)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| Error::Database(e.to_string()))?;
+            .map_err(|e| Error::database(e.to_string()))?;
         rows.iter().map(parse_row_values).collect()
     }
 
@@ -207,7 +207,7 @@ mod tests {
         let results: Vec<(i64, String)> = sqlx::query_as("SELECT id, name FROM test ORDER BY id")
             .fetch_all(db.pool())
             .await
-            .map_err(|e| Error::Database(e.to_string()))?;
+            .map_err(|e| Error::database(e.to_string()))?;
         assert_eq!(results.len(), 2);
         Ok(())
     }
@@ -268,7 +268,7 @@ mod tests {
         let result: (i32,) = sqlx::query_as("PRAGMA foreign_keys")
             .fetch_one(db.pool())
             .await
-            .map_err(|e| Error::Database(e.to_string()))?;
+            .map_err(|e| Error::database(e.to_string()))?;
         assert_eq!(result.0, 1);
         Ok(())
     }

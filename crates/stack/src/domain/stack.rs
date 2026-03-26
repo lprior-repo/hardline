@@ -1,6 +1,50 @@
 use chrono::{DateTime, Utc};
-use scp_vcs::domain::types::CommitHash;
 use serde::{Deserialize, Serialize};
+
+/// A validated commit hash identifier
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CommitHash(String);
+
+impl CommitHash {
+    pub fn new(hash: impl Into<String>) -> Self {
+        Self(hash.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for CommitHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct StackName(String);
+
+impl StackName {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self(name.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for StackName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl AsRef<str> for StackName {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
 
 use super::state::{BranchState, PrState, StackState};
 use super::value_objects::BranchName;
@@ -104,7 +148,7 @@ impl StackBranch {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Stack {
     pub id: StackId,
-    pub name: String,
+    pub name: StackName,
     pub base_branch: BranchName,
     pub branches: Vec<StackBranch>,
     pub state: StackState,
@@ -113,7 +157,7 @@ pub struct Stack {
 }
 
 impl Stack {
-    pub fn new(id: StackId, name: String, base_branch: BranchName) -> Self {
+    pub fn new(id: StackId, name: StackName, base_branch: BranchName) -> Self {
         let now = Utc::now();
         Self {
             id,
@@ -214,7 +258,7 @@ mod tests {
     fn create_test_stack() -> Stack {
         let stack_id = StackId::from_u64(1);
         let base = BranchName::new("main");
-        let mut stack = Stack::new(stack_id, "test-stack".to_string(), base);
+        let mut stack = Stack::new(stack_id, StackName::new("test-stack"), base);
 
         stack.add_branch(StackBranch::new(
             BranchName::new("feature-a"),

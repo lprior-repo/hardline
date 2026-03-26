@@ -7,6 +7,9 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+
 [dependencies]
 scp-core = { path = "../core" }
 serde = { workspace = true }
@@ -19,3 +22,5 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 [dev-dependencies]
 tokio-test = { workspace = true }
 proptest = { workspace = true }
+loom = { workspace = true }
+insta = { workspace = true }

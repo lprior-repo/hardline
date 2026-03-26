@@ -2,18 +2,18 @@
 
 use std::process::Command;
 
-use crate::Error;
 use scp_core::output::Output;
 use scp_core::vcs;
+use scp_core::Error;
 
 /// Fork workspace
 pub fn fork(name: &str, from: Option<&str>) -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;
     if workspaces.iter().any(|w| w.name == name) {
-        return Err(Error::WorkspaceExists(name.to_string()));
+        return Err(Error::workspace_exists(name));
     }
 
     let from_branch = from.unwrap_or("main");
@@ -21,15 +21,11 @@ pub fn fork(name: &str, from: Option<&str>) -> Result<(), Error> {
     let output = Command::new("jj")
         .args(["workspace", "fork", name, "--from", from_branch])
         .current_dir(&cwd)
-        .output()
-        .map_err(Error::Io)?;
+        .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::VcsConflict(
-            "jj workspace fork".to_string(),
-            stderr.to_string(),
-        ));
+        return Err(Error::vcs_conflict("jj workspace fork", stderr));
     }
 
     Output::success(&format!(
@@ -42,7 +38,7 @@ pub fn fork(name: &str, from: Option<&str>) -> Result<(), Error> {
 
 /// Merge workspace
 pub fn merge(name: &str) -> Result<(), Error> {
-    let cwd = std::env::current_dir().map_err(Error::Io)?;
+    let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
     backend.switch_workspace(name)?;

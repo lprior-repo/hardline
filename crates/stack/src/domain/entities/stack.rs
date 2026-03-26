@@ -1,6 +1,15 @@
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::panic)]
+#![warn(clippy::pedantic)]
+#![forbid(unsafe_code)]
+
+use std::marker::PhantomData;
+
+use serde::{Deserialize, Serialize};
+
 use crate::domain::value_objects::BranchName;
 use crate::{Result, StackError};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrInfo {
@@ -27,17 +36,44 @@ pub struct StackBranch {
     pub pr_info: Option<PrInfo>,
 }
 
+pub struct Draft;
+pub struct Published;
+pub struct Merging;
+pub struct Merged;
+pub struct Conflict;
+pub struct Failed;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Stack {
+pub struct Stack<S = Draft> {
     pub branches: Vec<StackBranch>,
     pub main_branch: BranchName,
+    _state: PhantomData<S>,
 }
 
-impl Stack {
+impl Stack<Draft> {
     pub fn new(main_branch: BranchName) -> Self {
         Self {
             branches: Vec::new(),
             main_branch,
+            _state: PhantomData,
+        }
+    }
+
+    pub fn publish(self) -> Stack<Published> {
+        self.transition_impl()
+    }
+
+    pub fn fail(self) -> Stack<Failed> {
+        self.transition_impl()
+    }
+}
+
+impl<S> Stack<S> {
+    fn transition_impl<T>(self) -> Stack<T> {
+        Stack {
+            branches: self.branches,
+            main_branch: self.main_branch,
+            _state: PhantomData,
         }
     }
 
@@ -138,13 +174,59 @@ impl Stack {
     }
 }
 
+impl Stack<Published> {
+    pub fn start_merge(self) -> Stack<Merging> {
+        self.transition_impl()
+    }
+
+    pub fn fail(self) -> Stack<Failed> {
+        self.transition_impl()
+    }
+}
+
+impl Stack<Merging> {
+    pub fn complete_merge(self) -> Stack<Merged> {
+        self.transition_impl()
+    }
+
+    pub fn mark_conflict(self) -> Stack<Conflict> {
+        self.transition_impl()
+    }
+
+    pub fn fail(self) -> Stack<Failed> {
+        self.transition_impl()
+    }
+}
+
+impl Stack<Merged> {
+    pub fn is_terminal(&self) -> bool {
+        true
+    }
+}
+
+impl Stack<Conflict> {
+    pub fn resolve(self) -> Stack<Published> {
+        self.transition_impl()
+    }
+
+    pub fn fail(self) -> Stack<Failed> {
+        self.transition_impl()
+    }
+}
+
+impl Stack<Failed> {
+    pub fn retry(self) -> Stack<Draft> {
+        self.transition_impl()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn create_test_stack() -> Stack {
+    fn create_test_stack() -> Stack<Draft> {
         let main = BranchName::new("main".to_string());
-        let mut stack = Stack::new(main.clone());
+        let mut stack = Stack::<Draft>::new(main.clone());
 
         stack.branches.push(StackBranch {
             name: main.clone(),
@@ -238,5 +320,14 @@ mod tests {
         let mut needs = stack.needs_restack();
         needs.sort();
         assert_eq!(needs.len(), 2);
+    }
+
+    #[test]
+    fn test_stack_state_transitions() {
+        let stack = create_test_stack();
+        let published: Stack<Published> = stack.publish();
+        let merging: Stack<Merging> = published.start_merge();
+        let merged: Stack<Merged> = merging.complete_merge();
+        assert!(merged.is_terminal());
     }
 }

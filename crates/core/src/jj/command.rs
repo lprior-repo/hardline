@@ -60,9 +60,5 @@ pub fn jj_command_error(operation: &str, error: &std::io::Error) -> Error {
         error_kind = error.kind(),
         path = JJ_PATH.get()
     );
-    Error::JjCommandError {
-        operation: operation.to_string(),
-        msg: error.to_string(),
-        is_not_found,
-    }
+    Error::jj_command_error(operation, error.to_string(), is_not_found)
 }

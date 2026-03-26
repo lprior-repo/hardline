@@ -33,7 +33,7 @@ pub struct FileChange {
 impl FileChange {
     pub fn validate(&self) -> Result<()> {
         if self.status == FileStatus::Renamed && self.old_path.is_none() {
-            return Err(Error::InvalidState(
+            return Err(Error::invalid_state(
                 "Renamed files must have old_path set".to_string(),
             ));
         }
@@ -86,7 +86,7 @@ pub struct DiffSummary {
 impl DiffSummary {
     pub fn validate(&self) -> Result<()> {
         if self.files.len() != self.files_changed {
-            return Err(Error::InvalidState(format!(
+            return Err(Error::invalid_state(format!(
                 "files_changed ({}) does not match files array length ({})",
                 self.files_changed,
                 self.files.len()

@@ -219,32 +219,49 @@ pub fn validate_focus_preconditions(
     is_already_focused: bool,
     force: bool,
 ) -> Result<(), SessionFocusError> {
-    // Precondition: session must exist
-    if !session_exists {
-        return Err(SessionFocusError::SessionNotFound(
-            "session not found".to_string(),
-        ));
-    }
+    ensure_session_exists(session_exists)?;
+    let state = parse_and_validate_focusable_state(session_state)?;
+    ensure_not_already_focused(is_already_focused, force)?;
+    Ok(())
+}
 
-    // Precondition: session must be in a focusable state (active or paused)
+fn ensure_session_exists(session_exists: bool) -> Result<(), SessionFocusError> {
+    if session_exists {
+        Ok(())
+    } else {
+        Err(SessionFocusError::SessionNotFound(
+            "session not found".to_string(),
+        ))
+    }
+}
+
+fn parse_and_validate_focusable_state(
+    session_state: Option<&str>,
+) -> Result<SessionFocusableState, SessionFocusError> {
     let state = session_state
         .and_then(SessionFocusableState::from_state_str)
         .ok_or_else(|| SessionFocusError::SessionNotActive("unknown state".to_string()))?;
 
-    if !state.is_focusable() {
-        return Err(SessionFocusError::SessionNotActive(
+    if state.is_focusable() {
+        Ok(state)
+    } else {
+        Err(SessionFocusError::SessionNotActive(
             session_state.unwrap_or("unknown").to_string(),
-        ));
+        ))
     }
+}
 
-    // Precondition: session must not already be focused (unless force is used)
+fn ensure_not_already_focused(
+    is_already_focused: bool,
+    force: bool,
+) -> Result<(), SessionFocusError> {
     if is_already_focused && !force {
-        return Err(SessionFocusError::SessionAlreadyFocused(
+        Err(SessionFocusError::SessionAlreadyFocused(
             "session already focused".to_string(),
-        ));
+        ))
+    } else {
+        Ok(())
     }
-
-    Ok(())
 }
 
 /// Determine if workspace should be switched.

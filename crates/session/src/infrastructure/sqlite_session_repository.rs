@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
 use crate::domain::entities::{BranchState, Session, SessionId, SessionState};
+use crate::domain::entities::session::Created;
 use crate::domain::value_objects::{BeadId, SessionName, WorkspaceId};
 use crate::error::{SessionError, SessionError::*, Result};
 use crate::infrastructure::repository::SessionRepository;
@@ -19,7 +20,7 @@ pub struct SessionRow {
     pub created_at: String,
 }
 
-impl TryFrom<SessionRow> for Session {
+impl TryFrom<SessionRow> for Session<Created> {
     type Error = SessionError;
 
     fn try_from(row: SessionRow) -> Result<Self> {
@@ -42,20 +43,19 @@ impl TryFrom<SessionRow> for Session {
                 )))
             }
         };
-        let state = parse_session_state(&row.session_state)?;
+        let _state = parse_session_state(&row.session_state)?;
         let created_at = DateTime::parse_from_rfc3339(&row.created_at)
             .map_err(|e| SerializationError(format!("Invalid created_at timestamp: {}", e)))?
             .with_timezone(&Utc);
 
-        Ok(Self {
+        Ok(Session::from_parts(
             id,
             name,
             workspace,
             bead,
             branch,
-            state,
             created_at,
-        })
+        ))
     }
 }
 
@@ -72,7 +72,7 @@ impl From<&Session> for SessionRow {
             bead: session.bead.as_ref().map(|b| b.as_str().to_string()),
             branch_state,
             branch_name,
-            session_state: format!("{:?}", session.state),
+            session_state: format!("{:?}", session.state()),
             created_at: session.created_at.to_rfc3339(),
         }
     }

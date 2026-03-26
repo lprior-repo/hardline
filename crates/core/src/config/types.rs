@@ -10,6 +10,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+use crate::error_config::ConfigErrorKind;
 use crate::{Error, Result};
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -63,9 +64,10 @@ impl FromStr for ConflictMode {
             "auto" => Ok(Self::Auto),
             "manual" => Ok(Self::Manual),
             "hybrid" => Ok(Self::Hybrid),
-            _ => Err(Error::InvalidConfig(format!(
+            _ => Err(ConfigErrorKind::Invalid(format!(
                 "Invalid conflict mode: {s}. Must be one of: auto, manual, hybrid"
-            ))),
+            ))
+            .into()),
         }
     }
 }

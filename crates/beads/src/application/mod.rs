@@ -62,7 +62,7 @@ impl<R: BeadRepository> BeadService<R> {
         new_state: BeadState,
     ) -> Result<(Bead, BeadEvent)> {
         let bead = self.get_bead(id).await?;
-        let old_state = bead.state.clone();
+        let old_state = bead.state();
 
         if !bead.can_transition_to(&new_state) {
             return Err(BeadError::InvalidStateTransition {
@@ -71,13 +71,20 @@ impl<R: BeadRepository> BeadService<R> {
             });
         }
 
-        let updated = bead.transition(new_state)?;
+        // Use the transition_to method which handles all typestate transitions
+        let updated = bead
+            .transition_to(&new_state)
+            .ok_or_else(|| BeadError::InvalidStateTransition {
+                from: format!("{:?}", old_state),
+                to: format!("{:?}", new_state),
+            })?;
+
         self.repository.update(&updated).await?;
 
         let event = BeadEvent::StateChanged {
             id: id.clone(),
             old_state,
-            new_state: updated.state.clone(),
+            new_state: updated.state(),
             changed_at: Utc::now(),
         };
 
@@ -85,9 +92,9 @@ impl<R: BeadRepository> BeadService<R> {
     }
 
     pub async fn set_priority(&self, id: &BeadId, priority: Priority) -> Result<(Bead, BeadEvent)> {
-        let mut bead = self.get_bead(id).await?;
-        bead.priority = Some(priority);
-        self.repository.update(&bead).await?;
+        let bead = self.get_bead(id).await?;
+        let updated = bead.with_priority(priority);
+        self.repository.update(&updated).await?;
 
         let event = BeadEvent::PrioritySet {
             id: id.clone(),
@@ -95,7 +102,7 @@ impl<R: BeadRepository> BeadService<R> {
             changed_at: Utc::now(),
         };
 
-        Ok((bead, event))
+        Ok((updated, event))
     }
 
     pub async fn assign_bead(
@@ -103,9 +110,12 @@ impl<R: BeadRepository> BeadService<R> {
         id: &BeadId,
         assignee: Option<String>,
     ) -> Result<(Bead, BeadEvent)> {
-        let mut bead = self.get_bead(id).await?;
-        bead.assignee = assignee.clone();
-        self.repository.update(&bead).await?;
+        let bead = self.get_bead(id).await?;
+        let updated = match assignee {
+            Some(ref a) => bead.with_assignee(a.clone()),
+            None => bead,
+        };
+        self.repository.update(&updated).await?;
 
         let event = BeadEvent::AssigneeSet {
             id: id.clone(),
@@ -113,7 +123,7 @@ impl<R: BeadRepository> BeadService<R> {
             changed_at: Utc::now(),
         };
 
-        Ok((bead, event))
+        Ok((updated, event))
     }
 
     pub async fn add_dependency(
@@ -136,8 +146,7 @@ impl<R: BeadRepository> BeadService<R> {
             ));
         }
 
-        let mut updated = bead;
-        updated.depends_on.push(depends_on.clone());
+        let updated = bead.add_dependency(depends_on.clone());
         self.repository.update(&updated).await?;
 
         let event = BeadEvent::DependencyAdded {

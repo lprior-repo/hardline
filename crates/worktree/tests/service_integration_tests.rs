@@ -18,16 +18,22 @@ use worktree::domain::{
 // In-memory repository for testing
 #[derive(Default, Clone)]
 struct TestRepository {
+    // Use Worktree directly (type alias for Worktree<Creating>)
+    // Note: This means we lose state information in tests
     worktrees: Vec<Worktree>,
 }
 
 #[async_trait::async_trait]
 impl WorktreeRepository for TestRepository {
-    async fn save(&mut self, worktree: &mut Worktree) -> Result<(), WorktreeDomainError> {
-        if let Some(existing) = self.worktrees.iter_mut().find(|w| w.id() == worktree.id()) {
-            *existing = worktree.clone();
+    async fn save<S: Send>(&mut self, worktree: Worktree<S>) -> Result<(), WorktreeDomainError> {
+        // For test repository, we convert to the base Worktree type
+        // This works because Worktree<Creating> can be created from any Worktree<S>
+        // via the into_state() method
+        let wt: Worktree = worktree.into_state();
+        if let Some(existing) = self.worktrees.iter_mut().find(|w| w.id() == wt.id()) {
+            *existing = wt;
         } else {
-            self.worktrees.push(worktree.clone());
+            self.worktrees.push(wt);
         }
         Ok(())
     }
@@ -136,7 +142,7 @@ mod worktree_service_integration_tests {
         let id = worktree.id().clone();
 
         // Should be in cache
-        let cached = service.find_by_id(&id);
+        let cached = service.find_by_id(&id).await;
         assert!(cached.is_ok());
         assert!(cached.unwrap().is_some());
     }
@@ -187,7 +193,7 @@ mod worktree_service_integration_tests {
         service.initialize_worktree(InitializeWorktreeCommand::new(id.clone())).await.unwrap();
 
         // Cache should be updated
-        let cached = service.find_by_id(&id).unwrap().unwrap();
+        let cached = service.find_by_id(&id).await.unwrap().unwrap();
         assert_eq!(cached.state(), WorktreeState::Active);
     }
 
@@ -239,7 +245,7 @@ mod worktree_service_integration_tests {
 
         // Service's list_worktrees should see updated state
         let query = ListWorktreesQuery::new();
-        let results = service.list_worktrees(query).unwrap();
+        let results = service.list_worktrees(query).await.unwrap();
         let suspended = results.iter().find(|w| w.id() == &id).unwrap();
         assert_eq!(suspended.state(), WorktreeState::Suspended);
     }
@@ -316,7 +322,7 @@ mod worktree_service_integration_tests {
 
         // Should be deleted from service's list
         let query = ListWorktreesQuery::new();
-        let results = service.list_worktrees(query).unwrap();
+        let results = service.list_worktrees(query).await.unwrap();
         let found = results.iter().any(|w| w.id() == &id);
         assert!(!found);
     }
@@ -346,7 +352,7 @@ mod worktree_service_integration_tests {
         service.remove_worktree(RemoveWorktreeCommand::new(id.clone())).await.unwrap();
 
         // Should be removed from cache
-        let cached = service.find_by_id(&id);
+        let cached = service.find_by_id(&id).await;
         assert!(cached.is_ok());
         assert!(cached.unwrap().is_none());
     }
@@ -365,7 +371,7 @@ mod worktree_service_integration_tests {
         service.create_worktree(create_test_command("wt-3", "/tmp/wt3", "/home/user/proj", WorktreeTypeEnum::Review, None)).await.unwrap();
 
         let query = ListWorktreesQuery::new();
-        let results = service.list_worktrees(query).unwrap();
+        let results = service.list_worktrees(query).await.unwrap();
 
         assert_eq!(results.len(), 3);
     }
@@ -387,7 +393,7 @@ mod worktree_service_integration_tests {
         service.create_worktree(cmd3).await.unwrap();
 
         let query = ListWorktreesQuery::new().with_state(WorktreeState::Active);
-        let results = service.list_worktrees(query).unwrap();
+        let results = service.list_worktrees(query).await.unwrap();
 
         assert_eq!(results.len(), 2);
         for wt in results.iter() {
@@ -405,7 +411,7 @@ mod worktree_service_integration_tests {
         service.create_worktree(create_test_command("dev-2", "/tmp/wt3", "/home/user/proj", WorktreeTypeEnum::Development, None)).await.unwrap();
 
         let query = ListWorktreesQuery::new().with_worktree_type(WorktreeTypeEnum::Testing);
-        let results = service.list_worktrees(query).unwrap();
+        let results = service.list_worktrees(query).await.unwrap();
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].worktree_type(), WorktreeTypeEnum::Testing);
@@ -421,7 +427,7 @@ mod worktree_service_integration_tests {
         service.create_worktree(create_test_command("bugfix-c", "/tmp/wt3", "/home/user/proj", WorktreeTypeEnum::Review, None)).await.unwrap();
 
         let query = ListWorktreesQuery::new().with_name_prefix("feature-");
-        let results = service.list_worktrees(query).unwrap();
+        let results = service.list_worktrees(query).await.unwrap();
 
         assert_eq!(results.len(), 2);
         for wt in results.iter() {
@@ -446,12 +452,12 @@ mod worktree_service_integration_tests {
 
         // Without include_removed
         let query = ListWorktreesQuery::new();
-        let results = service.list_worktrees(query).unwrap();
+        let results = service.list_worktrees(query).await.unwrap();
         assert_eq!(results.len(), 1);
 
         // With include_removed
         let query = ListWorktreesQuery::new().with_include_removed(true);
-        let results = service.list_worktrees(query).unwrap();
+        let results = service.list_worktrees(query).await.unwrap();
         assert_eq!(results.len(), 1);
     }
 
@@ -472,7 +478,7 @@ mod worktree_service_integration_tests {
 
         // Check service has metadata via list_worktrees
         let query = ListWorktreesQuery::new();
-        let results = service.list_worktrees(query).unwrap();
+        let results = service.list_worktrees(query).await.unwrap();
         let updated = results.iter().find(|w| w.id() == &id).unwrap();
         assert_eq!(updated.get_metadata("environment"), Some("test"));
     }

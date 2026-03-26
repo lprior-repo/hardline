@@ -4,22 +4,22 @@
 
 use crate::commands::task_types::{Assignee, Task, TaskId, TaskState};
 use scp_core::{
-    error::Error, lock::LockGuard, lock::LockManager, lock::LockType, Result as CoreResult,
+    error::Error, error_task::TaskErrorKind, lock::LockGuard, lock::LockManager, lock::LockType,
+    Result as CoreResult,
 };
 
 /// Validate task exists
 pub fn validate_task_exists(task: Option<Task>, task_id: &str) -> CoreResult<Task> {
-    task.ok_or_else(|| Error::TaskNotFound(task_id.to_string()))
+    task.ok_or_else(|| TaskErrorKind::NotFound(task_id.to_string()).into())
 }
 
 /// Validate task is not claimed by another user
 pub fn validate_not_claimed_by_other(task: &Task, current_user: &str) -> CoreResult<()> {
     if let Some(assignee) = &task.assignee {
         if assignee.as_str() != current_user {
-            return Err(Error::TaskAlreadyClaimed(
-                task.id.to_string(),
-                assignee.to_string(),
-            ));
+            return Err(
+                TaskErrorKind::AlreadyClaimed(task.id.to_string(), assignee.to_string()).into(),
+            );
         }
     }
     Ok(())
@@ -28,7 +28,7 @@ pub fn validate_not_claimed_by_other(task: &Task, current_user: &str) -> CoreRes
 /// Validate task is claimed by current user
 pub fn validate_claimed_by_user(task: &Task, current_user: &str) -> CoreResult<()> {
     if task.assignee.as_ref().map(|a| a.as_str()) != Some(current_user) {
-        return Err(Error::TaskNotClaimed(task.id.to_string()));
+        return Err(TaskErrorKind::NotClaimed(task.id.to_string()).into());
     }
     Ok(())
 }
@@ -36,10 +36,11 @@ pub fn validate_claimed_by_user(task: &Task, current_user: &str) -> CoreResult<(
 /// Validate task is not already closed
 pub fn validate_not_closed(task: &Task) -> CoreResult<()> {
     if matches!(task.state, TaskState::Closed { .. }) {
-        return Err(Error::InvalidTaskStateTransition(
+        return Err(TaskErrorKind::InvalidStateTransition(
             task.id.to_string(),
             "Task is already closed".to_string(),
-        ));
+        )
+        .into());
     }
     Ok(())
 }
@@ -52,7 +53,7 @@ pub fn acquire_task_lock(
 ) -> CoreResult<LockGuard> {
     let lock_type = LockType::Task(task_id.to_string());
     lock.acquire(lock_type, holder)
-        .map_err(|_| Error::TaskLocked(task_id.to_string()))
+        .map_err(|_| TaskErrorKind::Locked(task_id.to_string()).into())
 }
 
 /// Transition task to claimed state (pure function - returns new instance)
@@ -154,7 +155,10 @@ mod tests {
     fn test_precondition_p2_nonexistent_task_returns_not_found() {
         let result = validate_task_exists(None, "nonexistent");
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), Error::TaskNotFound(_)));
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, Error::Task(ref te) if matches!(te.inner, TaskErrorKind::NotFound(_)))
+        );
     }
 
     #[test]
@@ -167,10 +171,10 @@ mod tests {
 
         // Then: Returns Err(TaskAlreadyClaimed)
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            Error::TaskAlreadyClaimed(_, _)
-        ));
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, Error::Task(ref te) if matches!(te.inner, TaskErrorKind::AlreadyClaimed(_, _)))
+        );
     }
 
     #[test]
@@ -195,7 +199,10 @@ mod tests {
 
         // Then: Returns Err(TaskNotClaimed)
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), Error::TaskNotClaimed(_)));
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, Error::Task(ref te) if matches!(te.inner, TaskErrorKind::NotClaimed(_)))
+        );
     }
 
     #[test]
@@ -285,10 +292,10 @@ mod tests {
 
         // Then: Returns Err
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            Error::InvalidTaskStateTransition(_, _)
-        ));
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, Error::Task(ref te) if matches!(te.inner, TaskErrorKind::InvalidStateTransition(_, _)))
+        );
     }
 
     // ========================================================================
@@ -397,7 +404,10 @@ mod tests {
 
         // Then: Returns Err(TaskNotClaimed)
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), Error::TaskNotClaimed(_)));
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, Error::Task(ref te) if matches!(te.inner, TaskErrorKind::NotClaimed(_)))
+        );
     }
 
     #[test]
@@ -410,10 +420,10 @@ mod tests {
 
         // Then: Returns Err(InvalidTaskStateTransition)
         assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            Error::InvalidTaskStateTransition(_, _)
-        ));
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, Error::Task(ref te) if matches!(te.inner, TaskErrorKind::InvalidStateTransition(_, _)))
+        );
     }
 
     #[test]

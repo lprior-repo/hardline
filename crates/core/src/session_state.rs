@@ -13,7 +13,7 @@ use std::{collections::HashMap, marker::PhantomData};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATE TYPES & TRANSITIONS
@@ -137,11 +137,10 @@ impl StateTransition {
         if self.from.can_transition_to(self.to) {
             Ok(())
         } else {
-            Err(Error::SessionInvalidState(
-                format!("{:?}", self.from),
-                format!("{:?}", self.to),
-                "Invalid state transition".to_string(),
-            ))
+            Err(crate::error::Error::invalid_state(format!(
+                "Session {:?} cannot transition to {:?}",
+                self.from, self.to
+            )))
         }
     }
 }
