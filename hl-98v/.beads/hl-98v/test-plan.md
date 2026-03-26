@@ -1600,7 +1600,15 @@ And: User has write permissions (P2)
 And: `jj` is installed (P3)
 And: .isolate/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` is called
-Then: Result is Ok("{\"message\":\"Repository initialized\",\"root\":\"/tmp/test\",\"paths\":{\"data_directory\":\".isolate/\",\"config\":\".isolate/config.toml\",\"state_db\":\".isolate/state.db\",\"layouts\":\".isolate/layouts/\"},\"jj_initialized\":true,\"already_initialized\":false})\"
+Then: Result is Ok(json_str)
+And: serde_json::from_str::<InitResponse>(json_str).message == "Repository initialized"
+And: serde_json::from_str::<InitResponse>(json_str).root == "/tmp/test"
+And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".isolate/"
+And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".isolate/config.toml"
+And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".isolate/state.db"
+And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".isolate/layouts/"
+And: serde_json::from_str::<InitResponse>(json_str).jj_initialized == true
+And: serde_json::from_str::<InitResponse>(json_str).already_initialized == false
 ```
 
 **Test function name**: `fn run_with_options_returns_json_with_message_field()`
@@ -1614,8 +1622,8 @@ And: User has write permissions (P2)
 And: `jj` is installed (P3)
 And: .isolate/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` is called
-Then: Result is Ok("{\"root\":\"/tmp/test\"}")
-And: root field equals normalized current directory
+Then: Result is Ok(json_str)
+And: serde_json::from_str::<InitResponse>(json_str).root == normalized_current_directory
 ```
 
 **Test function name**: `fn run_with_options_returns_json_with_root_field()`
@@ -1629,8 +1637,11 @@ And: User has write permissions (P2)
 And: `jj` is installed (P3)
 And: .isolate/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` is called
-Then: Result is Ok("{\"paths\":{\"data_directory\":\".isolate/\",\"config\":\".isolate/config.toml\",\"state_db\":\".isolate/state.db\",\"layouts\":\".isolate/layouts/\"}}")\"
-And: paths object contains all 4 fields
+Then: Result is Ok(json_str)
+And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".isolate/"
+And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".isolate/config.toml"
+And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".isolate/state.db"
+And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".isolate/layouts/"
 ```
 
 **Test function name**: `fn run_with_options_returns_json_with_paths_object()`
@@ -1644,8 +1655,8 @@ And: User has write permissions (P2)
 And: `jj` is installed (P3)
 And: .isolate/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` is called
-Then: Result is Ok("{\"jj_initialized\":true}")
-And: jj_initialized equals true
+Then: Result is Ok(json_str)
+And: serde_json::from_str::<InitResponse>(json_str).jj_initialized == true
 ```
 
 **Test function name**: `fn run_with_options_returns_json_with_jj_initialized_field()`
@@ -1659,8 +1670,8 @@ And: User has write permissions (P2)
 And: `jj` is installed (P3)
 And: .isolate/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` is called
-Then: Result is Ok("{\"already_initialized\":false}")
-And: already_initialized equals false
+Then: Result is Ok(json_str)
+And: serde_json::from_str::<InitResponse>(json_str).already_initialized == false
 ```
 
 **Test function name**: `fn run_with_options_returns_json_with_already_initialized_field()`
@@ -2243,7 +2254,15 @@ And: User has write permissions
 And: `jj` is installed
 And: .isolate/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` called
-Then: Result is Ok("{\"message\":\"Repository initialized\",\"root\":\"/tmp/test\",\"paths\":{\"data_directory\":\".isolate/\",\"config\":\".isolate/config.toml\",\"state_db\":\".isolate/state.db\",\"layouts\":\".isolate/layouts/\"},\"jj_initialized\":true,\"already_initialized\":false})\"
+Then: Result is Ok(json_str)
+And: serde_json::from_str::<InitResponse>(json_str).message == "Repository initialized"
+And: serde_json::from_str::<InitResponse>(json_str).root == "/tmp/test"
+And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".isolate/"
+And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".isolate/config.toml"
+And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".isolate/state.db"
+And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".isolate/layouts/"
+And: serde_json::from_str::<InitResponse>(json_str).jj_initialized == true
+And: serde_json::from_str::<InitResponse>(json_str).already_initialized == false
 ```
 
 **Test function name**: `fn json_mode_serializes_to_valid_json_with_all_fields()`
@@ -2257,7 +2276,11 @@ And: User has write permissions
 And: `jj` is installed
 And: .isolate/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` called
-Then: Result is Ok("{\"paths\":{\"data_directory\":\".isolate/\",\"config\":\".isolate/config.toml\",\"state_db\":\".isolate/state.db\",\"layouts\":\".isolate/layouts/\"}}")\"
+Then: Result is Ok(json_str)
+And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".isolate/"
+And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".isolate/config.toml"
+And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".isolate/state.db"
+And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".isolate/layouts/"
 ```
 
 **Test function name**: `fn json_mode_serializes_paths_with_exact_values()`
@@ -2266,23 +2289,25 @@ Then: Result is Ok("{\"paths\":{\"data_directory\":\".isolate/\",\"config\":\".i
 
 ```
 ### Behavior: outputformat_json_variant_exists
-Given: OutputFormat enum defined
-When: OutputFormat::Json constructed
-Then: Variant exists and is valid
+Given: OutputFormat enum defined with Json and Human variants
+When: OutputFormat::Json is constructed
+Then: let _ = OutputFormat::Json; compiles without error
+And: matches!(OutputFormat::Json, OutputFormat::Json) is true
 ```
 
-**Test function name**: `fn outputformat_json_variant_exists()`
+**Test function name**: `fn outputformat_json_variant_constructs_successfully()`
 
 ### Behavior 147: OutputFormat::Human variant exists
 
 ```
 ### Behavior: outputformat_human_variant_exists
-Given: OutputFormat enum defined
-When: OutputFormat::Human constructed
-Then: Variant exists and is valid
+Given: OutputFormat enum defined with Json and Human variants
+When: OutputFormat::Human is constructed
+Then: let _ = OutputFormat::Human; compiles without error
+And: matches!(OutputFormat::Human, OutputFormat::Human) is true
 ```
 
-**Test function name**: `fn outputformat_human_variant_exists()`
+**Test function name**: `fn outputformat_human_variant_constructs_successfully()`
 
 ### Behavior 148: MissingDependencies has missing field
 
@@ -3007,8 +3032,8 @@ proptest! {
         // Test parsing with various content lengths
         let content = String::from_utf8_lossy(&config_content);
         let result = parse_config_content(&content);
-        // Should not panic, should return Result
-        prop_assert!(result.is_ok() || result.is_err());
+        // Should return either Ok with valid config or Err with specific error variant
+        prop_assert!(matches!(result, Ok(_) | Err(InitError::Io { .. } | InitError::ConfigWriteFailed { .. })));
     }
     
     #[test]
@@ -3018,7 +3043,8 @@ proptest! {
         // Test deeply nested tables (100+ levels)
         let content = generate_nested_toml(nested_levels);
         let result = parse_config_content(&content);
-        prop_assert!(result.is_ok() || result.is_err());
+        // Should handle deep nesting gracefully without panic
+        prop_assert!(matches!(result, Ok(_) | Err(InitError::Io { .. })));
     }
     
     #[test]
@@ -3029,7 +3055,8 @@ proptest! {
         let long_key = "a".repeat(key_length as usize);
         let content = format!("[{}]\nkey = \"value\"", long_key);
         let result = parse_config_content(&content);
-        prop_assert!(result.is_ok() || result.is_err());
+        // Should handle long keys gracefully without panic
+        prop_assert!(matches!(result, Ok(_) | Err(InitError::Io { .. })));
     }
     
     #[test]
@@ -3040,7 +3067,8 @@ proptest! {
         let long_value = "a".repeat(value_length as usize);
         let content = format!("key = \"{}\"", long_value);
         let result = parse_config_content(&content);
-        prop_assert!(result.is_ok() || result.is_err());
+        // Should handle long values gracefully without OOM
+        prop_assert!(matches!(result, Ok(_) | Err(InitError::Io { .. })));
     }
     
     #[test]
@@ -3050,7 +3078,8 @@ proptest! {
         // Test malformed UTF-8 in strings
         let content = String::from_utf8_lossy(&bytes);
         let result = parse_config_content(&content);
-        prop_assert!(result.is_ok() || result.is_err());
+        // Should handle malformed UTF-8 gracefully
+        prop_assert!(matches!(result, Ok(_) | Err(InitError::Io { .. })));
     }
 }
 
@@ -3420,8 +3449,8 @@ proptest! {
         let content = String::from_utf8_lossy(&lock_content);
         // Parse lock file content - should handle any content gracefully
         let parsed_pid = content.trim().parse::<u32>();
-        // Should either succeed with a valid PID or fail gracefully
-        prop_assert!(parsed_pid.is_ok() || parsed_pid.is_err());
+        // Should either succeed with a valid PID > 0 or fail gracefully
+        prop_assert!(matches!(parsed_pid, Ok(pid) if pid > 0) || matches!(parsed_pid, Err(_)));
     }
     
     #[test]
