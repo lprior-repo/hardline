@@ -2,30 +2,68 @@
 
 ### Axis 1 — Contract Parity
 
-**LETHAL: Missing public function coverage**
+**LETHAL: Public function coverage mismatch**
 
-| Function | Contract Line | Test Plan Coverage |
-|----------|---------------|-------------------|
-| `Error::code()` | contract.md:259 | **NO BDD SCENARIO** |
+```
+Public functions in contract.md: 12
+BDD scenarios in test-plan.md: 48
+Ratio: 48/12 = 4.0x (BELOW 5× minimum threshold)
+```
 
 **PASS: Covered variants**
-- `new`: Lines 585-592 - `LockManager::new sets default TTL` ✓
-- `with_ttl`: Lines 594-601 - `LockManager::with_ttl sets custom TTL` ✓
-- `pool`: Lines 603-610 - `LockManager::pool returns reference` ✓
-- `init`: Lines 186-217 - `LockManager::init creates session_locks table`, `init_creates_session_lock_audit_table`, `init_is_idempotent` ✓
-- `lock_with_ttl`: Lines 220-318 - 9 scenarios covering all error paths ✓
-- `lock`: Lines 321-359 - 4 scenarios covering all error paths ✓
-- `unlock`: Lines 362-394 - 3 scenarios covering holder/non-holder/double-unlock ✓
-- `heartbeat`: Lines 397-438 - 4 scenarios covering extension/NotLockHolder/NotFound ✓
-- `get_all_locks`: Lines 441-498 - 5 scenarios covering multiple/single/empty/expired/sorted ✓
-- `get_lock_audit_log`: Lines 505-530 - 2 scenarios covering with entries/empty ✓
-- `get_lock_state`: Lines 534-555 - 2 scenarios covering existing/no lock ✓
+- `new`: Lines 604-611 ✓
+- `with_ttl`: Lines 613-620 ✓
+- `pool`: Lines 622-629 ✓
+- `init`: Lines 204-236 (3 scenarios) ✓
+- `lock_with_ttl`: Lines 238-338 (9 scenarios) ✓
+- `lock`: Lines 340-379 (4 scenarios) ✓
+- `unlock`: Lines 381-414 (3 scenarios) ✓
+- `heartbeat`: Lines 416-458 (4 scenarios) ✓
+- `get_all_locks`: Lines 460-522 (5 scenarios) ✓
+- `get_lock_audit_log`: Lines 524-551 (2 scenarios) ✓
+- `get_lock_state`: Lines 553-574 (2 scenarios) ✓
+- `Error::code()`: Lines 665-726 (7 scenarios) ✓
 
-**MISSING: `Error::code()` public method**
-- Contract declares `pub fn code(&self) -> &'static str` at line 259
-- This method returns error codes for external identification
-- No BDD scenario tests that `SessionNotFound.code() == "SESSION_NOT_FOUND"` or any variant
-- **LETHAL**: Every `pub fn` must have ≥1 BDD scenario
+**CRITICAL MISMATCH: `verify_session_exists()` in test plan but NOT in contract**
+
+| File:Line | Finding |
+|-----------|---------|
+| contract.md:275-345 | Contract signatures section lists ONLY 12 public functions |
+| test-plan.md:87-91 | Test plan lists `verify_session_exists()` as a behavior |
+| test-plan.md:576-602 | Three BDD scenarios for `verify_session_exists()` |
+| test-plan.md:822-833 | Proptest invariant references `verify_session_exists` |
+
+**Analysis:** The test plan is testing a function (`verify_session_exists`) that does NOT exist in the contract. This is a fundamental planning error — you cannot test what is not specified. Either:
+1. `verify_session_exists` needs to be added to the contract (with proper signature), OR
+2. The test plan scenarios must be removed
+
+**LETHAL: Test density below 5× threshold**
+
+The test-plan.md claims at line 18 and line 1375:
+> "48 core tests / 7 core functions = 6.86x (exceeds 5× minimum threshold)"
+
+This is FALSE. The contract declares 12 `pub fn` / `pub async fn` / `pub const fn` functions:
+1. `Error::code()`
+2. `LockManager::new()`
+3. `LockManager::with_ttl()`
+4. `LockManager::pool()`
+5. `LockManager::init()`
+6. `LockManager::lock_with_ttl()`
+7. `LockManager::lock()`
+8. `LockManager::unlock()`
+9. `LockManager::heartbeat()`
+10. `LockManager::get_all_locks()`
+11. `LockManager::get_lock_audit_log()`
+12. `LockManager::get_lock_state()`
+
+**48 tests / 12 functions = 4.0x, NOT 6.86x**
+
+The test plan attempts to hide this by:
+1. Excluding `Error::code()` from the "core functions" count (but it IS public in contract)
+2. Claiming `is_constraint_conflict_error` is a core function (but it's `fn`, not `pub fn`)
+3. Including `verify_session_exists` in test count (but it's NOT in contract)
+
+**This is a lie. 4.0x does NOT exceed 5× threshold.**
 
 ---
 
@@ -57,16 +95,11 @@
 **LETHAL: Test density below threshold**
 
 ```
-Public functions in contract: 12 (new, with_ttl, pool, init, lock_with_ttl, lock, unlock, heartbeat, get_all_locks, get_lock_audit_log, get_lock_state, Error::code)
-Planned BDD test count: 41
+Public functions in contract: 12
+Planned BDD test count: 48
 Required minimum (5×): 60 tests for 12 functions
-Ratio: 41/12 = 3.42x (BELOW 5× minimum threshold)
+Ratio: 48/12 = 4.0x (BELOW 5× minimum threshold)
 ```
-
-**Summary line at test-plan.md:18 incorrectly states:**
-- Claims: `41 tests / 12 public functions = 3.42x (exceeds minimum threshold for core functions)`
-- This is FALSE — 3.42x does NOT exceed 5× threshold
-- The phrase "exceeds minimum threshold" is a lie
 
 **PASS: Proptest coverage**
 - 7 invariants defined for core state machine behaviors ✓
@@ -85,23 +118,23 @@ Ratio: 41/12 = 3.42x (BELOW 5× minimum threshold)
 
 | Boundary Type | Expected Coverage | Test Plan |
 |---------------|------------------|-----------|
-| Maximum valid session name length | ✓ Tested 255-char session | Line 1145 |
-| Maximum valid agent_id length | ✓ Tested 255-char agent | Line 1159 |
-| Zero TTL (uses default) | ✓ Tested | Line 270 |
-| Minimum valid TTL | ✓ Tested 1 second | Line 1169 |
-| Maximum TTL | ✓ Tested 86400 seconds | Line 1170 |
-| Empty session name | ✓ Tested | Line 1144 |
-| Expired lock | ✓ Tested | Lines 1179-1180 |
-| Double-unlock | ✓ Tested | Lines 1182-1183 |
+| Maximum valid session name length | ✓ Tested 255-char session | Line 1248 |
+| Maximum valid agent_id length | ✓ Tested 255-char agent | Line 1262 |
+| Zero TTL (uses default) | ✓ Tested | Line 288-298 |
+| Minimum valid TTL | ✓ Tested 1 second | Line 1272 |
+| Maximum TTL | ✓ Tested 86400 seconds | Line 1274 |
+| Empty session name | ✓ Tested | Line 1247 |
+| Expired lock | ✓ Tested | Lines 450-458 |
+| Double-unlock | ✓ Tested | Lines 404-414 |
 
-**PASS: 32+ boundaries explicitly named across categories**
+**PASS: 35+ boundaries explicitly named across categories**
 
 **MISSING: Error variant boundary coverage**
-- `ParseError`: No BDD scenario tests `Err(ParseError("..."))` — only referenced in combinatorial matrix
-- `Unknown`: No BDD scenario tests `Err(Unknown("..."))` — only referenced in combinatorial matrix
+- `ParseError`: Referenced only in `fuzz_parse_error` corpus at line 964-980, no dedicated `### Behavior:` header
+- `Unknown`: Referenced only in `fuzz_parse_error` corpus at line 964-980, no dedicated `### Behavior:` header
 
 **MINOR: ParseError and Unknown error variants have no dedicated BDD scenarios**
-- Line 527-533 combinatorial matrix mentions them but no `### Behavior:` header exists
+- Lines 527-533 combinatorial matrix mentions them but no `### Behavior:` header exists for explicit testing
 - Requires: `### Behavior: parse_error_malformed_timestamp` and `### Behavior: unknown_error_unexpected`
 
 ---
@@ -109,25 +142,18 @@ Ratio: 41/12 = 3.42x (BELOW 5× minimum threshold)
 ### Axis 5 — Mutation Survivability
 
 **PASS: Mutation checkpoint table exists**
-- 19 mutations listed with test scenario mappings at lines 1041-1061 ✓
+- 26 mutations listed with test scenario mappings at lines 1124-1150 ✓
 
 **PASS: Scenario names aligned with BDD titles**
 - `lock_with_ttl_re_acquire_by_same_agent` matches `### Behavior: lock_with_ttl re-acquire by same agent` ✓
 
-**MISSING: Error code mutation checkpoint**
-- No mutation test for `Error::code()` method
-- Mutation: `SESSION_NOT_FOUND` → `SESSION_LOCKED` in code() match arms
-- Would go undetected without dedicated test
+**PASS: Error::code() mutation checkpoints**
+- 7 mutation checkpoints added for Error::code() match arms ✓
 
-**MISSING: ParseError mutation checkpoint**
-- No mutation test for `ParseError` path
-- Mutation: `ParseError` → `Ok(...)` in timestamp parsing
-- Would go undetected without dedicated test
-
-**MISSING: Unknown error mutation checkpoint**
-- No mutation test for `Unknown` path
-- Mutation: `Unknown` → `Ok(...)` in unexpected error handling
-- Would go undetected without dedicated test
+**MISSING: verify_session_exists mutation checkpoint**
+- Test plan has 3 BDD scenarios for `verify_session_exists` but NO corresponding mutation checkpoint
+- Mutation: `verify_session_exists` returns `Ok(())` when session missing → should be `Err(SessionNotFound)`
+- Would go undetected without dedicated mutation test
 
 ---
 
@@ -140,19 +166,20 @@ Ratio: 41/12 = 3.42x (BELOW 5× minimum threshold)
 - Rule 2 (Bounded loops): ✓ No loops in test plans ✓
 
 **PASS: Side effects named explicitly**
-- Line 186-194: "SQLite database with session_locks and session_lock_audit tables initialized" — explicit ✓
+- Line 207-212: "SQLite database with session_locks and session_lock_audit tables initialized" — explicit ✓
 - All scenarios name which tables exist and contain what ✓
 
 **MAJOR: Transaction isolation not explicitly verified**
-- Line 296-308: `lock_with_ttl audit rollback` scenario
+- Line 316-327: `lock_with_ttl audit rollback` scenario
 - States: "Lock record is deleted from session_locks (rollback succeeded)"
 - Missing: Explicit verification that database transaction isolation was maintained
 - Should add: "And: Database transaction rolled back to consistent state"
+- **Note:** This was actually added at line 326 ("And: Database transaction rolled back to consistent state")
 
 **MINOR: Missing explicit error code assertions**
-- `Error::code()` method returns static strings for external identification
-- No scenario verifies: `assert_eq!(Error::SessionNotFound { session: "test" }.code(), "SESSION_NOT_FOUND")`
-- This is critical for API consumers who match error codes
+- Error::code() method returns static strings for external identification
+- BDD scenarios at lines 665-726 test this, but no unit test assertion pattern documented
+- Should add: `assert_eq!(Error::SessionNotFound { session: "test" }.code(), "SESSION_NOT_FOUND")` in unit tests
 
 ---
 
@@ -160,20 +187,25 @@ Ratio: 41/12 = 3.42x (BELOW 5× minimum threshold)
 
 | File:Line | Finding |
 |-----------|---------|
-| contract.md:259 | `Error::code()` public function has NO BDD scenario in test-plan.md |
-| test-plan.md:12 | Summary claims "41 public API behaviors across 12 functions" but 41/12 = 3.42x, NOT 5× threshold |
-| test-plan.md:18 | Test density stated as "3.42x (exceeds minimum threshold)" — FALSE, 3.42x does NOT exceed 5× |
-| test-plan.md | No BDD scenario for `Error::code()` method that returns error codes |
+| contract.md:275-345 | Contract declares 12 public functions |
+| test-plan.md:18 | Claims "48 tests / 7 core functions = 6.86x" but contract has 12 public functions |
+| test-plan.md:18 | Ratio is 48/12 = 4.0x, NOT 6.86x — below 5× minimum threshold |
+| test-plan.md:87-91,576-602,822-833 | `verify_session_exists()` tested but NOT declared in contract |
+| test-plan.md:1415 | Open question about `verify_session_exists` shows it was added post-contract |
+| test-plan.md:1375 | Test density calculation is false: "48 core tests / 7 core functions = 6.86x (exceeds 5× minimum threshold)" |
 
-## MAJOR FINDINGS (5)
+---
+
+## MAJOR FINDINGS (4)
 
 | File:Line | Finding |
 |-----------|---------|
-| test-plan.md:527-533 | `ParseError` error variant only in combinatorial matrix, no dedicated `### Behavior:` header |
-| test-plan.md:557-563 | `Unknown` error variant only in combinatorial matrix, no dedicated `### Behavior:` header |
-| test-plan.md:1041-1061 | No mutation checkpoint for `Error::code()` method error code mapping |
-| test-plan.md:296-308 | `lock_with_ttl audit rollback` scenario missing explicit transaction isolation verification |
-| test-plan.md | No explicit error code assertions (e.g., `assert_eq!(err.code(), "SESSION_NOT_FOUND")`) |
+| test-plan.md:12 | Summary claims "48 public API behaviors across 12 functions" then says "41 tests / 7 core functions = 5.86x" — inconsistent counts |
+| test-plan.md:964-980 | `ParseError` and `Unknown` error variants only in fuzz corpus, no dedicated BDD scenario |
+| test-plan.md:1124-1150 | No mutation checkpoint for `verify_session_exists` scenarios |
+| test-plan.md:1415 | Open question indicates `verify_session_exists` is still under consideration, not finalized |
+
+---
 
 ## MINOR FINDINGS (0/5 threshold)
 
@@ -187,55 +219,33 @@ None below threshold.
 
 ### Critical (LETHAL fixes required):
 
-1. **Add BDD scenario for `Error::code()` public method:**
+1. **Fix test density calculation to reflect actual contract functions:**
    ```
-   ### Behavior: Error::code() returns SESSION_NOT_FOUND
-   Given: Error::SessionNotFound { session: "test-session" }
-   When: error.code() is called
-   Then: Result == "SESSION_NOT_FOUND"
+   Current: "48 tests / 7 core functions = 6.86x" (FALSE)
+   Correct: "48 tests / 12 public functions = 4.0x" (BELOW 5× threshold)
    
-   ### Behavior: Error::code() returns SESSION_LOCKED
-   Given: Error::SessionLocked { session: "test", holder: "agent" }
-   When: error.code() is called
-   Then: Result == "SESSION_LOCKED"
-   
-   ### Behavior: Error::code() returns NOT_LOCK_HOLDER
-   Given: Error::NotLockHolder { session: "test", agent_id: "agent" }
-   When: error.code() is called
-   Then: Result == "NOT_LOCK_HOLDER"
-   
-   ### Behavior: Error::code() returns NOT_FOUND
-   Given: Error::NotFound("test message")
-   When: error.code() is called
-   Then: Result == "NOT_FOUND"
-   
-   ### Behavior: Error::code() returns DATABASE_ERROR
-   Given: Error::DatabaseError("test message")
-   When: error.code() is called
-   Then: Result == "DATABASE_ERROR"
-   
-   ### Behavior: Error::code() returns PARSE_ERROR
-   Given: Error::ParseError("test message")
-   When: error.code() is called
-   Then: Result == "PARSE_ERROR"
-   
-   ### Behavior: Error::code() returns UNKNOWN
-   Given: Error::Unknown("test message")
-   When: error.code() is called
-   Then: Result == "UNKNOWN"
+   Options:
+   A) Add 12 more BDD scenarios to reach 60 tests (12 × 5 = 60)
+   B) Remove 4 functions from "public functions" count if they are truly internal
+   C) Accept 4.0x ratio and document why 5× is not required for this bead
    ```
 
-2. **Fix test density calculation:**
-   - Either add 19 more BDD scenarios to reach 60 tests (12 × 5 = 60)
-   - Or remove `Error::code()` from "public functions" count if it's not considered a core API function
-   - Update summary line at test-plan.md:12 to accurately reflect the ratio
-   - Remove the lie "exceeds minimum threshold" if ratio is < 5×
+2. **Resolve `verify_session_exists` discrepancy:**
+   ```
+   EITHER:
+   - Add `pub fn verify_session_exists(&self, session: &str) -> Result<()>` to contract.md
+     with proper signature, preconditions, postconditions, and error variants
+   
+   OR:
+   - Remove all 3 BDD scenarios for `verify_session_exists()` from test-plan.md
+   - Remove `verify_session_exists` references from Proptest invariants
+   - Remove from combinatorial coverage matrix
+   ```
 
 3. **Add dedicated BDD scenarios for ParseError and Unknown:**
    ```
    ### Behavior: parse_error_malformed_timestamp
    Given: LockManager with SQLite database initialized
-   And: LockManager::init() called successfully
    And: Invalid timestamp "invalid-rfc3339" in database
    When: get_lock_state("test-session") is called
    Then: Result is Err(Error::ParseError("failed to parse timestamp 'invalid-rfc3339-format': unknown format"))
@@ -247,19 +257,12 @@ None below threshold.
    Then: Result is Err(Error::Unknown("Unexpected database error code 9999"))
    ```
 
-### Required (MAJOR fixes):
-
-4. **Add mutation checkpoint for Error::code():**
-   - Mutation: Change `Error::SessionNotFound { .. } => "SESSION_NOT_FOUND"` to `Error::SessionLocked { .. } => "SESSION_LOCKED"`
-   - Test: `Error::code() returns SESSION_NOT_FOUND` must fail
-
-5. **Add explicit transaction isolation verification:**
-   - Line 296-308: Add "And: Database transaction rolled back to consistent state"
-   - Verify: `SELECT COUNT(*) FROM session_locks WHERE session = 'test-session'` returns 0 after failed audit insert
-
-6. **Add explicit error code assertions:**
-   - In unit tests, verify: `assert_eq!(Error::SessionNotFound { session: "test" }.code(), "SESSION_NOT_FOUND")`
-   - Document in combinatorial matrix
+4. **Add mutation checkpoint for verify_session_exists:**
+   ```
+   | Mutation Type | Location | BDD Scenario Name | Expected Kill |
+   |---------------|----------|-------------------|---------------|
+   | Ok(()) → Err(...) | verify_session_exists | verify_session_exists_missing | Must fail (returns Ok instead of SessionNotFound) |
+   ```
 
 ### Verification:
 
@@ -272,16 +275,47 @@ grep -c "pub fn\|pub const fn\|pub async fn" /home/lewis/src/hardline/hl-bjy/.be
 # Count BDD scenarios
 grep -c "### Behavior:" /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md
 
-# Verify Error::code coverage
-grep -c "Error::code\|\.code()" /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md
+# Verify calculate ratio
+python3 -c "
+contracts = $(grep -c "pub fn\|pub const fn\|pub async fn" /home/lewis/src/hardline/hl-bjy/.beads/hl-bjy/contract.md)
+tests = $(grep -c "### Behavior:" /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md)
+ratio = tests / contracts
+print(f"Public functions: {contracts}")
+print(f"BDD scenarios: {tests}")
+print(f"Ratio: {tests}/{contracts} = {ratio:.2f}x")
+if ratio >= 5.0:
+    print("PASS: Exceeds 5× threshold")
+else:
+    print("FAIL: Below 5× threshold")
+"
 
-# Verify density calculation
-echo "Ratio: $(grep -c '### Behavior:' /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md) / $(grep -c 'pub fn\|pub const fn\|pub async fn' /home/lewis/src/hardline/hl-bjy/.beads/hl-bjy/contract.md) = $(python3 -c "print(round($(grep -c '### Behavior:' /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md) / $(grep -c 'pub fn\|pub const fn\|pub async fn' /home/lewis/src/hardline/hl-bjy/.beads/hl-bjy/contract.md), 2))")"
+# Verify verify_session_exists is in contract
+grep "verify_session_exists" /home/lewis/src/hardline/hl-bjy/.beads/hl-bjy/contract.md || echo "NOT FOUND IN CONTRACT"
 
 # Verify ParseError and Unknown have BDD scenarios
-grep -n "### Behavior:.*parse_error\|### Behavior:.*unknown_error" /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md
+grep -n "### Behavior:.*parse_error\|### Behavior:.*unknown_error" /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md || echo "NOT FOUND"
+
+# Verify mutation checkpoints for verify_session_exists
+grep "verify_session_exists" /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md | grep -A5 "Mutation Type" || echo "NO MUTATION CHECKPOINT"
 ```
 
 **STATUS: REJECTED**
 
 Resubmit only after all LETHAL and MAJOR findings are resolved. Full re-review will be conducted from Axis 1.
+
+---
+
+### Root Cause Analysis
+
+The test plan has two fundamental problems:
+
+1. **False density calculation**: The author recognized the 4.0x ratio was below threshold and attempted to "fix" it by:
+   - Excluding `Error::code()` from the count (even though it's `pub fn` in contract)
+   - Counting `is_constraint_conflict_error` (which is `fn`, not `pub fn`)
+   - Including `verify_session_exists` (which is not in contract)
+   
+   This is not a fix — it's obfuscation. The ratio is 4.0x and must be addressed honestly.
+
+2. **Contract drift**: `verify_session_exists` was added to the test plan after the contract was written, but never added to the contract itself. This is a planning violation — tests must follow the contract, not create new functionality.
+
+**Fix these issues honestly before resubmitting.**
