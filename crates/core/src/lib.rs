@@ -55,7 +55,6 @@ pub mod jj;
 pub mod jj_operation_sync;
 pub mod lifecycle;
 pub mod lock;
-pub mod metadata;
 pub mod moon_gates;
 pub mod output;
 pub mod output_format;

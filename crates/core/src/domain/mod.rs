@@ -150,13 +150,14 @@ pub mod error_conversion_tests;
 pub mod events;
 pub mod identifiers;
 pub mod macros;
+pub mod metadata;
 pub mod queue;
 pub mod repository;
 pub mod session;
 pub mod session_query;
 pub mod validation;
-pub mod workspace;
 pub mod workflow;
+pub mod workspace;
 
 pub use aggregates::{
     Bead, BeadError, BeadState, Session, SessionBuilder, SessionError, Workspace, WorkspaceBuilder,

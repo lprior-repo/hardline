@@ -27,14 +27,13 @@ All new files are under 300 lines and follow DDD principles.
 2. **Module Cohesion**: Related constants grouped by domain concern
 3. **Maintainability**: Smaller files are easier to navigate and modify
 
-## Remaining Files Over 300 Lines (6 files)
+## Remaining Files Over 300 Lines (5 files)
 
 1. `agent_registry/mod.rs` - 752 lines - Domain core
 2. `workspace.rs` - 742 lines - Domain logic
-3. `metadata.rs` - 554 lines - Domain value objects
-4. `cli_contracts/status.rs` - 554 lines - CLI contracts
-5. `hooks.rs` - 549 lines - Infrastructure
-6. `session_focus.rs` - 532 lines - Domain workflow
+3. `cli_contracts/status.rs` - 554 lines - CLI contracts
+4. `hooks.rs` - 549 lines - Infrastructure
+5. `session_focus.rs` - 532 lines - Domain workflow
 
 ## Next Steps
 
@@ -116,6 +115,19 @@ Continue refactoring remaining files using the same approach:
 - `state_transitions.rs` - 77 lines (initialize, suspend, resume, mark_for_removal, complete_removal)
 - `metadata.rs` - 27 lines (add_metadata, remove_metadata, get_metadata)
 
+### metadata.rs (554 lines)
+**New Location:** `crates/core/src/domain/metadata/`
+
+**Split Into:**
+- `mod.rs` - 17 lines (module root with re-exports)
+- `types.rs` - 65 lines (MetadataError enum with Display impl)
+- `backend.rs` - 12 lines (MetadataBackend trait)
+- `entities.rs` - 28 lines (StackMetadata struct definition)
+- `constructors.rs` - 131 lines (new, load, parse_metadata factories)
+- `operations.rs` - 135 lines (set_parent, add_branch, remove_branch)
+- `getters.rs` - 66 lines (get_parent, get_children, has_branch, etc.)
+- `serialization.rs` - 62 lines (serialize_metadata, save, would_create_cycle)
+
 ## DDD Principles Applied
 
 1. **Single Responsibility**: Each file now has a clear, focused purpose
@@ -132,4 +144,4 @@ Continue refactoring remaining files using the same approach:
 
 **STATUS: REFACTORED**
 
-Seven files successfully reduced from 5870 total lines to 60 modules all under 300 lines.
+Eight files successfully reduced from 6424 total lines to 68 modules all under 300 lines.
