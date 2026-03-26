@@ -76,6 +76,23 @@ Continue refactoring remaining files using the same approach:
 - `legacy_commands_status.rs` - 99 lines (whoami, whereami, context, done)
 - `legacy_commands_done.rs` - 105 lines (work, abort, checkpoint, undo, revert)
 
+### agent_registry/mod.rs (752 lines)
+**New Location:** `crates/core/src/domain/agent_registry/`
+
+**Split Into:**
+- `mod.rs` - 113 lines (module root with re-exports)
+- `status.rs` - 143 lines (AgentStatus, Capability, CapabilityName)
+- `types/mod.rs` - 7 lines (types module)
+- `types/version.rs` - 57 lines (SemanticVersion)
+- `entities/mod.rs` - 7 lines (entities module)
+- `entities/agent.rs` - 138 lines (Agent, AgentMetadata)
+- `entities/heartbeat.rs` - 93 lines (HeartbeatConfig, Heartbeat)
+- `events/mod.rs` - 53 lines (AgentEvent)
+- `operations/mod.rs` - 60 lines (process_heartbeat, cleanup_disconnected_agents)
+- `repository.rs` - 148 lines (AgentRegistryRepository trait)
+- `repository/mod.rs` - 9 lines (repository module)
+- `repository/in_memory.rs` - 218 lines (InMemoryAgentRepository)
+
 ## DDD Principles Applied
 
 1. **Single Responsibility**: Each file now has a clear, focused purpose
@@ -83,9 +100,11 @@ Continue refactoring remaining files using the same approach:
 3. **Type-Driven Design**: Enum types document domain actions explicitly
 4. **Helper Extraction**: Common arguments extracted to shared helpers
 5. **Maintainability**: Smaller files are easier to navigate and modify
+6. **Repository Pattern**: Clear separation between trait and implementations
+7. **Parse Don't Validate**: Types constructed with explicit validation
 
 ## Status
 
 **STATUS: REFACTORED**
 
-Three files successfully reduced from 3777 total lines to 33 modules all under 300 lines.
+Four files successfully reduced from 4529 total lines to 45 modules all under 300 lines.
