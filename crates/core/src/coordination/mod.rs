@@ -33,14 +33,20 @@
 //! ### Locking
 //!
 //! **Distributed locks:**
-//! - [`locks`] - Distributed lock manager
-//! - [`LockManager`] - Acquire and release locks
+//! - [`locks`] - Distributed lock manager with TTL and heartbeat
+//! - [`LockManager`] - Acquire and release locks with TTL
+//! - [`LockResponse`] - Lock acquisition response
 //! - [`LockInfo`] - Lock metadata (owner, expiration)
+//! - [`LockState`] - Current lock state for a session
+//! - [`LockAuditEntry`] - Audit log entries
+//! - [`LockOperation`] - Types of lock operations
+//! - [`Ttl`] - TTL value object
 //!
 //! Locking ensures:
 //! - Mutual exclusion for critical sections
 //! - Automatic expiration on failure
 //! - Safe cleanup on release
+//! - Heartbeat mechanism to extend TTL
 //!
 //! ## Domain Types
 //!
@@ -66,10 +72,7 @@ pub mod domain_types;
 pub mod locks;
 
 // Private implementation modules for conflict_resolutions
-mod conflict_resolutions_error;
-mod conflict_resolutions_insert;
 mod conflict_resolutions_query;
-mod conflict_resolutions_schema;
 
 pub use conflict_resolutions::{
     get_conflict_resolutions, get_resolutions_by_decider, get_resolutions_by_time_range,
@@ -77,4 +80,6 @@ pub use conflict_resolutions::{
 };
 pub use conflict_resolutions_entities::{ConflictResolution, ConflictResolutionError};
 pub use domain_types::{AgentId, BeadId, DomainError, WorkspaceName};
-pub use locks::{LockInfo, LockManager, LockResponse};
+
+// Lock types
+pub use locks::{LockAuditEntry, LockInfo, LockManager, LockOperation, LockResponse, LockState, Ttl};

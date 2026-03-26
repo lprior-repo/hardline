@@ -8,6 +8,9 @@ use thiserror::Error;
 pub use super::error_types::JjConflictType;
 pub use super::error_types::Result;
 
+// Forward declaration for lock errors
+pub use crate::coordination::locks::errors::LockError;
+
 // ========================================================================
 // Unified Error Type
 // ========================================================================
@@ -107,6 +110,13 @@ pub enum Error {
     /// Wait and batch errors
     #[error(transparent)]
     Wait(#[from] super::error_wait::WaitError),
+
+    // ========================================================================
+    // Lock Errors (9xxx)
+    // ========================================================================
+    /// Lock manager errors (session locking with TTL/heartbeat)
+    #[error(transparent)]
+    Lock(#[from] super::coordination::locks::errors::LockError),
 }
 
 // ========================================================================
@@ -200,11 +210,278 @@ impl Error {
         SessionErrorKind::NotLockHolder(session.into(), agent.into()).into()
     }
 
-    /// Creates a NotFound error (alias for not_found)
+    /// Creates a ConfigNotFound error
     #[inline]
-    pub fn not_found(msg: impl Into<String>) -> Self {
-        use super::error_state::StateErrorKind;
-        StateErrorKind::NotFound(msg.into()).into()
+    pub fn config_not_found(msg: impl Into<String>) -> Self {
+        use super::error_config::ConfigErrorKind;
+        ConfigErrorKind::NotFound(msg.into()).into()
+    }
+
+    /// Creates a ConfigInvalid error
+    #[inline]
+    pub fn config_invalid(msg: impl Into<String>) -> Self {
+        use super::error_config::ConfigErrorKind;
+        ConfigErrorKind::Invalid(msg.into()).into()
+    }
+
+    /// Creates a ConfigPermission error
+    #[inline]
+    pub fn config_permission(msg: impl Into<String>) -> Self {
+        use super::error_config::ConfigErrorKind;
+        ConfigErrorKind::Permission(msg.into()).into()
+    }
+
+    /// Creates an AgentNotFound error
+    #[inline]
+    pub fn agent_not_found(id: impl Into<String>) -> Self {
+        use super::error_agent::AgentErrorKind;
+        AgentErrorKind::NotFound(id.into()).into()
+    }
+
+    /// Creates an AgentExists error
+    #[inline]
+    pub fn agent_exists(id: impl Into<String>) -> Self {
+        use super::error_agent::AgentErrorKind;
+        AgentErrorKind::Exists(id.into()).into()
+    }
+
+    /// Creates a VcsNotInitialized error
+    #[inline]
+    pub fn vcs_not_initialized() -> Self {
+        use super::error_vcs::VcsErrorKind;
+        VcsErrorKind::NotInitialized.into()
+    }
+
+    /// Creates a VcsConflict error
+    #[inline]
+    pub fn vcs_conflict(repo: impl Into<String>, msg: impl Into<String>) -> Self {
+        use super::error_vcs::VcsErrorKind;
+        VcsErrorKind::Conflict(repo.into(), msg.into()).into()
+    }
+
+    /// Creates a VcsPushFailed error
+    #[inline]
+    pub fn vcs_push_failed(msg: impl Into<String>) -> Self {
+        use super::error_vcs::VcsErrorKind;
+        VcsErrorKind::PushFailed(msg.into()).into()
+    }
+
+    /// Creates a VcsPullFailed error
+    #[inline]
+    pub fn vcs_pull_failed(msg: impl Into<String>) -> Self {
+        use super::error_vcs::VcsErrorKind;
+        VcsErrorKind::PullFailed(msg.into()).into()
+    }
+
+    /// Creates a VcsRebaseFailed error
+    #[inline]
+    pub fn vcs_rebase_failed(msg: impl Into<String>) -> Self {
+        use super::error_vcs::VcsErrorKind;
+        VcsErrorKind::RebaseFailed(msg.into()).into()
+    }
+
+    /// Creates a BranchNotFound error
+    #[inline]
+    pub fn branch_not_found(branch: impl Into<String>) -> Self {
+        use super::error_vcs::VcsErrorKind;
+        VcsErrorKind::BranchNotFound(branch.into()).into()
+    }
+
+    /// Creates a BranchExists error
+    #[inline]
+    pub fn branch_exists(branch: impl Into<String>) -> Self {
+        use super::error_vcs::VcsErrorKind;
+        VcsErrorKind::BranchExists(branch.into()).into()
+    }
+
+    /// Creates a CommitNotFound error
+    #[inline]
+    pub fn commit_not_found(commit: impl Into<String>) -> Self {
+        use super::error_vcs::VcsErrorKind;
+        VcsErrorKind::CommitNotFound(commit.into()).into()
+    }
+
+    /// Creates a WorkingCopyDirty error
+    #[inline]
+    pub fn working_copy_dirty() -> Self {
+        use super::error_vcs::VcsErrorKind;
+        VcsErrorKind::WorkingCopyDirty.into()
+    }
+
+    /// Creates a WorkspaceNotFound error
+    #[inline]
+    pub fn workspace_not_found(name: impl Into<String>) -> Self {
+        use super::error_workspace::WorkspaceErrorKind;
+        WorkspaceErrorKind::NotFound(name.into()).into()
+    }
+
+    /// Creates a WorkspaceExists error
+    #[inline]
+    pub fn workspace_exists(name: impl Into<String>) -> Self {
+        use super::error_workspace::WorkspaceErrorKind;
+        WorkspaceErrorKind::Exists(name.into()).into()
+    }
+
+    /// Creates a WorkspaceLocked error
+    #[inline]
+    pub fn workspace_locked(name: impl Into<String>, holder: impl Into<String>) -> Self {
+        use super::error_workspace::WorkspaceErrorKind;
+        WorkspaceErrorKind::Locked(name.into(), holder.into()).into()
+    }
+
+    /// Creates a SessionExists error
+    #[inline]
+    pub fn session_exists(name: impl Into<String>) -> Self {
+        use super::error_workspace::SessionErrorKind;
+        SessionErrorKind::Exists(name.into()).into()
+    }
+
+    /// Creates a SessionInvalidState error
+    #[inline]
+    pub fn session_invalid_state(
+        session: impl Into<String>,
+        state: impl Into<String>,
+        expected: impl Into<String>,
+    ) -> Self {
+        use super::error_workspace::SessionErrorKind;
+        SessionErrorKind::InvalidState(session.into(), state.into(), expected.into()).into()
+    }
+
+    /// Creates a QueueEmpty error
+    #[inline]
+    pub fn queue_empty() -> Self {
+        use super::error_queue::QueueErrorKind;
+        QueueErrorKind::Empty.into()
+    }
+
+    /// Creates a QueueItemNotFound error
+    #[inline]
+    pub fn queue_item_not_found(item: impl Into<String>) -> Self {
+        use super::error_queue::QueueErrorKind;
+        QueueErrorKind::ItemNotFound(item.into()).into()
+    }
+
+    /// Creates a QueueLocked error
+    #[inline]
+    pub fn queue_locked(holder: impl Into<String>) -> Self {
+        use super::error_queue::QueueErrorKind;
+        QueueErrorKind::Locked(holder.into()).into()
+    }
+
+    /// Creates a QueueProcessing error
+    #[inline]
+    pub fn queue_processing() -> Self {
+        use super::error_queue::QueueErrorKind;
+        QueueErrorKind::Processing.into()
+    }
+
+    /// Creates a QueueInvalidPosition error
+    #[inline]
+    pub fn queue_invalid_position(pos: usize) -> Self {
+        use super::error_queue::QueueErrorKind;
+        QueueErrorKind::InvalidPosition(pos).into()
+    }
+
+    /// Creates a QueueFull error
+    #[inline]
+    pub fn queue_full(size: usize) -> Self {
+        use super::error_queue::QueueErrorKind;
+        QueueErrorKind::Full(size).into()
+    }
+
+    /// Creates an Internal error
+    #[inline]
+    pub fn internal(msg: impl Into<String>) -> Self {
+        use super::error_internal::InternalErrorKind;
+        InternalErrorKind::Internal(msg.into()).into()
+    }
+
+    /// Creates an Unimplemented error
+    #[inline]
+    pub fn unimplemented(feature: impl Into<String>) -> Self {
+        use super::error_internal::InternalErrorKind;
+        InternalErrorKind::Unimplemented(feature.into()).into()
+    }
+
+    /// Creates a JJ command error
+    #[inline]
+    pub fn jj_command_error(
+        operation: impl Into<String>,
+        msg: impl Into<String>,
+        is_not_found: bool,
+    ) -> Self {
+        use super::error_jj::JjErrorKind;
+        JjErrorKind::CommandError {
+            operation: operation.into(),
+            msg: msg.into(),
+            is_not_found,
+        }
+        .into()
+    }
+
+    /// Creates a JJ workspace conflict error
+    #[inline]
+    pub fn jj_workspace_conflict(
+        conflict_type: super::error_types::JjConflictType,
+        workspace_name: impl Into<String>,
+        msg: impl Into<String>,
+        recovery_hint: impl Into<String>,
+    ) -> Self {
+        use super::error_jj::JjErrorKind;
+        JjErrorKind::WorkspaceConflict {
+            conflict_type,
+            workspace_name: workspace_name.into(),
+            msg: msg.into(),
+            recovery_hint: recovery_hint.into(),
+        }
+        .into()
+    }
+
+    /// Creates a JJ lock timeout error
+    #[inline]
+    pub fn jj_lock_timeout(operation: impl Into<String>, timeout_ms: u64, retries: usize) -> Self {
+        use super::error_jj::JjErrorKind;
+        JjErrorKind::LockTimeout {
+            operation: operation.into(),
+            timeout_ms,
+            retries,
+        }
+        .into()
+    }
+
+    /// Creates a BatchEmpty error
+    #[inline]
+    pub fn batch_empty() -> Self {
+        use super::error_wait::WaitErrorKind;
+        WaitErrorKind::BatchEmpty.into()
+    }
+
+    /// Creates a BatchCommandFailed error
+    #[inline]
+    pub fn batch_command_failed(msg: impl Into<String>) -> Self {
+        use super::error_wait::WaitErrorKind;
+        WaitErrorKind::BatchCommandFailed(msg.into()).into()
+    }
+
+    /// Creates a BatchRollbackFailed error
+    #[inline]
+    pub fn batch_rollback_failed(msg: impl Into<String>) -> Self {
+        use super::error_wait::WaitErrorKind;
+        WaitErrorKind::BatchRollbackFailed(msg.into()).into()
+    }
+
+    /// Creates a BatchSizeExceeded error
+    #[inline]
+    pub fn batch_size_exceeded(size: usize) -> Self {
+        use super::error_wait::WaitErrorKind;
+        WaitErrorKind::BatchSizeExceeded(size).into()
+    }
+
+    /// Creates a CheckpointError
+    #[inline]
+    pub fn checkpoint_error(msg: impl Into<String>) -> Self {
+        use super::error_wait::WaitErrorKind;
+        WaitErrorKind::CheckpointError(msg.into()).into()
     }
 }
 
@@ -228,6 +505,7 @@ impl Error {
             Error::Jj(_) => None,
             Error::Task(_) => None,
             Error::Wait(_) => None,
+            Error::Lock(_) => None,
         }
     }
 
@@ -247,9 +525,11 @@ impl Error {
             Error::Agent(e) => e.exit_code(),
             Error::Io(e) => e.exit_code(),
             Error::State(e) => e.exit_code(),
+            Error::Internal(e) => e.exit_code(),
             Error::Jj(e) => e.exit_code(),
             Error::Task(e) => e.exit_code(),
             Error::Wait(e) => e.exit_code(),
+            Error::Lock(_) => 90,
         }
     }
 }

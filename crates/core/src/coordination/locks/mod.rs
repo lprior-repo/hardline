@@ -2,6 +2,7 @@
 //!
 //! Provides exclusive session locking for agent coordination.
 
+pub mod errors;
 pub mod helpers;
 pub mod manager;
 pub mod manager_lock;
@@ -18,8 +19,9 @@ mod tests_ttl_regression;
 pub mod types;
 
 // Re-export types for convenience
+pub use errors::LockError;
 pub use types::{
-    LockAuditEntry, LockInfo, LockResponse, LockState,
+    LockAuditEntry, LockInfo, LockOperation, LockResponse, LockState, Ttl,
 };
 
 // Re-export manager
