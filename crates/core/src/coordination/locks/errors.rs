@@ -76,7 +76,7 @@ pub enum LockErrorKind {
 
 impl From<LockErrorKind> for crate::error::Error {
     fn from(e: LockErrorKind) -> Self {
-        crate::error::Error::Lock(LockError::new(e))
+        crate::error::Error::Lock(LockError(e))
     }
 }
 
@@ -84,7 +84,7 @@ impl LockError {
     /// Returns the error code for telemetry.
     #[must_use]
     pub fn code(&self) -> &'static str {
-        match &self.inner {
+        match &self.0 {
             LockErrorKind::SessionNotFound { .. } => "SESSION_NOT_FOUND",
             LockErrorKind::SessionLocked { .. } => "SESSION_LOCKED",
             LockErrorKind::NotLockHolder { .. } => "NOT_LOCK_HOLDER",
@@ -103,7 +103,7 @@ impl LockError {
     /// Returns a human-readable suggestion for fixing the error.
     #[must_use]
     pub fn suggestion(&self) -> Option<String> {
-        match &self.inner {
+        match &self.0 {
             LockErrorKind::SessionLocked { holder, .. } => {
                 Some(format!("Use 'scp agent kill {holder}' to force release"))
             }
@@ -117,7 +117,7 @@ impl LockError {
     /// Returns exit code for CLI.
     #[must_use]
     pub fn exit_code(&self) -> i32 {
-        match &self.inner {
+        match &self.0 {
             LockErrorKind::SessionNotFound { .. } => 14,
             LockErrorKind::SessionLocked { .. } => 16,
             LockErrorKind::NotLockHolder { .. } => 17,

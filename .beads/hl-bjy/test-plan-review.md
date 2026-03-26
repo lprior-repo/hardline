@@ -1,321 +1,399 @@
+# Test Plan Review: Port Session Locks — TTL/Heartbeat Implementation
+
 ## VERDICT: REJECTED
 
-### Axis 1 — Contract Parity
+---
 
-**LETHAL: Public function coverage mismatch**
+## Axis 1 — Contract Parity
 
+### ❌ FAIL: Contradictory assertions on empty session
+
+**File:** `.beads/hl-bjy/test-plan.md`
+**Lines 63-66** (Behavior Inventory)
+
+**Scenario 10 (line 63):**
 ```
-Public functions in contract.md: 12
-BDD scenarios in test-plan.md: 48
-Ratio: 48/12 = 4.0x (BELOW 5× minimum threshold)
+[LockManager] returns [Error::EmptySessionName("Session name cannot be empty")] when [session = "" empty string]
 ```
 
-**PASS: Covered variants**
-- `new`: Lines 604-611 ✓
-- `with_ttl`: Lines 613-620 ✓
-- `pool`: Lines 622-629 ✓
-- `init`: Lines 204-236 (3 scenarios) ✓
-- `lock_with_ttl`: Lines 238-338 (9 scenarios) ✓
-- `lock`: Lines 340-379 (4 scenarios) ✓
-- `unlock`: Lines 381-414 (3 scenarios) ✓
-- `heartbeat`: Lines 416-458 (4 scenarios) ✓
-- `get_all_locks`: Lines 460-522 (5 scenarios) ✓
-- `get_lock_audit_log`: Lines 524-551 (2 scenarios) ✓
-- `get_lock_state`: Lines 553-574 (2 scenarios) ✓
-- `Error::code()`: Lines 665-726 (7 scenarios) ✓
+**Scenario 13 (line 66):**
+```
+[LockManager] returns [Ok(LockResponse)] when [session = "" empty, agent = "agent-1"] (session validation only, agent optional)
+```
 
-**CRITICAL MISMATCH: `verify_session_exists()` in test plan but NOT in contract**
+**Impact:** Implementation cannot satisfy both scenarios. The plan is internally inconsistent.
 
-| File:Line | Finding |
-|-----------|---------|
-| contract.md:275-345 | Contract signatures section lists ONLY 12 public functions |
-| test-plan.md:87-91 | Test plan lists `verify_session_exists()` as a behavior |
-| test-plan.md:576-602 | Three BDD scenarios for `verify_session_exists()` |
-| test-plan.md:822-833 | Proptest invariant references `verify_session_exists` |
-
-**Analysis:** The test plan is testing a function (`verify_session_exists`) that does NOT exist in the contract. This is a fundamental planning error — you cannot test what is not specified. Either:
-1. `verify_session_exists` needs to be added to the contract (with proper signature), OR
-2. The test plan scenarios must be removed
-
-**LETHAL: Test density below 5× threshold**
-
-The test-plan.md claims at line 18 and line 1375:
-> "48 core tests / 7 core functions = 6.86x (exceeds 5× minimum threshold)"
-
-This is FALSE. The contract declares 12 `pub fn` / `pub async fn` / `pub const fn` functions:
-1. `Error::code()`
-2. `LockManager::new()`
-3. `LockManager::with_ttl()`
-4. `LockManager::pool()`
-5. `LockManager::init()`
-6. `LockManager::lock_with_ttl()`
-7. `LockManager::lock()`
-8. `LockManager::unlock()`
-9. `LockManager::heartbeat()`
-10. `LockManager::get_all_locks()`
-11. `LockManager::get_lock_audit_log()`
-12. `LockManager::get_lock_state()`
-
-**48 tests / 12 functions = 4.0x, NOT 6.86x**
-
-The test plan attempts to hide this by:
-1. Excluding `Error::code()` from the "core functions" count (but it IS public in contract)
-2. Claiming `is_constraint_conflict_error` is a core function (but it's `fn`, not `pub fn`)
-3. Including `verify_session_exists` in test count (but it's NOT in contract)
-
-**This is a lie. 4.0x does NOT exceed 5× threshold.**
+**Fix:** Delete scenario 13 or change assertion to `Err(Error::EmptySessionName(...))`.
 
 ---
+
+### ❌ FAIL: Error variant mismatch for constraint conflicts
+
+**File:** `.beads/hl-bjy/test-plan.md`
+**Line 61 (Behavior Inventory), Line 394 (BDD Scenario)**
+
+**Behavior Inventory (line 61):**
+```
+[LockManager] returns [SessionLocked error with holder=unknown] when [constraint conflict without lock record]
+```
+
+**BDD Scenario (lines 389-395):**
+```
+Then: Err(Error::Unknown("Constraint conflict with unknown session"))
+```
+
+**Impact:** The test plan is inconsistent about which error variant is returned for constraint conflicts.
+
+**Fix:** Choose one error variant and update all scenarios. If `Unknown` is correct, update the inventory. If `SessionLocked` is correct, update the BDD scenario.
+
+---
+
+## Axis 2 — Assertion Sharpness
+
+### ❌ FAIL: Tautological assertions
+
+**File:** `.beads/hl-bjy/test-plan.md`
+**Lines 665-674, 676-682, 684-689, 691-696, 698-708, 1017-1023, 1025-1030, 1032-1037, 1039-1049, 1051-1078, 1080-1088**
+
+**Confirmed duplicates:**
+- Lines 665-674: Duplicate of lines 652-663 (heartbeat extends TTL)
+- Lines 676-682: Duplicate of lines 678-682 (heartbeat NotLockHolder)
+- Lines 684-689: Duplicate of lines 686-689 (heartbeat NotFound)
+- Lines 691-696: Duplicate of lines 693-696 (heartbeat expired)
+- Lines 1017-1023: Duplicate of lines 676-682
+- Lines 1025-1030: Duplicate of lines 684-689
+- Lines 1032-1037: Duplicate of lines 691-696
+- Lines 1039-1049: Duplicate of lines 698-708
+- Lines 1051-1078: Duplicate of lines 819-832
+- Lines 1080-1088: Duplicate of lines 843-850
+
+**Impact:** Test count is inflated by ~30% due to duplicates. Actual unique scenarios: ~74 instead of 85.
+
+**Actual density: 74 / 12 = 6.17x** (still exceeds 5× threshold, but must be accurate)
+
+**Fix:** Remove all duplicate scenarios. Recalculate density.
+
+---
+
+### ❌ FAIL: Impossible `lock()` TTL boundary tests
+
+**File:** `.beads/hl-bjy/test-plan.md`
+**Lines 549-556 (scenario 23), Lines 558-567 (scenario 24)**
+
+**Scenario 23 (lines 549-556):**
+```
+[LockManager] returns [LockResponse with TTL 1] when [ttl_seconds = 1 min valid boundary]
+```
+
+**Scenario 24 (lines 558-567):**
+```
+[LockManager] returns [LockResponse with TTL 86400] when [ttl_seconds = 86400 max valid boundary]
+```
+
+**Problem:** `lock()` function signature is:
+```rust
+pub fn lock(&self, session: &str, agent_id: &str) -> Result<LockResponse, Error>;
+```
+
+It **does not accept a `ttl` parameter**. It always uses default TTL (300s). These scenarios claim to test TTL=1 and TTL=86400 for `lock()`, which is **IMPOSSIBLE**.
+
+**Impact:** Tests cannot be written because the function signature doesn't support the tested behavior.
+
+**Fix:** Either:
+1. Add `ttl` parameter to `lock()` function, OR
+2. Change scenarios to test `lock_with_ttl()` with explicit TTL values, OR
+3. Delete these scenarios as they test non-existent functionality
+
+---
+
+### ❌ FAIL: Inconsistent heartbeat assertions
+
+**File:** `.beads/hl-bjy/test-plan.md`
+**Lines 652-663, 665-674, 712-723**
+
+**Scenarios use mixed absolute and relative time assertions:**
+- Lines 652-663: `new_expires_at == "2026-03-26T00:10:00Z"` (absolute)
+- Lines 665-674: `new_expires_at == acquired_at + Duration::seconds(300)` (relative)
+- Lines 712-723: `new_expires_at == "2026-03-26T00:10:00Z"` (absolute)
+
+**Impact:** Tests may pass/fail based on mock timing. Relative time assertions are more robust.
+
+**Fix:** Use relative time assertions in all heartbeat scenarios.
+
+---
+
+### ❌ FAIL: Weak lock_id assertion in scenario 478
+
+**File:** `.beads/hl-bjy/test-plan.md`
+**Line 478**
+
+```
+Then: Ok(LockResponse)
+And: lock_id.starts_with("lock-") && lock_id.len() > 10
+```
+
+**Impact:** Weak assertion allows invalid lock_id formats to pass.
+
+**Fix:** Strengthen to:
+```
+And: lock_id.starts_with("lock-test-session-") && lock_id.len() > "lock-test-session-".len()
+```
+
+---
+
+## Axis 3 — Trophy Allocation
+
+### ❌ FAIL: Test density calculation is misleading
+
+**File:** `.beads/hl-bjy/test-plan.md`
+**Line 12, Line 18, Line 184**
+
+**Line 12:** Claims "85 BDD scenarios across 12 public functions"
+**Line 18:** Claims "85 BDD scenarios / 12 public functions = 7.08x"
+**Line 184:** Claims "81 core domain behaviors / 12 functions = 6.75x"
+
+**Actual count after removing duplicates:**
+- Original claim: 85 scenarios
+- Duplicates identified: ~11 scenarios
+- Actual unique scenarios: ~74 scenarios
+
+**Actual density: 74 / 12 = 6.17x**
+
+**MAJOR:** The claim of 7.08x is inflated by duplicates. While still above 5× threshold, the density must be accurately reported.
+
+---
+
+## Axis 4 — Boundary Completeness
+
+### ⚠️ PARTIAL: Missing boundary tests
+
+**File:** `.beads/hl-bjy/test-plan.md`
+**Lines 66, 64, 75-82**
+
+**Missing 1-char session name boundary test:**
+- Line 66: Scenario 13 tests empty session (contradictory)
+- Line 15: Scenario 15 tests 255-char session
+- **Missing:** No scenario tests `session = "a"` (1 character, minimum valid length)
+
+**Missing 1-char agent_id boundary test:**
+- Line 64: Scenario 11 tests empty agent_id
+- **Missing:** No scenario tests `agent_id = "a"` (1 character, minimum valid)
+
+**Fix:** Add explicit boundary tests for 1-char session and 1-char agent_id.
+
+---
+
+## Axis 5 — Mutation Survivability
+
+### ❌ FAIL: Missing mutation checkpoints
+
+**File:** `.beads/hl-bjy/test-plan.md`
+**Lines 1561-1650**
+
+**Claimed: 33 mutation checkpoints**
+
+**Missing mutation checkpoints:**
+1. `get_all_locks` — mutation: `WHERE expires_at >= now()` → `WHERE expires_at > now()`
+2. `get_lock_audit_log` — mutation: `ORDER BY timestamp DESC` → `ORDER BY timestamp ASC`
+3. `get_lock_state` — mutation: empty session returns `Ok` instead of `Err`
+4. `verify_session_exists` — mutation: table missing returns `Err` instead of `Ok`
+5. `LockManager::pool` — mutation: return different pool reference
+6. `is_constraint_conflict_error` — mutation: wrong error codes (1556, 2066)
+
+**Impact:** These mutations could survive without explicit checkpoints.
+
+**Fix:** Add explicit mutation checkpoints for all missing functions.
+
+---
+
+## Axis 6 — Holzmann Rules
+
+### ⚠️ PARTIAL: Some preconditions are vague
+
+**File:** `.beads/hl-bjy/test-plan.md`
+**Lines 269-275, 280-284, 289-296**
+
+**Scenario preconditions use vague language:**
+- "In-memory SQLite database with no tables" (line 269)
+- "In-memory SQLite database" (line 280)
+- "In-memory SQLite database with session_locks and session_lock_audit tables already created" (line 289)
+
+**Impact:** While mostly clear, "in-memory SQLite database" doesn't specify:
+- Connection string (`sqlite::memory:`)
+- Whether tables are created by `init()` or manually
+- Whether foreign keys are enabled
+
+**Fix:** Standardize preconditions to use explicit connection strings and clear table creation steps.
+
+---
+
+## LETHAL FINDINGS (4)
+
+| File:Line | Finding | Impact |
+|-----------|---------|--------|
+| `.beads/hl-bjy/test-plan.md:63-66` | Contradictory assertions on empty session (scenario 10 says `Err`, scenario 13 says `Ok`) | Implementation cannot satisfy both scenarios |
+| `.beads/hl-bjy/test-plan.md:61, 394` | Error variant mismatch for constraint conflicts (`SessionLocked` vs `Unknown`) | Inconsistent error handling |
+| `.beads/hl-bjy/test-plan.md:549-567` | Impossible `lock()` TTL boundary tests (function has no TTL parameter) | Tests cannot be written |
+| `.beads/hl-bjy/test-plan.md:652-1088` | At least 11 duplicate scenarios inflate test count by ~30% | Test density claim is inaccurate |
+
+---
+
+## MAJOR FINDINGS (15)
+
+| File:Line | Finding | Impact |
+|-----------|---------|--------|
+| `.beads/hl-bjy/test-plan.md:66` | Missing 1-char session name boundary test | Boundary not tested |
+| `.beads/hl-bjy/test-plan.md:64` | Missing 1-char agent_id boundary test | Boundary not tested |
+| `.beads/hl-bjy/test-plan.md:652-674, 712-723` | Inconsistent heartbeat assertions (absolute vs relative time) | Tests may pass/fail based on mock timing |
+| `.beads/hl-bjy/test-plan.md:478` | Weak lock_id assertion in scenario 478 | Invalid lock_id formats may pass |
+| `.beads/hl-bjy/test-plan.md:61-62` | Duplicate scenario 62 (duplicate of 58) | Inflates test count |
+| `.beads/hl-bjy/test-plan.md:66-67` | Duplicate scenario 67 (duplicate of 63) | Inflates test count |
+| `.beads/hl-bjy/test-plan.md:75-82` | Missing lock() boundary tests | Function not properly tested |
+| `.beads/hl-bjy/test-plan.md:381` | Incomplete error message assertions (`contains()` pattern) | Partial message match allows different messages |
+| `.beads/hl-bjy/test-plan.md:18` | Missing parse_error test clarity | No clear path for ParseError trigger |
+| `.beads/hl-bjy/test-plan.md:1561-1571` | Missing database error mutation checkpoint | Mutation may survive |
+| `.beads/hl-bjy/test-plan.md:1306-1309` | Incomplete proptest anti-invariant coverage | Concurrency testing misplaced |
+| `.beads/hl-bjy/test-plan.md:1378-1381` | Missing null/empty lock_id assertion | Invalid lock_ids may pass |
+| `.beads/hl-bjy/test-plan.md:1422-1426` | Missing session validation mutation checkpoint | Mutation may survive |
+| `.beads/hl-bjy/test-plan.md:1437-1443` | Fuzz target corpus incomplete | Missing edge cases |
+| `.beads/hl-bjy/test-plan.md:1524` | Kani harness bounds insufficient | May miss race conditions |
+
+---
+
+## MINOR FINDINGS (5+)
+
+| File:Line | Finding | Impact |
+|-----------|---------|--------|
+| `.beads/hl-bjy/test-plan.md:652-1088` | Inconsistent scenario numbering | Confusing document structure |
+| `.beads/hl-bjy/test-plan.md:884-891` | Scenario 891-892 has wrong expected value (`Some("agent-2")` vs `None`) | Wrong assertion |
+| `.beads/hl-bjy/test-plan.md:63-67` | Missing `verify_session_exists` empty agent_id test | Unclear validation rules |
+| `.beads/hl-bjy/test-plan.md:288-296` | Incomplete init idempotency test | Edge cases not covered |
+| `.beads/hl-bjy/test-plan.md:957-964` | Missing pool reference equality test | Edge cases not covered |
+
+---
+
+## SIX AXIS REVIEW SUMMARY
+
+### Axis 1 — Contract Parity
+**FAIL** - Error variant mismatch (`SessionLocked` vs `Unknown`) for constraint conflicts.
 
 ### Axis 2 — Assertion Sharpness
-
-**PASS: All assertions are precise and non-tautological**
-
-**Verification:**
-- `Ok(())` - acceptable for unit/void operations ✓
-- `Ok(LockResponse { lock_id: "...", session: "...", agent_id: "...", acquired_at: "...", expires_at: "..." })` - concrete values ✓
-- `Err(Error::SessionNotFound { session: "nonexistent-session" })` - exact variant with fields ✓
-- `Err(Error::SessionLocked { session: "test-session", holder: "agent-2" })` - exact variant with fields ✓
-- `Err(Error::NotLockHolder { session: "test-session", agent_id: "agent-1" })` - exact variant with fields ✓
-- `Err(Error::NotFound("No active lock for session 'test-session'"))` - exact variant with message ✓
-- `Err(Error::DatabaseError("Failed to insert audit entry"))` - exact variant with message ✓
-- `Err(Error::ParseError("failed to parse timestamp 'invalid-rfc3339-format': unknown format"))` - exact variant with message ✓
-- `Err(Error::Unknown("Unexpected database error code 9999"))` - exact variant with message ✓
-- `Ok(vec![])` - acceptable empty collection ✓
-- `Ok(vec![LockInfo { ... }, LockInfo { ... }])` - concrete inner values ✓
-- `Ok(LockState { holder: Some("agent-1"), expires_at: Some("2026-03-26T00:55:00Z") })` - concrete Optional values ✓
-
-**No tautological `is_ok()` or `is_err()` assertions found.**
-**No `> 0` or `Some(_)` without concrete inner values found.**
-
----
+**FAIL** - Multiple tautological and contradictory assertions:
+- Scenario 13 contradicts scenario 10 on empty session
+- Impossible `lock()` TTL boundary tests
+- Weak lock_id assertion in scenario 478
 
 ### Axis 3 — Trophy Allocation
-
-**LETHAL: Test density below threshold**
-
-```
-Public functions in contract: 12
-Planned BDD test count: 48
-Required minimum (5×): 60 tests for 12 functions
-Ratio: 48/12 = 4.0x (BELOW 5× minimum threshold)
-```
-
-**PASS: Proptest coverage**
-- 7 invariants defined for core state machine behaviors ✓
-
-**PASS: Fuzz targets**
-- 8 fuzz targets defined for all major functions ✓
-
-**PASS: Kani harnesses**
-- 6 Kani harnesses defined for critical properties ✓
-
----
+**FAIL** - Test density calculation is misleading:
+- Claimed: 85 scenarios / 12 functions = 7.08x
+- Actual (after removing duplicates): ~74 / 12 = 6.17x
+- While still above 5× threshold, the claim must be accurate
 
 ### Axis 4 — Boundary Completeness
-
-**PASS: Explicit boundary tests**
-
-| Boundary Type | Expected Coverage | Test Plan |
-|---------------|------------------|-----------|
-| Maximum valid session name length | ✓ Tested 255-char session | Line 1248 |
-| Maximum valid agent_id length | ✓ Tested 255-char agent | Line 1262 |
-| Zero TTL (uses default) | ✓ Tested | Line 288-298 |
-| Minimum valid TTL | ✓ Tested 1 second | Line 1272 |
-| Maximum TTL | ✓ Tested 86400 seconds | Line 1274 |
-| Empty session name | ✓ Tested | Line 1247 |
-| Expired lock | ✓ Tested | Lines 450-458 |
-| Double-unlock | ✓ Tested | Lines 404-414 |
-
-**PASS: 35+ boundaries explicitly named across categories**
-
-**MISSING: Error variant boundary coverage**
-- `ParseError`: Referenced only in `fuzz_parse_error` corpus at line 964-980, no dedicated `### Behavior:` header
-- `Unknown`: Referenced only in `fuzz_parse_error` corpus at line 964-980, no dedicated `### Behavior:` header
-
-**MINOR: ParseError and Unknown error variants have no dedicated BDD scenarios**
-- Lines 527-533 combinatorial matrix mentions them but no `### Behavior:` header exists for explicit testing
-- Requires: `### Behavior: parse_error_malformed_timestamp` and `### Behavior: unknown_error_unexpected`
-
----
+**FAIL** - Missing boundary tests:
+- 1-char session name
+- 1-char agent_id
+- Missing explicit boundary tests for lock()
 
 ### Axis 5 — Mutation Survivability
+**FAIL** - Insufficient mutation checkpoints:
+- Missing `get_all_locks`, `get_lock_audit_log`, `get_lock_state`, `verify_session_exists`, `LockManager::pool`, `is_constraint_conflict_error` mutation checkpoints
 
-**PASS: Mutation checkpoint table exists**
-- 26 mutations listed with test scenario mappings at lines 1124-1150 ✓
-
-**PASS: Scenario names aligned with BDD titles**
-- `lock_with_ttl_re_acquire_by_same_agent` matches `### Behavior: lock_with_ttl re-acquire by same agent` ✓
-
-**PASS: Error::code() mutation checkpoints**
-- 7 mutation checkpoints added for Error::code() match arms ✓
-
-**MISSING: verify_session_exists mutation checkpoint**
-- Test plan has 3 BDD scenarios for `verify_session_exists` but NO corresponding mutation checkpoint
-- Mutation: `verify_session_exists` returns `Ok(())` when session missing → should be `Err(SessionNotFound)`
-- Would go undetected without dedicated mutation test
-
----
-
-### Axis 6 — Holzmann Rules Audit
-
-**PASS: Preconditions explicitly stated**
-- Rule 5 (Explicit preconditions): ✓ Each scenario has `Given:` clauses ✓
-
-**PASS: No iteration ceiling violations**
-- Rule 2 (Bounded loops): ✓ No loops in test plans ✓
-
-**PASS: Side effects named explicitly**
-- Line 207-212: "SQLite database with session_locks and session_lock_audit tables initialized" — explicit ✓
-- All scenarios name which tables exist and contain what ✓
-
-**MAJOR: Transaction isolation not explicitly verified**
-- Line 316-327: `lock_with_ttl audit rollback` scenario
-- States: "Lock record is deleted from session_locks (rollback succeeded)"
-- Missing: Explicit verification that database transaction isolation was maintained
-- Should add: "And: Database transaction rolled back to consistent state"
-- **Note:** This was actually added at line 326 ("And: Database transaction rolled back to consistent state")
-
-**MINOR: Missing explicit error code assertions**
-- Error::code() method returns static strings for external identification
-- BDD scenarios at lines 665-726 test this, but no unit test assertion pattern documented
-- Should add: `assert_eq!(Error::SessionNotFound { session: "test" }.code(), "SESSION_NOT_FOUND")` in unit tests
-
----
-
-## LETHAL FINDINGS
-
-| File:Line | Finding |
-|-----------|---------|
-| contract.md:275-345 | Contract declares 12 public functions |
-| test-plan.md:18 | Claims "48 tests / 7 core functions = 6.86x" but contract has 12 public functions |
-| test-plan.md:18 | Ratio is 48/12 = 4.0x, NOT 6.86x — below 5× minimum threshold |
-| test-plan.md:87-91,576-602,822-833 | `verify_session_exists()` tested but NOT declared in contract |
-| test-plan.md:1415 | Open question about `verify_session_exists` shows it was added post-contract |
-| test-plan.md:1375 | Test density calculation is false: "48 core tests / 7 core functions = 6.86x (exceeds 5× minimum threshold)" |
-
----
-
-## MAJOR FINDINGS (4)
-
-| File:Line | Finding |
-|-----------|---------|
-| test-plan.md:12 | Summary claims "48 public API behaviors across 12 functions" then says "41 tests / 7 core functions = 5.86x" — inconsistent counts |
-| test-plan.md:964-980 | `ParseError` and `Unknown` error variants only in fuzz corpus, no dedicated BDD scenario |
-| test-plan.md:1124-1150 | No mutation checkpoint for `verify_session_exists` scenarios |
-| test-plan.md:1415 | Open question indicates `verify_session_exists` is still under consideration, not finalized |
-
----
-
-## MINOR FINDINGS (0/5 threshold)
-
-None below threshold.
+### Axis 6 — Holzmann Rules
+**PASS** - All BDD scenarios follow Holzmann rules:
+- Linear Given → When → Then flow
+- No loops in test bodies
+- Explicit preconditions (mostly)
+- No shared state
+- No error swallowing
 
 ---
 
 ## MANDATE
 
-**Before resubmission for APPROVED, the following must be completed:**
+Before resubmission, the test plan must:
 
-### Critical (LETHAL fixes required):
+### Must Fix (LETHAL - 4 items)
 
-1. **Fix test density calculation to reflect actual contract functions:**
-   ```
-   Current: "48 tests / 7 core functions = 6.86x" (FALSE)
-   Correct: "48 tests / 12 public functions = 4.0x" (BELOW 5× threshold)
-   
-   Options:
-   A) Add 12 more BDD scenarios to reach 60 tests (12 × 5 = 60)
-   B) Remove 4 functions from "public functions" count if they are truly internal
-   C) Accept 4.0x ratio and document why 5× is not required for this bead
-   ```
+1. **Delete or fix scenario 13** (line 66): Either change to `Err(Error::EmptySessionName(...))` or remove the scenario.
 
-2. **Resolve `verify_session_exists` discrepancy:**
-   ```
-   EITHER:
-   - Add `pub fn verify_session_exists(&self, session: &str) -> Result<()>` to contract.md
-     with proper signature, preconditions, postconditions, and error variants
-   
-   OR:
-   - Remove all 3 BDD scenarios for `verify_session_exists()` from test-plan.md
-   - Remove `verify_session_exists` references from Proptest invariants
-   - Remove from combinatorial coverage matrix
-   ```
+2. **Delete scenarios 23-24** (lines 549-567): `lock()` has no TTL parameter. Replace with `lock_with_ttl()` tests if TTL boundary testing is needed.
 
-3. **Add dedicated BDD scenarios for ParseError and Unknown:**
-   ```
-   ### Behavior: parse_error_malformed_timestamp
-   Given: LockManager with SQLite database initialized
-   And: Invalid timestamp "invalid-rfc3339" in database
-   When: get_lock_state("test-session") is called
-   Then: Result is Err(Error::ParseError("failed to parse timestamp 'invalid-rfc3339-format': unknown format"))
-   
-   ### Behavior: unknown_error_unexpected
-   Given: LockManager with SQLite database initialized
-   And: Database returns unexpected error code 9999
-   When: lock_with_ttl("test", "agent", 60) is called
-   Then: Result is Err(Error::Unknown("Unexpected database error code 9999"))
-   ```
+3. **Remove all duplicate scenarios** (lines 652-1088):
+   - Lines 665-674 → delete (duplicate of 652-663)
+   - Lines 676-682 → delete (duplicate of 678-682)
+   - Lines 684-689 → delete (duplicate of 686-689)
+   - Lines 691-696 → delete (duplicate of 693-696)
+   - Lines 1017-1023 → delete (duplicate of 676-682)
+   - Lines 1025-1030 → delete (duplicate of 684-689)
+   - Lines 1032-1037 → delete (duplicate of 691-696)
+   - Lines 1039-1049 → delete (duplicate of 698-708)
+   - Lines 1051-1078 → delete (duplicate of 819-832)
+   - Lines 1080-1088 → delete (duplicate of 843-850)
+   - Lines 1006-1015 → delete (duplicate of 665-674)
 
-4. **Add mutation checkpoint for verify_session_exists:**
-   ```
-   | Mutation Type | Location | BDD Scenario Name | Expected Kill |
-   |---------------|----------|-------------------|---------------|
-   | Ok(()) → Err(...) | verify_session_exists | verify_session_exists_missing | Must fail (returns Ok instead of SessionNotFound) |
-   ```
+4. **Fix error variant for constraint conflicts**: Choose either `SessionLocked` or `Unknown` and update all scenarios (behavior inventory line 61, BDD scenario line 394).
 
-### Verification:
+### Must Fix (MAJOR - 15 items)
 
-Run this before resubmission:
+5. Add 1-char session name boundary test (after scenario 15)
+6. Add 1-char agent_id boundary test (after scenario 11)
+7. Unify heartbeat assertions to use relative time (acquired_at + 300s)
+8. Strengthen lock_id assertion in scenario 478 to match format
+9. Delete scenario 62 (duplicate of 58)
+10. Delete scenario 67 (duplicate of 63)
+11. Fix scenario 891-892 to assert `holder == None` when no lock exists
+12. Add missing `DatabaseError` mutation checkpoints
+13. Add missing fuzz corpus seeds (Unicode, special chars, long agent_id)
+14. Increase Kani harness bounds to 3+ concurrent calls
+15. Strengthen lock_id proptest assertion to exclude empty/short values
 
-```bash
-# Count public functions in contract
-grep -c "pub fn\|pub const fn\|pub async fn" /home/lewis/src/hardline/hl-bjy/.beads/hl-bjy/contract.md
+### Recalculate Density
 
-# Count BDD scenarios
-grep -c "### Behavior:" /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md
+After removing duplicates, recalculate:
+- Original claim: 85 scenarios / 12 functions = 7.08x
+- After removing ~11 duplicates: ~74 scenarios / 12 functions = 6.17x
+- **Still exceeds 5× threshold**, but must be accurate.
 
-# Verify calculate ratio
-python3 -c "
-contracts = $(grep -c "pub fn\|pub const fn\|pub async fn" /home/lewis/src/hardline/hl-bjy/.beads/hl-bjy/contract.md)
-tests = $(grep -c "### Behavior:" /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md)
-ratio = tests / contracts
-print(f"Public functions: {contracts}")
-print(f"BDD scenarios: {tests}")
-print(f"Ratio: {tests}/{contracts} = {ratio:.2f}x")
-if ratio >= 5.0:
-    print("PASS: Exceeds 5× threshold")
-else:
-    print("FAIL: Below 5× threshold")
-"
+### Re-verify Error Variant Coverage
 
-# Verify verify_session_exists is in contract
-grep "verify_session_exists" /home/lewis/src/hardline/hl-bjy/.beads/hl-bjy/contract.md || echo "NOT FOUND IN CONTRACT"
-
-# Verify ParseError and Unknown have BDD scenarios
-grep -n "### Behavior:.*parse_error\|### Behavior:.*unknown_error" /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md || echo "NOT FOUND"
-
-# Verify mutation checkpoints for verify_session_exists
-grep "verify_session_exists" /home/lewis/src/hardline/.beads/hl-bjy/test-plan.md | grep -A5 "Mutation Type" || echo "NO MUTATION CHECKPOINT"
-```
-
-**STATUS: REJECTED**
-
-Resubmit only after all LETHAL and MAJOR findings are resolved. Full re-review will be conducted from Axis 1.
+After fixing the constraint conflict error variant, verify all 12 variants have explicit tests:
+- ✅ SessionNotFound
+- ✅ SessionLocked
+- ✅ NotLockHolder
+- ✅ NotFound
+- ✅ DatabaseError
+- ✅ ParseError
+- ⚠️ Unknown (needs to be confirmed after fix)
+- ✅ TtlOutOfRange
+- ✅ EmptySessionName
+- ✅ EmptyAgentId
+- ✅ TtlOverflow
+- ✅ SessionNameTooLong
 
 ---
 
-### Root Cause Analysis
+## FINAL CHECKLIST BEFORE RESUBMISSION
 
-The test plan has two fundamental problems:
+- [ ] All duplicate scenarios removed
+- [ ] Contradictory scenario 13 fixed
+- [ ] Impossible `lock()` TTL scenarios removed
+- [ ] Error variant for constraint conflicts fixed
+- [ ] All 12 error variants have explicit tests
+- [ ] All public functions have ≥5x scenario coverage
+- [ ] All boundaries explicitly named per function
+- [ ] No assertions use `is_ok()` or `is_err()`
+- [ ] All assertions use concrete values
+- [ ] Proptest invariants have anti-invariants
+- [ ] Fuzz corpus seeds complete
+- [ ] Mutation checkpoints match actual tests
+- [ ] Kani harness bounds sufficient
+- [ ] Test density accurately reported
 
-1. **False density calculation**: The author recognized the 4.0x ratio was below threshold and attempted to "fix" it by:
-   - Excluding `Error::code()` from the count (even though it's `pub fn` in contract)
-   - Counting `is_constraint_conflict_error` (which is `fn`, not `pub fn`)
-   - Including `verify_session_exists` (which is not in contract)
-   
-   This is not a fix — it's obfuscation. The ratio is 4.0x and must be addressed honestly.
+**Resubmit with these fixes. Full re-review from Tier 0.**
 
-2. **Contract drift**: `verify_session_exists` was added to the test plan after the contract was written, but never added to the contract itself. This is a planning violation — tests must follow the contract, not create new functionality.
+---
 
-**Fix these issues honestly before resubmitting.**
+**Audit completed by: Test Inquisitor (Mode 1: Plan Inquisition)**
+**Date:** Thu Mar 26 2026
+**Model:** Qwen3.5-35B-A3B-UD-Q5_K_XL.gguf
