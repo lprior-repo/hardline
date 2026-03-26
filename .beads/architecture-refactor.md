@@ -1,9 +1,10 @@
 # Architectural Drift Refactor Report
 
 ## Summary
-Successfully refactored two large files:
+Successfully refactored three large files:
 - `isolate_json_docs.rs` (1995 lines) → 6 modules
 - `isolate_object_commands.rs` (988 lines) → 14 modules
+- `main.rs` (794 lines) → 13 modules
 
 All new files are under 300 lines and follow DDD principles.
 
@@ -26,16 +27,15 @@ All new files are under 300 lines and follow DDD principles.
 2. **Module Cohesion**: Related constants grouped by domain concern
 3. **Maintainability**: Smaller files are easier to navigate and modify
 
-## Remaining Files Over 300 Lines (8 files)
+## Remaining Files Over 300 Lines (7 files)
 
-1. `main.rs` - 794 lines - Application entry point
-2. `agent_registry/mod.rs` - 752 lines - Domain core
-3. `workspace.rs` - 742 lines - Domain logic
-4. `worktree/src/domain/worktree.rs` - 599 lines - Domain entity
-5. `metadata.rs` - 554 lines - Domain value objects
-6. `cli_contracts/status.rs` - 554 lines - CLI contracts
-7. `hooks.rs` - 549 lines - Infrastructure
-8. `session_focus.rs` - 532 lines - Domain workflow
+1. `agent_registry/mod.rs` - 752 lines - Domain core
+2. `workspace.rs` - 742 lines - Domain logic
+3. `worktree/src/domain/worktree.rs` - 599 lines - Domain entity
+4. `metadata.rs` - 554 lines - Domain value objects
+5. `cli_contracts/status.rs` - 554 lines - CLI contracts
+6. `hooks.rs` - 549 lines - Infrastructure
+7. `session_focus.rs` - 532 lines - Domain workflow
 
 ## Next Steps
 
@@ -88,4 +88,4 @@ Continue refactoring remaining files using the same approach:
 
 **STATUS: REFACTORED**
 
-Two files successfully reduced from 2983 total lines to 20 modules all under 300 lines.
+Three files successfully reduced from 3777 total lines to 33 modules all under 300 lines.
