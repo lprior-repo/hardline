@@ -16,7 +16,6 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
-<<<<<<< Updated upstream
 // Re-export types from sibling modules
 pub use crate::infrastructure::operation_log_types::{
     OperationLogEntry, OperationLogError, parse_datetime, parse_operation_log_row,
@@ -208,7 +207,6 @@ mod tests {
         assert!(result2.is_ok());
     }
 }
-=======
 pub mod operation_log_types;
 pub mod operation_log_schema;
 pub mod operation_log_repository;

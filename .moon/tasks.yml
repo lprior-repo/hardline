@@ -1,0 +1,39 @@
+fmt:
+  command: 'cargo fmt --all --check'
+  toolchains:
+    - rust
+  options:
+    runInCI: true
+
+lint-src:
+  command: 'cargo clippy --workspace -- -D warnings'
+  toolchains:
+    - rust
+  options:
+    runInCI: true
+
+check:
+  command: 'cargo check --workspace'
+  toolchains:
+    - rust
+  options:
+    runInCI: true
+
+test:
+  command: 'cargo nextest run --workspace'
+  toolchains:
+    - rust
+  options:
+    runInCI: true
+
+build:
+  command: 'cargo build --workspace --release'
+  toolchains:
+    - rust
+  options:
+    runInCI: true
+
+ci:
+  command: 'cargo clippy --workspace -- -D warnings && cargo nextest run --workspace'
+  options:
+    runInCI: true

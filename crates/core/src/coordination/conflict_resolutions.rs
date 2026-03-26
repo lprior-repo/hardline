@@ -20,21 +20,12 @@
 //!
 //! # Architecture
 //!
-<<<<<<< Updated upstream
-//! This module re-exports from sibling modules in the `coordination` directory:
-//! - `conflict_resolutions_schema` - Schema initialization
-//! - `conflict_resolutions_insert` - Insert operations
-//! - `conflict_resolutions_query` - Query operations
-//! - `conflict_resolutions_error` - Error conversion
-//! - `conflict_resolutions_entities` (in parent) - Entity types
-=======
 //! This module was split into smaller submodules to improve maintainability:
 //! - [`conflict_resolutions_schema`] - Schema initialization
 //! - [`conflict_resolutions_insert`] - Insert operations
 //! - [`conflict_resolutions_queries`] - Query operations
 //! - [`conflict_resolutions_error_convert`] - Error conversion
 //! - [`conflict_resolutions_entities`] - Entity types and errors
->>>>>>> Stashed changes
 //!
 //! # Example
 //!
@@ -48,56 +39,27 @@
 //! let pool = SqlitePool::connect("sqlite:db.sqlite").await?;
 //! init_conflict_resolutions_schema(&pool).await?;
 //!
-//! // Record a conflict resolution
-//! use isolate_core::coordination::conflict_resolutions_entities::ConflictResolution;
-//! let resolution = ConflictResolution {
-//!     id: 0, // Auto-generated
-//!     timestamp: "2025-02-18T12:34:56Z".to_string(),
-//!     session: "my-session".to_string(),
-//!     file: "src/main.rs".to_string(),
-//!     strategy: "accept_theirs".to_string(),
-//!     reason: Some("Incoming changes are more recent".to_string()),
-//!     confidence: Some("high".to_string()),
-//!     decider: "ai".to_string(),
-//! };
-//! let id = insert_conflict_resolution(&pool, &resolution).await?;
+//! let record = ConflictResolutionRecord::new(
+//!     "workspace-123",
+//!     ConflictResolutionStrategy::Auto,
+//!     Some("Auto-resolved based on strategy".to_string()),
+//! );
+//! insert_conflict_resolution(&pool, &record).await?;
 //!
-//! // Query resolutions for a session
-//! let resolutions = get_conflict_resolutions(&pool, "my-session").await?;
-//! for r in resolutions {
-//!     println!("{}: {} by {}", r.file, r.strategy, r.decider);
-//! }
+//! let resolutions = query_conflict_resolutions(&pool, "workspace-123").await?;
+//! println!("Found {} resolutions", resolutions.len());
 //! # Ok(())
 //! # }
 //! ```
-//!
-//! This module re-exports from submodules for backwards compatibility.
 
-<<<<<<< Updated upstream
-// Re-export schema operations from sibling module
-pub use super::conflict_resolutions_schema::init_conflict_resolutions_schema;
+pub mod conflict_resolutions_entities;
+pub mod conflict_resolutions_error_convert;
+pub mod conflict_resolutions_insert;
+pub mod conflict_resolutions_queries;
+pub mod conflict_resolutions_schema;
 
-// Re-export insert operations from sibling module
-pub use super::conflict_resolutions_insert::insert_conflict_resolution;
-
-// Re-export query operations from sibling module
-pub use super::conflict_resolutions_query::{
-    get_conflict_resolutions, get_resolutions_by_decider, get_resolutions_by_time_range,
-};
-
-// Re-export entities for convenience
-pub use super::conflict_resolutions_entities::{
-    validate_decider, validate_non_empty, validate_timestamp, ConflictResolution,
-    ConflictResolutionError,
-};
-=======
-pub use conflict_resolutions_entities::{
-    validate_decider, validate_non_empty, validate_timestamp, ConflictResolution,
-    ConflictResolutionError,
-};
-pub use conflict_resolutions_schema::init_conflict_resolutions_schema;
-pub use conflict_resolutions_insert::insert_conflict_resolution;
-pub use conflict_resolutions_queries::{
-    get_conflict_resolutions, get_resolutions_by_decider, get_resolutions_by_time_range,
-};
->>>>>>> Stashed changes
+pub use conflict_resolutions_entities::*;
+pub use conflict_resolutions_error_convert::*;
+pub use conflict_resolutions_insert::*;
+pub use conflict_resolutions_queries::*;
+pub use conflict_resolutions_schema::*;

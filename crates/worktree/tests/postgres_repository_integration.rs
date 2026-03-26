@@ -13,6 +13,16 @@ use worktree::{
 use worktree::application::repositories::WorktreeRepository;
 
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Generate a unique test suffix based on current timestamp
+fn test_suffix() -> String {
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap();
+    format!("_{}", duration.as_nanos())
+}
+
 const POSTGRES_TEST_DB: &str = "postgres://postgres:postgres@localhost:5432/worktree_test";
 
 /// Helper to create a test worktree
@@ -24,7 +34,7 @@ fn create_test_worktree(
     branch: Option<&str>,
 ) -> Worktree {
     Worktree::new(
-        WorktreeName::new(name).unwrap(),
+        WorktreeName::new(&format!("{}{}", name, test_suffix())).unwrap(),
         AbsolutePath::new(path).unwrap(),
         AbsolutePath::new(parent_path).unwrap(),
         worktree_type,
@@ -38,7 +48,19 @@ async fn create_postgres_repo() -> Result<PostgresWorktreeRepository, WorktreeDo
     PostgresWorktreeRepository::new(POSTGRES_TEST_DB).await
 }
 
+/// Cleanup helper to delete all worktrees from the database
+async fn cleanup_all_worktrees(repo: &PostgresWorktreeRepository) {
+    let _ = sqlx::query("DELETE FROM worktrees").execute(repo.pool()).await;
+}
+
 mod postgres_repository_integration {
+    /// Helper to cleanup database before each test
+    async fn setup_clean_db() -> PostgresWorktreeRepository {
+        let repo = create_postgres_repo().await.unwrap();
+        cleanup_all_worktrees(&repo).await;
+        repo
+    }
+
     use super::*;
 
     // ============================================================

@@ -595,7 +595,8 @@ pub fn prev() -> Result<()> {
 }
 
 /// Add an existing path as a workspace
-pub fn add(path: &str) -> Result<()> {
+/// Split workspace by creating a new branch from current state
+fn split_workspace(backend: &dyn vcs::VcsBackend, name: &str) -> Result<()> {
     let workspace_path = std::path::Path::new(path);
 
     if !workspace_path.exists() {
