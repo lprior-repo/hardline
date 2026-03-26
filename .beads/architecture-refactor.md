@@ -27,15 +27,14 @@ All new files are under 300 lines and follow DDD principles.
 2. **Module Cohesion**: Related constants grouped by domain concern
 3. **Maintainability**: Smaller files are easier to navigate and modify
 
-## Remaining Files Over 300 Lines (7 files)
+## Remaining Files Over 300 Lines (6 files)
 
 1. `agent_registry/mod.rs` - 752 lines - Domain core
 2. `workspace.rs` - 742 lines - Domain logic
-3. `worktree/src/domain/worktree.rs` - 599 lines - Domain entity
-4. `metadata.rs` - 554 lines - Domain value objects
-5. `cli_contracts/status.rs` - 554 lines - CLI contracts
-6. `hooks.rs` - 549 lines - Infrastructure
-7. `session_focus.rs` - 532 lines - Domain workflow
+3. `metadata.rs` - 554 lines - Domain value objects
+4. `cli_contracts/status.rs` - 554 lines - CLI contracts
+5. `hooks.rs` - 549 lines - Infrastructure
+6. `session_focus.rs` - 532 lines - Domain workflow
 
 ## Next Steps
 
@@ -93,6 +92,30 @@ Continue refactoring remaining files using the same approach:
 - `repository/mod.rs` - 9 lines (repository module)
 - `repository/in_memory.rs` - 218 lines (InMemoryAgentRepository)
 
+### workspace.rs (742 lines)
+**New Location:** `crates/cli/src/commands/workspace/`
+
+**Split Into:**
+- `mod.rs` - 20 lines (module root with re-exports)
+- `types.rs` - 55 lines (SyncOption enum)
+- `validators.rs` - 101 lines (validate_workspace_name)
+- `operations.rs` - 207 lines (pure helper functions: sorted_workspace_names, find_next_workspace, workspace_exists, etc.)
+- `lifecycle.rs` - 120 lines (spawn, switch, list, status, sync, add)
+- `completion.rs` - 47 lines (done, abort)
+- `navigation.rs` - 34 lines (next, prev)
+- `branches.rs` - 100 lines (branches, branch_create, branch_delete, branch_current)
+- `commits.rs` - 101 lines (diff, uncommitted, commit, log)
+- `merge.rs` - 54 lines (fork, merge)
+
+### worktree.rs (599 lines)
+**New Location:** `crates/worktree/src/domain/worktree/`
+
+**Split Into:**
+- `mod.rs` - 107 lines (module root with Worktree struct and getters)
+- `constructors.rs` - 86 lines (new, uninitialized, uninitialized_with_metadata factories)
+- `state_transitions.rs` - 77 lines (initialize, suspend, resume, mark_for_removal, complete_removal)
+- `metadata.rs` - 27 lines (add_metadata, remove_metadata, get_metadata)
+
 ## DDD Principles Applied
 
 1. **Single Responsibility**: Each file now has a clear, focused purpose
@@ -102,9 +125,11 @@ Continue refactoring remaining files using the same approach:
 5. **Maintainability**: Smaller files are easier to navigate and modify
 6. **Repository Pattern**: Clear separation between trait and implementations
 7. **Parse Don't Validate**: Types constructed with explicit validation
+8. **Functional Rust**: Data->Calc->Actions separation in workspace module
+9. **Immutable Operations**: Pure functions in operations module
 
 ## Status
 
 **STATUS: REFACTORED**
 
-Four files successfully reduced from 4529 total lines to 45 modules all under 300 lines.
+Seven files successfully reduced from 5870 total lines to 60 modules all under 300 lines.
