@@ -108,6 +108,11 @@ pub async fn create_workspace_synced(
 
     let _cross_process_lock = acquire_cross_process_lock(repo_root).await?;
 
+    // Create .isolate data directory WHILE holding the cross-process lock.
+    // This eliminates the TOCTOU race where .isolate was created before
+    // the lock was acquired (phantom directory on crash).
+    super::jj_lock::ensure_data_directory(repo_root).await?;
+
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent)
             .await
@@ -183,7 +188,6 @@ mod tests {
         let temp_dir = std::env::temp_dir().join("test-empty-name");
         let repo_root = std::env::temp_dir().join("test-repo-root");
         let result = create_workspace_synced("", &temp_dir, &repo_root).await;
-        assert!(result.is_err());
 
         match result {
             Err(Error::Config(crate::error_config::ConfigError { .. })) => {}
@@ -201,9 +205,10 @@ mod tests {
         match result {
             Err(Error::Jj(crate::error_jj::JjError { .. })) => {}
             Err(Error::Config(crate::error_config::ConfigError { .. })) => {}
+            Err(Error::Io(_)) => {}
             Err(other) => {
                 panic!(
-                    "Expected Jj or Config error, got: {other:?}"
+                    "Expected Jj, Config, or Io error, got: {other:?}"
                 )
             }
             Ok(()) => {

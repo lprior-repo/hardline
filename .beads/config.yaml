@@ -56,3 +56,7 @@
 # Manual Dolt server configuration
 dolt:
   auto-start: false
+
+dolt.port: 43001
+
+dolt.database: "dolt"

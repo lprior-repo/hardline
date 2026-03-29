@@ -6,7 +6,6 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
-#![allow(unused)]
 
 use std::fs::{File, OpenOptions};
 use std::path::Path;
@@ -14,7 +13,7 @@ use std::time::Duration;
 
 use fs2::FileExt;
 use tokio::sync::Mutex;
-use tokio::time::{error::Elapsed, timeout};
+use tokio::time::timeout;
 
 use crate::error::{Error, Result};
 
@@ -25,12 +24,26 @@ pub static WORKSPACE_CREATION_LOCK: std::sync::LazyLock<Mutex<()>> =
 pub const LOCK_ACQUISITION_TIMEOUT: Duration = Duration::from_millis(50);
 pub const MAX_LOCK_RETRIES: usize = 5;
 
-pub const WORKSPACE_CREATION_LOCK_FILE: &str = "workspace-create.lock";
+pub const WORKSPACE_CREATION_LOCK_FILE: &str = ".scp-workspace-create.lock";
 pub const FILE_LOCK_TIMEOUT_MS: u64 = 5000;
 pub const FILE_LOCK_MAX_RETRIES: usize = 3;
 pub const FILE_LOCK_BASE_BACKOFF_MS: u64 = 25;
 
-/// Wrapper that impls DerefMut for tokio MutexGuard to allow dropping
+/// Maximum backoff duration in milliseconds (cap to prevent overflow).
+pub const MAX_BACKOFF_MS: u64 = 5000;
+
+/// Calculate backoff duration in milliseconds for a given retry attempt.
+///
+/// Uses checked arithmetic and caps at [`MAX_BACKOFF_MS`] to prevent
+/// overflow for arbitrarily high attempt counts.
+pub fn calculate_backoff_ms(attempt: u32) -> u64 {
+    2_u64
+        .checked_pow(attempt)
+        .and_then(|pow| FILE_LOCK_BASE_BACKOFF_MS.checked_mul(pow))
+        .map_or(MAX_BACKOFF_MS, |v| v.min(MAX_BACKOFF_MS))
+}
+
+/// Wrapper that impls DerefMut for tokio MutexGuard to allow dropping.
 pub struct MutexGuardClosing<'a, T>(tokio::sync::MutexGuard<'a, T>);
 
 impl<'a, T> std::ops::Deref for MutexGuardClosing<'a, T> {
@@ -47,140 +60,171 @@ impl<T> std::ops::DerefMut for MutexGuardClosing<'_, T> {
     }
 }
 
-/// Acquire in-memory lock with exponential backoff
-pub(super) fn acquire_lock_with_backoff() -> impl std::future::Future<Output = Result<MutexGuardClosing<'static, ()>>> + Send {
+/// Build a lock timeout error for in-memory workspace creation lock.
+fn build_workspace_lock_timeout_error(timeout_ms: u64, retries: usize) -> Error {
+    crate::error_jj::JjErrorKind::LockTimeout {
+        operation: "workspace creation".to_string(),
+        timeout_ms,
+        retries,
+    }
+    .into()
+}
+
+/// Acquire in-memory lock with exponential backoff.
+pub(super) fn acquire_lock_with_backoff(
+) -> impl std::future::Future<Output = Result<MutexGuardClosing<'static, ()>>> + Send {
     async move {
+        let timeout_ms = u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis())
+            .map_err(|_| Error::internal("timeout ms overflow"))?;
         let mut current_timeout = LOCK_ACQUISITION_TIMEOUT;
 
         for attempt in 0..MAX_LOCK_RETRIES {
             match timeout(current_timeout, WORKSPACE_CREATION_LOCK.lock()).await {
                 Ok(guard) => return Ok(MutexGuardClosing(guard)),
-                Err(Elapsed { .. }) => {
-                    if attempt < MAX_LOCK_RETRIES - 1 {
-                        tokio::time::sleep(current_timeout).await;
-                        current_timeout *= 2;
-                    } else {
-                        let timeout_ms =
-                            u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis()).unwrap_or(u64::MAX);
-                        return Err(crate::error_jj::JjErrorKind::LockTimeout {
-                            operation: "workspace creation".to_string(),
-                            timeout_ms,
-                            retries: MAX_LOCK_RETRIES,
-                        }
-                        .into());
-                    }
+                Err(_) if attempt + 1 < MAX_LOCK_RETRIES => {
+                    tokio::time::sleep(current_timeout).await;
+                    current_timeout *= 2;
+                }
+                Err(_) => {
+                    return Err(build_workspace_lock_timeout_error(timeout_ms, MAX_LOCK_RETRIES));
                 }
             }
         }
 
-        let timeout_ms =
-            u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis()).unwrap_or(u64::MAX);
-        Err(crate::error_jj::JjErrorKind::LockTimeout {
-            operation: "workspace creation".to_string(),
-            timeout_ms,
-            retries: MAX_LOCK_RETRIES,
-        }
-        .into())
+        Err(build_workspace_lock_timeout_error(timeout_ms, MAX_LOCK_RETRIES))
     }
 }
 
-/// Acquire file lock with exponential backoff
-pub fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<()> {
-    const HIGH_CONTENTION_MAX_ATTEMPTS: usize = 8;
+/// Build a file lock timeout error with total backoff computation.
+fn build_file_lock_timeout_error(
+    operation: &str,
+    max_attempts: usize,
+    max_attempts_u32: u32,
+) -> Error {
+    let total_wait_ms: u64 = (0u32..max_attempts_u32)
+        .map(calculate_backoff_ms)
+        .fold(0u64, |acc, v| acc.saturating_add(v));
+    crate::error_jj::JjErrorKind::LockTimeout {
+        operation: operation.to_string(),
+        timeout_ms: total_wait_ms,
+        retries: max_attempts,
+    }
+    .into()
+}
 
-    for attempt in 0..HIGH_CONTENTION_MAX_ATTEMPTS {
+/// Sleep with exponential backoff for a given retry attempt number.
+fn sleep_with_backoff(attempt: usize) -> Result<()> {
+    let attempt_u32 = u32::try_from(attempt)
+        .map_err(|_| Error::internal("attempt overflow"))?;
+    let backoff = Duration::from_millis(calculate_backoff_ms(attempt_u32));
+    std::thread::sleep(backoff);
+    Ok(())
+}
+
+/// Acquire file lock with exponential backoff.
+pub fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<()> {
+    const MAX_ATTEMPTS: usize = 8;
+    let max_u32 = u32::try_from(MAX_ATTEMPTS).map_err(|_| Error::internal("overflow"))?;
+    let err = || build_file_lock_timeout_error(description, MAX_ATTEMPTS, max_u32);
+
+    for attempt in 0..MAX_ATTEMPTS {
         match file.try_lock_exclusive() {
             Ok(()) => return Ok(()),
-            Err(_) if attempt < HIGH_CONTENTION_MAX_ATTEMPTS - 1 => {
-                let attempt_u32 = u32::try_from(attempt).map_err(|_| {
-                    Error::io_error(format!("Invalid retry attempt: {attempt}"))
-                })?;
-                let backoff_ms = FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(attempt_u32);
-                let backoff = Duration::from_millis(backoff_ms);
-                std::thread::sleep(backoff);
-            }
-            Err(_) => {
-                let max_attempts_u32 =
-                    u32::try_from(HIGH_CONTENTION_MAX_ATTEMPTS).unwrap_or(8);
-                let total_wait_ms: u64 = (0u32..max_attempts_u32)
-                    .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i))
-                    .sum();
-                return Err(crate::error_jj::JjErrorKind::LockTimeout {
-                    operation: description.to_string(),
-                    timeout_ms: total_wait_ms,
-                    retries: HIGH_CONTENTION_MAX_ATTEMPTS,
-                }
-                .into());
-            }
+            Err(_) if attempt + 1 < MAX_ATTEMPTS => sleep_with_backoff(attempt)?,
+            Err(_) => return Err(err()),
         }
     }
-
-    let max_attempts_u32 = u32::try_from(HIGH_CONTENTION_MAX_ATTEMPTS).unwrap_or(8);
-    let total_wait_ms: u64 = (0u32..max_attempts_u32)
-        .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i))
-        .sum();
-    Err(crate::error_jj::JjErrorKind::LockTimeout {
-        operation: "file lock acquisition".to_string(),
-        timeout_ms: total_wait_ms,
-        retries: HIGH_CONTENTION_MAX_ATTEMPTS,
-    }
-    .into())
+    Err(err())
 }
 
-/// Acquire cross-process file lock for workspace creation
-pub async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
-    let lock_dir = repo_root.join(".isolate");
-    tokio::fs::create_dir_all(&lock_dir)
-        .await
-        .map_err(|e| Error::io_error(format!("Failed to create lock directory: {e}")))?;
+/// Open the workspace creation lock file.
+fn open_lock_file(lock_path: &Path) -> Result<File> {
+    OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(lock_path)
+        .map_err(|e| Error::io_error(format!("Failed to open workspace lock file: {e}")))
+}
 
-    let lock_path = lock_dir.join(WORKSPACE_CREATION_LOCK_FILE);
+/// Verify that the filesystem supports advisory file locks.
+///
+/// Returns `Ok(true)` if locks are supported (probe fails to acquire),
+/// `Ok(false)` if locks are NOT supported (probe succeeds — lock not exclusive).
+fn verify_lock_support(lock_path: &Path) -> Result<bool> {
+    let probe = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(lock_path)
+        .map_err(|e| Error::io_error(format!("Failed to open probe lock file: {e}")))?;
+
+    match probe.try_lock_exclusive() {
+        Ok(()) => {
+            probe
+                .unlock()
+                .map_err(|e| Error::io_error(format!("Failed to unlock probe lock file: {e}")))?;
+            Ok(false)
+        }
+        Err(_) => Ok(true),
+    }
+}
+
+/// Enforce strict lock mode when filesystem doesn't support advisory locks.
+fn enforce_strict_locks(lock_path: &Path, lock_supported: bool) -> Result<()> {
+    if lock_supported {
+        return Ok(());
+    }
+
+    let warning = format!(
+        "{{\"event\":\"lock_portability_warning\",\"code\":\"LOCK_PORTABILITY_UNSUPPORTED\",\"lock_file\":\"{}\",\"fallback\":\"process_local_only\"}}",
+        lock_path.display()
+    );
+    tracing::warn!("{warning}");
+
+    if std::env::var("Isolate_STRICT_LOCKS").is_ok() {
+        return Err(Error::validation_error(format!(
+            "LOCK_PORTABILITY_UNSUPPORTED: {warning}. Unset Isolate_STRICT_LOCKS to continue with process-local lock fallback",
+        )));
+    }
+
+    Ok(())
+}
+
+/// Acquire cross-process file lock for workspace creation.
+///
+/// Lock file path: `{repo_root}/.scp-workspace-create.lock`
+/// (NOT inside `.isolate/` to avoid chicken-and-egg TOCTOU).
+///
+/// Post-condition: Returns `Ok(File)` with exclusive lock held.
+/// Does NOT create `.isolate` directory. Caller must call
+/// `ensure_data_directory()` AFTER acquiring the lock.
+pub async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
+    let lock_path = repo_root.join(WORKSPACE_CREATION_LOCK_FILE);
 
     tokio::task::spawn_blocking(move || {
-        let file = OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .open(&lock_path)
-            .map_err(|e| Error::io_error(format!("Failed to open workspace lock file: {e}")))?;
-
+        let file = open_lock_file(&lock_path)?;
         acquire_file_lock_with_timeout(&file, "workspace creation cross-process lock")?;
-
-        let lock_supported = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&lock_path)
-            .map_err(|e| Error::io_error(format!("Failed to open probe lock file: {e}")))
-            .and_then(|probe| match probe.try_lock_exclusive() {
-                Ok(()) => {
-                    let unlock_result = probe.unlock();
-                    if let Err(unlock_error) = unlock_result {
-                        return Err(Error::io_error(format!(
-                            "Failed to unlock probe lock file: {unlock_error}"
-                        )));
-                    }
-                    Ok(false)
-                }
-                Err(_) => Ok(true),
-            })?;
-
-        if !lock_supported {
-            let warning = format!(
-                "{{\"event\":\"lock_portability_warning\",\"code\":\"LOCK_PORTABILITY_UNSUPPORTED\",\"lock_file\":\"{}\",\"fallback\":\"process_local_only\"}}",
-                lock_path.display()
-            );
-            tracing::warn!("{warning}");
-
-            if std::env::var("Isolate_STRICT_LOCKS").is_ok() {
-                return Err(Error::validation_error(format!(
-                    "LOCK_PORTABILITY_UNSUPPORTED: {warning}. Unset Isolate_STRICT_LOCKS to continue with process-local lock fallback",
-                )));
-            }
-        }
-
+        let lock_supported = verify_lock_support(&lock_path)?;
+        enforce_strict_locks(&lock_path, lock_supported)?;
         Ok::<File, Error>(file)
     })
     .await
-    .map_err(|e| Error::io_error(format!("Failed to join lock task: {e}")))?
+    .map_err(|e| Error::internal(format!("Failed to join lock task: {e}")))?
+}
+
+/// Create `.isolate` data directory.
+///
+/// PRECONDITION: Caller MUST hold the cross-process lock.
+/// If precondition is violated, behavior is undefined (may create
+/// a phantom directory visible to other processes).
+///
+/// POSTCONDITION: `.isolate` directory exists.
+/// INVARIANT: Only callable while lock is held.
+pub async fn ensure_data_directory(repo_root: &Path) -> Result<()> {
+    let data_dir = repo_root.join(".isolate");
+    tokio::fs::create_dir_all(&data_dir)
+        .await
+        .map_err(|e| Error::io_error(format!("Failed to create data directory: {e}")))?;
+    Ok(())
 }

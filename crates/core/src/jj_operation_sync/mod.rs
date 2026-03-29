@@ -17,6 +17,6 @@ mod jj_operations;
 mod jj_path;
 mod jj_workspace;
 
-pub use jj_lock::{acquire_cross_process_lock, WORKSPACE_CREATION_LOCK};
+pub use jj_lock::{acquire_cross_process_lock, ensure_data_directory, WORKSPACE_CREATION_LOCK};
 pub use jj_operations::{create_workspace_synced, get_current_operation, RepoOperationInfo};
 pub use jj_path::{get_jj_command, get_jj_command_sync};
