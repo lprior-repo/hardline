@@ -98,7 +98,7 @@ If Process A crashes between these two operations:
 ### Q1: Lock Acquisition Postconditions
 - **Q1.1**: On success, returns `Ok(File)` where the `File` holds an exclusive advisory lock
 - **Q1.2**: On success, the lock file exists at the lock path
-- **Q1.3**: On success, the `.isolate` data directory exists AND was created AFTER the lock was acquired
+- **Q1.3**: On success, returns `Ok(File)` with exclusive lock held. Does NOT create `.isolate` directory — that is the caller's responsibility via `ensure_data_directory()`
 - **Q1.4**: On success, no concurrent process can acquire the same file lock until this `File` is dropped
 
 ### Q2: Data Directory Postconditions

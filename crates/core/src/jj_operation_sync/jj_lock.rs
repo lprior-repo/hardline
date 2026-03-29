@@ -182,9 +182,17 @@ fn enforce_strict_locks(lock_path: &Path, lock_supported: bool) -> Result<()> {
     );
     tracing::warn!("{warning}");
 
-    if std::env::var("Isolate_STRICT_LOCKS").is_ok() {
+    // Prefer the current env var name; fall back to legacy name with a warning.
+    let strict = std::env::var("SCP_STRICT_LOCKS").is_ok()
+        || std::env::var("Isolate_STRICT_LOCKS").map(|_| {
+            tracing::warn!("Isolate_STRICT_LOCKS is deprecated; use SCP_STRICT_LOCKS");
+            true
+        })
+        .unwrap_or(false);
+
+    if strict {
         return Err(Error::validation_error(format!(
-            "LOCK_PORTABILITY_UNSUPPORTED: {warning}. Unset Isolate_STRICT_LOCKS to continue with process-local lock fallback",
+            "LOCK_PORTABILITY_UNSUPPORTED: {warning}. Unset SCP_STRICT_LOCKS to continue with process-local lock fallback",
         )));
     }
 
@@ -215,12 +223,20 @@ pub async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
 
 /// Create `.isolate` data directory.
 ///
-/// PRECONDITION: Caller MUST hold the cross-process lock.
-/// If precondition is violated, behavior is undefined (may create
-/// a phantom directory visible to other processes).
+/// # Safety — Unenforced Precondition
 ///
-/// POSTCONDITION: `.isolate` directory exists.
-/// INVARIANT: Only callable while lock is held.
+/// **WARNING:** Caller MUST hold the cross-process lock (from
+/// `acquire_cross_process_lock`) before calling this function. There is
+/// no runtime guard — violating this precondition silently reintroduces
+/// the TOCTOU race condition this module was designed to eliminate.
+///
+/// The call site in `create_workspace_synced()` satisfies this precondition
+/// because it acquires the lock on the line immediately before calling
+/// this function. Any new caller MUST follow the same pattern.
+///
+/// # Postcondition
+///
+/// `.isolate` directory exists at `{repo_root}/.isolate`.
 pub async fn ensure_data_directory(repo_root: &Path) -> Result<()> {
     let data_dir = repo_root.join(".isolate");
     tokio::fs::create_dir_all(&data_dir)
