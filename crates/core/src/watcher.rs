@@ -234,7 +234,8 @@ mod tests {
         let result = FileWatcher::watch_workspaces(&config, &[]);
         assert!(result.is_err());
         if let Err(e) = result {
-            assert!(matches!(e, Error::Config(ConfigError { inner: ConfigErrorKind::Invalid(_), .. })));
+            assert!(matches!(e, Error::Config(_)));
+            assert!(e.to_string().contains("disabled"), "Expected config disabled error, got: {e}");
         }
     }
 
@@ -249,7 +250,8 @@ mod tests {
         let result = FileWatcher::watch_workspaces(&config, &[]);
         assert!(result.is_err());
         if let Err(err) = result {
-            assert!(matches!(err, Error::Config(ConfigError { inner: ConfigErrorKind::Invalid(_), .. })));
+            assert!(matches!(err, Error::Config(_)));
+            assert!(err.to_string().contains("debounce_ms"), "Expected config invalid error, got: {err}");
         }
     }
 
@@ -264,7 +266,8 @@ mod tests {
         let result = FileWatcher::watch_workspaces(&config, &[]);
         assert!(result.is_err());
         if let Err(err) = result {
-            assert!(matches!(err, Error::Config(ConfigError { inner: ConfigErrorKind::Invalid(_), .. })));
+            assert!(matches!(err, Error::Config(_)));
+            assert!(err.to_string().contains("debounce_ms"), "Expected config invalid error, got: {err}");
         }
     }
 

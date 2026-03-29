@@ -61,6 +61,9 @@ impl From<ConflictResolutionError> for crate::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::coordination::conflict_resolutions_entities::{
+        validate_decider, validate_timestamp,
+    };
 
     // Note: Full integration tests are in conflict_resolutions_tests.rs
     // This module contains only unit tests for pure functions

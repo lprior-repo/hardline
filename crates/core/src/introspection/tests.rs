@@ -4,7 +4,11 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::introspection::{DoctorCheck, CheckStatus, DoctorOutput, FlagSpec, suggest_name, Capabilities, IntrospectOutput, Prerequisites, CommandExample, ErrorCondition, CommandIntrospection, ArgumentSpec, SystemState, DependencyInfo};
+    use crate::introspection::{
+        suggest_name, ArgumentSpec, Capabilities, CheckStatus, CommandExample,
+        CommandIntrospection, DependencyInfo, DoctorCheck, DoctorOutput, ErrorCondition, FlagSpec,
+        IntrospectOutput, Prerequisites, SystemState,
+    };
     use crate::Error;
 
     #[test]
@@ -136,7 +140,7 @@ mod tests {
     fn test_suggest_name_requires_braced_placeholder() {
         let result = suggest_name("feat", &[]);
         assert!(result.is_err());
-        assert!(matches!(result, Err(Error::ValidationError(_))));
+        assert!(matches!(result, Err(Error::State(_))));
     }
 
     #[test]

@@ -36,9 +36,10 @@ async fn lock_nonexistent_session_returns_not_found_error() -> Result<(), Error>
 
     assert!(result.is_err(), "Should fail for non-existent session");
 
-    match result.unwrap_err() {
-        Error::SessionNotFound(session) => {
-            assert_eq!(session, "ghost-session");
+    match &result {
+        Err(Error::Session(_)) => {
+            let msg = result.as_ref().unwrap_err().to_string();
+            assert!(msg.contains("ghost-session"), "Expected SessionNotFound with 'ghost-session', got: {msg}");
         }
         other => panic!("Expected SessionNotFound, got: {other:?}"),
     }
@@ -133,7 +134,7 @@ async fn lock_deleted_session_fails_with_not_found() -> Result<(), Error> {
     let result = mgr.lock("ephemeral-session", "agent-1").await;
 
     assert!(result.is_err());
-    assert!(matches!(result, Err(Error::SessionNotFound(..))));
+    assert!(matches!(result, Err(Error::Session(_))));
 
     Ok(())
 }

@@ -56,7 +56,7 @@ async fn regression_lock_with_ttl_maps_contention_race_to_session_locked() -> Re
         futures::future::join_all(tasks)
             .await
             .into_iter()
-            .map(|r| r.map_err(|e| Error::Internal(e.to_string())))
+            .map(|r| r                .map_err(|e| Error::internal(e.to_string())))
             .collect::<Result<Vec<_>, _>>()?;
 
     let successful_locks = results
@@ -65,11 +65,11 @@ async fn regression_lock_with_ttl_maps_contention_race_to_session_locked() -> Re
         .count();
     let session_locked_errors = results
         .iter()
-        .filter(|r| matches!(r, Err(Error::SessionLocked(..))))
+        .filter(|r| matches!(r, Err(Error::Session(_))))
         .count();
     let database_errors = results
         .iter()
-        .filter(|r| matches!(r, Err(Error::database(_))))
+        .filter(|r| matches!(r, Err(Error::Io(_))))
         .count();
 
     assert_eq!(successful_locks, 1, "expected exactly 1 successful lock");
@@ -123,11 +123,12 @@ async fn regression_lock_with_ttl_fails_fast_before_session_validation() -> Resu
         .map_err(|e| Error::database(e.to_string()))?;
 
     let result = mgr.lock_with_ttl("ordered-session", "agent-b", 60).await;
-    assert!(matches!(
-        result,
-        Err(Error::SessionLocked(session, holder))
-        if session == "ordered-session" && holder == "agent-a"
-    ));
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("ordered-session") && msg.contains("agent-a") && msg.contains("locked"),
+        "Expected SessionLocked error for ordered-session held by agent-a, got: {msg}"
+    );
 
     Ok(())
 }

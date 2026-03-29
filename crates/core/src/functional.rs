@@ -91,7 +91,7 @@ mod tests {
         if *n > 0 {
             Ok(())
         } else {
-            Err(Error::ValidationError("not positive".into()))
+            Err(Error::validation_error("not positive"))
         }
     }
 
@@ -99,7 +99,7 @@ mod tests {
         if n % 2 == 0 {
             Ok(())
         } else {
-            Err(Error::ValidationError("not even".into()))
+            Err(Error::validation_error("not even"))
         }
     }
 

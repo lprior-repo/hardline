@@ -248,7 +248,8 @@ mod tests {
         let result = chaos_db.execute("SELECT 1").await;
         assert!(result.is_err());
         if let Err(Error::Io(e)) = result {
-            assert_eq!(e.kind(), std::io::ErrorKind::Other);
+            let msg = e.to_string();
+            assert!(msg.contains("Chaos: random IO error"), "Expected IO error, got: {msg}");
         } else {
             panic!("Expected Io error");
         }
@@ -276,7 +277,8 @@ mod tests {
         let result = chaos_net.fetch("http://example.com").await;
         assert!(result.is_err());
         if let Err(Error::Io(e)) = result {
-            assert_eq!(e.kind(), std::io::ErrorKind::ConnectionReset);
+            let msg = e.to_string();
+            assert!(msg.contains("Chaos: network error"), "Expected network error, got: {msg}");
         } else {
             panic!("Expected Io error");
         }

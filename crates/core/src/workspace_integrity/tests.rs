@@ -20,7 +20,7 @@ use crate::workspace_integrity::RepairResult;
 
     // Helper to create a temporary workspaces root for testing
     fn create_test_root() -> Result<TempDir> {
-        TempDir::new().map_err(|e| crate::Error::IoError(format!("Failed to create temp dir: {e}")))
+        TempDir::new().map_err(|e| crate::Error::io_error(format!("Failed to create temp dir: {e}")))
     }
 
     #[tokio::test]

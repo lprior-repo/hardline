@@ -3,14 +3,14 @@
 use std::path::PathBuf;
 
 use crate::error::Error as CoreError;
+use crate::session_sync_calculations::{
+    create_sync_result, determine_workspace_status, has_conflicts_in_output, parse_rebase_output,
+    validate_sync_preconditions,
+};
 use crate::session_sync_data::{
     PreconditionCheck, SessionSyncInput, SessionSyncResult, WorkspaceCleanStatus,
 };
 use crate::session_sync_errors::SyncError;
-use crate::session_sync_calculations::{
-    create_sync_result, determine_workspace_status, has_conflicts_in_output,
-    parse_rebase_output, validate_sync_preconditions,
-};
 use crate::types::SessionStatus;
 
 #[test]
@@ -41,8 +41,7 @@ fn test_session_sync_input_with_dirty_allowed() {
 
 #[test]
 fn test_session_sync_result_creation() {
-    let result =
-        SessionSyncResult::new("test-session".to_string(), "abc123".to_string(), false);
+    let result = SessionSyncResult::new("test-session".to_string(), "abc123".to_string(), false);
 
     assert_eq!(result.session_name, "test-session");
     assert_eq!(result.new_revision, "abc123");
@@ -175,8 +174,7 @@ fn test_parse_rebase_output_with_revision() {
 
 #[test]
 fn test_parse_rebase_output_with_conflicts() {
-    let output =
-        "Rebase caused conflicts in 2 files:\n  file1.txt\n  file2.txt\nSome conflicts";
+    let output = "Rebase caused conflicts in 2 files:\n  file1.txt\n  file2.txt\nSome conflicts";
     let (revision, conflicts) = parse_rebase_output(output);
 
     assert!(revision.is_none());
@@ -278,7 +276,11 @@ fn test_sync_error_to_core_session_not_found() {
     let sync_err = SyncError::SessionNotFound("test".to_string());
     let core_err = CoreError::from(sync_err);
 
-    assert!(matches!(core_err, CoreError::SessionNotFound(s) if s == "test"));
+    assert!(matches!(core_err, CoreError::Session(_)));
+    assert!(
+        core_err.to_string().contains("test"),
+        "Expected SessionNotFound with 'test', got: {core_err}"
+    );
 }
 
 #[test]
@@ -289,5 +291,5 @@ fn test_sync_error_to_core_conflict() {
     };
     let core_err = CoreError::from(sync_err);
 
-    assert!(matches!(core_err, CoreError::VcsConflict(..)));
+    assert!(matches!(core_err, CoreError::Vcs(_)));
 }

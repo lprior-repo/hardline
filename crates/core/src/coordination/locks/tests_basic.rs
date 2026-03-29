@@ -57,12 +57,12 @@ async fn test_lock_contention_returns_session_locked() -> Result<(), Error> {
     assert!(result.is_err());
     let err = result
         .err()
-        .ok_or_else(|| Error::Internal("expected error".into()))?;
-    assert!(matches!(
-        &err,
-        Error::SessionLocked(session, holder)
-        if session == "session-1" && holder == "agent-a"
-    ));
+        .ok_or_else(|| Error::internal("expected error"))?;
+    let msg = err.to_string();
+    assert!(
+        msg.contains("session-1") && msg.contains("agent-a") && msg.contains("locked"),
+        "Expected SessionLocked error for session-1 held by agent-a, got: {msg}"
+    );
     Ok(())
 }
 
@@ -88,12 +88,12 @@ async fn test_unlock_by_non_holder_fails() -> Result<(), Error> {
     assert!(result.is_err());
     let err = result
         .err()
-        .ok_or_else(|| Error::Internal("expected error".into()))?;
-    assert!(matches!(
-        &err,
-        Error::NotLockHolder(session, agent_id)
-        if session == "session-1" && agent_id == "agent-b"
-    ));
+        .ok_or_else(|| Error::internal("expected error"))?;
+    let msg = err.to_string();
+    assert!(
+        msg.contains("session-1") && msg.contains("agent-b") && msg.contains("does not hold lock"),
+        "Expected NotLockHolder error for session-1 by agent-b, got: {msg}"
+    );
     Ok(())
 }
 

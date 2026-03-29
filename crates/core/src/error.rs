@@ -553,38 +553,28 @@ impl Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error_queue::{QueueError, QueueErrorKind};
-    use crate::error_vcs::{VcsError, VcsErrorKind};
-    use crate::error_workspace::{WorkspaceError, WorkspaceErrorKind};
+    use crate::error_queue::QueueErrorKind;
+    use crate::error_vcs::VcsErrorKind;
+    use crate::error_workspace::WorkspaceErrorKind;
 
     #[test]
     fn test_error_suggestions() {
-        let err = Error::Workspace(WorkspaceError {
-            inner: WorkspaceErrorKind::NotFound("test".to_string()),
-        });
+        let err = Error::from(WorkspaceErrorKind::NotFound("test".to_string()));
         assert!(err.suggestion().is_some());
 
-        let err = Error::Queue(QueueError {
-            inner: QueueErrorKind::Empty,
-        });
+        let err = Error::from(QueueErrorKind::Empty);
         assert!(err.suggestion().is_some());
     }
 
     #[test]
     fn test_exit_codes() {
-        let err = Error::Workspace(WorkspaceError {
-            inner: WorkspaceErrorKind::NotFound("x".to_string()),
-        });
+        let err = Error::from(WorkspaceErrorKind::NotFound("x".to_string()));
         assert_eq!(err.exit_code(), 10);
 
-        let err = Error::Queue(QueueError {
-            inner: QueueErrorKind::Empty,
-        });
+        let err = Error::from(QueueErrorKind::Empty);
         assert_eq!(err.exit_code(), 20);
 
-        let err = Error::Vcs(VcsError {
-            inner: VcsErrorKind::NotInitialized,
-        });
+        let err = Error::from(VcsErrorKind::NotInitialized);
         assert_eq!(err.exit_code(), 30);
     }
 

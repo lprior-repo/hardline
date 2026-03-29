@@ -22,8 +22,6 @@ pub fn is_constraint_conflict_error(error: &sqlx::Error) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_constraint_error_codes() {
         // These would need actual sqlx errors to test properly

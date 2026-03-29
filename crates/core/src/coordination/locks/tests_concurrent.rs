@@ -10,7 +10,7 @@ async fn test_pool() -> Result<sqlx::SqlitePool, Error> {
     SqlitePoolOptions::new()
         .connect("sqlite::memory:")
         .await
-        .map_err(|e| Error::Database(e.to_string()))
+        .map_err(|e| Error::database(e.to_string()))
 }
 
 // Regression test: TOCTOU race in lock acquisition
@@ -30,7 +30,7 @@ async fn regression_concurrent_lock_mutual_exclusion() -> Result<(), Error> {
     )
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     sqlx::query(
         "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
@@ -41,7 +41,7 @@ async fn regression_concurrent_lock_mutual_exclusion() -> Result<(), Error> {
     .bind("/workspace")
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     let tasks: Vec<_> = (0..10)
         .map(|i| {
@@ -58,7 +58,7 @@ async fn regression_concurrent_lock_mutual_exclusion() -> Result<(), Error> {
             .into_iter()
             .map(|join_result| match join_result {
                 Ok(inner_result) => inner_result,
-                Err(join_err) => Err(Error::IoError(format!("Task join failed: {join_err}"))),
+                Err(join_err) => Err(Error::io_error(format!("Task join failed: {join_err}"))),
             })
             .collect();
 
@@ -69,7 +69,7 @@ async fn regression_concurrent_lock_mutual_exclusion() -> Result<(), Error> {
 
     let failed_locks = results
         .iter()
-        .filter(|r| r.is_err() && matches!(r, Err(Error::SessionLocked(..))))
+        .filter(|r| matches!(r, Err(Error::Session(_))))
         .count();
 
     assert_eq!(
@@ -116,7 +116,7 @@ async fn stress_test_concurrent_locks_multiple_sessions() -> Result<(), Error> {
     )
     .execute(&pool)
     .await
-    .map_err(|e| Error::Database(e.to_string()))?;
+    .map_err(|e| Error::database(e.to_string()))?;
 
     for i in 0..10 {
         sqlx::query(
@@ -128,7 +128,7 @@ async fn stress_test_concurrent_locks_multiple_sessions() -> Result<(), Error> {
         .bind("/workspace")
         .execute(&pool)
         .await
-        .map_err(|e| Error::Database(e.to_string()))?;
+        .map_err(|e| Error::database(e.to_string()))?;
     }
 
     let tasks: Vec<_> = (0..100)
@@ -148,7 +148,7 @@ async fn stress_test_concurrent_locks_multiple_sessions() -> Result<(), Error> {
             .into_iter()
             .map(|join_result| match join_result {
                 Ok(inner_result) => inner_result,
-                Err(join_err) => Err(Error::IoError(format!("Task join failed: {join_err}"))),
+                Err(join_err) => Err(Error::io_error(format!("Task join failed: {join_err}"))),
             })
             .collect();
 
