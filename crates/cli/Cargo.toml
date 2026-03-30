@@ -56,3 +56,4 @@ sqlx = { workspace = true, features = ["runtime-tokio"] }
 assert_cmd = "2.1.2"
 predicates = "3.1.4"
 tempfile = { workspace = true }
+proptest = { workspace = true }

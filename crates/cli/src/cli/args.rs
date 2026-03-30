@@ -8,6 +8,7 @@ use clap::{Parser, Subcommand};
 use crate::cli::agent_args::AgentCommands;
 use crate::cli::batch_args::BatchCommands;
 use crate::cli::config_args::ConfigCommands;
+use crate::cli::lock_args::LockCommands;
 use crate::cli::queue_args::QueueCommands;
 use crate::cli::session_args::SessionCommands;
 use crate::cli::stash_args::StashCommands;
@@ -54,6 +55,12 @@ pub enum Commands {
     },
 
     /// Queue management (from Stak)
+    /// Lock management
+    Lock {
+        #[command(subcommand)]
+        command: LockCommands,
+    },
+
     Queue {
         #[command(subcommand)]
         command: QueueCommands,

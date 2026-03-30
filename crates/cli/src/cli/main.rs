@@ -109,6 +109,24 @@ pub fn run_command(cli: Cli) -> Result<()> {
             }
         },
 
+        Commands::Lock { command } => match command {
+            crate::cli::lock_args::LockCommands::Acquire {
+                session,
+                agent,
+                ttl,
+            } => commands::lock::acquire(&session, &agent, ttl),
+            crate::cli::lock_args::LockCommands::Release { session, agent } => {
+                commands::lock::release(&session, &agent)
+            }
+            crate::cli::lock_args::LockCommands::Heartbeat { session, agent } => {
+                commands::lock::heartbeat(&session, &agent)
+            }
+            crate::cli::lock_args::LockCommands::Status { session } => {
+                commands::lock::status(&session)
+            }
+            crate::cli::lock_args::LockCommands::List => commands::lock::list(),
+        },
+
         Commands::Queue { command } => match command {
             crate::cli::queue_args::QueueCommands::List {} => commands::queue::list(),
             crate::cli::queue_args::QueueCommands::Enqueue { branch, priority } => {

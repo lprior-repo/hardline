@@ -203,9 +203,7 @@ pub async fn execute_batch(
     let guard = auto_cp
         .guard_if_risky(OperationRisk::Risky)
         .await?
-        .ok_or_else(|| {
-            Error::internal("Failed to create checkpoint for batch operation")
-        })?;
+        .ok_or_else(|| Error::internal("Failed to create checkpoint for batch operation"))?;
 
     let checkpoint_id = guard.id().to_string();
 
@@ -325,7 +323,10 @@ pub async fn run_batch(workspace: Option<String>, commands: Vec<String>) -> Resu
             checkpoint_id,
             results,
         } => {
-            Output::success(&format!("Batch committed with checkpoint '{}'", checkpoint_id));
+            Output::success(&format!(
+                "Batch committed with checkpoint '{}'",
+                checkpoint_id
+            ));
             for (i, cmd_result) in results.iter().enumerate() {
                 if cmd_result.success {
                     Output::info(&format!("  [{}] {}: OK", i, cmd_result.command.name));
@@ -376,10 +377,7 @@ mod tests {
         assert!(result.is_ok());
         let cmd = result.unwrap();
         assert_eq!(cmd.name, "jj");
-        assert_eq!(
-            cmd.args,
-            vec!["log", "-r", "@", "-T", "commit_id"]
-        );
+        assert_eq!(cmd.args, vec!["log", "-r", "@", "-T", "commit_id"]);
     }
 
     #[test]

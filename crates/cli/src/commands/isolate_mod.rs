@@ -1,9 +1,9 @@
 //! CLI utilities and helpers
 
-pub use crate::commands::isolate_commands as commands;
 pub use crate::commands::isolate_alias_handler as alias_handler;
+pub use crate::commands::isolate_commands as commands;
 pub use crate::commands::isolate_json_docs as json_docs;
-pub use crate::commands::object_commands as object_commands;
+pub use crate::commands::object_commands;
 
 use anyhow::{Context, Result};
 use rand::Rng;

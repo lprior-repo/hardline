@@ -4172,6 +4172,7 @@ dependencies = [
  "directories",
  "once_cell",
  "predicates",
+ "proptest",
  "rand 0.8.5",
  "regex",
  "scp-core",
