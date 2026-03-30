@@ -36,6 +36,11 @@ pub struct Cli {
     /// Output format
     #[arg(short, long, global = true, default_value = "human")]
     pub format: String,
+
+    /// Database path
+    #[arg(long, global = true)]
+    pub database: Option<String>,
+
 }
 
 /// Top-level command enum

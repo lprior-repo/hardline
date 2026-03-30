@@ -11,7 +11,7 @@ use crate::application::{
     },
     repositories::WorktreeRepository,
 };
-use crate::domain::Worktree;
+use crate::domain::{Worktree, WorktreeState};
 use crate::domain::{WorktreeId, WorktreeDomainError};
 
 pub struct WorktreeService<R: WorktreeRepository> {
@@ -269,6 +269,6 @@ mod tests {
         let init_cmd = InitializeWorktreeCommand::new(id);
         let result = service.initialize_worktree(init_cmd).await;
         assert!(result.is_ok());
-        assert!(result.unwrap().is_active());
+        assert_eq!(result.unwrap().state(), WorktreeState::Active);
     }
 }

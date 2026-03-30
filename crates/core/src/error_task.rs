@@ -10,7 +10,7 @@ use crate::error::Error;
 #[error(transparent)]
 pub struct TaskError {
     #[from]
-    inner: TaskErrorKind,
+    pub inner: TaskErrorKind,
 }
 
 #[derive(Error, Debug, Clone)]

@@ -96,16 +96,14 @@ pub fn transition_to_done(task: Task) -> Task {
     }
 }
 
-============================================================================
-Tests - Contract Verification and Martin-Fowler Given-When-Then
-============================================================================
+// Tests - Contract Verification and Martin-Fowler Given-When-Then
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::commands::task_types::Title;
     use chrono::Utc;
-//
+
     /// Helper to create a task in Open state (no assignee)
     fn open_task(id: &str) -> Task {
         Task::new(
@@ -113,28 +111,26 @@ mod tests {
             Title::new("Test task"),
         )
     }
-//
+
     /// Helper to create a task claimed by a specific user
     fn claimed_task(id: &str, assignee: &str) -> Task {
         let task = open_task(id);
         transition_to_claimed(task, assignee)
     }
-//
+
     /// Helper to create a task in InProgress state
     fn in_progress_task(id: &str, assignee: &str) -> Task {
         claimed_task(id, assignee)
     }
-//
+
     /// Helper to create a closed task
     fn closed_task(id: &str, assignee: &str) -> Task {
         let task = in_progress_task(id, assignee);
         transition_to_done(task)
     }
-//
-    // ========================================================================
+
     // Contract Verification Tests - Preconditions
-    // ========================================================================
-//
+
     #[test]
     fn test_precondition_p1_empty_id_rejected_at_type_level() {
         let result = TaskId::new("");
@@ -142,7 +138,7 @@ mod tests {
         let err = result.unwrap_err();
         assert!(err.to_string().contains("empty"));
     }
-//
+
     #[test]
     fn test_precondition_p1_malformed_id_rejected_at_type_level() {
         let result = TaskId::new("bad id!");
@@ -150,85 +146,86 @@ mod tests {
         let err = result.unwrap_err();
         assert!(err.to_string().contains("alphanumeric"));
     }
-//
+
     #[test]
     fn test_precondition_p2_nonexistent_task_returns_not_found() {
         let result = validate_task_exists(None, "nonexistent");
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(
-// REDACTED DUE TO PRIVATE FIELD
-        );
+        assert!(matches!(
+            err,
+            Error::Task(te) if matches!(te.inner, TaskErrorKind::NotFound(_))
+        ));
     }
-//
+
     #[test]
     fn test_precondition_p3_already_claimed_prevents_claim() {
         // Given: Task claimed by "other-user"
         let task = claimed_task("task-001", "other-user");
-//
+
         // When: validate_not_claimed_by_user with holder="current-user"
         let result = validate_not_claimed_by_other(&task, "current-user");
-//
+
         // Then: Returns Err(TaskAlreadyClaimed)
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(
-// REDACTED DUE TO PRIVATE FIELD
-        );
+        assert!(matches!(
+            err,
+            Error::Task(te) if matches!(te.inner, TaskErrorKind::AlreadyClaimed(_, _))
+        ));
     }
-//
+
     #[test]
     fn test_precondition_p3_claim_succeeds_for_same_user() {
         // Given: Task claimed by "current-user"
         let task = claimed_task("task-001", "current-user");
-//
+
         // When: validate_not_claimed_by_other with holder="current-user"
         let result = validate_not_claimed_by_other(&task, "current-user");
-//
+
         // Then: Returns Ok
         assert!(result.is_ok());
     }
-//
+
     #[test]
     fn test_precondition_p4_must_be_claimed_before_yield() {
         // Given: Task not claimed (Open state, no assignee)
         let task = open_task("task-001");
-//
+
         // When: validate_claimed_by_user with holder="current-user"
         let result = validate_claimed_by_user(&task, "current-user");
-//
+
         // Then: Returns Err(TaskNotClaimed)
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(
-// REDACTED DUE TO PRIVATE FIELD
-        );
+        assert!(matches!(
+            err,
+            Error::Task(te) if matches!(te.inner, TaskErrorKind::NotClaimed(_))
+        ));
     }
-//
+
     #[test]
     fn test_precondition_p4_yield_succeeds_when_claimed() {
         // Given: Task claimed by "current-user"
         let task = claimed_task("task-001", "current-user");
-//
+
         // When: validate_claimed_by_user with holder="current-user"
         let result = validate_claimed_by_user(&task, "current-user");
-//
+
         // Then: Returns Ok
         assert!(result.is_ok());
     }
-//
-    // ========================================================================
+
     // Contract Verification Tests - Postconditions
-    // ========================================================================
-//
+
     #[test]
     fn test_postcondition_q3_claim_sets_assignee_and_in_progress() {
         // Given: Open task
         let task = open_task("task-001");
-//
+
         // When: transition_to_claimed with user="current-user"
         let result = transition_to_claimed(task, "current-user");
-//
+
         // Then: assignee is set and state is InProgress
         assert_eq!(
             result.assignee.as_ref().map(|a| a.as_str()),
@@ -236,30 +233,30 @@ mod tests {
         );
         assert!(matches!(result.state, TaskState::InProgress));
     }
-//
+
     #[test]
     fn test_postcondition_q4_yield_clears_assignee_and_sets_open() {
         // Given: InProgress task with assignee
         let task = in_progress_task("task-001", "current-user");
-//
+
         // When: transition_to_yielded
         let result = transition_to_yielded(task);
-//
+
         // Then: assignee is None and state is Open
         assert!(result.assignee.is_none());
         assert!(matches!(result.state, TaskState::Open));
     }
-//
+
     #[test]
     fn test_postcondition_q6_done_sets_closed_with_timestamp() {
         // Given: InProgress task
         let task = in_progress_task("task-001", "current-user");
-//
+
         // When: transition_to_done
         let before = Utc::now();
         let result = transition_to_done(task);
         let after = Utc::now();
-//
+
         // Then: state is Closed with closed_at timestamp
         match result.state {
             TaskState::Closed { closed_at } => {
@@ -268,11 +265,9 @@ mod tests {
             _ => panic!("Expected Closed state"),
         }
     }
-//
-    // ========================================================================
+
     // Contract Verification Tests - Invariants
-    // ========================================================================
-//
+
     #[test]
     fn test_invariant_i1_valid_task_ids_are_accepted() {
         let valid_ids = vec!["task-001", "bead_123", "ABC-123_xyz", "a", "1-2_3"];
@@ -281,88 +276,85 @@ mod tests {
             assert!(result.is_ok(), "Expected {} to be valid", id);
         }
     }
-//
+
     #[test]
     fn test_invariant_i2_cannot_close_already_closed_task() {
         // Given: Closed task
         let task = closed_task("task-001", "current-user");
-//
+
         // When: validate_not_closed
         let result = validate_not_closed(&task);
-//
+
         // Then: Returns Err
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(
-// REDACTED DUE TO PRIVATE FIELD
-        );
+        assert!(matches!(
+            err,
+            Error::Task(te) if matches!(te.inner, TaskErrorKind::InvalidStateTransition(_, _))
+        ));
     }
-//
-    // ========================================================================
+
     // Happy Path Tests
-    // ========================================================================
-//
+
     #[test]
     fn test_task_claim_assigns_task_to_current_user_and_sets_in_progress() {
         // Given: Open task, unclaimed
         let task = open_task("bead-123");
-//
+
         // When: transition_to_claimed
         let result = transition_to_claimed(task, "current-user");
-//
+
         // Then: Task has assignee set to current user, state changed to InProgress
         assert_eq!(result.assignee.unwrap().as_str(), "current-user");
         assert!(matches!(result.state, TaskState::InProgress));
     }
-//
+
     #[test]
     fn test_task_yield_clears_assignee_and_sets_state_to_open() {
         // Given: Task claimed by current user
         let task = claimed_task("bead-123", "current-user");
-//
+
         // When: transition_to_yielded
         let result = transition_to_yielded(task);
-//
+
         // Then: Task has assignee cleared, state changed to Open
         assert!(result.assignee.is_none());
         assert!(matches!(result.state, TaskState::Open));
     }
-//
+
     #[test]
     fn test_task_start_transitions_to_in_progress_preserving_assignee() {
         // Given: Task claimed by current user, state Open
         let task = claimed_task("bead-123", "current-user");
-//
+
         // When: transition_to_started
         let result = transition_to_started(task);
-//
+
         // Then: Task state is InProgress, assignee remains unchanged
         assert!(matches!(result.state, TaskState::InProgress));
         assert_eq!(result.assignee.unwrap().as_str(), "current-user");
     }
-//
+
     #[test]
     fn test_task_done_closes_task_with_timestamp() {
         // Given: Task claimed by current user, state InProgress
         let task = in_progress_task("bead-123", "current-user");
-//
+
         // When: transition_to_done
         let result = transition_to_done(task);
-//
+
         // Then: Task state is Closed with closed_at set
         assert!(matches!(result.state, TaskState::Closed { .. }));
     }
-//
-    // ========================================================================
+
     // Error Path Tests
-    // ========================================================================
-//
+
     #[test]
     fn test_task_show_returns_error_for_invalid_task_id() {
         let result = TaskId::new("");
         assert!(result.is_err());
     }
-//
+
     #[test]
     fn test_task_show_returns_error_for_malformed_task_id() {
         let result = TaskId::new("bad id!");
@@ -370,86 +362,88 @@ mod tests {
         let err = result.unwrap_err();
         assert!(err.to_string().contains("alphanumeric"));
     }
-//
+
     #[test]
     fn test_task_show_returns_not_found_for_nonexistent_task() {
         let result = validate_task_exists(None, "nonexistent");
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), Error::TaskNotFound(_)));
+        assert!(
+            matches!(result.unwrap_err(), Error::Task(ref te) if matches!(te.inner, TaskErrorKind::NotFound(_)))
+        );
     }
-//
+
     #[test]
     fn test_task_claim_returns_error_when_task_already_claimed() {
         // Given: Repository with task claimed by "other-user"
         let task = claimed_task("bead-123", "other-user");
-//
+
         // When: validate_not_claimed_by_other with holder="current-user"
         let result = validate_not_claimed_by_other(&task, "current-user");
-//
+
         // Then: Returns Err(TaskAlreadyClaimed)
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            Error::TaskAlreadyClaimed(_, _)
+            Error::Task(ref te) if matches!(te.inner, TaskErrorKind::AlreadyClaimed(_, _))
         ));
     }
-//
+
     #[test]
     fn test_task_yield_returns_error_when_task_not_claimed() {
         // Given: Repository with task that has no assignee
         let task = open_task("bead-123");
-//
+
         // When: validate_claimed_by_user with holder="current-user"
         let result = validate_claimed_by_user(&task, "current-user");
-//
+
         // Then: Returns Err(TaskNotClaimed)
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(
-// REDACTED DUE TO PRIVATE FIELD
-        );
+        assert!(matches!(
+            err,
+            Error::Task(te) if matches!(te.inner, TaskErrorKind::NotClaimed(_))
+        ));
     }
-//
+
     #[test]
     fn test_task_start_returns_error_for_closed_task() {
         // Given: Repository with task in Closed state
         let task = closed_task("bead-123", "current-user");
-//
+
         // When: validate_not_closed
         let result = validate_not_closed(&task);
-//
+
         // Then: Returns Err(InvalidTaskStateTransition)
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(
-// REDACTED DUE TO PRIVATE FIELD
-        );
+        assert!(matches!(
+            err,
+            Error::Task(te) if matches!(te.inner, TaskErrorKind::InvalidStateTransition(_, _))
+        ));
     }
-//
+
     #[test]
     fn test_task_done_returns_error_for_already_closed_task() {
         // Given: Repository with task already in Closed state
         let task = closed_task("bead-123", "current-user");
-//
+
         // When: validate_not_closed
         let result = validate_not_closed(&task);
-//
+
         // Then: Returns Err(InvalidTaskStateTransition)
         assert!(result.is_err());
     }
-//
-    // ========================================================================
+
     // Edge Case Tests
-    // ========================================================================
-//
+
     #[test]
     fn test_task_claim_idempotent_when_already_claimed_by_same_user() {
         // Given: Repository with task already claimed by current user
         let task = claimed_task("bead-123", "current-user");
-//
+
         // When: transition_to_claimed is called again
         let result = transition_to_claimed(task, "current-user");
-//
+
         // Then: Returns success, state remains InProgress
         assert!(matches!(result.state, TaskState::InProgress));
         assert_eq!(result.assignee.unwrap().as_str(), "current-user");

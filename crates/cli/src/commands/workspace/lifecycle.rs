@@ -87,24 +87,28 @@ pub fn status() -> Result<(), Error> {
 
 /// Sync workspace with main
 pub fn sync(name: Option<&str>, all: bool) -> Result<(), Error> {
-    let cwd = std::env::current_dir()?;
+    let options = crate::commands::handlers::sync::SyncOptions {
+        allow_dirty: false,
+        target_branch: None,
+        lock_timeout_secs: 30,
+        retry_config: crate::commands::handlers::sync::RetryConfig {
+            max_attempts: 3,
+            initial_delay_ms: 100,
+        },
+    };
 
-    let backend = vcs::create_backend(&cwd)?;
-
-    if all {
-        // Sync all workspaces
-        let workspaces = backend.list_workspaces()?;
-        for ws in workspaces {
-            if !ws.is_current {
-                backend.switch_workspace(&ws.name)?;
-            }
-            backend.rebase("main")?;
-            Output::success(&format!("Synced {}", ws.name));
+    tokio::runtime::Handle::current().block_on(async {
+        if all {
+            crate::commands::handlers::sync::sync_all_sessions(options).await
+        } else if let Some(n) = name {
+            let session_name = scp_core::domain::SessionName::parse(n).map_err(|e| {
+                crate::commands::handlers::sync::SyncError::InvalidIdentifier(e.to_string())
+            })?;
+            crate::commands::handlers::sync::sync_named_session(session_name, options).await
+        } else {
+            crate::commands::handlers::sync::sync_current_workspace(options).await
         }
-    } else {
-        backend.rebase("main")?;
-        Output::success("Synced with main");
-    }
+    })?;
 
     Ok(())
 }

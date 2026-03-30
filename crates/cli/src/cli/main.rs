@@ -16,6 +16,12 @@ pub fn main() -> ExitCode {
     // Set up verbosity for output module
     Output::set_verbose(cli.verbose, cli.quiet);
 
+    // Set database path if provided via flag
+    if let Some(db_path) = &cli.database {
+        std::env::set_var("SCP_DATABASE_PATH", db_path);
+    }
+
+
     // Initialize logging with appropriate level
     let log_level = if cli.quiet {
         "error".to_string()
