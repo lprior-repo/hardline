@@ -1,4 +1,5 @@
 //! Concurrent locking tests (isolate-ggji: Lock Race Condition).
+use crate::coordination::locks::errors::LockErrorKind;
 use crate::coordination::locks::{LockManager, LockResponse};
 
 use sqlx::sqlite::SqlitePoolOptions;
@@ -69,7 +70,7 @@ async fn regression_concurrent_lock_mutual_exclusion() -> Result<(), Error> {
 
     let failed_locks = results
         .iter()
-        .filter(|r| matches!(r, Err(Error::Session(_))))
+        .filter(|r| matches!(r, Err(Error::Lock(lk)) if matches!(lk.kind(), LockErrorKind::SessionLocked { .. })))
         .count();
 
     assert_eq!(

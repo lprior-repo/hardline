@@ -71,3 +71,46 @@ impl FromStr for ConflictMode {
         }
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RECOVERY POLICY ENUM
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Recovery policy for database integrity and session cleanup.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RecoveryPolicy {
+    /// Stop immediately on any corruption
+    FailFast,
+    /// Log warning and attempt to continue
+    #[default]
+    Warn,
+    /// Silently attempt recovery
+    Silent,
+}
+
+impl std::fmt::Display for RecoveryPolicy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::FailFast => write!(f, "failfast"),
+            Self::Warn => write!(f, "warn"),
+            Self::Silent => write!(f, "silent"),
+        }
+    }
+}
+
+impl FromStr for RecoveryPolicy {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "failfast" => Ok(Self::FailFast),
+            "warn" => Ok(Self::Warn),
+            "silent" => Ok(Self::Silent),
+            _ => Err(ConfigErrorKind::Invalid(format!(
+                "Invalid recovery policy: {s}. Must be one of: failfast, warn, silent"
+            ))
+            .into()),
+        }
+    }
+}

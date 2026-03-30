@@ -1,5 +1,6 @@
 //! Session validation tests (isolate-1w0d: Lock Non-Existent Session).
-use crate::coordination::locks::{LockManager};
+use crate::coordination::locks::errors::LockErrorKind;
+use crate::coordination::locks::LockManager;
 
 use sqlx::sqlite::SqlitePoolOptions;
 
@@ -37,11 +38,11 @@ async fn lock_nonexistent_session_returns_not_found_error() -> Result<(), Error>
     assert!(result.is_err(), "Should fail for non-existent session");
 
     match &result {
-        Err(Error::Session(_)) => {
+        Err(Error::Lock(lk)) if matches!(lk.kind(), LockErrorKind::SessionNotFound { .. }) => {
             let msg = result.as_ref().unwrap_err().to_string();
             assert!(msg.contains("ghost-session"), "Expected SessionNotFound with 'ghost-session', got: {msg}");
         }
-        other => panic!("Expected SessionNotFound, got: {other:?}"),
+        other => panic!("Expected LockError(SessionNotFound), got: {other:?}"),
     }
 
     let locks = mgr.get_all_locks().await?;
@@ -134,7 +135,7 @@ async fn lock_deleted_session_fails_with_not_found() -> Result<(), Error> {
     let result = mgr.lock("ephemeral-session", "agent-1").await;
 
     assert!(result.is_err());
-    assert!(matches!(result, Err(Error::Session(_))));
+    assert!(matches!(result, Err(Error::Lock(lk)) if matches!(lk.kind(), LockErrorKind::SessionNotFound { .. })));
 
     Ok(())
 }

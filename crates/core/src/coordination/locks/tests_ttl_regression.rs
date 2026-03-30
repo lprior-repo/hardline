@@ -1,4 +1,5 @@
 //! TTL-related regression tests.
+use crate::coordination::locks::errors::LockErrorKind;
 use crate::coordination::locks::{LockManager, LockResponse};
 
 use sqlx::sqlite::SqlitePoolOptions;
@@ -65,11 +66,11 @@ async fn regression_lock_with_ttl_maps_contention_race_to_session_locked() -> Re
         .count();
     let session_locked_errors = results
         .iter()
-        .filter(|r| matches!(r, Err(Error::Session(_))))
+        .filter(|r| matches!(r, Err(Error::Lock(lk)) if matches!(lk.kind(), LockErrorKind::SessionLocked { .. })))
         .count();
     let database_errors = results
         .iter()
-        .filter(|r| matches!(r, Err(Error::Io(_))))
+        .filter(|r| matches!(r, Err(Error::Lock(lk)) if matches!(lk.kind(), LockErrorKind::DatabaseError(_))))
         .count();
 
     assert_eq!(successful_locks, 1, "expected exactly 1 successful lock");

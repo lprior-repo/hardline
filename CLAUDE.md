@@ -14,9 +14,7 @@ This repository relies on strict agent workflows. For the comprehensive set of r
 
 ## Development Protocols
 
-- **Sub-Agent Workflow**: Use the `go-skill` (GoMasterOrchestrator) for writing new code.
-- **Code Reviews**: ALL code must be reviewed by the `qa-enforcer` agent and the `black-hat-reviewer` agent.
-- **Test Reviews**: Tests must ALWAYS be reviewed by the `test-reviewer` agent to enforce Beck, North, Farley, and Testing Trophy patterns.
+- **MANDATORY: GoMasterOrchestrator Pipeline**: ALL development work (new features, bug fixes, refactors) MUST use the `go-skill` (GoMasterOrchestrator). This is non-negotiable. The pipeline is: `bd ready` → claim bead → `go-skill` → implement → review → land. Do NOT write implementation code outside this pipeline.
 - **Functional Rust**: ALWAYS invoke the `functional-rust` skill for Rust implementation. We strictly follow zero-panic architectural purity (`Data->Calc->Actions`) in the `src/` directory (tests are exempt).
 - **Manual Verification**: After implementation, you must manually test via CLI and verify actual behavior. Do not mock reality.
 

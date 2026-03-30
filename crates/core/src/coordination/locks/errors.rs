@@ -81,6 +81,12 @@ impl From<LockErrorKind> for crate::error::Error {
 }
 
 impl LockError {
+    /// Returns a reference to the underlying error kind.
+    #[must_use]
+    pub const fn kind(&self) -> &LockErrorKind {
+        &self.0
+    }
+
     /// Returns the error code for telemetry.
     #[must_use]
     pub fn code(&self) -> &'static str {
