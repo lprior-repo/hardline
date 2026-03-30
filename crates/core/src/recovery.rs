@@ -14,6 +14,7 @@ use sqlx::Row;
 use tokio::io::AsyncReadExt;
 
 use crate::error::{Error, Result};
+use crate::config::types::ValidatedBool;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecoveryPolicy {
@@ -31,18 +32,18 @@ impl Default for RecoveryPolicy {
 #[derive(Debug, Clone)]
 pub struct RecoveryConfig {
     pub policy: RecoveryPolicy,
-    pub log_recovered: bool,
-    pub auto_recover_corrupted_wal: bool,
-    pub delete_corrupted_database: bool,
+    pub log_recovered: ValidatedBool,
+    pub auto_recover_corrupted_wal: ValidatedBool,
+    pub delete_corrupted_database: ValidatedBool,
 }
 
 impl Default for RecoveryConfig {
     fn default() -> Self {
         Self {
             policy: RecoveryPolicy::default(),
-            log_recovered: true,
-            auto_recover_corrupted_wal: true,
-            delete_corrupted_database: false,
+            log_recovered: ValidatedBool::new(true),
+            auto_recover_corrupted_wal: ValidatedBool::new(true),
+            delete_corrupted_database: ValidatedBool::new(false),
         }
     }
 }
@@ -94,7 +95,7 @@ pub async fn log_recovery(message: &str, config: &RecoveryConfig) -> Result<()> 
 
 #[must_use]
 pub fn should_log_recovery(config: &RecoveryConfig) -> bool {
-    config.log_recovered
+    *config.log_recovered
 }
 
 pub async fn validate_database(db_path: &Path, config: &RecoveryConfig) -> Result<()> {
@@ -381,15 +382,15 @@ mod tests {
     fn test_should_log_recovery() {
         let config_true = RecoveryConfig {
             policy: RecoveryPolicy::Warn,
-            log_recovered: true,
-            auto_recover_corrupted_wal: true,
-            delete_corrupted_database: false,
+            log_recovered: ValidatedBool::new(true),
+            auto_recover_corrupted_wal: ValidatedBool::new(true),
+            delete_corrupted_database: ValidatedBool::new(false),
         };
         let config_false = RecoveryConfig {
             policy: RecoveryPolicy::Warn,
-            log_recovered: false,
-            auto_recover_corrupted_wal: true,
-            delete_corrupted_database: false,
+            log_recovered: ValidatedBool::new(false),
+            auto_recover_corrupted_wal: ValidatedBool::new(true),
+            delete_corrupted_database: ValidatedBool::new(false),
         };
         assert!(should_log_recovery(&config_true));
         assert!(!should_log_recovery(&config_false));

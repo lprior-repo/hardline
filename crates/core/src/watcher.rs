@@ -16,7 +16,7 @@
 //!
 //! # async fn example() -> scp_core::Result<()> {
 //! let config = WatchConfig {
-//!     enabled: true,
+//!     enabled: crate::config::types::ValidatedBool::new(true),
 //!     debounce_ms: 100,
 //!     paths: vec![".beads/beads.db".to_string()],
 //! };
@@ -226,7 +226,7 @@ mod tests {
     #[test]
     fn test_watcher_disabled() {
         let config = WatchConfig {
-            enabled: false,
+            enabled: crate::config::types::ValidatedBool::new(false),
             debounce_ms: 100,
             paths: vec![".beads/beads.db".to_string()],
         };
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn test_watcher_invalid_debounce_too_low() {
         let config = WatchConfig {
-            enabled: true,
+            enabled: crate::config::types::ValidatedBool::new(true),
             debounce_ms: 5,
             paths: vec![".beads/beads.db".to_string()],
         };
@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn test_watcher_invalid_debounce_too_high() {
         let config = WatchConfig {
-            enabled: true,
+            enabled: crate::config::types::ValidatedBool::new(true),
             debounce_ms: 10000,
             paths: vec![".beads/beads.db".to_string()],
         };
