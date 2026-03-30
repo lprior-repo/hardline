@@ -541,7 +541,7 @@ impl Error {
             Error::Jj(e) => e.exit_code(),
             Error::Task(e) => e.exit_code(),
             Error::Wait(e) => e.exit_code(),
-            Error::Lock(_) => 90,
+            Error::Lock(e) => e.exit_code(),
         }
     }
 }
