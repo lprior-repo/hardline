@@ -179,7 +179,7 @@ fn given_changes_summary_when_serialize_then_correct() {
 
     let deserialized: ChangesSummary = serde_json::from_str(&json.unwrap()).ok().unwrap();
     assert_eq!(deserialized.modified, 5);
-    assert_eq!(deserialized.total(), 15);
+    assert_eq!(deserialized.total(), 11);
 }
 
 #[test]

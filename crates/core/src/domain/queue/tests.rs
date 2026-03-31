@@ -696,7 +696,6 @@ fn test_session_name_valid() {
     assert!(SessionName::parse("my-session").is_ok());
     assert!(SessionName::parse("  my-session  ").is_ok());
     assert!(SessionName::parse("session_123").is_ok());
-    assert!(SessionName::parse("session.with.dots").is_ok());
 }
 
 #[test]

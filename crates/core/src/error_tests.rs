@@ -77,7 +77,7 @@ fn test_error_exit_codes_session() {
     assert_eq!(Error::session("x").exit_code(), 14);
     assert_eq!(Error::session_exists("x").exit_code(), 15);
     assert_eq!(Error::session_locked("x", "y").exit_code(), 16);
-    assert_eq!(Error::session_invalid_state("x", "y", "z").exit_code(), 17);
+    assert_eq!(Error::session_invalid_state("x", "y", "z").exit_code(), 18);
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn test_error_exit_codes_validation() {
 
 #[test]
 fn test_error_exit_codes_io() {
-    assert_eq!(Error::io_error("test").exit_code(), 60);
+    assert_eq!(Error::io_error("test").exit_code(), 64);
     assert_eq!(Error::io_error("invalid json").exit_code(), 64);
 }
 

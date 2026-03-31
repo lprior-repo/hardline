@@ -71,6 +71,7 @@ pub(crate) fn release_with_path(session: &str, agent: &str, db_path: &str) -> Re
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
         let mgr = LockManager::new(db_service.pool().clone());
+        mgr.init().await?;
 
         mgr.unlock(session, agent).await?;
         println!("Lock released: {}", session);
@@ -89,6 +90,7 @@ pub(crate) fn heartbeat_with_path(session: &str, agent: &str, db_path: &str) -> 
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
         let mgr = LockManager::new(db_service.pool().clone());
+        mgr.init().await?;
 
         let res = mgr.heartbeat(session, agent).await?;
         println!(
@@ -110,6 +112,7 @@ pub(crate) fn status_with_path(session: &str, db_path: &str) -> Result<()> {
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
         let mgr = LockManager::new(db_service.pool().clone());
+        mgr.init().await?;
 
         let res = mgr.get_lock_state(session).await?;
         match (res.holder, res.expires_at) {
@@ -142,6 +145,7 @@ pub(crate) fn list_with_path(db_path: &str) -> Result<()> {
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
         let mgr = LockManager::new(db_service.pool().clone());
+        mgr.init().await?;
 
         let locks = mgr.get_all_locks().await?;
         if locks.is_empty() {

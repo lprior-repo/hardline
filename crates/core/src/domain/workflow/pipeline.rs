@@ -129,12 +129,13 @@ impl Pipeline {
         &self,
         new_state: &PipelineState,
     ) -> Result<(), PipelineTransitionError> {
+        if self.state.is_terminal() {
+            return Err(PipelineTransitionError::AlreadyTerminal {
+                current: self.state,
+            });
+        }
         if self.is_transition_valid(new_state) {
             Ok(())
-        } else if self.state.is_terminal() {
-            Err(PipelineTransitionError::AlreadyTerminal {
-                current: self.state,
-            })
         } else {
             Err(PipelineTransitionError::InvalidTransition {
                 from: self.state,

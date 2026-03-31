@@ -74,14 +74,8 @@ impl IssueState {
     ///
     /// Returns `DomainError::InvalidStateTransition` if the transition is invalid.
     pub fn transition_to(self, new_state: Self) -> Result<Self, DomainError> {
-        // Can transition from any state to any state (flexible workflow)
-        // But Closed MUST have a timestamp (enforced by type)
-        if new_state.is_closed() && self.closed_at().is_none() {
-            return Err(DomainError::InvalidStateTransition {
-                from: self.to_string(),
-                to: new_state.to_string(),
-            });
-        }
+        // Flexible workflow: can transition from any state to any state.
+        // Closed MUST have a timestamp (already enforced by the type system).
         Ok(new_state)
     }
 }

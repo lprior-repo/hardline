@@ -59,9 +59,11 @@ pub async fn check_database_integrity(path: &Path) -> Result<bool> {
         .await
         .map_err(|e| Error::io_error(e.to_string()))?;
     let mut header = [0u8; 16];
-    f.read_exact(&mut header)
-        .await
-        .map_err(|e| Error::io_error(e.to_string()))?;
+    if f.read_exact(&mut header).await.is_err() {
+        // File too small to be a valid SQLite database
+        let _ = file.unlock();
+        return Ok(false);
+    }
 
     file.unlock().map_err(|e| Error::io_error(e.to_string()))?;
 
