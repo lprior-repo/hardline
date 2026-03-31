@@ -23,5 +23,5 @@ pub use config_core::{
     global_config, keys,
 };
 pub use types::ConflictMode;
-pub use config::ConflictResolutionConfig;
-pub use partial::PartialConflictResolutionConfig;
+pub use config::{ConflictResolutionConfig, SessionConfig};
+pub use partial::{PartialConflictResolutionConfig, PartialSessionConfig};

@@ -4,14 +4,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::Result;
 
-use super::types::ConflictMode;
+use super::types::{ConflictMode, ValidatedBool};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ConflictResolutionConfig {
     pub mode: ConflictMode,
     pub autonomy: u8,
     pub security_keywords: Vec<String>,
-    pub log_resolutions: bool,
+    pub log_resolutions: ValidatedBool,
 }
 
 impl ConflictResolutionConfig {
@@ -66,7 +66,24 @@ impl Default for ConflictResolutionConfig {
                 "key".to_string(),
                 "credential".to_string(),
             ],
-            log_resolutions: true,
+            log_resolutions: ValidatedBool::new(true),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SessionConfig {
+    pub auto_commit: ValidatedBool,
+    pub commit_prefix: String,
+    pub max_sessions: usize,
+}
+
+impl Default for SessionConfig {
+    fn default() -> Self {
+        Self {
+            auto_commit: ValidatedBool::new(false),
+            commit_prefix: "feat".to_string(),
+            max_sessions: 10,
         }
     }
 }

@@ -144,7 +144,7 @@ impl LockManager {
     ///
     /// This is called before acquiring a lock to prevent orphaned locks.
     /// Returns Ok(()) if the sessions table doesn't exist (graceful degradation).
-    pub async fn verify_session_exists(&self, session: &str) -> crate::Result<()> {
+        pub async fn verify_session_exists(&self, session: &str) -> crate::Result<()> {
         let query_result = sqlx::query("SELECT name FROM sessions WHERE name = ?")
             .bind(session)
             .fetch_optional(&self.db)
@@ -156,12 +156,12 @@ impl LockManager {
                 })),
             Ok(Some(_)) => Ok(()),
             Err(e) => {
-                let error_msg = e.to_string();
-                if error_msg.contains("no such table") || error_msg.contains("does not exist") {
-                    Ok(())
-                } else {
-                    Err(crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(format!("Failed to query sessions: {e}"))))
+                // If sessions table doesn't exist, allow locks (graceful degradation)
+                let msg = e.to_string();
+                if msg.contains("no such table") {
+                    return Ok(());
                 }
+                Err(crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(format!("Failed to query sessions: {e}"))))
             }
         }
     }

@@ -38,7 +38,7 @@ impl LockManager {
                 sqlx::query("INSERT INTO session_lock_audit (session, agent_id, operation, timestamp) VALUES (?, ?, ?, ?)")
                     .bind(session).bind(agent_id).bind(LockOperation::Unlock.as_str()).bind(&now_str)
                     .execute(&mut *tx).await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
-
+                
                 tx.commit().await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
                 Ok(())
             }
@@ -50,7 +50,7 @@ impl LockManager {
                 sqlx::query("INSERT INTO session_lock_audit (session, agent_id, operation, timestamp) VALUES (?, ?, ?, ?)")
                     .bind(session).bind(agent_id).bind(LockOperation::DoubleUnlockWarning.as_str()).bind(&now_str)
                     .execute(&mut *tx).await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
-
+                
                 tx.commit().await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
                 Ok(())
             }
@@ -65,7 +65,7 @@ impl LockManager {
         let now_str = now.to_rfc3339();
         let new_expires = now + self.ttl;
         let new_expires_str = new_expires.to_rfc3339();
-
+        
         let mut tx = self.db.begin().await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
 
         let existing: Option<(String, String)> = sqlx::query_as(

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*", "crates/orchestrator", "crates/stack", "fuzz"]
+members = ["tests", "crates/*", "crates/orchestrator", "crates/stack", "fuzz"]
 exclude = ["crates/scenarios"]
 resolver = "2"
 
@@ -12,6 +12,7 @@ libraries = [
 ]
 
 [workspace.dependencies]
+cucumber = { version = "0.21", features = ["macros"] }
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 async-trait = "0.1"

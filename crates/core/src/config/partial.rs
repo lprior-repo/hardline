@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::types::ConflictMode;
+use super::types::{ConflictMode, ValidatedBool};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PARTIAL CONFIG STRUCTURES (explicit-key merge semantics)
@@ -18,7 +18,7 @@ pub struct PartialConflictResolutionConfig {
     #[serde(default)]
     pub security_keywords: Option<Vec<String>>,
     #[serde(default)]
-    pub log_resolutions: Option<bool>,
+    pub log_resolutions: Option<ValidatedBool>,
 }
 
 use crate::Result;
@@ -66,6 +66,31 @@ impl super::config::ConflictResolutionConfig {
         }
         if let Some(log_resolutions) = partial.log_resolutions {
             self.log_resolutions = log_resolutions;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialSessionConfig {
+    #[serde(default)]
+    pub auto_commit: Option<ValidatedBool>,
+    #[serde(default)]
+    pub commit_prefix: Option<String>,
+    #[serde(default)]
+    pub max_sessions: Option<usize>,
+}
+
+impl super::config::SessionConfig {
+    pub fn merge_partial(&mut self, partial: PartialSessionConfig) -> Result<()> {
+        if let Some(auto_commit) = partial.auto_commit {
+            self.auto_commit = auto_commit;
+        }
+        if let Some(commit_prefix) = partial.commit_prefix {
+            self.commit_prefix = commit_prefix;
+        }
+        if let Some(max_sessions) = partial.max_sessions {
+            self.max_sessions = max_sessions;
         }
         Ok(())
     }

@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use super::types::ValidatedBool;
 use crate::error::Result;
 use crate::error_config::ConfigErrorKind;
 
@@ -97,6 +98,8 @@ pub struct ConfigSource {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
     pub values: HashMap<String, String>,
+    pub conflict: super::config::ConflictResolutionConfig,
+    pub session: super::config::SessionConfig,
     #[serde(skip)]
     sources: Vec<ConfigSource>,
 }
@@ -105,6 +108,8 @@ impl Config {
     pub fn new() -> Self {
         Self {
             values: HashMap::new(),
+            conflict: super::config::ConflictResolutionConfig::default(),
+            session: super::config::SessionConfig::default(),
             sources: Vec::new(),
         }
     }
@@ -397,7 +402,7 @@ pub fn config_dir() -> Result<PathBuf> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WatchConfig {
     /// Whether file watching is enabled
-    pub enabled: bool,
+    pub enabled: ValidatedBool,
     /// Debounce duration in milliseconds (10-5000)
     pub debounce_ms: u32,
     /// Paths to watch (relative to workspace)

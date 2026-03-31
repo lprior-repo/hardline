@@ -4,7 +4,7 @@
 
 use async_trait::async_trait;
 use sqlx::{
-    sqlite::{SqlitePoolOptions, SqliteRow},
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteRow},
     Column, Row, SqlitePool, TypeInfo,
 };
 use std::path::Path;
@@ -78,9 +78,14 @@ pub struct SqliteDatabaseService {
 impl SqliteDatabaseService {
     /// Create a new SQLite database service from configuration
     pub async fn new(config: DatabaseConfig) -> Result<Self> {
+        use std::str::FromStr;
+        let options = SqliteConnectOptions::from_str(&config.connection_url())
+            .map_err(|e| Error::database(e.to_string()))?
+            .busy_timeout(std::time::Duration::from_millis(5000));
+
         let pool = SqlitePoolOptions::new()
             .max_connections(config.max_connections.value())
-            .connect(&config.connection_url())
+            .connect_with(options)
             .await
             .map_err(|e| Error::database(e.to_string()))?;
 

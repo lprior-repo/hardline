@@ -126,8 +126,7 @@ pub use output_format::OutputFormat;
 pub use queue::{
     MemQueue, Priority, ProcessResult, QueueItem, QueueManager, QueueSource, QueueStatus,
 };
-pub use recovery::RecoveryConfig;
-pub use config::types::RecoveryPolicy;
+pub use recovery::{RecoveryConfig, RecoveryPolicy};
 pub use session_state::{SessionState, SessionStateManager, StateTransition};
 pub use shutdown::{signal_channels, ShutdownCoordinator, ShutdownSignal};
 pub use taskregistry::TaskRegistry;

@@ -12,8 +12,39 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncReadExt;
 
-use crate::config::types::{RecoveryPolicy, ValidatedBool};
+use crate::config::types::ValidatedBool;
 use crate::error::{Error, Result};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum RecoveryPolicy {
+    #[default]
+    Warn,
+    Repair,
+    Panic,
+}
+
+impl std::fmt::Display for RecoveryPolicy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Warn => write!(f, "warn"),
+            Self::Repair => write!(f, "repair"),
+            Self::Panic => write!(f, "panic"),
+        }
+    }
+}
+
+impl std::str::FromStr for RecoveryPolicy {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "warn" => Ok(Self::Warn),
+            "repair" => Ok(Self::Repair),
+            "panic" => Ok(Self::Panic),
+            _ => Err(Error::config_invalid(format!("Invalid recovery policy: {s}"))),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RecoveryConfig {
@@ -99,10 +130,19 @@ mod tests {
 
     #[test]
     fn test_should_log_recovery() {
-        let mut config = RecoveryConfig::default();
-        assert!(should_log_recovery(&config));
-
-        config.log_recovered = ValidatedBool::new(false);
-        assert!(!should_log_recovery(&config));
+        let config_true = RecoveryConfig {
+            policy: RecoveryPolicy::Warn,
+            log_recovered: ValidatedBool::new(true),
+            auto_recover_corrupted_wal: ValidatedBool::new(true),
+            delete_corrupted_database: ValidatedBool::new(false),
+        };
+        let config_false = RecoveryConfig {
+            policy: RecoveryPolicy::Warn,
+            log_recovered: ValidatedBool::new(false),
+            auto_recover_corrupted_wal: ValidatedBool::new(true),
+            delete_corrupted_database: ValidatedBool::new(false),
+        };
+        assert!(should_log_recovery(&config_true));
+        assert!(!should_log_recovery(&config_false));
     }
 }

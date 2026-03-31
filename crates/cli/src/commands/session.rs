@@ -81,6 +81,8 @@ pub fn focus(name: &str) -> Result<()> {
 
 /// Submit session changes for review
 pub fn submit(name: Option<&str>, auto_commit: bool, message: Option<&str>) -> Result<()> {
+    let config = scp_core::config::global_config().load()?;
+    let auto_commit = auto_commit || *config.session.auto_commit;
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
 
