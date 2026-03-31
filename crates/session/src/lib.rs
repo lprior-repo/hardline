@@ -30,5 +30,6 @@ pub use error::{Result, SessionError, TaskIdError};
 
 // Re-export migration types
 pub use infrastructure::migration::{
-    get_migration_version, migrate_sessions_table, sessions_table_exists, MigrationError,
+    get_migration_version, migrate_sessions_table, migrate_v2_add_branch_and_last_synced,
+    rollback_v2_branch_and_last_synced, run_all_migrations, sessions_table_exists, MigrationError,
 };

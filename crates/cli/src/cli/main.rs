@@ -184,24 +184,45 @@ pub fn run_command(cli: Cli) -> Result<()> {
             }
         },
 
-        Commands::Task { command } => match command {
-            crate::cli::task_args::TaskCommands::List {} => commands::task::list(),
-            crate::cli::task_args::TaskCommands::Show { task_id, user } => {
-                commands::task::show(&task_id, &user)
-            }
-            crate::cli::task_args::TaskCommands::Claim { task_id, user } => {
-                commands::task::claim(&task_id, &user)
-            }
-            crate::cli::task_args::TaskCommands::Yield { task_id, user } => {
-                commands::task::yield_task(&task_id, &user)
-            }
-            crate::cli::task_args::TaskCommands::Start { task_id, user } => {
-                commands::task::start(&task_id, &user)
-            }
-            crate::cli::task_args::TaskCommands::Done { task_id, user } => {
-                commands::task::done(&task_id, &user)
-            }
-        },
+        Commands::Task { command } => {
+            use commands::handlers::task::{parse_task_id, AgentId, TaskCommand, run_task_command};
+            let cmd = match command {
+                crate::cli::task_args::TaskCommands::List {} => TaskCommand::List {
+                    status_filter: None,
+                    include_all: false,
+                },
+                crate::cli::task_args::TaskCommands::Show { task_id, .. } => {
+                    TaskCommand::Show {
+                        task_id: parse_task_id(&task_id)?,
+                    }
+                }
+                crate::cli::task_args::TaskCommands::Claim { task_id, user } => {
+                    TaskCommand::Claim {
+                        task_id: parse_task_id(&task_id)?,
+                        agent_id: AgentId::new(&user)?,
+                    }
+                }
+                crate::cli::task_args::TaskCommands::Yield { task_id, user } => {
+                    TaskCommand::YieldTask {
+                        task_id: parse_task_id(&task_id)?,
+                        agent_id: AgentId::new(&user)?,
+                    }
+                }
+                crate::cli::task_args::TaskCommands::Start { task_id, user } => {
+                    TaskCommand::Start {
+                        task_id: parse_task_id(&task_id)?,
+                        agent_id: AgentId::new(&user)?,
+                    }
+                }
+                crate::cli::task_args::TaskCommands::Done { task_id, user } => {
+                    TaskCommand::Done {
+                        task_id: Some(parse_task_id(&task_id)?),
+                        agent_id: AgentId::new(&user)?,
+                    }
+                }
+            };
+            run_task_command(&cmd)
+        }
 
         Commands::Config { command } => match command {
             crate::cli::config_args::ConfigCommands::Get { key } => commands::config::get(&key),

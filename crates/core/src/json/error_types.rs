@@ -2,7 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::error_code::ErrorCode;
 use super::error_mapping::{classify_exit_code, map_error_to_parts};
 
 /// Standard JSON success response wrapper

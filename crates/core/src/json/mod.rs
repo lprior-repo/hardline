@@ -26,5 +26,4 @@ pub use error_types::{ErrorDetail, JsonError, JsonSuccess};
 pub use hateoas::{HateoasLink, RelatedResources};
 pub use helpers::error_with_available_sessions;
 pub use meta::ResponseMeta;
-pub use schemas;
 pub use serializable::JsonSerializable;

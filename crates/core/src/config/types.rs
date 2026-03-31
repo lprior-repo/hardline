@@ -114,3 +114,42 @@ impl FromStr for RecoveryPolicy {
         }
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VALIDATED BOOL
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A validated boolean newtype that prevents accidental misuse of raw bools.
+///
+/// Use this for configuration flags where the intent must be explicit.
+/// Construct via `ValidatedBool::new(true)` or `ValidatedBool::new(false)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidatedBool(bool);
+
+impl ValidatedBool {
+    /// Create a new validated boolean.
+    #[must_use]
+    pub const fn new(value: bool) -> Self {
+        Self(value)
+    }
+}
+
+impl std::ops::Deref for ValidatedBool {
+    type Target = bool;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<ValidatedBool> for bool {
+    fn from(vb: ValidatedBool) -> Self {
+        vb.0
+    }
+}
+
+impl std::fmt::Display for ValidatedBool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}

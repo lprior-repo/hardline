@@ -17,6 +17,7 @@ pub struct SessionRow {
     pub branch_state: String,
     pub branch_name: Option<String>,
     pub session_state: String,
+    pub last_synced: Option<String>,
     pub created_at: String,
 }
 
@@ -44,6 +45,15 @@ impl TryFrom<SessionRow> for Session<Created> {
             }
         };
         let _state = parse_session_state(&row.session_state)?;
+        let last_synced = row
+            .last_synced
+            .as_deref()
+            .map(|s| {
+                DateTime::parse_from_rfc3339(s)
+                    .map_err(|e| SerializationError(format!("Invalid last_synced timestamp: {}", e)))
+                    .map(|dt| dt.with_timezone(&Utc))
+            })
+            .transpose()?;
         let created_at = DateTime::parse_from_rfc3339(&row.created_at)
             .map_err(|e| SerializationError(format!("Invalid created_at timestamp: {}", e)))?
             .with_timezone(&Utc);
@@ -54,6 +64,7 @@ impl TryFrom<SessionRow> for Session<Created> {
             workspace,
             bead,
             branch,
+            last_synced,
             created_at,
         ))
     }
@@ -73,6 +84,7 @@ impl From<&Session> for SessionRow {
             branch_state,
             branch_name,
             session_state: format!("{:?}", session.state()),
+            last_synced: session.last_synced.map(|dt| dt.to_rfc3339()),
             created_at: session.created_at.to_rfc3339(),
         }
     }
@@ -112,6 +124,7 @@ impl SqliteSessionRepository {
                     branch_state TEXT NOT NULL,
                     branch_name TEXT,
                     session_state TEXT NOT NULL,
+                    last_synced TEXT,
                     created_at TEXT NOT NULL
                 )
                 "#,
@@ -139,10 +152,11 @@ impl SessionRepository for SqliteSessionRepository {
         let workspace = row.workspace.as_deref().map(escape_sql_string);
         let bead = row.bead.as_deref().map(escape_sql_string);
         let branch_name = row.branch_name.as_deref().map(escape_sql_string);
+        let last_synced = row.last_synced.as_deref().map(escape_sql_string);
 
         let query = format!(
-            r#"INSERT INTO sessions (id, name, workspace, bead, branch_state, branch_name, session_state, created_at)
-VALUES ('{}', '{}', {}, {}, '{}', {}, '{}', '{}')
+            r#"INSERT INTO sessions (id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at)
+VALUES ('{}', '{}', {}, {}, '{}', {}, '{}', {}, '{}')
 ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     workspace = excluded.workspace,
@@ -150,6 +164,7 @@ ON CONFLICT(id) DO UPDATE SET
     branch_state = excluded.branch_state,
     branch_name = excluded.branch_name,
     session_state = excluded.session_state,
+    last_synced = excluded.last_synced,
     created_at = excluded.created_at"#,
             escape_sql_string(&row.id),
             escape_sql_string(&row.name),
@@ -158,6 +173,7 @@ ON CONFLICT(id) DO UPDATE SET
             escape_sql_string(&row.branch_state),
             branch_name.map(|b| format!("'{}'", b)).unwrap_or_else(|| "NULL".to_string()),
             escape_sql_string(&row.session_state),
+            last_synced.map(|s| format!("'{}'", s)).unwrap_or_else(|| "NULL".to_string()),
             escape_sql_string(&row.created_at),
         );
 
@@ -178,7 +194,7 @@ ON CONFLICT(id) DO UPDATE SET
         let results = self
             .db
             .query(&format!(
-                "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, created_at 
+                "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at
                  FROM sessions WHERE id = '{}'",
                 escaped_id
             ))
@@ -199,7 +215,7 @@ ON CONFLICT(id) DO UPDATE SET
         let results = self
             .db
             .query(&format!(
-                "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, created_at 
+                "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at
                  FROM sessions WHERE name = '{}'",
                 escaped_name
             ))
@@ -219,7 +235,7 @@ ON CONFLICT(id) DO UPDATE SET
         let results = self
             .db
             .query(
-                "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, created_at 
+                "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at
                  FROM sessions ORDER BY created_at DESC",
             )
             .await
@@ -261,9 +277,9 @@ ON CONFLICT(id) DO UPDATE SET
 
 impl SqliteSessionRepository {
     fn row_to_session_row(&self, result: Vec<Vec<String>>) -> Result<SessionRow> {
-        if result.len() != 1 || result[0].len() != 8 {
+        if result.len() != 1 || result[0].len() != 9 {
             return Err(RepositoryError(format!(
-                "Expected single row with 8 columns, got {} rows with {} columns",
+                "Expected single row with 9 columns, got {} rows with {} columns",
                 result.len(),
                 if result.is_empty() { 0 } else { result[0].len() }
             )));
@@ -278,7 +294,8 @@ impl SqliteSessionRepository {
             branch_state: cols[4].clone(),
             branch_name: cols[5].is_empty().then_some(cols[5].clone()).filter(|s| !s.is_empty()),
             session_state: cols[6].clone(),
-            created_at: cols[7].clone(),
+            last_synced: cols[7].is_empty().then_some(cols[7].clone()).filter(|s| !s.is_empty()),
+            created_at: cols[8].clone(),
         })
     }
 }

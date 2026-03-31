@@ -55,6 +55,13 @@ pub const QUERY_CAN_SPAWN: &str = "query-can-spawn";
 pub const QUERY_PENDING_MERGES: &str = "query-pending-merges";
 pub const QUERY_LOCATION: &str = "query-location";
 
+// AI command schemas
+pub const AI_STATUS_RESPONSE: &str = "ai-status-response";
+pub const AI_WORKFLOW_RESPONSE: &str = "ai-workflow-response";
+pub const AI_QUICKSTART_RESPONSE: &str = "ai-quickstart-response";
+pub const AI_NEXT_RESPONSE: &str = "ai-next-response";
+pub const AI_OVERVIEW_RESPONSE: &str = "ai-overview-response";
+
 // Error schema
 pub const ERROR_RESPONSE: &str = "error-response";
 
@@ -108,6 +115,11 @@ pub fn all_valid_schemas() -> Vec<&'static str> {
         QUERY_CAN_SPAWN,
         QUERY_PENDING_MERGES,
         QUERY_LOCATION,
+        AI_STATUS_RESPONSE,
+        AI_WORKFLOW_RESPONSE,
+        AI_QUICKSTART_RESPONSE,
+        AI_NEXT_RESPONSE,
+        AI_OVERVIEW_RESPONSE,
         ERROR_RESPONSE,
     ]
 }

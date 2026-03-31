@@ -9,9 +9,7 @@
 
 use std::path::Path;
 
-use fs2::FileExt;
 use serde::{Deserialize, Serialize};
-use sqlx::Row;
 use tokio::io::AsyncReadExt;
 
 use crate::config::types::{RecoveryPolicy, ValidatedBool};

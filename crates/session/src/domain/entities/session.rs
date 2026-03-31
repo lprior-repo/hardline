@@ -175,6 +175,7 @@ pub struct Session<S = Created> {
     pub workspace: Option<WorkspaceId>,
     pub bead: Option<BeadId>,
     pub branch: BranchState,
+    pub last_synced: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     _state: PhantomData<S>,
 }
@@ -187,6 +188,7 @@ impl Session<Created> {
             workspace: None,
             bead: None,
             branch: BranchState::Detached,
+            last_synced: None,
             created_at: Utc::now(),
             _state: PhantomData,
         })
@@ -199,6 +201,7 @@ impl Session<Created> {
         workspace: Option<WorkspaceId>,
         bead: Option<BeadId>,
         branch: BranchState,
+        last_synced: Option<DateTime<Utc>>,
         created_at: DateTime<Utc>,
     ) -> Self {
         Self {
@@ -207,6 +210,7 @@ impl Session<Created> {
             workspace,
             bead,
             branch,
+            last_synced,
             created_at,
             _state: PhantomData,
         }
@@ -253,6 +257,7 @@ impl<S: StateInfo> Session<S> {
             workspace: self.workspace,
             bead: self.bead,
             branch: self.branch,
+            last_synced: self.last_synced,
             created_at: self.created_at,
             _state: PhantomData,
         })
@@ -272,6 +277,25 @@ impl<S: StateInfo> Session<S> {
             workspace: self.workspace.clone(),
             bead: self.bead.clone(),
             branch: new_branch,
+            last_synced: self.last_synced,
+            created_at: self.created_at,
+            _state: PhantomData,
+        })
+    }
+
+    /// Record a sync timestamp.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SessionError` if the session data is invalid (unlikely in practice).
+    pub fn mark_synced(&self, timestamp: DateTime<Utc>) -> Result<Self, SessionError> {
+        Ok(Self {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            workspace: self.workspace.clone(),
+            bead: self.bead.clone(),
+            branch: self.branch.clone(),
+            last_synced: Some(timestamp),
             created_at: self.created_at,
             _state: PhantomData,
         })
@@ -338,6 +362,7 @@ impl Session<Completed> {
             workspace: self.workspace,
             bead: self.bead,
             branch: self.branch,
+            last_synced: self.last_synced,
             created_at: self.created_at,
             _state: PhantomData,
         })
@@ -352,6 +377,7 @@ impl Session<Failed> {
             workspace: self.workspace,
             bead: self.bead,
             branch: self.branch,
+            last_synced: self.last_synced,
             created_at: self.created_at,
             _state: PhantomData,
         })
@@ -385,7 +411,7 @@ mod tests {
         let syncing: Session<Syncing> = active.sync().expect("valid transition");
         let synced: Session<Synced> = syncing.sync_complete().expect("valid transition");
         let completed: Session<Completed> = synced.complete().expect("valid transition");
-        assert!(completed.is_active() == false);
+        assert!(completed.state().is_terminal());
     }
 
     #[test]

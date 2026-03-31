@@ -6,6 +6,8 @@
 //! Hardline uses derive macros in main.rs for CLI definition, while isolate
 //! uses a builder pattern with build_cli().
 
+pub mod ai;
 pub mod batch;
 pub mod json_format;
 pub mod sync;
+pub mod task;
