@@ -86,12 +86,18 @@ pub(super) fn acquire_lock_with_backoff(
                     current_timeout *= 2;
                 }
                 Err(_) => {
-                    return Err(build_workspace_lock_timeout_error(timeout_ms, MAX_LOCK_RETRIES));
+                    return Err(build_workspace_lock_timeout_error(
+                        timeout_ms,
+                        MAX_LOCK_RETRIES,
+                    ));
                 }
             }
         }
 
-        Err(build_workspace_lock_timeout_error(timeout_ms, MAX_LOCK_RETRIES))
+        Err(build_workspace_lock_timeout_error(
+            timeout_ms,
+            MAX_LOCK_RETRIES,
+        ))
     }
 }
 
@@ -114,8 +120,7 @@ fn build_file_lock_timeout_error(
 
 /// Sleep with exponential backoff for a given retry attempt number.
 fn sleep_with_backoff(attempt: usize) -> Result<()> {
-    let attempt_u32 = u32::try_from(attempt)
-        .map_err(|_| Error::internal("attempt overflow"))?;
+    let attempt_u32 = u32::try_from(attempt).map_err(|_| Error::internal("attempt overflow"))?;
     let backoff = Duration::from_millis(calculate_backoff_ms(attempt_u32));
     std::thread::sleep(backoff);
     Ok(())
@@ -184,11 +189,12 @@ fn enforce_strict_locks(lock_path: &Path, lock_supported: bool) -> Result<()> {
 
     // Prefer the current env var name; fall back to legacy name with a warning.
     let strict = std::env::var("SCP_STRICT_LOCKS").is_ok()
-        || std::env::var("Isolate_STRICT_LOCKS").map(|_| {
-            tracing::warn!("Isolate_STRICT_LOCKS is deprecated; use SCP_STRICT_LOCKS");
-            true
-        })
-        .unwrap_or(false);
+        || std::env::var("Isolate_STRICT_LOCKS")
+            .map(|_| {
+                tracing::warn!("Isolate_STRICT_LOCKS is deprecated; use SCP_STRICT_LOCKS");
+                true
+            })
+            .unwrap_or(false);
 
     if strict {
         return Err(Error::validation_error(format!(

@@ -249,7 +249,10 @@ mod tests {
         assert!(result.is_err());
         if let Err(Error::Io(e)) = result {
             let msg = e.to_string();
-            assert!(msg.contains("Chaos: database IO error"), "Expected IO error, got: {msg}");
+            assert!(
+                msg.contains("Chaos: database IO error"),
+                "Expected IO error, got: {msg}"
+            );
         } else {
             panic!("Expected Io error");
         }
@@ -278,7 +281,10 @@ mod tests {
         assert!(result.is_err());
         if let Err(Error::Io(e)) = result {
             let msg = e.to_string();
-            assert!(msg.contains("Chaos: network error"), "Expected network error, got: {msg}");
+            assert!(
+                msg.contains("Chaos: network error"),
+                "Expected network error, got: {msg}"
+            );
         } else {
             panic!("Expected Io error");
         }

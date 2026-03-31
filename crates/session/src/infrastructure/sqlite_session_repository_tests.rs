@@ -20,7 +20,10 @@ async fn test_saves_valid_session_and_retrieves_by_id() {
     let session = Session::create(name).expect("created");
 
     repo.save(&session).await.expect("save failed");
-    let found = repo.find_by_id(session.id.as_str()).await.expect("find failed");
+    let found = repo
+        .find_by_id(session.id.as_str())
+        .await
+        .expect("find failed");
 
     assert!(found.is_some());
     let found = found.unwrap();
@@ -35,10 +38,7 @@ async fn test_saves_valid_session_and_retrieves_by_name() {
     let session = Session::create(name).expect("created");
 
     repo.save(&session).await.expect("save failed");
-    let found = repo
-        .find_by_name(&session.name)
-        .await
-        .expect("find failed");
+    let found = repo.find_by_name(&session.name).await.expect("find failed");
 
     assert!(found.is_some());
     assert_eq!(found.unwrap().name.as_str(), "my-session");
@@ -65,16 +65,24 @@ async fn test_deletes_existing_session() {
     let session = Session::create(SessionName::parse("to-delete").unwrap()).unwrap();
 
     repo.save(&session).await.expect("save failed");
-    repo.delete(session.id.as_str()).await.expect("delete failed");
+    repo.delete(session.id.as_str())
+        .await
+        .expect("delete failed");
 
-    let found = repo.find_by_id(session.id.as_str()).await.expect("find failed");
+    let found = repo
+        .find_by_id(session.id.as_str())
+        .await
+        .expect("find failed");
     assert!(found.is_none());
 }
 
 #[tokio::test]
 async fn test_find_by_id_returns_not_found_for_nonexistent() {
     let repo = test_repository().await;
-    let found = repo.find_by_id("nonexistent-id").await.expect("find failed");
+    let found = repo
+        .find_by_id("nonexistent-id")
+        .await
+        .expect("find failed");
     assert!(found.is_none());
 }
 
@@ -146,7 +154,10 @@ async fn test_save_same_id_twice_updates() {
     repo.save(&session1).await.expect("first save failed");
     repo.save(&session2).await.expect("second save failed");
 
-    let found = repo.find_by_id(session1.id.as_str()).await.expect("find failed");
+    let found = repo
+        .find_by_id(session1.id.as_str())
+        .await
+        .expect("find failed");
     assert!(found.is_some());
     let found = found.unwrap();
     assert_eq!(found.state(), SessionState::Created);

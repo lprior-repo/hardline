@@ -69,7 +69,10 @@ impl PipelineExecutor {
         85
     }
 
-    pub(crate) fn universe_setup(&mut self, pipeline: &mut Pipeline) -> anyhow::Result<PhaseResult> {
+    pub(crate) fn universe_setup(
+        &mut self,
+        pipeline: &mut Pipeline,
+    ) -> anyhow::Result<PhaseResult> {
         let start = Utc::now();
         info!("Setting up universe for pipeline: {}", pipeline.id.0);
 
@@ -98,7 +101,10 @@ impl PipelineExecutor {
         })
     }
 
-    pub(crate) fn agent_development(&mut self, pipeline: &mut Pipeline) -> anyhow::Result<PhaseResult> {
+    pub(crate) fn agent_development(
+        &mut self,
+        pipeline: &mut Pipeline,
+    ) -> anyhow::Result<PhaseResult> {
         let start = Utc::now();
         info!(
             "Agent development iteration {} for pipeline: {}",
@@ -138,7 +144,10 @@ impl PipelineExecutor {
         })
     }
 
-    pub(crate) fn validation(&mut self, pipeline: &mut Pipeline) -> anyhow::Result<(Decision, PhaseResult)> {
+    pub(crate) fn validation(
+        &mut self,
+        pipeline: &mut Pipeline,
+    ) -> anyhow::Result<(Decision, PhaseResult)> {
         let start = Utc::now();
         info!("Running validation for pipeline: {}", pipeline.id.0);
 

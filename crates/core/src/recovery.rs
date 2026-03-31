@@ -41,7 +41,9 @@ impl std::str::FromStr for RecoveryPolicy {
             "warn" => Ok(Self::Warn),
             "repair" => Ok(Self::Repair),
             "panic" => Ok(Self::Panic),
-            _ => Err(Error::config_invalid(format!("Invalid recovery policy: {s}"))),
+            _ => Err(Error::config_invalid(format!(
+                "Invalid recovery policy: {s}"
+            ))),
         }
     }
 }

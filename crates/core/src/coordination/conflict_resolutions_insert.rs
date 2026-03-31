@@ -65,11 +65,13 @@ pub async fn insert_conflict_resolution(
     resolution: &ConflictResolution,
 ) -> Result<i64> {
     // Validate inputs
-    validate_decider(&resolution.decider).map_err(|e| crate::Error::validation_field_error(
-        "decider",
-        format!("invalid decider '{}': {e}", resolution.decider),
-        Some(resolution.decider.clone()),
-    ))?;
+    validate_decider(&resolution.decider).map_err(|e| {
+        crate::Error::validation_field_error(
+            "decider",
+            format!("invalid decider '{}': {e}", resolution.decider),
+            Some(resolution.decider.clone()),
+        )
+    })?;
 
     validate_non_empty(&resolution.file, "file").map_err(|e| {
         crate::Error::validation_field_error(
@@ -95,11 +97,13 @@ pub async fn insert_conflict_resolution(
         )
     })?;
 
-    validate_timestamp(&resolution.timestamp).map_err(|e| crate::Error::validation_field_error(
-        "timestamp",
-        format!("invalid timestamp: {e}"),
-        Some(resolution.timestamp.clone()),
-    ))?;
+    validate_timestamp(&resolution.timestamp).map_err(|e| {
+        crate::Error::validation_field_error(
+            "timestamp",
+            format!("invalid timestamp: {e}"),
+            Some(resolution.timestamp.clone()),
+        )
+    })?;
 
     // Insert record
     let result = sqlx::query(

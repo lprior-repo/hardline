@@ -6,8 +6,8 @@ use std::path::Path;
 
 use sqlx::SqlitePool;
 
-use crate::beads::types::BeadsError;
 use crate::beads::db::parsing::parse_bead_row;
+use crate::beads::types::BeadsError;
 
 /// Enable `WAL` mode on the `SQLite` connection for better crash recovery.
 ///
@@ -30,7 +30,9 @@ pub async fn enable_wal_mode(pool: &SqlitePool) -> Result<(), BeadsError> {
 /// - The database cannot be opened or queried
 /// - Any required field is missing or malformed
 /// - Status or datetime values are invalid
-pub async fn query_beads(workspace_path: &Path) -> Result<Vec<crate::beads::types::BeadIssue>, BeadsError> {
+pub async fn query_beads(
+    workspace_path: &Path,
+) -> Result<Vec<crate::beads::types::BeadIssue>, BeadsError> {
     let beads_db = workspace_path.join(".beads/beads.db");
 
     if !beads_db.exists() {

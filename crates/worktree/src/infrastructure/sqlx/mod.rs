@@ -1,7 +1,7 @@
 //! SQLx database persistence layer
 
-pub mod sqlite;
 pub mod postgres;
+pub mod sqlite;
 
-pub use sqlite::SqliteWorktreeRepository;
 pub use postgres::PostgresWorktreeRepository;
+pub use sqlite::SqliteWorktreeRepository;

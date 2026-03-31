@@ -11,8 +11,8 @@ use futures::future::try_join_all;
 use crate::workspace_integrity::checks::{
     check_config_file, check_stale_locks, resolve_workspace_path, validate_jj_dir_for_issue,
 };
-use crate::workspace_integrity::types::CorruptionType;
 use crate::workspace_integrity::issue::IntegrityIssue;
+use crate::workspace_integrity::types::CorruptionType;
 use crate::workspace_integrity::validation_result::ValidationResult;
 use crate::{Error, Result};
 
@@ -59,7 +59,9 @@ impl IntegrityValidator {
         let mut issues = Vec::new();
 
         // Check 1: Directory exists
-        let path_exists = tokio::fs::try_exists(&workspace_path).await.map_err(|e| Error::io_error(e.to_string()))?;
+        let path_exists = tokio::fs::try_exists(&workspace_path)
+            .await
+            .map_err(|e| Error::io_error(e.to_string()))?;
         if !path_exists {
             issues.push(
                 IntegrityIssue::new(
@@ -78,7 +80,9 @@ impl IntegrityValidator {
                 .map_err(|e| Error::invalid_state(format!("Failed to measure duration: {e}")))
                 .and_then(|d| {
                     u64::try_from(d.as_millis()).map_err(|_| {
-                        Error::invalid_state("Duration overflow - operation took too long".to_string())
+                        Error::invalid_state(
+                            "Duration overflow - operation took too long".to_string(),
+                        )
                     })
                 })?;
             return Ok(
@@ -101,7 +105,9 @@ impl IntegrityValidator {
 
         // Check 3: .jj directory exists
         let jj_dir = workspace_path.join(".jj");
-        let jj_dir_exists = tokio::fs::try_exists(&jj_dir).await.map_err(|e| Error::io_error(e.to_string()))?;
+        let jj_dir_exists = tokio::fs::try_exists(&jj_dir)
+            .await
+            .map_err(|e| Error::io_error(e.to_string()))?;
         if jj_dir_exists {
             // Check 4: .jj directory is valid
             if let Some(issue) = validate_jj_dir_for_issue(&jj_dir).await {
@@ -134,15 +140,13 @@ impl IntegrityValidator {
             .elapsed()
             .map_err(|e| Error::invalid_state(format!("Failed to measure duration: {e}")))
             .and_then(|d| {
-                u64::try_from(d.as_millis())
-                    .map_err(|_| Error::invalid_state("Duration overflow - operation took too long".to_string()))
+                u64::try_from(d.as_millis()).map_err(|_| {
+                    Error::invalid_state("Duration overflow - operation took too long".to_string())
+                })
             })?;
 
         if issues.is_empty() {
-            Ok(
-                ValidationResult::valid(workspace_name, &workspace_path)
-                    .with_duration(duration),
-            )
+            Ok(ValidationResult::valid(workspace_name, &workspace_path).with_duration(duration))
         } else {
             Ok(
                 ValidationResult::invalid(workspace_name, &workspace_path, issues)

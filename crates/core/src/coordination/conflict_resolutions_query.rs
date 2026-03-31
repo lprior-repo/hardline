@@ -55,11 +55,13 @@ pub async fn get_conflict_resolutions(
     pool: &SqlitePool,
     session: &str,
 ) -> Result<Vec<ConflictResolution>> {
-    validate_non_empty(session, "session").map_err(|e| crate::Error::validation_field_error(
-        "session",
-        format!("empty session name: {e}"),
-        Some(session.to_string()),
-    ))?;
+    validate_non_empty(session, "session").map_err(|e| {
+        crate::Error::validation_field_error(
+            "session",
+            format!("empty session name: {e}"),
+            Some(session.to_string()),
+        )
+    })?;
 
     let resolutions = sqlx::query_as::<_, ConflictResolution>(
         "SELECT * FROM conflict_resolutions WHERE session = ? ORDER BY id",
@@ -117,11 +119,13 @@ pub async fn get_resolutions_by_decider(
     pool: &SqlitePool,
     decider: &str,
 ) -> Result<Vec<ConflictResolution>> {
-    validate_decider(decider).map_err(|e| crate::Error::validation_field_error(
-        "decider",
-        format!("invalid decider '{decider}': {e}"),
-        Some(decider.to_string()),
-    ))?;
+    validate_decider(decider).map_err(|e| {
+        crate::Error::validation_field_error(
+            "decider",
+            format!("invalid decider '{decider}': {e}"),
+            Some(decider.to_string()),
+        )
+    })?;
 
     let resolutions = sqlx::query_as::<_, ConflictResolution>(
         "SELECT * FROM conflict_resolutions WHERE decider = ? ORDER BY id",
@@ -183,17 +187,21 @@ pub async fn get_resolutions_by_time_range(
     start_time: &str,
     end_time: &str,
 ) -> Result<Vec<ConflictResolution>> {
-    validate_timestamp(start_time).map_err(|e| crate::Error::validation_field_error(
-        "start_time",
-        format!("invalid start_time: {e}"),
-        Some(start_time.to_string()),
-    ))?;
+    validate_timestamp(start_time).map_err(|e| {
+        crate::Error::validation_field_error(
+            "start_time",
+            format!("invalid start_time: {e}"),
+            Some(start_time.to_string()),
+        )
+    })?;
 
-    validate_timestamp(end_time).map_err(|e| crate::Error::validation_field_error(
-        "end_time",
-        format!("invalid end_time: {e}"),
-        Some(end_time.to_string()),
-    ))?;
+    validate_timestamp(end_time).map_err(|e| {
+        crate::Error::validation_field_error(
+            "end_time",
+            format!("invalid end_time: {e}"),
+            Some(end_time.to_string()),
+        )
+    })?;
 
     // Basic validation: start_time should be before end_time
     // (This is a simple string comparison; for full ISO 8601 validation, use chrono)

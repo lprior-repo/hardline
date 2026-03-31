@@ -2,7 +2,6 @@
 //!
 //! Provides suggestions for what to do after various commands
 
-
 use super::types::{ActionRisk, CommandContext, NextAction};
 
 /// Generate next action suggestions based on command context.

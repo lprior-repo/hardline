@@ -11,8 +11,8 @@ use thiserror::Error;
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info};
 
-use crate::queue::types::{Job, JobOutcome, JobResult, JobState};
 use crate::queue::repository::JobRepository;
+use crate::queue::types::{Job, JobOutcome, JobResult, JobState};
 
 #[derive(Debug, Clone, Error)]
 pub enum QueueError {
@@ -89,7 +89,8 @@ impl<R: JobRepository> JobProcessor<R> {
 
     #[must_use]
     pub fn running_jobs(&self) -> usize {
-        self.running_count.load(std::sync::atomic::Ordering::Relaxed)
+        self.running_count
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     async fn poll_once(&self) -> QueueResult<Option<Job>> {
@@ -156,8 +157,7 @@ impl<R: JobRepository> JobProcessor<R> {
     ) -> QueueResult<()> {
         info!(
             "Starting job processor with poll_interval={:?}, concurrency_limit={}",
-            self.config.poll_interval,
-            self.config.concurrency_limit
+            self.config.poll_interval, self.config.concurrency_limit
         );
 
         loop {
@@ -197,12 +197,15 @@ impl<R: JobRepository> JobProcessor<R> {
             QueueError::ExecutionFailed(format!("Failed to acquire semaphore: {}", e))
         })?;
 
-        let running = self.running_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let running = self
+            .running_count
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         debug!("Starting job {}, running count: {}", job.id, running + 1);
 
         let result = self.execute_job(job).await;
 
-        self.running_count.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+        self.running_count
+            .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
 
         if let Err(e) = result {
             error!("Job execution failed: {}", e);

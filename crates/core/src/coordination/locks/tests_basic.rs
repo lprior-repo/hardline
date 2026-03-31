@@ -2,8 +2,8 @@
 
 use sqlx::sqlite::SqlitePoolOptions;
 
-use crate::Error;
 use crate::coordination::locks::{LockManager, LockOperation};
+use crate::Error;
 use chrono::Duration;
 
 #[allow(dead_code)]

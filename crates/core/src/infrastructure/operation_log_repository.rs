@@ -65,13 +65,12 @@ pub async fn insert_operation_log(
 
             let final_id = if id == 0 {
                 // Fallback: get the max id from the table
-                let max_row =
-                    sqlx::query("SELECT MAX(id) as max_id FROM operation_log")
-                        .fetch_one(pool)
-                        .await
-                        .map_err(|e| {
-                            OperationLogError::DatabaseError(format!("Failed to get max ID: {e}"))
-                        })?;
+                let max_row = sqlx::query("SELECT MAX(id) as max_id FROM operation_log")
+                    .fetch_one(pool)
+                    .await
+                    .map_err(|e| {
+                        OperationLogError::DatabaseError(format!("Failed to get max ID: {e}"))
+                    })?;
 
                 max_row
                     .try_get::<Option<i64>, _>("max_id")
@@ -168,7 +167,10 @@ pub async fn query_all_operations(
 /// # Errors
 ///
 /// Returns `OperationLogError::QueryFailed` if the query fails.
-pub async fn get_stream_version(pool: &SqlitePool, stream_id: &str) -> Result<i64, OperationLogError> {
+pub async fn get_stream_version(
+    pool: &SqlitePool,
+    stream_id: &str,
+) -> Result<i64, OperationLogError> {
     let result = sqlx::query(
         "SELECT COALESCE(MAX(stream_version), 0) as version
          FROM operation_log

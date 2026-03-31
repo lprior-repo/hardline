@@ -40,7 +40,10 @@ async fn lock_nonexistent_session_returns_not_found_error() -> Result<(), Error>
     match &result {
         Err(Error::Lock(lk)) if matches!(lk.kind(), LockErrorKind::SessionNotFound { .. }) => {
             let msg = result.as_ref().unwrap_err().to_string();
-            assert!(msg.contains("ghost-session"), "Expected SessionNotFound with 'ghost-session', got: {msg}");
+            assert!(
+                msg.contains("ghost-session"),
+                "Expected SessionNotFound with 'ghost-session', got: {msg}"
+            );
         }
         other => panic!("Expected LockError(SessionNotFound), got: {other:?}"),
     }
@@ -73,16 +76,14 @@ async fn lock_existing_session_succeeds() -> Result<(), Error> {
     .await
     .map_err(|e| Error::database(e.to_string()))?;
 
-    sqlx::query(
-        "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
-    )
-    .bind("real-session")
-    .bind("active")
-    .bind("working")
-    .bind("/workspace")
-    .execute(&pool)
-    .await
-    .map_err(|e| Error::database(e.to_string()))?;
+    sqlx::query("INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)")
+        .bind("real-session")
+        .bind("active")
+        .bind("working")
+        .bind("/workspace")
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::database(e.to_string()))?;
 
     let result = mgr.lock("real-session", "agent-1").await;
 
@@ -115,16 +116,14 @@ async fn lock_deleted_session_fails_with_not_found() -> Result<(), Error> {
     .await
     .map_err(|e| Error::database(e.to_string()))?;
 
-    sqlx::query(
-        "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
-    )
-    .bind("ephemeral-session")
-    .bind("active")
-    .bind("working")
-    .bind("/workspace")
-    .execute(&pool)
-    .await
-    .map_err(|e| Error::database(e.to_string()))?;
+    sqlx::query("INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)")
+        .bind("ephemeral-session")
+        .bind("active")
+        .bind("working")
+        .bind("/workspace")
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::database(e.to_string()))?;
 
     sqlx::query("DELETE FROM sessions WHERE name = ?")
         .bind("ephemeral-session")
@@ -135,7 +134,9 @@ async fn lock_deleted_session_fails_with_not_found() -> Result<(), Error> {
     let result = mgr.lock("ephemeral-session", "agent-1").await;
 
     assert!(result.is_err());
-    assert!(matches!(result, Err(Error::Lock(lk)) if matches!(lk.kind(), LockErrorKind::SessionNotFound { .. })));
+    assert!(
+        matches!(result, Err(Error::Lock(lk)) if matches!(lk.kind(), LockErrorKind::SessionNotFound { .. }))
+    );
 
     Ok(())
 }
@@ -143,7 +144,8 @@ async fn lock_deleted_session_fails_with_not_found() -> Result<(), Error> {
 // Regression: The exact reported bug - locking non-existent session no longer creates orphaned
 // lock
 #[tokio::test]
-async fn regression_lock_nonexistent_session_no_longer_creates_orphaned_lock() -> Result<(), Error> {
+async fn regression_lock_nonexistent_session_no_longer_creates_orphaned_lock() -> Result<(), Error>
+{
     let pool = test_pool().await?;
     let mgr = LockManager::new(pool.clone());
     mgr.init().await?;

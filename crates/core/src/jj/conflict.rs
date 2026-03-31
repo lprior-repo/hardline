@@ -6,10 +6,7 @@ use crate::error::JjConflictType;
 
 /// Detect workspace conflict type from error message
 #[must_use]
-pub fn detect_workspace_conflict(
-    stderr: &str,
-    _workspace_name: &str,
-) -> Option<JjConflictType> {
+pub fn detect_workspace_conflict(stderr: &str, _workspace_name: &str) -> Option<JjConflictType> {
     stderr.lines().find_map(|line| {
         let line_lower = line.to_lowercase();
         if line_lower.contains("already exists")
@@ -37,10 +34,7 @@ pub fn detect_workspace_conflict(
 
 /// Generate recovery hint for a conflict type
 #[must_use]
-pub fn conflict_recovery_hint(
-    conflict_type: &JjConflictType,
-    workspace_name: &str,
-) -> String {
+pub fn conflict_recovery_hint(conflict_type: &JjConflictType, workspace_name: &str) -> String {
     match conflict_type {
         JjConflictType::AlreadyExists => {
             format!(

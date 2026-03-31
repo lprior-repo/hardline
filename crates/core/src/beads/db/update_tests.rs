@@ -4,9 +4,9 @@ mod update_tests {
     use sqlx::SqlitePool;
     use tempfile::TempDir;
 
-    use crate::beads::types::{BeadIssue, BeadsError, IssueStatus, IssueType, Priority};
     use crate::beads::db::schema::ensure_schema;
     use crate::beads::db::write::{insert_bead, update_bead};
+    use crate::beads::types::{BeadIssue, BeadsError, IssueStatus, IssueType, Priority};
 
     async fn create_test_pool() -> (SqlitePool, TempDir) {
         let temp_dir = TempDir::new().ok();
@@ -209,7 +209,8 @@ mod update_tests {
     // Behavior: Updating to closed status without closed_at fails validation
     // This tests the invariant: status='closed' => closed_at IS NOT NULL
     #[tokio::test]
-    async fn given_open_bead_when_updating_to_closed_without_closed_at_then_returns_validation_error() {
+    async fn given_open_bead_when_updating_to_closed_without_closed_at_then_returns_validation_error(
+    ) {
         let (pool, _temp_dir) = create_test_pool().await;
 
         // First insert an open bead

@@ -2,8 +2,8 @@
 //!
 //! Error codes: 5xxx
 
-use thiserror::Error;
 use crate::error::Error;
+use thiserror::Error;
 
 /// Agent-related errors
 #[derive(Error, Debug, Clone)]

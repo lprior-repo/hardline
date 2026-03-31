@@ -40,7 +40,6 @@ pub struct Cli {
     /// Database path
     #[arg(long, global = true)]
     pub database: Option<String>,
-
 }
 
 /// Top-level command enum

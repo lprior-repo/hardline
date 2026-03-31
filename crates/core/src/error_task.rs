@@ -2,8 +2,8 @@
 //!
 //! Error codes: 6xxx
 
-use thiserror::Error;
 use crate::error::Error;
+use thiserror::Error;
 
 /// Task-related errors
 #[derive(Error, Debug, Clone)]

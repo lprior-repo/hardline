@@ -21,7 +21,6 @@ pub fn main() -> ExitCode {
         std::env::set_var("SCP_DATABASE_PATH", db_path);
     }
 
-
     // Initialize logging with appropriate level
     let log_level = if cli.quiet {
         "error".to_string()
@@ -185,17 +184,15 @@ pub fn run_command(cli: Cli) -> Result<()> {
         },
 
         Commands::Task { command } => {
-            use commands::handlers::task::{parse_task_id, AgentId, TaskCommand, run_task_command};
+            use commands::handlers::task::{parse_task_id, run_task_command, AgentId, TaskCommand};
             let cmd = match command {
                 crate::cli::task_args::TaskCommands::List {} => TaskCommand::List {
                     status_filter: None,
                     include_all: false,
                 },
-                crate::cli::task_args::TaskCommands::Show { task_id, .. } => {
-                    TaskCommand::Show {
-                        task_id: parse_task_id(&task_id)?,
-                    }
-                }
+                crate::cli::task_args::TaskCommands::Show { task_id, .. } => TaskCommand::Show {
+                    task_id: parse_task_id(&task_id)?,
+                },
                 crate::cli::task_args::TaskCommands::Claim { task_id, user } => {
                     TaskCommand::Claim {
                         task_id: parse_task_id(&task_id)?,
@@ -214,12 +211,10 @@ pub fn run_command(cli: Cli) -> Result<()> {
                         agent_id: AgentId::new(&user)?,
                     }
                 }
-                crate::cli::task_args::TaskCommands::Done { task_id, user } => {
-                    TaskCommand::Done {
-                        task_id: Some(parse_task_id(&task_id)?),
-                        agent_id: AgentId::new(&user)?,
-                    }
-                }
+                crate::cli::task_args::TaskCommands::Done { task_id, user } => TaskCommand::Done {
+                    task_id: Some(parse_task_id(&task_id)?),
+                    agent_id: AgentId::new(&user)?,
+                },
             };
             run_task_command(&cmd)
         }

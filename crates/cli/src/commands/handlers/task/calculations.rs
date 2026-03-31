@@ -54,10 +54,7 @@ fn validate_task_id_format(_task_id: &TaskId, _context: &str) -> scp_core::Resul
 /// Validate that an agent ID is non-empty and non-whitespace.
 fn validate_agent_id(agent_id: &AgentId) -> scp_core::Result<()> {
     if agent_id.as_str().trim().is_empty() {
-        return Err(TaskErrorKind::InvalidId(format!(
-            "Agent ID cannot be empty"
-        ))
-        .into());
+        return Err(TaskErrorKind::InvalidId(format!("Agent ID cannot be empty")).into());
     }
     Ok(())
 }
@@ -97,7 +94,10 @@ pub fn task_to_output(task: &Task) -> TaskInfoOutput {
 ///
 /// Pure function - matches case-insensitively against `TaskStatusOutput` display names.
 #[must_use]
-pub fn filter_tasks_by_status(tasks: &[TaskInfoOutput], status_filter: &str) -> Vec<TaskInfoOutput> {
+pub fn filter_tasks_by_status(
+    tasks: &[TaskInfoOutput],
+    status_filter: &str,
+) -> Vec<TaskInfoOutput> {
     let filter_lower = status_filter.to_lowercase();
     tasks
         .iter()

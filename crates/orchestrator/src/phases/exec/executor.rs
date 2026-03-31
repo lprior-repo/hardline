@@ -81,7 +81,8 @@ impl PipelineExecutor {
                 let error_msg = result.errors().join("; ");
                 tracing::warn!(
                     "Cleanup had errors for pipeline {}: {}",
-                    pipeline.id.0, error_msg
+                    pipeline.id.0,
+                    error_msg
                 );
                 return Err(PhaseError::CleanupFailed(error_msg));
             }
@@ -105,14 +106,17 @@ impl PipelineExecutor {
             let error_msg = result.errors().join("; ");
             tracing::error!(
                 "Rollback failed for pipeline {} phase {:?}: {}",
-                pipeline.id.0, phase, error_msg
+                pipeline.id.0,
+                phase,
+                error_msg
             );
             return Err(PhaseError::CleanupFailed(error_msg));
         }
 
         tracing::info!(
             "Rollback completed for pipeline {} phase {:?}",
-            pipeline.id.0, phase
+            pipeline.id.0,
+            phase
         );
 
         Ok(())

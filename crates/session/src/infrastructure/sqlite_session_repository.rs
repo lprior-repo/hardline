@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::domain::entities::{BranchState, Session, SessionId, SessionState};
 use crate::domain::entities::session::Created;
+use crate::domain::entities::{BranchState, Session, SessionId, SessionState};
 use crate::domain::value_objects::{BeadId, SessionName, WorkspaceId};
-use crate::error::{SessionError, SessionError::*, Result};
+use crate::error::{Result, SessionError, SessionError::*};
 use crate::infrastructure::repository::SessionRepository;
 use scp_core::infrastructure::database::{DatabaseService, SqliteDatabaseService};
 
@@ -32,7 +32,11 @@ impl TryFrom<SessionRow> for Session<Created> {
             .map(WorkspaceId::parse)
             .transpose()
             .map_err(|e| InvalidIdentifier(e.to_string()))?;
-        let bead = row.bead.map(BeadId::parse).transpose().map_err(|e| InvalidIdentifier(e.to_string()))?;
+        let bead = row
+            .bead
+            .map(BeadId::parse)
+            .transpose()
+            .map_err(|e| InvalidIdentifier(e.to_string()))?;
         let branch_name = row.branch_name.clone();
         let branch = match (row.branch_state.as_str(), branch_name) {
             ("Detached", None) => BranchState::Detached,
@@ -50,7 +54,9 @@ impl TryFrom<SessionRow> for Session<Created> {
             .as_deref()
             .map(|s| {
                 DateTime::parse_from_rfc3339(s)
-                    .map_err(|e| SerializationError(format!("Invalid last_synced timestamp: {}", e)))
+                    .map_err(|e| {
+                        SerializationError(format!("Invalid last_synced timestamp: {}", e))
+                    })
                     .map(|dt| dt.with_timezone(&Utc))
             })
             .transpose()?;
@@ -168,12 +174,19 @@ ON CONFLICT(id) DO UPDATE SET
     created_at = excluded.created_at"#,
             escape_sql_string(&row.id),
             escape_sql_string(&row.name),
-            workspace.map(|w| format!("'{}'", w)).unwrap_or_else(|| "NULL".to_string()),
-            bead.map(|b| format!("'{}'", b)).unwrap_or_else(|| "NULL".to_string()),
+            workspace
+                .map(|w| format!("'{}'", w))
+                .unwrap_or_else(|| "NULL".to_string()),
+            bead.map(|b| format!("'{}'", b))
+                .unwrap_or_else(|| "NULL".to_string()),
             escape_sql_string(&row.branch_state),
-            branch_name.map(|b| format!("'{}'", b)).unwrap_or_else(|| "NULL".to_string()),
+            branch_name
+                .map(|b| format!("'{}'", b))
+                .unwrap_or_else(|| "NULL".to_string()),
             escape_sql_string(&row.session_state),
-            last_synced.map(|s| format!("'{}'", s)).unwrap_or_else(|| "NULL".to_string()),
+            last_synced
+                .map(|s| format!("'{}'", s))
+                .unwrap_or_else(|| "NULL".to_string()),
             escape_sql_string(&row.created_at),
         );
 
@@ -259,7 +272,10 @@ ON CONFLICT(id) DO UPDATE SET
         let escaped_id = escape_sql_string(id);
         let results = self
             .db
-            .query(&format!("SELECT id FROM sessions WHERE id = '{}'", escaped_id))
+            .query(&format!(
+                "SELECT id FROM sessions WHERE id = '{}'",
+                escaped_id
+            ))
             .await
             .map_err(|e| DatabaseError(format!("Failed to delete session: {}", e)))?;
 
@@ -281,7 +297,11 @@ impl SqliteSessionRepository {
             return Err(RepositoryError(format!(
                 "Expected single row with 9 columns, got {} rows with {} columns",
                 result.len(),
-                if result.is_empty() { 0 } else { result[0].len() }
+                if result.is_empty() {
+                    0
+                } else {
+                    result[0].len()
+                }
             )));
         }
 
@@ -289,12 +309,24 @@ impl SqliteSessionRepository {
         Ok(SessionRow {
             id: cols[0].clone(),
             name: cols[1].clone(),
-            workspace: cols[2].is_empty().then_some(cols[2].clone()).filter(|s| !s.is_empty()),
-            bead: cols[3].is_empty().then_some(cols[3].clone()).filter(|s| !s.is_empty()),
+            workspace: cols[2]
+                .is_empty()
+                .then_some(cols[2].clone())
+                .filter(|s| !s.is_empty()),
+            bead: cols[3]
+                .is_empty()
+                .then_some(cols[3].clone())
+                .filter(|s| !s.is_empty()),
             branch_state: cols[4].clone(),
-            branch_name: cols[5].is_empty().then_some(cols[5].clone()).filter(|s| !s.is_empty()),
+            branch_name: cols[5]
+                .is_empty()
+                .then_some(cols[5].clone())
+                .filter(|s| !s.is_empty()),
             session_state: cols[6].clone(),
-            last_synced: cols[7].is_empty().then_some(cols[7].clone()).filter(|s| !s.is_empty()),
+            last_synced: cols[7]
+                .is_empty()
+                .then_some(cols[7].clone())
+                .filter(|s| !s.is_empty()),
             created_at: cols[8].clone(),
         })
     }

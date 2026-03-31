@@ -34,8 +34,8 @@ mod tests;
 // Re-export all public types from submodules
 pub use actions::{run, run_default, run_next, run_quick_start, run_status, run_workflow};
 pub use calculations::{
-    build_overview, build_quick_start, build_workflow, determine_next_action, determine_ready_state,
-    format_session_count, format_status_human,
+    build_overview, build_quick_start, build_workflow, determine_next_action,
+    determine_ready_state, format_session_count, format_status_human,
 };
 pub use data::{
     AiEnvelope, AiOptions, AiOverview, AiStatusOutput, AiSubcommand, Location, NextActionOutput,

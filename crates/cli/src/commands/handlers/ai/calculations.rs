@@ -18,7 +18,10 @@ use super::data::{
 const WORKFLOW_STEPS: &[(&str, &str)] = &[
     ("scp whereami", "Orient: Check current location"),
     ("scp agent register", "Register: Identify yourself"),
-    ("scp work <task-name> --idempotent", "Isolate: Create workspace"),
+    (
+        "scp work <task-name> --idempotent",
+        "Isolate: Create workspace",
+    ),
     (
         "cd $(scp context --field location.path)",
         "Enter: Navigate to workspace",
@@ -200,9 +203,7 @@ pub fn determine_next_action(
         _ if active_sessions > 0 => NextActionOutput {
             action: "Check existing sessions".to_string(),
             command: "scp list --json".to_string(),
-            reason: format!(
-                "{active_sessions} active session(s) exist - review or continue work"
-            ),
+            reason: format!("{active_sessions} active session(s) exist - review or continue work"),
             priority: Priority::Medium,
         },
         _ => NextActionOutput {

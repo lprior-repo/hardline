@@ -107,7 +107,10 @@ mod proofs {
     #[kani::proof]
     fn prove_task_state_to_output_exhaustive() {
         // Open
-        assert_eq!(task_state_to_output(&TaskState::Open), TaskStatusOutput::Open);
+        assert_eq!(
+            task_state_to_output(&TaskState::Open),
+            TaskStatusOutput::Open
+        );
 
         // InProgress
         assert_eq!(

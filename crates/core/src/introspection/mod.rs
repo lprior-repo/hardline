@@ -22,6 +22,4 @@ pub use query::{
     SuggestNameQuery,
 };
 pub use suggest::suggest_name;
-pub use types::{
-    Capabilities, CapabilityCategory, DependencyInfo, IntrospectOutput, SystemState,
-};
+pub use types::{Capabilities, CapabilityCategory, DependencyInfo, IntrospectOutput, SystemState};

@@ -1,9 +1,12 @@
 use crate::application::repositories::WorktreeRepository;
-use crate::domain::{Worktree, WorktreeDomainError, WorktreeId, WorktreeName, WorktreeTypeEnum, WorktreeState, AbsolutePath, BranchName};
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::SqlitePool;
+use crate::domain::{
+    AbsolutePath, BranchName, Worktree, WorktreeDomainError, WorktreeId, WorktreeName,
+    WorktreeState, WorktreeTypeEnum,
+};
 use serde::Deserialize;
+use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::FromRow;
+use sqlx::SqlitePool;
 
 #[derive(Deserialize, FromRow)]
 struct SqliteWorktreeRow {
@@ -22,17 +25,22 @@ struct SqliteWorktreeRow {
 impl SqliteWorktreeRow {
     fn to_worktree(&self) -> Worktree {
         let id = WorktreeId::from_string(&self.id).unwrap_or_else(|_| WorktreeId::new_random());
-        let name = WorktreeName::new(&self.name).unwrap_or_else(|_| WorktreeName::new("unknown").unwrap());
-        let path = AbsolutePath::new(&self.path).unwrap_or_else(|_| AbsolutePath::new("/tmp").unwrap());
-        let parent_path = AbsolutePath::new(&self.parent_path).unwrap_or_else(|_| AbsolutePath::new("/tmp").unwrap());
+        let name =
+            WorktreeName::new(&self.name).unwrap_or_else(|_| WorktreeName::new("unknown").unwrap());
+        let path =
+            AbsolutePath::new(&self.path).unwrap_or_else(|_| AbsolutePath::new("/tmp").unwrap());
+        let parent_path = AbsolutePath::new(&self.parent_path)
+            .unwrap_or_else(|_| AbsolutePath::new("/tmp").unwrap());
         let state = WorktreeState::from_u8(self.state).unwrap_or(WorktreeState::Creating);
-        let worktree_type = WorktreeTypeEnum::from_u8(self.worktree_type).unwrap_or(WorktreeTypeEnum::Development);
+        let worktree_type =
+            WorktreeTypeEnum::from_u8(self.worktree_type).unwrap_or(WorktreeTypeEnum::Development);
         let branch = self.branch.as_ref().and_then(|b| BranchName::new(b).ok());
-        
+
         // Deserialize metadata from JSON
-        let metadata: std::collections::HashMap<String, String> = serde_json::from_str(&self.metadata)
-            .unwrap_or_else(|_| std::collections::HashMap::new());
-        
+        let metadata: std::collections::HashMap<String, String> =
+            serde_json::from_str(&self.metadata)
+                .unwrap_or_else(|_| std::collections::HashMap::new());
+
         Worktree::uninitialized_with_metadata(
             id,
             name,
@@ -80,7 +88,8 @@ impl WorktreeRepository for SqliteWorktreeRepository {
         let branch_opt = worktree.branch().map(|b| b.as_str().to_string());
         let created_at = worktree.created_at();
         let updated_at = worktree.updated_at();
-        let metadata_json = serde_json::to_string(worktree.all_metadata()).unwrap_or("{}".to_string());
+        let metadata_json =
+            serde_json::to_string(worktree.all_metadata()).unwrap_or("{}".to_string());
 
         sqlx::query(query)
             .bind(&id_str)
@@ -95,7 +104,9 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .bind(&metadata_json)
             .execute(&self.pool)
             .await
-            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to save worktree: {}", e)))?;
+            .map_err(|e| {
+                WorktreeDomainError::InvalidPath(format!("Failed to save worktree: {}", e))
+            })?;
 
         Ok(())
     }
@@ -105,7 +116,9 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .bind(id.as_string())
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {}", e)))?;
+            .map_err(|e| {
+                WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {}", e))
+            })?;
 
         Ok(row.map(|row| row.to_worktree()))
     }
@@ -115,7 +128,9 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .bind(name)
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {}", e)))?;
+            .map_err(|e| {
+                WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {}", e))
+            })?;
 
         Ok(row.map(|row| row.to_worktree()))
     }
@@ -124,7 +139,9 @@ impl WorktreeRepository for SqliteWorktreeRepository {
         let rows = sqlx::query_as::<_, SqliteWorktreeRow>("SELECT * FROM worktrees")
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to query worktrees: {}", e)))?;
+            .map_err(|e| {
+                WorktreeDomainError::InvalidPath(format!("Failed to query worktrees: {}", e))
+            })?;
 
         Ok(rows.into_iter().map(|row| row.to_worktree()).collect())
     }
@@ -134,7 +151,9 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .bind(id.as_string())
             .execute(&self.pool)
             .await
-            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to delete worktree: {}", e)))?;
+            .map_err(|e| {
+                WorktreeDomainError::InvalidPath(format!("Failed to delete worktree: {}", e))
+            })?;
 
         Ok(())
     }
@@ -144,7 +163,9 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .bind(name)
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to check name: {}", e)))?;
+            .map_err(|e| {
+                WorktreeDomainError::InvalidPath(format!("Failed to check name: {}", e))
+            })?;
 
         Ok(count > 0)
     }
@@ -157,7 +178,9 @@ impl SqliteWorktreeRepository {
             .max_connections(5)
             .connect(database_url)
             .await
-            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to connect to database: {}", e)))?;
+            .map_err(|e| {
+                WorktreeDomainError::InvalidPath(format!("Failed to connect to database: {}", e))
+            })?;
 
         // Initialize schema
         sqlx::query(
@@ -177,11 +200,13 @@ impl SqliteWorktreeRepository {
 
             CREATE INDEX IF NOT EXISTS idx_worktrees_state ON worktrees(state);
             CREATE INDEX IF NOT EXISTS idx_worktrees_type ON worktrees(worktree_type);
-            "#
+            "#,
         )
         .execute(&pool)
         .await
-        .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to initialize schema: {}", e)))?;
+        .map_err(|e| {
+            WorktreeDomainError::InvalidPath(format!("Failed to initialize schema: {}", e))
+        })?;
 
         Ok(Self { pool })
     }

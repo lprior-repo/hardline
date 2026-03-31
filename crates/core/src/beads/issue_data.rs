@@ -7,8 +7,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::beads::domain::{
-    Assignee, BlockedBy, DependsOn, Description, IssueId, IssueState, IssueType,
-    Labels, ParentId, Priority, Title,
+    Assignee, BlockedBy, DependsOn, Description, IssueId, IssueState, IssueType, Labels, ParentId,
+    Priority, Title,
 };
 
 // ============================================================================

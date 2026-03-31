@@ -44,7 +44,10 @@ impl BranchDag {
             .iter()
             .flat_map(|(child, parents)| {
                 parents.iter().filter_map(|parent| {
-                    indices.get(parent).copied().zip(indices.get(child).copied())
+                    indices
+                        .get(parent)
+                        .copied()
+                        .zip(indices.get(child).copied())
                 })
             })
             .fold(graph, |mut graph, (parent_idx, child_idx)| {

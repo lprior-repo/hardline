@@ -105,7 +105,8 @@ impl FileWatcher {
             return Err(ConfigErrorKind::Invalid(format!(
                 "debounce_ms must be between 10 and 5000, got {}",
                 config.debounce_ms
-            )).into());
+            ))
+            .into());
         }
 
         let (tx, rx) = mpsc::channel(100);
@@ -122,9 +123,7 @@ impl FileWatcher {
                 }
             },
         )
-        .map_err(|e| {
-            Error::io_error(format!("Failed to create file watcher: {e}"))
-        })?;
+        .map_err(|e| Error::io_error(format!("Failed to create file watcher: {e}")))?;
 
         // Watch each workspace's beads database
         workspaces.iter().try_for_each(|workspace| {
@@ -235,7 +234,10 @@ mod tests {
         assert!(result.is_err());
         if let Err(e) = result {
             assert!(matches!(e, Error::Config(_)));
-            assert!(e.to_string().contains("disabled"), "Expected config disabled error, got: {e}");
+            assert!(
+                e.to_string().contains("disabled"),
+                "Expected config disabled error, got: {e}"
+            );
         }
     }
 
@@ -251,7 +253,10 @@ mod tests {
         assert!(result.is_err());
         if let Err(err) = result {
             assert!(matches!(err, Error::Config(_)));
-            assert!(err.to_string().contains("debounce_ms"), "Expected config invalid error, got: {err}");
+            assert!(
+                err.to_string().contains("debounce_ms"),
+                "Expected config invalid error, got: {err}"
+            );
         }
     }
 
@@ -267,7 +272,10 @@ mod tests {
         assert!(result.is_err());
         if let Err(err) = result {
             assert!(matches!(err, Error::Config(_)));
-            assert!(err.to_string().contains("debounce_ms"), "Expected config invalid error, got: {err}");
+            assert!(
+                err.to_string().contains("debounce_ms"),
+                "Expected config invalid error, got: {err}"
+            );
         }
     }
 
@@ -292,18 +300,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_query_beads_status_with_database() -> Result<()> {
-        let temp_dir = TempDir::new().map_err(|e| {
-            Error::io_error(format!("Failed to create temp dir: {e}"))
-        })?;
+        let temp_dir = TempDir::new()
+            .map_err(|e| Error::io_error(format!("Failed to create temp dir: {e}")))?;
         let beads_dir = temp_dir.path().join(".beads");
-        fs::create_dir(&beads_dir).map_err(|e| {
-            Error::io_error(format!("Failed to create beads dir: {e}"))
-        })?;
+        fs::create_dir(&beads_dir)
+            .map_err(|e| Error::io_error(format!("Failed to create beads dir: {e}")))?;
 
         let db_path = beads_dir.join("beads.db");
-        let path_str = db_path.to_str().ok_or_else(|| {
-            Error::io_error("Invalid UTF-8 in path".to_string())
-        })?;
+        let path_str = db_path
+            .to_str()
+            .ok_or_else(|| Error::io_error("Invalid UTF-8 in path".to_string()))?;
         let db_url = format!("sqlite:///{path_str}?mode=rwc");
         let pool = SqlitePool::connect(&db_url)
             .await

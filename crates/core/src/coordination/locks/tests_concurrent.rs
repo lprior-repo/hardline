@@ -33,35 +33,30 @@ async fn regression_concurrent_lock_mutual_exclusion() -> Result<(), Error> {
     .await
     .map_err(|e| Error::database(e.to_string()))?;
 
-    sqlx::query(
-        "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
-    )
-    .bind("contended-session")
-    .bind("active")
-    .bind("working")
-    .bind("/workspace")
-    .execute(&pool)
-    .await
-    .map_err(|e| Error::database(e.to_string()))?;
+    sqlx::query("INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)")
+        .bind("contended-session")
+        .bind("active")
+        .bind("working")
+        .bind("/workspace")
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::database(e.to_string()))?;
 
     let tasks: Vec<_> = (0..10)
         .map(|i| {
             let mgr = mgr.clone();
-            tokio::spawn(
-                async move { mgr.lock("contended-session", &format!("agent-{i}")).await },
-            )
+            tokio::spawn(async move { mgr.lock("contended-session", &format!("agent-{i}")).await })
         })
         .collect();
 
-    let results: Vec<std::result::Result<LockResponse, Error>> =
-        futures::future::join_all(tasks)
-            .await
-            .into_iter()
-            .map(|join_result| match join_result {
-                Ok(inner_result) => inner_result,
-                Err(join_err) => Err(Error::io_error(format!("Task join failed: {join_err}"))),
-            })
-            .collect();
+    let results: Vec<std::result::Result<LockResponse, Error>> = futures::future::join_all(tasks)
+        .await
+        .into_iter()
+        .map(|join_result| match join_result {
+            Ok(inner_result) => inner_result,
+            Err(join_err) => Err(Error::io_error(format!("Task join failed: {join_err}"))),
+        })
+        .collect();
 
     let successful_locks = results
         .iter()
@@ -143,15 +138,14 @@ async fn stress_test_concurrent_locks_multiple_sessions() -> Result<(), Error> {
         })
         .collect();
 
-    let results: Vec<std::result::Result<LockResponse, Error>> =
-        futures::future::join_all(tasks)
-            .await
-            .into_iter()
-            .map(|join_result| match join_result {
-                Ok(inner_result) => inner_result,
-                Err(join_err) => Err(Error::io_error(format!("Task join failed: {join_err}"))),
-            })
-            .collect();
+    let results: Vec<std::result::Result<LockResponse, Error>> = futures::future::join_all(tasks)
+        .await
+        .into_iter()
+        .map(|join_result| match join_result {
+            Ok(inner_result) => inner_result,
+            Err(join_err) => Err(Error::io_error(format!("Task join failed: {join_err}"))),
+        })
+        .collect();
 
     let successful_count = results.iter().filter(|r| r.is_ok()).count();
 

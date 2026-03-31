@@ -12,7 +12,7 @@ use crate::application::{
     repositories::WorktreeRepository,
 };
 use crate::domain::{Worktree, WorktreeState};
-use crate::domain::{WorktreeId, WorktreeDomainError};
+use crate::domain::{WorktreeDomainError, WorktreeId};
 
 pub struct WorktreeService<R: WorktreeRepository> {
     repository: R,
@@ -132,10 +132,7 @@ impl<R: WorktreeRepository> WorktreeService<R> {
         self.repository.find_by_id(id).await
     }
 
-    pub async fn find_by_name(
-        &self,
-        name: &str,
-    ) -> Result<Option<Worktree>, WorktreeDomainError> {
+    pub async fn find_by_name(&self, name: &str) -> Result<Option<Worktree>, WorktreeDomainError> {
         self.repository.find_by_name(name).await
     }
 
@@ -148,11 +145,7 @@ impl<R: WorktreeRepository> WorktreeService<R> {
         let result: Vec<Worktree> = worktrees
             .into_iter()
             .filter(|w| query.include_removed || !w.is_removed())
-            .filter(|w| {
-                query
-                    .state_filter
-                    .is_none_or(|state| w.state() == state)
-            })
+            .filter(|w| query.state_filter.is_none_or(|state| w.state() == state))
             .filter(|w| {
                 query
                     .worktree_type_filter
@@ -201,7 +194,10 @@ mod tests {
 
     #[async_trait::async_trait]
     impl WorktreeRepository for InMemoryRepository {
-        async fn save<S: Send>(&mut self, worktree: Worktree<S>) -> Result<(), WorktreeDomainError> {
+        async fn save<S: Send>(
+            &mut self,
+            worktree: Worktree<S>,
+        ) -> Result<(), WorktreeDomainError> {
             if let Some(existing) = self.worktrees.iter_mut().find(|w| w.id() == worktree.id()) {
                 *existing = worktree.into_state();
             } else {
@@ -210,12 +206,19 @@ mod tests {
             Ok(())
         }
 
-        async fn find_by_id(&self, id: &WorktreeId) -> Result<Option<Worktree>, WorktreeDomainError> {
+        async fn find_by_id(
+            &self,
+            id: &WorktreeId,
+        ) -> Result<Option<Worktree>, WorktreeDomainError> {
             Ok(self.worktrees.iter().find(|w| w.id() == id).cloned())
         }
 
         async fn find_by_name(&self, name: &str) -> Result<Option<Worktree>, WorktreeDomainError> {
-            Ok(self.worktrees.iter().find(|w| w.name().as_str() == name).cloned())
+            Ok(self
+                .worktrees
+                .iter()
+                .find(|w| w.name().as_str() == name)
+                .cloned())
         }
 
         async fn list_all(&self) -> Result<Vec<Worktree>, WorktreeDomainError> {

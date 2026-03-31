@@ -17,12 +17,12 @@
 #![forbid(unsafe_code)]
 
 // Re-export types from sibling modules
-pub use crate::infrastructure::operation_log_types::{
-    OperationLogEntry, OperationLogError, parse_datetime, parse_operation_log_row,
-};
-pub use crate::infrastructure::operation_log_schema::ensure_operation_log_schema;
 pub use crate::infrastructure::operation_log_repository::{
     get_stream_version, insert_operation_log, query_all_operations, query_stream_events,
+};
+pub use crate::infrastructure::operation_log_schema::ensure_operation_log_schema;
+pub use crate::infrastructure::operation_log_types::{
+    parse_datetime, parse_operation_log_row, OperationLogEntry, OperationLogError,
 };
 
 #[cfg(test)]
@@ -30,11 +30,11 @@ mod tests {
     use sqlx::SqlitePool;
     use tempfile::TempDir;
 
-    use crate::infrastructure::operation_log_schema::ensure_operation_log_schema;
-    use crate::infrastructure::operation_log_types::OperationLogEntry;
     use crate::infrastructure::operation_log_repository::{
         get_stream_version, insert_operation_log, query_all_operations, query_stream_events,
     };
+    use crate::infrastructure::operation_log_schema::ensure_operation_log_schema;
+    use crate::infrastructure::operation_log_types::OperationLogEntry;
 
     async fn create_test_pool() -> (SqlitePool, TempDir) {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
@@ -122,8 +122,13 @@ mod tests {
         let (pool, _temp_dir) = create_test_pool().await;
 
         let events = vec![
-            OperationLogEntry::new("session_created", r#"{"session_id": "s1"}"#, "session-s1", 1)
-                .unwrap(),
+            OperationLogEntry::new(
+                "session_created",
+                r#"{"session_id": "s1"}"#,
+                "session-s1",
+                1,
+            )
+            .unwrap(),
             OperationLogEntry::new(
                 "session_activated",
                 r#"{"session_id": "s1"}"#,
@@ -141,7 +146,9 @@ mod tests {
         ];
 
         for event in &events {
-            insert_operation_log(&pool, event).await.expect("Insert failed");
+            insert_operation_log(&pool, event)
+                .await
+                .expect("Insert failed");
         }
 
         let results = query_stream_events(&pool, "session-s1")
@@ -166,10 +173,14 @@ mod tests {
         ];
 
         for event in &events {
-            insert_operation_log(&pool, event).await.expect("Insert failed");
+            insert_operation_log(&pool, event)
+                .await
+                .expect("Insert failed");
         }
 
-        let version = get_stream_version(&pool, "stream-1").await.expect("Query failed");
+        let version = get_stream_version(&pool, "stream-1")
+            .await
+            .expect("Query failed");
 
         assert_eq!(version, 3);
     }
@@ -187,10 +198,14 @@ mod tests {
                 1,
             )
             .unwrap();
-            insert_operation_log(&pool, &entry).await.expect("Insert failed");
+            insert_operation_log(&pool, &entry)
+                .await
+                .expect("Insert failed");
         }
 
-        let results = query_all_operations(&pool, Some(5)).await.expect("Query failed");
+        let results = query_all_operations(&pool, Some(5))
+            .await
+            .expect("Query failed");
 
         assert_eq!(results.len(), 5);
     }
@@ -207,4 +222,3 @@ mod tests {
         assert!(result2.is_ok());
     }
 }
-

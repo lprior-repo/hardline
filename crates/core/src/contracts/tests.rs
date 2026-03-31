@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::contracts::types::{Constraint};
+    use crate::contracts::types::Constraint;
 
     #[test]
     fn test_regex_constraint_valid() {

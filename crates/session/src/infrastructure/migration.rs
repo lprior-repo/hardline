@@ -55,8 +55,15 @@ impl std::fmt::Display for MigrationError {
             Self::InvalidConnection { reason } => {
                 write!(f, "InvalidConnection: {}", reason)
             }
-            Self::VersionConflict { version, table_name } => {
-                write!(f, "VersionConflict: version {} already applied to {}", version, table_name)
+            Self::VersionConflict {
+                version,
+                table_name,
+            } => {
+                write!(
+                    f,
+                    "VersionConflict: version {} already applied to {}",
+                    version, table_name
+                )
             }
             Self::TableExists { table_name } => {
                 write!(f, "TableExists: {}", table_name)
@@ -147,14 +154,12 @@ mod sql {
 
 /// Validate migration name is a valid SQL identifier (ASCII alphanumeric + underscore only)
 pub(crate) fn validate_migration_name(name: &str) -> Result<(), MigrationError> {
-    let is_valid = !name.is_empty()
-        && name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_');
+    let is_valid = !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
     if !is_valid {
         return Err(MigrationError::InvalidMigrationFormat {
             migration: name.to_string(),
-            reason: "must be valid SQL identifier (ASCII alphanumeric, underscore only)".to_string(),
+            reason: "must be valid SQL identifier (ASCII alphanumeric, underscore only)"
+                .to_string(),
         });
     }
     Ok(())
@@ -162,12 +167,11 @@ pub(crate) fn validate_migration_name(name: &str) -> Result<(), MigrationError> 
 
 /// Check if a table exists in the database (parameterized to prevent SQL injection)
 async fn table_exists(pool: &SqlitePool, table_name: &str) -> Result<bool, MigrationError> {
-    let row: SqliteRow = sqlx::query(
-        "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=?;"
-    )
-    .bind(table_name)
-    .fetch_one(pool)
-    .await?;
+    let row: SqliteRow =
+        sqlx::query("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=?;")
+            .bind(table_name)
+            .fetch_one(pool)
+            .await?;
     let count: i64 = row.get("count");
     Ok(count > 0)
 }
@@ -195,9 +199,11 @@ pub async fn migrate_sessions_table(pool: &SqlitePool) -> Result<(), MigrationEr
     let version = MigrationVersion::new(1)?;
 
     // P2: Check connection is valid by acquiring
-    pool.acquire().await.map_err(|e| MigrationError::InvalidConnection {
-        reason: e.to_string(),
-    })?;
+    pool.acquire()
+        .await
+        .map_err(|e| MigrationError::InvalidConnection {
+            reason: e.to_string(),
+        })?;
 
     // Check if migrations tracking table exists, create if not
     let tracking_exists = table_exists(pool, "schema_migrations").await?;
@@ -259,7 +265,11 @@ async fn column_exists(
     column_name: &str,
 ) -> Result<bool, MigrationError> {
     // Validate table_name is a safe SQL identifier (ASCII alphanumeric + underscore)
-    if table_name.is_empty() || !table_name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+    if table_name.is_empty()
+        || !table_name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+    {
         return Err(MigrationError::InvalidMigrationFormat {
             migration: table_name.to_string(),
             reason: "table name must be a valid SQL identifier".to_string(),
@@ -288,9 +298,11 @@ pub async fn migrate_v2_add_branch_and_last_synced(
 ) -> Result<(), MigrationError> {
     let version = MigrationVersion::new(2)?;
 
-    pool.acquire().await.map_err(|e| MigrationError::InvalidConnection {
-        reason: e.to_string(),
-    })?;
+    pool.acquire()
+        .await
+        .map_err(|e| MigrationError::InvalidConnection {
+            reason: e.to_string(),
+        })?;
 
     // Ensure v1 has been applied
     let sessions_exists = table_exists(pool, "sessions").await?;
@@ -343,12 +355,12 @@ pub async fn migrate_v2_add_branch_and_last_synced(
 ///
 /// # Errors
 /// Returns MigrationError if table recreation fails.
-pub async fn rollback_v2_branch_and_last_synced(
-    pool: &SqlitePool,
-) -> Result<(), MigrationError> {
-    pool.acquire().await.map_err(|e| MigrationError::InvalidConnection {
-        reason: e.to_string(),
-    })?;
+pub async fn rollback_v2_branch_and_last_synced(pool: &SqlitePool) -> Result<(), MigrationError> {
+    pool.acquire()
+        .await
+        .map_err(|e| MigrationError::InvalidConnection {
+            reason: e.to_string(),
+        })?;
 
     // Verify v2 was applied
     let current = get_migration_version(pool).await?;
@@ -361,11 +373,7 @@ pub async fn rollback_v2_branch_and_last_synced(
 
     // Recreate table without the new columns
     // SQLite < 3.35.0 doesn't support DROP COLUMN; use rename-and-copy pattern
-    execute_sql(
-        pool,
-        r#"ALTER TABLE sessions RENAME TO sessions_backup;"#,
-    )
-    .await?;
+    execute_sql(pool, r#"ALTER TABLE sessions RENAME TO sessions_backup;"#).await?;
 
     // Create with original v1 schema
     execute_sql(pool, sql::CREATE_SESSIONS_TABLE).await?;
@@ -465,18 +473,16 @@ mod tests {
     use super::*;
 
     async fn create_fresh_pool() -> SqlitePool {
-        SqlitePool::connect("sqlite::memory:")
-            .await
-            .unwrap()
+        SqlitePool::connect("sqlite::memory:").await.unwrap()
     }
 
     #[tokio::test]
     async fn test_migration_creates_sessions_table() {
         let pool = create_fresh_pool().await;
-        
+
         let result = migrate_sessions_table(&pool).await;
         assert!(result.is_ok());
-        
+
         let exists = sessions_table_exists(&pool).await.unwrap();
         assert!(exists);
     }
@@ -484,11 +490,11 @@ mod tests {
     #[tokio::test]
     async fn test_migration_is_idempotent() {
         let pool = create_fresh_pool().await;
-        
+
         // First migration
         let result1 = migrate_sessions_table(&pool).await;
         assert!(result1.is_ok());
-        
+
         // Second migration (idempotent)
         let result2 = migrate_sessions_table(&pool).await;
         assert!(result2.is_ok());
@@ -498,17 +504,18 @@ mod tests {
     async fn test_sessions_table_columns() {
         let pool = create_fresh_pool().await;
         migrate_sessions_table(&pool).await.unwrap();
-        
+
         // Verify columns by querying the table
         let result = sqlx::query("PRAGMA table_info(sessions)")
             .fetch_all(&pool)
             .await
             .unwrap();
-        
-        let column_names: Vec<String> = result.iter()
+
+        let column_names: Vec<String> = result
+            .iter()
             .map(|row| row.get::<String, _>("name"))
             .collect();
-        
+
         assert!(column_names.contains(&"id".to_string()));
         assert!(column_names.contains(&"name".to_string()));
         assert!(column_names.contains(&"workspace".to_string()));
@@ -524,7 +531,7 @@ mod tests {
     async fn test_migration_creates_tracking_table() {
         let pool = create_fresh_pool().await;
         migrate_sessions_table(&pool).await.unwrap();
-        
+
         let exists = table_exists(&pool, "schema_migrations").await.unwrap();
         assert!(exists);
     }
@@ -533,7 +540,7 @@ mod tests {
     async fn test_get_migration_version() {
         let pool = create_fresh_pool().await;
         migrate_sessions_table(&pool).await.unwrap();
-        
+
         let version = get_migration_version(&pool).await.unwrap();
         assert_eq!(version, Some(1));
     }
@@ -708,7 +715,10 @@ mod tests {
         )
         .execute(&pool)
         .await;
-        assert!(result.is_ok(), "should be able to insert without branch_name/last_synced");
+        assert!(
+            result.is_ok(),
+            "should be able to insert without branch_name/last_synced"
+        );
 
         // Verify the values are NULL
         let row = sqlx::query("SELECT branch_name, last_synced FROM sessions WHERE id = 'test-id'")
@@ -799,7 +809,10 @@ mod tests {
             let columns = get_column_names(&pool).await;
             // Reconciled schema: rollback recreates table from v1 schema which includes branch_name
             // but the data is gone (NULL). Column still exists for schema compatibility.
-            assert!(columns.contains(&"branch_name".to_string()), "branch_name column exists in reconciled v1");
+            assert!(
+                columns.contains(&"branch_name".to_string()),
+                "branch_name column exists in reconciled v1"
+            );
 
             // Re-apply all migrations
             run_all_migrations(&pool).await.unwrap();
@@ -889,7 +902,9 @@ mod tests {
             let pool = create_fresh_pool().await;
 
             // Create tracking table directly without sessions
-            execute_sql(&pool, sql::CREATE_SCHEMA_MIGRATIONS_TABLE).await.unwrap();
+            execute_sql(&pool, sql::CREATE_SCHEMA_MIGRATIONS_TABLE)
+                .await
+                .unwrap();
             sqlx::query(sql::INSERT_MIGRATION)
                 .bind(1i64)
                 .bind("create_sessions_table")
@@ -966,13 +981,15 @@ mod tests {
                 let result = run_all_migrations(&pool).await;
                 assert!(
                     result.is_ok(),
-                    "Migration {} should succeed (idempotent)", i
+                    "Migration {} should succeed (idempotent)",
+                    i
                 );
             }
 
             let version = get_migration_version(&pool).await.unwrap();
             assert_eq!(
-                version, Some(2),
+                version,
+                Some(2),
                 "Version should still be 2 after 10 applications"
             );
 
@@ -1014,7 +1031,8 @@ mod tests {
 
             let version = get_migration_version(&pool).await.unwrap();
             assert_eq!(
-                version, Some(1),
+                version,
+                Some(1),
                 "migrate_with_version always records v1 regardless of passed version"
             );
         }

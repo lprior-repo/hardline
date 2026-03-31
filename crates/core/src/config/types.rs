@@ -4,10 +4,10 @@
 
 //! Conflict resolution types
 
-use std::str::FromStr;
-use serde::{Deserialize, Serialize};
 use crate::error_config::ConfigErrorKind;
 use crate::{Error, Result};
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -35,9 +35,7 @@ impl FromStr for ConflictMode {
             "auto" => Ok(Self::Auto),
             "manual" => Ok(Self::Manual),
             "hybrid" => Ok(Self::Hybrid),
-            _ => Err(ConfigErrorKind::Invalid(format!(
-                "Invalid conflict mode: {s}"
-            )).into()),
+            _ => Err(ConfigErrorKind::Invalid(format!("Invalid conflict mode: {s}")).into()),
         }
     }
 }
@@ -91,7 +89,8 @@ impl std::fmt::Display for ValidatedBool {
 
 impl Serialize for ValidatedBool {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where S: serde::Serializer,
+    where
+        S: serde::Serializer,
     {
         serializer.serialize_bool(self.0)
     }
@@ -99,7 +98,8 @@ impl Serialize for ValidatedBool {
 
 impl<'de> Deserialize<'de> for ValidatedBool {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where D: serde::Deserializer<'de>,
+    where
+        D: serde::Deserializer<'de>,
     {
         struct BoolVisitor;
         impl<'de> serde::de::Visitor<'de> for BoolVisitor {
@@ -108,7 +108,8 @@ impl<'de> Deserialize<'de> for ValidatedBool {
                 formatter.write_str("a boolean value")
             }
             fn visit_bool<E>(self, value: bool) -> std::result::Result<Self::Value, E>
-            where E: serde::de::Error,
+            where
+                E: serde::de::Error,
             {
                 Ok(ValidatedBool(value))
             }

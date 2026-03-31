@@ -31,12 +31,12 @@ use std::time::{Duration, Instant};
 use fs2::FileExt;
 
 use crate::error::{Error, Result};
+use crate::jj_operation_sync::jj_lock::ensure_data_directory;
 use crate::jj_operation_sync::jj_lock::{
     acquire_cross_process_lock, acquire_file_lock_with_timeout, FILE_LOCK_BASE_BACKOFF_MS,
     FILE_LOCK_MAX_RETRIES, FILE_LOCK_TIMEOUT_MS, LOCK_ACQUISITION_TIMEOUT, MAX_LOCK_RETRIES,
     WORKSPACE_CREATION_LOCK_FILE,
 };
-use crate::jj_operation_sync::jj_lock::ensure_data_directory;
 
 /// Helper: assert that an Error is the Jj variant with LockTimeout message
 fn assert_is_lock_timeout(result: &Result<File>, expected_operation: &str) {
@@ -104,15 +104,11 @@ async fn acquire_cross_process_lock_returns_file_when_repo_root_accessible() {
     let result = acquire_cross_process_lock(&repo_root_path).await;
 
     // Then: returns Ok(File)
-    let _file =
-        result.expect("acquire_cross_process_lock should return Ok(File) when uncontested");
+    let _file = result.expect("acquire_cross_process_lock should return Ok(File) when uncontested");
 
     // And: the file at {repo_root}/.scp-workspace-create.lock exists on disk
     let lock_path = repo_root_path.join(".scp-workspace-create.lock");
-    assert!(
-        lock_path.exists(),
-        "Lock file should exist at repo root"
-    );
+    assert!(lock_path.exists(), "Lock file should exist at repo root");
 
     // And: a second try_lock_exclusive() on the same lock path returns Err (lock is held)
     let second_file = OpenOptions::new()
@@ -266,7 +262,9 @@ async fn acquire_cross_process_lock_returns_lock_timeout_when_another_process_ho
         "Expected '8 retries' in error: {err_str}"
     );
     // Compute expected total_wait_ms: sum of 25 * 2^i for i in 0..7
-    let expected_total: u64 = (0u32..8).map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i)).sum();
+    let expected_total: u64 = (0u32..8)
+        .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i))
+        .sum();
     assert!(
         err_str.contains(&format!("{expected_total}ms")),
         "Expected '{expected_total}ms' (total backoff) in error: {err_str}"
@@ -481,7 +479,10 @@ async fn ensure_data_directory_does_not_touch_lock_file_when_called() {
     let result = ensure_data_directory(&repo_root_path).await;
 
     // Then: returns Ok(())
-    assert!(result.is_ok(), "ensure_data_directory should succeed, got: {result:?}");
+    assert!(
+        result.is_ok(),
+        "ensure_data_directory should succeed, got: {result:?}"
+    );
 
     // And: lock file still does NOT exist
     assert!(
@@ -533,8 +534,7 @@ async fn create_workspace_synced_returns_config_error_when_name_empty() {
     let repo_root = std::env::temp_dir().join("test-repo-root-hl6h1");
 
     // When
-    let result =
-        crate::jj_operation_sync::create_workspace_synced("", &temp_dir, &repo_root).await;
+    let result = crate::jj_operation_sync::create_workspace_synced("", &temp_dir, &repo_root).await;
 
     // Then: returns Err(Error::Config(ConfigError { inner: ConfigErrorKind::Invalid(msg) }))
     match &result {
@@ -655,8 +655,7 @@ async fn stress_max_concurrent_lock_holders_is_one() {
             let guard = acquire_cross_process_lock(&repo_root_path).await;
             match guard {
                 Ok(_file) => {
-                    let current =
-                        in_critical.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                    let current = in_critical.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
                     // L4: CAS result explicitly consumed — may fail under contention (expected)
                     match max_critical.fetch_update(
                         std::sync::atomic::Ordering::SeqCst,
@@ -729,32 +728,20 @@ async fn acquire_cross_process_lock_succeeds_on_repeated_acquire_drop_cycle() {
 
     // When: acquire -> drop -> acquire -> drop -> acquire
     let result1 = acquire_cross_process_lock(&repo_root_path).await;
-    assert!(
-        result1.is_ok(),
-        "First acquisition should succeed"
-    );
+    assert!(result1.is_ok(), "First acquisition should succeed");
     drop(result1);
 
     let result2 = acquire_cross_process_lock(&repo_root_path).await;
-    assert!(
-        result2.is_ok(),
-        "Second acquisition should succeed"
-    );
+    assert!(result2.is_ok(), "Second acquisition should succeed");
     drop(result2);
 
     let result3 = acquire_cross_process_lock(&repo_root_path).await;
-    assert!(
-        result3.is_ok(),
-        "Third acquisition should succeed"
-    );
+    assert!(result3.is_ok(), "Third acquisition should succeed");
     drop(result3);
 
     // Then: only one .scp-workspace-create.lock file exists
     let lock_path = repo_root_path.join(".scp-workspace-create.lock");
-    assert!(
-        lock_path.exists(),
-        "Lock file must exist after cycle"
-    );
+    assert!(lock_path.exists(), "Lock file must exist after cycle");
     let count = fs::read_dir(&repo_root_path)
         .expect("Failed to read repo_root")
         .filter_map(|entry| {
@@ -763,10 +750,7 @@ async fn acquire_cross_process_lock_succeeds_on_repeated_acquire_drop_cycle() {
             (name == ".scp-workspace-create.lock").then_some(name)
         })
         .count();
-    assert_eq!(
-        count, 1,
-        "Exactly one lock file should exist"
-    );
+    assert_eq!(count, 1, "Exactly one lock file should exist");
 }
 
 // =========================================================================
@@ -913,7 +897,9 @@ async fn acquire_cross_process_lock_opens_lock_file_for_reading() {
         .expect("Lock acquisition should succeed");
 
     // Then: file.metadata() returns Ok (file handle is valid)
-    let _meta = file.metadata().expect("File handle must support metadata()");
+    let _meta = file
+        .metadata()
+        .expect("File handle must support metadata()");
 
     // And: file.try_clone() returns Ok (file handle is cloneable)
     let mut cloned = file
@@ -1043,8 +1029,7 @@ fn given_lock_constants_when_validated_then_reasonable_values() {
     assert!(FILE_LOCK_BASE_BACKOFF_MS > 0);
     // B2 constant check: lock file must be at repo root (dot-prefixed)
     assert_eq!(
-        WORKSPACE_CREATION_LOCK_FILE,
-        ".scp-workspace-create.lock",
+        WORKSPACE_CREATION_LOCK_FILE, ".scp-workspace-create.lock",
         "Lock file constant must be '.scp-workspace-create.lock' (repo root, NOT inside .isolate/)"
     );
 }
@@ -1254,8 +1239,8 @@ async fn stress_cross_process_lock_keeps_single_holder() -> Result<()> {
 
 #[cfg(test)]
 mod proptests {
-    use proptest::prelude::*;
     use crate::jj_operation_sync::jj_lock::{calculate_backoff_ms, MAX_BACKOFF_MS};
+    use proptest::prelude::*;
 
     proptest! {
         #![proptest_config(ProptestConfig { cases: 1000, ..ProptestConfig::default() })]
@@ -1302,9 +1287,9 @@ mod proptests_p2 {
 
 #[cfg(test)]
 mod proptests_p3 {
+    use crate::jj_operation_sync::jj_lock::WORKSPACE_CREATION_LOCK_FILE;
     use proptest::prelude::*;
     use std::path::PathBuf;
-    use crate::jj_operation_sync::jj_lock::WORKSPACE_CREATION_LOCK_FILE;
 
     proptest! {
         #![proptest_config(ProptestConfig { cases: 1000, ..ProptestConfig::default() })]

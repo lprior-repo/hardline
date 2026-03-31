@@ -13,8 +13,8 @@
 mod proofs {
     use crate::commands::handlers::ai::{
         build_overview, build_quick_start, build_workflow, determine_next_action,
-        determine_ready_state, format_session_count, format_status_human, AiStatusOutput,
-        Location, Priority,
+        determine_ready_state, format_session_count, format_status_human, AiStatusOutput, Location,
+        Priority,
     };
 
     // =========================================================================
@@ -202,8 +202,7 @@ mod proofs {
         for initialized in [true, false] {
             for location in locations {
                 for sessions in session_counts {
-                    let output =
-                        determine_next_action(initialized, location, None, sessions);
+                    let output = determine_next_action(initialized, location, None, sessions);
                     assert!(!output.action.is_empty());
                     assert!(!output.command.is_empty());
                     assert!(!output.reason.is_empty());

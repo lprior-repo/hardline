@@ -113,6 +113,11 @@ pub use conflict::{
     ConflictAnalysis, ConflictDetail, ConflictType, ResolutionOption, ResolutionRisk,
     ResolutionStrategy,
 };
+pub use domain_types::{
+    ActionResult, ActionTarget, ActionVerb, AgentAssignment, BaseRef, BeadAttachment, BeadId,
+    Command, ExecutionMode, IssueId, IssueScope, IssueTitle, Message, Outcome, PlanDescription,
+    PlanTitle, RecoveryCapability, RecoveryExecution, ValidatedMetadata, WarningCode,
+};
 pub use errors::OutputLineError;
 pub use issue::{Issue, IssueKind, IssueSeverity};
 pub use output_line::OutputLine;
@@ -121,13 +126,8 @@ pub use recovery::{Assessment, ErrorSeverity, Recovery, RecoveryAction};
 pub use result::{ResultKind, ResultOutput};
 pub use session::{Session, SessionOutput, SessionState};
 pub use summary::{Summary, SummaryType};
-pub use warning::{Context, Warning};
-pub use domain_types::{
-    ActionResult, ActionTarget, ActionVerb, AgentAssignment, BaseRef, BeadAttachment, BeadId,
-    Command, ExecutionMode, IssueId, IssueScope, IssueTitle, Message, Outcome, PlanDescription,
-    PlanTitle, RecoveryCapability, RecoveryExecution, ValidatedMetadata, WarningCode,
-};
 pub use test_utils::{OutputEmitter, StdoutEmitter, VecEmitter};
+pub use warning::{Context, Warning};
 pub use writer::{emit, emit_all_stdout, emit_stdout, JsonlConfig, JsonlWriter};
 
 #[cfg(test)]

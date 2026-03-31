@@ -72,12 +72,12 @@ impl<R: BeadRepository> BeadService<R> {
         }
 
         // Use the transition_to method which handles all typestate transitions
-        let updated = bead
-            .transition_to(&new_state)
-            .ok_or_else(|| BeadError::InvalidStateTransition {
-                from: format!("{:?}", old_state),
-                to: format!("{:?}", new_state),
-            })?;
+        let updated =
+            bead.transition_to(&new_state)
+                .ok_or_else(|| BeadError::InvalidStateTransition {
+                    from: format!("{:?}", old_state),
+                    to: format!("{:?}", new_state),
+                })?;
 
         self.repository.update(&updated).await?;
 

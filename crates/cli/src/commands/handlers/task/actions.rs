@@ -15,8 +15,8 @@ use scp_core::lock::LockManager;
 use scp_core::output::Output;
 
 use super::calculations::{
-    filter_tasks_by_status, resolve_task_id, status_display_icon,
-    task_to_output, truncate_description, validate_task_command,
+    filter_tasks_by_status, resolve_task_id, status_display_icon, task_to_output,
+    truncate_description, validate_task_command,
 };
 use super::data::{TaskCommand, TaskListOutput};
 
@@ -191,9 +191,11 @@ fn execute_done(
     let updated = transition_to_done(task);
     store.update(updated)?;
 
-    let output = task_to_output(&store.get(task_id.as_str()).ok_or_else(|| {
-        Error::internal("Task disappeared after completion")
-    })?);
+    let output = task_to_output(
+        &store
+            .get(task_id.as_str())
+            .ok_or_else(|| Error::internal("Task disappeared after completion"))?,
+    );
 
     Output::success(&format!("Completed task '{task_id}'"));
     Output::info(&format!("  Title: {}", output.title));

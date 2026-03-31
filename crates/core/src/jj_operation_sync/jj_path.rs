@@ -31,15 +31,13 @@ fn resolve_jj_path() -> String {
         .ok()
         .filter(|value| !value.trim().is_empty());
 
-    env_path
-        .as_ref()
-        .map_or_else(search_path_for_jj, |p| {
-            if std::path::Path::new(p).exists() {
-                p.clone()
-            } else {
-                search_path_for_jj()
-            }
-        })
+    env_path.as_ref().map_or_else(search_path_for_jj, |p| {
+        if std::path::Path::new(p).exists() {
+            p.clone()
+        } else {
+            search_path_for_jj()
+        }
+    })
 }
 
 /// Get async jj command builder

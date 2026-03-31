@@ -4,12 +4,14 @@
 mod tests {
     use chrono::Utc;
 
-    use crate::types::{AbsolutePath, SessionId, SessionName, ValidatedMetadata};
     use crate::type_session::Session;
     use crate::types::BeadsSummary;
+    use crate::types::{AbsolutePath, SessionId, SessionName, ValidatedMetadata};
     use crate::workspace_state::WorkspaceState;
 
-    use crate::hints::types::{ActionRisk, CommandContext, Hint, HintType, NextAction, SystemState};
+    use crate::hints::types::{
+        ActionRisk, CommandContext, Hint, HintType, NextAction, SystemState,
+    };
     use crate::hints::{
         extract_session_name, generate_hints, generate_hints_response, hints_for_beads,
         hints_for_error, next_actions_for_command, suggest_next_actions,
@@ -425,8 +427,8 @@ mod tests {
         };
 
         use crate::hints::response::SystemContext;
-        let response =
-            generate_hints_response(&state).unwrap_or_else(|_| crate::hints::response::HintsResponse {
+        let response = generate_hints_response(&state).unwrap_or_else(|_| {
+            crate::hints::response::HintsResponse {
                 context: SystemContext {
                     initialized: true,
                     jj_repo: true,
@@ -436,7 +438,8 @@ mod tests {
                 },
                 hints: Vec::new(),
                 next_actions: Vec::new(),
-            });
+            }
+        });
 
         assert_eq!(response.context.sessions_count, 1);
         assert_eq!(response.context.active_sessions, 1);

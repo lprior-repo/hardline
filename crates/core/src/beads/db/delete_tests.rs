@@ -4,9 +4,9 @@ mod delete_tests {
     use sqlx::SqlitePool;
     use tempfile::TempDir;
 
-    use crate::beads::types::{BeadIssue, BeadsError, IssueStatus, IssueType, Priority};
     use crate::beads::db::schema::ensure_schema;
     use crate::beads::db::write::{delete_bead, insert_bead};
+    use crate::beads::types::{BeadIssue, BeadsError, IssueStatus, IssueType, Priority};
 
     async fn create_test_pool() -> (SqlitePool, TempDir) {
         let temp_dir = TempDir::new().ok();

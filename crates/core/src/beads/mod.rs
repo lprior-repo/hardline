@@ -61,8 +61,8 @@ pub use domain::{
     Labels, ParentId, Priority, Title,
 };
 // Issue aggregate root
-pub use issue_data::Issue;
 pub use issue_builder::IssueBuilder;
+pub use issue_data::Issue;
 // Query operations
 pub use query::{apply_query, filter_issues, paginate, sort_issues};
 // Legacy types (for backward compatibility)

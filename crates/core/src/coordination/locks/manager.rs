@@ -3,7 +3,6 @@
 use chrono::{Duration, Utc};
 use sqlx::SqlitePool;
 
-
 use super::types::Ttl;
 use crate::Result;
 
@@ -58,7 +57,9 @@ impl LockManager {
         )
         .execute(&self.db)
         .await
-        .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+        .map_err(|e| {
+            crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string()))
+        })?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS session_lock_audit (
@@ -71,7 +72,9 @@ impl LockManager {
         )
         .execute(&self.db)
         .await
-        .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+        .map_err(|e| {
+            crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string()))
+        })?;
 
         Ok(())
     }
@@ -79,14 +82,18 @@ impl LockManager {
     /// Validate session name according to contract constraints.
     pub(super) fn validate_session_name(session: &str) -> crate::Result<()> {
         if session.is_empty() {
-            return Err(crate::error::Error::from(super::errors::LockErrorKind::EmptySessionName("Session name cannot be empty".to_string())));
+            return Err(crate::error::Error::from(
+                super::errors::LockErrorKind::EmptySessionName(
+                    "Session name cannot be empty".to_string(),
+                ),
+            ));
         }
         if session.len() > MAX_SESSION_NAME_LEN {
-            return Err(
-                crate::error::Error::from(
-                    super::errors::LockErrorKind::SessionNameTooLong("Session name cannot exceed 255 characters".to_string())
-                )
-            );
+            return Err(crate::error::Error::from(
+                super::errors::LockErrorKind::SessionNameTooLong(
+                    "Session name cannot exceed 255 characters".to_string(),
+                ),
+            ));
         }
         Ok(())
     }
@@ -94,7 +101,9 @@ impl LockManager {
     /// Validate agent ID according to contract constraints.
     pub(super) fn validate_agent_id(agent_id: &str) -> crate::Result<()> {
         if agent_id.is_empty() {
-            return Err(crate::error::Error::from(super::errors::LockErrorKind::EmptyAgentId("Agent ID cannot be empty".to_string())));
+            return Err(crate::error::Error::from(
+                super::errors::LockErrorKind::EmptyAgentId("Agent ID cannot be empty".to_string()),
+            ));
         }
         Ok(())
     }
@@ -102,17 +111,21 @@ impl LockManager {
     /// Validate TTL value according to contract constraints.
     pub(super) fn validate_ttl(ttl_seconds: u64) -> crate::Result<Ttl> {
         if ttl_seconds == u64::MAX {
-            return Err(crate::error::Error::from(super::errors::LockErrorKind::TtlOverflow("TTL overflow detected".to_string())));
+            return Err(crate::error::Error::from(
+                super::errors::LockErrorKind::TtlOverflow("TTL overflow detected".to_string()),
+            ));
         }
         if ttl_seconds > MAX_TTL_SECS {
-            return Err(
-                crate::error::Error::from(
-                    super::errors::LockErrorKind::TtlOutOfRange("TTL must be in range [0, 86400]".to_string())
-                )
-            );
+            return Err(crate::error::Error::from(
+                super::errors::LockErrorKind::TtlOutOfRange(
+                    "TTL must be in range [0, 86400]".to_string(),
+                ),
+            ));
         }
         Ttl::new(ttl_seconds).ok_or_else(|| {
-            crate::error::Error::from(super::errors::LockErrorKind::TtlOutOfRange("TTL must be in range [0, 86400]".to_string()))
+            crate::error::Error::from(super::errors::LockErrorKind::TtlOutOfRange(
+                "TTL must be in range [0, 86400]".to_string(),
+            ))
         })
     }
 
@@ -135,7 +148,9 @@ impl LockManager {
         .bind(&now_str)
         .execute(&self.db)
         .await
-        .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+        .map_err(|e| {
+            crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string()))
+        })?;
 
         Ok(())
     }
@@ -144,16 +159,18 @@ impl LockManager {
     ///
     /// This is called before acquiring a lock to prevent orphaned locks.
     /// Returns Ok(()) if the sessions table doesn't exist (graceful degradation).
-        pub async fn verify_session_exists(&self, session: &str) -> crate::Result<()> {
+    pub async fn verify_session_exists(&self, session: &str) -> crate::Result<()> {
         let query_result = sqlx::query("SELECT name FROM sessions WHERE name = ?")
             .bind(session)
             .fetch_optional(&self.db)
             .await;
 
         match query_result {
-            Ok(None) => Err(crate::error::Error::from(super::errors::LockErrorKind::SessionNotFound {
+            Ok(None) => Err(crate::error::Error::from(
+                super::errors::LockErrorKind::SessionNotFound {
                     session: session.to_string(),
-                })),
+                },
+            )),
             Ok(Some(_)) => Ok(()),
             Err(e) => {
                 // If sessions table doesn't exist, allow locks (graceful degradation)
@@ -161,7 +178,11 @@ impl LockManager {
                 if msg.contains("no such table") {
                     return Ok(());
                 }
-                Err(crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(format!("Failed to query sessions: {e}"))))
+                Err(crate::error::Error::from(
+                    super::errors::LockErrorKind::DatabaseError(format!(
+                        "Failed to query sessions: {e}"
+                    )),
+                ))
             }
         }
     }

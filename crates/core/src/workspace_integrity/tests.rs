@@ -2,35 +2,31 @@
 
 #[cfg(test)]
 mod tests {
+    use crate::workspace_integrity::RepairResult;
     use std::path::PathBuf;
-use crate::workspace_integrity::RepairResult;
 
     use tempfile::TempDir;
 
-    use crate::workspace_integrity::checks::resolve_workspace_path;
-    use crate::workspace_integrity::types::{
-        CorruptionType, RepairStrategy, Severity,
-    };
-    use crate::workspace_integrity::issue::IntegrityIssue;
-    use crate::workspace_integrity::validation_result::ValidationResult;
-    use crate::workspace_integrity::validation::IntegrityValidator;
-    use crate::workspace_integrity::repair::RepairExecutor;
     use crate::workspace_integrity::backup::BackupManager;
+    use crate::workspace_integrity::checks::resolve_workspace_path;
+    use crate::workspace_integrity::issue::IntegrityIssue;
+    use crate::workspace_integrity::repair::RepairExecutor;
+    use crate::workspace_integrity::types::{CorruptionType, RepairStrategy, Severity};
+    use crate::workspace_integrity::validation::IntegrityValidator;
+    use crate::workspace_integrity::validation_result::ValidationResult;
     use crate::Result;
 
     // Helper to create a temporary workspaces root for testing
     fn create_test_root() -> Result<TempDir> {
-        TempDir::new().map_err(|e| crate::Error::io_error(format!("Failed to create temp dir: {e}")))
+        TempDir::new()
+            .map_err(|e| crate::Error::io_error(format!("Failed to create temp dir: {e}")))
     }
 
     #[tokio::test]
     async fn test_integrity_validator_new() {
         let validator = IntegrityValidator::new("/tmp/workspaces");
         assert_eq!(validator.workspaces_root, PathBuf::from("/tmp/workspaces"));
-        assert_eq!(
-            validator.timeout_ms,
-            IntegrityValidator::DEFAULT_TIMEOUT_MS
-        );
+        assert_eq!(validator.timeout_ms, IntegrityValidator::DEFAULT_TIMEOUT_MS);
     }
 
     #[tokio::test]
@@ -83,13 +79,7 @@ use crate::workspace_integrity::RepairResult;
         let root = create_test_root()?;
         let workspace_path = root.path().join("valid-ws");
         tokio::fs::create_dir_all(workspace_path.join(".jj").join("repo")).await?;
-        tokio::fs::create_dir_all(
-            workspace_path
-                .join(".jj")
-                .join("repo")
-                .join("op_store"),
-        )
-        .await?;
+        tokio::fs::create_dir_all(workspace_path.join(".jj").join("repo").join("op_store")).await?;
         tokio::fs::write(
             workspace_path
                 .join(".jj")
@@ -154,22 +144,16 @@ use crate::workspace_integrity::RepairResult;
 
     #[test]
     fn test_integrity_issue_with_path() {
-        let issue = IntegrityIssue::new(CorruptionType::StaleLocks, "Locked")
-            .with_path("/tmp/lock");
-        assert_eq!(
-            issue.affected_path,
-            Some(PathBuf::from("/tmp/lock"))
-        );
+        let issue =
+            IntegrityIssue::new(CorruptionType::StaleLocks, "Locked").with_path("/tmp/lock");
+        assert_eq!(issue.affected_path, Some(PathBuf::from("/tmp/lock")));
     }
 
     #[test]
     fn test_integrity_issue_with_context() {
         let issue = IntegrityIssue::new(CorruptionType::StaleLocks, "Locked")
             .with_context("File held by process 1234");
-        assert_eq!(
-            issue.context,
-            Some("File held by process 1234".to_string())
-        );
+        assert_eq!(issue.context, Some("File held by process 1234".to_string()));
     }
 
     #[test]
@@ -191,10 +175,7 @@ use crate::workspace_integrity::RepairResult;
 
     #[tokio::test]
     async fn test_validation_result_invalid() {
-        let issues = vec![IntegrityIssue::new(
-            CorruptionType::StaleLocks,
-            "Locked",
-        )];
+        let issues = vec![IntegrityIssue::new(CorruptionType::StaleLocks, "Locked")];
         let result = ValidationResult::invalid("ws", "/tmp/ws", issues);
         assert!(!result.is_valid);
         assert_eq!(result.workspace, "ws");
@@ -204,10 +185,7 @@ use crate::workspace_integrity::RepairResult;
 
     #[tokio::test]
     async fn test_validation_result_has_auto_repairable() {
-        let issues = vec![IntegrityIssue::new(
-            CorruptionType::StaleLocks,
-            "Locked",
-        )];
+        let issues = vec![IntegrityIssue::new(CorruptionType::StaleLocks, "Locked")];
         let result = ValidationResult::invalid("ws", "/tmp/ws", issues);
         assert!(result.has_auto_repairable_issues());
     }
@@ -286,8 +264,7 @@ use crate::workspace_integrity::RepairResult;
         tokio::fs::write(&lock, "lock").await?;
 
         let executor = RepairExecutor::new();
-        let issues =
-            vec![IntegrityIssue::new(CorruptionType::StaleLocks, "Lock").with_path(&lock)];
+        let issues = vec![IntegrityIssue::new(CorruptionType::StaleLocks, "Lock").with_path(&lock)];
         let validation = ValidationResult::invalid("ws", &ws, issues);
 
         let result = executor.repair(&validation).await?;
@@ -344,17 +321,20 @@ use crate::workspace_integrity::RepairResult;
         let result = manager.restore_backup("backup-123", "ws", &ws_path)?;
         assert!(result.success);
         assert_eq!(result.workspace, "ws");
-        assert_eq!(
-            result.summary,
-            "Restored from backup backup-123"
-        );
+        assert_eq!(result.summary, "Restored from backup backup-123");
         Ok(())
     }
 
     #[tokio::test]
     async fn test_corruption_type_display() {
-        assert_eq!(format!("{}", CorruptionType::MissingDirectory), "missing_directory");
-        assert_eq!(format!("{}", CorruptionType::MissingJjDir), "missing_jj_dir");
+        assert_eq!(
+            format!("{}", CorruptionType::MissingDirectory),
+            "missing_directory"
+        );
+        assert_eq!(
+            format!("{}", CorruptionType::MissingJjDir),
+            "missing_jj_dir"
+        );
         assert_eq!(format!("{}", CorruptionType::StaleLocks), "stale_locks");
     }
 

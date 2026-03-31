@@ -62,8 +62,8 @@ impl Recovery {
         command: Option<String>,
         automatic: bool,
     ) -> Result<Self, OutputLineError> {
-        let order =
-            u32::try_from(self.actions.len()).map_err(|_| OutputLineError::RecoveryActionOverflow)?;
+        let order = u32::try_from(self.actions.len())
+            .map_err(|_| OutputLineError::RecoveryActionOverflow)?;
 
         let execution = if automatic {
             let cmd = command.unwrap_or_else(|| {

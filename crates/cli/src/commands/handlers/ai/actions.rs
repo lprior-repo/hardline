@@ -67,10 +67,7 @@ pub fn run_default() -> Result<()> {
 // =============================================================================
 
 /// Serialize data into an AiEnvelope and write to Output.
-fn serialize_and_output<T: serde::Serialize>(
-    schema_name: &str,
-    data: &T,
-) -> Result<()> {
+fn serialize_and_output<T: serde::Serialize>(schema_name: &str, data: &T) -> Result<()> {
     let envelope = AiEnvelope::new(schema_name, "single", data);
     let json_str = serde_json::to_string_pretty(&envelope)
         .map_err(|e| Error::io_error(format!("Failed to serialize AI response: {e}")))?;

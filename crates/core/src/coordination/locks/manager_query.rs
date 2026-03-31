@@ -25,10 +25,18 @@ impl LockManager {
         rows.into_iter()
             .map(|(lock_id, session, agent_id, acquired_str, expires_str)| {
                 let acquired_at = DateTime::parse_from_rfc3339(&acquired_str)
-                    .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::ParseError(e.to_string())))?
+                    .map_err(|e| {
+                        crate::error::Error::from(super::errors::LockErrorKind::ParseError(
+                            e.to_string(),
+                        ))
+                    })?
                     .with_timezone(&Utc);
                 let expires_at = DateTime::parse_from_rfc3339(&expires_str)
-                    .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::ParseError(e.to_string())))?
+                    .map_err(|e| {
+                        crate::error::Error::from(super::errors::LockErrorKind::ParseError(
+                            e.to_string(),
+                        ))
+                    })?
                     .with_timezone(&Utc);
                 Ok(LockInfo {
                     lock_id,
@@ -55,23 +63,31 @@ impl LockManager {
         .bind(session)
         .fetch_all(&self.db)
         .await
-        .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+        .map_err(|e| {
+            crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string()))
+        })?;
 
         rows.into_iter()
             .map(|(session, agent_id, operation_str, timestamp_str)| {
                 let timestamp = DateTime::parse_from_rfc3339(&timestamp_str)
-                    .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::ParseError(e.to_string())))?
+                    .map_err(|e| {
+                        crate::error::Error::from(super::errors::LockErrorKind::ParseError(
+                            e.to_string(),
+                        ))
+                    })?
                     .with_timezone(&Utc);
-                
+
                 let operation = match operation_str.as_str() {
                     "lock" => LockOperation::Lock,
                     "unlock" => LockOperation::Unlock,
                     "heartbeat" => LockOperation::Heartbeat,
                     "double_unlock_warning" => LockOperation::DoubleUnlockWarning,
                     _ => {
-                        return Err(
-                            crate::error::Error::from(super::errors::LockErrorKind::Unknown(format!("Unknown operation: {operation_str}")))
-                        );
+                        return Err(crate::error::Error::from(
+                            super::errors::LockErrorKind::Unknown(format!(
+                                "Unknown operation: {operation_str}"
+                            )),
+                        ));
                     }
                 };
 
@@ -99,12 +115,18 @@ impl LockManager {
         .bind(&now_str)
         .fetch_optional(&self.db)
         .await
-        .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+        .map_err(|e| {
+            crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string()))
+        })?;
 
         match existing {
             Some((holder, expires_str)) => {
                 let expires_at = DateTime::parse_from_rfc3339(&expires_str)
-                    .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::ParseError(e.to_string())))?
+                    .map_err(|e| {
+                        crate::error::Error::from(super::errors::LockErrorKind::ParseError(
+                            e.to_string(),
+                        ))
+                    })?
                     .with_timezone(&Utc);
                 Ok(LockState {
                     session: session.to_string(),

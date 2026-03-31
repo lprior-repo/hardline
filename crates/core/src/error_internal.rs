@@ -2,8 +2,8 @@
 //!
 //! Error codes: 9xxx
 
-use thiserror::Error;
 use crate::error::Error;
+use thiserror::Error;
 
 /// Internal errors
 #[derive(Error, Debug, Clone)]

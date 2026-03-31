@@ -8,7 +8,10 @@ use super::executor::PipelineExecutor;
 use super::types::PhaseError;
 
 impl PipelineExecutor {
-    pub fn recover_pipeline(&mut self, pipeline_id: &PipelineId) -> Result<super::types::Decision, PhaseError> {
+    pub fn recover_pipeline(
+        &mut self,
+        pipeline_id: &PipelineId,
+    ) -> Result<super::types::Decision, PhaseError> {
         let pipeline = self
             .store
             .get(pipeline_id)

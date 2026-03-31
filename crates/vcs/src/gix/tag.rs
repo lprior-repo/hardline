@@ -17,7 +17,10 @@ fn validate_tag_name(name: &str) -> GitResult<()> {
             reason: "Tag name cannot start with 'ref:'".to_string(),
         });
     }
-    if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/') {
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/')
+    {
         return Err(GitError::InvalidRef {
             name: "create".to_string(),
             reason: "Tag name contains invalid characters".to_string(),
@@ -96,7 +99,10 @@ pub fn delete(repo: &gix::Repository, name: &str, force: bool) -> GitResult<()> 
     let reference = if force {
         repo.find_reference(&reference_name).ok()
     } else {
-        Some(repo.find_reference(&reference_name).map_err(|_| GitError::NotFound(std::path::PathBuf::from(&reference_name)))?)
+        Some(
+            repo.find_reference(&reference_name)
+                .map_err(|_| GitError::NotFound(std::path::PathBuf::from(&reference_name)))?,
+        )
     };
 
     if let Some(ref reference) = reference {

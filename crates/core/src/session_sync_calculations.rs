@@ -4,9 +4,7 @@
 //!
 //! - **Calculations**: Pure validation and state transition functions
 
-use crate::session_sync_data::{
-    PreconditionCheck, SessionSyncResult, WorkspaceCleanStatus,
-};
+use crate::session_sync_data::{PreconditionCheck, SessionSyncResult, WorkspaceCleanStatus};
 use crate::session_sync_errors::SyncError;
 use crate::types::SessionStatus;
 

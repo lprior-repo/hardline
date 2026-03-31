@@ -1,15 +1,15 @@
 //! Integration tests for PostgresWorktreeRepository
-//! 
+//!
 //! Tests use unique prefixes based on test names for isolation
 
-use worktree::{
-    infrastructure::sqlx::PostgresWorktreeRepository,
-    domain::{
-        Worktree, WorktreeId, WorktreeName, WorktreeTypeEnum, WorktreeState,
-        AbsolutePath, BranchName,
-    },
-};
 use worktree::application::repositories::WorktreeRepository;
+use worktree::{
+    domain::{
+        AbsolutePath, BranchName, Worktree, WorktreeId, WorktreeName, WorktreeState,
+        WorktreeTypeEnum,
+    },
+    infrastructure::sqlx::PostgresWorktreeRepository,
+};
 
 const POSTGRES_TEST_DB: &str = "postgres://postgres:postgres@localhost:5432/worktree_test";
 
@@ -61,19 +61,21 @@ mod postgres_repository_integration {
         Fut: std::future::Future<Output = T>,
     {
         let pool = sqlx::PgPool::connect(POSTGRES_TEST_DB).await.unwrap();
-        
+
         // Clean up any existing test data before this test using the test name prefix
         sqlx::query("DELETE FROM worktrees WHERE name LIKE $1")
             .bind(format!("{}-%", test_name))
             .execute(&pool)
             .await
             .unwrap();
-        
-        let repo = PostgresWorktreeRepository::from_pool(pool.clone()).await.unwrap();
-        
+
+        let repo = PostgresWorktreeRepository::from_pool(pool.clone())
+            .await
+            .unwrap();
+
         // Execute test
         let _ = f(repo).await;
-        
+
         // Clean up after test using the test name prefix
         sqlx::query("DELETE FROM worktrees WHERE name LIKE $1")
             .bind(format!("{}-%", test_name))
@@ -87,43 +89,61 @@ mod postgres_repository_integration {
         run_with_cleanup("setup", |repo| async move {
             let result = repo.find_by_id(&WorktreeId::new_random()).await.unwrap();
             assert!(result.is_none());
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn save_worktree_creates_new_entry() {
         run_with_cleanup("save", |mut repo| async move {
-            let worktree = create_test_worktree("save", "create", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
-            
+            let worktree = create_test_worktree(
+                "save",
+                "create",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Development,
+                None,
+            );
+
             repo.save(worktree).await.unwrap();
-            
+
             let found = repo.find_by_id(worktree.id()).await.unwrap();
             assert!(found.is_some());
             assert!(found.unwrap().name().as_str().starts_with("save-create-"));
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn find_by_id_returns_worktree_when_exists() {
         run_with_cleanup("find", |mut repo| async move {
-            let mut worktree = create_test_worktree("find", "exists", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
-            
+            let mut worktree = create_test_worktree(
+                "find",
+                "exists",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Development,
+                None,
+            );
+
             repo.save(worktree).await.unwrap();
-            
+
             let found = repo.find_by_id(worktree.id()).await.unwrap();
             assert!(found.is_some());
             assert!(found.unwrap().name().as_str().starts_with("find-exists-"));
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn find_by_id_returns_none_when_not_found() {
         run_with_cleanup("find-none", |repo| async move {
             let nonexistent_id = WorktreeId::new_random();
-            
+
             let found = repo.find_by_id(&nonexistent_id).await.unwrap();
             assert!(found.is_none());
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -131,164 +151,255 @@ mod postgres_repository_integration {
         run_with_cleanup("list-empty", |repo| async move {
             let all = repo.list_all().await.unwrap();
             // Filter by this test's prefix - should be empty
-            let filtered: Vec<_> = all.into_iter().filter(|wt| wt.name().as_str().starts_with("list-empty-")).collect();
+            let filtered: Vec<_> = all
+                .into_iter()
+                .filter(|wt| wt.name().as_str().starts_with("list-empty-"))
+                .collect();
             assert!(filtered.is_empty());
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn list_all_returns_single_worktree() {
         run_with_cleanup("list-single", |mut repo| async move {
-            let mut worktree = create_test_worktree("list-single", "", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
-            
+            let mut worktree = create_test_worktree(
+                "list-single",
+                "",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Development,
+                None,
+            );
+
             repo.save(worktree).await.unwrap();
-            
+
             let all = repo.list_all().await.unwrap();
             // Filter by this test's prefix - should return exactly 1 worktree
-            let filtered: Vec<_> = all.into_iter().filter(|wt| wt.name().as_str().starts_with("list-single-")).collect();
+            let filtered: Vec<_> = all
+                .into_iter()
+                .filter(|wt| wt.name().as_str().starts_with("list-single-"))
+                .collect();
             assert_eq!(filtered.len(), 1);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn list_all_returns_multiple_worktrees() {
         run_with_cleanup("list-multi", |mut repo| async move {
             for i in 0..5 {
-                let wt = create_test_worktree("list-multi", &i.to_string(), "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
+                let wt = create_test_worktree(
+                    "list-multi",
+                    &i.to_string(),
+                    "/tmp/wt",
+                    "/home/user/proj",
+                    WorktreeTypeEnum::Development,
+                    None,
+                );
                 repo.save(wt).await.unwrap();
             }
-            
+
             let all = repo.list_all().await.unwrap();
             // Filter by this test's prefix - should return exactly 5 worktrees
-            let filtered: Vec<_> = all.into_iter().filter(|wt| wt.name().as_str().starts_with("list-multi-")).collect();
+            let filtered: Vec<_> = all
+                .into_iter()
+                .filter(|wt| wt.name().as_str().starts_with("list-multi-"))
+                .collect();
             assert_eq!(filtered.len(), 5);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn delete_worktree_clears_from_database() {
         run_with_cleanup("delete", |mut repo| async move {
-            let mut worktree = create_test_worktree("delete", "test", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
-            
+            let mut worktree = create_test_worktree(
+                "delete",
+                "test",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Development,
+                None,
+            );
+
             repo.save(worktree).await.unwrap();
-            
+
             let found_before = repo.find_by_id(worktree.id()).await.unwrap();
             assert!(found_before.is_some());
-            
+
             repo.delete(worktree.id()).await.unwrap();
-            
+
             let found_after = repo.find_by_id(worktree.id()).await.unwrap();
             assert!(found_after.is_none());
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn delete_nonexistent_worktree() {
         run_with_cleanup("delete-none", |mut repo| async move {
             let nonexistent_id = WorktreeId::new_random();
-            
+
             let result = repo.delete(&nonexistent_id).await;
             assert!(result.is_ok());
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn state_transition_creating_to_active() {
         run_with_cleanup("state-create", |mut repo| async move {
-            let mut worktree = create_test_worktree("state-create", "", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
-            
+            let mut worktree = create_test_worktree(
+                "state-create",
+                "",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Development,
+                None,
+            );
+
             assert_eq!(worktree.state(), WorktreeState::Creating);
-            
+
             worktree.initialize().unwrap();
             assert_eq!(worktree.state(), WorktreeState::Active);
-            
+
             repo.save(worktree).await.unwrap();
-            
+
             let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
             assert_eq!(found.state(), WorktreeState::Active);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn state_transition_active_to_suspended() {
         run_with_cleanup("state-suspend", |mut repo| async move {
-            let mut worktree = create_test_worktree("state-suspend", "", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
-            
+            let mut worktree = create_test_worktree(
+                "state-suspend",
+                "",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Development,
+                None,
+            );
+
             worktree.initialize().unwrap();
             repo.save(worktree).await.unwrap();
-            
+
             worktree.suspend().unwrap();
             assert_eq!(worktree.state(), WorktreeState::Suspended);
-            
+
             repo.save(worktree).await.unwrap();
-            
+
             let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
             assert_eq!(found.state(), WorktreeState::Suspended);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn metadata_can_be_added_and_saved() {
         run_with_cleanup("meta", |mut repo| async move {
-            let mut worktree = create_test_worktree("meta", "add", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
-            
+            let mut worktree = create_test_worktree(
+                "meta",
+                "add",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Development,
+                None,
+            );
+
             worktree.add_metadata("key1", "value1");
             worktree.add_metadata("key2", "value2");
-            
+
             repo.save(worktree).await.unwrap();
-            
+
             let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
             assert_eq!(found.get_metadata("key1"), Some("value1"));
             assert_eq!(found.get_metadata("key2"), Some("value2"));
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn worktree_type_development() {
         run_with_cleanup("type-dev", |mut repo| async move {
-            let mut worktree = create_test_worktree("type-dev", "", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
-            
+            let mut worktree = create_test_worktree(
+                "type-dev",
+                "",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Development,
+                None,
+            );
+
             repo.save(worktree).await.unwrap();
-            
+
             let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
             assert_eq!(found.worktree_type(), WorktreeTypeEnum::Development);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn worktree_type_research() {
         run_with_cleanup("type-res", |mut repo| async move {
-            let mut worktree = create_test_worktree("type-res", "", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Research, None);
-            
+            let mut worktree = create_test_worktree(
+                "type-res",
+                "",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Research,
+                None,
+            );
+
             repo.save(worktree).await.unwrap();
-            
+
             let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
             assert_eq!(found.worktree_type(), WorktreeTypeEnum::Research);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn worktree_type_review() {
         run_with_cleanup("type-rev", |mut repo| async move {
-            let mut worktree = create_test_worktree("type-rev", "", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Review, None);
-            
+            let mut worktree = create_test_worktree(
+                "type-rev",
+                "",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Review,
+                None,
+            );
+
             repo.save(worktree).await.unwrap();
-            
+
             let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
             assert_eq!(found.worktree_type(), WorktreeTypeEnum::Review);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn worktree_type_testing() {
         run_with_cleanup("type-test", |mut repo| async move {
-            let mut worktree = create_test_worktree("type-test", "", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Testing, None);
-            
+            let mut worktree = create_test_worktree(
+                "type-test",
+                "",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Testing,
+                None,
+            );
+
             repo.save(worktree).await.unwrap();
-            
+
             let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
             assert_eq!(found.worktree_type(), WorktreeTypeEnum::Testing);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -300,26 +411,49 @@ mod postgres_repository_integration {
     #[tokio::test]
     async fn error_duplicate_name() {
         run_with_cleanup("dup", |mut repo| async move {
-            let wt1 = create_test_worktree_exact("dup", "name", "/tmp/wt1", "/home/user/proj", WorktreeTypeEnum::Development, None);
-            let wt2 = create_test_worktree_exact("dup", "name", "/tmp/wt2", "/home/user/proj", WorktreeTypeEnum::Development, None);
-            
+            let wt1 = create_test_worktree_exact(
+                "dup",
+                "name",
+                "/tmp/wt1",
+                "/home/user/proj",
+                WorktreeTypeEnum::Development,
+                None,
+            );
+            let wt2 = create_test_worktree_exact(
+                "dup",
+                "name",
+                "/tmp/wt2",
+                "/home/user/proj",
+                WorktreeTypeEnum::Development,
+                None,
+            );
+
             repo.save(wt1).await.unwrap();
             let result = repo.save(wt2).await;
-            
+
             assert!(result.is_err());
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn name_exists_returns_true_when_exists() {
         run_with_cleanup("name-exists", |mut repo| async move {
-            let mut worktree = create_test_worktree("name-exists", "", "/tmp/wt", "/home/user/proj", WorktreeTypeEnum::Development, None);
-            
+            let mut worktree = create_test_worktree(
+                "name-exists",
+                "",
+                "/tmp/wt",
+                "/home/user/proj",
+                WorktreeTypeEnum::Development,
+                None,
+            );
+
             repo.save(worktree).await.unwrap();
-            
+
             let exists = repo.name_exists(worktree.name().as_str()).await.unwrap();
             assert!(exists);
-        }).await;
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -327,6 +461,7 @@ mod postgres_repository_integration {
         run_with_cleanup("name-none", |repo| async move {
             let exists = repo.name_exists("nonexistent").await.unwrap();
             assert!(!exists);
-        }).await;
+        })
+        .await;
     }
 }

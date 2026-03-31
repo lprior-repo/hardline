@@ -9,8 +9,8 @@ use std::sync;
 use async_trait::async_trait;
 use chrono::Utc;
 
-use crate::queue::types::{Job, JobState};
 use crate::queue::processor::{QueueError, QueueResult};
+use crate::queue::types::{Job, JobState};
 
 #[async_trait]
 pub trait JobRepository: Send + Sync {
@@ -47,9 +47,10 @@ impl Default for InMemoryJobRepository {
 #[async_trait]
 impl JobRepository for InMemoryJobRepository {
     async fn poll_pending_jobs(&self, limit: usize) -> QueueResult<Vec<Job>> {
-        let jobs = self.jobs.read().map_err(|e| {
-            QueueError::Repository(format!("Failed to acquire read lock: {}", e))
-        })?;
+        let jobs = self
+            .jobs
+            .read()
+            .map_err(|e| QueueError::Repository(format!("Failed to acquire read lock: {}", e)))?;
 
         let mut pending: Vec<&Job> = jobs.iter().filter(|j| j.state.is_pending()).collect();
 
@@ -61,9 +62,10 @@ impl JobRepository for InMemoryJobRepository {
     }
 
     async fn update_job_state(&self, job_id: &str, new_state: JobState) -> QueueResult<()> {
-        let mut jobs = self.jobs.write().map_err(|e| {
-            QueueError::Repository(format!("Failed to acquire write lock: {}", e))
-        })?;
+        let mut jobs = self
+            .jobs
+            .write()
+            .map_err(|e| QueueError::Repository(format!("Failed to acquire write lock: {}", e)))?;
 
         if let Some(job) = jobs.iter_mut().find(|j| j.id == job_id) {
             job.state = new_state;
@@ -75,9 +77,10 @@ impl JobRepository for InMemoryJobRepository {
     }
 
     async fn get_job(&self, job_id: &str) -> QueueResult<Option<Job>> {
-        let jobs = self.jobs.read().map_err(|e| {
-            QueueError::Repository(format!("Failed to acquire read lock: {}", e))
-        })?;
+        let jobs = self
+            .jobs
+            .read()
+            .map_err(|e| QueueError::Repository(format!("Failed to acquire read lock: {}", e)))?;
 
         Ok(jobs.iter().find(|j| j.id == job_id).cloned())
     }

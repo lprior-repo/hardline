@@ -24,7 +24,9 @@ impl LockManager {
         .bind(&now_str)
         .fetch_optional(&mut *tx)
         .await
-        .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+        .map_err(|e| {
+            crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string()))
+        })?;
 
         match existing {
             Some((holder,)) if holder == agent_id => {
@@ -33,25 +35,39 @@ impl LockManager {
                     .bind(agent_id)
                     .execute(&mut *tx)
                     .await
-                    .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+                    .map_err(|e| {
+                        crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(
+                            e.to_string(),
+                        ))
+                    })?;
 
                 sqlx::query("INSERT INTO session_lock_audit (session, agent_id, operation, timestamp) VALUES (?, ?, ?, ?)")
                     .bind(session).bind(agent_id).bind(LockOperation::Unlock.as_str()).bind(&now_str)
                     .execute(&mut *tx).await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
-                
-                tx.commit().await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+
+                tx.commit().await.map_err(|e| {
+                    crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(
+                        e.to_string(),
+                    ))
+                })?;
                 Ok(())
             }
-            Some(_) => Err(crate::error::Error::from(super::errors::LockErrorKind::NotLockHolder {
-                session: session.to_string(),
-                agent_id: agent_id.to_string(),
-            })),
+            Some(_) => Err(crate::error::Error::from(
+                super::errors::LockErrorKind::NotLockHolder {
+                    session: session.to_string(),
+                    agent_id: agent_id.to_string(),
+                },
+            )),
             None => {
                 sqlx::query("INSERT INTO session_lock_audit (session, agent_id, operation, timestamp) VALUES (?, ?, ?, ?)")
                     .bind(session).bind(agent_id).bind(LockOperation::DoubleUnlockWarning.as_str()).bind(&now_str)
                     .execute(&mut *tx).await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
-                
-                tx.commit().await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+
+                tx.commit().await.map_err(|e| {
+                    crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(
+                        e.to_string(),
+                    ))
+                })?;
                 Ok(())
             }
         }
@@ -65,8 +81,10 @@ impl LockManager {
         let now_str = now.to_rfc3339();
         let new_expires = now + self.ttl;
         let new_expires_str = new_expires.to_rfc3339();
-        
-        let mut tx = self.db.begin().await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+
+        let mut tx = self.db.begin().await.map_err(|e| {
+            crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string()))
+        })?;
 
         let existing: Option<(String, String)> = sqlx::query_as(
             "SELECT lock_id, agent_id FROM session_locks WHERE session = ? AND expires_at >= ?",
@@ -75,7 +93,9 @@ impl LockManager {
         .bind(&now_str)
         .fetch_optional(&mut *tx)
         .await
-        .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+        .map_err(|e| {
+            crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string()))
+        })?;
 
         match existing {
             Some((lock_id, holder)) if holder == agent_id => {
@@ -87,13 +107,21 @@ impl LockManager {
                 .bind(agent_id)
                 .execute(&mut *tx)
                 .await
-                .map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+                .map_err(|e| {
+                    crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(
+                        e.to_string(),
+                    ))
+                })?;
 
                 sqlx::query("INSERT INTO session_lock_audit (session, agent_id, operation, timestamp) VALUES (?, ?, ?, ?)")
                     .bind(session).bind(agent_id).bind(LockOperation::Heartbeat.as_str()).bind(&now_str)
                     .execute(&mut *tx).await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
 
-                tx.commit().await.map_err(|e| crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(e.to_string())))?;
+                tx.commit().await.map_err(|e| {
+                    crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(
+                        e.to_string(),
+                    ))
+                })?;
 
                 Ok(LockResponse {
                     lock_id,
@@ -103,13 +131,17 @@ impl LockManager {
                     expires_at: new_expires,
                 })
             }
-            Some(_) => Err(crate::error::Error::from(super::errors::LockErrorKind::NotLockHolder {
-                session: session.to_string(),
-                agent_id: agent_id.to_string(),
-            })),
-            None => Err(crate::error::Error::from(super::errors::LockErrorKind::NotFound(format!(
-                "No active lock for session {session}"
-            )))),
+            Some(_) => Err(crate::error::Error::from(
+                super::errors::LockErrorKind::NotLockHolder {
+                    session: session.to_string(),
+                    agent_id: agent_id.to_string(),
+                },
+            )),
+            None => Err(crate::error::Error::from(
+                super::errors::LockErrorKind::NotFound(format!(
+                    "No active lock for session {session}"
+                )),
+            )),
         }
     }
 }

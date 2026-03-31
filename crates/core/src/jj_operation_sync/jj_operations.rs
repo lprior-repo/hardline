@@ -46,9 +46,7 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
         .into());
     }
 
-    let operation_id = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .to_string();
+    let operation_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     if operation_id.is_empty() {
         return Err(crate::error_jj::JjErrorKind::CommandError {
@@ -92,11 +90,7 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
 
 /// Create a workspace with cross-process and in-process locking to prevent
 /// operation graph corruption from concurrent creations.
-pub async fn create_workspace_synced(
-    name: &str,
-    path: &Path,
-    repo_root: &Path,
-) -> Result<()> {
+pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) -> Result<()> {
     if name.is_empty() {
         return Err(crate::error_config::ConfigErrorKind::Invalid(
             "workspace name cannot be empty".into(),
@@ -116,9 +110,7 @@ pub async fn create_workspace_synced(
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent)
             .await
-            .map_err(|e| {
-                Error::io_error(format!("Failed to create workspace directory: {e}"))
-            })?;
+            .map_err(|e| Error::io_error(format!("Failed to create workspace directory: {e}")))?;
     }
 
     let _ = get_current_operation(repo_root).await?;
@@ -207,9 +199,7 @@ mod tests {
             Err(Error::Config(crate::error_config::ConfigError { .. })) => {}
             Err(Error::Io(_)) => {}
             Err(other) => {
-                panic!(
-                    "Expected Jj, Config, or Io error, got: {other:?}"
-                )
+                panic!("Expected Jj, Config, or Io error, got: {other:?}")
             }
             Ok(()) => {
                 panic!("Expected error when workspace path has no parent, but got Ok")

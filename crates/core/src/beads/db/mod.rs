@@ -21,8 +21,8 @@ mod validation;
 mod write;
 
 #[cfg(test)]
+mod delete_tests;
+#[cfg(test)]
 mod insert_tests;
 #[cfg(test)]
 mod update_tests;
-#[cfg(test)]
-mod delete_tests;

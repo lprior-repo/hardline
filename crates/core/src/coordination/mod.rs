@@ -64,10 +64,10 @@
 
 pub mod conflict_resolutions;
 pub mod conflict_resolutions_entities;
-pub mod conflict_resolutions_schema;
+pub mod conflict_resolutions_error_convert;
 pub mod conflict_resolutions_insert;
 pub mod conflict_resolutions_queries;
-pub mod conflict_resolutions_error_convert;
+pub mod conflict_resolutions_schema;
 pub mod domain_types;
 pub mod locks;
 
@@ -82,4 +82,6 @@ pub use conflict_resolutions_entities::{ConflictResolution, ConflictResolutionEr
 pub use domain_types::{AgentId, BeadId, DomainError, WorkspaceName};
 
 // Lock types
-pub use locks::{LockAuditEntry, LockInfo, LockManager, LockOperation, LockResponse, LockState, Ttl};
+pub use locks::{
+    LockAuditEntry, LockInfo, LockManager, LockOperation, LockResponse, LockState, Ttl,
+};

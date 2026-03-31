@@ -31,7 +31,10 @@ impl ConfigKey {
         }
         for part in parts {
             if part.is_empty() {
-                return Err(ContractError::invalid_input("key", "cannot have empty segments"));
+                return Err(ContractError::invalid_input(
+                    "key",
+                    "cannot have empty segments",
+                ));
             }
             if !part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
                 return Err(ContractError::invalid_input(

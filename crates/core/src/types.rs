@@ -16,7 +16,9 @@
 // Re-export all types for convenience
 pub use crate::type_beads_issue::{BeadsIssue, BeadsSummary, IssueStatus};
 pub use crate::type_branch_state::BranchState;
-pub use crate::type_file_change::{ChangesSummary, DiffSummary, FileChange, FileDiffStat, FileStatus};
+pub use crate::type_file_change::{
+    ChangesSummary, DiffSummary, FileChange, FileDiffStat, FileStatus,
+};
 pub use crate::type_metadata::ValidatedMetadata;
 pub use crate::type_session::Session;
 pub use crate::type_session_id::SessionId;

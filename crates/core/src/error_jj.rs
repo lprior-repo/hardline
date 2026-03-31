@@ -2,9 +2,9 @@
 //!
 //! Error codes: 3xxx
 
-use thiserror::Error;
 use crate::error::Error;
 use crate::error_types::JjConflictType;
+use thiserror::Error;
 
 /// JJ-specific errors
 #[derive(Error, Debug, Clone)]

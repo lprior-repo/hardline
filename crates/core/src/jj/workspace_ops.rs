@@ -471,10 +471,7 @@ mod tests {
     fn test_detect_conflict_concurrent() {
         let stderr = "error: concurrent modification detected";
         let result = detect_workspace_conflict(stderr, "test");
-        assert_eq!(
-            result,
-            Some(JjConflictType::ConcurrentModification)
-        );
+        assert_eq!(result, Some(JjConflictType::ConcurrentModification));
     }
 
     #[test]

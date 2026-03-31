@@ -203,11 +203,17 @@ async fn validate_shared_repo_pointer(
 pub async fn check_stale_locks(workspace_path: &Path) -> Result<Option<IntegrityIssue>> {
     let lock_file = workspace_path.join(".jj").join("working_copy").join("lock");
 
-    let lock_exists = tokio::fs::try_exists(&lock_file).await.map_err(|e| Error::io_error(e.to_string()))?;
+    let lock_exists = tokio::fs::try_exists(&lock_file)
+        .await
+        .map_err(|e| Error::io_error(e.to_string()))?;
     if lock_exists {
         // Check age of lock file
-        let metadata = tokio::fs::metadata(&lock_file).await.map_err(|e| Error::io_error(e.to_string()))?;
-        let modified = metadata.modified().map_err(|e| Error::io_error(e.to_string()))?;
+        let metadata = tokio::fs::metadata(&lock_file)
+            .await
+            .map_err(|e| Error::io_error(e.to_string()))?;
+        let modified = metadata
+            .modified()
+            .map_err(|e| Error::io_error(e.to_string()))?;
         let age = std::time::SystemTime::now()
             .duration_since(modified)
             .map_err(|e| Error::invalid_state(format!("Failed to calculate lock age: {e}")))?;
@@ -236,7 +242,9 @@ pub async fn check_config_file(workspace_path: &Path) -> Result<Option<Integrity
     let config_file = workspace_path.join(".isolate").join("config.toml");
 
     // Check if config file exists
-    let config_exists = tokio::fs::try_exists(&config_file).await.map_err(|e| Error::io_error(e.to_string()))?;
+    let config_exists = tokio::fs::try_exists(&config_file)
+        .await
+        .map_err(|e| Error::io_error(e.to_string()))?;
     if !config_exists {
         // No config file is fine - not all workspaces have custom config
         return Ok(None);

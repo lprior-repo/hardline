@@ -1,6 +1,7 @@
 //! CLI Commands
 
 pub mod agent;
+pub mod ai_kani;
 pub mod batch;
 pub mod config;
 pub mod context;
@@ -30,10 +31,8 @@ pub mod isolate_json_docs;
 pub mod isolate_mod;
 pub mod json_docs;
 pub mod lock;
-pub mod ai_kani;
 pub mod lock_kani;
 pub mod lock_tests;
-pub mod task_kani;
 pub mod object_commands;
 pub mod queue;
 pub mod session;
@@ -41,6 +40,7 @@ pub mod stash;
 pub mod status;
 pub mod sync;
 pub mod tag;
+pub mod task_kani;
 pub mod task_store;
 pub mod task_types;
 pub mod task_validation;

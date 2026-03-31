@@ -32,16 +32,14 @@ async fn regression_lock_with_ttl_maps_contention_race_to_session_locked() -> Re
     .await
     .map_err(|e| Error::database(e.to_string()))?;
 
-    sqlx::query(
-        "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
-    )
-    .bind("ttl-contended-session")
-    .bind("active")
-    .bind("working")
-    .bind("/workspace")
-    .execute(&pool)
-    .await
-    .map_err(|e| Error::database(e.to_string()))?;
+    sqlx::query("INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)")
+        .bind("ttl-contended-session")
+        .bind("active")
+        .bind("working")
+        .bind("/workspace")
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::database(e.to_string()))?;
 
     let tasks: Vec<_> = (0..10)
         .map(|i| {
@@ -53,12 +51,11 @@ async fn regression_lock_with_ttl_maps_contention_race_to_session_locked() -> Re
         })
         .collect();
 
-    let results: Vec<std::result::Result<LockResponse, Error>> =
-        futures::future::join_all(tasks)
-            .await
-            .into_iter()
-            .map(|r| r                .map_err(|e| Error::internal(e.to_string())))
-            .collect::<Result<Vec<_>, _>>()?;
+    let results: Vec<std::result::Result<LockResponse, Error>> = futures::future::join_all(tasks)
+        .await
+        .into_iter()
+        .map(|r| r.map_err(|e| Error::internal(e.to_string())))
+        .collect::<Result<Vec<_>, _>>()?;
 
     let successful_locks = results
         .iter()
@@ -104,16 +101,14 @@ async fn regression_lock_with_ttl_fails_fast_before_session_validation() -> Resu
     .await
     .map_err(|e| Error::database(e.to_string()))?;
 
-    sqlx::query(
-        "INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)",
-    )
-    .bind("ordered-session")
-    .bind("active")
-    .bind("working")
-    .bind("/workspace")
-    .execute(&pool)
-    .await
-    .map_err(|e| Error::database(e.to_string()))?;
+    sqlx::query("INSERT INTO sessions (name, status, state, workspace_path) VALUES (?, ?, ?, ?)")
+        .bind("ordered-session")
+        .bind("active")
+        .bind("working")
+        .bind("/workspace")
+        .execute(&pool)
+        .await
+        .map_err(|e| Error::database(e.to_string()))?;
 
     let _lock = mgr.lock("ordered-session", "agent-a").await?;
 

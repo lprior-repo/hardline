@@ -327,7 +327,10 @@ fn validate_done_without_id_succeeds_falls_to_env() {
         agent_id: valid_agent("agent-1"),
     };
     let result = validate_task_command(&cmd);
-    assert!(result.is_ok(), "Done without ID should validate (defers to env)");
+    assert!(
+        result.is_ok(),
+        "Done without ID should validate (defers to env)"
+    );
 }
 
 #[test]
@@ -407,7 +410,10 @@ fn truncate_empty_string_returns_empty() {
 #[test]
 fn truncate_with_zero_max_len_returns_empty() {
     let result = truncate_description("hello", 0);
-    assert_eq!(result, "", "Zero max_len should produce empty string, not degenerate '...'");
+    assert_eq!(
+        result, "",
+        "Zero max_len should produce empty string, not degenerate '...'"
+    );
 }
 
 #[test]
@@ -732,7 +738,10 @@ mod red_queen_adversarial {
 
         match (&first_close.state, &second_close.state) {
             (TaskState::Closed { closed_at: t1 }, TaskState::Closed { closed_at: t2 }) => {
-                assert!(*t2 >= *t1, "Second close should have equal or later timestamp");
+                assert!(
+                    *t2 >= *t1,
+                    "Second close should have equal or later timestamp"
+                );
             }
             _ => panic!("Both should be Closed"),
         }
@@ -762,9 +771,6 @@ mod red_queen_adversarial {
     fn taskid_accepts_extremely_long_valid_id() {
         let long_id = "a".repeat(100_000);
         let result = TaskId::new(&long_id);
-        assert!(
-            result.is_ok(),
-            "Extremely long valid ID should be accepted"
-        );
+        assert!(result.is_ok(), "Extremely long valid ID should be accepted");
     }
 }

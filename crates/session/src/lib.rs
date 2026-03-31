@@ -18,8 +18,8 @@ pub use domain::events::{
     SessionCompletedEvent, SessionCreatedEvent, SessionEvent, SessionFailedEvent,
 };
 pub use domain::value_objects::{
-    AbsolutePath, AbsolutePathError, AgentId, BeadId, DependsOn, Description, IssueType,
-    Labels, PathValidationError, Priority, SessionName, ShellMetacharacterError, TaskId, Title,
+    AbsolutePath, AbsolutePathError, AgentId, BeadId, DependsOn, Description, IssueType, Labels,
+    PathValidationError, Priority, SessionName, ShellMetacharacterError, TaskId, Title,
     WorkspaceId, WorkspaceName,
 };
 pub use domain::workspace::{

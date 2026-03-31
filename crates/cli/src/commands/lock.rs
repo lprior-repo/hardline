@@ -11,8 +11,7 @@ use tokio::runtime::Runtime;
 fn get_db_path() -> String {
     env::var("SCP_DATABASE_PATH").map_or_else(
         |_| {
-            let mut path = env::var("HOME")
-                .map_or_else(|_| PathBuf::from("."), PathBuf::from);
+            let mut path = env::var("HOME").map_or_else(|_| PathBuf::from("."), PathBuf::from);
             path.push(".scp");
             path.push("hardline.db");
             path.to_string_lossy().to_string()

@@ -5,13 +5,12 @@
 //! No unbounded loops -- all iteration is bounded by fixed-length arrays.
 
 use super::calculations::{
-    build_overview, build_quick_start, build_workflow, determine_next_action, determine_ready_state,
-    format_session_count, format_status_human,
+    build_overview, build_quick_start, build_workflow, determine_next_action,
+    determine_ready_state, format_session_count, format_status_human,
 };
 use super::data::{
     AiEnvelope, AiOverview, AiStatusOutput, AiSubcommand, Location, NextActionOutput, Priority,
-    QuickCommand, QuickStartOutput, SubcommandInfo, WorkflowInfo, WorkflowStep,
-    AI_STATUS_RESPONSE,
+    QuickCommand, QuickStartOutput, SubcommandInfo, WorkflowInfo, WorkflowStep, AI_STATUS_RESPONSE,
 };
 
 // =============================================================================
@@ -249,7 +248,9 @@ fn workflow_step_one_is_orientation() {
     let workflow = build_workflow();
     let first = workflow.steps.first();
     assert!(first.is_some(), "Must have at least one step");
-    let first = first.map(|s| s.command.as_str()).map_or(false, |c| c.contains("whereami"));
+    let first = first
+        .map(|s| s.command.as_str())
+        .map_or(false, |c| c.contains("whereami"));
     assert!(first, "First step must be whereami");
 }
 
@@ -258,7 +259,9 @@ fn workflow_step_seven_is_completion() {
     let workflow = build_workflow();
     let last = workflow.steps.last();
     assert!(last.is_some(), "Must have at least one step");
-    let last = last.map(|s| s.command.as_str()).map_or(false, |c| c.contains("done"));
+    let last = last
+        .map(|s| s.command.as_str())
+        .map_or(false, |c| c.contains("done"));
     assert!(last, "Last step must be done");
 }
 
@@ -322,7 +325,9 @@ fn workflow_step_four_command_is_cd_or_hash() {
     let workflow = build_workflow();
     match workflow.steps.get(3) {
         Some(s) => assert!(
-            s.command.starts_with("cd ") || s.command.starts_with("scp ") || s.command.starts_with('#'),
+            s.command.starts_with("cd ")
+                || s.command.starts_with("scp ")
+                || s.command.starts_with('#'),
             "Step 4 command is cd/scp/comment, got: {}",
             s.command
         ),
@@ -514,12 +519,7 @@ fn next_action_not_in_repo_has_high_priority() {
 
 #[test]
 fn next_action_in_workspace_has_medium_priority() {
-    let output = determine_next_action(
-        true,
-        &Location::Workspace("ws".to_string()),
-        Some("ws"),
-        0,
-    );
+    let output = determine_next_action(true, &Location::Workspace("ws".to_string()), Some("ws"), 0);
     assert_eq!(output.priority, Priority::Medium);
 }
 
@@ -643,10 +643,7 @@ fn ai_status_json_contains_all_required_fields() {
     );
     assert!(json.get("ready").is_some(), "Must have ready");
     assert!(json.get("suggestion").is_some(), "Must have suggestion");
-    assert!(
-        json.get("next_command").is_some(),
-        "Must have next_command"
-    );
+    assert!(json.get("next_command").is_some(), "Must have next_command");
     assert!(
         json["initialized"].is_boolean(),
         "initialized must be boolean"
@@ -848,10 +845,7 @@ mod ready_state_behavior {
     fn when_not_in_repo_suggests_entering_repo() {
         let (ready, _, next_cmd) = determine_ready_state(true, &Location::NotInRepo);
         assert!(!ready, "Not in repo should not be ready");
-        assert!(
-            next_cmd.contains("cd"),
-            "Should suggest changing directory"
-        );
+        assert!(next_cmd.contains("cd"), "Should suggest changing directory");
     }
 
     #[test]
@@ -859,20 +853,14 @@ mod ready_state_behavior {
         let (ready, _, next_cmd) =
             determine_ready_state(true, &Location::Workspace("ws".to_string()));
         assert!(ready, "In workspace should be ready");
-        assert!(
-            next_cmd.contains("done"),
-            "Should suggest completing work"
-        );
+        assert!(next_cmd.contains("done"), "Should suggest completing work");
     }
 
     #[test]
     fn when_on_main_suggests_work() {
         let (ready, _, next_cmd) = determine_ready_state(true, &Location::Main);
         assert!(ready, "On main should be ready");
-        assert!(
-            next_cmd.contains("work"),
-            "Should suggest starting work"
-        );
+        assert!(next_cmd.contains("work"), "Should suggest starting work");
     }
 }
 
@@ -1099,7 +1087,10 @@ mod red_queen_adversarial {
     #[test]
     fn adversarial_ready_state_unknown_location_treated_as_ready() {
         let (ready, suggestion, _next_cmd) = determine_ready_state(true, &Location::Unknown);
-        assert!(ready, "Unknown location when initialized is treated as ready");
+        assert!(
+            ready,
+            "Unknown location when initialized is treated as ready"
+        );
         assert!(
             suggestion.contains("Ready"),
             "Unknown location gets generic 'Ready' suggestion: {suggestion}"
@@ -1146,10 +1137,8 @@ mod red_queen_adversarial {
         // "Status:         COMPROMISED" no longer appears as a SEPARATE line.
         // Count lines that look like "Status:..." -- there should be exactly one
         // (the legitimate "Status: READY" line), not two.
-        let status_lines: Vec<&String> = lines
-            .iter()
-            .filter(|l| l.starts_with("Status:"))
-            .collect();
+        let status_lines: Vec<&String> =
+            lines.iter().filter(|l| l.starts_with("Status:")).collect();
         assert_eq!(
             status_lines.len(),
             1,
@@ -1213,12 +1202,7 @@ mod red_queen_adversarial {
     #[test]
     fn adversarial_next_action_workspace_name_injection() {
         let ws = "test'; rm -rf /; echo '";
-        let output = determine_next_action(
-            true,
-            &Location::Workspace(ws.to_string()),
-            Some(ws),
-            0,
-        );
+        let output = determine_next_action(true, &Location::Workspace(ws.to_string()), Some(ws), 0);
         // The workspace name is interpolated into action/reason strings (not executed).
         // This is expected behavior - these are data fields, not shell commands.
         assert!(
