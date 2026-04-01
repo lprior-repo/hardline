@@ -20,10 +20,9 @@ impl PipelineId {
 
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
+            .map_or(0, |d| d.as_nanos());
 
-        Self(format!("pipeline-{}", timestamp))
+        Self(format!("pipeline-{timestamp}"))
     }
 }
 
@@ -114,20 +113,26 @@ impl Pipeline {
         }
     }
 
+    /// Transition the pipeline to a new state.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the transition is invalid or the pipeline is already
+    /// in a terminal state.
     pub fn transition_to(
         &mut self,
         new_state: PipelineState,
     ) -> Result<(), PipelineTransitionError> {
-        self.validate_transition(&new_state)?;
+        self.validate_transition(new_state)?;
 
         self.state = new_state;
         self.updated_at = Utc::now();
         Ok(())
     }
 
-    fn validate_transition(
+    const fn validate_transition(
         &self,
-        new_state: &PipelineState,
+        new_state: PipelineState,
     ) -> Result<(), PipelineTransitionError> {
         if self.state.is_terminal() {
             return Err(PipelineTransitionError::AlreadyTerminal {
@@ -139,45 +144,38 @@ impl Pipeline {
         } else {
             Err(PipelineTransitionError::InvalidTransition {
                 from: self.state,
-                to: *new_state,
+                to: new_state,
             })
         }
     }
 
-    fn is_transition_valid(&self, new_state: &PipelineState) -> bool {
-        self.is_phase_transition(new_state) || self.is_catchall_transition(new_state)
+    const fn is_transition_valid(&self, new_state: PipelineState) -> bool {
+        self.is_phase_transition(new_state) || Self::is_catchall_transition(new_state)
     }
 
-    fn is_phase_transition(&self, new_state: &PipelineState) -> bool {
+    const fn is_phase_transition(&self, new_state: PipelineState) -> bool {
         matches!(
             (&self.state, new_state),
             (PipelineState::Pending, PipelineState::SpecReview)
-                | (PipelineState::SpecReview, PipelineState::UniverseSetup)
-                | (PipelineState::SpecReview, PipelineState::Failed)
-                | (PipelineState::SpecReview, PipelineState::Escalated)
-                | (
-                    PipelineState::UniverseSetup,
-                    PipelineState::AgentDevelopment
-                )
-                | (PipelineState::UniverseSetup, PipelineState::Failed)
-                | (PipelineState::UniverseSetup, PipelineState::Escalated)
+                | (PipelineState::SpecReview,
+                    PipelineState::UniverseSetup | PipelineState::Failed | PipelineState::Escalated)
+                | (PipelineState::UniverseSetup | PipelineState::AgentDevelopment | PipelineState::Validation,
+                    PipelineState::AgentDevelopment | PipelineState::Escalated)
+                | (PipelineState::UniverseSetup | PipelineState::Validation, PipelineState::Failed)
                 | (PipelineState::AgentDevelopment, PipelineState::Validation)
-                | (
-                    PipelineState::AgentDevelopment,
-                    PipelineState::AgentDevelopment
-                )
-                | (PipelineState::AgentDevelopment, PipelineState::Escalated)
                 | (PipelineState::Validation, PipelineState::Accepted)
-                | (PipelineState::Validation, PipelineState::AgentDevelopment)
-                | (PipelineState::Validation, PipelineState::Failed)
-                | (PipelineState::Validation, PipelineState::Escalated)
         )
     }
 
-    fn is_catchall_transition(&self, new_state: &PipelineState) -> bool {
+    const fn is_catchall_transition(new_state: PipelineState) -> bool {
         matches!(new_state, PipelineState::Failed | PipelineState::Escalated)
     }
 
+    /// Increment the iteration counter.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the iteration limit has been reached.
     pub fn increment_iteration(&mut self) -> Result<u32, IterationLimitError> {
         if self.iteration >= self.max_iterations {
             return Err(IterationLimitError {
@@ -191,7 +189,7 @@ impl Pipeline {
     }
 
     #[must_use]
-    pub fn can_iterate(&self) -> bool {
+    pub const fn can_iterate(&self) -> bool {
         self.iteration < self.max_iterations && self.state.allows_iteration()
     }
 
@@ -226,10 +224,10 @@ pub enum PipelineTransitionError {
 impl std::fmt::Display for PipelineTransitionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PipelineTransitionError::InvalidTransition { from, to } => {
+            Self::InvalidTransition { from, to } => {
                 write!(f, "Invalid transition from {from:?} to {to:?}")
             }
-            PipelineTransitionError::AlreadyTerminal { current } => {
+            Self::AlreadyTerminal { current } => {
                 write!(f, "Pipeline already in terminal state: {current:?}")
             }
         }

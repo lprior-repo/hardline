@@ -1,4 +1,4 @@
-use scp_workspace::{Workspace, WorkspaceName, WorkspacePath, WorkspaceService, WorkspaceState};
+use scp_workspace::{WorkspaceName, WorkspacePath, WorkspaceService, WorkspaceState};
 use std::fs;
 use tempfile::tempdir;
 
@@ -16,7 +16,7 @@ fn test_workspace_operations() {
     assert_eq!(workspace.state, WorkspaceState::Initializing);
 
     let active_workspace =
-        WorkspaceService::initialize_workspace(&workspace).expect("Failed to initialize workspace");
+        WorkspaceService::initialize_workspace(workspace).expect("Failed to initialize workspace");
     assert_eq!(active_workspace.state, WorkspaceState::Active);
 
     let ws_path = active_workspace.path.as_path();

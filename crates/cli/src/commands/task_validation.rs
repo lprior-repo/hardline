@@ -2,10 +2,10 @@
 //!
 //! Pure functions for task validation and state transitions
 
-use crate::commands::task_types::{Assignee, Task, TaskId, TaskState};
+use crate::commands::task_types::{Assignee, Task, TaskState};
 use scp_core::{
-    error::Error, error_task::TaskErrorKind, lock::LockGuard, lock::LockManager, lock::LockType,
-    Result as CoreResult,
+    error_task::TaskErrorKind, lock::LockGuard, lock::LockManager, lock::LockType,
+    Error, Result as CoreResult,
 };
 
 /// Validate task exists
@@ -101,7 +101,7 @@ pub fn transition_to_done(task: Task) -> Task {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::task_types::Title;
+    use crate::commands::task_types::{TaskId, Title};
     use chrono::Utc;
 
     /// Helper to create a task in Open state (no assignee)

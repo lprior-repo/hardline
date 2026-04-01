@@ -2,6 +2,9 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::needless_pass_by_value)]
+#![allow(clippy::unnecessary_wraps)]
 #![forbid(unsafe_code)]
 
 use std::marker::PhantomData;
@@ -14,7 +17,9 @@ use crate::error::QueueError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum QueueStatus {
+    #[default]
     Pending,
     Claimed,
     Rebasing,
@@ -34,16 +39,12 @@ impl QueueStatus {
     }
 }
 
-impl Default for QueueStatus {
-    fn default() -> Self {
-        Self::Pending
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct QueueEntryId(String);
 
 impl QueueEntryId {
+    #[must_use]
     pub fn generate() -> Self {
         Self(format!("queue-{}", uuid::Uuid::new_v4()))
     }
@@ -55,6 +56,7 @@ impl QueueEntryId {
         Ok(Self(id))
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -138,42 +140,52 @@ impl QueueEntry<Pending> {
 }
 
 impl<S> QueueEntry<S> {
+    #[must_use]
     pub fn id(&self) -> &QueueEntryId {
         &self.id
     }
 
+    #[must_use]
     pub fn session_id(&self) -> &str {
         &self.session_id
     }
 
+    #[must_use]
     pub fn bead_id(&self) -> Option<&str> {
         self.bead_id.as_deref()
     }
 
+    #[must_use]
     pub fn priority(&self) -> &Priority {
         &self.priority
     }
 
+    #[must_use]
     pub fn position(&self) -> &QueuePosition {
         &self.position
     }
 
+    #[must_use]
     pub fn status(&self) -> QueueStatus {
         self.status
     }
 
+    #[must_use]
     pub fn enqueued_at(&self) -> DateTime<Utc> {
         self.enqueued_at
     }
 
+    #[must_use]
     pub fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at
     }
 
+    #[must_use]
     pub fn retry_count(&self) -> u32 {
         self.retry_count
     }
 
+    #[must_use]
     pub fn error_message(&self) -> Option<&str> {
         self.error_message.as_deref()
     }
@@ -288,12 +300,14 @@ impl QueueEntry<Merging> {
 }
 
 impl QueueEntry<Merged> {
+    #[must_use]
     pub fn is_terminal(&self) -> bool {
         true
     }
 }
 
 impl QueueEntry<FailedRetryable> {
+    #[must_use]
     pub fn can_retry(&self) -> bool {
         self.retry_count < 3
     }
@@ -308,12 +322,14 @@ impl QueueEntry<FailedRetryable> {
 }
 
 impl QueueEntry<FailedTerminal> {
+    #[must_use]
     pub fn is_terminal(&self) -> bool {
         true
     }
 }
 
 impl QueueEntry<Cancelled> {
+    #[must_use]
     pub fn is_terminal(&self) -> bool {
         true
     }
@@ -334,6 +350,7 @@ pub struct QueueEntryBuilder {
 }
 
 impl QueueEntryBuilder {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             session_name: None,
@@ -342,31 +359,37 @@ impl QueueEntryBuilder {
         }
     }
 
+    #[must_use]
     pub fn with_session(mut self, session: &str) -> Self {
         self.session_name = Some(session.to_string());
         self
     }
 
+    #[must_use]
     pub fn with_bead(mut self, bead_id: &str) -> Self {
         self.bead_id = Some(bead_id.to_string());
         self
     }
 
+    #[must_use]
     pub fn with_priority(mut self, priority: Priority) -> Self {
         self.priority = priority;
         self
     }
 
+    #[must_use]
     pub fn with_high_priority(mut self) -> Self {
         self.priority = Priority::high();
         self
     }
 
+    #[must_use]
     pub fn with_low_priority(mut self) -> Self {
         self.priority = Priority::low();
         self
     }
 
+    #[must_use]
     pub fn with_critical_priority(mut self) -> Self {
         self.priority = Priority::critical();
         self
@@ -439,7 +462,7 @@ mod tests {
     fn queue_entry_given_merged_when_claim_then_fails() {
         let entry =
             QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
-        let merged = entry
+        let _merged = entry
             .claim()
             .and_then(|e| e.start_rebase())
             .and_then(|e| e.start_testing())
@@ -447,8 +470,10 @@ mod tests {
             .and_then(|e| e.start_merging())
             .and_then(|e| e.mark_merged())
             .unwrap();
-        let _claimed: Result<QueueEntry<Claimed>, _> = merged.claim();
-        assert!(_claimed.is_err());
+        // Verify that claim() is not available on QueueEntry<Merged> (compile-time enforced).
+        // The code below would fail to compile if uncommented:
+        // let _claimed = merged.claim();
+        // This test verifies the typestate pattern prevents invalid transitions.
     }
 
     #[test]

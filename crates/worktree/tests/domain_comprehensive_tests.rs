@@ -689,10 +689,6 @@ mod worktree_type_enum_tests {
     }
 }
 
-// ============================================================
-// Worktree Domain Tests
-// ============================================================
-
 mod worktree_domain_tests {
     use super::*;
 
@@ -752,87 +748,75 @@ mod worktree_domain_tests {
     }
 
     #[test]
-    fn worktree_initialize_from_creating_returns_ok_and_sets_active() {
-        let mut worktree = create_test_worktree();
-        assert!(worktree.initialize().is_ok());
-        assert_eq!(worktree.state(), WorktreeState::Active);
-        assert!(worktree.updated_at() >= worktree.created_at());
+    fn worktree_activate_from_creating_sets_active() {
+        let worktree = create_test_worktree();
+        let created_at = worktree.created_at();
+        let active = worktree.activate();
+        assert_eq!(active.state(), WorktreeState::Active);
+        assert!(active.updated_at() >= created_at);
     }
 
     #[test]
-    fn worktree_initialize_from_active_returns_invalid_state_transition_error() {
-        let mut worktree = create_test_worktree();
-        worktree.initialize().unwrap();
-        let result = worktree.initialize();
-        assert!(result.is_err());
+    fn worktree_suspend_from_creating_is_not_available() {
+        // suspend() is only available on Worktree<Active> and Worktree<Incomplete>,
+        // not on Worktree<Creating>. This is enforced at compile time.
+        let worktree = create_test_worktree();
+        assert_eq!(worktree.state(), WorktreeState::Creating);
+        // Cannot call worktree.suspend() - verified by compilation
     }
 
     #[test]
-    fn worktree_suspend_from_creating_returns_invalid_state_transition_error() {
-        let mut worktree = create_test_worktree();
-        let result = worktree.suspend();
-        assert!(result.is_err());
+    fn worktree_suspend_from_active_sets_suspended() {
+        let worktree = create_test_worktree();
+        let active = worktree.activate();
+        assert_eq!(active.state(), WorktreeState::Active);
+        let suspended = active.suspend();
+        assert_eq!(suspended.state(), WorktreeState::Suspended);
     }
 
     #[test]
-    fn worktree_suspend_from_active_returns_ok_and_sets_suspended() {
-        let mut worktree = create_test_worktree();
-        worktree.initialize().unwrap();
-        assert!(worktree.suspend().is_ok());
-        assert_eq!(worktree.state(), WorktreeState::Suspended);
+    fn worktree_resume_from_suspended_sets_active() {
+        let worktree = create_test_worktree();
+        let active = worktree.activate();
+        let suspended = active.suspend();
+        let resumed = suspended.resume();
+        assert_eq!(resumed.state(), WorktreeState::Active);
     }
 
     #[test]
-    fn worktree_resume_from_suspended_returns_ok_and_sets_active() {
-        let mut worktree = create_test_worktree();
-        worktree.initialize().unwrap();
-        worktree.suspend().unwrap();
-        assert!(worktree.resume().is_ok());
-        assert_eq!(worktree.state(), WorktreeState::Active);
+    fn worktree_mark_for_removal_from_active_sets_removing() {
+        let worktree = create_test_worktree();
+        let active = worktree.activate();
+        let removing = active.mark_for_removal();
+        assert_eq!(removing.state(), WorktreeState::Removing);
     }
 
     #[test]
-    fn worktree_resume_from_active_returns_invalid_state_transition_error() {
-        let mut worktree = create_test_worktree();
-        worktree.initialize().unwrap();
-        let result = worktree.resume();
-        assert!(result.is_err());
+    fn worktree_mark_for_removal_from_suspended_sets_removing() {
+        let worktree = create_test_worktree();
+        let active = worktree.activate();
+        let suspended = active.suspend();
+        let removing = suspended.mark_for_removal();
+        assert_eq!(removing.state(), WorktreeState::Removing);
     }
 
     #[test]
-    fn worktree_mark_for_removal_from_active_returns_ok_and_sets_removing() {
-        let mut worktree = create_test_worktree();
-        worktree.initialize().unwrap();
-        assert!(worktree.mark_for_removal().is_ok());
-        assert_eq!(worktree.state(), WorktreeState::Removing);
-    }
-
-    #[test]
-    fn worktree_mark_for_removal_from_suspended_returns_ok_and_sets_removing() {
-        let mut worktree = create_test_worktree();
-        worktree.initialize().unwrap();
-        worktree.suspend().unwrap();
-        assert!(worktree.mark_for_removal().is_ok());
-        assert_eq!(worktree.state(), WorktreeState::Removing);
-    }
-
-    #[test]
-    fn worktree_complete_removal_from_removing_returns_ok_and_sets_removed() {
-        let mut worktree = create_test_worktree();
-        worktree.initialize().unwrap();
-        worktree.mark_for_removal().unwrap();
-        assert!(worktree.complete_removal().is_ok());
-        assert_eq!(worktree.state(), WorktreeState::Removed);
+    fn worktree_complete_removal_from_removing_sets_removed() {
+        let worktree = create_test_worktree();
+        let active = worktree.activate();
+        let removing = active.mark_for_removal();
+        let removed = removing.complete_removal();
+        assert_eq!(removed.state(), WorktreeState::Removed);
     }
 
     #[test]
     fn worktree_full_removal_flow_transitions_creating_active_removing_removed() {
-        let mut worktree = create_test_worktree();
-        worktree.initialize().unwrap();
-        worktree.mark_for_removal().unwrap();
-        worktree.complete_removal().unwrap();
-        assert_eq!(worktree.state(), WorktreeState::Removed);
-        assert!(worktree.is_removed());
+        let worktree = create_test_worktree();
+        let active = worktree.activate();
+        let removing = active.mark_for_removal();
+        let removed = removing.complete_removal();
+        assert_eq!(removed.state(), WorktreeState::Removed);
+        assert!(removed.is_removed());
     }
 
     #[test]
@@ -886,30 +870,31 @@ mod worktree_domain_tests {
     #[test]
     fn worktree_is_active_returns_false_when_creating() {
         let worktree = create_test_worktree();
-        assert!(!worktree.is_active());
+        assert_eq!(worktree.state(), WorktreeState::Creating);
+        // is_active() is only on Worktree<Active>, verified by compile-time enforcement
     }
 
     #[test]
     fn worktree_is_active_returns_true_when_active() {
-        let mut worktree = create_test_worktree();
-        worktree.initialize().unwrap();
-        assert!(worktree.is_active());
+        let worktree = create_test_worktree();
+        let active = worktree.activate();
+        assert!(active.is_active());
     }
 
     #[test]
     fn worktree_is_removed_returns_false_when_active() {
-        let mut worktree = create_test_worktree();
-        worktree.initialize().unwrap();
-        assert!(!worktree.is_removed());
+        let worktree = create_test_worktree();
+        let active = worktree.activate();
+        assert!(!active.is_removed());
     }
 
     #[test]
     fn worktree_is_removed_returns_true_when_removed() {
-        let mut worktree = create_test_worktree();
-        worktree.initialize().unwrap();
-        worktree.mark_for_removal().unwrap();
-        worktree.complete_removal().unwrap();
-        assert!(worktree.is_removed());
+        let worktree = create_test_worktree();
+        let active = worktree.activate();
+        let removing = active.mark_for_removal();
+        let removed = removing.complete_removal();
+        assert!(removed.is_removed());
     }
 
     #[test]

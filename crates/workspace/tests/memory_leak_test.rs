@@ -11,15 +11,15 @@ fn test_rapid_create_delete() {
         let mut workspace = WorkspaceService::create_workspace(name.clone(), path.clone()).unwrap();
 
         // Initialize
-        workspace = WorkspaceService::initialize_workspace(&workspace).unwrap();
+        workspace = WorkspaceService::initialize_workspace(workspace).unwrap();
 
         // Lock
-        workspace = WorkspaceService::lock_workspace(&workspace, "test-agent".to_string()).unwrap();
+        workspace = WorkspaceService::lock_workspace(workspace, "test-agent".to_string()).unwrap();
 
         // Unlock
-        workspace = WorkspaceService::unlock_workspace(&workspace).unwrap();
+        workspace = WorkspaceService::unlock_workspace(workspace).unwrap();
 
         // Delete
-        let _deleted = WorkspaceService::delete_workspace(&workspace).unwrap();
+        let _deleted = WorkspaceService::delete_workspace(workspace).unwrap();
     }
 }

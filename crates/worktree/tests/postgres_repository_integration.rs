@@ -105,9 +105,10 @@ mod postgres_repository_integration {
                 None,
             );
 
+            let wt_id = worktree.id().clone();
             repo.save(worktree).await.unwrap();
 
-            let found = repo.find_by_id(worktree.id()).await.unwrap();
+            let found = repo.find_by_id(&wt_id).await.unwrap();
             assert!(found.is_some());
             assert!(found.unwrap().name().as_str().starts_with("save-create-"));
         })
@@ -117,7 +118,7 @@ mod postgres_repository_integration {
     #[tokio::test]
     async fn find_by_id_returns_worktree_when_exists() {
         run_with_cleanup("find", |mut repo| async move {
-            let mut worktree = create_test_worktree(
+            let worktree = create_test_worktree(
                 "find",
                 "exists",
                 "/tmp/wt",
@@ -126,9 +127,10 @@ mod postgres_repository_integration {
                 None,
             );
 
+            let wt_id = worktree.id().clone();
             repo.save(worktree).await.unwrap();
 
-            let found = repo.find_by_id(worktree.id()).await.unwrap();
+            let found = repo.find_by_id(&wt_id).await.unwrap();
             assert!(found.is_some());
             assert!(found.unwrap().name().as_str().starts_with("find-exists-"));
         })
@@ -163,7 +165,7 @@ mod postgres_repository_integration {
     #[tokio::test]
     async fn list_all_returns_single_worktree() {
         run_with_cleanup("list-single", |mut repo| async move {
-            let mut worktree = create_test_worktree(
+            let worktree = create_test_worktree(
                 "list-single",
                 "",
                 "/tmp/wt",
@@ -214,7 +216,7 @@ mod postgres_repository_integration {
     #[tokio::test]
     async fn delete_worktree_clears_from_database() {
         run_with_cleanup("delete", |mut repo| async move {
-            let mut worktree = create_test_worktree(
+            let worktree = create_test_worktree(
                 "delete",
                 "test",
                 "/tmp/wt",
@@ -223,14 +225,15 @@ mod postgres_repository_integration {
                 None,
             );
 
+            let wt_id = worktree.id().clone();
             repo.save(worktree).await.unwrap();
 
-            let found_before = repo.find_by_id(worktree.id()).await.unwrap();
+            let found_before = repo.find_by_id(&wt_id).await.unwrap();
             assert!(found_before.is_some());
 
-            repo.delete(worktree.id()).await.unwrap();
+            repo.delete(&wt_id).await.unwrap();
 
-            let found_after = repo.find_by_id(worktree.id()).await.unwrap();
+            let found_after = repo.find_by_id(&wt_id).await.unwrap();
             assert!(found_after.is_none());
         })
         .await;
@@ -250,7 +253,7 @@ mod postgres_repository_integration {
     #[tokio::test]
     async fn state_transition_creating_to_active() {
         run_with_cleanup("state-create", |mut repo| async move {
-            let mut worktree = create_test_worktree(
+            let worktree = create_test_worktree(
                 "state-create",
                 "",
                 "/tmp/wt",
@@ -261,12 +264,13 @@ mod postgres_repository_integration {
 
             assert_eq!(worktree.state(), WorktreeState::Creating);
 
-            worktree.initialize().unwrap();
-            assert_eq!(worktree.state(), WorktreeState::Active);
+            let active = worktree.activate();
+            assert_eq!(active.state(), WorktreeState::Active);
 
-            repo.save(worktree).await.unwrap();
+            let wt_id = active.id().clone();
+            repo.save(active).await.unwrap();
 
-            let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
+            let found = repo.find_by_id(&wt_id).await.unwrap().unwrap();
             assert_eq!(found.state(), WorktreeState::Active);
         })
         .await;
@@ -275,7 +279,7 @@ mod postgres_repository_integration {
     #[tokio::test]
     async fn state_transition_active_to_suspended() {
         run_with_cleanup("state-suspend", |mut repo| async move {
-            let mut worktree = create_test_worktree(
+            let worktree = create_test_worktree(
                 "state-suspend",
                 "",
                 "/tmp/wt",
@@ -284,15 +288,18 @@ mod postgres_repository_integration {
                 None,
             );
 
-            worktree.initialize().unwrap();
-            repo.save(worktree).await.unwrap();
+            let active = worktree.activate();
+            let wt_id = active.id().clone();
+            repo.save(active).await.unwrap();
 
-            worktree.suspend().unwrap();
-            assert_eq!(worktree.state(), WorktreeState::Suspended);
+            let active_wt = repo.find_by_id(&wt_id).await.unwrap().unwrap();
+            let suspended = active_wt.activate().suspend();
+            assert_eq!(suspended.state(), WorktreeState::Suspended);
 
-            repo.save(worktree).await.unwrap();
+            let susp_id = suspended.id().clone();
+            repo.save(suspended).await.unwrap();
 
-            let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
+            let found = repo.find_by_id(&susp_id).await.unwrap().unwrap();
             assert_eq!(found.state(), WorktreeState::Suspended);
         })
         .await;
@@ -313,9 +320,10 @@ mod postgres_repository_integration {
             worktree.add_metadata("key1", "value1");
             worktree.add_metadata("key2", "value2");
 
+            let wt_id = worktree.id().clone();
             repo.save(worktree).await.unwrap();
 
-            let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
+            let found = repo.find_by_id(&wt_id).await.unwrap().unwrap();
             assert_eq!(found.get_metadata("key1"), Some("value1"));
             assert_eq!(found.get_metadata("key2"), Some("value2"));
         })
@@ -325,7 +333,7 @@ mod postgres_repository_integration {
     #[tokio::test]
     async fn worktree_type_development() {
         run_with_cleanup("type-dev", |mut repo| async move {
-            let mut worktree = create_test_worktree(
+            let worktree = create_test_worktree(
                 "type-dev",
                 "",
                 "/tmp/wt",
@@ -334,9 +342,10 @@ mod postgres_repository_integration {
                 None,
             );
 
+            let wt_id = worktree.id().clone();
             repo.save(worktree).await.unwrap();
 
-            let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
+            let found = repo.find_by_id(&wt_id).await.unwrap().unwrap();
             assert_eq!(found.worktree_type(), WorktreeTypeEnum::Development);
         })
         .await;
@@ -345,7 +354,7 @@ mod postgres_repository_integration {
     #[tokio::test]
     async fn worktree_type_research() {
         run_with_cleanup("type-res", |mut repo| async move {
-            let mut worktree = create_test_worktree(
+            let worktree = create_test_worktree(
                 "type-res",
                 "",
                 "/tmp/wt",
@@ -354,9 +363,10 @@ mod postgres_repository_integration {
                 None,
             );
 
+            let wt_id = worktree.id().clone();
             repo.save(worktree).await.unwrap();
 
-            let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
+            let found = repo.find_by_id(&wt_id).await.unwrap().unwrap();
             assert_eq!(found.worktree_type(), WorktreeTypeEnum::Research);
         })
         .await;
@@ -365,7 +375,7 @@ mod postgres_repository_integration {
     #[tokio::test]
     async fn worktree_type_review() {
         run_with_cleanup("type-rev", |mut repo| async move {
-            let mut worktree = create_test_worktree(
+            let worktree = create_test_worktree(
                 "type-rev",
                 "",
                 "/tmp/wt",
@@ -374,9 +384,10 @@ mod postgres_repository_integration {
                 None,
             );
 
+            let wt_id = worktree.id().clone();
             repo.save(worktree).await.unwrap();
 
-            let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
+            let found = repo.find_by_id(&wt_id).await.unwrap().unwrap();
             assert_eq!(found.worktree_type(), WorktreeTypeEnum::Review);
         })
         .await;
@@ -385,7 +396,7 @@ mod postgres_repository_integration {
     #[tokio::test]
     async fn worktree_type_testing() {
         run_with_cleanup("type-test", |mut repo| async move {
-            let mut worktree = create_test_worktree(
+            let worktree = create_test_worktree(
                 "type-test",
                 "",
                 "/tmp/wt",
@@ -394,9 +405,10 @@ mod postgres_repository_integration {
                 None,
             );
 
+            let wt_id = worktree.id().clone();
             repo.save(worktree).await.unwrap();
 
-            let found = repo.find_by_id(worktree.id()).await.unwrap().unwrap();
+            let found = repo.find_by_id(&wt_id).await.unwrap().unwrap();
             assert_eq!(found.worktree_type(), WorktreeTypeEnum::Testing);
         })
         .await;
@@ -439,7 +451,7 @@ mod postgres_repository_integration {
     #[tokio::test]
     async fn name_exists_returns_true_when_exists() {
         run_with_cleanup("name-exists", |mut repo| async move {
-            let mut worktree = create_test_worktree(
+            let worktree = create_test_worktree(
                 "name-exists",
                 "",
                 "/tmp/wt",
@@ -448,9 +460,10 @@ mod postgres_repository_integration {
                 None,
             );
 
+            let name = worktree.name().as_str().to_string();
             repo.save(worktree).await.unwrap();
 
-            let exists = repo.name_exists(worktree.name().as_str()).await.unwrap();
+            let exists = repo.name_exists(&name).await.unwrap();
             assert!(exists);
         })
         .await;

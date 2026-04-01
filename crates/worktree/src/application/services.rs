@@ -2,6 +2,7 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
+#![allow(clippy::missing_errors_doc)]
 #![forbid(unsafe_code)]
 
 use crate::application::{
@@ -11,7 +12,7 @@ use crate::application::{
     },
     repositories::WorktreeRepository,
 };
-use crate::domain::{Worktree, WorktreeState};
+use crate::domain::Worktree;
 use crate::domain::{WorktreeDomainError, WorktreeId};
 
 pub struct WorktreeService<R: WorktreeRepository> {
@@ -185,7 +186,7 @@ impl<R: WorktreeRepository> WorktreeService<R> {
 mod tests {
     use super::*;
     use crate::application::repositories::WorktreeRepository;
-    use crate::domain::{AbsolutePath, BranchName, WorktreeName, WorktreeTypeEnum};
+    use crate::domain::{AbsolutePath, BranchName, WorktreeName, WorktreeState, WorktreeTypeEnum};
 
     #[derive(Default)]
     struct InMemoryRepository {

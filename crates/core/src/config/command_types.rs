@@ -179,18 +179,21 @@ fn port_registry() -> &'static RwLock<Option<Arc<dyn ConfigReadPort>>> {
     PORT_REGISTRY.get_or_init(|| RwLock::new(None))
 }
 
+#[allow(clippy::expect_used)]
 pub fn set_port(port: Arc<dyn ConfigReadPort>) {
     let registry = port_registry();
     let mut guard = registry.write().expect("port registry lock poisoned");
     *guard = Some(port);
 }
 
+#[allow(clippy::expect_used)]
 pub fn clear_port() {
     let registry = port_registry();
     let mut guard = registry.write().expect("port registry lock poisoned");
     *guard = None;
 }
 
+#[allow(clippy::expect_used)]
 pub(crate) fn get_port() -> Arc<dyn ConfigReadPort> {
     let registry = port_registry();
     let guard = registry.read().expect("port registry lock poisoned");
@@ -528,7 +531,7 @@ pub fn set_nested_value(doc: &mut toml_edit::DocumentMut, parts: &[&str], value:
         if !current.contains_key(segment) { current[segment] = toml_edit::Item::Table(toml_edit::Table::new()); }
         let entry = &current[segment];
         if !entry.is_table() { return Err(ConfigErrorKind::ConfigParseError(format!("segment '{segment}' is not a table, cannot traverse through it")).into()); }
-        current = current[segment].as_table_mut().expect("just verified it is a table");
+        current = current[segment].as_table_mut().ok_or_else(|| ConfigErrorKind::ConfigParseError(format!("segment '{segment}' is not a table (internal error)")))?;
     }
     let item = parse_cli_value(value)?;
     current[last[0]] = item;
@@ -576,7 +579,7 @@ pub async fn config_set(key: &str, value: &str, scope: ConfigScope) -> Result<Co
     if let Some(parent) = config_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to create config directory {}: {e}", parent.display())))?;
     }
-    let file = std::fs::OpenOptions::new().read(true).write(true).create(true).open(&config_path)
+    let file = std::fs::OpenOptions::new().read(true).write(true).create(true).truncate(true).open(&config_path)
         .map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to open config file {}: {e}", config_path.display())))?;
     let start = Instant::now();
     let file = loop {

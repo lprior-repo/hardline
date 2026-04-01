@@ -58,7 +58,7 @@ impl Clone for InMemoryQueueRepository {
             .lock()
             .ok()
             .map(|guard| guard.clone())
-            .unwrap_or_else(VecDeque::new);
+            .unwrap_or_default();
 
         Self {
             entries: Arc::new(Mutex::new(cloned_entries)),
