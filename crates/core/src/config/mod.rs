@@ -1,16 +1,6 @@
 //! Configuration management for Source Control Plane.
-//!
-//! Provides persistent configuration storage with support for:
-//! - Global config (user-level)
-//! - Project config (repo-level)
-//! - Environment variable overrides
-//! - Config validation
-//!
-//! Also includes conflict resolution configuration with mode selection
-//! (auto/manual/hybrid), autonomy levels, and security keyword detection.
 
 pub mod config_core;
-
 pub mod types;
 pub mod config;
 pub mod partial;
@@ -37,7 +27,9 @@ pub use config::{ConflictResolutionConfig, SessionConfig};
 pub use partial::{PartialConflictResolutionConfig, PartialSessionConfig};
 pub use command_types::{
     ConfigKey, ConfigGetResult, ConfigSetResult, ConfigReadPort,
+    FileConfigReadPort,
     parse_cli_value, get_nested_value, set_nested_value,
     config_get, config_set, config_list,
+    set_port, clear_port,
     KNOWN_CONFIG_KEYS, KNOWN_SECTION_PREFIXES,
 };

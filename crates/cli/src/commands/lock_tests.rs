@@ -143,6 +143,32 @@ mod tests {
     }
 
     #[test]
+    fn acquire_with_newline_in_session_fails() {
+        let db = get_temp_db();
+        let path = db.path().to_str().expect("path utf8");
+
+        let res = acquire_with_path("session\nwith\nnewline", "a1", None, path);
+        assert!(
+            res.is_err(),
+            "Expected error on session name with newline, got {:?}",
+            res
+        );
+    }
+
+    #[test]
+    fn acquire_with_control_chars_in_session_fails() {
+        let db = get_temp_db();
+        let path = db.path().to_str().expect("path utf8");
+
+        let res = acquire_with_path("session\twith\ttab", "a1", None, path);
+        assert!(
+            res.is_err(),
+            "Expected error on session name with control chars, got {:?}",
+            res
+        );
+    }
+
+    #[test]
     fn acquire_with_max_ttl_succeeds() {
         let db = get_temp_db();
         let path = db.path().to_str().expect("path utf8");

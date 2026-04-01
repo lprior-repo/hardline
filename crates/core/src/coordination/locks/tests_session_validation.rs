@@ -174,3 +174,41 @@ async fn regression_lock_nonexistent_session_no_longer_creates_orphaned_lock() -
 
     Ok(())
 }
+
+// Test: Session name with newline is rejected
+#[tokio::test]
+async fn lock_session_with_newline_rejected() -> Result<(), Error> {
+    let pool = test_pool().await?;
+    let mgr = LockManager::new(pool.clone());
+    mgr.init().await?;
+
+    let result = mgr.lock("session\nwith\nnewline", "agent-1").await;
+
+    assert!(result.is_err(), "Session name with newline should be rejected");
+
+    match &result {
+        Err(Error::Lock(lk)) if matches!(lk.kind(), LockErrorKind::InvalidSessionName { .. }) => {}
+        other => panic!("Expected LockError(InvalidSessionName), got: {other:?}"),
+    }
+
+    Ok(())
+}
+
+// Test: Session name with other control characters is rejected
+#[tokio::test]
+async fn lock_session_with_control_chars_rejected() -> Result<(), Error> {
+    let pool = test_pool().await?;
+    let mgr = LockManager::new(pool.clone());
+    mgr.init().await?;
+
+    let result = mgr.lock("session\twith\ttab", "agent-1").await;
+
+    assert!(result.is_err(), "Session name with tab should be rejected");
+
+    match &result {
+        Err(Error::Lock(lk)) if matches!(lk.kind(), LockErrorKind::InvalidSessionName { .. }) => {}
+        other => panic!("Expected LockError(InvalidSessionName), got: {other:?}"),
+    }
+
+    Ok(())
+}

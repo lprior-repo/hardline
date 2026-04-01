@@ -1,16 +1,21 @@
 //! Types for the CLI config command.
 //!
 //! ConfigKey, ConfigGetResult, ConfigSetResult, ConfigReadPort trait,
+//! FileConfigReadPort implementation, port registry for dependency injection,
 //! parse_cli_value, get_nested_value, set_nested_value.
 
+use std::collections::HashMap;
 use std::future::Future;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
+use std::str::FromStr;
+use std::sync::{Arc, OnceLock, RwLock};
+use std::time::{Duration, Instant};
 
 use crate::error::Result;
 use crate::error_config::ConfigErrorKind;
 
-use super::config_core::ConfigScope;
+use super::config_core::{Config, ConfigScope};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ConfigKey
@@ -56,184 +61,87 @@ pub const KNOWN_SECTION_PREFIXES: &[&str] = &[
 const MAX_KEY_LENGTH: usize = 256;
 
 /// A validated dot-notation path into the TOML config structure.
-///
-/// Validation rules:
-/// - Non-empty string
-/// - Each segment is non-empty
-/// - Each segment contains only ASCII alphanumeric characters and underscores
-/// - Contains at least one dot (i.e., at least two segments)
-/// - Total length <= 256 characters
-/// - No leading/trailing dots, no consecutive dots
-/// - Must reference a key that exists in the Config struct schema
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConfigKey {
-    /// The raw key string, e.g., "watch.enabled"
     raw: String,
-    /// The segments split by dot, e.g., ["watch", "enabled"]
     segments: Vec<String>,
 }
 
 impl ConfigKey {
-    /// Parse and validate a config key string.
-    ///
-    /// # Errors
-    /// - `ConfigErrorKind::ConfigParseError` for syntax failures or unknown schema keys
-    /// - `ConfigErrorKind::ConfigKeyNotFound` if key is not in schema (reserved for runtime lookup)
     pub fn try_from(key: &str) -> Result<Self> {
-        // 1. Non-empty
         if key.is_empty() {
             return Err(ConfigErrorKind::ConfigParseError("empty config key".to_string()).into());
         }
-
-        // 2. Length check
         if key.len() > MAX_KEY_LENGTH {
             return Err(ConfigErrorKind::ConfigParseError(format!(
                 "config key exceeds maximum length of {MAX_KEY_LENGTH} characters"
             ))
             .into());
         }
-
-        // 3. Null byte check
         if key.contains('\0') {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key contains null byte".to_string(),
-            )
-            .into());
+            return Err(ConfigErrorKind::ConfigParseError("config key contains null byte".to_string()).into());
         }
-
-        // 4. ASCII-only check
         if !key.is_ascii() {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key contains non-ASCII characters".to_string(),
-            )
-            .into());
+            return Err(ConfigErrorKind::ConfigParseError("config key contains non-ASCII characters".to_string()).into());
         }
-
-        // 5. Path traversal: slash
         if key.contains('/') {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key contains slash, possible path traversal".to_string(),
-            )
-            .into());
+            return Err(ConfigErrorKind::ConfigParseError("config key contains slash, possible path traversal".to_string()).into());
         }
-
-        // 6. Backslash
         if key.contains('\\') {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key contains backslash, invalid character".to_string(),
-            )
-            .into());
+            return Err(ConfigErrorKind::ConfigParseError("config key contains backslash, invalid character".to_string()).into());
         }
-
-        // 7. Leading dot
         if key.starts_with('.') {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key has leading dot, empty segment".to_string(),
-            )
-            .into());
+            return Err(ConfigErrorKind::ConfigParseError("config key has leading dot, empty segment".to_string()).into());
         }
-
-        // 8. Trailing dot
         if key.ends_with('.') {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key has trailing dot, empty segment".to_string(),
-            )
-            .into());
+            return Err(ConfigErrorKind::ConfigParseError("config key has trailing dot, empty segment".to_string()).into());
         }
-
-        // 9. Consecutive dots (includes path traversal "..")
         if key.contains("..") {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key contains consecutive dots".to_string(),
-            )
-            .into());
+            return Err(ConfigErrorKind::ConfigParseError("config key contains consecutive dots".to_string()).into());
         }
-
-        // 10. Split into segments
         let segments: Vec<String> = key.split('.').map(String::from).collect();
-
-        // 11. At least 2 segments (at least one dot)
         if segments.len() < 2 {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key must contain at least one dot separator (section.key)".to_string(),
-            )
-            .into());
+            return Err(ConfigErrorKind::ConfigParseError("config key must contain at least one dot separator (section.key)".to_string()).into());
         }
-
-        // 12. Validate each segment contains only [a-zA-Z0-9_]
         for segment in &segments {
             if segment.is_empty() {
-                return Err(ConfigErrorKind::ConfigParseError(
-                    "config key contains empty segment".to_string(),
-                )
-                .into());
+                return Err(ConfigErrorKind::ConfigParseError("config key contains empty segment".to_string()).into());
             }
-
             for ch in segment.chars() {
                 if ch == '-' {
-                    return Err(ConfigErrorKind::ConfigParseError(format!(
-                        "config key segment contains hyphen '-': invalid character in '{segment}'"
-                    ))
-                    .into());
+                    return Err(ConfigErrorKind::ConfigParseError(format!("config key segment contains hyphen '-': invalid character in '{segment}'")).into());
                 }
                 if ch.is_whitespace() {
-                    return Err(ConfigErrorKind::ConfigParseError(format!(
-                        "config key segment contains whitespace: invalid character in '{segment}'"
-                    ))
-                    .into());
+                    return Err(ConfigErrorKind::ConfigParseError(format!("config key segment contains whitespace: invalid character in '{segment}'")).into());
                 }
                 if !ch.is_ascii_alphanumeric() && ch != '_' {
-                    return Err(ConfigErrorKind::ConfigParseError(format!(
-                        "config key segment contains invalid character '{ch}' in '{segment}'"
-                    ))
-                    .into());
+                    return Err(ConfigErrorKind::ConfigParseError(format!("config key segment contains invalid character '{ch}' in '{segment}'")).into());
                 }
             }
         }
-
-        // 13. Schema check: multi-character sections must be in known section prefixes.
-        //     Single-character sections are allowed for testing/placeholder use.
         let first_segment = &segments[0];
         if first_segment.len() > 1 && !KNOWN_SECTION_PREFIXES.contains(&first_segment.as_str()) {
-            return Err(ConfigErrorKind::ConfigParseError(format!(
-                "unknown schema section '{first_segment}': key not found in known config keys"
-            ))
-            .into());
+            return Err(ConfigErrorKind::ConfigParseError(format!("unknown schema section '{first_segment}': key not found in known config keys")).into());
         }
-
-        Ok(Self {
-            raw: key.to_string(),
-            segments,
-        })
+        Ok(Self { raw: key.to_string(), segments })
     }
 
-    /// Returns the raw key string.
     #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.raw
-    }
+    pub fn as_str(&self) -> &str { &self.raw }
 
-    /// Returns the segments of the key.
     #[must_use]
-    pub fn segments(&self) -> &[String] {
-        &self.segments
-    }
+    pub fn segments(&self) -> &[String] { &self.segments }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ConfigGetResult
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Result of a config get operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigGetResult {
-    /// The config key that was queried.
     pub key: ConfigKey,
-    /// The resolved value as a string.
     pub value: String,
-    /// The scope that provided this value.
     pub scope: ConfigScope,
-    /// The filesystem path of the source (empty for Env scope).
     pub source_path: PathBuf,
 }
 
@@ -241,16 +149,11 @@ pub struct ConfigGetResult {
 // ConfigSetResult
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Result of a config set operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigSetResult {
-    /// The config key that was set.
     pub key: ConfigKey,
-    /// The value that was set.
     pub value: String,
-    /// The scope where the value was stored.
     pub scope: ConfigScope,
-    /// The filesystem path of the config file that was written.
     pub config_path: PathBuf,
 }
 
@@ -258,118 +161,318 @@ pub struct ConfigSetResult {
 // ConfigReadPort
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Port for config reads and path resolution (ports-and-adapters seam).
 pub trait ConfigReadPort: Send + Sync {
-    /// Load merged configuration (defaults + global + project + env).
-    fn load_merged(
-        &self,
-    ) -> Pin<Box<dyn Future<Output = Result<super::config_core::Config>> + Send + '_>>;
-
-    /// Load global-only configuration (defaults + global).
-    fn load_global_only(
-        &self,
-    ) -> Pin<Box<dyn Future<Output = Result<super::config_core::Config>> + Send + '_>>;
-
-    /// Return global config file path (~/.config/scp/config.toml).
+    fn load_merged(&self) -> Pin<Box<dyn Future<Output = Result<Config>> + Send + '_>>;
+    fn load_global_only(&self) -> Pin<Box<dyn Future<Output = Result<Config>> + Send + '_>>;
     fn global_config_path(&self) -> Result<PathBuf>;
-
-    /// Return project config file path (.scp/config.toml).
     fn project_config_path(&self) -> Result<PathBuf>;
+    fn as_any(&self) -> &dyn std::any::Any;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Port Registry
+// ═══════════════════════════════════════════════════════════════════════════
+
+static PORT_REGISTRY: OnceLock<RwLock<Option<Arc<dyn ConfigReadPort>>>> = OnceLock::new();
+
+fn port_registry() -> &'static RwLock<Option<Arc<dyn ConfigReadPort>>> {
+    PORT_REGISTRY.get_or_init(|| RwLock::new(None))
+}
+
+pub fn set_port(port: Arc<dyn ConfigReadPort>) {
+    let registry = port_registry();
+    let mut guard = registry.write().expect("port registry lock poisoned");
+    *guard = Some(port);
+}
+
+pub fn clear_port() {
+    let registry = port_registry();
+    let mut guard = registry.write().expect("port registry lock poisoned");
+    *guard = None;
+}
+
+pub(crate) fn get_port() -> Arc<dyn ConfigReadPort> {
+    let registry = port_registry();
+    let guard = registry.read().expect("port registry lock poisoned");
+    if let Some(port) = guard.as_ref() {
+        Arc::clone(port)
+    } else {
+        Arc::new(FileConfigReadPort::new())
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FileConfigReadPort
+// ═══════════════════════════════════════════════════════════════════════════
+
+pub struct FileConfigReadPort {
+    global_path: PathBuf,
+    project_path: Option<PathBuf>,
+}
+
+impl FileConfigReadPort {
+    pub fn new() -> Self {
+        let global_path = directories::ProjectDirs::from("com", "scp", "scp")
+            .map(|dirs| dirs.config_dir().join("config.toml"))
+            .unwrap_or_else(|| {
+                std::env::var("HOME")
+                    .map(|h| PathBuf::from(h).join(".config").join("scp").join("config.toml"))
+                    .unwrap_or_else(|_| PathBuf::from("config.toml"))
+            });
+        Self { global_path, project_path: None }
+    }
+
+    pub fn with_paths(global_path: PathBuf, project_path: Option<PathBuf>) -> Self {
+        Self { global_path, project_path }
+    }
+
+    fn load_toml_file(path: &Path) -> Result<HashMap<String, String>> {
+        let contents = std::fs::read_to_string(path).map_err(|e| {
+            ConfigErrorKind::ConfigWriteError(format!("failed to read {}: {e}", path.display()))
+        })?;
+        let doc: toml_edit::DocumentMut = contents.parse().map_err(|e: toml_edit::TomlError| {
+            ConfigErrorKind::ConfigParseError(format!("TOML parse error in {}: {e}", path.display()))
+        })?;
+        let mut values = HashMap::new();
+        flatten_toml_document(&doc, "", &mut values);
+        Ok(values)
+    }
+
+    fn load_env_overrides() -> HashMap<String, String> {
+        let mut values = HashMap::new();
+        for (key, value) in std::env::vars() {
+            if key.starts_with("SCP_") {
+                let config_key = key["SCP_".len()..].to_lowercase().replace('_', ".");
+                values.insert(config_key, value);
+            }
+        }
+        values
+    }
+
+    pub fn load_with_layers(
+        &self,
+        include_project: bool,
+        include_env: bool,
+    ) -> Result<(Config, HashMap<String, ConfigScope>, HashMap<String, PathBuf>)> {
+        let mut values: HashMap<String, String> = HashMap::new();
+        let mut scopes: HashMap<String, ConfigScope> = HashMap::new();
+        let mut paths: HashMap<String, PathBuf> = HashMap::new();
+
+        if self.global_path.exists() {
+            let gv = Self::load_toml_file(&self.global_path)?;
+            for (k, v) in gv {
+                values.insert(k.clone(), v);
+                scopes.insert(k.clone(), ConfigScope::Global);
+                paths.insert(k, self.global_path.clone());
+            }
+        }
+
+        if include_project {
+            if let Some(ref pp) = self.project_path {
+                if pp.exists() {
+                    let pv = Self::load_toml_file(pp)?;
+                    for (k, v) in pv {
+                        values.insert(k.clone(), v);
+                        scopes.insert(k.clone(), ConfigScope::Project);
+                        paths.insert(k, pp.clone());
+                    }
+                }
+            }
+        }
+
+        if include_env {
+            let ev = Self::load_env_overrides();
+            for (k, v) in ev {
+                values.insert(k.clone(), v);
+                scopes.insert(k.clone(), ConfigScope::Env);
+                paths.insert(k, PathBuf::new());
+            }
+        }
+
+        let mut config = Config::new();
+        for (k, v) in &values {
+            config.set(k.clone(), v.clone());
+        }
+
+        if self.global_path.exists() {
+            if let Ok(contents) = std::fs::read_to_string(&self.global_path) {
+                if let Ok(doc) = contents.parse::<toml_edit::DocumentMut>() {
+                    apply_structured_sections(&doc, &mut config);
+                }
+            }
+        }
+
+        if include_project {
+            if let Some(ref pp) = self.project_path {
+                if pp.exists() {
+                    if let Ok(contents) = std::fs::read_to_string(pp) {
+                        if let Ok(doc) = contents.parse::<toml_edit::DocumentMut>() {
+                            apply_structured_sections(&doc, &mut config);
+                        }
+                    }
+                }
+            }
+        }
+
+        if include_env {
+            let ev = Self::load_env_overrides();
+            apply_env_to_structured(&ev, &mut config);
+        }
+
+        Ok((config, scopes, paths))
+    }
+}
+
+impl Default for FileConfigReadPort {
+    fn default() -> Self { Self::new() }
+}
+
+fn flatten_toml_document(doc: &toml_edit::DocumentMut, prefix: &str, out: &mut HashMap<String, String>) {
+    for (key, item) in doc.iter() {
+        let full_key = if prefix.is_empty() { key.to_string() } else { format!("{prefix}.{key}") };
+        match item {
+            toml_edit::Item::Value(v) => { out.insert(full_key, stringify_toml_value(v)); }
+            toml_edit::Item::Table(table) => { flatten_toml_table(table, &full_key, out); }
+            _ => {}
+        }
+    }
+}
+
+fn flatten_toml_table(table: &toml_edit::Table, prefix: &str, out: &mut HashMap<String, String>) {
+    for (key, item) in table.iter() {
+        let full_key = format!("{prefix}.{key}");
+        match item {
+            toml_edit::Item::Value(v) => { out.insert(full_key, stringify_toml_value(v)); }
+            toml_edit::Item::Table(sub_table) => { flatten_toml_table(sub_table, &full_key, out); }
+            _ => {}
+        }
+    }
+}
+
+fn stringify_toml_value(v: &toml_edit::Value) -> String {
+    match v {
+        toml_edit::Value::Boolean(b) => b.value().to_string(),
+        toml_edit::Value::Integer(n) => n.to_string(),
+        toml_edit::Value::Float(f) => f.to_string(),
+        toml_edit::Value::String(s) => s.value().to_string(),
+        toml_edit::Value::Array(arr) => {
+            let items: Vec<String> = arr.iter().map(stringify_toml_value).collect();
+            format!("[{}]", items.join(", "))
+        }
+        toml_edit::Value::Datetime(dt) => dt.to_string(),
+        toml_edit::Value::InlineTable(_) => "{}".to_string(),
+    }
+}
+
+fn apply_structured_sections(doc: &toml_edit::DocumentMut, config: &mut Config) {
+    if let Some(ci) = doc.get("conflict_resolution") {
+        if let Some(ct) = ci.as_table() {
+            if let Some(mv) = ct.get("mode") {
+                if let Some(s) = mv.as_str() {
+                    config.conflict.mode = super::types::ConflictMode::from_str(s).unwrap_or_default();
+                }
+            }
+            if let Some(av) = ct.get("autonomy") {
+                if let Some(n) = av.as_integer() {
+                    config.conflict.autonomy = u8::try_from(n).unwrap_or(0);
+                }
+            }
+            if let Some(kv) = ct.get("security_keywords") {
+                if let Some(arr) = kv.as_array() {
+                    config.conflict.security_keywords = arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+                }
+            }
+            if let Some(lv) = ct.get("log_resolutions") {
+                if let Some(true) = lv.as_bool() {
+                    config.conflict.log_resolutions = super::types::ValidatedBool::new(true);
+                }
+            }
+        }
+    }
+    if let Some(si) = doc.get("session") {
+        if let Some(st) = si.as_table() {
+            if let Some(ac) = st.get("auto_commit") {
+                if let Some(true) = ac.as_bool() {
+                    config.session.auto_commit = super::types::ValidatedBool::new(true);
+                }
+            }
+            if let Some(cp) = st.get("commit_prefix") {
+                if let Some(s) = cp.as_str() { config.session.commit_prefix = s.to_string(); }
+            }
+            if let Some(ms) = st.get("max_sessions") {
+                if let Some(n) = ms.as_integer() {
+                    config.session.max_sessions = usize::try_from(n).unwrap_or(10);
+                }
+            }
+        }
+    }
+}
+
+fn apply_env_to_structured(env_values: &HashMap<String, String>, config: &mut Config) {
+    if let Some(ms) = env_values.get("conflict_resolution.mode") {
+        config.conflict.mode = super::types::ConflictMode::from_str(ms).unwrap_or_default();
+    }
+    if let Some(a) = env_values.get("session.auto_commit") {
+        if a == "true" { config.session.auto_commit = super::types::ValidatedBool::new(true); }
+        else if a == "false" { config.session.auto_commit = super::types::ValidatedBool::new(false); }
+    }
+    if let Some(p) = env_values.get("session.commit_prefix") { config.session.commit_prefix = p.clone(); }
+    if let Some(m) = env_values.get("session.max_sessions") {
+        if let Ok(n) = m.parse::<usize>() { config.session.max_sessions = n; }
+    }
+    if let Some(w) = env_values.get("watch.enabled") {
+        config.values.insert("watch.enabled".to_string(), w.clone());
+    }
+}
+
+impl ConfigReadPort for FileConfigReadPort {
+    fn load_merged(&self) -> Pin<Box<dyn Future<Output = Result<Config>> + Send + '_>> {
+        Box::pin(async move { let (c, _, _) = self.load_with_layers(true, true)?; Ok(c) })
+    }
+    fn load_global_only(&self) -> Pin<Box<dyn Future<Output = Result<Config>> + Send + '_>> {
+        Box::pin(async move { let (c, _, _) = self.load_with_layers(false, false)?; Ok(c) })
+    }
+    fn global_config_path(&self) -> Result<PathBuf> { Ok(self.global_path.clone()) }
+    fn project_config_path(&self) -> Result<PathBuf> {
+        self.project_path.clone().ok_or_else(|| ConfigErrorKind::ConfigScopeError("no project config path available".to_string()).into())
+    }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // parse_cli_value
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Parse a CLI value string into a toml_edit::Item.
-///
-/// Type inference rules:
-/// - Exact "true"/"false" (case-sensitive) -> bool
-/// - i64-parseable -> integer
-/// - Starts with "[" -> parse as TOML string array
-/// - Fallback -> string
-///
-/// # Errors
-/// - `ConfigErrorKind::ConfigParseError` for array with non-string elements or malformed TOML
 pub fn parse_cli_value(raw: &str) -> Result<toml_edit::Item> {
-    // 1. Bool: exact case-sensitive match
-    if raw == "true" {
-        return Ok(toml_edit::Item::Value(toml_edit::Value::from(true)));
-    }
-    if raw == "false" {
-        return Ok(toml_edit::Item::Value(toml_edit::Value::from(false)));
-    }
-
-    // 2. Integer: try i64 parse (overflow falls to string)
-    if let Ok(n) = raw.parse::<i64>() {
-        return Ok(toml_edit::Item::Value(toml_edit::Value::from(n)));
-    }
-
-    // 3. Array: starts with "["
-    if raw.starts_with('[') {
-        return parse_array_value(raw);
-    }
-
-    // 4. Fallback: string
+    if raw == "true" { return Ok(toml_edit::Item::Value(toml_edit::Value::from(true))); }
+    if raw == "false" { return Ok(toml_edit::Item::Value(toml_edit::Value::from(false))); }
+    if let Ok(n) = raw.parse::<i64>() { return Ok(toml_edit::Item::Value(toml_edit::Value::from(n))); }
+    if raw.starts_with('[') { return parse_array_value(raw); }
     Ok(toml_edit::Item::Value(toml_edit::Value::from(raw)))
 }
 
-/// Parse an array value from a CLI string.
-///
-/// Expects TOML-style arrays of quoted strings, e.g., `["a", "b"]`.
-///
-/// # Errors
-/// - `ConfigErrorKind::ConfigParseError` if array contains non-string elements or is malformed
 fn parse_array_value(raw: &str) -> Result<toml_edit::Item> {
-    // Wrap in a fake key-value TOML for parsing, since toml::from_str requires
-    // a key-value document at the top level, not a bare array.
     let wrapped = format!("__val__ = {raw}");
     let parsed: std::result::Result<toml::Value, _> = toml::from_str(&wrapped);
     match parsed {
         Ok(toml::Value::Table(table)) => {
-            let arr_val = table
-                .get("__val__")
-                .ok_or_else(|| {
-                    ConfigErrorKind::ConfigParseError(
-                        "malformed TOML array: could not parse".to_string(),
-                    )
-                })?;
+            let arr_val = table.get("__val__").ok_or_else(|| ConfigErrorKind::ConfigParseError("malformed TOML array: could not parse".to_string()))?;
             match arr_val {
                 toml::Value::Array(arr) => {
                     let mut toml_arr = toml_edit::Array::new();
                     for item in arr {
                         match item {
-                            toml::Value::String(s) => {
-                                toml_arr.push(s.clone());
-                            }
-                            _ => {
-                                return Err(ConfigErrorKind::ConfigParseError(
-                                    "array contains non-string element: TOML arrays must contain only strings".to_string(),
-                                )
-                                .into());
-                            }
+                            toml::Value::String(s) => toml_arr.push(s.clone()),
+                            _ => return Err(ConfigErrorKind::ConfigParseError("array contains non-string element: TOML arrays must contain only strings".to_string()).into()),
                         }
                     }
                     Ok(toml_edit::Item::Value(toml_edit::Value::Array(toml_arr)))
                 }
-                _ => {
-                    // Parsed but not an array - treat as string fallback
-                    Ok(toml_edit::Item::Value(toml_edit::Value::from(raw)))
-                }
+                _ => Ok(toml_edit::Item::Value(toml_edit::Value::from(raw))),
             }
         }
-        Err(_) => {
-            Err(ConfigErrorKind::ConfigParseError(format!(
-                "malformed TOML array: could not parse '{raw}'"
-            ))
-            .into())
-        }
-        _ => {
-            Err(ConfigErrorKind::ConfigParseError(format!(
-                "malformed TOML array: unexpected structure in '{raw}'"
-            ))
-            .into())
-        }
+        Err(_) => Err(ConfigErrorKind::ConfigParseError(format!("malformed TOML array: could not parse '{raw}'")).into()),
+        _ => Err(ConfigErrorKind::ConfigParseError(format!("malformed TOML array: unexpected structure in '{raw}'")).into()),
     }
 }
 
@@ -377,205 +480,161 @@ fn parse_array_value(raw: &str) -> Result<toml_edit::Item> {
 // get_nested_value
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Retrieve a nested value from a Config struct using dot notation.
-///
-/// Converts the Config to a JSON value tree for traversal.
-///
-/// # Errors
-/// - `ConfigErrorKind::ConfigKeyNotFound` if any segment in the path does not exist
-pub fn get_nested_value(config: &super::config_core::Config, key: &str) -> Result<String> {
-    // First try the flat values HashMap
-    if let Some(val) = config.values.get(key) {
-        return Ok(val.clone());
-    }
-
-    // Convert to serde_json::Value for nested traversal
-    let json = serde_json::to_value(config)
-        .map_err(|e| ConfigErrorKind::ConfigKeyNotFound(format!("serialization error: {e}")))?;
-
+pub fn get_nested_value(config: &Config, key: &str) -> Result<String> {
+    if let Some(val) = config.values.get(key) { return Ok(val.clone()); }
+    let json = serde_json::to_value(config).map_err(|e| ConfigErrorKind::ConfigKeyNotFound(format!("serialization error: {e}")))?;
     let segments: Vec<&str> = key.split('.').collect();
     let mut current = &json;
-
-    for segment in &segments {
+    for (i, segment) in segments.iter().enumerate() {
         match current {
             serde_json::Value::Object(map) => {
-                current = map
-                    .get(*segment)
-                    .ok_or_else(|| {
-                        ConfigErrorKind::ConfigKeyNotFound(format!(
-                            "key not found: {segment} in {key}"
-                        ))
-                    })?;
+                let lookup = if i == 0 {
+                    match *segment {
+                        "conflict_resolution" => "conflict",
+                        s => s,
+                    }
+                } else {
+                    *segment
+                };
+                current = map.get(lookup).ok_or_else(|| ConfigErrorKind::ConfigKeyNotFound(format!("key not found: {segment} in {key}")))?;
             }
-            _ => {
-                return Err(ConfigErrorKind::ConfigKeyNotFound(format!(
-                    "segment '{segment}' is not a table in key '{key}'"
-                ))
-                .into());
-            }
+            _ => { return Err(ConfigErrorKind::ConfigKeyNotFound(format!("segment '{segment}' is not a table in key '{key}'")).into()); }
         }
     }
-
-    // Stringify the final value
-    let result = match current {
-        serde_json::Value::Bool(b) => b.to_string(),
-        serde_json::Value::Number(n) => n.to_string(),
-        serde_json::Value::String(s) => s.clone(),
+    match current {
+        serde_json::Value::Bool(b) => Ok(b.to_string()),
+        serde_json::Value::Number(n) => Ok(n.to_string()),
+        serde_json::Value::String(s) => Ok(s.clone()),
         serde_json::Value::Array(arr) => {
-            let items: Vec<String> = arr
-                .iter()
-                .filter_map(|v| v.as_str().map(|s| format!("\"{s}\"")))
-                .collect();
-            format!("[{}]", items.join(", "))
+            let items: Vec<String> = arr.iter().filter_map(|v| v.as_str().map(|s| format!("\"{s}\""))).collect();
+            Ok(format!("[{}]", items.join(", ")))
         }
-        serde_json::Value::Null => {
-            return Err(ConfigErrorKind::ConfigKeyNotFound(format!(
-                "value is null for key '{key}'"
-            ))
-            .into());
-        }
-        serde_json::Value::Object(_) => {
-            return Err(ConfigErrorKind::ConfigKeyNotFound(format!(
-                "key '{key}' resolves to a table, not a value"
-            ))
-            .into());
-        }
-    };
-
-    Ok(result)
+        serde_json::Value::Null => Err(ConfigErrorKind::ConfigKeyNotFound(format!("value is null for key '{key}'")).into()),
+        serde_json::Value::Object(_) => Err(ConfigErrorKind::ConfigKeyNotFound(format!("key '{key}' resolves to a table, not a value")).into()),
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // set_nested_value
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Set a nested value in a TOML document using dot notation.
-///
-/// Creates intermediate tables as needed.
-///
-/// # Errors
-/// - `ConfigErrorKind::ConfigParseError` for empty parts, single segment, or non-table intermediate
-pub fn set_nested_value(
-    doc: &mut toml_edit::DocumentMut,
-    parts: &[&str],
-    value: &str,
-) -> Result<()> {
-    // Must have at least 2 segments
-    if parts.len() < 2 {
-        return Err(ConfigErrorKind::ConfigParseError(
-            "set_nested_value requires at least two segments (section.key)".to_string(),
-        )
-        .into());
-    }
-
-    // Validate no empty segments
-    for part in parts {
-        if part.is_empty() {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key contains empty segment".to_string(),
-            )
-            .into());
-        }
-    }
-
-    // Navigate/create intermediate tables for all segments except the last
+pub fn set_nested_value(doc: &mut toml_edit::DocumentMut, parts: &[&str], value: &str) -> Result<()> {
+    if parts.len() < 2 { return Err(ConfigErrorKind::ConfigParseError("set_nested_value requires at least two segments (section.key)".to_string()).into()); }
+    for part in parts { if part.is_empty() { return Err(ConfigErrorKind::ConfigParseError("config key contains empty segment".to_string()).into()); } }
     let table = doc.as_table_mut();
-
-    // All segments except the last
     let (leading, last) = parts.split_at(parts.len() - 1);
-
     let mut current = table;
     for segment in leading {
-        if !current.contains_key(segment) {
-            current[segment] = toml_edit::Item::Table(toml_edit::Table::new());
-        }
-
-        // Check that the entry is a table (not a value)
+        if !current.contains_key(segment) { current[segment] = toml_edit::Item::Table(toml_edit::Table::new()); }
         let entry = &current[segment];
-        if !entry.is_table() {
-            return Err(ConfigErrorKind::ConfigParseError(format!(
-                "segment '{segment}' is not a table, cannot traverse through it"
-            ))
-            .into());
-        }
-
-        current = current[segment]
-            .as_table_mut()
-            .expect("just verified it is a table");
+        if !entry.is_table() { return Err(ConfigErrorKind::ConfigParseError(format!("segment '{segment}' is not a table, cannot traverse through it")).into()); }
+        current = current[segment].as_table_mut().expect("just verified it is a table");
     }
-
-    // Set the final value using parse_cli_value for type inference
     let item = parse_cli_value(value)?;
-    let last_key = last[0];
-    current[last_key] = item;
-
+    current[last[0]] = item;
     Ok(())
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// config_get / config_set / config_list stubs
+// config_get / config_set / config_list
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Get a single config value by dot-notation key.
-///
-/// Uses merged config (env > project > global > defaults).
-///
-/// # Errors
-/// - `ConfigErrorKind::ConfigKeyNotFound` if key is not found in config
-/// - `ConfigErrorKind::ConfigParseError` if key syntax is invalid
-pub async fn config_get(key: &str, scope: ConfigScope) -> Result<ConfigGetResult> {
-    // Validate the key syntax
-    let config_key = ConfigKey::try_from(key)?;
+const LOCK_TIMEOUT: Duration = Duration::from_secs(5);
+const LOCK_RETRY_INTERVAL: Duration = Duration::from_millis(100);
 
-    // Stub: would use ConfigReadPort to load merged config
-    // For now, return ConfigKeyNotFound for all keys
-    let _ = scope;
-    Err(
-        ConfigErrorKind::ConfigKeyNotFound(format!("key not found: {}", config_key.as_str()))
-            .into(),
-    )
+pub async fn config_get(key: &str, _scope: ConfigScope) -> Result<ConfigGetResult> {
+    let config_key = ConfigKey::try_from(key)?;
+    let port = get_port();
+    let (config, scopes, paths) = if let Some(fp) = port.as_any().downcast_ref::<FileConfigReadPort>() {
+        fp.load_with_layers(true, true)?
+    } else {
+        let config = port.load_merged().await?;
+        let mut sm = HashMap::new();
+        let pm = HashMap::new();
+        for k in config.values.keys() { sm.insert(k.clone(), ConfigScope::Global); }
+        (config, sm, pm)
+    };
+    let value = get_nested_value(&config, key).or_else(|_| {
+        config.values.get(key).cloned().ok_or_else(|| crate::error::Error::from(ConfigErrorKind::ConfigKeyNotFound(format!("key not found: {key}"))))
+    })?;
+    let resolved_scope = scopes.get(key).copied().unwrap_or(ConfigScope::Global);
+    let source_path = paths.get(key).cloned().unwrap_or_default();
+    Ok(ConfigGetResult { key: config_key, value, scope: resolved_scope, source_path })
 }
 
-/// Set a config value in the specified scope's TOML file.
-///
-/// # Errors
-/// - `ConfigErrorKind::ConfigScopeError` if scope is Env
-/// - `ConfigErrorKind::ConfigScopeError` if scope is Project but no project path available
-pub async fn config_set(
-    key: &str,
-    value: &str,
-    scope: ConfigScope,
-) -> Result<ConfigSetResult> {
-    // Validate the key syntax
+pub async fn config_set(key: &str, value: &str, scope: ConfigScope) -> Result<ConfigSetResult> {
     let config_key = ConfigKey::try_from(key)?;
-
-    // Reject Env scope
     if matches!(scope, ConfigScope::Env) {
-        return Err(ConfigErrorKind::ConfigScopeError(
-            "Cannot save to environment scope".to_string(),
-        )
-        .into());
+        return Err(ConfigErrorKind::ConfigScopeError("Cannot save to environment scope".to_string()).into());
     }
-
-    // Reject Project scope without project path (stub: no project path available)
-    if matches!(scope, ConfigScope::Project) {
-        return Err(ConfigErrorKind::ConfigScopeError(
-            "no project config path available".to_string(),
-        )
-        .into());
+    let port = get_port();
+    let config_path = match scope {
+        ConfigScope::Global => port.global_config_path()?,
+        ConfigScope::Project => port.project_config_path()?,
+        ConfigScope::Env => unreachable!(),
+    };
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to create config directory {}: {e}", parent.display())))?;
     }
-
-    // Stub: would use ConfigReadPort to get path, lock file, and write
-    let _ = (config_key, value);
-    Err(ConfigErrorKind::ConfigWriteError("not implemented".to_string()).into())
+    let file = std::fs::OpenOptions::new().read(true).write(true).create(true).open(&config_path)
+        .map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to open config file {}: {e}", config_path.display())))?;
+    let start = Instant::now();
+    let file = loop {
+        match fs2::FileExt::try_lock_exclusive(&file) {
+            Ok(()) => break file,
+            Err(_) => {
+                if start.elapsed() >= LOCK_TIMEOUT {
+                    return Err(ConfigErrorKind::ConfigLockError(format!("could not acquire lock on {} within 5s timeout", config_path.display())).into());
+                }
+                std::thread::sleep(LOCK_RETRY_INTERVAL);
+            }
+        }
+    };
+    let mut contents = String::new();
+    let mut file = &file;
+    std::io::Read::read_to_string(&mut file, &mut contents).map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to read config file {}: {e}", config_path.display())))?;
+    let mut doc: toml_edit::DocumentMut = if contents.trim().is_empty() { toml_edit::DocumentMut::new() } else {
+        contents.parse().map_err(|e: toml_edit::TomlError| ConfigErrorKind::ConfigParseError(format!("TOML parse error in {}: {e}", config_path.display())))?
+    };
+    let segments: Vec<&str> = config_key.segments().iter().map(String::as_str).collect();
+    set_nested_value(&mut doc, &segments, value)?;
+    use std::io::{Seek, Write};
+    file.set_len(0).map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to truncate config file {}: {e}", config_path.display())))?;
+    file.seek(std::io::SeekFrom::Start(0)).map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to seek in config file {}: {e}", config_path.display())))?;
+    file.write_all(doc.to_string().as_bytes()).map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to write config file {}: {e}", config_path.display())))?;
+    file.flush().map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to flush config file {}: {e}", config_path.display())))?;
+    Ok(ConfigSetResult { key: config_key, value: value.to_string(), scope, config_path })
 }
 
-/// List all config values.
-///
-/// # Errors
-/// - `ConfigErrorKind::ConfigKeyNotFound` stub error (implementation pending)
 pub async fn config_list(global_only: bool) -> Result<Vec<ConfigGetResult>> {
-    // Stub: would use ConfigReadPort to load config
-    let _ = global_only;
-    Err(ConfigErrorKind::ConfigKeyNotFound("not implemented".to_string()).into())
+    let port = get_port();
+    let (config, scopes, paths) = if let Some(fp) = port.as_any().downcast_ref::<FileConfigReadPort>() {
+        fp.load_with_layers(!global_only, !global_only)?
+    } else {
+        let config = if global_only { port.load_global_only().await? } else { port.load_merged().await? };
+        let mut sm = HashMap::new();
+        for k in config.values.keys() { sm.insert(k.clone(), ConfigScope::Global); }
+        (config, sm, HashMap::new())
+    };
+    let mut all_keys: Vec<String> = config.values.keys().cloned().collect();
+    all_keys.sort();
+    all_keys.dedup();
+    let mut results = Vec::new();
+    for key in &all_keys {
+        let first_segment = key.split('.').next().unwrap_or("");
+        if !KNOWN_SECTION_PREFIXES.contains(&first_segment) && !KNOWN_CONFIG_KEYS.contains(&key.as_str()) { continue; }
+        let config_key = match ConfigKey::try_from(key.as_str()) { Ok(k) => k, Err(_) => continue };
+        let value = match config.values.get(key.as_str()) {
+            Some(v) => v.clone(),
+            None => match get_nested_value(&config, key) {
+                Ok(v) => v,
+                Err(_) => continue,
+            },
+        };
+        let resolved_scope = scopes.get(key.as_str()).copied().unwrap_or(ConfigScope::Global);
+        let source_path = paths.get(key.as_str()).cloned().unwrap_or_default();
+        results.push(ConfigGetResult { key: config_key, value, scope: resolved_scope, source_path });
+    }
+    results.sort_by(|a, b| a.key.as_str().cmp(b.key.as_str()));
+    Ok(results)
 }

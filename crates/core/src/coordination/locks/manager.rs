@@ -95,6 +95,13 @@ impl LockManager {
                 ),
             ));
         }
+        if session.chars().any(|c| c.is_control()) {
+            return Err(crate::error::Error::from(
+                super::errors::LockErrorKind::InvalidSessionName(
+                    "Session name must not contain control characters".to_string(),
+                ),
+            ));
+        }
         Ok(())
     }
 

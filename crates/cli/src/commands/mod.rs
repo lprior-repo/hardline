@@ -8,6 +8,8 @@ pub mod context;
 pub mod doctor;
 pub mod handlers;
 pub mod init;
+#[cfg(test)]
+pub mod init_tests;
 pub mod isolate_alias_handler;
 pub mod isolate_commands;
 pub mod isolate_commands_admin;

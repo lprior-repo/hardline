@@ -72,6 +72,11 @@ pub enum LockErrorKind {
     /// Used when session.len() > 255 (SQLite TEXT limit)
     #[error("{0}")]
     SessionNameTooLong(String),
+
+    /// Session name contains invalid characters (control characters, newlines, etc.)
+    /// Used when session name fails sanitization checks
+    #[error("{0}")]
+    InvalidSessionName(String),
 }
 
 impl From<LockErrorKind> for crate::error::Error {
@@ -103,6 +108,7 @@ impl LockError {
             LockErrorKind::EmptyAgentId(_) => "EMPTY_AGENT_ID",
             LockErrorKind::TtlOverflow(_) => "TTL_OVERFLOW",
             LockErrorKind::SessionNameTooLong(_) => "SESSION_NAME_TOO_LONG",
+            LockErrorKind::InvalidSessionName(_) => "INVALID_SESSION_NAME",
         }
     }
 
@@ -136,6 +142,7 @@ impl LockError {
             LockErrorKind::EmptyAgentId(_) => 80,
             LockErrorKind::TtlOverflow(_) => 80,
             LockErrorKind::SessionNameTooLong(_) => 80,
+            LockErrorKind::InvalidSessionName(_) => 80,
         }
     }
 }
