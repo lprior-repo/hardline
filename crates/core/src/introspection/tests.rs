@@ -32,17 +32,18 @@ mod tests {
     fn test_prerequisites_all_met() {
         let prereqs = Prerequisites {
             initialized: true,
-            jj_installed: true,
+            vcs_installed: true,
             custom: vec![],
         };
-        assert!(prereqs.all_met());
+        assert_eq!(prereqs.count_met(), 2);
+        assert_eq!(prereqs.total(), 2);
     }
 
     #[test]
     fn test_prerequisites_not_met() {
         let prereqs = Prerequisites {
             initialized: false,
-            jj_installed: true,
+            vcs_installed: false,
             custom: vec![],
         };
         assert!(!prereqs.all_met());
@@ -52,10 +53,10 @@ mod tests {
     fn test_prerequisites_count() {
         let prereqs = Prerequisites {
             initialized: true,
-            jj_installed: true,
+            vcs_installed: false,
             custom: vec![],
         };
-        assert_eq!(prereqs.count_met(), 2);
+        assert_eq!(prereqs.count_met(), 1);
         assert_eq!(prereqs.total(), 2);
     }
 
@@ -214,7 +215,7 @@ mod tests {
             }],
             prerequisites: Prerequisites {
                 initialized: true,
-                jj_installed: false,
+                vcs_installed: false,
                 custom: vec![],
             },
             side_effects: vec![],
@@ -237,7 +238,7 @@ mod tests {
     fn test_system_state_default() {
         let state = SystemState::default();
         assert!(!state.initialized);
-        assert!(!state.jj_repo);
+        assert!(!state.git_repo);
         assert!(state.config_path.is_none());
         assert!(state.state_db.is_none());
         assert_eq!(state.sessions_count, 0);
@@ -250,7 +251,7 @@ mod tests {
             required: true,
             installed: true,
             version: Some("1.0.0".to_string()),
-            command: "jj".to_string(),
+            command: "git".to_string(),
         };
         let json = serde_json::to_string(&dep).unwrap();
         assert!(json.contains("\"required\":true"));

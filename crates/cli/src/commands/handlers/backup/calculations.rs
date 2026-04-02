@@ -255,25 +255,34 @@ mod tests {
         let backups = vec![
             BackupInfo {
                 path: PathBuf::from("/a/backup-20250101-030000.db"),
-                timestamp: chrono::NaiveDateTime::parse_from_str("20250101-030000", "%Y%m%d-%H%M%S")
-                    .expect("valid")
-                    .and_utc(),
+                timestamp: chrono::NaiveDateTime::parse_from_str(
+                    "20250101-030000",
+                    "%Y%m%d-%H%M%S",
+                )
+                .expect("valid")
+                .and_utc(),
                 metadata: None,
                 size_bytes: 100,
             },
             BackupInfo {
                 path: PathBuf::from("/a/backup-20250101-020000.db"),
-                timestamp: chrono::NaiveDateTime::parse_from_str("20250101-020000", "%Y%m%d-%H%M%S")
-                    .expect("valid")
-                    .and_utc(),
+                timestamp: chrono::NaiveDateTime::parse_from_str(
+                    "20250101-020000",
+                    "%Y%m%d-%H%M%S",
+                )
+                .expect("valid")
+                .and_utc(),
                 metadata: None,
                 size_bytes: 100,
             },
             BackupInfo {
                 path: PathBuf::from("/a/backup-20250101-010000.db"),
-                timestamp: chrono::NaiveDateTime::parse_from_str("20250101-010000", "%Y%m%d-%H%M%S")
-                    .expect("valid")
-                    .and_utc(),
+                timestamp: chrono::NaiveDateTime::parse_from_str(
+                    "20250101-010000",
+                    "%Y%m%d-%H%M%S",
+                )
+                .expect("valid")
+                .and_utc(),
                 metadata: None,
                 size_bytes: 100,
             },
@@ -306,20 +315,14 @@ mod tests {
     fn test_resolve_database_target_state_db() {
         let result = resolve_database_target(Path::new("/project"), "state.db");
         assert!(result.is_ok());
-        assert_eq!(
-            result.expect("ok"),
-            PathBuf::from("/project/.scp/state.db")
-        );
+        assert_eq!(result.expect("ok"), PathBuf::from("/project/.scp/state.db"));
     }
 
     #[test]
     fn test_resolve_database_target_beads_db() {
         let result = resolve_database_target(Path::new("/project"), "beads.db");
         assert!(result.is_ok());
-        assert_eq!(
-            result.expect("ok"),
-            PathBuf::from("/project/.scp/beads.db")
-        );
+        assert_eq!(result.expect("ok"), PathBuf::from("/project/.scp/beads.db"));
     }
 
     #[test]
@@ -341,14 +344,8 @@ mod tests {
     fn test_get_backupable_databases_paths() {
         let root = Path::new("/root");
         let databases = get_backupable_databases(root);
-        assert_eq!(
-            databases[0].1,
-            PathBuf::from("/root/.scp/state.db")
-        );
-        assert_eq!(
-            databases[1].1,
-            PathBuf::from("/root/.scp/beads.db")
-        );
+        assert_eq!(databases[0].1, PathBuf::from("/root/.scp/state.db"));
+        assert_eq!(databases[1].1, PathBuf::from("/root/.scp/beads.db"));
     }
 
     #[test]
@@ -479,7 +476,10 @@ mod tests {
         // u64::MAX in bytes (~18.4 EB). The function only supports up to GB,
         // so it formats as a very large GB value. Must not panic.
         let result = format_size(u64::MAX);
-        assert!(result.contains("GB"), "expected GB unit for max u64, got: {result}");
+        assert!(
+            result.contains("GB"),
+            "expected GB unit for max u64, got: {result}"
+        );
         assert!(result.ends_with(" GB"));
     }
 

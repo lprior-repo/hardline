@@ -250,8 +250,7 @@ mod tests {
             ConflictType::Binary,
         ] {
             let json = serde_json::to_string(&ct).expect("serialize ok");
-            let deserialized: ConflictType =
-                serde_json::from_str(&json).expect("deserialize ok");
+            let deserialized: ConflictType = serde_json::from_str(&json).expect("deserialize ok");
             assert_eq!(ct, deserialized);
         }
     }
@@ -306,16 +305,23 @@ mod tests {
 
     #[test]
     fn test_resolution_risk_all_variants() {
-        let variants = [ResolutionRisk::Safe, ResolutionRisk::Moderate, ResolutionRisk::Destructive];
+        let variants = [
+            ResolutionRisk::Safe,
+            ResolutionRisk::Moderate,
+            ResolutionRisk::Destructive,
+        ];
         assert_eq!(variants.len(), 3);
     }
 
     #[test]
     fn test_resolution_risk_serde_roundtrip() {
-        for r in [ResolutionRisk::Safe, ResolutionRisk::Moderate, ResolutionRisk::Destructive] {
+        for r in [
+            ResolutionRisk::Safe,
+            ResolutionRisk::Moderate,
+            ResolutionRisk::Destructive,
+        ] {
             let json = serde_json::to_string(&r).expect("serialize ok");
-            let deserialized: ResolutionRisk =
-                serde_json::from_str(&json).expect("deserialize ok");
+            let deserialized: ResolutionRisk = serde_json::from_str(&json).expect("deserialize ok");
             assert_eq!(r, deserialized);
         }
     }
@@ -400,8 +406,7 @@ mod tests {
     fn test_resolution_option_serde_roundtrip() {
         let opt = ResolutionOption::accept_ours();
         let json = serde_json::to_string(&opt).expect("serialize ok");
-        let deserialized: ResolutionOption =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: ResolutionOption = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(opt.strategy, deserialized.strategy);
         assert_eq!(opt.description, deserialized.description);
     }
@@ -439,8 +444,7 @@ mod tests {
     fn test_conflict_detail_serde_roundtrip() {
         let detail = ConflictDetail::overlapping("test.rs");
         let json = serde_json::to_string(&detail).expect("serialize ok");
-        let deserialized: ConflictDetail =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: ConflictDetail = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(detail, deserialized);
     }
 
@@ -463,7 +467,10 @@ mod tests {
         let line = OutputLine::conflict_analysis(
             "test-session",
             true,
-            vec![ConflictDetail::overlapping("a.rs"), ConflictDetail::existing("b.rs")],
+            vec![
+                ConflictDetail::overlapping("a.rs"),
+                ConflictDetail::existing("b.rs"),
+            ],
         );
         if let OutputLine::ConflictAnalysis(analysis) = line {
             assert_eq!(analysis.total_conflicts, 2);

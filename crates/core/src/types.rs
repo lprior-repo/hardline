@@ -31,7 +31,7 @@ pub use crate::workspace_state::WorkspaceState;
 mod tests {
     use chrono::Utc;
     use proptest::prelude::*;
-    use proptest::{prop_assert};
+    use proptest::prop_assert;
     use std::path::PathBuf;
 
     use super::*;
@@ -366,7 +366,12 @@ mod tests {
 
     #[test]
     fn test_issue_status_all_variants() {
-        let statuses = [IssueStatus::Open, IssueStatus::InProgress, IssueStatus::Blocked, IssueStatus::Closed];
+        let statuses = [
+            IssueStatus::Open,
+            IssueStatus::InProgress,
+            IssueStatus::Blocked,
+            IssueStatus::Closed,
+        ];
         assert_eq!(statuses.len(), 4);
 
         // Each variant should be distinct
@@ -378,7 +383,12 @@ mod tests {
 
     #[test]
     fn test_issue_status_serde_roundtrip() {
-        for status in [IssueStatus::Open, IssueStatus::InProgress, IssueStatus::Blocked, IssueStatus::Closed] {
+        for status in [
+            IssueStatus::Open,
+            IssueStatus::InProgress,
+            IssueStatus::Blocked,
+            IssueStatus::Closed,
+        ] {
             let json = serde_json::to_string(&status).expect("serialize ok");
             let deserialized: IssueStatus = serde_json::from_str(&json).expect("deserialize ok");
             assert_eq!(status, deserialized);
@@ -387,17 +397,34 @@ mod tests {
 
     #[test]
     fn test_issue_status_serde_lowercase() {
-        assert_eq!(serde_json::to_string(&IssueStatus::Open).expect("ok"), "\"open\"");
-        assert_eq!(serde_json::to_string(&IssueStatus::InProgress).expect("ok"), "\"inprogress\"");
-        assert_eq!(serde_json::to_string(&IssueStatus::Blocked).expect("ok"), "\"blocked\"");
-        assert_eq!(serde_json::to_string(&IssueStatus::Closed).expect("ok"), "\"closed\"");
+        assert_eq!(
+            serde_json::to_string(&IssueStatus::Open).expect("ok"),
+            "\"open\""
+        );
+        assert_eq!(
+            serde_json::to_string(&IssueStatus::InProgress).expect("ok"),
+            "\"inprogress\""
+        );
+        assert_eq!(
+            serde_json::to_string(&IssueStatus::Blocked).expect("ok"),
+            "\"blocked\""
+        );
+        assert_eq!(
+            serde_json::to_string(&IssueStatus::Closed).expect("ok"),
+            "\"closed\""
+        );
     }
 
     // ── Operation enum variants ──────────────────────────────────────────────
 
     #[test]
     fn test_operation_all_variants() {
-        let ops = [Operation::Status, Operation::Diff, Operation::Focus, Operation::Remove];
+        let ops = [
+            Operation::Status,
+            Operation::Diff,
+            Operation::Focus,
+            Operation::Remove,
+        ];
         assert_eq!(ops.len(), 4);
 
         let mut set = std::collections::HashSet::new();
@@ -418,7 +445,12 @@ mod tests {
         // Active: all operations
         let active_ops = SessionStatus::Active.allowed_operations();
         assert_eq!(active_ops.len(), 4);
-        for op in [Operation::Status, Operation::Diff, Operation::Focus, Operation::Remove] {
+        for op in [
+            Operation::Status,
+            Operation::Diff,
+            Operation::Focus,
+            Operation::Remove,
+        ] {
             assert!(SessionStatus::Active.allows_operation(op));
         }
 
@@ -515,11 +547,26 @@ mod tests {
 
     #[test]
     fn test_file_status_serde_rename() {
-        assert_eq!(serde_json::to_string(&FileStatus::Modified).expect("ok"), "\"M\"");
-        assert_eq!(serde_json::to_string(&FileStatus::Added).expect("ok"), "\"A\"");
-        assert_eq!(serde_json::to_string(&FileStatus::Deleted).expect("ok"), "\"D\"");
-        assert_eq!(serde_json::to_string(&FileStatus::Renamed).expect("ok"), "\"R\"");
-        assert_eq!(serde_json::to_string(&FileStatus::Untracked).expect("ok"), "\"?\"");
+        assert_eq!(
+            serde_json::to_string(&FileStatus::Modified).expect("ok"),
+            "\"M\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FileStatus::Added).expect("ok"),
+            "\"A\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FileStatus::Deleted).expect("ok"),
+            "\"D\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FileStatus::Renamed).expect("ok"),
+            "\"R\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FileStatus::Untracked).expect("ok"),
+            "\"?\""
+        );
     }
 
     #[test]
@@ -552,7 +599,10 @@ mod tests {
                 status,
                 old_path: None,
             };
-            assert!(change.validate().is_ok(), "Status {status:?} should validate without old_path");
+            assert!(
+                change.validate().is_ok(),
+                "Status {status:?} should validate without old_path"
+            );
         }
     }
 
@@ -580,7 +630,10 @@ mod tests {
         let json = serde_json::to_string(&change).expect("serialize ok");
         assert!(json.contains("old/name.rs"));
         let deserialized: FileChange = serde_json::from_str(&json).expect("deserialize ok");
-        assert_eq!(deserialized.old_path.as_deref(), Some(std::path::Path::new("old/name.rs")));
+        assert_eq!(
+            deserialized.old_path.as_deref(),
+            Some(std::path::Path::new("old/name.rs"))
+        );
     }
 
     #[test]
@@ -792,7 +845,10 @@ mod tests {
     #[test]
     fn test_branch_state_constructors() {
         assert_eq!(BranchState::detached(), BranchState::Detached);
-        assert_eq!(BranchState::on_branch("main"), BranchState::OnBranch("main".to_string()));
+        assert_eq!(
+            BranchState::on_branch("main"),
+            BranchState::OnBranch("main".to_string())
+        );
     }
 
     #[test]
@@ -836,6 +892,9 @@ mod tests {
     fn test_branch_state_deserialize_branch_name() {
         let json = "\"feature/something\"";
         let deserialized: BranchState = serde_json::from_str(json).expect("deserialize ok");
-        assert_eq!(deserialized, BranchState::OnBranch("feature/something".to_string()));
+        assert_eq!(
+            deserialized,
+            BranchState::OnBranch("feature/something".to_string())
+        );
     }
 }

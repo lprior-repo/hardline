@@ -169,14 +169,17 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::summary::{Summary, SummaryType};
     use super::super::domain_types::Message;
+    use super::super::summary::{Summary, SummaryType};
+    use super::*;
 
     fn make_test_line() -> OutputLine {
         OutputLine::Summary(
-            Summary::new(SummaryType::Info, Message::new("test message").expect("valid"))
-                .expect("valid summary"),
+            Summary::new(
+                SummaryType::Info,
+                Message::new("test message").expect("valid"),
+            )
+            .expect("valid summary"),
         )
     }
 
@@ -211,7 +214,9 @@ mod tests {
 
     #[test]
     fn test_jsonl_config_chained() {
-        let config = JsonlConfig::new().with_pretty(true).with_flush_on_emit(false);
+        let config = JsonlConfig::new()
+            .with_pretty(true)
+            .with_flush_on_emit(false);
         assert!(config.pretty);
         assert!(!config.flush_on_emit);
     }
@@ -257,7 +262,10 @@ mod tests {
         let has_message = parsed["message"].is_string()
             || parsed["summary"]["message"].is_string()
             || parsed.get("summary").is_some();
-        assert!(has_message, "Output should contain a message field: {output}");
+        assert!(
+            has_message,
+            "Output should contain a message field: {output}"
+        );
     }
 
     #[test]

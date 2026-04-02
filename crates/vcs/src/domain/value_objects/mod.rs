@@ -23,15 +23,12 @@ impl std::fmt::Display for VcsStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VcsType {
-    Jujutsu,
     Git,
 }
 
 impl VcsType {
     pub fn detect(path: &std::path::Path) -> Option<Self> {
-        if path.join(".jj").exists() {
-            Some(Self::Jujutsu)
-        } else if path.join(".git").exists() {
+        if path.join(".git").exists() {
             Some(Self::Git)
         } else {
             None
@@ -70,7 +67,12 @@ mod tests {
 
     #[test]
     fn vcs_status_serde_roundtrip_all_variants() {
-        for status in [VcsStatus::Clean, VcsStatus::Dirty, VcsStatus::Conflicted, VcsStatus::Detached] {
+        for status in [
+            VcsStatus::Clean,
+            VcsStatus::Dirty,
+            VcsStatus::Conflicted,
+            VcsStatus::Detached,
+        ] {
             let json = serde_json::to_string(&status).expect("serialize");
             let deserialized: VcsStatus = serde_json::from_str(&json).expect("deserialize");
             assert_eq!(status, deserialized);
@@ -87,13 +89,6 @@ mod tests {
     }
 
     #[test]
-    fn vcs_type_detect_jujutsu() {
-        let dir = tempfile::TempDir::new().expect("temp dir");
-        fs::create_dir(dir.path().join(".jj")).expect("create .jj");
-        assert_eq!(VcsType::detect(dir.path()), Some(VcsType::Jujutsu));
-    }
-
-    #[test]
     fn vcs_type_detect_none() {
         let dir = tempfile::TempDir::new().expect("temp dir");
         assert_eq!(VcsType::detect(dir.path()), None);
@@ -101,32 +96,23 @@ mod tests {
 
     #[test]
     fn vcs_type_detect_nonexistent() {
-        assert_eq!(VcsType::detect(std::path::Path::new("/nonexistent/xyz")), None);
+        assert_eq!(
+            VcsType::detect(std::path::Path::new("/nonexistent/xyz")),
+            None
+        );
     }
 
     #[test]
-    fn vcs_type_jj_takes_priority_over_git() {
-        let dir = tempfile::TempDir::new().expect("temp dir");
-        fs::create_dir(dir.path().join(".git")).expect("create .git");
-        fs::create_dir(dir.path().join(".jj")).expect("create .jj");
-        assert_eq!(VcsType::detect(dir.path()), Some(VcsType::Jujutsu));
+    fn vcs_type_equality() {
+        assert_eq!(VcsType::Git, VcsType::Git);
     }
 
     #[test]
     fn vcs_type_file_named_git_is_not_detected() {
         let dir = tempfile::TempDir::new().expect("temp dir");
-        // A file named .git should not be detected as a VCS (exists() returns true for files too)
+        // A file named .git should still be detected (exists() returns true for files too)
         fs::write(dir.path().join(".git"), "not a git repo").expect("write .git file");
         assert_eq!(VcsType::detect(dir.path()), Some(VcsType::Git));
-    }
-
-    // -- VcsType equality tests --
-
-    #[test]
-    fn vcs_type_equality() {
-        assert_eq!(VcsType::Git, VcsType::Git);
-        assert_eq!(VcsType::Jujutsu, VcsType::Jujutsu);
-        assert_ne!(VcsType::Git, VcsType::Jujutsu);
     }
 
     #[test]
@@ -145,7 +131,12 @@ mod tests {
 
     #[test]
     fn vcs_status_debug() {
-        for status in [VcsStatus::Clean, VcsStatus::Dirty, VcsStatus::Conflicted, VcsStatus::Detached] {
+        for status in [
+            VcsStatus::Clean,
+            VcsStatus::Dirty,
+            VcsStatus::Conflicted,
+            VcsStatus::Detached,
+        ] {
             let debug = format!("{status:?}");
             assert!(!debug.is_empty());
         }
@@ -163,14 +154,6 @@ mod tests {
         let s = VcsStatus::Conflicted;
         let c = s.clone();
         assert_eq!(s, c);
-    }
-
-    #[test]
-    fn vcs_type_detect_file_named_jj() {
-        // A file named .jj should still be detected (exists() returns true for files)
-        let dir = tempfile::TempDir::new().expect("temp dir");
-        fs::write(dir.path().join(".jj"), "not a jj repo").expect("write .jj file");
-        assert_eq!(VcsType::detect(dir.path()), Some(VcsType::Jujutsu));
     }
 
     // -- Proptests --

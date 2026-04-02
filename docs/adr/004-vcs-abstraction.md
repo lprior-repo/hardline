@@ -1,75 +1,79 @@
-# ADR-004: VCS Abstraction - Unified Version Control Backend
+# ADR-004: VCS Abstraction - Git-Only Version Control Backend
 
-**Date:** 2026-03-20  
-**Status:** Accepted  
+**Date:** 2026-03-20
+**Revised:** 2026-04-02
+**Status:** Accepted
 **Deciders:** Lewis
 
 ---
 
 ## Context
 
-Hardline requires unified access to both Git and Jujutsu (JJ) version control systems. AI agents and CLI commands need consistent behavior regardless of which VCS backs the repository. The system must support:
+Hardline requires a version control backend for workspace operations, branch management, and commit handling. The system must support:
 
 1. **Git repositories** - using gitoxide (gix) for pure Rust implementation
-2. **JJ repositories** - using jj-lib for native JJ operations
-3. **Unified interface** - same API regardless of backend
-4. **No shell out** - all VCS operations via Rust libraries, not CLI spawning
+2. **No shell out** - all VCS operations via Rust libraries, not CLI spawning
+3. **Workspace isolation** - full clones for agent isolation (see ADR-005)
+4. **Reliable concurrency** - Git's locking model is sufficient when each workspace is an isolated full clone
 
-The architecture spec defines a `trait VcsBackend` but implementations are incomplete. This ADR formalizes the complete abstraction.
+The original design attempted to abstract over both Git and Jujutsu (JJ). That added complexity without sufficient justification. JJ has been removed from the project. Hardline is Git-only.
 
 ---
 
 ## Decision
 
-### Core Trait Design
+### Single Backend: Git via gitoxide
+
+Hardline uses a single VCS backend. There is no `VcsBackend` trait with multiple implementations. Instead, the `GitBackend` struct provides all VCS operations directly.
 
 ```rust
-pub trait VcsBackend: Send + Sync {
-    // Repository operations
-    fn is_initialized(&self, path: &Path) -> bool;
-    fn init(&self, path: &Path) -> Result<()>;
-    fn open(&self, path: &Path) -> Result<Self::Repository>
-    where Self: Sized;
+pub struct GitBackend {
+    repo_path: AbsolutePath,
+}
+
+impl GitBackend {
+    pub fn open(path: &Path) -> Result<Self>;
+    pub fn init(path: &Path) -> Result<Self>;
+    pub fn clone(source: &str, target: &Path) -> Result<Self>;
 
     // Branch operations
-    fn current_branch(&self, repo: &Self::Repository) -> Result<Option<BranchName>>;
-    fn list_branches(&self, repo: &Self::Repository) -> Result<Vec<Branch>>;
-    fn create_branch(&self, repo: &Self::Repository, name: &BranchName) -> Result<()>;
-    fn delete_branch(&self, repo: &Self::Repository, name: &BranchName) -> Result<()>;
-    fn switch_branch(&self, repo: &Self::Repository, name: &BranchName) -> Result<()>;
+    pub fn current_branch(&self) -> Result<Option<BranchName>>;
+    pub fn list_branches(&self) -> Result<Vec<Branch>>;
+    pub fn create_branch(&self, name: &BranchName) -> Result<()>;
+    pub fn delete_branch(&self, name: &BranchName) -> Result<()>;
+    pub fn switch_branch(&self, name: &BranchName) -> Result<()>;
 
     // Commit operations
-    fn status(&self, repo: &Self::Repository) -> Result<VcsStatus>;
-    fn add(&self, repo: &Self::Repository, paths: &[&Path]) -> Result<()>;
-    fn commit(&self, repo: &Self::Repository, message: &str) -> Result<CommitHash>;
-    fn log(&self, repo: &Self::Repository, count: usize) -> Result<Vec<Commit>>;
+    pub fn status(&self) -> Result<VcsStatus>;
+    pub fn add(&self, paths: &[&Path]) -> Result<()>;
+    pub fn commit(&self, message: &str) -> Result<CommitHash>;
+    pub fn log(&self, count: usize) -> Result<Vec<Commit>>;
 
     // Remote operations
-    fn fetch(&self, repo: &Self::Repository, remote: Option<&str>, options: FetchOptions) -> Result<Vec<String>>;
-    fn push(&self, repo: &Self::Repository, remote: &str, refspec: &str, options: PushOptions) -> Result<()>;
-    fn pull(&self, repo: &Self::Repository, remote: Option<&str>, options: PullOptions) -> Result<()>;
-    
+    pub fn fetch(&self, remote: Option<&str>, options: FetchOptions) -> Result<Vec<String>>;
+    pub fn push(&self, remote: &str, refspec: &str, options: PushOptions) -> Result<()>;
+    pub fn pull(&self, remote: Option<&str>, options: PullOptions) -> Result<()>;
+
     // Merge/rebase
-    fn rebase(&self, repo: &Self::Repository, onto: &BranchName) -> Result<()>;
-    fn merge(&self, repo: &Self::Repository, branch: &BranchName) -> Result<()>;
-
-    // Workspace operations (JJ-specific, no-op for git)
-    fn workspace_create(&self, repo: &Self::Repository, name: &str) -> Result<()>;
-    fn workspace_list(&self, repo: &Self::Repository) -> Result<Vec<WorkspaceInfo>>;
-    fn workspace_switch(&self, repo: &Self::Repository, name: &str) -> Result<()>;
-    fn workspace_forget(&self, name: &str) -> Result<()>;
-
-    // Operation log (JJ-specific)
-    fn operation_log(&self, repo: &Self::Repository) -> Result<Vec<Operation>>;
-    fn undo(&self, repo: &Self::Repository, operation_id: &str) -> Result<()>;
-    fn checkpoint(&self, repo: &Self::Repository, name: &str) -> Result<()>;
+    pub fn rebase(&self, onto: &BranchName) -> Result<()>;
+    pub fn merge(&self, branch: &BranchName) -> Result<()>;
 }
 ```
+
+### Why No Trait
+
+The original design used a `VcsBackend` trait with enum dispatch over `Git` and `JJ` variants. That is unnecessary now:
+
+- **No alternative backends** exist or are planned
+- **Enum dispatch** added pattern matching at every call site for no benefit
+- **Trait objects** added dynamic dispatch overhead
+- **Extension traits** for JJ-specific features (workspaces, operation log) polluted the API
+
+A concrete struct is simpler, faster, and easier to maintain. If a second VCS backend is ever needed, a trait can be extracted then. YAGNI.
 
 ### Type Hierarchy
 
 ```rust
-// Branch representation
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BranchName(String);
 
@@ -80,7 +84,6 @@ pub struct Branch {
     pub tracking: Option<BranchName>,
 }
 
-// Commit representation
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Commit {
     pub hash: CommitHash,
@@ -90,7 +93,6 @@ pub struct Commit {
     pub parent_hashes: Vec<CommitHash>,
 }
 
-// VCS status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VcsStatus {
@@ -99,106 +101,59 @@ pub enum VcsStatus {
     Conflicted,
     Detached,
 }
-
-// Workspace info (JJ-specific)
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WorkspaceInfo {
-    pub name: String,
-    pub path: PathBuf,
-    pub commit: CommitHash,
-}
-
-// Operation (JJ-specific)
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Operation {
-    pub id: OperationId,
-    pub timestamp: DateTime<Utc>,
-    pub description: String,
-    pub tags: Vec<String>,
-}
 ```
 
 ---
 
-## Variants
+## Variants Considered
 
-### Variant A: Single Unified Trait with Option Types
-
-```rust
-pub trait VcsBackend {
-    fn vcs_type(&self) -> VcsType;
-    fn workspace_create(&self, name: &str) -> Result<()>;
-    fn workspace_list(&self) -> Result<Vec<WorkspaceInfo>>;
-    fn operation_log(&self) -> Result<Vec<Operation>>;
-}
-```
-
-**Pros:**
-- Single trait, simple type hierarchy
-- Easy to switch implementations
-
-**Cons:**
-- Many methods return `None` or empty for git (pollutes API)
-- Semantic confusion - git doesn't have workspaces
-- Hard to know which operations are valid per backend
-
-### Variant B: Core Trait + Extension Traits
+### Variant A: Trait-Based Multi-Backend (REJECTED)
 
 ```rust
-pub trait VcsBackend {
-    fn vcs_type(&self) -> VcsType;
-    fn /* ... common operations */ 
+pub trait VcsBackend: Send + Sync {
+    fn current_branch(&self) -> Result<Option<BranchName>>;
+    // ... many methods
 }
 
-pub trait WorkspaceSupport: VcsBackend {
-    fn workspace_create(&self, name: &str) -> Result<()>;
-    fn workspace_list(&self) -> Result<Vec<WorkspaceInfo>>;
-    fn workspace_switch(&self, name: &str) -> Result<()>;
-}
-
-pub trait OperationLogSupport: VcsBackend {
-    fn operation_log(&self) -> Result<Vec<Operation>>;
-    fn undo(&self, operation_id: &str) -> Result<()>;
-}
-```
-
-**Pros:**
-- Clear which operations are available per backend
-- Forced downcasting to use JJ-specific features
-
-**Cons:**
-- More complex type hierarchy
-- Requires trait objects or enum dispatch
-
-### Variant C: Enum-Based Backend Dispatch (CHOSEN)
-
-```rust
 pub enum VcsBackend {
     Git(GitBackend),
-    Jujutsu(JjBackend),
-}
-
-impl VcsBackend {
-    pub fn open(path: &Path) -> Result<Self> {
-        if Self::is_jj_repo(path) {
-            Ok(Self::Jujutsu(JjBackend::open(path)?))
-        } else if Self::is_git_repo(path) {
-            Ok(Self::Git(GitBackend::open(path)?))
-        } else {
-            Err(VcsError::NotInitialized)
-        }
-    }
+    Jj(JjBackend),  // removed from project
 }
 ```
 
-**Pros:**
-- Compile-time guarantee of backend-specific behavior
-- No trait objects or dynamic dispatch
-- Clear error messages when wrong backend used
+**Rejected because:**
+- No alternative backend exists
+- Enum dispatch adds overhead at every call site
+- JJ-specific methods (workspace, operation log) had no Git implementation
+- Violates YAGNI
 
-**Cons:**
-- Pattern matching required at call sites
-- Adding new backends modifies enum
+### Variant B: Thin Wrapper Around git2 (REJECTED)
+
+```rust
+pub struct GitBackend {
+    repo: git2::Repository,
+}
+```
+
+**Rejected because:**
+- `git2` is a C binding (libgit2), not pure Rust
+- Hardline requires pure Rust for WASM compatibility and build simplicity
+- gitoxide (gix) provides the same functionality in pure Rust
+
+### Variant C: Concrete GitBackend with gix (CHOSEN)
+
+```rust
+pub struct GitBackend {
+    repo_path: AbsolutePath,
+}
+```
+
+**Chosen because:**
+- Single concrete type, no dispatch overhead
+- Pure Rust via gitoxide (gix)
+- Simple mental model: one backend, one set of operations
+- Easy to test by cloning to temp directories
+- Workspace operations live in the workspace crate, not here
 
 ---
 
@@ -207,59 +162,37 @@ impl VcsBackend {
 ### Repository Invariants
 
 ```rust
-/// INVARIANT: Repository path must exist and contain valid VCS metadata
-assert!(repo_path.join(".git").exists() || repo_path.join(".jj").exists());
+/// INVARIANT: Repository path must exist and contain a .git directory
+assert!(repo_path.join(".git").exists());
 
-/// INVARIANT: Backend type must match actual repository type
-assert_eq!(backend.vcs_type(), detect_vcs_type(repo_path));
+/// INVARIANT: Backend is always Git - no runtime detection needed
 ```
 
 ### Branch Invariants
 
 ```rust
-/// INVARIANT: Branch names must be valid
+/// INVARIANT: Branch names must be valid Git branch names
 pub fn is_valid_branch_name(name: &str) -> bool {
-    !name.is_empty() 
+    !name.is_empty()
     && !name.contains(' ')
     && !name.contains('~')
     && !name.contains("..")
 }
 
-/// INVARIANT: Current branch is always in branch list
-assert!(branches.iter().any(|b| b.is_current));
+/// INVARIANT: Current branch is always in branch list (when not detached)
+if let Some(current) = current_branch {
+    assert!(branches.iter().any(|b| b.is_current));
+}
 ```
 
 ### Status Invariants
 
 ```rust
 /// INVARIANT: Status is mutually exclusive
-matches!(status, VcsStatus::Clean) 
+matches!(status, VcsStatus::Clean)
     || matches!(status, VcsStatus::Dirty)
     || matches!(status, VcsStatus::Conflicted)
     || matches!(status, VcsStatus::Detached);
-
-/// INVARIANT: Conflicted implies Dirty
-assert_eq!(status == VcsStatus::Conflicted, status == VcsStatus::Dirty);
-```
-
-### Workspace Invariants (JJ-specific)
-
-```rust
-/// INVARIANT: Workspace names are unique per repository
-assert!(workspaces.iter().all_unique_by(|w| &w.name));
-
-/// INVARIANT: Workspace commit must exist in repository
-assert!(repo.contains_commit(workspace.commit));
-```
-
-### Operation Invariants (JJ-specific)
-
-```rust
-/// INVARIANT: Operations are ordered by timestamp (newest first)
-assert!(operations.windows(2).all(|w| w[0].timestamp >= w[1].timestamp));
-
-/// INVARIANT: Operation IDs are unique
-assert!(operations.iter().all_unique_by(|op| &op.id));
 ```
 
 ---
@@ -268,38 +201,35 @@ assert!(operations.iter().all_unique_by(|op| &op.id));
 
 ### Positive
 
-1. **Backend transparency** - CLI and domain code doesn't care about Git vs JJ
-2. **Testability** - Can mock backends for unit tests
-3. **Extensibility** - Easy to add new VCS backends (Mercurial, Fossil)
-4. **No shell out** - Pure Rust implementations via gix/jj-lib
+1. **Simplicity** - One backend, one code path, no abstraction overhead
+2. **Performance** - No trait objects, no enum dispatch, direct method calls
+3. **Pure Rust** - gitoxide provides all Git operations without C dependencies
+4. **Testability** - Clone to temp dir, run operations, assert results
+5. **Maintainability** - Less code to maintain, no unused abstraction layers
 
 ### Negative
 
-1. **Enum dispatch overhead** - Minor pattern matching at call sites
-2. **Feature parity gaps** - JJ has workspaces, Git doesn't (handled via Result)
-3. **jj-lib complexity** - JJ library is less mature than gix
+1. **No VCS flexibility** - If a non-Git VCS is needed, refactoring is required
+2. **gitoxide maturity** - gix is less mature than libgit2, some edge cases may surface
 
 ### Implementation Requirements
 
 | Backend | Library | Operations |
 |---------|---------|------------|
-| Git | `gix` | All core VCS operations |
-| JJ | `jj-lib` | All core + workspaces + operation log |
+| Git | `gix` | All core VCS operations (branch, commit, fetch, push, pull, rebase, merge) |
 
 ### Files to Create/Modify
 
 | File | Change |
 |-------|--------|
-| `crates/vcs/src/backend/mod.rs` | VcsBackend enum |
-| `crates/vcs/src/backend/git.rs` | GitBackend implementation |
-| `crates/vcs/src/backend/jj.rs` | JjBackend implementation |
+| `crates/vcs/src/backend/mod.rs` | GitBackend struct and implementation |
+| `crates/vcs/src/backend/git.rs` | Git operations via gitoxide |
 | `crates/vcs/src/domain/types.rs` | BranchName, Commit, VcsStatus types |
-| `crates/vcs/src/traits.rs` | VcsBackend trait |
 
 ---
 
 ## Related ADRs
 
 - ADR-001: CLI Architecture (commands that use VCS)
-- ADR-005: Workspace Isolation Model (JJ workspace concept)
-- ADR-003: Restate Feature Parity (JJ integration for durability)
+- ADR-005: Workspace Isolation Model (full clone isolation via Git)
+- ADR-003: Restate Feature Parity (durable VCS operations)

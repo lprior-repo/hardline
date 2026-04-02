@@ -2,16 +2,13 @@
 
 **The Law**: No unwrap, no panic, no unsafe. Period.
 
-## Why JJ Instead of Git?
+## Git Workflow
 
-Hardline uses JJ (Jujutsu) because Git breaks at multi-agent scale (4+ agents). JJ provides:
+Hardline uses Git for version control. Each agent works in its own full clone for complete isolation.
 
-- **Lock-free concurrency** — agents don't corrupt each other's work
-- **Operation log** — undo any operation, always recover
-- **Anonymous commits** — no branch pollution at 8-12 agents
-- **First-class conflicts** — no blocking on merges
-
-> Running 8-12 agents in parallel? You need JJ. See [09_JUJUTSU.md](09_JUJUTSU.md) for the full comparison.
+- **Standard Git commands** — `git add`, `git commit`, `git push`, `git rebase`
+- **Feature branches** — isolate work per branch
+- **Full clone isolation** — each agent gets its own complete repository
 
 ## 🎯 Go Here For...
 
@@ -78,8 +75,8 @@ cargo test         # ❌ Wrong
 br update <issue> --status in_progress  # Claim issue
 # Make changes
 moon run :test     # Test locally
-jj describe -m "feat: description"  # Commit
-jj git push        # Push
+git commit -m "feat: description"  # Commit
+git push        # Push
 br close <id>      # Close issue
 ```
 
@@ -138,17 +135,15 @@ br update BD-123 --status in_progress
 # Your changes are tracked automatically
 
 # Review changes
-jj diff
-jj status
+git diff
+git status
 
 # Commit
-jj describe -m "feat: add feature"
-
-# Start next change
-jj new
+git add .
+git commit -m "feat: add feature"
 
 # Push
-jj git push
+git push
 
 # Close issue
 br close BD-123

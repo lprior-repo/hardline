@@ -72,9 +72,7 @@ mod tests {
     }
 
     fn parse(args: &[&str]) -> TagCommands {
-        let full: Vec<&str> = std::iter::once("scp")
-            .chain(args.iter().copied())
-            .collect();
+        let full: Vec<&str> = std::iter::once("scp").chain(args.iter().copied()).collect();
         TagParser::parse_from(full).command
     }
 
@@ -174,11 +172,7 @@ mod tests {
     #[test]
     fn push_defaults() {
         match parse(&["push"]) {
-            TagCommands::Push {
-                tag,
-                remote,
-                force,
-            } => {
+            TagCommands::Push { tag, remote, force } => {
                 assert_eq!(tag, None);
                 assert_eq!(remote, "origin");
                 assert!(!force);
@@ -190,11 +184,7 @@ mod tests {
     #[test]
     fn push_with_specific_tag_and_custom_remote() {
         match parse(&["push", "v1.0.0", "-r", "upstream", "-f"]) {
-            TagCommands::Push {
-                tag,
-                remote,
-                force,
-            } => {
+            TagCommands::Push { tag, remote, force } => {
                 assert_eq!(tag, Some("v1.0.0".to_string()));
                 assert_eq!(remote, "upstream");
                 assert!(force);

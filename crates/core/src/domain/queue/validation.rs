@@ -56,7 +56,10 @@ mod tests {
     #[test]
     fn validate_range_above_maximum() {
         let result = validate_range(101, 0, 100, "priority");
-        assert!(matches!(result, Err(ValidationError::ExceedsMaximum { .. })));
+        assert!(matches!(
+            result,
+            Err(ValidationError::ExceedsMaximum { .. })
+        ));
     }
 
     #[test]

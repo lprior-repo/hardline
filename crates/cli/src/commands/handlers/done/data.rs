@@ -258,8 +258,7 @@ mod tests {
         output.merged = true;
 
         let json = serde_json::to_string(&output).expect("serialize");
-        let deserialized: DoneOutput =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: DoneOutput = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.workspace_name, "feature-xyz");
         assert_eq!(deserialized.bead_id.as_deref(), Some("bead-42"));
         assert_eq!(deserialized.files_committed, 5);
@@ -272,8 +271,7 @@ mod tests {
         output.error = Some("workspace not found".to_string());
 
         let json = serde_json::to_string(&output).expect("serialize");
-        let deserialized: DoneOutput =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: DoneOutput = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.error.as_deref(), Some("workspace not found"));
     }
 
@@ -361,8 +359,7 @@ mod tests {
             conflict_detection: Some(ConflictDetectionResult::no_conflicts()),
         };
         let json = serde_json::to_string(&preview).expect("serialize");
-        let deserialized: DonePreview =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: DonePreview = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.uncommitted_files.len(), 1);
         assert_eq!(deserialized.potential_conflicts.len(), 1);
         assert!(deserialized.conflict_detection.is_some());
@@ -393,8 +390,7 @@ mod tests {
             timestamp: "t".to_string(),
         };
         let json = serde_json::to_string(&info).expect("serialize");
-        let deserialized: CommitInfo =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: CommitInfo = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.change_id, "ch");
     }
 
@@ -511,8 +507,7 @@ mod tests {
             status: "ok".to_string(),
         };
         let json = serde_json::to_string(&entry).expect("serialize");
-        let deserialized: UndoEntry =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: UndoEntry = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert!(!deserialized.pushed_to_remote);
         assert_eq!(deserialized.session_name, "ws-1");
     }

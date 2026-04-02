@@ -640,7 +640,9 @@ mod tests {
         assert!(result.is_err());
 
         // Original agent should still be there with its work state
-        let retrieved = registry.get(&AgentId::new("keep-me"))?.expect("still registered");
+        let retrieved = registry
+            .get(&AgentId::new("keep-me"))?
+            .expect("still registered");
         assert!(retrieved.activity.is_working());
         assert_eq!(retrieved.activity.session(), Some("sess-1"));
         Ok(())
@@ -672,7 +674,10 @@ mod tests {
         registry.unregister(&id).unwrap();
 
         let result = registry.heartbeat(&id);
-        assert!(result.is_err(), "heartbeat on unregistered agent should fail");
+        assert!(
+            result.is_err(),
+            "heartbeat on unregistered agent should fail"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -768,10 +773,7 @@ mod tests {
 
         // Remaining agents are the correct ones
         let all_agents = registry.list()?;
-        let remaining: Vec<&str> = all_agents
-            .iter()
-            .map(|a| a.id.as_str())
-            .collect();
+        let remaining: Vec<&str> = all_agents.iter().map(|a| a.id.as_str()).collect();
         assert!(remaining.contains(&"keep-1"));
         assert!(remaining.contains(&"keep-2"));
         assert!(remaining.contains(&"keep-3"));
@@ -898,7 +900,10 @@ mod tests {
         // Only truly empty string is rejected by current implementation,
         // but verify that whitespace-only passes (as the current impl only checks .is_empty())
         let result = AgentId::new_checked("   ");
-        assert!(result.is_ok(), "whitespace-only is accepted by current impl");
+        assert!(
+            result.is_ok(),
+            "whitespace-only is accepted by current impl"
+        );
     }
 
     #[test]

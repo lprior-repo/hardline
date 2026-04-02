@@ -37,9 +37,7 @@ mod tests {
     }
 
     fn parse(args: &[&str]) -> ConfigCommands {
-        let full: Vec<&str> = std::iter::once("scp")
-            .chain(args.iter().copied())
-            .collect();
+        let full: Vec<&str> = std::iter::once("scp").chain(args.iter().copied()).collect();
         ConfigParser::parse_from(full).command
     }
 

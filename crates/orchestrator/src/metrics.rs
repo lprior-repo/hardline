@@ -478,7 +478,9 @@ mod tests {
 
         metrics.mark_complete("test-1", "accepted");
         assert_eq!(
-            metrics.get_pipeline_metrics("test-1").map(|p| p.final_state.as_str()),
+            metrics
+                .get_pipeline_metrics("test-1")
+                .map(|p| p.final_state.as_str()),
             Some("accepted")
         );
     }
@@ -493,11 +495,7 @@ mod tests {
     fn test_aggregated_metrics_counts_failed_and_escalated() {
         let mut metrics = Metrics::new();
 
-        for (id, final_state) in [
-            ("p1", "accepted"),
-            ("p2", "failed"),
-            ("p3", "escalated"),
-        ] {
+        for (id, final_state) in [("p1", "accepted"), ("p2", "failed"), ("p3", "escalated")] {
             metrics.record_phase(PhaseMetrics {
                 pipeline_id: id.to_string(),
                 phase: "test".to_string(),
@@ -676,7 +674,10 @@ mod tests {
         let deserialized: AggregatedMetrics = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(agg.total_pipelines, deserialized.total_pipelines);
         assert_eq!(agg.successful_pipelines, deserialized.successful_pipelines);
-        assert_eq!(agg.phase_durations.len(), deserialized.phase_durations.len());
+        assert_eq!(
+            agg.phase_durations.len(),
+            deserialized.phase_durations.len()
+        );
     }
 
     #[test]
@@ -892,7 +893,9 @@ mod tests {
         metrics.record_iteration("p1", 3);
         metrics.record_iteration("p1", 7); // overwrites
         assert_eq!(
-            metrics.get_pipeline_metrics("p1").map(|p| p.iteration_count),
+            metrics
+                .get_pipeline_metrics("p1")
+                .map(|p| p.iteration_count),
             Some(7)
         );
     }

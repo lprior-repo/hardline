@@ -3,11 +3,11 @@
 
 use std::collections::HashMap;
 
-use crate::config::{
-    AgentConfig, HooksConfig, PartialAgentConfig, PartialHooksConfig,
-    PartialSessionConfig, SessionConfig,
-};
 use crate::config::types::ValidatedBool;
+use crate::config::{
+    AgentConfig, HooksConfig, PartialAgentConfig, PartialHooksConfig, PartialSessionConfig,
+    SessionConfig,
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AgentConfig tests
@@ -62,7 +62,10 @@ fn agent_config_validate_rejects_shell_metacharacters() {
     let dangerous = ["|", "&", ";", "$", "`", "(", ")", "<", ">"];
     for cmd in &dangerous {
         let config = AgentConfig::with_command(*cmd);
-        assert!(config.validate().is_err(), "Command '{cmd}' should be rejected");
+        assert!(
+            config.validate().is_err(),
+            "Command '{cmd}' should be rejected"
+        );
     }
 }
 
@@ -139,11 +142,7 @@ fn session_config_new_returns_defaults() {
 
 #[test]
 fn session_config_with_values() {
-    let config = SessionConfig::with_values(
-        ValidatedBool::new(true),
-        "feat:",
-        50,
-    );
+    let config = SessionConfig::with_values(ValidatedBool::new(true), "feat:", 50);
     assert!(config.auto_commit.value());
     assert_eq!(config.commit_prefix, "feat:");
     assert_eq!(config.max_sessions, 50);
@@ -192,7 +191,10 @@ fn partial_agent_config_merge_updates_command() {
     };
     config.merge_partial(partial).expect("merge should succeed");
     assert_eq!(config.command, "opus");
-    assert!(config.env.is_empty(), "env should remain empty when not set");
+    assert!(
+        config.env.is_empty(),
+        "env should remain empty when not set"
+    );
 }
 
 #[test]
@@ -214,7 +216,9 @@ fn partial_agent_config_merge_all_none_preserves_defaults() {
     let config = AgentConfig::default();
     let mut config2 = config.clone();
     let partial = PartialAgentConfig::default();
-    config2.merge_partial(partial).expect("merge should succeed");
+    config2
+        .merge_partial(partial)
+        .expect("merge should succeed");
     assert_eq!(config, config2);
 }
 
@@ -254,7 +258,9 @@ fn partial_session_config_merge_all_none_preserves_defaults() {
     let config = SessionConfig::default();
     let mut config2 = config.clone();
     let partial = PartialSessionConfig::default();
-    config2.merge_partial(partial).expect("merge should succeed");
+    config2
+        .merge_partial(partial)
+        .expect("merge should succeed");
     assert_eq!(config, config2);
 }
 
@@ -298,31 +304,19 @@ fn hooks_config_has_hooks_false_when_empty() {
 
 #[test]
 fn hooks_config_has_hooks_true_with_post_create() {
-    let hooks = HooksConfig::with_values(
-        vec!["cmd".to_string()],
-        vec![],
-        vec![],
-    );
+    let hooks = HooksConfig::with_values(vec!["cmd".to_string()], vec![], vec![]);
     assert!(hooks.has_hooks());
 }
 
 #[test]
 fn hooks_config_has_hooks_true_with_pre_remove() {
-    let hooks = HooksConfig::with_values(
-        vec![],
-        vec!["cmd".to_string()],
-        vec![],
-    );
+    let hooks = HooksConfig::with_values(vec![], vec!["cmd".to_string()], vec![]);
     assert!(hooks.has_hooks());
 }
 
 #[test]
 fn hooks_config_has_hooks_true_with_post_merge() {
-    let hooks = HooksConfig::with_values(
-        vec![],
-        vec![],
-        vec!["cmd".to_string()],
-    );
+    let hooks = HooksConfig::with_values(vec![], vec![], vec!["cmd".to_string()]);
     assert!(hooks.has_hooks());
 }
 
@@ -343,11 +337,8 @@ fn hooks_config_equality() {
 
 #[test]
 fn hooks_config_clone() {
-    let hooks = HooksConfig::with_values(
-        vec!["echo".to_string()],
-        vec![],
-        vec!["merge".to_string()],
-    );
+    let hooks =
+        HooksConfig::with_values(vec!["echo".to_string()], vec![], vec!["merge".to_string()]);
     let cloned = hooks.clone();
     assert_eq!(hooks, cloned);
 }
@@ -372,7 +363,8 @@ fn hooks_config_toml_roundtrip() {
         vec!["echo merge".to_string()],
     );
     let toml_str = toml::to_string(&hooks).expect("should serialize to toml");
-    let deserialized: HooksConfig = toml::from_str(&toml_str).expect("should deserialize from toml");
+    let deserialized: HooksConfig =
+        toml::from_str(&toml_str).expect("should deserialize from toml");
     assert_eq!(hooks, deserialized);
 }
 

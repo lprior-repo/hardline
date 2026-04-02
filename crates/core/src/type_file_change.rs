@@ -152,11 +152,26 @@ mod tests {
 
     #[test]
     fn test_file_status_serde_single_char() {
-        assert_eq!(serde_json::to_string(&FileStatus::Modified).expect("ok"), "\"M\"");
-        assert_eq!(serde_json::to_string(&FileStatus::Added).expect("ok"), "\"A\"");
-        assert_eq!(serde_json::to_string(&FileStatus::Deleted).expect("ok"), "\"D\"");
-        assert_eq!(serde_json::to_string(&FileStatus::Renamed).expect("ok"), "\"R\"");
-        assert_eq!(serde_json::to_string(&FileStatus::Untracked).expect("ok"), "\"?\"");
+        assert_eq!(
+            serde_json::to_string(&FileStatus::Modified).expect("ok"),
+            "\"M\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FileStatus::Added).expect("ok"),
+            "\"A\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FileStatus::Deleted).expect("ok"),
+            "\"D\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FileStatus::Renamed).expect("ok"),
+            "\"R\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FileStatus::Untracked).expect("ok"),
+            "\"?\""
+        );
     }
 
     #[test]
@@ -231,7 +246,10 @@ mod tests {
         let result = change.validate();
         assert!(result.is_err());
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("old_path"), "Error should mention old_path: {err_msg}");
+        assert!(
+            err_msg.contains("old_path"),
+            "Error should mention old_path: {err_msg}"
+        );
     }
 
     #[test]
@@ -281,7 +299,10 @@ mod tests {
         };
         let json = serde_json::to_string(&change).expect("serialize ok");
         let deserialized: FileChange = serde_json::from_str(&json).expect("deserialize ok");
-        assert_eq!(deserialized.old_path.as_deref(), Some(std::path::Path::new("a.rs")));
+        assert_eq!(
+            deserialized.old_path.as_deref(),
+            Some(std::path::Path::new("a.rs"))
+        );
     }
 
     #[test]
@@ -468,7 +489,10 @@ mod tests {
         let result = diff.validate();
         assert!(result.is_err());
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("files_changed"), "Error should mention files_changed: {err_msg}");
+        assert!(
+            err_msg.contains("files_changed"),
+            "Error should mention files_changed: {err_msg}"
+        );
     }
 
     #[test]

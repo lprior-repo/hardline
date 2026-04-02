@@ -72,7 +72,7 @@ hardline doctor <action>      # Run specific diagnostic
 ### Initialization
 
 ```bash
-hardline init                  # Initialize hardline in current JJ repository
+hardline init                  # Initialize hardline in current Git repository
 hardline init --dry-run       # Preview initialization
 hardline init --json          # Output JSON metadata
 ```
@@ -80,7 +80,7 @@ hardline init --json          # Output JSON metadata
 ### Session Creation
 
 ```bash
-hardline add <name>           # Create session for manual work (JJ workspace)
+hardline add <name>           # Create session for manual work (Git workspace)
 hardline add <name> --bead <id>    # Associate with bead
 hardline add <name> --no-open      # Create without opening terminal
 hardline add <name> --no-hooks    # Skip post-create hooks

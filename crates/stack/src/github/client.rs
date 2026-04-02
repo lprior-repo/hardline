@@ -152,11 +152,8 @@ mod tests {
     #[test]
     fn test_github_client_update_pr_both_some() {
         let client = GitHubClient::new("owner", "repo");
-        let result = client.update_pull_request(
-            1,
-            Some("new title".into()),
-            Some("new body".into()),
-        );
+        let result =
+            client.update_pull_request(1, Some("new title".into()), Some("new body".into()));
         assert!(result.is_err());
     }
 }

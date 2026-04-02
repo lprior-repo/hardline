@@ -345,39 +345,94 @@ mod tests {
         let now = Utc::now();
 
         assert!(matches!(
-            BeadEvent::Created { id: test_id(), title: test_title(), created_at: now }.id().as_str(),
+            BeadEvent::Created {
+                id: test_id(),
+                title: test_title(),
+                created_at: now
+            }
+            .id()
+            .as_str(),
             "evt-1"
         ));
         assert!(matches!(
-            BeadEvent::TitleChanged { id: test_id(), old_title: test_title(), new_title: test_title(), changed_at: now }.id().as_str(),
+            BeadEvent::TitleChanged {
+                id: test_id(),
+                old_title: test_title(),
+                new_title: test_title(),
+                changed_at: now
+            }
+            .id()
+            .as_str(),
             "evt-1"
         ));
         assert!(matches!(
-            BeadEvent::StateChanged { id: test_id(), old_state: BeadState::Open, new_state: BeadState::InProgress, changed_at: now }.id().as_str(),
+            BeadEvent::StateChanged {
+                id: test_id(),
+                old_state: BeadState::Open,
+                new_state: BeadState::InProgress,
+                changed_at: now
+            }
+            .id()
+            .as_str(),
             "evt-1"
         ));
         assert!(matches!(
-            BeadEvent::PrioritySet { id: test_id(), priority: Priority::P1, changed_at: now }.id().as_str(),
+            BeadEvent::PrioritySet {
+                id: test_id(),
+                priority: Priority::P1,
+                changed_at: now
+            }
+            .id()
+            .as_str(),
             "evt-1"
         ));
         assert!(matches!(
-            BeadEvent::AssigneeSet { id: test_id(), assignee: None, changed_at: now }.id().as_str(),
+            BeadEvent::AssigneeSet {
+                id: test_id(),
+                assignee: None,
+                changed_at: now
+            }
+            .id()
+            .as_str(),
             "evt-1"
         ));
         assert!(matches!(
-            BeadEvent::DependencyAdded { id: test_id(), depends_on: dep_id.clone(), changed_at: now }.id().as_str(),
+            BeadEvent::DependencyAdded {
+                id: test_id(),
+                depends_on: dep_id.clone(),
+                changed_at: now
+            }
+            .id()
+            .as_str(),
             "evt-1"
         ));
         assert!(matches!(
-            BeadEvent::BlockerAdded { id: test_id(), blocked_by: dep_id, changed_at: now }.id().as_str(),
+            BeadEvent::BlockerAdded {
+                id: test_id(),
+                blocked_by: dep_id,
+                changed_at: now
+            }
+            .id()
+            .as_str(),
             "evt-1"
         ));
         assert!(matches!(
-            BeadEvent::Labeled { id: test_id(), label: "x".into(), changed_at: now }.id().as_str(),
+            BeadEvent::Labeled {
+                id: test_id(),
+                label: "x".into(),
+                changed_at: now
+            }
+            .id()
+            .as_str(),
             "evt-1"
         ));
         assert!(matches!(
-            BeadEvent::Deleted { id: test_id(), deleted_at: now }.id().as_str(),
+            BeadEvent::Deleted {
+                id: test_id(),
+                deleted_at: now
+            }
+            .id()
+            .as_str(),
             "evt-1"
         ));
     }
@@ -387,15 +442,27 @@ mod tests {
     #[test]
     fn created_event_equality() {
         let now = Utc::now();
-        let e1 = BeadEvent::Created { id: test_id(), title: test_title(), created_at: now };
-        let e2 = BeadEvent::Created { id: test_id(), title: test_title(), created_at: now };
+        let e1 = BeadEvent::Created {
+            id: test_id(),
+            title: test_title(),
+            created_at: now,
+        };
+        let e2 = BeadEvent::Created {
+            id: test_id(),
+            title: test_title(),
+            created_at: now,
+        };
         assert_eq!(e1, e2);
     }
 
     #[test]
     fn created_event_inequality_different_title() {
         let now = Utc::now();
-        let e1 = BeadEvent::Created { id: test_id(), title: test_title(), created_at: now };
+        let e1 = BeadEvent::Created {
+            id: test_id(),
+            title: test_title(),
+            created_at: now,
+        };
         let e2 = BeadEvent::Created {
             id: test_id(),
             title: BeadTitle::new("Different").unwrap(),
@@ -407,7 +474,11 @@ mod tests {
     #[test]
     fn created_event_inequality_different_id() {
         let now = Utc::now();
-        let e1 = BeadEvent::Created { id: test_id(), title: test_title(), created_at: now };
+        let e1 = BeadEvent::Created {
+            id: test_id(),
+            title: test_title(),
+            created_at: now,
+        };
         let e2 = BeadEvent::Created {
             id: BeadId::new("other").unwrap(),
             title: test_title(),
@@ -455,8 +526,15 @@ mod tests {
     #[test]
     fn different_event_variants_are_not_equal() {
         let now = Utc::now();
-        let created = BeadEvent::Created { id: test_id(), title: test_title(), created_at: now };
-        let deleted = BeadEvent::Deleted { id: test_id(), deleted_at: now };
+        let created = BeadEvent::Created {
+            id: test_id(),
+            title: test_title(),
+            created_at: now,
+        };
+        let deleted = BeadEvent::Deleted {
+            id: test_id(),
+            deleted_at: now,
+        };
         assert_ne!(created, deleted);
     }
 
@@ -576,7 +654,9 @@ mod tests {
         let event = BeadEvent::StateChanged {
             id: test_id(),
             old_state: BeadState::InProgress,
-            new_state: BeadState::Closed { closed_at: Utc::now() },
+            new_state: BeadState::Closed {
+                closed_at: Utc::now(),
+            },
             changed_at: Utc::now(),
         };
         let json = serde_json::to_string(&event).unwrap();
@@ -723,8 +803,15 @@ mod tests {
     fn id_returns_different_values_for_different_events() {
         let id1 = BeadId::new("first").unwrap();
         let id2 = BeadId::new("second").unwrap();
-        let e1 = BeadEvent::Created { id: id1, title: test_title(), created_at: Utc::now() };
-        let e2 = BeadEvent::Deleted { id: id2, deleted_at: Utc::now() };
+        let e1 = BeadEvent::Created {
+            id: id1,
+            title: test_title(),
+            created_at: Utc::now(),
+        };
+        let e2 = BeadEvent::Deleted {
+            id: id2,
+            deleted_at: Utc::now(),
+        };
         assert_ne!(e1.id().as_str(), e2.id().as_str());
     }
 
@@ -737,7 +824,10 @@ mod tests {
             title: title.clone(),
             created_at: now,
         };
-        if let BeadEvent::Created { title: evt_title, .. } = event {
+        if let BeadEvent::Created {
+            title: evt_title, ..
+        } = event
+        {
             assert_eq!(evt_title, title);
         } else {
             panic!("expected Created variant");
@@ -754,7 +844,12 @@ mod tests {
             new_title: new.clone(),
             changed_at: Utc::now(),
         };
-        if let BeadEvent::TitleChanged { old_title, new_title, .. } = event {
+        if let BeadEvent::TitleChanged {
+            old_title,
+            new_title,
+            ..
+        } = event
+        {
             assert_eq!(old_title, old);
             assert_eq!(new_title, new);
         } else {

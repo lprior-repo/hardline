@@ -100,10 +100,7 @@ pub const ENV_PREFIX: &str = "SCP_";
 /// The error message includes a list of valid keys grouped by category.
 pub fn validate_key(key: &str) -> Result<()> {
     if key.is_empty() {
-        return Err(ConfigErrorKind::ConfigParseError(
-            "empty config key".to_string(),
-        )
-        .into());
+        return Err(ConfigErrorKind::ConfigParseError("empty config key".to_string()).into());
     }
 
     let is_valid = VALID_CONFIG_KEYS
@@ -116,7 +113,9 @@ pub fn validate_key(key: &str) -> Result<()> {
         let mut msg = format!("Unknown configuration key: '{key}'\n\n");
         msg.push_str("  watch.enabled, watch.debounce_ms, watch.paths\n");
         msg.push_str("  conflict_resolution.mode, conflict_resolution.autonomy,\n");
-        msg.push_str("    conflict_resolution.security_keywords, conflict_resolution.log_resolutions\n");
+        msg.push_str(
+            "    conflict_resolution.security_keywords, conflict_resolution.log_resolutions\n",
+        );
         msg.push_str("  session.auto_commit, session.commit_prefix, session.max_sessions\n");
         msg.push_str("  hooks.post_create, hooks.pre_remove, hooks.post_merge\n");
         msg.push_str("  agent.command\n");
@@ -138,10 +137,9 @@ pub fn validate_key(key: &str) -> Result<()> {
 /// Returns error if the current directory cannot be determined or
 /// the directory name cannot be extracted.
 pub fn get_repo_name() -> Result<String> {
-    let dir =
-        std::env::current_dir().map_err(|e| {
-            crate::error::Error::io_error(format!("Failed to get current directory: {e}"))
-        })?;
+    let dir = std::env::current_dir().map_err(|e| {
+        crate::error::Error::io_error(format!("Failed to get current directory: {e}"))
+    })?;
     dir.file_name()
         .ok_or_else(|| {
             crate::error::Error::io_error(
@@ -698,12 +696,27 @@ mod tests {
         let result = validate_key("bad_key");
         assert!(result.is_err());
         let err_str = format!("{:?}", result.unwrap_err());
-        assert!(err_str.contains("watch.enabled"), "Should list watch.enabled");
-        assert!(err_str.contains("conflict_resolution.mode"), "Should list conflict_resolution.mode");
-        assert!(err_str.contains("session.auto_commit"), "Should list session.auto_commit");
-        assert!(err_str.contains("hooks.post_create"), "Should list hooks.post_create");
+        assert!(
+            err_str.contains("watch.enabled"),
+            "Should list watch.enabled"
+        );
+        assert!(
+            err_str.contains("conflict_resolution.mode"),
+            "Should list conflict_resolution.mode"
+        );
+        assert!(
+            err_str.contains("session.auto_commit"),
+            "Should list session.auto_commit"
+        );
+        assert!(
+            err_str.contains("hooks.post_create"),
+            "Should list hooks.post_create"
+        );
         assert!(err_str.contains("vcs.type"), "Should list vcs.type");
-        assert!(err_str.contains("workspace.directory"), "Should list workspace.directory");
+        assert!(
+            err_str.contains("workspace.directory"),
+            "Should list workspace.directory"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -729,10 +742,7 @@ mod tests {
             "Non-placeholder content should be preserved, got: {workspace_dir}"
         );
         // Unrelated value should be unchanged
-        assert_eq!(
-            config.get("logging.level"),
-            Some(&"info".to_string())
-        );
+        assert_eq!(config.get("logging.level"), Some(&"info".to_string()));
     }
 
     #[test]
@@ -902,10 +912,8 @@ mod tests {
             let target = dir.path().join("real.toml");
             let link = dir.path().join("config.toml");
 
-            std::fs::write(&target, "logging.level = \"debug\"")
-                .expect("write should succeed");
-            std::os::unix::fs::symlink(&target, &link)
-                .expect("symlink creation should succeed");
+            std::fs::write(&target, "logging.level = \"debug\"").expect("write should succeed");
+            std::os::unix::fs::symlink(&target, &link).expect("symlink creation should succeed");
 
             let manager = ConfigManager::with_paths(link.clone(), None);
             let result = manager.load();

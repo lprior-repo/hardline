@@ -67,9 +67,7 @@ pub fn run_command(cli: Cli) -> Result<()> {
                 commands::workspace::switch(&name)
             }
             crate::cli::workspace_args::WorkspaceCommands::List => commands::workspace::list(),
-            crate::cli::workspace_args::WorkspaceCommands::Status => {
-                commands::workspace::status()
-            }
+            crate::cli::workspace_args::WorkspaceCommands::Status => commands::workspace::status(),
             crate::cli::workspace_args::WorkspaceCommands::Sync { name, all } => {
                 commands::workspace::sync(name.as_deref(), all)
             }

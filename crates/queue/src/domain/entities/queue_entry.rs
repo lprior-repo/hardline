@@ -39,7 +39,6 @@ impl QueueStatus {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct QueueEntryId(String);
 
@@ -667,8 +666,8 @@ mod tests {
     #[test]
     fn queue_entry_failed_retryable_max_retries_exhausted() {
         // 3 failures exhausts retries
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default())
-            .unwrap();
+        let entry =
+            QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
 
         let entry = entry
             .claim()
@@ -812,8 +811,12 @@ mod tests {
 
     #[test]
     fn queue_entry_accessors() {
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), Some("bead-99".into()), Priority::high())
-            .unwrap();
+        let entry = QueueEntry::<Pending>::enqueue(
+            "session-1".into(),
+            Some("bead-99".into()),
+            Priority::high(),
+        )
+        .unwrap();
 
         assert_eq!(entry.session_id(), "session-1");
         assert_eq!(entry.bead_id(), Some("bead-99"));
@@ -827,8 +830,8 @@ mod tests {
 
     #[test]
     fn queue_entry_trimmed_session_id() {
-        let entry = QueueEntry::<Pending>::enqueue("  spaced  ".into(), None, Priority::default())
-            .unwrap();
+        let entry =
+            QueueEntry::<Pending>::enqueue("  spaced  ".into(), None, Priority::default()).unwrap();
         assert_eq!(entry.session_id(), "spaced");
     }
 
@@ -866,7 +869,12 @@ mod tests {
 
     #[test]
     fn queue_entry_serde_roundtrip() {
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), Some("bead-1".into()), Priority::normal()).unwrap();
+        let entry = QueueEntry::<Pending>::enqueue(
+            "session-1".into(),
+            Some("bead-1".into()),
+            Priority::normal(),
+        )
+        .unwrap();
         let json = serde_json::to_string(&entry).unwrap();
         let back: QueueEntry<Pending> = serde_json::from_str(&json).unwrap();
         assert_eq!(back.session_id(), "session-1");
@@ -896,13 +904,15 @@ mod tests {
 
     #[test]
     fn queue_entry_enqueue_with_critical_priority() {
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::critical()).unwrap();
+        let entry =
+            QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::critical()).unwrap();
         assert_eq!(entry.priority().value(), u8::MAX);
     }
 
     #[test]
     fn queue_entry_enqueue_with_low_priority() {
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::low()).unwrap();
+        let entry =
+            QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::low()).unwrap();
         assert_eq!(entry.priority().value(), 100);
     }
 
@@ -927,14 +937,16 @@ mod tests {
 
     #[test]
     fn queue_entry_position_is_front_after_enqueue() {
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
+        let entry =
+            QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
         assert_eq!(entry.position().value(), 0);
     }
 
     #[test]
     fn queue_entry_enqueued_at_recent() {
         let before = Utc::now();
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
+        let entry =
+            QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
         let after = Utc::now();
         assert!(entry.enqueued_at() >= before);
         assert!(entry.enqueued_at() <= after);
@@ -943,7 +955,8 @@ mod tests {
     #[test]
     fn queue_entry_updated_at_recent() {
         let before = Utc::now();
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
+        let entry =
+            QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
         let after = Utc::now();
         assert!(entry.updated_at() >= before);
         assert!(entry.updated_at() <= after);
@@ -951,7 +964,8 @@ mod tests {
 
     #[test]
     fn queue_entry_transition_updates_updated_at() {
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
+        let entry =
+            QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
         let created_at = entry.enqueued_at();
 
         // Small sleep to ensure timestamp differs
@@ -1003,35 +1017,53 @@ mod tests {
 
     #[test]
     fn queue_entry_retry_full_cycle_three_failures() {
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
+        let entry =
+            QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::default()).unwrap();
 
         // First failure cycle
         let entry = entry
-            .claim().unwrap()
-            .start_rebase().unwrap()
-            .start_testing().unwrap()
-            .mark_failed_retryable("e1".into()).unwrap();
+            .claim()
+            .unwrap()
+            .start_rebase()
+            .unwrap()
+            .start_testing()
+            .unwrap()
+            .mark_failed_retryable("e1".into())
+            .unwrap();
         assert!(entry.can_retry());
 
         let entry = entry
-            .claim().unwrap()
-            .start_rebase().unwrap()
-            .start_testing().unwrap()
-            .mark_failed_retryable("e2".into()).unwrap();
+            .claim()
+            .unwrap()
+            .start_rebase()
+            .unwrap()
+            .start_testing()
+            .unwrap()
+            .mark_failed_retryable("e2".into())
+            .unwrap();
         assert!(entry.can_retry());
 
         let entry = entry
-            .claim().unwrap()
-            .start_rebase().unwrap()
-            .start_testing().unwrap()
-            .mark_failed_retryable("e3".into()).unwrap();
+            .claim()
+            .unwrap()
+            .start_rebase()
+            .unwrap()
+            .start_testing()
+            .unwrap()
+            .mark_failed_retryable("e3".into())
+            .unwrap();
         assert!(!entry.can_retry());
         assert_eq!(entry.retry_count(), 3);
     }
 
     #[test]
     fn queue_entry_serde_roundtrip_claimed() {
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), Some("bead-1".into()), Priority::normal()).unwrap();
+        let entry = QueueEntry::<Pending>::enqueue(
+            "session-1".into(),
+            Some("bead-1".into()),
+            Priority::normal(),
+        )
+        .unwrap();
         let claimed = entry.claim().unwrap();
         let json = serde_json::to_string(&claimed).unwrap();
         let back: QueueEntry<Claimed> = serde_json::from_str(&json).unwrap();
@@ -1040,14 +1072,21 @@ mod tests {
 
     #[test]
     fn queue_entry_serde_roundtrip_merged() {
-        let entry = QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::normal()).unwrap();
+        let entry =
+            QueueEntry::<Pending>::enqueue("session-1".into(), None, Priority::normal()).unwrap();
         let merged = entry
-            .claim().unwrap()
-            .start_rebase().unwrap()
-            .start_testing().unwrap()
-            .mark_ready_to_merge().unwrap()
-            .start_merging().unwrap()
-            .mark_merged().unwrap();
+            .claim()
+            .unwrap()
+            .start_rebase()
+            .unwrap()
+            .start_testing()
+            .unwrap()
+            .mark_ready_to_merge()
+            .unwrap()
+            .start_merging()
+            .unwrap()
+            .mark_merged()
+            .unwrap();
         let json = serde_json::to_string(&merged).unwrap();
         let back: QueueEntry<Merged> = serde_json::from_str(&json).unwrap();
         assert!(back.is_terminal());
@@ -1056,20 +1095,40 @@ mod tests {
     #[test]
     fn queue_entry_all_state_markers_terminal() {
         // Merged
-        let merged = QueueEntry::<Pending>::enqueue("s".into(), None, Priority::default()).unwrap()
-            .claim().unwrap().start_rebase().unwrap().start_testing().unwrap()
-            .mark_ready_to_merge().unwrap().start_merging().unwrap().mark_merged().unwrap();
+        let merged = QueueEntry::<Pending>::enqueue("s".into(), None, Priority::default())
+            .unwrap()
+            .claim()
+            .unwrap()
+            .start_rebase()
+            .unwrap()
+            .start_testing()
+            .unwrap()
+            .mark_ready_to_merge()
+            .unwrap()
+            .start_merging()
+            .unwrap()
+            .mark_merged()
+            .unwrap();
         assert!(merged.is_terminal());
 
         // FailedTerminal
-        let failed_term = QueueEntry::<Pending>::enqueue("s".into(), None, Priority::default()).unwrap()
-            .claim().unwrap().start_rebase().unwrap().start_testing().unwrap()
-            .mark_failed_terminal("err".into()).unwrap();
+        let failed_term = QueueEntry::<Pending>::enqueue("s".into(), None, Priority::default())
+            .unwrap()
+            .claim()
+            .unwrap()
+            .start_rebase()
+            .unwrap()
+            .start_testing()
+            .unwrap()
+            .mark_failed_terminal("err".into())
+            .unwrap();
         assert!(failed_term.is_terminal());
 
         // Cancelled
-        let cancelled = QueueEntry::<Pending>::enqueue("s".into(), None, Priority::default()).unwrap()
-            .cancel().unwrap();
+        let cancelled = QueueEntry::<Pending>::enqueue("s".into(), None, Priority::default())
+            .unwrap()
+            .cancel()
+            .unwrap();
         assert!(cancelled.is_terminal());
     }
 
@@ -1110,7 +1169,12 @@ mod tests {
 
     #[test]
     fn queue_entry_accessors_all_fields() {
-        let entry = QueueEntry::<Pending>::enqueue("my-session".into(), Some("bead-7".into()), Priority::high()).unwrap();
+        let entry = QueueEntry::<Pending>::enqueue(
+            "my-session".into(),
+            Some("bead-7".into()),
+            Priority::high(),
+        )
+        .unwrap();
 
         assert!(!entry.id().as_str().is_empty());
         assert!(entry.id().as_str().starts_with("queue-"));

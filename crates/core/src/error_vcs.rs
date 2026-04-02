@@ -193,44 +193,93 @@ mod tests {
                 vcs_type: "jj".to_string(),
                 directory: "/tmp".to_string(),
                 reason: "not found".to_string(),
-            }.to_string(),
+            }
+            .to_string(),
             "Failed to initialize jj in /tmp: not found"
         );
     }
 
     #[test]
     fn test_vcs_error_suggestion() {
-        assert!(VcsError::from(VcsErrorKind::NotInitialized).suggestion().is_some());
-        assert!(VcsError::from(VcsErrorKind::WorkingCopyDirty).suggestion().is_some());
+        assert!(VcsError::from(VcsErrorKind::NotInitialized)
+            .suggestion()
+            .is_some());
+        assert!(VcsError::from(VcsErrorKind::WorkingCopyDirty)
+            .suggestion()
+            .is_some());
         assert!(VcsError::from(VcsErrorKind::InitFailed {
             vcs_type: "jj".to_string(),
             directory: "/tmp".to_string(),
             reason: "lock".to_string(),
-        }).suggestion().is_some());
+        })
+        .suggestion()
+        .is_some());
         // No suggestion for random errors
-        assert!(VcsError::from(VcsErrorKind::PushFailed("fail".to_string())).suggestion().is_none());
+        assert!(VcsError::from(VcsErrorKind::PushFailed("fail".to_string()))
+            .suggestion()
+            .is_none());
     }
 
     #[test]
     fn test_vcs_error_exit_codes() {
         assert_eq!(VcsError::from(VcsErrorKind::NotInitialized).exit_code(), 30);
-        assert_eq!(VcsError::from(VcsErrorKind::Conflict("x".into(), "y".into())).exit_code(), 31);
-        assert_eq!(VcsError::from(VcsErrorKind::PushFailed("x".into())).exit_code(), 32);
-        assert_eq!(VcsError::from(VcsErrorKind::PullFailed("x".into())).exit_code(), 33);
-        assert_eq!(VcsError::from(VcsErrorKind::RebaseFailed("x".into())).exit_code(), 34);
-        assert_eq!(VcsError::from(VcsErrorKind::BranchNotFound("x".into())).exit_code(), 35);
-        assert_eq!(VcsError::from(VcsErrorKind::BranchExists("x".into())).exit_code(), 36);
-        assert_eq!(VcsError::from(VcsErrorKind::CommitNotFound("x".into())).exit_code(), 37);
-        assert_eq!(VcsError::from(VcsErrorKind::WorkingCopyDirty).exit_code(), 38);
-        assert_eq!(VcsError::from(VcsErrorKind::CommitFailed("x".into())).exit_code(), 39);
-        assert_eq!(VcsError::from(VcsErrorKind::CheckoutFailed("x".into())).exit_code(), 40);
-        assert_eq!(VcsError::from(VcsErrorKind::DiffFailed("x".into())).exit_code(), 41);
-        assert_eq!(VcsError::from(VcsErrorKind::MergeNoCommitId).exit_code(), 42);
-        assert_eq!(VcsError::from(VcsErrorKind::InitFailed {
-            vcs_type: "jj".into(),
-            directory: "/tmp".into(),
-            reason: "x".into(),
-        }).exit_code(), 43);
+        assert_eq!(
+            VcsError::from(VcsErrorKind::Conflict("x".into(), "y".into())).exit_code(),
+            31
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::PushFailed("x".into())).exit_code(),
+            32
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::PullFailed("x".into())).exit_code(),
+            33
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::RebaseFailed("x".into())).exit_code(),
+            34
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::BranchNotFound("x".into())).exit_code(),
+            35
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::BranchExists("x".into())).exit_code(),
+            36
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::CommitNotFound("x".into())).exit_code(),
+            37
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::WorkingCopyDirty).exit_code(),
+            38
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::CommitFailed("x".into())).exit_code(),
+            39
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::CheckoutFailed("x".into())).exit_code(),
+            40
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::DiffFailed("x".into())).exit_code(),
+            41
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::MergeNoCommitId).exit_code(),
+            42
+        );
+        assert_eq!(
+            VcsError::from(VcsErrorKind::InitFailed {
+                vcs_type: "jj".into(),
+                directory: "/tmp".into(),
+                reason: "x".into(),
+            })
+            .exit_code(),
+            43
+        );
     }
 
     #[test]

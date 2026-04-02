@@ -108,9 +108,10 @@ impl GitCliBackend {
             } else if stderr.contains("already exists") {
                 Err(VcsError::BranchExists(stderr))
             } else {
-                Err(VcsError::Io(std::io::Error::other(
-                    format!("git exited with {}: {}", exit_code, stderr),
-                )))
+                Err(VcsError::Io(std::io::Error::other(format!(
+                    "git exited with {}: {}",
+                    exit_code, stderr
+                ))))
             }
         }
     }
@@ -145,9 +146,11 @@ impl GitCliBackend {
             Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            Err(VcsError::Io(std::io::Error::other(
-                format!("git exited with {:?}: {}", output.status.code(), stderr),
-            )))
+            Err(VcsError::Io(std::io::Error::other(format!(
+                "git exited with {:?}: {}",
+                output.status.code(),
+                stderr
+            ))))
         }
     }
 
@@ -171,7 +174,10 @@ mod tests {
     #[test]
     fn git_cli_backend_new_from_path() {
         let backend = GitCliBackend::new_from_path("/tmp/from-path");
-        assert_eq!(backend.repo_path(), &std::path::PathBuf::from("/tmp/from-path"));
+        assert_eq!(
+            backend.repo_path(),
+            &std::path::PathBuf::from("/tmp/from-path")
+        );
     }
 
     #[test]

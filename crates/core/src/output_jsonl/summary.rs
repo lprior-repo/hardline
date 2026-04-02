@@ -85,8 +85,7 @@ mod tests {
     fn test_summary_type_serde_roundtrip() {
         for t in [SummaryType::Status, SummaryType::Count, SummaryType::Info] {
             let json = serde_json::to_string(&t).expect("serialize ok");
-            let deserialized: SummaryType =
-                serde_json::from_str(&json).expect("deserialize ok");
+            let deserialized: SummaryType = serde_json::from_str(&json).expect("deserialize ok");
             assert_eq!(t, deserialized);
         }
     }
@@ -154,8 +153,7 @@ mod tests {
         let msg = Message::new("test msg").expect("valid");
         let summary = Summary::new(SummaryType::Status, msg).expect("valid");
         let json = serde_json::to_string(&summary).expect("serialize ok");
-        let deserialized: Summary =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: Summary = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(summary.type_field, deserialized.type_field);
         assert_eq!(summary.details, deserialized.details);
     }
@@ -167,12 +165,8 @@ mod tests {
             .expect("valid")
             .with_details("count: 42".to_string());
         let json = serde_json::to_string(&summary).expect("serialize ok");
-        let deserialized: Summary =
-            serde_json::from_str(&json).expect("deserialize ok");
-        assert_eq!(
-            deserialized.details.as_deref(),
-            Some("count: 42")
-        );
+        let deserialized: Summary = serde_json::from_str(&json).expect("deserialize ok");
+        assert_eq!(deserialized.details.as_deref(), Some("count: 42"));
     }
 
     #[test]

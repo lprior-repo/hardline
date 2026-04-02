@@ -1,11 +1,11 @@
-//! VCS (Version Control System) abstraction for Git and JJ
+//! VCS (Version Control System) abstraction for Git
 //!
 //! This module provides:
-//! - `BackendType` - Enumeration distinguishing Git vs JJ repositories
+//! - `BackendType` - Enumeration identifying Git repositories
 //! - `RepositoryPath` - Absolute path to a version-controlled directory
 //! - `BranchName` - Named reference to a line of development
 //! - `CommitId` - Unique identifier for a commit
-//! - `ChangeId` - Unique identifier for a VCS change/commit (Git SHA or JJ ID)
+//! - `ChangeId` - Unique identifier for a VCS change/commit (Git SHA)
 //! - `Change` - A single atomic modification in VCS history
 //! - `RepoStatus` - Current state of the working directory
 //! - `VcsBackend` - Unified trait for VCS operations
@@ -18,7 +18,6 @@
 //! - `backend` - VcsBackend trait definition
 //! - `detection` - Backend detection function
 //! - `git` - Git backend implementation using gix (pure Rust)
-//! (JJ backend is in infrastructure module)
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
@@ -74,30 +73,6 @@ mod tests {
         let result = detect_backend(temp_dir.path());
 
         assert_eq!(result, Ok(BackendType::Git));
-    }
-
-    #[test]
-    fn test_detect_backend_returns_jj_for_jj_repo() {
-        let temp_dir = TempDir::new().expect("Failed to create temp dir");
-        let jj_dir = temp_dir.path().join(".jj");
-        fs::create_dir(&jj_dir).expect("Failed to create .jj dir");
-
-        let result = detect_backend(temp_dir.path());
-
-        assert_eq!(result, Ok(BackendType::Jj));
-    }
-
-    #[test]
-    fn test_detect_backend_prioritizes_jj_over_git() {
-        let temp_dir = TempDir::new().expect("Failed to create temp dir");
-        let git_dir = temp_dir.path().join(".git");
-        let jj_dir = temp_dir.path().join(".jj");
-        fs::create_dir(&git_dir).expect("Failed to create .git dir");
-        fs::create_dir(&jj_dir).expect("Failed to create .jj dir");
-
-        let result = detect_backend(temp_dir.path());
-
-        assert_eq!(result, Ok(BackendType::Jj));
     }
 
     #[test]
@@ -301,8 +276,6 @@ mod tests {
     #[test]
     fn test_backend_type_equality() {
         assert_eq!(BackendType::Git, BackendType::Git);
-        assert_eq!(BackendType::Jj, BackendType::Jj);
-        assert_ne!(BackendType::Git, BackendType::Jj);
     }
 
     #[test]
@@ -393,13 +366,5 @@ mod tests {
         let msg = format!("{change_id}");
         assert!(msg.starts_with("git:"));
         assert!(msg.contains("abc123def"));
-    }
-
-    #[test]
-    fn test_change_id_display_jj() {
-        let change_id = ChangeId::from_jj_id("abc123").expect("valid");
-        let msg = format!("{change_id}");
-        assert!(msg.starts_with("jj:"));
-        assert!(msg.contains("abc123"));
     }
 }

@@ -60,9 +60,7 @@ mod tests {
     }
 
     fn parse(args: &[&str]) -> QueueCommands {
-        let full: Vec<&str> = std::iter::once("scp")
-            .chain(args.iter().copied())
-            .collect();
+        let full: Vec<&str> = std::iter::once("scp").chain(args.iter().copied()).collect();
         QueueParser::parse_from(full).command
     }
 

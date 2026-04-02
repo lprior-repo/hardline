@@ -32,19 +32,22 @@ impl OperationState {
     }
 
     #[must_use]
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "started" => Some(Self::Started),
-            "in_progress" => Some(Self::InProgress),
-            "completed" => Some(Self::Completed),
-            "failed" => Some(Self::Failed),
-            _ => None,
-        }
-    }
-
-    #[must_use]
     pub const fn is_terminal(&self) -> bool {
         matches!(self, Self::Completed | Self::Failed)
+    }
+}
+
+impl std::str::FromStr for OperationState {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "started" => Ok(Self::Started),
+            "in_progress" => Ok(Self::InProgress),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            _ => Err(()),
+        }
     }
 }
 
@@ -80,21 +83,24 @@ impl OperationStatus {
     }
 
     #[must_use]
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "pending" => Some(Self::Pending),
-            "running" => Some(Self::Running),
-            "completed" => Some(Self::Completed),
-            "failed" => Some(Self::Failed),
-            "suspended" => Some(Self::Suspended),
-            "compensating" => Some(Self::Compensating),
-            _ => None,
-        }
-    }
-
-    #[must_use]
     pub const fn is_terminal(&self) -> bool {
         matches!(self, Self::Completed | Self::Failed)
+    }
+}
+
+impl std::str::FromStr for OperationStatus {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "pending" => Ok(Self::Pending),
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "suspended" => Ok(Self::Suspended),
+            "compensating" => Ok(Self::Compensating),
+            _ => Err(()),
+        }
     }
 }
 
@@ -131,20 +137,23 @@ impl StepStatus {
     }
 
     #[must_use]
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "pending" => Some(Self::Pending),
-            "running" => Some(Self::Running),
-            "completed" => Some(Self::Completed),
-            "failed" => Some(Self::Failed),
-            "skipped" => Some(Self::Skipped),
-            _ => None,
-        }
-    }
-
-    #[must_use]
     pub const fn is_terminal(&self) -> bool {
         matches!(self, Self::Completed | Self::Failed | Self::Skipped)
+    }
+}
+
+impl std::str::FromStr for StepStatus {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "pending" => Ok(Self::Pending),
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "skipped" => Ok(Self::Skipped),
+            _ => Err(()),
+        }
     }
 }
 
@@ -176,15 +185,18 @@ impl JournalState {
             Self::FailedCompensation => "failed_compensation",
         }
     }
+}
 
-    #[must_use]
-    pub fn from_str(s: &str) -> Option<Self> {
+impl std::str::FromStr for JournalState {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "pending_external" => Some(Self::PendingExternal),
-            "compensating" => Some(Self::Compensating),
-            "done" => Some(Self::Done),
-            "failed_compensation" => Some(Self::FailedCompensation),
-            _ => None,
+            "pending_external" => Ok(Self::PendingExternal),
+            "compensating" => Ok(Self::Compensating),
+            "done" => Ok(Self::Done),
+            "failed_compensation" => Ok(Self::FailedCompensation),
+            _ => Err(()),
         }
     }
 }
@@ -219,22 +231,25 @@ impl CompensationState {
     }
 
     #[must_use]
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "no_compensation_needed" => Some(Self::NoCompensationNeeded),
-            "compensation_in_progress" => Some(Self::CompensationInProgress),
-            "compensation_completed" => Some(Self::CompensationCompleted),
-            "compensation_failed" => Some(Self::CompensationFailed),
-            _ => None,
-        }
-    }
-
-    #[must_use]
     pub const fn is_terminal(&self) -> bool {
         matches!(
             self,
             Self::NoCompensationNeeded | Self::CompensationCompleted | Self::CompensationFailed
         )
+    }
+}
+
+impl std::str::FromStr for CompensationState {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "no_compensation_needed" => Ok(Self::NoCompensationNeeded),
+            "compensation_in_progress" => Ok(Self::CompensationInProgress),
+            "compensation_completed" => Ok(Self::CompensationCompleted),
+            "compensation_failed" => Ok(Self::CompensationFailed),
+            _ => Err(()),
+        }
     }
 }
 
@@ -267,10 +282,7 @@ pub enum PipelineState {
 impl PipelineState {
     #[must_use]
     pub const fn is_terminal(&self) -> bool {
-        matches!(
-            self,
-            Self::Accepted | Self::Escalated | Self::Failed
-        )
+        matches!(self, Self::Accepted | Self::Escalated | Self::Failed)
     }
 
     #[must_use]
@@ -408,14 +420,14 @@ mod tests {
             OperationState::Failed,
         ];
         for state in states {
-            assert_eq!(OperationState::from_str(state.as_str()), Some(state));
+            assert_eq!(state.as_str().parse::<OperationState>(), Ok(state));
         }
     }
 
     #[test]
-    fn operation_state_unknown_str_returns_none() {
-        assert!(OperationState::from_str("bogus").is_none());
-        assert!(OperationState::from_str("").is_none());
+    fn operation_state_unknown_str_returns_err() {
+        assert!("bogus".parse::<OperationState>().is_err());
+        assert!("".parse::<OperationState>().is_err());
     }
 
     #[test]
@@ -441,10 +453,7 @@ mod tests {
             OperationStatus::Compensating,
         ];
         for status in statuses {
-            assert_eq!(
-                OperationStatus::from_str(status.as_str()),
-                Some(status)
-            );
+            assert_eq!(status.as_str().parse::<OperationStatus>(), Ok(status));
         }
     }
 
@@ -472,7 +481,7 @@ mod tests {
             StepStatus::Skipped,
         ];
         for status in statuses {
-            assert_eq!(StepStatus::from_str(status.as_str()), Some(status));
+            assert_eq!(status.as_str().parse::<StepStatus>(), Ok(status));
         }
     }
 
@@ -498,7 +507,7 @@ mod tests {
             JournalState::FailedCompensation,
         ];
         for state in states {
-            assert_eq!(JournalState::from_str(state.as_str()), Some(state));
+            assert_eq!(state.as_str().parse::<JournalState>(), Ok(state));
         }
     }
 
@@ -515,10 +524,7 @@ mod tests {
             CompensationState::CompensationFailed,
         ];
         for state in states {
-            assert_eq!(
-                CompensationState::from_str(state.as_str()),
-                Some(state)
-            );
+            assert_eq!(state.as_str().parse::<CompensationState>(), Ok(state));
         }
     }
 

@@ -72,8 +72,8 @@ impl IntegrityIssue {
         match corruption_type {
             CorruptionType::MissingDirectory => Severity::Critical,
             CorruptionType::StaleLocks => Severity::Warn,
-            CorruptionType::MissingJjDir
-            | CorruptionType::CorruptedJjDir
+            CorruptionType::MissingGitDir
+            | CorruptionType::CorruptedGitDir
             | CorruptionType::PermissionDenied
             | CorruptionType::CorruptedGitIndex => Severity::Fail,
         }
@@ -83,10 +83,10 @@ impl IntegrityIssue {
     #[must_use]
     pub const fn recommended_strategy_for_type(corruption_type: CorruptionType) -> RepairStrategy {
         match corruption_type {
-            CorruptionType::MissingDirectory | CorruptionType::CorruptedJjDir => {
-                RepairStrategy::ForgetAndRecreate
+            CorruptionType::MissingDirectory | CorruptionType::CorruptedGitDir => {
+                RepairStrategy::RemoveAndReclone
             }
-            CorruptionType::MissingJjDir => RepairStrategy::RecreateWorkspace,
+            CorruptionType::MissingGitDir => RepairStrategy::RecreateWorkspace,
             CorruptionType::StaleLocks => RepairStrategy::ClearLocks,
             CorruptionType::PermissionDenied | CorruptionType::CorruptedGitIndex => {
                 RepairStrategy::NoRepairPossible

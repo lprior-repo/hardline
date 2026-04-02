@@ -148,11 +148,7 @@ impl BranchDag {
             return Err(DagError::HasDescendants(id, descendants.len()));
         }
 
-        let parent_ids = self
-            .parents
-            .get(&id)
-            .cloned()
-            .unwrap_or_else(Vec::new);
+        let parent_ids = self.parents.get(&id).cloned().unwrap_or_else(Vec::new);
 
         self.parents.remove(&id);
         self.branches.remove(&id);

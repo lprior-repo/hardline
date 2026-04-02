@@ -183,7 +183,8 @@ pub fn resolve_task_id(explicit_id: Option<&TaskId>) -> scp_core::Result<TaskId>
                             .to_string(),
                     )
                 })?;
-            TaskId::new(raw)}
+            TaskId::new(raw)
+        }
     }
 }
 
@@ -194,7 +195,8 @@ pub fn resolve_task_id(explicit_id: Option<&TaskId>) -> scp_core::Result<TaskId>
 /// Returns `Error::Task(TaskErrorKind::InvalidId(...))` if the string is not
 /// a valid task ID.
 pub fn parse_task_id(raw: &str) -> scp_core::Result<TaskId> {
-    TaskId::new(raw)}
+    TaskId::new(raw)
+}
 
 #[cfg(test)]
 mod tests {
@@ -296,7 +298,10 @@ mod tests {
 
     #[test]
     fn state_to_output_open() {
-        assert_eq!(task_state_to_output(&TaskState::Open), TaskStatusOutput::Open);
+        assert_eq!(
+            task_state_to_output(&TaskState::Open),
+            TaskStatusOutput::Open
+        );
     }
 
     #[test]
@@ -416,7 +421,10 @@ mod tests {
         // This path is actually caught at AgentId::new construction time.
         // We verify the validate_agent_id logic directly instead.
         let agent_id = AgentId::new("  ");
-        assert!(agent_id.is_err(), "AgentId::new should reject whitespace-only input");
+        assert!(
+            agent_id.is_err(),
+            "AgentId::new should reject whitespace-only input"
+        );
     }
 
     #[test]

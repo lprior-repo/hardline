@@ -6,115 +6,79 @@ use scp_vcs::gix::{repository, tag};
 pub fn list(pattern: Option<&str>, _sort: Option<&str>) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
+    detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
 
-    match vcs_type {
-        scp_core::vcs::VcsType::Git => {
-            let repo = repository::open(&cwd).map_err(|e| {
-                Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string())
-            })?;
+    let repo = repository::open(&cwd)
+        .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
 
-            let tags = tag::list(&repo, pattern)
-                .map_err(|e| Error::vcs_conflict("list tags", e.to_string()))?;
+    let tags =
+        tag::list(&repo, pattern).map_err(|e| Error::vcs_conflict("list tags", e.to_string()))?;
 
-            if tags.is_empty() {
-                Output::info("No tags found");
-            } else {
-                for t in tags {
-                    println!("{}", t);
-                }
-            }
-            Ok(())
+    if tags.is_empty() {
+        Output::info("No tags found");
+    } else {
+        for t in tags {
+            println!("{}", t);
         }
-        scp_core::vcs::VcsType::Jujutsu => Err(Error::vcs_conflict(
-            "Jujutsu tags not supported",
-            "Jujutsu".to_string(),
-        )),
     }
+    Ok(())
 }
 
 pub fn create(name: &str, message: Option<&str>, _commit: Option<&str>, force: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
+    detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
 
-    match vcs_type {
-        scp_core::vcs::VcsType::Git => {
-            let repo = repository::open(&cwd).map_err(|e| {
-                Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string())
-            })?;
+    let repo = repository::open(&cwd)
+        .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
 
-            let msg = message.unwrap_or("");
-            tag::create(&repo, name, msg, force)
-                .map_err(|e| Error::vcs_conflict("create tag", e.to_string()))?;
+    let msg = message.unwrap_or("");
+    tag::create(&repo, name, msg, force)
+        .map_err(|e| Error::vcs_conflict("create tag", e.to_string()))?;
 
-            Output::success(&format!("Created tag: {}", name));
-            Ok(())
-        }
-        scp_core::vcs::VcsType::Jujutsu => Err(Error::vcs_conflict(
-            "Jujutsu tags not supported",
-            "Jujutsu".to_string(),
-        )),
-    }
+    Output::success(&format!("Created tag: {}", name));
+    Ok(())
 }
 
 pub fn delete(name: &str, remote: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
+    detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
 
-    match vcs_type {
-        scp_core::vcs::VcsType::Git => {
-            if remote {
-                return Err(Error::vcs_conflict(
-                    "Remote tag delete not yet implemented",
-                    "remote".to_string(),
-                ));
-            }
-
-            let repo = repository::open(&cwd).map_err(|e| {
-                Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string())
-            })?;
-
-            tag::delete(&repo, name, false)
-                .map_err(|e| Error::vcs_conflict("delete tag", e.to_string()))?;
-
-            Output::success(&format!("Deleted local tag: {}", name));
-            Ok(())
-        }
-        scp_core::vcs::VcsType::Jujutsu => Err(Error::vcs_conflict(
-            "Jujutsu tags not supported",
-            "Jujutsu".to_string(),
-        )),
+    if remote {
+        return Err(Error::vcs_conflict(
+            "Remote tag delete not yet implemented",
+            "remote".to_string(),
+        ));
     }
+
+    let repo = repository::open(&cwd)
+        .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
+
+    tag::delete(&repo, name, false)
+        .map_err(|e| Error::vcs_conflict("delete tag", e.to_string()))?;
+
+    Output::success(&format!("Deleted local tag: {}", name));
+    Ok(())
 }
 
 pub fn push(tag: Option<&str>, remote: &str, _force: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
+    detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
 
-    match vcs_type {
-        scp_core::vcs::VcsType::Git => {
-            if tag.is_none() {
-                return Err(Error::vcs_conflict(
-                    "Push all tags not yet implemented",
-                    "all tags".to_string(),
-                ));
-            }
-
-            let repo = repository::open(&cwd).map_err(|e| {
-                Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string())
-            })?;
-
-            let t = tag.unwrap();
-            tag::push(&repo, remote, t).map_err(|e| Error::vcs_push_failed(e.to_string()))?;
-            Output::success(&format!("Pushed tag {} to {}", t, remote));
-            Ok(())
-        }
-        scp_core::vcs::VcsType::Jujutsu => Err(Error::vcs_conflict(
-            "Jujutsu tags not supported",
-            "Jujutsu".to_string(),
-        )),
+    if tag.is_none() {
+        return Err(Error::vcs_conflict(
+            "Push all tags not yet implemented",
+            "all tags".to_string(),
+        ));
     }
+
+    let repo = repository::open(&cwd)
+        .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
+
+    let t = tag.unwrap();
+    tag::push(&repo, remote, t).map_err(|e| Error::vcs_push_failed(e.to_string()))?;
+    Output::success(&format!("Pushed tag {} to {}", t, remote));
+    Ok(())
 }

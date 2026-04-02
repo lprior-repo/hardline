@@ -140,7 +140,8 @@ fn test_remove_branch_success() {
     let mut dag = BranchDag::new();
     dag.add_branch(BranchId::new("feature"), vec![BranchId::new("trunk")])
         .expect("Should add branch");
-    dag.remove_branch(BranchId::new("feature")).expect("Should remove branch");
+    dag.remove_branch(BranchId::new("feature"))
+        .expect("Should remove branch");
     assert!(!dag.contains(&BranchId::new("feature")));
     assert_eq!(dag.len(), 1);
 }
@@ -207,7 +208,9 @@ fn test_descendants_single() {
     let mut dag = BranchDag::new();
     dag.add_branch(BranchId::new("feature"), vec![BranchId::new("trunk")])
         .expect("Should add branch");
-    let descendants = dag.descendants(&BranchId::new("trunk")).expect("descendants");
+    let descendants = dag
+        .descendants(&BranchId::new("trunk"))
+        .expect("descendants");
     assert_eq!(descendants.len(), 1);
     assert_eq!(descendants[0], BranchId::new("feature"));
 }
@@ -219,7 +222,9 @@ fn test_descendants_chain() {
         .expect("a");
     dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
         .expect("b");
-    let descendants = dag.descendants(&BranchId::new("trunk")).expect("descendants");
+    let descendants = dag
+        .descendants(&BranchId::new("trunk"))
+        .expect("descendants");
     assert_eq!(descendants.len(), 2);
     assert!(descendants.contains(&BranchId::new("a")));
     assert!(descendants.contains(&BranchId::new("b")));
@@ -263,9 +268,18 @@ fn test_topological_sort_chain() {
     let order = dag.topological_sort().expect("topo sort");
     assert_eq!(order.len(), 3);
     // Parents must come before children
-    let trunk_pos = order.iter().position(|id| id == &BranchId::new("trunk")).expect("trunk pos");
-    let a_pos = order.iter().position(|id| id == &BranchId::new("a")).expect("a pos");
-    let b_pos = order.iter().position(|id| id == &BranchId::new("b")).expect("b pos");
+    let trunk_pos = order
+        .iter()
+        .position(|id| id == &BranchId::new("trunk"))
+        .expect("trunk pos");
+    let a_pos = order
+        .iter()
+        .position(|id| id == &BranchId::new("a"))
+        .expect("a pos");
+    let b_pos = order
+        .iter()
+        .position(|id| id == &BranchId::new("b"))
+        .expect("b pos");
     assert!(trunk_pos < a_pos);
     assert!(a_pos < b_pos);
 }
@@ -373,8 +387,11 @@ fn test_contains_false_for_missing() {
 #[test]
 fn test_is_trunk_only_for_trunk() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("trunk-imitator"), vec![BranchId::new("trunk")])
-        .expect("Should add");
+    dag.add_branch(
+        BranchId::new("trunk-imitator"),
+        vec![BranchId::new("trunk")],
+    )
+    .expect("Should add");
     assert!(dag.is_trunk(&BranchId::new("trunk")));
     assert!(!dag.is_trunk(&BranchId::new("trunk-imitator")));
     assert!(!dag.is_trunk(&BranchId::new("trunk-")));

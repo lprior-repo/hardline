@@ -520,7 +520,10 @@ mod tests {
     #[test]
     fn bead_when_created_then_preserves_description() {
         let bead = make_bead();
-        assert_eq!(bead.description().unwrap().as_str(), "A test bead description");
+        assert_eq!(
+            bead.description().unwrap().as_str(),
+            "A test bead description"
+        );
     }
 
     #[test]
@@ -809,9 +812,11 @@ mod tests {
         let bead = make_bead();
         let in_progress = bead.transition_to(&BeadState::InProgress).unwrap();
         let blocked = in_progress.transition_to(&BeadState::Blocked).unwrap();
-        let closed = blocked.transition_to(&BeadState::Closed {
-            closed_at: Utc::now(),
-        }).unwrap();
+        let closed = blocked
+            .transition_to(&BeadState::Closed {
+                closed_at: Utc::now(),
+            })
+            .unwrap();
         assert!(closed.state().is_closed());
     }
 
@@ -829,9 +834,11 @@ mod tests {
         let bead = make_bead();
         let in_progress = bead.transition_to(&BeadState::InProgress).unwrap();
         let deferred = in_progress.transition_to(&BeadState::Deferred).unwrap();
-        let closed = deferred.transition_to(&BeadState::Closed {
-            closed_at: Utc::now(),
-        }).unwrap();
+        let closed = deferred
+            .transition_to(&BeadState::Closed {
+                closed_at: Utc::now(),
+            })
+            .unwrap();
         assert!(closed.state().is_closed());
     }
 
@@ -839,9 +846,11 @@ mod tests {
     fn transition_from_closed_returns_none() {
         let bead = make_bead();
         let closed = bead.transition_to(&BeadState::InProgress).unwrap();
-        let closed = closed.transition_to(&BeadState::Closed {
-            closed_at: Utc::now(),
-        }).unwrap();
+        let closed = closed
+            .transition_to(&BeadState::Closed {
+                closed_at: Utc::now(),
+            })
+            .unwrap();
         // Cannot transition from Closed to anything
         let result = closed.transition_to(&BeadState::Open);
         assert!(result.is_none());
@@ -1132,7 +1141,10 @@ mod tests {
         let parsed: Bead = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.id().as_str(), "test-1");
         assert_eq!(parsed.title().as_str(), "Test Bead");
-        assert_eq!(parsed.description().unwrap().as_str(), "A test bead description");
+        assert_eq!(
+            parsed.description().unwrap().as_str(),
+            "A test bead description"
+        );
         assert_eq!(parsed.priority(), Some(&Priority::P0));
         assert_eq!(parsed.bead_type(), Some(&BeadType::Feature));
         assert_eq!(parsed.assignee(), Some("charlie"));

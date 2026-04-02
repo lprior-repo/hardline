@@ -24,22 +24,22 @@ fn test_operation_state_serialization() {
     assert_eq!(OperationState::Failed.as_str(), "failed");
 
     assert_eq!(
-        OperationState::from_str("started"),
-        Some(OperationState::Started)
+        "started".parse::<OperationState>(),
+        Ok(OperationState::Started)
     );
     assert_eq!(
-        OperationState::from_str("in_progress"),
-        Some(OperationState::InProgress)
+        "in_progress".parse::<OperationState>(),
+        Ok(OperationState::InProgress)
     );
     assert_eq!(
-        OperationState::from_str("completed"),
-        Some(OperationState::Completed)
+        "completed".parse::<OperationState>(),
+        Ok(OperationState::Completed)
     );
     assert_eq!(
-        OperationState::from_str("failed"),
-        Some(OperationState::Failed)
+        "failed".parse::<OperationState>(),
+        Ok(OperationState::Failed)
     );
-    assert_eq!(OperationState::from_str("invalid"), None);
+    assert!("invalid".parse::<OperationState>().is_err());
 }
 
 #[test]
@@ -208,17 +208,17 @@ fn test_journal_state_serialization() {
     );
 
     assert_eq!(
-        JournalState::from_str("pending_external"),
-        Some(JournalState::PendingExternal)
+        "pending_external".parse::<JournalState>(),
+        Ok(JournalState::PendingExternal)
     );
     assert_eq!(
-        JournalState::from_str("compensating"),
-        Some(JournalState::Compensating)
+        "compensating".parse::<JournalState>(),
+        Ok(JournalState::Compensating)
     );
-    assert_eq!(JournalState::from_str("done"), Some(JournalState::Done));
+    assert_eq!("done".parse::<JournalState>(), Ok(JournalState::Done));
     assert_eq!(
-        JournalState::from_str("failed_compensation"),
-        Some(JournalState::FailedCompensation)
+        "failed_compensation".parse::<JournalState>(),
+        Ok(JournalState::FailedCompensation)
     );
 }
 

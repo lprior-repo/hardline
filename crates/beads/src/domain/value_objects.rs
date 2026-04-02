@@ -768,9 +768,7 @@ mod tests {
         #[test]
         fn closed_at_returns_some_for_closed() {
             let now = Utc::now();
-            let state = BeadState::Closed {
-                closed_at: now,
-            };
+            let state = BeadState::Closed { closed_at: now };
             assert_eq!(state.closed_at(), Some(now));
         }
 
@@ -968,10 +966,9 @@ mod tests {
         #[test]
         fn transition_from_closed_to_closed_returns_current_time() {
             let past = Utc::now() - chrono::Duration::days(1);
-            let result = BeadState::Closed { closed_at: past }
-                .transition_to(BeadState::Closed {
-                    closed_at: Utc::now() + chrono::Duration::days(365),
-                });
+            let result = BeadState::Closed { closed_at: past }.transition_to(BeadState::Closed {
+                closed_at: Utc::now() + chrono::Duration::days(365),
+            });
             assert!(result.is_ok());
             // Closed -> Closed: doesn't match the special pattern, goes to Ok(new_state)
             // which would be the passed-in Closed state
@@ -1048,7 +1045,13 @@ mod tests {
 
         #[test]
         fn serde_roundtrip() {
-            for p in [Priority::P0, Priority::P1, Priority::P2, Priority::P3, Priority::P4] {
+            for p in [
+                Priority::P0,
+                Priority::P1,
+                Priority::P2,
+                Priority::P3,
+                Priority::P4,
+            ] {
                 let json = serde_json::to_string(&p).unwrap();
                 let parsed: Priority = serde_json::from_str(&json).unwrap();
                 assert_eq!(p, parsed);
@@ -1141,10 +1144,7 @@ mod tests {
         #[test]
         fn from_str_parses_all_variants() {
             assert_eq!("bug".parse::<BeadType>().unwrap(), BeadType::Bug);
-            assert_eq!(
-                "feature".parse::<BeadType>().unwrap(),
-                BeadType::Feature
-            );
+            assert_eq!("feature".parse::<BeadType>().unwrap(), BeadType::Feature);
             assert_eq!("task".parse::<BeadType>().unwrap(), BeadType::Task);
             assert_eq!("epic".parse::<BeadType>().unwrap(), BeadType::Epic);
             assert_eq!("chore".parse::<BeadType>().unwrap(), BeadType::Chore);
@@ -1218,8 +1218,8 @@ mod tests {
     // ── Labels tests ─────────────────────────────────────────────────────────
 
     mod labels {
-        use proptest::proptest;
         use super::*;
+        use proptest::proptest;
 
         #[test]
         fn new_is_empty() {
@@ -1236,7 +1236,10 @@ mod tests {
         #[test]
         fn with_adds_label() {
             let labels = Labels::new().with("bug").with("urgent");
-            assert_eq!(labels.as_slice(), &["bug".to_string(), "urgent".to_string()]);
+            assert_eq!(
+                labels.as_slice(),
+                &["bug".to_string(), "urgent".to_string()]
+            );
         }
 
         #[test]
@@ -1355,8 +1358,8 @@ mod tests {
     // ── Proptests for BeadId ─────────────────────────────────────────────────
 
     mod proptest_bead_id {
-        use proptest::proptest;
         use super::*;
+        use proptest::proptest;
 
         proptest! {
             #[test]
@@ -1384,8 +1387,8 @@ mod tests {
     // ── Proptests for BeadTitle ──────────────────────────────────────────────
 
     mod proptest_bead_title {
-        use proptest::proptest;
         use super::*;
+        use proptest::proptest;
 
         proptest! {
             #[test]
@@ -1423,8 +1426,8 @@ mod tests {
     // ── Proptests for Priority ───────────────────────────────────────────────
 
     mod proptest_priority {
-        use proptest::proptest;
         use super::*;
+        use proptest::proptest;
 
         proptest! {
             #[test]
@@ -1467,8 +1470,8 @@ mod tests {
     // ── Proptests for BeadState ──────────────────────────────────────────────
 
     mod proptest_bead_state {
-        use proptest::proptest;
         use super::*;
+        use proptest::proptest;
 
         proptest! {
             #[test]
@@ -1506,8 +1509,8 @@ mod tests {
     // ── Proptests for BeadDescription ────────────────────────────────────────
 
     mod proptest_bead_description {
-        use proptest::proptest;
         use super::*;
+        use proptest::proptest;
 
         proptest! {
             #[test]
@@ -1530,8 +1533,8 @@ mod tests {
     // ── Proptests for BeadType ───────────────────────────────────────────────
 
     mod proptest_bead_type {
-        use proptest::proptest;
         use super::*;
+        use proptest::proptest;
 
         proptest! {
             #[test]

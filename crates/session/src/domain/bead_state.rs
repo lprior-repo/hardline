@@ -7,8 +7,7 @@ use serde::{Deserialize, Serialize};
 /// Bead state enumeration.
 ///
 /// Lifecycle: Open → InProgress → Blocked → Deferred → Closed
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum BeadState {
     /// Bead is open and available to be worked on
     #[default]
@@ -75,7 +74,6 @@ impl BeadState {
             .collect()
     }
 }
-
 
 impl std::fmt::Display for BeadState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

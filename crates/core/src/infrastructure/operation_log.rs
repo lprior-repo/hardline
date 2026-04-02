@@ -410,9 +410,15 @@ mod tests {
             .await
             .expect("Insert failed");
 
-        let v1 = get_stream_version(&pool, "s-1").await.expect("Query failed");
-        let v2 = get_stream_version(&pool, "s-2").await.expect("Query failed");
-        let v3 = get_stream_version(&pool, "s-3").await.expect("Query failed");
+        let v1 = get_stream_version(&pool, "s-1")
+            .await
+            .expect("Query failed");
+        let v2 = get_stream_version(&pool, "s-2")
+            .await
+            .expect("Query failed");
+        let v3 = get_stream_version(&pool, "s-3")
+            .await
+            .expect("Query failed");
 
         assert_eq!(v1, 2);
         assert_eq!(v2, 1);

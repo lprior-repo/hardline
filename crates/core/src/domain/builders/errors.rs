@@ -45,7 +45,10 @@ mod tests {
 
     #[test]
     fn invalid_value_display() {
-        let err = BuilderError::InvalidValue { field: "age", reason: "negative".to_string() };
+        let err = BuilderError::InvalidValue {
+            field: "age",
+            reason: "negative".to_string(),
+        };
         let msg = format!("{err}");
         assert!(msg.contains("age"));
         assert!(msg.contains("negative"));
@@ -53,7 +56,10 @@ mod tests {
 
     #[test]
     fn overflow_display() {
-        let err = BuilderError::Overflow { field: "tags", capacity: 10 };
+        let err = BuilderError::Overflow {
+            field: "tags",
+            capacity: 10,
+        };
         let msg = format!("{err}");
         assert!(msg.contains("tags"));
         assert!(msg.contains("10"));
@@ -83,8 +89,14 @@ mod tests {
     #[test]
     fn all_variants_are_exhaustive() {
         let _ = BuilderError::MissingRequired { field: "a" };
-        let _ = BuilderError::InvalidValue { field: "b", reason: String::new() };
-        let _ = BuilderError::Overflow { field: "c", capacity: 0 };
+        let _ = BuilderError::InvalidValue {
+            field: "b",
+            reason: String::new(),
+        };
+        let _ = BuilderError::Overflow {
+            field: "c",
+            capacity: 0,
+        };
         let _ = BuilderError::InvalidTransition {
             from: "d",
             to: "e",

@@ -215,7 +215,11 @@ mod tests {
         let result = repo.update(&updated).await;
         assert!(result.is_ok());
         // Verify the update took effect
-        let found = repo.find(&BeadId::new("a").unwrap()).await.unwrap().unwrap();
+        let found = repo
+            .find(&BeadId::new("a").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(found.priority(), Some(&Priority::P1));
     }
 
@@ -240,7 +244,11 @@ mod tests {
         repo.insert(&bead).await.unwrap();
         let result = repo.delete(&BeadId::new("a").unwrap()).await;
         assert!(result.is_ok());
-        assert!(repo.find(&BeadId::new("a").unwrap()).await.unwrap().is_none());
+        assert!(repo
+            .find(&BeadId::new("a").unwrap())
+            .await
+            .unwrap()
+            .is_none());
     }
 
     #[tokio::test]
@@ -284,7 +292,11 @@ mod tests {
         let repo1 = make_repo();
         let repo2 = make_repo();
         repo1.insert(&make_bead("a")).await.unwrap();
-        assert!(repo2.find(&BeadId::new("a").unwrap()).await.unwrap().is_none());
+        assert!(repo2
+            .find(&BeadId::new("a").unwrap())
+            .await
+            .unwrap()
+            .is_none());
     }
 
     // ── CRUD lifecycle ──────────────────────────────────────────────────────
@@ -300,18 +312,28 @@ mod tests {
         assert!(repo.exists(&BeadId::new("lifecycle").unwrap()).await);
 
         // Read
-        let found = repo.find(&BeadId::new("lifecycle").unwrap()).await.unwrap().unwrap();
+        let found = repo
+            .find(&BeadId::new("lifecycle").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(found.priority(), Some(&Priority::P2));
         assert_eq!(found.bead_type(), Some(&BeadType::Feature));
 
         // Update
         let updated = found.with_priority(Priority::P0);
         repo.update(&updated).await.unwrap();
-        let reloaded = repo.find(&BeadId::new("lifecycle").unwrap()).await.unwrap().unwrap();
+        let reloaded = repo
+            .find(&BeadId::new("lifecycle").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(reloaded.priority(), Some(&Priority::P0));
 
         // Delete
-        repo.delete(&BeadId::new("lifecycle").unwrap()).await.unwrap();
+        repo.delete(&BeadId::new("lifecycle").unwrap())
+            .await
+            .unwrap();
         assert!(!repo.exists(&BeadId::new("lifecycle").unwrap()).await);
         assert!(repo.find_all().await.unwrap().is_empty());
     }
@@ -325,7 +347,11 @@ mod tests {
         repo.insert(&make_bead("fs-b")).await.unwrap();
 
         // Transition one to InProgress
-        let bead_b = repo.find(&BeadId::new("fs-b").unwrap()).await.unwrap().unwrap();
+        let bead_b = repo
+            .find(&BeadId::new("fs-b").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
         let in_progress = bead_b.transition_to(&BeadState::InProgress).unwrap();
         repo.update(&in_progress).await.unwrap();
 
@@ -339,7 +365,11 @@ mod tests {
     async fn find_by_state_with_closed_state() {
         let repo = make_repo();
         repo.insert(&make_bead("closed-1")).await.unwrap();
-        let bead = repo.find(&BeadId::new("closed-1").unwrap()).await.unwrap().unwrap();
+        let bead = repo
+            .find(&BeadId::new("closed-1").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
         let transitioned = bead.transition_to(&BeadState::InProgress).unwrap();
         let closed = transitioned
             .transition_to(&BeadState::Closed {
@@ -376,11 +406,19 @@ mod tests {
             .with_labels(Labels::new().with("test"));
         repo.insert(&bead).await.unwrap();
 
-        let found = repo.find(&BeadId::new("preserve").unwrap()).await.unwrap().unwrap();
+        let found = repo
+            .find(&BeadId::new("preserve").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
         let updated = found.with_priority(Priority::P1);
         repo.update(&updated).await.unwrap();
 
-        let reloaded = repo.find(&BeadId::new("preserve").unwrap()).await.unwrap().unwrap();
+        let reloaded = repo
+            .find(&BeadId::new("preserve").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(reloaded.priority(), Some(&Priority::P1));
         assert_eq!(reloaded.bead_type(), Some(&BeadType::Task));
         assert_eq!(reloaded.assignee(), Some("eve"));
@@ -396,7 +434,11 @@ mod tests {
             Some(BeadDescription::new("A description").unwrap()),
         );
         repo.insert(&bead).await.unwrap();
-        let found = repo.find(&BeadId::new("desc-1").unwrap()).await.unwrap().unwrap();
+        let found = repo
+            .find(&BeadId::new("desc-1").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(found.description().unwrap().as_str(), "A description");
     }
 
@@ -452,11 +494,13 @@ mod tests {
         let repo = make_repo();
         repo.insert(&make_bead("read-1")).await.unwrap();
         let repo_clone = repo.clone();
-        let h1 = tokio::spawn(async move {
-            repo.find(&BeadId::new("read-1").unwrap()).await.unwrap()
-        });
+        let h1 =
+            tokio::spawn(async move { repo.find(&BeadId::new("read-1").unwrap()).await.unwrap() });
         let h2 = tokio::spawn(async move {
-            repo_clone.find(&BeadId::new("read-1").unwrap()).await.unwrap()
+            repo_clone
+                .find(&BeadId::new("read-1").unwrap())
+                .await
+                .unwrap()
         });
         let r1 = h1.await.unwrap();
         let r2 = h2.await.unwrap();
@@ -495,15 +539,29 @@ mod tests {
         repo.insert(&make_bead("mixed-3")).await.unwrap();
 
         // Transition one to Blocked
-        let bead1 = repo.find(&BeadId::new("mixed-1").unwrap()).await.unwrap().unwrap();
-        let blocked = bead1.transition_to(&BeadState::InProgress).unwrap()
-            .transition_to(&BeadState::Blocked).unwrap();
+        let bead1 = repo
+            .find(&BeadId::new("mixed-1").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
+        let blocked = bead1
+            .transition_to(&BeadState::InProgress)
+            .unwrap()
+            .transition_to(&BeadState::Blocked)
+            .unwrap();
         repo.update(&blocked).await.unwrap();
 
         // Transition one to Deferred
-        let bead2 = repo.find(&BeadId::new("mixed-2").unwrap()).await.unwrap().unwrap();
-        let deferred = bead2.transition_to(&BeadState::InProgress).unwrap()
-            .transition_to(&BeadState::Deferred).unwrap();
+        let bead2 = repo
+            .find(&BeadId::new("mixed-2").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
+        let deferred = bead2
+            .transition_to(&BeadState::InProgress)
+            .unwrap()
+            .transition_to(&BeadState::Deferred)
+            .unwrap();
         repo.update(&deferred).await.unwrap();
 
         let open = repo.find_by_state(BeadState::Open).await.unwrap();
@@ -537,7 +595,11 @@ mod tests {
         .with_type(BeadType::Bug);
         repo.update(&replacement).await.unwrap();
 
-        let found = repo.find(&BeadId::new("replace-me").unwrap()).await.unwrap().unwrap();
+        let found = repo
+            .find(&BeadId::new("replace-me").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(found.title().as_str(), "Replaced Title");
         assert_eq!(found.description().unwrap().as_str(), "New desc");
         assert_eq!(found.priority(), Some(&Priority::P4));
@@ -548,7 +610,9 @@ mod tests {
     async fn delete_then_reinsert_succeeds() {
         let repo = make_repo();
         repo.insert(&make_bead("reinsert")).await.unwrap();
-        repo.delete(&BeadId::new("reinsert").unwrap()).await.unwrap();
+        repo.delete(&BeadId::new("reinsert").unwrap())
+            .await
+            .unwrap();
         assert!(!repo.exists(&BeadId::new("reinsert").unwrap()).await);
 
         // Reinsert should succeed
@@ -563,9 +627,15 @@ mod tests {
         repo.insert(&make_bead("del-all-2")).await.unwrap();
         repo.insert(&make_bead("del-all-3")).await.unwrap();
 
-        repo.delete(&BeadId::new("del-all-1").unwrap()).await.unwrap();
-        repo.delete(&BeadId::new("del-all-2").unwrap()).await.unwrap();
-        repo.delete(&BeadId::new("del-all-3").unwrap()).await.unwrap();
+        repo.delete(&BeadId::new("del-all-1").unwrap())
+            .await
+            .unwrap();
+        repo.delete(&BeadId::new("del-all-2").unwrap())
+            .await
+            .unwrap();
+        repo.delete(&BeadId::new("del-all-3").unwrap())
+            .await
+            .unwrap();
 
         let all = repo.find_all().await.unwrap();
         assert!(all.is_empty());
@@ -577,9 +647,15 @@ mod tests {
     async fn find_returns_correct_bead_among_many() {
         let repo = make_repo();
         for i in 0..10 {
-            repo.insert(&make_bead(&format!("find-test-{i}"))).await.unwrap();
+            repo.insert(&make_bead(&format!("find-test-{i}")))
+                .await
+                .unwrap();
         }
-        let found = repo.find(&BeadId::new("find-test-5").unwrap()).await.unwrap().unwrap();
+        let found = repo
+            .find(&BeadId::new("find-test-5").unwrap())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(found.id().as_str(), "find-test-5");
         assert_eq!(found.title().as_str(), "Title for find-test-5");
     }
@@ -589,7 +665,11 @@ mod tests {
         let repo = make_repo();
         repo.insert(&make_bead("gone")).await.unwrap();
         repo.delete(&BeadId::new("gone").unwrap()).await.unwrap();
-        assert!(repo.find(&BeadId::new("gone").unwrap()).await.unwrap().is_none());
+        assert!(repo
+            .find(&BeadId::new("gone").unwrap())
+            .await
+            .unwrap()
+            .is_none());
     }
 
     // ── Exists edge cases ────────────────────────────────────────────────────
@@ -598,10 +678,15 @@ mod tests {
     async fn exists_returns_true_for_many_ids() {
         let repo = make_repo();
         for i in 0..50 {
-            repo.insert(&make_bead(&format!("exists-{i}"))).await.unwrap();
+            repo.insert(&make_bead(&format!("exists-{i}")))
+                .await
+                .unwrap();
         }
         for i in 0..50 {
-            assert!(repo.exists(&BeadId::new(&format!("exists-{i}")).unwrap()).await);
+            assert!(
+                repo.exists(&BeadId::new(&format!("exists-{i}")).unwrap())
+                    .await
+            );
         }
     }
 }

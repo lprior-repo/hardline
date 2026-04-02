@@ -407,7 +407,10 @@ mod tests {
         };
 
         let json = serde_json::to_value(&resolution).expect("serialization should succeed");
-        assert_eq!(json["reason"], serde_json::Value::String("my reason".to_string()));
+        assert_eq!(
+            json["reason"],
+            serde_json::Value::String("my reason".to_string())
+        );
         assert_eq!(
             json["confidence"],
             serde_json::Value::String("0.99".to_string())
@@ -480,7 +483,9 @@ mod tests {
     fn test_validate_decider_empty_string() {
         let result = validate_decider("");
         assert!(result.is_err());
-        assert!(matches!(result, Err(ConflictResolutionError::InvalidDeciderError { decider, .. } ) if decider.is_empty()));
+        assert!(
+            matches!(result, Err(ConflictResolutionError::InvalidDeciderError { decider, .. } ) if decider.is_empty())
+        );
     }
 
     #[test]
@@ -644,10 +649,9 @@ mod tests {
 
     #[test]
     fn test_error_implements_std_error() {
-        let err: Box<dyn std::error::Error> =
-            Box::new(ConflictResolutionError::EmptyFieldError {
-                field: "test".to_string(),
-            });
+        let err: Box<dyn std::error::Error> = Box::new(ConflictResolutionError::EmptyFieldError {
+            field: "test".to_string(),
+        });
         let _display = format!("{err}");
     }
 

@@ -43,7 +43,10 @@ mod tests {
         let result = SessionService::create_session(make_name("test-session"));
         assert!(result.is_ok());
         let session = result.unwrap();
-        assert_eq!(session.state(), crate::domain::entities::session::SessionState::Created);
+        assert_eq!(
+            session.state(),
+            crate::domain::entities::session::SessionState::Created
+        );
     }
 
     #[test]
@@ -56,7 +59,10 @@ mod tests {
     fn service_activate_session_transitions() {
         let created = SessionService::create_session(make_name("activate-test")).expect("created");
         let active = SessionService::activate_session(created).expect("activated");
-        assert_eq!(active.state(), crate::domain::entities::session::SessionState::Active);
+        assert_eq!(
+            active.state(),
+            crate::domain::entities::session::SessionState::Active
+        );
     }
 
     #[test]
@@ -133,7 +139,8 @@ mod tests {
 
         #[test]
         fn service_pause_from_synced() {
-            let created = SessionService::create_session(make_name("pause-synced")).expect("created");
+            let created =
+                SessionService::create_session(make_name("pause-synced")).expect("created");
             let active = SessionService::activate_session(created).expect("active");
             let syncing = active.sync().expect("sync");
             let synced = syncing.sync_complete().expect("sync_complete");
@@ -143,7 +150,8 @@ mod tests {
 
         #[test]
         fn service_complete_from_synced() {
-            let created = SessionService::create_session(make_name("complete-synced")).expect("created");
+            let created =
+                SessionService::create_session(make_name("complete-synced")).expect("created");
             let active = SessionService::activate_session(created).expect("active");
             let syncing = active.sync().expect("sync");
             let synced = syncing.sync_complete().expect("sync_complete");
@@ -153,7 +161,8 @@ mod tests {
 
         #[test]
         fn service_fail_from_active_state() {
-            let created = SessionService::create_session(make_name("fail-active")).expect("created");
+            let created =
+                SessionService::create_session(make_name("fail-active")).expect("created");
             let active = SessionService::activate_session(created).expect("active");
             let failed = SessionService::fail_session(active).expect("failed");
             assert!(failed.state().is_terminal());
@@ -162,7 +171,8 @@ mod tests {
 
         #[test]
         fn service_id_and_name_preserved_through_full_lifecycle() {
-            let created = SessionService::create_session(make_name("persist-test")).expect("created");
+            let created =
+                SessionService::create_session(make_name("persist-test")).expect("created");
             let original_id = created.id.as_str().to_string();
             let original_name = created.name.as_str().to_string();
 
@@ -183,7 +193,8 @@ mod tests {
 
         #[test]
         fn service_created_session_has_no_workspace_or_bead() {
-            let created = SessionService::create_session(make_name("empty-fields")).expect("created");
+            let created =
+                SessionService::create_session(make_name("empty-fields")).expect("created");
             assert!(created.workspace().is_none());
             assert!(created.bead().is_none());
             assert!(created.last_synced.is_none());

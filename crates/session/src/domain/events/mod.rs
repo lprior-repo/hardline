@@ -365,7 +365,11 @@ mod tests {
                 .collect();
             jsons.sort();
             jsons.dedup();
-            assert_eq!(jsons.len(), 6, "All events should have distinct JSON representations");
+            assert_eq!(
+                jsons.len(),
+                6,
+                "All events should have distinct JSON representations"
+            );
         }
 
         #[test]

@@ -135,7 +135,10 @@ mod tests {
     fn given_new_when_detect_backend_on_this_repo_then_succeeds() {
         let service = VcsIntegrationServiceImpl::new();
         let result = service.detect_and_create_backend(&repo_root());
-        assert!(result.is_ok(), "detect_and_create_backend should succeed for project root");
+        assert!(
+            result.is_ok(),
+            "detect_and_create_backend should succeed for project root"
+        );
     }
 
     #[test]
@@ -149,14 +152,20 @@ mod tests {
     fn given_new_when_list_branches_on_this_repo_then_succeeds() {
         let service = VcsIntegrationServiceImpl::new();
         let result = service.list_branches(&repo_root());
-        assert!(result.is_ok(), "list_branches should succeed for project root");
+        assert!(
+            result.is_ok(),
+            "list_branches should succeed for project root"
+        );
     }
 
     #[test]
     fn given_service_when_detect_backend_on_this_repo_then_succeeds() {
         let service = create_vcs_integration_service();
         let result = service.detect_and_create_backend(&repo_root());
-        assert!(result.is_ok(), "detect_and_create_backend should succeed via factory");
+        assert!(
+            result.is_ok(),
+            "detect_and_create_backend should succeed via factory"
+        );
     }
 
     #[test]

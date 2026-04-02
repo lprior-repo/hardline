@@ -17,7 +17,7 @@ pub struct InitOutput {
     pub message: String,
     /// Absolute path to the initialized repository root.
     pub repo_dir: String,
-    /// Path to the VCS metadata directory (`.jj` or `.git`).
+    /// Path to the VCS metadata directory (`.git`)
     pub vcs_dir: String,
     /// Path to the SCP config file.
     pub config_file: String,

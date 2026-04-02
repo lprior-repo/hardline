@@ -175,7 +175,8 @@ mod tests {
 
     #[test]
     fn error_implements_std_error() {
-        let err: Box<dyn std::error::Error> = Box::new(WorkspaceError::WorkspaceNotFound("test".into()));
+        let err: Box<dyn std::error::Error> =
+            Box::new(WorkspaceError::WorkspaceNotFound("test".into()));
         let msg = format!("{err}");
         assert!(msg.contains("not found"));
         // source() returns None for leaf errors

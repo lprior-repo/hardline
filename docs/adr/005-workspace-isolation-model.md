@@ -1,7 +1,8 @@
 # ADR-005: Workspace Isolation Model
 
-**Date:** 2026-03-20  
-**Status:** Accepted  
+**Date:** 2026-03-20
+**Revised:** 2026-04-02
+**Status:** Accepted
 **Deciders:** Lewis
 
 ---
@@ -13,11 +14,11 @@ Hardline provides workspace isolation for AI agents and developers. Each workspa
 The key question: **What does "workspace isolation" mean?**
 
 Options considered:
-- **Git worktrees** - Lightweight, shares objects
+- **Git worktrees** - Lightweight, shares objects, partial isolation
 - **Full clones** - Complete replica, fully isolated
-- **JJ workspaces** - JJ's native workspace concept with shared storage
+- **Full clones with object deduplication** - Full isolation with lower disk usage (future)
 
-This ADR establishes the workspace isolation model for hardline.
+This ADR establishes the workspace isolation model for Hardline.
 
 ---
 
@@ -27,11 +28,11 @@ This ADR establishes the workspace isolation model for hardline.
 
 A **Workspace** is:
 
-1. **A complete checkout** of the repository at a specific commit
+1. **A complete Git clone** of the repository at a specific commit
 2. **An isolated working directory** with its own:
    - Working copy (files on disk)
-   - Index/staging area
-   - Branch/ref pointers
+   - `.git` directory (independent object store, refs, index)
+   - Branch/ref pointers (invisible to other workspaces)
 3. **A named entity** with state tracking
 
 ```rust
@@ -40,7 +41,6 @@ pub struct Workspace {
     pub id: WorkspaceId,
     pub name: WorkspaceName,
     pub path: AbsolutePath,
-    pub backend: VcsType,
     pub state: WorkspaceState,
     pub created_at: DateTime<Utc>,
     pub last_accessed: DateTime<Utc>,
@@ -64,84 +64,72 @@ pub enum WorkspaceState {
 }
 ```
 
-### Isolation Model: Full Clones (NOT Worktrees)
+### Isolation Model: Full Git Clones (NOT Worktrees)
 
-**Decision: Hardline uses full clones for workspace isolation, NOT Git worktrees.**
+**Decision: Hardline uses full `git clone` for workspace isolation, NOT Git worktrees.**
 
 #### Why NOT Git Worktrees
 
-```rust
-// Git worktrees share:
-// - .git/objects (object store)
-// - refs (branches are shared!)
-// - HEAD (but have separate working copy)
+Git worktrees share the `.git` directory between the main repository and all worktrees. This means:
 
-// Problems:
-let worktree_path = repo.worktree_add("feature-1", &branch, false).unwrap();
-// The branch EXISTS in the main repo
-// If I delete the worktree, the branch remains in main
-// But: git worktree list shows ALL worktrees
-// And: git branch -vv shows tracking info across worktrees
-```
+1. **Shared refs** - Branches are visible across all worktrees. Agent A's branches appear in Agent B's `git branch` output.
+2. **Shared object store** - Corruption in the object store affects all worktrees.
+3. **One working tree per branch** - Cannot have multiple agents on the same branch simultaneously.
+4. **Locking conflicts** - Concurrent worktree operations compete for the same `.git/index.lock`.
 
-**Problems with worktrees:**
-1. **Shared refs** - Branches are visible across all worktrees, not truly isolated
-2. **Shared object store** - Corruption in one worktree can affect others
-3. **Limited to one working tree per branch** - Can't have multiple worktrees on same branch
-4. **JJ incompatibility** - JJ doesn't use worktrees
+These are fundamental limitations of the worktree model. They cannot be worked around.
 
 #### Why Full Clones
 
-```rust
-let workspace_path = "/workspaces/agent-123";
-// Each workspace is a complete .git directory
-// No shared state between workspaces
-// Workspace deletion removes everything
+Each workspace is a complete, independent Git repository created via `git clone`:
+
+```
+/workspaces/
+  agent-123/       # Full clone: own .git, own refs, own objects
+    .git/
+    src/
+    Cargo.toml
+  agent-456/       # Full clone: own .git, own refs, own objects
+    .git/
+    src/
+    Cargo.toml
 ```
 
 **Benefits:**
-1. **True isolation** - No shared refs, objects, or state
-2. **JJ-native** - Works with JJ's workspace concept
-3. **Crash safety** - Workspace corruption doesn't affect others
-4. **Flexible** - Multiple workspaces on same branch allowed
+1. **True isolation** - No shared refs, objects, or state between workspaces
+2. **Crash safety** - Workspace corruption cannot spread to other workspaces
+3. **Branch independence** - Multiple workspaces can have the same branch checked out
+4. **No locking conflicts** - Each workspace has its own `.git/index.lock`
+5. **Clean lifecycle** - `rm -rf /workspaces/agent-123` destroys everything
 
 #### Trade-offs
 
 | Aspect | Full Clones | Git Worktrees |
-|--------|-------------|--------------|
+|--------|-------------|---------------|
 | Disk space | Higher (duplicated .git) | Lower (shared objects) |
-| Creation speed | Slower (full copy) | Faster (reflink) |
+| Creation speed | Slower (full clone) | Faster (reflink) |
 | Isolation | Complete | Partial (shared refs) |
-| JJ support | Native | Not supported |
-| Corruption risk | Isolated | Can spread |
+| Corruption risk | Isolated to one workspace | Can spread via shared store |
+| Branch independence | Full (same branch in multiple workspaces) | Limited (one worktree per branch) |
+| Concurrent locking | Independent locks | Shared lock contention |
 
-### JJ Workspace Concept
+### How Full Clones Solve Agent Concurrency
 
-JJ has native workspace support that maps well to our model:
+With full clones, each agent workspace operates on an independent Git repository. There are no shared files between workspaces. Agents can:
 
-```rust
-// JJ workspace structure:
-// .jj/             - Local JJ state (not shared)
-// .jj/repo/        - Shared repository (object store, refs)
-// working_copy/    - This workspace's files
+- `git commit` simultaneously without lock contention
+- `git rebase` on the same branch without conflicts
+- `git push` independently to different remotes or branches
+- Fail without corrupting other agents' work
 
-// Key insight: JJ workspaces share the object store but have:
-// - Separate working copies
-// - Separate operation log
-// - Separate view of the world
-
-// This is PERFECT for agent isolation:
-jj workspace add --name agent-123 ../repo
-// Creates: working_copy/agent-123/ with its own files
-// But shares: .jj/repo/ object store
-```
+The only coordination point is the shared remote (e.g., GitHub). Agents push to separate branches and merge via pull requests.
 
 ### Workspace State Machine
 
 ```rust
 impl Workspace {
-    pub fn transition_to(&mut self, new_state: WorkspaceState) 
-        -> Result<(), WorkspaceTransitionError> 
+    pub fn transition_to(&mut self, new_state: WorkspaceState)
+        -> Result<(), WorkspaceTransitionError>
     {
         match (&self.state, &new_state) {
             // Valid transitions
@@ -155,18 +143,18 @@ impl Workspace {
             (Syncing, Failed) => {},
             (Paused, Active) => {},
             (Paused, Failed) => {},
-            
+
             // Terminal states
             (Completed, _) => return Err(TerminalState),
             (Failed, _) => return Err(TerminalState),
-            
+
             // Invalid transitions
             _ => return Err(InvalidTransition {
                 from: self.state,
                 to: new_state,
             }),
         }
-        
+
         self.state = new_state;
         Ok(())
     }
@@ -176,37 +164,37 @@ impl Workspace {
 ### Valid State Transitions
 
 ```
-┌─────────┐
-│ Created │ ← Workspace initialized, files created
-└────┬────┘
-     │ activate()
-     ▼
-┌─────────┐
-│ Active  │ ← Ready for work
-└────┬────┘
-     │
-     ├──────────────────────────────┐
-     │ sync()                       │ pause()
-     ▼                              ▼
-┌─────────┐                   ┌─────────┐
-│ Syncing │                   │ Paused  │
-└────┬────┘                   └────┬────┘
-     │                              │
-     │ (success)                    │ resume()
-     ▼                              ▼
-     │                    ┌─────────────────────┐
-     │◄───────────────────┘                     │
-     │                                          │
-     │ complete()                              │ (agent dies)
-     ▼                                          ▼
-┌─────────────┐                         ┌─────────┐
-│ Completed  │ (terminal)               │ Failed  │ (terminal)
-└─────────────┘                         └─────────┘
++-----------+
+| Created   |  Workspace record created, clone not yet started
++-----+-----+
+      | activate()
+      v
++-----------+
+| Active    |  Clone complete, ready for work
++-----+-----+
+      |
+      +------------------------------+
+      | sync()                       | pause()
+      v                              v
++-----------+                   +-----------+
+| Syncing   |                   | Paused    |
++-----+-----+                   +-----+-----+
+      |                              |
+      | (success)                    | resume()
+      v                              v
+      |                    +---------------------+
+      |<-------------------+                     |
+      |                                          |
+      | complete()                              | (agent dies)
+      v                                          v
++-------------+                         +-----------+
+| Completed   | (terminal)              | Failed    | (terminal)
++-------------+                         +-----------+
 ```
 
 ---
 
-## Variants
+## Variants Considered
 
 ### Variant A: Git Worktrees (REJECTED)
 
@@ -214,30 +202,31 @@ impl Workspace {
 struct Workspace {
     worktree_path: PathBuf,
     branch_name: BranchName,
-    // Worktree is linked to main repo
+    // Worktree is linked to main repo's .git
 }
 ```
 
 **Rejected because:**
 - Shared refs violate isolation requirement
-- JJ doesn't support worktrees
-- Not true isolation for 600+ concurrent agents
+- Shared object store allows corruption to spread
+- One worktree per branch limits concurrency
+- Lock contention on shared `.git/index`
 
-### Variant B: Full Clones with Shared Storage (CHOSEN)
+### Variant B: Full Clones (CHOSEN)
 
 ```rust
 struct Workspace {
     id: WorkspaceId,
     path: AbsolutePath,       // /workspaces/agent-123
-    git_dir: PathBuf,        // /workspaces/agent-123/.git (full copy)
+    git_dir: PathBuf,         // /workspaces/agent-123/.git (independent)
     state: WorkspaceState,
 }
 ```
 
 **Chosen because:**
 - True isolation - no shared state
-- Works with both Git and JJ
-- Simple mental model
+- Simple mental model - each workspace is just a directory
+- Crash containment per workspace
 - Disk space is cheap, isolation is critical
 
 ### Variant C: Full Clones with Object Deduplication (FUTURE)
@@ -252,8 +241,9 @@ struct Workspace {
 ```
 
 **Deferred because:**
-- Platform-specific (reflink on Linux, clone on Windows)
-- Complexity not yet justified
+- Platform-specific (reflink on Linux/btrfs, clonefile on macOS/APFS)
+- Complexity not yet justified at current scale
+- May revisit when disk usage becomes a bottleneck
 
 ---
 
@@ -307,11 +297,8 @@ match workspace.state {
     _ => assert!(workspace.path.exists()),
 }
 
-/// INVARIANT: .git or .jj directory exists for non-Created workspaces
-match workspace.backend {
-    Git => assert!(workspace.path.join(".git").exists()),
-    JJ => assert!(workspace.path.join(".jj").exists()),
-}
+/// INVARIANT: .git directory exists for non-Created workspaces
+assert!(workspace.path.join(".git").exists());
 
 /// INVARIANT: No workspace path is a prefix of another workspace path
 fn no_nested_workspaces(workspaces: &[Workspace]) -> bool {
@@ -325,11 +312,14 @@ fn no_nested_workspaces(workspaces: &[Workspace]) -> bool {
 }
 ```
 
-### Concurrency Invariants
+### Isolation Invariants
 
 ```rust
-/// INVARIANT: At most one agent can hold a lock on a workspace
-assert!(workspace.lock.holder().is_none() || workspace.lock.holder() == current_agent);
+/// INVARIANT: Each workspace has an independent .git directory
+for w in workspaces {
+    assert!(w.path.join(".git").is_dir());
+    assert!(w.path.join(".git/HEAD").exists());
+}
 
 /// INVARIANT: Active workspace count doesn't exceed limit
 assert!(active_workspaces().count() <= MAX_CONCURRENT_WORKSPACES);
@@ -342,23 +332,25 @@ assert!(active_workspaces().count() <= MAX_CONCURRENT_WORKSPACES);
 ### Positive
 
 1. **True isolation** - No shared refs or object stores between workspaces
-2. **JJ-native** - Works seamlessly with JJ's workspace concept
-3. **Crash containment** - One workspace's corruption doesn't affect others
-4. **Simple model** - Easy to reason about workspace behavior
-5. **Security** - Agent A can't access Agent B's workspace directly
+2. **Crash containment** - One workspace's corruption cannot affect others
+3. **Simple model** - Each workspace is a directory; delete it to clean up
+4. **Security** - Agent A cannot access Agent B's workspace files
+5. **Independent lifecycle** - Create, destroy, and manage workspaces without side effects
+6. **No lock contention** - Each workspace has its own Git lock files
 
 ### Negative
 
 1. **Disk usage** - Full .git directory per workspace (~50-100MB each)
-2. **Creation time** - Full clone takes longer than worktree (~5-10 seconds)
-3. **Maintenance** - Must clean up stale workspaces manually
+2. **Creation time** - Full clone takes longer than worktree creation (~5-10 seconds)
+3. **Maintenance** - Must clean up stale workspaces periodically
 
 ### Scale Considerations
 
 For 600+ concurrent agents:
-- **Disk**: 600 × 100MB = 60GB (acceptable for workspace servers)
-- **Creation**: Parallel creation with rate limiting
+- **Disk**: 600 x 100MB = 60GB (acceptable for workspace servers)
+- **Creation**: Parallel cloning with rate limiting
 - **Cleanup**: Automatic cleanup of abandoned workspaces after timeout
+- **Optimization**: Variant C (reflink deduplication) can reduce disk usage when needed
 
 ### Files to Create/Modify
 
@@ -367,12 +359,12 @@ For 600+ concurrent agents:
 | `crates/workspace/src/domain/workspace.rs` | Workspace entity + state machine |
 | `crates/workspace/src/domain/state.rs` | WorkspaceState enum + transitions |
 | `crates/workspace/src/infrastructure/filesystem.rs` | Clone/cleanup operations |
-| `crates/vcs/src/backend/jj.rs` | JJ workspace operations |
+| `crates/vcs/src/backend/git.rs` | Git clone operations for workspace creation |
 
 ---
 
 ## Related ADRs
 
-- ADR-004: VCS Abstraction (workspace operations in trait)
+- ADR-004: VCS Abstraction (Git-only backend, GitBackend struct)
 - ADR-001: CLI Architecture (workspace commands: spawn, switch, list, forget)
 - ADR-002: Durable Workflow Execution (workspace operations with recovery)

@@ -117,7 +117,10 @@ mod tests {
 
     #[test]
     fn task_error_kind_invalid_state_transition_display() {
-        let err = TaskErrorKind::InvalidStateTransition("task-1".to_string(), "Open -> Closed".to_string());
+        let err = TaskErrorKind::InvalidStateTransition(
+            "task-1".to_string(),
+            "Open -> Closed".to_string(),
+        );
         let msg = format!("{err}");
         assert!(msg.contains("task-1"));
         assert!(msg.contains("Open -> Closed"));
@@ -125,12 +128,34 @@ mod tests {
 
     #[test]
     fn task_error_exit_codes() {
-        assert_eq!(TaskError::from(TaskErrorKind::NotFound("x".into())).exit_code(), 60);
-        assert_eq!(TaskError::from(TaskErrorKind::AlreadyClaimed("x".into(), "y".into())).exit_code(), 61);
-        assert_eq!(TaskError::from(TaskErrorKind::NotClaimed("x".into())).exit_code(), 62);
-        assert_eq!(TaskError::from(TaskErrorKind::Locked("x".into())).exit_code(), 63);
-        assert_eq!(TaskError::from(TaskErrorKind::InvalidId("x".into())).exit_code(), 64);
-        assert_eq!(TaskError::from(TaskErrorKind::InvalidStateTransition("x".into(), "y".into())).exit_code(), 65);
+        assert_eq!(
+            TaskError::from(TaskErrorKind::NotFound("x".into())).exit_code(),
+            60
+        );
+        assert_eq!(
+            TaskError::from(TaskErrorKind::AlreadyClaimed("x".into(), "y".into())).exit_code(),
+            61
+        );
+        assert_eq!(
+            TaskError::from(TaskErrorKind::NotClaimed("x".into())).exit_code(),
+            62
+        );
+        assert_eq!(
+            TaskError::from(TaskErrorKind::Locked("x".into())).exit_code(),
+            63
+        );
+        assert_eq!(
+            TaskError::from(TaskErrorKind::InvalidId("x".into())).exit_code(),
+            64
+        );
+        assert_eq!(
+            TaskError::from(TaskErrorKind::InvalidStateTransition(
+                "x".into(),
+                "y".into()
+            ))
+            .exit_code(),
+            65
+        );
     }
 
     #[test]

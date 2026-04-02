@@ -403,9 +403,7 @@ mod tests {
 
     #[test]
     fn validate_config_file_errors_on_missing_file() {
-        let result = validate_config_file(std::path::Path::new(
-            "/nonexistent/path/config.toml",
-        ));
+        let result = validate_config_file(std::path::Path::new("/nonexistent/path/config.toml"));
         assert!(result.is_err(), "missing file should return error");
     }
 
@@ -481,8 +479,7 @@ mod tests {
         fs::write(&global_path, "key = \"value\"").expect("write should succeed");
         fs::write(&project_path, "key2 = \"value2\"").expect("write should succeed");
 
-        let manager =
-            ConfigManager::with_paths(global_path, Some(project_path.clone()));
+        let manager = ConfigManager::with_paths(global_path, Some(project_path.clone()));
         let paths = collect_config_paths(&manager);
 
         assert!(
@@ -499,8 +496,7 @@ mod tests {
     async fn hot_reload_config_manager_creates_and_gets() {
         let dir = tempfile::tempdir().expect("tempdir should succeed");
         let global_path = dir.path().join("config.toml");
-        fs::write(&global_path, "logging.level = \"debug\"")
-            .expect("write should succeed");
+        fs::write(&global_path, "logging.level = \"debug\"").expect("write should succeed");
 
         let manager = ConfigManager::with_paths(global_path, None);
         let hot = HotReloadConfigManager::with_manager(manager)

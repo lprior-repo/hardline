@@ -223,11 +223,8 @@ mod tests {
 
     #[test]
     fn test_state_transition_creation() {
-        let transition = StateTransition::new(
-            SessionState::Created,
-            SessionState::Active,
-            "activation",
-        );
+        let transition =
+            StateTransition::new(SessionState::Created, SessionState::Active, "activation");
         assert_eq!(transition.from, SessionState::Created);
         assert_eq!(transition.to, SessionState::Active);
         assert_eq!(transition.reason, "activation");
@@ -235,21 +232,14 @@ mod tests {
 
     #[test]
     fn test_state_transition_validate_valid() {
-        let transition = StateTransition::new(
-            SessionState::Created,
-            SessionState::Active,
-            "test",
-        );
+        let transition = StateTransition::new(SessionState::Created, SessionState::Active, "test");
         assert!(transition.validate().is_ok());
     }
 
     #[test]
     fn test_state_transition_validate_invalid() {
-        let transition = StateTransition::new(
-            SessionState::Completed,
-            SessionState::Active,
-            "invalid",
-        );
+        let transition =
+            StateTransition::new(SessionState::Completed, SessionState::Active, "invalid");
         assert!(transition.validate().is_err());
     }
 
@@ -273,7 +263,11 @@ mod tests {
         let states = SessionStatus::all_states();
         for &state in states {
             let debug = format!("{state:?}");
-            assert!(!debug.is_empty(), "Debug for {:?} should not be empty", state);
+            assert!(
+                !debug.is_empty(),
+                "Debug for {:?} should not be empty",
+                state
+            );
         }
     }
 

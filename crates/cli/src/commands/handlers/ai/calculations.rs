@@ -372,7 +372,11 @@ mod tests {
     fn workflow_all_steps_have_non_empty_command_and_description() {
         let workflow = build_workflow();
         for step in &workflow.steps {
-            assert!(!step.command.is_empty(), "Step {} must have command", step.step);
+            assert!(
+                !step.command.is_empty(),
+                "Step {} must have command",
+                step.step
+            );
             assert!(
                 !step.description.is_empty(),
                 "Step {} must have description",
@@ -402,16 +406,34 @@ mod tests {
     fn quick_start_all_commands_have_non_empty_fields() {
         let qs = build_quick_start();
         for cmd in &qs.essential_commands {
-            assert!(!cmd.command.is_empty(), "essential command must have command");
-            assert!(!cmd.purpose.is_empty(), "essential command must have purpose");
+            assert!(
+                !cmd.command.is_empty(),
+                "essential command must have command"
+            );
+            assert!(
+                !cmd.purpose.is_empty(),
+                "essential command must have purpose"
+            );
         }
         for cmd in &qs.orientation {
-            assert!(!cmd.command.is_empty(), "orientation command must have command");
-            assert!(!cmd.purpose.is_empty(), "orientation command must have purpose");
+            assert!(
+                !cmd.command.is_empty(),
+                "orientation command must have command"
+            );
+            assert!(
+                !cmd.purpose.is_empty(),
+                "orientation command must have purpose"
+            );
         }
         for cmd in &qs.workflow {
-            assert!(!cmd.command.is_empty(), "workflow command must have command");
-            assert!(!cmd.purpose.is_empty(), "workflow command must have purpose");
+            assert!(
+                !cmd.command.is_empty(),
+                "workflow command must have command"
+            );
+            assert!(
+                !cmd.purpose.is_empty(),
+                "workflow command must have purpose"
+            );
         }
     }
 
@@ -470,12 +492,8 @@ mod tests {
     fn next_action_uninitialized_in_workspace_hits_not_initialized_arm() {
         // The `_ if !initialized` arm is checked BEFORE the workspace arm,
         // so uninitialized workspace returns "scp init" with High priority.
-        let output = determine_next_action(
-            false,
-            &Location::Workspace("ws".to_string()),
-            Some("ws"),
-            0,
-        );
+        let output =
+            determine_next_action(false, &Location::Workspace("ws".to_string()), Some("ws"), 0);
         assert_eq!(output.priority, Priority::High);
         assert!(output.command.contains("init"));
     }
@@ -519,12 +537,7 @@ mod tests {
 
     #[test]
     fn next_action_not_in_repo_takes_priority_over_workspace() {
-        let output = determine_next_action(
-            true,
-            &Location::NotInRepo,
-            Some("ignored"),
-            0,
-        );
+        let output = determine_next_action(true, &Location::NotInRepo, Some("ignored"), 0);
         assert_eq!(output.priority, Priority::High);
         assert!(output.command.contains("cd"));
     }
@@ -573,10 +586,15 @@ mod tests {
             next_command: "scp work".to_string(),
         };
         let lines = format_status_human(&status);
-        let injected_lines: Vec<&String> = lines.iter().filter(|l| l.contains("INJECTED")).collect();
+        let injected_lines: Vec<&String> =
+            lines.iter().filter(|l| l.contains("INJECTED")).collect();
         // The \r should be replaced, the \n should be replaced, so INJECTED
         // appears as part of a suggestion line, not a separate line.
-        assert_eq!(injected_lines.len(), 1, "INJECTED should only appear once, collapsed into suggestion");
+        assert_eq!(
+            injected_lines.len(),
+            1,
+            "INJECTED should only appear once, collapsed into suggestion"
+        );
     }
 
     #[test]

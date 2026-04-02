@@ -202,7 +202,10 @@ mod tests {
     #[test]
     fn priority_new_always_ok_for_all_u8() {
         for val in 0_u8..=255 {
-            assert!(Priority::new(val).is_ok(), "Priority::new({val}) should be Ok");
+            assert!(
+                Priority::new(val).is_ok(),
+                "Priority::new({val}) should be Ok"
+            );
         }
     }
 

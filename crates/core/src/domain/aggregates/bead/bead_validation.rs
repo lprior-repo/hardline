@@ -73,7 +73,10 @@ mod tests {
 
     #[test]
     fn validate_can_modify_blocked_bead() {
-        let bead = create_test_bead().start().and_then(|b| b.block()).expect("block ok");
+        let bead = create_test_bead()
+            .start()
+            .and_then(|b| b.block())
+            .expect("block ok");
         assert!(bead.validate_can_modify().is_ok());
     }
 
@@ -90,7 +93,10 @@ mod tests {
     #[test]
     fn validate_can_modify_closed_bead_rejects() {
         let bead = create_test_bead().close().expect("close ok");
-        assert_eq!(bead.validate_can_modify(), Err(BeadError::CannotModifyClosed));
+        assert_eq!(
+            bead.validate_can_modify(),
+            Err(BeadError::CannotModifyClosed)
+        );
     }
 
     // -- validate() --
@@ -120,7 +126,10 @@ mod tests {
         };
 
         let result = bead.validate();
-        assert!(matches!(result, Err(BeadError::NonMonotonicTimestamps { .. })));
+        assert!(matches!(
+            result,
+            Err(BeadError::NonMonotonicTimestamps { .. })
+        ));
     }
 
     #[test]

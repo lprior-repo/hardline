@@ -69,7 +69,9 @@ mod tests {
     fn invalid_state_transition_display() {
         let err = BeadError::InvalidStateTransition {
             from: BeadState::Open,
-            to: BeadState::Closed { closed_at: chrono::Utc::now() },
+            to: BeadState::Closed {
+                closed_at: chrono::Utc::now(),
+            },
         };
         let msg = format!("{err}");
         assert!(msg.contains("Open"));
@@ -114,7 +116,9 @@ mod tests {
         let _ = BeadError::InvalidDescription(String::new());
         let _ = BeadError::InvalidStateTransition {
             from: BeadState::Open,
-            to: BeadState::Closed { closed_at: chrono::Utc::now() },
+            to: BeadState::Closed {
+                closed_at: chrono::Utc::now(),
+            },
         };
         let _ = BeadError::CannotModifyClosed;
         let _ = BeadError::NonMonotonicTimestamps {

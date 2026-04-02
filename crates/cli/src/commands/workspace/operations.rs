@@ -191,13 +191,19 @@ mod tests {
     #[test]
     fn sorted_names_already_sorted() {
         let workspaces = vec![ws("alpha", false), ws("beta", true), ws("gamma", false)];
-        assert_eq!(sorted_workspace_names(&workspaces), vec!["alpha", "beta", "gamma"]);
+        assert_eq!(
+            sorted_workspace_names(&workspaces),
+            vec!["alpha", "beta", "gamma"]
+        );
     }
 
     #[test]
     fn sorted_names_reverse_order() {
         let workspaces = vec![ws("gamma", false), ws("beta", true), ws("alpha", false)];
-        assert_eq!(sorted_workspace_names(&workspaces), vec!["alpha", "beta", "gamma"]);
+        assert_eq!(
+            sorted_workspace_names(&workspaces),
+            vec!["alpha", "beta", "gamma"]
+        );
     }
 
     #[test]
@@ -343,7 +349,10 @@ mod tests {
     #[test]
     fn build_jj_diff_no_path() {
         let cmd = build_jj_diff_command(std::path::Path::new("/tmp"), None);
-        let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().to_string())
+            .collect();
         assert!(args.contains(&"diff".to_string()));
         assert!(args.contains(&"working".to_string()));
         assert!(args.contains(&"@".to_string()));
@@ -352,7 +361,10 @@ mod tests {
     #[test]
     fn build_jj_diff_with_path() {
         let cmd = build_jj_diff_command(std::path::Path::new("/tmp"), Some("src/main.rs"));
-        let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().to_string())
+            .collect();
         assert!(args.contains(&"src/main.rs".to_string()));
     }
 

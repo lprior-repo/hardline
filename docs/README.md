@@ -93,15 +93,15 @@ hardline done              # Complete and merge
 hardline abort             # Abort and cleanup
 ```
 
-### Jujutsu (Version Control)
+### Git (Version Control)
 
 ```bash
-jj describe -m "feat: description"  # Commit
-jj git push                         # Push
-jj new                              # Start new change
-jj log                              # View history
-jj diff                             # Show changes
-jj status                           # Show working state
+git commit -m "feat: description"   # Commit
+git push                            # Push
+git checkout -b feature/x           # Start new branch
+git log --oneline                   # View history
+git diff                            # Show changes
+git status                          # Show working state
 ```
 
 ### Beads (Issue Tracking)
@@ -143,16 +143,13 @@ hardline/
 
 ---
 
-## Why JJ Instead of Git?
+## Git Workflow
 
-Hardline uses JJ (Jujutsu) because Git breaks at multi-agent scale (4+ agents). JJ provides:
+Hardline uses Git for version control. Each agent works in its own full clone for complete isolation.
 
-- **Lock-free concurrency** — agents don't corrupt each other's work
-- **Operation log** — undo any operation, always recover
-- **Anonymous commits** — no branch pollution at 8-12 agents
-- **First-class conflicts** — no blocking on merges
-
-> Running 8-12 agents in parallel? You need JJ. See [09_JUJUTSU.md](09_JUJUTSU.md) for the full comparison.
+- **Standard Git commands** — `git add`, `git commit`, `git push`, `git rebase`
+- **Feature branches** — isolate work per branch
+- **Full clone isolation** — each agent gets its own complete repository
 
 ---
 
@@ -188,7 +185,7 @@ See **Common Commands** above, or [COMMANDS.md](COMMANDS.md) for the complete re
 | Iterator combinators | [06_COMBINATORS.md](06_COMBINATORS.md) |
 | Testing patterns | [07_TESTING.md](07_TESTING.md) |
 | Issue tracking | [08_BEADS.md](08_BEADS.md) |
-| Version control (JJ) | [09_JUJUTSU.md](09_JUJUTSU.md) |
+| Version control (Git) | Standard `git` commands |
 | Complete index | [INDEX.md](INDEX.md) |
 
 ---

@@ -221,7 +221,10 @@ mod tests {
         let errors = vec![
             QueueError::QueueEntryNotFound("e".into()),
             QueueError::QueueEmpty,
-            QueueError::InvalidStateTransition { from: "A".into(), to: "B".into() },
+            QueueError::InvalidStateTransition {
+                from: "A".into(),
+                to: "B".into(),
+            },
             QueueError::InvalidQueueEntryId("id".into()),
             QueueError::InvalidPriority("p".into()),
             QueueError::InvalidQueuePosition("pos".into()),
@@ -286,12 +289,16 @@ mod tests {
     #[test]
     fn queue_error_source_chain() {
         let err: Box<dyn std::error::Error> = Box::new(QueueError::RepositoryError("inner".into()));
-        assert!(err.source().is_none(), "thiserror Error should not have a source chain for simple variants");
+        assert!(
+            err.source().is_none(),
+            "thiserror Error should not have a source chain for simple variants"
+        );
     }
 
     #[test]
     fn migration_error_source_chain() {
-        let err: Box<dyn std::error::Error> = Box::new(MigrationError::DatabaseError("conn".into()));
+        let err: Box<dyn std::error::Error> =
+            Box::new(MigrationError::DatabaseError("conn".into()));
         assert!(err.source().is_none());
     }
 

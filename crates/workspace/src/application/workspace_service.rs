@@ -393,7 +393,10 @@ mod tests {
         )
         .unwrap();
         let all = vec![ws1];
-        let found = WorkspaceService::find_workspace(&all, &WorkspaceId::parse("nonexistent".into()).unwrap());
+        let found = WorkspaceService::find_workspace(
+            &all,
+            &WorkspaceId::parse("nonexistent".into()).unwrap(),
+        );
         assert!(found.is_none());
     }
 
@@ -410,7 +413,10 @@ mod tests {
         )
         .unwrap();
         let all = vec![ws1.clone(), ws2];
-        let found = WorkspaceService::find_by_name(&all, &WorkspaceName::new("name-search".into()).unwrap());
+        let found = WorkspaceService::find_by_name(
+            &all,
+            &WorkspaceName::new("name-search".into()).unwrap(),
+        );
         assert!(found.is_some());
         assert_eq!(found.unwrap().id.as_str(), ws1.id.as_str());
     }
@@ -423,7 +429,8 @@ mod tests {
         )
         .unwrap();
         let all = vec![ws1];
-        let found = WorkspaceService::find_by_name(&all, &WorkspaceName::new("ghost".into()).unwrap());
+        let found =
+            WorkspaceService::find_by_name(&all, &WorkspaceName::new("ghost".into()).unwrap());
         assert!(found.is_none());
     }
 
@@ -564,19 +571,14 @@ mod tests {
 
     #[test]
     fn workspace_service_find_workspace_empty() {
-        let found = WorkspaceService::find_workspace(
-            &[],
-            &WorkspaceId::parse("any".into()).unwrap(),
-        );
+        let found =
+            WorkspaceService::find_workspace(&[], &WorkspaceId::parse("any".into()).unwrap());
         assert!(found.is_none());
     }
 
     #[test]
     fn workspace_service_find_by_name_empty() {
-        let found = WorkspaceService::find_by_name(
-            &[],
-            &WorkspaceName::new("any".into()).unwrap(),
-        );
+        let found = WorkspaceService::find_by_name(&[], &WorkspaceName::new("any".into()).unwrap());
         assert!(found.is_none());
     }
 
@@ -627,7 +629,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("name-preserve".into()).unwrap(),
             WorkspacePath::new("/tmp/name-preserve".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(ws.name().as_str(), "name-preserve");
     }
 
@@ -636,7 +639,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("path-preserve".into()).unwrap(),
             WorkspacePath::new("/tmp/path-preserve".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         assert!(ws.path().as_str().unwrap().contains("/tmp/path-preserve"));
     }
 
@@ -645,11 +649,13 @@ mod tests {
         let ws1 = WorkspaceService::create_workspace(
             WorkspaceName::new("id-1".into()).unwrap(),
             WorkspacePath::new("/tmp/id-1".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let ws2 = WorkspaceService::create_workspace(
             WorkspaceName::new("id-2".into()).unwrap(),
             WorkspacePath::new("/tmp/id-2".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_ne!(ws1.id.as_str(), ws2.id.as_str());
     }
 
@@ -658,7 +664,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("init-name".into()).unwrap(),
             WorkspacePath::new("/tmp/init-name".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
         assert_eq!(initialized.name().as_str(), "init-name");
     }
@@ -668,7 +675,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("lock-id".into()).unwrap(),
             WorkspacePath::new("/tmp/lock-id".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let id = ws.id.as_str().to_string();
         let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
         let locked = WorkspaceService::lock_workspace(initialized, "agent".into()).unwrap();
@@ -680,7 +688,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("unlock-name".into()).unwrap(),
             WorkspacePath::new("/tmp/unlock-name".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
         let locked = WorkspaceService::lock_workspace(initialized, "agent".into()).unwrap();
         let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
@@ -692,7 +701,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("del-init".into()).unwrap(),
             WorkspacePath::new("/tmp/del-init".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let deleted = WorkspaceService::delete_workspace(ws).unwrap();
         assert_eq!(deleted.state, WorkspaceState::Deleted);
         assert!(deleted.is_terminal());
@@ -703,7 +713,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("del-active2".into()).unwrap(),
             WorkspacePath::new("/tmp/del-active2".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
         let deleted = WorkspaceService::delete_workspace(initialized).unwrap();
         assert_eq!(deleted.state, WorkspaceState::Deleted);
@@ -714,7 +725,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("del-locked".into()).unwrap(),
             WorkspacePath::new("/tmp/del-locked".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
         let locked = WorkspaceService::lock_workspace(initialized, "agent-1".into()).unwrap();
         let result = WorkspaceService::delete_workspace(locked);
@@ -732,7 +744,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("del-ts".into()).unwrap(),
             WorkspacePath::new("/tmp/del-ts".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let created_at = ws.created_at();
         let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
         let deleted = WorkspaceService::delete_workspace(initialized).unwrap();
@@ -744,7 +757,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("recover-clear".into()).unwrap(),
             WorkspacePath::new("/tmp/recover-clear".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
         let locked = WorkspaceService::lock_workspace(initialized, "old-agent".into()).unwrap();
         let recovered = WorkspaceService::recover_workspace(locked).unwrap();
@@ -757,7 +771,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("recover-cfg".into()).unwrap(),
             WorkspacePath::new("/tmp/recover-cfg".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
         let locked = WorkspaceService::lock_workspace(initialized, "agent".into()).unwrap();
         let recovered = WorkspaceService::recover_workspace(locked).unwrap();
@@ -770,7 +785,8 @@ mod tests {
         let ws = Workspace::create(
             WorkspaceName::new("recover-corrupt".into()).unwrap(),
             WorkspacePath::new("/tmp/recover-corrupt".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let corrupted_ws = Workspace {
             id: ws.id,
             name: ws.name,
@@ -791,19 +807,22 @@ mod tests {
         let ws1 = WorkspaceService::create_workspace(
             WorkspaceName::new("active-a".into()).unwrap(),
             WorkspacePath::new("/tmp/active-a".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let active_a = WorkspaceService::initialize_workspace(ws1).unwrap();
 
         let ws2 = WorkspaceService::create_workspace(
             WorkspaceName::new("active-b".into()).unwrap(),
             WorkspacePath::new("/tmp/active-b".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let active_b = WorkspaceService::initialize_workspace(ws2).unwrap();
 
         let ws3 = WorkspaceService::create_workspace(
             WorkspaceName::new("init-c".into()).unwrap(),
             WorkspacePath::new("/tmp/init-c".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let all = vec![active_a.clone(), active_b.clone(), ws3];
         let active_list = WorkspaceService::get_active_workspaces(&all);
@@ -815,14 +834,16 @@ mod tests {
         let ws1 = WorkspaceService::create_workspace(
             WorkspaceName::new("lock-a".into()).unwrap(),
             WorkspacePath::new("/tmp/lock-a".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let active1 = WorkspaceService::initialize_workspace(ws1).unwrap();
         let locked1 = WorkspaceService::lock_workspace(active1, "a1".into()).unwrap();
 
         let ws2 = WorkspaceService::create_workspace(
             WorkspaceName::new("lock-b".into()).unwrap(),
             WorkspacePath::new("/tmp/lock-b".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let active2 = WorkspaceService::initialize_workspace(ws2).unwrap();
         let locked2 = WorkspaceService::lock_workspace(active2, "a2".into()).unwrap();
 
@@ -836,13 +857,16 @@ mod tests {
         let ws1 = WorkspaceService::create_workspace(
             WorkspaceName::new("dup".into()).unwrap(),
             WorkspacePath::new("/tmp/dup-1".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let ws2 = WorkspaceService::create_workspace(
             WorkspaceName::new("other".into()).unwrap(),
             WorkspacePath::new("/tmp/other".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let all = vec![ws1.clone(), ws2];
-        let found = WorkspaceService::find_by_name(&all, &WorkspaceName::new("dup".into()).unwrap());
+        let found =
+            WorkspaceService::find_by_name(&all, &WorkspaceName::new("dup".into()).unwrap());
         assert!(found.is_some());
         assert_eq!(found.unwrap().id.as_str(), ws1.id.as_str());
     }
@@ -852,11 +876,13 @@ mod tests {
         let ws1 = WorkspaceService::create_workspace(
             WorkspaceName::new("init-a".into()).unwrap(),
             WorkspacePath::new("/tmp/init-a".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let ws2 = WorkspaceService::create_workspace(
             WorkspaceName::new("init-b".into()).unwrap(),
             WorkspacePath::new("/tmp/init-b".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let all = vec![ws1, ws2];
         let active_list = WorkspaceService::get_active_workspaces(&all);
         assert!(active_list.is_empty());
@@ -867,7 +893,8 @@ mod tests {
         let ws1 = WorkspaceService::create_workspace(
             WorkspaceName::new("active-x".into()).unwrap(),
             WorkspacePath::new("/tmp/active-x".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let active = WorkspaceService::initialize_workspace(ws1).unwrap();
         let all = vec![active];
         let locked_list = WorkspaceService::get_locked_workspaces(&all);
@@ -913,7 +940,8 @@ mod tests {
         let ws = WorkspaceService::create_workspace(
             WorkspaceName::new("full-cycle".into()).unwrap(),
             WorkspacePath::new("/tmp/full-cycle".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
         assert!(initialized.is_active());
 
@@ -931,9 +959,9 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
+        use super::*;
         use proptest::prelude::*;
         use proptest::{prop_assert, prop_assert_eq};
-        use super::*;
 
         proptest! {
             #[test]

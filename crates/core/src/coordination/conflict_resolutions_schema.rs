@@ -231,9 +231,9 @@ mod tests {
 
     #[test]
     fn test_session_index_exists() {
-        let session_idx = INDEX_SQL
-            .iter()
-            .find(|s| s.contains("idx_conflict_resolutions_session ON conflict_resolutions(session)"));
+        let session_idx = INDEX_SQL.iter().find(|s| {
+            s.contains("idx_conflict_resolutions_session ON conflict_resolutions(session)")
+        });
         assert!(
             session_idx.is_some(),
             "should have a single-column index on session"
@@ -242,9 +242,9 @@ mod tests {
 
     #[test]
     fn test_timestamp_index_exists() {
-        let ts_idx = INDEX_SQL
-            .iter()
-            .find(|s| s.contains("idx_conflict_resolutions_timestamp ON conflict_resolutions(timestamp)"));
+        let ts_idx = INDEX_SQL.iter().find(|s| {
+            s.contains("idx_conflict_resolutions_timestamp ON conflict_resolutions(timestamp)")
+        });
         assert!(
             ts_idx.is_some(),
             "should have a single-column index on timestamp"
@@ -253,9 +253,9 @@ mod tests {
 
     #[test]
     fn test_decider_index_exists() {
-        let decider_idx = INDEX_SQL
-            .iter()
-            .find(|s| s.contains("idx_conflict_resolutions_decider ON conflict_resolutions(decider)"));
+        let decider_idx = INDEX_SQL.iter().find(|s| {
+            s.contains("idx_conflict_resolutions_decider ON conflict_resolutions(decider)")
+        });
         assert!(
             decider_idx.is_some(),
             "should have a single-column index on decider"

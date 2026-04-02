@@ -368,9 +368,15 @@ fn in_memory_repo_update_preserves_id() {
 #[test]
 fn in_memory_repo_enqueue_with_different_priorities() {
     let repo = InMemoryQueueRepository::new();
-    repo.enqueue(create_test_entry_with_priority("low", Priority::low())).unwrap();
-    repo.enqueue(create_test_entry_with_priority("high", Priority::high())).unwrap();
-    repo.enqueue(create_test_entry_with_priority("normal", Priority::normal())).unwrap();
+    repo.enqueue(create_test_entry_with_priority("low", Priority::low()))
+        .unwrap();
+    repo.enqueue(create_test_entry_with_priority("high", Priority::high()))
+        .unwrap();
+    repo.enqueue(create_test_entry_with_priority(
+        "normal",
+        Priority::normal(),
+    ))
+    .unwrap();
 
     let all = repo.list_all().unwrap();
     assert_eq!(all.len(), 3);

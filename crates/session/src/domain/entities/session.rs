@@ -645,12 +645,8 @@ mod tests {
 
         #[test]
         fn branch_state_on_branch_to_on_branch_is_valid() {
-            let from = BranchState::OnBranch {
-                name: "old".into(),
-            };
-            let to = BranchState::OnBranch {
-                name: "new".into(),
-            };
+            let from = BranchState::OnBranch { name: "old".into() };
+            let to = BranchState::OnBranch { name: "new".into() };
             assert!(from.can_transition_to(&to));
         }
 
@@ -736,9 +732,7 @@ mod tests {
             let name = SessionName::parse("preset-name").expect("valid");
             let ws = WorkspaceId::parse("ws-test").expect("valid");
             let bd = BeadId::parse("bd-abc123").expect("valid");
-            let branch = BranchState::OnBranch {
-                name: "dev".into(),
-            };
+            let branch = BranchState::OnBranch { name: "dev".into() };
             let created_at = chrono::Utc::now();
 
             let session = Session::from_parts(
@@ -923,9 +917,7 @@ mod tests {
             let name = SessionName::parse("test").expect("valid");
             let session = Session::<Created>::create(name).expect("created");
             let on_dev = session
-                .transition_branch(BranchState::OnBranch {
-                    name: "dev".into(),
-                })
+                .transition_branch(BranchState::OnBranch { name: "dev".into() })
                 .expect("valid");
             let on_main = on_dev
                 .transition_branch(BranchState::OnBranch {
@@ -1245,7 +1237,8 @@ mod tests {
             let name = SessionName::parse("unique").expect("valid");
             let s1 = Session::<Created>::create(name.clone()).expect("s1");
             let s2 = Session::<Created>::create(name).expect("s2");
-            let s3 = Session::<Created>::create(SessionName::parse("other").expect("valid")).expect("s3");
+            let s3 = Session::<Created>::create(SessionName::parse("other").expect("valid"))
+                .expect("s3");
             assert_ne!(s1.id, s2.id);
             assert_ne!(s2.id, s3.id);
             assert_ne!(s1.id, s3.id);
@@ -1257,9 +1250,7 @@ mod tests {
             let name = SessionName::parse("preset-name").expect("valid");
             let ws = WorkspaceId::parse("ws-test").expect("valid");
             let bd = BeadId::parse("bd-deadbeef").expect("valid");
-            let branch = BranchState::OnBranch {
-                name: "dev".into(),
-            };
+            let branch = BranchState::OnBranch { name: "dev".into() };
             let ts = chrono::Utc::now();
 
             let session = Session::from_parts(

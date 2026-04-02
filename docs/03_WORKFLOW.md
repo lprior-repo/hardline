@@ -1,4 +1,4 @@
-# Daily Workflow: Beads + Jujutsu + Moon
+# Daily Workflow: Beads + Git + Moon
 
 Integration of issue tracking, version control, and build system.
 
@@ -14,18 +14,21 @@ br list
 br update BD-123 --status in_progress
 
 # Pull latest
-jj git fetch --all-remotes
+git pull --rebase
 ```
 
 ### 2. Make Changes
 
 ```bash
-# Edit files (automatically tracked by jj)
+# Create a feature branch
+git checkout -b feature/BD-123
+
+# Edit files
 vim crates/hardline-core/src/lib.rs
 
 # Check status
-jj status
-jj diff
+git status
+git diff
 
 # Test locally
 moon run :test
@@ -34,29 +37,24 @@ moon run :test
 ### 3. Commit Changes
 
 ```bash
-# Describe change (conventional commits)
-jj describe -m "feat: add new feature
+# Stage and commit (conventional commits)
+git add .
+git commit -m "feat: add new feature
 
 - Implementation detail 1
 - Implementation detail 2
 
 Closes BD-123"
-
-# Start next change
-jj new
 ```
 
 ### 4. Push to Remote
 
 ```bash
-# Fetch latest
-jj git fetch --all-remotes
+# Push feature branch
+git push -u origin feature/BD-123
 
-# Push
-jj git push
-
-# Verify
-jj log -r @
+# Or push to main
+git push
 ```
 
 ### 5. Close Issue
@@ -106,31 +104,25 @@ chore      - Maintenance, refactoring
 p0, p1, p2 - Priority (0=highest)
 ```
 
-## Jujutsu (Version Control)
+## Git (Version Control)
 
 ### Status & Diff
 
 ```bash
-jj status           # Current state
-jj diff             # Changes in working copy
-jj log              # Commit history
-jj log -r @         # Current change
+git status          # Current state
+git diff            # Changes in working copy
+git log --oneline   # Commit history
 ```
 
 ### Commits
 
 ```bash
-# Set commit message
-jj describe -m "feat: description"
+# Stage and commit
+git add .
+git commit -m "feat: description"
 
-# View full message
-jj describe -r @
-
-# Edit message
-jj describe -e
-
-# Start new change
-jj new
+# Amend last commit message (before push only)
+git commit --amend -m "feat: better description"
 ```
 
 ### Conventional Commits
@@ -148,7 +140,7 @@ perf: Performance improvements
 ### Example Commit
 
 ```bash
-jj describe -m "feat: add validation builder
+git commit -m "feat: add validation builder
 
 - Implement ValidatorBuilder struct
 - Add error types for validation
@@ -160,22 +152,22 @@ Closes BD-42"
 ### Working with Remotes
 
 ```bash
-jj git fetch --all-remotes        # Fetch latest
-jj git push                        # Push changes
-jj log -r origin/main..@           # Commits not yet pushed
+git fetch origin                    # Fetch latest
+git push                            # Push changes
+git log origin/main..HEAD           # Commits not yet pushed
 ```
 
-### Editing Commits
+### Branching
 
 ```bash
-# Edit current change
-jj edit
+# Create and switch to branch
+git checkout -b feature/my-feature
 
-# Edit specific commit
-jj edit -r BD-123
+# Switch back to main
+git checkout main
 
-# Squash into parent
-jj squash
+# Merge feature branch
+git merge feature/my-feature
 ```
 
 ## Moon (Build System)
@@ -197,14 +189,14 @@ moon run :test
 moon run :ci
 
 # If all pass
-jj git push
+git push
 ```
 
 ### Common Issues
 
 ```bash
 # Fix formatting
-cargo fmt
+moon run :fmt-fix
 
 # Re-run tests
 moon run :test
@@ -219,7 +211,7 @@ moon run :quick --log debug
 
 ```bash
 # Check latest
-jj git fetch --all-remotes
+git pull --rebase
 
 # See available work
 br list
@@ -246,20 +238,18 @@ moon run :test
 moon run :ci
 
 # Commit with message
-jj describe -m "feat: implement feature
+git add .
+git commit -m "feat: implement feature
 
 - Detail 1
 - Detail 2"
-
-# Start next
-jj new
 ```
 
 ### End of Day
 
 ```bash
 # Push all changes
-jj git push
+git push
 
 # Close completed issues
 br close BD-123
@@ -276,18 +266,18 @@ br show BD-125
 br update BD-123 --status in_progress
 
 # Make changes, commit
-jj describe -m "fix: issue 123"
-jj new
+git add .
+git commit -m "fix: issue 123"
 
 # Claim second issue
 br update BD-124 --status in_progress
 
 # Make changes, commit
-jj describe -m "feat: issue 124"
-jj new
+git add .
+git commit -m "feat: issue 124"
 
 # Push all
-jj git push
+git push
 
 # Close both
 br close BD-123
@@ -313,7 +303,7 @@ hardline sync --all
 
 ### What It Does
 
-1. Runs: `jj rebase -d main`
+1. Runs: `git pull --rebase`
 2. Updates `last_synced` timestamp in session database
 3. Shows summary of changes applied
 
@@ -339,13 +329,16 @@ If conflicts occur during rebase:
 
 ```bash
 # View conflicts
-jj diff
+git diff --name-only --diff-filter=U
 
 # Edit conflicted files
 vim conflicted_file.rs
 
-# Continue with rebase (jj tracks resolution automatically)
-jj diff  # Should show no conflicts
+# Stage resolved files
+git add conflicted_file.rs
+
+# Continue rebase
+git rebase --continue
 ```
 
 ## Handling Conflicts
@@ -353,11 +346,7 @@ jj diff  # Should show no conflicts
 ### Update with Latest
 
 ```bash
-jj git fetch --all-remotes
-# jj automatically handles conflicts
-
-# View conflicts
-jj diff
+git pull --rebase
 ```
 
 ### Resolving Conflicts
@@ -366,12 +355,14 @@ jj diff
 # Edit conflicted file
 vim conflicted_file.rs
 
-# Mark resolved (jj tracks this)
-jj diff  # Should show no conflicts
+# Stage resolved file
+git add conflicted_file.rs
 
-# Commit resolution
-jj describe -m "merge: resolve conflicts"
-jj git push
+# Continue rebase
+git rebase --continue
+
+# Or abort rebase
+git rebase --abort
 ```
 
 ## Landing (Finishing Session)
@@ -384,67 +375,62 @@ moon run :ci
 br create "Follow-up: X" --labels chore
 
 # 3. Commit final changes
-jj describe -m "chore: final cleanup"
-jj new
+git add .
+git commit -m "chore: final cleanup"
 
 # 4. Update Beads
 br close BD-123
 br close BD-124
 
 # 5. Push everything
-jj git fetch --all-remotes
-jj git push
+git push
 
 # 6. Verify push
-jj log -r @
+git status
 ```
 
 ## Common Patterns
 
-### Feature Branch (using jj bookmarks)
+### Feature Branch
 
 ```bash
-# Create feature bookmark
-jj bookmark set feature/cool-thing
+# Create feature branch
+git checkout -b feature/cool-thing
 
-# Make changes on current commit
+# Make changes and commit
 # ... changes ...
-jj describe -m "feat: cool thing"
-jj new
+git add .
+git commit -m "feat: cool thing"
+
+# Push feature branch
+git push -u origin feature/cool-thing
 
 # Switch back to main
-jj bookmark set main
+git checkout main
 
 # Later, merge feature
-jj bookmark set feature/cool-thing
-# ... feature is now on top
+git merge feature/cool-thing
 ```
 
-### Stashing (Temporal Commits)
+### Stashing
 
 ```bash
 # Save work in progress
-jj describe -m "wip: work in progress"
+git stash
 
 # Continue elsewhere
-jj new
+git checkout -b other-work
 
-# Come back to WIP later
-jj log
-jj edit -r <wip-commit>
+# Come back to stashed work
+git stash pop
 ```
 
 ### Squashing Multiple Commits
 
 ```bash
-# Make several commits
-jj describe -m "feat: part 1"
-jj new
-jj describe -m "feat: part 2"
-jj new
-
-# Squash into parent (now just one commit)
-jj squash
+# Interactive rebase to squash commits (before push only)
+git rebase -i HEAD~3
+# Mark commits as 'squash' or 'fixup'
 ```
 
 ## Tips & Tricks
@@ -452,63 +438,63 @@ jj squash
 ### See what changed since last push
 
 ```bash
-jj log -r origin/main..@
+git log origin/main..HEAD
 ```
 
 ### Abandon unwanted changes
 
 ```bash
-jj abandon <revision>
+git reset HEAD~1        # Undo last commit, keep changes
+git reset --hard HEAD~1 # Undo last commit, discard changes
 ```
 
 ### Revert a change
 
 ```bash
-jj undo <revision>
+git revert <commit-hash>
 ```
 
-### Move changes between commits
+### Cherry-pick a commit
 
 ```bash
-jj move <source> <destination>
+git cherry-pick <commit-hash>
 ```
 
 ## Troubleshooting
 
 ### "Commit not found"
 
-Use `jj log` to find commit hash, then use hash instead of shorthand.
+Use `git log` to find the commit hash.
 
 ### "Can't push"
 
 ```bash
-# Fetch first
-jj git fetch --all-remotes
+# Pull first
+git pull --rebase
 
 # Then push
-jj git push
+git push
 ```
 
 ### "Changes not tracked"
 
-All file changes are automatically tracked. If not appearing in `jj diff`:
 ```bash
-jj status  # Check status
-jj diff    # Show changes
+git status  # Check status
+git diff    # Show changes
 ```
 
 ### "Wrong commit message"
 
-Edit before pushing:
+Amend before pushing:
 ```bash
-jj describe -e  # Opens editor
-jj git push     # Push corrected
+git commit --amend -m "corrected message"
+git push
 ```
 
 ## The Flow
 
 1. **Beads**: Organization (what to work on)
-2. **Jujutsu**: Implementation (tracking changes)
+2. **Git**: Implementation (tracking changes)
 3. **Moon**: Validation (building & testing)
 4. **Beads**: Closure (marking done)
 

@@ -131,10 +131,19 @@ mod tests {
     #[test]
     fn queue_error_exit_codes() {
         assert_eq!(QueueError::from(QueueErrorKind::Empty).exit_code(), 20);
-        assert_eq!(QueueError::from(QueueErrorKind::ItemNotFound("x".into())).exit_code(), 21);
-        assert_eq!(QueueError::from(QueueErrorKind::Locked("x".into())).exit_code(), 22);
+        assert_eq!(
+            QueueError::from(QueueErrorKind::ItemNotFound("x".into())).exit_code(),
+            21
+        );
+        assert_eq!(
+            QueueError::from(QueueErrorKind::Locked("x".into())).exit_code(),
+            22
+        );
         assert_eq!(QueueError::from(QueueErrorKind::Processing).exit_code(), 23);
-        assert_eq!(QueueError::from(QueueErrorKind::InvalidPosition(1)).exit_code(), 24);
+        assert_eq!(
+            QueueError::from(QueueErrorKind::InvalidPosition(1)).exit_code(),
+            24
+        );
         assert_eq!(QueueError::from(QueueErrorKind::Full(100)).exit_code(), 25);
     }
 

@@ -94,12 +94,15 @@ impl<S> Stack<S> {
     #[must_use]
     pub fn topological_order(&self) -> Vec<&StackBranch> {
         let graph = self.build_dependency_graph();
-        petgraph::algo::toposort(&graph, None).map_or_else(|_| self.branches.iter().collect(), |sorted_indices| {
+        petgraph::algo::toposort(&graph, None).map_or_else(
+            |_| self.branches.iter().collect(),
+            |sorted_indices| {
                 sorted_indices
                     .into_iter()
                     .filter_map(|idx| graph.node_weight(idx).copied())
                     .collect()
-            })
+            },
+        )
     }
 
     fn build_dependency_graph(&self) -> petgraph::Graph<&StackBranch, ()> {
@@ -748,8 +751,12 @@ mod tests {
         let main = BranchName::new("main".to_string());
         let stack = Stack::<Draft>::new(main);
         // Empty stack has no branches, so lookups return empty
-        assert!(stack.ancestors(&BranchName::new("anything".to_string())).is_empty());
-        assert!(stack.descendants(&BranchName::new("anything".to_string())).is_empty());
+        assert!(stack
+            .ancestors(&BranchName::new("anything".to_string()))
+            .is_empty());
+        assert!(stack
+            .descendants(&BranchName::new("anything".to_string()))
+            .is_empty());
     }
 
     #[test]
@@ -783,9 +790,18 @@ mod tests {
         let order = stack.topological_order();
         assert_eq!(order.len(), 3);
         // main is not in branches, but a and b should come before c
-        let c_idx = order.iter().position(|b| b.name.as_str() == "c").expect("c in order");
-        let a_idx = order.iter().position(|b| b.name.as_str() == "a").expect("a in order");
-        let b_idx = order.iter().position(|b| b.name.as_str() == "b").expect("b in order");
+        let c_idx = order
+            .iter()
+            .position(|b| b.name.as_str() == "c")
+            .expect("c in order");
+        let a_idx = order
+            .iter()
+            .position(|b| b.name.as_str() == "a")
+            .expect("a in order");
+        let b_idx = order
+            .iter()
+            .position(|b| b.name.as_str() == "b")
+            .expect("b in order");
         assert!(a_idx < c_idx);
         assert!(b_idx < c_idx);
     }
@@ -831,7 +847,10 @@ mod tests {
         stack.branches.push(StackBranch {
             name: BranchName::new("a".to_string()),
             parent: Some(main),
-            children: vec![BranchName::new("b".to_string()), BranchName::new("c".to_string())],
+            children: vec![
+                BranchName::new("b".to_string()),
+                BranchName::new("c".to_string()),
+            ],
             needs_restack: false,
             pr_info: None,
         });

@@ -434,8 +434,12 @@ mod tests {
     #[test]
     fn test_pr_info_with_state() {
         let pr = PrInfo::new(
-            1, "url".to_string(), "title".to_string(),
-            "desc".to_string(), "bob".to_string(), false,
+            1,
+            "url".to_string(),
+            "title".to_string(),
+            "desc".to_string(),
+            "bob".to_string(),
+            false,
         )
         .with_state(PrState::Merged);
         assert_eq!(pr.state, PrState::Merged);
@@ -518,34 +522,29 @@ mod tests {
 
     #[test]
     fn test_stack_branch_new_no_parent() {
-        let branch = StackBranch::new(
-            BranchName::new("root"),
-            0,
-            CommitHash::new("abc"),
-            None,
-        );
+        let branch = StackBranch::new(BranchName::new("root"), 0, CommitHash::new("abc"), None);
         assert!(branch.parent_branch.is_none());
     }
 
     #[test]
     fn test_stack_branch_with_pr_info() {
         let pr = PrInfo::new(
-            1, "url".to_string(), "title".to_string(),
-            "desc".to_string(), "author".to_string(), false,
+            1,
+            "url".to_string(),
+            "title".to_string(),
+            "desc".to_string(),
+            "author".to_string(),
+            false,
         );
-        let branch = StackBranch::new(
-            BranchName::new("feat"), 0, CommitHash::new("abc"), None,
-        )
-        .with_pr_info(pr);
+        let branch = StackBranch::new(BranchName::new("feat"), 0, CommitHash::new("abc"), None)
+            .with_pr_info(pr);
         assert!(branch.pr_info.is_some());
         assert_eq!(branch.pr_info.as_ref().expect("pr").pr_number, 1);
     }
 
     #[test]
     fn test_stack_branch_transition_to() {
-        let mut branch = StackBranch::new(
-            BranchName::new("feat"), 0, CommitHash::new("abc"), None,
-        );
+        let mut branch = StackBranch::new(BranchName::new("feat"), 0, CommitHash::new("abc"), None);
         assert_eq!(branch.state, BranchState::Open);
         branch.transition_to(BranchState::Draft);
         assert_eq!(branch.state, BranchState::Draft);
@@ -556,8 +555,12 @@ mod tests {
     #[test]
     fn test_stack_branch_serde_roundtrip() {
         let pr = PrInfo::new(
-            5, "url".to_string(), "title".to_string(),
-            "desc".to_string(), "author".to_string(), true,
+            5,
+            "url".to_string(),
+            "title".to_string(),
+            "desc".to_string(),
+            "author".to_string(),
+            true,
         );
         let branch = StackBranch::new(
             BranchName::new("feat-branch"),
@@ -592,7 +595,10 @@ mod tests {
     #[test]
     fn test_stack_with_branches() {
         let branches = vec![StackBranch::new(
-            BranchName::new("only-branch"), 0, CommitHash::new("abc"), None,
+            BranchName::new("only-branch"),
+            0,
+            CommitHash::new("abc"),
+            None,
         )];
         let stack = Stack::new(
             StackId::from_u64(1),
@@ -684,12 +690,18 @@ mod tests {
         assert_eq!(stack.branches.len(), 0);
 
         stack.add_branch(StackBranch::new(
-            BranchName::new("b1"), 0, CommitHash::new("c1"), None,
+            BranchName::new("b1"),
+            0,
+            CommitHash::new("c1"),
+            None,
         ));
         assert_eq!(stack.branches.len(), 1);
 
         stack.add_branch(StackBranch::new(
-            BranchName::new("b2"), 1, CommitHash::new("c2"), Some(BranchName::new("b1")),
+            BranchName::new("b2"),
+            1,
+            CommitHash::new("c2"),
+            Some(BranchName::new("b1")),
         ));
         assert_eq!(stack.branches.len(), 2);
     }

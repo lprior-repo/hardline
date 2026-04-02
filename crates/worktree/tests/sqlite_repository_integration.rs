@@ -1118,7 +1118,10 @@ mod sqlite_repository_integration {
         let all = repo.list_all().await.unwrap();
         let found = all.iter().find(|w| w.name().as_str() == "type-dev");
         assert!(found.is_some());
-        assert_eq!(found.unwrap().worktree_type(), WorktreeTypeEnum::Development);
+        assert_eq!(
+            found.unwrap().worktree_type(),
+            WorktreeTypeEnum::Development
+        );
     }
 
     #[tokio::test]

@@ -403,7 +403,10 @@ mod tests {
                 from: SessionState::Active,
                 to: SessionState::Completed,
             };
-            let _ = SessionError::InvalidBranchTransition { from: String::new(), to: String::new() };
+            let _ = SessionError::InvalidBranchTransition {
+                from: String::new(),
+                to: String::new(),
+            };
             let _ = SessionError::WorkspaceNotFound(String::new());
             let _ = SessionError::WorkspaceExists(String::new());
             let _ = SessionError::WorkspaceLocked(String::new());

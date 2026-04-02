@@ -13,7 +13,9 @@ use scp_core::{Error, Result};
 use super::data::{
     CommitInfo, ConflictDetectionResult, DoneOptions, DoneOutput, DonePreview, UndoEntry,
 };
-use super::executor::{detect_conflicts, parse_diff_summary, ExecutorError, JjExecutor, RealJjExecutor};
+use super::executor::{
+    detect_conflicts, parse_diff_summary, ExecutorError, JjExecutor, RealJjExecutor,
+};
 
 // ============================================================================
 // Public API
@@ -38,9 +40,7 @@ pub fn run_done(options: &DoneOptions) -> Result<DoneOutput> {
 
     // Ensure not main workspace
     if workspace_name == "main" {
-        return Err(Error::invalid_state(
-            "cannot complete the main workspace",
-        ));
+        return Err(Error::invalid_state("cannot complete the main workspace"));
     }
 
     // Check workspace exists
@@ -59,11 +59,7 @@ pub fn run_done(options: &DoneOptions) -> Result<DoneOutput> {
 
     // Handle detect_conflicts mode
     if options.detect_conflicts {
-        return run_conflict_detection_only(
-            &executor,
-            &workspace_name,
-            workspace_path,
-        );
+        return run_conflict_detection_only(&executor, &workspace_name, workspace_path);
     }
 
     // Handle dry-run
@@ -474,8 +470,7 @@ impl<'a> WorkspaceJjExecutor<'a> {
 
 impl JjExecutor for WorkspaceJjExecutor<'_> {
     fn run(&self, args: &[&str]) -> std::result::Result<String, ExecutorError> {
-        self.inner
-            .run_in_workspace(args, &self.workspace_path)
+        self.inner.run_in_workspace(args, &self.workspace_path)
     }
 
     fn run_in_workspace(
@@ -625,8 +620,7 @@ mod tests {
             ..Default::default()
         };
         let json = serde_json::to_string(&output).expect("serialize");
-        let deserialized: DoneOutput =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: DoneOutput = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.workspace_name, "feature-branch");
         assert_eq!(deserialized.bead_id, Some("abc123".to_string()));
         assert_eq!(deserialized.files_committed, 5);
@@ -727,12 +721,10 @@ mod tests {
     fn test_parse_status_lines_basic() {
         let output = "M src/lib.rs\nA src/new.rs\nD src/old.rs\nR src/renamed.rs";
         let files = parse_status_lines(output);
-        assert_eq!(files, vec![
-            "src/lib.rs",
-            "src/new.rs",
-            "src/old.rs",
-            "src/renamed.rs",
-        ]);
+        assert_eq!(
+            files,
+            vec!["src/lib.rs", "src/new.rs", "src/old.rs", "src/renamed.rs",]
+        );
     }
 
     #[test]
@@ -931,8 +923,7 @@ mod tests {
 
     #[test]
     fn test_workspace_executor_delegates_run_in_workspace() {
-        let mock =
-            MockJjExecutor::new(vec![Ok("in-workspace-result".to_string())]);
+        let mock = MockJjExecutor::new(vec![Ok("in-workspace-result".to_string())]);
         let ws = WorkspaceJjExecutor::new(&mock, "/tmp/ws-a");
 
         let result = ws.run_in_workspace(&["diff", "--summary"], "/tmp/ws-b");
@@ -1445,13 +1436,11 @@ mod tests {
     #[test]
     fn test_execute_done_workflow_happy_path() {
         // Happy path: clean workspace, no conflicts, successful merge + push + cleanup
-        let backend = MockVcsBackend::new(vec![
-            scp_core::Workspace {
-                name: "feature-x".to_string(),
-                branch: "feature-x".to_string(),
-                is_current: false,
-            },
-        ]);
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "feature-x".to_string(),
+            branch: "feature-x".to_string(),
+            is_current: false,
+        }]);
 
         // detect_conflicts needs 4 responses (no conflicts), then log_undo_history
         // needs 1 response for "log -r @ --no-graph -T commit_id"
@@ -1461,13 +1450,15 @@ mod tests {
         let executor = MockJjExecutor::new(responses);
         let options = DoneOptions::default();
 
-        let result =
-            execute_done_workflow("feature-x", "/tmp/ws", &options, &backend, &executor);
+        let result = execute_done_workflow("feature-x", "/tmp/ws", &options, &backend, &executor);
 
         let output = result.expect("happy path should succeed");
         assert_eq!(output.workspace_name, "feature-x");
         assert!(output.merged, "should be marked as merged");
-        assert!(output.cleaned, "should be marked as cleaned (default: no keep_workspace)");
+        assert!(
+            output.cleaned,
+            "should be marked as cleaned (default: no keep_workspace)"
+        );
         assert!(output.pushed_to_remote, "push should succeed");
         assert!(!output.dry_run);
         assert!(output.preview.is_none());
@@ -1477,13 +1468,11 @@ mod tests {
     #[test]
     fn test_execute_done_workflow_keep_workspace() {
         // With --keep_workspace, the workspace should NOT be cleaned up
-        let backend = MockVcsBackend::new(vec![
-            scp_core::Workspace {
-                name: "feature-y".to_string(),
-                branch: "feature-y".to_string(),
-                is_current: false,
-            },
-        ]);
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "feature-y".to_string(),
+            branch: "feature-y".to_string(),
+            is_current: false,
+        }]);
 
         let mut responses = no_conflict_responses();
         responses.push(Ok("sha\n".to_string()));
@@ -1494,25 +1483,26 @@ mod tests {
             ..Default::default()
         };
 
-        let result =
-            execute_done_workflow("feature-y", "/tmp/ws", &options, &backend, &executor);
+        let result = execute_done_workflow("feature-y", "/tmp/ws", &options, &backend, &executor);
         let output = result.expect("keep-workspace should succeed");
         assert_eq!(output.workspace_name, "feature-y");
         assert!(output.merged);
-        assert!(!output.cleaned, "workspace should NOT be cleaned with --keep-workspace");
+        assert!(
+            !output.cleaned,
+            "workspace should NOT be cleaned with --keep-workspace"
+        );
         assert!(output.pushed_to_remote);
     }
 
     #[test]
     fn test_execute_done_workflow_push_failure_is_non_fatal() {
         // Push failure should NOT abort the workflow
-        let backend =
-            MockVcsBackend::new(vec![scp_core::Workspace {
-                name: "push-fail-ws".to_string(),
-                branch: "push-fail-ws".to_string(),
-                is_current: false,
-            }])
-            .with_push_failure();
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "push-fail-ws".to_string(),
+            branch: "push-fail-ws".to_string(),
+            is_current: false,
+        }])
+        .with_push_failure();
 
         let mut responses = no_conflict_responses();
         responses.push(Ok("sha\n".to_string()));
@@ -1530,13 +1520,12 @@ mod tests {
     #[test]
     fn test_execute_done_workflow_rebase_failure() {
         // Rebase failure should abort the workflow with an error
-        let backend =
-            MockVcsBackend::new(vec![scp_core::Workspace {
-                name: "rebase-fail-ws".to_string(),
-                branch: "rebase-fail-ws".to_string(),
-                is_current: false,
-            }])
-            .with_rebase_failure();
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "rebase-fail-ws".to_string(),
+            branch: "rebase-fail-ws".to_string(),
+            is_current: false,
+        }])
+        .with_rebase_failure();
 
         let executor = MockJjExecutor::new(no_conflict_responses());
         let options = DoneOptions::default();
@@ -1558,8 +1547,7 @@ mod tests {
         let executor = MockJjExecutor::new(existing_conflict_responses());
         let options = DoneOptions::default();
 
-        let result =
-            execute_done_workflow("conflict-ws", "/tmp/ws", &options, &backend, &executor);
+        let result = execute_done_workflow("conflict-ws", "/tmp/ws", &options, &backend, &executor);
         assert!(result.is_err(), "existing conflicts should return an error");
     }
 
@@ -1575,8 +1563,7 @@ mod tests {
         let executor = MockJjExecutor::new(overlapping_conflict_responses());
         let options = DoneOptions::default();
 
-        let result =
-            execute_done_workflow("overlap-ws", "/tmp/ws", &options, &backend, &executor);
+        let result = execute_done_workflow("overlap-ws", "/tmp/ws", &options, &backend, &executor);
         assert!(
             result.is_err(),
             "overlapping files should be detected as conflicts"
@@ -1598,8 +1585,7 @@ mod tests {
         let executor = MockJjExecutor::new(responses);
         let options = DoneOptions::default();
 
-        let result =
-            execute_done_workflow("clean-ws", "/tmp/ws", &options, &backend, &executor);
+        let result = execute_done_workflow("clean-ws", "/tmp/ws", &options, &backend, &executor);
         let output = result.expect("empty diff should still succeed");
         assert!(output.merged);
         assert!(output.cleaned);
@@ -1620,8 +1606,7 @@ mod tests {
         let executor = MockJjExecutor::new(responses);
         let options = DoneOptions::default();
 
-        let result =
-            execute_done_workflow("changes-ws", "/tmp/ws", &options, &backend, &executor);
+        let result = execute_done_workflow("changes-ws", "/tmp/ws", &options, &backend, &executor);
         let output = result.expect("workspace with changes should succeed");
         assert!(output.merged);
         assert!(output.pushed_to_remote);
@@ -1643,8 +1628,7 @@ mod tests {
         let executor = MockJjExecutor::new(responses);
         let options = DoneOptions::default();
 
-        let result =
-            execute_done_workflow("del-fail-ws", "/tmp/ws", &options, &backend, &executor);
+        let result = execute_done_workflow("del-fail-ws", "/tmp/ws", &options, &backend, &executor);
         assert!(
             result.is_err(),
             "delete workspace failure should propagate as error"
@@ -1663,12 +1647,10 @@ mod tests {
 
         // First call fails, which means detect_conflicts fails, which
         // get_potential_conflicts catches and returns Vec::new()
-        let mut responses = vec![
-            Err(ExecutorError::CommandFailed {
-                code: 1,
-                stderr: "jj log failed".to_string(),
-            }),
-        ];
+        let mut responses = vec![Err(ExecutorError::CommandFailed {
+            code: 1,
+            stderr: "jj log failed".to_string(),
+        })];
         responses.push(Ok("sha\n".to_string()));
 
         let executor = MockJjExecutor::new(responses);
@@ -1676,10 +1658,12 @@ mod tests {
 
         let result =
             execute_done_workflow("detect-fail-ws", "/tmp/ws", &options, &backend, &executor);
-        let output = result.expect(
-            "conflict detection failure should not abort workflow (best-effort)",
+        let output =
+            result.expect("conflict detection failure should not abort workflow (best-effort)");
+        assert!(
+            output.merged,
+            "should still merge even if conflict detection failed"
         );
-        assert!(output.merged, "should still merge even if conflict detection failed");
     }
 
     // ===================================================================
@@ -1690,8 +1674,7 @@ mod tests {
     fn test_run_conflict_detection_only_no_conflicts() {
         let executor = MockJjExecutor::new(no_conflict_responses());
 
-        let result =
-            run_conflict_detection_only(&executor, "safe-ws", "/tmp/ws");
+        let result = run_conflict_detection_only(&executor, "safe-ws", "/tmp/ws");
 
         let output = result.expect("no conflicts should succeed");
         assert_eq!(output.workspace_name, "safe-ws");
@@ -1703,8 +1686,7 @@ mod tests {
     fn test_run_conflict_detection_only_with_existing_conflicts() {
         let executor = MockJjExecutor::new(existing_conflict_responses());
 
-        let result =
-            run_conflict_detection_only(&executor, "conflict-ws", "/tmp/ws");
+        let result = run_conflict_detection_only(&executor, "conflict-ws", "/tmp/ws");
 
         assert!(
             result.is_err(),
@@ -1716,8 +1698,7 @@ mod tests {
     fn test_run_conflict_detection_only_with_overlapping_files() {
         let executor = MockJjExecutor::new(overlapping_conflict_responses());
 
-        let result =
-            run_conflict_detection_only(&executor, "overlap-ws", "/tmp/ws");
+        let result = run_conflict_detection_only(&executor, "overlap-ws", "/tmp/ws");
 
         assert!(
             result.is_err(),
@@ -1737,15 +1718,15 @@ mod tests {
             // get_commits_to_merge: "log -r @..@- ..."
             Ok("change1\ncommit1\nfeat: add widget\n2024-01-15 10:00:00\n".to_string()),
             // get_potential_conflicts -> detect_conflicts: 4 responses
-            Ok(String::new()),                         // check_existing_conflicts
-            Ok(String::new()),                         // find_merge_base
-            Ok(String::new()),                         // workspace modified
-            Ok(String::new()),                         // trunk diff fallback
+            Ok(String::new()), // check_existing_conflicts
+            Ok(String::new()), // find_merge_base
+            Ok(String::new()), // workspace modified
+            Ok(String::new()), // trunk diff fallback
             // options.detect_conflicts=true -> detect_conflicts called again: 4 more responses
-            Ok(String::new()),                         // check_existing_conflicts
-            Ok(String::new()),                         // find_merge_base
-            Ok(String::new()),                         // workspace modified
-            Ok(String::new()),                         // trunk diff fallback
+            Ok(String::new()), // check_existing_conflicts
+            Ok(String::new()), // find_merge_base
+            Ok(String::new()), // workspace modified
+            Ok(String::new()), // trunk diff fallback
         ]);
 
         let options = DoneOptions {
@@ -1759,9 +1740,7 @@ mod tests {
         assert!(output.dry_run);
         assert_eq!(output.workspace_name, "preview-ws");
 
-        let preview = output
-            .preview
-            .expect("dry run should have preview data");
+        let preview = output.preview.expect("dry run should have preview data");
         assert_eq!(preview.uncommitted_files.len(), 2);
         assert_eq!(preview.commits_to_merge.len(), 1);
         assert!(preview.potential_conflicts.is_empty());
@@ -1776,15 +1755,15 @@ mod tests {
             // get_commits_to_merge: empty
             Ok(String::new()),
             // get_potential_conflicts -> detect_conflicts with overlapping (4 responses)
-            Ok(String::new()),                              // check_existing_conflicts
-            Ok("mergebase123\n".to_string()),               // find_merge_base (has base)
-            Ok("M shared.rs\nM unique.rs\n".to_string()),  // workspace modified
-            Ok("M shared.rs\n".to_string()),                // trunk modified (overlap)
+            Ok(String::new()),                // check_existing_conflicts
+            Ok("mergebase123\n".to_string()), // find_merge_base (has base)
+            Ok("M shared.rs\nM unique.rs\n".to_string()), // workspace modified
+            Ok("M shared.rs\n".to_string()),  // trunk modified (overlap)
             // options.detect_conflicts=true -> detect_conflicts called again: 4 more responses
-            Ok(String::new()),                              // check_existing_conflicts
-            Ok("mergebase123\n".to_string()),               // find_merge_base (has base)
-            Ok("M shared.rs\nM unique.rs\n".to_string()),  // workspace modified
-            Ok("M shared.rs\n".to_string()),                // trunk modified (overlap)
+            Ok(String::new()),                // check_existing_conflicts
+            Ok("mergebase123\n".to_string()), // find_merge_base (has base)
+            Ok("M shared.rs\nM unique.rs\n".to_string()), // workspace modified
+            Ok("M shared.rs\n".to_string()),  // trunk modified (overlap)
         ]);
 
         let options = DoneOptions {
@@ -1800,7 +1779,9 @@ mod tests {
         let preview = output.preview.expect("dry run should have preview");
         // Overlapping files: "shared.rs" appears in both workspace and trunk
         assert_eq!(preview.potential_conflicts.len(), 1);
-        assert!(preview.potential_conflicts.contains(&"shared.rs".to_string()));
+        assert!(preview
+            .potential_conflicts
+            .contains(&"shared.rs".to_string()));
     }
 
     #[test]
@@ -1869,10 +1850,10 @@ mod tests {
 
     #[test]
     fn test_get_commits_to_merge_multiple() {
-        let executor = MockJjExecutor::new(vec![Ok(
-            "ch1\ncm1\nfeat: first\n2024-01-15 10:00:00\n\
-             ch2\ncm2\nfix: second\n2024-01-15 11:00:00\n".to_string(),
-        )]);
+        let executor =
+            MockJjExecutor::new(vec![Ok("ch1\ncm1\nfeat: first\n2024-01-15 10:00:00\n\
+             ch2\ncm2\nfix: second\n2024-01-15 11:00:00\n"
+                .to_string())]);
         let commits = get_commits_to_merge(&executor).expect("should succeed");
         assert_eq!(commits.len(), 2);
         assert_eq!(commits[0].change_id, "ch1");

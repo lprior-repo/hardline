@@ -34,166 +34,57 @@ pub fn resolve_workspace_path(workspaces_root: &Path, workspace_name: &str) -> P
     workspaces_root.join(workspace_name)
 }
 
-/// Validate the .jj directory structure
-async fn validate_jj_directory(jj_dir: &Path) -> std::result::Result<(), IntegrityIssue> {
-    let repo_path = jj_dir.join("repo");
-    let repo_exists = tokio::fs::try_exists(&repo_path).await.map_err(|e| {
+/// Validate the .git directory structure
+async fn validate_git_directory(git_dir: &Path) -> std::result::Result<(), IntegrityIssue> {
+    // Check for HEAD file (required for a valid Git repository)
+    let head_path = git_dir.join("HEAD");
+    let head_exists = tokio::fs::try_exists(&head_path).await.map_err(|e| {
         IntegrityIssue::new(
             CorruptionType::PermissionDenied,
-            format!("Cannot check repo: {e}"),
+            format!("Cannot check HEAD file: {e}"),
         )
-        .with_path(&repo_path)
+        .with_path(&head_path)
     })?;
-    if !repo_exists {
+    if !head_exists {
         return Err(IntegrityIssue::new(
-            CorruptionType::CorruptedJjDir,
-            "JJ repository metadata missing ('repo' path)",
+            CorruptionType::CorruptedGitDir,
+            "Git repository metadata missing ('HEAD' file)",
         )
-        .with_path(jj_dir));
+        .with_path(git_dir));
     }
 
-    // Check if repo is a file (workspace pointing to shared repo) or directory
-    let repo_metadata = tokio::fs::metadata(&repo_path).await.map_err(|e| {
+    // Check for objects directory (required for a valid Git repository)
+    let objects_path = git_dir.join("objects");
+    let objects_exists = tokio::fs::try_exists(&objects_path).await.map_err(|e| {
         IntegrityIssue::new(
             CorruptionType::PermissionDenied,
-            format!("Cannot check repo metadata: {e}"),
+            format!("Cannot check objects directory: {e}"),
         )
-        .with_path(&repo_path)
+        .with_path(&objects_path)
     })?;
-
-    // If repo is a file, this is a workspace pointing to a shared repo.
-    if repo_metadata.is_file() {
-        validate_shared_repo_pointer(jj_dir, &repo_path).await?;
-        return Ok(());
-    }
-
-    // If repo is a directory, validate the op_store
-    // Check for empty critical directories
-    let op_store = repo_path.join("op_store");
-    let op_store_exists = tokio::fs::try_exists(&op_store).await.map_err(|e| {
-        IntegrityIssue::new(
-            CorruptionType::PermissionDenied,
-            format!("Cannot check op_store directory: {e}"),
-        )
-        .with_path(&op_store)
-    })?;
-    if op_store_exists {
-        match tokio::fs::read_dir(&op_store).await {
-            Ok(mut entries) => {
-                let has_entries = match entries.next_entry().await {
-                    Ok(Some(_)) => true,
-                    Ok(None) | Err(_) => false,
-                };
-                if !has_entries {
-                    return Err(IntegrityIssue::new(
-                        CorruptionType::CorruptedJjDir,
-                        "JJ operation store is empty",
-                    )
-                    .with_path(&op_store));
-                }
-            }
-            Err(e) => {
-                return Err(IntegrityIssue::new(
-                    CorruptionType::PermissionDenied,
-                    format!("Cannot read JJ op_store: {e}"),
-                )
-                .with_path(&op_store));
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// Validate a workspace pointing to a shared repo via pointer file
-async fn validate_shared_repo_pointer(
-    jj_dir: &Path,
-    repo_pointer_path: &Path,
-) -> std::result::Result<(), IntegrityIssue> {
-    let shared_repo_path = match tokio::fs::read_to_string(repo_pointer_path).await {
-        Ok(content) => {
-            let path_str = content.trim();
-            if path_str.is_empty() {
-                return Err(IntegrityIssue::new(
-                    CorruptionType::CorruptedJjDir,
-                    "JJ repo file is empty - workspace has no backing repo",
-                )
-                .with_path(repo_pointer_path));
-            }
-
-            if std::path::Path::new(path_str).is_absolute() {
-                std::path::PathBuf::from(path_str)
-            } else {
-                jj_dir.join(path_str)
-            }
-        }
-        Err(e) => {
-            return Err(IntegrityIssue::new(
-                CorruptionType::PermissionDenied,
-                format!("Cannot read JJ repo file: {e}"),
-            )
-            .with_path(repo_pointer_path));
-        }
-    };
-
-    let shared_exists = tokio::fs::try_exists(&shared_repo_path)
-        .await
-        .map_err(|e| {
-            IntegrityIssue::new(
-                CorruptionType::PermissionDenied,
-                format!("Cannot check referenced shared repo: {e}"),
-            )
-            .with_path(&shared_repo_path)
-        })?;
-
-    if !shared_exists {
+    if !objects_exists {
         return Err(IntegrityIssue::new(
-            CorruptionType::CorruptedJjDir,
-            format!(
-                "JJ repo file points to non-existent path: {}",
-                shared_repo_path.display()
-            ),
+            CorruptionType::CorruptedGitDir,
+            "Git repository missing objects directory",
         )
-        .with_path(repo_pointer_path));
+        .with_path(git_dir));
     }
 
-    let shared_metadata = tokio::fs::metadata(&shared_repo_path).await.map_err(|e| {
+    // Check for refs directory (required for a valid Git repository)
+    let refs_path = git_dir.join("refs");
+    let refs_exists = tokio::fs::try_exists(&refs_path).await.map_err(|e| {
         IntegrityIssue::new(
             CorruptionType::PermissionDenied,
-            format!("Cannot inspect referenced shared repo metadata: {e}"),
+            format!("Cannot check refs directory: {e}"),
         )
-        .with_path(&shared_repo_path)
+        .with_path(&refs_path)
     })?;
-
-    if !shared_metadata.is_dir() {
+    if !refs_exists {
         return Err(IntegrityIssue::new(
-            CorruptionType::CorruptedJjDir,
-            format!(
-                "JJ repo file points to non-directory path: {}",
-                shared_repo_path.display()
-            ),
+            CorruptionType::CorruptedGitDir,
+            "Git repository missing refs directory",
         )
-        .with_path(repo_pointer_path));
-    }
-
-    let shared_op_store = shared_repo_path.join("op_store");
-    let shared_op_store_exists = tokio::fs::try_exists(&shared_op_store).await.map_err(|e| {
-        IntegrityIssue::new(
-            CorruptionType::PermissionDenied,
-            format!("Cannot check shared repo op_store: {e}"),
-        )
-        .with_path(&shared_op_store)
-    })?;
-
-    if !shared_op_store_exists {
-        return Err(IntegrityIssue::new(
-            CorruptionType::CorruptedJjDir,
-            format!(
-                "Referenced shared repo missing op_store: {}",
-                shared_op_store.display()
-            ),
-        )
-        .with_path(repo_pointer_path));
+        .with_path(git_dir));
     }
 
     Ok(())
@@ -201,7 +92,8 @@ async fn validate_shared_repo_pointer(
 
 /// Check for stale lock files in the workspace
 pub async fn check_stale_locks(workspace_path: &Path) -> Result<Option<IntegrityIssue>> {
-    let lock_file = workspace_path.join(".jj").join("working_copy").join("lock");
+    // Check for Git index lock file
+    let lock_file = workspace_path.join(".git").join("index.lock");
 
     let lock_exists = tokio::fs::try_exists(&lock_file)
         .await
@@ -256,7 +148,7 @@ pub async fn check_config_file(workspace_path: &Path) -> Result<Option<Integrity
         Err(e) => {
             return Ok(Some(
                 IntegrityIssue::new(
-                    CorruptionType::CorruptedJjDir,
+                    CorruptionType::CorruptedGitDir,
                     format!("Cannot read config file: {e}"),
                 )
                 .with_path(&config_file)
@@ -276,7 +168,7 @@ pub async fn check_config_file(workspace_path: &Path) -> Result<Option<Integrity
             );
             Ok(Some(
                 IntegrityIssue::new(
-                    CorruptionType::CorruptedJjDir,
+                    CorruptionType::CorruptedGitDir,
                     format!("Config file contains invalid TOML: {e}"),
                 )
                 .with_path(&config_file)
@@ -286,7 +178,7 @@ pub async fn check_config_file(workspace_path: &Path) -> Result<Option<Integrity
     }
 }
 
-/// Validate JJ directory and return an issue if invalid
-pub async fn validate_jj_dir_for_issue(jj_dir: &Path) -> Option<IntegrityIssue> {
-    validate_jj_directory(jj_dir).await.err()
+/// Validate Git directory and return an issue if invalid
+pub async fn validate_git_dir_for_issue(git_dir: &Path) -> Option<IntegrityIssue> {
+    validate_git_directory(git_dir).await.err()
 }

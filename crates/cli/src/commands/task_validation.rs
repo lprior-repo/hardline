@@ -4,8 +4,8 @@
 
 use crate::commands::task_types::{Assignee, Task, TaskState};
 use scp_core::{
-    error_task::TaskErrorKind, lock::LockGuard, lock::LockManager, lock::LockType,
-    Error, Result as CoreResult,
+    error_task::TaskErrorKind, lock::LockGuard, lock::LockManager, lock::LockType, Error,
+    Result as CoreResult,
 };
 
 /// Validate task exists

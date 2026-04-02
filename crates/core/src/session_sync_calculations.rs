@@ -141,7 +141,12 @@ mod tests {
 
     #[test]
     fn validate_preconditions_ok_when_active_clean() {
-        let result = validate_sync_preconditions(true, Some(SessionStatus::Active), WorkspaceCleanStatus::Clean, false);
+        let result = validate_sync_preconditions(
+            true,
+            Some(SessionStatus::Active),
+            WorkspaceCleanStatus::Clean,
+            false,
+        );
         assert!(result.is_ok());
         let check = result.unwrap();
         assert!(check.session_exists);
@@ -151,19 +156,34 @@ mod tests {
 
     #[test]
     fn validate_preconditions_ok_when_failed_clean() {
-        let result = validate_sync_preconditions(true, Some(SessionStatus::Failed), WorkspaceCleanStatus::Clean, false);
+        let result = validate_sync_preconditions(
+            true,
+            Some(SessionStatus::Failed),
+            WorkspaceCleanStatus::Clean,
+            false,
+        );
         assert!(result.is_ok());
     }
 
     #[test]
     fn validate_preconditions_ok_when_active_unknown() {
-        let result = validate_sync_preconditions(true, Some(SessionStatus::Active), WorkspaceCleanStatus::Unknown, false);
+        let result = validate_sync_preconditions(
+            true,
+            Some(SessionStatus::Active),
+            WorkspaceCleanStatus::Unknown,
+            false,
+        );
         assert!(result.is_ok());
     }
 
     #[test]
     fn validate_preconditions_ok_when_dirty_allowed() {
-        let result = validate_sync_preconditions(true, Some(SessionStatus::Active), WorkspaceCleanStatus::Dirty, true);
+        let result = validate_sync_preconditions(
+            true,
+            Some(SessionStatus::Active),
+            WorkspaceCleanStatus::Dirty,
+            true,
+        );
         assert!(result.is_ok());
     }
 
@@ -175,38 +195,74 @@ mod tests {
 
     #[test]
     fn validate_preconditions_err_creating_status() {
-        let result = validate_sync_preconditions(true, Some(SessionStatus::Creating), WorkspaceCleanStatus::Clean, false);
-        assert!(matches!(result, Err(SyncError::InvalidSessionStatus { .. })));
+        let result = validate_sync_preconditions(
+            true,
+            Some(SessionStatus::Creating),
+            WorkspaceCleanStatus::Clean,
+            false,
+        );
+        assert!(matches!(
+            result,
+            Err(SyncError::InvalidSessionStatus { .. })
+        ));
     }
 
     #[test]
     fn validate_preconditions_err_paused_status() {
-        let result = validate_sync_preconditions(true, Some(SessionStatus::Paused), WorkspaceCleanStatus::Clean, false);
-        assert!(matches!(result, Err(SyncError::InvalidSessionStatus { .. })));
+        let result = validate_sync_preconditions(
+            true,
+            Some(SessionStatus::Paused),
+            WorkspaceCleanStatus::Clean,
+            false,
+        );
+        assert!(matches!(
+            result,
+            Err(SyncError::InvalidSessionStatus { .. })
+        ));
     }
 
     #[test]
     fn validate_preconditions_err_completed_status() {
-        let result = validate_sync_preconditions(true, Some(SessionStatus::Completed), WorkspaceCleanStatus::Clean, false);
-        assert!(matches!(result, Err(SyncError::InvalidSessionStatus { .. })));
+        let result = validate_sync_preconditions(
+            true,
+            Some(SessionStatus::Completed),
+            WorkspaceCleanStatus::Clean,
+            false,
+        );
+        assert!(matches!(
+            result,
+            Err(SyncError::InvalidSessionStatus { .. })
+        ));
     }
 
     #[test]
     fn validate_preconditions_err_no_status() {
         let result = validate_sync_preconditions(true, None, WorkspaceCleanStatus::Clean, false);
         let err = result.unwrap_err();
-        assert!(matches!(err, SyncError::InvalidSessionStatus { ref actual, .. } if actual == "None"));
+        assert!(
+            matches!(err, SyncError::InvalidSessionStatus { ref actual, .. } if actual == "None")
+        );
     }
 
     #[test]
     fn validate_preconditions_err_dirty_not_allowed() {
-        let result = validate_sync_preconditions(true, Some(SessionStatus::Active), WorkspaceCleanStatus::Dirty, false);
+        let result = validate_sync_preconditions(
+            true,
+            Some(SessionStatus::Active),
+            WorkspaceCleanStatus::Dirty,
+            false,
+        );
         assert!(matches!(result, Err(SyncError::DirtyWorkspace(_))));
     }
 
     #[test]
     fn validate_preconditions_invalid_status_contains_allowed_list() {
-        let result = validate_sync_preconditions(true, Some(SessionStatus::Paused), WorkspaceCleanStatus::Clean, false);
+        let result = validate_sync_preconditions(
+            true,
+            Some(SessionStatus::Paused),
+            WorkspaceCleanStatus::Clean,
+            false,
+        );
         if let Err(SyncError::InvalidSessionStatus { allowed, .. }) = result {
             assert!(allowed.contains(&"Active".to_string()));
             assert!(allowed.contains(&"Failed".to_string()));
@@ -240,7 +296,10 @@ mod tests {
         // A 40-char hex string (SHA-1 length)
         let output = "abc123def456789012345678901234567890abcd";
         let (rev, _conflicts) = parse_rebase_output(output);
-        assert_eq!(rev.as_deref(), Some("abc123def456789012345678901234567890abcd"));
+        assert_eq!(
+            rev.as_deref(),
+            Some("abc123def456789012345678901234567890abcd")
+        );
     }
 
     #[test]
@@ -315,7 +374,9 @@ mod tests {
 
     #[test]
     fn has_conflicts_detects_some_conflicts() {
-        assert!(has_conflicts_in_output("Created 2 new commits. Some conflicts."));
+        assert!(has_conflicts_in_output(
+            "Created 2 new commits. Some conflicts."
+        ));
     }
 
     #[test]
@@ -369,7 +430,10 @@ mod tests {
 
     #[test]
     fn workspace_status_whitespace_only_is_clean() {
-        assert_eq!(determine_workspace_status("   \n\t  "), WorkspaceCleanStatus::Clean);
+        assert_eq!(
+            determine_workspace_status("   \n\t  "),
+            WorkspaceCleanStatus::Clean
+        );
     }
 
     #[test]

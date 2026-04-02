@@ -125,7 +125,10 @@ mod tests {
 
     #[test]
     fn git_error_invalid_ref_display() {
-        let err = GitError::InvalidRef { name: "HEAD~5".into(), reason: "invalid syntax".into() };
+        let err = GitError::InvalidRef {
+            name: "HEAD~5".into(),
+            reason: "invalid syntax".into(),
+        };
         let msg = format!("{err}");
         assert!(msg.contains("HEAD~5"));
         assert!(msg.contains("invalid syntax"));
@@ -287,7 +290,10 @@ mod tests {
 
     #[test]
     fn git_error_to_vcs_error_branch_not_found() {
-        let git_err = GitError::InvalidRef { name: "missing".into(), reason: "x".into() };
+        let git_err = GitError::InvalidRef {
+            name: "missing".into(),
+            reason: "x".into(),
+        };
         let vcs_err: VcsError = git_err.into();
         assert!(matches!(vcs_err, VcsError::BranchNotFound(n) if n == "missing"));
     }

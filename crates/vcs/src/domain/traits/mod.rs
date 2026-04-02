@@ -54,12 +54,24 @@ mod tests {
         fn list_branches(&self) -> Result<Vec<Branch>> {
             Ok(vec![Branch::new("main".to_string(), true, None)])
         }
-        fn create_branch(&self, _name: &str) -> Result<()> { Ok(()) }
-        fn switch_branch(&self, _name: &str) -> Result<()> { Ok(()) }
-        fn push(&self) -> Result<()> { Ok(()) }
-        fn pull(&self) -> Result<()> { Ok(()) }
-        fn rebase(&self, _onto: &str) -> Result<()> { Ok(()) }
-        fn merge(&self, _branch: &str) -> Result<()> { Ok(()) }
+        fn create_branch(&self, _name: &str) -> Result<()> {
+            Ok(())
+        }
+        fn switch_branch(&self, _name: &str) -> Result<()> {
+            Ok(())
+        }
+        fn push(&self) -> Result<()> {
+            Ok(())
+        }
+        fn pull(&self) -> Result<()> {
+            Ok(())
+        }
+        fn rebase(&self, _onto: &str) -> Result<()> {
+            Ok(())
+        }
+        fn merge(&self, _branch: &str) -> Result<()> {
+            Ok(())
+        }
         fn log(&self, _limit: usize) -> Result<Vec<Commit>> {
             Ok(vec![])
         }
@@ -69,14 +81,24 @@ mod tests {
         fn is_initialized(&self) -> Result<bool> {
             Ok(true)
         }
-        fn create_workspace(&self, _name: &str) -> Result<()> { Ok(()) }
-        fn switch_workspace(&self, _name: &str) -> Result<()> { Ok(()) }
+        fn create_workspace(&self, _name: &str) -> Result<()> {
+            Ok(())
+        }
+        fn switch_workspace(&self, _name: &str) -> Result<()> {
+            Ok(())
+        }
         fn list_workspaces(&self) -> Result<Vec<Workspace>> {
             Ok(vec![])
         }
-        fn delete_workspace(&self, _name: &str) -> Result<()> { Ok(()) }
-        fn fork_workspace(&self, _source: &str, _target: &str) -> Result<()> { Ok(()) }
-        fn merge_workspace(&self, _name: &str) -> Result<()> { Ok(()) }
+        fn delete_workspace(&self, _name: &str) -> Result<()> {
+            Ok(())
+        }
+        fn fork_workspace(&self, _source: &str, _target: &str) -> Result<()> {
+            Ok(())
+        }
+        fn merge_workspace(&self, _name: &str) -> Result<()> {
+            Ok(())
+        }
     }
 
     #[test]

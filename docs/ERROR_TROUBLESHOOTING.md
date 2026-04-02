@@ -217,7 +217,7 @@ br sync
 
 **Error message examples**:
 ```
-Command error: jj: command failed with exit code 1
+Command error: git: command failed with exit code 1
 ```
 
 **What to check**:
@@ -228,62 +228,59 @@ Command error: jj: command failed with exit code 1
 **How to fix**:
 ```bash
 # Check if command exists
-which jj
+which git
 
 # Verify PATH
 echo $PATH
 
 # Test command directly
-jj status
+git status
 ```
 
 ---
 
-### JJ_COMMAND_ERROR (Exit Code 4)
+### GIT_COMMAND_ERROR (Exit Code 4)
 
-**What it means**: JJ (Jujutsu) command failed
+**What it means**: Git command failed
 
 **Error message examples**:
 ```
-Failed to create workspace: JJ is not installed or not in PATH.
+Failed to create workspace: Git is not installed or not in PATH.
 
-Install JJ:
+Install Git:
 
-  cargo install jj-cli
+  sudo apt install git
 
 or:
 
-  brew install jj
-
-or visit: https://github.com/martinvonz/jj#installation
+  brew install git
 
 Error: No such file or directory (os error 2)
 ```
 
 **What to check**:
-- JJ is installed
-- JJ is in PATH
-- Current directory is a JJ repo
-- JJ is working correctly
+- Git is installed
+- Git is in PATH
+- Current directory is a Git repo
+- Git is working correctly
 
 **How to fix**:
 ```bash
-# Install JJ (choose one)
-cargo install jj-cli
-brew install jj
-# Visit: https://martinvonz.github.io/jj/latest/install-and-setup/
+# Install Git (choose one)
+sudo apt install git
+brew install git
 
 # Verify installation
-jj --version
-jj status
+git --version
+git status
 
-# Initialize JJ repo (if needed)
+# Initialize Git repo (if needed)
 cd /path/to/project
-jj init
+git init
 
-# Check JJ is working
-jj log
-jj diff
+# Check Git is working
+git log
+git diff
 ```
 
 ---
@@ -518,7 +515,7 @@ When reporting errors, include:
 4. **Your environment**
    ```bash
     hardline --version
-    jj --version
+    git --version
     uname -a
    ```
 
@@ -569,7 +566,7 @@ JSON error structure:
 
 1. **Always validate input** before running commands
 2. **Use `hardline doctor`** to check system health
-3. **Keep dependencies updated** (JJ)
+3. **Keep dependencies updated** (Git, Cargo)
 4. **Backup regularly**: `br sync`
 5. **Use `--dry-run`** to preview changes
 6. **Read error messages** carefully before acting

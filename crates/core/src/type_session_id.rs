@@ -199,8 +199,7 @@ mod tests {
     fn test_serde_roundtrip() {
         let id = SessionId::parse("serde-test").expect("valid");
         let json = serde_json::to_string(&id).expect("serialize ok");
-        let deserialized: SessionId =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: SessionId = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(id, deserialized);
     }
 
@@ -208,8 +207,7 @@ mod tests {
     fn test_serde_with_hyphens() {
         let id = SessionId::parse("abc-123-xyz").expect("valid");
         let json = serde_json::to_string(&id).expect("serialize ok");
-        let deserialized: SessionId =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: SessionId = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(deserialized.as_str(), "abc-123-xyz");
     }
 

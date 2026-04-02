@@ -6,8 +6,7 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 static VERBOSITY: AtomicU8 = AtomicU8::new(0);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Verbosity {
     Quiet = 0,
     #[default]
@@ -49,7 +48,6 @@ impl Verbosity {
         self == Self::Normal
     }
 }
-
 
 pub struct Output;
 

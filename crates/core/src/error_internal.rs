@@ -88,11 +88,17 @@ mod tests {
             "Internal error: boom"
         );
         assert_eq!(
-            format!("{}", InternalErrorKind::Unimplemented("not yet".to_string())),
+            format!(
+                "{}",
+                InternalErrorKind::Unimplemented("not yet".to_string())
+            ),
             "Not implemented: not yet"
         );
         assert_eq!(
-            format!("{}", InternalErrorKind::InvalidConfig("bad key".to_string())),
+            format!(
+                "{}",
+                InternalErrorKind::InvalidConfig("bad key".to_string())
+            ),
             "Invalid configuration: bad key"
         );
         assert_eq!(
@@ -100,15 +106,24 @@ mod tests {
             "Clone failed: network"
         );
         assert_eq!(
-            format!("{}", InternalErrorKind::RecordFailed("db error".to_string())),
+            format!(
+                "{}",
+                InternalErrorKind::RecordFailed("db error".to_string())
+            ),
             "Record failed: db error"
         );
         assert_eq!(
-            format!("{}", InternalErrorKind::InvalidRepoUrl("ftp://bad".to_string())),
+            format!(
+                "{}",
+                InternalErrorKind::InvalidRepoUrl("ftp://bad".to_string())
+            ),
             "Invalid repository URL: ftp://bad"
         );
         assert_eq!(
-            format!("{}", InternalErrorKind::InvalidOperation("delete root".to_string())),
+            format!(
+                "{}",
+                InternalErrorKind::InvalidOperation("delete root".to_string())
+            ),
             "Invalid operation: delete root"
         );
     }
@@ -117,13 +132,34 @@ mod tests {
 
     #[test]
     fn internal_error_exit_codes() {
-        assert_eq!(InternalError::from(InternalErrorKind::Internal("x".into())).exit_code(), 90);
-        assert_eq!(InternalError::from(InternalErrorKind::Unimplemented("x".into())).exit_code(), 91);
-        assert_eq!(InternalError::from(InternalErrorKind::InvalidConfig("x".into())).exit_code(), 92);
-        assert_eq!(InternalError::from(InternalErrorKind::CloneFailed("x".into())).exit_code(), 93);
-        assert_eq!(InternalError::from(InternalErrorKind::RecordFailed("x".into())).exit_code(), 94);
-        assert_eq!(InternalError::from(InternalErrorKind::InvalidRepoUrl("x".into())).exit_code(), 95);
-        assert_eq!(InternalError::from(InternalErrorKind::InvalidOperation("x".into())).exit_code(), 96);
+        assert_eq!(
+            InternalError::from(InternalErrorKind::Internal("x".into())).exit_code(),
+            90
+        );
+        assert_eq!(
+            InternalError::from(InternalErrorKind::Unimplemented("x".into())).exit_code(),
+            91
+        );
+        assert_eq!(
+            InternalError::from(InternalErrorKind::InvalidConfig("x".into())).exit_code(),
+            92
+        );
+        assert_eq!(
+            InternalError::from(InternalErrorKind::CloneFailed("x".into())).exit_code(),
+            93
+        );
+        assert_eq!(
+            InternalError::from(InternalErrorKind::RecordFailed("x".into())).exit_code(),
+            94
+        );
+        assert_eq!(
+            InternalError::from(InternalErrorKind::InvalidRepoUrl("x".into())).exit_code(),
+            95
+        );
+        assert_eq!(
+            InternalError::from(InternalErrorKind::InvalidOperation("x".into())).exit_code(),
+            96
+        );
     }
 
     // -- InternalError kind() --

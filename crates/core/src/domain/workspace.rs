@@ -285,20 +285,14 @@ mod tests {
 
     #[test]
     fn test_workspace_info_new() {
-        let info = WorkspaceInfo::new(
-            PathBuf::from("/tmp/ws"),
-            WorkspaceState::Ready,
-        );
+        let info = WorkspaceInfo::new(PathBuf::from("/tmp/ws"), WorkspaceState::Ready);
         assert_eq!(info.path, PathBuf::from("/tmp/ws"));
         assert_eq!(info.state, WorkspaceState::Ready);
     }
 
     #[test]
     fn test_workspace_info_clone() {
-        let info = WorkspaceInfo::new(
-            PathBuf::from("/tmp/ws"),
-            WorkspaceState::Active,
-        );
+        let info = WorkspaceInfo::new(PathBuf::from("/tmp/ws"), WorkspaceState::Active);
         let cloned = info.clone();
         assert_eq!(info.path, cloned.path);
         assert_eq!(info.state, cloned.state);

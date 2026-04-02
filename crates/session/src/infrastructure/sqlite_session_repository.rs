@@ -378,44 +378,68 @@ mod tests {
 
         #[test]
         fn parse_state_created() {
-            assert_eq!(parse_session_state("Created").expect("valid"), SessionState::Created);
+            assert_eq!(
+                parse_session_state("Created").expect("valid"),
+                SessionState::Created
+            );
         }
 
         #[test]
         fn parse_state_active() {
-            assert_eq!(parse_session_state("Active").expect("valid"), SessionState::Active);
+            assert_eq!(
+                parse_session_state("Active").expect("valid"),
+                SessionState::Active
+            );
         }
 
         #[test]
         fn parse_state_syncing() {
-            assert_eq!(parse_session_state("Syncing").expect("valid"), SessionState::Syncing);
+            assert_eq!(
+                parse_session_state("Syncing").expect("valid"),
+                SessionState::Syncing
+            );
         }
 
         #[test]
         fn parse_state_synced() {
-            assert_eq!(parse_session_state("Synced").expect("valid"), SessionState::Synced);
+            assert_eq!(
+                parse_session_state("Synced").expect("valid"),
+                SessionState::Synced
+            );
         }
 
         #[test]
         fn parse_state_paused() {
-            assert_eq!(parse_session_state("Paused").expect("valid"), SessionState::Paused);
+            assert_eq!(
+                parse_session_state("Paused").expect("valid"),
+                SessionState::Paused
+            );
         }
 
         #[test]
         fn parse_state_completed() {
-            assert_eq!(parse_session_state("Completed").expect("valid"), SessionState::Completed);
+            assert_eq!(
+                parse_session_state("Completed").expect("valid"),
+                SessionState::Completed
+            );
         }
 
         #[test]
         fn parse_state_failed() {
-            assert_eq!(parse_session_state("Failed").expect("valid"), SessionState::Failed);
+            assert_eq!(
+                parse_session_state("Failed").expect("valid"),
+                SessionState::Failed
+            );
         }
 
         #[test]
         fn parse_state_unknown_rejects() {
             let result = parse_session_state("Unknown");
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), SessionError::RepositoryError(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::RepositoryError(_)
+            ));
         }
 
         #[test]
@@ -529,9 +553,7 @@ mod tests {
             let name = SessionName::parse("branch-test").expect("valid");
             let session = Session::<Created>::create(name).expect("created");
             let branched = session
-                .transition_branch(BranchState::OnBranch {
-                    name: "dev".into(),
-                })
+                .transition_branch(BranchState::OnBranch { name: "dev".into() })
                 .expect("branch");
             let row = SessionRow::from(&branched);
             assert_eq!(row.branch_state, "OnBranch");

@@ -447,7 +447,10 @@ mod tests {
             })
             .collect();
         let result = validate_batch(&commands);
-        assert!(result.is_err(), "batch exceeding max size should be rejected");
+        assert!(
+            result.is_err(),
+            "batch exceeding max size should be rejected"
+        );
     }
 
     #[test]
@@ -575,7 +578,10 @@ mod tests {
         let err = BatchExecutionError::Empty;
         assert!(format!("{err:?}").contains("Empty"));
 
-        let err = BatchExecutionError::SizeExceeded { max: 10, actual: 20 };
+        let err = BatchExecutionError::SizeExceeded {
+            max: 10,
+            actual: 20,
+        };
         let msg = format!("{err:?}");
         assert!(msg.contains("20"));
         assert!(msg.contains("10"));
@@ -617,8 +623,14 @@ mod tests {
         let b = BatchExecutionError::Empty;
         assert_eq!(a, b);
 
-        let c = BatchExecutionError::SizeExceeded { max: 10, actual: 20 };
-        let d = BatchExecutionError::SizeExceeded { max: 10, actual: 20 };
+        let c = BatchExecutionError::SizeExceeded {
+            max: 10,
+            actual: 20,
+        };
+        let d = BatchExecutionError::SizeExceeded {
+            max: 10,
+            actual: 20,
+        };
         assert_eq!(c, d);
 
         let e = BatchExecutionError::SizeExceeded { max: 5, actual: 20 };
@@ -855,7 +867,12 @@ mod tests {
             error: "command failed".to_string(),
             partial_results: partial.clone(),
         };
-        if let BatchResult::RolledBack { failed_at, partial_results, .. } = &result {
+        if let BatchResult::RolledBack {
+            failed_at,
+            partial_results,
+            ..
+        } = &result
+        {
             assert_eq!(*failed_at, 1);
             assert_eq!(partial_results.len(), 1);
         } else {
@@ -898,7 +915,10 @@ mod tests {
     fn test_batch_execution_error_all_variants_have_debug() {
         let errors = vec![
             BatchExecutionError::Empty,
-            BatchExecutionError::SizeExceeded { max: 10, actual: 20 },
+            BatchExecutionError::SizeExceeded {
+                max: 10,
+                actual: 20,
+            },
             BatchExecutionError::WorkspaceNotReady("dirty".to_string()),
             BatchExecutionError::CommandFailed {
                 index: 0,
@@ -920,7 +940,10 @@ mod tests {
         ];
         for err in errors {
             let debug = format!("{:?}", err);
-            assert!(!debug.is_empty(), "every variant should have a non-empty debug repr");
+            assert!(
+                !debug.is_empty(),
+                "every variant should have a non-empty debug repr"
+            );
         }
     }
 
@@ -971,7 +994,10 @@ mod tests {
     fn test_check_workspace_ready_dirty_message() {
         let result = check_workspace_ready(VcsStatus::Dirty);
         let err = result.expect_err("should fail");
-        assert!(err.to_string().to_lowercase().contains("dirty") || err.to_string().to_lowercase().contains("uncommitted"));
+        assert!(
+            err.to_string().to_lowercase().contains("dirty")
+                || err.to_string().to_lowercase().contains("uncommitted")
+        );
     }
 
     #[test]
@@ -985,7 +1011,10 @@ mod tests {
     fn test_check_workspace_ready_detached_message() {
         let result = check_workspace_ready(VcsStatus::Detached);
         let err = result.expect_err("should fail");
-        assert!(err.to_string().to_lowercase().contains("detached") || err.to_string().to_lowercase().contains("head"));
+        assert!(
+            err.to_string().to_lowercase().contains("detached")
+                || err.to_string().to_lowercase().contains("head")
+        );
     }
 
     // -- MAX_BATCH_SIZE constant --
@@ -993,11 +1022,14 @@ mod tests {
     #[test]
     fn test_max_batch_size_is_reasonable() {
         assert!(MAX_BATCH_SIZE > 0, "max batch size must be positive");
-        assert!(MAX_BATCH_SIZE <= 10_000, "max batch size should have a reasonable upper bound");
+        assert!(
+            MAX_BATCH_SIZE <= 10_000,
+            "max batch size should have a reasonable upper bound"
+        );
     }
 
-    use proptest::proptest;
     use proptest::prelude::*;
+    use proptest::proptest;
     use proptest::{prop_assert, prop_assert_eq};
 
     proptest! {

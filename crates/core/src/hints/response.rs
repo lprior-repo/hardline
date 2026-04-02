@@ -23,8 +23,8 @@ pub struct SystemContext {
     /// Is scp initialized?
     pub initialized: bool,
 
-    /// Is this a JJ repository?
-    pub jj_repo: bool,
+    /// Is this a Git repository?
+    pub git_repo: bool,
 
     /// Total number of sessions
     pub sessions_count: usize,

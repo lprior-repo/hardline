@@ -36,7 +36,6 @@ pub mod error_agent;
 pub mod error_config;
 pub mod error_internal;
 pub mod error_io;
-pub mod error_jj;
 pub mod error_queue;
 pub mod error_state;
 pub mod error_task;
@@ -51,8 +50,6 @@ pub mod hints;
 pub mod hooks;
 pub mod infrastructure;
 pub mod introspection;
-pub mod jj;
-pub mod jj_operation_sync;
 pub mod lifecycle;
 pub mod lock;
 pub mod moon_gates;
@@ -112,12 +109,6 @@ pub use error::{Error, Result};
 pub use events::{EmittedEvent, Event, EventEmitter};
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
 pub use hooks::{Hook, HookConfig, HookEnv, HookEvent, HookManager, HookResult, HookRunner};
-pub use jj::{
-    create_workspace, get_jj_command, get_jj_command_sync, is_jj_installed, is_jj_repo,
-    parse_diff_stat, parse_status, workspace_create, workspace_diff, workspace_forget,
-    workspace_list, workspace_status, Status, WorkspaceGuard, WorkspaceInfo,
-};
-pub use jj_operation_sync::{create_workspace_synced, get_current_operation, RepoOperationInfo};
 pub use lifecycle::LifecycleState;
 pub use lock::{LockGuard, LockType, MemLockManager};
 pub use moon_gates::{GateError, GateResult, GatesOutcome, GatesStatus, MoonGate};
@@ -136,8 +127,8 @@ pub use types::{
     SessionStatus, ValidatedMetadata,
 };
 pub use vcs::{
-    create_backend, detect_vcs, Branch, Commit, GitBackend, JjBackend, VcsBackend, VcsStatus,
-    VcsType, Workspace,
+    create_backend, detect_vcs, Branch, Commit, GitBackend, VcsBackend, VcsStatus, VcsType,
+    Workspace,
 };
 pub use watcher::{BeadsStatus, FileWatcher, WatchEvent};
 pub use workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition};

@@ -85,9 +85,7 @@ mod tests {
     }
 
     fn parse(args: &[&str]) -> SessionCommands {
-        let full: Vec<&str> = std::iter::once("scp")
-            .chain(args.iter().copied())
-            .collect();
+        let full: Vec<&str> = std::iter::once("scp").chain(args.iter().copied()).collect();
         let parsed = SessionParser::parse_from(full);
         parsed.command
     }
@@ -161,11 +159,7 @@ mod tests {
     #[test]
     fn remove_defaults() {
         match parse(&["remove", "s1"]) {
-            SessionCommands::Remove {
-                name,
-                force,
-                merge,
-            } => {
+            SessionCommands::Remove { name, force, merge } => {
                 assert_eq!(name, "s1");
                 assert!(!force);
                 assert!(!merge);

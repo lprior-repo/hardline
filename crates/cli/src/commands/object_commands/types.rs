@@ -191,7 +191,11 @@ mod tests {
     #[test]
     fn zjj_object_about_returns_non_empty_string() {
         for obj in ZjjObject::all() {
-            assert!(!obj.about().is_empty(), "about() should be non-empty for {:?}", obj);
+            assert!(
+                !obj.about().is_empty(),
+                "about() should be non-empty for {:?}",
+                obj
+            );
         }
     }
 
@@ -201,7 +205,11 @@ mod tests {
         let mut sorted = names.clone();
         sorted.sort();
         sorted.dedup();
-        assert_eq!(names.len(), sorted.len(), "ZjjObject names should be unique");
+        assert_eq!(
+            names.len(),
+            sorted.len(),
+            "ZjjObject names should be unique"
+        );
     }
 
     #[test]
@@ -265,7 +273,10 @@ mod tests {
         ];
         for i in 0..actions.len() {
             for j in (i + 1)..actions.len() {
-                assert_ne!(actions[i], actions[j], "SessionAction variants must be distinct");
+                assert_ne!(
+                    actions[i], actions[j],
+                    "SessionAction variants must be distinct"
+                );
             }
         }
     }

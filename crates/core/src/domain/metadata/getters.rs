@@ -11,7 +11,11 @@ impl StackMetadata {
     /// Returns `MetadataError::BranchNotFound` if branch doesn't exist.
     pub fn get_parent(&self, branch: &BranchId) -> Result<Option<BranchId>, crate::Error> {
         self.parents.get(branch).map_or_else(
-            || Err(crate::Error::not_found(format!("Branch not found: {branch}"))),
+            || {
+                Err(crate::Error::not_found(format!(
+                    "Branch not found: {branch}"
+                )))
+            },
             |parent| Ok(parent.clone()),
         )
     }
@@ -26,7 +30,9 @@ impl StackMetadata {
                 if self.parents.contains_key(parent) {
                     Ok(Vec::new())
                 } else {
-                    Err(crate::Error::not_found(format!("Parent not found: {parent}")))
+                    Err(crate::Error::not_found(format!(
+                        "Parent not found: {parent}"
+                    )))
                 }
             },
             |children| Ok(children.clone()),

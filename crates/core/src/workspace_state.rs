@@ -595,11 +595,26 @@ mod tests {
 
     #[test]
     fn test_workspace_state_serde_lowercase() {
-        assert_eq!(serde_json::to_string(&WorkspaceState::Created).expect("ok"), "\"created\"");
-        assert_eq!(serde_json::to_string(&WorkspaceState::Working).expect("ok"), "\"working\"");
-        assert_eq!(serde_json::to_string(&WorkspaceState::Ready).expect("ok"), "\"ready\"");
-        assert_eq!(serde_json::to_string(&WorkspaceState::Merged).expect("ok"), "\"merged\"");
-        assert_eq!(serde_json::to_string(&WorkspaceState::Abandoned).expect("ok"), "\"abandoned\"");
+        assert_eq!(
+            serde_json::to_string(&WorkspaceState::Created).expect("ok"),
+            "\"created\""
+        );
+        assert_eq!(
+            serde_json::to_string(&WorkspaceState::Working).expect("ok"),
+            "\"working\""
+        );
+        assert_eq!(
+            serde_json::to_string(&WorkspaceState::Ready).expect("ok"),
+            "\"ready\""
+        );
+        assert_eq!(
+            serde_json::to_string(&WorkspaceState::Merged).expect("ok"),
+            "\"merged\""
+        );
+        assert_eq!(
+            serde_json::to_string(&WorkspaceState::Abandoned).expect("ok"),
+            "\"abandoned\""
+        );
     }
 
     #[test]
@@ -612,7 +627,8 @@ mod tests {
             agent_id: Some("agent-1".to_string()),
         };
         let json = serde_json::to_string(&transition).expect("serialize ok");
-        let deserialized: WorkspaceStateTransition = serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: WorkspaceStateTransition =
+            serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(transition.from, deserialized.from);
         assert_eq!(transition.to, deserialized.to);
         assert_eq!(transition.reason, deserialized.reason);
@@ -628,7 +644,8 @@ mod tests {
             agent_id: None,
         };
         let json = serde_json::to_string(&transition).expect("serialize ok");
-        let deserialized: WorkspaceStateTransition = serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: WorkspaceStateTransition =
+            serde_json::from_str(&json).expect("deserialize ok");
         assert!(deserialized.agent_id.is_none());
     }
 }

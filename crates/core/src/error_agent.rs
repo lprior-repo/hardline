@@ -64,9 +64,18 @@ mod tests {
 
     #[test]
     fn agent_error_exit_codes() {
-        assert_eq!(AgentError::from(AgentErrorKind::NotFound("x".into())).exit_code(), 50);
-        assert_eq!(AgentError::from(AgentErrorKind::Exists("x".into())).exit_code(), 51);
-        assert_eq!(AgentError::from(AgentErrorKind::Timeout("x".into())).exit_code(), 52);
+        assert_eq!(
+            AgentError::from(AgentErrorKind::NotFound("x".into())).exit_code(),
+            50
+        );
+        assert_eq!(
+            AgentError::from(AgentErrorKind::Exists("x".into())).exit_code(),
+            51
+        );
+        assert_eq!(
+            AgentError::from(AgentErrorKind::Timeout("x".into())).exit_code(),
+            52
+        );
     }
 
     #[test]

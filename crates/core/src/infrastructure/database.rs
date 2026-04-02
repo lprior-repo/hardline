@@ -288,9 +288,7 @@ mod tests {
         inner
             .execute("CREATE TABLE test (id INTEGER PRIMARY KEY)")
             .await?;
-        inner
-            .execute("INSERT INTO test VALUES (1)")
-            .await?;
+        inner.execute("INSERT INTO test VALUES (1)").await?;
 
         let service = SqliteDatabaseService::from_pool(inner.pool().clone());
         let results = service.query("SELECT id FROM test").await?;
@@ -309,9 +307,7 @@ mod tests {
         let db_path = temp_dir.path().join("test_create.db");
 
         let service = SqliteDatabaseService::create(&db_path).await?;
-        service
-            .execute("CREATE TABLE items (name TEXT)")
-            .await?;
+        service.execute("CREATE TABLE items (name TEXT)").await?;
         service
             .execute("INSERT INTO items VALUES ('widget')")
             .await?;
@@ -328,7 +324,8 @@ mod tests {
     #[tokio::test]
     async fn test_close() -> Result<()> {
         let db = SqliteDatabaseService::in_memory().await?;
-        db.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)").await?;
+        db.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)")
+            .await?;
         db.close().await?;
         Ok(())
     }
@@ -407,8 +404,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_database_service_as_dyn_trait() -> Result<()> {
-        let service: Box<dyn DatabaseService> =
-            Box::new(SqliteDatabaseService::in_memory().await?);
+        let service: Box<dyn DatabaseService> = Box::new(SqliteDatabaseService::in_memory().await?);
         service
             .execute("CREATE TABLE dyn_test (id INTEGER PRIMARY KEY, val TEXT)")
             .await?;
@@ -457,7 +453,10 @@ mod tests {
             .await?;
 
         let results = db.query("SELECT a, b, c FROM multi_test").await?;
-        assert_eq!(results[0], vec!["x".to_string(), "1".to_string(), "y".to_string()]);
+        assert_eq!(
+            results[0],
+            vec!["x".to_string(), "1".to_string(), "y".to_string()]
+        );
         Ok(())
     }
 
@@ -477,9 +476,12 @@ mod tests {
         let db = SqliteDatabaseService::in_memory().await?;
         db.execute("CREATE TABLE rows_test (id INTEGER PRIMARY KEY, val TEXT)")
             .await?;
-        db.execute("INSERT INTO rows_test (val) VALUES ('a')").await?;
-        db.execute("INSERT INTO rows_test (val) VALUES ('b')").await?;
-        db.execute("INSERT INTO rows_test (val) VALUES ('c')").await?;
+        db.execute("INSERT INTO rows_test (val) VALUES ('a')")
+            .await?;
+        db.execute("INSERT INTO rows_test (val) VALUES ('b')")
+            .await?;
+        db.execute("INSERT INTO rows_test (val) VALUES ('c')")
+            .await?;
 
         let results = db.query("SELECT val FROM rows_test ORDER BY id").await?;
         assert_eq!(results.len(), 3);

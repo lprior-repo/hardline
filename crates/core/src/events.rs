@@ -275,9 +275,7 @@ mod tests {
 
     #[test]
     fn given_item_processing_when_event_type_then_correct() {
-        let event = Event::ItemProcessing {
-            branch: "b".into(),
-        };
+        let event = Event::ItemProcessing { branch: "b".into() };
         assert_eq!(event.event_type(), "queue.processing");
     }
 
@@ -344,9 +342,7 @@ mod tests {
 
     #[test]
     fn given_vcs_conflict_resolved_when_event_type_then_correct() {
-        let event = Event::VcsConflictResolved {
-            branch: "b".into(),
-        };
+        let event = Event::VcsConflictResolved { branch: "b".into() };
         assert_eq!(event.event_type(), "vcs.conflict_resolved");
     }
 
@@ -402,7 +398,9 @@ mod tests {
 
     #[test]
     fn given_serialized_event_when_json_contains_type_tag() {
-        let event = Event::AgentHeartbeat { id: "agent-1".into() };
+        let event = Event::AgentHeartbeat {
+            id: "agent-1".into(),
+        };
         let json = serde_json::to_string(&event).expect("serialize");
         assert!(json.contains("\"type\":\"AgentHeartbeat\""));
     }
@@ -565,7 +563,9 @@ mod tests {
 
     #[test]
     fn test_event_serde_roundtrip_agent_heartbeat() {
-        let event = Event::AgentHeartbeat { id: "agent-1".to_string() };
+        let event = Event::AgentHeartbeat {
+            id: "agent-1".to_string(),
+        };
         let json = serde_json::to_string(&event).expect("serialize ok");
         let deserialized: Event = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(event, deserialized);
@@ -575,7 +575,9 @@ mod tests {
     fn test_emitted_event_serde_roundtrip() {
         let emitted = EmittedEvent {
             id: "evt-001".to_string(),
-            event: Event::AgentHeartbeat { id: "agent-1".to_string() },
+            event: Event::AgentHeartbeat {
+                id: "agent-1".to_string(),
+            },
             timestamp: Utc::now(),
             source: "test".to_string(),
         };

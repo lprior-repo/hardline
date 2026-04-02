@@ -54,9 +54,7 @@ mod tests {
     }
 
     fn parse(args: &[&str]) -> AgentCommands {
-        let full: Vec<&str> = std::iter::once("scp")
-            .chain(args.iter().copied())
-            .collect();
+        let full: Vec<&str> = std::iter::once("scp").chain(args.iter().copied()).collect();
         AgentParser::parse_from(full).command
     }
 
@@ -118,7 +116,10 @@ mod tests {
     fn register_default() {
         match parse(&["register"]) {
             AgentCommands::Register { session } => assert_eq!(session, None),
-            other => panic!("Expected Register, got {:?}", std::mem::discriminant(&other)),
+            other => panic!(
+                "Expected Register, got {:?}",
+                std::mem::discriminant(&other)
+            ),
         }
     }
 
@@ -128,7 +129,10 @@ mod tests {
             AgentCommands::Register { session } => {
                 assert_eq!(session, Some("sess1".to_string()));
             }
-            other => panic!("Expected Register, got {:?}", std::mem::discriminant(&other)),
+            other => panic!(
+                "Expected Register, got {:?}",
+                std::mem::discriminant(&other)
+            ),
         }
     }
 
@@ -137,7 +141,10 @@ mod tests {
     fn heartbeat_default() {
         match parse(&["heartbeat"]) {
             AgentCommands::Heartbeat { session } => assert_eq!(session, None),
-            other => panic!("Expected Heartbeat, got {:?}", std::mem::discriminant(&other)),
+            other => panic!(
+                "Expected Heartbeat, got {:?}",
+                std::mem::discriminant(&other)
+            ),
         }
     }
 
@@ -147,7 +154,10 @@ mod tests {
             AgentCommands::Heartbeat { session } => {
                 assert_eq!(session, Some("sess1".to_string()));
             }
-            other => panic!("Expected Heartbeat, got {:?}", std::mem::discriminant(&other)),
+            other => panic!(
+                "Expected Heartbeat, got {:?}",
+                std::mem::discriminant(&other)
+            ),
         }
     }
 }

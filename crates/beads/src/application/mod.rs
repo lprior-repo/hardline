@@ -205,20 +205,14 @@ mod tests {
     #[tokio::test]
     async fn create_bead_without_description() {
         let service = make_service();
-        let (bead, _) = service
-            .create_bead("new-2", "No Desc", None)
-            .await
-            .unwrap();
+        let (bead, _) = service.create_bead("new-2", "No Desc", None).await.unwrap();
         assert!(bead.description().is_none());
     }
 
     #[tokio::test]
     async fn create_bead_fails_for_duplicate_id() {
         let service = make_service();
-        service
-            .create_bead("dup-1", "First", None)
-            .await
-            .unwrap();
+        service.create_bead("dup-1", "First", None).await.unwrap();
         let result = service.create_bead("dup-1", "Second", None).await;
         assert!(result.is_err());
         match result.unwrap_err() {
@@ -230,9 +224,7 @@ mod tests {
     #[tokio::test]
     async fn create_bead_fails_for_invalid_id() {
         let service = make_service();
-        let result = service
-            .create_bead("bad id!", "Title", None)
-            .await;
+        let result = service.create_bead("bad id!", "Title", None).await;
         assert!(result.is_err());
         match result.unwrap_err() {
             BeadError::InvalidId(_) => {}
@@ -282,7 +274,10 @@ mod tests {
             .await
             .unwrap();
         // Verify it can be retrieved
-        let bead = service.get_bead(&BeadId::new("persist-1").unwrap()).await.unwrap();
+        let bead = service
+            .get_bead(&BeadId::new("persist-1").unwrap())
+            .await
+            .unwrap();
         assert_eq!(bead.title().as_str(), "Persisted");
     }
 
@@ -291,11 +286,11 @@ mod tests {
     #[tokio::test]
     async fn get_bead_returns_existing_bead() {
         let service = make_service();
-        service
-            .create_bead("get-1", "Get Me", None)
+        service.create_bead("get-1", "Get Me", None).await.unwrap();
+        let bead = service
+            .get_bead(&BeadId::new("get-1").unwrap())
             .await
             .unwrap();
-        let bead = service.get_bead(&BeadId::new("get-1").unwrap()).await.unwrap();
         assert_eq!(bead.id().as_str(), "get-1");
     }
 
@@ -315,17 +310,18 @@ mod tests {
     #[tokio::test]
     async fn update_bead_state_open_to_in_progress() {
         let service = make_service();
-        service
-            .create_bead("state-1", "State", None)
-            .await
-            .unwrap();
+        service.create_bead("state-1", "State", None).await.unwrap();
         let (updated, event) = service
             .update_bead_state(&BeadId::new("state-1").unwrap(), BeadState::InProgress)
             .await
             .unwrap();
         assert_eq!(updated.state(), BeadState::InProgress);
         match &event {
-            BeadEvent::StateChanged { old_state, new_state, .. } => {
+            BeadEvent::StateChanged {
+                old_state,
+                new_state,
+                ..
+            } => {
                 assert_eq!(old_state, &BeadState::Open);
                 assert_eq!(new_state, &BeadState::InProgress);
             }
@@ -336,10 +332,7 @@ mod tests {
     #[tokio::test]
     async fn update_bead_state_in_progress_to_closed() {
         let service = make_service();
-        service
-            .create_bead("state-2", "State", None)
-            .await
-            .unwrap();
+        service.create_bead("state-2", "State", None).await.unwrap();
         service
             .update_bead_state(&BeadId::new("state-2").unwrap(), BeadState::InProgress)
             .await
@@ -359,10 +352,7 @@ mod tests {
     #[tokio::test]
     async fn update_bead_state_fails_for_invalid_transition() {
         let service = make_service();
-        service
-            .create_bead("state-3", "State", None)
-            .await
-            .unwrap();
+        service.create_bead("state-3", "State", None).await.unwrap();
         // Cannot go Open -> Closed directly
         let result = service
             .update_bead_state(
@@ -391,10 +381,7 @@ mod tests {
     #[tokio::test]
     async fn update_bead_state_fails_from_closed() {
         let service = make_service();
-        service
-            .create_bead("state-4", "State", None)
-            .await
-            .unwrap();
+        service.create_bead("state-4", "State", None).await.unwrap();
         service
             .update_bead_state(&BeadId::new("state-4").unwrap(), BeadState::InProgress)
             .await
@@ -477,7 +464,9 @@ mod tests {
             .unwrap();
         assert_eq!(updated.assignee(), Some("alice"));
         match &event {
-            BeadEvent::AssigneeSet { assignee, .. } => assert_eq!(assignee.as_deref(), Some("alice")),
+            BeadEvent::AssigneeSet { assignee, .. } => {
+                assert_eq!(assignee.as_deref(), Some("alice"))
+            }
             other => panic!("expected AssigneeSet event, got {other:?}"),
         }
     }
@@ -514,14 +503,8 @@ mod tests {
     #[tokio::test]
     async fn add_dependency_succeeds() {
         let service = make_service();
-        service
-            .create_bead("dep-1", "Dep One", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("dep-2", "Dep Two", None)
-            .await
-            .unwrap();
+        service.create_bead("dep-1", "Dep One", None).await.unwrap();
+        service.create_bead("dep-2", "Dep Two", None).await.unwrap();
         let (updated, event) = service
             .add_dependency(
                 &BeadId::new("dep-1").unwrap(),
@@ -542,10 +525,7 @@ mod tests {
     #[tokio::test]
     async fn add_dependency_fails_for_nonexistent_target() {
         let service = make_service();
-        service
-            .create_bead("dep-3", "Exists", None)
-            .await
-            .unwrap();
+        service.create_bead("dep-3", "Exists", None).await.unwrap();
         let result = service
             .add_dependency(
                 &BeadId::new("dep-3").unwrap(),
@@ -582,10 +562,7 @@ mod tests {
     #[tokio::test]
     async fn add_dependency_fails_for_nonexistent_source() {
         let service = make_service();
-        service
-            .create_bead("target", "Target", None)
-            .await
-            .unwrap();
+        service.create_bead("target", "Target", None).await.unwrap();
         let result = service
             .add_dependency(
                 &BeadId::new("ghost-source").unwrap(),
@@ -598,18 +575,9 @@ mod tests {
     #[tokio::test]
     async fn add_dependency_accumulates() {
         let service = make_service();
-        service
-            .create_bead("acc-1", "Acc", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("acc-2", "Dep A", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("acc-3", "Dep B", None)
-            .await
-            .unwrap();
+        service.create_bead("acc-1", "Acc", None).await.unwrap();
+        service.create_bead("acc-2", "Dep A", None).await.unwrap();
+        service.create_bead("acc-3", "Dep B", None).await.unwrap();
         service
             .add_dependency(
                 &BeadId::new("acc-1").unwrap(),
@@ -673,7 +641,10 @@ mod tests {
             .create_bead("del-1", "Delete Me", None)
             .await
             .unwrap();
-        let event = service.delete_bead(&BeadId::new("del-1").unwrap()).await.unwrap();
+        let event = service
+            .delete_bead(&BeadId::new("del-1").unwrap())
+            .await
+            .unwrap();
         match &event {
             BeadEvent::Deleted { id, .. } => assert_eq!(id.as_str(), "del-1"),
             other => panic!("expected Deleted event, got {other:?}"),
@@ -695,7 +666,10 @@ mod tests {
         let service = make_service();
         service.create_bead("del-2", "A", None).await.unwrap();
         service.create_bead("del-3", "B", None).await.unwrap();
-        service.delete_bead(&BeadId::new("del-2").unwrap()).await.unwrap();
+        service
+            .delete_bead(&BeadId::new("del-2").unwrap())
+            .await
+            .unwrap();
         let list = service.list_beads().await.unwrap();
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].id().as_str(), "del-3");
@@ -715,7 +689,10 @@ mod tests {
         assert!(matches!(created_event, BeadEvent::Created { .. }));
 
         // Get
-        let found = service.get_bead(&BeadId::new("life-1").unwrap()).await.unwrap();
+        let found = service
+            .get_bead(&BeadId::new("life-1").unwrap())
+            .await
+            .unwrap();
         assert_eq!(found.id().as_str(), "life-1");
 
         // Set priority
@@ -755,7 +732,9 @@ mod tests {
         let (final_bead, close_event) = service
             .update_bead_state(
                 &BeadId::new("life-1").unwrap(),
-                BeadState::Closed { closed_at: Utc::now() },
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
             )
             .await
             .unwrap();
@@ -763,7 +742,10 @@ mod tests {
         assert!(matches!(close_event, BeadEvent::StateChanged { .. }));
 
         // Delete
-        let del_event = service.delete_bead(&BeadId::new("life-1").unwrap()).await.unwrap();
+        let del_event = service
+            .delete_bead(&BeadId::new("life-1").unwrap())
+            .await
+            .unwrap();
         assert!(matches!(del_event, BeadEvent::Deleted { .. }));
 
         // Verify gone
@@ -774,7 +756,10 @@ mod tests {
     #[tokio::test]
     async fn full_lifecycle_open_defer_resume_close() {
         let service = make_service();
-        service.create_bead("defer-1", "Deferred Path", None).await.unwrap();
+        service
+            .create_bead("defer-1", "Deferred Path", None)
+            .await
+            .unwrap();
 
         // Open -> InProgress
         service
@@ -798,7 +783,9 @@ mod tests {
         let (bead, _) = service
             .update_bead_state(
                 &BeadId::new("defer-1").unwrap(),
-                BeadState::Closed { closed_at: Utc::now() },
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
             )
             .await
             .unwrap();
@@ -821,7 +808,11 @@ mod tests {
             .unwrap();
         assert_eq!(updated.state(), BeadState::Blocked);
         match &event {
-            BeadEvent::StateChanged { old_state, new_state, .. } => {
+            BeadEvent::StateChanged {
+                old_state,
+                new_state,
+                ..
+            } => {
                 assert_eq!(old_state, &BeadState::InProgress);
                 assert_eq!(new_state, &BeadState::Blocked);
             }
@@ -847,7 +838,10 @@ mod tests {
     #[tokio::test]
     async fn update_state_blocked_to_deferred() {
         let service = make_service();
-        service.create_bead("b-d", "Block Defer", None).await.unwrap();
+        service
+            .create_bead("b-d", "Block Defer", None)
+            .await
+            .unwrap();
         service
             .update_bead_state(&BeadId::new("b-d").unwrap(), BeadState::InProgress)
             .await
@@ -866,7 +860,10 @@ mod tests {
     #[tokio::test]
     async fn update_state_blocked_to_closed() {
         let service = make_service();
-        service.create_bead("b-c", "Block Close", None).await.unwrap();
+        service
+            .create_bead("b-c", "Block Close", None)
+            .await
+            .unwrap();
         service
             .update_bead_state(&BeadId::new("b-c").unwrap(), BeadState::InProgress)
             .await
@@ -878,7 +875,9 @@ mod tests {
         let (updated, _) = service
             .update_bead_state(
                 &BeadId::new("b-c").unwrap(),
-                BeadState::Closed { closed_at: Utc::now() },
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
             )
             .await
             .unwrap();
@@ -888,7 +887,10 @@ mod tests {
     #[tokio::test]
     async fn update_state_deferred_to_closed() {
         let service = make_service();
-        service.create_bead("d-c", "Defer Close", None).await.unwrap();
+        service
+            .create_bead("d-c", "Defer Close", None)
+            .await
+            .unwrap();
         service
             .update_bead_state(&BeadId::new("d-c").unwrap(), BeadState::InProgress)
             .await
@@ -900,7 +902,9 @@ mod tests {
         let (updated, _) = service
             .update_bead_state(
                 &BeadId::new("d-c").unwrap(),
-                BeadState::Closed { closed_at: Utc::now() },
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
             )
             .await
             .unwrap();
@@ -1026,7 +1030,9 @@ mod tests {
         service
             .update_bead_state(
                 &BeadId::new("cti").unwrap(),
-                BeadState::Closed { closed_at: Utc::now() },
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
             )
             .await
             .unwrap();
@@ -1047,7 +1053,9 @@ mod tests {
         service
             .update_bead_state(
                 &BeadId::new("ctb").unwrap(),
-                BeadState::Closed { closed_at: Utc::now() },
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
             )
             .await
             .unwrap();
@@ -1068,7 +1076,9 @@ mod tests {
         service
             .update_bead_state(
                 &BeadId::new("ctd").unwrap(),
-                BeadState::Closed { closed_at: Utc::now() },
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
             )
             .await
             .unwrap();
@@ -1084,7 +1094,10 @@ mod tests {
     async fn created_event_has_correct_timestamp_range() {
         let service = make_service();
         let before = Utc::now();
-        let (_, event) = service.create_bead("ts-1", "Timestamp", None).await.unwrap();
+        let (_, event) = service
+            .create_bead("ts-1", "Timestamp", None)
+            .await
+            .unwrap();
         let after = Utc::now();
         if let BeadEvent::Created { created_at, .. } = event {
             assert!(created_at >= before);
@@ -1106,7 +1119,12 @@ mod tests {
             .update_bead_state(&BeadId::new("ev-1").unwrap(), BeadState::Blocked)
             .await
             .unwrap();
-        if let BeadEvent::StateChanged { old_state, new_state, .. } = event {
+        if let BeadEvent::StateChanged {
+            old_state,
+            new_state,
+            ..
+        } = event
+        {
             assert_eq!(old_state, BeadState::InProgress);
             assert_eq!(new_state, BeadState::Blocked);
         } else {
@@ -1117,8 +1135,14 @@ mod tests {
     #[tokio::test]
     async fn delete_event_has_correct_id() {
         let service = make_service();
-        service.create_bead("del-ev-1", "Del Event", None).await.unwrap();
-        let event = service.delete_bead(&BeadId::new("del-ev-1").unwrap()).await.unwrap();
+        service
+            .create_bead("del-ev-1", "Del Event", None)
+            .await
+            .unwrap();
+        let event = service
+            .delete_bead(&BeadId::new("del-ev-1").unwrap())
+            .await
+            .unwrap();
         if let BeadEvent::Deleted { id, deleted_at } = event {
             assert_eq!(id.as_str(), "del-ev-1");
             // Timestamp should be recent
@@ -1132,7 +1156,10 @@ mod tests {
     #[tokio::test]
     async fn set_priority_event_correct_priority() {
         let service = make_service();
-        service.create_bead("prio-ev-1", "Prio Event", None).await.unwrap();
+        service
+            .create_bead("prio-ev-1", "Prio Event", None)
+            .await
+            .unwrap();
         let (_, event) = service
             .set_priority(&BeadId::new("prio-ev-1").unwrap(), Priority::P3)
             .await
@@ -1174,7 +1201,10 @@ mod tests {
         // Transition 0,1 to InProgress
         for i in 0..=1 {
             service
-                .update_bead_state(&BeadId::new(format!("mfs-{i}")).unwrap(), BeadState::InProgress)
+                .update_bead_state(
+                    &BeadId::new(format!("mfs-{i}")).unwrap(),
+                    BeadState::InProgress,
+                )
                 .await
                 .unwrap();
         }
@@ -1184,11 +1214,16 @@ mod tests {
             .update_bead_state(&BeadId::new("mfs-2").unwrap(), BeadState::InProgress)
             .await
             .unwrap();
-        let bead2 = service.get_bead(&BeadId::new("mfs-2").unwrap()).await.unwrap();
+        let bead2 = service
+            .get_bead(&BeadId::new("mfs-2").unwrap())
+            .await
+            .unwrap();
         service
             .update_bead_state(
                 bead2.id(),
-                BeadState::Closed { closed_at: Utc::now() },
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
             )
             .await
             .unwrap();
@@ -1208,38 +1243,59 @@ mod tests {
 
         // A depends on B
         service
-            .add_dependency(&BeadId::new("chain-a").unwrap(), BeadId::new("chain-b").unwrap())
+            .add_dependency(
+                &BeadId::new("chain-a").unwrap(),
+                BeadId::new("chain-b").unwrap(),
+            )
             .await
             .unwrap();
 
         // B depends on C
         service
-            .add_dependency(&BeadId::new("chain-b").unwrap(), BeadId::new("chain-c").unwrap())
+            .add_dependency(
+                &BeadId::new("chain-b").unwrap(),
+                BeadId::new("chain-c").unwrap(),
+            )
             .await
             .unwrap();
 
-        let bead_a = service.get_bead(&BeadId::new("chain-a").unwrap()).await.unwrap();
+        let bead_a = service
+            .get_bead(&BeadId::new("chain-a").unwrap())
+            .await
+            .unwrap();
         assert_eq!(bead_a.depends_on().len(), 1);
 
-        let bead_b = service.get_bead(&BeadId::new("chain-b").unwrap()).await.unwrap();
+        let bead_b = service
+            .get_bead(&BeadId::new("chain-b").unwrap())
+            .await
+            .unwrap();
         assert_eq!(bead_b.depends_on().len(), 1);
     }
 
     #[tokio::test]
     async fn assign_and_reassign() {
         let service = make_service();
-        service.create_bead("reassign", "Reassign", None).await.unwrap();
+        service
+            .create_bead("reassign", "Reassign", None)
+            .await
+            .unwrap();
 
         let (_, event1) = service
             .assign_bead(&BeadId::new("reassign").unwrap(), Some("alice".into()))
             .await
             .unwrap();
         assert_eq!(
-            match &event1 { BeadEvent::AssigneeSet { assignee, .. } => assignee.as_deref(), _ => None },
+            match &event1 {
+                BeadEvent::AssigneeSet { assignee, .. } => assignee.as_deref(),
+                _ => None,
+            },
             Some("alice")
         );
 
-        let bead = service.get_bead(&BeadId::new("reassign").unwrap()).await.unwrap();
+        let bead = service
+            .get_bead(&BeadId::new("reassign").unwrap())
+            .await
+            .unwrap();
         assert_eq!(bead.assignee(), Some("alice"));
     }
 
@@ -1250,7 +1306,10 @@ mod tests {
         let service = make_service();
         let result = service.create_bead("valid-id", "", None).await;
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("title") || msg.contains("Title"), "error message should mention title: {msg}");
+        assert!(
+            msg.contains("title") || msg.contains("Title"),
+            "error message should mention title: {msg}"
+        );
     }
 
     #[tokio::test]
@@ -1258,7 +1317,10 @@ mod tests {
         let service = make_service();
         let result = service.create_bead("bad id!", "Valid Title", None).await;
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("id") || msg.contains("ID"), "error message should mention id: {msg}");
+        assert!(
+            msg.contains("id") || msg.contains("ID"),
+            "error message should mention id: {msg}"
+        );
     }
 
     #[tokio::test]
@@ -1266,7 +1328,10 @@ mod tests {
         let service = make_service();
         let result = service.get_bead(&BeadId::new("nope").unwrap()).await;
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("nope"), "error message should contain the id: {msg}");
+        assert!(
+            msg.contains("nope"),
+            "error message should contain the id: {msg}"
+        );
     }
 
     #[tokio::test]
@@ -1274,7 +1339,10 @@ mod tests {
         let service = make_service();
         let result = service.delete_bead(&BeadId::new("nope").unwrap()).await;
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("nope"), "error message should contain the id: {msg}");
+        assert!(
+            msg.contains("nope"),
+            "error message should contain the id: {msg}"
+        );
     }
 
     // ── Description too long ─────────────────────────────────────────────────
@@ -1291,7 +1359,9 @@ mod tests {
     async fn create_bead_with_too_long_description() {
         let service = make_service();
         let desc = "x".repeat(BeadDescription::MAX_LENGTH + 1);
-        let result = service.create_bead("too-long-desc", "Valid", Some(desc)).await;
+        let result = service
+            .create_bead("too-long-desc", "Valid", Some(desc))
+            .await;
         assert!(result.is_err());
     }
 }

@@ -28,10 +28,6 @@ impl VcsServiceImpl {
 impl VcsService for VcsServiceImpl {
     fn detect_and_create_backend(&self, path: &Path) -> Result<Arc<dyn VcsBackend>> {
         match self.detect_vcs_type(path) {
-            Some(VcsType::Jujutsu) => {
-                use crate::infrastructure::JjBackend;
-                Ok(Arc::new(JjBackend::new_from_path(path)) as Arc<dyn VcsBackend>)
-            }
             Some(VcsType::Git) => {
                 use crate::infrastructure::GitBackend;
                 Ok(Arc::new(GitBackend::new_from_path(path)) as Arc<dyn VcsBackend>)
@@ -73,7 +69,9 @@ mod tests {
     #[test]
     fn vcs_service_detect_type_nonexistent() {
         let service = VcsServiceImpl::new();
-        assert!(service.detect_vcs_type(Path::new("/nonexistent/xyz")).is_none());
+        assert!(service
+            .detect_vcs_type(Path::new("/nonexistent/xyz"))
+            .is_none());
     }
 
     #[test]
@@ -92,14 +90,6 @@ mod tests {
     }
 
     #[test]
-    fn vcs_service_detect_type_with_jj_dir() {
-        let dir = tempfile::TempDir::new().expect("temp dir");
-        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
-        let service = VcsServiceImpl::new();
-        assert_eq!(service.detect_vcs_type(dir.path()), Some(VcsType::Jujutsu));
-    }
-
-    #[test]
     fn vcs_service_detect_and_create_backend_no_vcs() {
         let dir = tempfile::TempDir::new().expect("temp dir");
         let service = VcsServiceImpl::new();
@@ -112,15 +102,6 @@ mod tests {
     fn vcs_service_detect_and_create_backend_git() {
         let dir = tempfile::TempDir::new().expect("temp dir");
         std::fs::create_dir(dir.path().join(".git")).expect("create .git");
-        let service = VcsServiceImpl::new();
-        let result = service.detect_and_create_backend(dir.path());
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn vcs_service_detect_and_create_backend_jj() {
-        let dir = tempfile::TempDir::new().expect("temp dir");
-        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
         let service = VcsServiceImpl::new();
         let result = service.detect_and_create_backend(dir.path());
         assert!(result.is_ok());

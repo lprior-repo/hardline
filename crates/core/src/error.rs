@@ -91,13 +91,6 @@ pub enum Error {
     Internal(#[from] super::error_internal::InternalError),
 
     // ========================================================================
-    // JJ-specific Errors (3xxx)
-    // ========================================================================
-    /// JJ-specific errors
-    #[error(transparent)]
-    Jj(#[from] super::error_jj::JjError),
-
-    // ========================================================================
     // Task Errors (6xxx)
     // ========================================================================
     /// Task errors
@@ -452,52 +445,6 @@ impl Error {
         InternalErrorKind::Unimplemented(feature.into()).into()
     }
 
-    /// Creates a JJ command error
-    #[inline]
-    pub fn jj_command_error(
-        operation: impl Into<String>,
-        msg: impl Into<String>,
-        is_not_found: bool,
-    ) -> Self {
-        use super::error_jj::JjErrorKind;
-        JjErrorKind::CommandError {
-            operation: operation.into(),
-            msg: msg.into(),
-            is_not_found,
-        }
-        .into()
-    }
-
-    /// Creates a JJ workspace conflict error
-    #[inline]
-    pub fn jj_workspace_conflict(
-        conflict_type: super::error_types::JjConflictType,
-        workspace_name: impl Into<String>,
-        msg: impl Into<String>,
-        recovery_hint: impl Into<String>,
-    ) -> Self {
-        use super::error_jj::JjErrorKind;
-        JjErrorKind::WorkspaceConflict {
-            conflict_type,
-            workspace_name: workspace_name.into(),
-            msg: msg.into(),
-            recovery_hint: recovery_hint.into(),
-        }
-        .into()
-    }
-
-    /// Creates a JJ lock timeout error
-    #[inline]
-    pub fn jj_lock_timeout(operation: impl Into<String>, timeout_ms: u64, retries: usize) -> Self {
-        use super::error_jj::JjErrorKind;
-        JjErrorKind::LockTimeout {
-            operation: operation.into(),
-            timeout_ms,
-            retries,
-        }
-        .into()
-    }
-
     /// Creates a BatchEmpty error
     #[inline]
     pub fn batch_empty() -> Self {
@@ -551,7 +498,6 @@ impl Error {
             Error::Io(_) => None,
             Error::State(e) => e.suggestion(),
             Error::Internal(_) => None,
-            Error::Jj(e) => e.suggestion(),
             Error::Task(_) => None,
             Error::Wait(_) => None,
             Error::Lock(e) => e.suggestion(),
@@ -575,7 +521,6 @@ impl Error {
             Error::Io(e) => e.exit_code(),
             Error::State(e) => e.exit_code(),
             Error::Internal(e) => e.exit_code(),
-            Error::Jj(e) => e.exit_code(),
             Error::Task(e) => e.exit_code(),
             Error::Wait(e) => e.exit_code(),
             Error::Lock(e) => e.exit_code(),
@@ -598,7 +543,6 @@ impl Error {
             Error::Io(e) => io_error_code(e),
             Error::State(e) => state_error_code(e),
             Error::Internal(e) => internal_error_code(e),
-            Error::Jj(e) => jj_error_code(e),
             Error::Task(e) => task_error_code(e),
             Error::Wait(e) => wait_error_code(e),
             Error::Lock(e) => e.code(),
@@ -622,7 +566,6 @@ impl Error {
             Error::Io(e) => io_context_map(e),
             Error::State(e) => state_context_map(e),
             Error::Internal(e) => internal_context_map(e),
-            Error::Jj(e) => jj_context_map(e),
             Error::Task(e) => task_context_map(e),
             Error::Wait(e) => wait_context_map(e),
             Error::Lock(e) => lock_context_map(e),
@@ -746,15 +689,6 @@ fn internal_error_code(e: &super::error_internal::InternalError) -> &'static str
         InternalErrorKind::RecordFailed(_) => "RECORD_FAILED",
         InternalErrorKind::InvalidRepoUrl(_) => "INVALID_REPO_URL",
         InternalErrorKind::InvalidOperation(_) => "INVALID_OPERATION",
-    }
-}
-
-fn jj_error_code(e: &super::error_jj::JjError) -> &'static str {
-    use super::error_jj::JjErrorKind;
-    match e.kind() {
-        JjErrorKind::CommandError { .. } => "JJ_COMMAND_ERROR",
-        JjErrorKind::WorkspaceConflict { .. } => "JJ_WORKSPACE_CONFLICT",
-        JjErrorKind::LockTimeout { .. } => "LOCK_TIMEOUT",
     }
 }
 
@@ -941,11 +875,11 @@ fn config_context_map(e: &super::error_config::ConfigError) -> Option<serde_json
 fn agent_context_map(e: &super::error_agent::AgentError) -> Option<serde_json::Value> {
     use super::error_agent::AgentErrorKind;
     match e.kind() {
-        AgentErrorKind::NotFound(id)
-        | AgentErrorKind::Exists(id)
-        | AgentErrorKind::Timeout(id) => Some(serde_json::json!({
-            "agent_id": id,
-        })),
+        AgentErrorKind::NotFound(id) | AgentErrorKind::Exists(id) | AgentErrorKind::Timeout(id) => {
+            Some(serde_json::json!({
+                "agent_id": id,
+            }))
+        }
     }
 }
 
@@ -956,8 +890,7 @@ fn io_context_map(e: &super::error_io::IoError) -> Option<serde_json::Value> {
             "operation": "file_io",
             "error": err.to_string(),
         })),
-        IoErrorKind::IoError(msg)
-        | IoErrorKind::Database(msg) => Some(serde_json::json!({
+        IoErrorKind::IoError(msg) | IoErrorKind::Database(msg) => Some(serde_json::json!({
             "error_type": "io_error",
             "message": msg,
         })),
@@ -1025,40 +958,6 @@ fn internal_context_map(e: &super::error_internal::InternalError) -> Option<serd
     }
 }
 
-fn jj_context_map(e: &super::error_jj::JjError) -> Option<serde_json::Value> {
-    use super::error_jj::JjErrorKind;
-    match e.kind() {
-        JjErrorKind::CommandError {
-            operation,
-            msg,
-            is_not_found,
-        } => Some(serde_json::json!({
-            "operation": operation,
-            "source": msg,
-            "is_not_found": is_not_found,
-        })),
-        JjErrorKind::WorkspaceConflict {
-            conflict_type,
-            workspace_name,
-            msg,
-            recovery_hint: _,
-        } => Some(serde_json::json!({
-            "conflict_type": format!("{conflict_type:?}"),
-            "workspace_name": workspace_name,
-            "source": msg,
-        })),
-        JjErrorKind::LockTimeout {
-            operation,
-            timeout_ms,
-            retries,
-        } => Some(serde_json::json!({
-            "operation": operation,
-            "timeout_ms": timeout_ms,
-            "retries": retries,
-        })),
-    }
-}
-
 fn task_context_map(e: &super::error_task::TaskError) -> Option<serde_json::Value> {
     use super::error_task::TaskErrorKind;
     match e.kind() {
@@ -1106,7 +1005,9 @@ fn wait_context_map(e: &super::error_wait::WaitError) -> Option<serde_json::Valu
     }
 }
 
-fn lock_context_map(e: &super::coordination::locks::errors::LockError) -> Option<serde_json::Value> {
+fn lock_context_map(
+    e: &super::coordination::locks::errors::LockError,
+) -> Option<serde_json::Value> {
     use super::coordination::locks::errors::LockErrorKind;
     match e.kind() {
         LockErrorKind::SessionNotFound { session } => Some(serde_json::json!({
@@ -1214,12 +1115,6 @@ mod tests {
     }
 
     #[test]
-    fn test_error_code_jj() {
-        let err = Error::jj_command_error("status", "jj not found", true);
-        assert_eq!(err.code(), "JJ_COMMAND_ERROR");
-    }
-
-    #[test]
     fn test_error_code_io() {
         let err = Error::io_error("disk full");
         assert_eq!(err.code(), "IO_ERROR");
@@ -1265,16 +1160,6 @@ mod tests {
         let ctx = err.context_map().expect("should have context");
 
         assert_eq!(ctx["error_type"], "vcs_not_initialized");
-    }
-
-    #[test]
-    fn test_context_map_jj_command_error() {
-        let err = Error::jj_command_error("log", "error msg", false);
-        let ctx = err.context_map().expect("should have context");
-
-        assert_eq!(ctx["operation"], "log");
-        assert_eq!(ctx["source"], "error msg");
-        assert_eq!(ctx["is_not_found"], false);
     }
 
     #[test]
@@ -1368,7 +1253,10 @@ mod tests {
         assert!(matches!(Error::vcs_commit_failed("msg"), Error::Vcs(_)));
         assert!(matches!(Error::vcs_checkout_failed("msg"), Error::Vcs(_)));
         assert!(matches!(Error::vcs_diff_failed("msg"), Error::Vcs(_)));
-        assert!(matches!(Error::vcs_init_failed("jj", "/tmp", "err"), Error::Vcs(_)));
+        assert!(matches!(
+            Error::vcs_init_failed("jj", "/tmp", "err"),
+            Error::Vcs(_)
+        ));
     }
 
     #[test]
@@ -1394,12 +1282,18 @@ mod tests {
     fn test_error_construction_state_variants() {
         assert!(matches!(Error::invalid_state("bad state"), Error::State(_)));
         assert!(matches!(Error::not_found("missing"), Error::State(_)));
-        assert!(matches!(Error::validation_error("bad input"), Error::State(_)));
+        assert!(matches!(
+            Error::validation_error("bad input"),
+            Error::State(_)
+        ));
         assert!(matches!(
             Error::validation_field_error("f", "m", Some("v".into())),
             Error::State(_)
         ));
-        assert!(matches!(Error::invalid_identifier("bad-id"), Error::State(_)));
+        assert!(matches!(
+            Error::invalid_identifier("bad-id"),
+            Error::State(_)
+        ));
     }
 
     #[test]
@@ -1409,28 +1303,13 @@ mod tests {
     }
 
     #[test]
-    fn test_error_construction_jj_variants() {
-        assert!(matches!(
-            Error::jj_command_error("status", "fail", false),
-            Error::Jj(_)
-        ));
-        assert!(matches!(
-            Error::jj_workspace_conflict(
-                crate::error::JjConflictType::AlreadyExists,
-                "ws",
-                "msg",
-                "hint"
-            ),
-            Error::Jj(_)
-        ));
-        assert!(matches!(Error::jj_lock_timeout("op", 1000, 3), Error::Jj(_)));
-    }
-
-    #[test]
     fn test_error_construction_wait_variants() {
         assert!(matches!(Error::batch_empty(), Error::Wait(_)));
         assert!(matches!(Error::batch_command_failed("msg"), Error::Wait(_)));
-        assert!(matches!(Error::batch_rollback_failed("msg"), Error::Wait(_)));
+        assert!(matches!(
+            Error::batch_rollback_failed("msg"),
+            Error::Wait(_)
+        ));
         assert!(matches!(Error::batch_size_exceeded(10), Error::Wait(_)));
         assert!(matches!(Error::checkpoint_error("msg"), Error::Wait(_)));
     }
@@ -1490,10 +1369,7 @@ mod tests {
         assert_ne!(Error::vcs_commit_failed("m").exit_code(), 0);
         assert_ne!(Error::vcs_checkout_failed("m").exit_code(), 0);
         assert_ne!(Error::vcs_diff_failed("m").exit_code(), 0);
-        assert_ne!(
-            Error::vcs_init_failed("jj", "/tmp", "err").exit_code(),
-            0
-        );
+        assert_ne!(Error::vcs_init_failed("jj", "/tmp", "err").exit_code(), 0);
 
         // Config
         assert_ne!(Error::config_not_found("m").exit_code(), 0);
@@ -1518,23 +1394,6 @@ mod tests {
         // Internal
         assert_ne!(Error::internal("m").exit_code(), 0);
         assert_ne!(Error::unimplemented("m").exit_code(), 0);
-
-        // JJ
-        assert_ne!(
-            Error::jj_command_error("op", "m", false).exit_code(),
-            0
-        );
-        assert_ne!(
-            Error::jj_workspace_conflict(
-                crate::error::JjConflictType::AlreadyExists,
-                "ws",
-                "m",
-                "h"
-            )
-            .exit_code(),
-            0
-        );
-        assert_ne!(Error::jj_lock_timeout("op", 1000, 3).exit_code(), 0);
 
         // Wait
         assert_ne!(Error::batch_empty().exit_code(), 0);
@@ -1569,7 +1428,9 @@ mod tests {
         assert!(Error::session_exists("s").context_map().is_some());
         assert!(Error::session_locked("s", "h").context_map().is_some());
         assert!(Error::not_lock_holder("s", "a").context_map().is_some());
-        assert!(Error::session_invalid_state("s", "a", "b").context_map().is_some());
+        assert!(Error::session_invalid_state("s", "a", "b")
+            .context_map()
+            .is_some());
 
         // Queue
         assert!(Error::queue_empty().context_map().is_some());
@@ -1586,9 +1447,9 @@ mod tests {
         assert!(Error::branch_not_found("b").context_map().is_some());
         assert!(Error::working_copy_dirty().context_map().is_some());
         assert!(Error::vcs_commit_failed("m").context_map().is_some());
-        assert!(
-            Error::vcs_init_failed("jj", "/tmp", "err").context_map().is_some()
-        );
+        assert!(Error::vcs_init_failed("jj", "/tmp", "err")
+            .context_map()
+            .is_some());
 
         // Config
         assert!(Error::config_not_found("m").context_map().is_some());
@@ -1606,16 +1467,14 @@ mod tests {
         assert!(Error::invalid_state("m").context_map().is_some());
         assert!(Error::not_found("m").context_map().is_some());
         assert!(Error::validation_error("m").context_map().is_some());
-        assert!(Error::validation_field_error("f", "m", None).context_map().is_some());
+        assert!(Error::validation_field_error("f", "m", None)
+            .context_map()
+            .is_some());
         assert!(Error::invalid_identifier("m").context_map().is_some());
 
         // Internal
         assert!(Error::internal("m").context_map().is_some());
         assert!(Error::unimplemented("m").context_map().is_some());
-
-        // JJ
-        assert!(Error::jj_command_error("op", "m", false).context_map().is_some());
-        assert!(Error::jj_lock_timeout("op", 1000, 3).context_map().is_some());
 
         // Wait
         assert!(Error::batch_empty().context_map().is_some());
@@ -1686,32 +1545,6 @@ mod tests {
     }
 
     #[test]
-    fn test_suggestion_jj_not_found() {
-        let err = Error::jj_command_error("status", "not found", true);
-        let s = err.suggestion().expect("should have suggestion");
-        assert!(s.contains("Install JJ"));
-    }
-
-    #[test]
-    fn test_suggestion_jj_workspace_conflict() {
-        let err = Error::jj_workspace_conflict(
-            crate::error::JjConflictType::AlreadyExists,
-            "ws",
-            "msg",
-            "try a different name",
-        );
-        let s = err.suggestion().expect("should have suggestion");
-        assert_eq!(s, "try a different name");
-    }
-
-    #[test]
-    fn test_suggestion_jj_lock_timeout() {
-        let err = Error::jj_lock_timeout("op", 5000, 3);
-        let s = err.suggestion().expect("should have suggestion");
-        assert!(s.contains("heavy load") || s.contains("retry"));
-    }
-
-    #[test]
     fn test_suggestion_state_not_found() {
         let err = Error::not_found("resource-xyz");
         let s = err.suggestion().expect("should have suggestion");
@@ -1746,7 +1579,9 @@ mod tests {
         // State validation errors (except NotFound) have no suggestion
         assert!(Error::invalid_state("x").suggestion().is_none());
         assert!(Error::validation_error("x").suggestion().is_none());
-        assert!(Error::validation_field_error("f", "m", None).suggestion().is_none());
+        assert!(Error::validation_field_error("f", "m", None)
+            .suggestion()
+            .is_none());
         assert!(Error::invalid_identifier("x").suggestion().is_none());
     }
 
@@ -1778,47 +1613,85 @@ mod tests {
 
     #[test]
     fn test_display_workspace_errors() {
-        assert!(Error::workspace_not_found("ws").to_string().contains("Workspace not found"));
+        assert!(Error::workspace_not_found("ws")
+            .to_string()
+            .contains("Workspace not found"));
         assert!(Error::workspace_not_found("ws").to_string().contains("ws"));
-        assert!(Error::workspace_exists("ws").to_string().contains("already exists"));
-        assert!(Error::workspace_locked("ws", "h").to_string().contains("locked"));
-        assert!(Error::workspace_conflict("msg").to_string().contains("conflict"));
+        assert!(Error::workspace_exists("ws")
+            .to_string()
+            .contains("already exists"));
+        assert!(Error::workspace_locked("ws", "h")
+            .to_string()
+            .contains("locked"));
+        assert!(Error::workspace_conflict("msg")
+            .to_string()
+            .contains("conflict"));
     }
 
     #[test]
     fn test_display_session_errors() {
-        assert!(Error::session("s").to_string().contains("Session not found"));
-        assert!(Error::session_exists("s").to_string().contains("already exists"));
-        assert!(Error::session_locked("s", "h").to_string().contains("locked"));
-        assert!(Error::not_lock_holder("s", "a").to_string().contains("does not hold lock"));
-        assert!(Error::session_invalid_state("s", "active", "idle").to_string().contains("expected idle"));
+        assert!(Error::session("s")
+            .to_string()
+            .contains("Session not found"));
+        assert!(Error::session_exists("s")
+            .to_string()
+            .contains("already exists"));
+        assert!(Error::session_locked("s", "h")
+            .to_string()
+            .contains("locked"));
+        assert!(Error::not_lock_holder("s", "a")
+            .to_string()
+            .contains("does not hold lock"));
+        assert!(Error::session_invalid_state("s", "active", "idle")
+            .to_string()
+            .contains("expected idle"));
     }
 
     #[test]
     fn test_display_queue_errors() {
         assert!(Error::queue_empty().to_string().contains("empty"));
-        assert!(Error::queue_item_not_found("i").to_string().contains("not found"));
+        assert!(Error::queue_item_not_found("i")
+            .to_string()
+            .contains("not found"));
         assert!(Error::queue_locked("h").to_string().contains("locked"));
-        assert!(Error::queue_processing().to_string().contains("in progress"));
+        assert!(Error::queue_processing()
+            .to_string()
+            .contains("in progress"));
         assert!(Error::queue_full(10).to_string().contains("10"));
     }
 
     #[test]
     fn test_display_vcs_errors() {
-        assert!(Error::vcs_not_initialized().to_string().contains("not initialized"));
-        assert!(Error::vcs_conflict("repo", "msg").to_string().contains("conflict"));
+        assert!(Error::vcs_not_initialized()
+            .to_string()
+            .contains("not initialized"));
+        assert!(Error::vcs_conflict("repo", "msg")
+            .to_string()
+            .contains("conflict"));
         assert!(Error::vcs_push_failed("msg").to_string().contains("push"));
-        assert!(Error::working_copy_dirty().to_string().contains("uncommitted"));
-        assert!(Error::vcs_init_failed("jj", "/tmp", "err").to_string().contains("jj"));
-        assert!(Error::vcs_init_failed("jj", "/tmp", "err").to_string().contains("/tmp"));
+        assert!(Error::working_copy_dirty()
+            .to_string()
+            .contains("uncommitted"));
+        assert!(Error::vcs_init_failed("jj", "/tmp", "err")
+            .to_string()
+            .contains("jj"));
+        assert!(Error::vcs_init_failed("jj", "/tmp", "err")
+            .to_string()
+            .contains("/tmp"));
     }
 
     #[test]
     fn test_display_state_errors() {
-        assert!(Error::invalid_state("msg").to_string().contains("Invalid state"));
+        assert!(Error::invalid_state("msg")
+            .to_string()
+            .contains("Invalid state"));
         assert!(Error::not_found("x").to_string().contains("Not found"));
-        assert!(Error::validation_error("x").to_string().contains("Validation"));
-        assert!(Error::invalid_identifier("x").to_string().contains("Invalid identifier"));
+        assert!(Error::validation_error("x")
+            .to_string()
+            .contains("Validation"));
+        assert!(Error::invalid_identifier("x")
+            .to_string()
+            .contains("Invalid identifier"));
         let err = Error::validation_field_error("name", "too short", Some("ab".into()));
         let display = err.to_string();
         assert!(display.contains("name"));
@@ -1827,49 +1700,55 @@ mod tests {
 
     #[test]
     fn test_display_internal_errors() {
-        assert!(Error::internal("oops").to_string().contains("Internal error"));
-        assert!(Error::unimplemented("todo").to_string().contains("Not implemented"));
-    }
-
-    #[test]
-    fn test_display_jj_errors() {
-        let err = Error::jj_command_error("status", "failed", false);
-        let display = err.to_string();
-        assert!(display.contains("status"));
-        assert!(display.contains("failed"));
-
-        let err = Error::jj_lock_timeout("op", 5000, 3);
-        let display = err.to_string();
-        assert!(display.contains("op"));
-        assert!(display.contains("5000"));
-        assert!(display.contains("3"));
+        assert!(Error::internal("oops")
+            .to_string()
+            .contains("Internal error"));
+        assert!(Error::unimplemented("todo")
+            .to_string()
+            .contains("Not implemented"));
     }
 
     #[test]
     fn test_display_config_errors() {
-        assert!(Error::config_not_found("file.toml").to_string().contains("not found"));
+        assert!(Error::config_not_found("file.toml")
+            .to_string()
+            .contains("not found"));
         assert!(Error::config_invalid("bad").to_string().contains("invalid"));
-        assert!(Error::config_permission("denied").to_string().contains("permission"));
+        assert!(Error::config_permission("denied")
+            .to_string()
+            .contains("permission"));
     }
 
     #[test]
     fn test_display_agent_errors() {
-        assert!(Error::agent_not_found("a1").to_string().contains("not found"));
-        assert!(Error::agent_exists("a2").to_string().contains("already registered"));
+        assert!(Error::agent_not_found("a1")
+            .to_string()
+            .contains("not found"));
+        assert!(Error::agent_exists("a2")
+            .to_string()
+            .contains("already registered"));
     }
 
     #[test]
     fn test_display_io_errors() {
-        assert!(Error::io_error("disk full").to_string().contains("IO error"));
-        assert!(Error::database("corrupt").to_string().contains("Database error"));
+        assert!(Error::io_error("disk full")
+            .to_string()
+            .contains("IO error"));
+        assert!(Error::database("corrupt")
+            .to_string()
+            .contains("Database error"));
     }
 
     #[test]
     fn test_display_wait_errors() {
         assert!(Error::batch_empty().to_string().contains("empty"));
-        assert!(Error::batch_command_failed("err").to_string().contains("failed"));
+        assert!(Error::batch_command_failed("err")
+            .to_string()
+            .contains("failed"));
         assert!(Error::batch_size_exceeded(10).to_string().contains("10"));
-        assert!(Error::checkpoint_error("err").to_string().contains("Checkpoint"));
+        assert!(Error::checkpoint_error("err")
+            .to_string()
+            .contains("Checkpoint"));
     }
 
     #[test]
@@ -1890,10 +1769,16 @@ mod tests {
     #[test]
     fn test_error_code_queue_variants() {
         assert_eq!(Error::queue_empty().code(), "QUEUE_EMPTY");
-        assert_eq!(Error::queue_item_not_found("i").code(), "QUEUE_ITEM_NOT_FOUND");
+        assert_eq!(
+            Error::queue_item_not_found("i").code(),
+            "QUEUE_ITEM_NOT_FOUND"
+        );
         assert_eq!(Error::queue_locked("h").code(), "QUEUE_LOCKED");
         assert_eq!(Error::queue_processing().code(), "QUEUE_PROCESSING");
-        assert_eq!(Error::queue_invalid_position(1).code(), "QUEUE_INVALID_POSITION");
+        assert_eq!(
+            Error::queue_invalid_position(1).code(),
+            "QUEUE_INVALID_POSITION"
+        );
         assert_eq!(Error::queue_full(10).code(), "QUEUE_FULL");
     }
 
@@ -1915,7 +1800,10 @@ mod tests {
         assert_eq!(Error::invalid_state("m").code(), "INVALID_STATE");
         assert_eq!(Error::not_found("m").code(), "NOT_FOUND");
         assert_eq!(Error::validation_error("m").code(), "VALIDATION_ERROR");
-        assert_eq!(Error::validation_field_error("f", "m", None).code(), "VALIDATION_FIELD_ERROR");
+        assert_eq!(
+            Error::validation_field_error("f", "m", None).code(),
+            "VALIDATION_FIELD_ERROR"
+        );
         assert_eq!(Error::invalid_identifier("m").code(), "INVALID_IDENTIFIER");
     }
 
@@ -1928,26 +1816,53 @@ mod tests {
     #[test]
     fn test_error_code_task_variants() {
         use crate::error_task::TaskErrorKind;
-        assert_eq!(Error::from(TaskErrorKind::NotFound("t".into())).code(), "TASK_NOT_FOUND");
-        assert_eq!(Error::from(TaskErrorKind::AlreadyClaimed("t".into(), "a".into())).code(), "TASK_ALREADY_CLAIMED");
-        assert_eq!(Error::from(TaskErrorKind::Locked("t".into())).code(), "TASK_LOCKED");
-        assert_eq!(Error::from(TaskErrorKind::InvalidId("t".into())).code(), "TASK_INVALID_ID");
+        assert_eq!(
+            Error::from(TaskErrorKind::NotFound("t".into())).code(),
+            "TASK_NOT_FOUND"
+        );
+        assert_eq!(
+            Error::from(TaskErrorKind::AlreadyClaimed("t".into(), "a".into())).code(),
+            "TASK_ALREADY_CLAIMED"
+        );
+        assert_eq!(
+            Error::from(TaskErrorKind::Locked("t".into())).code(),
+            "TASK_LOCKED"
+        );
+        assert_eq!(
+            Error::from(TaskErrorKind::InvalidId("t".into())).code(),
+            "TASK_INVALID_ID"
+        );
     }
 
     #[test]
     fn test_error_code_wait_variants() {
         use crate::error_wait::WaitErrorKind;
         assert_eq!(Error::from(WaitErrorKind::BatchEmpty).code(), "BATCH_EMPTY");
-        assert_eq!(Error::from(WaitErrorKind::BatchCommandFailed("m".into())).code(), "BATCH_COMMAND_FAILED");
-        assert_eq!(Error::from(WaitErrorKind::BatchRollbackFailed("m".into())).code(), "BATCH_ROLLBACK_FAILED");
-        assert_eq!(Error::from(WaitErrorKind::CheckpointError("m".into())).code(), "CHECKPOINT_ERROR");
-        assert_eq!(Error::from(WaitErrorKind::BatchSizeExceeded(10)).code(), "BATCH_SIZE_EXCEEDED");
+        assert_eq!(
+            Error::from(WaitErrorKind::BatchCommandFailed("m".into())).code(),
+            "BATCH_COMMAND_FAILED"
+        );
+        assert_eq!(
+            Error::from(WaitErrorKind::BatchRollbackFailed("m".into())).code(),
+            "BATCH_ROLLBACK_FAILED"
+        );
+        assert_eq!(
+            Error::from(WaitErrorKind::CheckpointError("m".into())).code(),
+            "CHECKPOINT_ERROR"
+        );
+        assert_eq!(
+            Error::from(WaitErrorKind::BatchSizeExceeded(10)).code(),
+            "BATCH_SIZE_EXCEEDED"
+        );
     }
 
     #[test]
     fn test_error_code_lock_variants() {
         use crate::coordination::locks::errors::LockErrorKind;
-        let err: Error = LockErrorKind::SessionNotFound { session: "s".into() }.into();
+        let err: Error = LockErrorKind::SessionNotFound {
+            session: "s".into(),
+        }
+        .into();
         assert_eq!(err.code(), "SESSION_NOT_FOUND");
 
         let err: Error = LockErrorKind::SessionLocked {
@@ -2032,29 +1947,6 @@ mod tests {
         let ctx = err.context_map().expect("should have context");
         assert_eq!(ctx["error_type"], "internal_error");
         assert_eq!(ctx["message"], "invariant violated");
-    }
-
-    #[test]
-    fn test_context_map_jj_workspace_conflict() {
-        let err = Error::jj_workspace_conflict(
-            crate::error::JjConflictType::ConcurrentModification,
-            "ws1",
-            "concurrent edit detected",
-            "wait and retry",
-        );
-        let ctx = err.context_map().expect("should have context");
-        assert_eq!(ctx["conflict_type"], "ConcurrentModification");
-        assert_eq!(ctx["workspace_name"], "ws1");
-        assert_eq!(ctx["source"], "concurrent edit detected");
-    }
-
-    #[test]
-    fn test_context_map_jj_lock_timeout() {
-        let err = Error::jj_lock_timeout("commit", 3000, 5);
-        let ctx = err.context_map().expect("should have context");
-        assert_eq!(ctx["operation"], "commit");
-        assert_eq!(ctx["timeout_ms"], 3000);
-        assert_eq!(ctx["retries"], 5);
     }
 
     #[test]

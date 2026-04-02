@@ -47,8 +47,8 @@ mod tests {
     use super::storage::SnapshotStore;
     use crate::domain::snapshot::{Snapshot, SnapshotId};
     use crate::error::SnapshotError;
-    use proptest::proptest;
     use proptest::prop_assert;
+    use proptest::proptest;
 
     fn make_store() -> SnapshotStore {
         SnapshotStore::new()
@@ -71,7 +71,10 @@ mod tests {
         let result = store.save(snapshot);
         assert!(result.is_err());
         let msg = result.expect_err("should be Err").to_string();
-        assert!(msg.contains("not yet implemented"), "unexpected message: {msg}");
+        assert!(
+            msg.contains("not yet implemented"),
+            "unexpected message: {msg}"
+        );
     }
 
     #[test]
@@ -81,7 +84,10 @@ mod tests {
         let result = store.load(&id);
         assert!(result.is_err());
         let msg = result.expect_err("should be Err").to_string();
-        assert!(msg.contains("not yet implemented"), "unexpected message: {msg}");
+        assert!(
+            msg.contains("not yet implemented"),
+            "unexpected message: {msg}"
+        );
     }
 
     #[test]
@@ -90,7 +96,10 @@ mod tests {
         let result = store.list();
         assert!(result.is_err());
         let msg = result.expect_err("should be Err").to_string();
-        assert!(msg.contains("not yet implemented"), "unexpected message: {msg}");
+        assert!(
+            msg.contains("not yet implemented"),
+            "unexpected message: {msg}"
+        );
     }
 
     #[test]
@@ -100,7 +109,10 @@ mod tests {
         let result = store.delete(&id);
         assert!(result.is_err());
         let msg = result.expect_err("should be Err").to_string();
-        assert!(msg.contains("not yet implemented"), "unexpected message: {msg}");
+        assert!(
+            msg.contains("not yet implemented"),
+            "unexpected message: {msg}"
+        );
     }
 
     #[test]

@@ -144,15 +144,31 @@ mod tests {
 
     #[test]
     fn state_error_exit_codes() {
-        assert_eq!(StateError::from(StateErrorKind::InvalidState("x".into())).exit_code(), 70);
-        assert_eq!(StateError::from(StateErrorKind::NotFound("x".into())).exit_code(), 71);
-        assert_eq!(StateError::from(StateErrorKind::ValidationError("x".into())).exit_code(), 80);
-        assert_eq!(StateError::from(StateErrorKind::ValidationFieldError {
-            field: "f".into(),
-            message: "m".into(),
-            value: None,
-        }).exit_code(), 81);
-        assert_eq!(StateError::from(StateErrorKind::InvalidIdentifier("x".into())).exit_code(), 82);
+        assert_eq!(
+            StateError::from(StateErrorKind::InvalidState("x".into())).exit_code(),
+            70
+        );
+        assert_eq!(
+            StateError::from(StateErrorKind::NotFound("x".into())).exit_code(),
+            71
+        );
+        assert_eq!(
+            StateError::from(StateErrorKind::ValidationError("x".into())).exit_code(),
+            80
+        );
+        assert_eq!(
+            StateError::from(StateErrorKind::ValidationFieldError {
+                field: "f".into(),
+                message: "m".into(),
+                value: None,
+            })
+            .exit_code(),
+            81
+        );
+        assert_eq!(
+            StateError::from(StateErrorKind::InvalidIdentifier("x".into())).exit_code(),
+            82
+        );
     }
 
     #[test]

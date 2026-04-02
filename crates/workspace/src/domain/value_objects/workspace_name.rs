@@ -30,7 +30,7 @@ impl WorkspaceName {
 
 impl Default for WorkspaceName {
     fn default() -> Self {
-        Self::new("default".into()).expect("default name is valid")
+        Self("default".into())
     }
 }
 
@@ -239,9 +239,9 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
+        use super::*;
         use proptest::prelude::*;
         use proptest::{prop_assert, prop_assert_eq};
-        use super::*;
 
         proptest! {
             #[test]

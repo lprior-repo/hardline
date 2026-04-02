@@ -1,16 +1,15 @@
 //! Proptest invariants for workspace crate value objects
 
 use proptest::prelude::*;
-use proptest::{prop_assert, prop_assert_eq};
-use scp_workspace::domain::value_objects::workspace_name::WorkspaceName;
 use scp_workspace::domain::value_objects::branch_name::BranchName;
+use scp_workspace::domain::value_objects::workspace_name::WorkspaceName;
 
 proptest! {
     #[test]
     fn proptest_workspace_name_roundtrip(
         input in "[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}",
     ) {
-        let name = WorkspaceName::new(input.clone()).expect("valid WorkspaceName");
+        let name = WorkspaceName::new(input.clone())?;
         prop_assert_eq!(name.as_str(), &input);
     }
 
@@ -18,8 +17,8 @@ proptest! {
     fn proptest_workspace_name_reflexive(
         input in "[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}",
     ) {
-        let name = WorkspaceName::new(input).expect("valid");
-        prop_assert_eq!(name, name.clone());
+        let name = WorkspaceName::new(input)?;
+        prop_assert_eq!(&name, &name.clone());
     }
 
     #[test]
@@ -36,11 +35,6 @@ proptest! {
     }
 
     #[test]
-    fn proptest_workspace_name_empty_rejected() {
-        assert!(WorkspaceName::new("".into()).is_err());
-    }
-
-    #[test]
     fn proptest_workspace_name_too_long_rejected(
         input in "[a-zA-Z0-9_-]{256,500}",
     ) {
@@ -48,19 +42,17 @@ proptest! {
     }
 }
 
-// NOTE: Second proptest block intentionally separated because two blocks
-// cause macro expansion errors in the workspace crate's integration tests.
-// See: https://github.com/Antisocial/hardline/issues/XXX
-// When a single proptest! block contains both #[test]-annotated functions
-// AND helper functions like arb_valid_*, the proptest 1.11 macro fails to parse
-// the function body as an expression. This is likely a proptest bug or an interaction
-// with the workspace crate's specific compilation flags.
+#[test]
+fn proptest_workspace_name_empty_rejected() {
+    assert!(WorkspaceName::new("".into()).is_err());
+}
+
 proptest! {
     #[test]
     fn proptest_workspace_branch_name_roundtrip(
         input in "[a-zA-Z0-9/_.-]{1,100}",
     ) {
-        let name = BranchName::new(input.clone()).expect("valid BranchName");
+        let name = BranchName::new(input.clone())?;
         prop_assert_eq!(name.as_str(), &input);
     }
 
@@ -68,13 +60,8 @@ proptest! {
     fn proptest_workspace_branch_name_reflexive(
         input in "[a-zA-Z0-9/_.-]{1,100}",
     ) {
-        let name = BranchName::new(input).expect("valid");
-        prop_assert_eq!(name, name.clone());
-    }
-
-    #[test]
-    fn proptest_workspace_branch_name_empty_rejected() {
-        assert!(BranchName::new("".into()).is_err());
+        let name = BranchName::new(input)?;
+        prop_assert_eq!(&name, &name.clone());
     }
 
     #[test]
@@ -85,4 +72,9 @@ proptest! {
         let input = format!("{}{}{}", prefix, '\0', suffix);
         prop_assert!(BranchName::new(input).is_err());
     }
+}
+
+#[test]
+fn proptest_workspace_branch_name_empty_rejected() {
+    assert!(BranchName::new("".into()).is_err());
 }

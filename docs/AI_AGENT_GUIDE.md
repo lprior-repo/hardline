@@ -162,11 +162,11 @@ Each autonomous agent follows this pipeline:
 ```jsonl
 {"step": "1", "name": "TRIAGE", "cmd": "bv --robot-triage --robot-triage-by-track", "output": "Parallel execution tracks", "tool": "bv"}
 {"step": "2", "name": "CLAIM", "cmd": "br update <bead-id> --status in_progress", "output": "Reserve bead", "tool": "br"}
-{"step": "3", "name": "ISOLATE", "skill": "isolate", "output": "Spawn isolated JJ workspace + Zellij tab", "tool": "Skill tool"}
+{"step": "3", "name": "ISOLATE", "skill": "isolate", "output": "Spawn isolated Git workspace + Zellij tab", "tool": "Skill tool"}
 {"step": "4", "name": "IMPLEMENT", "skill": "functional-rust-generator (Rust) | tdd15-gleam (Gleam)", "output": "ZERO unwrap/expect/panic, Railway-Oriented Programming", "tool": "Skill tool"}
 {"step": "5", "name": "REVIEW", "skill": "red-queen", "output": "Adversarial QA, regression hunting", "tool": "Skill tool"}
 {"step": "6", "name": "LAND", "skill": "landing-skill", "output": "Moon quick check, commit, sync, push (MANDATORY)", "tool": "Skill tool"}
-{"step": "7", "name": "MERGE", "skill": "isolate", "output": "jj rebase -d main, cleanup, tab switch", "tool": "Skill tool"}
+{"step": "7", "name": "MERGE", "skill": "isolate", "output": "git rebase main, cleanup, tab switch", "tool": "Skill tool"}
 ```
 
 ### Subagent Template
@@ -211,7 +211,7 @@ bv --robot-triage --robot-triage-by-track
 
 | Benefit | Description |
 |---------|-------------|
-| **Isolation** | Each agent works in separate JJ workspace |
+| **Isolation** | Each agent works in separate Git clone workspace |
 | **Parallel** | 8x throughput with no conflicts |
 | **Deterministic** | bv precomputes dependencies and execution tracks |
 | **Quality** | Red-queen ensures adversarial testing on each change |
@@ -428,8 +428,8 @@ Load these skills for specialized tasks:
 | `coding-rigor` | TDD-first development, clean boundaries | Code design |
 | `rust-contract` | Design-by-contract, test planning | Planning Rust features |
 
-**Why JJ for Multi-Agent?**  
-See [09_JUJUTSU.md](09_JUJUTSU.md) — JJ enables 8-12 parallel agents without corruption, unlike Git which breaks at 4+.
+**Multi-Agent Isolation:**
+Each agent works in its own full Git clone, ensuring complete workspace isolation without lock contention.
 
 ---
 

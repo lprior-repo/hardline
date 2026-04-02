@@ -159,13 +159,15 @@ mod tests {
     fn test_session_serde_roundtrip() {
         let session = make_test_session();
         let json = serde_json::to_string(&session).expect("serialize ok");
-        let deserialized: Session =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: Session = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(session.id.as_str(), deserialized.id.as_str());
         assert_eq!(session.name.as_str(), deserialized.name.as_str());
         assert_eq!(session.status, deserialized.status);
         assert_eq!(session.state, deserialized.state);
-        assert_eq!(session.workspace_path.as_str(), deserialized.workspace_path.as_str());
+        assert_eq!(
+            session.workspace_path.as_str(),
+            deserialized.workspace_path.as_str()
+        );
     }
 
     #[test]
@@ -175,8 +177,7 @@ mod tests {
         session.metadata.insert("version", "2.0");
 
         let json = serde_json::to_string(&session).expect("serialize ok");
-        let deserialized: Session =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: Session = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(deserialized.metadata.get("author"), Some("test-agent"));
         assert_eq!(deserialized.metadata.get("version"), Some("2.0"));
     }
@@ -188,8 +189,7 @@ mod tests {
         session.last_synced = Some(sync_time);
 
         let json = serde_json::to_string(&session).expect("serialize ok");
-        let deserialized: Session =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: Session = serde_json::from_str(&json).expect("deserialize ok");
         assert!(deserialized.last_synced.is_some());
     }
 
@@ -238,7 +238,10 @@ mod tests {
             branch: BranchState::OnBranch("feature".to_string()),
             ..make_test_session()
         };
-        assert_eq!(on_branch.branch, BranchState::OnBranch("feature".to_string()));
+        assert_eq!(
+            on_branch.branch,
+            BranchState::OnBranch("feature".to_string())
+        );
     }
 
     // ── Debug ────────────────────────────────────────────────────────────────

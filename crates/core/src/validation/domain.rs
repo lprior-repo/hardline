@@ -535,21 +535,33 @@ mod tests {
         assert_eq!(err.to_string(), "input cannot be empty");
 
         let err: Box<dyn std::error::Error> = Box::new(ValidationError::ShellMetacharacter);
-        assert_eq!(err.to_string(), "input must not contain shell metacharacters");
+        assert_eq!(
+            err.to_string(),
+            "input must not contain shell metacharacters"
+        );
     }
 
     #[test]
     fn test_validation_error_equality() {
         assert_eq!(ValidationError::EmptyInput, ValidationError::EmptyInput);
-        assert_eq!(ValidationError::ShellMetacharacter, ValidationError::ShellMetacharacter);
-        assert_ne!(ValidationError::EmptyInput, ValidationError::ShellMetacharacter);
+        assert_eq!(
+            ValidationError::ShellMetacharacter,
+            ValidationError::ShellMetacharacter
+        );
+        assert_ne!(
+            ValidationError::EmptyInput,
+            ValidationError::ShellMetacharacter
+        );
     }
 
     // ── validate_session_name additional cases ───────────────────────────────
 
     #[test]
     fn test_validate_session_name_whitespace_only() {
-        assert_eq!(validate_session_name("   "), Err(ValidationError::EmptyInput));
+        assert_eq!(
+            validate_session_name("   "),
+            Err(ValidationError::EmptyInput)
+        );
     }
 
     #[test]
@@ -843,10 +855,7 @@ mod tests {
 
     #[test]
     fn test_workspace_name_newtype_empty() {
-        assert_eq!(
-            WorkspaceName::parse(""),
-            Err(ValidationError::EmptyInput)
-        );
+        assert_eq!(WorkspaceName::parse(""), Err(ValidationError::EmptyInput));
     }
 
     #[test]
@@ -871,10 +880,7 @@ mod tests {
 
     #[test]
     fn test_absolute_path_newtype_empty() {
-        assert_eq!(
-            AbsolutePath::parse(""),
-            Err(ValidationError::EmptyInput)
-        );
+        assert_eq!(AbsolutePath::parse(""), Err(ValidationError::EmptyInput));
     }
 
     #[test]

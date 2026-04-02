@@ -276,7 +276,10 @@ mod tests {
         let mut prev = policy.calculate_delay(0);
         for attempt in 1..20 {
             let current = policy.calculate_delay(attempt);
-            assert!(current >= prev, "Expected delay at attempt {attempt} ({current}) >= previous ({prev})");
+            assert!(
+                current >= prev,
+                "Expected delay at attempt {attempt} ({current}) >= previous ({prev})"
+            );
             prev = current;
         }
     }
@@ -297,16 +300,15 @@ mod tests {
 
     #[test]
     fn test_is_retryable_case_sensitive() {
-        let policy = RetryPolicy::new(3, 100, 2.0, None, vec!["IO".into()])
-            .expect("should create");
+        let policy = RetryPolicy::new(3, 100, 2.0, None, vec!["IO".into()]).expect("should create");
         assert!(policy.is_retryable("IO error"));
         assert!(!policy.is_retryable("io error")); // lowercase doesn't match
     }
 
     #[test]
     fn test_is_retryable_empty_string() {
-        let policy = RetryPolicy::new(3, 100, 2.0, None, vec!["timeout".into()])
-            .expect("should create");
+        let policy =
+            RetryPolicy::new(3, 100, 2.0, None, vec!["timeout".into()]).expect("should create");
         assert!(!policy.is_retryable(""));
     }
 
@@ -347,7 +349,7 @@ mod tests {
     // --- Proptests for metrics accumulation properties ---
 
     use proptest::prelude::*;
-    use proptest::{prop_assert};
+    use proptest::prop_assert;
 
     proptest! {
         #[test]

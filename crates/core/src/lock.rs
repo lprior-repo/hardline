@@ -775,7 +775,10 @@ mod tests {
         // try_acquire should return None while the lock is held in the manager's map
         for _ in 0..20 {
             let result = manager.try_acquire(lock.clone(), "contender")?;
-            assert!(result.is_none(), "try_acquire should return None on contention");
+            assert!(
+                result.is_none(),
+                "try_acquire should return None on contention"
+            );
         }
 
         // Manually release via manager
@@ -874,7 +877,8 @@ mod tests {
         let mut guards = Vec::new();
         for (lock, holder) in &test_cases {
             let guard = manager.acquire(lock.clone(), holder)?;
-            let info = manager.get_lock_info(lock)?
+            let info = manager
+                .get_lock_info(lock)?
                 .unwrap_or_else(|| panic!("lock should be held: {lock}"));
 
             assert_eq!(info.holder, *holder);

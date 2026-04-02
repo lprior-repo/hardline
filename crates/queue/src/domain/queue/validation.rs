@@ -49,7 +49,10 @@ mod tests {
     #[test]
     fn queue_validate_range_above_max() {
         let result = validate_range(101, 0, 100, "priority");
-        assert!(matches!(result, Err(ValidationError::ExceedsMaximum { .. })));
+        assert!(matches!(
+            result,
+            Err(ValidationError::ExceedsMaximum { .. })
+        ));
     }
 
     #[test]
@@ -90,13 +93,23 @@ mod tests {
     #[test]
     fn queue_validate_range_one_above_max() {
         let result = validate_range(101, 0, 100, "priority");
-        assert!(matches!(result, Err(ValidationError::ExceedsMaximum { value: 101, .. })));
+        assert!(matches!(
+            result,
+            Err(ValidationError::ExceedsMaximum { value: 101, .. })
+        ));
     }
 
     #[test]
     fn queue_validate_range_one_below_min() {
         let result = validate_range(0, 1, 100, "priority");
-        assert!(matches!(result, Err(ValidationError::BelowMinimum { value: 0, min: 1, .. })));
+        assert!(matches!(
+            result,
+            Err(ValidationError::BelowMinimum {
+                value: 0,
+                min: 1,
+                ..
+            })
+        ));
     }
 
     #[test]

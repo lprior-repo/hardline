@@ -446,7 +446,10 @@ mod tests {
         fn workspace_id_empty_rejects() {
             let result = WorkspaceId::new("");
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), SessionError::InvalidWorkspaceId(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidWorkspaceId(_)
+            ));
         }
 
         #[test]
@@ -531,7 +534,10 @@ mod tests {
         fn workspace_path_empty_rejects() {
             let result = WorkspacePath::new("");
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), SessionError::InvalidWorkspacePath(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidWorkspacePath(_)
+            ));
         }
 
         #[test]

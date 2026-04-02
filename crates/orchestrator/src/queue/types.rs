@@ -209,7 +209,13 @@ mod tests {
 
     #[test]
     fn test_job_priority_serde_roundtrip() {
-        let priorities = [JobPriority::P0, JobPriority::P1, JobPriority::P2, JobPriority::P3, JobPriority::P4];
+        let priorities = [
+            JobPriority::P0,
+            JobPriority::P1,
+            JobPriority::P2,
+            JobPriority::P3,
+            JobPriority::P4,
+        ];
         for priority in &priorities {
             let json = serde_json::to_string(priority).expect("serialize");
             let deserialized: JobPriority = serde_json::from_str(&json).expect("deserialize");
@@ -230,7 +236,10 @@ mod tests {
             JobState::Pending,
             JobState::Running { started_at: now },
             JobState::Completed { finished_at: now },
-            JobState::Failed { error: "test err".to_string(), failed_at: now },
+            JobState::Failed {
+                error: "test err".to_string(),
+                failed_at: now,
+            },
         ];
         for state in &states {
             let json = serde_json::to_string(state).expect("serialize");
@@ -256,15 +265,24 @@ mod tests {
     #[test]
     fn test_job_payload_serde_roundtrip() {
         let payloads = [
-            JobPayload::Pipeline { spec_path: "specs/test.yaml".to_string() },
-            JobPayload::Task { command: "build".to_string() },
-            JobPayload::Custom { data: serde_json::json!({"key": "value"}) },
+            JobPayload::Pipeline {
+                spec_path: "specs/test.yaml".to_string(),
+            },
+            JobPayload::Task {
+                command: "build".to_string(),
+            },
+            JobPayload::Custom {
+                data: serde_json::json!({"key": "value"}),
+            },
         ];
         for payload in &payloads {
             let json = serde_json::to_string(payload).expect("serialize");
             let deserialized: JobPayload = serde_json::from_str(&json).expect("deserialize");
             match (payload, &deserialized) {
-                (JobPayload::Pipeline { spec_path: s1 }, JobPayload::Pipeline { spec_path: s2 }) => {
+                (
+                    JobPayload::Pipeline { spec_path: s1 },
+                    JobPayload::Pipeline { spec_path: s2 },
+                ) => {
                     assert_eq!(s1, s2);
                 }
                 (JobPayload::Task { command: c1 }, JobPayload::Task { command: c2 }) => {
@@ -283,7 +301,9 @@ mod tests {
         let job = Job {
             id: "job-42".to_string(),
             priority: JobPriority::P1,
-            payload: JobPayload::Task { command: "test".to_string() },
+            payload: JobPayload::Task {
+                command: "test".to_string(),
+            },
             state: JobState::Pending,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
@@ -310,7 +330,9 @@ mod tests {
     fn test_job_outcome_serde_roundtrip() {
         let outcomes = [
             JobOutcome::Success,
-            JobOutcome::Failure { error: "boom".to_string() },
+            JobOutcome::Failure {
+                error: "boom".to_string(),
+            },
         ];
         for outcome in &outcomes {
             let json = serde_json::to_string(outcome).expect("serialize");
@@ -346,8 +368,18 @@ mod tests {
     #[test]
     fn test_job_state_is_pending_all_variants() {
         assert!(JobState::Pending.is_pending());
-        assert!(!JobState::Running { started_at: chrono::Utc::now() }.is_pending());
-        assert!(!JobState::Completed { finished_at: chrono::Utc::now() }.is_pending());
-        assert!(!JobState::Failed { error: "err".to_string(), failed_at: chrono::Utc::now() }.is_pending());
+        assert!(!JobState::Running {
+            started_at: chrono::Utc::now()
+        }
+        .is_pending());
+        assert!(!JobState::Completed {
+            finished_at: chrono::Utc::now()
+        }
+        .is_pending());
+        assert!(!JobState::Failed {
+            error: "err".to_string(),
+            failed_at: chrono::Utc::now()
+        }
+        .is_pending());
     }
 }

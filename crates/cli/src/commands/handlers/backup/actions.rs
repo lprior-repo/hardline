@@ -10,13 +10,13 @@ use scp_core::{Error, Result};
 use tokio::fs;
 
 use super::calculations::{
-    backups_to_remove, build_retention_status, generate_backup_filename, get_database_backup_dir,
-    get_backupable_databases, parse_backup_filename, resolve_database_target, validate_backup_command,
-    validate_timestamp,
+    backups_to_remove, build_retention_status, generate_backup_filename, get_backupable_databases,
+    get_database_backup_dir, parse_backup_filename, resolve_database_target,
+    validate_backup_command, validate_timestamp,
 };
 use super::data::{
-    BackupCommand, BackupConfig, BackupCreateOutput, BackupInfo, BackupListOutput,
-    BackupMetadata, BackupRestoreOutput, BackupStatusOutput, DatabaseBackups, BackupInfoOutput,
+    BackupCommand, BackupConfig, BackupCreateOutput, BackupInfo, BackupInfoOutput,
+    BackupListOutput, BackupMetadata, BackupRestoreOutput, BackupStatusOutput, DatabaseBackups,
     RetentionStatusOutput,
 };
 
@@ -67,7 +67,10 @@ async fn execute_create(root: &Path, config: &BackupConfig) -> Result<()> {
 
     for (db_name, db_path) in &backupable {
         if !db_path.exists() {
-            tracing::warn!("Database file does not exist, skipping: {}", db_path.display());
+            tracing::warn!(
+                "Database file does not exist, skipping: {}",
+                db_path.display()
+            );
             continue;
         }
         match create_backup(db_path, db_name, config).await {
@@ -80,7 +83,10 @@ async fn execute_create(root: &Path, config: &BackupConfig) -> Result<()> {
 
     let output = BackupCreateOutput {
         backup_count: created_paths.len(),
-        backup_paths: created_paths.iter().map(|p| p.display().to_string()).collect(),
+        backup_paths: created_paths
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect(),
     };
 
     if output.backup_count > 0 {
@@ -134,16 +140,17 @@ async fn create_backup(
 
     let backup_meta = BackupMetadata::new(database_name.to_string(), size_bytes, checksum);
     let metadata_path = backup_path.with_extension("json");
-    let metadata_json = serde_json::to_string_pretty(&backup_meta).map_err(|e| {
-        Error::internal(format!("Failed to serialize backup metadata: {e}"))
-    })?;
+    let metadata_json = serde_json::to_string_pretty(&backup_meta)
+        .map_err(|e| Error::internal(format!("Failed to serialize backup metadata: {e}")))?;
 
-    fs::write(&metadata_path, metadata_json).await.map_err(|e| {
-        Error::internal(format!(
-            "Failed to write backup metadata '{}': {e}",
-            metadata_path.display()
-        ))
-    })?;
+    fs::write(&metadata_path, metadata_json)
+        .await
+        .map_err(|e| {
+            Error::internal(format!(
+                "Failed to write backup metadata '{}': {e}",
+                metadata_path.display()
+            ))
+        })?;
 
     Ok(backup_path)
 }
@@ -161,10 +168,17 @@ async fn execute_list(root: &Path, config: &BackupConfig) -> Result<()> {
     }
 
     let total_count: usize = databases.iter().map(|d| d.backup_count).sum();
-    Output::info(&format!("Backups ({} databases, {} total):", databases.len(), total_count));
+    Output::info(&format!(
+        "Backups ({} databases, {} total):",
+        databases.len(),
+        total_count
+    ));
 
     for db in &databases {
-        Output::info(&format!("  {} ({} backup(s)):", db.database, db.backup_count));
+        Output::info(&format!(
+            "  {} ({} backup(s)):",
+            db.database, db.backup_count
+        ));
         for backup in &db.backups {
             Output::info(&format!(
                 "    {} - {} bytes",
@@ -178,10 +192,7 @@ async fn execute_list(root: &Path, config: &BackupConfig) -> Result<()> {
 }
 
 /// List all backups across all databases.
-async fn list_all_backups(
-    root: &Path,
-    config: &BackupConfig,
-) -> Result<Vec<DatabaseBackups>> {
+async fn list_all_backups(root: &Path, config: &BackupConfig) -> Result<Vec<DatabaseBackups>> {
     let known_dbs = &["state.db", "beads.db"];
     let mut all_backups = Vec::new();
 
@@ -290,9 +301,7 @@ async fn execute_restore(
             .iter()
             .find(|b| b.timestamp.format("%Y%m%d-%H%M%S").to_string() == ts)
             .map(|b| b.path.clone())
-            .ok_or_else(|| {
-                Error::internal(format!("No backup found with timestamp: {ts}"))
-            })?
+            .ok_or_else(|| Error::internal(format!("No backup found with timestamp: {ts}")))?
     } else {
         find_latest_backup(root, database, config).await?
     };
@@ -322,15 +331,11 @@ async fn find_latest_backup(
 
     let backups = list_database_backups(_root, database_name, config).await?;
 
-    backups
-        .into_iter()
-        .next()
-        .map(|b| b.path)
-        .ok_or_else(|| {
-            Error::internal(format!(
-                "No valid backups found for database: {database_name}"
-            ))
-        })
+    backups.into_iter().next().map(|b| b.path).ok_or_else(|| {
+        Error::internal(format!(
+            "No valid backups found for database: {database_name}"
+        ))
+    })
 }
 
 /// Restore a database from a backup with checksum verification.
@@ -354,14 +359,12 @@ async fn restore_backup(
         )));
     }
 
-    let metadata_json = fs::read_to_string(&metadata_path).await.map_err(|e| {
-        Error::internal(format!("Failed to read backup metadata: {e}"))
-    })?;
+    let metadata_json = fs::read_to_string(&metadata_path)
+        .await
+        .map_err(|e| Error::internal(format!("Failed to read backup metadata: {e}")))?;
 
-    let metadata: BackupMetadata =
-        serde_json::from_str(&metadata_json).map_err(|e| {
-            Error::internal(format!("Failed to parse backup metadata: {e}"))
-        })?;
+    let metadata: BackupMetadata = serde_json::from_str(&metadata_json)
+        .map_err(|e| Error::internal(format!("Failed to parse backup metadata: {e}")))?;
 
     if verify_checksum {
         let current_checksum = compute_checksum(backup_path).await?;
@@ -374,9 +377,9 @@ async fn restore_backup(
     }
 
     if let Some(parent) = target_path.parent() {
-        fs::create_dir_all(parent).await.map_err(|e| {
-            Error::internal(format!("Failed to create target directory: {e}"))
-        })?;
+        fs::create_dir_all(parent)
+            .await
+            .map_err(|e| Error::internal(format!("Failed to create target directory: {e}")))?;
     }
 
     fs::copy(backup_path, target_path).await.map_err(|e| {
@@ -463,10 +466,7 @@ async fn execute_status(root: &Path, config: &BackupConfig) -> Result<()> {
         let limit_indicator = if status.within_limit { "OK" } else { "OVER" };
         Output::info(&format!(
             "  {} - {} backup(s) [{}] ({} total)",
-            status.database_name,
-            status.backup_count,
-            limit_indicator,
-            status.total_size_human,
+            status.database_name, status.backup_count, limit_indicator, status.total_size_human,
         ));
         if !status.within_limit {
             Output::info(&format!(

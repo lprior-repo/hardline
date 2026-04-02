@@ -127,21 +127,21 @@ pub fn parse_event_store_lock_row(
         .try_get("stream_id")
         .map_err(|e| EventStoreLockError::QueryFailed(format!("Field 'stream_id' error: {e}")))?;
 
-    let stream_seq: i64 = row.try_get("stream_seq").map_err(|e| {
-        EventStoreLockError::QueryFailed(format!("Field 'stream_seq' error: {e}"))
-    })?;
+    let stream_seq: i64 = row
+        .try_get("stream_seq")
+        .map_err(|e| EventStoreLockError::QueryFailed(format!("Field 'stream_seq' error: {e}")))?;
 
     let holder_id: String = row
         .try_get("holder_id")
         .map_err(|e| EventStoreLockError::QueryFailed(format!("Field 'holder_id' error: {e}")))?;
 
-    let acquired_at: i64 = row.try_get("acquired_at").map_err(|e| {
-        EventStoreLockError::QueryFailed(format!("Field 'acquired_at' error: {e}"))
-    })?;
+    let acquired_at: i64 = row
+        .try_get("acquired_at")
+        .map_err(|e| EventStoreLockError::QueryFailed(format!("Field 'acquired_at' error: {e}")))?;
 
-    let expires_at: i64 = row.try_get("expires_at").map_err(|e| {
-        EventStoreLockError::QueryFailed(format!("Field 'expires_at' error: {e}"))
-    })?;
+    let expires_at: i64 = row
+        .try_get("expires_at")
+        .map_err(|e| EventStoreLockError::QueryFailed(format!("Field 'expires_at' error: {e}")))?;
 
     Ok(EventStoreLock {
         stream_id,
@@ -301,9 +301,8 @@ mod tests {
 
     #[test]
     fn given_error_when_cast_to_std_error_then_succeeds() {
-        let err: Box<dyn std::error::Error> = Box::new(
-            EventStoreLockError::DatabaseError("db err".to_string()),
-        );
+        let err: Box<dyn std::error::Error> =
+            Box::new(EventStoreLockError::DatabaseError("db err".to_string()));
         let msg = format!("{err}");
         assert!(msg.contains("db err"));
     }
@@ -454,7 +453,10 @@ mod tests {
 
         for err in &variants {
             let msg = format!("{err}");
-            assert!(msg.contains("Event store lock"), "Display output should contain 'Event store lock': {msg}");
+            assert!(
+                msg.contains("Event store lock"),
+                "Display output should contain 'Event store lock': {msg}"
+            );
         }
     }
 }

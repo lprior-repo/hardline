@@ -467,7 +467,9 @@ mod tests {
         let json = r#"{"WorkspaceCreated":{"workspace_id":"ws-1","name":"test","timestamp":"2025-01-01T00:00:00Z"}}"#;
         let event: WorkspaceEvent = serde_json::from_str(json).unwrap();
         match &event {
-            WorkspaceEvent::WorkspaceCreated { workspace_id, name, .. } => {
+            WorkspaceEvent::WorkspaceCreated {
+                workspace_id, name, ..
+            } => {
                 assert_eq!(workspace_id, "ws-1");
                 assert_eq!(name, "test");
             }
@@ -479,8 +481,8 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
-        use proptest::prelude::*;
         use super::*;
+        use proptest::prelude::*;
 
         proptest! {
             #[test]

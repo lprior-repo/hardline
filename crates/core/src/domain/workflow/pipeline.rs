@@ -157,11 +157,20 @@ impl Pipeline {
         matches!(
             (&self.state, new_state),
             (PipelineState::Pending, PipelineState::SpecReview)
-                | (PipelineState::SpecReview,
-                    PipelineState::UniverseSetup | PipelineState::Failed | PipelineState::Escalated)
-                | (PipelineState::UniverseSetup | PipelineState::AgentDevelopment | PipelineState::Validation,
-                    PipelineState::AgentDevelopment | PipelineState::Escalated)
-                | (PipelineState::UniverseSetup | PipelineState::Validation, PipelineState::Failed)
+                | (
+                    PipelineState::SpecReview,
+                    PipelineState::UniverseSetup | PipelineState::Failed | PipelineState::Escalated
+                )
+                | (
+                    PipelineState::UniverseSetup
+                        | PipelineState::AgentDevelopment
+                        | PipelineState::Validation,
+                    PipelineState::AgentDevelopment | PipelineState::Escalated
+                )
+                | (
+                    PipelineState::UniverseSetup | PipelineState::Validation,
+                    PipelineState::Failed
+                )
                 | (PipelineState::AgentDevelopment, PipelineState::Validation)
                 | (PipelineState::Validation, PipelineState::Accepted)
         )
@@ -1089,16 +1098,16 @@ mod tests {
     /// Validates that from a given state, attempting to transition to each
     /// state in `invalid_targets` yields an InvalidTransition error (not
     /// AlreadyTerminal, since the source is non-terminal).
-    fn assert_invalid_transitions(
-        from: PipelineState,
-        invalid_targets: &[PipelineState],
-    ) {
+    fn assert_invalid_transitions(from: PipelineState, invalid_targets: &[PipelineState]) {
         for target in invalid_targets {
             let mut p = fresh_pipeline();
             force_state(&mut p, from);
             let result = p.transition_to(*target);
             assert!(
-                matches!(result, Err(PipelineTransitionError::InvalidTransition { .. })),
+                matches!(
+                    result,
+                    Err(PipelineTransitionError::InvalidTransition { .. })
+                ),
                 "Expected InvalidTransition from {from:?} to {target:?}, got {result:?}"
             );
         }
@@ -1198,11 +1207,7 @@ mod tests {
 
     #[test]
     fn iteration_limit_error_implements_std_error() {
-        let err: Box<dyn std::error::Error> =
-            Box::new(IterationLimitError {
-                current: 5,
-                max: 5,
-            });
+        let err: Box<dyn std::error::Error> = Box::new(IterationLimitError { current: 5, max: 5 });
         let _msg = err.to_string();
     }
 }

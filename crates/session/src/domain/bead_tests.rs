@@ -212,26 +212,39 @@ mod advanced_bead_tests {
         let d1 = BeadId::new("bd-d1").expect("valid");
         let d2 = BeadId::new("bd-d2").expect("valid");
         let d3 = BeadId::new("bd-d3").expect("valid");
-        let with_deps = bead.add_dependency(d1).add_dependency(d2).add_dependency(d3);
+        let with_deps = bead
+            .add_dependency(d1)
+            .add_dependency(d2)
+            .add_dependency(d3);
         assert_eq!(with_deps.depends_on().len(), 3);
     }
 
     #[test]
     fn bead_full_lifecycle_open_to_closed() {
         let bead = make_bead("bd-001", "Lifecycle");
-        let in_progress = bead.transition(BeadState::InProgress).expect("-> InProgress");
+        let in_progress = bead
+            .transition(BeadState::InProgress)
+            .expect("-> InProgress");
         assert_eq!(in_progress.state(), BeadState::InProgress);
 
-        let blocked = in_progress.transition(BeadState::Blocked).expect("-> Blocked");
+        let blocked = in_progress
+            .transition(BeadState::Blocked)
+            .expect("-> Blocked");
         assert_eq!(blocked.state(), BeadState::Blocked);
 
-        let resumed = blocked.transition(BeadState::InProgress).expect("-> InProgress");
+        let resumed = blocked
+            .transition(BeadState::InProgress)
+            .expect("-> InProgress");
         assert_eq!(resumed.state(), BeadState::InProgress);
 
-        let deferred = resumed.transition(BeadState::Deferred).expect("-> Deferred");
+        let deferred = resumed
+            .transition(BeadState::Deferred)
+            .expect("-> Deferred");
         assert_eq!(deferred.state(), BeadState::Deferred);
 
-        let resumed2 = deferred.transition(BeadState::InProgress).expect("-> InProgress");
+        let resumed2 = deferred
+            .transition(BeadState::InProgress)
+            .expect("-> InProgress");
         let closed = resumed2.transition(BeadState::Closed).expect("-> Closed");
         assert!(closed.closed_at().is_some());
     }
@@ -265,7 +278,9 @@ mod advanced_bead_tests {
     fn bead_direct_close_from_deferred() {
         let bead = make_bead("bd-001", "Close from Deferred");
         let in_progress = bead.transition(BeadState::InProgress).expect("IP");
-        let deferred = in_progress.transition(BeadState::Deferred).expect("deferred");
+        let deferred = in_progress
+            .transition(BeadState::Deferred)
+            .expect("deferred");
         let closed = deferred.transition(BeadState::Closed).expect("close");
         assert!(closed.closed_at().is_some());
     }
@@ -444,7 +459,10 @@ mod advanced_bead_tests {
             let bead = make_bead("bd-001", "Closed -> Closed allowed");
             let closed = bead.transition(BeadState::Closed).expect("closed");
             let result = closed.transition(BeadState::Closed);
-            assert!(result.is_ok(), "Closed -> Closed is allowed in this bead implementation");
+            assert!(
+                result.is_ok(),
+                "Closed -> Closed is allowed in this bead implementation"
+            );
         }
 
         #[test]

@@ -106,10 +106,10 @@ impl SessionFilter {
         // For more complex status filtering, we'd need to map SessionState to this check.
 
         // Status filter - check if session is active based on filter
-        let status_match = self.status.map_or(true, |_| session.is_active());
+        let status_match = self.status.is_none_or(|_| session.is_active());
 
         // Branch filter (substring match)
-        let branch_match = self.branch.as_ref().map_or(true, |branch_pattern| {
+        let branch_match = self.branch.as_ref().is_none_or(|branch_pattern| {
             session
                 .branch
                 .branch_name()
@@ -117,7 +117,7 @@ impl SessionFilter {
         });
 
         // Name contains filter (case-insensitive)
-        let name_match = self.name_contains.as_ref().map_or(true, |pattern| {
+        let name_match = self.name_contains.as_ref().is_none_or(|pattern| {
             let pattern_lower = pattern.to_lowercase();
             session
                 .name
@@ -130,7 +130,7 @@ impl SessionFilter {
         let workspace_match = self
             .workspace_prefix
             .as_ref()
-            .map_or(true, |prefix| session.workspace_path.starts_with(prefix));
+            .is_none_or(|prefix| session.workspace_path.starts_with(prefix));
 
         // Valid workspace only
         let valid_workspace = !self.valid_workspace_only || session.workspace_path.exists();

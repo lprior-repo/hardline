@@ -189,7 +189,10 @@ mod tests {
 
     #[test]
     fn workspace_error_suggestion_locked() {
-        let err = WorkspaceError::from(WorkspaceErrorKind::Locked("ws".to_string(), "agent-1".to_string()));
+        let err = WorkspaceError::from(WorkspaceErrorKind::Locked(
+            "ws".to_string(),
+            "agent-1".to_string(),
+        ));
         let suggestion = err.suggestion();
         assert!(suggestion.is_some());
         assert!(suggestion.unwrap().contains("agent kill agent-1"));
@@ -211,10 +214,22 @@ mod tests {
 
     #[test]
     fn workspace_error_exit_codes() {
-        assert_eq!(WorkspaceError::from(WorkspaceErrorKind::NotFound("x".into())).exit_code(), 10);
-        assert_eq!(WorkspaceError::from(WorkspaceErrorKind::Exists("x".into())).exit_code(), 11);
-        assert_eq!(WorkspaceError::from(WorkspaceErrorKind::Locked("x".into(), "y".into())).exit_code(), 12);
-        assert_eq!(WorkspaceError::from(WorkspaceErrorKind::Conflict("x".into())).exit_code(), 13);
+        assert_eq!(
+            WorkspaceError::from(WorkspaceErrorKind::NotFound("x".into())).exit_code(),
+            10
+        );
+        assert_eq!(
+            WorkspaceError::from(WorkspaceErrorKind::Exists("x".into())).exit_code(),
+            11
+        );
+        assert_eq!(
+            WorkspaceError::from(WorkspaceErrorKind::Locked("x".into(), "y".into())).exit_code(),
+            12
+        );
+        assert_eq!(
+            WorkspaceError::from(WorkspaceErrorKind::Conflict("x".into())).exit_code(),
+            13
+        );
     }
 
     // -- WorkspaceError kind() --
@@ -269,7 +284,11 @@ mod tests {
 
     #[test]
     fn session_error_kind_invalid_state_display() {
-        let err = SessionErrorKind::InvalidState("session-1".to_string(), "active".to_string(), "paused".to_string());
+        let err = SessionErrorKind::InvalidState(
+            "session-1".to_string(),
+            "active".to_string(),
+            "paused".to_string(),
+        );
         let msg = format!("{err}");
         assert!(msg.contains("session-1"));
         assert!(msg.contains("active"));
@@ -306,7 +325,11 @@ mod tests {
 
     #[test]
     fn session_error_suggestion_none_for_invalid_state() {
-        let err = SessionError::from(SessionErrorKind::InvalidState("s".into(), "a".into(), "b".into()));
+        let err = SessionError::from(SessionErrorKind::InvalidState(
+            "s".into(),
+            "a".into(),
+            "b".into(),
+        ));
         assert!(err.suggestion().is_none());
     }
 
@@ -314,11 +337,31 @@ mod tests {
 
     #[test]
     fn session_error_exit_codes() {
-        assert_eq!(SessionError::from(SessionErrorKind::NotFound("x".into())).exit_code(), 14);
-        assert_eq!(SessionError::from(SessionErrorKind::Exists("x".into())).exit_code(), 15);
-        assert_eq!(SessionError::from(SessionErrorKind::Locked("x".into(), "y".into())).exit_code(), 16);
-        assert_eq!(SessionError::from(SessionErrorKind::NotLockHolder("x".into(), "y".into())).exit_code(), 17);
-        assert_eq!(SessionError::from(SessionErrorKind::InvalidState("x".into(), "y".into(), "z".into())).exit_code(), 18);
+        assert_eq!(
+            SessionError::from(SessionErrorKind::NotFound("x".into())).exit_code(),
+            14
+        );
+        assert_eq!(
+            SessionError::from(SessionErrorKind::Exists("x".into())).exit_code(),
+            15
+        );
+        assert_eq!(
+            SessionError::from(SessionErrorKind::Locked("x".into(), "y".into())).exit_code(),
+            16
+        );
+        assert_eq!(
+            SessionError::from(SessionErrorKind::NotLockHolder("x".into(), "y".into())).exit_code(),
+            17
+        );
+        assert_eq!(
+            SessionError::from(SessionErrorKind::InvalidState(
+                "x".into(),
+                "y".into(),
+                "z".into()
+            ))
+            .exit_code(),
+            18
+        );
     }
 
     // -- SessionError kind() --

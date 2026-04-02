@@ -86,10 +86,12 @@ mod tests {
 
     #[test]
     fn test_all_engine_errors_are_not_found() {
-        let load_result: crate::error::Result<crate::domain::entities::Stack> = StackEngine::load_stack();
+        let load_result: crate::error::Result<crate::domain::entities::Stack> =
+            StackEngine::load_stack();
         assert!(load_result.is_err());
 
-        let sync_result: crate::error::Result<crate::domain::entities::Stack> = StackEngine::sync_stack();
+        let sync_result: crate::error::Result<crate::domain::entities::Stack> =
+            StackEngine::sync_stack();
         assert!(sync_result.is_err());
 
         let restack_result = StackEngine::restack_branch("x");

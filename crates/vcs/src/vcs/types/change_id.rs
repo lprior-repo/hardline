@@ -1,6 +1,6 @@
 //! Change ID type
 //!
-//! This module provides `ChangeId` - unique identifier for a VCS change/commit (Git SHA or JJ ID).
+//! This module provides `ChangeId` - unique identifier for a VCS change/commit (Git SHA).
 
 use serde::{Deserialize, Serialize};
 
@@ -58,8 +58,6 @@ fn is_effectively_empty(s: &str) -> bool {
 enum ChangeIdInner {
     /// Git commit SHA (7-40 lowercase hex chars)
     Git { sha: String },
-    /// JJ change ID (lowercase base36)
-    Jj { id: String },
 }
 
 // ============================================================================
@@ -71,7 +69,6 @@ enum ChangeIdInner {
 /// # Invariants
 /// - Always contains a non-empty, trimmed ID string
 /// - Git SHAs are lowercase hex
-/// - JJ change IDs are lowercase base36
 /// - Backend type is encoded to prevent cross-backend comparison
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ChangeId {
@@ -116,42 +113,6 @@ impl ChangeId {
         })
     }
 
-    /// Create a JJ `ChangeId` from a change ID string
-    ///
-    /// # Preconditions
-    /// - P1: `id` is not empty
-    /// - P3: `id` contains only base36 characters (0-9, a-z)
-    /// - P5: `id` length is >= 1
-    ///
-    /// # Errors
-    /// - `ParseError::Empty` if input is empty/whitespace
-    /// - `ParseError::InvalidCharacters` if non-base36 chars present
-    /// - `ParseError::InvalidJjLength` if length is 0
-    pub fn from_jj_id(id: impl AsRef<str>) -> Result<Self, ParseError> {
-        let id = id.as_ref().trim();
-
-        if is_effectively_empty(id) {
-            return Err(ParseError::Empty);
-        }
-
-        let len = id.len();
-        if len == 0 {
-            return Err(ParseError::InvalidJjLength(len));
-        }
-
-        let normalized = id.to_lowercase();
-        if !normalized
-            .chars()
-            .all(|c: char| c.is_ascii_digit() || c.is_ascii_lowercase())
-        {
-            return Err(ParseError::InvalidCharacters(id.to_string()));
-        }
-
-        Ok(Self {
-            inner: ChangeIdInner::Jj { id: normalized },
-        })
-    }
-
     /// Get the backend type for this `ChangeId`
     ///
     /// # Postconditions
@@ -160,7 +121,6 @@ impl ChangeId {
     pub fn backend_type(&self) -> BackendType {
         match &self.inner {
             ChangeIdInner::Git { .. } => BackendType::Git,
-            ChangeIdInner::Jj { .. } => BackendType::Jj,
         }
     }
 
@@ -172,7 +132,6 @@ impl ChangeId {
     pub fn as_str(&self) -> &str {
         match &self.inner {
             ChangeIdInner::Git { sha } => sha,
-            ChangeIdInner::Jj { id } => id,
         }
     }
 }
@@ -187,13 +146,7 @@ impl std::str::FromStr for ChangeId {
             return Err(ParseError::Empty);
         }
 
-        let is_hex = trimmed.chars().all(|c| c.is_ascii_hexdigit());
-
-        if is_hex {
-            Self::from_git_sha(trimmed)
-        } else {
-            Self::from_jj_id(trimmed)
-        }
+        Self::from_git_sha(trimmed)
     }
 }
 
@@ -201,7 +154,6 @@ impl std::fmt::Display for ChangeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
             ChangeIdInner::Git { sha } => write!(f, "git:{sha}"),
-            ChangeIdInner::Jj { id } => write!(f, "jj:{id}"),
         }
     }
 }
@@ -278,56 +230,6 @@ mod tests {
         assert!(matches!(ChangeId::from_git_sha("abc def0"), Err(ParseError::InvalidCharacters(_))));
     }
 
-    // -- from_jj_id valid cases --
-
-    #[test]
-    fn jj_id_simple() {
-        let id = ChangeId::from_jj_id("abc123").expect("valid");
-        assert_eq!(id.as_str(), "abc123");
-        assert_eq!(id.backend_type(), BackendType::Jj);
-    }
-
-    #[test]
-    fn jj_id_uppercase_normalized() {
-        let id = ChangeId::from_jj_id("ABC123").expect("valid");
-        assert_eq!(id.as_str(), "abc123");
-    }
-
-    #[test]
-    fn jj_id_trimmed() {
-        let id = ChangeId::from_jj_id("  abc123  ").expect("valid");
-        assert_eq!(id.as_str(), "abc123");
-    }
-
-    #[test]
-    fn jj_id_single_char() {
-        let id = ChangeId::from_jj_id("a").expect("valid");
-        assert_eq!(id.as_str(), "a");
-    }
-
-    // -- from_jj_id invalid cases --
-
-    #[test]
-    fn jj_id_empty_rejects() {
-        assert_eq!(ChangeId::from_jj_id(""), Err(ParseError::Empty));
-    }
-
-    #[test]
-    fn jj_id_whitespace_rejects() {
-        assert_eq!(ChangeId::from_jj_id("   "), Err(ParseError::Empty));
-    }
-
-    #[test]
-    fn jj_id_with_hyphen_rejects() {
-        // hyphen is not base36
-        assert!(matches!(ChangeId::from_jj_id("abc-123"), Err(ParseError::InvalidCharacters(_))));
-    }
-
-    #[test]
-    fn jj_id_with_special_chars_rejects() {
-        assert!(matches!(ChangeId::from_jj_id("abc@123"), Err(ParseError::InvalidCharacters(_))));
-    }
-
     // -- Display tests --
 
     #[test]
@@ -335,13 +237,6 @@ mod tests {
         let id = ChangeId::from_git_sha("abcdef0").expect("valid");
         let display = format!("{id}");
         assert_eq!(display, "git:abcdef0");
-    }
-
-    #[test]
-    fn display_jj_format() {
-        let id = ChangeId::from_jj_id("abc123").expect("valid");
-        let display = format!("{id}");
-        assert_eq!(display, "jj:abc123");
     }
 
     // -- FromStr tests --
@@ -354,13 +249,6 @@ mod tests {
     }
 
     #[test]
-    fn from_str_non_hex_parsed_as_jj() {
-        let id: ChangeId = "klmnop".parse().expect("valid");
-        assert_eq!(id.backend_type(), BackendType::Jj);
-        assert_eq!(id.as_str(), "klmnop");
-    }
-
-    #[test]
     fn from_str_empty_rejects() {
         let result: Result<ChangeId, ParseError> = "".parse();
         assert_eq!(result, Err(ParseError::Empty));
@@ -370,6 +258,12 @@ mod tests {
     fn from_str_whitespace_rejects() {
         let result: Result<ChangeId, ParseError> = "   ".parse();
         assert_eq!(result, Err(ParseError::Empty));
+    }
+
+    #[test]
+    fn from_str_non_hex_rejects() {
+        let result: Result<ChangeId, ParseError> = "ghijklm".parse();
+        assert!(result.is_err());
     }
 
     // -- Clone, Eq, Hash --
@@ -396,16 +290,6 @@ mod tests {
     }
 
     #[test]
-    fn change_id_neq_different_backends_same_string() {
-        // "abc123" is valid for both git and jj, but they are different backends
-        let git_id = ChangeId::from_git_sha("abc1230").expect("valid");
-        let jj_id = ChangeId::from_jj_id("abc1230").expect("valid");
-        assert_ne!(git_id, jj_id);
-        assert_eq!(git_id.backend_type(), BackendType::Git);
-        assert_eq!(jj_id.backend_type(), BackendType::Jj);
-    }
-
-    #[test]
     fn change_id_hash() {
         use std::collections::HashSet;
         let mut set = HashSet::new();
@@ -423,15 +307,6 @@ mod tests {
         let deserialized: ChangeId = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(id, deserialized);
         assert_eq!(deserialized.backend_type(), BackendType::Git);
-    }
-
-    #[test]
-    fn change_id_serde_roundtrip_jj() {
-        let id = ChangeId::from_jj_id("kmnoqrstuvwxyz").expect("valid");
-        let json = serde_json::to_string(&id).expect("serialize");
-        let deserialized: ChangeId = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(id, deserialized);
-        assert_eq!(deserialized.backend_type(), BackendType::Jj);
     }
 
     #[test]
@@ -477,12 +352,6 @@ mod tests {
         assert!(msg.contains("3"));
     }
 
-    #[test]
-    fn parse_error_display_invalid_jj_length() {
-        let msg = format!("{}", ParseError::InvalidJjLength(0));
-        assert!(msg.contains("0"));
-    }
-
     // -- Proptests --
 
     proptest! {
@@ -496,25 +365,10 @@ mod tests {
         }
 
         #[test]
-        fn jj_id_valid_alphanumeric_always_succeeds(s in "[0-9a-z]{1,30}") {
-            let result = ChangeId::from_jj_id(&s);
-            assert!(result.is_ok(), "Failed for: {s}");
-            let id = result.expect("valid");
-            assert_eq!(id.backend_type(), BackendType::Jj);
-        }
-
-        #[test]
         fn git_sha_display_includes_prefix(s in "[0-9a-f]{7,40}") {
             let id = ChangeId::from_git_sha(&s).expect("valid");
             let display = format!("{id}");
             assert!(display.starts_with("git:"));
-        }
-
-        #[test]
-        fn jj_id_display_includes_prefix(s in "[0-9a-z]{1,30}") {
-            let id = ChangeId::from_jj_id(&s).expect("valid");
-            let display = format!("{id}");
-            assert!(display.starts_with("jj:"));
         }
     }
 }

@@ -104,9 +104,9 @@ impl RepairExecutor {
             .max_by_key(|s| match s {
                 RepairStrategy::NoRepair | RepairStrategy::NoRepairPossible => 0,
                 RepairStrategy::ClearLocks => 1,
-                RepairStrategy::FixJjDir => 2,
+                RepairStrategy::FixGitDir => 2,
                 RepairStrategy::RecreateWorkspace => 3,
-                RepairStrategy::ForgetAndRecreate => 4,
+                RepairStrategy::RemoveAndReclone => 4,
             })
             .ok_or_else(|| {
                 Error::invalid_state("No issues found in validation result".to_string())
@@ -155,8 +155,8 @@ impl RepairExecutor {
             RepairStrategy::ClearLocks => Self::clear_locks(&validation.path).await.map(|()| {
                 RepairResult::success(&validation.workspace, strategy, "Cleared stale lock files")
             }),
-            RepairStrategy::ForgetAndRecreate => {
-                Self::forget_and_recreate(&validation.workspace, &validation.path).await
+            RepairStrategy::RemoveAndReclone => {
+                Self::remove_and_reclone(&validation.workspace, &validation.path).await
             }
             _ => {
                 // Not fully implemented yet
@@ -181,7 +181,7 @@ impl RepairExecutor {
     /// locks were already removed by another process. This prevents race conditions
     /// in concurrent repair scenarios.
     async fn clear_locks(workspace_path: &Path) -> Result<()> {
-        let lock_file = workspace_path.join(".jj").join("working_copy").join("lock");
+        let lock_file = workspace_path.join(".git").join("index.lock");
 
         // Try to remove the lock file, ignoring "not found" errors (idempotent)
         let result = tokio::fs::remove_file(&lock_file).await;
@@ -199,43 +199,11 @@ impl RepairExecutor {
         }
     }
 
-    /// Forget workspace in JJ and recreate
-    async fn forget_and_recreate(
+    /// Remove corrupted workspace directory so it can be re-cloned
+    async fn remove_and_reclone(
         workspace_name: &str,
         workspace_path: &Path,
     ) -> Result<RepairResult> {
-        use crate::jj::get_jj_command;
-
-        let root = workspace_path
-            .parent()
-            .and_then(|p| p.parent()) // .isolate/workspaces -> root
-            .ok_or_else(|| {
-                Error::invalid_state("Could not determine repository root".to_string())
-            })?;
-
-        // Forget the workspace
-        let forget_output = get_jj_command()
-            .args(["workspace", "forget", workspace_name])
-            .current_dir(root)
-            .output()
-            .await
-            .map_err(|e| {
-                Error::from(crate::error_jj::JjErrorKind::CommandError {
-                    operation: "forget workspace".to_string(),
-                    msg: format!("Failed to forget workspace: {e}"),
-                    is_not_found: false,
-                })
-            })?;
-
-        if !forget_output.status.success() {
-            let stderr = String::from_utf8_lossy(&forget_output.stderr);
-            return Ok(RepairResult::failure(
-                workspace_name,
-                RepairStrategy::ForgetAndRecreate,
-                format!("Failed to forget workspace: {stderr}"),
-            ));
-        }
-
         // If directory is corrupted but exists, remove it
         let workspace_exists = tokio::fs::try_exists(workspace_path)
             .await
@@ -253,8 +221,8 @@ impl RepairExecutor {
 
         Ok(RepairResult::success(
             workspace_name,
-            RepairStrategy::ForgetAndRecreate,
-            "Workspace forgotten and directory removed. Re-run 'isolate spawn' to recreate.",
+            RepairStrategy::RemoveAndReclone,
+            "Workspace directory removed. Re-run 'isolate spawn' to recreate.",
         ))
     }
 }

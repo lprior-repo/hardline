@@ -144,7 +144,10 @@ mod tests {
         let _ = DomainError::InvalidDatetime(String::new());
         let _ = DomainError::NotFound(String::new());
         let _ = DomainError::DuplicateId(String::new());
-        let _ = DomainError::InvalidStateTransition { from: String::new(), to: String::new() };
+        let _ = DomainError::InvalidStateTransition {
+            from: String::new(),
+            to: String::new(),
+        };
         let _ = DomainError::ClosedWithoutTimestamp;
         let _ = DomainError::InvalidFilter(String::new());
     }

@@ -1,6 +1,6 @@
 use crate::error::Error;
 use proptest::prelude::*;
-use proptest::{prop_assert};
+use proptest::prop_assert;
 
 // ========================================================================
 // Exhaustive Error Variant Generator
@@ -24,11 +24,9 @@ fn all_error_variants() -> Vec<Error> {
     use crate::error_config::ConfigErrorKind;
     use crate::error_internal::InternalErrorKind;
     use crate::error_io::IoErrorKind;
-    use crate::error_jj::JjErrorKind;
     use crate::error_queue::QueueErrorKind;
     use crate::error_state::StateErrorKind;
     use crate::error_task::TaskErrorKind;
-    use crate::error_types::JjConflictType;
     use crate::error_vcs::VcsErrorKind;
     use crate::error_wait::WaitErrorKind;
     use crate::error_workspace::{SessionErrorKind, WorkspaceErrorKind};
@@ -47,7 +45,11 @@ fn all_error_variants() -> Vec<Error> {
     errors.push(Error::from(SessionErrorKind::Exists(s(11))));
     errors.push(Error::from(SessionErrorKind::Locked(s(12), s(13))));
     errors.push(Error::from(SessionErrorKind::NotLockHolder(s(14), s(15))));
-    errors.push(Error::from(SessionErrorKind::InvalidState(s(16), s(17), s(18))));
+    errors.push(Error::from(SessionErrorKind::InvalidState(
+        s(16),
+        s(17),
+        s(18),
+    )));
 
     // -- Queue (6 kinds) --
     errors.push(Error::from(QueueErrorKind::Empty));
@@ -100,12 +102,10 @@ fn all_error_variants() -> Vec<Error> {
     errors.push(Error::from(IoErrorKind::IoError(s(80))));
     errors.push(Error::from(IoErrorKind::Database(s(81))));
     errors.push(Error::from(IoErrorKind::JsonParse(
-        serde_json::from_str::<serde_json::Value>("invalid")
-            .expect_err("should fail to parse"),
+        serde_json::from_str::<serde_json::Value>("invalid").expect_err("should fail to parse"),
     )));
     errors.push(Error::from(IoErrorKind::YamlParse(
-        serde_yaml::from_str::<serde_yaml::Value>(": invalid")
-            .expect_err("should fail to parse"),
+        serde_yaml::from_str::<serde_yaml::Value>(": invalid").expect_err("should fail to parse"),
     )));
     errors.push(Error::from(IoErrorKind::Io(std::io::Error::new(
         std::io::ErrorKind::NotFound,
@@ -137,36 +137,16 @@ fn all_error_variants() -> Vec<Error> {
     errors.push(Error::from(InternalErrorKind::InvalidRepoUrl(s(105))));
     errors.push(Error::from(InternalErrorKind::InvalidOperation(s(106))));
 
-    // -- JJ (3 kinds) --
-    errors.push(Error::from(JjErrorKind::CommandError {
-        operation: s(110),
-        msg: s(111),
-        is_not_found: false,
-    }));
-    errors.push(Error::from(JjErrorKind::CommandError {
-        operation: s(112),
-        msg: s(113),
-        is_not_found: true,
-    }));
-    errors.push(Error::from(JjErrorKind::WorkspaceConflict {
-        conflict_type: JjConflictType::AlreadyExists,
-        workspace_name: s(114),
-        msg: s(115),
-        recovery_hint: s(116),
-    }));
-    errors.push(Error::from(JjErrorKind::LockTimeout {
-        operation: s(117),
-        timeout_ms: 5000,
-        retries: 3,
-    }));
-
     // -- Task (6 kinds) --
     errors.push(Error::from(TaskErrorKind::NotFound(s(120))));
     errors.push(Error::from(TaskErrorKind::AlreadyClaimed(s(121), s(122))));
     errors.push(Error::from(TaskErrorKind::NotClaimed(s(123))));
     errors.push(Error::from(TaskErrorKind::Locked(s(124))));
     errors.push(Error::from(TaskErrorKind::InvalidId(s(125))));
-    errors.push(Error::from(TaskErrorKind::InvalidStateTransition(s(126), s(127))));
+    errors.push(Error::from(TaskErrorKind::InvalidStateTransition(
+        s(126),
+        s(127),
+    )));
 
     // -- Wait (8 kinds) --
     errors.push(Error::from(WaitErrorKind::Timeout(s(130), s(131))));
@@ -330,46 +310,6 @@ fn test_error_exit_codes_io() {
     assert_eq!(Error::io_error("invalid json").exit_code(), 64);
 }
 
-#[test]
-fn test_jj_conflict_type_display() {
-    use crate::error::JjConflictType;
-
-    let conflict = JjConflictType::AlreadyExists;
-    assert!(format!("{:?}", conflict).contains("AlreadyExists"));
-
-    let conflict = JjConflictType::ConcurrentModification;
-    assert!(format!("{:?}", conflict).contains("ConcurrentModification"));
-
-    let conflict = JjConflictType::Abandoned;
-    assert!(format!("{:?}", conflict).contains("Abandoned"));
-
-    let conflict = JjConflictType::Stale;
-    assert!(format!("{:?}", conflict).contains("Stale"));
-}
-
-#[test]
-fn test_lock_timeout_error() {
-    let err = Error::jj_lock_timeout("test-op", 5000, 3);
-
-    assert!(err.to_string().contains("test-op"));
-    assert!(err.to_string().contains("5000"));
-    assert!(err.to_string().contains("3"));
-    assert_eq!(err.exit_code(), 37);
-}
-
-#[test]
-fn test_jj_workspace_conflict_error() {
-    let err = Error::jj_workspace_conflict(
-        crate::error::JjConflictType::AlreadyExists,
-        "test-workspace",
-        "workspace already exists",
-        "use different name",
-    );
-
-    assert!(err.to_string().contains("test-workspace"));
-    assert!(err.to_string().contains("workspace already exists"));
-}
-
 // ========================================================================
 // Property-Based Tests: Exhaustive Error Hierarchy Invariants
 // ========================================================================
@@ -508,8 +448,8 @@ fn exhaustive_all_variants_have_nonzero_exit_code() {
     }
     // Sanity: we actually tested a substantial number of variants.
     assert!(
-        total >= 80,
-        "expected >= 80 leaf error variants, got {total}"
+        total >= 75,
+        "expected >= 75 leaf error variants, got {total}"
     );
 }
 

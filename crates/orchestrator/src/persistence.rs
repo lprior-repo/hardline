@@ -442,8 +442,12 @@ mod tests {
     #[test]
     fn test_clear_empties_store() {
         let (mut store, _temp) = create_temp_store();
-        store.create(Pipeline::new("specs/a.yaml".to_string())).expect("create");
-        store.create(Pipeline::new("specs/b.yaml".to_string())).expect("create");
+        store
+            .create(Pipeline::new("specs/a.yaml".to_string()))
+            .expect("create");
+        store
+            .create(Pipeline::new("specs/b.yaml".to_string()))
+            .expect("create");
         assert_eq!(store.list().len(), 2);
 
         store.clear().expect("clear");

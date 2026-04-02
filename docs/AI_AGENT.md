@@ -236,11 +236,11 @@ Each autonomous agent follows this pipeline:
 |------|------|----------------|--------|
 | 1 | TRIAGE | `bv --robot-triage --robot-triage-by-track` | Parallel execution tracks |
 | 2 | CLAIM | `br update <bead-id> --status in_progress` | Reserve bead |
-| 3 | ISOLATE | Skill: `isolate` | Spawn isolated JJ workspace + Zellij tab |
+| 3 | ISOLATE | Skill: `isolate` | Spawn isolated Git workspace + Zellij tab |
 | 4 | IMPLEMENT | Skill: `functional-rust-generator` (Rust) or `tdd15-gleam` (Gleam) | ZERO unwrap/expect/panic, Railway-Oriented Programming |
 | 5 | REVIEW | Skill: `red-queen` | Adversarial QA, regression hunting |
 | 6 | LAND | Skill: `landing-skill` | Moon quick check, commit, sync, push (MANDATORY) |
-| 7 | MERGE | Skill: `isolate` | jj rebase -d main, cleanup, tab switch |
+| 7 | MERGE | Skill: `isolate` | git rebase main, cleanup, tab switch |
 
 ---
 
@@ -288,7 +288,7 @@ bv --robot-triage --robot-triage-by-track
 
 | Benefit | Description |
 |---------|-------------|
-| **Isolation** | Each agent works in separate JJ workspace |
+| **Isolation** | Each agent works in separate Git clone workspace |
 | **Parallel** | 8x throughput with no conflicts |
 | **Deterministic** | bv precomputes dependencies and execution tracks |
 | **Quality** | Red-queen ensures adversarial testing on each change |
@@ -523,9 +523,9 @@ Load these skills for specialized tasks:
 | `coding-rigor` | TDD-first development, clean boundaries | Code design |
 | `rust-contract` | Design-by-contract, test planning | Planning Rust features |
 
-**Why JJ for Multi-Agent?**
+**Multi-Agent Isolation:**
 
-See [09_JUJUTSU.md](09_JUJUTSU.md) — JJ enables 8-12 parallel agents without corruption, unlike Git which breaks at 4+.
+Each agent works in its own full Git clone, ensuring complete workspace isolation without lock contention.
 
 ---
 
@@ -599,7 +599,7 @@ systemctl --user start bazel-remote
 - AI status: `hardline ai status`
 - Core docs: [docs/INDEX.md](INDEX.md)
 - Command reference: [COMMANDS.md](COMMANDS.md)
-- Jujutsu workflow: [09_JUJUTSU.md](09_JUJUTSU.md)
+- Git workflow: standard `git` commands
 
 ---
 

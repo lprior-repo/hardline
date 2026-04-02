@@ -47,7 +47,7 @@ impl std::error::Error for ExecutorError {}
 
 impl From<ExecutorError> for Error {
     fn from(err: ExecutorError) -> Self {
-        Error::jj_command_error("jj", err.to_string(), false)
+        Error::vcs_conflict("executor", err.to_string())
     }
 }
 
@@ -150,7 +150,10 @@ pub fn detect_conflicts(
     };
 
     // Step 5: Compute overlapping files
-    let overlapping: Vec<String> = workspace_files.intersection(&trunk_files).cloned().collect();
+    let overlapping: Vec<String> = workspace_files
+        .intersection(&trunk_files)
+        .cloned()
+        .collect();
 
     let workspace_only: Vec<String> = workspace_files.difference(&trunk_files).cloned().collect();
     let main_only: Vec<String> = trunk_files.difference(&workspace_files).cloned().collect();
@@ -259,14 +262,7 @@ fn get_trunk_modified_files(
     executor: &dyn JjExecutor,
     merge_base: &str,
 ) -> std::result::Result<HashSet<String>, ExecutorError> {
-    let output = executor.run(&[
-        "diff",
-        "--from",
-        merge_base,
-        "--to",
-        "trunk()",
-        "--summary",
-    ])?;
+    let output = executor.run(&["diff", "--from", merge_base, "--to", "trunk()", "--summary"])?;
     Ok(parse_diff_summary(&output))
 }
 
@@ -287,9 +283,7 @@ pub fn parse_diff_summary(output: &str) -> HashSet<String> {
             let file_part_opt = parts.get(1).copied();
 
             match (status_opt, file_part_opt) {
-                (Some(status), Some(file_part))
-                    if status == "R" && file_part.contains(" -> ") =>
-                {
+                (Some(status), Some(file_part)) if status == "R" && file_part.contains(" -> ") => {
                     file_part
                         .split(" -> ")
                         .last()
@@ -381,7 +375,7 @@ mod tests {
         };
         let core_err: Error = err.into();
         let msg = core_err.to_string();
-        assert!(msg.contains("jj"));
+        assert!(msg.contains("executor"));
     }
 
     // ---- parse_diff_summary ----
@@ -492,11 +486,9 @@ mod tests {
             self.responses
                 .get(&key)
                 .cloned()
-                .ok_or_else(|| {
-                    ExecutorError::CommandFailed {
-                        code: 1,
-                        stderr: format!("no mock for: {key}"),
-                    }
+                .ok_or_else(|| ExecutorError::CommandFailed {
+                    code: 1,
+                    stderr: format!("no mock for: {key}"),
                 })
         }
 
@@ -689,22 +681,13 @@ mod tests {
                 "log -r @ --no-graph -T if(conflict, \"CONFLICT\\n\", \"\")",
                 "CONFLICT\n",
             )
-            .with_response(
-                "resolve --list",
-                "file_a.rs  normal\nfile_b.rs  text",
-            )
+            .with_response("resolve --list", "file_a.rs  normal\nfile_b.rs  text")
             .with_response(
                 "log -r heads(::@ & ::trunk()) --no-graph -T commit_id ++ \"\\n\" --limit 1",
                 "def456\n",
             )
-            .with_response(
-                "diff --from trunk() --to @ --summary",
-                "",
-            )
-            .with_response(
-                "diff --from def456 --to trunk() --summary",
-                "",
-            );
+            .with_response("diff --from trunk() --to @ --summary", "")
+            .with_response("diff --from def456 --to trunk() --summary", "");
 
         let result = detect_conflicts(&mock).expect("should succeed");
         assert!(!result.merge_likely_safe);
@@ -735,7 +718,10 @@ mod tests {
         let result = detect_conflicts(&mock).expect("should succeed");
         assert!(!result.merge_likely_safe);
         assert!(result.overlapping_files.iter().any(|f| f == "shared.rs"));
-        assert!(result.workspace_only.iter().any(|f| f == "workspace_only.rs"));
+        assert!(result
+            .workspace_only
+            .iter()
+            .any(|f| f == "workspace_only.rs"));
         assert!(result.main_only.iter().any(|f| f == "trunk_only.rs"));
         assert!(result.merge_base.is_none());
     }

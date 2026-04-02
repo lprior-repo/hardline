@@ -103,7 +103,11 @@ mod tests {
         ];
         let mut display_strings: Vec<String> = variants.iter().map(|v| format!("{v}")).collect();
         display_strings.dedup();
-        assert_eq!(display_strings.len(), 7, "All error variants should have distinct display messages");
+        assert_eq!(
+            display_strings.len(),
+            7,
+            "All error variants should have distinct display messages"
+        );
     }
 
     #[test]
@@ -123,14 +127,26 @@ mod tests {
     #[test]
     fn test_result_and_then_ok() {
         let result: Result<i32> = Ok(5);
-        let chained = result.and_then(|v| if v > 0 { Ok(v) } else { Err(StackError::GitError("neg".to_string())) });
+        let chained = result.and_then(|v| {
+            if v > 0 {
+                Ok(v)
+            } else {
+                Err(StackError::GitError("neg".to_string()))
+            }
+        });
         assert_eq!(chained.unwrap_or(0), 5);
     }
 
     #[test]
     fn test_result_and_then_err() {
         let result: Result<i32> = Ok(0);
-        let chained = result.and_then(|v| if v > 0 { Ok(v) } else { Err(StackError::GitError("neg".to_string())) });
+        let chained = result.and_then(|v| {
+            if v > 0 {
+                Ok(v)
+            } else {
+                Err(StackError::GitError("neg".to_string()))
+            }
+        });
         assert!(chained.is_err());
     }
 }

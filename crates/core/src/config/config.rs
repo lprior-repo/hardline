@@ -50,9 +50,7 @@ impl HooksConfig {
     /// Whether any hooks are configured.
     #[must_use]
     pub fn has_hooks(&self) -> bool {
-        !self.post_create.is_empty()
-            || !self.pre_remove.is_empty()
-            || !self.post_merge.is_empty()
+        !self.post_create.is_empty() || !self.pre_remove.is_empty() || !self.post_merge.is_empty()
     }
 }
 
@@ -198,17 +196,14 @@ impl AgentConfig {
             if !key
                 .chars()
                 .next()
-                .map_or(false, |c| c.is_ascii_alphabetic() || c == '_')
+                .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
             {
                 return Err(crate::Error::validation_error(format!(
                     "agent.env key '{}' must start with a letter or underscore",
                     key
                 )));
             }
-            if !key
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '_')
-            {
+            if !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
                 return Err(crate::Error::validation_error(format!(
                     "agent.env key '{}' contains invalid characters",
                     key
@@ -468,7 +463,11 @@ mod tests {
 
     #[test]
     fn conflict_resolution_validate_accepts_all_modes() {
-        for mode in [ConflictMode::Auto, ConflictMode::Manual, ConflictMode::Hybrid] {
+        for mode in [
+            ConflictMode::Auto,
+            ConflictMode::Manual,
+            ConflictMode::Hybrid,
+        ] {
             let config = ConflictResolutionConfig {
                 mode,
                 ..Default::default()

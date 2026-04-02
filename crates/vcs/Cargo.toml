@@ -13,7 +13,6 @@ serde = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
 gix = { workspace = true }
-jj-lib = { workspace = true }
 hex = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }

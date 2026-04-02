@@ -230,7 +230,7 @@ pub fn generate_hints_response(state: &SystemState) -> Result<HintsResponse> {
 
     let context = SystemContext {
         initialized: state.initialized,
-        jj_repo: state.jj_repo,
+        git_repo: state.git_repo,
         sessions_count: state.sessions.len(),
         active_sessions: active_count,
         has_changes: false,

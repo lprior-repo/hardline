@@ -349,13 +349,13 @@ br update BD-123 --status ready  # Ready for review
 
 1. **Create issue** → `br create ...`
 2. **Claim issue** → `br update BD-123 --status in_progress`
-3. **Make branch** → `jj bookmark set feature/...` (implicit in Hardline)
-4. **Work** → Edit files, commit with `jj describe`
-5. **Push** → `jj git push`
+3. **Make branch** → `git checkout -b feature/...` (implicit in Hardline)
+4. **Work** → Edit files, commit with `git commit`
+5. **Push** → `git push`
 6. **Close** → `br close BD-123`
 
 All connected through Beads dependency graph and tracked by `bv`.
 
 ---
 
-**Next**: [Version Control with Jujutsu](09_JUJUTSU.md)
+**Next**: [Moon Build System](10_MOON_CICD_INDEXED.md)

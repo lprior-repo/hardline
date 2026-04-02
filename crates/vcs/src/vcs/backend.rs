@@ -1,6 +1,6 @@
 //! VCS backend trait definition
 //!
-//! This module provides the `VcsBackend` trait that unifies Git and JJ operations.
+//! This module provides the `VcsBackend` trait for Git operations.
 
 use super::change::RepoStatus;
 use super::errors::VcsError;
@@ -11,7 +11,7 @@ use super::BackendType;
 // VcsBackend Trait
 // ============================================================================
 
-/// Unified VCS backend trait for Git and JJ operations
+/// Unified VCS backend trait for Git operations
 ///
 /// # Type Invariants
 /// - All methods return `Result<T, VcsError>` - never panic

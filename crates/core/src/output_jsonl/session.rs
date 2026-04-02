@@ -118,8 +118,7 @@ mod tests {
             SessionState::Failed,
         ] {
             let json = serde_json::to_string(&state).expect("serialize ok");
-            let deserialized: SessionState =
-                serde_json::from_str(&json).expect("deserialize ok");
+            let deserialized: SessionState = serde_json::from_str(&json).expect("deserialize ok");
             assert_eq!(state, deserialized, "Roundtrip failed for {state:?}");
         }
     }
@@ -214,10 +213,7 @@ mod tests {
         .expect("valid")
         .with_metadata(meta);
         assert!(session.metadata.is_some());
-        assert_eq!(
-            session.metadata.as_ref().expect("meta")["key"],
-            "value"
-        );
+        assert_eq!(session.metadata.as_ref().expect("meta")["key"], "value");
     }
 
     // ── Serde roundtrip ──────────────────────────────────────────────────────
@@ -233,8 +229,7 @@ mod tests {
         .expect("valid");
 
         let json = serde_json::to_string(&session).expect("serialize ok");
-        let deserialized: SessionOutput =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: SessionOutput = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(session.name, deserialized.name);
         assert!(deserialized.branch.is_none());
         assert!(deserialized.metadata.is_none());
@@ -253,8 +248,7 @@ mod tests {
         .with_metadata(serde_json::json!({"agent": "claude"}));
 
         let json = serde_json::to_string(&session).expect("serialize ok");
-        let deserialized: SessionOutput =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: SessionOutput = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(deserialized.name, "full-test");
         assert_eq!(deserialized.branch.as_deref(), Some("feature"));
     }

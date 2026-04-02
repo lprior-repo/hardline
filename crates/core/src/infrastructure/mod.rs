@@ -28,13 +28,11 @@ pub use operation_log::{
 
 // event_store_locks re-exports
 pub use event_store_lock_repository::{
-    acquire_stream_lock, cleanup_expired_stream_locks, ensure_event_store_locks,
-    get_next_sequence, get_stream_locks, is_stream_locked, locks_by_holder, release_stream_lock,
+    acquire_stream_lock, cleanup_expired_stream_locks, ensure_event_store_locks, get_next_sequence,
+    get_stream_locks, is_stream_locked, locks_by_holder, release_stream_lock,
 };
 pub use event_store_lock_schema::ensure_event_store_lock_schema;
-pub use event_store_lock_types::{
-    parse_event_store_lock_row, EventStoreLock, EventStoreLockError,
-};
+pub use event_store_lock_types::{parse_event_store_lock_row, EventStoreLock, EventStoreLockError};
 
 pub use chaos::{
     ChaosConfig, ChaosDatabaseService, ChaosFs, ChaosInjector, ChaosNetworkService, NetworkService,

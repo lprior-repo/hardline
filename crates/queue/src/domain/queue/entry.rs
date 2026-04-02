@@ -186,7 +186,10 @@ mod tests {
     #[test]
     fn queue_entry_new_rejects_priority_exceeding_max() {
         let result = QueueEntry::new("id-1", "session-1", MAX_PRIORITY + 1);
-        assert!(matches!(result, Err(ValidationError::ExceedsMaximum { .. })));
+        assert!(matches!(
+            result,
+            Err(ValidationError::ExceedsMaximum { .. })
+        ));
     }
 
     #[test]
@@ -226,14 +229,8 @@ mod tests {
     fn queue_entry_with_status() {
         let id = QueueEntryId::new("id").unwrap();
         let session = SessionName::new("session").unwrap();
-        let entry = QueueEntry::with_status(
-            id,
-            session,
-            10,
-            Utc::now(),
-            QueueStatus::Merged,
-        )
-        .unwrap();
+        let entry =
+            QueueEntry::with_status(id, session, 10, Utc::now(), QueueStatus::Merged).unwrap();
         assert_eq!(entry.status, QueueStatus::Merged);
     }
 
@@ -271,22 +268,13 @@ mod tests {
         let id1 = QueueEntryId::new("id-1").unwrap();
         let session1 = SessionName::new("session-1").unwrap();
         let ts1 = Utc::now();
-        let entry_a = QueueEntry::with_timestamp(
-            id1.clone(),
-            session1.clone(),
-            10,
-            ts1,
-        )
-        .unwrap();
+        let entry_a = QueueEntry::with_timestamp(id1.clone(), session1.clone(), 10, ts1).unwrap();
         let ts2 = ts1 + chrono::Duration::seconds(60);
-        let entry_b = QueueEntry::with_timestamp(
-            id1,
-            session1,
-            10,
-            ts2,
-        )
-        .unwrap();
-        assert_eq!(entry_a, entry_b, "Entries with same fields but different timestamps should be equal");
+        let entry_b = QueueEntry::with_timestamp(id1, session1, 10, ts2).unwrap();
+        assert_eq!(
+            entry_a, entry_b,
+            "Entries with same fields but different timestamps should be equal"
+        );
     }
 
     #[test]
@@ -404,7 +392,13 @@ mod tests {
     fn queue_entry_with_status_rejects_invalid_priority() {
         let id = QueueEntryId::new("id").unwrap();
         let session = SessionName::new("session").unwrap();
-        let result = QueueEntry::with_status(id, session, MAX_PRIORITY + 1, Utc::now(), QueueStatus::Merged);
+        let result = QueueEntry::with_status(
+            id,
+            session,
+            MAX_PRIORITY + 1,
+            Utc::now(),
+            QueueStatus::Merged,
+        );
         assert!(result.is_err());
     }
 
@@ -449,14 +443,13 @@ mod tests {
             QueueStatus::Cancelled,
         ];
         for status in &statuses {
-            let entry = QueueEntry::with_status(
-                id.clone(),
-                session.clone(),
-                10,
-                Utc::now(),
-                *status,
+            let entry =
+                QueueEntry::with_status(id.clone(), session.clone(), 10, Utc::now(), *status);
+            assert!(
+                entry.is_ok(),
+                "Should create entry with status {:?}",
+                status
             );
-            assert!(entry.is_ok(), "Should create entry with status {:?}", status);
         }
     }
 

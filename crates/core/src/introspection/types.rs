@@ -60,8 +60,8 @@ pub struct DependencyInfo {
 pub struct SystemState {
     /// Whether isolate has been initialized in this repo
     pub initialized: bool,
-    /// Whether current directory is a JJ repository
-    pub jj_repo: bool,
+    /// Whether current directory is a Git repository
+    pub git_repo: bool,
     /// Path to config file
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config_path: Option<String>,

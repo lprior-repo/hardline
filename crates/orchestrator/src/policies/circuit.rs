@@ -175,7 +175,8 @@ mod tests {
         ];
         for state in &states {
             let json = serde_json::to_string(state).expect("serialize");
-            let deserialized: CircuitBreakerState = serde_json::from_str(&json).expect("deserialize");
+            let deserialized: CircuitBreakerState =
+                serde_json::from_str(&json).expect("deserialize");
             assert_eq!(*state, deserialized);
         }
     }

@@ -226,8 +226,8 @@ fn test_dependency_graph_multiple_phases_ready() {
 
 #[test]
 fn test_dependency_graph_validate_nonexistent_dependency() {
-    let graph = DependencyGraph::new()
-        .add_phase(PhaseType::UniverseSetup, vec![PhaseType::SpecReview]);
+    let graph =
+        DependencyGraph::new().add_phase(PhaseType::UniverseSetup, vec![PhaseType::SpecReview]);
     // UniverseSetup depends on SpecReview which was not added
     let result = graph.validate();
     assert!(result.is_err());
@@ -352,8 +352,7 @@ fn test_dependency_graph_with_all_phases() {
 
 #[test]
 fn test_dependency_graph_mark_running_then_completed() {
-    let mut graph = DependencyGraph::new()
-        .add_phase(PhaseType::SpecReview, vec![]);
+    let mut graph = DependencyGraph::new().add_phase(PhaseType::SpecReview, vec![]);
 
     let completed: HashSet<PhaseType> = HashSet::new();
 
@@ -376,8 +375,8 @@ fn test_dependency_graph_mark_running_then_completed() {
 
 #[test]
 fn test_dependency_graph_self_cycle_detected() {
-    let graph = DependencyGraph::new()
-        .add_phase(PhaseType::SpecReview, vec![PhaseType::SpecReview]);
+    let graph =
+        DependencyGraph::new().add_phase(PhaseType::SpecReview, vec![PhaseType::SpecReview]);
 
     let result = graph.validate();
     assert!(result.is_err());
@@ -456,8 +455,7 @@ fn test_phase_group_with_max_parallelism_zero() {
 
 #[test]
 fn test_phase_group_with_max_parallelism_greater_than_phases() {
-    let group = PhaseGroup::new(vec![PhaseType::SpecReview])
-        .with_max_parallelism(10);
+    let group = PhaseGroup::new(vec![PhaseType::SpecReview]).with_max_parallelism(10);
     assert_eq!(group.max_parallelism, 10);
 }
 
@@ -611,8 +609,8 @@ fn test_is_complete_with_mixed_completed_and_failed() {
 
 #[test]
 fn test_parallel_error_implements_error() {
-    use std::error::Error;
     use crate::parallel::ParallelError;
+    use std::error::Error;
     let err = ParallelError::DependencyNotMet(PhaseType::Validation);
     assert!(err.source().is_none());
 

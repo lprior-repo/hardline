@@ -112,8 +112,14 @@ mod tests {
     fn session_not_found_display_contains_name() {
         let err = SyncError::SessionNotFound("my-session".into());
         let msg = err.to_string();
-        assert!(msg.contains("my-session"), "Display should contain session name");
-        assert!(msg.contains("not found"), "Display should contain 'not found'");
+        assert!(
+            msg.contains("my-session"),
+            "Display should contain session name"
+        );
+        assert!(
+            msg.contains("not found"),
+            "Display should contain 'not found'"
+        );
     }
 
     #[test]
@@ -123,7 +129,10 @@ mod tests {
             allowed: vec!["Active".into(), "Failed".into()],
         };
         let msg = err.to_string();
-        assert!(msg.contains("Paused"), "Display should contain actual status");
+        assert!(
+            msg.contains("Paused"),
+            "Display should contain actual status"
+        );
         assert!(msg.contains("Active"), "Display should mention Active");
         assert!(msg.contains("Failed"), "Display should mention Failed");
     }
@@ -132,8 +141,14 @@ mod tests {
     fn dirty_workspace_display_contains_path() {
         let err = SyncError::DirtyWorkspace("/tmp/my-workspace".into());
         let msg = err.to_string();
-        assert!(msg.contains("/tmp/my-workspace"), "Display should contain workspace path");
-        assert!(msg.contains("--allow-dirty"), "Display should mention --allow-dirty flag");
+        assert!(
+            msg.contains("/tmp/my-workspace"),
+            "Display should contain workspace path"
+        );
+        assert!(
+            msg.contains("--allow-dirty"),
+            "Display should mention --allow-dirty flag"
+        );
     }
 
     #[test]
@@ -143,8 +158,14 @@ mod tests {
             conflicted_files: vec!["a.rs".into(), "b.rs".into()],
         };
         let msg = err.to_string();
-        assert!(msg.contains("proj-a"), "Display should contain workspace name");
-        assert!(msg.contains("jj resolve"), "Display should suggest jj resolve");
+        assert!(
+            msg.contains("proj-a"),
+            "Display should contain workspace name"
+        );
+        assert!(
+            msg.contains("jj resolve"),
+            "Display should suggest jj resolve"
+        );
     }
 
     #[test]
@@ -154,23 +175,38 @@ mod tests {
             reason: "divergent revisions".into(),
         };
         let msg = err.to_string();
-        assert!(msg.contains("proj-b"), "Display should contain workspace name");
-        assert!(msg.contains("divergent revisions"), "Display should contain reason");
+        assert!(
+            msg.contains("proj-b"),
+            "Display should contain workspace name"
+        );
+        assert!(
+            msg.contains("divergent revisions"),
+            "Display should contain reason"
+        );
     }
 
     #[test]
     fn jj_command_error_display_contains_message() {
         let err = SyncError::JjCommandError("command not found".into());
         let msg = err.to_string();
-        assert!(msg.contains("command not found"), "Display should contain error message");
-        assert!(msg.contains("JJ command failed"), "Display should mention JJ command");
+        assert!(
+            msg.contains("command not found"),
+            "Display should contain error message"
+        );
+        assert!(
+            msg.contains("JJ command failed"),
+            "Display should mention JJ command"
+        );
     }
 
     #[test]
     fn io_error_display_contains_message() {
         let err = SyncError::IoError("permission denied".into());
         let msg = err.to_string();
-        assert!(msg.contains("permission denied"), "Display should contain error message");
+        assert!(
+            msg.contains("permission denied"),
+            "Display should contain error message"
+        );
         assert!(msg.contains("IO error"), "Display should mention IO error");
     }
 
@@ -212,7 +248,10 @@ mod tests {
         let core = CoreError::from(err);
         // The InvalidSessionStatus maps through StateErrorKind::ValidationFieldError
         let msg = core.to_string();
-        assert!(msg.contains("Paused") || msg.contains("status"), "Conversion should preserve status info: {msg}");
+        assert!(
+            msg.contains("Paused") || msg.contains("status"),
+            "Conversion should preserve status info: {msg}"
+        );
     }
 
     #[test]
@@ -220,7 +259,10 @@ mod tests {
         let err = SyncError::DirtyWorkspace("/path/ws".into());
         let core = CoreError::from(err);
         let msg = core.to_string();
-        assert!(msg.contains("/path/ws") || msg.contains("uncommitted"), "Conversion should preserve workspace info: {msg}");
+        assert!(
+            msg.contains("/path/ws") || msg.contains("uncommitted"),
+            "Conversion should preserve workspace info: {msg}"
+        );
     }
 
     #[test]

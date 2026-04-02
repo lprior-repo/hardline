@@ -183,7 +183,9 @@ mod tests {
             Mode::Reorder,
         ];
         for other in modes {
-            assert!(!matches!(Mode::Normal, _ if std::mem::discriminant(&Mode::Normal) == std::mem::discriminant(&other)));
+            assert!(
+                !matches!(Mode::Normal, _ if std::mem::discriminant(&Mode::Normal) == std::mem::discriminant(&other))
+            );
         }
     }
 
@@ -407,7 +409,12 @@ mod tests {
         let search = format!("{:?}", Mode::Search);
         let help = format!("{:?}", Mode::Help);
         let reorder = format!("{:?}", Mode::Reorder);
-        for (name, s) in [("Normal", normal), ("Search", search), ("Help", help), ("Reorder", reorder)] {
+        for (name, s) in [
+            ("Normal", normal),
+            ("Search", search),
+            ("Help", help),
+            ("Reorder", reorder),
+        ] {
             assert!(!s.is_empty(), "{name} debug should not be empty");
         }
     }
@@ -416,21 +423,30 @@ mod tests {
     fn mode_confirm_debug_shows_action() {
         let confirm = Mode::Confirm(ConfirmAction::Delete("branch".into()));
         let debug = format!("{confirm:?}");
-        assert!(debug.contains("Delete"), "should mention Delete action: {debug}");
+        assert!(
+            debug.contains("Delete"),
+            "should mention Delete action: {debug}"
+        );
     }
 
     #[test]
     fn mode_input_debug_shows_action() {
         let input = Mode::Input(InputAction::Rename);
         let debug = format!("{input:?}");
-        assert!(debug.contains("Rename"), "should mention Rename action: {debug}");
+        assert!(
+            debug.contains("Rename"),
+            "should mention Rename action: {debug}"
+        );
     }
 
     #[test]
     fn mode_input_new_branch_debug() {
         let input = Mode::Input(InputAction::NewBranch);
         let debug = format!("{input:?}");
-        assert!(debug.contains("NewBranch"), "should mention NewBranch action: {debug}");
+        assert!(
+            debug.contains("NewBranch"),
+            "should mention NewBranch action: {debug}"
+        );
     }
 
     // ── ConfirmAction exhaustive variants ──
@@ -670,7 +686,10 @@ mod tests {
     fn tui_app_size_is_reasonable() {
         // TuiApp has 4 fields: FocusedPane (1 byte), Mode (variable), 2x bool (2 bytes)
         let size = std::mem::size_of::<TuiApp>();
-        assert!(size < 512, "TuiApp should be reasonably sized, got {size} bytes");
+        assert!(
+            size < 512,
+            "TuiApp should be reasonably sized, got {size} bytes"
+        );
     }
 
     #[test]

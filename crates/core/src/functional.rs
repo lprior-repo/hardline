@@ -278,7 +278,8 @@ mod tests {
 
     #[test]
     fn test_apply_transforms_chain() {
-        let transforms: Vec<fn(i32) -> Result<i32>> = vec![|x| Ok(x + 1), |x| Ok(x * 2), |x| Ok(x - 3)];
+        let transforms: Vec<fn(i32) -> Result<i32>> =
+            vec![|x| Ok(x + 1), |x| Ok(x * 2), |x| Ok(x - 3)];
         // ((5 + 1) * 2) - 3 = 9
         let result = apply_transforms(5, &transforms).expect("should succeed");
         assert_eq!(result, 9);

@@ -67,9 +67,7 @@ mod tests {
     }
 
     fn parse(args: &[&str]) -> StashCommands {
-        let full: Vec<&str> = std::iter::once("scp")
-            .chain(args.iter().copied())
-            .collect();
+        let full: Vec<&str> = std::iter::once("scp").chain(args.iter().copied()).collect();
         StashParser::parse_from(full).command
     }
 

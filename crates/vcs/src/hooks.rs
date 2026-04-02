@@ -16,8 +16,10 @@ use serde::{Deserialize, Serialize};
 use scp_core::{Error, Result};
 
 /// Hook event types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum HookEvent {
+    #[default]
+    PostCommit,
     /// Before a rebase operation
     PreRebase,
     /// After a rebase operation
@@ -36,8 +38,6 @@ pub enum HookEvent {
     PostMerge,
     /// Before a commit
     PreCommit,
-    /// After a commit
-    PostCommit,
     /// Before workspace switch
     PreSwitch,
     /// After workspace switch
@@ -95,12 +95,6 @@ impl HookEvent {
             Self::PreWorkspaceDelete,
             Self::PostWorkspaceDelete,
         ]
-    }
-}
-
-impl Default for HookEvent {
-    fn default() -> Self {
-        Self::PostCommit
     }
 }
 
@@ -239,10 +233,7 @@ impl HookRunner {
 
     /// Register a hook
     pub fn register(&mut self, hook: Hook) {
-        self.hooks
-            .entry(hook.event)
-            .or_insert_with(Vec::new)
-            .push(hook);
+        self.hooks.entry(hook.event).or_default().push(hook);
     }
 
     /// Unregister a hook by name
@@ -505,7 +496,7 @@ mod tests {
 
         let env = HookEnv {
             event: HookEvent::PreCommit,
-            vcs_type: "jj".to_string(),
+            vcs_type: "git".to_string(),
             ..Default::default()
         };
 
@@ -570,8 +561,7 @@ mod tests {
 
     #[test]
     fn hook_builder_arg() {
-        let hook = Hook::new("test", HookEvent::PreCommit, "echo")
-            .arg("--verbose");
+        let hook = Hook::new("test", HookEvent::PreCommit, "echo").arg("--verbose");
         assert_eq!(hook.args, vec!["--verbose"]);
     }
 
@@ -586,15 +576,13 @@ mod tests {
 
     #[test]
     fn hook_builder_timeout() {
-        let hook = Hook::new("test", HookEvent::PreCommit, "echo")
-            .timeout(5000);
+        let hook = Hook::new("test", HookEvent::PreCommit, "echo").timeout(5000);
         assert_eq!(hook.timeout_ms, 5000);
     }
 
     #[test]
     fn hook_builder_disabled() {
-        let hook = Hook::new("test", HookEvent::PreCommit, "echo")
-            .disabled();
+        let hook = Hook::new("test", HookEvent::PreCommit, "echo").disabled();
         assert!(!hook.enabled);
     }
 
@@ -675,10 +663,7 @@ mod tests {
     #[test]
     fn hook_runner_disabled_hooks_skipped() {
         let mut runner = HookRunner::new();
-        runner.register(
-            Hook::new("disabled", HookEvent::PreCommit, "echo")
-                .disabled()
-        );
+        runner.register(Hook::new("disabled", HookEvent::PreCommit, "echo").disabled());
         let env = HookEnv {
             event: HookEvent::PreCommit,
             vcs_type: "git".to_string(),
@@ -755,11 +740,20 @@ mod tests {
             target: None,
         };
         let map = env.to_env();
-        assert_eq!(map.get("SCP_HOOK_EVENT").map(String::as_str), Some("pre-commit"));
+        assert_eq!(
+            map.get("SCP_HOOK_EVENT").map(String::as_str),
+            Some("pre-commit")
+        );
         assert_eq!(map.get("SCP_HOOK_VCS").map(String::as_str), Some("git"));
-        assert_eq!(map.get("SCP_HOOK_WORKSPACE").map(String::as_str), Some("default"));
+        assert_eq!(
+            map.get("SCP_HOOK_WORKSPACE").map(String::as_str),
+            Some("default")
+        );
         assert_eq!(map.get("SCP_HOOK_BRANCH").map(String::as_str), Some("main"));
-        assert_eq!(map.get("SCP_HOOK_REPO_PATH").map(String::as_str), Some("/repo"));
+        assert_eq!(
+            map.get("SCP_HOOK_REPO_PATH").map(String::as_str),
+            Some("/repo")
+        );
         assert!(!map.contains_key("SCP_HOOK_TARGET"));
     }
 
@@ -767,12 +761,15 @@ mod tests {
     fn hook_env_to_env_with_target() {
         let env = HookEnv {
             event: HookEvent::PrePush,
-            vcs_type: "jj".to_string(),
+            vcs_type: "git".to_string(),
             target: Some("origin".to_string()),
             ..Default::default()
         };
         let map = env.to_env();
-        assert_eq!(map.get("SCP_HOOK_TARGET").map(String::as_str), Some("origin"));
+        assert_eq!(
+            map.get("SCP_HOOK_TARGET").map(String::as_str),
+            Some("origin")
+        );
     }
 
     // -- HookConfig tests --
@@ -787,7 +784,9 @@ mod tests {
     #[test]
     fn hook_config_load_hooks_nonexistent_dir() {
         let config = HookConfig::new();
-        let hooks = config.load_hooks(Path::new("/nonexistent/path")).expect("ok");
+        let hooks = config
+            .load_hooks(Path::new("/nonexistent/path"))
+            .expect("ok");
         assert!(hooks.is_empty());
     }
 
@@ -818,8 +817,14 @@ mod tests {
 
     #[test]
     fn hook_config_event_from_name() {
-        assert_eq!(HookConfig::event_from_name("pre-commit-lint"), Some(HookEvent::PreCommit));
-        assert_eq!(HookConfig::event_from_name("my-post-push-hook"), Some(HookEvent::PostPush));
+        assert_eq!(
+            HookConfig::event_from_name("pre-commit-lint"),
+            Some(HookEvent::PreCommit)
+        );
+        assert_eq!(
+            HookConfig::event_from_name("my-post-push-hook"),
+            Some(HookEvent::PostPush)
+        );
         assert_eq!(HookConfig::event_from_name("random-script"), None);
         assert_eq!(HookConfig::event_from_name(""), None);
     }

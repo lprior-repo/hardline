@@ -213,7 +213,12 @@ mod tests {
             (JobStatus::Processing, JobStatus::Failed),
         ];
         for (from, to) in &valid_transitions {
-            assert!(from.transition(*to).is_ok(), "Transition from {:?} to {:?} should succeed", from, to);
+            assert!(
+                from.transition(*to).is_ok(),
+                "Transition from {:?} to {:?} should succeed",
+                from,
+                to
+            );
         }
     }
 
@@ -235,7 +240,12 @@ mod tests {
             (JobStatus::Failed, JobStatus::Failed),
         ];
         for (from, to) in &invalid {
-            assert!(from.transition(*to).is_err(), "Transition from {:?} to {:?} should fail", from, to);
+            assert!(
+                from.transition(*to).is_err(),
+                "Transition from {:?} to {:?} should fail",
+                from,
+                to
+            );
         }
     }
 

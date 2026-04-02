@@ -31,13 +31,13 @@ mod tests {
             "missing_directory"
         );
         assert_eq!(
-            format!("{}", CorruptionType::MissingJjDir),
-            "missing_jj_dir"
+            format!("{}", CorruptionType::MissingGitDir),
+            "missing_git_dir"
         );
         assert_eq!(format!("{}", CorruptionType::StaleLocks), "stale_locks");
         assert_eq!(
-            format!("{}", CorruptionType::CorruptedJjDir),
-            "corrupted_jj_dir"
+            format!("{}", CorruptionType::CorruptedGitDir),
+            "corrupted_git_dir"
         );
         assert_eq!(
             format!("{}", CorruptionType::PermissionDenied),
@@ -57,12 +57,12 @@ mod tests {
             Ok(CorruptionType::MissingDirectory)
         );
         assert_eq!(
-            CorruptionType::from_str("missing_jj_dir"),
-            Ok(CorruptionType::MissingJjDir)
+            CorruptionType::from_str("missing_git_dir"),
+            Ok(CorruptionType::MissingGitDir)
         );
         assert_eq!(
-            CorruptionType::from_str("corrupted_jj_dir"),
-            Ok(CorruptionType::CorruptedJjDir)
+            CorruptionType::from_str("corrupted_git_dir"),
+            Ok(CorruptionType::CorruptedGitDir)
         );
         assert_eq!(
             CorruptionType::from_str("stale_locks"),
@@ -90,14 +90,14 @@ mod tests {
             "no_repair_possible"
         );
         assert_eq!(format!("{}", RepairStrategy::ClearLocks), "clear_locks");
-        assert_eq!(format!("{}", RepairStrategy::FixJjDir), "fix_jj_dir");
+        assert_eq!(format!("{}", RepairStrategy::FixGitDir), "fix_git_dir");
         assert_eq!(
             format!("{}", RepairStrategy::RecreateWorkspace),
             "recreate_workspace"
         );
         assert_eq!(
-            format!("{}", RepairStrategy::ForgetAndRecreate),
-            "forget_and_recreate"
+            format!("{}", RepairStrategy::RemoveAndReclone),
+            "remove_and_reclone"
         );
     }
 
@@ -116,16 +116,16 @@ mod tests {
             "Clear stale lock files"
         );
         assert_eq!(
-            RepairStrategy::FixJjDir.description(),
-            "Fix JJ directory structure"
+            RepairStrategy::FixGitDir.description(),
+            "Fix Git directory structure"
         );
         assert_eq!(
             RepairStrategy::RecreateWorkspace.description(),
             "Recreate workspace"
         );
         assert_eq!(
-            RepairStrategy::ForgetAndRecreate.description(),
-            "Forget and recreate workspace"
+            RepairStrategy::RemoveAndReclone.description(),
+            "Remove and re-clone workspace"
         );
     }
 
@@ -145,16 +145,16 @@ mod tests {
             Ok(RepairStrategy::ClearLocks)
         );
         assert_eq!(
-            RepairStrategy::from_str("fix_jj_dir"),
-            Ok(RepairStrategy::FixJjDir)
+            RepairStrategy::from_str("fix_git_dir"),
+            Ok(RepairStrategy::FixGitDir)
         );
         assert_eq!(
             RepairStrategy::from_str("recreate_workspace"),
             Ok(RepairStrategy::RecreateWorkspace)
         );
         assert_eq!(
-            RepairStrategy::from_str("forget_and_recreate"),
-            Ok(RepairStrategy::ForgetAndRecreate)
+            RepairStrategy::from_str("remove_and_reclone"),
+            Ok(RepairStrategy::RemoveAndReclone)
         );
         assert!(RepairStrategy::from_str("invalid").is_err());
         assert!(RepairStrategy::from_str("").is_err());
@@ -242,11 +242,11 @@ mod tests {
             Severity::Warn
         );
         assert_eq!(
-            IntegrityIssue::new(CorruptionType::MissingJjDir, "").severity,
+            IntegrityIssue::new(CorruptionType::MissingGitDir, "").severity,
             Severity::Fail
         );
         assert_eq!(
-            IntegrityIssue::new(CorruptionType::CorruptedJjDir, "").severity,
+            IntegrityIssue::new(CorruptionType::CorruptedGitDir, "").severity,
             Severity::Fail
         );
         assert_eq!(
@@ -263,19 +263,19 @@ mod tests {
     fn test_integrity_issue_recommended_strategy_for_all_types() {
         assert_eq!(
             IntegrityIssue::new(CorruptionType::MissingDirectory, "").recommended_strategy,
-            RepairStrategy::ForgetAndRecreate
+            RepairStrategy::RemoveAndReclone
         );
         assert_eq!(
             IntegrityIssue::new(CorruptionType::StaleLocks, "").recommended_strategy,
             RepairStrategy::ClearLocks
         );
         assert_eq!(
-            IntegrityIssue::new(CorruptionType::MissingJjDir, "").recommended_strategy,
+            IntegrityIssue::new(CorruptionType::MissingGitDir, "").recommended_strategy,
             RepairStrategy::RecreateWorkspace
         );
         assert_eq!(
-            IntegrityIssue::new(CorruptionType::CorruptedJjDir, "").recommended_strategy,
-            RepairStrategy::ForgetAndRecreate
+            IntegrityIssue::new(CorruptionType::CorruptedGitDir, "").recommended_strategy,
+            RepairStrategy::RemoveAndReclone
         );
         assert_eq!(
             IntegrityIssue::new(CorruptionType::PermissionDenied, "").recommended_strategy,
@@ -289,14 +289,14 @@ mod tests {
 
     #[test]
     fn test_integrity_issue_builder_chain() {
-        let issue = IntegrityIssue::new(CorruptionType::CorruptedJjDir, "Broken repo")
-            .with_path("/tmp/ws/.jj")
-            .with_context("Missing op_store")
-            .with_strategy(RepairStrategy::FixJjDir);
-        assert_eq!(issue.corruption_type, CorruptionType::CorruptedJjDir);
-        assert_eq!(issue.affected_path, Some(PathBuf::from("/tmp/ws/.jj")));
-        assert_eq!(issue.context, Some("Missing op_store".to_string()));
-        assert_eq!(issue.recommended_strategy, RepairStrategy::FixJjDir);
+        let issue = IntegrityIssue::new(CorruptionType::CorruptedGitDir, "Broken repo")
+            .with_path("/tmp/ws/.git")
+            .with_context("Missing objects")
+            .with_strategy(RepairStrategy::FixGitDir);
+        assert_eq!(issue.corruption_type, CorruptionType::CorruptedGitDir);
+        assert_eq!(issue.affected_path, Some(PathBuf::from("/tmp/ws/.git")));
+        assert_eq!(issue.context, Some("Missing objects".to_string()));
+        assert_eq!(issue.recommended_strategy, RepairStrategy::FixGitDir);
     }
 
     // ── IntegrityValidator ───────────────────────────────────────────────────
@@ -336,15 +336,11 @@ mod tests {
     async fn test_integrity_validator_valid_workspace() -> Result<()> {
         let root = create_test_root()?;
         let workspace_path = root.path().join("valid-ws");
-        tokio::fs::create_dir_all(workspace_path.join(".jj").join("repo").join("op_store"))
-            .await?;
+        tokio::fs::create_dir_all(workspace_path.join(".git").join("objects")).await?;
+        tokio::fs::create_dir_all(workspace_path.join(".git").join("refs")).await?;
         tokio::fs::write(
-            workspace_path
-                .join(".jj")
-                .join("repo")
-                .join("op_store")
-                .join("test"),
-            "data",
+            workspace_path.join(".git").join("HEAD"),
+            "ref: refs/heads/main\n",
         )
         .await?;
 
@@ -358,19 +354,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_integrity_validator_missing_jj_dir() -> Result<()> {
+    async fn test_integrity_validator_missing_git_dir() -> Result<()> {
         let root = create_test_root()?;
-        let workspace_path = root.path().join("no-jj");
+        let workspace_path = root.path().join("no-git");
         tokio::fs::create_dir(&workspace_path).await?;
 
         let validator = IntegrityValidator::new(root.path());
-        let result = validator.validate("no-jj").await?;
+        let result = validator.validate("no-git").await?;
 
         assert!(!result.is_valid);
         assert!(result
             .issues
             .iter()
-            .any(|i| i.corruption_type == CorruptionType::MissingJjDir));
+            .any(|i| i.corruption_type == CorruptionType::MissingGitDir));
         Ok(())
     }
 
@@ -455,11 +451,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_validation_result_no_auto_repairable_for_no_repair() {
-        let issues = vec![IntegrityIssue::new(
-            CorruptionType::StaleLocks,
-            "Locked",
-        )
-        .with_strategy(RepairStrategy::NoRepair)];
+        let issues = vec![IntegrityIssue::new(CorruptionType::StaleLocks, "Locked")
+            .with_strategy(RepairStrategy::NoRepair)];
         let result = ValidationResult::invalid("ws", "/tmp/ws", issues);
         assert!(!result.has_auto_repairable_issues());
     }
@@ -559,8 +552,8 @@ mod tests {
     async fn test_repair_executor_clear_stale_locks() -> Result<()> {
         let root = create_test_root()?;
         let ws = root.path().join("ws");
-        tokio::fs::create_dir_all(ws.join(".jj").join("working_copy")).await?;
-        let lock = ws.join(".jj").join("working_copy").join("lock");
+        tokio::fs::create_dir_all(ws.join(".git")).await?;
+        let lock = ws.join(".git").join("index.lock");
         tokio::fs::write(&lock, "lock").await?;
 
         let executor = RepairExecutor::new();

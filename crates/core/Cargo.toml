@@ -44,7 +44,6 @@ tap = { workspace = true }
 petgraph = { workspace = true }
 
 # VCS
-jj-lib = { workspace = true }
 gix = { workspace = true }
 
 # File system

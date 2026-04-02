@@ -49,7 +49,10 @@ fn setup_test_dir(global_content: &str, project_content: Option<&str>) -> tempfi
     tmp
 }
 
-fn install_port_with(global_content: &str, project_content: Option<&str>) -> (tempfile::TempDir, PortGuard) {
+fn install_port_with(
+    global_content: &str,
+    project_content: Option<&str>,
+) -> (tempfile::TempDir, PortGuard) {
     clear_port();
     let tmp = setup_test_dir(global_content, project_content);
     let port = FileConfigReadPort::with_paths(
@@ -76,8 +79,14 @@ fn install_port_no_files() -> (tempfile::TempDir, PortGuard) {
 #[tokio::test]
 async fn port_load_merged_all_layers() {
     std::env::set_var("SCP_WATCH_ENABLED", "true");
-    let tmp = setup_test_dir("[watch]\nenabled = false\n", Some("[watch]\nenabled = true\n"));
-    let port = FileConfigReadPort::with_paths(tmp.path().join("config.toml"), Some(tmp.path().join(".scp").join("config.toml")));
+    let tmp = setup_test_dir(
+        "[watch]\nenabled = false\n",
+        Some("[watch]\nenabled = true\n"),
+    );
+    let port = FileConfigReadPort::with_paths(
+        tmp.path().join("config.toml"),
+        Some(tmp.path().join(".scp").join("config.toml")),
+    );
     let config = port.load_merged().await.expect("should load merged config");
     assert_eq!(config.values.get("watch.enabled").unwrap(), "true");
     std::env::remove_var("SCP_WATCH_ENABLED");
@@ -89,17 +98,31 @@ async fn port_load_merged_missing_global() {
     let tmp = tempfile::tempdir().expect("should create temp dir");
     let pp = tmp.path().join(".scp");
     std::fs::create_dir_all(&pp).expect("should create .scp dir");
-    std::fs::write(pp.join("config.toml"), "[conflict_resolution]\nmode = \"Auto\"\n").expect("should write");
-    let port = FileConfigReadPort::with_paths(tmp.path().join("nonexistent_global.toml"), Some(pp.join("config.toml")));
-    let config = port.load_merged().await.expect("should load with missing global");
-    assert_eq!(config.conflict.mode, crate::config::types::ConflictMode::Auto);
+    std::fs::write(
+        pp.join("config.toml"),
+        "[conflict_resolution]\nmode = \"Auto\"\n",
+    )
+    .expect("should write");
+    let port = FileConfigReadPort::with_paths(
+        tmp.path().join("nonexistent_global.toml"),
+        Some(pp.join("config.toml")),
+    );
+    let config = port
+        .load_merged()
+        .await
+        .expect("should load with missing global");
+    assert_eq!(
+        config.conflict.mode,
+        crate::config::types::ConflictMode::Auto
+    );
 }
 
 #[serial]
 #[tokio::test]
 async fn port_load_merged_invalid_toml() {
     let tmp = tempfile::tempdir().expect("should create temp dir");
-    std::fs::write(tmp.path().join("config.toml"), "[watch]\nenabled = false\n").expect("should write");
+    std::fs::write(tmp.path().join("config.toml"), "[watch]\nenabled = false\n")
+        .expect("should write");
     let bad_path = tmp.path().join("bad.toml");
     std::fs::write(&bad_path, "bad [[toml{").expect("should write bad");
     let port = FileConfigReadPort::with_paths(tmp.path().join("config.toml"), Some(bad_path));
@@ -108,7 +131,10 @@ async fn port_load_merged_invalid_toml() {
     match kind {
         ConfigErrorKind::ConfigParseError(msg) => {
             let lower = msg.to_lowercase();
-            assert!(lower.contains("parse") || lower.contains("toml"), "Expected 'parse' or 'TOML' in error message, got: {msg}");
+            assert!(
+                lower.contains("parse") || lower.contains("toml"),
+                "Expected 'parse' or 'TOML' in error message, got: {msg}"
+            );
         }
         other => panic!("Expected ConfigParseError, not {other:?}"),
     }
@@ -128,9 +154,15 @@ async fn port_load_merged_env_only() {
 #[serial]
 #[tokio::test]
 async fn port_load_global_only_returns_no_project() {
-    let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = false\n", Some("[watch]\nenabled = true\n"));
+    let (_tmp, _port_guard) = install_port_with(
+        "[watch]\nenabled = false\n",
+        Some("[watch]\nenabled = true\n"),
+    );
     let port = crate::config::command_types::get_port();
-    let config = port.load_global_only().await.expect("should load global only");
+    let config = port
+        .load_global_only()
+        .await
+        .expect("should load global only");
     assert_eq!(config.values.get("watch.enabled").unwrap(), "false");
 }
 
@@ -147,8 +179,13 @@ fn port_global_config_path_returns_valid() {
 #[test]
 fn port_project_config_path_returns_valid() {
     let tmp = tempfile::tempdir().expect("should create temp dir");
-    let port = FileConfigReadPort::with_paths(tmp.path().join("config.toml"), Some(tmp.path().join(".scp").join("config.toml")));
-    let path = port.project_config_path().expect("should return valid path");
+    let port = FileConfigReadPort::with_paths(
+        tmp.path().join("config.toml"),
+        Some(tmp.path().join(".scp").join("config.toml")),
+    );
+    let path = port
+        .project_config_path()
+        .expect("should return valid path");
     assert!(path.ends_with("config.toml"));
 }
 
@@ -161,7 +198,10 @@ fn port_project_config_path_err_no_project() {
     match kind {
         ConfigErrorKind::ConfigScopeError(msg) => {
             let lower = msg.to_lowercase();
-            assert!(lower.contains("project") || lower.contains("no project"), "Expected 'project' or 'no project' in error message, got: {msg}");
+            assert!(
+                lower.contains("project") || lower.contains("no project"),
+                "Expected 'project' or 'no project' in error message, got: {msg}"
+            );
         }
         other => panic!("Expected ConfigScopeError, got: {other:?}"),
     }
@@ -175,8 +215,13 @@ fn port_project_config_path_err_no_project() {
 #[tokio::test]
 async fn precedence_env_overrides_all() {
     std::env::set_var("SCP_WATCH_ENABLED", "true");
-    let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = false\n", Some("[watch]\nenabled = true\n"));
-    let result = config_get("watch.enabled", ConfigScope::Global).await.expect("should get value");
+    let (_tmp, _port_guard) = install_port_with(
+        "[watch]\nenabled = false\n",
+        Some("[watch]\nenabled = true\n"),
+    );
+    let result = config_get("watch.enabled", ConfigScope::Global)
+        .await
+        .expect("should get value");
     assert_eq!(result.value, "true");
     assert_eq!(result.scope, ConfigScope::Env);
     assert!(result.source_path.as_os_str().is_empty());
@@ -187,8 +232,13 @@ async fn precedence_env_overrides_all() {
 #[tokio::test]
 async fn precedence_project_overrides_global() {
     std::env::remove_var("SCP_WATCH_ENABLED");
-    let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = false\n", Some("[watch]\nenabled = true\n"));
-    let result = config_get("watch.enabled", ConfigScope::Global).await.expect("should get value");
+    let (_tmp, _port_guard) = install_port_with(
+        "[watch]\nenabled = false\n",
+        Some("[watch]\nenabled = true\n"),
+    );
+    let result = config_get("watch.enabled", ConfigScope::Global)
+        .await
+        .expect("should get value");
     assert_eq!(result.value, "true");
     assert_eq!(result.scope, ConfigScope::Project);
 }
@@ -198,7 +248,9 @@ async fn precedence_project_overrides_global() {
 async fn precedence_global_only() {
     std::env::remove_var("SCP_WATCH_ENABLED");
     let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = false\n", None);
-    let result = config_get("watch.enabled", ConfigScope::Global).await.expect("should get value");
+    let result = config_get("watch.enabled", ConfigScope::Global)
+        .await
+        .expect("should get value");
     assert_eq!(result.value, "false");
     assert_eq!(result.scope, ConfigScope::Global);
 }
@@ -210,10 +262,14 @@ async fn precedence_defaults_when_no_config() {
     std::env::remove_var("SCP_WATCH_ENABLED");
     std::env::remove_var("SCP_CONFLICT_RESOLUTION_MODE");
 
-    let result_session = config_get("session.commit_prefix", ConfigScope::Global).await.expect("should get session default");
+    let result_session = config_get("session.commit_prefix", ConfigScope::Global)
+        .await
+        .expect("should get session default");
     assert_eq!(result_session.value, "wip:");
 
-    let result_conflict = config_get("conflict_resolution.mode", ConfigScope::Global).await.expect("should get conflict default");
+    let result_conflict = config_get("conflict_resolution.mode", ConfigScope::Global)
+        .await
+        .expect("should get conflict default");
     assert_eq!(result_conflict.value, "manual");
 }
 
@@ -225,7 +281,9 @@ async fn precedence_defaults_when_no_config() {
 #[tokio::test]
 async fn lock_acquired_on_write() {
     let (_tmp, _port_guard) = install_port_with("# header\n[watch]\nenabled = false\n", None);
-    let result = config_set("watch.enabled", "true", ConfigScope::Global).await.expect("should set");
+    let result = config_set("watch.enabled", "true", ConfigScope::Global)
+        .await
+        .expect("should set");
     assert_eq!(result.value, "true");
     let port = crate::config::command_types::get_port();
     let path = port.global_config_path().expect("should get path");
@@ -243,7 +301,12 @@ async fn lock_timeout_returns_error() {
     std::fs::write(&config_path, "").expect("should write");
     let lp = config_path.clone();
     let holder = std::thread::spawn(move || {
-        let f = std::fs::OpenOptions::new().read(true).write(true).create(true).open(&lp).expect("should open");
+        let f = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&lp)
+            .expect("should open");
         fs2::FileExt::try_lock_exclusive(&f).expect("should lock");
         std::thread::sleep(std::time::Duration::from_secs(10));
     });
@@ -252,12 +315,17 @@ async fn lock_timeout_returns_error() {
     clear_port();
     set_port(Arc::new(port));
     let _port_guard = PortGuard;
-    let err = config_set("watch.enabled", "true", ConfigScope::Global).await.unwrap_err();
+    let err = config_set("watch.enabled", "true", ConfigScope::Global)
+        .await
+        .unwrap_err();
     let kind = extract_kind(err);
     match kind {
         ConfigErrorKind::ConfigLockError(msg) => {
             let lower = msg.to_lowercase();
-            assert!(lower.contains("timeout") || lower.contains('5') || lower.contains("lock"), "Expected 'timeout', '5', or 'lock' in error message, got: {msg}");
+            assert!(
+                lower.contains("timeout") || lower.contains('5') || lower.contains("lock"),
+                "Expected 'timeout', '5', or 'lock' in error message, got: {msg}"
+            );
         }
         other => panic!("Expected ConfigLockError, got: {other:?}"),
     }
@@ -274,15 +342,25 @@ async fn lock_released_on_failure() {
     assert!(result.is_ok(), "config_set should succeed");
     let port = crate::config::command_types::get_port();
     let config_path = port.global_config_path().expect("should get path");
-    let f = std::fs::OpenOptions::new().read(true).write(true).create(true).open(&config_path).expect("should open");
-    assert!(fs2::FileExt::try_lock_exclusive(&f).is_ok(), "lock should be releasable");
+    let f = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&config_path)
+        .expect("should open");
+    assert!(
+        fs2::FileExt::try_lock_exclusive(&f).is_ok(),
+        "lock should be releasable"
+    );
 }
 
 #[serial]
 #[tokio::test]
 async fn lock_verified_held_during_write() {
     let (_tmp, _port_guard) = install_port_with("# header\n[watch]\nenabled = false\n", None);
-    let result = config_set("watch.enabled", "true", ConfigScope::Global).await.expect("should set");
+    let result = config_set("watch.enabled", "true", ConfigScope::Global)
+        .await
+        .expect("should set");
     assert_eq!(result.value, "true");
 }
 
@@ -294,7 +372,12 @@ async fn lock_retry_behavior() {
     std::fs::write(&config_path, "# header\n").expect("should write");
     let lp = config_path.clone();
     let holder = std::thread::spawn(move || {
-        let f = std::fs::OpenOptions::new().read(true).write(true).create(true).open(&lp).expect("should open");
+        let f = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&lp)
+            .expect("should open");
         fs2::FileExt::try_lock_exclusive(&f).expect("should lock");
         std::thread::sleep(std::time::Duration::from_millis(500));
     });
@@ -307,7 +390,10 @@ async fn lock_retry_behavior() {
     let result = config_set("watch.enabled", "true", ConfigScope::Global).await;
     let elapsed = start.elapsed();
     assert!(result.is_ok(), "should succeed after lock released");
-    assert!(elapsed >= std::time::Duration::from_millis(400), "should have waited, elapsed: {elapsed:?}");
+    assert!(
+        elapsed >= std::time::Duration::from_millis(400),
+        "should have waited, elapsed: {elapsed:?}"
+    );
     holder.join().expect("holder should complete");
 }
 
@@ -330,7 +416,12 @@ async fn no_truncate_before_lock_prevents_data_loss() {
 
     let lp = config_path.clone();
     let holder = std::thread::spawn(move || {
-        let f = std::fs::OpenOptions::new().read(true).write(true).create(true).open(&lp).expect("should open");
+        let f = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&lp)
+            .expect("should open");
         fs2::FileExt::try_lock_exclusive(&f).expect("should lock");
         std::thread::sleep(std::time::Duration::from_secs(10));
     });
@@ -341,7 +432,9 @@ async fn no_truncate_before_lock_prevents_data_loss() {
     set_port(Arc::new(port));
     let _port_guard = PortGuard;
 
-    let err = config_set("watch.name", "lost", ConfigScope::Global).await.unwrap_err();
+    let err = config_set("watch.name", "lost", ConfigScope::Global)
+        .await
+        .unwrap_err();
     let kind = extract_kind(err);
     match &kind {
         ConfigErrorKind::ConfigLockError(_) => {} // expected
@@ -350,7 +443,10 @@ async fn no_truncate_before_lock_prevents_data_loss() {
 
     // The critical assertion: the file must still contain the original data.
     let contents_after = std::fs::read_to_string(&config_path).expect("should read");
-    assert_eq!(contents_after, original_content, "file was truncated before lock was acquired -- data loss bug!");
+    assert_eq!(
+        contents_after, original_content,
+        "file was truncated before lock was acquired -- data loss bug!"
+    );
 
     holder.join().expect("holder should complete");
 }
@@ -362,8 +458,13 @@ async fn no_truncate_before_lock_prevents_data_loss() {
 #[serial]
 #[tokio::test]
 async fn toml_valid_after_set() {
-    let (_tmp, _port_guard) = install_port_with("# top comment\n[watch]\nenabled = false\ninterval = 5\n", None);
-    let result = config_set("watch.enabled", "true", ConfigScope::Global).await.expect("should set");
+    let (_tmp, _port_guard) = install_port_with(
+        "# top comment\n[watch]\nenabled = false\ninterval = 5\n",
+        None,
+    );
+    let result = config_set("watch.enabled", "true", ConfigScope::Global)
+        .await
+        .expect("should set");
     assert_eq!(result.value, "true");
     let contents = std::fs::read_to_string(&result.config_path).expect("should read");
     let doc: toml_edit::DocumentMut = contents.parse().expect("should be valid TOML");
@@ -376,8 +477,13 @@ async fn toml_valid_after_set() {
 #[serial]
 #[tokio::test]
 async fn toml_types_preserved() {
-    let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = true\ninterval = 5\nname = \"test\"\ntags = [\"a\", \"b\"]\n", None);
-    config_set("watch.name", "updated", ConfigScope::Global).await.expect("should set");
+    let (_tmp, _port_guard) = install_port_with(
+        "[watch]\nenabled = true\ninterval = 5\nname = \"test\"\ntags = [\"a\", \"b\"]\n",
+        None,
+    );
+    config_set("watch.name", "updated", ConfigScope::Global)
+        .await
+        .expect("should set");
     let port = crate::config::command_types::get_port();
     let path = port.global_config_path().expect("should get path");
     let contents = std::fs::read_to_string(&path).expect("should read");
@@ -405,7 +511,10 @@ async fn error_key_not_found() {
     match kind {
         ConfigErrorKind::ConfigParseError(_) => {} // unknown section "no"
         ConfigErrorKind::ConfigKeyNotFound(msg) => {
-            assert!(msg.contains("no.key"), "Expected 'no.key' in error message, got: {msg}");
+            assert!(
+                msg.contains("no.key"),
+                "Expected 'no.key' in error message, got: {msg}"
+            );
         }
         other => panic!("Expected ConfigKeyNotFound or ConfigParseError, got: {other:?}"),
     }
@@ -423,11 +532,16 @@ async fn error_write_error() {
 #[tokio::test]
 async fn error_scope_env_write() {
     let (_tmp, _port_guard) = install_port_no_files();
-    let err = config_set("watch.enabled", "true", ConfigScope::Env).await.unwrap_err();
+    let err = config_set("watch.enabled", "true", ConfigScope::Env)
+        .await
+        .unwrap_err();
     let kind = extract_kind(err);
     match kind {
         ConfigErrorKind::ConfigScopeError(msg) => {
-            assert!(msg.contains("Cannot save to environment scope"), "Expected exact message, got: {msg}");
+            assert!(
+                msg.contains("Cannot save to environment scope"),
+                "Expected exact message, got: {msg}"
+            );
         }
         other => panic!("Expected ConfigScopeError, got: {other:?}"),
     }
@@ -437,12 +551,17 @@ async fn error_scope_env_write() {
 #[tokio::test]
 async fn error_scope_no_project() {
     let (_tmp, _port_guard) = install_port_no_files();
-    let err = config_set("watch.enabled", "true", ConfigScope::Project).await.unwrap_err();
+    let err = config_set("watch.enabled", "true", ConfigScope::Project)
+        .await
+        .unwrap_err();
     let kind = extract_kind(err);
     match kind {
         ConfigErrorKind::ConfigScopeError(msg) => {
             let lower = msg.to_lowercase();
-            assert!(lower.contains("project") || lower.contains("no project"), "Expected 'project' or 'no project' in error message, got: {msg}");
+            assert!(
+                lower.contains("project") || lower.contains("no project"),
+                "Expected 'project' or 'no project' in error message, got: {msg}"
+            );
         }
         other => panic!("Expected ConfigScopeError, got: {other:?}"),
     }
@@ -456,7 +575,12 @@ async fn error_lock_timeout() {
     std::fs::write(&config_path, "").expect("should write");
     let lp = config_path.clone();
     let holder = std::thread::spawn(move || {
-        let f = std::fs::OpenOptions::new().read(true).write(true).create(true).open(&lp).expect("should open");
+        let f = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&lp)
+            .expect("should open");
         fs2::FileExt::try_lock_exclusive(&f).expect("should lock");
         std::thread::sleep(std::time::Duration::from_secs(10));
     });
@@ -465,12 +589,17 @@ async fn error_lock_timeout() {
     clear_port();
     set_port(Arc::new(port));
     let _port_guard = PortGuard;
-    let err = config_set("watch.enabled", "true", ConfigScope::Global).await.unwrap_err();
+    let err = config_set("watch.enabled", "true", ConfigScope::Global)
+        .await
+        .unwrap_err();
     let kind = extract_kind(err);
     match kind {
         ConfigErrorKind::ConfigLockError(msg) => {
             let lower = msg.to_lowercase();
-            assert!(lower.contains("timeout") || lower.contains("5s"), "Expected 'timeout' or '5s' in error message, got: {msg}");
+            assert!(
+                lower.contains("timeout") || lower.contains("5s"),
+                "Expected 'timeout' or '5s' in error message, got: {msg}"
+            );
         }
         other => panic!("Expected ConfigLockError, got: {other:?}"),
     }
@@ -486,7 +615,9 @@ async fn error_lock_timeout() {
 async fn env_scope_empty_source_path() {
     std::env::set_var("SCP_WATCH_ENABLED", "true");
     let (_tmp, _port_guard) = install_port_no_files();
-    let result = config_get("watch.enabled", ConfigScope::Global).await.expect("should get value");
+    let result = config_get("watch.enabled", ConfigScope::Global)
+        .await
+        .expect("should get value");
     assert_eq!(result.scope, ConfigScope::Env);
     assert!(result.source_path.as_os_str().is_empty());
     std::env::remove_var("SCP_WATCH_ENABLED");
@@ -500,7 +631,9 @@ async fn env_scope_empty_source_path() {
 #[tokio::test]
 async fn config_get_direct_full_result() {
     let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = true\n", None);
-    let result = config_get("watch.enabled", ConfigScope::Global).await.expect("should get value");
+    let result = config_get("watch.enabled", ConfigScope::Global)
+        .await
+        .expect("should get value");
     assert_eq!(result.key.as_str(), "watch.enabled");
     assert_eq!(result.value, "true");
     assert_eq!(result.scope, ConfigScope::Global);
@@ -510,7 +643,9 @@ async fn config_get_direct_full_result() {
 #[tokio::test]
 async fn config_get_key_stability() {
     let (_tmp, _port_guard) = install_port_with("[conflict_resolution]\nmode = \"Auto\"\n", None);
-    let result = config_get("conflict_resolution.mode", ConfigScope::Global).await.expect("should get value");
+    let result = config_get("conflict_resolution.mode", ConfigScope::Global)
+        .await
+        .expect("should get value");
     assert_eq!(result.key.as_str(), "conflict_resolution.mode");
 }
 
@@ -521,7 +656,10 @@ async fn config_get_key_stability() {
 #[serial]
 #[tokio::test]
 async fn config_list_all_sorted() {
-    let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = true\n\n[conflict_resolution]\nmode = \"Auto\"\n", None);
+    let (_tmp, _port_guard) = install_port_with(
+        "[watch]\nenabled = true\n\n[conflict_resolution]\nmode = \"Auto\"\n",
+        None,
+    );
     let list = config_list(false).await.expect("should list all");
     assert_eq!(list.len(), 2);
     assert_eq!(list[0].key.as_str(), "conflict_resolution.mode");
@@ -533,7 +671,10 @@ async fn config_list_all_sorted() {
 #[serial]
 #[tokio::test]
 async fn config_list_global_only() {
-    let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = true\n", Some("[conflict_resolution]\nmode = \"Auto\"\n"));
+    let (_tmp, _port_guard) = install_port_with(
+        "[watch]\nenabled = true\n",
+        Some("[conflict_resolution]\nmode = \"Auto\"\n"),
+    );
     let list = config_list(true).await.expect("should list global only");
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].key.as_str(), "watch.enabled");
@@ -569,7 +710,10 @@ async fn config_list_single_key() {
 #[serial]
 #[tokio::test]
 async fn run_lists_all() {
-    let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = true\n\n[conflict_resolution]\nmode = \"Auto\"\n", None);
+    let (_tmp, _port_guard) = install_port_with(
+        "[watch]\nenabled = true\n\n[conflict_resolution]\nmode = \"Auto\"\n",
+        None,
+    );
     let list = config_list(false).await.expect("should list all");
     let keys: Vec<&str> = list.iter().map(|r| r.key.as_str()).collect();
     let mut sorted_keys = keys.clone();
@@ -581,7 +725,9 @@ async fn run_lists_all() {
 #[tokio::test]
 async fn run_gets_value() {
     let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = true\n", None);
-    let result = config_get("watch.enabled", ConfigScope::Global).await.expect("should get value");
+    let result = config_get("watch.enabled", ConfigScope::Global)
+        .await
+        .expect("should get value");
     assert_eq!(result.key.as_str(), "watch.enabled");
     assert_eq!(result.value, "true");
 }
@@ -590,19 +736,27 @@ async fn run_gets_value() {
 #[tokio::test]
 async fn run_sets_value() {
     let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = true\n", None);
-    let result = config_set("watch.enabled", "false", ConfigScope::Global).await.expect("should set");
+    let result = config_set("watch.enabled", "false", ConfigScope::Global)
+        .await
+        .expect("should set");
     assert_eq!(result.value, "false");
-    let get_result = config_get("watch.enabled", ConfigScope::Global).await.expect("should re-read");
+    let get_result = config_get("watch.enabled", ConfigScope::Global)
+        .await
+        .expect("should re-read");
     assert_eq!(get_result.value, "false");
 }
 
 #[serial]
 #[tokio::test]
 async fn run_rejects_value_no_key() {
-    let kind = ConfigErrorKind::ConfigParseError("key is required when value is provided".to_string());
+    let kind =
+        ConfigErrorKind::ConfigParseError("key is required when value is provided".to_string());
     let display = format!("{kind}");
     let lower = display.to_lowercase();
-    assert!(lower.contains("key") || lower.contains("required"), "Expected 'key' or 'required' in error message, got: {display}");
+    assert!(
+        lower.contains("key") || lower.contains("required"),
+        "Expected 'key' or 'required' in error message, got: {display}"
+    );
 }
 
 #[serial]
@@ -617,7 +771,11 @@ fn cli_exit_codes() {
     ];
     for (kind, expected_code) in cases {
         let config_err: ConfigError = kind.into();
-        assert_eq!(config_err.exit_code(), expected_code, "Wrong exit code for {config_err:?}");
+        assert_eq!(
+            config_err.exit_code(),
+            expected_code,
+            "Wrong exit code for {config_err:?}"
+        );
     }
 }
 

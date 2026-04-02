@@ -43,15 +43,11 @@ impl Error for MetadataError {}
 impl From<MetadataError> for CoreError {
     fn from(err: MetadataError) -> Self {
         match err {
-            MetadataError::BranchNotFound(id) => {
-                Self::not_found(format!("Branch not found: {id}"))
-            }
+            MetadataError::BranchNotFound(id) => Self::not_found(format!("Branch not found: {id}")),
             MetadataError::BranchAlreadyExists(id) => {
                 Self::invalid_state(format!("Branch already exists: {id}"))
             }
-            MetadataError::ParentNotFound(id) => {
-                Self::not_found(format!("Parent not found: {id}"))
-            }
+            MetadataError::ParentNotFound(id) => Self::not_found(format!("Parent not found: {id}")),
             MetadataError::CircularReference(id) => Self::invalid_state(format!(
                 "Circular reference would be created for branch {id}"
             )),

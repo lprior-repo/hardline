@@ -328,7 +328,10 @@ mod tests {
         fn agent_id_empty_rejects() {
             let result = AgentId::new("");
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), SessionError::InvalidIdentifier(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidIdentifier(_)
+            ));
         }
 
         #[test]
@@ -395,7 +398,10 @@ mod tests {
         fn title_empty_rejects() {
             let result = Title::new("");
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), SessionError::InvalidIdentifier(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidIdentifier(_)
+            ));
         }
 
         #[test]
@@ -649,7 +655,14 @@ mod tests {
 
         #[test]
         fn task_id_roundtrip_various() {
-            for suffix in &["1", "abc123", "deadbeef", "ABCDEF", "AbCdEf123456", "f00ba7"] {
+            for suffix in &[
+                "1",
+                "abc123",
+                "deadbeef",
+                "ABCDEF",
+                "AbCdEf123456",
+                "f00ba7",
+            ] {
                 let full = format!("bd-{suffix}");
                 let id = TaskId::parse(&full).unwrap();
                 assert_eq!(id.to_string(), full);

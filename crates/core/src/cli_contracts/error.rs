@@ -274,7 +274,10 @@ mod tests {
     #[test]
     fn test_invalid_operation_for_state() {
         let error = ContractError::invalid_operation_for_state("delete", "Session", "Active");
-        assert!(matches!(error, ContractError::InvalidOperationForState { .. }));
+        assert!(matches!(
+            error,
+            ContractError::InvalidOperationForState { .. }
+        ));
         let msg = error.to_string();
         assert!(msg.contains("delete"));
         assert!(msg.contains("Session"));

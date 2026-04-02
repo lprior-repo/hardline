@@ -10,7 +10,7 @@ use crate::commands::lock::{
     acquire_with_path, heartbeat_with_path, list_with_path, release_with_path, status_with_path,
 };
 use proptest::prelude::*;
-use proptest::{prop_assert};
+use proptest::prop_assert;
 use serial_test::serial;
 use tempfile::{NamedTempFile, TempDir};
 
@@ -702,7 +702,10 @@ fn test_acquire_init_lock_refuses_symlink() {
 
     // Attempt to acquire the lock should fail with a symlink error
     let result = crate::commands::init::acquire_init_lock(cwd);
-    assert!(result.is_err(), "acquire_init_lock should refuse to follow a symlink");
+    assert!(
+        result.is_err(),
+        "acquire_init_lock should refuse to follow a symlink"
+    );
 
     let err_msg = result.unwrap_err().to_string();
     assert!(
@@ -716,7 +719,10 @@ fn test_acquire_init_lock_refuses_symlink() {
 
     // The target file must remain intact
     let contents = std::fs::read_to_string(&target_file).expect("Failed to read target file");
-    assert_eq!(contents, "critical data", "Target file must not be corrupted");
+    assert_eq!(
+        contents, "critical data",
+        "Target file must not be corrupted"
+    );
 }
 
 #[test]
@@ -726,7 +732,10 @@ fn test_acquire_init_lock_succeeds_when_no_symlink() {
 
     // No symlink, no existing file — lock should succeed
     let result = crate::commands::init::acquire_init_lock(cwd);
-    assert!(result.is_ok(), "acquire_init_lock should succeed when no symlink exists");
+    assert!(
+        result.is_ok(),
+        "acquire_init_lock should succeed when no symlink exists"
+    );
 
     // Clean up: release the lock
     if let Ok(file) = &result {

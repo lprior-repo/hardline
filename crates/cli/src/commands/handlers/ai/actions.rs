@@ -149,8 +149,15 @@ mod tests {
         // serialize_and_output wraps data in AiEnvelope which uses #[serde(flatten)],
         // so only struct/map data is supported (not primitives).
         #[derive(serde::Serialize)]
-        struct TestPayload { value: String }
-        let result = serialize_and_output("test-schema", &TestPayload { value: "hello".to_string() });
+        struct TestPayload {
+            value: String,
+        }
+        let result = serialize_and_output(
+            "test-schema",
+            &TestPayload {
+                value: "hello".to_string(),
+            },
+        );
         match result {
             Ok(()) => {}
             Err(e) => panic!("serialize_and_output with valid struct data should succeed: {e}"),
@@ -211,8 +218,14 @@ mod tests {
         let envelope = super::super::data::AiEnvelope::new("test-overview", "single", &data);
         match serde_json::to_string(&envelope) {
             Ok(json_str) => {
-                assert!(json_str.contains("\"$schema\""), "Envelope must have $schema");
-                assert!(json_str.contains("\"success\""), "Envelope must have success");
+                assert!(
+                    json_str.contains("\"$schema\""),
+                    "Envelope must have $schema"
+                );
+                assert!(
+                    json_str.contains("\"success\""),
+                    "Envelope must have success"
+                );
                 // Verify it's parseable
                 match serde_json::from_str::<serde_json::Value>(&json_str) {
                     Ok(_) => {}

@@ -137,8 +137,8 @@ pub struct ErrorCondition {
 pub struct Prerequisites {
     /// Must be initialized
     pub initialized: bool,
-    /// JJ must be installed
-    pub jj_installed: bool,
+    /// VCS must be installed (e.g., git)
+    pub vcs_installed: bool,
     /// Additional custom checks
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub custom: Vec<String>,
@@ -153,7 +153,7 @@ impl Prerequisites {
     /// before proceeding with operations that require these prerequisites.
     #[must_use]
     pub const fn all_met(&self) -> bool {
-        self.initialized && self.jj_installed && self.custom.is_empty()
+        self.initialized && self.vcs_installed && self.custom.is_empty()
     }
 
     /// Count how many prerequisites are met
@@ -168,7 +168,7 @@ impl Prerequisites {
         if self.initialized {
             count += 1;
         }
-        if self.jj_installed {
+        if self.vcs_installed {
             count += 1;
         }
         count

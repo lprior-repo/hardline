@@ -49,10 +49,7 @@ impl StackMetadata {
         }
 
         // Update children mapping for new parent
-        self.children
-            .entry(parent)
-            .or_default()
-            .push(branch);
+        self.children.entry(parent).or_default().push(branch);
 
         // Save to backend
         self.save()?;

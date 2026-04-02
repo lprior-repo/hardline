@@ -83,7 +83,10 @@ pub trait ContextTimers {
 }
 
 pub trait ContextReadState {
-    fn get<T: DeserializeOwned + 'static>(&self, key: &str) -> DurableFuture<Result<Option<T>, TerminalError>>;
+    fn get<T: DeserializeOwned + 'static>(
+        &self,
+        key: &str,
+    ) -> DurableFuture<Result<Option<T>, TerminalError>>;
 
     fn get_keys(&self) -> DurableFuture<Result<Vec<String>, TerminalError>>;
 }
@@ -107,7 +110,10 @@ pub trait DurableContext:
 
     fn sleep(&self, duration: Duration) -> DurableFuture<Result<(), TerminalError>>;
 
-    fn get_state<T: DeserializeOwned + 'static>(&self, key: &str) -> DurableFuture<Result<Option<T>, TerminalError>>;
+    fn get_state<T: DeserializeOwned + 'static>(
+        &self,
+        key: &str,
+    ) -> DurableFuture<Result<Option<T>, TerminalError>>;
 
     fn set_state<T: Serialize + 'static>(&self, key: &str, value: T);
 

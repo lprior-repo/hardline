@@ -656,11 +656,26 @@ mod tests {
 
     #[test]
     fn test_fix_impact_serde_lowercase() {
-        assert_eq!(serde_json::to_string(&FixImpact::Safe).expect("ok"), "\"safe\"");
-        assert_eq!(serde_json::to_string(&FixImpact::Low).expect("ok"), "\"low\"");
-        assert_eq!(serde_json::to_string(&FixImpact::Medium).expect("ok"), "\"medium\"");
-        assert_eq!(serde_json::to_string(&FixImpact::High).expect("ok"), "\"high\"");
-        assert_eq!(serde_json::to_string(&FixImpact::Destructive).expect("ok"), "\"destructive\"");
+        assert_eq!(
+            serde_json::to_string(&FixImpact::Safe).expect("ok"),
+            "\"safe\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FixImpact::Low).expect("ok"),
+            "\"low\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FixImpact::Medium).expect("ok"),
+            "\"medium\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FixImpact::High).expect("ok"),
+            "\"high\""
+        );
+        assert_eq!(
+            serde_json::to_string(&FixImpact::Destructive).expect("ok"),
+            "\"destructive\""
+        );
     }
 
     #[test]

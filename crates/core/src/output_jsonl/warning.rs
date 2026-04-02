@@ -100,8 +100,7 @@ mod tests {
         let msg = Message::new("test warning").expect("valid");
         let warning = Warning::new(make_warning_code(), msg).expect("valid");
         let json = serde_json::to_string(&warning).expect("serialize ok");
-        let deserialized: Warning =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: Warning = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(warning.code, deserialized.code);
         assert!(deserialized.context.is_none());
     }
@@ -114,8 +113,7 @@ mod tests {
             .with_context("s1".to_string(), PathBuf::from("/home/user/ws"));
 
         let json = serde_json::to_string(&warning).expect("serialize ok");
-        let deserialized: Warning =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: Warning = serde_json::from_str(&json).expect("deserialize ok");
         assert!(deserialized.context.is_some());
         let ctx = deserialized.context.expect("has context");
         assert_eq!(ctx.session, "s1");
@@ -170,8 +168,7 @@ mod tests {
             additional: Some(serde_json::json!({"key": "val"})),
         };
         let json = serde_json::to_string(&ctx).expect("serialize ok");
-        let deserialized: Context =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: Context = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(ctx.session, deserialized.session);
         assert!(deserialized.additional.is_some());
     }

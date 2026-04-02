@@ -111,9 +111,10 @@ impl QueueStatus {
             (Self::Rebasing, Self::Testing | Self::Cancelled) => Ok(new_status),
 
             // Valid transitions from Testing
-            (Self::Testing, Self::ReadyToMerge | Self::FailedRetryable | Self::FailedTerminal | Self::Cancelled) => {
-                Ok(new_status)
-            }
+            (
+                Self::Testing,
+                Self::ReadyToMerge | Self::FailedRetryable | Self::FailedTerminal | Self::Cancelled,
+            ) => Ok(new_status),
 
             // Valid transitions from ReadyToMerge
             (Self::ReadyToMerge, Self::Merging | Self::Cancelled) => Ok(new_status),
@@ -146,8 +147,14 @@ mod tests {
         assert_eq!(format!("{}", QueueStatus::ReadyToMerge), "ready_to_merge");
         assert_eq!(format!("{}", QueueStatus::Merging), "merging");
         assert_eq!(format!("{}", QueueStatus::Merged), "merged");
-        assert_eq!(format!("{}", QueueStatus::FailedRetryable), "failed_retryable");
-        assert_eq!(format!("{}", QueueStatus::FailedTerminal), "failed_terminal");
+        assert_eq!(
+            format!("{}", QueueStatus::FailedRetryable),
+            "failed_retryable"
+        );
+        assert_eq!(
+            format!("{}", QueueStatus::FailedTerminal),
+            "failed_terminal"
+        );
         assert_eq!(format!("{}", QueueStatus::Cancelled), "cancelled");
     }
 

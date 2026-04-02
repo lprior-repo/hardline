@@ -517,8 +517,7 @@ mod tests {
 
     #[test]
     fn test_validation_error_implements_std_error() {
-        let err: Box<dyn std::error::Error> =
-            Box::new(ValidationError::EmptyValue("x".into()));
+        let err: Box<dyn std::error::Error> = Box::new(ValidationError::EmptyValue("x".into()));
         let _ = format!("{err:?}");
     }
 }

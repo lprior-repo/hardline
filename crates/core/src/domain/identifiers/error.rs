@@ -236,7 +236,10 @@ mod tests {
 
     #[test]
     fn too_long_display() {
-        let err = IdentifierError::TooLong { max: 50, actual: 100 };
+        let err = IdentifierError::TooLong {
+            max: 50,
+            actual: 100,
+        };
         let msg = format!("{err}");
         assert!(msg.contains("50"));
         assert!(msg.contains("100"));
@@ -245,7 +248,9 @@ mod tests {
 
     #[test]
     fn invalid_characters_display() {
-        let err = IdentifierError::InvalidCharacters { details: "spaces not allowed".to_string() };
+        let err = IdentifierError::InvalidCharacters {
+            details: "spaces not allowed".to_string(),
+        };
         let msg = format!("{err}");
         assert!(msg.contains("spaces not allowed"));
         assert!(msg.contains("invalid characters"));
@@ -253,7 +258,9 @@ mod tests {
 
     #[test]
     fn invalid_format_display() {
-        let err = IdentifierError::InvalidFormat { details: "must be lowercase".to_string() };
+        let err = IdentifierError::InvalidFormat {
+            details: "must be lowercase".to_string(),
+        };
         let msg = format!("{err}");
         assert!(msg.contains("must be lowercase"));
         assert!(msg.contains("invalid identifier format"));
@@ -268,7 +275,10 @@ mod tests {
 
     #[test]
     fn invalid_prefix_display() {
-        let err = IdentifierError::InvalidPrefix { prefix: "bd-", value: "abc123".to_string() };
+        let err = IdentifierError::InvalidPrefix {
+            prefix: "bd-",
+            value: "abc123".to_string(),
+        };
         let msg = format!("{err}");
         assert!(msg.contains("bd-"));
         assert!(msg.contains("abc123"));
@@ -276,7 +286,9 @@ mod tests {
 
     #[test]
     fn invalid_hex_display() {
-        let err = IdentifierError::InvalidHex { value: "xyz".to_string() };
+        let err = IdentifierError::InvalidHex {
+            value: "xyz".to_string(),
+        };
         let msg = format!("{err}");
         assert!(msg.contains("xyz"));
         assert!(msg.contains("hex"));
@@ -284,7 +296,9 @@ mod tests {
 
     #[test]
     fn not_absolute_path_display() {
-        let err = IdentifierError::NotAbsolutePath { value: "relative/path".to_string() };
+        let err = IdentifierError::NotAbsolutePath {
+            value: "relative/path".to_string(),
+        };
         let msg = format!("{err}");
         assert!(msg.contains("relative/path"));
         assert!(msg.contains("not absolute"));
@@ -299,7 +313,9 @@ mod tests {
 
     #[test]
     fn not_ascii_display() {
-        let err = IdentifierError::NotAscii { value: "café".to_string() };
+        let err = IdentifierError::NotAscii {
+            value: "café".to_string(),
+        };
         let msg = format!("{err}");
         assert!(msg.contains("café"));
         assert!(msg.contains("ASCII"));
@@ -316,14 +332,27 @@ mod tests {
     fn all_variants_are_exhaustive() {
         let _ = IdentifierError::Empty;
         let _ = IdentifierError::TooLong { max: 0, actual: 0 };
-        let _ = IdentifierError::InvalidCharacters { details: String::new() };
-        let _ = IdentifierError::InvalidFormat { details: String::new() };
+        let _ = IdentifierError::InvalidCharacters {
+            details: String::new(),
+        };
+        let _ = IdentifierError::InvalidFormat {
+            details: String::new(),
+        };
         let _ = IdentifierError::InvalidStart { expected: 'a' };
-        let _ = IdentifierError::InvalidPrefix { prefix: "", value: String::new() };
-        let _ = IdentifierError::InvalidHex { value: String::new() };
-        let _ = IdentifierError::NotAbsolutePath { value: String::new() };
+        let _ = IdentifierError::InvalidPrefix {
+            prefix: "",
+            value: String::new(),
+        };
+        let _ = IdentifierError::InvalidHex {
+            value: String::new(),
+        };
+        let _ = IdentifierError::NotAbsolutePath {
+            value: String::new(),
+        };
         let _ = IdentifierError::NullBytesInPath;
-        let _ = IdentifierError::NotAscii { value: String::new() };
+        let _ = IdentifierError::NotAscii {
+            value: String::new(),
+        };
         let _ = IdentifierError::ContainsPathSeparators;
     }
 
@@ -360,7 +389,10 @@ mod tests {
         let b = IdentifierError::Empty;
         assert_eq!(a, b);
 
-        let c = IdentifierError::TooLong { max: 10, actual: 20 };
+        let c = IdentifierError::TooLong {
+            max: 10,
+            actual: 20,
+        };
         let d = c.clone();
         assert_eq!(c, d);
     }

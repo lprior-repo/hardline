@@ -32,25 +32,28 @@ impl Default for InMemoryWorkspaceRepository {
 
 impl WorkspaceRepository for InMemoryWorkspaceRepository {
     fn save(&self, workspace: Workspace) -> Result<Workspace> {
-        let mut workspaces = self.workspaces.write().map_err(|e| {
-            WorkspaceError::RepositoryError(format!("lock poisoned: {e}"))
-        })?;
+        let mut workspaces = self
+            .workspaces
+            .write()
+            .map_err(|e| WorkspaceError::RepositoryError(format!("lock poisoned: {e}")))?;
         let id = workspace.id.as_str().to_string();
         workspaces.insert(id, workspace.clone());
         Ok(workspace)
     }
 
     fn get(&self, id: &WorkspaceId) -> Result<Option<Workspace>> {
-        let workspaces = self.workspaces.read().map_err(|e| {
-            WorkspaceError::RepositoryError(format!("lock poisoned: {e}"))
-        })?;
+        let workspaces = self
+            .workspaces
+            .read()
+            .map_err(|e| WorkspaceError::RepositoryError(format!("lock poisoned: {e}")))?;
         Ok(workspaces.get(id.as_str()).cloned())
     }
 
     fn get_by_name(&self, name: &str) -> Result<Option<Workspace>> {
-        let workspaces = self.workspaces.read().map_err(|e| {
-            WorkspaceError::RepositoryError(format!("lock poisoned: {e}"))
-        })?;
+        let workspaces = self
+            .workspaces
+            .read()
+            .map_err(|e| WorkspaceError::RepositoryError(format!("lock poisoned: {e}")))?;
         Ok(workspaces
             .values()
             .find(|w| w.name.as_str() == name)
@@ -58,16 +61,18 @@ impl WorkspaceRepository for InMemoryWorkspaceRepository {
     }
 
     fn list(&self) -> Result<Vec<Workspace>> {
-        let workspaces = self.workspaces.read().map_err(|e| {
-            WorkspaceError::RepositoryError(format!("lock poisoned: {e}"))
-        })?;
+        let workspaces = self
+            .workspaces
+            .read()
+            .map_err(|e| WorkspaceError::RepositoryError(format!("lock poisoned: {e}")))?;
         Ok(workspaces.values().cloned().collect())
     }
 
     fn list_active(&self) -> Result<Vec<Workspace>> {
-        let workspaces = self.workspaces.read().map_err(|e| {
-            WorkspaceError::RepositoryError(format!("lock poisoned: {e}"))
-        })?;
+        let workspaces = self
+            .workspaces
+            .read()
+            .map_err(|e| WorkspaceError::RepositoryError(format!("lock poisoned: {e}")))?;
         Ok(workspaces
             .values()
             .filter(|w| w.state == WorkspaceState::Active)
@@ -76,9 +81,10 @@ impl WorkspaceRepository for InMemoryWorkspaceRepository {
     }
 
     fn delete(&self, id: &WorkspaceId) -> Result<()> {
-        let mut workspaces = self.workspaces.write().map_err(|e| {
-            WorkspaceError::RepositoryError(format!("lock poisoned: {e}"))
-        })?;
+        let mut workspaces = self
+            .workspaces
+            .write()
+            .map_err(|e| WorkspaceError::RepositoryError(format!("lock poisoned: {e}")))?;
         if workspaces.remove(id.as_str()).is_some() {
             Ok(())
         } else {
@@ -290,7 +296,8 @@ mod tests {
         let ws = Workspace::create(
             WorkspaceName::new(name.into()).unwrap(),
             WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let activated = ws.activate().unwrap();
         Workspace {
             id: activated.id,
@@ -311,7 +318,8 @@ mod tests {
         let ws1 = Workspace::create(
             WorkspaceName::new("overwrite".into()).unwrap(),
             WorkspacePath::new("/tmp/overwrite".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let saved = repo.save(ws1).unwrap();
 
         // Save again with the same id
@@ -340,7 +348,8 @@ mod tests {
         let ws = Workspace::create(
             WorkspaceName::new("del-get".into()).unwrap(),
             WorkspacePath::new("/tmp/del-get".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let saved = repo.save(ws).unwrap();
         repo.delete(&saved.id).unwrap();
         let found = repo.get(&saved.id).unwrap();
@@ -353,7 +362,8 @@ mod tests {
         let ws = Workspace::create(
             WorkspaceName::new("del-name".into()).unwrap(),
             WorkspacePath::new("/tmp/del-name".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let saved = repo.save(ws).unwrap();
         repo.delete(&saved.id).unwrap();
         let found = repo.get_by_name("del-name").unwrap();
@@ -366,15 +376,18 @@ mod tests {
         let ws1 = Workspace::create(
             WorkspaceName::new("list-del-1".into()).unwrap(),
             WorkspacePath::new("/tmp/list-del-1".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let ws2 = Workspace::create(
             WorkspaceName::new("list-del-2".into()).unwrap(),
             WorkspacePath::new("/tmp/list-del-2".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let ws3 = Workspace::create(
             WorkspaceName::new("list-del-3".into()).unwrap(),
             WorkspacePath::new("/tmp/list-del-3".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let saved1 = repo.save(ws1).unwrap();
         let saved2 = repo.save(ws2).unwrap();
         repo.save(ws3).unwrap();
@@ -392,7 +405,8 @@ mod tests {
             let ws = Workspace::create(
                 WorkspaceName::new(format!("bulk-{}", i)).unwrap(),
                 WorkspacePath::new(format!("/tmp/bulk-{}", i)).unwrap(),
-            ).unwrap();
+            )
+            .unwrap();
             repo.save(ws).unwrap();
         }
         let list = repo.list().unwrap();
@@ -406,7 +420,8 @@ mod tests {
             let ws = Workspace::create(
                 WorkspaceName::new(format!("find-{}", i)).unwrap(),
                 WorkspacePath::new(format!("/tmp/find-{}", i)).unwrap(),
-            ).unwrap();
+            )
+            .unwrap();
             repo.save(ws).unwrap();
         }
         let found = repo.get_by_name("find-7").unwrap();
@@ -442,7 +457,8 @@ mod tests {
         let ws_init = Workspace::create(
             WorkspaceName::new("mixed-init".into()).unwrap(),
             WorkspacePath::new("/tmp/mixed-init".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         repo.save(ws_init).unwrap();
 
         let actives = repo.list_active().unwrap();
@@ -482,9 +498,9 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
+        use super::*;
         use proptest::prelude::*;
         use proptest::{prop_assert, prop_assert_eq};
-        use super::*;
 
         proptest! {
             #[test]

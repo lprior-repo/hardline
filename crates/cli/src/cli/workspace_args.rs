@@ -148,9 +148,7 @@ mod tests {
     }
 
     fn parse(args: &[&str]) -> WorkspaceCommands {
-        let full: Vec<&str> = std::iter::once("scp")
-            .chain(args.iter().copied())
-            .collect();
+        let full: Vec<&str> = std::iter::once("scp").chain(args.iter().copied()).collect();
         WorkspaceParser::parse_from(full).command
     }
 
@@ -167,7 +165,10 @@ mod tests {
 
     #[test]
     fn uncommitted_no_args() {
-        assert!(matches!(parse(&["uncommitted"]), WorkspaceCommands::Uncommitted));
+        assert!(matches!(
+            parse(&["uncommitted"]),
+            WorkspaceCommands::Uncommitted
+        ));
     }
 
     #[test]
@@ -274,7 +275,17 @@ mod tests {
 
     #[test]
     fn done_all_flags_set() {
-        match parse(&["done", "ws-name", "-m", "msg", "--keep-workspace", "--squash", "--dry-run", "--detect-conflicts", "--no-bead-update"]) {
+        match parse(&[
+            "done",
+            "ws-name",
+            "-m",
+            "msg",
+            "--keep-workspace",
+            "--squash",
+            "--dry-run",
+            "--detect-conflicts",
+            "--no-bead-update",
+        ]) {
             WorkspaceCommands::Done {
                 name,
                 message,
@@ -376,8 +387,7 @@ mod tests {
     // -- BranchDelete (required name) --
     #[test]
     fn branch_delete_requires_name() {
-        let result =
-            WorkspaceParser::try_parse_from(["scp", "branch-delete"]);
+        let result = WorkspaceParser::try_parse_from(["scp", "branch-delete"]);
         assert!(result.is_err());
     }
 

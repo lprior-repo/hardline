@@ -137,10 +137,7 @@ mod tests {
         let bead = create_test_bead();
         let updated = bead.update_title("New Title").expect("update ok");
         assert_eq!(
-            updated
-                .description
-                .as_ref()
-                .map(|d| d.as_str().to_string()),
+            updated.description.as_ref().map(|d| d.as_str().to_string()),
             Some("Original description".to_string())
         );
     }
@@ -155,10 +152,7 @@ mod tests {
             .update_description(Some("New description"))
             .expect("update ok");
         assert_eq!(
-            updated
-                .description
-                .as_ref()
-                .map(|d| d.as_str().to_string()),
+            updated.description.as_ref().map(|d| d.as_str().to_string()),
             Some("New description".to_string())
         );
     }
@@ -189,10 +183,7 @@ mod tests {
             .expect("update ok");
         assert_eq!(updated.title.as_str(), "New Title");
         assert_eq!(
-            updated
-                .description
-                .as_ref()
-                .map(|d| d.as_str().to_string()),
+            updated.description.as_ref().map(|d| d.as_str().to_string()),
             Some("New description".to_string())
         );
     }

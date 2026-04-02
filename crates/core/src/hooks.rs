@@ -15,8 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Error, Result};
 
 /// Hook event types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum HookEvent {
     /// Before a rebase operation
     PreRebase,
@@ -98,7 +97,6 @@ impl HookEvent {
         ]
     }
 }
-
 
 impl std::fmt::Display for HookEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -238,10 +236,7 @@ impl HookRunner {
 
     /// Register a hook
     pub fn register(&mut self, hook: Hook) {
-        self.hooks
-            .entry(hook.event)
-            .or_default()
-            .push(hook);
+        self.hooks.entry(hook.event).or_default().push(hook);
     }
 
     /// Unregister a hook by name
@@ -554,7 +549,10 @@ mod tests {
         for event in HookEvent::all() {
             let name = event.name();
             assert!(!name.is_empty(), "event {event:?} has empty name");
-            assert!(name.contains('-'), "event {event:?} name '{name}' should contain '-'");
+            assert!(
+                name.contains('-'),
+                "event {event:?} name '{name}' should contain '-'"
+            );
         }
     }
 
@@ -658,8 +656,7 @@ mod tests {
 
     #[test]
     fn hook_clone() {
-        let hook = Hook::new("original", HookEvent::PostCommit, "/bin/false")
-            .arg("--flag");
+        let hook = Hook::new("original", HookEvent::PostCommit, "/bin/false").arg("--flag");
         let cloned = hook.clone();
         assert_eq!(cloned.name, hook.name);
         assert_eq!(cloned.args, hook.args);
@@ -816,9 +813,7 @@ mod tests {
     #[test]
     fn hook_runner_disabled_hook_skipped() {
         let mut runner = HookRunner::new();
-        runner.register(
-            Hook::new("disabled-hook", HookEvent::PreCommit, "echo").disabled(),
-        );
+        runner.register(Hook::new("disabled-hook", HookEvent::PreCommit, "echo").disabled());
         let env = HookEnv {
             event: HookEvent::PreCommit,
             vcs_type: "test".to_string(),
@@ -861,7 +856,9 @@ mod tests {
     #[test]
     fn hook_config_load_hooks_nonexistent_dir() {
         let config = HookConfig::new();
-        let hooks = config.load_hooks(Path::new("/nonexistent/path/12345")).unwrap();
+        let hooks = config
+            .load_hooks(Path::new("/nonexistent/path/12345"))
+            .unwrap();
         assert!(hooks.is_empty());
     }
 

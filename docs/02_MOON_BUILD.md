@@ -116,7 +116,7 @@ moon run :test          # Run tests (~30s)
 moon run :ci            # Full pipeline (~2min)
 
 # Push
-jj git push
+git push
 ```
 
 ### In CI/CD
@@ -272,7 +272,7 @@ This uses cached outputs when available and checks all dependencies.
 moon run :quick
 
 # If satisfied, commit
-jj describe -m "feat: description"
+git commit -m "feat: description"
 ```
 
 ### Making Changes
@@ -294,7 +294,7 @@ moon run :test
 moon run :ci
 
 # If all pass
-jj git push
+git push
 
 # If any fail, fix and retry
 moon run :ci

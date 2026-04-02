@@ -53,9 +53,7 @@ mod tests {
     }
 
     fn parse(args: &[&str]) -> LockCommands {
-        let full: Vec<&str> = std::iter::once("scp")
-            .chain(args.iter().copied())
-            .collect();
+        let full: Vec<&str> = std::iter::once("scp").chain(args.iter().copied()).collect();
         LockParser::parse_from(full).command
     }
 
@@ -116,7 +114,10 @@ mod tests {
                 assert_eq!(session, "sess1");
                 assert_eq!(agent, "bot1");
             }
-            other => panic!("Expected Heartbeat, got {:?}", std::mem::discriminant(&other)),
+            other => panic!(
+                "Expected Heartbeat, got {:?}",
+                std::mem::discriminant(&other)
+            ),
         }
     }
 

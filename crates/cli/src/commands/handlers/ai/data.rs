@@ -337,7 +337,9 @@ mod tests {
     #[test]
     fn envelope_serializes_with_dollar_schema_field() {
         #[derive(Debug, Clone, Serialize)]
-        struct Dummy { x: i32 }
+        struct Dummy {
+            x: i32,
+        }
         let env = AiEnvelope::new("test", "single", Dummy { x: 42 });
         let json_str = serde_json::to_string(&env).expect("serialize");
         assert!(json_str.contains("\"$schema\""));
@@ -346,7 +348,9 @@ mod tests {
     #[test]
     fn envelope_serializes_with_schema_version_field() {
         #[derive(Debug, Clone, Serialize)]
-        struct Dummy { x: i32 }
+        struct Dummy {
+            x: i32,
+        }
         let env = AiEnvelope::new("test", "single", Dummy { x: 42 });
         let json_str = serde_json::to_string(&env).expect("serialize");
         assert!(json_str.contains("\"_schema_version\""));
@@ -354,18 +358,25 @@ mod tests {
 
     #[test]
     fn envelope_flattens_data_into_top_level() {
-        let env = AiEnvelope::new("test", "single", AiStatusOutput {
-            location: Location::Main,
-            workspace: None,
-            agent_id: None,
-            initialized: true,
-            active_sessions: 0,
-            ready: true,
-            suggestion: "ok".to_string(),
-            next_command: "scp work".to_string(),
-        });
+        let env = AiEnvelope::new(
+            "test",
+            "single",
+            AiStatusOutput {
+                location: Location::Main,
+                workspace: None,
+                agent_id: None,
+                initialized: true,
+                active_sessions: 0,
+                ready: true,
+                suggestion: "ok".to_string(),
+                next_command: "scp work".to_string(),
+            },
+        );
         let json_str = serde_json::to_string(&env).expect("serialize");
-        assert!(json_str.contains("\"location\""), "flattened data should contain location");
+        assert!(
+            json_str.contains("\"location\""),
+            "flattened data should contain location"
+        );
     }
 
     #[test]
@@ -700,8 +711,14 @@ mod tests {
         // serde's rename_all applies to the variant name, but since Workspace has a
         // String field, it serializes as {"workspace":"x"}, not just "workspace".
         let json = serde_json::to_string(&Location::Workspace("x".to_string())).expect("serialize");
-        assert!(json.contains("\"workspace\""), "Should contain workspace key: {json}");
-        assert!(json.contains("\"x\""), "Should contain workspace name: {json}");
+        assert!(
+            json.contains("\"workspace\""),
+            "Should contain workspace key: {json}"
+        );
+        assert!(
+            json.contains("\"x\""),
+            "Should contain workspace name: {json}"
+        );
     }
 
     // =========================================================================
@@ -737,9 +754,18 @@ mod tests {
 
     #[test]
     fn priority_serializes_as_lowercase() {
-        assert_eq!(serde_json::to_string(&Priority::High).expect("serialize"), "\"high\"");
-        assert_eq!(serde_json::to_string(&Priority::Medium).expect("serialize"), "\"medium\"");
-        assert_eq!(serde_json::to_string(&Priority::Low).expect("serialize"), "\"low\"");
+        assert_eq!(
+            serde_json::to_string(&Priority::High).expect("serialize"),
+            "\"high\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Priority::Medium).expect("serialize"),
+            "\"medium\""
+        );
+        assert_eq!(
+            serde_json::to_string(&Priority::Low).expect("serialize"),
+            "\"low\""
+        );
     }
 
     #[test]

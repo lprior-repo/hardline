@@ -86,58 +86,104 @@ impl ConfigKey {
             .into());
         }
         if key.contains('\0') {
-            return Err(ConfigErrorKind::ConfigParseError("config key contains null byte".to_string()).into());
+            return Err(ConfigErrorKind::ConfigParseError(
+                "config key contains null byte".to_string(),
+            )
+            .into());
         }
         if !key.is_ascii() {
-            return Err(ConfigErrorKind::ConfigParseError("config key contains non-ASCII characters".to_string()).into());
+            return Err(ConfigErrorKind::ConfigParseError(
+                "config key contains non-ASCII characters".to_string(),
+            )
+            .into());
         }
         if key.contains('/') {
-            return Err(ConfigErrorKind::ConfigParseError("config key contains slash, possible path traversal".to_string()).into());
+            return Err(ConfigErrorKind::ConfigParseError(
+                "config key contains slash, possible path traversal".to_string(),
+            )
+            .into());
         }
         if key.contains('\\') {
-            return Err(ConfigErrorKind::ConfigParseError("config key contains backslash, invalid character".to_string()).into());
+            return Err(ConfigErrorKind::ConfigParseError(
+                "config key contains backslash, invalid character".to_string(),
+            )
+            .into());
         }
         if key.starts_with('.') {
-            return Err(ConfigErrorKind::ConfigParseError("config key has leading dot, empty segment".to_string()).into());
+            return Err(ConfigErrorKind::ConfigParseError(
+                "config key has leading dot, empty segment".to_string(),
+            )
+            .into());
         }
         if key.ends_with('.') {
-            return Err(ConfigErrorKind::ConfigParseError("config key has trailing dot, empty segment".to_string()).into());
+            return Err(ConfigErrorKind::ConfigParseError(
+                "config key has trailing dot, empty segment".to_string(),
+            )
+            .into());
         }
         if key.contains("..") {
-            return Err(ConfigErrorKind::ConfigParseError("config key contains consecutive dots".to_string()).into());
+            return Err(ConfigErrorKind::ConfigParseError(
+                "config key contains consecutive dots".to_string(),
+            )
+            .into());
         }
         let segments: Vec<String> = key.split('.').map(String::from).collect();
         if segments.len() < 2 {
-            return Err(ConfigErrorKind::ConfigParseError("config key must contain at least one dot separator (section.key)".to_string()).into());
+            return Err(ConfigErrorKind::ConfigParseError(
+                "config key must contain at least one dot separator (section.key)".to_string(),
+            )
+            .into());
         }
         for segment in &segments {
             if segment.is_empty() {
-                return Err(ConfigErrorKind::ConfigParseError("config key contains empty segment".to_string()).into());
+                return Err(ConfigErrorKind::ConfigParseError(
+                    "config key contains empty segment".to_string(),
+                )
+                .into());
             }
             for ch in segment.chars() {
                 if ch == '-' {
-                    return Err(ConfigErrorKind::ConfigParseError(format!("config key segment contains hyphen '-': invalid character in '{segment}'")).into());
+                    return Err(ConfigErrorKind::ConfigParseError(format!(
+                        "config key segment contains hyphen '-': invalid character in '{segment}'"
+                    ))
+                    .into());
                 }
                 if ch.is_whitespace() {
-                    return Err(ConfigErrorKind::ConfigParseError(format!("config key segment contains whitespace: invalid character in '{segment}'")).into());
+                    return Err(ConfigErrorKind::ConfigParseError(format!(
+                        "config key segment contains whitespace: invalid character in '{segment}'"
+                    ))
+                    .into());
                 }
                 if !ch.is_ascii_alphanumeric() && ch != '_' {
-                    return Err(ConfigErrorKind::ConfigParseError(format!("config key segment contains invalid character '{ch}' in '{segment}'")).into());
+                    return Err(ConfigErrorKind::ConfigParseError(format!(
+                        "config key segment contains invalid character '{ch}' in '{segment}'"
+                    ))
+                    .into());
                 }
             }
         }
         let first_segment = &segments[0];
         if first_segment.len() > 1 && !KNOWN_SECTION_PREFIXES.contains(&first_segment.as_str()) {
-            return Err(ConfigErrorKind::ConfigParseError(format!("unknown schema section '{first_segment}': key not found in known config keys")).into());
+            return Err(ConfigErrorKind::ConfigParseError(format!(
+                "unknown schema section '{first_segment}': key not found in known config keys"
+            ))
+            .into());
         }
-        Ok(Self { raw: key.to_string(), segments })
+        Ok(Self {
+            raw: key.to_string(),
+            segments,
+        })
     }
 
     #[must_use]
-    pub fn as_str(&self) -> &str { &self.raw }
+    pub fn as_str(&self) -> &str {
+        &self.raw
+    }
 
     #[must_use]
-    pub fn segments(&self) -> &[String] { &self.segments }
+    pub fn segments(&self) -> &[String] {
+        &self.segments
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -220,20 +266,37 @@ pub struct FileConfigReadPort {
     project_path: Option<PathBuf>,
 }
 
+type ConfigInitResult = (
+    Config,
+    HashMap<String, ConfigScope>,
+    HashMap<String, PathBuf>,
+);
+
 impl FileConfigReadPort {
     pub fn new() -> Self {
         let global_path = directories::ProjectDirs::from("com", "scp", "scp")
             .map(|dirs| dirs.config_dir().join("config.toml"))
             .unwrap_or_else(|| {
                 std::env::var("HOME")
-                    .map(|h| PathBuf::from(h).join(".config").join("scp").join("config.toml"))
+                    .map(|h| {
+                        PathBuf::from(h)
+                            .join(".config")
+                            .join("scp")
+                            .join("config.toml")
+                    })
                     .unwrap_or_else(|_| PathBuf::from("config.toml"))
             });
-        Self { global_path, project_path: None }
+        Self {
+            global_path,
+            project_path: None,
+        }
     }
 
     pub fn with_paths(global_path: PathBuf, project_path: Option<PathBuf>) -> Self {
-        Self { global_path, project_path }
+        Self {
+            global_path,
+            project_path,
+        }
     }
 
     fn load_toml_file(path: &Path) -> Result<HashMap<String, String>> {
@@ -242,7 +305,10 @@ impl FileConfigReadPort {
             ConfigErrorKind::ConfigWriteError(format!("failed to read {}: {e}", path.display()))
         })?;
         let doc: toml_edit::DocumentMut = contents.parse().map_err(|e: toml_edit::TomlError| {
-            ConfigErrorKind::ConfigParseError(format!("TOML parse error in {}: {e}", path.display()))
+            ConfigErrorKind::ConfigParseError(format!(
+                "TOML parse error in {}: {e}",
+                path.display()
+            ))
         })?;
         let mut values = HashMap::new();
         flatten_toml_document(&doc, "", &mut values);
@@ -252,8 +318,8 @@ impl FileConfigReadPort {
     fn load_env_overrides() -> HashMap<String, String> {
         let mut values = HashMap::new();
         for (key, value) in std::env::vars() {
-            if key.starts_with("SCP_") {
-                let config_key = key["SCP_".len()..].to_lowercase().replace('_', ".");
+            if let Some(rest) = key.strip_prefix("SCP_") {
+                let config_key = rest.to_lowercase().replace('_', ".");
                 values.insert(config_key, value);
             }
         }
@@ -264,7 +330,7 @@ impl FileConfigReadPort {
         &self,
         include_project: bool,
         include_env: bool,
-    ) -> Result<(Config, HashMap<String, ConfigScope>, HashMap<String, PathBuf>)> {
+    ) -> Result<ConfigInitResult> {
         let mut values: HashMap<String, String> = HashMap::new();
         let mut scopes: HashMap<String, ConfigScope> = HashMap::new();
         let mut paths: HashMap<String, PathBuf> = HashMap::new();
@@ -335,7 +401,9 @@ impl FileConfigReadPort {
 }
 
 impl Default for FileConfigReadPort {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Check whether a path exists on disk, including as a dead symlink.
@@ -347,12 +415,24 @@ fn path_exists_on_disk(path: &Path) -> bool {
     std::fs::symlink_metadata(path).is_ok()
 }
 
-fn flatten_toml_document(doc: &toml_edit::DocumentMut, prefix: &str, out: &mut HashMap<String, String>) {
+fn flatten_toml_document(
+    doc: &toml_edit::DocumentMut,
+    prefix: &str,
+    out: &mut HashMap<String, String>,
+) {
     for (key, item) in doc.iter() {
-        let full_key = if prefix.is_empty() { key.to_string() } else { format!("{prefix}.{key}") };
+        let full_key = if prefix.is_empty() {
+            key.to_string()
+        } else {
+            format!("{prefix}.{key}")
+        };
         match item {
-            toml_edit::Item::Value(v) => { out.insert(full_key, stringify_toml_value(v)); }
-            toml_edit::Item::Table(table) => { flatten_toml_table(table, &full_key, out); }
+            toml_edit::Item::Value(v) => {
+                out.insert(full_key, stringify_toml_value(v));
+            }
+            toml_edit::Item::Table(table) => {
+                flatten_toml_table(table, &full_key, out);
+            }
             _ => {}
         }
     }
@@ -362,8 +442,12 @@ fn flatten_toml_table(table: &toml_edit::Table, prefix: &str, out: &mut HashMap<
     for (key, item) in table.iter() {
         let full_key = format!("{prefix}.{key}");
         match item {
-            toml_edit::Item::Value(v) => { out.insert(full_key, stringify_toml_value(v)); }
-            toml_edit::Item::Table(sub_table) => { flatten_toml_table(sub_table, &full_key, out); }
+            toml_edit::Item::Value(v) => {
+                out.insert(full_key, stringify_toml_value(v));
+            }
+            toml_edit::Item::Table(sub_table) => {
+                flatten_toml_table(sub_table, &full_key, out);
+            }
             _ => {}
         }
     }
@@ -389,7 +473,8 @@ fn apply_structured_sections(doc: &toml_edit::DocumentMut, config: &mut Config) 
         if let Some(ct) = ci.as_table() {
             if let Some(mv) = ct.get("mode") {
                 if let Some(s) = mv.as_str() {
-                    config.conflict.mode = super::types::ConflictMode::from_str(s).unwrap_or_default();
+                    config.conflict.mode =
+                        super::types::ConflictMode::from_str(s).unwrap_or_default();
                 }
             }
             if let Some(av) = ct.get("autonomy") {
@@ -399,7 +484,10 @@ fn apply_structured_sections(doc: &toml_edit::DocumentMut, config: &mut Config) 
             }
             if let Some(kv) = ct.get("security_keywords") {
                 if let Some(arr) = kv.as_array() {
-                    config.conflict.security_keywords = arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+                    config.conflict.security_keywords = arr
+                        .iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect();
                 }
             }
             if let Some(lv) = ct.get("log_resolutions") {
@@ -417,7 +505,9 @@ fn apply_structured_sections(doc: &toml_edit::DocumentMut, config: &mut Config) 
                 }
             }
             if let Some(cp) = st.get("commit_prefix") {
-                if let Some(s) = cp.as_str() { config.session.commit_prefix = s.to_string(); }
+                if let Some(s) = cp.as_str() {
+                    config.session.commit_prefix = s.to_string();
+                }
             }
             if let Some(ms) = st.get("max_sessions") {
                 if let Some(n) = ms.as_integer() {
@@ -430,17 +520,26 @@ fn apply_structured_sections(doc: &toml_edit::DocumentMut, config: &mut Config) 
         if let Some(ht) = hi.as_table() {
             if let Some(pc) = ht.get("post_create") {
                 if let Some(arr) = pc.as_array() {
-                    config.hooks.post_create = arr.iter().filter_map(|v| v.as_str().map(String::from)).collect();
+                    config.hooks.post_create = arr
+                        .iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect();
                 }
             }
             if let Some(pr) = ht.get("pre_remove") {
                 if let Some(arr) = pr.as_array() {
-                    config.hooks.pre_remove = arr.iter().filter_map(|v| v.as_str().map(String::from)).collect();
+                    config.hooks.pre_remove = arr
+                        .iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect();
                 }
             }
             if let Some(pm) = ht.get("post_merge") {
                 if let Some(arr) = pm.as_array() {
-                    config.hooks.post_merge = arr.iter().filter_map(|v| v.as_str().map(String::from)).collect();
+                    config.hooks.post_merge = arr
+                        .iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect();
                 }
             }
         }
@@ -461,12 +560,19 @@ fn apply_env_to_structured(env_values: &HashMap<String, String>, config: &mut Co
         config.conflict.mode = super::types::ConflictMode::from_str(ms).unwrap_or_default();
     }
     if let Some(a) = env_values.get("session.auto_commit") {
-        if a == "true" { config.session.auto_commit = super::types::ValidatedBool::new(true); }
-        else if a == "false" { config.session.auto_commit = super::types::ValidatedBool::new(false); }
+        if a == "true" {
+            config.session.auto_commit = super::types::ValidatedBool::new(true);
+        } else if a == "false" {
+            config.session.auto_commit = super::types::ValidatedBool::new(false);
+        }
     }
-    if let Some(p) = env_values.get("session.commit_prefix") { config.session.commit_prefix = p.clone(); }
+    if let Some(p) = env_values.get("session.commit_prefix") {
+        config.session.commit_prefix = p.clone();
+    }
     if let Some(m) = env_values.get("session.max_sessions") {
-        if let Ok(n) = m.parse::<usize>() { config.session.max_sessions = n; }
+        if let Ok(n) = m.parse::<usize>() {
+            config.session.max_sessions = n;
+        }
     }
     if let Some(pc) = env_values.get("hooks.post_create") {
         config.hooks.post_create = parse_string_list(pc);
@@ -496,16 +602,28 @@ fn parse_string_list(s: &str) -> Vec<String> {
 
 impl ConfigReadPort for FileConfigReadPort {
     fn load_merged(&self) -> Pin<Box<dyn Future<Output = Result<Config>> + Send + '_>> {
-        Box::pin(async move { let (c, _, _) = self.load_with_layers(true, true)?; Ok(c) })
+        Box::pin(async move {
+            let (c, _, _) = self.load_with_layers(true, true)?;
+            Ok(c)
+        })
     }
     fn load_global_only(&self) -> Pin<Box<dyn Future<Output = Result<Config>> + Send + '_>> {
-        Box::pin(async move { let (c, _, _) = self.load_with_layers(false, false)?; Ok(c) })
+        Box::pin(async move {
+            let (c, _, _) = self.load_with_layers(false, false)?;
+            Ok(c)
+        })
     }
-    fn global_config_path(&self) -> Result<PathBuf> { Ok(self.global_path.clone()) }
+    fn global_config_path(&self) -> Result<PathBuf> {
+        Ok(self.global_path.clone())
+    }
     fn project_config_path(&self) -> Result<PathBuf> {
-        self.project_path.clone().ok_or_else(|| ConfigErrorKind::ConfigScopeError("no project config path available".to_string()).into())
+        self.project_path.clone().ok_or_else(|| {
+            ConfigErrorKind::ConfigScopeError("no project config path available".to_string()).into()
+        })
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -513,10 +631,18 @@ impl ConfigReadPort for FileConfigReadPort {
 // ═══════════════════════════════════════════════════════════════════════════
 
 pub fn parse_cli_value(raw: &str) -> Result<toml_edit::Item> {
-    if raw == "true" { return Ok(toml_edit::Item::Value(toml_edit::Value::from(true))); }
-    if raw == "false" { return Ok(toml_edit::Item::Value(toml_edit::Value::from(false))); }
-    if let Ok(n) = raw.parse::<i64>() { return Ok(toml_edit::Item::Value(toml_edit::Value::from(n))); }
-    if raw.starts_with('[') { return parse_array_value(raw); }
+    if raw == "true" {
+        return Ok(toml_edit::Item::Value(toml_edit::Value::from(true)));
+    }
+    if raw == "false" {
+        return Ok(toml_edit::Item::Value(toml_edit::Value::from(false)));
+    }
+    if let Ok(n) = raw.parse::<i64>() {
+        return Ok(toml_edit::Item::Value(toml_edit::Value::from(n)));
+    }
+    if raw.starts_with('[') {
+        return parse_array_value(raw);
+    }
     Ok(toml_edit::Item::Value(toml_edit::Value::from(raw)))
 }
 
@@ -525,7 +651,11 @@ fn parse_array_value(raw: &str) -> Result<toml_edit::Item> {
     let parsed: std::result::Result<toml::Value, _> = toml::from_str(&wrapped);
     match parsed {
         Ok(toml::Value::Table(table)) => {
-            let arr_val = table.get("__val__").ok_or_else(|| ConfigErrorKind::ConfigParseError("malformed TOML array: could not parse".to_string()))?;
+            let arr_val = table.get("__val__").ok_or_else(|| {
+                ConfigErrorKind::ConfigParseError(
+                    "malformed TOML array: could not parse".to_string(),
+                )
+            })?;
             match arr_val {
                 toml::Value::Array(arr) => {
                     let mut toml_arr = toml_edit::Array::new();
@@ -540,8 +670,14 @@ fn parse_array_value(raw: &str) -> Result<toml_edit::Item> {
                 _ => Ok(toml_edit::Item::Value(toml_edit::Value::from(raw))),
             }
         }
-        Err(_) => Err(ConfigErrorKind::ConfigParseError(format!("malformed TOML array: could not parse '{raw}'")).into()),
-        _ => Err(ConfigErrorKind::ConfigParseError(format!("malformed TOML array: unexpected structure in '{raw}'")).into()),
+        Err(_) => Err(ConfigErrorKind::ConfigParseError(format!(
+            "malformed TOML array: could not parse '{raw}'"
+        ))
+        .into()),
+        _ => Err(ConfigErrorKind::ConfigParseError(format!(
+            "malformed TOML array: unexpected structure in '{raw}'"
+        ))
+        .into()),
     }
 }
 
@@ -550,8 +686,11 @@ fn parse_array_value(raw: &str) -> Result<toml_edit::Item> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 pub fn get_nested_value(config: &Config, key: &str) -> Result<String> {
-    if let Some(val) = config.values.get(key) { return Ok(val.clone()); }
-    let json = serde_json::to_value(config).map_err(|e| ConfigErrorKind::ConfigKeyNotFound(format!("serialization error: {e}")))?;
+    if let Some(val) = config.values.get(key) {
+        return Ok(val.clone());
+    }
+    let json = serde_json::to_value(config)
+        .map_err(|e| ConfigErrorKind::ConfigKeyNotFound(format!("serialization error: {e}")))?;
     let segments: Vec<&str> = key.split('.').collect();
     let mut current = &json;
     for (i, segment) in segments.iter().enumerate() {
@@ -565,9 +704,16 @@ pub fn get_nested_value(config: &Config, key: &str) -> Result<String> {
                 } else {
                     *segment
                 };
-                current = map.get(lookup).ok_or_else(|| ConfigErrorKind::ConfigKeyNotFound(format!("key not found: {segment} in {key}")))?;
+                current = map.get(lookup).ok_or_else(|| {
+                    ConfigErrorKind::ConfigKeyNotFound(format!("key not found: {segment} in {key}"))
+                })?;
             }
-            _ => { return Err(ConfigErrorKind::ConfigKeyNotFound(format!("segment '{segment}' is not a table in key '{key}'")).into()); }
+            _ => {
+                return Err(ConfigErrorKind::ConfigKeyNotFound(format!(
+                    "segment '{segment}' is not a table in key '{key}'"
+                ))
+                .into());
+            }
         }
     }
     match current {
@@ -575,11 +721,19 @@ pub fn get_nested_value(config: &Config, key: &str) -> Result<String> {
         serde_json::Value::Number(n) => Ok(n.to_string()),
         serde_json::Value::String(s) => Ok(s.clone()),
         serde_json::Value::Array(arr) => {
-            let items: Vec<String> = arr.iter().filter_map(|v| v.as_str().map(|s| format!("\"{s}\""))).collect();
+            let items: Vec<String> = arr
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| format!("\"{s}\"")))
+                .collect();
             Ok(format!("[{}]", items.join(", ")))
         }
-        serde_json::Value::Null => Err(ConfigErrorKind::ConfigKeyNotFound(format!("value is null for key '{key}'")).into()),
-        serde_json::Value::Object(_) => Err(ConfigErrorKind::ConfigKeyNotFound(format!("key '{key}' resolves to a table, not a value")).into()),
+        serde_json::Value::Null => {
+            Err(ConfigErrorKind::ConfigKeyNotFound(format!("value is null for key '{key}'")).into())
+        }
+        serde_json::Value::Object(_) => Err(ConfigErrorKind::ConfigKeyNotFound(format!(
+            "key '{key}' resolves to a table, not a value"
+        ))
+        .into()),
     }
 }
 
@@ -587,17 +741,44 @@ pub fn get_nested_value(config: &Config, key: &str) -> Result<String> {
 // set_nested_value
 // ═══════════════════════════════════════════════════════════════════════════
 
-pub fn set_nested_value(doc: &mut toml_edit::DocumentMut, parts: &[&str], value: &str) -> Result<()> {
-    if parts.len() < 2 { return Err(ConfigErrorKind::ConfigParseError("set_nested_value requires at least two segments (section.key)".to_string()).into()); }
-    for part in parts { if part.is_empty() { return Err(ConfigErrorKind::ConfigParseError("config key contains empty segment".to_string()).into()); } }
+pub fn set_nested_value(
+    doc: &mut toml_edit::DocumentMut,
+    parts: &[&str],
+    value: &str,
+) -> Result<()> {
+    if parts.len() < 2 {
+        return Err(ConfigErrorKind::ConfigParseError(
+            "set_nested_value requires at least two segments (section.key)".to_string(),
+        )
+        .into());
+    }
+    for part in parts {
+        if part.is_empty() {
+            return Err(ConfigErrorKind::ConfigParseError(
+                "config key contains empty segment".to_string(),
+            )
+            .into());
+        }
+    }
     let table = doc.as_table_mut();
     let (leading, last) = parts.split_at(parts.len() - 1);
     let mut current = table;
     for segment in leading {
-        if !current.contains_key(segment) { current[segment] = toml_edit::Item::Table(toml_edit::Table::new()); }
+        if !current.contains_key(segment) {
+            current[segment] = toml_edit::Item::Table(toml_edit::Table::new());
+        }
         let entry = &current[segment];
-        if !entry.is_table() { return Err(ConfigErrorKind::ConfigParseError(format!("segment '{segment}' is not a table, cannot traverse through it")).into()); }
-        current = current[segment].as_table_mut().ok_or_else(|| ConfigErrorKind::ConfigParseError(format!("segment '{segment}' is not a table (internal error)")))?;
+        if !entry.is_table() {
+            return Err(ConfigErrorKind::ConfigParseError(format!(
+                "segment '{segment}' is not a table, cannot traverse through it"
+            ))
+            .into());
+        }
+        current = current[segment].as_table_mut().ok_or_else(|| {
+            ConfigErrorKind::ConfigParseError(format!(
+                "segment '{segment}' is not a table (internal error)"
+            ))
+        })?;
     }
     let item = parse_cli_value(value)?;
     current[last[0]] = item;
@@ -614,27 +795,42 @@ const LOCK_RETRY_INTERVAL: Duration = Duration::from_millis(100);
 pub async fn config_get(key: &str, _scope: ConfigScope) -> Result<ConfigGetResult> {
     let config_key = ConfigKey::try_from(key)?;
     let port = get_port();
-    let (config, scopes, paths) = if let Some(fp) = port.as_any().downcast_ref::<FileConfigReadPort>() {
-        fp.load_with_layers(true, true)?
-    } else {
-        let config = port.load_merged().await?;
-        let mut sm = HashMap::new();
-        let pm = HashMap::new();
-        for k in config.values.keys() { sm.insert(k.clone(), ConfigScope::Global); }
-        (config, sm, pm)
-    };
+    let (config, scopes, paths) =
+        if let Some(fp) = port.as_any().downcast_ref::<FileConfigReadPort>() {
+            fp.load_with_layers(true, true)?
+        } else {
+            let config = port.load_merged().await?;
+            let mut sm = HashMap::new();
+            let pm = HashMap::new();
+            for k in config.values.keys() {
+                sm.insert(k.clone(), ConfigScope::Global);
+            }
+            (config, sm, pm)
+        };
     let value = get_nested_value(&config, key).or_else(|_| {
-        config.values.get(key).cloned().ok_or_else(|| crate::error::Error::from(ConfigErrorKind::ConfigKeyNotFound(format!("key not found: {key}"))))
+        config.values.get(key).cloned().ok_or_else(|| {
+            crate::error::Error::from(ConfigErrorKind::ConfigKeyNotFound(format!(
+                "key not found: {key}"
+            )))
+        })
     })?;
     let resolved_scope = scopes.get(key).copied().unwrap_or(ConfigScope::Global);
     let source_path = paths.get(key).cloned().unwrap_or_default();
-    Ok(ConfigGetResult { key: config_key, value, scope: resolved_scope, source_path })
+    Ok(ConfigGetResult {
+        key: config_key,
+        value,
+        scope: resolved_scope,
+        source_path,
+    })
 }
 
 pub async fn config_set(key: &str, value: &str, scope: ConfigScope) -> Result<ConfigSetResult> {
     let config_key = ConfigKey::try_from(key)?;
     if matches!(scope, ConfigScope::Env) {
-        return Err(ConfigErrorKind::ConfigScopeError("Cannot save to environment scope".to_string()).into());
+        return Err(ConfigErrorKind::ConfigScopeError(
+            "Cannot save to environment scope".to_string(),
+        )
+        .into());
     }
     let port = get_port();
     let config_path = match scope {
@@ -643,21 +839,40 @@ pub async fn config_set(key: &str, value: &str, scope: ConfigScope) -> Result<Co
         ConfigScope::Env => unreachable!(),
     };
     if let Some(parent) = config_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to create config directory {}: {e}", parent.display())))?;
+        std::fs::create_dir_all(parent).map_err(|e| {
+            ConfigErrorKind::ConfigWriteError(format!(
+                "failed to create config directory {}: {e}",
+                parent.display()
+            ))
+        })?;
     }
     // SAFETY: truncate(false) is critical here. Opening with truncate(true) before
     // acquiring the lock would zero the file. If the process crashes between open
     // and lock, all existing config data is permanently lost. The actual truncate
     // happens AFTER the lock is acquired (set_len(0) + seek below).
-    let file = std::fs::OpenOptions::new().read(true).write(true).create(true).truncate(false).open(&config_path)
-        .map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to open config file {}: {e}", config_path.display())))?;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&config_path)
+        .map_err(|e| {
+            ConfigErrorKind::ConfigWriteError(format!(
+                "failed to open config file {}: {e}",
+                config_path.display()
+            ))
+        })?;
     let start = Instant::now();
     let file = loop {
         match fs2::FileExt::try_lock_exclusive(&file) {
             Ok(()) => break file,
             Err(_) => {
                 if start.elapsed() >= LOCK_TIMEOUT {
-                    return Err(ConfigErrorKind::ConfigLockError(format!("could not acquire lock on {} within 5s timeout", config_path.display())).into());
+                    return Err(ConfigErrorKind::ConfigLockError(format!(
+                        "could not acquire lock on {} within 5s timeout",
+                        config_path.display()
+                    ))
+                    .into());
                 }
                 std::thread::sleep(LOCK_RETRY_INTERVAL);
             }
@@ -665,38 +880,89 @@ pub async fn config_set(key: &str, value: &str, scope: ConfigScope) -> Result<Co
     };
     let mut contents = String::new();
     let mut file = &file;
-    std::io::Read::read_to_string(&mut file, &mut contents).map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to read config file {}: {e}", config_path.display())))?;
-    let mut doc: toml_edit::DocumentMut = if contents.trim().is_empty() { toml_edit::DocumentMut::new() } else {
-        contents.parse().map_err(|e: toml_edit::TomlError| ConfigErrorKind::ConfigParseError(format!("TOML parse error in {}: {e}", config_path.display())))?
+    std::io::Read::read_to_string(&mut file, &mut contents).map_err(|e| {
+        ConfigErrorKind::ConfigWriteError(format!(
+            "failed to read config file {}: {e}",
+            config_path.display()
+        ))
+    })?;
+    let mut doc: toml_edit::DocumentMut = if contents.trim().is_empty() {
+        toml_edit::DocumentMut::new()
+    } else {
+        contents.parse().map_err(|e: toml_edit::TomlError| {
+            ConfigErrorKind::ConfigParseError(format!(
+                "TOML parse error in {}: {e}",
+                config_path.display()
+            ))
+        })?
     };
     let segments: Vec<&str> = config_key.segments().iter().map(String::as_str).collect();
     set_nested_value(&mut doc, &segments, value)?;
     use std::io::{Seek, Write};
-    file.set_len(0).map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to truncate config file {}: {e}", config_path.display())))?;
-    file.seek(std::io::SeekFrom::Start(0)).map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to seek in config file {}: {e}", config_path.display())))?;
-    file.write_all(doc.to_string().as_bytes()).map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to write config file {}: {e}", config_path.display())))?;
-    file.flush().map_err(|e| ConfigErrorKind::ConfigWriteError(format!("failed to flush config file {}: {e}", config_path.display())))?;
-    Ok(ConfigSetResult { key: config_key, value: value.to_string(), scope, config_path })
+    file.set_len(0).map_err(|e| {
+        ConfigErrorKind::ConfigWriteError(format!(
+            "failed to truncate config file {}: {e}",
+            config_path.display()
+        ))
+    })?;
+    file.seek(std::io::SeekFrom::Start(0)).map_err(|e| {
+        ConfigErrorKind::ConfigWriteError(format!(
+            "failed to seek in config file {}: {e}",
+            config_path.display()
+        ))
+    })?;
+    file.write_all(doc.to_string().as_bytes()).map_err(|e| {
+        ConfigErrorKind::ConfigWriteError(format!(
+            "failed to write config file {}: {e}",
+            config_path.display()
+        ))
+    })?;
+    file.flush().map_err(|e| {
+        ConfigErrorKind::ConfigWriteError(format!(
+            "failed to flush config file {}: {e}",
+            config_path.display()
+        ))
+    })?;
+    Ok(ConfigSetResult {
+        key: config_key,
+        value: value.to_string(),
+        scope,
+        config_path,
+    })
 }
 
 pub async fn config_list(global_only: bool) -> Result<Vec<ConfigGetResult>> {
     let port = get_port();
-    let (config, scopes, paths) = if let Some(fp) = port.as_any().downcast_ref::<FileConfigReadPort>() {
-        fp.load_with_layers(!global_only, !global_only)?
-    } else {
-        let config = if global_only { port.load_global_only().await? } else { port.load_merged().await? };
-        let mut sm = HashMap::new();
-        for k in config.values.keys() { sm.insert(k.clone(), ConfigScope::Global); }
-        (config, sm, HashMap::new())
-    };
+    let (config, scopes, paths) =
+        if let Some(fp) = port.as_any().downcast_ref::<FileConfigReadPort>() {
+            fp.load_with_layers(!global_only, !global_only)?
+        } else {
+            let config = if global_only {
+                port.load_global_only().await?
+            } else {
+                port.load_merged().await?
+            };
+            let mut sm = HashMap::new();
+            for k in config.values.keys() {
+                sm.insert(k.clone(), ConfigScope::Global);
+            }
+            (config, sm, HashMap::new())
+        };
     let mut all_keys: Vec<String> = config.values.keys().cloned().collect();
     all_keys.sort();
     all_keys.dedup();
     let mut results = Vec::new();
     for key in &all_keys {
         let first_segment = key.split('.').next().unwrap_or("");
-        if !KNOWN_SECTION_PREFIXES.contains(&first_segment) && !KNOWN_CONFIG_KEYS.contains(&key.as_str()) { continue; }
-        let config_key = match ConfigKey::try_from(key.as_str()) { Ok(k) => k, Err(_) => continue };
+        if !KNOWN_SECTION_PREFIXES.contains(&first_segment)
+            && !KNOWN_CONFIG_KEYS.contains(&key.as_str())
+        {
+            continue;
+        }
+        let config_key = match ConfigKey::try_from(key.as_str()) {
+            Ok(k) => k,
+            Err(_) => continue,
+        };
         let value = match config.values.get(key.as_str()) {
             Some(v) => v.clone(),
             None => match get_nested_value(&config, key) {
@@ -704,9 +970,17 @@ pub async fn config_list(global_only: bool) -> Result<Vec<ConfigGetResult>> {
                 Err(_) => continue,
             },
         };
-        let resolved_scope = scopes.get(key.as_str()).copied().unwrap_or(ConfigScope::Global);
+        let resolved_scope = scopes
+            .get(key.as_str())
+            .copied()
+            .unwrap_or(ConfigScope::Global);
         let source_path = paths.get(key.as_str()).cloned().unwrap_or_default();
-        results.push(ConfigGetResult { key: config_key, value, scope: resolved_scope, source_path });
+        results.push(ConfigGetResult {
+            key: config_key,
+            value,
+            scope: resolved_scope,
+            source_path,
+        });
     }
     results.sort_by(|a, b| a.key.as_str().cmp(b.key.as_str()));
     Ok(results)
@@ -758,8 +1032,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir should succeed");
         let file_path = dir.path().join("bad.toml");
 
-        std::fs::write(&file_path, "{{{{invalid toml garbage")
-            .expect("write should succeed");
+        std::fs::write(&file_path, "{{{{invalid toml garbage").expect("write should succeed");
 
         let result = FileConfigReadPort::load_toml_file(&file_path);
 
@@ -806,13 +1079,15 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir should succeed");
         let global = dir.path().join("config.toml");
 
-        std::fs::write(&global, "logging.level = \"debug\"")
-            .expect("write should succeed");
+        std::fs::write(&global, "logging.level = \"debug\"").expect("write should succeed");
 
         let port = FileConfigReadPort::with_paths(global, None);
         let result = port.load_merged().await;
 
-        assert!(result.is_ok(), "load_merged should succeed with valid config");
+        assert!(
+            result.is_ok(),
+            "load_merged should succeed with valid config"
+        );
         let config = result.expect("should succeed");
         assert_eq!(
             config.values.get("logging.level"),
@@ -837,7 +1112,10 @@ mod tests {
             assert!(result.is_ok(), "Known config key '{key}' should be valid");
             let ck = result.expect("should succeed");
             assert_eq!(ck.as_str(), key, "raw string should round-trip for '{key}'");
-            assert!(ck.segments().len() >= 2, "'{key}' should have at least 2 segments");
+            assert!(
+                ck.segments().len() >= 2,
+                "'{key}' should have at least 2 segments"
+            );
         }
     }
 
@@ -846,7 +1124,8 @@ mod tests {
         let ck = ConfigKey::try_from("watch.debounce_ms").expect("should succeed");
         assert_eq!(ck.segments(), &["watch", "debounce_ms"]);
 
-        let ck = ConfigKey::try_from("conflict_resolution.security_keywords").expect("should succeed");
+        let ck =
+            ConfigKey::try_from("conflict_resolution.security_keywords").expect("should succeed");
         assert_eq!(ck.segments(), &["conflict_resolution", "security_keywords"]);
 
         let ck = ConfigKey::try_from("remote.push").expect("should succeed");
@@ -862,7 +1141,10 @@ mod tests {
         let result = ConfigKey::try_from("");
         assert!(result.is_err(), "empty string should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("empty config key"), "error should mention 'empty config key', got: {err_msg}");
+        assert!(
+            err_msg.contains("empty config key"),
+            "error should mention 'empty config key', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -870,7 +1152,10 @@ mod tests {
         let result = ConfigKey::try_from("bogus.section");
         assert!(result.is_err(), "unknown section should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("unknown schema section"), "error should mention 'unknown schema section', got: {err_msg}");
+        assert!(
+            err_msg.contains("unknown schema section"),
+            "error should mention 'unknown schema section', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -878,16 +1163,25 @@ mod tests {
         // Single-character first segments bypass the KNOWN_SECTION_PREFIXES check
         // (the condition is `first_segment.len() > 1`), so "x.y" should succeed.
         let result = ConfigKey::try_from("x.y");
-        assert!(result.is_ok(), "single-char first segment should be allowed even if unknown");
+        assert!(
+            result.is_ok(),
+            "single-char first segment should be allowed even if unknown"
+        );
         assert_eq!(result.expect("should succeed").segments(), &["x", "y"]);
     }
 
     #[test]
     fn config_key_rejects_no_dot_separator() {
         let result = ConfigKey::try_from("nosection");
-        assert!(result.is_err(), "key without dot separator should be rejected");
+        assert!(
+            result.is_err(),
+            "key without dot separator should be rejected"
+        );
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("at least one dot separator"), "error should mention dot separator requirement, got: {err_msg}");
+        assert!(
+            err_msg.contains("at least one dot separator"),
+            "error should mention dot separator requirement, got: {err_msg}"
+        );
     }
 
     #[test]
@@ -895,7 +1189,10 @@ mod tests {
         let result = ConfigKey::try_from(".watch.enabled");
         assert!(result.is_err(), "leading dot should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("leading dot"), "error should mention 'leading dot', got: {err_msg}");
+        assert!(
+            err_msg.contains("leading dot"),
+            "error should mention 'leading dot', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -903,7 +1200,10 @@ mod tests {
         let result = ConfigKey::try_from("watch.enabled.");
         assert!(result.is_err(), "trailing dot should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("trailing dot"), "error should mention 'trailing dot', got: {err_msg}");
+        assert!(
+            err_msg.contains("trailing dot"),
+            "error should mention 'trailing dot', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -911,7 +1211,10 @@ mod tests {
         let result = ConfigKey::try_from("watch..enabled");
         assert!(result.is_err(), "consecutive dots should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("consecutive dots"), "error should mention 'consecutive dots', got: {err_msg}");
+        assert!(
+            err_msg.contains("consecutive dots"),
+            "error should mention 'consecutive dots', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -919,7 +1222,10 @@ mod tests {
         let result = ConfigKey::try_from("watch.enabled\0");
         assert!(result.is_err(), "null byte should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("null byte"), "error should mention 'null byte', got: {err_msg}");
+        assert!(
+            err_msg.contains("null byte"),
+            "error should mention 'null byte', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -928,7 +1234,10 @@ mod tests {
         let result = ConfigKey::try_from(key_with_non_ascii);
         assert!(result.is_err(), "non-ASCII characters should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("non-ASCII"), "error should mention 'non-ASCII', got: {err_msg}");
+        assert!(
+            err_msg.contains("non-ASCII"),
+            "error should mention 'non-ASCII', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -936,7 +1245,10 @@ mod tests {
         let result = ConfigKey::try_from("watch.enabled/path");
         assert!(result.is_err(), "slash should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("slash"), "error should mention 'slash', got: {err_msg}");
+        assert!(
+            err_msg.contains("slash"),
+            "error should mention 'slash', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -944,7 +1256,10 @@ mod tests {
         let result = ConfigKey::try_from("watch.enabled\\path");
         assert!(result.is_err(), "backslash should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("backslash"), "error should mention 'backslash', got: {err_msg}");
+        assert!(
+            err_msg.contains("backslash"),
+            "error should mention 'backslash', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -952,7 +1267,10 @@ mod tests {
         let result = ConfigKey::try_from("watch.de-bounce");
         assert!(result.is_err(), "hyphen in segment should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("hyphen"), "error should mention 'hyphen', got: {err_msg}");
+        assert!(
+            err_msg.contains("hyphen"),
+            "error should mention 'hyphen', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -960,7 +1278,10 @@ mod tests {
         let result = ConfigKey::try_from("watch. enabled");
         assert!(result.is_err(), "whitespace in segment should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("whitespace"), "error should mention 'whitespace', got: {err_msg}");
+        assert!(
+            err_msg.contains("whitespace"),
+            "error should mention 'whitespace', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -971,11 +1292,17 @@ mod tests {
 
     #[test]
     fn config_key_rejects_special_characters() {
-        let special_chars = ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "+", "=", "{", "}", "|", ":", ";", "\"", "'", "<", ">", ",", "?", "~", "`"];
+        let special_chars = [
+            "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "+", "=", "{", "}", "|", ":", ";",
+            "\"", "'", "<", ">", ",", "?", "~", "`",
+        ];
         for ch in &special_chars {
             let key = format!("watch.enabled{ch}");
             let result = ConfigKey::try_from(&key);
-            assert!(result.is_err(), "special character '{ch}' should be rejected");
+            assert!(
+                result.is_err(),
+                "special character '{ch}' should be rejected"
+            );
         }
     }
 
@@ -983,11 +1310,17 @@ mod tests {
     fn config_key_rejects_excessive_length() {
         let long_segment = "a".repeat(300);
         let long_key = format!("watch.{long_segment}");
-        assert!(long_key.len() > 256, "sanity: test key should exceed 256 chars");
+        assert!(
+            long_key.len() > 256,
+            "sanity: test key should exceed 256 chars"
+        );
         let result = ConfigKey::try_from(&long_key);
         assert!(result.is_err(), "excessively long key should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("maximum length"), "error should mention 'maximum length', got: {err_msg}");
+        assert!(
+            err_msg.contains("maximum length"),
+            "error should mention 'maximum length', got: {err_msg}"
+        );
     }
 
     #[test]
@@ -995,7 +1328,10 @@ mod tests {
         // Leading dot is the primary way to get an empty segment, already tested,
         // but double-dot should also produce an empty segment.
         let result = ConfigKey::try_from("watch.");
-        assert!(result.is_err(), "trailing dot (empty last segment) should be rejected");
+        assert!(
+            result.is_err(),
+            "trailing dot (empty last segment) should be rejected"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1007,22 +1343,34 @@ mod tests {
         // The code only checks KNOWN_SECTION_PREFIXES when len > 1, so "e.ditor"
         // with first segment "e" (len == 1) should be allowed.
         let result = ConfigKey::try_from("e.d");
-        assert!(result.is_ok(), "single-char top-level section should bypass unknown section check");
+        assert!(
+            result.is_ok(),
+            "single-char top-level section should bypass unknown section check"
+        );
     }
 
     #[test]
     fn config_key_rejects_exact_known_prefix_without_subkey() {
         // "watch" alone has no dot, so it fails the "at least one dot" rule.
         let result = ConfigKey::try_from("watch");
-        assert!(result.is_err(), "section name alone (no dot) should be rejected");
+        assert!(
+            result.is_err(),
+            "section name alone (no dot) should be rejected"
+        );
     }
 
     #[test]
     fn config_key_rejects_typo_in_known_section() {
         let result = ConfigKey::try_from("watchh.enabled");
-        assert!(result.is_err(), "typo in section name should be rejected as unknown section");
+        assert!(
+            result.is_err(),
+            "typo in section name should be rejected as unknown section"
+        );
         let result2 = ConfigKey::try_from("wotch.enabled");
-        assert!(result2.is_err(), "typo in section name should be rejected as unknown section");
+        assert!(
+            result2.is_err(),
+            "typo in section name should be rejected as unknown section"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1060,7 +1408,10 @@ mod tests {
     fn config_key_debug_contains_raw_key() {
         let ck = ConfigKey::try_from("watch.debounce_ms").expect("should succeed");
         let debug_str = format!("{ck:?}");
-        assert!(debug_str.contains("watch.debounce_ms"), "Debug output should contain the raw key, got: {debug_str}");
+        assert!(
+            debug_str.contains("watch.debounce_ms"),
+            "Debug output should contain the raw key, got: {debug_str}"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1070,7 +1421,10 @@ mod tests {
     #[test]
     fn config_key_allows_underscore_in_segment() {
         let result = ConfigKey::try_from("watch.debounce_ms");
-        assert!(result.is_ok(), "underscore should be a valid character in segments");
+        assert!(
+            result.is_ok(),
+            "underscore should be a valid character in segments"
+        );
     }
 
     #[test]
@@ -1078,13 +1432,19 @@ mod tests {
         // Section "watch" is known; subkey can be all-numeric.
         let result = ConfigKey::try_from("watch.123");
         assert!(result.is_ok(), "numeric segment should be valid");
-        assert_eq!(result.expect("should succeed").segments(), &["watch", "123"]);
+        assert_eq!(
+            result.expect("should succeed").segments(),
+            &["watch", "123"]
+        );
     }
 
     #[test]
     fn config_key_allows_leading_digit_in_subkey() {
         let result = ConfigKey::try_from("watch.1ms");
-        assert!(result.is_ok(), "leading digit in subkey segment should be valid");
+        assert!(
+            result.is_ok(),
+            "leading digit in subkey segment should be valid"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1095,10 +1455,16 @@ mod tests {
     fn parse_cli_value_bool() {
         let result = parse_cli_value("true").expect("should succeed");
         assert!(result.is_value(), "should be a Value");
-        assert!(result.as_bool().expect("should be boolean"), "true should parse as boolean true");
+        assert!(
+            result.as_bool().expect("should be boolean"),
+            "true should parse as boolean true"
+        );
 
         let result = parse_cli_value("false").expect("should succeed");
-        assert!(!result.as_bool().expect("should be boolean"), "false should parse as boolean false");
+        assert!(
+            !result.as_bool().expect("should be boolean"),
+            "false should parse as boolean false"
+        );
     }
 
     #[test]
@@ -1137,9 +1503,15 @@ mod tests {
     #[test]
     fn parse_cli_value_array_rejects_non_string_elements() {
         let result = parse_cli_value("[1, 2, 3]");
-        assert!(result.is_err(), "array with non-string elements should be rejected");
+        assert!(
+            result.is_err(),
+            "array with non-string elements should be rejected"
+        );
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("non-string element"), "error should mention non-string elements, got: {err_msg}");
+        assert!(
+            err_msg.contains("non-string element"),
+            "error should mention non-string elements, got: {err_msg}"
+        );
     }
 
     #[test]
@@ -1147,7 +1519,10 @@ mod tests {
         let result = parse_cli_value("[broken");
         assert!(result.is_err(), "malformed array should be rejected");
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("malformed TOML array"), "error should mention malformed array, got: {err_msg}");
+        assert!(
+            err_msg.contains("malformed TOML array"),
+            "error should mention malformed array, got: {err_msg}"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1166,8 +1541,15 @@ mod tests {
     #[test]
     fn set_nested_value_deep() {
         let mut doc = toml_edit::DocumentMut::new();
-        let result = set_nested_value(&mut doc, &["conflict_resolution", "security_keywords"], "true");
-        assert!(result.is_ok(), "set_nested_value should succeed for deep key");
+        let result = set_nested_value(
+            &mut doc,
+            &["conflict_resolution", "security_keywords"],
+            "true",
+        );
+        assert!(
+            result.is_ok(),
+            "set_nested_value should succeed for deep key"
+        );
         let val = doc["conflict_resolution"]["security_keywords"].as_bool();
         assert_eq!(val, Some(true));
     }
@@ -1193,9 +1575,15 @@ mod tests {
         doc["watch"] = toml_edit::Item::Value(toml_edit::Value::from(true));
         // Now try to set watch.enabled.deeper — should fail because "watch" is a value, not a table
         let result = set_nested_value(&mut doc, &["watch", "enabled", "deeper"], "true");
-        assert!(result.is_err(), "traversing through a non-table segment should fail");
+        assert!(
+            result.is_err(),
+            "traversing through a non-table segment should fail"
+        );
         let err_msg = format!("{result:?}");
-        assert!(err_msg.contains("not a table"), "error should mention 'not a table', got: {err_msg}");
+        assert!(
+            err_msg.contains("not a table"),
+            "error should mention 'not a table', got: {err_msg}"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1205,7 +1593,9 @@ mod tests {
     #[test]
     fn get_nested_value_from_flat_values() {
         let mut config = Config::new();
-        config.values.insert("watch.enabled".to_string(), "true".to_string());
+        config
+            .values
+            .insert("watch.enabled".to_string(), "true".to_string());
         let result = get_nested_value(&config, "watch.enabled");
         assert_eq!(result.expect("should succeed"), "true");
     }
@@ -1257,12 +1647,18 @@ mod tests {
 
     #[test]
     fn known_config_keys_not_empty() {
-        assert!(!KNOWN_CONFIG_KEYS.is_empty(), "KNOWN_CONFIG_KEYS should not be empty");
+        assert!(
+            !KNOWN_CONFIG_KEYS.is_empty(),
+            "KNOWN_CONFIG_KEYS should not be empty"
+        );
     }
 
     #[test]
     fn known_section_prefixes_not_empty() {
-        assert!(!KNOWN_SECTION_PREFIXES.is_empty(), "KNOWN_SECTION_PREFIXES should not be empty");
+        assert!(
+            !KNOWN_SECTION_PREFIXES.is_empty(),
+            "KNOWN_SECTION_PREFIXES should not be empty"
+        );
     }
 
     #[test]
@@ -1274,7 +1670,10 @@ mod tests {
             if !key.contains('.') {
                 continue;
             }
-            let first_segment = key.split('.').next().expect("key should have at least one segment");
+            let first_segment = key
+                .split('.')
+                .next()
+                .expect("key should have at least one segment");
             if first_segment.len() > 1 {
                 assert!(
                     KNOWN_SECTION_PREFIXES.contains(&first_segment),

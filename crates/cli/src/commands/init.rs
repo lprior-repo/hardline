@@ -306,7 +306,10 @@ mod tests {
         let cwd = test_cwd();
         let stderr = "Error: failed to acquire lock";
         let result = classify_jj_init_error(stderr, &cwd);
-        assert!(result.contains("Another init process is in progress"), "got: {result}");
+        assert!(
+            result.contains("Another init process is in progress"),
+            "got: {result}"
+        );
     }
 
     #[test]
@@ -314,7 +317,10 @@ mod tests {
         let cwd = test_cwd();
         let stderr = "Error: concurrent operation detected";
         let result = classify_jj_init_error(stderr, &cwd);
-        assert!(result.contains("Another init process is in progress"), "got: {result}");
+        assert!(
+            result.contains("Another init process is in progress"),
+            "got: {result}"
+        );
     }
 
     #[test]
@@ -322,7 +328,10 @@ mod tests {
         let cwd = test_cwd();
         let stderr = "Error: operation already in progress";
         let result = classify_jj_init_error(stderr, &cwd);
-        assert!(result.contains("Another init process is in progress"), "got: {result}");
+        assert!(
+            result.contains("Another init process is in progress"),
+            "got: {result}"
+        );
     }
 
     #[test]
@@ -330,7 +339,10 @@ mod tests {
         let cwd = test_cwd();
         let stderr = "LOCK HELD BY ANOTHER PROCESS";
         let result = classify_jj_init_error(stderr, &cwd);
-        assert!(result.contains("Another init process is in progress"), "got: {result}");
+        assert!(
+            result.contains("Another init process is in progress"),
+            "got: {result}"
+        );
     }
 
     #[test]
@@ -338,7 +350,10 @@ mod tests {
         let cwd = test_cwd();
         let stderr = "error: unrecognized subcommand init";
         let result = classify_jj_init_error(stderr, &cwd);
-        assert!(result.contains("does not support the 'init' command"), "got: {result}");
+        assert!(
+            result.contains("does not support the 'init' command"),
+            "got: {result}"
+        );
     }
 
     #[test]
@@ -346,7 +361,10 @@ mod tests {
         let cwd = test_cwd();
         let stderr = "error: unknown command 'init'";
         let result = classify_jj_init_error(stderr, &cwd);
-        assert!(result.contains("does not support the 'init' command"), "got: {result}");
+        assert!(
+            result.contains("does not support the 'init' command"),
+            "got: {result}"
+        );
     }
 
     #[test]
@@ -354,8 +372,14 @@ mod tests {
         let cwd = test_cwd();
         let stderr = "some random error message";
         let result = classify_jj_init_error(stderr, &cwd);
-        assert!(result.contains("JJ initialization command failed"), "got: {result}");
-        assert!(result.contains("some random error message"), "got: {result}");
+        assert!(
+            result.contains("JJ initialization command failed"),
+            "got: {result}"
+        );
+        assert!(
+            result.contains("some random error message"),
+            "got: {result}"
+        );
     }
 
     #[test]
@@ -363,7 +387,10 @@ mod tests {
         let cwd = test_cwd();
         let stderr = "";
         let result = classify_jj_init_error(stderr, &cwd);
-        assert!(result.contains("JJ initialization command failed"), "got: {result}");
+        assert!(
+            result.contains("JJ initialization command failed"),
+            "got: {result}"
+        );
     }
 
     #[test]
@@ -372,7 +399,10 @@ mod tests {
         let stderr = "   \n\t  ";
         let result = classify_jj_init_error(stderr, &cwd);
         // Whitespace is trimmed, but still should match default case
-        assert!(result.contains("JJ initialization command failed"), "got: {result}");
+        assert!(
+            result.contains("JJ initialization command failed"),
+            "got: {result}"
+        );
     }
 
     #[test]
@@ -437,7 +467,10 @@ mod tests {
             let result = acquire_init_lock(temp.path());
             assert!(result.is_err(), "Should reject symlink lock file");
             let err_msg = format!("{}", result.unwrap_err());
-            assert!(err_msg.contains("symlink"), "Expected symlink error, got: {err_msg}");
+            assert!(
+                err_msg.contains("symlink"),
+                "Expected symlink error, got: {err_msg}"
+            );
         }
     }
 }

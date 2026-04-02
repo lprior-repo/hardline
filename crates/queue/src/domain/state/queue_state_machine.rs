@@ -122,24 +122,23 @@ mod tests {
 
     #[test]
     fn state_machine_failed_retryable_is_not_terminal() {
-        assert!(!QueueStateMachine::is_terminal(QueueStatus::FailedRetryable));
+        assert!(!QueueStateMachine::is_terminal(
+            QueueStatus::FailedRetryable
+        ));
     }
 
     #[test]
     fn state_machine_validate_transition_valid() {
-        assert!(QueueStateMachine::validate_transition(
-            QueueStatus::Pending,
-            QueueStatus::Claimed
-        )
-        .is_ok());
+        assert!(
+            QueueStateMachine::validate_transition(QueueStatus::Pending, QueueStatus::Claimed)
+                .is_ok()
+        );
     }
 
     #[test]
     fn state_machine_validate_transition_invalid() {
-        let result = QueueStateMachine::validate_transition(
-            QueueStatus::Pending,
-            QueueStatus::Merged,
-        );
+        let result =
+            QueueStateMachine::validate_transition(QueueStatus::Pending, QueueStatus::Merged);
         assert!(result.is_err());
         if let Err(QueueError::InvalidStateTransition { from, to }) = result {
             assert!(from.contains("Pending"));
@@ -266,7 +265,10 @@ mod tests {
     #[test]
     fn state_machine_failed_retryable_not_from_ready_to_merge() {
         assert!(
-            !QueueStateMachine::can_transition(QueueStatus::ReadyToMerge, QueueStatus::FailedRetryable),
+            !QueueStateMachine::can_transition(
+                QueueStatus::ReadyToMerge,
+                QueueStatus::FailedRetryable
+            ),
             "ReadyToMerge -> FailedRetryable should be rejected (entity does not support it)"
         );
     }
@@ -361,7 +363,10 @@ mod tests {
             (QueueStatus::ReadyToMerge, CanonicalStatus::ReadyToMerge),
             (QueueStatus::Merging, CanonicalStatus::Merging),
             (QueueStatus::Merged, CanonicalStatus::Merged),
-            (QueueStatus::FailedRetryable, CanonicalStatus::FailedRetryable),
+            (
+                QueueStatus::FailedRetryable,
+                CanonicalStatus::FailedRetryable,
+            ),
             (QueueStatus::FailedTerminal, CanonicalStatus::FailedTerminal),
             (QueueStatus::Cancelled, CanonicalStatus::Cancelled),
         ];
@@ -398,10 +403,7 @@ mod tests {
 
             // Active statuses are neither terminal nor Pending nor FailedRetryable
             let expected_active = !is_terminal
-                && !matches!(
-                    status,
-                    QueueStatus::Pending | QueueStatus::FailedRetryable
-                );
+                && !matches!(status, QueueStatus::Pending | QueueStatus::FailedRetryable);
 
             assert_eq!(
                 is_active, expected_active,

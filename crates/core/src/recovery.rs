@@ -119,7 +119,11 @@ mod tests {
 
     #[test]
     fn test_recovery_policy_all_variants() {
-        let all = [RecoveryPolicy::Warn, RecoveryPolicy::Repair, RecoveryPolicy::Panic];
+        let all = [
+            RecoveryPolicy::Warn,
+            RecoveryPolicy::Repair,
+            RecoveryPolicy::Panic,
+        ];
         for (i, a) in all.iter().enumerate() {
             for (j, b) in all.iter().enumerate() {
                 if i == j {
@@ -154,16 +158,34 @@ mod tests {
 
     #[test]
     fn test_recovery_policy_from_str_valid() {
-        assert_eq!("warn".parse::<RecoveryPolicy>().unwrap(), RecoveryPolicy::Warn);
-        assert_eq!("repair".parse::<RecoveryPolicy>().unwrap(), RecoveryPolicy::Repair);
-        assert_eq!("panic".parse::<RecoveryPolicy>().unwrap(), RecoveryPolicy::Panic);
+        assert_eq!(
+            "warn".parse::<RecoveryPolicy>().unwrap(),
+            RecoveryPolicy::Warn
+        );
+        assert_eq!(
+            "repair".parse::<RecoveryPolicy>().unwrap(),
+            RecoveryPolicy::Repair
+        );
+        assert_eq!(
+            "panic".parse::<RecoveryPolicy>().unwrap(),
+            RecoveryPolicy::Panic
+        );
     }
 
     #[test]
     fn test_recovery_policy_from_str_case_insensitive() {
-        assert_eq!("WARN".parse::<RecoveryPolicy>().unwrap(), RecoveryPolicy::Warn);
-        assert_eq!("Repair".parse::<RecoveryPolicy>().unwrap(), RecoveryPolicy::Repair);
-        assert_eq!("PANIC".parse::<RecoveryPolicy>().unwrap(), RecoveryPolicy::Panic);
+        assert_eq!(
+            "WARN".parse::<RecoveryPolicy>().unwrap(),
+            RecoveryPolicy::Warn
+        );
+        assert_eq!(
+            "Repair".parse::<RecoveryPolicy>().unwrap(),
+            RecoveryPolicy::Repair
+        );
+        assert_eq!(
+            "PANIC".parse::<RecoveryPolicy>().unwrap(),
+            RecoveryPolicy::Panic
+        );
     }
 
     #[test]
@@ -331,7 +353,11 @@ mod tests {
 
     #[test]
     fn test_recovery_policy_serde_roundtrip_all_variants() {
-        for policy in [RecoveryPolicy::Warn, RecoveryPolicy::Repair, RecoveryPolicy::Panic] {
+        for policy in [
+            RecoveryPolicy::Warn,
+            RecoveryPolicy::Repair,
+            RecoveryPolicy::Panic,
+        ] {
             let json = serde_json::to_string(&policy).expect("serialize ok");
             let deserialized: RecoveryPolicy = serde_json::from_str(&json).expect("deserialize ok");
             assert_eq!(policy, deserialized);
@@ -340,9 +366,18 @@ mod tests {
 
     #[test]
     fn test_recovery_policy_serde_lowercase() {
-        assert_eq!(serde_json::to_string(&RecoveryPolicy::Warn).expect("ok"), "\"warn\"");
-        assert_eq!(serde_json::to_string(&RecoveryPolicy::Repair).expect("ok"), "\"repair\"");
-        assert_eq!(serde_json::to_string(&RecoveryPolicy::Panic).expect("ok"), "\"panic\"");
+        assert_eq!(
+            serde_json::to_string(&RecoveryPolicy::Warn).expect("ok"),
+            "\"warn\""
+        );
+        assert_eq!(
+            serde_json::to_string(&RecoveryPolicy::Repair).expect("ok"),
+            "\"repair\""
+        );
+        assert_eq!(
+            serde_json::to_string(&RecoveryPolicy::Panic).expect("ok"),
+            "\"panic\""
+        );
     }
 
     #[test]

@@ -1,6 +1,6 @@
 //! Workspace integrity validation and repair
 //!
-//! This module provides tools to detect and fix common JJ workspace
+//! This module provides tools to detect and fix common workspace
 //! corruption issues, ensuring agents can operate safely.
 //!
 //! # Architecture

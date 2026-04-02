@@ -115,16 +115,15 @@ impl Bead {
     #[must_use]
     pub fn add_dependency(self, depends_on: BeadId) -> Self {
         // I10: No self-references
-        if depends_on != self.id
-            && !self.depends_on.contains(&depends_on) {
-                let mut depends_on_new = self.depends_on;
-                depends_on_new.push(depends_on);
-                return Self {
-                    depends_on: depends_on_new,
-                    updated_at: Utc::now(),
-                    ..self
-                };
-            }
+        if depends_on != self.id && !self.depends_on.contains(&depends_on) {
+            let mut depends_on_new = self.depends_on;
+            depends_on_new.push(depends_on);
+            return Self {
+                depends_on: depends_on_new,
+                updated_at: Utc::now(),
+                ..self
+            };
+        }
         self
     }
 
@@ -135,16 +134,15 @@ impl Bead {
     #[must_use]
     pub fn add_blocker(self, blocked_by: BeadId) -> Self {
         // I9: No self-references
-        if blocked_by != self.id
-            && !self.blocked_by.contains(&blocked_by) {
-                let mut blocked_by_new = self.blocked_by;
-                blocked_by_new.push(blocked_by);
-                return Self {
-                    blocked_by: blocked_by_new,
-                    updated_at: Utc::now(),
-                    ..self
-                };
-            }
+        if blocked_by != self.id && !self.blocked_by.contains(&blocked_by) {
+            let mut blocked_by_new = self.blocked_by;
+            blocked_by_new.push(blocked_by);
+            return Self {
+                blocked_by: blocked_by_new,
+                updated_at: Utc::now(),
+                ..self
+            };
+        }
         self
     }
 

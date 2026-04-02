@@ -31,9 +31,7 @@ pub fn pause(name: &str) -> Result<()> {
 
     let workspaces = backend.list_workspaces()?;
     if !workspaces.iter().any(|w| w.name == name) {
-        return Err(Error::session(
-            format!("session '{name}' not found"),
-        ));
+        return Err(Error::session(format!("session '{name}' not found")));
     }
 
     Err(Error::unimplemented(
@@ -63,9 +61,7 @@ pub fn resume(name: &str) -> Result<()> {
 
     let workspaces = backend.list_workspaces()?;
     if !workspaces.iter().any(|w| w.name == name) {
-        return Err(Error::session(
-            format!("session '{name}' not found"),
-        ));
+        return Err(Error::session(format!("session '{name}' not found")));
     }
 
     Err(Error::unimplemented(
@@ -193,7 +189,10 @@ mod tests {
         std::env::set_current_dir(tmp.path()).expect("chdir to tmp");
 
         let result = pause("no-such-session");
-        assert!(result.is_err(), "pause should error for non-existent session");
+        assert!(
+            result.is_err(),
+            "pause should error for non-existent session"
+        );
         // In a non-VCS dir the error comes from VCS not being initialized,
         // but the key invariant is: it must not silently succeed.
         assert_ne!(
@@ -213,7 +212,10 @@ mod tests {
         std::env::set_current_dir(tmp.path()).expect("chdir to tmp");
 
         let result = resume("no-such-session");
-        assert!(result.is_err(), "resume should error for non-existent session");
+        assert!(
+            result.is_err(),
+            "resume should error for non-existent session"
+        );
         assert_ne!(
             result.unwrap_err().code(),
             "INVALID_IDENTIFIER",
@@ -289,20 +291,14 @@ mod tests {
         // Whitespace-only is not empty, so it passes the is_empty() check
         // and proceeds to VCS validation which fails in a non-VCS directory.
         // The key invariant is: it must not silently succeed.
-        assert!(
-            result.is_err(),
-            "whitespace-only name must not succeed"
-        );
+        assert!(result.is_err(), "whitespace-only name must not succeed");
     }
 
     #[test]
     #[serial]
     fn test_resume_rejects_whitespace_only_name() {
         let result = resume("   \t  ");
-        assert!(
-            result.is_err(),
-            "whitespace-only name must not succeed"
-        );
+        assert!(result.is_err(), "whitespace-only name must not succeed");
     }
 
     #[test]
@@ -310,14 +306,20 @@ mod tests {
     fn test_pause_leading_trailing_whitespace() {
         // "  session  " is not empty, passes is_empty(), then VCS fails.
         let result = pause("  my-session  ");
-        assert!(result.is_err(), "leading/trailing whitespace must not bypass validation");
+        assert!(
+            result.is_err(),
+            "leading/trailing whitespace must not bypass validation"
+        );
     }
 
     #[test]
     #[serial]
     fn test_resume_leading_trailing_whitespace() {
         let result = resume("  my-session  ");
-        assert!(result.is_err(), "leading/trailing whitespace must not bypass validation");
+        assert!(
+            result.is_err(),
+            "leading/trailing whitespace must not bypass validation"
+        );
     }
 
     // -- Clone with same source and target --
@@ -350,28 +352,40 @@ mod tests {
         let result = pause(&long_name);
         // Should not panic on extremely long names; must return an error
         // (workspace won't be found).
-        assert!(result.is_err(), "very long name must not cause a panic or silent success");
+        assert!(
+            result.is_err(),
+            "very long name must not cause a panic or silent success"
+        );
     }
 
     #[test]
     fn test_resume_with_very_long_name() {
         let long_name = "b".repeat(10_000);
         let result = resume(&long_name);
-        assert!(result.is_err(), "very long name must not cause a panic or silent success");
+        assert!(
+            result.is_err(),
+            "very long name must not cause a panic or silent success"
+        );
     }
 
     #[test]
     fn test_clone_with_very_long_source_name() {
         let long_name = "c".repeat(10_000);
         let result = clone_session(&long_name, "target", false);
-        assert!(result.is_err(), "very long source name must not cause a panic or silent success");
+        assert!(
+            result.is_err(),
+            "very long source name must not cause a panic or silent success"
+        );
     }
 
     #[test]
     fn test_clone_with_very_long_target_name() {
         let long_name = "d".repeat(10_000);
         let result = clone_session("source", &long_name, false);
-        assert!(result.is_err(), "very long target name must not cause a panic or silent success");
+        assert!(
+            result.is_err(),
+            "very long target name must not cause a panic or silent success"
+        );
     }
 
     #[test]
@@ -379,7 +393,10 @@ mod tests {
         let long_source = "s".repeat(10_000);
         let long_target = "t".repeat(10_000);
         let result = clone_session(&long_source, &long_target, false);
-        assert!(result.is_err(), "very long names must not cause a panic or silent success");
+        assert!(
+            result.is_err(),
+            "very long names must not cause a panic or silent success"
+        );
     }
 
     // -- Clone with whitespace-only names --
@@ -565,10 +582,10 @@ mod tests {
         );
     }
 
-    use serial_test::serial;
-    use proptest::proptest;
     use proptest::prelude::*;
+    use proptest::proptest;
     use proptest::{prop_assert, prop_assert_eq};
+    use serial_test::serial;
 
     proptest! {
         #[test]

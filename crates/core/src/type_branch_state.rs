@@ -106,7 +106,10 @@ mod tests {
 
     #[test]
     fn test_branch_name_on_branch() {
-        assert_eq!(BranchState::on_branch("feature/x").branch_name(), Some("feature/x"));
+        assert_eq!(
+            BranchState::on_branch("feature/x").branch_name(),
+            Some("feature/x")
+        );
     }
 
     #[test]
@@ -196,7 +199,8 @@ mod tests {
 
     #[test]
     fn test_serialize_on_branch() {
-        let json = serde_json::to_string(&BranchState::on_branch("feature/test")).expect("serialize ok");
+        let json =
+            serde_json::to_string(&BranchState::on_branch("feature/test")).expect("serialize ok");
         assert_eq!(json, "\"feature/test\"");
     }
 

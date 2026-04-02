@@ -295,9 +295,7 @@ impl Error {
                 Some(format!("Use 'scp agent kill {holder}' to force release"))
             }
             Self::VcsNotInitialized => Some("Run 'scp init' to initialize VCS".into()),
-            Self::WorkingCopyDirty => {
-                Some("Commit or stash your changes before continuing".into())
-            }
+            Self::WorkingCopyDirty => Some("Commit or stash your changes before continuing".into()),
             _ => None,
         }
     }

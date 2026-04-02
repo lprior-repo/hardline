@@ -153,7 +153,9 @@ mod tests {
 
     #[test]
     fn session_not_found_display() {
-        let err = LockErrorKind::SessionNotFound { session: "sess-1".to_string() };
+        let err = LockErrorKind::SessionNotFound {
+            session: "sess-1".to_string(),
+        };
         let msg = format!("{err}");
         assert!(msg.contains("sess-1"));
         assert!(msg.contains("Session not found"));
@@ -254,25 +256,77 @@ mod tests {
 
     #[test]
     fn lock_error_kind_accessor() {
-        let err = LockError(LockErrorKind::SessionNotFound { session: "s".to_string() });
+        let err = LockError(LockErrorKind::SessionNotFound {
+            session: "s".to_string(),
+        });
         assert!(matches!(err.kind(), LockErrorKind::SessionNotFound { .. }));
     }
 
     #[test]
     fn lock_error_code_all_variants() {
-        assert_eq!(LockError(LockErrorKind::SessionNotFound { session: "s".into() }).code(), "SESSION_NOT_FOUND");
-        assert_eq!(LockError(LockErrorKind::SessionLocked { session: "s".into(), holder: "h".into() }).code(), "SESSION_LOCKED");
-        assert_eq!(LockError(LockErrorKind::NotLockHolder { session: "s".into(), agent_id: "a".into() }).code(), "NOT_LOCK_HOLDER");
-        assert_eq!(LockError(LockErrorKind::NotFound("x".into())).code(), "NOT_FOUND");
-        assert_eq!(LockError(LockErrorKind::DatabaseError("x".into())).code(), "DATABASE_ERROR");
-        assert_eq!(LockError(LockErrorKind::ParseError("x".into())).code(), "PARSE_ERROR");
-        assert_eq!(LockError(LockErrorKind::Unknown("x".into())).code(), "UNKNOWN");
-        assert_eq!(LockError(LockErrorKind::TtlOutOfRange("x".into())).code(), "TTL_OUT_OF_RANGE");
-        assert_eq!(LockError(LockErrorKind::EmptySessionName("x".into())).code(), "EMPTY_SESSION_NAME");
-        assert_eq!(LockError(LockErrorKind::EmptyAgentId("x".into())).code(), "EMPTY_AGENT_ID");
-        assert_eq!(LockError(LockErrorKind::TtlOverflow("x".into())).code(), "TTL_OVERFLOW");
-        assert_eq!(LockError(LockErrorKind::SessionNameTooLong("x".into())).code(), "SESSION_NAME_TOO_LONG");
-        assert_eq!(LockError(LockErrorKind::InvalidSessionName("x".into())).code(), "INVALID_SESSION_NAME");
+        assert_eq!(
+            LockError(LockErrorKind::SessionNotFound {
+                session: "s".into()
+            })
+            .code(),
+            "SESSION_NOT_FOUND"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::SessionLocked {
+                session: "s".into(),
+                holder: "h".into()
+            })
+            .code(),
+            "SESSION_LOCKED"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::NotLockHolder {
+                session: "s".into(),
+                agent_id: "a".into()
+            })
+            .code(),
+            "NOT_LOCK_HOLDER"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::NotFound("x".into())).code(),
+            "NOT_FOUND"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::DatabaseError("x".into())).code(),
+            "DATABASE_ERROR"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::ParseError("x".into())).code(),
+            "PARSE_ERROR"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::Unknown("x".into())).code(),
+            "UNKNOWN"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::TtlOutOfRange("x".into())).code(),
+            "TTL_OUT_OF_RANGE"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::EmptySessionName("x".into())).code(),
+            "EMPTY_SESSION_NAME"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::EmptyAgentId("x".into())).code(),
+            "EMPTY_AGENT_ID"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::TtlOverflow("x".into())).code(),
+            "TTL_OVERFLOW"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::SessionNameTooLong("x".into())).code(),
+            "SESSION_NAME_TOO_LONG"
+        );
+        assert_eq!(
+            LockError(LockErrorKind::InvalidSessionName("x".into())).code(),
+            "INVALID_SESSION_NAME"
+        );
     }
 
     #[test]
@@ -288,7 +342,9 @@ mod tests {
 
     #[test]
     fn lock_error_suggestion_session_not_found() {
-        let err = LockError(LockErrorKind::SessionNotFound { session: "sess".into() });
+        let err = LockError(LockErrorKind::SessionNotFound {
+            session: "sess".into(),
+        });
         let suggestion = err.suggestion();
         assert!(suggestion.is_some());
         assert!(suggestion.unwrap().contains("session list"));
@@ -302,24 +358,77 @@ mod tests {
 
     #[test]
     fn lock_error_exit_codes_all_variants() {
-        assert_eq!(LockError(LockErrorKind::SessionNotFound { session: "s".into() }).exit_code(), 14);
-        assert_eq!(LockError(LockErrorKind::SessionLocked { session: "s".into(), holder: "h".into() }).exit_code(), 16);
-        assert_eq!(LockError(LockErrorKind::NotLockHolder { session: "s".into(), agent_id: "a".into() }).exit_code(), 17);
-        assert_eq!(LockError(LockErrorKind::NotFound("x".into())).exit_code(), 71);
-        assert_eq!(LockError(LockErrorKind::DatabaseError("x".into())).exit_code(), 63);
-        assert_eq!(LockError(LockErrorKind::ParseError("x".into())).exit_code(), 80);
-        assert_eq!(LockError(LockErrorKind::Unknown("x".into())).exit_code(), 90);
-        assert_eq!(LockError(LockErrorKind::TtlOutOfRange("x".into())).exit_code(), 80);
-        assert_eq!(LockError(LockErrorKind::EmptySessionName("x".into())).exit_code(), 80);
-        assert_eq!(LockError(LockErrorKind::EmptyAgentId("x".into())).exit_code(), 80);
-        assert_eq!(LockError(LockErrorKind::TtlOverflow("x".into())).exit_code(), 80);
-        assert_eq!(LockError(LockErrorKind::SessionNameTooLong("x".into())).exit_code(), 80);
-        assert_eq!(LockError(LockErrorKind::InvalidSessionName("x".into())).exit_code(), 80);
+        assert_eq!(
+            LockError(LockErrorKind::SessionNotFound {
+                session: "s".into()
+            })
+            .exit_code(),
+            14
+        );
+        assert_eq!(
+            LockError(LockErrorKind::SessionLocked {
+                session: "s".into(),
+                holder: "h".into()
+            })
+            .exit_code(),
+            16
+        );
+        assert_eq!(
+            LockError(LockErrorKind::NotLockHolder {
+                session: "s".into(),
+                agent_id: "a".into()
+            })
+            .exit_code(),
+            17
+        );
+        assert_eq!(
+            LockError(LockErrorKind::NotFound("x".into())).exit_code(),
+            71
+        );
+        assert_eq!(
+            LockError(LockErrorKind::DatabaseError("x".into())).exit_code(),
+            63
+        );
+        assert_eq!(
+            LockError(LockErrorKind::ParseError("x".into())).exit_code(),
+            80
+        );
+        assert_eq!(
+            LockError(LockErrorKind::Unknown("x".into())).exit_code(),
+            90
+        );
+        assert_eq!(
+            LockError(LockErrorKind::TtlOutOfRange("x".into())).exit_code(),
+            80
+        );
+        assert_eq!(
+            LockError(LockErrorKind::EmptySessionName("x".into())).exit_code(),
+            80
+        );
+        assert_eq!(
+            LockError(LockErrorKind::EmptyAgentId("x".into())).exit_code(),
+            80
+        );
+        assert_eq!(
+            LockError(LockErrorKind::TtlOverflow("x".into())).exit_code(),
+            80
+        );
+        assert_eq!(
+            LockError(LockErrorKind::SessionNameTooLong("x".into())).exit_code(),
+            80
+        );
+        assert_eq!(
+            LockError(LockErrorKind::InvalidSessionName("x".into())).exit_code(),
+            80
+        );
     }
 
     #[test]
     fn from_lock_error_kind_to_error() {
-        let err: crate::error::Error = LockErrorKind::SessionNotFound { session: "s".into() }.into();
+        let err: crate::error::Error = LockErrorKind::SessionNotFound {
+            session: "s".into(),
+        }
+        .into();
         assert!(matches!(err, crate::error::Error::Lock(_)));
     }
 }

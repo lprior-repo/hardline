@@ -106,14 +106,16 @@ pub fn validate_is_writable(path: &Path) -> Result<()> {
         }
     } else {
         path.parent().map_or_else(
-            || Err(Error::validation_field_error(
-                "path",
-                format!(
-                    "Cannot check writability for path without parent: '{}'",
-                    path.display()
-                ),
-                Some(path.display().to_string()),
-            )),
+            || {
+                Err(Error::validation_field_error(
+                    "path",
+                    format!(
+                        "Cannot check writability for path without parent: '{}'",
+                        path.display()
+                    ),
+                    Some(path.display().to_string()),
+                ))
+            },
             validate_is_writable,
         )
     }

@@ -215,9 +215,14 @@ mod tests {
         let repo = InMemoryJobRepository::new();
         repo.add_job(create_test_job("1", JobPriority::P0));
 
-        repo.update_job_state("1", JobState::Running { started_at: chrono::Utc::now() })
-            .await
-            .expect("update");
+        repo.update_job_state(
+            "1",
+            JobState::Running {
+                started_at: chrono::Utc::now(),
+            },
+        )
+        .await
+        .expect("update");
 
         let jobs = repo.poll_pending_jobs(10).await.expect("poll");
         assert!(jobs.is_empty()); // No more pending
@@ -226,7 +231,14 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_repository_update_nonexistent_job() {
         let repo = InMemoryJobRepository::new();
-        let result = repo.update_job_state("nonexistent", JobState::Completed { finished_at: chrono::Utc::now() }).await;
+        let result = repo
+            .update_job_state(
+                "nonexistent",
+                JobState::Completed {
+                    finished_at: chrono::Utc::now(),
+                },
+            )
+            .await;
         assert!(result.is_err());
     }
 
@@ -261,9 +273,14 @@ mod tests {
         repo.add_job(create_test_job("2", JobPriority::P0));
 
         // Complete job-1
-        repo.update_job_state("1", JobState::Completed { finished_at: chrono::Utc::now() })
-            .await
-            .expect("update");
+        repo.update_job_state(
+            "1",
+            JobState::Completed {
+                finished_at: chrono::Utc::now(),
+            },
+        )
+        .await
+        .expect("update");
 
         let jobs = repo.poll_pending_jobs(10).await.expect("poll");
         assert_eq!(jobs.len(), 1);
@@ -302,7 +319,9 @@ mod tests {
         let repo = InMemoryJobRepository::default();
         // Should not panic on empty
         assert_eq!(
-            tokio_test::block_on(repo.poll_pending_jobs(10)).expect("poll").len(),
+            tokio_test::block_on(repo.poll_pending_jobs(10))
+                .expect("poll")
+                .len(),
             0
         );
     }
@@ -313,9 +332,14 @@ mod tests {
         repo.add_job(create_test_job("1", JobPriority::P0));
         repo.add_job(create_test_job("2", JobPriority::P1));
 
-        repo.update_job_state("1", JobState::Running { started_at: chrono::Utc::now() })
-            .await
-            .expect("update");
+        repo.update_job_state(
+            "1",
+            JobState::Running {
+                started_at: chrono::Utc::now(),
+            },
+        )
+        .await
+        .expect("update");
 
         let jobs = repo.poll_pending_jobs(10).await.expect("poll");
         assert_eq!(jobs.len(), 1);
@@ -328,9 +352,15 @@ mod tests {
         repo.add_job(create_test_job("1", JobPriority::P0));
         repo.add_job(create_test_job("2", JobPriority::P1));
 
-        repo.update_job_state("1", JobState::Failed { error: "err".to_string(), failed_at: chrono::Utc::now() })
-            .await
-            .expect("update");
+        repo.update_job_state(
+            "1",
+            JobState::Failed {
+                error: "err".to_string(),
+                failed_at: chrono::Utc::now(),
+            },
+        )
+        .await
+        .expect("update");
 
         let jobs = repo.poll_pending_jobs(10).await.expect("poll");
         assert_eq!(jobs.len(), 1);

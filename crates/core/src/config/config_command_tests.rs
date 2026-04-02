@@ -30,14 +30,20 @@ fn assert_parse_error(err: Error, check: fn(&str)) {
 #[test]
 fn config_key_accepts_two_segment_key() {
     let key = ConfigKey::try_from("watch.enabled").expect("should parse");
-    assert_eq!(key.segments(), &["watch".to_string(), "enabled".to_string()]);
+    assert_eq!(
+        key.segments(),
+        &["watch".to_string(), "enabled".to_string()]
+    );
     assert_eq!(key.as_str(), "watch.enabled");
 }
 
 #[test]
 fn config_key_accepts_multi_segment_key() {
     let key = ConfigKey::try_from("conflict_resolution.mode").expect("should parse");
-    assert_eq!(key.segments(), &["conflict_resolution".to_string(), "mode".to_string()]);
+    assert_eq!(
+        key.segments(),
+        &["conflict_resolution".to_string(), "mode".to_string()]
+    );
 }
 
 #[test]
@@ -51,7 +57,10 @@ fn config_key_accepts_minimal_segments() {
 fn config_key_rejects_empty_string() {
     let err = ConfigKey::try_from("").unwrap_err();
     assert_parse_error(err, |msg| {
-        assert!(msg.to_lowercase().contains("empty"), "Expected 'empty', got: {msg}");
+        assert!(
+            msg.to_lowercase().contains("empty"),
+            "Expected 'empty', got: {msg}"
+        );
     });
 }
 
@@ -60,7 +69,10 @@ fn config_key_rejects_single_segment() {
     let err = ConfigKey::try_from("nosection").unwrap_err();
     assert_parse_error(err, |msg| {
         let l = msg.to_lowercase();
-        assert!(l.contains("dot") || l.contains("segment"), "Expected 'dot'/'segment', got: {msg}");
+        assert!(
+            l.contains("dot") || l.contains("segment"),
+            "Expected 'dot'/'segment', got: {msg}"
+        );
     });
 }
 
@@ -69,7 +81,10 @@ fn config_key_rejects_non_ascii() {
     let err = ConfigKey::try_from("s\u{e9}.key").unwrap_err();
     assert_parse_error(err, |msg| {
         let l = msg.to_lowercase();
-        assert!(l.contains("ascii") || l.contains("non-ascii"), "Expected 'ASCII', got: {msg}");
+        assert!(
+            l.contains("ascii") || l.contains("non-ascii"),
+            "Expected 'ASCII', got: {msg}"
+        );
     });
 }
 
@@ -102,7 +117,10 @@ fn config_key_rejects_path_traversal_dotdot() {
     let err = ConfigKey::try_from("a..b").unwrap_err();
     assert_parse_error(err, |msg| {
         let l = msg.to_lowercase();
-        assert!(l.contains("consecutive") || l.contains("dot"), "Expected 'consecutive'/'dot', got: {msg}");
+        assert!(
+            l.contains("consecutive") || l.contains("dot"),
+            "Expected 'consecutive'/'dot', got: {msg}"
+        );
     });
 }
 
@@ -144,7 +162,10 @@ fn config_key_rejects_leading_dot() {
     let err = ConfigKey::try_from(".k").unwrap_err();
     assert_parse_error(err, |msg| {
         let l = msg.to_lowercase();
-        assert!(l.contains("leading") || l.contains("empty segment"), "Expected 'leading', got: {msg}");
+        assert!(
+            l.contains("leading") || l.contains("empty segment"),
+            "Expected 'leading', got: {msg}"
+        );
     });
 }
 
@@ -153,7 +174,10 @@ fn config_key_rejects_trailing_dot() {
     let err = ConfigKey::try_from("k.").unwrap_err();
     assert_parse_error(err, |msg| {
         let l = msg.to_lowercase();
-        assert!(l.contains("trailing") || l.contains("empty segment"), "Expected 'trailing', got: {msg}");
+        assert!(
+            l.contains("trailing") || l.contains("empty segment"),
+            "Expected 'trailing', got: {msg}"
+        );
     });
 }
 
@@ -165,7 +189,10 @@ fn config_key_rejects_overlength() {
     let err = ConfigKey::try_from(key257.as_str()).unwrap_err();
     assert_parse_error(err, |msg| {
         let l = msg.to_lowercase();
-        assert!(l.contains("256") || l.contains("length"), "Expected '256'/'length', got: {msg}");
+        assert!(
+            l.contains("256") || l.contains("length"),
+            "Expected '256'/'length', got: {msg}"
+        );
     });
 }
 
@@ -266,7 +293,12 @@ fn parse_cli_overflow_falls_to_string() {
 fn parse_cli_infers_string_array() {
     let item = parse_cli_value("[\"a\",\"b\"]").expect("should parse");
     assert!(item.is_array());
-    let vals: Vec<&str> = item.as_array().unwrap().iter().filter_map(|v| v.as_str()).collect();
+    let vals: Vec<&str> = item
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
     assert_eq!(vals, vec!["a", "b"]);
 }
 
@@ -274,7 +306,12 @@ fn parse_cli_infers_string_array() {
 fn parse_cli_single_element_array() {
     let item = parse_cli_value("[\"only\"]").expect("should parse");
     assert!(item.is_array());
-    let vals: Vec<&str> = item.as_array().unwrap().iter().filter_map(|v| v.as_str()).collect();
+    let vals: Vec<&str> = item
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
     assert_eq!(vals, vec!["only"]);
 }
 
@@ -282,7 +319,12 @@ fn parse_cli_single_element_array() {
 fn parse_cli_array_with_empty_string() {
     let item = parse_cli_value("[\"\"]").expect("should parse");
     assert!(item.is_array());
-    let vals: Vec<&str> = item.as_array().unwrap().iter().filter_map(|v| v.as_str()).collect();
+    let vals: Vec<&str> = item
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
     assert_eq!(vals, vec![""]);
 }
 
@@ -298,7 +340,10 @@ fn parse_cli_rejects_non_string_array() {
     let err = parse_cli_value("[1,2]").unwrap_err();
     assert_parse_error(err, |msg| {
         let l = msg.to_lowercase();
-        assert!(l.contains("string") || l.contains("non-string"), "Expected 'string', got: {msg}");
+        assert!(
+            l.contains("string") || l.contains("non-string"),
+            "Expected 'string', got: {msg}"
+        );
     });
 }
 
@@ -389,7 +434,10 @@ fn get_nested_rejects_unknown() {
     match kind {
         ConfigErrorKind::ConfigKeyNotFound(msg) => {
             let l = msg.to_lowercase();
-            assert!(l.contains("nonexistent") || l.contains("not found"), "Expected 'nonexistent', got: {msg}");
+            assert!(
+                l.contains("nonexistent") || l.contains("not found"),
+                "Expected 'nonexistent', got: {msg}"
+            );
         }
         other => panic!("Expected ConfigKeyNotFound, got: {other:?}"),
     }
@@ -416,7 +464,10 @@ fn set_nested_rejects_non_table() {
     let err = set_nested_value(&mut doc, &["watch", "enabled"], "true").unwrap_err();
     assert_parse_error(err, |msg| {
         let l = msg.to_lowercase();
-        assert!(l.contains("table") || l.contains("not a table"), "Expected 'table', got: {msg}");
+        assert!(
+            l.contains("table") || l.contains("not a table"),
+            "Expected 'table', got: {msg}"
+        );
     });
 }
 

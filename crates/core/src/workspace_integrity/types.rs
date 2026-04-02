@@ -17,15 +17,15 @@ use serde::{Deserialize, Serialize};
 pub enum CorruptionType {
     /// Workspace directory is missing
     MissingDirectory,
-    /// .jj directory is missing
-    MissingJjDir,
-    /// .jj directory is corrupted (e.g. empty or missing files)
-    CorruptedJjDir,
+    /// .git directory is missing
+    MissingGitDir,
+    /// .git directory is corrupted (e.g. empty or missing objects)
+    CorruptedGitDir,
     /// Stale lock files exist
     StaleLocks,
     /// Permission issues
     PermissionDenied,
-    /// Git index is corrupted (if using Git colocation)
+    /// Git index is corrupted
     CorruptedGitIndex,
 }
 
@@ -33,8 +33,8 @@ impl std::fmt::Display for CorruptionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::MissingDirectory => write!(f, "missing_directory"),
-            Self::MissingJjDir => write!(f, "missing_jj_dir"),
-            Self::CorruptedJjDir => write!(f, "corrupted_jj_dir"),
+            Self::MissingGitDir => write!(f, "missing_git_dir"),
+            Self::CorruptedGitDir => write!(f, "corrupted_git_dir"),
             Self::StaleLocks => write!(f, "stale_locks"),
             Self::PermissionDenied => write!(f, "permission_denied"),
             Self::CorruptedGitIndex => write!(f, "corrupted_git_index"),
@@ -48,8 +48,8 @@ impl FromStr for CorruptionType {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "missing_directory" => Ok(Self::MissingDirectory),
-            "missing_jj_dir" => Ok(Self::MissingJjDir),
-            "corrupted_jj_dir" => Ok(Self::CorruptedJjDir),
+            "missing_git_dir" => Ok(Self::MissingGitDir),
+            "corrupted_git_dir" => Ok(Self::CorruptedGitDir),
             "stale_locks" => Ok(Self::StaleLocks),
             "permission_denied" => Ok(Self::PermissionDenied),
             "corrupted_git_index" => Ok(Self::CorruptedGitIndex),
@@ -72,12 +72,12 @@ pub enum RepairStrategy {
     NoRepairPossible,
     /// Remove stale lock files
     ClearLocks,
-    /// Attempt to fix JJ directory structure
-    FixJjDir,
-    /// Re-initialize JJ in the workspace
+    /// Attempt to fix Git directory structure
+    FixGitDir,
+    /// Re-initialize Git in the workspace
     RecreateWorkspace,
-    /// Forget workspace in JJ and add it again
-    ForgetAndRecreate,
+    /// Remove workspace and re-clone it
+    RemoveAndReclone,
 }
 
 impl RepairStrategy {
@@ -87,9 +87,9 @@ impl RepairStrategy {
         match self {
             Self::NoRepair | Self::NoRepairPossible => "No automated repair possible",
             Self::ClearLocks => "Clear stale lock files",
-            Self::FixJjDir => "Fix JJ directory structure",
+            Self::FixGitDir => "Fix Git directory structure",
             Self::RecreateWorkspace => "Recreate workspace",
-            Self::ForgetAndRecreate => "Forget and recreate workspace",
+            Self::RemoveAndReclone => "Remove and re-clone workspace",
         }
     }
 }
@@ -100,9 +100,9 @@ impl std::fmt::Display for RepairStrategy {
             Self::NoRepair => write!(f, "no_repair"),
             Self::NoRepairPossible => write!(f, "no_repair_possible"),
             Self::ClearLocks => write!(f, "clear_locks"),
-            Self::FixJjDir => write!(f, "fix_jj_dir"),
+            Self::FixGitDir => write!(f, "fix_git_dir"),
             Self::RecreateWorkspace => write!(f, "recreate_workspace"),
-            Self::ForgetAndRecreate => write!(f, "forget_and_recreate"),
+            Self::RemoveAndReclone => write!(f, "remove_and_reclone"),
         }
     }
 }
@@ -115,9 +115,9 @@ impl FromStr for RepairStrategy {
             "no_repair" => Ok(Self::NoRepair),
             "no_repair_possible" => Ok(Self::NoRepairPossible),
             "clear_locks" => Ok(Self::ClearLocks),
-            "fix_jj_dir" => Ok(Self::FixJjDir),
+            "fix_git_dir" => Ok(Self::FixGitDir),
             "recreate_workspace" => Ok(Self::RecreateWorkspace),
-            "forget_and_recreate" => Ok(Self::ForgetAndRecreate),
+            "remove_and_reclone" => Ok(Self::RemoveAndReclone),
             _ => Err(()),
         }
     }

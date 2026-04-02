@@ -156,14 +156,24 @@ mod tests {
         let errors = [
             PolicyError::InvalidTimeout("t".into()),
             PolicyError::InvalidRetryPolicy("r".into()),
-            PolicyError::TimeoutExceeded { phase_id: "p".into(), duration_ms: 100, timeout_ms: 50 },
+            PolicyError::TimeoutExceeded {
+                phase_id: "p".into(),
+                duration_ms: 100,
+                timeout_ms: 50,
+            },
             PolicyError::MaxRetriesExceeded {
                 phase_id: "p".into(),
                 attempts: 3,
                 last_error: Box::new(PolicyError::InvalidTimeout("x".into())),
             },
-            PolicyError::CircuitBreakerOpen { phase_id: "p".into(), open_until: std::time::Instant::now() },
-            PolicyError::NonRetryableError { phase_id: "p".into(), cause: "c".into() },
+            PolicyError::CircuitBreakerOpen {
+                phase_id: "p".into(),
+                open_until: std::time::Instant::now(),
+            },
+            PolicyError::NonRetryableError {
+                phase_id: "p".into(),
+                cause: "c".into(),
+            },
             PolicyError::PreconditionViolation("v".into()),
         ];
         for err in &errors {

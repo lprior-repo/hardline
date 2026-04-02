@@ -196,13 +196,19 @@ mod tests {
     #[test]
     fn parse_value_with_spaces() {
         let config = parse_simple_toml("default_branch = main");
-        assert_eq!(config.get("default_branch").map(|s| s.as_str()), Some("main"));
+        assert_eq!(
+            config.get("default_branch").map(|s| s.as_str()),
+            Some("main")
+        );
     }
 
     #[test]
     fn parse_quoted_value() {
         let config = parse_simple_toml("name = \"my project\"");
-        assert_eq!(config.get("name").map(|s| s.as_str()), Some("\"my project\""));
+        assert_eq!(
+            config.get("name").map(|s| s.as_str()),
+            Some("\"my project\"")
+        );
     }
 
     #[test]
@@ -316,19 +322,28 @@ mod tests {
     #[test]
     fn parse_key_with_dashes() {
         let config = parse_simple_toml("default-branch = main");
-        assert_eq!(config.get("default-branch").map(|s| s.as_str()), Some("main"));
+        assert_eq!(
+            config.get("default-branch").map(|s| s.as_str()),
+            Some("main")
+        );
     }
 
     #[test]
     fn parse_key_with_underscores() {
         let config = parse_simple_toml("my_config_key = value");
-        assert_eq!(config.get("my_config_key").map(|s| s.as_str()), Some("value"));
+        assert_eq!(
+            config.get("my_config_key").map(|s| s.as_str()),
+            Some("value")
+        );
     }
 
     #[test]
     fn parse_value_with_special_chars() {
         let config = parse_simple_toml("remote = origin/upstream");
-        assert_eq!(config.get("remote").map(|s| s.as_str()), Some("origin/upstream"));
+        assert_eq!(
+            config.get("remote").map(|s| s.as_str()),
+            Some("origin/upstream")
+        );
     }
 
     #[test]
@@ -373,7 +388,10 @@ mod tests {
     fn parse_very_long_value() {
         let long_value = "b".repeat(1000);
         let config = parse_simple_toml(&format!("key = {long_value}"));
-        assert_eq!(config.get("key").map(|s| s.as_str()), Some(long_value.as_str()));
+        assert_eq!(
+            config.get("key").map(|s| s.as_str()),
+            Some(long_value.as_str())
+        );
     }
 
     #[test]
@@ -431,7 +449,11 @@ mod tests {
         let config = std::collections::HashMap::new();
         let output = generate_toml(&config);
         let non_empty_lines: Vec<&str> = output.lines().filter(|l| !l.trim().is_empty()).collect();
-        assert_eq!(non_empty_lines.len(), 1, "only the header comment should be present");
+        assert_eq!(
+            non_empty_lines.len(),
+            1,
+            "only the header comment should be present"
+        );
         assert!(non_empty_lines[0].starts_with("# SCP Configuration"));
     }
 
@@ -459,8 +481,8 @@ mod tests {
         }
     }
 
-    use proptest::proptest;
     use proptest::prelude::*;
+    use proptest::proptest;
 
     proptest! {
         #[test]

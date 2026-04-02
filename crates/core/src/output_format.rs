@@ -167,7 +167,8 @@ mod tests {
 
     #[test]
     fn test_output_format_serde_deserialize_lowercase() {
-        let result: OutputFormat = serde_json::from_str("\"json\"").expect("deserialize lowercase json");
+        let result: OutputFormat =
+            serde_json::from_str("\"json\"").expect("deserialize lowercase json");
         assert_eq!(result, OutputFormat::Json);
     }
 

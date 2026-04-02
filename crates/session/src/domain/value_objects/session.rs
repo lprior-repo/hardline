@@ -147,7 +147,7 @@ impl std::fmt::Display for BeadId {
 mod tests {
     use super::*;
     use proptest::prelude::*;
-    use proptest::{prop_assert};
+    use proptest::prop_assert;
 
     proptest! {
         fn prop_session_value_object_name_adversarial(s in ".*") {
@@ -541,9 +541,9 @@ mod tests {
         #[test]
         fn bead_id_parse_roundtrip_various_lengths() {
             for len in [1, 4, 8, 12, 16, 32, 64] {
-                let suffix: String = (0..len).map(|i| {
-                    b"0123456789abcdef"[i % 16] as char
-                }).collect();
+                let suffix: String = (0..len)
+                    .map(|i| b"0123456789abcdef"[i % 16] as char)
+                    .collect();
                 let full = format!("bd-{suffix}");
                 let id = BeadId::parse(&full).expect("valid");
                 assert_eq!(id.as_str(), full);

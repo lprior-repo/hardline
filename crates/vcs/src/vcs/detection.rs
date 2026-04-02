@@ -1,7 +1,7 @@
 //! VCS backend detection
 //!
 //! This module provides the `detect_backend` function for identifying the VCS type
-//! (Git or JJ) at a given filesystem path.
+//! at a given filesystem path.
 
 use std::path::Path;
 
@@ -17,12 +17,11 @@ use super::BackendType;
 /// # Preconditions
 /// - Path must exist
 /// - Path must be a directory
-/// - Either .git or .jj must exist in path hierarchy
+/// - `.git` must exist in path hierarchy
 ///
 /// # Detection Order
-/// - Checks for .jj first (JJ can wrap Git repositories)
-/// - Then checks for .git
-/// - Returns `NoVcsFound` if neither exists
+/// - Checks for `.git` in path hierarchy
+/// - Returns `NoVcsFound` if `.git` does not exist
 ///
 /// # Errors
 /// - `VcsError::PathNotFound` if path does not exist
@@ -41,9 +40,7 @@ pub fn detect_backend(path: impl AsRef<Path>) -> Result<BackendType, VcsError> {
 
     path.ancestors()
         .find_map(|current| {
-            if current.join(".jj").exists() {
-                Some(BackendType::Jj)
-            } else if current.join(".git").exists() {
+            if current.join(".git").exists() {
                 Some(BackendType::Git)
             } else {
                 None

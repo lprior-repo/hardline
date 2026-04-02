@@ -38,15 +38,24 @@ mod tests {
         let msg = "line1\nline2\nline3";
         let err = TuiError::Error(msg.to_string());
         let formatted = err.to_string();
-        assert!(formatted.contains("line1"), "should contain line1: {formatted}");
-        assert!(formatted.contains("line3"), "should contain line3: {formatted}");
+        assert!(
+            formatted.contains("line1"),
+            "should contain line1: {formatted}"
+        );
+        assert!(
+            formatted.contains("line3"),
+            "should contain line3: {formatted}"
+        );
     }
 
     #[test]
     fn tui_error_is_debug() {
         let err = TuiError::Error("debug test".to_string());
         let debug_str = format!("{err:?}");
-        assert!(debug_str.contains("debug test"), "debug output: {debug_str}");
+        assert!(
+            debug_str.contains("debug test"),
+            "debug output: {debug_str}"
+        );
     }
 
     // ── TerminalError display ──
@@ -70,7 +79,10 @@ mod tests {
         let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
         let err = TuiError::IoError(io_err);
         let msg = err.to_string();
-        assert!(msg.contains("file missing"), "expected 'file missing' in: {msg}");
+        assert!(
+            msg.contains("file missing"),
+            "expected 'file missing' in: {msg}"
+        );
     }
 
     #[test]
@@ -78,7 +90,10 @@ mod tests {
         let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
         let tui_err: TuiError = io_err.into();
         let msg = tui_err.to_string();
-        assert!(msg.contains("access denied"), "expected 'access denied' in: {msg}");
+        assert!(
+            msg.contains("access denied"),
+            "expected 'access denied' in: {msg}"
+        );
     }
 
     #[test]
@@ -103,7 +118,10 @@ mod tests {
             let io_err = std::io::Error::new(kind, "test");
             let tui_err: TuiError = io_err.into();
             let msg = tui_err.to_string();
-            assert!(!msg.is_empty(), "IO error kind {kind:?} should produce non-empty message");
+            assert!(
+                !msg.is_empty(),
+                "IO error kind {kind:?} should produce non-empty message"
+            );
         }
     }
 
@@ -112,7 +130,10 @@ mod tests {
         let io_err = std::io::Error::new(std::io::ErrorKind::Other, "inner");
         let tui_err = TuiError::IoError(io_err);
         let debug_str = format!("{tui_err:?}");
-        assert!(debug_str.contains("IoError"), "debug should mention variant: {debug_str}");
+        assert!(
+            debug_str.contains("IoError"),
+            "debug should mention variant: {debug_str}"
+        );
     }
 
     // ── Result type ──
@@ -179,9 +200,10 @@ mod tests {
 
     #[test]
     fn io_error_implements_std_error() {
-        let err: Box<dyn std::error::Error> = Box::new(TuiError::IoError(
-            std::io::Error::new(std::io::ErrorKind::Other, "test"),
-        ));
+        let err: Box<dyn std::error::Error> = Box::new(TuiError::IoError(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "test",
+        )));
         let _msg = err.to_string();
     }
 
@@ -234,7 +256,10 @@ mod tests {
     #[test]
     fn terminal_error_has_no_source() {
         let err = TuiError::TerminalError("test".to_string());
-        assert!(err.source().is_none(), "TerminalError variant has no source");
+        assert!(
+            err.source().is_none(),
+            "TerminalError variant has no source"
+        );
     }
 
     // ── Size & layout ──
@@ -243,7 +268,10 @@ mod tests {
     fn tui_error_size_is_reasonable() {
         let size = std::mem::size_of::<TuiError>();
         // String is ~24 bytes, enum discriminant + padding
-        assert!(size < 256, "TuiError should be reasonably sized, got {size} bytes");
+        assert!(
+            size < 256,
+            "TuiError should be reasonably sized, got {size} bytes"
+        );
     }
 
     // ── Special characters in error messages ──
@@ -320,7 +348,13 @@ mod tests {
     #[test]
     fn result_and_then_on_ok() {
         let ok: Result<i32> = Ok(10);
-        let result = ok.and_then(|v| if v > 0 { Ok(v) } else { Err(TuiError::Error("neg".into())) });
+        let result = ok.and_then(|v| {
+            if v > 0 {
+                Ok(v)
+            } else {
+                Err(TuiError::Error("neg".into()))
+            }
+        });
         assert_eq!(result.expect("ok"), 10);
     }
 

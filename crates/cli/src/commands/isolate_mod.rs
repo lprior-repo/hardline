@@ -56,50 +56,6 @@ pub fn is_terminal() -> bool {
         && std::io::stderr().is_terminal()
 }
 
-/// Check if current directory is a JJ repository
-pub async fn is_jj_repo() -> Result<bool> {
-    let result = scp_core::jj::get_jj_command()
-        .args(["root"])
-        .output()
-        .await
-        .context("Failed to run jj")?;
-
-    Ok(result.status.success())
-}
-
-/// Get JJ repository root
-pub async fn jj_root() -> Result<String> {
-    let output = scp_core::jj::get_jj_command()
-        .arg("root")
-        .output()
-        .await
-        .context("Failed to execute jj root")?;
-
-    if output.status.success() {
-        String::from_utf8(output.stdout)
-            .context("Invalid UTF-8 output from jj root")
-            .map(|s| s.trim().to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("jj root failed: {stderr}")
-    }
-}
-
-/// Check if a command is available in PATH
-pub async fn is_command_available(cmd: &str) -> bool {
-    Command::new("which")
-        .arg(cmd)
-        .output()
-        .await
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
-
-/// Check if JJ is installed
-pub async fn is_jj_installed() -> bool {
-    scp_core::jj::is_jj_installed().await
-}
-
 /// Check if current directory is a Git repository
 #[cfg(test)]
 mod tests {

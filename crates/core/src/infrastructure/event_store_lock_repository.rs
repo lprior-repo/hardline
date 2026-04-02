@@ -137,9 +137,7 @@ pub async fn is_stream_locked(
     .bind(now)
     .fetch_one(pool)
     .await
-    .map_err(|e| {
-        EventStoreLockError::QueryFailed(format!("Failed to check stream lock: {e}"))
-    })?;
+    .map_err(|e| EventStoreLockError::QueryFailed(format!("Failed to check stream lock: {e}")))?;
 
     let count: i64 = row
         .try_get("count")
@@ -170,9 +168,7 @@ pub async fn get_stream_locks(
     .bind(now)
     .fetch_all(pool)
     .await
-    .map_err(|e| {
-        EventStoreLockError::QueryFailed(format!("Failed to get stream locks: {e}"))
-    })?;
+    .map_err(|e| EventStoreLockError::QueryFailed(format!("Failed to get stream locks: {e}")))?;
 
     rows.iter()
         .map(parse_event_store_lock_row)
@@ -200,9 +196,7 @@ pub async fn get_next_sequence(
     .bind(stream_id)
     .fetch_one(pool)
     .await
-    .map_err(|e| {
-        EventStoreLockError::QueryFailed(format!("Failed to get next sequence: {e}"))
-    })?;
+    .map_err(|e| EventStoreLockError::QueryFailed(format!("Failed to get next sequence: {e}")))?;
 
     let next_seq: i64 = row
         .try_get("next_seq")
@@ -253,9 +247,7 @@ pub async fn locks_by_holder(
     .bind(holder_id)
     .fetch_all(pool)
     .await
-    .map_err(|e| {
-        EventStoreLockError::QueryFailed(format!("Failed to get locks by holder: {e}"))
-    })?;
+    .map_err(|e| EventStoreLockError::QueryFailed(format!("Failed to get locks by holder: {e}")))?;
 
     rows.iter()
         .map(parse_event_store_lock_row)
@@ -354,7 +346,8 @@ mod tests {
         let (pool, _temp_dir) = create_test_pool().await;
         let now = now_seconds();
 
-        let lock = EventStoreLock::new("session-queue", 1, "agent-1", now - 600, now - 300).unwrap();
+        let lock =
+            EventStoreLock::new("session-queue", 1, "agent-1", now - 600, now - 300).unwrap();
         acquire_stream_lock(&pool, &lock)
             .await
             .expect("Acquire should succeed");
@@ -386,7 +379,9 @@ mod tests {
         let result = release_stream_lock(&pool, "session-queue", 1, "agent-1").await;
         assert!(result.is_ok());
 
-        let locked = is_stream_locked(&pool, "session-queue", 1, now + 1).await.unwrap();
+        let locked = is_stream_locked(&pool, "session-queue", 1, now + 1)
+            .await
+            .unwrap();
         assert!(!locked);
     }
 
@@ -425,7 +420,9 @@ mod tests {
         acquire_stream_lock(&pool, &lock2).await.unwrap();
         acquire_stream_lock(&pool, &lock3).await.unwrap();
 
-        let locks = get_stream_locks(&pool, "session-queue", now + 1).await.unwrap();
+        let locks = get_stream_locks(&pool, "session-queue", now + 1)
+            .await
+            .unwrap();
         assert_eq!(locks.len(), 2);
         assert_eq!(locks[0].stream_seq, 1);
         assert_eq!(locks[1].stream_seq, 2);
@@ -460,8 +457,7 @@ mod tests {
         let now = now_seconds();
 
         let active = EventStoreLock::new("stream-1", 1, "agent-1", now, now + 300).unwrap();
-        let expired =
-            EventStoreLock::new("stream-1", 2, "agent-2", now - 600, now - 300).unwrap();
+        let expired = EventStoreLock::new("stream-1", 2, "agent-2", now - 600, now - 300).unwrap();
 
         acquire_stream_lock(&pool, &active).await.unwrap();
         acquire_stream_lock(&pool, &expired).await.unwrap();
@@ -619,8 +615,7 @@ mod tests {
         let now = now_seconds();
 
         // Expired lock
-        let expired =
-            EventStoreLock::new("stream-1", 1, "agent-1", now - 600, now - 300).unwrap();
+        let expired = EventStoreLock::new("stream-1", 1, "agent-1", now - 600, now - 300).unwrap();
         acquire_stream_lock(&pool, &expired).await.unwrap();
 
         // locks_by_holder returns ALL locks including expired
@@ -650,10 +645,8 @@ mod tests {
         let (pool, _temp_dir) = create_test_pool().await;
         let now = now_seconds();
 
-        let lock1 =
-            EventStoreLock::new("stream-1", 1, "agent-1", now - 600, now - 300).unwrap();
-        let lock2 =
-            EventStoreLock::new("stream-1", 2, "agent-2", now - 600, now - 300).unwrap();
+        let lock1 = EventStoreLock::new("stream-1", 1, "agent-1", now - 600, now - 300).unwrap();
+        let lock2 = EventStoreLock::new("stream-1", 2, "agent-2", now - 600, now - 300).unwrap();
 
         acquire_stream_lock(&pool, &lock1).await.unwrap();
         acquire_stream_lock(&pool, &lock2).await.unwrap();
@@ -671,11 +664,9 @@ mod tests {
         let now = now_seconds();
 
         // expires_at == now: should be cleaned up (expires_at <= now)
-        let boundary =
-            EventStoreLock::new("stream-1", 1, "agent-1", now - 300, now).unwrap();
+        let boundary = EventStoreLock::new("stream-1", 1, "agent-1", now - 300, now).unwrap();
         // expires_at == now + 1: should NOT be cleaned up
-        let active =
-            EventStoreLock::new("stream-1", 2, "agent-2", now, now + 1).unwrap();
+        let active = EventStoreLock::new("stream-1", 2, "agent-2", now, now + 1).unwrap();
 
         acquire_stream_lock(&pool, &boundary).await.unwrap();
         acquire_stream_lock(&pool, &active).await.unwrap();
@@ -692,7 +683,9 @@ mod tests {
     async fn given_nonexistent_stream_when_get_stream_locks_then_empty() {
         let (pool, _temp_dir) = create_test_pool().await;
 
-        let locks = get_stream_locks(&pool, "nonexistent-stream", now_seconds()).await.unwrap();
+        let locks = get_stream_locks(&pool, "nonexistent-stream", now_seconds())
+            .await
+            .unwrap();
         assert!(locks.is_empty());
     }
 
@@ -701,10 +694,8 @@ mod tests {
         let (pool, _temp_dir) = create_test_pool().await;
         let now = now_seconds();
 
-        let lock_a =
-            EventStoreLock::new("stream-a", 1, "agent-1", now, now + 300).unwrap();
-        let lock_b =
-            EventStoreLock::new("stream-b", 1, "agent-2", now, now + 300).unwrap();
+        let lock_a = EventStoreLock::new("stream-a", 1, "agent-1", now, now + 300).unwrap();
+        let lock_b = EventStoreLock::new("stream-b", 1, "agent-2", now, now + 300).unwrap();
 
         acquire_stream_lock(&pool, &lock_a).await.unwrap();
         acquire_stream_lock(&pool, &lock_b).await.unwrap();
@@ -742,7 +733,9 @@ mod tests {
     async fn given_nonexistent_stream_when_get_next_sequence_then_zero() {
         let (pool, _temp_dir) = create_test_pool().await;
 
-        let next = get_next_sequence(&pool, "nonexistent-stream").await.unwrap();
+        let next = get_next_sequence(&pool, "nonexistent-stream")
+            .await
+            .unwrap();
         assert_eq!(next, 0);
     }
 
@@ -793,7 +786,9 @@ mod tests {
     async fn given_nonexistent_stream_when_is_locked_then_false() {
         let (pool, _temp_dir) = create_test_pool().await;
 
-        let locked = is_stream_locked(&pool, "nonexistent-stream", 999, now_seconds()).await.unwrap();
+        let locked = is_stream_locked(&pool, "nonexistent-stream", 999, now_seconds())
+            .await
+            .unwrap();
         assert!(!locked);
     }
 
@@ -806,7 +801,9 @@ mod tests {
         acquire_stream_lock(&pool, &lock).await.unwrap();
 
         // Different seq should not be locked
-        let locked = is_stream_locked(&pool, "stream-1", 2, now + 1).await.unwrap();
+        let locked = is_stream_locked(&pool, "stream-1", 2, now + 1)
+            .await
+            .unwrap();
         assert!(!locked);
     }
 
@@ -820,22 +817,30 @@ mod tests {
         let now = now_seconds();
 
         // 1. Lock is available
-        assert!(!is_stream_locked(&pool, "lifecycle-stream", 1, now).await.unwrap());
+        assert!(!is_stream_locked(&pool, "lifecycle-stream", 1, now)
+            .await
+            .unwrap());
 
         // 2. Acquire lock
-        let lock =
-            EventStoreLock::new("lifecycle-stream", 1, "agent-1", now, now + 300).unwrap();
+        let lock = EventStoreLock::new("lifecycle-stream", 1, "agent-1", now, now + 300).unwrap();
         let acquired = acquire_stream_lock(&pool, &lock).await.unwrap();
         assert_eq!(acquired.stream_id, "lifecycle-stream");
 
         // 3. Lock is now held
-        assert!(is_stream_locked(&pool, "lifecycle-stream", 1, now + 1).await.unwrap());
+        assert!(is_stream_locked(&pool, "lifecycle-stream", 1, now + 1)
+            .await
+            .unwrap());
 
         // 4. Next sequence should be 2
-        assert_eq!(get_next_sequence(&pool, "lifecycle-stream").await.unwrap(), 2);
+        assert_eq!(
+            get_next_sequence(&pool, "lifecycle-stream").await.unwrap(),
+            2
+        );
 
         // 5. Get locks returns our lock
-        let locks = get_stream_locks(&pool, "lifecycle-stream", now + 1).await.unwrap();
+        let locks = get_stream_locks(&pool, "lifecycle-stream", now + 1)
+            .await
+            .unwrap();
         assert_eq!(locks.len(), 1);
 
         // 6. Release lock
@@ -844,7 +849,9 @@ mod tests {
             .unwrap();
 
         // 7. Lock is now released
-        assert!(!is_stream_locked(&pool, "lifecycle-stream", 1, now + 1).await.unwrap());
+        assert!(!is_stream_locked(&pool, "lifecycle-stream", 1, now + 1)
+            .await
+            .unwrap());
 
         // 8. Same slot can be re-acquired
         let new_lock =
@@ -866,12 +873,9 @@ mod tests {
         let now = now_seconds();
 
         // Create locks across different streams
-        let lock_a1 =
-            EventStoreLock::new("stream-a", 1, "agent-1", now, now + 300).unwrap();
-        let lock_b1 =
-            EventStoreLock::new("stream-b", 1, "agent-2", now, now + 300).unwrap();
-        let lock_c1 =
-            EventStoreLock::new("stream-c", 1, "agent-3", now, now + 300).unwrap();
+        let lock_a1 = EventStoreLock::new("stream-a", 1, "agent-1", now, now + 300).unwrap();
+        let lock_b1 = EventStoreLock::new("stream-b", 1, "agent-2", now, now + 300).unwrap();
+        let lock_c1 = EventStoreLock::new("stream-c", 1, "agent-3", now, now + 300).unwrap();
 
         assert!(acquire_stream_lock(&pool, &lock_a1).await.is_ok());
         assert!(acquire_stream_lock(&pool, &lock_b1).await.is_ok());
@@ -882,9 +886,15 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(is_stream_locked(&pool, "stream-a", 1, now + 1).await.unwrap());
-        assert!(!is_stream_locked(&pool, "stream-b", 1, now + 1).await.unwrap());
-        assert!(is_stream_locked(&pool, "stream-c", 1, now + 1).await.unwrap());
+        assert!(is_stream_locked(&pool, "stream-a", 1, now + 1)
+            .await
+            .unwrap());
+        assert!(!is_stream_locked(&pool, "stream-b", 1, now + 1)
+            .await
+            .unwrap());
+        assert!(is_stream_locked(&pool, "stream-c", 1, now + 1)
+            .await
+            .unwrap());
 
         // Each stream's next sequence is independent
         assert_eq!(get_next_sequence(&pool, "stream-a").await.unwrap(), 2);
@@ -926,11 +936,12 @@ mod tests {
         let (pool, _temp_dir) = create_test_pool().await;
         let now = now_seconds();
 
-        let lock =
-            EventStoreLock::new("roundtrip-stream", 42, "holder-x", now, now + 999).unwrap();
+        let lock = EventStoreLock::new("roundtrip-stream", 42, "holder-x", now, now + 999).unwrap();
         acquire_stream_lock(&pool, &lock).await.unwrap();
 
-        let locks = get_stream_locks(&pool, "roundtrip-stream", now + 1).await.unwrap();
+        let locks = get_stream_locks(&pool, "roundtrip-stream", now + 1)
+            .await
+            .unwrap();
         assert_eq!(locks.len(), 1);
 
         let retrieved = &locks[0];
@@ -946,8 +957,7 @@ mod tests {
         let (pool, _temp_dir) = create_test_pool().await;
         let now = now_seconds();
 
-        let lock =
-            EventStoreLock::new("holder-stream", 99, "my-agent", now, now + 500).unwrap();
+        let lock = EventStoreLock::new("holder-stream", 99, "my-agent", now, now + 500).unwrap();
         acquire_stream_lock(&pool, &lock).await.unwrap();
 
         let locks = locks_by_holder(&pool, "my-agent").await.unwrap();

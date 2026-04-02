@@ -338,13 +338,11 @@ mod tests {
 
     #[test]
     fn queue_partition() {
-        let queue = Queue::new()
-            .enqueue(make_entry("a", "s-a", 10))
-            .enqueue(
-                make_entry("b", "s-b", 20)
-                    .transition_status(QueueStatus::Claimed)
-                    .unwrap(),
-            );
+        let queue = Queue::new().enqueue(make_entry("a", "s-a", 10)).enqueue(
+            make_entry("b", "s-b", 20)
+                .transition_status(QueueStatus::Claimed)
+                .unwrap(),
+        );
 
         let (pending, non_pending) = queue.partition(|e| e.status == QueueStatus::Pending);
         assert_eq!(pending.len(), 1);
@@ -645,12 +643,18 @@ mod tests {
     #[test]
     fn queue_count_active_mixed() {
         let merged = make_entry("a", "s-a", 10)
-            .transition_status(QueueStatus::Claimed).unwrap()
-            .transition_status(QueueStatus::Rebasing).unwrap()
-            .transition_status(QueueStatus::Testing).unwrap()
-            .transition_status(QueueStatus::ReadyToMerge).unwrap()
-            .transition_status(QueueStatus::Merging).unwrap()
-            .transition_status(QueueStatus::Merged).unwrap();
+            .transition_status(QueueStatus::Claimed)
+            .unwrap()
+            .transition_status(QueueStatus::Rebasing)
+            .unwrap()
+            .transition_status(QueueStatus::Testing)
+            .unwrap()
+            .transition_status(QueueStatus::ReadyToMerge)
+            .unwrap()
+            .transition_status(QueueStatus::Merging)
+            .unwrap()
+            .transition_status(QueueStatus::Merged)
+            .unwrap();
         let queue = Queue::new()
             .enqueue(make_entry("b", "s-b", 20))
             .enqueue(merged);
@@ -663,11 +667,13 @@ mod tests {
             .enqueue(make_entry("e1", "s1", 10))
             .enqueue(
                 make_entry("e2", "s2", 20)
-                    .transition_status(QueueStatus::Claimed).unwrap()
+                    .transition_status(QueueStatus::Claimed)
+                    .unwrap(),
             )
             .enqueue(
                 make_entry("e3", "s3", 30)
-                    .transition_status(QueueStatus::Cancelled).unwrap()
+                    .transition_status(QueueStatus::Cancelled)
+                    .unwrap(),
             );
         let grouped = queue.group_by_status();
         assert_eq!(grouped.len(), 3);

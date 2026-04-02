@@ -117,12 +117,16 @@ mod tests {
 
     #[test]
     fn state_machine_corrupted_is_terminal() {
-        assert!(WorkspaceStateMachine::is_terminal(WorkspaceState::Corrupted));
+        assert!(WorkspaceStateMachine::is_terminal(
+            WorkspaceState::Corrupted
+        ));
     }
 
     #[test]
     fn state_machine_initializing_is_not_terminal() {
-        assert!(!WorkspaceStateMachine::is_terminal(WorkspaceState::Initializing));
+        assert!(!WorkspaceStateMachine::is_terminal(
+            WorkspaceState::Initializing
+        ));
     }
 
     #[test]
@@ -142,7 +146,9 @@ mod tests {
 
     #[test]
     fn state_machine_initializing_is_not_lockable() {
-        assert!(!WorkspaceStateMachine::is_lockable(WorkspaceState::Initializing));
+        assert!(!WorkspaceStateMachine::is_lockable(
+            WorkspaceState::Initializing
+        ));
     }
 
     #[test]
@@ -152,20 +158,28 @@ mod tests {
 
     #[test]
     fn state_machine_corrupted_is_not_lockable() {
-        assert!(!WorkspaceStateMachine::is_lockable(WorkspaceState::Corrupted));
+        assert!(!WorkspaceStateMachine::is_lockable(
+            WorkspaceState::Corrupted
+        ));
     }
 
     #[test]
     fn state_machine_deletable_states() {
-        assert!(WorkspaceStateMachine::is_deletable(WorkspaceState::Initializing));
+        assert!(WorkspaceStateMachine::is_deletable(
+            WorkspaceState::Initializing
+        ));
         assert!(WorkspaceStateMachine::is_deletable(WorkspaceState::Active));
         assert!(WorkspaceStateMachine::is_deletable(WorkspaceState::Locked));
     }
 
     #[test]
     fn state_machine_terminal_states_not_deletable() {
-        assert!(!WorkspaceStateMachine::is_deletable(WorkspaceState::Deleted));
-        assert!(!WorkspaceStateMachine::is_deletable(WorkspaceState::Corrupted));
+        assert!(!WorkspaceStateMachine::is_deletable(
+            WorkspaceState::Deleted
+        ));
+        assert!(!WorkspaceStateMachine::is_deletable(
+            WorkspaceState::Corrupted
+        ));
     }
 
     #[test]
@@ -346,19 +360,29 @@ mod tests {
     #[test]
     fn state_machine_is_lockable_only_for_active() {
         assert!(WorkspaceStateMachine::is_lockable(WorkspaceState::Active));
-        assert!(!WorkspaceStateMachine::is_lockable(WorkspaceState::Initializing));
+        assert!(!WorkspaceStateMachine::is_lockable(
+            WorkspaceState::Initializing
+        ));
         assert!(!WorkspaceStateMachine::is_lockable(WorkspaceState::Locked));
-        assert!(!WorkspaceStateMachine::is_lockable(WorkspaceState::Corrupted));
+        assert!(!WorkspaceStateMachine::is_lockable(
+            WorkspaceState::Corrupted
+        ));
         assert!(!WorkspaceStateMachine::is_lockable(WorkspaceState::Deleted));
     }
 
     #[test]
     fn state_machine_is_deletable_for_non_terminal() {
-        assert!(WorkspaceStateMachine::is_deletable(WorkspaceState::Initializing));
+        assert!(WorkspaceStateMachine::is_deletable(
+            WorkspaceState::Initializing
+        ));
         assert!(WorkspaceStateMachine::is_deletable(WorkspaceState::Active));
         assert!(WorkspaceStateMachine::is_deletable(WorkspaceState::Locked));
-        assert!(!WorkspaceStateMachine::is_deletable(WorkspaceState::Deleted));
-        assert!(!WorkspaceStateMachine::is_deletable(WorkspaceState::Corrupted));
+        assert!(!WorkspaceStateMachine::is_deletable(
+            WorkspaceState::Deleted
+        ));
+        assert!(!WorkspaceStateMachine::is_deletable(
+            WorkspaceState::Corrupted
+        ));
     }
 
     #[test]
@@ -432,9 +456,9 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
+        use super::*;
         use proptest::prelude::*;
         use proptest::{prop_assert, prop_assert_eq};
-        use super::*;
 
         proptest! {
             #[test]

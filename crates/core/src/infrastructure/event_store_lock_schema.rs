@@ -32,9 +32,7 @@ use super::event_store_lock_types::EventStoreLockError;
 /// # Errors
 ///
 /// Returns `EventStoreLockError::DatabaseError` if schema creation fails.
-pub async fn ensure_event_store_lock_schema(
-    pool: &SqlitePool,
-) -> Result<(), EventStoreLockError> {
+pub async fn ensure_event_store_lock_schema(pool: &SqlitePool) -> Result<(), EventStoreLockError> {
     // Create the main event_store_locks table
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS event_store_locks (
@@ -62,9 +60,7 @@ pub async fn ensure_event_store_lock_schema(
     .execute(pool)
     .await
     .map_err(|e| {
-        EventStoreLockError::DatabaseError(format!(
-            "Failed to create stream_id index: {e}"
-        ))
+        EventStoreLockError::DatabaseError(format!("Failed to create stream_id index: {e}"))
     })?;
 
     // Index for expired lock cleanup queries
@@ -75,9 +71,7 @@ pub async fn ensure_event_store_lock_schema(
     .execute(pool)
     .await
     .map_err(|e| {
-        EventStoreLockError::DatabaseError(format!(
-            "Failed to create expires_at index: {e}"
-        ))
+        EventStoreLockError::DatabaseError(format!("Failed to create expires_at index: {e}"))
     })?;
 
     // Index for holder-based lock queries
@@ -88,9 +82,7 @@ pub async fn ensure_event_store_lock_schema(
     .execute(pool)
     .await
     .map_err(|e| {
-        EventStoreLockError::DatabaseError(format!(
-            "Failed to create holder_id index: {e}"
-        ))
+        EventStoreLockError::DatabaseError(format!("Failed to create holder_id index: {e}"))
     })?;
 
     // Index for sequence-based ordering (within stream)
@@ -101,9 +93,7 @@ pub async fn ensure_event_store_lock_schema(
     .execute(pool)
     .await
     .map_err(|e| {
-        EventStoreLockError::DatabaseError(format!(
-            "Failed to create stream_seq index: {e}"
-        ))
+        EventStoreLockError::DatabaseError(format!("Failed to create stream_seq index: {e}"))
     })?;
 
     Ok(())
@@ -518,10 +508,11 @@ mod tests {
             .expect("Schema creation failed");
 
         // Verify the index was created by using it in a query that would be slow without it
-        let _ = sqlx::query("SELECT stream_id FROM event_store_locks WHERE stream_id = 'nonexistent'")
-            .fetch_all(&pool)
-            .await
-            .expect("Index-using query should succeed");
+        let _ =
+            sqlx::query("SELECT stream_id FROM event_store_locks WHERE stream_id = 'nonexistent'")
+                .fetch_all(&pool)
+                .await
+                .expect("Index-using query should succeed");
     }
 
     // =========================================================================
@@ -550,13 +541,15 @@ mod tests {
         .await
         .expect("Insert should succeed");
 
-        sqlx::query("UPDATE event_store_locks SET holder_id = ? WHERE stream_id = ? AND stream_seq = ?")
-            .bind("agent-new")
-            .bind("stream-y")
-            .bind(1_i64)
-            .execute(&pool)
-            .await
-            .expect("Update should succeed");
+        sqlx::query(
+            "UPDATE event_store_locks SET holder_id = ? WHERE stream_id = ? AND stream_seq = ?",
+        )
+        .bind("agent-new")
+        .bind("stream-y")
+        .bind(1_i64)
+        .execute(&pool)
+        .await
+        .expect("Update should succeed");
 
         let holder: String = sqlx::query_scalar(
             "SELECT holder_id FROM event_store_locks WHERE stream_id = ? AND stream_seq = ?",

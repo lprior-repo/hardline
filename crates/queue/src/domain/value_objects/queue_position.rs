@@ -144,10 +144,7 @@ mod tests {
 
     #[test]
     fn queue_position_multiple_increments() {
-        let pos = QueuePosition::front()
-            .increment()
-            .increment()
-            .increment();
+        let pos = QueuePosition::front().increment().increment().increment();
         assert_eq!(pos.value(), 3);
     }
 

@@ -239,7 +239,9 @@ mod tests {
         let config = ConflictResolutionConfig::default();
         let mut config2 = config.clone();
         let partial = PartialConflictResolutionConfig::default();
-        config2.merge_partial(partial).expect("merge should succeed");
+        config2
+            .merge_partial(partial)
+            .expect("merge should succeed");
         assert_eq!(config, config2);
     }
 
@@ -317,7 +319,9 @@ mod tests {
         let config = SessionConfig::with_values(ValidatedBool::new(true), "custom:", 5);
         let mut config2 = config.clone();
         let partial = PartialSessionConfig::default();
-        config2.merge_partial(partial).expect("merge should succeed");
+        config2
+            .merge_partial(partial)
+            .expect("merge should succeed");
         assert_eq!(config, config2);
     }
 
@@ -370,7 +374,9 @@ mod tests {
         let config = AgentConfig::with_values("my-agent", env);
         let mut config2 = config.clone();
         let partial = PartialAgentConfig::default();
-        config2.merge_partial(partial).expect("merge should succeed");
+        config2
+            .merge_partial(partial)
+            .expect("merge should succeed");
         assert_eq!(config, config2);
     }
 
@@ -398,11 +404,7 @@ mod tests {
 
     #[test]
     fn partial_hooks_config_merge_replaces_with_empty_vec() {
-        let mut hooks = HooksConfig::with_values(
-            vec!["cmd".to_string()],
-            vec![],
-            vec![],
-        );
+        let mut hooks = HooksConfig::with_values(vec!["cmd".to_string()], vec![], vec![]);
         let partial = PartialHooksConfig {
             post_create: Some(vec![]),
             pre_remove: None,
@@ -460,8 +462,7 @@ mod tests {
             max_sessions: Some(50),
         };
         let json = serde_json::to_string(&partial).expect("serialize");
-        let deserialized: PartialSessionConfig =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: PartialSessionConfig = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(partial, deserialized);
     }
 

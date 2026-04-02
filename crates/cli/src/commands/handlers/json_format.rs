@@ -138,10 +138,12 @@ mod tests {
         let matches = Command::new("no-json-flag")
             .try_get_matches_from(vec!["no-json-flag"])
             .expect("valid");
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            get_format(&matches)
-        }));
-        assert!(result.is_err(), "get_format should panic when --json is not defined");
+        let result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| get_format(&matches)));
+        assert!(
+            result.is_err(),
+            "get_format should panic when --json is not defined"
+        );
     }
 
     #[test]
@@ -225,7 +227,10 @@ mod tests {
     fn test_output_format_debug() {
         let format = OutputFormat::from_json_flag(true);
         let debug_str = format!("{:?}", format);
-        assert!(!debug_str.is_empty(), "Debug representation should not be empty");
+        assert!(
+            !debug_str.is_empty(),
+            "Debug representation should not be empty"
+        );
     }
 
     #[test]
@@ -259,9 +264,9 @@ mod tests {
         assert_eq!(f1, f3);
     }
 
-    use proptest::proptest;
     use proptest::prelude::*;
-    use proptest::{prop_assert};
+    use proptest::prop_assert;
+    use proptest::proptest;
 
     proptest! {
         #[test]

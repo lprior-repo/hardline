@@ -11,7 +11,9 @@
 use proptest::prelude::*;
 use proptest::{prop_assert, prop_assert_eq};
 
-use crate::config::command_types::{get_nested_value, parse_cli_value, set_nested_value, ConfigKey};
+use crate::config::command_types::{
+    get_nested_value, parse_cli_value, set_nested_value, ConfigKey,
+};
 use crate::config::config_core::ConfigScope;
 use crate::error::Error;
 use crate::error_config::ConfigErrorKind;

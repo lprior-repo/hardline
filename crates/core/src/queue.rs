@@ -11,8 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// Priority levels for queue items
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 pub enum Priority {
     Low = 3,
     #[default]
@@ -20,7 +19,6 @@ pub enum Priority {
     High = 1,
     Critical = 0,
 }
-
 
 /// Status of a queue item
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -323,15 +321,16 @@ mod uuid {
 
             Self(bytes)
         }
+    }
 
-        pub fn to_string(&self) -> String {
-            format!("{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+    impl std::fmt::Display for Uuid {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
                 self.0[0], self.0[1], self.0[2], self.0[3],
                 self.0[4], self.0[5],
                 self.0[6], self.0[7],
                 self.0[8], self.0[9],
-                self.0[10], self.0[11], self.0[12], self.0[13], self.0[14], self.0[15]
-            )
+                self.0[10], self.0[11], self.0[12], self.0[13], self.0[14], self.0[15])
         }
     }
 }
@@ -370,9 +369,22 @@ mod tests {
 
     #[test]
     fn test_priority_ord_all_variants() {
-        let mut sorted = vec![Priority::Low, Priority::Critical, Priority::High, Priority::Normal];
+        let mut sorted = vec![
+            Priority::Low,
+            Priority::Critical,
+            Priority::High,
+            Priority::Normal,
+        ];
         sorted.sort();
-        assert_eq!(sorted, vec![Priority::Critical, Priority::High, Priority::Normal, Priority::Low]);
+        assert_eq!(
+            sorted,
+            vec![
+                Priority::Critical,
+                Priority::High,
+                Priority::Normal,
+                Priority::Low
+            ]
+        );
     }
 
     #[test]
@@ -881,7 +893,12 @@ mod tests {
 
     #[test]
     fn test_priority_serde_roundtrip_all_variants() {
-        for priority in [Priority::Critical, Priority::High, Priority::Normal, Priority::Low] {
+        for priority in [
+            Priority::Critical,
+            Priority::High,
+            Priority::Normal,
+            Priority::Low,
+        ] {
             let json = serde_json::to_string(&priority).expect("serialize ok");
             let deserialized: Priority = serde_json::from_str(&json).expect("deserialize ok");
             assert_eq!(priority, deserialized, "Roundtrip failed for {priority:?}");
@@ -932,7 +949,10 @@ mod tests {
         item.last_error = Some("connection timeout".to_string());
         let json = serde_json::to_string(&item).expect("serialize ok");
         let deserialized: QueueItem = serde_json::from_str(&json).expect("deserialize ok");
-        assert_eq!(deserialized.last_error, Some("connection timeout".to_string()));
+        assert_eq!(
+            deserialized.last_error,
+            Some("connection timeout".to_string())
+        );
     }
 
     #[test]

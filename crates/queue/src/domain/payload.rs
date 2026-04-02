@@ -220,7 +220,12 @@ mod tests {
     fn payload_from_str_empty_string_rejected() {
         let payload = Payload::from_str("");
         assert!(payload.is_err());
-        assert!(matches!(payload, Err(JobCreationError::InvalidPayload(PayloadError::MalformedJson))));
+        assert!(matches!(
+            payload,
+            Err(JobCreationError::InvalidPayload(
+                PayloadError::MalformedJson
+            ))
+        ));
     }
 
     #[test]

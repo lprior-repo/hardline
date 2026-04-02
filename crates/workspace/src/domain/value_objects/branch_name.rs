@@ -10,7 +10,9 @@ impl BranchName {
             return Err(WorkspaceError::InvalidBranchName("empty name".into()));
         }
         if name.contains('\0') {
-            return Err(WorkspaceError::InvalidBranchName("null character not allowed".into()));
+            return Err(WorkspaceError::InvalidBranchName(
+                "null character not allowed".into(),
+            ));
         }
         Ok(Self(name))
     }
@@ -22,7 +24,7 @@ impl BranchName {
 
 impl Default for BranchName {
     fn default() -> Self {
-        Self::new("main".into()).expect("default branch name 'main' is valid")
+        Self("main".into())
     }
 }
 
@@ -230,9 +232,9 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
+        use super::*;
         use proptest::prelude::*;
         use proptest::{prop_assert, prop_assert_eq};
-        use super::*;
 
         proptest! {
             #[test]

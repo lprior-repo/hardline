@@ -59,17 +59,13 @@ impl std::fmt::Display for VcsStatus {
 /// VCS type enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VcsType {
-    /// Jujutsu VCS
-    Jujutsu,
     /// Git VCS
     Git,
 }
 
 /// Detect which VCS is in use in a directory
 pub fn detect_vcs(path: &std::path::Path) -> Option<VcsType> {
-    if path.join(".jj").exists() {
-        Some(VcsType::Jujutsu)
-    } else if path.join(".git").exists() {
+    if path.join(".git").exists() {
         Some(VcsType::Git)
     } else {
         None
@@ -175,7 +171,7 @@ impl std::fmt::Display for CommitId {
     }
 }
 
-/// Change ID newtype (JJ-specific) - validates non-empty on construction
+/// Change ID newtype - validates non-empty on construction
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ChangeId(String);
 
@@ -383,15 +379,13 @@ mod tests {
 
     #[test]
     fn vcs_type_equality() {
-        assert_eq!(VcsType::Jujutsu, VcsType::Jujutsu);
         assert_eq!(VcsType::Git, VcsType::Git);
-        assert_ne!(VcsType::Jujutsu, VcsType::Git);
     }
 
     #[test]
     fn vcs_type_clone() {
-        let t = VcsType::Jujutsu;
-        assert_eq!(t.clone(), VcsType::Jujutsu);
+        let t = VcsType::Git;
+        assert_eq!(t.clone(), VcsType::Git);
     }
 
     #[test]
@@ -410,32 +404,10 @@ mod tests {
     }
 
     #[test]
-    fn detect_vcs_detects_jj() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
-        assert_eq!(detect_vcs(dir.path()), Some(VcsType::Jujutsu));
-    }
-
-    #[test]
     fn detect_vcs_detects_git() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::create_dir(dir.path().join(".git")).expect("create .git");
         assert_eq!(detect_vcs(dir.path()), Some(VcsType::Git));
-    }
-
-    #[test]
-    fn detect_vcs_prefers_jj_over_git() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
-        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
-        assert_eq!(detect_vcs(dir.path()), Some(VcsType::Jujutsu));
-    }
-
-    #[test]
-    fn detect_vcs_does_not_confuse_jj_dir_with_similar_names() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir(dir.path().join(".jjbackup")).expect("create .jjbackup");
-        assert_eq!(detect_vcs(dir.path()), None);
     }
 
     #[test]
@@ -591,7 +563,10 @@ mod tests {
         };
         assert!(!status.clean);
         assert_eq!(status.branch.as_ref().map(|b| b.as_str()), Some("develop"));
-        assert_eq!(status.commit_id.as_ref().map(|c| c.as_str()), Some("abc123"));
+        assert_eq!(
+            status.commit_id.as_ref().map(|c| c.as_str()),
+            Some("abc123")
+        );
         assert!(status.has_conflicts);
         assert_eq!(status.uncommitted_files.len(), 2);
     }
@@ -722,9 +697,8 @@ mod tests {
     #[test]
     fn branch_name_accepts_shell_metacharacters() {
         let metacharacters: &[char] = &[
-            ';', '|', '&', '$', '`', '(', ')', '<', '>', '!', '#', '~',
-            '*', '?', '[', ']', '{', '}', '%', '@', '^', '+', '=',
-            '\'', '"', '\\',
+            ';', '|', '&', '$', '`', '(', ')', '<', '>', '!', '#', '~', '*', '?', '[', ']', '{',
+            '}', '%', '@', '^', '+', '=', '\'', '"', '\\',
         ];
         for &ch in metacharacters {
             let input = format!("branch{}name", ch);
@@ -800,7 +774,11 @@ mod tests {
         ];
         for input in &inputs {
             let id = CommitId::from_unchecked(input.as_str());
-            assert_eq!(id.as_str(), input, "from_unchecked should preserve input exactly");
+            assert_eq!(
+                id.as_str(),
+                input,
+                "from_unchecked should preserve input exactly"
+            );
         }
     }
 

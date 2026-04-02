@@ -375,7 +375,9 @@ mod tests {
     #[test]
     fn test_pipeline_state_description() {
         assert!(!PipelineState::Pending.description().is_empty());
-        assert!(PipelineState::AgentDevelopment.description().contains("working"));
+        assert!(PipelineState::AgentDevelopment
+            .description()
+            .contains("working"));
     }
 
     // --- PipelineConfig tests ---
@@ -456,11 +458,17 @@ mod tests {
             (PipelineState::SpecReview, PipelineState::UniverseSetup),
             (PipelineState::SpecReview, PipelineState::Failed),
             (PipelineState::SpecReview, PipelineState::Escalated),
-            (PipelineState::UniverseSetup, PipelineState::AgentDevelopment),
+            (
+                PipelineState::UniverseSetup,
+                PipelineState::AgentDevelopment,
+            ),
             (PipelineState::UniverseSetup, PipelineState::Failed),
             (PipelineState::UniverseSetup, PipelineState::Escalated),
             (PipelineState::AgentDevelopment, PipelineState::Validation),
-            (PipelineState::AgentDevelopment, PipelineState::AgentDevelopment),
+            (
+                PipelineState::AgentDevelopment,
+                PipelineState::AgentDevelopment,
+            ),
             (PipelineState::AgentDevelopment, PipelineState::Escalated),
             (PipelineState::Validation, PipelineState::Accepted),
             (PipelineState::Validation, PipelineState::AgentDevelopment),
@@ -572,7 +580,9 @@ mod tests {
     fn test_agent_development_self_loop() {
         let mut pipeline = Pipeline::new("specs/test.yaml".to_string());
         pipeline.state = PipelineState::AgentDevelopment;
-        assert!(pipeline.transition_to(PipelineState::AgentDevelopment).is_ok());
+        assert!(pipeline
+            .transition_to(PipelineState::AgentDevelopment)
+            .is_ok());
         assert_eq!(pipeline.state, PipelineState::AgentDevelopment);
     }
 
@@ -592,8 +602,7 @@ mod tests {
         ];
         for state in &states {
             let json = serde_json::to_string(state).expect("serialize");
-            let deserialized: PipelineState =
-                serde_json::from_str(&json).expect("deserialize");
+            let deserialized: PipelineState = serde_json::from_str(&json).expect("deserialize");
             assert_eq!(*state, deserialized);
         }
     }
@@ -680,7 +689,9 @@ mod tests {
 
         assert!(pipeline.transition_to(PipelineState::SpecReview).is_ok());
         assert!(pipeline.transition_to(PipelineState::UniverseSetup).is_ok());
-        assert!(pipeline.transition_to(PipelineState::AgentDevelopment).is_ok());
+        assert!(pipeline
+            .transition_to(PipelineState::AgentDevelopment)
+            .is_ok());
         assert!(pipeline.transition_to(PipelineState::Validation).is_ok());
         assert!(pipeline.transition_to(PipelineState::Accepted).is_ok());
 
@@ -744,7 +755,10 @@ mod tests {
             let mut pipeline = Pipeline::new("specs/test.yaml".to_string());
             pipeline.state = PipelineState::Accepted;
             let result = pipeline.transition_to(target);
-            assert!(result.is_err(), "Expected transition from Accepted to {target:?} to fail");
+            assert!(
+                result.is_err(),
+                "Expected transition from Accepted to {target:?} to fail"
+            );
             assert!(matches!(
                 result.unwrap_err(),
                 TransitionError::AlreadyTerminal { .. }
@@ -763,7 +777,10 @@ mod tests {
             let mut pipeline = Pipeline::new("specs/test.yaml".to_string());
             pipeline.state = PipelineState::Escalated;
             let result = pipeline.transition_to(target);
-            assert!(result.is_err(), "Expected transition from Escalated to {target:?} to fail");
+            assert!(
+                result.is_err(),
+                "Expected transition from Escalated to {target:?} to fail"
+            );
         }
     }
 
@@ -779,7 +796,10 @@ mod tests {
             let mut pipeline = Pipeline::new("specs/test.yaml".to_string());
             pipeline.state = PipelineState::Failed;
             let result = pipeline.transition_to(target);
-            assert!(result.is_err(), "Expected transition from Failed to {target:?} to fail");
+            assert!(
+                result.is_err(),
+                "Expected transition from Failed to {target:?} to fail"
+            );
         }
     }
 
@@ -789,9 +809,13 @@ mod tests {
     fn test_validation_loop_to_agent_development_and_back() {
         let mut pipeline = Pipeline::new("specs/test.yaml".to_string());
         pipeline.state = PipelineState::Validation;
-        assert!(pipeline.transition_to(PipelineState::AgentDevelopment).is_ok());
+        assert!(pipeline
+            .transition_to(PipelineState::AgentDevelopment)
+            .is_ok());
         assert!(pipeline.transition_to(PipelineState::Validation).is_ok());
-        assert!(pipeline.transition_to(PipelineState::AgentDevelopment).is_ok());
+        assert!(pipeline
+            .transition_to(PipelineState::AgentDevelopment)
+            .is_ok());
     }
 
     // --- Iteration edge cases ---
@@ -810,10 +834,7 @@ mod tests {
 
     #[test]
     fn test_iteration_error_properties() {
-        let err = IterationError::MaxIterationsReached {
-            current: 5,
-            max: 5,
-        };
+        let err = IterationError::MaxIterationsReached { current: 5, max: 5 };
         assert_eq!(format!("{err}"), "Max iterations reached: 5 of 5");
     }
 
@@ -858,7 +879,9 @@ mod tests {
         let mut pipeline = Pipeline::new("specs/test.yaml".to_string());
         pipeline.state = PipelineState::AgentDevelopment;
         for _ in 0..5 {
-            assert!(pipeline.transition_to(PipelineState::AgentDevelopment).is_ok());
+            assert!(pipeline
+                .transition_to(PipelineState::AgentDevelopment)
+                .is_ok());
         }
         assert_eq!(pipeline.state, PipelineState::AgentDevelopment);
     }

@@ -331,43 +331,77 @@ mod tests {
     #[test]
     fn test_conflict_state_valid_transitions() {
         // None -> Detected
-        assert!(ConflictState::None.transition_to(ConflictState::Detected).is_ok());
+        assert!(ConflictState::None
+            .transition_to(ConflictState::Detected)
+            .is_ok());
         // Detected -> Resolving
-        assert!(ConflictState::Detected.transition_to(ConflictState::Resolving).is_ok());
+        assert!(ConflictState::Detected
+            .transition_to(ConflictState::Resolving)
+            .is_ok());
         // Detected -> None (cancel)
-        assert!(ConflictState::Detected.transition_to(ConflictState::None).is_ok());
+        assert!(ConflictState::Detected
+            .transition_to(ConflictState::None)
+            .is_ok());
         // Resolving -> Resolved
-        assert!(ConflictState::Resolving.transition_to(ConflictState::Resolved).is_ok());
+        assert!(ConflictState::Resolving
+            .transition_to(ConflictState::Resolved)
+            .is_ok());
         // Resolving -> Failed
-        assert!(ConflictState::Resolving.transition_to(ConflictState::Failed).is_ok());
+        assert!(ConflictState::Resolving
+            .transition_to(ConflictState::Failed)
+            .is_ok());
         // Resolved -> Detected (re-conflict)
-        assert!(ConflictState::Resolved.transition_to(ConflictState::Detected).is_ok());
+        assert!(ConflictState::Resolved
+            .transition_to(ConflictState::Detected)
+            .is_ok());
         // Failed -> None (reset)
-        assert!(ConflictState::Failed.transition_to(ConflictState::None).is_ok());
+        assert!(ConflictState::Failed
+            .transition_to(ConflictState::None)
+            .is_ok());
         // Failed -> Detected (retry)
-        assert!(ConflictState::Failed.transition_to(ConflictState::Detected).is_ok());
+        assert!(ConflictState::Failed
+            .transition_to(ConflictState::Detected)
+            .is_ok());
     }
 
     #[test]
     fn test_conflict_state_invalid_transitions() {
         // Resolved -> Resolving (can't go back to resolving from resolved)
-        assert!(ConflictState::Resolved.transition_to(ConflictState::Resolving).is_err());
+        assert!(ConflictState::Resolved
+            .transition_to(ConflictState::Resolving)
+            .is_err());
         // Failed -> Resolving (must go through Detected first)
-        assert!(ConflictState::Failed.transition_to(ConflictState::Resolving).is_err());
+        assert!(ConflictState::Failed
+            .transition_to(ConflictState::Resolving)
+            .is_err());
         // None -> Resolving (must go through Detected first)
-        assert!(ConflictState::None.transition_to(ConflictState::Resolving).is_err());
+        assert!(ConflictState::None
+            .transition_to(ConflictState::Resolving)
+            .is_err());
         // None -> Resolved
-        assert!(ConflictState::None.transition_to(ConflictState::Resolved).is_err());
+        assert!(ConflictState::None
+            .transition_to(ConflictState::Resolved)
+            .is_err());
         // None -> Failed
-        assert!(ConflictState::None.transition_to(ConflictState::Failed).is_err());
+        assert!(ConflictState::None
+            .transition_to(ConflictState::Failed)
+            .is_err());
         // Resolving -> None
-        assert!(ConflictState::Resolving.transition_to(ConflictState::None).is_err());
+        assert!(ConflictState::Resolving
+            .transition_to(ConflictState::None)
+            .is_err());
         // Resolving -> Detected
-        assert!(ConflictState::Resolving.transition_to(ConflictState::Detected).is_err());
+        assert!(ConflictState::Resolving
+            .transition_to(ConflictState::Detected)
+            .is_err());
         // Resolved -> None (must go through Detected)
-        assert!(ConflictState::Resolved.transition_to(ConflictState::None).is_err());
+        assert!(ConflictState::Resolved
+            .transition_to(ConflictState::None)
+            .is_err());
         // Resolved -> Failed
-        assert!(ConflictState::Resolved.transition_to(ConflictState::Failed).is_err());
+        assert!(ConflictState::Resolved
+            .transition_to(ConflictState::Failed)
+            .is_err());
     }
 
     #[test]
@@ -671,7 +705,10 @@ mod tests {
         let mut manager = ConflictManager::new();
         for i in 0..10 {
             manager
-                .register_conflict(Conflict::new(format!("branch-{i}"), format!("conflict {i}")))
+                .register_conflict(Conflict::new(
+                    format!("branch-{i}"),
+                    format!("conflict {i}"),
+                ))
                 .expect("register");
         }
         assert_eq!(manager.len(), 10);
@@ -679,7 +716,9 @@ mod tests {
 
         // Resolve half
         for i in 0..5 {
-            manager.start_resolution(&format!("branch-{i}")).expect("start");
+            manager
+                .start_resolution(&format!("branch-{i}"))
+                .expect("start");
             manager.resolve(&format!("branch-{i}")).expect("resolve");
         }
         assert_eq!(manager.unresolved_conflicts().len(), 5);
@@ -714,7 +753,10 @@ mod tests {
         assert_eq!(conflict.branch_id, deserialized.branch_id);
         assert_eq!(conflict.state, deserialized.state);
         assert_eq!(conflict.base_commit, deserialized.base_commit);
-        assert_eq!(conflict.conflicting_commits, deserialized.conflicting_commits);
+        assert_eq!(
+            conflict.conflicting_commits,
+            deserialized.conflicting_commits
+        );
     }
 
     #[test]

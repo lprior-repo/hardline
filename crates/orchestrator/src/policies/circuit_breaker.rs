@@ -370,7 +370,12 @@ mod tests {
 
         for i in 0..4 {
             cb.record_success();
-            assert_eq!(cb.state(), CircuitState::HalfOpen, "Still half-open at success {}", i+1);
+            assert_eq!(
+                cb.state(),
+                CircuitState::HalfOpen,
+                "Still half-open at success {}",
+                i + 1
+            );
         }
         cb.record_success();
         assert_eq!(cb.state(), CircuitState::Closed);

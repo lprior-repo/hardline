@@ -115,8 +115,11 @@ mod tests {
     #[test]
     fn commit_clone() {
         let commit = Commit::new(
-            "id".to_string(), "msg".to_string(), "a".to_string(),
-            Utc::now(), vec![],
+            "id".to_string(),
+            "msg".to_string(),
+            "a".to_string(),
+            Utc::now(),
+            vec![],
         );
         let cloned = commit.clone();
         assert_eq!(commit.id, cloned.id);
@@ -160,7 +163,11 @@ mod tests {
 
     #[test]
     fn branch_clone() {
-        let branch = Branch::new("feature".to_string(), false, Some("origin/feature".to_string()));
+        let branch = Branch::new(
+            "feature".to_string(),
+            false,
+            Some("origin/feature".to_string()),
+        );
         let cloned = branch.clone();
         assert_eq!(branch.name, cloned.name);
         assert_eq!(branch.is_current, cloned.is_current);
@@ -168,7 +175,11 @@ mod tests {
 
     #[test]
     fn branch_serde_roundtrip() {
-        let branch = Branch::new("release".to_string(), true, Some("origin/release".to_string()));
+        let branch = Branch::new(
+            "release".to_string(),
+            true,
+            Some("origin/release".to_string()),
+        );
         let json = serde_json::to_string(&branch).expect("serialize");
         let deserialized: Branch = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(branch.name, deserialized.name);

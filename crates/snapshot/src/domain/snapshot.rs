@@ -44,17 +44,21 @@ impl std::fmt::Display for SnapshotId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::proptest;
     use proptest::prop_assert;
     use proptest::prop_assert_eq;
     use proptest::prop_assert_ne;
+    use proptest::proptest;
 
     // --- SnapshotId tests ---
 
     #[test]
     fn snapshot_id_generate_has_snap_prefix() {
         let id = SnapshotId::generate();
-        assert!(id.as_str().starts_with("snap-"), "id should start with 'snap-', got: {}", id.as_str());
+        assert!(
+            id.as_str().starts_with("snap-"),
+            "id should start with 'snap-', got: {}",
+            id.as_str()
+        );
     }
 
     #[test]
@@ -168,11 +172,7 @@ mod tests {
 
     #[test]
     fn snapshot_create_without_description() {
-        let snapshot = Snapshot::create(
-            "main".to_string(),
-            "deadbeef".to_string(),
-            None,
-        );
+        let snapshot = Snapshot::create("main".to_string(), "deadbeef".to_string(), None);
         assert!(snapshot.description.is_none());
     }
 
@@ -216,31 +216,19 @@ mod tests {
 
     #[test]
     fn snapshot_create_with_empty_branch_name() {
-        let snapshot = Snapshot::create(
-            String::new(),
-            "abc".to_string(),
-            None,
-        );
+        let snapshot = Snapshot::create(String::new(), "abc".to_string(), None);
         assert_eq!(snapshot.branch_name, "");
     }
 
     #[test]
     fn snapshot_create_with_empty_commit_hash() {
-        let snapshot = Snapshot::create(
-            "main".to_string(),
-            String::new(),
-            None,
-        );
+        let snapshot = Snapshot::create("main".to_string(), String::new(), None);
         assert_eq!(snapshot.commit_hash, "");
     }
 
     #[test]
     fn snapshot_create_with_empty_description() {
-        let snapshot = Snapshot::create(
-            "main".to_string(),
-            "abc".to_string(),
-            Some(String::new()),
-        );
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), Some(String::new()));
         assert_eq!(snapshot.description, Some(String::new()));
     }
 
@@ -357,14 +345,13 @@ mod tests {
 
     #[test]
     fn snapshot_serialize_without_description() {
-        let snapshot = Snapshot::create(
-            "main".to_string(),
-            "abc".to_string(),
-            None,
-        );
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
         let json = serde_json::to_value(&snapshot).expect("serialize should succeed");
         let obj = json.as_object().expect("should be an object");
-        assert_eq!(obj.get("description").expect("key should exist"), &serde_json::Value::Null);
+        assert_eq!(
+            obj.get("description").expect("key should exist"),
+            &serde_json::Value::Null
+        );
     }
 
     #[test]
@@ -471,18 +458,28 @@ mod tests {
 
     #[test]
     fn snapshot_json_bytes_roundtrip() {
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), Some("bytes".to_string()));
+        let snapshot = Snapshot::create(
+            "main".to_string(),
+            "abc".to_string(),
+            Some("bytes".to_string()),
+        );
         let bytes = serde_json::to_vec(&snapshot).expect("to_vec should succeed");
-        let deserialized: Snapshot = serde_json::from_slice(&bytes).expect("from_slice should succeed");
+        let deserialized: Snapshot =
+            serde_json::from_slice(&bytes).expect("from_slice should succeed");
         assert_eq!(deserialized.id, snapshot.id);
         assert_eq!(deserialized.branch_name, snapshot.branch_name);
     }
 
     #[test]
     fn snapshot_pretty_print_roundtrip() {
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), Some("pretty".to_string()));
+        let snapshot = Snapshot::create(
+            "main".to_string(),
+            "abc".to_string(),
+            Some("pretty".to_string()),
+        );
         let pretty = serde_json::to_string_pretty(&snapshot).expect("pretty print should succeed");
-        let deserialized: Snapshot = serde_json::from_str(&pretty).expect("roundtrip should succeed");
+        let deserialized: Snapshot =
+            serde_json::from_str(&pretty).expect("roundtrip should succeed");
         assert_eq!(deserialized.id, snapshot.id);
     }
 

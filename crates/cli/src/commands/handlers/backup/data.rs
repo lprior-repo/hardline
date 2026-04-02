@@ -224,7 +224,11 @@ mod tests {
             database: "beads.db".to_string(),
             timestamp: Some("20250101-120000".to_string()),
         };
-        if let BackupCommand::Restore { database, timestamp } = cmd {
+        if let BackupCommand::Restore {
+            database,
+            timestamp,
+        } = cmd
+        {
             assert_eq!(database, "beads.db");
             assert_eq!(timestamp.as_deref(), Some("20250101-120000"));
         }
@@ -260,11 +264,7 @@ mod tests {
 
     #[test]
     fn backup_metadata_new_construction() {
-        let meta = BackupMetadata::new(
-            "state.db".to_string(),
-            1024,
-            "abc123checksum".to_string(),
-        );
+        let meta = BackupMetadata::new("state.db".to_string(), 1024, "abc123checksum".to_string());
         assert_eq!(meta.database_name, "state.db");
         assert_eq!(meta.size_bytes, 1024);
         assert_eq!(meta.checksum, "abc123checksum");
@@ -280,11 +280,7 @@ mod tests {
 
     #[test]
     fn backup_metadata_serialization_roundtrip() {
-        let meta = BackupMetadata::new(
-            "beads.db".to_string(),
-            2048,
-            "sha256".to_string(),
-        );
+        let meta = BackupMetadata::new("beads.db".to_string(), 2048, "sha256".to_string());
         let json = serde_json::to_string(&meta).expect("serialize");
         let deserialized: BackupMetadata =
             serde_json::from_str(&json).expect("deserialize roundtrip");
@@ -348,8 +344,7 @@ mod tests {
             size_bytes: 50,
         };
         let json = serde_json::to_string(&info).expect("serialize");
-        let deserialized: BackupInfo =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: BackupInfo = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.size_bytes, 50);
     }
 
@@ -499,7 +494,11 @@ mod tests {
     fn backup_retention_output_construction() {
         let output = BackupRetentionOutput {
             removed_count: 3,
-            removed_backups: vec!["/a/old1.db".to_string(), "/a/old2.db".to_string(), "/a/old3.db".to_string()],
+            removed_backups: vec![
+                "/a/old1.db".to_string(),
+                "/a/old2.db".to_string(),
+                "/a/old3.db".to_string(),
+            ],
         };
         assert_eq!(output.removed_count, 3);
         assert_eq!(output.removed_backups.len(), 3);

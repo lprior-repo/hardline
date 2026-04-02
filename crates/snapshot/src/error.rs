@@ -46,9 +46,9 @@ pub type StorageResult<T> = std::result::Result<T, SnapshotError>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::proptest;
     use proptest::prop_assert;
     use proptest::prop_assert_eq;
+    use proptest::proptest;
 
     // --- SnapshotError Display tests ---
 
@@ -122,11 +122,20 @@ mod tests {
             SnapshotError::RestoreFailed("rf".to_string()),
         ];
         for (variant, name) in variants.into_iter().zip([
-            "NotFound", "Corrupt", "StorageError", "GitError",
-            "InvalidSnapshot", "CreationFailed", "SnapshotNotReady", "RestoreFailed",
+            "NotFound",
+            "Corrupt",
+            "StorageError",
+            "GitError",
+            "InvalidSnapshot",
+            "CreationFailed",
+            "SnapshotNotReady",
+            "RestoreFailed",
         ]) {
             let debug_str = format!("{variant:?}");
-            assert!(debug_str.contains(name), "debug output for {name} should contain variant name");
+            assert!(
+                debug_str.contains(name),
+                "debug output for {name} should contain variant name"
+            );
         }
     }
 
@@ -264,7 +273,10 @@ mod tests {
             SnapshotRepoError::NotFound("nf".to_string()),
             SnapshotRepoError::DeleteFailed("df".to_string()),
         ];
-        for (variant, name) in variants.into_iter().zip(["SaveFailed", "NotFound", "DeleteFailed"]) {
+        for (variant, name) in variants
+            .into_iter()
+            .zip(["SaveFailed", "NotFound", "DeleteFailed"])
+        {
             let debug_str = format!("{variant:?}");
             assert!(debug_str.contains(name));
         }
@@ -284,7 +296,8 @@ mod tests {
 
     #[test]
     fn repo_error_implements_error_trait() {
-        let err: Box<dyn std::error::Error> = Box::new(SnapshotRepoError::SaveFailed("test".to_string()));
+        let err: Box<dyn std::error::Error> =
+            Box::new(SnapshotRepoError::SaveFailed("test".to_string()));
         let _msg = err.to_string();
     }
 
@@ -355,7 +368,13 @@ mod tests {
     #[test]
     fn result_type_and_then() {
         let val: Result<i32> = Ok(42);
-        let result = val.and_then(|v| if v > 0 { Ok(v) } else { Err(SnapshotError::InvalidSnapshot("negative".to_string())) });
+        let result = val.and_then(|v| {
+            if v > 0 {
+                Ok(v)
+            } else {
+                Err(SnapshotError::InvalidSnapshot("negative".to_string()))
+            }
+        });
         assert_eq!(result.expect("should be Ok"), 42);
     }
 

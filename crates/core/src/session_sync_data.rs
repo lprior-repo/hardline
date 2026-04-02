@@ -135,22 +135,14 @@ mod tests {
 
     #[test]
     fn session_sync_input_defaults_allow_dirty_false() {
-        let input = SessionSyncInput::new(
-            "s1".into(),
-            PathBuf::from("/w"),
-            "main".into(),
-        );
+        let input = SessionSyncInput::new("s1".into(), PathBuf::from("/w"), "main".into());
         assert!(!input.allow_dirty);
     }
 
     #[test]
     fn session_sync_input_with_dirty_allowed_returns_true() {
-        let input = SessionSyncInput::new(
-            "s1".into(),
-            PathBuf::from("/w"),
-            "main".into(),
-        )
-        .with_dirty_allowed();
+        let input = SessionSyncInput::new("s1".into(), PathBuf::from("/w"), "main".into())
+            .with_dirty_allowed();
         assert!(input.allow_dirty);
     }
 
@@ -169,11 +161,7 @@ mod tests {
 
     #[test]
     fn session_sync_input_is_clone() {
-        let input = SessionSyncInput::new(
-            "s1".into(),
-            PathBuf::from("/w"),
-            "main".into(),
-        );
+        let input = SessionSyncInput::new("s1".into(), PathBuf::from("/w"), "main".into());
         let cloned = input.clone();
         assert_eq!(cloned.session_name, input.session_name);
     }
@@ -194,7 +182,10 @@ mod tests {
     fn session_sync_result_new_sets_synced_at_to_recent_timestamp() {
         let result = SessionSyncResult::new("s1".into(), "rev1".into(), false);
         // synced_at should be a reasonable unix timestamp (after year 2020)
-        assert!(result.synced_at > 1_577_836_800, "synced_at should be a recent timestamp");
+        assert!(
+            result.synced_at > 1_577_836_800,
+            "synced_at should be a recent timestamp"
+        );
     }
 
     #[test]
@@ -333,9 +324,14 @@ mod tests {
 
     #[test]
     fn test_workspace_clean_status_serde_roundtrip_all_variants() {
-        for status in [WorkspaceCleanStatus::Clean, WorkspaceCleanStatus::Dirty, WorkspaceCleanStatus::Unknown] {
+        for status in [
+            WorkspaceCleanStatus::Clean,
+            WorkspaceCleanStatus::Dirty,
+            WorkspaceCleanStatus::Unknown,
+        ] {
             let json = serde_json::to_string(&status).expect("serialize ok");
-            let deserialized: WorkspaceCleanStatus = serde_json::from_str(&json).expect("deserialize ok");
+            let deserialized: WorkspaceCleanStatus =
+                serde_json::from_str(&json).expect("deserialize ok");
             assert_eq!(status, deserialized, "Roundtrip failed for {status:?}");
         }
     }

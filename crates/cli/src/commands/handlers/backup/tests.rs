@@ -5,7 +5,9 @@
 
 use std::path::Path;
 
-use crate::commands::handlers::backup::actions::{execute_backup_command, compute_checksum as action_checksum};
+use crate::commands::handlers::backup::actions::{
+    compute_checksum as action_checksum, execute_backup_command,
+};
 use crate::commands::handlers::backup::data::{BackupCommand, BackupConfig, BackupMetadata};
 
 fn test_config(root: &Path) -> BackupConfig {
@@ -17,8 +19,7 @@ fn test_config(root: &Path) -> BackupConfig {
 
 #[tokio::test]
 async fn test_create_and_list_backups() {
-    let temp_dir =
-        tempfile::TempDir::new().expect("failed to create temp dir");
+    let temp_dir = tempfile::TempDir::new().expect("failed to create temp dir");
     let root = temp_dir.path();
 
     // Create source database directories and files
@@ -47,8 +48,7 @@ async fn test_create_and_list_backups() {
 
 #[tokio::test]
 async fn test_restore_latest_backup() {
-    let temp_dir =
-        tempfile::TempDir::new().expect("failed to create temp dir");
+    let temp_dir = tempfile::TempDir::new().expect("failed to create temp dir");
     let root = temp_dir.path();
 
     // Create source database
@@ -93,8 +93,7 @@ async fn test_restore_latest_backup() {
 
 #[tokio::test]
 async fn test_retention_removes_old_backups() {
-    let temp_dir =
-        tempfile::TempDir::new().expect("failed to create temp dir");
+    let temp_dir = tempfile::TempDir::new().expect("failed to create temp dir");
     let root = temp_dir.path();
 
     // Create source database
@@ -124,8 +123,7 @@ async fn test_retention_removes_old_backups() {
 
 #[tokio::test]
 async fn test_status_command() {
-    let temp_dir =
-        tempfile::TempDir::new().expect("failed to create temp dir");
+    let temp_dir = tempfile::TempDir::new().expect("failed to create temp dir");
     let root = temp_dir.path();
 
     tokio::fs::create_dir_all(root.join(".scp"))
@@ -148,8 +146,7 @@ async fn test_status_command() {
 
 #[tokio::test]
 async fn test_restore_unknown_database_fails() {
-    let temp_dir =
-        tempfile::TempDir::new().expect("failed to create temp dir");
+    let temp_dir = tempfile::TempDir::new().expect("failed to create temp dir");
     let root = temp_dir.path();
     let config = test_config(root);
 
@@ -168,8 +165,7 @@ async fn test_restore_unknown_database_fails() {
 
 #[tokio::test]
 async fn test_list_empty_backups() {
-    let temp_dir =
-        tempfile::TempDir::new().expect("failed to create temp dir");
+    let temp_dir = tempfile::TempDir::new().expect("failed to create temp dir");
     let root = temp_dir.path();
     let config = test_config(root);
 
@@ -181,8 +177,7 @@ async fn test_list_empty_backups() {
 
 #[tokio::test]
 async fn test_checksum_computation() {
-    let temp_dir =
-        tempfile::TempDir::new().expect("failed to create temp dir");
+    let temp_dir = tempfile::TempDir::new().expect("failed to create temp dir");
     let root = temp_dir.path();
 
     let test_file = root.join("test.bin");
@@ -190,9 +185,7 @@ async fn test_checksum_computation() {
         .await
         .expect("write test file");
 
-    let checksum = action_checksum(&test_file)
-        .await
-        .expect("compute checksum");
+    let checksum = action_checksum(&test_file).await.expect("compute checksum");
 
     // Verify it's a hex string of the expected length (SHA-256 = 64 hex chars)
     assert_eq!(checksum.len(), 64);

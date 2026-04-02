@@ -96,7 +96,9 @@ mod tests {
     #[test]
     fn verbose_arg_set_via_long() {
         let cmd = Command::new("test").arg(verbose_arg());
-        let matches = cmd.try_get_matches_from(["test", "--verbose"]).expect("valid");
+        let matches = cmd
+            .try_get_matches_from(["test", "--verbose"])
+            .expect("valid");
         assert!(matches.get_flag("verbose"));
     }
 
@@ -116,7 +118,9 @@ mod tests {
     #[test]
     fn dry_run_arg_set() {
         let cmd = Command::new("test").arg(dry_run_arg());
-        let matches = cmd.try_get_matches_from(["test", "--dry-run"]).expect("valid");
+        let matches = cmd
+            .try_get_matches_from(["test", "--dry-run"])
+            .expect("valid");
         assert!(matches.get_flag("dry-run"));
     }
 

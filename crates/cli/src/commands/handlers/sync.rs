@@ -3,7 +3,6 @@
 //! Implementation of the sync command ported from isolate.
 
 use scp_core::domain::SessionName;
-use scp_core::jj_operation_sync::acquire_cross_process_lock;
 use scp_core::output_jsonl::{
     emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind,
     IssueSeverity, IssueTitle, Message, OutputLine, ResultKind, ResultOutput,
@@ -107,22 +106,13 @@ pub async fn sync_named_session(
     // 1. Emit Action: Syncing
     emit_action("sync", "session", ActionStatus::InProgress, None)?;
 
-    // 2. Create backend and get root
+    // 2. Create backend
     let backend = create_backend(&cwd)?;
 
-    // We need the root for the lock file
-    let repo_root = find_jj_root(&cwd)
-        .ok_or_else(|| SyncError::JjCommandFailed("Not in a JJ repo".to_string()))?;
-
-    // 3. Acquire lock
-    let _lock = acquire_cross_process_lock(&repo_root)
-        .await
-        .map_err(|e| SyncError::LockAcquisitionFailed(e.to_string()))?;
-
-    // 4. Perform sync
+    // 3. Perform sync
     let result = sync_session_internal(backend.as_ref(), session_name.as_str(), &options).await;
 
-    // 5. Emit result and return
+    // 4. Emit result and return
     match result {
         Ok(summary) => {
             emit_action("sync", "session", ActionStatus::Completed, Some("success"))?;

@@ -2,8 +2,8 @@
 //!
 //! Error codes: 4xxx
 
-use thiserror::Error;
 use crate::error::Error;
+use thiserror::Error;
 
 /// Configuration-related errors
 #[derive(Error, Debug, Clone)]
@@ -334,18 +334,54 @@ mod tests {
 
     #[test]
     fn exit_codes_all_variants() {
-        assert_eq!(ConfigError::from(ConfigErrorKind::ConfigKeyNotFound("x".into())).exit_code(), 40);
-        assert_eq!(ConfigError::from(ConfigErrorKind::ConfigParseError("x".into())).exit_code(), 41);
-        assert_eq!(ConfigError::from(ConfigErrorKind::ConfigWriteError("x".into())).exit_code(), 42);
-        assert_eq!(ConfigError::from(ConfigErrorKind::ConfigScopeError("x".into())).exit_code(), 43);
-        assert_eq!(ConfigError::from(ConfigErrorKind::ConfigLockError("x".into())).exit_code(), 44);
-        assert_eq!(ConfigError::from(ConfigErrorKind::NotFound("x".into())).exit_code(), 40);
-        assert_eq!(ConfigError::from(ConfigErrorKind::Invalid("x".into())).exit_code(), 41);
-        assert_eq!(ConfigError::from(ConfigErrorKind::Permission("x".into())).exit_code(), 42);
-        assert_eq!(ConfigError::from(ConfigErrorKind::SecuritySymlink("x".into())).exit_code(), 45);
-        assert_eq!(ConfigError::from(ConfigErrorKind::FileTooLarge("x".into())).exit_code(), 46);
-        assert_eq!(ConfigError::from(ConfigErrorKind::WatcherError("x".into())).exit_code(), 47);
-        assert_eq!(ConfigError::from(ConfigErrorKind::DeadSymlink("x".into())).exit_code(), 48);
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::ConfigKeyNotFound("x".into())).exit_code(),
+            40
+        );
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::ConfigParseError("x".into())).exit_code(),
+            41
+        );
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::ConfigWriteError("x".into())).exit_code(),
+            42
+        );
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::ConfigScopeError("x".into())).exit_code(),
+            43
+        );
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::ConfigLockError("x".into())).exit_code(),
+            44
+        );
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::NotFound("x".into())).exit_code(),
+            40
+        );
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::Invalid("x".into())).exit_code(),
+            41
+        );
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::Permission("x".into())).exit_code(),
+            42
+        );
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::SecuritySymlink("x".into())).exit_code(),
+            45
+        );
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::FileTooLarge("x".into())).exit_code(),
+            46
+        );
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::WatcherError("x".into())).exit_code(),
+            47
+        );
+        assert_eq!(
+            ConfigError::from(ConfigErrorKind::DeadSymlink("x".into())).exit_code(),
+            48
+        );
     }
 
     #[test]
@@ -366,7 +402,12 @@ mod tests {
         ];
         for kind in &variants {
             let err: ConfigError = kind.clone().into();
-            assert_ne!(err.exit_code(), 0, "exit code must be nonzero for {:?}", kind);
+            assert_ne!(
+                err.exit_code(),
+                0,
+                "exit code must be nonzero for {:?}",
+                kind
+            );
         }
     }
 
@@ -464,7 +505,11 @@ mod tests {
         for kind in &variants {
             // Should not panic on empty string
             let msg = format!("{kind}");
-            assert!(!msg.is_empty(), "Display output must not be empty for {:?}", kind);
+            assert!(
+                !msg.is_empty(),
+                "Display output must not be empty for {:?}",
+                kind
+            );
         }
     }
 

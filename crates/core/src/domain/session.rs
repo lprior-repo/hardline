@@ -159,7 +159,12 @@ mod tests {
 
     #[test]
     fn test_detached_ne_on_branch() {
-        assert_ne!(BranchState::Detached, BranchState::OnBranch { name: "x".to_string() });
+        assert_ne!(
+            BranchState::Detached,
+            BranchState::OnBranch {
+                name: "x".to_string()
+            }
+        );
     }
 
     // -- branch_name edge cases --

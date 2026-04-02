@@ -57,8 +57,8 @@ pub struct SystemState {
     /// Whether system is initialized
     pub initialized: bool,
 
-    /// Whether JJ repo exists
-    pub jj_repo: bool,
+    /// Whether Git repo exists
+    pub git_repo: bool,
 }
 
 /// Risk level for a suggested next action

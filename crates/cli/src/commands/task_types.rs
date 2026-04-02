@@ -237,8 +237,7 @@ mod tests {
     fn task_id_serialization_roundtrip() {
         let id = TaskId::new("task-99").expect("valid");
         let json = serde_json::to_string(&id).expect("serialize");
-        let deserialized: TaskId =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: TaskId = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.as_str(), "task-99");
     }
 
@@ -272,8 +271,7 @@ mod tests {
     fn title_serialization_roundtrip() {
         let title = Title::new("test title");
         let json = serde_json::to_string(&title).expect("serialize");
-        let deserialized: Title =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: Title = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.as_str(), "test title");
     }
 
@@ -295,8 +293,7 @@ mod tests {
     fn priority_serialization_roundtrip() {
         let p = Priority::new("low");
         let json = serde_json::to_string(&p).expect("serialize");
-        let deserialized: Priority =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: Priority = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.as_str(), "low");
     }
 
@@ -324,8 +321,7 @@ mod tests {
     fn assignee_serialization_roundtrip() {
         let a = Assignee::new("charlie");
         let json = serde_json::to_string(&a).expect("serialize");
-        let deserialized: Assignee =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: Assignee = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.as_str(), "charlie");
     }
 
@@ -374,8 +370,7 @@ mod tests {
     fn task_state_serialization_roundtrip_open() {
         let state = TaskState::Open;
         let json = serde_json::to_string(&state).expect("serialize");
-        let deserialized: TaskState =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: TaskState = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized, TaskState::Open);
     }
 
@@ -385,8 +380,7 @@ mod tests {
             closed_at: Utc::now(),
         };
         let json = serde_json::to_string(&state).expect("serialize");
-        let deserialized: TaskState =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: TaskState = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert!(matches!(deserialized, TaskState::Closed { .. }));
     }
 
@@ -395,10 +389,7 @@ mod tests {
     #[test]
     fn task_new_defaults() {
         let before = Utc::now();
-        let task = Task::new(
-            TaskId::new("t-1").expect("valid"),
-            Title::new("Test"),
-        );
+        let task = Task::new(TaskId::new("t-1").expect("valid"), Title::new("Test"));
         let after = Utc::now();
 
         assert_eq!(task.id.as_str(), "t-1");
@@ -413,13 +404,9 @@ mod tests {
 
     #[test]
     fn task_serialization_roundtrip() {
-        let task = Task::new(
-            TaskId::new("t-1").expect("valid"),
-            Title::new("Test task"),
-        );
+        let task = Task::new(TaskId::new("t-1").expect("valid"), Title::new("Test task"));
         let json = serde_json::to_string(&task).expect("serialize");
-        let deserialized: Task =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: Task = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.id.as_str(), "t-1");
         assert_eq!(deserialized.title.as_str(), "Test task");
         assert!(deserialized.description.is_none());

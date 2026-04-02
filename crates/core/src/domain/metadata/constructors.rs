@@ -10,6 +10,9 @@ use crate::Error;
 
 use super::entities::StackMetadata;
 
+type BranchParentMap = BTreeMap<BranchId, Option<BranchId>>;
+type BranchChildrenMap = BTreeMap<BranchId, Vec<BranchId>>;
+
 impl StackMetadata {
     /// Build a directed graph from parents mapping
     #[must_use]
@@ -80,15 +83,7 @@ impl StackMetadata {
     }
 
     /// Parse metadata from bytes
-    fn parse_metadata(
-        data: &[u8],
-    ) -> Result<
-        (
-            BTreeMap<BranchId, Option<BranchId>>,
-            BTreeMap<BranchId, Vec<BranchId>>,
-        ),
-        Error,
-    > {
+    fn parse_metadata(data: &[u8]) -> Result<(BranchParentMap, BranchChildrenMap), Error> {
         let text = String::from_utf8(data.to_vec())
             .map_err(|_| Error::invalid_state("Metadata corrupted: invalid UTF-8".to_string()))?;
 
@@ -116,10 +111,7 @@ impl StackMetadata {
 
                 parents.insert(branch.clone(), parent.clone());
                 if let Some(parent_id) = &parent {
-                    children
-                        .entry(parent_id.clone())
-                        .or_default()
-                        .push(branch);
+                    children.entry(parent_id.clone()).or_default().push(branch);
                 }
 
                 Ok((parents, children))

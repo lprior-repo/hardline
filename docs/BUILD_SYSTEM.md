@@ -1,6 +1,6 @@
 # Build System
 
-Comprehensive guide for building, testing, and deploying Hardline using Moon, Jujutsu, and Beads.
+Comprehensive guide for building, testing, and deploying Hardline using Moon, Git, and Beads.
 
 ## Philosophy
 
@@ -12,7 +12,7 @@ The Hardline build system is built on three core principles:
 
 Everything flows through these tools:
 - **Beads**: Organization (what to work on)
-- **Jujutsu**: Implementation (tracking changes)
+- **Git**: Implementation (tracking changes)
 - **Moon**: Validation (building & testing)
 
 ---
@@ -171,7 +171,7 @@ All binaries in `crates/*/src/bin/` are built to `target/release/`.
 
 ## Daily Workflow
 
-Integration of issue tracking (Beads), version control (Jujutsu), and build system (Moon).
+Integration of issue tracking (Beads), version control (Git), and build system (Moon).
 
 ### Full Workflow
 
@@ -185,18 +185,18 @@ br list
 br update BD-123 --status in_progress
 
 # Pull latest
-jj git fetch --all-remotes
+git fetch --all
 ```
 
 #### 2. Make Changes
 
 ```bash
-# Edit files (automatically tracked by jj)
+# Edit files (automatically tracked by git)
 vim crates/hardline-core/src/lib.rs
 
 # Check status
-jj status
-jj diff
+git status
+git diff
 
 # Test locally
 moon run :test
@@ -206,7 +206,8 @@ moon run :test
 
 ```bash
 # Describe change (conventional commits)
-jj describe -m "feat: add new feature
+git add .
+# git commit -m"feat: add new feature
 
 - Implementation detail 1
 - Implementation detail 2
@@ -214,20 +215,20 @@ jj describe -m "feat: add new feature
 Closes BD-123"
 
 # Start next change
-jj new
+# git checkout -b new-feature
 ```
 
 #### 4. Push to Remote
 
 ```bash
 # Fetch latest
-jj git fetch --all-remotes
+git fetch --all
 
 # Push
-jj git push
+git push
 
 # Verify
-jj log -r @
+git log -r @
 ```
 
 #### 5. Close Issue
@@ -246,7 +247,7 @@ br update BD-123 --status ready
 
 ```bash
 # Check latest
-jj git fetch --all-remotes
+git fetch --all
 
 # See available work
 br list
@@ -273,20 +274,21 @@ moon run :test
 moon run :ci
 
 # Commit with message
-jj describe -m "feat: implement feature
+git add .
+# git commit -m"feat: implement feature
 
 - Detail 1
 - Detail 2"
 
 # Start next
-jj new
+# git checkout -b new-feature
 ```
 
 #### End of Day
 
 ```bash
 # Push all changes
-jj git push
+git push
 
 # Close completed issues
 br close BD-123
@@ -306,7 +308,8 @@ moon run :quick
 moon run :test
 
 # If satisfied, commit
-jj describe -m "feat: description"
+git add .
+# git commit -m"feat: description"
 ```
 
 ### Before Pushing
@@ -316,7 +319,7 @@ jj describe -m "feat: description"
 moon run :ci
 
 # If all pass
-jj git push
+git push
 
 # If any fail, fix and retry
 moon run :ci
@@ -363,31 +366,32 @@ p0, p1, p2 - Priority (0=highest)
 
 ---
 
-## Jujutsu (Version Control)
+## Git (Version Control)
 
 ### Status & Diff
 
 ```bash
-jj status           # Current state
-jj diff             # Changes in working copy
-jj log              # Commit history
-jj log -r @         # Current change
+git status           # Current state
+git diff             # Changes in working copy
+git log              # Commit history
+git log -r @         # Current change
 ```
 
 ### Commits
 
 ```bash
 # Set commit message
-jj describe -m "feat: description"
+git add .
+# git commit -m"feat: description"
 
 # View full message
-jj describe -r @
+git log -1
 
 # Edit message
-jj describe -e
+git commit --amend
 
 # Start new change
-jj new
+# git checkout -b new-feature
 ```
 
 ### Conventional Commits
@@ -405,9 +409,9 @@ perf: Performance improvements
 ### Working with Remotes
 
 ```bash
-jj git fetch --all-remotes        # Fetch latest
-jj git push                        # Push changes
-jj log -r origin/main..@           # Commits not yet pushed
+git fetch --all        # Fetch latest
+git push                        # Push changes
+git log -r origin/main..@           # Commits not yet pushed
 ```
 
 ### Syncing Workspaces
@@ -429,20 +433,21 @@ hardline sync --all
 
 ```bash
 # Fetch latest
-jj git fetch --all-remotes
+git fetch --all
 
 # View conflicts
-jj diff
+git diff
 
 # Edit conflicted file
 vim conflicted_file.rs
 
 # Verify resolution
-jj diff  # Should show no conflicts
+git diff  # Should show no conflicts
 
 # Commit resolution
-jj describe -m "merge: resolve conflicts"
-jj git push
+git add .
+# git commit -m"merge: resolve conflicts"
+git push
 ```
 
 ### Common Patterns
@@ -451,57 +456,61 @@ jj git push
 
 ```bash
 # Create feature bookmark
-jj bookmark set feature/cool-thing
+git checkout -b feature/cool-thing
 
 # Make changes on current commit
-jj describe -m "feat: cool thing"
-jj new
+git add .
+# git commit -m"feat: cool thing"
+# git checkout -b new-feature
 
 # Switch back to main
-jj bookmark set main
+git checkout -b main
 ```
 
 #### Stashing (Temporal Commits)
 
 ```bash
 # Save work in progress
-jj describe -m "wip: work in progress"
+git add .
+# git commit -m"wip: work in progress"
 
 # Continue elsewhere
-jj new
+# git checkout -b new-feature
 
 # Come back to WIP later
-jj log
-jj edit -r <wip-commit>
+git log
+git checkout <wip-commit>
 ```
 
 #### Squashing Multiple Commits
 
 ```bash
 # Make several commits
-jj describe -m "feat: part 1"
-jj new
-jj describe -m "feat: part 2"
-jj new
+git add .
+# git commit -m"feat: part 1"
+# git checkout -b new-feature
+git add .
+# git commit -m"feat: part 2"
+# git checkout -b new-feature
 
 # Squash into parent (now just one commit)
-jj squash
+git rebase -i
 ```
 
 ### Tips & Tricks
 
 ```bash
 # See what changed since last push
-jj log -r origin/main..@
+git log -r origin/main..@
 
 # Abandon unwanted changes
-jj abandon <revision>
+git reset <revision>
 
 # Revert a change
-jj undo <revision>
+git revert <revision>
 
 # Move changes between commits
-jj move <source> <destination>
+git cherry-pick <source> <destination>
 ```
 
 ### Landing (Finishing Session)
@@ -514,19 +523,20 @@ moon run :ci
 br create "Follow-up: X" --labels chore
 
 # 3. Commit final changes
-jj describe -m "chore: final cleanup"
-jj new
+git add .
+# git commit -m"chore: final cleanup"
+# git checkout -b new-feature
 
 # 4. Update Beads
 br close BD-123
 br close BD-124
 
 # 5. Push everything
-jj git fetch --all-remotes
-jj git push
+git fetch --all
+git push
 
 # 6. Verify push
-jj log -r @
+git log -r @
 ```
 
 ---
@@ -695,28 +705,28 @@ moon dump :ci
 ls -la ~/.moon/cache
 ```
 
-### Jujutsu
+### Git
 
 #### "Can't push"
 
 ```bash
 # Fetch first
-jj git fetch --all-remotes
+git fetch --all
 
 # Then push
-jj git push
+git push
 ```
 
 #### "Wrong commit message"
 
 ```bash
-jj describe -e  # Opens editor
-jj git push     # Push corrected
+git commit --amend  # Opens editor
+git push     # Push corrected
 ```
 
 #### "Commit not found"
 
-Use `jj log` to find commit hash, then use hash instead of shorthand.
+Use `git log` to find commit hash, then use hash instead of shorthand.
 
 ### All Tools
 

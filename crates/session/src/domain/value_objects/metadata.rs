@@ -254,7 +254,10 @@ mod tests {
         fn workspace_name_empty_rejects() {
             let result = WorkspaceName::new("");
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), SessionError::InvalidIdentifier(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidIdentifier(_)
+            ));
         }
 
         #[test]
@@ -322,7 +325,9 @@ mod tests {
 
         #[test]
         fn labels_exceeds_max_rejects() {
-            let too_many: Vec<String> = (0..=Labels::MAX_LABELS).map(|i| format!("label-{i}")).collect();
+            let too_many: Vec<String> = (0..=Labels::MAX_LABELS)
+                .map(|i| format!("label-{i}"))
+                .collect();
             let result = Labels::new(too_many);
             assert!(result.is_err());
         }
@@ -335,7 +340,10 @@ mod tests {
                 "bug".to_string(),
             ]);
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), SessionError::InvalidIdentifier(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidIdentifier(_)
+            ));
         }
 
         #[test]
@@ -452,7 +460,10 @@ mod tests {
         fn priority_five_rejects() {
             let result = Priority::new(5);
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), SessionError::InvalidPriority(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidPriority(_)
+            ));
         }
 
         #[test]
@@ -527,7 +538,10 @@ mod tests {
         fn issue_type_invalid_rejects() {
             let result = IssueType::new("invalid-type");
             assert!(result.is_err());
-            assert!(matches!(result.unwrap_err(), SessionError::InvalidIssueType(_)));
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidIssueType(_)
+            ));
         }
 
         #[test]
@@ -749,8 +763,8 @@ mod tests {
 
         #[test]
         fn labels_with_special_chars() {
-            let labels = Labels::new(vec!["bug:critical".to_string(), "ui/ux".to_string()])
-                .expect("valid");
+            let labels =
+                Labels::new(vec!["bug:critical".to_string(), "ui/ux".to_string()]).expect("valid");
             assert_eq!(labels.as_slice().len(), 2);
         }
 

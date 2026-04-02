@@ -24,7 +24,7 @@ pub enum VcsError {
     #[error("Path is not a directory: {0}")]
     PathNotDirectory(PathBuf),
 
-    /// No VCS backend detected (neither .git nor .jj found)
+    /// No VCS backend detected (.git not found)
     #[error("No VCS backend found at path: {0}")]
     NoVcsFound(PathBuf),
 
@@ -107,72 +107,6 @@ pub enum VcsError {
     /// Failed to parse Git CLI output
     #[error("Failed to parse Git output: {0}")]
     GitParseError(String),
-
-    /// Failed to open JJ workspace
-    #[error("Failed to open JJ workspace at {path}: {message}")]
-    JjOpenFailed {
-        /// Path to the workspace
-        path: PathBuf,
-        /// Error message
-        message: String,
-        /// Source error
-        #[source]
-        source: Option<anyhow::Error>,
-    },
-
-    /// Path is not a JJ workspace
-    #[error("Not a JJ workspace: {0}")]
-    NotAWorkspace(PathBuf),
-
-    /// Invalid change ID format
-    #[error("Invalid JJ change ID: {0}")]
-    InvalidChangeId(String),
-
-    /// Change not found in JJ workspace
-    #[error("JJ change not found: {id}")]
-    ChangeNotFound {
-        /// Change ID
-        id: String,
-    },
-
-    /// Ambiguous change ID
-    #[error("Ambiguous JJ change ID: {id}")]
-    AmbiguousChangeId {
-        /// Change ID
-        id: String,
-    },
-
-    /// Bookmark not found
-    #[error("JJ bookmark not found: {name}")]
-    BookmarkNotFound {
-        /// Bookmark name
-        name: String,
-    },
-
-    /// Bookmark already exists
-    #[error("JJ bookmark already exists: {name}")]
-    BookmarkAlreadyExists {
-        /// Bookmark name
-        name: String,
-    },
-
-    /// Failed to acquire workspace lock
-    #[error("Failed to acquire JJ workspace lock: {0}")]
-    LockAcquisitionFailed(String),
-
-    /// Rebase operation failed
-    #[error("JJ rebase operation failed: {message}")]
-    RebaseFailed {
-        /// Error message
-        message: String,
-        /// Source error
-        #[source]
-        source: Option<anyhow::Error>,
-    },
-
-    /// JJ internal error
-    #[error("JJ internal error: {0}")]
-    JjInternalError(#[source] anyhow::Error),
 }
 
 impl PartialEq for VcsError {
@@ -214,31 +148,6 @@ impl PartialEq for VcsError {
             (Self::NotFound { entity: a1, id: a2 }, Self::NotFound { entity: b1, id: b2 }) => {
                 a1 == b1 && a2 == b2
             }
-            (Self::NotAWorkspace(a), Self::NotAWorkspace(b)) => a == b,
-            (Self::InvalidChangeId(a), Self::InvalidChangeId(b))
-            | (Self::LockAcquisitionFailed(a), Self::LockAcquisitionFailed(b)) => a == b,
-            (
-                Self::JjOpenFailed {
-                    path: p1,
-                    message: m1,
-                    ..
-                },
-                Self::JjOpenFailed {
-                    path: p2,
-                    message: m2,
-                    ..
-                },
-            ) => p1 == p2 && m1 == m2,
-            (Self::ChangeNotFound { id: a }, Self::ChangeNotFound { id: b }) => a == b,
-            (Self::AmbiguousChangeId { id: a }, Self::AmbiguousChangeId { id: b }) => a == b,
-            (Self::BookmarkNotFound { name: a }, Self::BookmarkNotFound { name: b }) => a == b,
-            (Self::BookmarkAlreadyExists { name: a }, Self::BookmarkAlreadyExists { name: b }) => {
-                a == b
-            }
-            (Self::RebaseFailed { message: a, .. }, Self::RebaseFailed { message: b, .. }) => {
-                a == b
-            }
-            (Self::JjInternalError(a), Self::JjInternalError(b)) => a.to_string() == b.to_string(),
             _ => false,
         }
     }
@@ -262,10 +171,6 @@ pub enum ParseError {
     /// Git SHA has invalid length (expected 7-40 characters)
     #[error("Invalid Git SHA length: {0} characters")]
     InvalidGitShaLength(usize),
-
-    /// JJ change ID has invalid length (expected >= 1)
-    #[error("Invalid JJ change ID length: {0} characters")]
-    InvalidJjLength(usize),
 }
 
 // ============================================================================
@@ -413,62 +318,6 @@ mod tests {
         assert!(msg.contains("parse"));
     }
 
-    #[test]
-    fn not_a_workspace_display() {
-        let err = VcsError::NotAWorkspace("/not-jj".into());
-        let msg = format!("{err}");
-        assert!(msg.contains("/not-jj"));
-        assert!(msg.contains("Not a JJ workspace"));
-    }
-
-    #[test]
-    fn invalid_change_id_display() {
-        let err = VcsError::InvalidChangeId("@@@".to_string());
-        let msg = format!("{err}");
-        assert!(msg.contains("@@@"));
-        assert!(msg.contains("Invalid JJ change ID"));
-    }
-
-    #[test]
-    fn change_not_found_display() {
-        let err = VcsError::ChangeNotFound { id: "abcdef".to_string() };
-        let msg = format!("{err}");
-        assert!(msg.contains("abcdef"));
-        assert!(msg.contains("not found"));
-    }
-
-    #[test]
-    fn ambiguous_change_id_display() {
-        let err = VcsError::AmbiguousChangeId { id: "abc".to_string() };
-        let msg = format!("{err}");
-        assert!(msg.contains("abc"));
-        assert!(msg.contains("Ambiguous"));
-    }
-
-    #[test]
-    fn bookmark_not_found_display() {
-        let err = VcsError::BookmarkNotFound { name: "main".to_string() };
-        let msg = format!("{err}");
-        assert!(msg.contains("main"));
-        assert!(msg.contains("not found"));
-    }
-
-    #[test]
-    fn bookmark_already_exists_display() {
-        let err = VcsError::BookmarkAlreadyExists { name: "main".to_string() };
-        let msg = format!("{err}");
-        assert!(msg.contains("main"));
-        assert!(msg.contains("already exists"));
-    }
-
-    #[test]
-    fn lock_acquisition_failed_display() {
-        let err = VcsError::LockAcquisitionFailed("held by other".to_string());
-        let msg = format!("{err}");
-        assert!(msg.contains("held by other"));
-        assert!(msg.contains("lock"));
-    }
-
     // -- ParseError Display tests --
 
     #[test]
@@ -484,22 +333,6 @@ mod tests {
         let msg = format!("{err}");
         assert!(msg.contains("@#$"));
         assert!(msg.contains("Invalid characters"));
-    }
-
-    #[test]
-    fn parse_error_invalid_git_sha_length_display() {
-        let err = ParseError::InvalidGitShaLength(5);
-        let msg = format!("{err}");
-        assert!(msg.contains("5"));
-        assert!(msg.contains("Git SHA"));
-    }
-
-    #[test]
-    fn parse_error_invalid_jj_length_display() {
-        let err = ParseError::InvalidJjLength(0);
-        let msg = format!("{err}");
-        assert!(msg.contains("0"));
-        assert!(msg.contains("JJ change ID"));
     }
 
     // -- ChangeError Display tests --
@@ -556,9 +389,7 @@ mod tests {
     fn vcs_error_eq_backend_not_supported() {
         let a = VcsError::BackendNotSupported(BackendType::Git);
         let b = VcsError::BackendNotSupported(BackendType::Git);
-        let c = VcsError::BackendNotSupported(BackendType::Jj);
         assert_eq!(a, b);
-        assert_ne!(a, c);
     }
 
     #[test]
@@ -615,40 +446,4 @@ mod tests {
         assert_eq!(b, ChangeError::EmptyAuthor);
     }
 
-    // -- RebaseFailed display --
-
-    #[test]
-    fn rebase_failed_display() {
-        let err = VcsError::RebaseFailed {
-            message: "conflict in file.rs".to_string(),
-            source: None,
-        };
-        let msg = format!("{err}");
-        assert!(msg.contains("conflict in file.rs"));
-        assert!(msg.contains("rebase"));
-    }
-
-    // -- JjInternalError display --
-
-    #[test]
-    fn jj_internal_error_display() {
-        let err = VcsError::JjInternalError(anyhow::anyhow!("internal error"));
-        let msg = format!("{err}");
-        assert!(msg.contains("internal error"));
-        assert!(msg.contains("JJ internal"));
-    }
-
-    // -- JjOpenFailed display --
-
-    #[test]
-    fn jj_open_failed_display() {
-        let err = VcsError::JjOpenFailed {
-            path: "/repo".into(),
-            message: "not jj".to_string(),
-            source: None,
-        };
-        let msg = format!("{err}");
-        assert!(msg.contains("/repo"));
-        assert!(msg.contains("not jj"));
-    }
 }

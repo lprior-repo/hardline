@@ -33,7 +33,6 @@ impl WorkspaceState {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WorkspaceId(String);
 
@@ -69,15 +68,11 @@ pub struct WorkspaceConfig {
     pub auto_sync: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum VcsType {
     #[default]
-    Jj,
     Git,
-    Both,
 }
-
 
 #[derive(Clone)]
 pub struct Initializing;
@@ -311,10 +306,12 @@ mod tests {
             WorkspacePath::new("/tmp/cfg-test".into()).unwrap(),
         )
         .unwrap();
-        let config = workspace.config().expect("workspace should have default config");
+        let config = workspace
+            .config()
+            .expect("workspace should have default config");
         assert_eq!(config.default_branch, "main");
         assert!(config.auto_sync);
-        assert_eq!(config.vcs_type, VcsType::Jj);
+        assert_eq!(config.vcs_type, VcsType::Git);
     }
 
     #[test]
@@ -424,15 +421,13 @@ mod tests {
     }
 
     #[test]
-    fn vcs_type_default_is_jj() {
-        assert_eq!(VcsType::default(), VcsType::Jj);
+    fn vcs_type_default_is_git() {
+        assert_eq!(VcsType::default(), VcsType::Git);
     }
 
     #[test]
     fn vcs_type_equality() {
         assert_eq!(VcsType::Git, VcsType::Git);
-        assert_eq!(VcsType::Both, VcsType::Both);
-        assert_ne!(VcsType::Jj, VcsType::Git);
     }
 
     #[test]
@@ -553,7 +548,7 @@ mod tests {
     #[test]
     fn workspace_config_serialization_roundtrip() {
         let config = WorkspaceConfig {
-            vcs_type: VcsType::Both,
+            vcs_type: VcsType::Git,
             default_branch: "develop".into(),
             auto_sync: false,
         };
@@ -580,7 +575,7 @@ mod tests {
     #[test]
     fn workspace_config_debug() {
         let config = WorkspaceConfig {
-            vcs_type: VcsType::Jj,
+            vcs_type: VcsType::Git,
             default_branch: "debug".into(),
             auto_sync: true,
         };
@@ -590,7 +585,7 @@ mod tests {
 
     #[test]
     fn vcs_type_serialization_roundtrip() {
-        for vcs in [VcsType::Jj, VcsType::Git, VcsType::Both] {
+        for vcs in [VcsType::Git] {
             let json = serde_json::to_string(&vcs).unwrap();
             let deserialized: VcsType = serde_json::from_str(&json).unwrap();
             assert_eq!(vcs, deserialized);
@@ -695,7 +690,8 @@ mod tests {
         let ws = Workspace::<Initializing>::create(
             WorkspaceName::new("lock-id".into()).unwrap(),
             WorkspacePath::new("/tmp/lock-id".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let id = ws.id.as_str().to_string();
         let active = ws.activate().unwrap();
         let locked = active.lock("agent".into()).unwrap();
@@ -707,7 +703,8 @@ mod tests {
         let ws = Workspace::<Initializing>::create(
             WorkspaceName::new("unlock-id".into()).unwrap(),
             WorkspacePath::new("/tmp/unlock-id".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let id = ws.id.as_str().to_string();
         let active = ws.activate().unwrap();
         let locked = active.lock("agent".into()).unwrap();
@@ -720,7 +717,8 @@ mod tests {
         let ws = Workspace::<Initializing>::create(
             WorkspaceName::new("corrupt-ts".into()).unwrap(),
             WorkspacePath::new("/tmp/corrupt-ts".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let created_at = ws.created_at();
         let active = ws.activate().unwrap();
         let corrupted = active.mark_corrupted().unwrap();
@@ -732,7 +730,8 @@ mod tests {
         let ws = Workspace::<Initializing>::create(
             WorkspaceName::new("del-ts".into()).unwrap(),
             WorkspacePath::new("/tmp/del-ts".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let created_at = ws.created_at();
         let active = ws.activate().unwrap();
         let deleted = active.delete().unwrap();
@@ -744,7 +743,8 @@ mod tests {
         let ws = Workspace::<Initializing>::create(
             WorkspaceName::new("not-locked".into()).unwrap(),
             WorkspacePath::new("/tmp/not-locked".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let active = ws.activate().unwrap();
         assert!(!active.is_locked());
         assert!(!active.is_terminal());
@@ -755,7 +755,8 @@ mod tests {
         let ws = Workspace::<Initializing>::create(
             WorkspaceName::new("not-active".into()).unwrap(),
             WorkspacePath::new("/tmp/not-active".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let active = ws.activate().unwrap();
         let locked = active.lock("agent".into()).unwrap();
         assert!(!locked.is_active());
@@ -767,7 +768,8 @@ mod tests {
         let ws = Workspace::<Initializing>::create(
             WorkspaceName::new("cycles".into()).unwrap(),
             WorkspacePath::new("/tmp/cycles".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let active = ws.activate().unwrap();
 
         let locked1 = active.lock("agent-1".into()).unwrap();
@@ -788,12 +790,13 @@ mod tests {
         let ws = Workspace::<Initializing>::create(
             WorkspaceName::new("cfg-preserve".into()).unwrap(),
             WorkspacePath::new("/tmp/cfg-preserve".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let active = ws.activate().unwrap();
         let config = active.config().expect("should have config");
         assert_eq!(config.default_branch, "main");
         assert!(config.auto_sync);
-        assert_eq!(config.vcs_type, VcsType::Jj);
+        assert_eq!(config.vcs_type, VcsType::Git);
     }
 
     #[test]
@@ -870,7 +873,7 @@ mod tests {
 
     #[test]
     fn vcs_type_debug_format() {
-        for vcs in [VcsType::Jj, VcsType::Git, VcsType::Both] {
+        for vcs in [VcsType::Git] {
             let debug_str = format!("{vcs:?}");
             assert!(!debug_str.is_empty());
         }
@@ -881,12 +884,13 @@ mod tests {
         let ws = Workspace::<Initializing>::create(
             WorkspaceName::new("cfg-stable".into()).unwrap(),
             WorkspacePath::new("/tmp/cfg-stable".into()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let active = ws.activate().unwrap();
         let locked = active.lock("a".into()).unwrap();
         let unlocked = locked.unlock().unwrap();
         let cfg = unlocked.config().unwrap();
-        assert_eq!(cfg.vcs_type, VcsType::Jj);
+        assert_eq!(cfg.vcs_type, VcsType::Git);
         assert_eq!(cfg.default_branch, "main");
     }
 
@@ -959,8 +963,8 @@ mod tests {
             }
 
             #[test]
-            fn vcs_type_serialization_roundtrip_arbitrary(vcs_idx in 0usize..3) {
-                let types = [VcsType::Jj, VcsType::Git, VcsType::Both];
+            fn vcs_type_serialization_roundtrip_arbitrary(vcs_idx in 0usize..1) {
+                let types = [VcsType::Git];
                 let vcs = types[vcs_idx];
                 let json = serde_json::to_string(&vcs).unwrap();
                 let deserialized: VcsType = serde_json::from_str(&json).unwrap();
@@ -969,11 +973,11 @@ mod tests {
 
             #[test]
             fn workspace_config_serialization_roundtrip_arbitrary(
-                vcs_idx in 0usize..3,
+                vcs_idx in 0usize..1,
                 auto_sync in proptest::bool::ANY,
                 branch in "[a-z]{1,20}"
             ) {
-                let types = [VcsType::Jj, VcsType::Git, VcsType::Both];
+                let types = [VcsType::Git];
                 let config = WorkspaceConfig {
                     vcs_type: types[vcs_idx],
                     default_branch: format!("test-{}", branch),

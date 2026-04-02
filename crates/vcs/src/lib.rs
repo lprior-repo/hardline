@@ -1,12 +1,12 @@
 //! SCP VCS (Version Control System) Library
 //!
-//! Provides a unified VCS abstraction layer supporting both Jujutsu (JJ) and Git.
+//! Provides a unified VCS abstraction layer for Git.
 //!
 //! # Architecture (DDD)
 //!
 //! - `domain` - Pure domain types, entities, and traits
 //! - `application` - Use cases and service orchestration
-//! - `infrastructure` - Backend implementations (Git, JJ)
+//! - `infrastructure` - Backend implementations (Git)
 //!
 //! # Zero Unwrap Law
 //!
@@ -31,7 +31,7 @@ pub use domain::entities::{Branch, Commit, Workspace};
 pub use domain::traits::VcsBackend;
 pub use domain::value_objects::{VcsStatus, VcsType};
 pub use error::{Result, VcsError};
-pub use infrastructure::{GitBackend, GitCliBackend, JjBackend};
+pub use infrastructure::{GitBackend, GitCliBackend};
 
 #[cfg(test)]
 mod tests {

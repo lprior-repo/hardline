@@ -7,8 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::SessionError;
 
 /// Bead type enumeration
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum BeadType {
     Bug,
     Feature,
@@ -29,7 +28,6 @@ impl BeadType {
         }
     }
 }
-
 
 /// Priority level (0-4)
 ///
@@ -105,7 +103,13 @@ mod tests {
 
     #[test]
     fn bead_type_serde_roundtrip_all_variants() {
-        let types = [BeadType::Bug, BeadType::Feature, BeadType::Task, BeadType::Epic, BeadType::Chore];
+        let types = [
+            BeadType::Bug,
+            BeadType::Feature,
+            BeadType::Task,
+            BeadType::Epic,
+            BeadType::Chore,
+        ];
         for bt in types {
             let json = serde_json::to_string(&bt).expect("serialize");
             let parsed: BeadType = serde_json::from_str(&json).expect("deserialize");

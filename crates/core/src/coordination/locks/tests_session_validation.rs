@@ -184,7 +184,10 @@ async fn lock_session_with_newline_rejected() -> Result<(), Error> {
 
     let result = mgr.lock("session\nwith\nnewline", "agent-1").await;
 
-    assert!(result.is_err(), "Session name with newline should be rejected");
+    assert!(
+        result.is_err(),
+        "Session name with newline should be rejected"
+    );
 
     match &result {
         Err(Error::Lock(lk)) if matches!(lk.kind(), LockErrorKind::InvalidSessionName { .. }) => {}

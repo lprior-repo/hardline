@@ -738,7 +738,13 @@ fn test_identifier_error_empty() {
 fn test_identifier_error_too_long() {
     let err = IdentifierError::too_long(63, 100);
     assert!(err.is_too_long());
-    assert!(matches!(err, IdentifierError::TooLong { max: 63, actual: 100 }));
+    assert!(matches!(
+        err,
+        IdentifierError::TooLong {
+            max: 63,
+            actual: 100
+        }
+    ));
     assert!(format!("{err}").contains("100 characters"));
     assert!(format!("{err}").contains("max 63"));
 }
@@ -766,7 +772,9 @@ fn test_identifier_error_invalid_start() {
 #[test]
 fn test_identifier_error_invalid_prefix() {
     let err = IdentifierError::invalid_prefix("bd-", "abc123");
-    assert!(matches!(err, IdentifierError::InvalidPrefix { prefix: "bd-", value } if value == "abc123"));
+    assert!(
+        matches!(err, IdentifierError::InvalidPrefix { prefix: "bd-", value } if value == "abc123")
+    );
 }
 
 #[test]

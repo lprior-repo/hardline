@@ -149,14 +149,35 @@ mod tests {
 
     #[test]
     fn wait_error_exit_codes() {
-        assert_eq!(WaitError::from(WaitErrorKind::Timeout("s".into(), "w".into())).exit_code(), 55);
-        assert_eq!(WaitError::from(WaitErrorKind::InvalidWaitMode("x".into())).exit_code(), 80);
-        assert_eq!(WaitError::from(WaitErrorKind::InvalidSessionName("x".into())).exit_code(), 82);
+        assert_eq!(
+            WaitError::from(WaitErrorKind::Timeout("s".into(), "w".into())).exit_code(),
+            55
+        );
+        assert_eq!(
+            WaitError::from(WaitErrorKind::InvalidWaitMode("x".into())).exit_code(),
+            80
+        );
+        assert_eq!(
+            WaitError::from(WaitErrorKind::InvalidSessionName("x".into())).exit_code(),
+            82
+        );
         assert_eq!(WaitError::from(WaitErrorKind::BatchEmpty).exit_code(), 80);
-        assert_eq!(WaitError::from(WaitErrorKind::BatchCommandFailed("x".into())).exit_code(), 56);
-        assert_eq!(WaitError::from(WaitErrorKind::BatchRollbackFailed("x".into())).exit_code(), 57);
-        assert_eq!(WaitError::from(WaitErrorKind::CheckpointError("x".into())).exit_code(), 58);
-        assert_eq!(WaitError::from(WaitErrorKind::BatchSizeExceeded(1)).exit_code(), 80);
+        assert_eq!(
+            WaitError::from(WaitErrorKind::BatchCommandFailed("x".into())).exit_code(),
+            56
+        );
+        assert_eq!(
+            WaitError::from(WaitErrorKind::BatchRollbackFailed("x".into())).exit_code(),
+            57
+        );
+        assert_eq!(
+            WaitError::from(WaitErrorKind::CheckpointError("x".into())).exit_code(),
+            58
+        );
+        assert_eq!(
+            WaitError::from(WaitErrorKind::BatchSizeExceeded(1)).exit_code(),
+            80
+        );
     }
 
     #[test]

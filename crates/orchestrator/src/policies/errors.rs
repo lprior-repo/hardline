@@ -250,7 +250,10 @@ mod tests {
         let errors = [
             ConfigError::InvalidTimeout { duration_ms: 0 },
             ConfigError::InvalidBaseDelay { delay_ms: 0 },
-            ConfigError::InvalidMaxDelay { max_delay_ms: 50, base_delay_ms: 100 },
+            ConfigError::InvalidMaxDelay {
+                max_delay_ms: 50,
+                base_delay_ms: 100,
+            },
             ConfigError::InvalidFailureThreshold { threshold: 0 },
             ConfigError::InvalidRecoveryTimeout { timeout_ms: 0 },
         ];

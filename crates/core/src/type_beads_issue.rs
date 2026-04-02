@@ -91,8 +91,7 @@ mod tests {
             IssueStatus::Closed,
         ] {
             let json = serde_json::to_string(&status).expect("serialize ok");
-            let deserialized: IssueStatus =
-                serde_json::from_str(&json).expect("deserialize ok");
+            let deserialized: IssueStatus = serde_json::from_str(&json).expect("deserialize ok");
             assert_eq!(status, deserialized, "Roundtrip failed for {status:?}");
         }
     }
@@ -120,8 +119,7 @@ mod tests {
 
     #[test]
     fn test_issue_status_serde_unknown_string_fails() {
-        let result: std::result::Result<IssueStatus, _> =
-            serde_json::from_str("\"unknown\"");
+        let result: std::result::Result<IssueStatus, _> = serde_json::from_str("\"unknown\"");
         assert!(result.is_err());
     }
 
@@ -195,8 +193,7 @@ mod tests {
             issue_type: None,
         };
         let json = serde_json::to_string(&issue).expect("serialize ok");
-        let deserialized: BeadsIssue =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: BeadsIssue = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(issue.id, deserialized.id);
         assert_eq!(issue.title, deserialized.title);
         assert_eq!(issue.status, deserialized.status);
@@ -214,8 +211,7 @@ mod tests {
             issue_type: Some("bugfix".to_string()),
         };
         let json = serde_json::to_string(&issue).expect("serialize ok");
-        let deserialized: BeadsIssue =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: BeadsIssue = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(deserialized.priority.as_deref(), Some("critical"));
         assert_eq!(deserialized.issue_type.as_deref(), Some("bugfix"));
     }
@@ -231,7 +227,10 @@ mod tests {
         };
         let json_val = serde_json::to_value(&issue).expect("serialize ok");
         let obj = json_val.as_object().expect("should be object");
-        assert!(obj.contains_key("type"), "issue_type should be renamed to 'type'");
+        assert!(
+            obj.contains_key("type"),
+            "issue_type should be renamed to 'type'"
+        );
         assert!(!obj.contains_key("issue_type"));
     }
 
@@ -317,8 +316,7 @@ mod tests {
             closed: 4,
         };
         let json = serde_json::to_string(&s).expect("serialize ok");
-        let deserialized: BeadsSummary =
-            serde_json::from_str(&json).expect("deserialize ok");
+        let deserialized: BeadsSummary = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(s.open, deserialized.open);
         assert_eq!(s.in_progress, deserialized.in_progress);
         assert_eq!(s.blocked, deserialized.blocked);

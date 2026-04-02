@@ -388,27 +388,26 @@ mod tests {
     fn classify_all_risky_commands_individually() {
         let risky = ["batch", "spawn", "remove", "cleanup", "rebase", "squash"];
         for cmd in risky {
-            assert_eq!(classify_command(cmd), OperationRisk::Risky, "expected '{cmd}' to be Risky");
+            assert_eq!(
+                classify_command(cmd),
+                OperationRisk::Risky,
+                "expected '{cmd}' to be Risky"
+            );
         }
     }
 
     #[test]
     fn classify_safe_commands_including_common_ones() {
         let safe = [
-            "list",
-            "status",
-            "context",
-            "focus",
-            "help",
-            "version",
-            "show",
-            "log",
-            "diff",
-            "get",
+            "list", "status", "context", "focus", "help", "version", "show", "log", "diff", "get",
             "set",
         ];
         for cmd in safe {
-            assert_eq!(classify_command(cmd), OperationRisk::Safe, "expected '{cmd}' to be Safe");
+            assert_eq!(
+                classify_command(cmd),
+                OperationRisk::Safe,
+                "expected '{cmd}' to be Safe"
+            );
         }
     }
 

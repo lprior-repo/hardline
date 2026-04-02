@@ -50,7 +50,7 @@ mod tests {
         let state = SystemState {
             sessions: Vec::new(),
             initialized: true,
-            jj_repo: true,
+            git_repo: true,
         };
 
         let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
@@ -70,7 +70,7 @@ mod tests {
         let state = SystemState {
             sessions: vec![session],
             initialized: true,
-            jj_repo: true,
+            git_repo: true,
         };
 
         let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
@@ -84,7 +84,7 @@ mod tests {
         let state = SystemState {
             sessions: vec![create_test_session("failed-session", SessionStatus::Failed)],
             initialized: true,
-            jj_repo: true,
+            git_repo: true,
         };
 
         let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
@@ -100,7 +100,7 @@ mod tests {
                 create_test_session("session3", SessionStatus::Active),
             ],
             initialized: true,
-            jj_repo: true,
+            git_repo: true,
         };
 
         let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
@@ -136,7 +136,7 @@ mod tests {
         let state = SystemState {
             sessions: Vec::new(),
             initialized: false,
-            jj_repo: true,
+            git_repo: true,
         };
 
         let actions = suggest_next_actions(&state);
@@ -153,7 +153,7 @@ mod tests {
         let state = SystemState {
             sessions: Vec::new(),
             initialized: true,
-            jj_repo: true,
+            git_repo: true,
         };
 
         let actions = suggest_next_actions(&state);
@@ -165,7 +165,7 @@ mod tests {
         let state = SystemState {
             sessions: vec![create_test_session("done", SessionStatus::Completed)],
             initialized: true,
-            jj_repo: true,
+            git_repo: true,
         };
 
         let actions = suggest_next_actions(&state);
@@ -423,7 +423,7 @@ mod tests {
         let state = SystemState {
             sessions: vec![create_test_session("active", SessionStatus::Active)],
             initialized: true,
-            jj_repo: true,
+            git_repo: true,
         };
 
         use crate::hints::response::SystemContext;
@@ -431,7 +431,7 @@ mod tests {
             crate::hints::response::HintsResponse {
                 context: SystemContext {
                     initialized: true,
-                    jj_repo: true,
+                    git_repo: true,
                     sessions_count: 0,
                     active_sessions: 0,
                     has_changes: false,
@@ -515,7 +515,10 @@ mod tests {
 
         assert_eq!(hint.hint_type, HintType::Suggestion);
         assert_eq!(hint.message, "do something");
-        assert_eq!(hint.suggested_command, Some("scp session add test".to_string()));
+        assert_eq!(
+            hint.suggested_command,
+            Some("scp session add test".to_string())
+        );
         assert_eq!(hint.rationale, Some("it's a good idea".to_string()));
         assert!(hint.context.is_some());
     }
@@ -590,7 +593,7 @@ mod tests {
         use crate::hints::response::SystemContext;
         let ctx = SystemContext {
             initialized: true,
-            jj_repo: false,
+            git_repo: false,
             sessions_count: 5,
             active_sessions: 2,
             has_changes: true,
@@ -604,14 +607,14 @@ mod tests {
         use crate::hints::response::SystemContext;
         let a = SystemContext {
             initialized: true,
-            jj_repo: false,
+            git_repo: false,
             sessions_count: 1,
             active_sessions: 0,
             has_changes: false,
         };
         let b = SystemContext {
             initialized: true,
-            jj_repo: false,
+            git_repo: false,
             sessions_count: 1,
             active_sessions: 0,
             has_changes: false,
@@ -625,7 +628,7 @@ mod tests {
         let response = HintsResponse {
             context: SystemContext {
                 initialized: false,
-                jj_repo: false,
+                git_repo: false,
                 sessions_count: 0,
                 active_sessions: 0,
                 has_changes: false,
@@ -780,7 +783,7 @@ mod tests {
                 create_test_session("paused", SessionStatus::Paused),
             ],
             initialized: true,
-            jj_repo: true,
+            git_repo: true,
         };
 
         let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
@@ -798,7 +801,7 @@ mod tests {
         let state = SystemState {
             sessions: vec![create_test_session("active", SessionStatus::Active)],
             initialized: true,
-            jj_repo: true,
+            git_repo: true,
         };
         let actions = suggest_next_actions(&state);
         assert!(actions.iter().any(|a| a.action.contains("Review")));
@@ -814,13 +817,13 @@ mod tests {
         let state = SystemState {
             sessions: Vec::new(),
             initialized: false,
-            jj_repo: false,
+            git_repo: false,
         };
         let response = generate_hints_response(&state).unwrap_or_else(|_| {
             crate::hints::response::HintsResponse {
                 context: crate::hints::response::SystemContext {
                     initialized: true,
-                    jj_repo: true,
+                    git_repo: true,
                     sessions_count: 1,
                     active_sessions: 1,
                     has_changes: true,

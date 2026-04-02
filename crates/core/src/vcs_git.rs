@@ -153,7 +153,9 @@ impl VcsBackend for GitBackend {
             )
             .into());
         }
-        let id = String::from_utf8_lossy(&rev_output.stdout).trim().to_string();
+        let id = String::from_utf8_lossy(&rev_output.stdout)
+            .trim()
+            .to_string();
         CommitId::new(id)
             .ok_or_else(|| VcsErrorKind::CommitFailed("Commit returned empty ID".to_string()))
             .map_err(Into::into)
@@ -178,7 +180,11 @@ impl VcsBackend for GitBackend {
         // Get current branch
         let branch = self.current_branch().ok().and_then(|b| {
             let trimmed = b.trim().to_string();
-            if trimmed.is_empty() { None } else { super::types::BranchName::new(trimmed) }
+            if trimmed.is_empty() {
+                None
+            } else {
+                super::types::BranchName::new(trimmed)
+            }
         });
 
         // Get current commit ID
