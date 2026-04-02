@@ -30,3 +30,65 @@ pub enum BuilderError {
         reason: String,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_required_display() {
+        let err = BuilderError::MissingRequired { field: "name" };
+        let msg = format!("{err}");
+        assert!(msg.contains("name"));
+        assert!(msg.contains("missing required field"));
+    }
+
+    #[test]
+    fn invalid_value_display() {
+        let err = BuilderError::InvalidValue { field: "age", reason: "negative".to_string() };
+        let msg = format!("{err}");
+        assert!(msg.contains("age"));
+        assert!(msg.contains("negative"));
+    }
+
+    #[test]
+    fn overflow_display() {
+        let err = BuilderError::Overflow { field: "tags", capacity: 10 };
+        let msg = format!("{err}");
+        assert!(msg.contains("tags"));
+        assert!(msg.contains("10"));
+        assert!(msg.contains("exceeds capacity"));
+    }
+
+    #[test]
+    fn invalid_transition_display() {
+        let err = BuilderError::InvalidTransition {
+            from: "draft",
+            to: "published",
+            reason: "must be reviewed first".to_string(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("draft"));
+        assert!(msg.contains("published"));
+        assert!(msg.contains("must be reviewed first"));
+    }
+
+    #[test]
+    fn error_is_debug() {
+        let err = BuilderError::MissingRequired { field: "x" };
+        let debug = format!("{err:?}");
+        assert!(debug.contains("MissingRequired"));
+    }
+
+    #[test]
+    fn all_variants_are_exhaustive() {
+        let _ = BuilderError::MissingRequired { field: "a" };
+        let _ = BuilderError::InvalidValue { field: "b", reason: String::new() };
+        let _ = BuilderError::Overflow { field: "c", capacity: 0 };
+        let _ = BuilderError::InvalidTransition {
+            from: "d",
+            to: "e",
+            reason: String::new(),
+        };
+    }
+}

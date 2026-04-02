@@ -436,6 +436,7 @@ fn test_queue_entry_new_accepts_max_priority() {
 }
 
 use proptest::prelude::*;
+use proptest::{prop_assert, prop_assert_eq};
 
 proptest! {
     #[test]
@@ -524,5 +525,92 @@ proptest! {
         }
         prop_assert_eq!(queue.len(), count);
         prop_assert_eq!(queue.entries().len(), count);
+    }
+
+    #[test]
+    fn prop_dequeue_then_find_none(
+        id in "[a-zA-Z0-9_-]{1,20}",
+        session in "[a-zA-Z0-9_-]{1,20}",
+        priority in 0..=crate::domain::queue::status::MAX_PRIORITY
+    ) {
+        let id_clone = id.clone();
+        if let Ok(entry) = QueueEntry::new(id, session, priority) {
+            let queue = Queue::new().enqueue(entry);
+            let entry_id = QueueEntryId::new(id_clone).unwrap();
+            let (new_queue, removed) = queue.dequeue(&entry_id);
+            prop_assert!(removed.is_some());
+            prop_assert!(new_queue.find(&entry_id).is_none());
+        }
+    }
+
+    #[test]
+    fn prop_enqueue_immutability(
+        id in "[a-zA-Z0-9_-]{1,20}",
+        session in "[a-zA-Z0-9_-]{1,20}",
+        priority in 0..=crate::domain::queue::status::MAX_PRIORITY
+    ) {
+        let queue = Queue::new();
+        if let Ok(entry) = QueueEntry::new(id, session, priority) {
+            let _new_queue = queue.enqueue(entry);
+            prop_assert!(queue.is_empty());
+        }
+    }
+
+    #[test]
+    fn prop_find_nonexistent(
+        id in "[a-zA-Z0-9_-]{1,20}",
+        session in "[a-zA-Z0-9_-]{1,20}",
+        priority in 0..=crate::domain::queue::status::MAX_PRIORITY,
+        lookup_id in "[a-zA-Z0-9_-]{1,20}"
+    ) {
+        if let Ok(entry) = QueueEntry::new(id.clone(), session, priority) {
+            let queue = Queue::new().enqueue(entry);
+            if id != lookup_id {
+                let lookup = QueueEntryId::new(lookup_id).unwrap();
+                prop_assert!(queue.find(&lookup).is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn prop_queue_entry_serde_roundtrip(
+        id in "[a-zA-Z0-9_-]{1,20}",
+        session in "[a-zA-Z0-9_-]{1,20}",
+        priority in 0..=crate::domain::queue::status::MAX_PRIORITY
+    ) {
+        if let Ok(entry) = QueueEntry::new(id, session, priority) {
+            let json = serde_json::to_string(&entry).unwrap();
+            let back: QueueEntry = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(back.id.as_str(), entry.id.as_str());
+            prop_assert_eq!(back.session.as_str(), entry.session.as_str());
+            prop_assert_eq!(back.priority, entry.priority);
+        }
+    }
+
+    #[test]
+    fn prop_status_transition_validity(
+        from_idx in 0u8..10u8,
+        to_idx in 0u8..10u8
+    ) {
+        let all_statuses = [
+            QueueStatus::Pending,
+            QueueStatus::Claimed,
+            QueueStatus::Rebasing,
+            QueueStatus::Testing,
+            QueueStatus::ReadyToMerge,
+            QueueStatus::Merging,
+            QueueStatus::Merged,
+            QueueStatus::FailedRetryable,
+            QueueStatus::FailedTerminal,
+            QueueStatus::Cancelled,
+        ];
+        let from = all_statuses[from_idx as usize];
+        let to = all_statuses[to_idx as usize];
+        let result = from.transition_to(to);
+        if result.is_ok() {
+            prop_assert_eq!(result.unwrap(), to);
+        } else {
+            prop_assert!(result.is_err());
+        }
     }
 }

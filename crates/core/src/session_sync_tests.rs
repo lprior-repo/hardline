@@ -293,3 +293,280 @@ fn test_sync_error_to_core_conflict() {
 
     assert!(matches!(core_err, CoreError::Vcs(_)));
 }
+
+// ========================================================================
+// Additional coverage: From<SyncError> for CoreError — remaining variants
+// ========================================================================
+
+#[test]
+fn test_sync_error_to_core_invalid_status() {
+    let sync_err = SyncError::InvalidSessionStatus {
+        actual: "Paused".to_string(),
+        allowed: vec!["Active".to_string()],
+    };
+    let core_err = CoreError::from(sync_err);
+    let msg = core_err.to_string();
+    assert!(
+        msg.contains("Paused") || msg.contains("status"),
+        "Expected status info in conversion: {msg}"
+    );
+}
+
+#[test]
+fn test_sync_error_to_core_dirty_workspace() {
+    let sync_err = SyncError::DirtyWorkspace("/my/ws".to_string());
+    let core_err = CoreError::from(sync_err);
+    let msg = core_err.to_string();
+    assert!(
+        msg.contains("/my/ws") || msg.contains("uncommitted"),
+        "Expected workspace info in conversion: {msg}"
+    );
+}
+
+#[test]
+fn test_sync_error_to_core_rebase_failure() {
+    let sync_err = SyncError::RebaseFailure {
+        workspace: "w".to_string(),
+        reason: "divergence".to_string(),
+    };
+    let core_err = CoreError::from(sync_err);
+    assert!(matches!(core_err, CoreError::Vcs(_)));
+}
+
+#[test]
+fn test_sync_error_to_core_jj_command_error() {
+    let sync_err = SyncError::JjCommandError("cmd failed".to_string());
+    let core_err = CoreError::from(sync_err);
+    assert!(matches!(core_err, CoreError::Vcs(_)));
+}
+
+#[test]
+fn test_sync_error_to_core_io_error() {
+    let sync_err = SyncError::IoError("disk full".to_string());
+    let core_err = CoreError::from(sync_err);
+    assert!(matches!(core_err, CoreError::Io(_)));
+}
+
+// ========================================================================
+// Additional coverage: PreconditionCheck edge cases
+// ========================================================================
+
+#[test]
+fn test_precondition_check_valid_failed_status() {
+    let check = PreconditionCheck::valid(SessionStatus::Failed);
+    assert!(check.is_valid());
+}
+
+#[test]
+fn test_precondition_check_invalid_paused_status() {
+    let check = PreconditionCheck {
+        session_exists: true,
+        current_status: Some(SessionStatus::Paused),
+        workspace_status: WorkspaceCleanStatus::Clean,
+    };
+    assert!(!check.is_valid());
+}
+
+#[test]
+fn test_precondition_check_invalid_completed_status() {
+    let check = PreconditionCheck {
+        session_exists: true,
+        current_status: Some(SessionStatus::Completed),
+        workspace_status: WorkspaceCleanStatus::Clean,
+    };
+    assert!(!check.is_valid());
+}
+
+#[test]
+fn test_precondition_check_invalid_no_status() {
+    let check = PreconditionCheck {
+        session_exists: true,
+        current_status: None,
+        workspace_status: WorkspaceCleanStatus::Clean,
+    };
+    assert!(!check.is_valid());
+}
+
+#[test]
+fn test_precondition_check_invalid_dirty_workspace() {
+    let check = PreconditionCheck {
+        session_exists: true,
+        current_status: Some(SessionStatus::Active),
+        workspace_status: WorkspaceCleanStatus::Dirty,
+    };
+    assert!(!check.is_valid());
+}
+
+#[test]
+fn test_precondition_check_valid_unknown_workspace() {
+    let check = PreconditionCheck {
+        session_exists: true,
+        current_status: Some(SessionStatus::Active),
+        workspace_status: WorkspaceCleanStatus::Unknown,
+    };
+    assert!(check.is_valid());
+}
+
+#[test]
+fn test_precondition_check_valid_failed_unknown_workspace() {
+    let check = PreconditionCheck {
+        session_exists: true,
+        current_status: Some(SessionStatus::Failed),
+        workspace_status: WorkspaceCleanStatus::Unknown,
+    };
+    assert!(check.is_valid());
+}
+
+// ========================================================================
+// Additional coverage: validate_sync_preconditions edge cases
+// ========================================================================
+
+#[test]
+fn test_validate_preconditions_paused_status_rejected() {
+    let result = validate_sync_preconditions(
+        true,
+        Some(SessionStatus::Paused),
+        WorkspaceCleanStatus::Clean,
+        false,
+    );
+    assert!(matches!(result, Err(SyncError::InvalidSessionStatus { .. })));
+}
+
+#[test]
+fn test_validate_preconditions_completed_status_rejected() {
+    let result = validate_sync_preconditions(
+        true,
+        Some(SessionStatus::Completed),
+        WorkspaceCleanStatus::Clean,
+        false,
+    );
+    assert!(matches!(result, Err(SyncError::InvalidSessionStatus { .. })));
+}
+
+#[test]
+fn test_validate_preconditions_no_status_rejected() {
+    let result = validate_sync_preconditions(true, None, WorkspaceCleanStatus::Clean, false);
+    assert!(matches!(result, Err(SyncError::InvalidSessionStatus { .. })));
+}
+
+#[test]
+fn test_validate_preconditions_invalid_status_actual_is_none_string() {
+    let result = validate_sync_preconditions(true, None, WorkspaceCleanStatus::Clean, false);
+    if let Err(SyncError::InvalidSessionStatus { actual, .. }) = result {
+        assert_eq!(actual, "None");
+    } else {
+        panic!("Expected InvalidSessionStatus with actual='None'");
+    }
+}
+
+// ========================================================================
+// Additional coverage: determine_workspace_status edge cases
+// ========================================================================
+
+#[test]
+fn test_determine_workspace_status_whitespace_only() {
+    let status = determine_workspace_status("   \n\t  ");
+    assert_eq!(status, WorkspaceCleanStatus::Clean);
+}
+
+#[test]
+fn test_determine_workspace_status_unknown_output() {
+    let status = determine_workspace_status("Some random output");
+    assert_eq!(status, WorkspaceCleanStatus::Unknown);
+}
+
+#[test]
+fn test_determine_workspace_status_changes_keyword() {
+    let status = determine_workspace_status("Changes:\n  M src/main.rs");
+    assert_eq!(status, WorkspaceCleanStatus::Dirty);
+}
+
+#[test]
+fn test_determine_workspace_status_files_keyword() {
+    let status = determine_workspace_status("2 files modified");
+    assert_eq!(status, WorkspaceCleanStatus::Dirty);
+}
+
+// ========================================================================
+// Additional coverage: parse_rebase_output edge cases
+// ========================================================================
+
+#[test]
+fn test_parse_rebase_output_empty() {
+    let (rev, conflicts) = parse_rebase_output("");
+    assert!(rev.is_none());
+    assert!(conflicts.is_empty());
+}
+
+#[test]
+fn test_parse_rebase_output_too_short_hex() {
+    let (rev, _) = parse_rebase_output("abcde");
+    assert!(rev.is_none(), "5-char hex should not be a revision");
+}
+
+#[test]
+fn test_parse_rebase_output_too_long_hex() {
+    let long = "a".repeat(65);
+    let (rev, _) = parse_rebase_output(&long);
+    assert!(rev.is_none(), "65-char hex should not be a revision");
+}
+
+#[test]
+fn test_parse_rebase_output_hex_with_colon_skipped() {
+    let (rev, _) = parse_rebase_output("ab12cd34ef56: extra");
+    assert!(rev.is_none(), "Hex with colon should not be a revision");
+}
+
+#[test]
+fn test_parse_rebase_output_hex_with_space_skipped() {
+    let (rev, _) = parse_rebase_output("ab12cd34ef56 extra");
+    assert!(rev.is_none(), "Hex with space should not be a revision");
+}
+
+#[test]
+fn test_parse_rebase_output_conflict_case_insensitive() {
+    let output = "CONFLICT in file.rs\nAlso Conflicted file2.rs";
+    let (_rev, conflicts) = parse_rebase_output(output);
+    assert_eq!(conflicts.len(), 2);
+}
+
+#[test]
+fn test_create_sync_result_no_revision_falls_back_to_unknown() {
+    let result = create_sync_result("s".to_string(), "No hex here");
+    assert_eq!(result.new_revision, "unknown");
+}
+
+// ========================================================================
+// Additional coverage: SyncError Clone + Debug
+// ========================================================================
+
+#[test]
+fn test_sync_error_clone() {
+    let err = SyncError::SessionNotFound("s".to_string());
+    let cloned = err.clone();
+    assert!(matches!(cloned, SyncError::SessionNotFound(n) if n == "s"));
+}
+
+#[test]
+fn test_sync_error_debug_format() {
+    let err = SyncError::RebaseFailure {
+        workspace: "w".to_string(),
+        reason: "r".to_string(),
+    };
+    let debug = format!("{err:?}");
+    assert!(debug.contains("RebaseFailure"));
+}
+
+// ========================================================================
+// Additional coverage: SessionSyncInput clone
+// ========================================================================
+
+#[test]
+fn test_session_sync_input_clone() {
+    let input = SessionSyncInput::new("s".into(), PathBuf::from("/w"), "main".into());
+    let cloned = input.clone();
+    assert_eq!(cloned.session_name, input.session_name);
+    assert_eq!(cloned.workspace_path, input.workspace_path);
+    assert_eq!(cloned.main_branch, input.main_branch);
+    assert_eq!(cloned.allow_dirty, input.allow_dirty);
+}

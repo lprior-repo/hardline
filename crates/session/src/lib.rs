@@ -1,3 +1,4 @@
+#![allow(dead_code, clippy::missing_errors_doc)]
 #![deny(warnings)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]

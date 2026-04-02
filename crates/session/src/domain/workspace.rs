@@ -428,4 +428,351 @@ mod tests {
 
         assert!(result.is_err());
     }
+
+    // =========================================================================
+    // WorkspaceId Tests
+    // =========================================================================
+
+    mod workspace_id_tests {
+        use super::*;
+
+        #[test]
+        fn workspace_id_valid() {
+            let id = WorkspaceId::new("ws-001").expect("valid");
+            assert_eq!(id.as_str(), "ws-001");
+        }
+
+        #[test]
+        fn workspace_id_empty_rejects() {
+            let result = WorkspaceId::new("");
+            assert!(result.is_err());
+            assert!(matches!(result.unwrap_err(), SessionError::InvalidWorkspaceId(_)));
+        }
+
+        #[test]
+        fn workspace_id_display() {
+            let id = WorkspaceId::new("ws-test").expect("valid");
+            assert_eq!(format!("{id}"), "ws-test");
+        }
+    }
+
+    // =========================================================================
+    // WorkspaceName Tests (workspace variant)
+    // =========================================================================
+
+    mod workspace_name_tests {
+        use super::*;
+
+        #[test]
+        fn workspace_name_valid() {
+            let name = WorkspaceName::new("my-workspace").expect("valid");
+            assert_eq!(name.as_str(), "my-workspace");
+        }
+
+        #[test]
+        fn workspace_name_trims_whitespace() {
+            let name = WorkspaceName::new("  padded  ").expect("valid");
+            assert_eq!(name.as_str(), "padded");
+        }
+
+        #[test]
+        fn workspace_name_empty_rejects() {
+            let result = WorkspaceName::new("");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn workspace_name_whitespace_only_rejects() {
+            let result = WorkspaceName::new("   ");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn workspace_name_max_length_boundary() {
+            let max_name = "w".repeat(WorkspaceName::MAX_LENGTH);
+            let name = WorkspaceName::new(max_name).expect("at max");
+            assert_eq!(name.as_str().len(), WorkspaceName::MAX_LENGTH);
+        }
+
+        #[test]
+        fn workspace_name_exceeds_max_rejects() {
+            let too_long = "w".repeat(WorkspaceName::MAX_LENGTH + 1);
+            let result = WorkspaceName::new(too_long);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn workspace_name_display() {
+            let name = WorkspaceName::new("test").expect("valid");
+            assert_eq!(format!("{name}"), "test");
+        }
+    }
+
+    // =========================================================================
+    // WorkspacePath Tests
+    // =========================================================================
+
+    mod workspace_path_tests {
+        use super::*;
+
+        #[test]
+        fn workspace_path_absolute_valid() {
+            let path = WorkspacePath::new("/tmp/test-workspace").expect("valid");
+            assert_eq!(path.as_str(), "/tmp/test-workspace");
+        }
+
+        #[test]
+        fn workspace_path_relative_with_dot_valid() {
+            let path = WorkspacePath::new("./relative/path").expect("valid");
+            assert_eq!(path.as_str(), "./relative/path");
+        }
+
+        #[test]
+        fn workspace_path_empty_rejects() {
+            let result = WorkspacePath::new("");
+            assert!(result.is_err());
+            assert!(matches!(result.unwrap_err(), SessionError::InvalidWorkspacePath(_)));
+        }
+
+        #[test]
+        fn workspace_path_bare_name_rejects() {
+            let result = WorkspacePath::new("just-a-name");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn workspace_path_display() {
+            let path = WorkspacePath::new("/home/user/ws").expect("valid");
+            assert_eq!(format!("{path}"), "/home/user/ws");
+        }
+    }
+
+    // =========================================================================
+    // Workspace Aggregate Additional Tests
+    // =========================================================================
+
+    mod workspace_aggregate_tests {
+        use super::*;
+
+        #[test]
+        fn workspace_create_generates_id_with_prefix() {
+            let name = WorkspaceName::new("test").expect("valid");
+            let path = WorkspacePath::new("/tmp/test").expect("valid");
+            let workspace = Workspace::create(name, path).expect("created");
+            assert!(workspace.id().as_str().starts_with("ws-"));
+        }
+
+        #[test]
+        fn workspace_create_sets_created_at_equals_updated_at() {
+            let name = WorkspaceName::new("test").expect("valid");
+            let path = WorkspacePath::new("/tmp/test").expect("valid");
+            let workspace = Workspace::create(name, path).expect("created");
+            assert_eq!(workspace.created_at(), workspace.updated_at());
+        }
+
+        #[test]
+        fn workspace_getters_return_correct_values() {
+            let name = WorkspaceName::new("my-ws").expect("valid");
+            let path = WorkspacePath::new("/tmp/my-ws").expect("valid");
+            let workspace = Workspace::create(name, path).expect("created");
+
+            assert_eq!(workspace.name().as_str(), "my-ws");
+            assert_eq!(workspace.path().as_str(), "/tmp/my-ws");
+            assert_eq!(workspace.state(), WorkspaceState::Created);
+        }
+
+        #[test]
+        fn workspace_abandon_from_ready_succeeds() {
+            let name = WorkspaceName::new("test").expect("valid");
+            let path = WorkspacePath::new("/tmp/test").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let working = ws.start_working().expect("working");
+            let ready = working.mark_ready().expect("ready");
+            let abandoned = ready.abandon().expect("abandon");
+            assert_eq!(abandoned.state(), WorkspaceState::Abandoned);
+            assert!(abandoned.is_terminal());
+        }
+
+        #[test]
+        fn workspace_transition_updates_updated_at() {
+            let name = WorkspaceName::new("test").expect("valid");
+            let path = WorkspacePath::new("/tmp/test").expect("valid");
+            let workspace = Workspace::create(name, path).expect("created");
+
+            // Small delay to ensure time difference
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            let working = workspace.start_working().expect("working");
+
+            assert!(working.updated_at() >= workspace.created_at());
+        }
+
+        #[test]
+        fn workspace_cannot_mark_conflict_from_working() {
+            let name = WorkspaceName::new("test").expect("valid");
+            let path = WorkspacePath::new("/tmp/test").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let working = ws.start_working().expect("working");
+            let result = working.mark_conflict();
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn workspace_cannot_merge_from_created() {
+            let name = WorkspaceName::new("test").expect("valid");
+            let path = WorkspacePath::new("/tmp/test").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let result = ws.merge();
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn workspace_cannot_merge_from_working() {
+            let name = WorkspaceName::new("test").expect("valid");
+            let path = WorkspacePath::new("/tmp/test").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let working = ws.start_working().expect("working");
+            let result = working.merge();
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn workspace_conflict_path() {
+            let name = WorkspaceName::new("test").expect("valid");
+            let path = WorkspacePath::new("/tmp/test").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let working = ws.start_working().expect("working");
+            let ready = working.mark_ready().expect("ready");
+            let conflict = ready.mark_conflict().expect("conflict");
+            assert_eq!(conflict.state(), WorkspaceState::Conflict);
+            assert!(conflict.is_terminal());
+        }
+
+        #[test]
+        fn workspace_abandon_from_created_succeeds() {
+            let name = WorkspaceName::new("test").expect("valid");
+            let path = WorkspacePath::new("/tmp/test").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let abandoned = ws.abandon().expect("abandon");
+            assert_eq!(abandoned.state(), WorkspaceState::Abandoned);
+            assert!(abandoned.is_terminal());
+        }
+    }
+
+    // =========================================================================
+    // Workspace Serde and Lifecycle Edge-Case Tests
+    // =========================================================================
+
+    mod workspace_serde_and_lifecycle_tests {
+        use super::*;
+
+        #[test]
+        fn workspace_serde_roundtrip_created() {
+            let name = WorkspaceName::new("serde-ws").expect("valid");
+            let path = WorkspacePath::new("/tmp/serde").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let json = serde_json::to_string(&ws).expect("serialize");
+            let parsed: Workspace = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(ws.id(), parsed.id());
+            assert_eq!(ws.state(), parsed.state());
+        }
+
+        #[test]
+        fn workspace_serde_roundtrip_merged() {
+            let name = WorkspaceName::new("serde-merged").expect("valid");
+            let path = WorkspacePath::new("/tmp/serde-merged").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let working = ws.start_working().expect("working");
+            let ready = working.mark_ready().expect("ready");
+            let merged = ready.merge().expect("merged");
+            let json = serde_json::to_string(&merged).expect("serialize");
+            let parsed: Workspace = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(merged.state(), parsed.state());
+        }
+
+        #[test]
+        fn workspace_full_happy_path() {
+            let name = WorkspaceName::new("full-path").expect("valid");
+            let path = WorkspacePath::new("/tmp/full-path").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            assert_eq!(ws.state(), WorkspaceState::Created);
+
+            let working = ws.start_working().expect("working");
+            assert_eq!(working.state(), WorkspaceState::Working);
+            assert!(working.is_working());
+            assert!(!working.is_ready());
+            assert!(!working.is_terminal());
+
+            let ready = working.mark_ready().expect("ready");
+            assert_eq!(ready.state(), WorkspaceState::Ready);
+            assert!(ready.is_ready());
+            assert!(!ready.is_working());
+
+            let merged = ready.merge().expect("merged");
+            assert_eq!(merged.state(), WorkspaceState::Merged);
+            assert!(merged.is_terminal());
+            assert!(!merged.is_ready());
+            assert!(!merged.is_working());
+        }
+
+        #[test]
+        fn workspace_full_abandon_from_ready() {
+            let name = WorkspaceName::new("abandon-ready").expect("valid");
+            let path = WorkspacePath::new("/tmp/abandon-ready").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let working = ws.start_working().expect("working");
+            let ready = working.mark_ready().expect("ready");
+            let abandoned = ready.abandon().expect("abandon");
+            assert_eq!(abandoned.state(), WorkspaceState::Abandoned);
+            assert!(abandoned.is_terminal());
+        }
+
+        #[test]
+        fn workspace_id_preserved_through_transitions() {
+            let name = WorkspaceName::new("id-persist").expect("valid");
+            let path = WorkspacePath::new("/tmp/id-persist").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let id_before = ws.id().as_str().to_string();
+
+            let working = ws.start_working().expect("working");
+            let ready = working.mark_ready().expect("ready");
+            let merged = ready.merge().expect("merged");
+
+            assert_eq!(merged.id().as_str(), id_before);
+        }
+
+        #[test]
+        fn workspace_name_and_path_preserved_through_transitions() {
+            let name = WorkspaceName::new("field-persist").expect("valid");
+            let path = WorkspacePath::new("/tmp/field-persist").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+
+            let working = ws.start_working().expect("working");
+            assert_eq!(working.name().as_str(), "field-persist");
+            assert_eq!(working.path().as_str(), "/tmp/field-persist");
+        }
+
+        #[test]
+        fn workspace_abandon_from_conflict_fails() {
+            let name = WorkspaceName::new("abandon-conflict").expect("valid");
+            let path = WorkspacePath::new("/tmp/abandon-conflict").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let working = ws.start_working().expect("working");
+            let ready = working.mark_ready().expect("ready");
+            let conflict = ready.mark_conflict().expect("conflict");
+            let result = conflict.abandon();
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn workspace_start_working_from_merged_fails() {
+            let name = WorkspaceName::new("start-merged").expect("valid");
+            let path = WorkspacePath::new("/tmp/start-merged").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let working = ws.start_working().expect("working");
+            let ready = working.mark_ready().expect("ready");
+            let merged = ready.merge().expect("merged");
+            let result = merged.start_working();
+            assert!(result.is_err());
+        }
+    }
 }

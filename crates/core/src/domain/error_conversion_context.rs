@@ -34,7 +34,7 @@ impl IntoRepositoryError for SessionError {
                 path.display(),
             )),
             other => {
-                RepositoryError::InvalidInput(format!("failed to {operation} {entity}: {other}",))
+                RepositoryError::InvalidInput(format!("failed to {operation} {entity}: {other}"))
             }
         }
     }
@@ -51,10 +51,10 @@ impl IntoRepositoryError for WorkspaceError {
                 path.display(),
             )),
             Self::Removed => {
-                RepositoryError::NotFound(format!("{entity} has been removed during {operation}",))
+                RepositoryError::NotFound(format!("{entity} has been removed during {operation}"))
             }
             other => {
-                RepositoryError::InvalidInput(format!("failed to {operation} {entity}: {other}",))
+                RepositoryError::InvalidInput(format!("failed to {operation} {entity}: {other}"))
             }
         }
     }

@@ -18,7 +18,7 @@ use super::RepositoryResult;
 
 /// In-memory session repository for testing.
 ///
-/// Uses RwLock for concurrent read access and HashMap for O(1) lookups.
+/// Uses `RwLock` for concurrent read access and `HashMap` for O(1) lookups.
 /// Enforces invariant I1: duplicate session names are rejected.
 pub struct InMemorySessionRepository {
     sessions: RwLock<HashMap<SessionId, Session>>,
@@ -81,6 +81,7 @@ impl SessionRepository for InMemorySessionRepository {
         }
 
         sessions.insert(session.id.clone(), session.clone());
+        drop(sessions);
         Ok(())
     }
 

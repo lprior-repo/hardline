@@ -15,6 +15,4 @@ pub use commits::*;
 pub use completion::*;
 pub use lifecycle::*;
 pub use merge::*;
-pub use navigation::*;
-pub use operations::*;
 pub use types::SyncOption;

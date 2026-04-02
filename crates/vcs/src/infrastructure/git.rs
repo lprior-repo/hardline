@@ -143,4 +143,32 @@ mod tests {
         let backend = GitBackend::new_from_path("/tmp/test");
         assert_eq!(backend.repo_path, std::path::PathBuf::from("/tmp/test"));
     }
+
+    #[test]
+    fn git_backend_new() {
+        let path = std::path::PathBuf::from("/tmp/git-test");
+        let backend = GitBackend::new(path.clone());
+        assert_eq!(backend.repo_path, path);
+    }
+
+    #[test]
+    fn git_backend_is_initialized_true() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
+        let backend = GitBackend::new(dir.path().to_path_buf());
+        assert!(backend.is_initialized().expect("ok"));
+    }
+
+    #[test]
+    fn git_backend_is_initialized_false() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let backend = GitBackend::new(dir.path().to_path_buf());
+        assert!(!backend.is_initialized().expect("ok"));
+    }
+
+    #[test]
+    fn git_backend_is_initialized_no_path() {
+        let backend = GitBackend::new(std::path::PathBuf::from("/nonexistent"));
+        assert!(!backend.is_initialized().expect("ok"));
+    }
 }

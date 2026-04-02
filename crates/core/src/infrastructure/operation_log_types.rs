@@ -160,3 +160,287 @@ pub fn parse_operation_log_row(
         created_at,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // =========================================================================
+    // OperationLogError Display
+    // =========================================================================
+
+    #[test]
+    fn given_query_failed_when_display_then_contains_message() {
+        let err = OperationLogError::QueryFailed("sql error".to_string());
+        let msg = format!("{err}");
+        assert!(msg.contains("Query failed: sql error"));
+    }
+
+    #[test]
+    fn given_database_error_when_display_then_contains_message() {
+        let err = OperationLogError::DatabaseError("conn lost".to_string());
+        let msg = format!("{err}");
+        assert!(msg.contains("Database error: conn lost"));
+    }
+
+    #[test]
+    fn given_serialization_error_when_display_then_contains_message() {
+        let err = OperationLogError::SerializationError("bad json".to_string());
+        let msg = format!("{err}");
+        assert!(msg.contains("Serialization error: bad json"));
+    }
+
+    #[test]
+    fn given_not_found_when_display_then_contains_id() {
+        let err = OperationLogError::NotFound("entry-42".to_string());
+        let msg = format!("{err}");
+        assert!(msg.contains("Operation not found: entry-42"));
+    }
+
+    #[test]
+    fn given_validation_failed_when_display_then_contains_message() {
+        let err = OperationLogError::ValidationFailed("empty field".to_string());
+        let msg = format!("{err}");
+        assert!(msg.contains("Validation failed: empty field"));
+    }
+
+    // =========================================================================
+    // OperationLogError as std::error::Error
+    // =========================================================================
+
+    #[test]
+    fn given_error_when_cast_to_std_error_then_succeeds() {
+        let err: Box<dyn std::error::Error> =
+            Box::new(OperationLogError::QueryFailed("test".to_string()));
+        let msg = format!("{err}");
+        assert!(msg.contains("Query failed"));
+    }
+
+    #[test]
+    fn given_error_variants_when_source_then_none() {
+        let err = OperationLogError::QueryFailed("test".to_string());
+        assert!(std::error::Error::source(&err).is_none());
+    }
+
+    // =========================================================================
+    // OperationLogError Clone
+    // =========================================================================
+
+    #[test]
+    fn given_error_when_cloned_then_same_display() {
+        let err = OperationLogError::DatabaseError("db err".to_string());
+        let cloned = err.clone();
+        assert_eq!(format!("{err}"), format!("{cloned}"));
+    }
+
+    // =========================================================================
+    // OperationLogError Debug
+    // =========================================================================
+
+    #[test]
+    fn given_error_when_debug_then_contains_variant() {
+        let err = OperationLogError::NotFound("id-1".to_string());
+        let debug = format!("{err:?}");
+        assert!(debug.contains("NotFound"));
+    }
+
+    // =========================================================================
+    // OperationLogEntry construction - valid cases
+    // =========================================================================
+
+    #[test]
+    fn given_valid_fields_when_new_then_succeeds() {
+        let entry = OperationLogEntry::new("session_created", r#"{"id": "s1"}"#, "session-s1", 1);
+        assert!(entry.is_ok());
+        let entry = entry.unwrap();
+        assert_eq!(entry.event_type, "session_created");
+        assert_eq!(entry.payload, r#"{"id": "s1"}"#);
+        assert_eq!(entry.stream_id, "session-s1");
+        assert_eq!(entry.stream_version, 1);
+        assert_eq!(entry.id, 0); // assigned by database
+    }
+
+    #[test]
+    fn given_valid_entry_when_new_then_created_at_is_recent() {
+        let before = chrono::Utc::now();
+        let entry = OperationLogEntry::new("event_type", "payload", "stream-1", 1).unwrap();
+        let after = chrono::Utc::now();
+        assert!(entry.created_at >= before);
+        assert!(entry.created_at <= after);
+    }
+
+    #[test]
+    fn given_empty_payload_when_new_then_succeeds() {
+        let entry = OperationLogEntry::new("event_type", "", "stream-1", 1);
+        assert!(entry.is_ok());
+    }
+
+    #[test]
+    fn given_zero_stream_version_when_new_then_succeeds() {
+        let entry = OperationLogEntry::new("event_type", "{}", "stream-1", 0);
+        assert!(entry.is_ok());
+        assert_eq!(entry.unwrap().stream_version, 0);
+    }
+
+    #[test]
+    fn given_negative_stream_version_when_new_then_succeeds() {
+        let entry = OperationLogEntry::new("event_type", "{}", "stream-1", -5);
+        assert!(entry.is_ok());
+        assert_eq!(entry.unwrap().stream_version, -5);
+    }
+
+    // =========================================================================
+    // OperationLogEntry construction - invalid cases
+    // =========================================================================
+
+    #[test]
+    fn given_empty_event_type_when_new_then_validation_fails() {
+        let result = OperationLogEntry::new("", "payload", "stream-1", 1);
+        assert!(result.is_err());
+        match result {
+            Err(OperationLogError::ValidationFailed(msg)) => {
+                assert!(msg.contains("event_type"));
+            }
+            other => panic!("Expected ValidationFailed, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn given_empty_stream_id_when_new_then_validation_fails() {
+        let result = OperationLogEntry::new("event_type", "payload", "", 1);
+        assert!(result.is_err());
+        match result {
+            Err(OperationLogError::ValidationFailed(msg)) => {
+                assert!(msg.contains("stream_id"));
+            }
+            other => panic!("Expected ValidationFailed, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn given_both_empty_when_new_then_validation_fails_on_event_type() {
+        let result = OperationLogEntry::new("", "payload", "", 1);
+        assert!(result.is_err());
+    }
+
+    // =========================================================================
+    // OperationLogEntry Clone
+    // =========================================================================
+
+    #[test]
+    fn given_entry_when_cloned_then_equal() {
+        let entry = OperationLogEntry::new("evt", "p", "s", 1).unwrap();
+        let cloned = entry.clone();
+        assert_eq!(entry.event_type, cloned.event_type);
+        assert_eq!(entry.payload, cloned.payload);
+        assert_eq!(entry.stream_id, cloned.stream_id);
+        assert_eq!(entry.stream_version, cloned.stream_version);
+    }
+
+    // =========================================================================
+    // OperationLogEntry Serialize / Deserialize
+    // =========================================================================
+
+    #[test]
+    fn given_entry_when_serialized_then_roundtrips() {
+        let entry = OperationLogEntry::new("evt", "payload", "stream-1", 3).unwrap();
+        let json = serde_json::to_string(&entry).unwrap();
+        let deserialized: OperationLogEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(entry.event_type, deserialized.event_type);
+        assert_eq!(entry.payload, deserialized.payload);
+        assert_eq!(entry.stream_id, deserialized.stream_id);
+        assert_eq!(entry.stream_version, deserialized.stream_version);
+        assert_eq!(entry.id, deserialized.id);
+    }
+
+    #[test]
+    fn given_entry_when_debug_then_contains_fields() {
+        let entry = OperationLogEntry::new("my-event", "data", "stream-x", 42).unwrap();
+        let debug = format!("{entry:?}");
+        assert!(debug.contains("my-event"));
+        assert!(debug.contains("stream-x"));
+        assert!(debug.contains("42"));
+    }
+
+    // =========================================================================
+    // parse_datetime - valid cases
+    // =========================================================================
+
+    #[test]
+    fn given_valid_rfc3339_when_parse_datetime_then_succeeds() {
+        let result = parse_datetime(Some("2024-01-15T10:30:00+00:00".to_string()));
+        assert!(result.is_ok());
+        let dt = result.unwrap();
+        assert_eq!(dt.timestamp(), 1705314600);
+    }
+
+    #[test]
+    fn given_valid_rfc3339_with_timezone_when_parse_datetime_then_utc() {
+        let result = parse_datetime(Some("2024-01-15T10:30:00Z".to_string()));
+        assert!(result.is_ok());
+        let dt = result.unwrap();
+        assert_eq!(dt.timezone(), chrono::Utc);
+    }
+
+    #[test]
+    fn given_valid_rfc3339_with_offset_when_parse_datetime_then_converts_to_utc() {
+        let result = parse_datetime(Some("2024-01-15T12:30:00+02:00".to_string()));
+        assert!(result.is_ok());
+        // Should convert +02:00 to UTC
+        assert_eq!(result.unwrap().timestamp(), 1705314600);
+    }
+
+    // =========================================================================
+    // parse_datetime - invalid cases
+    // =========================================================================
+
+    #[test]
+    fn given_none_when_parse_datetime_then_fails() {
+        let result = parse_datetime(None);
+        assert!(result.is_err());
+        match result {
+            Err(OperationLogError::QueryFailed(msg)) => {
+                assert!(msg.contains("Missing required datetime"));
+            }
+            other => panic!("Expected QueryFailed, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn given_invalid_format_when_parse_datetime_then_fails() {
+        let result = parse_datetime(Some("not-a-date".to_string()));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn given_empty_string_when_parse_datetime_then_fails() {
+        let result = parse_datetime(Some(String::new()));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn given_garbage_when_parse_datetime_then_fails() {
+        let result = parse_datetime(Some("2024-13-99T99:99:99Z".to_string()));
+        assert!(result.is_err());
+    }
+
+    // =========================================================================
+    // All error variants exhaustiveness display test
+    // =========================================================================
+
+    #[test]
+    fn given_all_error_variants_when_display_then_all_have_prefix() {
+        let variants: Vec<OperationLogError> = vec![
+            OperationLogError::QueryFailed("q".into()),
+            OperationLogError::DatabaseError("d".into()),
+            OperationLogError::SerializationError("s".into()),
+            OperationLogError::NotFound("n".into()),
+            OperationLogError::ValidationFailed("v".into()),
+        ];
+
+        for err in &variants {
+            let msg = format!("{err}");
+            assert!(!msg.is_empty(), "Display output should not be empty");
+        }
+    }
+}

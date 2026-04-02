@@ -70,7 +70,7 @@ impl AgentState {
     }
 
     /// Check if this state is terminal
-    /// AgentState has no terminal states per spec - any state can transition to Offline or Error
+    /// `AgentState` has no terminal states per spec - any state can transition to Offline or Error
     #[must_use]
     pub const fn is_terminal(self) -> bool {
         false
@@ -83,15 +83,17 @@ impl AgentState {
         matches!(self, Self::Idle | Self::Active)
     }
 
-    /// Attempt to transition to a new state
-    /// Returns Ok(new_state) if transition is valid, Err(AgentError::InvalidTransition) otherwise
+    /// Attempt to transition to a new state.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the transition is not valid for the current state.
     pub fn transition_to(self, target: Self) -> crate::error::Result<Self> {
         if self.can_transition_to(&target) {
             Ok(target)
         } else {
             Err(Error::invalid_state(format!(
-                "Invalid transition from {:?} to {:?}",
-                self, target
+                "Invalid transition from {self:?} to {target:?}"
             )))
         }
     }
@@ -102,29 +104,32 @@ impl AgentState {
 pub struct AgentStateMachine;
 
 impl AgentStateMachine {
-    /// Attempt to transition from one state to another
-    /// Returns Ok(new_state) if transition is valid, Err(InvalidTransition) otherwise
+    /// Attempt to transition from one state to another.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the transition is not valid for the given states.
     pub fn transition(from: AgentState, to: AgentState) -> crate::error::Result<AgentState> {
         from.transition_to(to)
     }
 
     /// Check if a transition from one state to another is valid
     #[must_use]
-    pub fn can_transition(from: AgentState, to: AgentState) -> bool {
+    pub const fn can_transition(from: AgentState, to: AgentState) -> bool {
         from.can_transition_to(&to)
     }
 
     /// Check if a state is terminal (no further transitions possible)
-    /// AgentState has no terminal states per spec - any state can transition to Offline or Error
+    /// `AgentState` has no terminal states per spec - any state can transition to Offline or Error
     #[must_use]
-    pub fn is_terminal(state: AgentState) -> bool {
+    pub const fn is_terminal(state: AgentState) -> bool {
         state.is_terminal()
     }
 
     /// Check if a state is available (can process work)
     /// Available states are Idle and Active
     #[must_use]
-    pub fn is_available(state: AgentState) -> bool {
+    pub const fn is_available(state: AgentState) -> bool {
         state.is_available()
     }
 }

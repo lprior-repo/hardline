@@ -1,5 +1,0 @@
----
-source: crates/scp-error/tests/snapshot_tests.rs
-expression: json
----
-{"ValidationFieldError":{"message":"must not be empty","field":"name","value":""}}

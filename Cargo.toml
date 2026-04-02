@@ -112,7 +112,7 @@ insta = { version = "1.40", features = ["yaml", "serde"] }
 [workspace.package]
 version = "0.5.0"
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.89"
 authors = ["Source Control Plane Contributors"]
 license = "MIT"
 repository = "https://github.com/source-control-plane/scp"

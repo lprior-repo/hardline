@@ -1,4 +1,4 @@
-//! StackMetadata query operations
+//! `StackMetadata` query operations
 
 use crate::dag::BranchId;
 
@@ -9,35 +9,28 @@ impl StackMetadata {
     ///
     /// # Errors
     /// Returns `MetadataError::BranchNotFound` if branch doesn't exist.
-    pub fn get_parent(&self, branch: BranchId) -> Result<Option<BranchId>, crate::Error> {
-        match self.parents.get(&branch) {
-            Some(parent) => Ok(parent.clone()),
-            None => Err(crate::Error::not_found(format!(
-                "Branch not found: {}",
-                branch
-            ))),
-        }
+    pub fn get_parent(&self, branch: &BranchId) -> Result<Option<BranchId>, crate::Error> {
+        self.parents.get(branch).map_or_else(
+            || Err(crate::Error::not_found(format!("Branch not found: {branch}"))),
+            |parent| Ok(parent.clone()),
+        )
     }
 
     /// Get children of branch
     ///
     /// # Errors
     /// Returns `MetadataError::ParentNotFound` if parent doesn't exist.
-    pub fn get_children(&self, parent: BranchId) -> Result<Vec<BranchId>, crate::Error> {
-        match self.children.get(&parent) {
-            Some(children) => Ok(children.clone()),
-            None => {
-                // If parent exists in parents but not in children, return empty list
-                if self.parents.contains_key(&parent) {
+    pub fn get_children(&self, parent: &BranchId) -> Result<Vec<BranchId>, crate::Error> {
+        self.children.get(parent).map_or_else(
+            || {
+                if self.parents.contains_key(parent) {
                     Ok(Vec::new())
                 } else {
-                    Err(crate::Error::not_found(format!(
-                        "Parent not found: {}",
-                        parent
-                    )))
+                    Err(crate::Error::not_found(format!("Parent not found: {parent}")))
                 }
-            }
-        }
+            },
+            |children| Ok(children.clone()),
+        )
     }
 
     /// Check if branch exists

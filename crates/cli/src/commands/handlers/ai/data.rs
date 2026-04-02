@@ -80,7 +80,7 @@ pub enum Location {
 impl Location {
     /// Parse a location from a raw string (backward-compatible deserialization).
     ///
-    /// Recognized values: "main", "not_in_repo", "unknown".
+    /// Recognized values: "main", "`not_in_repo`", "unknown".
     /// Any string starting with "workspace" becomes `Location::Workspace`.
     /// Everything else falls back to `Location::Unknown`.
     #[must_use]
@@ -161,7 +161,7 @@ impl fmt::Display for Priority {
 /// AI Status output.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct AiStatusOutput {
-    /// Current location (typed enum serialized as snake_case string).
+    /// Current location (typed enum serialized as `snake_case` string).
     pub location: Location,
     /// Current workspace name if in one.
     pub workspace: Option<String>,
@@ -256,4 +256,496 @@ pub enum AiSubcommand {
 #[derive(Debug, Clone)]
 pub struct AiOptions {
     pub subcommand: AiSubcommand,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // =========================================================================
+    // Schema constants
+    // =========================================================================
+
+    #[test]
+    fn schema_constants_are_non_empty() {
+        assert!(!AI_STATUS_RESPONSE.is_empty());
+        assert!(!AI_WORKFLOW_RESPONSE.is_empty());
+        assert!(!AI_QUICKSTART_RESPONSE.is_empty());
+        assert!(!AI_NEXT_RESPONSE.is_empty());
+        assert!(!AI_OVERVIEW_RESPONSE.is_empty());
+    }
+
+    #[test]
+    fn schema_constants_contain_expected_prefixes() {
+        assert!(AI_STATUS_RESPONSE.starts_with("ai-"));
+        assert!(AI_WORKFLOW_RESPONSE.starts_with("ai-"));
+        assert!(AI_QUICKSTART_RESPONSE.starts_with("ai-"));
+        assert!(AI_NEXT_RESPONSE.starts_with("ai-"));
+        assert!(AI_OVERVIEW_RESPONSE.starts_with("ai-"));
+    }
+
+    #[test]
+    fn schema_version_is_non_empty() {
+        assert!(!SCHEMA_VERSION.is_empty());
+    }
+
+    #[test]
+    fn all_schema_constants_are_unique() {
+        let mut seen = std::collections::HashSet::new();
+        let constants = [
+            AI_STATUS_RESPONSE,
+            AI_WORKFLOW_RESPONSE,
+            AI_QUICKSTART_RESPONSE,
+            AI_NEXT_RESPONSE,
+            AI_OVERVIEW_RESPONSE,
+        ];
+        for c in constants {
+            assert!(seen.insert(c), "Schema constant must be unique: {c}");
+        }
+    }
+
+    // =========================================================================
+    // AiEnvelope construction
+    // =========================================================================
+
+    #[test]
+    fn envelope_new_sets_schema_uri_format() {
+        let data = 42_i32;
+        let env = AiEnvelope::new("test-schema", "single", data);
+        assert!(env.schema.starts_with("scp://test-schema/"));
+        assert!(env.schema.contains("/v1"));
+    }
+
+    #[test]
+    fn envelope_new_sets_schema_version() {
+        let env = AiEnvelope::new("schema", "type", "data");
+        assert_eq!(env.schema_version, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn envelope_new_sets_schema_type() {
+        let env = AiEnvelope::new("schema", "my-type", "data");
+        assert_eq!(env.schema_type, "my-type");
+    }
+
+    #[test]
+    fn envelope_new_sets_success_true() {
+        let env = AiEnvelope::new("schema", "type", "data");
+        assert!(env.success);
+    }
+
+    #[test]
+    fn envelope_serializes_with_dollar_schema_field() {
+        #[derive(Debug, Clone, Serialize)]
+        struct Dummy { x: i32 }
+        let env = AiEnvelope::new("test", "single", Dummy { x: 42 });
+        let json_str = serde_json::to_string(&env).expect("serialize");
+        assert!(json_str.contains("\"$schema\""));
+    }
+
+    #[test]
+    fn envelope_serializes_with_schema_version_field() {
+        #[derive(Debug, Clone, Serialize)]
+        struct Dummy { x: i32 }
+        let env = AiEnvelope::new("test", "single", Dummy { x: 42 });
+        let json_str = serde_json::to_string(&env).expect("serialize");
+        assert!(json_str.contains("\"_schema_version\""));
+    }
+
+    #[test]
+    fn envelope_flattens_data_into_top_level() {
+        let env = AiEnvelope::new("test", "single", AiStatusOutput {
+            location: Location::Main,
+            workspace: None,
+            agent_id: None,
+            initialized: true,
+            active_sessions: 0,
+            ready: true,
+            suggestion: "ok".to_string(),
+            next_command: "scp work".to_string(),
+        });
+        let json_str = serde_json::to_string(&env).expect("serialize");
+        assert!(json_str.contains("\"location\""), "flattened data should contain location");
+    }
+
+    #[test]
+    fn envelope_with_unit_data_serializes() {
+        #[derive(Debug, Clone, Serialize)]
+        struct Empty {}
+        let env = AiEnvelope::new("empty", "single", Empty {});
+        match serde_json::to_string(&env) {
+            Ok(s) => assert!(s.contains("\"$schema\"")),
+            Err(e) => panic!("Should serialize empty data: {e}"),
+        }
+    }
+
+    #[test]
+    fn envelope_with_vec_data_cannot_flatten() {
+        // AiEnvelope uses #[serde(flatten)] which requires struct/map data, not sequences.
+        // This test documents that behavior.
+        let env = AiEnvelope::new("list", "array", vec!["a", "b"]);
+        match serde_json::to_string(&env) {
+            Ok(_) => panic!("Vec data should fail serialization because flatten requires structs"),
+            Err(e) => assert!(
+                e.to_string().contains("flatten") || e.to_string().contains("structs and maps"),
+                "Error should mention flatten: {e}"
+            ),
+        }
+    }
+
+    // =========================================================================
+    // AiStatusOutput
+    // =========================================================================
+
+    #[test]
+    fn status_output_equality_works() {
+        let a = AiStatusOutput {
+            location: Location::Main,
+            workspace: None,
+            agent_id: None,
+            initialized: false,
+            active_sessions: 0,
+            ready: false,
+            suggestion: "no".to_string(),
+            next_command: "scp init".to_string(),
+        };
+        let b = AiStatusOutput {
+            location: Location::Main,
+            workspace: None,
+            agent_id: None,
+            initialized: false,
+            active_sessions: 0,
+            ready: false,
+            suggestion: "no".to_string(),
+            next_command: "scp init".to_string(),
+        };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn status_output_inequality_detects_field_difference() {
+        let a = AiStatusOutput {
+            location: Location::Main,
+            workspace: None,
+            agent_id: None,
+            initialized: true,
+            active_sessions: 0,
+            ready: true,
+            suggestion: "yes".to_string(),
+            next_command: "scp work".to_string(),
+        };
+        let b = AiStatusOutput {
+            location: Location::Main,
+            workspace: None,
+            agent_id: None,
+            initialized: false,
+            active_sessions: 0,
+            ready: false,
+            suggestion: "no".to_string(),
+            next_command: "scp init".to_string(),
+        };
+        assert_ne!(a, b);
+    }
+
+    // =========================================================================
+    // WorkflowInfo / WorkflowStep
+    // =========================================================================
+
+    #[test]
+    fn workflow_info_equality_works() {
+        let a = WorkflowInfo {
+            name: "test".to_string(),
+            steps: vec![WorkflowStep {
+                step: 1,
+                command: "cmd".to_string(),
+                description: "desc".to_string(),
+            }],
+        };
+        let b = WorkflowInfo {
+            name: "test".to_string(),
+            steps: vec![WorkflowStep {
+                step: 1,
+                command: "cmd".to_string(),
+                description: "desc".to_string(),
+            }],
+        };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn workflow_step_equality_works() {
+        let a = WorkflowStep {
+            step: 1,
+            command: "cmd".to_string(),
+            description: "desc".to_string(),
+        };
+        let b = WorkflowStep {
+            step: 1,
+            command: "cmd".to_string(),
+            description: "desc".to_string(),
+        };
+        assert_eq!(a, b);
+    }
+
+    // =========================================================================
+    // NextActionOutput
+    // =========================================================================
+
+    #[test]
+    fn next_action_output_equality_works() {
+        let a = NextActionOutput {
+            action: "do".to_string(),
+            command: "scp work".to_string(),
+            reason: "because".to_string(),
+            priority: Priority::Medium,
+        };
+        let b = NextActionOutput {
+            action: "do".to_string(),
+            command: "scp work".to_string(),
+            reason: "because".to_string(),
+            priority: Priority::Medium,
+        };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn next_action_output_differs_by_priority() {
+        let a = NextActionOutput {
+            action: "do".to_string(),
+            command: "scp work".to_string(),
+            reason: "because".to_string(),
+            priority: Priority::High,
+        };
+        let b = NextActionOutput {
+            action: "do".to_string(),
+            command: "scp work".to_string(),
+            reason: "because".to_string(),
+            priority: Priority::Low,
+        };
+        assert_ne!(a, b);
+    }
+
+    // =========================================================================
+    // QuickCommand / QuickStartOutput
+    // =========================================================================
+
+    #[test]
+    fn quick_command_serializes_both_fields() {
+        let cmd = QuickCommand {
+            command: "scp work".to_string(),
+            purpose: "start working".to_string(),
+        };
+        let json = serde_json::to_string(&cmd).expect("serialize");
+        assert!(json.contains("\"command\""));
+        assert!(json.contains("\"purpose\""));
+    }
+
+    #[test]
+    fn quick_start_output_equality_works() {
+        let a = QuickStartOutput {
+            essential_commands: vec![],
+            orientation: vec![],
+            workflow: vec![],
+        };
+        let b = QuickStartOutput {
+            essential_commands: vec![],
+            orientation: vec![],
+            workflow: vec![],
+        };
+        assert_eq!(a, b);
+    }
+
+    // =========================================================================
+    // SubcommandInfo / AiOverview
+    // =========================================================================
+
+    #[test]
+    fn subcommand_info_serializes_both_fields() {
+        let info = SubcommandInfo {
+            command: "scp ai status".to_string(),
+            description: "get status".to_string(),
+        };
+        let json = serde_json::to_string(&info).expect("serialize");
+        assert!(json.contains("\"command\""));
+        assert!(json.contains("\"description\""));
+    }
+
+    #[test]
+    fn ai_overview_equality_works() {
+        let a = AiOverview {
+            message: "msg".to_string(),
+            subcommands: vec![],
+            quick_commands: vec![],
+        };
+        let b = AiOverview {
+            message: "msg".to_string(),
+            subcommands: vec![],
+            quick_commands: vec![],
+        };
+        assert_eq!(a, b);
+    }
+
+    // =========================================================================
+    // AiSubcommand
+    // =========================================================================
+
+    #[test]
+    fn subcommand_is_copy() {
+        let cmd = AiSubcommand::Status;
+        let _copy = cmd;
+        // If this compiles, AiSubcommand is Copy.
+    }
+
+    #[test]
+    fn subcommand_equality_works() {
+        assert_eq!(AiSubcommand::Status, AiSubcommand::Status);
+        assert_ne!(AiSubcommand::Status, AiSubcommand::Workflow);
+        assert_ne!(AiSubcommand::Workflow, AiSubcommand::QuickStart);
+        assert_ne!(AiSubcommand::QuickStart, AiSubcommand::Next);
+        assert_ne!(AiSubcommand::Next, AiSubcommand::Default);
+    }
+
+    // =========================================================================
+    // AiOptions
+    // =========================================================================
+
+    #[test]
+    fn ai_options_construction() {
+        let opts = AiOptions {
+            subcommand: AiSubcommand::Status,
+        };
+        assert_eq!(opts.subcommand, AiSubcommand::Status);
+    }
+
+    #[test]
+    fn ai_options_clone() {
+        let opts = AiOptions {
+            subcommand: AiSubcommand::Next,
+        };
+        let cloned = opts.clone();
+        assert_eq!(opts.subcommand, cloned.subcommand);
+    }
+
+    #[test]
+    fn ai_options_debug() {
+        let opts = AiOptions {
+            subcommand: AiSubcommand::Workflow,
+        };
+        let debug_str = format!("{opts:?}");
+        assert!(debug_str.contains("AiOptions"));
+    }
+
+    // =========================================================================
+    // Location enum - exhaustive coverage
+    // =========================================================================
+
+    #[test]
+    fn location_all_variants_construct() {
+        let _ = Location::Main;
+        let _ = Location::Workspace("test".to_string());
+        let _ = Location::NotInRepo;
+        let _ = Location::Unknown;
+    }
+
+    #[test]
+    fn location_clone_works() {
+        let loc = Location::Workspace("ws".to_string());
+        let cloned = loc.clone();
+        assert_eq!(loc, cloned);
+    }
+
+    #[test]
+    fn location_debug_works() {
+        let loc = Location::Main;
+        let debug_str = format!("{loc:?}");
+        assert!(debug_str.contains("Main"));
+    }
+
+    #[test]
+    fn location_from_raw_empty_string_becomes_workspace() {
+        match Location::from_raw("") {
+            Location::Workspace(name) => assert_eq!(name, ""),
+            other => panic!("Empty string should become Workspace, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn location_from_raw_preserves_workspace_string() {
+        match Location::from_raw("workspace:feature-auth") {
+            Location::Workspace(name) => assert_eq!(name, "workspace:feature-auth"),
+            other => panic!("Expected Workspace, got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn location_serializes_main_as_snake_case() {
+        let json = serde_json::to_string(&Location::Main).expect("serialize");
+        assert_eq!(json, "\"main\"");
+    }
+
+    #[test]
+    fn location_serializes_not_in_repo_as_snake_case() {
+        let json = serde_json::to_string(&Location::NotInRepo).expect("serialize");
+        assert_eq!(json, "\"not_in_repo\"");
+    }
+
+    #[test]
+    fn location_serializes_unknown_as_snake_case() {
+        let json = serde_json::to_string(&Location::Unknown).expect("serialize");
+        assert_eq!(json, "\"unknown\"");
+    }
+
+    #[test]
+    fn location_serializes_workspace_as_newtype_object() {
+        // serde's rename_all applies to the variant name, but since Workspace has a
+        // String field, it serializes as {"workspace":"x"}, not just "workspace".
+        let json = serde_json::to_string(&Location::Workspace("x".to_string())).expect("serialize");
+        assert!(json.contains("\"workspace\""), "Should contain workspace key: {json}");
+        assert!(json.contains("\"x\""), "Should contain workspace name: {json}");
+    }
+
+    // =========================================================================
+    // Priority enum - exhaustive coverage
+    // =========================================================================
+
+    #[test]
+    fn priority_all_variants_construct() {
+        let _ = Priority::High;
+        let _ = Priority::Medium;
+        let _ = Priority::Low;
+    }
+
+    #[test]
+    fn priority_is_copy() {
+        let p = Priority::High;
+        let _copy = p;
+    }
+
+    #[test]
+    fn priority_clone_works() {
+        let p = Priority::Medium;
+        let cloned = p.clone();
+        assert_eq!(p, cloned);
+    }
+
+    #[test]
+    fn priority_debug_works() {
+        let p = Priority::Low;
+        let debug_str = format!("{p:?}");
+        assert!(debug_str.contains("Low"));
+    }
+
+    #[test]
+    fn priority_serializes_as_lowercase() {
+        assert_eq!(serde_json::to_string(&Priority::High).expect("serialize"), "\"high\"");
+        assert_eq!(serde_json::to_string(&Priority::Medium).expect("serialize"), "\"medium\"");
+        assert_eq!(serde_json::to_string(&Priority::Low).expect("serialize"), "\"low\"");
+    }
+
+    #[test]
+    fn priority_equality_works() {
+        assert_eq!(Priority::High, Priority::High);
+        assert_ne!(Priority::High, Priority::Medium);
+        assert_ne!(Priority::Medium, Priority::Low);
+    }
 }

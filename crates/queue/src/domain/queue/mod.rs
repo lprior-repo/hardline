@@ -1,3 +1,4 @@
+#![allow(clippy::module_inception)]
 //! Queue domain module - Immutable persistent queue implementation
 //!
 //! This module provides an immutable, persistent queue using functional paradigms:

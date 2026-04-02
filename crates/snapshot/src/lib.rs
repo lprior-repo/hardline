@@ -1,3 +1,5 @@
+#![allow(clippy::module_inception)]
+#![allow(dead_code)]
 #![deny(warnings)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]

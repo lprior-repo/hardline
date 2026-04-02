@@ -80,7 +80,7 @@ impl From<BuilderError> for RepositoryError {
                 Self::InvalidInput(format!("field {field} exceeds capacity of {capacity}"))
             }
             BuilderError::InvalidTransition { from, to, reason } => {
-                Self::InvalidInput(format!("invalid transition from {from} to {to}: {reason}",))
+                Self::InvalidInput(format!("invalid transition from {from} to {to}: {reason}"))
             }
         }
     }

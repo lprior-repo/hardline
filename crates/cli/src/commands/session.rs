@@ -132,7 +132,7 @@ pub fn submit(name: Option<&str>, auto_commit: bool, message: Option<&str>) -> R
 }
 
 /// Remove a session
-pub fn remove(name: &str, force: bool, merge: bool) -> Result<()> {
+pub fn remove(name: &str, _force: bool, merge: bool) -> Result<()> {
     if name.is_empty() {
         return Err(Error::invalid_identifier(
             "session name cannot be empty".to_string(),

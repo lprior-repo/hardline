@@ -54,7 +54,7 @@ fn validate_task_id_format(_task_id: &TaskId, _context: &str) -> scp_core::Resul
 /// Validate that an agent ID is non-empty and non-whitespace.
 fn validate_agent_id(agent_id: &AgentId) -> scp_core::Result<()> {
     if agent_id.as_str().trim().is_empty() {
-        return Err(TaskErrorKind::InvalidId(format!("Agent ID cannot be empty")).into());
+        return Err(TaskErrorKind::InvalidId("Agent ID cannot be empty".to_string()).into());
     }
     Ok(())
 }
@@ -183,8 +183,7 @@ pub fn resolve_task_id(explicit_id: Option<&TaskId>) -> scp_core::Result<TaskId>
                             .to_string(),
                     )
                 })?;
-            TaskId::new(raw).map_err(Into::into)
-        }
+            TaskId::new(raw)}
     }
 }
 
@@ -195,5 +194,272 @@ pub fn resolve_task_id(explicit_id: Option<&TaskId>) -> scp_core::Result<TaskId>
 /// Returns `Error::Task(TaskErrorKind::InvalidId(...))` if the string is not
 /// a valid task ID.
 pub fn parse_task_id(raw: &str) -> scp_core::Result<TaskId> {
-    TaskId::new(raw).map_err(Into::into)
+    TaskId::new(raw)}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::task_types::{Assignee, Priority, TaskId, Title};
+    use scp_core::error_task::TaskErrorKind;
+
+    // ---- truncate_description ----
+
+    #[test]
+    fn truncate_empty_string() {
+        assert_eq!(truncate_description("", 20), "");
+    }
+
+    #[test]
+    fn truncate_within_limit() {
+        assert_eq!(truncate_description("hello", 10), "hello");
+    }
+
+    #[test]
+    fn truncate_at_exact_limit() {
+        assert_eq!(truncate_description("hello", 5), "hello");
+    }
+
+    #[test]
+    fn truncate_one_over_limit() {
+        let result = truncate_description("hello world", 8);
+        assert!(result.ends_with("..."));
+        assert!(result.len() <= 8);
+    }
+
+    #[test]
+    fn truncate_max_len_zero() {
+        assert_eq!(truncate_description("hello", 0), "");
+    }
+
+    #[test]
+    fn truncate_max_len_one() {
+        assert_eq!(truncate_description("hello", 1), "");
+    }
+
+    #[test]
+    fn truncate_max_len_two() {
+        // max_len < 3 returns empty
+        assert_eq!(truncate_description("hello", 2), "");
+    }
+
+    #[test]
+    fn truncate_max_len_three() {
+        // max_len = 3: end = 0, safe_end = 0, returns empty
+        assert_eq!(truncate_description("abc", 3), "abc");
+    }
+
+    #[test]
+    fn truncate_preserves_multi_byte_chars() {
+        // "Hello, world!" with emoji at the boundary
+        let input = "Hello, \u{1F600} world!";
+        let result = truncate_description(input, 10);
+        // Should not panic on multi-byte char boundary
+        assert!(result.ends_with("...") || result == input);
+    }
+
+    #[test]
+    fn truncate_very_long_string() {
+        let long = "a".repeat(1000);
+        let result = truncate_description(&long, 20);
+        assert_eq!(result.len(), 20);
+        assert!(result.ends_with("..."));
+    }
+
+    // ---- status_display_icon ----
+
+    #[test]
+    fn icon_open() {
+        assert_eq!(status_display_icon(&TaskStatusOutput::Open), "[ ]");
+    }
+
+    #[test]
+    fn icon_in_progress() {
+        assert_eq!(status_display_icon(&TaskStatusOutput::InProgress), "[*]");
+    }
+
+    #[test]
+    fn icon_blocked() {
+        assert_eq!(status_display_icon(&TaskStatusOutput::Blocked), "[!]");
+    }
+
+    #[test]
+    fn icon_deferred() {
+        assert_eq!(status_display_icon(&TaskStatusOutput::Deferred), "[-]");
+    }
+
+    #[test]
+    fn icon_closed() {
+        assert_eq!(status_display_icon(&TaskStatusOutput::Closed), "[x]");
+    }
+
+    // ---- task_state_to_output ----
+
+    #[test]
+    fn state_to_output_open() {
+        assert_eq!(task_state_to_output(&TaskState::Open), TaskStatusOutput::Open);
+    }
+
+    #[test]
+    fn state_to_output_in_progress() {
+        assert_eq!(
+            task_state_to_output(&TaskState::InProgress),
+            TaskStatusOutput::InProgress
+        );
+    }
+
+    #[test]
+    fn state_to_output_blocked() {
+        assert_eq!(
+            task_state_to_output(&TaskState::Blocked),
+            TaskStatusOutput::Blocked
+        );
+    }
+
+    #[test]
+    fn state_to_output_deferred() {
+        assert_eq!(
+            task_state_to_output(&TaskState::Deferred),
+            TaskStatusOutput::Deferred
+        );
+    }
+
+    #[test]
+    fn state_to_output_closed() {
+        assert!(matches!(
+            task_state_to_output(&TaskState::Closed {
+                closed_at: chrono::Utc::now()
+            }),
+            TaskStatusOutput::Closed
+        ));
+    }
+
+    // ---- task_to_output ----
+
+    fn make_task(id: &str, title: &str) -> Task {
+        Task::new(TaskId::new(id).expect("valid"), Title::new(title))
+    }
+
+    #[test]
+    fn task_to_output_basic_fields() {
+        let task = make_task("task-1", "My task");
+        let output = task_to_output(&task);
+        assert_eq!(output.id, "task-1");
+        assert_eq!(output.title, "My task");
+        assert!(output.description.is_none());
+        assert!(output.assignee.is_none());
+        assert!(output.priority.is_none());
+    }
+
+    #[test]
+    fn task_to_output_with_assignee_and_priority() {
+        let mut task = make_task("task-1", "My task");
+        task.assignee = Some(Assignee::new("alice"));
+        task.priority = Some(Priority::new("high"));
+        let output = task_to_output(&task);
+        assert_eq!(output.assignee.as_deref(), Some("alice"));
+        assert_eq!(output.priority.as_deref(), Some("high"));
+    }
+
+    // ---- parse_task_id ----
+
+    #[test]
+    fn parse_task_id_valid() {
+        let result = parse_task_id("task-001");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn parse_task_id_invalid() {
+        let result = parse_task_id("bad id!");
+        assert!(result.is_err());
+    }
+
+    // ---- validate_task_command ----
+
+    fn make_agent_id(s: &str) -> AgentId {
+        // Only use for valid agent IDs
+        AgentId::new(s.to_string()).expect("valid agent id for test helper")
+    }
+
+    #[test]
+    fn validate_list_always_ok() {
+        let cmd = TaskCommand::List {
+            status_filter: None,
+            include_all: false,
+        };
+        assert!(validate_task_command(&cmd).is_ok());
+    }
+
+    #[test]
+    fn validate_show_validates_id() {
+        let cmd = TaskCommand::Show {
+            task_id: TaskId::new("valid-id").expect("ok"),
+        };
+        assert!(validate_task_command(&cmd).is_ok());
+    }
+
+    #[test]
+    fn validate_claim_validates_agent_id() {
+        let cmd = TaskCommand::Claim {
+            task_id: TaskId::new("valid-id").expect("ok"),
+            agent_id: make_agent_id("alice"),
+        };
+        assert!(validate_task_command(&cmd).is_ok());
+    }
+
+    #[test]
+    fn validate_claim_rejects_empty_agent() {
+        // AgentId::new rejects whitespace-only, but validate_agent_id checks as_str().trim()
+        // We need to construct an AgentId with whitespace-only content.
+        // Since AgentId::new("  ") returns Err, we test validate_task_command indirectly
+        // by verifying the validation function works via a valid AgentId that has trimmed-empty content.
+        // This path is actually caught at AgentId::new construction time.
+        // We verify the validate_agent_id logic directly instead.
+        let agent_id = AgentId::new("  ");
+        assert!(agent_id.is_err(), "AgentId::new should reject whitespace-only input");
+    }
+
+    #[test]
+    fn validate_yield_validates_agent_id() {
+        let cmd = TaskCommand::YieldTask {
+            task_id: TaskId::new("t-1").expect("ok"),
+            agent_id: make_agent_id("bob"),
+        };
+        assert!(validate_task_command(&cmd).is_ok());
+    }
+
+    #[test]
+    fn validate_start_validates_agent_id() {
+        let cmd = TaskCommand::Start {
+            task_id: TaskId::new("t-1").expect("ok"),
+            agent_id: make_agent_id("carol"),
+        };
+        assert!(validate_task_command(&cmd).is_ok());
+    }
+
+    #[test]
+    fn validate_done_with_explicit_id() {
+        let cmd = TaskCommand::Done {
+            task_id: Some(TaskId::new("t-1").expect("ok")),
+            agent_id: make_agent_id("dave"),
+        };
+        assert!(validate_task_command(&cmd).is_ok());
+    }
+
+    #[test]
+    fn validate_done_without_id_still_validates_agent() {
+        let cmd = TaskCommand::Done {
+            task_id: None,
+            agent_id: make_agent_id("eve"),
+        };
+        assert!(validate_task_command(&cmd).is_ok());
+    }
+
+    #[test]
+    fn validate_done_rejects_empty_agent() {
+        // AgentId::new("") returns Err, so validate_task_command never sees
+        // an empty AgentId. But we can verify this by constructing AgentId directly.
+        let agent_result = AgentId::new("");
+        assert!(agent_result.is_err());
+    }
 }

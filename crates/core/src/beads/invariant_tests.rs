@@ -13,6 +13,7 @@
 
 use chrono::{Duration, Utc};
 use proptest::prelude::*;
+use proptest::{prop_assert, prop_assert_eq};
 
 use super::{
     domain::{

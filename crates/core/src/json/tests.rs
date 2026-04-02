@@ -176,26 +176,6 @@ fn test_error_detail_includes_suggestion() {
     let err = crate::error::Error::not_found("session not found");
     let detail = ErrorDetail::from_error(&err);
 
-    assert!(detail.code.contains("UNKNOWN") || detail.message.contains("IO"));
-    assert!(detail.message.contains("file not found"));
-    assert_eq!(detail.exit_code, 3);
-}
-
-#[test]
-fn test_error_detail_from_not_found_error() {
-    let err = crate::error::Error::not_found("session not found");
-    let detail = ErrorDetail::from_error(&err);
-
-    assert!(detail.code.contains("NOT_FOUND") || detail.code.contains("SESSION"));
-    assert!(detail.message.contains("Not found"));
-    assert_eq!(detail.exit_code, 2);
-}
-
-#[test]
-fn test_error_detail_includes_suggestion() {
-    let err = crate::error::Error::not_found("session not found");
-    let detail = ErrorDetail::from_error(&err);
-
     // Should have suggestion populated
     assert!(detail.suggestion.is_some());
 }
@@ -582,4 +562,351 @@ fn test_json_error_from_jj_not_found() {
     assert!(!json_error.success);
     assert!(json_error.error.code.contains("JJ"));
     assert!(json_error.error.suggestion.is_some());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTEXT_MAP INTEGRATION TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_error_detail_includes_context_map() {
+    let err = crate::error::Error::session_locked("my-session", "agent-001");
+    let detail = ErrorDetail::from_error(&err);
+
+    assert_eq!(detail.code, "SESSION_LOCKED");
+    assert!(detail.details.is_some());
+    let details = detail.details.expect("should have details");
+    assert_eq!(details["session"], "my-session");
+    assert_eq!(details["holder"], "agent-001");
+}
+
+#[test]
+fn test_json_error_from_error_includes_context_map() {
+    let err = crate::error::Error::workspace_not_found("my-workspace");
+    let json_error = JsonError::from(&err);
+
+    assert!(!json_error.success);
+    assert!(json_error.error.details.is_some());
+    let details = json_error.error.details.expect("should have details");
+    assert_eq!(details["resource_type"], "workspace");
+    assert_eq!(details["workspace_name"], "my-workspace");
+}
+
+#[test]
+fn test_error_detail_context_map_jj_command() {
+    let err = crate::error::Error::jj_command_error("log", "fatal error", false);
+    let detail = ErrorDetail::from_error(&err);
+
+    assert_eq!(detail.code, "JJ_COMMAND_ERROR");
+    assert!(detail.details.is_some());
+    let details = detail.details.expect("should have details");
+    assert_eq!(details["operation"], "log");
+    assert_eq!(details["source"], "fatal error");
+    assert_eq!(details["is_not_found"], false);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// JSON HELPER FUNCTION TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_output_json_success() {
+    let data = serde_json::json!({
+        "message": "success",
+        "value": 42
+    });
+    let result = crate::json::output_json_success(&data);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_output_json_success_with_struct() {
+    #[derive(serde::Serialize)]
+    struct TestData {
+        name: String,
+        count: usize,
+    }
+    let data = TestData {
+        name: "test".to_string(),
+        count: 42,
+    };
+    let result = crate::json::output_json_success(&data);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_output_json_parse_error() {
+    let exit_code = crate::json::output_json_parse_error("unknown argument --bogus");
+    assert_eq!(exit_code, 2);
+}
+
+#[test]
+fn test_semantic_exit_code_validation() {
+    let err = crate::error::Error::validation_error("bad input");
+    assert_eq!(crate::json::semantic_exit_code(&err), 1);
+}
+
+#[test]
+fn test_semantic_exit_code_not_found() {
+    let err = crate::error::Error::not_found("missing");
+    assert_eq!(crate::json::semantic_exit_code(&err), 2);
+}
+
+#[test]
+fn test_semantic_exit_code_io() {
+    let err = crate::error::Error::io_error("disk full");
+    assert_eq!(crate::json::semantic_exit_code(&err), 3);
+}
+
+#[test]
+fn test_semantic_exit_code_jj() {
+    let err = crate::error::Error::jj_command_error("status", "error", false);
+    assert_eq!(crate::json::semantic_exit_code(&err), 4);
+}
+
+#[test]
+fn test_semantic_exit_code_lock() {
+    // Error::Lock (from coordination::locks) maps to exit code 5
+    use crate::coordination::locks::errors::LockErrorKind;
+    let err = crate::error::Error::from(LockErrorKind::SessionLocked {
+        session: "s".to_string(),
+        holder: "h".to_string(),
+    });
+    assert_eq!(crate::json::semantic_exit_code(&err), 5);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VCS ERROR CLASSIFICATION TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_vcs_not_initialized_maps_correctly() {
+    use crate::error_vcs::VcsErrorKind;
+    let err = crate::error::Error::from(VcsErrorKind::NotInitialized);
+    let (code, msg, suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::NotJjRepository);
+    assert_eq!(msg, "VCS not initialized");
+    assert_eq!(
+        suggestion,
+        Some("Run 'scp init' to initialize VCS".to_string())
+    );
+}
+
+#[test]
+fn test_vcs_conflict_maps_to_unknown_with_suggestion() {
+    use crate::error_vcs::VcsErrorKind;
+    let err = crate::error::Error::from(VcsErrorKind::Conflict(
+        "my-repo".to_string(),
+        "merge conflict in file.rs".to_string(),
+    ));
+    let (code, msg, suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("conflict"));
+    assert_eq!(
+        suggestion,
+        Some("Resolve conflicts before continuing".to_string())
+    );
+}
+
+#[test]
+fn test_vcs_push_failed_maps_to_unknown() {
+    use crate::error_vcs::VcsErrorKind;
+    let err =
+        crate::error::Error::from(VcsErrorKind::PushFailed("network error".to_string()));
+    let (code, msg, suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("push") || msg.contains("Failed"));
+    // PushFailed has no built-in suggestion
+    assert!(suggestion.is_none());
+}
+
+#[test]
+fn test_vcs_pull_failed_maps_to_unknown() {
+    use crate::error_vcs::VcsErrorKind;
+    let err =
+        crate::error::Error::from(VcsErrorKind::PullFailed("connection refused".to_string()));
+    let (code, msg, _suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("pull") || msg.contains("Failed"));
+}
+
+#[test]
+fn test_vcs_rebase_failed_maps_to_unknown() {
+    use crate::error_vcs::VcsErrorKind;
+    let err = crate::error::Error::from(VcsErrorKind::RebaseFailed(
+        "conflict during rebase".to_string(),
+    ));
+    let (code, msg, _suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("rebase"));
+}
+
+#[test]
+fn test_vcs_branch_not_found_maps_to_spawn_bead_not_found() {
+    use crate::error_vcs::VcsErrorKind;
+    let err =
+        crate::error::Error::from(VcsErrorKind::BranchNotFound("feature-xyz".to_string()));
+    let (code, msg, suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::SpawnBeadNotFound);
+    assert!(msg.contains("Branch not found"));
+    assert!(msg.contains("feature-xyz"));
+    assert!(suggestion.is_none());
+}
+
+#[test]
+fn test_vcs_branch_exists_maps_to_unknown() {
+    use crate::error_vcs::VcsErrorKind;
+    let err =
+        crate::error::Error::from(VcsErrorKind::BranchExists("main".to_string()));
+    let (code, msg, _suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("Branch already exists"));
+}
+
+#[test]
+fn test_vcs_commit_not_found_maps_to_unknown() {
+    use crate::error_vcs::VcsErrorKind;
+    let err =
+        crate::error::Error::from(VcsErrorKind::CommitNotFound("abc123".to_string()));
+    let (code, msg, _suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("Commit not found"));
+}
+
+#[test]
+fn test_vcs_working_copy_dirty_maps_with_suggestion() {
+    use crate::error_vcs::VcsErrorKind;
+    let err = crate::error::Error::from(VcsErrorKind::WorkingCopyDirty);
+    let (code, msg, suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("uncommitted"));
+    assert_eq!(
+        suggestion,
+        Some("Commit or stash your changes before continuing".to_string())
+    );
+}
+
+#[test]
+fn test_vcs_commit_failed_maps_to_unknown() {
+    use crate::error_vcs::VcsErrorKind;
+    let err =
+        crate::error::Error::from(VcsErrorKind::CommitFailed("pre-commit hook failed".to_string()));
+    let (code, msg, _suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("commit") && msg.contains("Failed"));
+}
+
+#[test]
+fn test_vcs_checkout_failed_maps_to_unknown() {
+    use crate::error_vcs::VcsErrorKind;
+    let err = crate::error::Error::from(VcsErrorKind::CheckoutFailed(
+        "uncommitted changes".to_string(),
+    ));
+    let (code, msg, _suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("checkout") && msg.contains("Failed"));
+}
+
+#[test]
+fn test_vcs_diff_failed_maps_to_unknown() {
+    use crate::error_vcs::VcsErrorKind;
+    let err =
+        crate::error::Error::from(VcsErrorKind::DiffFailed("binary file".to_string()));
+    let (code, msg, _suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("diff"));
+}
+
+#[test]
+fn test_vcs_merge_no_commit_id_maps_to_unknown() {
+    use crate::error_vcs::VcsErrorKind;
+    let err = crate::error::Error::from(VcsErrorKind::MergeNoCommitId);
+    let (code, msg, _suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("Merge"));
+}
+
+#[test]
+fn test_vcs_init_failed_maps_to_unknown_with_suggestion() {
+    use crate::error_vcs::VcsErrorKind;
+    let err = crate::error::Error::from(VcsErrorKind::InitFailed {
+        vcs_type: "jj".to_string(),
+        directory: "/tmp/test".to_string(),
+        reason: "jj not found".to_string(),
+    });
+    let (code, msg, suggestion) = crate::json::map_error_to_parts(&err);
+
+    assert_eq!(code, ErrorCode::Unknown);
+    assert!(msg.contains("initialize") || msg.contains("Failed"));
+    // InitFailed with "not found" reason should produce a suggestion via classify_init_failure_suggestion
+    assert!(suggestion.is_some());
+    let sug = suggestion.expect("should have suggestion");
+    assert!(sug.contains("installed") || sug.contains("PATH"));
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// VCS exit code classification tests
+// ───────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_vcs_exit_code_not_initialized() {
+    use crate::error_vcs::VcsErrorKind;
+    let err = crate::error::Error::from(VcsErrorKind::NotInitialized);
+    assert_eq!(crate::json::classify_exit_code(&err), 1);
+}
+
+#[test]
+fn test_vcs_exit_code_branch_not_found() {
+    use crate::error_vcs::VcsErrorKind;
+    let err =
+        crate::error::Error::from(VcsErrorKind::BranchNotFound("missing".to_string()));
+    assert_eq!(crate::json::classify_exit_code(&err), 2);
+}
+
+#[test]
+fn test_vcs_exit_code_commit_not_found() {
+    use crate::error_vcs::VcsErrorKind;
+    let err =
+        crate::error::Error::from(VcsErrorKind::CommitNotFound("deadbeef".to_string()));
+    assert_eq!(crate::json::classify_exit_code(&err), 2);
+}
+
+#[test]
+fn test_vcs_exit_code_working_copy_dirty() {
+    use crate::error_vcs::VcsErrorKind;
+    let err = crate::error::Error::from(VcsErrorKind::WorkingCopyDirty);
+    assert_eq!(crate::json::classify_exit_code(&err), 1);
+}
+
+#[test]
+fn test_vcs_exit_code_push_failed_uses_vcs_exit_code() {
+    use crate::error_vcs::VcsErrorKind;
+    let err =
+        crate::error::Error::from(VcsErrorKind::PushFailed("network error".to_string()));
+    // PushFailed exit code is 32, which falls through to the default arm
+    assert_eq!(crate::json::classify_exit_code(&err), 32);
+}
+
+#[test]
+fn test_vcs_exit_code_conflict_uses_vcs_exit_code() {
+    use crate::error_vcs::VcsErrorKind;
+    let err = crate::error::Error::from(VcsErrorKind::Conflict(
+        "repo".to_string(),
+        "details".to_string(),
+    ));
+    // Conflict exit code is 31, which falls through to the default arm
+    assert_eq!(crate::json::classify_exit_code(&err), 31);
 }

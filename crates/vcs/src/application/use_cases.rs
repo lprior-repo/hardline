@@ -13,6 +13,12 @@ pub trait VcsService: Send + Sync {
 
 pub struct VcsServiceImpl;
 
+impl Default for VcsServiceImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VcsServiceImpl {
     pub fn new() -> Self {
         Self
@@ -52,5 +58,82 @@ mod tests {
         let service = create_vcs_service();
         let vcs_type = service.detect_vcs_type(Path::new("/tmp"));
         assert!(vcs_type.is_none());
+    }
+
+    #[test]
+    fn vcs_service_impl_new() {
+        let _service = VcsServiceImpl::new();
+    }
+
+    #[test]
+    fn vcs_service_impl_default() {
+        let _service = VcsServiceImpl::default();
+    }
+
+    #[test]
+    fn vcs_service_detect_type_nonexistent() {
+        let service = VcsServiceImpl::new();
+        assert!(service.detect_vcs_type(Path::new("/nonexistent/xyz")).is_none());
+    }
+
+    #[test]
+    fn vcs_service_detect_type_with_temp_dir() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let service = VcsServiceImpl::new();
+        assert!(service.detect_vcs_type(dir.path()).is_none());
+    }
+
+    #[test]
+    fn vcs_service_detect_type_with_git_dir() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
+        let service = VcsServiceImpl::new();
+        assert_eq!(service.detect_vcs_type(dir.path()), Some(VcsType::Git));
+    }
+
+    #[test]
+    fn vcs_service_detect_type_with_jj_dir() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
+        let service = VcsServiceImpl::new();
+        assert_eq!(service.detect_vcs_type(dir.path()), Some(VcsType::Jujutsu));
+    }
+
+    #[test]
+    fn vcs_service_detect_and_create_backend_no_vcs() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let service = VcsServiceImpl::new();
+        let result = service.detect_and_create_backend(dir.path());
+        assert!(result.is_err());
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn vcs_service_detect_and_create_backend_git() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
+        let service = VcsServiceImpl::new();
+        let result = service.detect_and_create_backend(dir.path());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn vcs_service_detect_and_create_backend_jj() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
+        let service = VcsServiceImpl::new();
+        let result = service.detect_and_create_backend(dir.path());
+        assert!(result.is_ok());
+    }
+
+    // -- Proptests --
+
+    proptest::proptest! {
+        #[test]
+        fn vcs_service_detect_never_panics(path in "[a-zA-Z0-9_/]{1,80}") {
+            let service = VcsServiceImpl::new();
+            // This should never panic, even for absurd paths
+            let _ = service.detect_vcs_type(std::path::Path::new(&path));
+        }
     }
 }

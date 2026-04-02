@@ -511,4 +511,306 @@ mod tests {
         assert!(msg.contains(":quick"));
         assert!(msg.contains("timeout"));
     }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // MOON GATE DISPLAY & TRAIT TESTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[test]
+    fn test_moon_gate_display() {
+        assert_eq!(format!("{}", MoonGate::Quick), ":quick");
+        assert_eq!(format!("{}", MoonGate::Test), ":test");
+    }
+
+    #[test]
+    fn test_moon_gate_debug() {
+        let debug_quick = format!("{:?}", MoonGate::Quick);
+        let debug_test = format!("{:?}", MoonGate::Test);
+        assert!(debug_quick.contains("Quick"));
+        assert!(debug_test.contains("Test"));
+    }
+
+    #[test]
+    fn test_moon_gate_clone_and_copy() {
+        let gate = MoonGate::Quick;
+        let copied = gate;
+        let cloned = gate.clone();
+        assert_eq!(gate, copied);
+        assert_eq!(gate, cloned);
+    }
+
+    #[test]
+    fn test_moon_gate_equality() {
+        assert_eq!(MoonGate::Quick, MoonGate::Quick);
+        assert_eq!(MoonGate::Test, MoonGate::Test);
+        assert_ne!(MoonGate::Quick, MoonGate::Test);
+    }
+
+    #[test]
+    fn test_gate_error_moon_not_found_display() {
+        let err = GateError::MoonNotFound;
+        let msg = format!("{err}");
+        assert!(msg.contains("moon binary not found"));
+    }
+
+    #[test]
+    fn test_gate_error_working_directory_not_found_display() {
+        let err = GateError::WorkingDirectoryNotFound("/nonexistent".to_string());
+        let msg = format!("{err}");
+        assert!(msg.contains("/nonexistent"));
+        assert!(msg.contains("working directory does not exist"));
+    }
+
+    #[test]
+    fn test_gate_error_parse_error_display() {
+        let err = GateError::ParseError("unexpected output format".to_string());
+        let msg = format!("{err}");
+        assert!(msg.contains("unexpected output format"));
+        assert!(msg.contains("failed to parse"));
+    }
+
+    #[test]
+    fn test_gate_error_equality() {
+        let err1 = GateError::MoonNotFound;
+        let err2 = GateError::MoonNotFound;
+        let err3 = GateError::ExecutionFailed {
+            gate: MoonGate::Quick,
+            reason: "x".to_string(),
+        };
+        assert_eq!(err1, err2);
+        assert_ne!(err1, err3);
+    }
+
+    #[test]
+    fn test_gate_error_execution_failed_with_test_gate() {
+        let err = GateError::ExecutionFailed {
+            gate: MoonGate::Test,
+            reason: "oom".to_string(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains(":test"));
+        assert!(msg.contains("oom"));
+    }
+
+    #[test]
+    fn test_gate_error_debug() {
+        let err = GateError::MoonNotFound;
+        let debug_str = format!("{err:?}");
+        assert!(debug_str.contains("MoonNotFound"));
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // GATE RESULT & GATES OUTCOME TESTS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[test]
+    fn test_gate_result_new() {
+        let result = GateResult::new(
+            MoonGate::Test,
+            true,
+            0,
+            "stdout output".to_string(),
+            "stderr output".to_string(),
+            "All tests passed".to_string(),
+        );
+        assert_eq!(result.gate, MoonGate::Test);
+        assert!(result.passed);
+        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.stdout, "stdout output");
+        assert_eq!(result.stderr, "stderr output");
+        assert_eq!(result.summary, "All tests passed");
+    }
+
+    #[test]
+    fn test_gate_result_clone() {
+        let result = GateResult::passed(MoonGate::Quick, "out".to_string(), "err".to_string());
+        let cloned = result.clone();
+        assert_eq!(result, cloned);
+    }
+
+    #[test]
+    fn test_gate_result_equality() {
+        let r1 = GateResult::new(
+            MoonGate::Quick,
+            true,
+            0,
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+        );
+        let r2 = GateResult::new(
+            MoonGate::Quick,
+            true,
+            0,
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+        );
+        let r3 = GateResult::new(
+            MoonGate::Test,
+            true,
+            0,
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+        );
+        assert_eq!(r1, r2);
+        assert_ne!(r1, r3);
+    }
+
+    #[test]
+    fn test_gates_outcome_construction_all_passed() {
+        let quick = GateResult::passed(MoonGate::Quick, String::new(), String::new());
+        let test = GateResult::passed(MoonGate::Test, String::new(), String::new());
+        let outcome = GatesOutcome {
+            quick: quick.clone(),
+            test: Some(test.clone()),
+            status: GatesStatus::AllPassed,
+        };
+        assert_eq!(outcome.status, GatesStatus::AllPassed);
+        assert_eq!(outcome.quick, quick);
+        assert_eq!(outcome.test, Some(test));
+    }
+
+    #[test]
+    fn test_gates_outcome_construction_quick_failed() {
+        let quick = GateResult::failed(MoonGate::Quick, 1, String::new(), String::new());
+        let outcome = GatesOutcome {
+            quick: quick.clone(),
+            test: None,
+            status: GatesStatus::QuickFailed,
+        };
+        assert_eq!(outcome.status, GatesStatus::QuickFailed);
+        assert!(outcome.test.is_none());
+    }
+
+    #[test]
+    fn test_gates_outcome_clone() {
+        let quick = GateResult::passed(MoonGate::Quick, String::new(), String::new());
+        let test = GateResult::passed(MoonGate::Test, String::new(), String::new());
+        let outcome = combine_results(quick, Some(test));
+        let cloned = outcome.clone();
+        assert_eq!(outcome, cloned);
+    }
+
+    #[test]
+    fn test_gates_status_all_variants_success_failure() {
+        assert!(GatesStatus::AllPassed.is_success());
+        assert!(!GatesStatus::AllPassed.is_failure());
+        assert!(!GatesStatus::QuickFailed.is_success());
+        assert!(GatesStatus::QuickFailed.is_failure());
+        assert!(!GatesStatus::TestFailed.is_success());
+        assert!(GatesStatus::TestFailed.is_failure());
+    }
+
+    #[test]
+    fn test_gates_status_debug() {
+        assert!(format!("{:?}", GatesStatus::AllPassed).contains("AllPassed"));
+        assert!(format!("{:?}", GatesStatus::QuickFailed).contains("QuickFailed"));
+        assert!(format!("{:?}", GatesStatus::TestFailed).contains("TestFailed"));
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // PARSE SUMMARY ADDITIONAL COVERAGE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    #[test]
+    fn test_parse_summary_succeeded_keyword() {
+        let stdout = "Build succeeded in 1.2s";
+        let stderr = "";
+        let summary = parse_summary(stdout, stderr);
+        assert_eq!(summary, "Gate passed");
+    }
+
+    #[test]
+    fn test_parse_summary_completed_keyword() {
+        let stdout = "Tasks completed successfully";
+        let stderr = "";
+        let summary = parse_summary(stdout, stderr);
+        assert_eq!(summary, "Gate passed");
+    }
+
+    #[test]
+    fn test_parse_summary_pass_uppercase() {
+        // "PASS" without "FAIL" → Gate passed
+        let stdout = "2 tests PASS";
+        let stderr = "";
+        let summary = parse_summary(stdout, stderr);
+        assert_eq!(summary, "Gate passed");
+    }
+
+    #[test]
+    fn test_parse_summary_fail_uppercase() {
+        let stdout = "FAIL: test_example";
+        let stderr = "";
+        let summary = parse_summary(stdout, stderr);
+        assert!(summary.contains("FAIL"));
+    }
+
+    #[test]
+    fn test_parse_summary_mixed_pass_and_fail() {
+        let stdout = "1 test passed\nFAIL: another test";
+        let stderr = "";
+        let summary = parse_summary(stdout, stderr);
+        assert_eq!(summary, "Gate completed with errors");
+    }
+
+    #[test]
+    fn test_parse_summary_error_in_stderr() {
+        let stdout = "";
+        let stderr = "Error: out of memory";
+        let summary = parse_summary(stdout, stderr);
+        assert!(summary.contains("Error:"));
+    }
+
+    #[test]
+    fn test_parse_summary_failure_in_stderr() {
+        let stdout = "some output";
+        let stderr = "task failed with exit code 1";
+        let summary = parse_summary(stdout, stderr);
+        assert!(summary.contains("failed"));
+    }
+
+    #[test]
+    fn test_parse_summary_fallback_to_first_stdout_line() {
+        let stdout = "First line of output\nSecond line";
+        let stderr = "";
+        let summary = parse_summary(stdout, stderr);
+        assert_eq!(summary, "First line of output");
+    }
+
+    #[test]
+    fn test_parse_summary_only_whitespace_stdout() {
+        let stdout = "   \n  \t  ";
+        let stderr = "";
+        let summary = parse_summary(stdout, stderr);
+        assert_eq!(summary, "Gate completed");
+    }
+
+    #[test]
+    fn test_extract_failure_summary_no_errors_found() {
+        let stdout: Vec<&str> = vec!["some line", "another line"];
+        let stderr: Vec<&str> = vec!["unrelated output"];
+        let summary = extract_failure_summary(&stdout, &stderr);
+        assert_eq!(summary, "Gate failed");
+    }
+
+    #[test]
+    fn test_extract_failure_summary_just_at_100_chars() {
+        // 97 chars of 'x' + "FAIL" = exactly 100 chars — should NOT be truncated
+        let line = format!("{}FAIL", "x".repeat(96));
+        let stdout = vec![line.as_str()];
+        let stderr: Vec<&str> = vec![];
+        let summary = extract_failure_summary(&stdout, &stderr);
+        assert_eq!(summary.len(), 100);
+        assert!(!summary.ends_with("..."));
+    }
+
+    #[test]
+    fn test_extract_failure_summary_from_stderr() {
+        let stdout: Vec<&str> = vec!["running tests"];
+        let stderr: Vec<&str> = vec!["Error: assertion failed"];
+        let summary = extract_failure_summary(&stdout, &stderr);
+        assert!(summary.contains("assertion failed"));
+    }
 }

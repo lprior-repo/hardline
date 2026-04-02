@@ -40,3 +40,98 @@ pub enum LockCommands {
     /// List all active locks
     List,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[derive(Parser)]
+    struct LockParser {
+        #[command(subcommand)]
+        command: LockCommands,
+    }
+
+    fn parse(args: &[&str]) -> LockCommands {
+        let full: Vec<&str> = std::iter::once("scp")
+            .chain(args.iter().copied())
+            .collect();
+        LockParser::parse_from(full).command
+    }
+
+    // -- List --
+    #[test]
+    fn list_no_args() {
+        assert!(matches!(parse(&["list"]), LockCommands::List));
+    }
+
+    // -- Acquire --
+    #[test]
+    fn acquire_required_session_and_agent() {
+        let result = LockParser::try_parse_from(["scp", "acquire", "-a", "bot1"]);
+        assert!(result.is_err(), "acquire requires session positional arg");
+    }
+
+    #[test]
+    fn acquire_defaults() {
+        match parse(&["acquire", "sess1", "-a", "bot1"]) {
+            LockCommands::Acquire {
+                session,
+                agent,
+                ttl,
+            } => {
+                assert_eq!(session, "sess1");
+                assert_eq!(agent, "bot1");
+                assert_eq!(ttl, None);
+            }
+            other => panic!("Expected Acquire, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn acquire_with_ttl() {
+        match parse(&["acquire", "sess1", "-a", "bot1", "-t", "600"]) {
+            LockCommands::Acquire { ttl, .. } => assert_eq!(ttl, Some(600)),
+            other => panic!("Expected Acquire, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    // -- Release --
+    #[test]
+    fn release_parses() {
+        match parse(&["release", "sess1", "-a", "bot1"]) {
+            LockCommands::Release { session, agent } => {
+                assert_eq!(session, "sess1");
+                assert_eq!(agent, "bot1");
+            }
+            other => panic!("Expected Release, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    // -- Heartbeat --
+    #[test]
+    fn heartbeat_parses() {
+        match parse(&["heartbeat", "sess1", "-a", "bot1"]) {
+            LockCommands::Heartbeat { session, agent } => {
+                assert_eq!(session, "sess1");
+                assert_eq!(agent, "bot1");
+            }
+            other => panic!("Expected Heartbeat, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    // -- Status --
+    #[test]
+    fn status_parses() {
+        match parse(&["status", "sess1"]) {
+            LockCommands::Status { session } => assert_eq!(session, "sess1"),
+            other => panic!("Expected Status, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn status_requires_session() {
+        let result = LockParser::try_parse_from(["scp", "status"]);
+        assert!(result.is_err());
+    }
+}

@@ -64,14 +64,13 @@ pub fn create(repo: &gix::Repository, name: &str, _message: &str, force: bool) -
 
     let reference_name = format!("{}{}", TAG_REF_PREFIX, name);
 
-    if !force {
-        if repo.find_reference(&reference_name).is_ok() {
+    if !force
+        && repo.find_reference(&reference_name).is_ok() {
             return Err(GitError::Conflict {
                 message: format!("Tag '{}' already exists", name),
                 conflicted_files: vec![],
             });
         }
-    }
 
     let constraint = if force {
         gix::refs::transaction::PreviousValue::Any

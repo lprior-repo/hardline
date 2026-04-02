@@ -427,4 +427,118 @@ mod tests {
         assert_eq!(status1, status2);
         assert_ne!(status1, status3);
     }
+
+    #[test]
+    fn test_file_watcher_construction() {
+        // FileWatcher is a unit struct — verify it can be constructed
+        let _watcher = FileWatcher;
+    }
+
+    #[test]
+    fn test_file_watcher_size() {
+        // Unit struct should have zero size
+        assert_eq!(std::mem::size_of::<FileWatcher>(), 0);
+    }
+
+    #[test]
+    fn test_watch_event_clone() {
+        let event = WatchEvent::BeadsChanged {
+            workspace_path: PathBuf::from("/workspace"),
+        };
+        let cloned = event.clone();
+        assert_eq!(event, cloned);
+    }
+
+    #[test]
+    fn test_watch_event_debug() {
+        let event = WatchEvent::BeadsChanged {
+            workspace_path: PathBuf::from("/workspace"),
+        };
+        let debug_str = format!("{event:?}");
+        assert!(debug_str.contains("BeadsChanged"));
+        assert!(debug_str.contains("/workspace"));
+    }
+
+    #[test]
+    fn test_watch_event_match() {
+        let event = WatchEvent::BeadsChanged {
+            workspace_path: PathBuf::from("/my/project"),
+        };
+        match event {
+            WatchEvent::BeadsChanged { workspace_path } => {
+                assert_eq!(workspace_path, PathBuf::from("/my/project"));
+            }
+        }
+    }
+
+    #[test]
+    fn test_beads_status_no_beads_construction() {
+        let status = BeadsStatus::NoBeads;
+        assert_eq!(status, BeadsStatus::NoBeads);
+    }
+
+    #[test]
+    fn test_beads_status_no_beads_clone() {
+        let status = BeadsStatus::NoBeads;
+        let cloned = status.clone();
+        assert_eq!(status, cloned);
+    }
+
+    #[test]
+    fn test_beads_status_debug_no_beads() {
+        let status = BeadsStatus::NoBeads;
+        let debug_str = format!("{status:?}");
+        assert!(debug_str.contains("NoBeads"));
+    }
+
+    #[test]
+    fn test_beads_status_debug_counts() {
+        let status = BeadsStatus::Counts {
+            open: 5,
+            in_progress: 3,
+            blocked: 1,
+            closed: 10,
+        };
+        let debug_str = format!("{status:?}");
+        assert!(debug_str.contains("Counts"));
+        assert!(debug_str.contains("open: 5"));
+        assert!(debug_str.contains("closed: 10"));
+    }
+
+    #[test]
+    fn test_beads_status_counts_inequality() {
+        let status1 = BeadsStatus::Counts {
+            open: 1,
+            in_progress: 0,
+            blocked: 0,
+            closed: 0,
+        };
+        let status2 = BeadsStatus::Counts {
+            open: 2,
+            in_progress: 0,
+            blocked: 0,
+            closed: 0,
+        };
+        assert_ne!(status1, status2);
+    }
+
+    #[test]
+    fn test_beads_status_counts_all_zero() {
+        let status = BeadsStatus::Counts {
+            open: 0,
+            in_progress: 0,
+            blocked: 0,
+            closed: 0,
+        };
+        assert_eq!(
+            status,
+            BeadsStatus::Counts {
+                open: 0,
+                in_progress: 0,
+                blocked: 0,
+                closed: 0,
+            }
+        );
+        assert_ne!(status, BeadsStatus::NoBeads);
+    }
 }

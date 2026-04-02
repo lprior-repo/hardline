@@ -26,13 +26,13 @@ pub enum MetadataError {
 impl fmt::Display for MetadataError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::BranchNotFound(id) => write!(f, "Branch not found: {}", id),
-            Self::BranchAlreadyExists(id) => write!(f, "Branch already exists: {}", id),
-            Self::ParentNotFound(id) => write!(f, "Parent not found: {}", id),
+            Self::BranchNotFound(id) => write!(f, "Branch not found: {id}"),
+            Self::BranchAlreadyExists(id) => write!(f, "Branch already exists: {id}"),
+            Self::ParentNotFound(id) => write!(f, "Parent not found: {id}"),
             Self::CircularReference(id) => {
-                write!(f, "Circular reference would be created for branch {}", id)
+                write!(f, "Circular reference would be created for branch {id}")
             }
-            Self::Backend(msg) => write!(f, "Backend error: {}", msg),
+            Self::Backend(msg) => write!(f, "Backend error: {msg}"),
             Self::Corrupted => write!(f, "Metadata corrupted"),
         }
     }
@@ -44,22 +44,21 @@ impl From<MetadataError> for CoreError {
     fn from(err: MetadataError) -> Self {
         match err {
             MetadataError::BranchNotFound(id) => {
-                CoreError::not_found(format!("Branch not found: {}", id))
+                Self::not_found(format!("Branch not found: {id}"))
             }
             MetadataError::BranchAlreadyExists(id) => {
-                CoreError::invalid_state(format!("Branch already exists: {}", id))
+                Self::invalid_state(format!("Branch already exists: {id}"))
             }
             MetadataError::ParentNotFound(id) => {
-                CoreError::not_found(format!("Parent not found: {}", id))
+                Self::not_found(format!("Parent not found: {id}"))
             }
-            MetadataError::CircularReference(id) => CoreError::invalid_state(format!(
-                "Circular reference would be created for branch {}",
-                id
+            MetadataError::CircularReference(id) => Self::invalid_state(format!(
+                "Circular reference would be created for branch {id}"
             )),
             MetadataError::Backend(msg) => {
-                CoreError::invalid_state(format!("Metadata backend error: {}", msg))
+                Self::invalid_state(format!("Metadata backend error: {msg}"))
             }
-            MetadataError::Corrupted => CoreError::invalid_state("Metadata corrupted".to_string()),
+            MetadataError::Corrupted => Self::invalid_state("Metadata corrupted".to_string()),
         }
     }
 }

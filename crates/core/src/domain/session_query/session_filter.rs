@@ -58,7 +58,7 @@ impl SessionFilter {
 
     /// Filter by session status
     #[must_use]
-    pub fn with_status(mut self, status: SessionState) -> Self {
+    pub const fn with_status(mut self, status: SessionState) -> Self {
         self.status = Some(status);
         self
     }
@@ -79,21 +79,21 @@ impl SessionFilter {
 
     /// Only include sessions with valid workspace paths
     #[must_use]
-    pub fn with_valid_workspace_only(mut self) -> Self {
+    pub const fn with_valid_workspace_only(mut self) -> Self {
         self.valid_workspace_only = true;
         self
     }
 
     /// Only include detached sessions
     #[must_use]
-    pub fn with_detached_only(mut self) -> Self {
+    pub const fn with_detached_only(mut self) -> Self {
         self.detached_only = true;
         self
     }
 
     /// Only include sessions on a branch
     #[must_use]
-    pub fn with_on_branch_only(mut self) -> Self {
+    pub const fn with_on_branch_only(mut self) -> Self {
         self.on_branch_only = true;
         self
     }
@@ -113,7 +113,7 @@ impl SessionFilter {
             session
                 .branch
                 .branch_name()
-                .map_or(false, |name| name.contains(branch_pattern))
+                .is_some_and(|name| name.contains(branch_pattern))
         });
 
         // Name contains filter (case-insensitive)

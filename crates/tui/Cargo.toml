@@ -16,3 +16,4 @@ thiserror = "2.0"
 
 [dev-dependencies]
 insta.workspace = true
+proptest.workspace = true

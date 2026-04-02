@@ -2,6 +2,7 @@
 
 use itertools::Itertools;
 use proptest::prelude::*;
+use proptest::{prop_assert, prop_assert_eq};
 use worktree::{WorktreeId, WorktreeState, WorktreeTypeEnum};
 
 fn arb_worktree_state() -> impl Strategy<Value = WorktreeState> {

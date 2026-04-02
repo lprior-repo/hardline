@@ -152,7 +152,7 @@ impl BranchDag {
             .parents
             .get(&id)
             .cloned()
-            .map_or_else(Vec::new, std::convert::identity);
+            .unwrap_or_else(Vec::new);
 
         self.parents.remove(&id);
         self.branches.remove(&id);

@@ -60,4 +60,37 @@ mod tests {
         let started = Utc::now() - chrono::Duration::milliseconds(100);
         assert!(timeout.is_expired(started));
     }
+
+    #[test]
+    fn test_phase_timeout_not_expired_for_recent_start() {
+        let timeout = PhaseTimeout::new(5000).expect("should create timeout");
+        let started = Utc::now();
+        assert!(!timeout.is_expired(started));
+    }
+
+    #[test]
+    fn test_phase_timeout_elapsed_ms() {
+        let timeout = PhaseTimeout::new(1000).expect("should create timeout");
+        let started = Utc::now() - chrono::Duration::milliseconds(200);
+        let elapsed = timeout.elapsed_ms(started);
+        // Should be approximately 200ms
+        assert!(elapsed >= 190 && elapsed <= 250);
+    }
+
+    #[test]
+    fn test_phase_timeout_elapsed_ms_clamped_at_zero() {
+        let timeout = PhaseTimeout::new(1000).expect("should create timeout");
+        // Start in the future (edge case: clock skew)
+        let started = Utc::now() + chrono::Duration::milliseconds(500);
+        let elapsed = timeout.elapsed_ms(started);
+        assert_eq!(elapsed, 0);
+    }
+
+    #[test]
+    fn test_phase_timeout_is_expired_boundary() {
+        let timeout = PhaseTimeout::new(10).expect("should create timeout");
+        let started = Utc::now() - chrono::Duration::milliseconds(10);
+        // Exactly at the boundary should be expired (>=)
+        assert!(timeout.is_expired(started));
+    }
 }

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 // =============================================================================
 
 /// Domain events for workflow execution
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "event_type", content = "data")]
 pub enum WorkflowEvent {
     OperationStarted(OperationStartedEvent),
@@ -22,21 +22,21 @@ pub enum WorkflowEvent {
     CompensationFailed(CompensationFailedEvent),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperationStartedEvent {
     pub operation_id: String,
     pub total_steps: u32,
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperationCompletedEvent {
     pub operation_id: String,
     pub completed_steps: u32,
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperationFailedEvent {
     pub operation_id: String,
     pub failed_step: u32,
@@ -44,7 +44,7 @@ pub struct OperationFailedEvent {
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StepStartedEvent {
     pub operation_id: String,
     pub step_index: u32,
@@ -52,7 +52,7 @@ pub struct StepStartedEvent {
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StepCompletedEvent {
     pub operation_id: String,
     pub step_index: u32,
@@ -61,7 +61,7 @@ pub struct StepCompletedEvent {
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StepFailedEvent {
     pub operation_id: String,
     pub step_index: u32,
@@ -70,21 +70,21 @@ pub struct StepFailedEvent {
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompensationStartedEvent {
     pub operation_id: String,
     pub steps_to_compensate: u32,
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompensationCompletedEvent {
     pub operation_id: String,
     pub compensated_steps: u32,
     pub timestamp: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompensationFailedEvent {
     pub operation_id: String,
     pub failed_step: u32,

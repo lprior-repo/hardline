@@ -214,4 +214,233 @@ mod tests {
         assert!(SessionName::try_from("valid").is_ok());
         assert!(SessionName::try_from("").is_err());
     }
+
+    // --- QueueEntryId Display ---
+
+    #[test]
+    fn test_queue_entry_id_display() {
+        let id = QueueEntryId::new("test-id").unwrap();
+        assert_eq!(format!("{id}"), "test-id");
+    }
+
+    #[test]
+    fn test_queue_entry_id_display_with_spaces() {
+        let id = QueueEntryId::new("  spaced  ").unwrap();
+        assert_eq!(format!("{id}"), "  spaced  ");
+    }
+
+    // --- SessionName Display ---
+
+    #[test]
+    fn test_session_name_display() {
+        let name = SessionName::new("my-session").unwrap();
+        assert_eq!(format!("{name}"), "my-session");
+    }
+
+    #[test]
+    fn test_session_name_display_trims() {
+        let name = SessionName::new("  spaced  ").unwrap();
+        assert_eq!(format!("{name}"), "spaced");
+    }
+
+    // --- QueueEntryId into_inner ---
+
+    #[test]
+    fn test_queue_entry_id_into_inner() {
+        let id = QueueEntryId::new("my-id").unwrap();
+        assert_eq!(id.into_inner(), "my-id");
+    }
+
+    // --- SessionName into_inner ---
+
+    #[test]
+    fn test_session_name_into_inner() {
+        let name = SessionName::new("my-session").unwrap();
+        assert_eq!(name.into_inner(), "my-session");
+    }
+
+    // --- Serde roundtrips ---
+
+    #[test]
+    fn test_queue_entry_id_serde_roundtrip() {
+        let id = QueueEntryId::new("serde-test").unwrap();
+        let json = serde_json::to_string(&id).unwrap();
+        let back: QueueEntryId = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.as_str(), "serde-test");
+    }
+
+    #[test]
+    fn test_queue_entry_id_serde_roundtrip_with_spaces() {
+        let id = QueueEntryId::new("  spaced-id  ").unwrap();
+        let json = serde_json::to_string(&id).unwrap();
+        let back: QueueEntryId = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.as_str(), "  spaced-id  ");
+    }
+
+    #[test]
+    fn test_session_name_serde_roundtrip() {
+        let name = SessionName::new("serde-session").unwrap();
+        let json = serde_json::to_string(&name).unwrap();
+        let back: SessionName = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.as_str(), "serde-session");
+    }
+
+    #[test]
+    fn test_session_name_serde_roundtrip_trims() {
+        let name = SessionName::new("  spaced  ").unwrap();
+        let json = serde_json::to_string(&name).unwrap();
+        let back: SessionName = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.as_str(), "spaced");
+    }
+
+    // --- Hash consistency ---
+
+    #[test]
+    fn test_queue_entry_id_hash_consistency() {
+        use std::collections::HashSet;
+        let id = QueueEntryId::new("hash-test").unwrap();
+        let mut set = HashSet::new();
+        set.insert(id.clone());
+        assert!(set.contains(&id));
+    }
+
+    #[test]
+    fn test_session_name_hash_consistency() {
+        use std::collections::HashSet;
+        let name = SessionName::new("hash-test").unwrap();
+        let mut set = HashSet::new();
+        set.insert(name.clone());
+        assert!(set.contains(&name));
+    }
+
+    // --- Equality ---
+
+    #[test]
+    fn test_queue_entry_id_equality() {
+        let a = QueueEntryId::new("same").unwrap();
+        let b = QueueEntryId::new("same").unwrap();
+        let c = QueueEntryId::new("different").unwrap();
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_session_name_equality() {
+        let a = SessionName::new("same").unwrap();
+        let b = SessionName::new("same").unwrap();
+        let c = SessionName::new("different").unwrap();
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    // --- Edge cases ---
+
+    #[test]
+    fn test_session_name_with_unicode() {
+        let name = SessionName::new("session-name");
+        assert!(name.is_ok());
+    }
+
+    #[test]
+    fn test_session_name_validate_nonempty_invalid_chars() {
+        assert!(SessionName::validate("invalid$").is_err());
+    }
+
+    #[test]
+    fn test_queue_entry_id_with_internal_spaces() {
+        let id = QueueEntryId::new("id with spaces");
+        assert!(id.is_ok());
+        assert_eq!(id.unwrap().as_str(), "id with spaces");
+    }
+
+    #[test]
+    fn test_session_name_special_chars_allowed() {
+        // Dots, dashes, underscores should be fine
+        assert!(SessionName::new("session.with.dots").is_ok());
+        assert!(SessionName::new("session_with_underscores").is_ok());
+        assert!(SessionName::new("session-with-dashes").is_ok());
+        assert!(SessionName::new("mixed.chars_here-123").is_ok());
+    }
+
+    #[test]
+    fn test_session_name_null_byte_rejected() {
+        assert!(SessionName::new("ses\x00ion").is_err());
+    }
+
+    #[test]
+    fn test_session_name_carriage_return_rejected() {
+        assert!(SessionName::new("ses\rion").is_err());
+    }
+
+    #[test]
+    fn test_session_name_newline_rejected() {
+        assert!(SessionName::new("ses\nion").is_err());
+    }
+
+    #[test]
+    fn test_session_name_single_char() {
+        assert!(SessionName::new("a").is_ok());
+    }
+
+    #[test]
+    fn test_session_name_very_long() {
+        let long_name = "a".repeat(10000);
+        assert!(SessionName::new(&long_name).is_ok());
+    }
+
+    // ========================================================================
+    // Property-based tests (proptest)
+    // ========================================================================
+
+    use proptest::prelude::*;
+    use proptest::{prop_assert, prop_assert_eq};
+
+    proptest! {
+        /// QueueEntryId roundtrip: new -> as_str preserves non-empty input.
+        #[test]
+        fn proptest_queue_entry_id_roundtrip(
+            input in "\\S.{0,99}",
+        ) {
+            let id = QueueEntryId::new(input.clone()).expect("valid input should parse");
+            prop_assert!(!id.as_str().trim().is_empty());
+        }
+
+        /// QueueEntryId is reflexive: a == a for all valid a.
+        #[test]
+        fn proptest_queue_entry_id_reflexive(
+            input in "\\S.{0,99}",
+        ) {
+            let id = QueueEntryId::new(input).expect("valid");
+            prop_assert_eq!(id.clone(), id);
+        }
+
+        /// QueueEntryId rejects empty or whitespace-only strings.
+        #[test]
+        fn proptest_queue_entry_id_rejects_whitespace_only(
+            input in "\\s+",
+        ) {
+            prop_assert!(QueueEntryId::new(input).is_err());
+        }
+
+        /// SessionName (queue) rejects strings with shell metacharacters.
+        #[test]
+        fn proptest_queue_session_name_rejects_shell_meta(
+            valid_prefix in "[a-zA-Z0-9_]{1,10}",
+            meta_char in "[$`|&<>]",
+            valid_suffix in "[a-zA-Z0-9_]{1,10}",
+        ) {
+            let input = format!("{}{}{}", valid_prefix, meta_char, valid_suffix);
+            prop_assert!(SessionName::new(&input).is_err(), "should reject: {:?}", input);
+        }
+
+        /// SessionName (queue) rejects empty strings.
+        #[test]
+        fn proptest_queue_session_name_rejects_empty(
+            input in "\\s*",
+        ) {
+            if input.trim().is_empty() {
+                prop_assert!(SessionName::new(input).is_err());
+            }
+        }
+    }
 }

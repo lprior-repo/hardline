@@ -327,4 +327,127 @@ mod tests {
         assert!(!OperationRisk::Safe.needs_checkpoint());
         assert!(OperationRisk::Risky.needs_checkpoint());
     }
+
+    // --- OperationRisk enum: all variants ---
+
+    #[test]
+    fn operation_risk_safe_variant() {
+        let risk = OperationRisk::Safe;
+        assert_eq!(risk, OperationRisk::Safe);
+        assert!(!risk.needs_checkpoint());
+    }
+
+    #[test]
+    fn operation_risk_risky_variant() {
+        let risk = OperationRisk::Risky;
+        assert_eq!(risk, OperationRisk::Risky);
+        assert!(risk.needs_checkpoint());
+    }
+
+    #[test]
+    fn operation_risk_clone() {
+        let safe = OperationRisk::Safe;
+        let risky = OperationRisk::Risky;
+        assert_eq!(safe.clone(), OperationRisk::Safe);
+        assert_eq!(risky.clone(), OperationRisk::Risky);
+    }
+
+    #[test]
+    fn operation_risk_copy() {
+        let safe = OperationRisk::Safe;
+        let copied = safe;
+        assert_eq!(safe, copied);
+    }
+
+    #[test]
+    fn operation_risk_debug() {
+        assert!(!format!("{:?}", OperationRisk::Safe).is_empty());
+        assert!(!format!("{:?}", OperationRisk::Risky).is_empty());
+    }
+
+    // --- classify_command: edge cases ---
+
+    #[test]
+    fn classify_empty_string() {
+        assert_eq!(classify_command(""), OperationRisk::Safe);
+    }
+
+    #[test]
+    fn classify_unknown_command() {
+        assert_eq!(classify_command("foobar"), OperationRisk::Safe);
+    }
+
+    #[test]
+    fn classify_case_sensitive() {
+        // Commands are case-sensitive: "Batch" != "batch"
+        assert_eq!(classify_command("Batch"), OperationRisk::Safe);
+        assert_eq!(classify_command("batch"), OperationRisk::Risky);
+    }
+
+    #[test]
+    fn classify_all_risky_commands_individually() {
+        let risky = ["batch", "spawn", "remove", "cleanup", "rebase", "squash"];
+        for cmd in risky {
+            assert_eq!(classify_command(cmd), OperationRisk::Risky, "expected '{cmd}' to be Risky");
+        }
+    }
+
+    #[test]
+    fn classify_safe_commands_including_common_ones() {
+        let safe = [
+            "list",
+            "status",
+            "context",
+            "focus",
+            "help",
+            "version",
+            "show",
+            "log",
+            "diff",
+            "get",
+            "set",
+        ];
+        for cmd in safe {
+            assert_eq!(classify_command(cmd), OperationRisk::Safe, "expected '{cmd}' to be Safe");
+        }
+    }
+
+    // --- CheckpointGuard: id and is_committed on fresh guard ---
+
+    #[tokio::test]
+    async fn guard_id_is_from_auto_prefix() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool);
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
+            assert!(g.id().starts_with("auto-"));
+            assert!(!g.is_committed());
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn guard_debug_format() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool);
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
+            let debug_str = format!("{g:?}");
+            assert!(debug_str.contains("CheckpointGuard"));
+            assert!(debug_str.contains("checkpoint_id"));
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn safe_operation_produces_no_checkpoint() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+        let _guard = auto_cp.guard_if_risky(OperationRisk::Safe).await?;
+
+        // No checkpoints should exist in the DB
+        let pending = find_pending_restores(&pool).await?;
+        assert!(pending.is_empty());
+        Ok(())
+    }
 }

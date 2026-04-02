@@ -225,6 +225,7 @@ impl From<Worktree<Removed>> for Worktree {
     }
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for WorktreeState {
     fn default() -> Self {
         Self::Creating

@@ -44,8 +44,8 @@ pub fn run(full: bool) -> Result<()> {
     let vcs_passed = check_vcs_result.as_ref().copied().unwrap_or(false);
     let dep_jj_found = check_dep_jj.as_ref().copied().unwrap_or(false);
     let dep_git_found = check_dep_git.as_ref().copied().unwrap_or(false);
-    let config_result = check_config_result.as_ref().copied().unwrap_or(false);
-    let workspaces_count = check_workspaces_result.as_ref().copied().unwrap_or(0);
+    let _config_result = check_config_result.as_ref().copied().unwrap_or(false);
+    let _workspaces_count = check_workspaces_result.as_ref().copied().unwrap_or(0);
 
     println!("[1/5] Checking VCS...");
     if vcs_passed {

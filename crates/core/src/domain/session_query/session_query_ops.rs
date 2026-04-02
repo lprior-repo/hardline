@@ -123,7 +123,7 @@ pub fn apply_query(sessions: &[Session], query: &SessionQuery) -> Vec<Session> {
             query
                 .sort
                 .as_ref()
-                .map_or(s.clone(), |sort| sort_sessions(&s, sort))
+                .map_or_else(|| s.clone(), |sort| sort_sessions(&s, sort))
         })
         .pipe(|s| paginate_sessions(&s, query.offset, query.limit))
 }

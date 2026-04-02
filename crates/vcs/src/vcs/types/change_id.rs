@@ -205,3 +205,316 @@ impl std::fmt::Display for ChangeId {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::proptest;
+
+    // -- from_git_sha valid cases --
+
+    #[test]
+    fn git_sha_7_chars() {
+        let id = ChangeId::from_git_sha("abcdef0").expect("valid");
+        assert_eq!(id.as_str(), "abcdef0");
+        assert_eq!(id.backend_type(), BackendType::Git);
+    }
+
+    #[test]
+    fn git_sha_40_chars() {
+        let sha = "0123456789abcdef0123456789abcdef01234567";
+        let id = ChangeId::from_git_sha(sha).expect("valid");
+        assert_eq!(id.as_str(), sha);
+    }
+
+    #[test]
+    fn git_sha_uppercase_normalized() {
+        let id = ChangeId::from_git_sha("ABCDEF0123456789").expect("valid");
+        assert_eq!(id.as_str(), "abcdef0123456789");
+    }
+
+    #[test]
+    fn git_sha_mixed_case_normalized() {
+        let id = ChangeId::from_git_sha("AbCdEf0123456789").expect("valid");
+        assert_eq!(id.as_str(), "abcdef0123456789");
+    }
+
+    #[test]
+    fn git_sha_trimmed() {
+        let id = ChangeId::from_git_sha("  abcdef01234567  ").expect("valid");
+        assert_eq!(id.as_str(), "abcdef01234567");
+    }
+
+    // -- from_git_sha invalid cases --
+
+    #[test]
+    fn git_sha_empty_rejects() {
+        assert_eq!(ChangeId::from_git_sha(""), Err(ParseError::Empty));
+    }
+
+    #[test]
+    fn git_sha_whitespace_rejects() {
+        assert_eq!(ChangeId::from_git_sha("   "), Err(ParseError::Empty));
+    }
+
+    #[test]
+    fn git_sha_too_short_rejects() {
+        assert_eq!(ChangeId::from_git_sha("abc12"), Err(ParseError::InvalidGitShaLength(5)));
+    }
+
+    #[test]
+    fn git_sha_too_long_rejects() {
+        let long = "0123456789abcdef0123456789abcdef012345678";
+        assert_eq!(ChangeId::from_git_sha(long), Err(ParseError::InvalidGitShaLength(41)));
+    }
+
+    #[test]
+    fn git_sha_non_hex_rejects() {
+        assert!(matches!(ChangeId::from_git_sha("ghijklm"), Err(ParseError::InvalidCharacters(_))));
+    }
+
+    #[test]
+    fn git_sha_with_spaces_rejects() {
+        assert!(matches!(ChangeId::from_git_sha("abc def0"), Err(ParseError::InvalidCharacters(_))));
+    }
+
+    // -- from_jj_id valid cases --
+
+    #[test]
+    fn jj_id_simple() {
+        let id = ChangeId::from_jj_id("abc123").expect("valid");
+        assert_eq!(id.as_str(), "abc123");
+        assert_eq!(id.backend_type(), BackendType::Jj);
+    }
+
+    #[test]
+    fn jj_id_uppercase_normalized() {
+        let id = ChangeId::from_jj_id("ABC123").expect("valid");
+        assert_eq!(id.as_str(), "abc123");
+    }
+
+    #[test]
+    fn jj_id_trimmed() {
+        let id = ChangeId::from_jj_id("  abc123  ").expect("valid");
+        assert_eq!(id.as_str(), "abc123");
+    }
+
+    #[test]
+    fn jj_id_single_char() {
+        let id = ChangeId::from_jj_id("a").expect("valid");
+        assert_eq!(id.as_str(), "a");
+    }
+
+    // -- from_jj_id invalid cases --
+
+    #[test]
+    fn jj_id_empty_rejects() {
+        assert_eq!(ChangeId::from_jj_id(""), Err(ParseError::Empty));
+    }
+
+    #[test]
+    fn jj_id_whitespace_rejects() {
+        assert_eq!(ChangeId::from_jj_id("   "), Err(ParseError::Empty));
+    }
+
+    #[test]
+    fn jj_id_with_hyphen_rejects() {
+        // hyphen is not base36
+        assert!(matches!(ChangeId::from_jj_id("abc-123"), Err(ParseError::InvalidCharacters(_))));
+    }
+
+    #[test]
+    fn jj_id_with_special_chars_rejects() {
+        assert!(matches!(ChangeId::from_jj_id("abc@123"), Err(ParseError::InvalidCharacters(_))));
+    }
+
+    // -- Display tests --
+
+    #[test]
+    fn display_git_format() {
+        let id = ChangeId::from_git_sha("abcdef0").expect("valid");
+        let display = format!("{id}");
+        assert_eq!(display, "git:abcdef0");
+    }
+
+    #[test]
+    fn display_jj_format() {
+        let id = ChangeId::from_jj_id("abc123").expect("valid");
+        let display = format!("{id}");
+        assert_eq!(display, "jj:abc123");
+    }
+
+    // -- FromStr tests --
+
+    #[test]
+    fn from_str_hex_parsed_as_git() {
+        let id: ChangeId = "abcdef01234567".parse().expect("valid");
+        assert_eq!(id.backend_type(), BackendType::Git);
+        assert_eq!(id.as_str(), "abcdef01234567");
+    }
+
+    #[test]
+    fn from_str_non_hex_parsed_as_jj() {
+        let id: ChangeId = "klmnop".parse().expect("valid");
+        assert_eq!(id.backend_type(), BackendType::Jj);
+        assert_eq!(id.as_str(), "klmnop");
+    }
+
+    #[test]
+    fn from_str_empty_rejects() {
+        let result: Result<ChangeId, ParseError> = "".parse();
+        assert_eq!(result, Err(ParseError::Empty));
+    }
+
+    #[test]
+    fn from_str_whitespace_rejects() {
+        let result: Result<ChangeId, ParseError> = "   ".parse();
+        assert_eq!(result, Err(ParseError::Empty));
+    }
+
+    // -- Clone, Eq, Hash --
+
+    #[test]
+    fn change_id_clone() {
+        let id = ChangeId::from_git_sha("abcdef0").expect("valid");
+        let cloned = id.clone();
+        assert_eq!(id, cloned);
+    }
+
+    #[test]
+    fn change_id_eq_same_backend() {
+        let a = ChangeId::from_git_sha("abcdef0").expect("valid");
+        let b = ChangeId::from_git_sha("abcdef0").expect("valid");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn change_id_neq_different_values_same_backend() {
+        let a = ChangeId::from_git_sha("abcdef0").expect("valid");
+        let b = ChangeId::from_git_sha("fedcba0").expect("valid");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn change_id_neq_different_backends_same_string() {
+        // "abc123" is valid for both git and jj, but they are different backends
+        let git_id = ChangeId::from_git_sha("abc1230").expect("valid");
+        let jj_id = ChangeId::from_jj_id("abc1230").expect("valid");
+        assert_ne!(git_id, jj_id);
+        assert_eq!(git_id.backend_type(), BackendType::Git);
+        assert_eq!(jj_id.backend_type(), BackendType::Jj);
+    }
+
+    #[test]
+    fn change_id_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(ChangeId::from_git_sha("abcdef0").expect("valid"));
+        set.insert(ChangeId::from_git_sha("abcdef0").expect("valid"));
+        assert_eq!(set.len(), 1);
+    }
+
+    // -- Serde roundtrip --
+
+    #[test]
+    fn change_id_serde_roundtrip_git() {
+        let id = ChangeId::from_git_sha("deadbeef1234567").expect("valid");
+        let json = serde_json::to_string(&id).expect("serialize");
+        let deserialized: ChangeId = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(id, deserialized);
+        assert_eq!(deserialized.backend_type(), BackendType::Git);
+    }
+
+    #[test]
+    fn change_id_serde_roundtrip_jj() {
+        let id = ChangeId::from_jj_id("kmnoqrstuvwxyz").expect("valid");
+        let json = serde_json::to_string(&id).expect("serialize");
+        let deserialized: ChangeId = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(id, deserialized);
+        assert_eq!(deserialized.backend_type(), BackendType::Jj);
+    }
+
+    #[test]
+    fn change_id_debug_format() {
+        let id = ChangeId::from_git_sha("abcdef0").expect("valid");
+        let debug = format!("{id:?}");
+        assert!(debug.contains("Git"));
+        assert!(debug.contains("abcdef0"));
+    }
+
+    // -- ParseError tests --
+
+    #[test]
+    fn parse_error_eq() {
+        assert_eq!(ParseError::Empty, ParseError::Empty);
+        assert_eq!(ParseError::InvalidGitShaLength(5), ParseError::InvalidGitShaLength(5));
+        assert_ne!(ParseError::InvalidGitShaLength(5), ParseError::InvalidGitShaLength(6));
+        assert_eq!(ParseError::InvalidCharacters("abc".to_string()), ParseError::InvalidCharacters("abc".to_string()));
+    }
+
+    #[test]
+    fn parse_error_clone() {
+        let err = ParseError::InvalidCharacters("test".to_string());
+        let cloned = err.clone();
+        assert_eq!(err, cloned);
+    }
+
+    #[test]
+    fn parse_error_display_empty() {
+        let msg = format!("{}", ParseError::Empty);
+        assert!(msg.contains("cannot be empty"));
+    }
+
+    #[test]
+    fn parse_error_display_invalid_characters() {
+        let msg = format!("{}", ParseError::InvalidCharacters("@#$".to_string()));
+        assert!(msg.contains("@#$"));
+    }
+
+    #[test]
+    fn parse_error_display_invalid_git_length() {
+        let msg = format!("{}", ParseError::InvalidGitShaLength(3));
+        assert!(msg.contains("3"));
+    }
+
+    #[test]
+    fn parse_error_display_invalid_jj_length() {
+        let msg = format!("{}", ParseError::InvalidJjLength(0));
+        assert!(msg.contains("0"));
+    }
+
+    // -- Proptests --
+
+    proptest! {
+        #[test]
+        fn git_sha_valid_hex_always_succeeds(s in "[0-9a-f]{7,40}") {
+            let result = ChangeId::from_git_sha(&s);
+            assert!(result.is_ok(), "Failed for: {s}");
+            let id = result.expect("valid");
+            assert_eq!(id.backend_type(), BackendType::Git);
+            assert_eq!(id.as_str(), s.to_lowercase());
+        }
+
+        #[test]
+        fn jj_id_valid_alphanumeric_always_succeeds(s in "[0-9a-z]{1,30}") {
+            let result = ChangeId::from_jj_id(&s);
+            assert!(result.is_ok(), "Failed for: {s}");
+            let id = result.expect("valid");
+            assert_eq!(id.backend_type(), BackendType::Jj);
+        }
+
+        #[test]
+        fn git_sha_display_includes_prefix(s in "[0-9a-f]{7,40}") {
+            let id = ChangeId::from_git_sha(&s).expect("valid");
+            let display = format!("{id}");
+            assert!(display.starts_with("git:"));
+        }
+
+        #[test]
+        fn jj_id_display_includes_prefix(s in "[0-9a-z]{1,30}") {
+            let id = ChangeId::from_jj_id(&s).expect("valid");
+            let display = format!("{id}");
+            assert!(display.starts_with("jj:"));
+        }
+    }
+}

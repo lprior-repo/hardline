@@ -14,6 +14,11 @@ use std::path::Path;
 
 use crate::error::{Error, Result};
 
+/// Validates that a path exists on the filesystem.
+///
+/// # Errors
+///
+/// Returns an error if the path does not exist.
 pub fn validate_path_exists(path: &Path) -> Result<()> {
     if !path.exists() {
         return Err(Error::validation_field_error(
@@ -25,6 +30,11 @@ pub fn validate_path_exists(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Validates that a path is a directory.
+///
+/// # Errors
+///
+/// Returns an error if the path is not a directory.
 pub fn validate_is_directory(path: &Path) -> Result<()> {
     if !path.is_dir() {
         return Err(Error::validation_field_error(
@@ -36,6 +46,11 @@ pub fn validate_is_directory(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Validates that a path is a file.
+///
+/// # Errors
+///
+/// Returns an error if the path is not a file.
 pub fn validate_is_file(path: &Path) -> Result<()> {
     if !path.is_file() {
         return Err(Error::validation_field_error(
@@ -47,11 +62,21 @@ pub fn validate_is_file(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Validates that a path is an existing directory (suitable for a workspace).
+///
+/// # Errors
+///
+/// Returns an error if the path does not exist or is not a directory.
 pub fn validate_workspace_path(path: &Path) -> Result<()> {
     validate_path_exists(path)?;
     validate_is_directory(path)
 }
 
+/// Validates that a path is readable.
+///
+/// # Errors
+///
+/// Returns an error if the path metadata cannot be read.
 pub fn validate_is_readable(path: &Path) -> Result<()> {
     match std::fs::metadata(path) {
         Ok(_) => Ok(()),
@@ -63,6 +88,12 @@ pub fn validate_is_readable(path: &Path) -> Result<()> {
     }
 }
 
+/// Validates that a path (or its parent directory) is writable.
+///
+/// # Errors
+///
+/// Returns an error if neither the path nor its parent directory is writable,
+/// or if the path has no parent.
 pub fn validate_is_writable(path: &Path) -> Result<()> {
     if path.is_dir() {
         match std::fs::OpenOptions::new().write(true).open(path) {
@@ -74,9 +105,8 @@ pub fn validate_is_writable(path: &Path) -> Result<()> {
             )),
         }
     } else {
-        match path.parent() {
-            Some(parent) => validate_is_writable(parent),
-            None => Err(Error::validation_field_error(
+        path.parent().map_or_else(
+            || Err(Error::validation_field_error(
                 "path",
                 format!(
                     "Cannot check writability for path without parent: '{}'",
@@ -84,10 +114,16 @@ pub fn validate_is_writable(path: &Path) -> Result<()> {
                 ),
                 Some(path.display().to_string()),
             )),
-        }
+            validate_is_writable,
+        )
     }
 }
 
+/// Validates that a directory is empty.
+///
+/// # Errors
+///
+/// Returns an error if the directory contains entries or cannot be read.
 pub fn validate_directory_empty(path: &Path) -> Result<()> {
     match std::fs::read_dir(path) {
         Ok(mut entries) => {
@@ -108,11 +144,21 @@ pub fn validate_directory_empty(path: &Path) -> Result<()> {
     }
 }
 
+/// Validates that sufficient disk space is available (currently a placeholder).
+///
+/// # Errors
+///
+/// Returns an error if the path does not exist.
 pub fn validate_sufficient_space(path: &Path, _required_bytes: u64) -> Result<()> {
     validate_path_exists(path)?;
     Ok(())
 }
 
+/// Validates that all given paths exist.
+///
+/// # Errors
+///
+/// Returns an error if any path does not exist.
 pub fn validate_all_paths_exist(paths: &[&Path]) -> Result<()> {
     for &path in paths {
         validate_path_exists(path)?;
@@ -120,6 +166,11 @@ pub fn validate_all_paths_exist(paths: &[&Path]) -> Result<()> {
     Ok(())
 }
 
+/// Validates that at least one of the given paths exists.
+///
+/// # Errors
+///
+/// Returns an error if none of the paths exist.
 pub fn validate_any_path_exists(paths: &[&Path]) -> Result<()> {
     let exists = paths.iter().any(|&path| path.exists());
 

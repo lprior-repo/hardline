@@ -43,21 +43,21 @@ impl SessionQuery {
 
     /// Add sorting
     #[must_use]
-    pub fn with_sort(mut self, sort: SessionSort) -> Self {
+    pub const fn with_sort(mut self, sort: SessionSort) -> Self {
         self.sort = Some(sort);
         self
     }
 
     /// Add offset
     #[must_use]
-    pub fn with_offset(mut self, offset: usize) -> Self {
+    pub const fn with_offset(mut self, offset: usize) -> Self {
         self.offset = Some(offset);
         self
     }
 
     /// Add limit
     #[must_use]
-    pub fn with_limit(mut self, limit: usize) -> Self {
+    pub const fn with_limit(mut self, limit: usize) -> Self {
         self.limit = Some(limit);
         self
     }

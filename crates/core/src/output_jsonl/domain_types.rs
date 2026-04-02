@@ -7,12 +7,12 @@
 //!
 //! This module re-exports from the following sibling modules:
 //! - `action_verb` - Action verb enumeration
-//! - `identifier_types` - IssueId, BeadId, SessionName
-//! - `metadata_type` - ValidatedMetadata
+//! - `identifier_types` - `IssueId`, `BeadId`, `SessionName`
+//! - `metadata_type` - `ValidatedMetadata`
 //! - `state_enums` - State enums replacing bool/Option
-//! - `target_types` - ActionTarget, BaseRef, Command
-//! - `text_types` - IssueTitle, PlanTitle, PlanDescription, Message
-//! - `warning_code` - WarningCode enumeration
+//! - `target_types` - `ActionTarget`, `BaseRef`, Command
+//! - `text_types` - `IssueTitle`, `PlanTitle`, `PlanDescription`, Message
+//! - `warning_code` - `WarningCode` enumeration
 
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]

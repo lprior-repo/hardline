@@ -368,8 +368,8 @@ impl HookConfig {
             return Ok(hooks);
         }
 
-        for entry in std::fs::read_dir(dir).map_err(Error::Io)? {
-            let entry = entry.map_err(Error::Io)?;
+        for entry in std::fs::read_dir(dir).map_err(Error::from)? {
+            let entry = entry.map_err(Error::from)?;
             let path = entry.path();
 
             if path.is_file() {
@@ -482,6 +482,7 @@ impl Default for HookManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn test_hook_event_names() {
@@ -510,5 +511,409 @@ mod tests {
 
         let results = runner.run(HookEvent::PreCommit, &env);
         assert!(!results.is_empty());
+    }
+
+    // -- HookEvent tests --
+
+    #[test]
+    fn hook_event_all_returns_all_variants() {
+        let all = HookEvent::all();
+        assert_eq!(all.len(), 16);
+        assert!(all.contains(&HookEvent::PreCommit));
+        assert!(all.contains(&HookEvent::PostCommit));
+        assert!(all.contains(&HookEvent::PreRebase));
+        assert!(all.contains(&HookEvent::PostRebase));
+    }
+
+    #[test]
+    fn hook_event_default_is_post_commit() {
+        assert_eq!(HookEvent::default(), HookEvent::PostCommit);
+    }
+
+    #[test]
+    fn hook_event_display_matches_name() {
+        for event in HookEvent::all() {
+            let display = format!("{event}");
+            assert_eq!(display, event.name());
+        }
+    }
+
+    #[test]
+    fn hook_event_hash_and_eq() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        for event in HookEvent::all() {
+            set.insert(event);
+        }
+        assert_eq!(set.len(), 16);
+    }
+
+    #[test]
+    fn hook_event_clone() {
+        let event = HookEvent::PreCommit;
+        let cloned = event;
+        assert_eq!(event, cloned);
+    }
+
+    // -- Hook builder tests --
+
+    #[test]
+    fn hook_new_defaults() {
+        let hook = Hook::new("my-hook", HookEvent::PrePush, "/bin/true");
+        assert_eq!(hook.name, "my-hook");
+        assert_eq!(hook.event, HookEvent::PrePush);
+        assert_eq!(hook.command, "/bin/true");
+        assert!(hook.args.is_empty());
+        assert!(hook.enabled);
+        assert_eq!(hook.timeout_ms, 30000);
+    }
+
+    #[test]
+    fn hook_builder_arg() {
+        let hook = Hook::new("test", HookEvent::PreCommit, "echo")
+            .arg("--verbose");
+        assert_eq!(hook.args, vec!["--verbose"]);
+    }
+
+    #[test]
+    fn hook_builder_multiple_args() {
+        let hook = Hook::new("test", HookEvent::PreCommit, "echo")
+            .arg("a")
+            .arg("b")
+            .arg("c");
+        assert_eq!(hook.args, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn hook_builder_timeout() {
+        let hook = Hook::new("test", HookEvent::PreCommit, "echo")
+            .timeout(5000);
+        assert_eq!(hook.timeout_ms, 5000);
+    }
+
+    #[test]
+    fn hook_builder_disabled() {
+        let hook = Hook::new("test", HookEvent::PreCommit, "echo")
+            .disabled();
+        assert!(!hook.enabled);
+    }
+
+    #[test]
+    fn hook_builder_chain() {
+        let hook = Hook::new("test", HookEvent::PreCommit, "echo")
+            .arg("arg1")
+            .timeout(1000)
+            .disabled();
+        assert_eq!(hook.args, vec!["arg1"]);
+        assert_eq!(hook.timeout_ms, 1000);
+        assert!(!hook.enabled);
+    }
+
+    #[test]
+    fn hook_clone() {
+        let hook = Hook::new("test", HookEvent::PreCommit, "echo")
+            .arg("arg1")
+            .timeout(1000);
+        let cloned = hook.clone();
+        assert_eq!(cloned.name, hook.name);
+        assert_eq!(cloned.args, hook.args);
+        assert_eq!(cloned.timeout_ms, hook.timeout_ms);
+    }
+
+    // -- HookRunner tests --
+
+    #[test]
+    fn hook_runner_new_is_empty() {
+        let runner = HookRunner::new();
+        assert!(runner.list_hooks().is_empty());
+    }
+
+    #[test]
+    fn hook_runner_register_multiple() {
+        let mut runner = HookRunner::new();
+        runner.register(Hook::new("h1", HookEvent::PreCommit, "echo"));
+        runner.register(Hook::new("h2", HookEvent::PreCommit, "echo"));
+        runner.register(Hook::new("h3", HookEvent::PostCommit, "echo"));
+        assert_eq!(runner.list_hooks().len(), 3);
+    }
+
+    #[test]
+    fn hook_runner_unregister_existing() {
+        let mut runner = HookRunner::new();
+        runner.register(Hook::new("h1", HookEvent::PreCommit, "echo"));
+        runner.register(Hook::new("h2", HookEvent::PreCommit, "echo"));
+        assert!(runner.unregister(HookEvent::PreCommit, "h1"));
+        assert_eq!(runner.get_hooks(HookEvent::PreCommit).len(), 1);
+    }
+
+    #[test]
+    fn hook_runner_unregister_nonexistent() {
+        let mut runner = HookRunner::new();
+        assert!(!runner.unregister(HookEvent::PreCommit, "nonexistent"));
+    }
+
+    #[test]
+    fn hook_runner_unregister_from_empty_event() {
+        let mut runner = HookRunner::new();
+        assert!(!runner.unregister(HookEvent::PostPush, "any"));
+    }
+
+    #[test]
+    fn hook_runner_get_hooks_empty() {
+        let runner = HookRunner::new();
+        assert!(runner.get_hooks(HookEvent::PreCommit).is_empty());
+    }
+
+    #[test]
+    fn hook_runner_run_no_hooks_returns_empty() {
+        let runner = HookRunner::new();
+        let env = HookEnv::default();
+        let results = runner.run(HookEvent::PreCommit, &env);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn hook_runner_disabled_hooks_skipped() {
+        let mut runner = HookRunner::new();
+        runner.register(
+            Hook::new("disabled", HookEvent::PreCommit, "echo")
+                .disabled()
+        );
+        let env = HookEnv {
+            event: HookEvent::PreCommit,
+            vcs_type: "git".to_string(),
+            ..Default::default()
+        };
+        let results = runner.run(HookEvent::PreCommit, &env);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn hook_runner_default() {
+        let runner = HookRunner::default();
+        assert!(runner.list_hooks().is_empty());
+    }
+
+    // -- HookResult tests --
+
+    #[test]
+    fn hook_result_success() {
+        let result = HookResult::success(HookEvent::PreCommit, "output".to_string(), 100);
+        assert!(result.success);
+        assert_eq!(result.output, "output");
+        assert!(result.error.is_none());
+        assert_eq!(result.duration_ms, 100);
+        assert_eq!(result.event, HookEvent::PreCommit);
+    }
+
+    #[test]
+    fn hook_result_failure() {
+        let result = HookResult::failure(HookEvent::PrePush, "error msg".to_string(), 50);
+        assert!(!result.success);
+        assert_eq!(result.output, "");
+        assert_eq!(result.error, Some("error msg".to_string()));
+        assert_eq!(result.duration_ms, 50);
+    }
+
+    #[test]
+    fn hook_result_clone() {
+        let result = HookResult::success(HookEvent::PostCommit, "out".to_string(), 10);
+        let cloned = result.clone();
+        assert_eq!(result.success, cloned.success);
+        assert_eq!(result.output, cloned.output);
+    }
+
+    #[test]
+    fn hook_result_has_timestamp() {
+        let before = chrono::Utc::now();
+        let result = HookResult::success(HookEvent::PreCommit, "out".to_string(), 0);
+        let after = chrono::Utc::now();
+        assert!(result.timestamp >= before);
+        assert!(result.timestamp <= after);
+    }
+
+    // -- HookEnv tests --
+
+    #[test]
+    fn hook_env_default() {
+        let env = HookEnv::default();
+        assert!(env.workspace.is_none());
+        assert!(env.branch.is_none());
+        assert!(env.repo_path.is_none());
+        assert!(env.target.is_none());
+        assert_eq!(env.vcs_type, "");
+    }
+
+    #[test]
+    fn hook_env_to_env_basic() {
+        let env = HookEnv {
+            event: HookEvent::PreCommit,
+            vcs_type: "git".to_string(),
+            workspace: Some("default".to_string()),
+            branch: Some("main".to_string()),
+            repo_path: Some(PathBuf::from("/repo")),
+            target: None,
+        };
+        let map = env.to_env();
+        assert_eq!(map.get("SCP_HOOK_EVENT").map(String::as_str), Some("pre-commit"));
+        assert_eq!(map.get("SCP_HOOK_VCS").map(String::as_str), Some("git"));
+        assert_eq!(map.get("SCP_HOOK_WORKSPACE").map(String::as_str), Some("default"));
+        assert_eq!(map.get("SCP_HOOK_BRANCH").map(String::as_str), Some("main"));
+        assert_eq!(map.get("SCP_HOOK_REPO_PATH").map(String::as_str), Some("/repo"));
+        assert!(!map.contains_key("SCP_HOOK_TARGET"));
+    }
+
+    #[test]
+    fn hook_env_to_env_with_target() {
+        let env = HookEnv {
+            event: HookEvent::PrePush,
+            vcs_type: "jj".to_string(),
+            target: Some("origin".to_string()),
+            ..Default::default()
+        };
+        let map = env.to_env();
+        assert_eq!(map.get("SCP_HOOK_TARGET").map(String::as_str), Some("origin"));
+    }
+
+    // -- HookConfig tests --
+
+    #[test]
+    fn hook_config_default() {
+        let config = HookConfig::default();
+        assert!(config.hooks_dir.is_none());
+        assert!(config.disabled_events.is_empty());
+    }
+
+    #[test]
+    fn hook_config_load_hooks_nonexistent_dir() {
+        let config = HookConfig::new();
+        let hooks = config.load_hooks(Path::new("/nonexistent/path")).expect("ok");
+        assert!(hooks.is_empty());
+    }
+
+    #[test]
+    fn hook_config_load_hooks_empty_dir() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let config = HookConfig::new();
+        let hooks = config.load_hooks(dir.path()).expect("ok");
+        assert!(hooks.is_empty());
+    }
+
+    #[test]
+    fn hook_config_load_hooks_with_scripts() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        // Create script files
+        let pre_commit = dir.path().join("pre-commit-check");
+        fs::write(&pre_commit, "#!/bin/bash\necho ok").expect("write");
+        let post_commit = dir.path().join("post-commit-notify");
+        fs::write(&post_commit, "#!/bin/bash\necho done").expect("write");
+
+        let config = HookConfig::new();
+        let hooks = config.load_hooks(dir.path()).expect("ok");
+        assert_eq!(hooks.len(), 2);
+        let events: Vec<&HookEvent> = hooks.iter().map(|h| &h.event).collect();
+        assert!(events.contains(&&HookEvent::PreCommit));
+        assert!(events.contains(&&HookEvent::PostCommit));
+    }
+
+    #[test]
+    fn hook_config_event_from_name() {
+        assert_eq!(HookConfig::event_from_name("pre-commit-lint"), Some(HookEvent::PreCommit));
+        assert_eq!(HookConfig::event_from_name("my-post-push-hook"), Some(HookEvent::PostPush));
+        assert_eq!(HookConfig::event_from_name("random-script"), None);
+        assert_eq!(HookConfig::event_from_name(""), None);
+    }
+
+    // -- HookManager tests --
+
+    #[test]
+    fn hook_manager_new() {
+        let manager = HookManager::new();
+        assert!(manager.list_hooks().is_empty());
+    }
+
+    #[test]
+    fn hook_manager_default() {
+        let manager = HookManager::default();
+        assert!(manager.list_hooks().is_empty());
+    }
+
+    #[test]
+    fn hook_manager_register() {
+        let mut manager = HookManager::new();
+        manager.register(Hook::new("test", HookEvent::PreCommit, "echo"));
+        assert_eq!(manager.list_hooks().len(), 1);
+    }
+
+    #[test]
+    fn hook_manager_run_pre_maps_post_to_pre() {
+        let manager = HookManager::new();
+        let env = HookEnv {
+            event: HookEvent::PostCommit,
+            vcs_type: "git".to_string(),
+            ..Default::default()
+        };
+        // No hooks registered, so result is empty
+        let results = manager.run_pre(HookEvent::PostCommit, &env);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn hook_manager_run_post() {
+        let manager = HookManager::new();
+        let env = HookEnv {
+            event: HookEvent::PostCommit,
+            vcs_type: "git".to_string(),
+            ..Default::default()
+        };
+        let results = manager.run_post(HookEvent::PostCommit, &env);
+        assert!(results.is_empty());
+    }
+
+    // -- Serde roundtrip tests --
+
+    #[test]
+    fn hook_event_serde_roundtrip_all() {
+        for event in HookEvent::all() {
+            let json = serde_json::to_string(&event).expect("serialize");
+            let deserialized: HookEvent = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(*event, deserialized);
+        }
+    }
+
+    #[test]
+    fn hook_result_serde_roundtrip() {
+        let result = HookResult::success(HookEvent::PreCommit, "output".to_string(), 100);
+        let json = serde_json::to_string(&result).expect("serialize");
+        let deserialized: HookResult = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(result.success, deserialized.success);
+        assert_eq!(result.output, deserialized.output);
+    }
+
+    #[test]
+    fn hook_serde_roundtrip() {
+        let hook = Hook::new("test", HookEvent::PrePush, "/bin/true")
+            .arg("--verbose")
+            .timeout(5000);
+        let json = serde_json::to_string(&hook).expect("serialize");
+        let deserialized: Hook = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(hook.name, deserialized.name);
+        assert_eq!(hook.event, deserialized.event);
+        assert_eq!(hook.command, deserialized.command);
+        assert_eq!(hook.args, deserialized.args);
+        assert_eq!(hook.timeout_ms, deserialized.timeout_ms);
+        assert_eq!(hook.enabled, deserialized.enabled);
+    }
+
+    #[test]
+    fn hook_config_serde_roundtrip() {
+        let config = HookConfig {
+            hooks_dir: Some(PathBuf::from("/project/.scp/hooks")),
+            disabled_events: vec![HookEvent::PrePush, HookEvent::PostMerge],
+        };
+        let json = serde_json::to_string(&config).expect("serialize");
+        let deserialized: HookConfig = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(config.hooks_dir, deserialized.hooks_dir);
+        assert_eq!(config.disabled_events, deserialized.disabled_events);
     }
 }

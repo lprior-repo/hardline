@@ -6,11 +6,10 @@ use scp_core::domain::SessionName;
 use scp_core::jj_operation_sync::acquire_cross_process_lock;
 use scp_core::output_jsonl::{
     emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind,
-    IssueSeverity, IssueTitle, Message, Outcome, OutputLine, ResultKind, ResultOutput, Summary,
-    SummaryType,
+    IssueSeverity, IssueTitle, Message, OutputLine, ResultKind, ResultOutput,
 };
 use scp_core::vcs::{create_backend, VcsBackend, VcsStatus};
-use scp_core::{Error, Result};
+use scp_core::Error;
 use std::path::{Path, PathBuf};
 use tokio::time::{sleep, Duration};
 
@@ -304,7 +303,7 @@ fn emit_action(
     if let Some(r) = result_str {
         action = action.with_result(r.to_string());
     }
-    emit_stdout(&OutputLine::Action(action)).map_err(|e| SyncError::IoError(e))
+    emit_stdout(&OutputLine::Action(action)).map_err(SyncError::IoError)
 }
 
 fn emit_result(
@@ -318,7 +317,7 @@ fn emit_result(
     } else {
         ResultOutput::failure(kind, message)
     }?;
-    emit_stdout(&OutputLine::Result(result)).map_err(|e| SyncError::IoError(e))
+    emit_stdout(&OutputLine::Result(result)).map_err(SyncError::IoError)
 }
 
 fn emit_issue(
@@ -340,5 +339,451 @@ fn emit_issue(
     if let Some(s) = suggestion {
         issue = issue.with_suggestion(s.to_string());
     }
-    emit_stdout(&OutputLine::Issue(issue)).map_err(|e| SyncError::IoError(e))
+    emit_stdout(&OutputLine::Issue(issue)).map_err(SyncError::IoError)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -----------------------------------------------------------------------
+    // SyncError Display
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_sync_error_display_workspace_not_found() {
+        let err = SyncError::WorkspaceNotFound(PathBuf::from("/tmp/wrong"));
+        let msg = err.to_string();
+        assert!(msg.contains("/tmp/wrong"));
+        assert!(msg.contains("not found"));
+    }
+
+    #[test]
+    fn test_sync_error_display_session_not_found() {
+        let err = SyncError::SessionNotFound("missing-session".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("missing-session"));
+    }
+
+    #[test]
+    fn test_sync_error_display_lock_held() {
+        let err = SyncError::LockHeldByOther {
+            pid: 12345,
+            holder: "other-host".to_string(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("12345"));
+        assert!(msg.contains("other-host"));
+    }
+
+    #[test]
+    fn test_sync_error_display_conflict() {
+        let err = SyncError::Conflict {
+            workspace: "my-ws".to_string(),
+            files: "a.rs, b.rs".to_string(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("my-ws"));
+        assert!(msg.contains("a.rs, b.rs"));
+    }
+
+    #[test]
+    fn test_sync_error_display_retry_limit() {
+        let err = SyncError::RetryLimitExceeded(5);
+        let msg = err.to_string();
+        assert!(msg.contains("5"));
+    }
+
+    #[test]
+    fn test_sync_error_display_dirty_workspace() {
+        let err = SyncError::DirtyWorkspace("feature-branch".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("feature-branch"));
+        assert!(msg.contains("uncommitted"));
+    }
+
+    #[test]
+    fn test_sync_error_display_invalid_identifier() {
+        let err = SyncError::InvalidIdentifier("bad name!".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("bad name!"));
+    }
+
+    #[test]
+    fn test_sync_error_display_session_already_syncing() {
+        let err = SyncError::SessionAlreadySyncing("ws-x".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("ws-x"));
+        assert!(msg.contains("already syncing"));
+    }
+
+    #[test]
+    fn test_sync_error_display_lock_timeout() {
+        let err = SyncError::LockTimeout(30);
+        let msg = err.to_string();
+        assert!(msg.contains("30"));
+    }
+
+    #[test]
+    fn test_sync_error_display_jj_command_failed() {
+        let err = SyncError::JjCommandFailed("rebase error".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("rebase error"));
+    }
+
+    #[test]
+    fn test_sync_error_display_retry_limit_exceeded() {
+        let err = SyncError::RetryLimitExceeded(7);
+        let msg = err.to_string();
+        assert!(msg.contains("7"));
+    }
+
+    #[test]
+    fn test_sync_error_display_workspace_path_not_accessible() {
+        let err = SyncError::WorkspacePathNotAccessible(PathBuf::from("/no/access"));
+        let msg = err.to_string();
+        assert!(msg.contains("/no/access"));
+    }
+
+    #[test]
+    fn test_sync_error_display_session_terminal_state() {
+        let err = SyncError::SessionTerminalState("ws-done".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("ws-done"));
+        assert!(msg.contains("terminal"));
+    }
+
+    #[test]
+    fn test_sync_error_display_lock_acquisition_failed() {
+        let err = SyncError::LockAcquisitionFailed("resource busy".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("resource busy"));
+    }
+
+    #[test]
+    fn test_sync_error_display_session_database_not_found() {
+        let err = SyncError::SessionDatabaseNotFound(PathBuf::from("/tmp/no.db"));
+        let msg = err.to_string();
+        assert!(msg.contains("/tmp/no.db"));
+    }
+
+    #[test]
+    fn test_sync_error_display_session_database_read_failed() {
+        let err = SyncError::SessionDatabaseReadFailed("corrupted".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("corrupted"));
+    }
+
+    #[test]
+    fn test_sync_error_display_session_database_write_failed() {
+        let err = SyncError::SessionDatabaseWriteFailed("disk full".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("disk full"));
+    }
+
+    #[test]
+    fn test_sync_error_display_configuration_error() {
+        let err = SyncError::ConfigurationError("bad config".to_string());
+        let msg = err.to_string();
+        assert!(msg.contains("bad config"));
+    }
+
+    // -----------------------------------------------------------------------
+    // SyncSummary edge cases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_sync_summary_with_conflicts() {
+        let session = SessionName::parse("my-session").expect("valid");
+        let summary = SyncSummary {
+            sessions_synced: vec![session],
+            total_operations: 3,
+            had_conflicts: true,
+        };
+        assert!(summary.had_conflicts);
+        assert_eq!(summary.sessions_synced.len(), 1);
+    }
+
+    #[test]
+    fn test_sync_summary_multiple_sessions() {
+        let s1 = SessionName::parse("ws-1").expect("valid");
+        let s2 = SessionName::parse("ws-2").expect("valid");
+        let summary = SyncSummary {
+            sessions_synced: vec![s1, s2],
+            total_operations: 5,
+            had_conflicts: false,
+        };
+        assert_eq!(summary.sessions_synced.len(), 2);
+        assert_eq!(summary.total_operations, 5);
+    }
+
+    // -----------------------------------------------------------------------
+    // RetryConfig edge cases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_retry_config_zero_attempts() {
+        let config = RetryConfig {
+            max_attempts: 0,
+            initial_delay_ms: 100,
+        };
+        assert_eq!(config.max_attempts, 0);
+    }
+
+    #[test]
+    fn test_retry_config_zero_delay() {
+        let config = RetryConfig {
+            max_attempts: 3,
+            initial_delay_ms: 0,
+        };
+        assert_eq!(config.initial_delay_ms, 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // find_jj_root additional edge cases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_find_jj_root_deeply_nested_finds_ancestor() {
+        let dir = std::env::temp_dir().join("hardline_test_jj_deep");
+        let deep = dir.join("a/b/c/d");
+        let _ = std::fs::create_dir_all(&deep);
+        let _ = std::fs::create_dir(dir.join(".jj"));
+
+        let result = find_jj_root(&deep);
+        assert_eq!(result, Some(dir.clone()));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_find_jj_root_sibling_directory_not_found() {
+        // .jj is in a sibling, not ancestor, so it should not be found
+        let dir = std::env::temp_dir().join("hardline_test_jj_sibling_parent");
+        let child_a = dir.join("child_a");
+        let child_b = dir.join("child_b");
+        let _ = std::fs::create_dir_all(&child_a);
+        let _ = std::fs::create_dir_all(&child_b);
+        let _ = std::fs::create_dir(child_b.join(".jj"));
+
+        let result = find_jj_root(&child_a);
+        assert!(result.is_none(), "should not find .jj in sibling directory");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // -----------------------------------------------------------------------
+    // SyncError From conversions edge cases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_sync_error_from_scp_core_error_variants() {
+        let core_err = Error::workspace_not_found("test-ws".to_string());
+        let sync_err: SyncError = core_err.into();
+        assert!(matches!(sync_err, SyncError::ConfigurationError(_)));
+        assert!(sync_err.to_string().contains("test-ws"));
+    }
+
+    #[test]
+    fn test_sync_error_non_io_variant_into_core_error_preserves_message() {
+        let sync_err = SyncError::DirtyWorkspace("dirty-ws".to_string());
+        let core_err: Error = sync_err.into();
+        assert!(core_err.to_string().contains("dirty-ws"));
+    }
+
+    #[test]
+    fn test_sync_error_into_core_error_conflict_preserves_workspace() {
+        let sync_err = SyncError::Conflict {
+            workspace: "my-workspace".to_string(),
+            files: "a.rs, b.rs".to_string(),
+        };
+        let core_err: Error = sync_err.into();
+        let msg = core_err.to_string();
+        assert!(msg.contains("my-workspace"));
+    }
+
+    // -----------------------------------------------------------------------
+    // SyncError From<Error> and From<std::io::Error>
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_sync_error_from_io_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
+        let sync_err: SyncError = io_err.into();
+        assert!(matches!(sync_err, SyncError::IoError(_)));
+        let msg = sync_err.to_string();
+        assert!(msg.contains("file missing"));
+    }
+
+    #[test]
+    fn test_sync_error_from_scp_core_error() {
+        let core_err = Error::internal("something broke");
+        let sync_err: SyncError = core_err.into();
+        assert!(matches!(sync_err, SyncError::ConfigurationError(_)));
+        let msg = sync_err.to_string();
+        assert!(msg.contains("something broke"));
+    }
+
+    #[test]
+    fn test_sync_error_from_io_error_kind_permission_denied() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+        let sync_err: SyncError = io_err.into();
+        assert!(matches!(sync_err, SyncError::IoError(_)));
+        let msg = sync_err.to_string();
+        assert!(msg.contains("access denied"));
+    }
+
+    #[test]
+    fn test_sync_error_into_scp_core_error() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::BrokenPipe, "pipe broke");
+        let sync_err: SyncError = SyncError::IoError(io_err);
+        let core_err: Error = sync_err.into();
+        // IoError variant maps to Error::from(io::Error)
+        let msg = core_err.to_string();
+        assert!(msg.contains("pipe broke"));
+    }
+
+    #[test]
+    fn test_sync_error_non_io_into_core_error() {
+        let sync_err = SyncError::SessionNotFound("x".to_string());
+        let core_err: Error = sync_err.into();
+        let msg = core_err.to_string();
+        assert!(msg.contains("Session not found"));
+    }
+
+    // -----------------------------------------------------------------------
+    // SyncOptions and SyncSummary construction
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_sync_options_construction() {
+        let opts = SyncOptions {
+            allow_dirty: true,
+            target_branch: Some("develop".to_string()),
+            lock_timeout_secs: 60,
+            retry_config: RetryConfig {
+                max_attempts: 5,
+                initial_delay_ms: 200,
+            },
+        };
+        assert!(opts.allow_dirty);
+        assert_eq!(opts.target_branch.as_deref(), Some("develop"));
+        assert_eq!(opts.lock_timeout_secs, 60);
+        assert_eq!(opts.retry_config.max_attempts, 5);
+        assert_eq!(opts.retry_config.initial_delay_ms, 200);
+    }
+
+    #[test]
+    fn test_sync_options_defaults() {
+        // SyncOptions does not derive Default, so construct manually with
+        // sensible defaults.
+        let opts = SyncOptions {
+            allow_dirty: false,
+            target_branch: None,
+            lock_timeout_secs: 30,
+            retry_config: RetryConfig {
+                max_attempts: 3,
+                initial_delay_ms: 100,
+            },
+        };
+        assert!(!opts.allow_dirty);
+        assert!(opts.target_branch.is_none());
+        assert_eq!(opts.lock_timeout_secs, 30);
+        assert_eq!(opts.retry_config.max_attempts, 3);
+    }
+
+    #[test]
+    fn test_sync_summary_construction() {
+        let session = SessionName::parse("my-session").expect("valid session name");
+        let summary = SyncSummary {
+            sessions_synced: vec![session.clone()],
+            total_operations: 2,
+            had_conflicts: false,
+        };
+        assert_eq!(summary.sessions_synced.len(), 1);
+        assert_eq!(summary.sessions_synced[0].as_str(), "my-session");
+        assert_eq!(summary.total_operations, 2);
+        assert!(!summary.had_conflicts);
+    }
+
+    #[test]
+    fn test_sync_summary_empty() {
+        let summary = SyncSummary {
+            sessions_synced: Vec::new(),
+            total_operations: 0,
+            had_conflicts: false,
+        };
+        assert!(summary.sessions_synced.is_empty());
+        assert_eq!(summary.total_operations, 0);
+        assert!(!summary.had_conflicts);
+    }
+
+    // -----------------------------------------------------------------------
+    // RetryConfig
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_retry_config_construction() {
+        let config = RetryConfig {
+            max_attempts: 10,
+            initial_delay_ms: 500,
+        };
+        assert_eq!(config.max_attempts, 10);
+        assert_eq!(config.initial_delay_ms, 500);
+    }
+
+    // -----------------------------------------------------------------------
+    // find_jj_root
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_find_jj_root_finds_marker() {
+        let dir = std::env::temp_dir().join("hardline_test_find_jj_root_found");
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::create_dir(dir.join(".jj"));
+
+        let result = find_jj_root(&dir);
+        assert_eq!(result, Some(dir.clone()));
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_find_jj_root_searches_parent() {
+        let dir = std::env::temp_dir().join("hardline_test_find_jj_root_parent");
+        let child = dir.join("subdir");
+        let _ = std::fs::create_dir_all(&child);
+        let _ = std::fs::create_dir(dir.join(".jj"));
+
+        let result = find_jj_root(&child);
+        assert_eq!(result, Some(dir.clone()));
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_find_jj_root_not_found() {
+        let dir = std::env::temp_dir().join("hardline_test_find_jj_root_missing");
+        let _ = std::fs::create_dir_all(&dir);
+
+        let result = find_jj_root(&dir);
+        assert!(result.is_none());
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_find_jj_root_stops_at_filesystem_root() {
+        // /tmp should not have a .jj dir, so searching from a non-existent
+        // nested path under /tmp should return None.
+        // Use a non-existent directory to test the pop-until-empty behavior.
+        let nonexistent = PathBuf::from("/nonexistent_dir_for_testing");
+        // The directory won't exist, but find_jj_root only checks .jj existence
+        // via .join().exists(), not that the current dir itself exists.
+        let result = find_jj_root(&nonexistent);
+        assert!(result.is_none());
+    }
 }

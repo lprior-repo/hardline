@@ -22,7 +22,7 @@ pub use super::bead_value::{BeadDescription, BeadId, BeadTitle};
 /// - Blocked: Bead has blockers
 /// - Deferred: Bead has been deferred
 /// - Closed: Bead is done (terminal state)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Bead {
     id: BeadId,
     title: BeadTitle,
@@ -115,8 +115,8 @@ impl Bead {
     #[must_use]
     pub fn add_dependency(self, depends_on: BeadId) -> Self {
         // I10: No self-references
-        if depends_on != self.id {
-            if !self.depends_on.contains(&depends_on) {
+        if depends_on != self.id
+            && !self.depends_on.contains(&depends_on) {
                 let mut depends_on_new = self.depends_on;
                 depends_on_new.push(depends_on);
                 return Self {
@@ -125,7 +125,6 @@ impl Bead {
                     ..self
                 };
             }
-        }
         self
     }
 
@@ -136,8 +135,8 @@ impl Bead {
     #[must_use]
     pub fn add_blocker(self, blocked_by: BeadId) -> Self {
         // I9: No self-references
-        if blocked_by != self.id {
-            if !self.blocked_by.contains(&blocked_by) {
+        if blocked_by != self.id
+            && !self.blocked_by.contains(&blocked_by) {
                 let mut blocked_by_new = self.blocked_by;
                 blocked_by_new.push(blocked_by);
                 return Self {
@@ -146,7 +145,6 @@ impl Bead {
                     ..self
                 };
             }
-        }
         self
     }
 
@@ -159,9 +157,7 @@ impl Bead {
     /// - If transitioning to Closed, closed_at is set
     /// - updated_at is always updated
     pub fn transition(&self, new_state: BeadState) -> Result<Self, SessionError> {
-        if let Err(e) = self.validate_closed_state_transition(new_state) {
-            return Err(e);
-        }
+        self.validate_closed_state_transition(new_state)?;
         if let Ok(bead) = self.try_transition_to_closed(new_state) {
             return Ok(bead);
         }

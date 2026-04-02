@@ -1,6 +1,0 @@
----
-source: crates/scp-error/tests/snapshot_tests.rs
-assertion_line: 26
-expression: json
----
-"QueueEmpty"

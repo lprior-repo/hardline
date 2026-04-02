@@ -122,7 +122,7 @@ impl QueueEntry {
     pub fn transition_status(self, new_status: QueueStatus) -> ValidationResult<Self> {
         self.status
             .transition_to(new_status)
-            .map(|status| QueueEntry { status, ..self })
+            .map(|status| Self { status, ..self })
     }
 
     /// Update the priority, returning a new entry.
@@ -131,11 +131,11 @@ impl QueueEntry {
     /// Returns `ValidationError` if the priority is out of range.
     pub fn with_priority(self, priority: u32) -> ValidationResult<Self> {
         super::validation::validate_range(priority, 0, MAX_PRIORITY, "priority")?;
-        Ok(QueueEntry { priority, ..self })
+        Ok(Self { priority, ..self })
     }
 }
 
-/// Partial equality for QueueEntry (ignores timestamp)
+/// Partial equality for `QueueEntry` (ignores timestamp)
 impl PartialEq for QueueEntry {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id

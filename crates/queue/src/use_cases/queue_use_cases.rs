@@ -392,4 +392,317 @@ mod tests {
 
         assert!(matches!(result, Err(DomainError::InvalidPriority(_))));
     }
+
+    #[test]
+    fn test_domain_error_display_all_variants() {
+        assert!(format!("{}", DomainError::InvalidSessionName("bad".into())).contains("bad"));
+        assert!(format!("{}", DomainError::InvalidPriority(200)).contains("200"));
+        let pos_err = DomainError::PositionOutOfBounds { position: 5, length: 3 };
+        let pos_msg = format!("{pos_err}");
+        assert!(pos_msg.contains("5") && pos_msg.contains("3"));
+        assert!(format!("{}", DomainError::SessionNotFound("x".into())).contains("x"));
+        assert!(format!("{}", DomainError::QueueEmpty).contains("empty"));
+        assert!(format!("{}", DomainError::SessionAlreadyExists("s".into())).contains("s"));
+        let trans_err = DomainError::InvalidStateTransition {
+            from: "A".into(),
+            to: "B".into(),
+        };
+        let trans_msg = format!("{trans_err}");
+        assert!(trans_msg.contains("A") && trans_msg.contains("B"));
+    }
+
+    #[test]
+    fn test_domain_error_debug() {
+        let err = DomainError::QueueEmpty;
+        let debug = format!("{err:?}");
+        assert!(debug.contains("QueueEmpty"));
+    }
+
+    #[test]
+    fn test_domain_error_clone_and_eq() {
+        let a = DomainError::QueueEmpty;
+        let b = a.clone();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_domain_error_implements_std_error() {
+        let err: Box<dyn std::error::Error> = Box::new(DomainError::QueueEmpty);
+        let _ = format!("{err:?}");
+    }
+
+    #[test]
+    fn test_queue_entry_view_new() {
+        let entry = QueueEntry::new("id-1", "session-1", 10).unwrap();
+        let view = QueueEntryView::new(0, &entry);
+        assert_eq!(view.position, 0);
+        assert_eq!(view.session, "session-1");
+        assert_eq!(view.priority, 10);
+        assert_eq!(view.status, "pending");
+    }
+
+    #[test]
+    fn test_queue_entry_view_equality() {
+        let entry1 = QueueEntry::new("id-1", "session-1", 10).unwrap();
+        let entry2 = QueueEntry::new("id-2", "session-2", 20).unwrap();
+        let view1 = QueueEntryView::new(0, &entry1);
+        let view2 = QueueEntryView::new(0, &entry1);
+        let view3 = QueueEntryView::new(1, &entry2);
+        assert_eq!(view1, view2);
+        assert_ne!(view1, view3);
+    }
+
+    #[test]
+    fn test_dequeue_session_empty_name() {
+        let queue = Queue::new();
+        let result = dequeue_session(queue, "");
+        assert!(matches!(result, Err(DomainError::InvalidSessionName(_))));
+    }
+
+    #[test]
+    fn test_dequeue_session_with_metacharacters() {
+        let queue = Queue::new();
+        let result = dequeue_session(queue, "ses|on");
+        assert!(matches!(result, Err(DomainError::InvalidSessionName(_))));
+    }
+
+    #[test]
+    fn test_insert_at_position_duplicate_session() {
+        let queue = create_test_queue();
+        let result = insert_at_position(queue, "session-1", 0, 50);
+        assert!(matches!(result, Err(DomainError::SessionAlreadyExists(_))));
+    }
+
+    #[test]
+    fn test_insert_at_position_invalid_priority() {
+        let queue = create_test_queue();
+        let result = insert_at_position(queue, "new-session", 0, 200);
+        assert!(matches!(result, Err(DomainError::InvalidPriority(_))));
+    }
+
+    #[test]
+    fn test_insert_at_position_invalid_session() {
+        let queue = create_test_queue();
+        let result = insert_at_position(queue, "bad$name", 0, 50);
+        assert!(matches!(result, Err(DomainError::InvalidSessionName(_))));
+    }
+
+    #[test]
+    fn test_remove_at_position_empty_queue() {
+        let queue = Queue::new();
+        let result = remove_at_position(queue, 0);
+        assert!(matches!(result, Err(DomainError::PositionOutOfBounds { .. })));
+    }
+
+    #[test]
+    fn test_enqueue_session_accepts_max_priority() {
+        let queue = Queue::new();
+        let result = enqueue_session(queue, "session-1", 100);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_enqueue_session_accepts_zero_priority() {
+        let queue = Queue::new();
+        let result = enqueue_session(queue, "session-0", 0);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_list_queue_maps_all_entries() {
+        let queue = create_test_queue();
+        let views = list_queue(&queue);
+        assert_eq!(views.len(), 2);
+        assert_eq!(views[0].position, 0);
+        assert_eq!(views[1].position, 1);
+    }
+
+    #[test]
+    fn test_use_case_result_type() {
+        let ok: UseCaseResult<i32> = Ok(42);
+        let err: UseCaseResult<i32> = Err(DomainError::QueueEmpty);
+        assert_eq!(ok.unwrap(), 42);
+        assert!(err.is_err());
+    }
+
+    // --- Additional comprehensive tests ---
+
+    #[test]
+    fn test_enqueue_session_with_whitespace_trimmed() {
+        let queue = Queue::new();
+        let result = enqueue_session(queue, "  spaced-session  ", 50);
+        assert!(result.is_ok());
+        let entries = result.unwrap().entries();
+        assert_eq!(entries[0].session.as_str(), "spaced-session");
+    }
+
+    #[test]
+    fn test_enqueue_session_with_zero_priority() {
+        let queue = Queue::new();
+        let result = enqueue_session(queue, "zero-prio", 0);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().entries()[0].priority, 0);
+    }
+
+    #[test]
+    fn test_enqueue_session_with_max_priority() {
+        let queue = Queue::new();
+        let result = enqueue_session(queue, "max-prio", 100);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().entries()[0].priority, 100);
+    }
+
+    #[test]
+    fn test_enqueue_session_priority_one_above_max_rejected() {
+        let queue = Queue::new();
+        let result = enqueue_session(queue, "over-max", 101);
+        assert!(matches!(result, Err(DomainError::InvalidPriority(101))));
+    }
+
+    #[test]
+    fn test_dequeue_session_leaves_other_entries() {
+        let queue = create_test_queue();
+        let result = dequeue_session(queue, "session-1");
+        assert!(result.is_ok());
+        let new_queue = result.unwrap();
+        assert_eq!(new_queue.len(), 1);
+        assert_eq!(new_queue.entries()[0].session.as_str(), "session-2");
+    }
+
+    #[test]
+    fn test_dequeue_session_whitespace_name_rejected() {
+        let queue = Queue::new();
+        let result = dequeue_session(queue, "   ");
+        assert!(matches!(result, Err(DomainError::InvalidSessionName(_))));
+    }
+
+    #[test]
+    fn test_insert_at_position_at_end() {
+        let queue = create_test_queue();
+        let result = insert_at_position(queue, "end-session", 2, 50);
+        assert!(result.is_ok());
+        let new_queue = result.unwrap();
+        assert_eq!(new_queue.len(), 3);
+        assert_eq!(new_queue.entries()[2].session.as_str(), "end-session");
+    }
+
+    #[test]
+    fn test_insert_at_position_in_middle() {
+        let queue = create_test_queue();
+        let result = insert_at_position(queue, "mid-session", 1, 15);
+        assert!(result.is_ok());
+        let new_queue = result.unwrap();
+        assert_eq!(new_queue.len(), 3);
+        assert_eq!(new_queue.entries()[1].session.as_str(), "mid-session");
+    }
+
+    #[test]
+    fn test_insert_at_position_empty_queue() {
+        let queue = Queue::new();
+        let result = insert_at_position(queue, "first", 0, 50);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_insert_at_position_empty_name_rejected() {
+        let queue = Queue::new();
+        let result = insert_at_position(queue, "", 0, 50);
+        assert!(matches!(result, Err(DomainError::InvalidSessionName(_))));
+    }
+
+    #[test]
+    fn test_remove_at_position_last_entry() {
+        let queue = create_test_queue();
+        let result = remove_at_position(queue, 1);
+        assert!(result.is_ok());
+        let new_queue = result.unwrap();
+        assert_eq!(new_queue.len(), 1);
+        assert_eq!(new_queue.entries()[0].session.as_str(), "session-1");
+    }
+
+    #[test]
+    fn test_list_queue_entry_view_status_field() {
+        let queue = create_test_queue();
+        let views = list_queue(&queue);
+        assert_eq!(views[0].status, "pending");
+        assert_eq!(views[1].status, "pending");
+    }
+
+    #[test]
+    fn test_list_queue_entry_view_enqueued_at_set() {
+        let before = Utc::now();
+        let queue = create_test_queue();
+        let views = list_queue(&queue);
+        let after = Utc::now();
+        for view in &views {
+            assert!(view.enqueued_at >= before);
+            assert!(view.enqueued_at <= after);
+        }
+    }
+
+    #[test]
+    fn test_queue_entry_view_clone() {
+        let entry = QueueEntry::new("id-1", "session-1", 10).unwrap();
+        let view = QueueEntryView::new(0, &entry);
+        let cloned = view.clone();
+        assert_eq!(view, cloned);
+    }
+
+    #[test]
+    fn test_enqueue_then_dequeue_empty() {
+        let queue = Queue::new();
+        let queue = enqueue_session(queue, "s1", 10).unwrap();
+        let result = dequeue_session(queue, "s1");
+        assert!(result.is_ok());
+        let final_queue = result.unwrap();
+        assert!(final_queue.is_empty());
+    }
+
+    #[test]
+    fn test_enqueue_session_with_tab_rejected() {
+        let queue = Queue::new();
+        let result = enqueue_session(queue, "ses\tion", 50);
+        assert!(matches!(result, Err(DomainError::InvalidSessionName(_))));
+    }
+
+    #[test]
+    fn test_enqueue_session_with_newline_rejected() {
+        let queue = Queue::new();
+        let result = enqueue_session(queue, "ses\nion", 50);
+        assert!(matches!(result, Err(DomainError::InvalidSessionName(_))));
+    }
+
+    #[test]
+    fn test_domain_error_invalid_state_transition_display() {
+        let err = DomainError::InvalidStateTransition {
+            from: "Pending".into(),
+            to: "Merged".into(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("Pending"));
+        assert!(msg.contains("Merged"));
+    }
+
+    #[test]
+    fn test_domain_error_position_out_of_bounds_display() {
+        let err = DomainError::PositionOutOfBounds { position: 99, length: 5 };
+        let msg = format!("{err}");
+        assert!(msg.contains("99"));
+        assert!(msg.contains("5"));
+    }
+
+    #[test]
+    fn test_domain_error_session_not_found_display() {
+        let err = DomainError::SessionNotFound("missing-session".into());
+        let msg = format!("{err}");
+        assert!(msg.contains("missing-session"));
+    }
+
+    #[test]
+    fn test_domain_error_queue_empty_display() {
+        let err = DomainError::QueueEmpty;
+        let msg = format!("{err}");
+        assert!(msg.contains("empty"));
+    }
 }

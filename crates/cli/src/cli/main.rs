@@ -4,7 +4,7 @@
 
 use crate::cli::args::Cli;
 use crate::commands;
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use scp_core::{output::Output, Result};
 use std::process::ExitCode;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -32,7 +32,7 @@ pub fn main() -> ExitCode {
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| log_level),
+            std::env::var("RUST_LOG").unwrap_or(log_level),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -66,15 +66,33 @@ pub fn run_command(cli: Cli) -> Result<()> {
             crate::cli::workspace_args::WorkspaceCommands::Switch { name } => {
                 commands::workspace::switch(&name)
             }
-            crate::cli::workspace_args::WorkspaceCommands::List {} => commands::workspace::list(),
-            crate::cli::workspace_args::WorkspaceCommands::Status {} => {
+            crate::cli::workspace_args::WorkspaceCommands::List => commands::workspace::list(),
+            crate::cli::workspace_args::WorkspaceCommands::Status => {
                 commands::workspace::status()
             }
             crate::cli::workspace_args::WorkspaceCommands::Sync { name, all } => {
                 commands::workspace::sync(name.as_deref(), all)
             }
-            crate::cli::workspace_args::WorkspaceCommands::Done { name } => {
-                commands::workspace::done(name.as_deref())
+            crate::cli::workspace_args::WorkspaceCommands::Done {
+                name,
+                message,
+                keep_workspace,
+                squash,
+                dry_run,
+                detect_conflicts,
+                no_bead_update,
+            } => {
+                let options = commands::handlers::done::DoneOptions {
+                    workspace: name,
+                    message,
+                    keep_workspace,
+                    squash,
+                    dry_run,
+                    detect_conflicts,
+                    no_bead_update,
+                };
+                commands::handlers::done::run_done(&options)?;
+                Ok(())
             }
             crate::cli::workspace_args::WorkspaceCommands::Abort { name } => {
                 commands::workspace::abort(name.as_deref())
@@ -85,13 +103,13 @@ pub fn run_command(cli: Cli) -> Result<()> {
             crate::cli::workspace_args::WorkspaceCommands::Diff { path } => {
                 commands::workspace::diff(path.as_deref())
             }
-            crate::cli::workspace_args::WorkspaceCommands::Uncommitted {} => {
+            crate::cli::workspace_args::WorkspaceCommands::Uncommitted => {
                 commands::workspace::uncommitted()
             }
             crate::cli::workspace_args::WorkspaceCommands::Commit { message } => {
                 commands::workspace::commit(&message)
             }
-            crate::cli::workspace_args::WorkspaceCommands::Branches {} => {
+            crate::cli::workspace_args::WorkspaceCommands::Branches => {
                 commands::workspace::branches()
             }
             crate::cli::workspace_args::WorkspaceCommands::Branch { name } => {
@@ -100,7 +118,7 @@ pub fn run_command(cli: Cli) -> Result<()> {
             crate::cli::workspace_args::WorkspaceCommands::BranchDelete { name } => {
                 commands::workspace::branch_delete(&name)
             }
-            crate::cli::workspace_args::WorkspaceCommands::BranchCurrent {} => {
+            crate::cli::workspace_args::WorkspaceCommands::BranchCurrent => {
                 commands::workspace::branch_current()
             }
             crate::cli::workspace_args::WorkspaceCommands::Add { path } => {
@@ -133,11 +151,11 @@ pub fn run_command(cli: Cli) -> Result<()> {
         },
 
         Commands::Queue { command } => match command {
-            crate::cli::queue_args::QueueCommands::List {} => commands::queue::list(),
+            crate::cli::queue_args::QueueCommands::List => commands::queue::list(),
             crate::cli::queue_args::QueueCommands::Enqueue { branch, priority } => {
                 commands::queue::enqueue(&branch, priority.as_deref())
             }
-            crate::cli::queue_args::QueueCommands::Dequeue {} => commands::queue::dequeue(),
+            crate::cli::queue_args::QueueCommands::Dequeue => commands::queue::dequeue(),
             crate::cli::queue_args::QueueCommands::Process { checks } => {
                 commands::queue::process(checks)
             }
@@ -147,14 +165,14 @@ pub fn run_command(cli: Cli) -> Result<()> {
             crate::cli::queue_args::QueueCommands::Remove { branch } => {
                 commands::queue::remove(&branch)
             }
-            crate::cli::queue_args::QueueCommands::Status {} => commands::queue::status(),
+            crate::cli::queue_args::QueueCommands::Status => commands::queue::status(),
         },
 
         Commands::Agent { command } => match command {
             crate::cli::agent_args::AgentCommands::Create { name } => {
                 commands::agent::create(&name)
             }
-            crate::cli::agent_args::AgentCommands::List {} => commands::agent::list(),
+            crate::cli::agent_args::AgentCommands::List => commands::agent::list(),
             crate::cli::agent_args::AgentCommands::Kill { id } => commands::agent::kill(&id),
             crate::cli::agent_args::AgentCommands::Status { id } => {
                 commands::agent::status(id.as_deref())
@@ -168,8 +186,8 @@ pub fn run_command(cli: Cli) -> Result<()> {
         },
 
         Commands::Session { command } => match command {
-            crate::cli::session_args::SessionCommands::List {} => commands::session::list(),
-            crate::cli::session_args::SessionCommands::Status {} => commands::session::status(),
+            crate::cli::session_args::SessionCommands::List => commands::session::list(),
+            crate::cli::session_args::SessionCommands::Status => commands::session::status(),
             crate::cli::session_args::SessionCommands::Focus { name } => {
                 commands::session::focus(&name)
             }
@@ -181,12 +199,26 @@ pub fn run_command(cli: Cli) -> Result<()> {
             crate::cli::session_args::SessionCommands::Remove { name, force, merge } => {
                 commands::session::remove(&name, force, merge)
             }
+            crate::cli::session_args::SessionCommands::Pause { name } => {
+                commands::handlers::session::pause(&name)
+            }
+            crate::cli::session_args::SessionCommands::Resume { name } => {
+                commands::handlers::session::resume(&name)
+            }
+            crate::cli::session_args::SessionCommands::Clone {
+                source,
+                target,
+                dry_run,
+            } => {
+                commands::handlers::session::clone_session(&source, &target, dry_run)?;
+                Ok(())
+            }
         },
 
         Commands::Task { command } => {
             use commands::handlers::task::{parse_task_id, run_task_command, AgentId, TaskCommand};
             let cmd = match command {
-                crate::cli::task_args::TaskCommands::List {} => TaskCommand::List {
+                crate::cli::task_args::TaskCommands::List => TaskCommand::List {
                     status_filter: None,
                     include_all: false,
                 },
@@ -224,7 +256,7 @@ pub fn run_command(cli: Cli) -> Result<()> {
             crate::cli::config_args::ConfigCommands::Set { key, value } => {
                 commands::config::set(&key, &value)
             }
-            crate::cli::config_args::ConfigCommands::List {} => commands::config::list(),
+            crate::cli::config_args::ConfigCommands::List => commands::config::list(),
         },
 
         Commands::Stash { command } => match command {
@@ -236,7 +268,7 @@ pub fn run_command(cli: Cli) -> Result<()> {
             crate::cli::stash_args::StashCommands::Pop { stash, index } => {
                 commands::stash::pop(stash.as_deref(), index)
             }
-            crate::cli::stash_args::StashCommands::List {} => commands::stash::list(),
+            crate::cli::stash_args::StashCommands::List => commands::stash::list(),
             crate::cli::stash_args::StashCommands::Drop { stash, force } => {
                 commands::stash::drop(&stash, force)
             }
@@ -278,7 +310,7 @@ pub fn run_command(cli: Cli) -> Result<()> {
             all,
         } => commands::sync::fetch(remote.as_deref(), prune, tags, all),
 
-        Commands::Pull {} => commands::sync::pull(),
+        Commands::Pull => commands::sync::pull(),
 
         Commands::Push {
             remote,
@@ -304,8 +336,8 @@ pub fn run_command(cli: Cli) -> Result<()> {
 
         Commands::Switch { name } => commands::workspace::switch(&name),
 
-        Commands::Context {} => commands::context::run(),
+        Commands::Context => commands::context::run(),
 
-        Commands::Whereami {} => commands::context::whereami(),
+        Commands::Whereami => commands::context::whereami(),
     }
 }

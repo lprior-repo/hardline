@@ -6,7 +6,7 @@ use std::path::PathBuf;
 /// Add worktree
 pub fn add(_repo: &gix::Repository, path: &PathBuf, _branch: Option<&str>) -> GitResult<()> {
     // Create the worktree directory
-    std::fs::create_dir_all(path).map_err(|e| GitError::Io(e))?;
+    std::fs::create_dir_all(path).map_err(GitError::Io)?;
 
     // Stub - worktree support is complex
     Err(GitError::InvalidRef {

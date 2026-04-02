@@ -9,7 +9,7 @@ use scp_core::Error;
 pub fn diff(path: Option<&str>) -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
 
-    let mut cmd = super::operations::build_jj_diff_command(&cwd, path.as_deref());
+    let mut cmd = super::operations::build_jj_diff_command(&cwd, path);
     let output = cmd.output()?;
 
     if !output.status.success() {
@@ -67,13 +67,11 @@ pub fn log(limit: Option<usize>) -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
 
     let mut args = vec!["log"];
-    let limit_str;
-    if let Some(l) = limit {
+    let limit_str = limit.map(|l| l.to_string());
+    #[allow(unused_assignments)]
+    if let Some(ref s) = limit_str {
         args.push("-l");
-        limit_str = l.to_string();
-        args.push(&limit_str);
-    } else {
-        limit_str = String::new();
+        args.push(s);
     }
 
     let output = Command::new("jj").args(&args).current_dir(&cwd).output()?;

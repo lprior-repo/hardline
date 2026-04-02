@@ -82,3 +82,102 @@ impl AsRef<str> for SessionId {
         &self.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -- parse() --
+
+    #[test]
+    fn parse_valid_id() {
+        let id = SessionId::parse("session-abc123").expect("valid id");
+        assert_eq!(id.as_str(), "session-abc123");
+    }
+
+    #[test]
+    fn parse_empty_rejects() {
+        let result = SessionId::parse("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_non_ascii_rejects() {
+        let result = SessionId::parse("session-cafe\u{301}");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_with_spaces_is_valid() {
+        // Session IDs allow any printable ASCII, including spaces
+        let id = SessionId::parse("session abc").expect("valid id");
+        assert_eq!(id.as_str(), "session abc");
+    }
+
+    #[test]
+    fn parse_with_dots_and_hyphens() {
+        let id = SessionId::parse("session-abc.123").expect("valid id");
+        assert_eq!(id.as_str(), "session-abc.123");
+    }
+
+    // -- as_str / into_string --
+
+    #[test]
+    fn as_str_returns_inner() {
+        let id = SessionId::parse("my-session").expect("ok");
+        assert_eq!(id.as_str(), "my-session");
+    }
+
+    #[test]
+    fn into_string_returns_ownership() {
+        let id = SessionId::parse("my-session").expect("ok");
+        let s = id.into_string();
+        assert_eq!(s, "my-session");
+    }
+
+    // -- Display --
+
+    #[test]
+    fn display_shows_inner() {
+        let id = SessionId::parse("test-session").expect("ok");
+        assert_eq!(format!("{id}"), "test-session");
+    }
+
+    // -- AsRef --
+
+    #[test]
+    fn as_ref_str() {
+        let id = SessionId::parse("test-id").expect("ok");
+        assert_eq!(id.as_ref(), "test-id");
+    }
+
+    // -- TryFrom --
+
+    #[test]
+    fn try_from_string() {
+        let id = SessionId::try_from("test-id".to_string()).expect("ok");
+        assert_eq!(id.as_str(), "test-id");
+    }
+
+    #[test]
+    fn try_from_str() {
+        let id = SessionId::try_from("test-id").expect("ok");
+        assert_eq!(id.as_str(), "test-id");
+    }
+
+    #[test]
+    fn try_from_empty_fails() {
+        assert!(SessionId::try_from("".to_string()).is_err());
+    }
+
+    // -- Eq / Hash --
+
+    #[test]
+    fn equality() {
+        let a = SessionId::parse("same").expect("ok");
+        let b = SessionId::parse("same").expect("ok");
+        let c = SessionId::parse("different").expect("ok");
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+}

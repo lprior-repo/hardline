@@ -18,8 +18,10 @@ use serde::{Deserialize, Serialize};
 /// - Conflict: Workspace has merge conflicts (terminal state)
 /// - Abandoned: Workspace was abandoned (terminal state)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum WorkspaceState {
     /// Workspace has been created
+    #[default]
     Created,
     /// Workspace is being actively worked on
     Working,
@@ -96,11 +98,6 @@ impl WorkspaceState {
     }
 }
 
-impl Default for WorkspaceState {
-    fn default() -> Self {
-        Self::Created
-    }
-}
 
 impl std::fmt::Display for WorkspaceState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -332,5 +329,218 @@ mod workspace_state_machine_tests {
         let result = WorkspaceStateMachine::transition(state, WorkspaceState::Abandoned);
         assert!(result.is_ok());
         assert!(result.unwrap().is_terminal());
+    }
+
+    // =========================================================================
+    // WorkspaceState Display Tests
+    // =========================================================================
+
+    mod workspace_state_display_tests {
+        use super::*;
+
+        #[test]
+        fn workspace_state_display_created() {
+            assert_eq!(format!("{}", WorkspaceState::Created), "created");
+        }
+
+        #[test]
+        fn workspace_state_display_working() {
+            assert_eq!(format!("{}", WorkspaceState::Working), "working");
+        }
+
+        #[test]
+        fn workspace_state_display_ready() {
+            assert_eq!(format!("{}", WorkspaceState::Ready), "ready");
+        }
+
+        #[test]
+        fn workspace_state_display_merged() {
+            assert_eq!(format!("{}", WorkspaceState::Merged), "merged");
+        }
+
+        #[test]
+        fn workspace_state_display_conflict() {
+            assert_eq!(format!("{}", WorkspaceState::Conflict), "conflict");
+        }
+
+        #[test]
+        fn workspace_state_display_abandoned() {
+            assert_eq!(format!("{}", WorkspaceState::Abandoned), "abandoned");
+        }
+    }
+
+    // =========================================================================
+    // WorkspaceState Serialization Tests
+    // =========================================================================
+
+    mod workspace_state_serde_tests {
+        use super::*;
+
+        #[test]
+        fn workspace_state_serde_roundtrip_all_variants() {
+            for state in WorkspaceState::all() {
+                let json = serde_json::to_string(&state).expect("serialize");
+                let parsed: WorkspaceState = serde_json::from_str(&json).expect("deserialize");
+                assert_eq!(state, parsed, "Roundtrip failed for {:?}", state);
+            }
+        }
+    }
+
+    // =========================================================================
+    // WorkspaceState Additional Transition Tests
+    // =========================================================================
+
+    mod workspace_state_extended_tests {
+        use super::*;
+
+        #[test]
+        fn workspace_state_default_is_created() {
+            assert_eq!(WorkspaceState::default(), WorkspaceState::Created);
+        }
+
+        #[test]
+        fn workspace_state_all_returns_six_variants() {
+            assert_eq!(WorkspaceState::all().len(), 6);
+        }
+
+        #[test]
+        fn workspace_state_ready_to_abandoned_is_valid() {
+            assert!(WorkspaceState::Ready.can_transition_to(WorkspaceState::Abandoned));
+        }
+
+        #[test]
+        fn workspace_state_created_to_created_is_invalid() {
+            assert!(!WorkspaceState::Created.can_transition_to(WorkspaceState::Created));
+        }
+
+        #[test]
+        fn workspace_state_working_to_working_is_invalid() {
+            assert!(!WorkspaceState::Working.can_transition_to(WorkspaceState::Working));
+        }
+
+        #[test]
+        fn workspace_state_ready_to_ready_is_invalid() {
+            assert!(!WorkspaceState::Ready.can_transition_to(WorkspaceState::Ready));
+        }
+
+        #[test]
+        fn workspace_state_created_to_merged_is_invalid() {
+            assert!(!WorkspaceState::Created.can_transition_to(WorkspaceState::Merged));
+        }
+
+        #[test]
+        fn workspace_state_valid_transitions_from_created() {
+            let transitions = WorkspaceState::Created.valid_transitions();
+            assert_eq!(transitions, vec![WorkspaceState::Working]);
+        }
+
+        #[test]
+        fn workspace_state_valid_transitions_from_merged_is_empty() {
+            let transitions = WorkspaceState::Merged.valid_transitions();
+            assert!(transitions.is_empty());
+        }
+
+        #[test]
+        fn workspace_state_valid_transitions_from_conflict_is_empty() {
+            let transitions = WorkspaceState::Conflict.valid_transitions();
+            assert!(transitions.is_empty());
+        }
+
+        #[test]
+        fn workspace_state_valid_transitions_from_abandoned_is_empty() {
+            let transitions = WorkspaceState::Abandoned.valid_transitions();
+            assert!(transitions.is_empty());
+        }
+
+        // =========================================================================
+        // WorkspaceState Proptests
+        // =========================================================================
+
+        mod workspace_state_proptests {
+            use super::*;
+            use proptest::proptest;
+            use proptest::{prop_assert, prop_assert_eq};
+
+            proptest! {
+                /// No self-transitions are allowed
+                #[test]
+                fn prop_no_self_transitions(state_idx in 0u8..6u8) {
+                    let states = WorkspaceState::all();
+                    let state = states[state_idx as usize];
+                    prop_assert!(!state.can_transition_to(state));
+                }
+
+                /// Terminal states have empty valid_transitions
+                #[test]
+                fn prop_terminal_empty_transitions(state_idx in 0u8..6u8) {
+                    let states = WorkspaceState::all();
+                    let state = states[state_idx as usize];
+                    if state.is_terminal() {
+                        prop_assert!(state.valid_transitions().is_empty());
+                    } else {
+                        prop_assert!(!state.valid_transitions().is_empty());
+                    }
+                }
+
+                /// can_transition_to matches valid_transitions containment
+                #[test]
+                fn prop_can_transition_matches_valid_transitions(
+                    from_idx in 0u8..6u8,
+                    to_idx in 0u8..6u8
+                ) {
+                    let states = WorkspaceState::all();
+                    let from = states[from_idx as usize];
+                    let to = states[to_idx as usize];
+                    let can = from.can_transition_to(to);
+                    let in_valid = from.valid_transitions().contains(&to);
+                    prop_assert_eq!(can, in_valid);
+                }
+
+                /// Display is always lowercase ascii
+                #[test]
+                fn prop_display_is_lowercase_ascii(state_idx in 0u8..6u8) {
+                    let states = WorkspaceState::all();
+                    let state = states[state_idx as usize];
+                    let display = format!("{state}");
+                    prop_assert!(!display.is_empty());
+                    prop_assert!(display.chars().all(|c| c.is_ascii_lowercase()));
+                }
+
+                /// Serde roundtrip preserves equality
+                #[test]
+                fn prop_serde_roundtrip(state_idx in 0u8..6u8) {
+                    let states = WorkspaceState::all();
+                    let state = states[state_idx as usize];
+                    let json = serde_json::to_string(&state).unwrap();
+                    let parsed: WorkspaceState = serde_json::from_str(&json).unwrap();
+                    prop_assert_eq!(state, parsed);
+                }
+
+                /// all() has exactly 6 unique variants
+                #[test]
+                fn prop_all_has_six_unique_variants(_ in 0u8..1u8) {
+                    let all = WorkspaceState::all();
+                    prop_assert_eq!(all.len(), 6);
+                    let mut seen = std::collections::HashSet::new();
+                    for state in all {
+                        prop_assert!(seen.insert(state));
+                    }
+                }
+
+                /// Transition function matches can_transition_to
+                #[test]
+                fn prop_machine_transition_matches_can_transition(
+                    from_idx in 0u8..6u8,
+                    to_idx in 0u8..6u8
+                ) {
+                    let states = WorkspaceState::all();
+                    let from = states[from_idx as usize];
+                    let to = states[to_idx as usize];
+                    let machine_result = WorkspaceStateMachine::transition(from, to);
+                    let can = from.can_transition_to(to);
+                    prop_assert_eq!(machine_result.is_ok(), can);
+                }
+            }
+        }
     }
 }

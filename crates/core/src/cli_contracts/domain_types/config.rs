@@ -18,6 +18,12 @@ impl ConfigKey {
         &self.0
     }
 
+    /// Validates a configuration key.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the key is empty, not a dotted path, has empty
+    /// segments, or contains invalid characters.
     pub fn validate(key: &str) -> Result<(), ContractError> {
         if key.is_empty() {
             return Err(ContractError::invalid_input("key", "cannot be empty"));
@@ -72,6 +78,11 @@ impl ConfigValue {
         &self.0
     }
 
+    /// Validates a configuration value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the value is empty.
     pub fn validate(value: &str) -> Result<(), ContractError> {
         if value.is_empty() {
             return Err(ContractError::invalid_input("value", "cannot be empty"));

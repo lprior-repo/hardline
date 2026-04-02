@@ -446,4 +446,391 @@ mod tests {
         assert!(!response.hints.is_empty());
         assert!(!response.next_actions.is_empty());
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Hint construction (all variants)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_hint_info_construction() {
+        let hint = Hint::info("info message");
+        assert_eq!(hint.hint_type, HintType::Info);
+        assert_eq!(hint.message, "info message");
+        assert!(hint.suggested_command.is_none());
+        assert!(hint.rationale.is_none());
+        assert!(hint.context.is_none());
+    }
+
+    #[test]
+    fn test_hint_suggestion_construction() {
+        let hint = Hint::suggestion("suggestion message");
+        assert_eq!(hint.hint_type, HintType::Suggestion);
+        assert_eq!(hint.message, "suggestion message");
+        assert!(hint.suggested_command.is_none());
+    }
+
+    #[test]
+    fn test_hint_warning_construction() {
+        let hint = Hint::warning("warning message");
+        assert_eq!(hint.hint_type, HintType::Warning);
+        assert_eq!(hint.message, "warning message");
+        assert!(hint.suggested_command.is_none());
+        assert!(hint.rationale.is_none());
+    }
+
+    #[test]
+    fn test_hint_tip_construction() {
+        let hint = Hint::tip("tip message");
+        assert_eq!(hint.hint_type, HintType::Tip);
+        assert_eq!(hint.message, "tip message");
+        assert!(hint.suggested_command.is_none());
+        assert!(hint.rationale.is_none());
+    }
+
+    #[test]
+    fn test_hint_with_command() {
+        let hint = Hint::info("msg").with_command("scp init");
+        assert_eq!(hint.suggested_command, Some("scp init".to_string()));
+    }
+
+    #[test]
+    fn test_hint_with_rationale() {
+        let hint = Hint::warning("msg").with_rationale("because reasons");
+        assert_eq!(hint.rationale, Some("because reasons".to_string()));
+    }
+
+    #[test]
+    fn test_hint_with_context() {
+        let ctx = serde_json::json!({ "key": "value", "count": 42 });
+        let hint = Hint::info("msg").with_context(ctx.clone());
+        assert_eq!(hint.context, Some(ctx));
+    }
+
+    #[test]
+    fn test_hint_full_builder_chain() {
+        let hint = Hint::suggestion("do something")
+            .with_command("scp session add test")
+            .with_rationale("it's a good idea")
+            .with_context(serde_json::json!({"session": "test"}));
+
+        assert_eq!(hint.hint_type, HintType::Suggestion);
+        assert_eq!(hint.message, "do something");
+        assert_eq!(hint.suggested_command, Some("scp session add test".to_string()));
+        assert_eq!(hint.rationale, Some("it's a good idea".to_string()));
+        assert!(hint.context.is_some());
+    }
+
+    #[test]
+    fn test_hint_equality() {
+        let a = Hint::info("same message");
+        let b = Hint::info("same message");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_hint_inequality_different_type() {
+        let a = Hint::info("msg");
+        let b = Hint::warning("msg");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_hint_clone() {
+        let hint = Hint::warning("original").with_command("scp test");
+        let cloned = hint.clone();
+        assert_eq!(hint, cloned);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HintType variants
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_hint_type_all_variants_exist() {
+        let types = [
+            HintType::Info,
+            HintType::Suggestion,
+            HintType::Warning,
+            HintType::Error,
+            HintType::Tip,
+        ];
+        assert_eq!(types.len(), 5);
+    }
+
+    #[test]
+    fn test_hint_type_serialization() {
+        assert_eq!(
+            serde_json::to_string(&HintType::Info).unwrap_or_default(),
+            "\"info\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HintType::Suggestion).unwrap_or_default(),
+            "\"suggestion\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HintType::Warning).unwrap_or_default(),
+            "\"warning\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HintType::Error).unwrap_or_default(),
+            "\"error\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HintType::Tip).unwrap_or_default(),
+            "\"tip\""
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SystemContext and HintsResponse construction
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_system_context_construction() {
+        use crate::hints::response::SystemContext;
+        let ctx = SystemContext {
+            initialized: true,
+            jj_repo: false,
+            sessions_count: 5,
+            active_sessions: 2,
+            has_changes: true,
+        };
+        assert_eq!(ctx.sessions_count, 5);
+        assert_eq!(ctx.active_sessions, 2);
+    }
+
+    #[test]
+    fn test_system_context_equality() {
+        use crate::hints::response::SystemContext;
+        let a = SystemContext {
+            initialized: true,
+            jj_repo: false,
+            sessions_count: 1,
+            active_sessions: 0,
+            has_changes: false,
+        };
+        let b = SystemContext {
+            initialized: true,
+            jj_repo: false,
+            sessions_count: 1,
+            active_sessions: 0,
+            has_changes: false,
+        };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_hints_response_construction() {
+        use crate::hints::response::{HintsResponse, SystemContext};
+        let response = HintsResponse {
+            context: SystemContext {
+                initialized: false,
+                jj_repo: false,
+                sessions_count: 0,
+                active_sessions: 0,
+                has_changes: false,
+            },
+            hints: vec![Hint::info("test hint")],
+            next_actions: vec![NextAction {
+                action: "Do thing".to_string(),
+                commands: vec!["scp test".to_string()],
+                risk: ActionRisk::Safe,
+                description: None,
+            }],
+        };
+        assert_eq!(response.hints.len(), 1);
+        assert_eq!(response.next_actions.len(), 1);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Error hint generation edge cases
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_hints_for_error_jj_not_found() {
+        let hints = hints_for_error("JJ_NOT_FOUND", "jj not found");
+        assert_eq!(hints.len(), 2);
+        assert!(hints.iter().any(|h| h.hint_type == HintType::Warning));
+    }
+
+    #[test]
+    fn test_hints_for_error_session_not_found() {
+        let hints = hints_for_error("SESSION_NOT_FOUND", "session not found");
+        assert!(!hints.is_empty());
+        assert!(hints.iter().any(|h| h.message.contains("List")));
+    }
+
+    #[test]
+    fn test_hints_for_error_unknown_code_returns_empty() {
+        let hints = hints_for_error("UNKNOWN_ERROR", "something went wrong");
+        assert!(hints.is_empty());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Hint serialization
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_hint_serialization_omits_none_fields() {
+        let hint = Hint::info("minimal");
+        let json = serde_json::to_string(&hint).unwrap_or_default();
+        assert!(json.contains("\"type\":\"info\""));
+        assert!(json.contains("\"message\":\"minimal\""));
+        assert!(!json.contains("suggested_command"));
+        assert!(!json.contains("rationale"));
+        assert!(!json.contains("context"));
+    }
+
+    #[test]
+    fn test_hint_serialization_includes_some_fields() {
+        let hint = Hint::warning("full")
+            .with_command("scp fix")
+            .with_rationale("things broke")
+            .with_context(serde_json::json!({"key": 1}));
+        let json = serde_json::to_string(&hint).unwrap_or_default();
+        assert!(json.contains("suggested_command"));
+        assert!(json.contains("rationale"));
+        assert!(json.contains("context"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NextAction construction
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_next_action_construction() {
+        let action = NextAction {
+            action: "Test action".to_string(),
+            commands: vec!["cmd1".to_string(), "cmd2".to_string()],
+            risk: ActionRisk::High,
+            description: Some("A description".to_string()),
+        };
+        assert_eq!(action.commands.len(), 2);
+        assert_eq!(action.risk, ActionRisk::High);
+    }
+
+    #[test]
+    fn test_next_action_equality() {
+        let a = NextAction {
+            action: "X".to_string(),
+            commands: vec!["c".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        };
+        let b = NextAction {
+            action: "X".to_string(),
+            commands: vec!["c".to_string()],
+            risk: ActionRisk::Safe,
+            description: None,
+        };
+        assert_eq!(a, b);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // extract_session_name edge cases
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_extract_session_name_no_quotes() {
+        assert_eq!(extract_session_name("no quotes here"), None);
+    }
+
+    #[test]
+    fn test_extract_session_name_empty_string() {
+        assert_eq!(extract_session_name(""), None);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // hints_for_beads edge cases
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_hints_for_beads_no_issues_at_all() {
+        let beads = BeadsSummary::default();
+        let hints = hints_for_beads("empty-session", &beads);
+        assert!(hints.iter().any(|h| h.message.contains("no beads")));
+    }
+
+    #[test]
+    fn test_hints_for_beads_blockers_and_active() {
+        let beads = BeadsSummary {
+            open: 4,
+            in_progress: 3,
+            blocked: 2,
+            closed: 0,
+        };
+        let hints = hints_for_beads("busy-session", &beads);
+        // Should have blocker warning
+        assert!(hints.iter().any(|h| h.hint_type == HintType::Warning));
+        // active = open + in_progress = 7 > 5
+        assert!(hints.iter().any(|h| h.message.contains("fewer tasks")));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // generate_hints edge cases
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_generate_hints_mixed_statuses() {
+        let state = SystemState {
+            sessions: vec![
+                create_test_session("active", SessionStatus::Active),
+                create_test_session("completed", SessionStatus::Completed),
+                create_test_session("failed", SessionStatus::Failed),
+                create_test_session("paused", SessionStatus::Paused),
+            ],
+            initialized: true,
+            jj_repo: true,
+        };
+
+        let hints = generate_hints(&state).unwrap_or_else(|_| Vec::new());
+        // Should have at least an active hint and a failed hint
+        assert!(hints.iter().any(|h| h.message.contains("active")));
+        assert!(hints.iter().any(|h| h.hint_type == HintType::Warning));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // suggest_next_actions edge cases
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_suggest_next_actions_with_active_session() {
+        let state = SystemState {
+            sessions: vec![create_test_session("active", SessionStatus::Active)],
+            initialized: true,
+            jj_repo: true,
+        };
+        let actions = suggest_next_actions(&state);
+        assert!(actions.iter().any(|a| a.action.contains("Review")));
+        assert!(actions.iter().any(|a| a.action.contains("new session")));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // generate_hints_response edge cases
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_generate_hints_response_uninitialized() {
+        let state = SystemState {
+            sessions: Vec::new(),
+            initialized: false,
+            jj_repo: false,
+        };
+        let response = generate_hints_response(&state).unwrap_or_else(|_| {
+            crate::hints::response::HintsResponse {
+                context: crate::hints::response::SystemContext {
+                    initialized: true,
+                    jj_repo: true,
+                    sessions_count: 1,
+                    active_sessions: 1,
+                    has_changes: true,
+                },
+                hints: Vec::new(),
+                next_actions: Vec::new(),
+            }
+        });
+        assert!(!response.context.initialized);
+        assert_eq!(response.context.sessions_count, 0);
+        assert_eq!(response.context.active_sessions, 0);
+    }
 }

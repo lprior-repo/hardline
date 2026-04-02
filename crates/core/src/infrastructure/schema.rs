@@ -421,4 +421,377 @@ mod tests {
     fn test_schema_version() {
         assert_eq!(SCHEMA_VERSION, 1);
     }
+
+    // =========================================================================
+    // initial_schema() function
+    // =========================================================================
+
+    #[test]
+    fn given_initial_schema_when_called_then_contains_all_tables() {
+        let schema = initial_schema();
+        assert!(schema.contains("CREATE TABLE schema_version"));
+        assert!(schema.contains("CREATE TABLE workspaces"));
+        assert!(schema.contains("CREATE TABLE operations"));
+        assert!(schema.contains("CREATE TABLE operation_steps"));
+        assert!(schema.contains("CREATE TABLE queue_entries"));
+        assert!(schema.contains("CREATE TABLE agents"));
+        assert!(schema.contains("CREATE TABLE sessions"));
+        assert!(schema.contains("CREATE TABLE config"));
+    }
+
+    #[test]
+    fn given_initial_schema_when_called_then_contains_triggers() {
+        let schema = initial_schema();
+        assert!(schema.contains("workspaces_updated_at"));
+        assert!(schema.contains("queue_updated_at"));
+        assert!(schema.contains("config_updated_at"));
+    }
+
+    #[test]
+    fn given_initial_schema_when_called_then_contains_indexes() {
+        let schema = initial_schema();
+        assert!(schema.contains("idx_workspaces_state"));
+        assert!(schema.contains("idx_operations_workspace"));
+        assert!(schema.contains("idx_queue_priority"));
+        assert!(schema.contains("idx_agents_status"));
+        assert!(schema.contains("idx_sessions_workspace"));
+    }
+
+    #[test]
+    fn given_initial_schema_when_called_then_not_empty() {
+        let schema = initial_schema();
+        assert!(!schema.is_empty());
+        assert!(schema.len() > 100);
+    }
+
+    // =========================================================================
+    // Serialization roundtrips for enums
+    // =========================================================================
+
+    #[test]
+    fn given_workspace_backend_when_serialized_then_roundtrips() {
+        for variant in [WorkspaceBackend::Git, WorkspaceBackend::Jj] {
+            let json = serde_json::to_string(&variant).unwrap();
+            let deserialized: WorkspaceBackend = serde_json::from_str(&json).unwrap();
+            assert_eq!(variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn given_workspace_backend_when_serialized_then_lowercase() {
+        assert_eq!(
+            serde_json::to_string(&WorkspaceBackend::Git).unwrap(),
+            "\"git\""
+        );
+        assert_eq!(
+            serde_json::to_string(&WorkspaceBackend::Jj).unwrap(),
+            "\"jj\""
+        );
+    }
+
+    #[test]
+    fn given_workspace_state_when_serialized_then_roundtrips() {
+        for variant in [
+            WorkspaceState::Created,
+            WorkspaceState::Active,
+            WorkspaceState::Syncing,
+            WorkspaceState::Paused,
+            WorkspaceState::Completed,
+            WorkspaceState::Failed,
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            let deserialized: WorkspaceState = serde_json::from_str(&json).unwrap();
+            assert_eq!(variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn given_operation_state_when_serialized_then_roundtrips() {
+        for variant in [
+            OperationState::Started,
+            OperationState::InProgress,
+            OperationState::Completed,
+            OperationState::Failed,
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            let deserialized: OperationState = serde_json::from_str(&json).unwrap();
+            assert_eq!(variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn given_operation_state_in_progress_when_serialized_then_snake_case() {
+        let json = serde_json::to_string(&OperationState::InProgress).unwrap();
+        assert_eq!(json, "\"in_progress\"");
+    }
+
+    #[test]
+    fn given_step_status_when_serialized_then_roundtrips() {
+        for variant in [
+            StepStatus::Pending,
+            StepStatus::Running,
+            StepStatus::Completed,
+            StepStatus::Failed,
+            StepStatus::Skipped,
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            let deserialized: StepStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn given_queue_status_when_serialized_then_roundtrips() {
+        for variant in [
+            QueueStatus::Pending,
+            QueueStatus::Claimed,
+            QueueStatus::Rebase,
+            QueueStatus::Testing,
+            QueueStatus::ReadyToMerge,
+            QueueStatus::Merging,
+            QueueStatus::Merged,
+            QueueStatus::FailedRetryable,
+            QueueStatus::FailedTerminal,
+            QueueStatus::Cancelled,
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            let deserialized: QueueStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn given_queue_status_ready_to_merge_when_serialized_then_snake_case() {
+        let json = serde_json::to_string(&QueueStatus::ReadyToMerge).unwrap();
+        assert_eq!(json, "\"ready_to_merge\"");
+    }
+
+    #[test]
+    fn given_queue_status_failed_retryable_when_serialized_then_snake_case() {
+        let json = serde_json::to_string(&QueueStatus::FailedRetryable).unwrap();
+        assert_eq!(json, "\"failed_retryable\"");
+    }
+
+    #[test]
+    fn given_agent_status_when_serialized_then_roundtrips() {
+        for variant in [
+            AgentStatus::Active,
+            AgentStatus::Idle,
+            AgentStatus::Disconnected,
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            let deserialized: AgentStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn given_session_state_when_serialized_then_roundtrips() {
+        for variant in [
+            SessionState::Created,
+            SessionState::Active,
+            SessionState::Syncing,
+            SessionState::Synced,
+            SessionState::Paused,
+            SessionState::Completed,
+            SessionState::Failed,
+        ] {
+            let json = serde_json::to_string(&variant).unwrap();
+            let deserialized: SessionState = serde_json::from_str(&json).unwrap();
+            assert_eq!(variant, deserialized);
+        }
+    }
+
+    // =========================================================================
+    // Debug formatting for enums
+    // =========================================================================
+
+    #[test]
+    fn given_workspace_backend_when_debug_then_contains_variant() {
+        assert!(format!("{:?}", WorkspaceBackend::Git).contains("Git"));
+        assert!(format!("{:?}", WorkspaceBackend::Jj).contains("Jj"));
+    }
+
+    #[test]
+    fn given_workspace_state_when_debug_then_contains_variant() {
+        assert!(format!("{:?}", WorkspaceState::Active).contains("Active"));
+    }
+
+    #[test]
+    fn given_operation_state_when_debug_then_contains_variant() {
+        assert!(format!("{:?}", OperationState::InProgress).contains("InProgress"));
+    }
+
+    #[test]
+    fn given_step_status_when_debug_then_contains_variant() {
+        assert!(format!("{:?}", StepStatus::Pending).contains("Pending"));
+    }
+
+    #[test]
+    fn given_queue_status_when_debug_then_contains_variant() {
+        assert!(format!("{:?}", QueueStatus::Merged).contains("Merged"));
+    }
+
+    #[test]
+    fn given_agent_status_when_debug_then_contains_variant() {
+        assert!(format!("{:?}", AgentStatus::Disconnected).contains("Disconnected"));
+    }
+
+    #[test]
+    fn given_session_state_when_debug_then_contains_variant() {
+        assert!(format!("{:?}", SessionState::Synced).contains("Synced"));
+    }
+
+    // =========================================================================
+    // as_str() exhaustiveness - ensure all variants return non-empty
+    // =========================================================================
+
+    #[test]
+    fn given_all_workspace_backends_when_as_str_then_non_empty() {
+        for variant in [WorkspaceBackend::Git, WorkspaceBackend::Jj] {
+            assert!(!variant.as_str().is_empty());
+        }
+    }
+
+    #[test]
+    fn given_all_workspace_states_when_as_str_then_non_empty() {
+        for variant in [
+            WorkspaceState::Created,
+            WorkspaceState::Active,
+            WorkspaceState::Syncing,
+            WorkspaceState::Paused,
+            WorkspaceState::Completed,
+            WorkspaceState::Failed,
+        ] {
+            assert!(!variant.as_str().is_empty());
+        }
+    }
+
+    #[test]
+    fn given_all_operation_states_when_as_str_then_non_empty() {
+        for variant in [
+            OperationState::Started,
+            OperationState::InProgress,
+            OperationState::Completed,
+            OperationState::Failed,
+        ] {
+            assert!(!variant.as_str().is_empty());
+        }
+    }
+
+    #[test]
+    fn given_all_step_statuses_when_as_str_then_non_empty() {
+        for variant in [
+            StepStatus::Pending,
+            StepStatus::Running,
+            StepStatus::Completed,
+            StepStatus::Failed,
+            StepStatus::Skipped,
+        ] {
+            assert!(!variant.as_str().is_empty());
+        }
+    }
+
+    #[test]
+    fn given_all_queue_statuses_when_as_str_then_non_empty() {
+        for variant in [
+            QueueStatus::Pending,
+            QueueStatus::Claimed,
+            QueueStatus::Rebase,
+            QueueStatus::Testing,
+            QueueStatus::ReadyToMerge,
+            QueueStatus::Merging,
+            QueueStatus::Merged,
+            QueueStatus::FailedRetryable,
+            QueueStatus::FailedTerminal,
+            QueueStatus::Cancelled,
+        ] {
+            assert!(!variant.as_str().is_empty());
+        }
+    }
+
+    #[test]
+    fn given_all_agent_statuses_when_as_str_then_non_empty() {
+        for variant in [
+            AgentStatus::Active,
+            AgentStatus::Idle,
+            AgentStatus::Disconnected,
+        ] {
+            assert!(!variant.as_str().is_empty());
+        }
+    }
+
+    #[test]
+    fn given_all_session_states_when_as_str_then_non_empty() {
+        for variant in [
+            SessionState::Created,
+            SessionState::Active,
+            SessionState::Syncing,
+            SessionState::Synced,
+            SessionState::Paused,
+            SessionState::Completed,
+            SessionState::Failed,
+        ] {
+            assert!(!variant.as_str().is_empty());
+        }
+    }
+
+    // =========================================================================
+    // Copy trait for all enums (they derive Copy)
+    // =========================================================================
+
+    #[test]
+    fn given_workspace_backend_when_copied_then_same() {
+        let a = WorkspaceBackend::Git;
+        let b = a;
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn given_queue_status_when_copied_then_same() {
+        let a = QueueStatus::Merged;
+        let b = a;
+        assert_eq!(a, b);
+    }
+
+    // =========================================================================
+    // Schema SQL constants - smoke checks
+    // =========================================================================
+
+    #[test]
+    fn given_schema_version_table_when_sql_then_valid() {
+        assert!(SCHEMA_VERSION_TABLE.contains("CREATE TABLE schema_version"));
+        assert!(SCHEMA_VERSION_TABLE.contains("INSERT INTO schema_version"));
+    }
+
+    #[test]
+    fn given_workspaces_table_when_sql_then_has_constraints() {
+        assert!(WORKSPACES_TABLE.contains("UNIQUE(name)"));
+        assert!(WORKSPACES_TABLE.contains("CHECK (backend IN"));
+        assert!(WORKSPACES_TABLE.contains("REFERENCES"));
+    }
+
+    #[test]
+    fn given_queue_entries_table_when_sql_then_has_constraints() {
+        assert!(QUEUE_ENTRIES_TABLE.contains("CHECK (priority >= 0 AND priority <= 255)"));
+        assert!(QUEUE_ENTRIES_TABLE.contains("CHECK (status IN"));
+    }
+
+    // =========================================================================
+    // Eq / PartialEq for enums
+    // =========================================================================
+
+    #[test]
+    fn given_same_enum_variant_then_equal() {
+        assert_eq!(WorkspaceBackend::Git, WorkspaceBackend::Git);
+        assert_eq!(QueueStatus::Pending, QueueStatus::Pending);
+        assert_eq!(AgentStatus::Idle, AgentStatus::Idle);
+    }
+
+    #[test]
+    fn given_different_enum_variant_then_not_equal() {
+        assert_ne!(WorkspaceBackend::Git, WorkspaceBackend::Jj);
+        assert_ne!(QueueStatus::Pending, QueueStatus::Merged);
+        assert_ne!(AgentStatus::Active, AgentStatus::Idle);
+    }
 }

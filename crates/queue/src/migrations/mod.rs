@@ -67,7 +67,7 @@ pub fn run_migrations(connection: &Connection) -> Result<(), MigrationError> {
 
     // Execute migration
     connection
-        .execute(MIGRATION_SQL, [])
+        .execute_batch(MIGRATION_SQL)
         .map_err(|e| MigrationError::MigrationFailed(e.to_string()))?;
 
     Ok(())

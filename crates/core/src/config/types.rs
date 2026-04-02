@@ -102,7 +102,7 @@ impl<'de> Deserialize<'de> for ValidatedBool {
         D: serde::Deserializer<'de>,
     {
         struct BoolVisitor;
-        impl<'de> serde::de::Visitor<'de> for BoolVisitor {
+        impl serde::de::Visitor<'_> for BoolVisitor {
             type Value = ValidatedBool;
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 formatter.write_str("a boolean value")

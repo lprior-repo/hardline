@@ -96,4 +96,79 @@ mod tests {
         let policy = RetryPolicy::new(10, 100, 500).expect("should create policy");
         assert_eq!(policy.calculate_delay(10), 500); // Capped at max
     }
+
+    #[test]
+    fn test_retry_policy_total_attempts() {
+        let policy = RetryPolicy::new(3, 100, 1000).expect("should create policy");
+        assert_eq!(policy.total_attempts(), 4); // initial + 3 retries
+    }
+
+    #[test]
+    fn test_retry_policy_zero_retries() {
+        let policy = RetryPolicy::new(0, 100, 1000).expect("should create policy");
+        assert_eq!(policy.total_attempts(), 1);
+        assert_eq!(policy.max_retries(), 0);
+    }
+
+    #[test]
+    fn test_retry_policy_equal_base_and_max_delay() {
+        let policy = RetryPolicy::new(3, 100, 100).expect("should create policy");
+        // All delays should be capped at 100
+        assert_eq!(policy.calculate_delay(0), 100);
+        assert_eq!(policy.calculate_delay(10), 100);
+    }
+
+    #[test]
+    fn test_retry_policy_calculate_delay_zero_attempt() {
+        let policy = RetryPolicy::new(5, 200, 5000).expect("should create policy");
+        // 200 * 2^0 = 200
+        assert_eq!(policy.calculate_delay(0), 200);
+    }
+
+    // --- Serde roundtrip ---
+
+    #[test]
+    fn test_retry_policy_serde_roundtrip() {
+        let policy = RetryPolicy::new(5, 200, 5000).expect("should create");
+        let json = serde_json::to_string(&policy).expect("serialize");
+        let deserialized: RetryPolicy = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(policy.max_retries(), deserialized.max_retries());
+    }
+
+    #[test]
+    fn test_retry_policy_calculate_delay_with_large_attempt() {
+        let policy = RetryPolicy::new(100, 100, 10000).expect("should create");
+        // Should not overflow, should be capped at max
+        let delay = policy.calculate_delay(100);
+        assert!(delay <= 10000);
+    }
+
+    #[test]
+    fn test_retry_policy_base_delay_equals_max() {
+        let policy = RetryPolicy::new(5, 500, 500).expect("should create");
+        assert_eq!(policy.calculate_delay(0), 500);
+        assert_eq!(policy.calculate_delay(1), 500); // 500 * 2 = 1000, capped at 500
+    }
+
+    #[test]
+    fn test_retry_policy_new_equal_base_and_max() {
+        let policy = RetryPolicy::new(3, 500, 500).expect("should create");
+        // base == max is allowed
+        assert_eq!(policy.max_retries(), 3);
+    }
+
+    #[test]
+    fn test_retry_policy_display() {
+        let err = crate::policies::ConfigError::InvalidBaseDelay { delay_ms: 0 };
+        let msg = format!("{err}");
+        assert!(msg.contains("Base delay"));
+    }
+
+    #[test]
+    fn test_retry_policy_calculate_delay_saturation() {
+        let policy = RetryPolicy::new(5, u64::MAX, u64::MAX).expect("should create");
+        // saturating_mul prevents overflow
+        let delay = policy.calculate_delay(1); // u64::MAX * 2 saturates
+        assert_eq!(delay, u64::MAX);
+    }
 }

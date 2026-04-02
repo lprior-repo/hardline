@@ -324,7 +324,7 @@ pub async fn migrate_v2_add_branch_and_last_synced(
 
     // Check if v2 already applied
     let current = get_migration_version(pool).await?;
-    if current.map_or(false, |v| v >= 2) {
+    if current.is_some_and(|v| v >= 2) {
         return Ok(());
     }
 
@@ -364,7 +364,7 @@ pub async fn rollback_v2_branch_and_last_synced(pool: &SqlitePool) -> Result<(),
 
     // Verify v2 was applied
     let current = get_migration_version(pool).await?;
-    if current.map_or(true, |v| v < 2) {
+    if current.is_none_or(|v| v < 2) {
         return Err(MigrationError::VersionConflict {
             version: 2,
             table_name: "sessions".to_string(),

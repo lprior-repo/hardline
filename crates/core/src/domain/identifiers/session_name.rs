@@ -108,3 +108,97 @@ impl From<SessionName> for String {
         name.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_valid_name() {
+        let name = SessionName::parse("my-session").expect("valid");
+        assert_eq!(name.as_str(), "my-session");
+    }
+
+    #[test]
+    fn parse_with_numbers() {
+        let name = SessionName::parse("session-123").expect("valid");
+        assert_eq!(name.as_str(), "session-123");
+    }
+
+    #[test]
+    fn parse_trims_whitespace() {
+        let name = SessionName::parse("  my-session  ").expect("valid");
+        assert_eq!(name.as_str(), "my-session");
+    }
+
+    #[test]
+    fn parse_empty_rejects() {
+        assert!(SessionName::parse("").is_err());
+    }
+
+    #[test]
+    fn parse_whitespace_only_rejects() {
+        assert!(SessionName::parse("   ").is_err());
+    }
+
+    #[test]
+    fn parse_must_start_with_letter() {
+        assert!(SessionName::parse("1session").is_err());
+        assert!(SessionName::parse("-session").is_err());
+        assert!(SessionName::parse("_session").is_err());
+    }
+
+    #[test]
+    fn parse_special_chars_reject() {
+        assert!(SessionName::parse("session$test").is_err());
+        assert!(SessionName::parse("session test").is_err());
+        assert!(SessionName::parse("session@test").is_err());
+    }
+
+    #[test]
+    fn parse_too_long_rejects() {
+        let long_name = "a".repeat(64);
+        assert!(SessionName::parse(long_name).is_err());
+    }
+
+    #[test]
+    fn parse_max_length_is_ok() {
+        let name = "a".repeat(63);
+        let result = SessionName::parse(name);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn display_shows_inner() {
+        let name = SessionName::parse("test-session").expect("ok");
+        assert_eq!(format!("{name}"), "test-session");
+    }
+
+    #[test]
+    fn from_into_string() {
+        let name = SessionName::parse("test").expect("ok");
+        let s: String = name.into();
+        assert_eq!(s, "test");
+    }
+
+    #[test]
+    fn try_from_string() {
+        let name = SessionName::try_from("valid-session".to_string()).expect("ok");
+        assert_eq!(name.as_str(), "valid-session");
+    }
+
+    #[test]
+    fn try_from_str() {
+        let name = SessionName::try_from("valid-session").expect("ok");
+        assert_eq!(name.as_str(), "valid-session");
+    }
+
+    #[test]
+    fn equality() {
+        let a = SessionName::parse("same").expect("ok");
+        let b = SessionName::parse("same").expect("ok");
+        let c = SessionName::parse("different").expect("ok");
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+}

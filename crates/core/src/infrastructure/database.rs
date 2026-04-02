@@ -277,4 +277,214 @@ mod tests {
         assert_eq!(result.0, 1);
         Ok(())
     }
+
+    // =========================================================================
+    // from_pool
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_from_pool() -> Result<()> {
+        let inner = SqliteDatabaseService::in_memory().await?;
+        inner
+            .execute("CREATE TABLE test (id INTEGER PRIMARY KEY)")
+            .await?;
+        inner
+            .execute("INSERT INTO test VALUES (1)")
+            .await?;
+
+        let service = SqliteDatabaseService::from_pool(inner.pool().clone());
+        let results = service.query("SELECT id FROM test").await?;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], vec!["1".to_string()]);
+        Ok(())
+    }
+
+    // =========================================================================
+    // create with temp file path
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_create_with_temp_path() -> Result<()> {
+        let temp_dir = tempfile::TempDir::new().map_err(|e| Error::io_error(e.to_string()))?;
+        let db_path = temp_dir.path().join("test_create.db");
+
+        let service = SqliteDatabaseService::create(&db_path).await?;
+        service
+            .execute("CREATE TABLE items (name TEXT)")
+            .await?;
+        service
+            .execute("INSERT INTO items VALUES ('widget')")
+            .await?;
+
+        let results = service.query("SELECT name FROM items").await?;
+        assert_eq!(results.len(), 1);
+        Ok(())
+    }
+
+    // =========================================================================
+    // close
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_close() -> Result<()> {
+        let db = SqliteDatabaseService::in_memory().await?;
+        db.execute("CREATE TABLE test (id INTEGER PRIMARY KEY)").await?;
+        db.close().await?;
+        Ok(())
+    }
+
+    // =========================================================================
+    // create_database_service factory
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_create_database_service_factory() -> Result<()> {
+        let config = DatabaseConfig::in_memory();
+        let service = create_database_service(config).await?;
+        service
+            .execute("CREATE TABLE factory_test (id INTEGER PRIMARY KEY)")
+            .await?;
+        Ok(())
+    }
+
+    // =========================================================================
+    // create_in_memory_database factory
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_create_in_memory_database_factory() -> Result<()> {
+        let service = create_in_memory_database().await?;
+        service
+            .execute("CREATE TABLE mem_factory (id INTEGER PRIMARY KEY)")
+            .await?;
+        Ok(())
+    }
+
+    // =========================================================================
+    // DatabaseConfig Clone
+    // =========================================================================
+
+    #[test]
+    fn given_config_when_cloned_then_equal() {
+        let config = DatabaseConfig::with_connections("/tmp/test.db", 3).unwrap();
+        let cloned = config.clone();
+        assert_eq!(config.path, cloned.path);
+        assert_eq!(config.max_connections, cloned.max_connections);
+    }
+
+    // =========================================================================
+    // DatabaseConfig Debug
+    // =========================================================================
+
+    #[test]
+    fn given_config_when_debug_then_contains_path() {
+        let config = DatabaseConfig::new("/tmp/debug_test.db").unwrap();
+        let debug = format!("{config:?}");
+        assert!(debug.contains("/tmp/debug_test.db"));
+    }
+
+    // =========================================================================
+    // DatabaseConfig in_memory connection_url
+    // =========================================================================
+
+    #[test]
+    fn given_in_memory_config_when_connection_url_then_memory() {
+        let config = DatabaseConfig::in_memory();
+        assert_eq!(config.connection_url(), "sqlite::memory:");
+    }
+
+    #[test]
+    fn given_file_config_when_connection_url_then_contains_path() {
+        let config = DatabaseConfig::new("/data/app.db").unwrap();
+        let url = config.connection_url();
+        assert!(url.contains("/data/app.db"));
+        assert!(url.contains("mode=rwc"));
+    }
+
+    // =========================================================================
+    // DatabaseService trait object usage
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_database_service_as_dyn_trait() -> Result<()> {
+        let service: Box<dyn DatabaseService> =
+            Box::new(SqliteDatabaseService::in_memory().await?);
+        service
+            .execute("CREATE TABLE dyn_test (id INTEGER PRIMARY KEY, val TEXT)")
+            .await?;
+        service
+            .execute("INSERT INTO dyn_test (val) VALUES ('dynamic')")
+            .await?;
+        let results = service.query("SELECT val FROM dyn_test").await?;
+        assert_eq!(results[0], vec!["dynamic".to_string()]);
+        Ok(())
+    }
+
+    // =========================================================================
+    // parse_column_value / parse_row_values via query method
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_query_integer_column() -> Result<()> {
+        let db = SqliteDatabaseService::in_memory().await?;
+        db.execute("CREATE TABLE types_test (int_col INTEGER, real_col REAL, text_col TEXT)")
+            .await?;
+        db.execute("INSERT INTO types_test VALUES (42, 3.14, 'hello')")
+            .await?;
+
+        let results = db.query("SELECT int_col FROM types_test").await?;
+        assert_eq!(results[0], vec!["42".to_string()]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_query_real_column() -> Result<()> {
+        let db = SqliteDatabaseService::in_memory().await?;
+        db.execute("CREATE TABLE real_test (val REAL)").await?;
+        db.execute("INSERT INTO real_test VALUES (2.718)").await?;
+
+        let results = db.query("SELECT val FROM real_test").await?;
+        assert_eq!(results[0], vec!["2.718".to_string()]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_query_multiple_columns() -> Result<()> {
+        let db = SqliteDatabaseService::in_memory().await?;
+        db.execute("CREATE TABLE multi_test (a TEXT, b INTEGER, c TEXT)")
+            .await?;
+        db.execute("INSERT INTO multi_test VALUES ('x', 1, 'y')")
+            .await?;
+
+        let results = db.query("SELECT a, b, c FROM multi_test").await?;
+        assert_eq!(results[0], vec!["x".to_string(), "1".to_string(), "y".to_string()]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_query_empty_result() -> Result<()> {
+        let db = SqliteDatabaseService::in_memory().await?;
+        db.execute("CREATE TABLE empty_test (id INTEGER PRIMARY KEY)")
+            .await?;
+
+        let results = db.query("SELECT id FROM empty_test").await?;
+        assert!(results.is_empty());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_query_multiple_rows() -> Result<()> {
+        let db = SqliteDatabaseService::in_memory().await?;
+        db.execute("CREATE TABLE rows_test (id INTEGER PRIMARY KEY, val TEXT)")
+            .await?;
+        db.execute("INSERT INTO rows_test (val) VALUES ('a')").await?;
+        db.execute("INSERT INTO rows_test (val) VALUES ('b')").await?;
+        db.execute("INSERT INTO rows_test (val) VALUES ('c')").await?;
+
+        let results = db.query("SELECT val FROM rows_test ORDER BY id").await?;
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0], vec!["a".to_string()]);
+        assert_eq!(results[2], vec!["c".to_string()]);
+        Ok(())
+    }
 }

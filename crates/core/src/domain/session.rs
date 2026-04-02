@@ -72,4 +72,104 @@ mod tests {
         assert!(!on_branch.is_detached());
         assert_eq!(on_branch.branch_name(), Some("main"));
     }
+
+    // -- Display --
+
+    #[test]
+    fn test_display_detached() {
+        assert_eq!(format!("{}", BranchState::Detached), "detached");
+    }
+
+    #[test]
+    fn test_display_on_branch() {
+        let branch = BranchState::OnBranch {
+            name: "feature-xyz".to_string(),
+        };
+        assert_eq!(format!("{branch}"), "feature-xyz");
+    }
+
+    // -- Transitions --
+
+    #[test]
+    fn test_detached_to_on_branch() {
+        let target = BranchState::OnBranch {
+            name: "main".to_string(),
+        };
+        assert!(BranchState::Detached.can_transition_to(&target));
+    }
+
+    #[test]
+    fn test_on_branch_to_detached() {
+        let branch = BranchState::OnBranch {
+            name: "main".to_string(),
+        };
+        assert!(branch.can_transition_to(&BranchState::Detached));
+    }
+
+    #[test]
+    fn test_on_branch_to_on_branch_same() {
+        let branch = BranchState::OnBranch {
+            name: "main".to_string(),
+        };
+        let target = BranchState::OnBranch {
+            name: "main".to_string(),
+        };
+        assert!(branch.can_transition_to(&target));
+    }
+
+    #[test]
+    fn test_on_branch_to_different_branch() {
+        let branch = BranchState::OnBranch {
+            name: "main".to_string(),
+        };
+        let target = BranchState::OnBranch {
+            name: "feature".to_string(),
+        };
+        assert!(branch.can_transition_to(&target));
+    }
+
+    #[test]
+    fn test_detached_to_detached_rejected() {
+        assert!(!BranchState::Detached.can_transition_to(&BranchState::Detached));
+    }
+
+    // -- PartialEq --
+
+    #[test]
+    fn test_branch_equality() {
+        let a = BranchState::OnBranch {
+            name: "main".to_string(),
+        };
+        let b = BranchState::OnBranch {
+            name: "main".to_string(),
+        };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_branch_inequality() {
+        let a = BranchState::OnBranch {
+            name: "main".to_string(),
+        };
+        let b = BranchState::OnBranch {
+            name: "feature".to_string(),
+        };
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_detached_ne_on_branch() {
+        assert_ne!(BranchState::Detached, BranchState::OnBranch { name: "x".to_string() });
+    }
+
+    // -- branch_name edge cases --
+
+    #[test]
+    fn test_branch_name_empty_string() {
+        let branch = BranchState::OnBranch {
+            name: String::new(),
+        };
+        assert_eq!(branch.branch_name(), Some(""));
+        assert!(!branch.is_detached());
+    }
 }

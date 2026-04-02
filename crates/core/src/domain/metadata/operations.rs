@@ -1,4 +1,4 @@
-//! StackMetadata mutation operations
+//! `StackMetadata` mutation operations
 
 use crate::dag::BranchId;
 use crate::Error;
@@ -15,12 +15,12 @@ impl StackMetadata {
     pub fn set_parent(&mut self, branch: BranchId, parent: BranchId) -> Result<(), Error> {
         // Check if branch exists
         if !self.parents.contains_key(&branch) {
-            return Err(Error::not_found(format!("Branch not found: {}", branch)));
+            return Err(Error::not_found(format!("Branch not found: {branch}")));
         }
 
         // Check if parent exists
         if !self.parents.contains_key(&parent) {
-            return Err(Error::not_found(format!("Parent not found: {}", parent)));
+            return Err(Error::not_found(format!("Parent not found: {parent}")));
         }
 
         // Check if parent is the same (no change needed)
@@ -31,8 +31,7 @@ impl StackMetadata {
         // Check if setting this parent would create a cycle
         if self.would_create_cycle(&branch, &parent) {
             return Err(Error::invalid_state(format!(
-                "Circular reference would be created for branch {}",
-                branch
+                "Circular reference would be created for branch {branch}"
             )));
         }
 
@@ -51,9 +50,9 @@ impl StackMetadata {
 
         // Update children mapping for new parent
         self.children
-            .entry(parent.clone())
+            .entry(parent)
             .or_default()
-            .push(branch.clone());
+            .push(branch);
 
         // Save to backend
         self.save()?;
@@ -69,15 +68,14 @@ impl StackMetadata {
     pub fn add_branch(&mut self, branch: BranchId, parent: Option<&BranchId>) -> Result<(), Error> {
         if self.parents.contains_key(&branch) {
             return Err(Error::invalid_state(format!(
-                "Branch already exists: {}",
-                branch
+                "Branch already exists: {branch}"
             )));
         }
 
         // If parent is specified, check it exists
         if let Some(parent_id) = parent {
             if !self.parents.contains_key(parent_id) {
-                return Err(Error::not_found(format!("Parent not found: {}", parent_id)));
+                return Err(Error::not_found(format!("Parent not found: {parent_id}")));
             }
         }
 
@@ -90,7 +88,7 @@ impl StackMetadata {
             self.children
                 .entry(parent_id.clone())
                 .or_default()
-                .push(branch.clone());
+                .push(branch);
         }
 
         // Save to backend
@@ -103,27 +101,27 @@ impl StackMetadata {
     ///
     /// # Errors
     /// Returns `MetadataError::BranchNotFound` if branch doesn't exist.
-    pub fn remove_branch(&mut self, branch: BranchId) -> Result<(), Error> {
+    pub fn remove_branch(&mut self, branch: &BranchId) -> Result<(), Error> {
         // Check if branch exists
-        if !self.parents.contains_key(&branch) {
-            return Err(Error::not_found(format!("Branch not found: {}", branch)));
+        if !self.parents.contains_key(branch) {
+            return Err(Error::not_found(format!("Branch not found: {branch}")));
         }
 
         // Get parent if exists
-        let parent = self.parents.get(&branch).cloned().flatten();
+        let parent = self.parents.get(branch).cloned().flatten();
 
         // Remove from parents
-        self.parents.remove(&branch);
+        self.parents.remove(branch);
 
         // Remove from parent's children
         if let Some(ref parent_id) = parent {
             if let Some(children) = self.children.get_mut(parent_id) {
-                children.retain(|c| c != &branch);
+                children.retain(|c| c != branch);
             }
         }
 
         // Remove from children (if this branch has children)
-        self.children.remove(&branch);
+        self.children.remove(branch);
 
         // Save to backend
         self.save()?;

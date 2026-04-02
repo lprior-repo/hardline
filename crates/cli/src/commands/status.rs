@@ -1,7 +1,6 @@
 //! Status command - shows current workspace/session status
 
 use crate::commands::session as sess;
-use crate::commands::workspace as ws;
 use scp_core::Result;
 
 /// Show status (default: detailed)

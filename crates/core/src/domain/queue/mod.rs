@@ -4,7 +4,7 @@
 //! - All operations return new Queue instances (persistent data structure)
 //! - Railway-Oriented Programming with `Result` return types
 //! - Pure functions - no I/O, no side effects
-//! - Domain validation errors (ValidationError)
+//! - Domain validation errors (`ValidationError`)
 //! - Functional patterns: iterators, combinators, no for loops
 
 pub mod entry;

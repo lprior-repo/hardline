@@ -215,3 +215,118 @@ impl VcsBackend for GitCliBackend {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_non_repo_backend() -> GitCliBackend {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        GitCliBackend::new(dir.path().to_path_buf())
+    }
+
+    #[test]
+    fn current_branch_not_initialized() {
+        let backend = create_non_repo_backend();
+        let result = backend.current_branch();
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn list_branches_not_initialized() {
+        let backend = create_non_repo_backend();
+        let result = backend.list_branches();
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn create_branch_not_initialized() {
+        let backend = create_non_repo_backend();
+        let result = backend.create_branch("test");
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn switch_branch_not_initialized() {
+        let backend = create_non_repo_backend();
+        let result = backend.switch_branch("main");
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn push_not_initialized() {
+        let backend = create_non_repo_backend();
+        let result = backend.push();
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn pull_not_initialized() {
+        let backend = create_non_repo_backend();
+        let result = backend.pull();
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn rebase_not_implemented() {
+        let backend = create_non_repo_backend();
+        let result = backend.rebase("main");
+        assert!(matches!(result, Err(VcsError::Unimplemented(_))));
+    }
+
+    #[test]
+    fn merge_not_implemented() {
+        let backend = create_non_repo_backend();
+        let result = backend.merge("feature");
+        assert!(matches!(result, Err(VcsError::Unimplemented(_))));
+    }
+
+    #[test]
+    fn log_not_initialized() {
+        let backend = create_non_repo_backend();
+        let result = backend.log(10);
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn status_not_initialized() {
+        let backend = create_non_repo_backend();
+        let result = backend.status();
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn create_workspace_not_implemented() {
+        let backend = create_non_repo_backend();
+        let result = backend.create_workspace("new-ws");
+        assert!(matches!(result, Err(VcsError::Unimplemented(_))));
+    }
+
+    #[test]
+    fn switch_workspace_not_implemented() {
+        let backend = create_non_repo_backend();
+        let result = backend.switch_workspace("ws");
+        assert!(matches!(result, Err(VcsError::Unimplemented(_))));
+    }
+
+    #[test]
+    fn delete_workspace_not_implemented() {
+        let backend = create_non_repo_backend();
+        let result = backend.delete_workspace("ws");
+        assert!(matches!(result, Err(VcsError::Unimplemented(_))));
+    }
+
+    #[test]
+    fn list_workspaces_not_initialized() {
+        let backend = create_non_repo_backend();
+        let result = backend.list_workspaces();
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn fork_workspace_not_initialized() {
+        let backend = create_non_repo_backend();
+        let result = backend.fork_workspace("main", "feature");
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+}

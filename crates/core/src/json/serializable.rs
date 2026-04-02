@@ -6,7 +6,8 @@ use serde::Serialize;
 pub trait JsonSerializable: Serialize {
     /// Convert to pretty-printed JSON string
     fn to_json(&self) -> crate::error::Result<String> {
-        serde_json::to_string_pretty(self).map_err(|e| crate::error::Error::JsonParse(e))
+        serde_json::to_string_pretty(self)
+            .map_err(|e| crate::error::Error::io_error(format!("Failed to serialize to JSON: {e}")))
     }
 }
 

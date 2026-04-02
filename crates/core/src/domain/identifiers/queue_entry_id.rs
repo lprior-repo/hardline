@@ -54,8 +54,8 @@ impl QueueEntryId {
         if trimmed.len() > Self::MAX_LENGTH {
             return Err(ValidationError::ExceedsMaximum {
                 field: "queue_entry_id".to_string(),
-                value: trimmed.len() as u32,
-                max: Self::MAX_LENGTH as u32,
+                value: u32::try_from(trimmed.len()).unwrap_or(u32::MAX),
+                max: u32::try_from(Self::MAX_LENGTH).unwrap_or(u32::MAX),
             });
         }
 

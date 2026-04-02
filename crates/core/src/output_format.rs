@@ -140,4 +140,44 @@ mod tests {
         let format = OutputFormat::json();
         assert_eq!(format, OutputFormat::Json);
     }
+
+    // --- Additional coverage ---
+
+    #[test]
+    fn test_output_format_debug_format() {
+        let format = OutputFormat::Json;
+        let debug_str = format!("{format:?}");
+        assert!(debug_str.contains("Json"));
+    }
+
+    #[test]
+    fn test_output_format_partial_eq_symmetry() {
+        let a = OutputFormat::Json;
+        let b = OutputFormat::default();
+        assert_eq!(a, b);
+        assert_eq!(b, a);
+    }
+
+    #[test]
+    fn test_output_format_serde_deserialize_invalid() {
+        let result: std::result::Result<OutputFormat, _> = serde_json::from_str("\"xml\"");
+        // Should fail because "xml" is not a valid variant
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_output_format_serde_deserialize_lowercase() {
+        let result: OutputFormat = serde_json::from_str("\"json\"").expect("deserialize lowercase json");
+        assert_eq!(result, OutputFormat::Json);
+    }
+
+    #[test]
+    fn test_output_format_display_consistent_with_serde() {
+        let format = OutputFormat::Json;
+        let display = format.to_string();
+        let json = serde_json::to_string(&format).expect("serialize");
+        // Display: "json", serde: "\"json\""
+        assert_eq!(display, "json");
+        assert!(json.contains("json"));
+    }
 }

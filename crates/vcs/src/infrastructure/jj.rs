@@ -35,7 +35,7 @@ fn parse_current_branch_from_status(status_output: &str) -> Result<String> {
         if line.starts_with("Working copy") {
             if let Some(after_colon) = line.split(':').nth(1) {
                 let before_pipe = after_colon.split('|').next().map_or(after_colon, |s| s);
-                let parts: Vec<&str> = before_pipe.trim().split_whitespace().collect();
+                let parts: Vec<&str> = before_pipe.split_whitespace().collect();
                 if parts.len() >= 4 {
                     let bookmarks: Vec<&str> = parts
                         .iter()
@@ -275,5 +275,68 @@ mod tests {
     fn test_jj_backend_creation() {
         let backend = JjBackend::new_from_path("/tmp/test");
         assert_eq!(backend.repo_path, std::path::PathBuf::from("/tmp/test"));
+    }
+
+    #[test]
+    fn jj_backend_new() {
+        let path = std::path::PathBuf::from("/tmp/jj-test");
+        let backend = JjBackend::new(path.clone());
+        assert_eq!(backend.repo_path, path);
+    }
+
+    #[test]
+    fn jj_backend_new_from_path() {
+        let backend = JjBackend::new_from_path("/tmp/from-path");
+        assert_eq!(backend.repo_path, std::path::PathBuf::from("/tmp/from-path"));
+    }
+
+    #[test]
+    fn jj_backend_is_initialized_true() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
+        let backend = JjBackend::new(dir.path().to_path_buf());
+        assert!(backend.is_initialized().expect("ok"));
+    }
+
+    #[test]
+    fn jj_backend_is_initialized_false() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let backend = JjBackend::new(dir.path().to_path_buf());
+        assert!(!backend.is_initialized().expect("ok"));
+    }
+
+    #[test]
+    fn jj_backend_is_initialized_no_path() {
+        let backend = JjBackend::new(std::path::PathBuf::from("/nonexistent"));
+        assert!(!backend.is_initialized().expect("ok"));
+    }
+
+    // -- parse_current_branch_from_status tests --
+
+    #[test]
+    fn parse_branch_valid_status() {
+        let status = "Working copy : main@git (empty) (no description set)\nParent commit: abc123\n";
+        let result = parse_current_branch_from_status(status);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn parse_branch_no_working_copy_line() {
+        let status = "Parent commit: abc123\nSome other line\n";
+        let result = parse_current_branch_from_status(status);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_branch_empty_status() {
+        let result = parse_current_branch_from_status("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn parse_branch_working_copy_no_bookmarks() {
+        let status = "Working copy : @git (empty)\n";
+        let result = parse_current_branch_from_status(status);
+        assert!(result.is_err());
     }
 }

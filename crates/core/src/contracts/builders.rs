@@ -119,6 +119,7 @@ impl FieldContractBuilder {
         self
     }
 
+    #[must_use]
     pub fn example(mut self, example: impl Into<String>) -> Self {
         self.examples.push(example.into());
         self

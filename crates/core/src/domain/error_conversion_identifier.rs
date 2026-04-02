@@ -36,14 +36,11 @@ impl From<IdentifierError> for ValidationError {
             IdentifierError::Empty => Self::EmptyValue("identifier".to_string()),
             IdentifierError::TooLong { max, actual } => Self::ExceedsMaximum {
                 field: "value".to_string(),
-                value: actual as u32,
-                max: max as u32,
+                value: u32::try_from(actual).unwrap_or(u32::MAX),
+                max: u32::try_from(max).unwrap_or(u32::MAX),
             },
-            IdentifierError::InvalidCharacters { details } => Self::InvalidCharacters {
-                field: "value".to_string(),
-                found: details,
-            },
-            IdentifierError::InvalidFormat { details } => Self::InvalidCharacters {
+            IdentifierError::InvalidCharacters { details }
+            | IdentifierError::InvalidFormat { details } => Self::InvalidCharacters {
                 field: "value".to_string(),
                 found: details,
             },

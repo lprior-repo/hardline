@@ -61,6 +61,7 @@ strum = { workspace = true }
 hex = { workspace = true }
 faster-hex = { workspace = true }
 rand = "0.9.2"
+uuid = { workspace = true }
 
 # Design-by-Contract
 dbc = { package = "contracts", version = "0.6" }
@@ -71,6 +72,7 @@ tempfile = { workspace = true }
 proptest = { workspace = true }
 criterion = { workspace = true }
 insta = { workspace = true }
+serial_test = { workspace = true }
 
 [[bench]]
 name = "bench_queue"

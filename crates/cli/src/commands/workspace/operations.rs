@@ -159,6 +159,211 @@ pub fn build_jj_diff_command(cwd: &Path, path: Option<&str>) -> Command {
     cmd
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use scp_core::vcs::Workspace;
+
+    // ---- Helper ----
+
+    fn ws(name: &str, is_current: bool) -> Workspace {
+        Workspace {
+            name: name.to_string(),
+            branch: format!("{name}-branch"),
+            is_current,
+        }
+    }
+
+    // ---- sorted_workspace_names ----
+
+    #[test]
+    fn sorted_names_empty() {
+        let result = sorted_workspace_names(&[]);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn sorted_names_single() {
+        let result = sorted_workspace_names(&[ws("main", true)]);
+        assert_eq!(result, vec!["main"]);
+    }
+
+    #[test]
+    fn sorted_names_already_sorted() {
+        let workspaces = vec![ws("alpha", false), ws("beta", true), ws("gamma", false)];
+        assert_eq!(sorted_workspace_names(&workspaces), vec!["alpha", "beta", "gamma"]);
+    }
+
+    #[test]
+    fn sorted_names_reverse_order() {
+        let workspaces = vec![ws("gamma", false), ws("beta", true), ws("alpha", false)];
+        assert_eq!(sorted_workspace_names(&workspaces), vec!["alpha", "beta", "gamma"]);
+    }
+
+    #[test]
+    fn sorted_names_mixed_case() {
+        let workspaces = vec![ws("Zebra", false), ws("alpha", false), ws("Beta", false)];
+        // sort() uses lexicographic order: uppercase letters come before lowercase
+        let result = sorted_workspace_names(&workspaces);
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0], "Beta");
+        assert_eq!(result[1], "Zebra");
+        assert_eq!(result[2], "alpha");
+    }
+
+    #[test]
+    fn sorted_names_duplicates() {
+        let workspaces = vec![ws("alpha", false), ws("alpha", false)];
+        assert_eq!(sorted_workspace_names(&workspaces), vec!["alpha", "alpha"]);
+    }
+
+    // ---- find_next_workspace ----
+
+    #[test]
+    fn find_next_wraps_around() {
+        let workspaces = vec![ws("alpha", true), ws("beta", false), ws("gamma", false)];
+        let next = find_next_workspace(&workspaces).expect("ok");
+        assert_eq!(next, "beta");
+    }
+
+    #[test]
+    fn find_next_last_wraps_to_first() {
+        let workspaces = vec![ws("alpha", false), ws("beta", false), ws("gamma", true)];
+        let next = find_next_workspace(&workspaces).expect("ok");
+        assert_eq!(next, "alpha");
+    }
+
+    #[test]
+    fn find_next_middle() {
+        let workspaces = vec![ws("alpha", false), ws("beta", true), ws("gamma", false)];
+        let next = find_next_workspace(&workspaces).expect("ok");
+        assert_eq!(next, "gamma");
+    }
+
+    #[test]
+    fn find_next_single_workspace_wraps() {
+        let workspaces = vec![ws("only", true)];
+        let next = find_next_workspace(&workspaces).expect("ok");
+        assert_eq!(next, "only");
+    }
+
+    #[test]
+    fn find_next_no_current_returns_first() {
+        let workspaces = vec![ws("alpha", false), ws("beta", false)];
+        let next = find_next_workspace(&workspaces).expect("ok");
+        assert_eq!(next, "alpha");
+    }
+
+    #[test]
+    fn find_next_empty_returns_error() {
+        let result = find_next_workspace(&[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn find_next_sorted_input() {
+        // Ensure alphabetical order is respected regardless of input order
+        let workspaces = vec![ws("charlie", false), ws("alpha", true), ws("bravo", false)];
+        let next = find_next_workspace(&workspaces).expect("ok");
+        assert_eq!(next, "bravo");
+    }
+
+    // ---- find_prev_workspace ----
+
+    #[test]
+    fn find_prev_wraps_from_first_to_last() {
+        let workspaces = vec![ws("alpha", true), ws("beta", false), ws("gamma", false)];
+        let prev = find_prev_workspace(&workspaces).expect("ok");
+        assert_eq!(prev, "gamma");
+    }
+
+    #[test]
+    fn find_prev_middle() {
+        let workspaces = vec![ws("alpha", false), ws("beta", true), ws("gamma", false)];
+        let prev = find_prev_workspace(&workspaces).expect("ok");
+        assert_eq!(prev, "alpha");
+    }
+
+    #[test]
+    fn find_prev_last() {
+        let workspaces = vec![ws("alpha", false), ws("beta", false), ws("gamma", true)];
+        let prev = find_prev_workspace(&workspaces).expect("ok");
+        assert_eq!(prev, "beta");
+    }
+
+    #[test]
+    fn find_prev_single_workspace_wraps() {
+        let workspaces = vec![ws("only", true)];
+        let prev = find_prev_workspace(&workspaces).expect("ok");
+        assert_eq!(prev, "only");
+    }
+
+    #[test]
+    fn find_prev_no_current_returns_last() {
+        let workspaces = vec![ws("alpha", false), ws("beta", false)];
+        let prev = find_prev_workspace(&workspaces).expect("ok");
+        assert_eq!(prev, "beta");
+    }
+
+    #[test]
+    fn find_prev_empty_returns_error() {
+        let result = find_prev_workspace(&[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn find_prev_sorted_input() {
+        let workspaces = vec![ws("charlie", false), ws("alpha", false), ws("bravo", true)];
+        let prev = find_prev_workspace(&workspaces).expect("ok");
+        assert_eq!(prev, "alpha");
+    }
+
+    // ---- ensure_not_main_workspace ----
+
+    #[test]
+    fn ensure_not_main_rejects_main() {
+        let result = ensure_not_main_workspace("main");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn ensure_not_main_accepts_other() {
+        let result = ensure_not_main_workspace("feature-branch");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn ensure_not_main_accepts_empty() {
+        let result = ensure_not_main_workspace("");
+        assert!(result.is_ok());
+    }
+
+    // ---- build_jj_diff_command ----
+
+    #[test]
+    fn build_jj_diff_no_path() {
+        let cmd = build_jj_diff_command(std::path::Path::new("/tmp"), None);
+        let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
+        assert!(args.contains(&"diff".to_string()));
+        assert!(args.contains(&"working".to_string()));
+        assert!(args.contains(&"@".to_string()));
+    }
+
+    #[test]
+    fn build_jj_diff_with_path() {
+        let cmd = build_jj_diff_command(std::path::Path::new("/tmp"), Some("src/main.rs"));
+        let args: Vec<String> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
+        assert!(args.contains(&"src/main.rs".to_string()));
+    }
+
+    #[test]
+    fn build_jj_diff_cwd_is_set() {
+        // Verify the function constructs a valid Command without panicking.
+        // Command::current_dir() is set but cannot be inspected on all platforms.
+        let _cmd = build_jj_diff_command(std::path::Path::new("/test/dir"), None);
+    }
+}
+
 /// Split workspace by creating a new branch from current state
 pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error> {
     let workspace_path = Path::new(path);

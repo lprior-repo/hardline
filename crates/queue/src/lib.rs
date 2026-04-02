@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unknown_lints)]
 #![deny(warnings)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]

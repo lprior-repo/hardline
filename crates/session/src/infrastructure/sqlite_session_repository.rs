@@ -331,3 +331,211 @@ impl SqliteSessionRepository {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // =========================================================================
+    // escape_sql_string Tests
+    // =========================================================================
+
+    mod escape_sql_tests {
+        use super::*;
+
+        #[test]
+        fn escape_sql_string_no_quotes() {
+            assert_eq!(escape_sql_string("hello world"), "hello world");
+        }
+
+        #[test]
+        fn escape_sql_string_single_quote_escaped() {
+            assert_eq!(escape_sql_string("it's"), "it''s");
+        }
+
+        #[test]
+        fn escape_sql_string_multiple_quotes() {
+            assert_eq!(escape_sql_string("a'b'c"), "a''b''c");
+        }
+
+        #[test]
+        fn escape_sql_string_empty() {
+            assert_eq!(escape_sql_string(""), "");
+        }
+
+        #[test]
+        fn escape_sql_string_only_quotes() {
+            assert_eq!(escape_sql_string("'"), "''");
+        }
+    }
+
+    // =========================================================================
+    // parse_session_state Tests
+    // =========================================================================
+
+    mod parse_session_state_tests {
+        use super::*;
+
+        #[test]
+        fn parse_state_created() {
+            assert_eq!(parse_session_state("Created").expect("valid"), SessionState::Created);
+        }
+
+        #[test]
+        fn parse_state_active() {
+            assert_eq!(parse_session_state("Active").expect("valid"), SessionState::Active);
+        }
+
+        #[test]
+        fn parse_state_syncing() {
+            assert_eq!(parse_session_state("Syncing").expect("valid"), SessionState::Syncing);
+        }
+
+        #[test]
+        fn parse_state_synced() {
+            assert_eq!(parse_session_state("Synced").expect("valid"), SessionState::Synced);
+        }
+
+        #[test]
+        fn parse_state_paused() {
+            assert_eq!(parse_session_state("Paused").expect("valid"), SessionState::Paused);
+        }
+
+        #[test]
+        fn parse_state_completed() {
+            assert_eq!(parse_session_state("Completed").expect("valid"), SessionState::Completed);
+        }
+
+        #[test]
+        fn parse_state_failed() {
+            assert_eq!(parse_session_state("Failed").expect("valid"), SessionState::Failed);
+        }
+
+        #[test]
+        fn parse_state_unknown_rejects() {
+            let result = parse_session_state("Unknown");
+            assert!(result.is_err());
+            assert!(matches!(result.unwrap_err(), SessionError::RepositoryError(_)));
+        }
+
+        #[test]
+        fn parse_state_empty_rejects() {
+            let result = parse_session_state("");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn parse_state_case_sensitive() {
+            let result = parse_session_state("created");
+            assert!(result.is_err());
+        }
+    }
+
+    // =========================================================================
+    // SessionRow Tests
+    // =========================================================================
+
+    mod session_row_tests {
+        use super::*;
+
+        fn make_detached_row() -> SessionRow {
+            SessionRow {
+                id: "session-test-1".to_string(),
+                name: "test-session".to_string(),
+                workspace: Some("ws-test".to_string()),
+                bead: Some("bd-abc123".to_string()),
+                branch_state: "Detached".to_string(),
+                branch_name: None,
+                session_state: "Created".to_string(),
+                last_synced: None,
+                created_at: "2024-01-01T00:00:00+00:00".to_string(),
+            }
+        }
+
+        #[test]
+        fn session_row_try_from_detached_valid() {
+            let row = make_detached_row();
+            let session = Session::<Created>::try_from(row).expect("valid conversion");
+            assert_eq!(session.id.as_str(), "session-test-1");
+            assert_eq!(session.name.as_str(), "test-session");
+        }
+
+        #[test]
+        fn session_row_try_from_on_branch_valid() {
+            let row = SessionRow {
+                branch_state: "OnBranch".to_string(),
+                branch_name: Some("feature-1".to_string()),
+                ..make_detached_row()
+            };
+            let session = Session::<Created>::try_from(row).expect("valid");
+            assert_eq!(session.branch.branch_name(), Some("feature-1"));
+        }
+
+        #[test]
+        fn session_row_try_from_invalid_branch_combination_rejects() {
+            let row = SessionRow {
+                branch_state: "Detached".to_string(),
+                branch_name: Some("should-be-none".to_string()),
+                ..make_detached_row()
+            };
+            let result = Session::<Created>::try_from(row);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn session_row_try_from_on_branch_without_name_rejects() {
+            let row = SessionRow {
+                branch_state: "OnBranch".to_string(),
+                branch_name: None,
+                ..make_detached_row()
+            };
+            let result = Session::<Created>::try_from(row);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn session_row_try_from_invalid_id_rejects() {
+            let row = SessionRow {
+                id: "".to_string(),
+                ..make_detached_row()
+            };
+            let result = Session::<Created>::try_from(row);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn session_row_try_from_invalid_name_rejects() {
+            let row = SessionRow {
+                name: "123invalid-start".to_string(),
+                ..make_detached_row()
+            };
+            let result = Session::<Created>::try_from(row);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn session_row_from_session_roundtrip() {
+            let name = SessionName::parse("roundtrip").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            let row = SessionRow::from(&session);
+            assert_eq!(row.id, session.id.as_str());
+            assert_eq!(row.name, session.name.as_str());
+            assert_eq!(row.branch_state, "Detached");
+            assert!(row.branch_name.is_none());
+        }
+
+        #[test]
+        fn session_row_from_session_on_branch() {
+            let name = SessionName::parse("branch-test").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            let branched = session
+                .transition_branch(BranchState::OnBranch {
+                    name: "dev".into(),
+                })
+                .expect("branch");
+            let row = SessionRow::from(&branched);
+            assert_eq!(row.branch_state, "OnBranch");
+            assert_eq!(row.branch_name, Some("dev".to_string()));
+        }
+    }
+}

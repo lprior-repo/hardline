@@ -9,15 +9,12 @@ use tokio::runtime::Runtime;
 
 /// Get the database path from environment or default
 fn get_db_path() -> String {
-    env::var("SCP_DATABASE_PATH").map_or_else(
-        |_| {
+    env::var("SCP_DATABASE_PATH").unwrap_or_else(|_| {
             let mut path = env::var("HOME").map_or_else(|_| PathBuf::from("."), PathBuf::from);
             path.push(".scp");
             path.push("hardline.db");
             path.to_string_lossy().to_string()
-        },
-        |v| v,
-    )
+        })
 }
 
 /// Helper to run async code in a temporary runtime

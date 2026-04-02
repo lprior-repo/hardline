@@ -38,7 +38,7 @@ pub enum SortDirection {
 }
 
 /// Sort specification for session queries
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionSort {
     pub field: SessionSortField,
     pub direction: SortDirection,
@@ -47,13 +47,13 @@ pub struct SessionSort {
 impl SessionSort {
     /// Create a new sort specification
     #[must_use]
-    pub fn new(field: SessionSortField, direction: SortDirection) -> Self {
+    pub const fn new(field: SessionSortField, direction: SortDirection) -> Self {
         Self { field, direction }
     }
 
     /// Sort by name ascending
     #[must_use]
-    pub fn by_name_asc() -> Self {
+    pub const fn by_name_asc() -> Self {
         Self {
             field: SessionSortField::Name,
             direction: SortDirection::Asc,
@@ -62,7 +62,7 @@ impl SessionSort {
 
     /// Sort by name descending
     #[must_use]
-    pub fn by_name_desc() -> Self {
+    pub const fn by_name_desc() -> Self {
         Self {
             field: SessionSortField::Name,
             direction: SortDirection::Desc,

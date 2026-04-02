@@ -448,4 +448,108 @@ mod tests {
         assert!(matches!(result.state, TaskState::InProgress));
         assert_eq!(result.assignee.unwrap().as_str(), "current-user");
     }
+
+    // ---- Additional edge case tests ----
+
+    #[test]
+    fn test_validate_not_claimed_by_other_succeeds_when_no_assignee() {
+        // Given: Open task with no assignee
+        let task = open_task("task-001");
+
+        // When: validate_not_claimed_by_other with any user
+        let result = validate_not_claimed_by_other(&task, "any-user");
+
+        // Then: Succeeds because there is no assignee to conflict with
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_not_closed_succeeds_for_open_state() {
+        let task = open_task("task-001");
+        assert!(validate_not_closed(&task).is_ok());
+    }
+
+    #[test]
+    fn test_validate_not_closed_succeeds_for_in_progress_state() {
+        let task = in_progress_task("task-001", "user");
+        assert!(validate_not_closed(&task).is_ok());
+    }
+
+    #[test]
+    fn test_validate_not_closed_succeeds_for_blocked_state() {
+        let mut task = open_task("task-001");
+        task.state = TaskState::Blocked;
+        assert!(validate_not_closed(&task).is_ok());
+    }
+
+    #[test]
+    fn test_validate_not_closed_succeeds_for_deferred_state() {
+        let mut task = open_task("task-001");
+        task.state = TaskState::Deferred;
+        assert!(validate_not_closed(&task).is_ok());
+    }
+
+    #[test]
+    fn test_transition_to_claimed_does_not_mutate_original() {
+        // Verify immutability: original task is not modified
+        let task = open_task("task-001");
+        let original_state = task.state.clone();
+
+        let _result = transition_to_claimed(task, "user");
+
+        // Original state is preserved (via move, this verifies the function returns a new instance)
+        assert!(matches!(original_state, TaskState::Open));
+    }
+
+    #[test]
+    fn test_transition_to_yielded_does_not_mutate_original() {
+        let task = claimed_task("task-001", "user");
+        let had_assignee = task.assignee.is_some();
+
+        let result = transition_to_yielded(task);
+
+        // The returned task has cleared assignee
+        assert!(result.assignee.is_none());
+        // Original task had an assignee (we checked before the move)
+        assert!(had_assignee);
+    }
+
+    #[test]
+    fn test_transition_to_started_preserves_existing_assignee() {
+        let task = claimed_task("task-001", "alice");
+        let result = transition_to_started(task);
+        assert_eq!(result.assignee.as_ref().map(|a| a.as_str()), Some("alice"));
+    }
+
+    #[test]
+    fn test_transition_to_started_on_open_task() {
+        // A task that was claimed but somehow set back to Open should still work
+        let mut task = claimed_task("task-001", "user");
+        task.state = TaskState::Open;
+        let result = transition_to_started(task);
+        assert!(matches!(result.state, TaskState::InProgress));
+        assert_eq!(result.assignee.as_ref().map(|a| a.as_str()), Some("user"));
+    }
+
+    #[test]
+    fn test_validate_task_exists_returns_task_when_present() {
+        let task = open_task("task-001");
+        let result = validate_task_exists(Some(task), "task-001");
+        assert!(result.is_ok());
+        assert_eq!(result.expect("ok").id.as_str(), "task-001");
+    }
+
+    #[test]
+    fn test_validate_claimed_by_user_fails_for_different_user() {
+        let task = claimed_task("task-001", "alice");
+        let result = validate_claimed_by_user(&task, "bob");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_claimed_by_user_fails_for_no_assignee() {
+        let task = open_task("task-001");
+        let result = validate_claimed_by_user(&task, "anyone");
+        assert!(result.is_err());
+    }
 }

@@ -10,7 +10,9 @@ use crate::commands::lock::{
     acquire_with_path, heartbeat_with_path, list_with_path, release_with_path, status_with_path,
 };
 use proptest::prelude::*;
-use tempfile::NamedTempFile;
+use proptest::{prop_assert};
+use serial_test::serial;
+use tempfile::{NamedTempFile, TempDir};
 
 fn get_temp_db() -> NamedTempFile {
     NamedTempFile::new().expect("Failed to create temp db")
@@ -254,28 +256,62 @@ proptest! {
 proptest! {
     /// Property: Empty VCS type always returns config_invalid error.
     #[test]
+    #[serial]
     fn prop_empty_vcs_type_returns_config_error(vcs_type in "") {
+        // Use a temp dir so current_dir() succeeds even when other tests
+        // are racing on set_current_dir.
+        let original_dir = std::env::current_dir().ok();
+        let tmp = TempDir::new().expect("temp dir");
+        std::env::set_current_dir(tmp.path()).expect("chdir");
+
         let result = crate::commands::init::run(&vcs_type);
         prop_assert!(result.is_err(), "Empty VCS type should return error");
         let err = result.unwrap_err().to_string();
         prop_assert!(err.contains("Unknown VCS type"), "Error should mention unknown VCS: {err}");
+
+        // Restore cwd before TempDir drops
+        if let Some(dir) = original_dir {
+            let _ = std::env::set_current_dir(dir);
+        }
+        if std::env::current_dir().is_err() {
+            if let Ok(manifest) = std::env::var("CARGO_MANIFEST_DIR") {
+                std::env::set_current_dir(manifest).ok();
+            }
+        }
     }
 }
 
 proptest! {
     /// Property: Any VCS type other than "jj" or "git" returns config_invalid.
     #[test]
+    #[serial]
     fn prop_unknown_vcs_type_returns_config_error(
         vcs_type in "[A-Za-z0-9_-]{1,50}"
     ) {
         // Skip the two valid types
         prop_assume!(vcs_type != "jj" && vcs_type != "git");
 
+        // Use a temp dir so current_dir() succeeds even when other tests
+        // are racing on set_current_dir.
+        let original_dir = std::env::current_dir().ok();
+        let tmp = TempDir::new().expect("temp dir");
+        std::env::set_current_dir(tmp.path()).expect("chdir");
+
         let result = crate::commands::init::run(&vcs_type);
         prop_assert!(result.is_err(), "Unknown VCS type '{vcs_type}' should return error");
         let err = result.unwrap_err().to_string();
         prop_assert!(err.contains("Unknown VCS type"), "Error should mention unknown VCS type: {err}");
         prop_assert!(err.contains(&vcs_type), "Error should include the invalid type: {err}");
+
+        // Restore cwd before TempDir drops
+        if let Some(dir) = original_dir {
+            let _ = std::env::set_current_dir(dir);
+        }
+        if std::env::current_dir().is_err() {
+            if let Ok(manifest) = std::env::var("CARGO_MANIFEST_DIR") {
+                std::env::set_current_dir(manifest).ok();
+            }
+        }
     }
 }
 
@@ -641,5 +677,59 @@ proptest! {
         let agent = format!("{base_agent}{whitespace}");
         let res = acquire_with_path(&session, &agent, None, path);
         prop_assert!(res.is_ok(), "Agent ID with whitespace should be accepted: {:?}", res);
+    }
+}
+
+// ========================================================================
+// 9. Symlink security tests for init lock
+// ========================================================================
+
+#[test]
+fn test_acquire_init_lock_refuses_symlink() {
+    let tmp_dir = TempDir::new().expect("Failed to create temp dir");
+    let cwd = tmp_dir.path();
+
+    // Create a target file that we don't want to be corrupted
+    let target_file = cwd.join("important-file.txt");
+    std::fs::write(&target_file, "critical data").expect("Failed to write target file");
+
+    // Create a symlink at the lock path pointing to the target file
+    let lock_path = cwd.join(".scp-init.lock");
+    std::os::unix::fs::symlink(&target_file, &lock_path).expect("Failed to create symlink");
+
+    // Verify the symlink exists and points to the right place
+    assert!(lock_path.is_symlink());
+
+    // Attempt to acquire the lock should fail with a symlink error
+    let result = crate::commands::init::acquire_init_lock(cwd);
+    assert!(result.is_err(), "acquire_init_lock should refuse to follow a symlink");
+
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("symlink"),
+        "Error message should mention 'symlink': {err_msg}"
+    );
+    assert!(
+        err_msg.contains("refusing to follow"),
+        "Error message should explain security reason: {err_msg}"
+    );
+
+    // The target file must remain intact
+    let contents = std::fs::read_to_string(&target_file).expect("Failed to read target file");
+    assert_eq!(contents, "critical data", "Target file must not be corrupted");
+}
+
+#[test]
+fn test_acquire_init_lock_succeeds_when_no_symlink() {
+    let tmp_dir = TempDir::new().expect("Failed to create temp dir");
+    let cwd = tmp_dir.path();
+
+    // No symlink, no existing file — lock should succeed
+    let result = crate::commands::init::acquire_init_lock(cwd);
+    assert!(result.is_ok(), "acquire_init_lock should succeed when no symlink exists");
+
+    // Clean up: release the lock
+    if let Ok(file) = &result {
+        let _ = file.unlock();
     }
 }

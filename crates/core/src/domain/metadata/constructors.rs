@@ -1,4 +1,4 @@
-//! StackMetadata constructors and factories
+//! `StackMetadata` constructors and factories
 
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -12,6 +12,7 @@ use super::entities::StackMetadata;
 
 impl StackMetadata {
     /// Build a directed graph from parents mapping
+    #[must_use]
     pub fn build_graph(&self) -> (DiGraph<BranchId, ()>, BTreeMap<BranchId, NodeIndex>) {
         let (graph, indices) = self.parents.keys().cloned().fold(
             (DiGraph::new(), BTreeMap::new()),
@@ -107,10 +108,10 @@ impl StackMetadata {
                 }
 
                 let branch = BranchId::new(parts[0]);
-                let parent = if parts[1] != "none" {
-                    Some(BranchId::new(parts[1]))
-                } else {
+                let parent = if parts[1] == "none" {
                     None
+                } else {
+                    Some(BranchId::new(parts[1]))
                 };
 
                 parents.insert(branch.clone(), parent.clone());
@@ -118,7 +119,7 @@ impl StackMetadata {
                     children
                         .entry(parent_id.clone())
                         .or_default()
-                        .push(branch.clone());
+                        .push(branch);
                 }
 
                 Ok((parents, children))

@@ -5,7 +5,7 @@
 //! Conflict resolution audit trail (repository layer).
 //!
 //! This module provides an append-only audit log for tracking conflict
-//! resolution decisions in isolate workspaces. Each record captures:
+//! resolution decisions in hardline workspaces. Each record captures:
 //!
 //! - **Who** resolved the conflict (AI or human)
 //! - **What** strategy was used
@@ -30,7 +30,8 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use isolate_core::coordination::conflict_resolutions::*;
+//! use scp_core::coordination::conflict_resolutions::*;
+//! use scp_core::coordination::conflict_resolutions_entities::ConflictResolution;
 //! use sqlx::SqlitePool;
 //!
 //! # #[tokio::main]
@@ -39,14 +40,20 @@
 //! let pool = SqlitePool::connect("sqlite:db.sqlite").await?;
 //! init_conflict_resolutions_schema(&pool).await?;
 //!
-//! let record = ConflictResolutionRecord::new(
-//!     "workspace-123",
-//!     ConflictResolutionStrategy::Auto,
-//!     Some("Auto-resolved based on strategy".to_string()),
-//! );
-//! insert_conflict_resolution(&pool, &record).await?;
+//! let resolution = ConflictResolution {
+//!     id: 0,
+//!     timestamp: "2025-02-18T12:34:56Z".to_string(),
+//!     session: "my-session".to_string(),
+//!     file: "src/main.rs".to_string(),
+//!     strategy: "accept_theirs".to_string(),
+//!     reason: Some("Automatic resolution".to_string()),
+//!     confidence: Some("high".to_string()),
+//!     decider: "ai".to_string(),
+//! };
+//! let id = insert_conflict_resolution(&pool, &resolution).await?;
+//! assert!(id > 0);
 //!
-//! let resolutions = query_conflict_resolutions(&pool, "workspace-123").await?;
+//! let resolutions = get_conflict_resolutions(&pool, "my-session").await?;
 //! println!("Found {} resolutions", resolutions.len());
 //! # Ok(())
 //! # }

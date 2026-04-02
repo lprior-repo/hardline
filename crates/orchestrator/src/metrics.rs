@@ -327,4 +327,710 @@ mod tests {
         let slowest = metrics.slowest_phases(1);
         assert_eq!(slowest[0].0, "slow");
     }
+
+    #[test]
+    fn test_scenario_pass_rate_no_results() {
+        let metrics = Metrics::new();
+        assert_eq!(metrics.scenario_pass_rate(), 0.0);
+    }
+
+    #[test]
+    fn test_scenario_pass_rate_all_passed() {
+        let mut metrics = Metrics::new();
+
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "test-1".to_string(),
+            phase: "validation".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+
+        metrics.record_scenarios(
+            "test-1",
+            vec![
+                ScenarioResult {
+                    name: "scenario_1".to_string(),
+                    passed: true,
+                    duration_secs: 0.5,
+                    error: None,
+                },
+                ScenarioResult {
+                    name: "scenario_2".to_string(),
+                    passed: true,
+                    duration_secs: 0.3,
+                    error: None,
+                },
+            ],
+        );
+
+        assert!((metrics.scenario_pass_rate() - 100.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_scenario_pass_rate_partial() {
+        let mut metrics = Metrics::new();
+
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "test-1".to_string(),
+            phase: "validation".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+
+        metrics.record_scenarios(
+            "test-1",
+            vec![
+                ScenarioResult {
+                    name: "pass".to_string(),
+                    passed: true,
+                    duration_secs: 0.5,
+                    error: None,
+                },
+                ScenarioResult {
+                    name: "fail".to_string(),
+                    passed: false,
+                    duration_secs: 0.3,
+                    error: Some("assertion failed".to_string()),
+                },
+            ],
+        );
+
+        assert!((metrics.scenario_pass_rate() - 50.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_get_for_pipeline_filters_correctly() {
+        let mut metrics = Metrics::new();
+
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "alpha".to_string(),
+            phase: "spec_review".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "beta".to_string(),
+            phase: "validation".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 2.0,
+            success: false,
+        });
+
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "alpha".to_string(),
+            phase: "validation".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 3.0,
+            success: true,
+        });
+
+        let alpha_phases = metrics.get_for_pipeline("alpha");
+        assert_eq!(alpha_phases.len(), 2);
+
+        let beta_phases = metrics.get_for_pipeline("beta");
+        assert_eq!(beta_phases.len(), 1);
+
+        let unknown = metrics.get_for_pipeline("unknown");
+        assert!(unknown.is_empty());
+    }
+
+    #[test]
+    fn test_record_iteration() {
+        let mut metrics = Metrics::new();
+
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "test-1".to_string(),
+            phase: "agent_dev".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+
+        metrics.record_iteration("test-1", 5);
+
+        let pipeline = metrics.get_pipeline_metrics("test-1");
+        assert!(pipeline.is_some());
+        assert_eq!(pipeline.map(|p| p.iteration_count), Some(5));
+    }
+
+    #[test]
+    fn test_record_iteration_nonexistent_pipeline_is_noop() {
+        let mut metrics = Metrics::new();
+        metrics.record_iteration("nonexistent", 3);
+        assert!(metrics.get_pipeline_metrics("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_mark_complete() {
+        let mut metrics = Metrics::new();
+
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "test-1".to_string(),
+            phase: "validation".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+
+        metrics.mark_complete("test-1", "accepted");
+        assert_eq!(
+            metrics.get_pipeline_metrics("test-1").map(|p| p.final_state.as_str()),
+            Some("accepted")
+        );
+    }
+
+    #[test]
+    fn test_success_rate_empty() {
+        let metrics = Metrics::new();
+        assert_eq!(metrics.success_rate(), 0.0);
+    }
+
+    #[test]
+    fn test_aggregated_metrics_counts_failed_and_escalated() {
+        let mut metrics = Metrics::new();
+
+        for (id, final_state) in [
+            ("p1", "accepted"),
+            ("p2", "failed"),
+            ("p3", "escalated"),
+        ] {
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: id.to_string(),
+                phase: "test".to_string(),
+                started_at: Utc::now(),
+                duration_secs: 1.0,
+                success: true,
+            });
+            metrics.mark_complete(id, final_state);
+        }
+
+        let agg = metrics.aggregated();
+        assert_eq!(agg.total_pipelines, 3);
+        assert_eq!(agg.successful_pipelines, 1);
+        assert_eq!(agg.failed_pipelines, 1);
+        assert_eq!(agg.escalated_pipelines, 1);
+    }
+
+    #[test]
+    fn test_aggregated_metrics_empty() {
+        let metrics = Metrics::new();
+        let agg = metrics.aggregated();
+        assert_eq!(agg.total_pipelines, 0);
+        assert_eq!(agg.average_duration_secs, 0.0);
+    }
+
+    #[test]
+    fn test_slowest_phases_empty() {
+        let metrics = Metrics::new();
+        assert!(metrics.slowest_phases(5).is_empty());
+    }
+
+    #[test]
+    fn test_slowest_phases_respects_limit() {
+        let mut metrics = Metrics::new();
+
+        for i in 0..5 {
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: "test-1".to_string(),
+                phase: format!("phase_{i}"),
+                started_at: Utc::now(),
+                duration_secs: f64::from(i + 1),
+                success: true,
+            });
+        }
+
+        let slowest = metrics.slowest_phases(2);
+        assert_eq!(slowest.len(), 2);
+        assert_eq!(slowest[0].0, "phase_4");
+        assert_eq!(slowest[1].0, "phase_3");
+    }
+
+    #[test]
+    fn test_aggregated_metrics_phase_durations() {
+        let mut metrics = Metrics::new();
+
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "test-1".to_string(),
+            phase: "review".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 2.0,
+            success: true,
+        });
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "test-1".to_string(),
+            phase: "review".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 4.0,
+            success: true,
+        });
+
+        let agg = metrics.aggregated();
+        assert_eq!(agg.phase_durations.get("review"), Some(&3.0));
+    }
+
+    #[test]
+    fn test_export_serializes_pipeline_metrics() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "test-1".to_string(),
+            phase: "review".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+
+        let exported = metrics.export();
+        assert!(exported.is_ok());
+        let json = exported.unwrap();
+        assert!(json.contains("test-1"));
+        assert!(json.contains("review"));
+    }
+
+    #[test]
+    fn test_get_phase_metrics_iterator() {
+        let mut metrics = Metrics::new();
+        assert_eq!(metrics.get_phase_metrics().count(), 0);
+
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "test-1".to_string(),
+            phase: "review".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+
+        assert_eq!(metrics.get_phase_metrics().count(), 1);
+    }
+
+    #[test]
+    fn test_get_pipeline_metrics_nonexistent() {
+        let metrics = Metrics::new();
+        assert!(metrics.get_pipeline_metrics("nonexistent").is_none());
+    }
+
+    // --- Serde roundtrips ---
+
+    #[test]
+    fn test_scenario_result_serde_roundtrip() {
+        let result = ScenarioResult {
+            name: "happy_path".to_string(),
+            passed: true,
+            duration_secs: 1.5,
+            error: None,
+        };
+        let json = serde_json::to_string(&result).expect("serialize");
+        let deserialized: ScenarioResult = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(result.name, deserialized.name);
+        assert_eq!(result.passed, deserialized.passed);
+    }
+
+    #[test]
+    fn test_scenario_result_with_error_serde_roundtrip() {
+        let result = ScenarioResult {
+            name: "failure_case".to_string(),
+            passed: false,
+            duration_secs: 0.3,
+            error: Some("assertion failed".to_string()),
+        };
+        let json = serde_json::to_string(&result).expect("serialize");
+        let deserialized: ScenarioResult = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(result.error, deserialized.error);
+    }
+
+    #[test]
+    fn test_phase_metrics_serde_roundtrip() {
+        let m = PhaseMetrics {
+            pipeline_id: "pipe-1".to_string(),
+            phase: "spec_review".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 2.5,
+            success: true,
+        };
+        let json = serde_json::to_string(&m).expect("serialize");
+        let deserialized: PhaseMetrics = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(m.pipeline_id, deserialized.pipeline_id);
+        assert_eq!(m.phase, deserialized.phase);
+        assert_eq!(m.duration_secs, deserialized.duration_secs);
+    }
+
+    #[test]
+    fn test_aggregated_metrics_serde_roundtrip() {
+        let agg = AggregatedMetrics {
+            total_pipelines: 5,
+            successful_pipelines: 3,
+            failed_pipelines: 1,
+            escalated_pipelines: 1,
+            average_duration_secs: 42.5,
+            average_iterations: 2.1,
+            phase_durations: {
+                let mut map = HashMap::new();
+                map.insert("review".to_string(), 3.0);
+                map
+            },
+        };
+        let json = serde_json::to_string(&agg).expect("serialize");
+        let deserialized: AggregatedMetrics = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(agg.total_pipelines, deserialized.total_pipelines);
+        assert_eq!(agg.successful_pipelines, deserialized.successful_pipelines);
+        assert_eq!(agg.phase_durations.len(), deserialized.phase_durations.len());
+    }
+
+    #[test]
+    fn test_metrics_default_is_empty() {
+        let metrics = Metrics::default();
+        assert!(metrics.get_phase_metrics().next().is_none());
+        assert_eq!(metrics.success_rate(), 0.0);
+        assert_eq!(metrics.scenario_pass_rate(), 0.0);
+        assert!(metrics.slowest_phases(10).is_empty());
+        let agg = metrics.aggregated();
+        assert_eq!(agg.total_pipelines, 0);
+    }
+
+    // --- Metrics accumulation properties ---
+
+    #[test]
+    fn test_multiple_pipelines_metrics_accumulate() {
+        let mut metrics = Metrics::new();
+        for i in 0..5 {
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: format!("pipe-{i}"),
+                phase: "test_phase".to_string(),
+                started_at: Utc::now(),
+                duration_secs: f64::from(i + 1),
+                success: true,
+            });
+            metrics.mark_complete(&format!("pipe-{i}"), "accepted");
+        }
+        let agg = metrics.aggregated();
+        assert_eq!(agg.total_pipelines, 5);
+        assert_eq!(agg.successful_pipelines, 5);
+        assert_eq!(agg.failed_pipelines, 0);
+    }
+
+    #[test]
+    fn test_aggregated_average_iterations_with_zero_iterations() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "pipe-1".to_string(),
+            phase: "test".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+        metrics.mark_complete("pipe-1", "accepted");
+        // iteration_count defaults to 0
+        let agg = metrics.aggregated();
+        assert_eq!(agg.average_iterations, 0.0);
+    }
+
+    #[test]
+    fn test_record_scenarios_for_nonexistent_pipeline_is_noop() {
+        let mut metrics = Metrics::new();
+        metrics.record_scenarios(
+            "nonexistent",
+            vec![ScenarioResult {
+                name: "test".to_string(),
+                passed: true,
+                duration_secs: 1.0,
+                error: None,
+            }],
+        );
+        assert_eq!(metrics.scenario_pass_rate(), 0.0);
+    }
+
+    #[test]
+    fn test_mark_complete_for_nonexistent_pipeline_is_noop() {
+        let mut metrics = Metrics::new();
+        metrics.mark_complete("nonexistent", "accepted");
+        assert!(metrics.get_pipeline_metrics("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_get_phase_metrics_returns_all_recorded() {
+        let mut metrics = Metrics::new();
+        for i in 0..10 {
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: "pipe-1".to_string(),
+                phase: format!("phase_{i}"),
+                started_at: Utc::now(),
+                duration_secs: 1.0,
+                success: true,
+            });
+        }
+        assert_eq!(metrics.get_phase_metrics().count(), 10);
+    }
+
+    #[test]
+    fn test_slowest_phases_with_same_durations() {
+        let mut metrics = Metrics::new();
+        for _ in 0..3 {
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: "pipe-1".to_string(),
+                phase: "same_phase".to_string(),
+                started_at: Utc::now(),
+                duration_secs: 5.0,
+                success: true,
+            });
+        }
+        let slowest = metrics.slowest_phases(1);
+        assert_eq!(slowest.len(), 1);
+        // 3 * 5.0 = 15.0
+        assert!((slowest[0].1 - 15.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_success_rate_all_failed() {
+        let mut metrics = Metrics::new();
+        for id in ["p1", "p2"] {
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: id.to_string(),
+                phase: "test".to_string(),
+                started_at: Utc::now(),
+                duration_secs: 1.0,
+                success: false,
+            });
+            metrics.mark_complete(id, "failed");
+        }
+        assert!((metrics.success_rate() - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_success_rate_all_accepted() {
+        let mut metrics = Metrics::new();
+        for id in ["p1", "p2", "p3"] {
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: id.to_string(),
+                phase: "test".to_string(),
+                started_at: Utc::now(),
+                duration_secs: 1.0,
+                success: true,
+            });
+            metrics.mark_complete(id, "accepted");
+        }
+        assert!((metrics.success_rate() - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_scenario_pass_rate_all_failed() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "pipe-1".to_string(),
+            phase: "val".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+        metrics.record_scenarios(
+            "pipe-1",
+            vec![
+                ScenarioResult {
+                    name: "s1".to_string(),
+                    passed: false,
+                    duration_secs: 1.0,
+                    error: Some("fail".to_string()),
+                },
+                ScenarioResult {
+                    name: "s2".to_string(),
+                    passed: false,
+                    duration_secs: 1.0,
+                    error: Some("fail".to_string()),
+                },
+            ],
+        );
+        assert!((metrics.scenario_pass_rate() - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_aggregated_phase_durations_across_pipelines() {
+        let mut metrics = Metrics::new();
+
+        // Pipeline 1: phase_a 2.0, phase_a 4.0
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".to_string(),
+            phase: "phase_a".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 2.0,
+            success: true,
+        });
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".to_string(),
+            phase: "phase_a".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 4.0,
+            success: true,
+        });
+
+        // Pipeline 2: phase_a 10.0
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p2".to_string(),
+            phase: "phase_a".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 10.0,
+            success: true,
+        });
+
+        // Average: (2.0 + 4.0 + 10.0) / 3 = 5.33
+        let agg = metrics.aggregated();
+        let avg = agg.phase_durations.get("phase_a").expect("should exist");
+        assert!((*avg - 5.333).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_record_iteration_updates_count() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".to_string(),
+            phase: "dev".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+        metrics.record_iteration("p1", 3);
+        metrics.record_iteration("p1", 7); // overwrites
+        assert_eq!(
+            metrics.get_pipeline_metrics("p1").map(|p| p.iteration_count),
+            Some(7)
+        );
+    }
+
+    #[test]
+    fn test_clear_resets_all_metrics() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".to_string(),
+            phase: "test".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+        metrics.mark_complete("p1", "accepted");
+        assert!(metrics.get_pipeline_metrics("p1").is_some());
+        assert_eq!(metrics.get_phase_metrics().count(), 1);
+
+        metrics.clear();
+        assert!(metrics.get_pipeline_metrics("p1").is_none());
+        assert_eq!(metrics.get_phase_metrics().count(), 0);
+    }
+
+    #[test]
+    fn test_export_empty_metrics() {
+        let metrics = Metrics::new();
+        let exported = metrics.export().expect("export");
+        assert_eq!(exported.trim(), "{}");
+    }
+
+    #[test]
+    fn test_multiple_phases_same_pipeline_aggregate_duration() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".to_string(),
+            phase: "review".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 3.0,
+            success: true,
+        });
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".to_string(),
+            phase: "setup".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 5.0,
+            success: true,
+        });
+        metrics.mark_complete("p1", "accepted");
+
+        let agg = metrics.aggregated();
+        // total_duration = 3.0 + 5.0 = 8.0, avg = 8.0 / 1 = 8.0
+        assert!((agg.average_duration_secs - 8.0).abs() < 0.01);
+    }
+
+    // --- Proptests for metrics accumulation ---
+
+    use proptest::prelude::*;
+    use proptest::{prop_assert, prop_assert_eq};
+
+    proptest! {
+        #[test]
+        fn prop_success_rate_between_0_and_100(
+            accepted in 0u32..20u32,
+            failed in 0u32..20u32,
+        ) {
+            let mut metrics = Metrics::new();
+            for i in 0..(accepted + failed) {
+                let id = format!("pipe-{i}");
+                metrics.record_phase(PhaseMetrics {
+                    pipeline_id: id.clone(),
+                    phase: "test".to_string(),
+                    started_at: Utc::now(),
+                    duration_secs: 1.0,
+                    success: true,
+                });
+            }
+            for i in 0..accepted {
+                let id = format!("pipe-{i}");
+                metrics.mark_complete(&id, "accepted");
+            }
+            for i in accepted..(accepted + failed) {
+                let id = format!("pipe-{i}");
+                metrics.mark_complete(&id, "failed");
+            }
+            let rate = metrics.success_rate();
+            prop_assert!(rate >= 0.0 && rate <= 100.0);
+        }
+
+        #[test]
+        fn prop_scenario_pass_rate_between_0_and_100(
+            passed_count in 0u32..20u32,
+            failed_count in 1u32..20u32,
+        ) {
+            let _total = passed_count + failed_count;
+            let mut metrics = Metrics::new();
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: "p1".to_string(),
+                phase: "val".to_string(),
+                started_at: Utc::now(),
+                duration_secs: 1.0,
+                success: true,
+            });
+            let mut results = Vec::new();
+            for i in 0..passed_count {
+                results.push(ScenarioResult {
+                    name: format!("pass-{i}"),
+                    passed: true,
+                    duration_secs: 1.0,
+                    error: None,
+                });
+            }
+            for i in 0..failed_count {
+                results.push(ScenarioResult {
+                    name: format!("fail-{i}"),
+                    passed: false,
+                    duration_secs: 1.0,
+                    error: Some("err".to_string()),
+                });
+            }
+            metrics.record_scenarios("p1", results);
+            let rate = metrics.scenario_pass_rate();
+            prop_assert!(rate >= 0.0 && rate <= 100.0);
+        }
+
+        #[test]
+        fn prop_aggregated_total_equals_recorded_count(count in 1u32..50u32) {
+            let mut metrics = Metrics::new();
+            for i in 0..count {
+                metrics.record_phase(PhaseMetrics {
+                    pipeline_id: format!("pipe-{i}"),
+                    phase: "test".to_string(),
+                    started_at: Utc::now(),
+                    duration_secs: 1.0,
+                    success: true,
+                });
+            }
+            let agg = metrics.aggregated();
+            prop_assert_eq!(agg.total_pipelines, count);
+        }
+    }
 }

@@ -55,13 +55,13 @@ pub enum ValidationError {
 
     /// Multiple validation errors collected
     #[error("multiple validation errors: {count} error(s)", count = .0.len())]
-    Multiple(Vec<ValidationError>),
+    Multiple(Vec<Self>),
 }
 
 impl ValidationError {
     /// Create a Multiple error from a vector of errors.
     #[must_use]
-    pub fn multiple(errors: Vec<ValidationError>) -> Self {
+    pub const fn multiple(errors: Vec<Self>) -> Self {
         Self::Multiple(errors)
     }
 
@@ -106,6 +106,10 @@ impl Validator {
     }
 
     /// Validate a predicate, adding an error if it fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the predicate is false.
     pub fn check(&mut self, predicate: bool, error: ValidationError) -> ValidationResult<()> {
         if predicate {
             Ok(())
@@ -127,14 +131,7 @@ impl Validator {
     pub fn finalize(mut self) -> ValidationResult<()> {
         match self.errors.len() {
             0 => Ok(()),
-            1 => {
-                if let Some(error) = self.errors.pop_front() {
-                    Err(error)
-                } else {
-                    // This branch is unreachable since len() == 1
-                    Ok(())
-                }
-            }
+            1 => self.errors.pop_front().map_or(Ok(()), Err),
             _ => Err(ValidationError::Multiple(self.errors.into())),
         }
     }
@@ -164,6 +161,10 @@ impl Validator {
 /// let result = validate_that(-5, |n| *n > 0, "must be positive");
 /// assert!(result.is_err());
 /// ```
+///
+/// # Errors
+///
+/// Returns an error if the predicate returns false.
 pub fn validate_that<T, F>(value: T, predicate: F, error_msg: &str) -> ValidationResult<T>
 where
     F: FnOnce(&T) -> bool,
@@ -187,6 +188,10 @@ where
 /// let result = validate_range(15, 1, 10, "priority");
 /// assert!(result.is_err());
 /// ```
+///
+/// # Errors
+///
+/// Returns an error if the value is below the minimum or above the maximum.
 #[requires(min <= max, "min must be <= max")]
 #[ensures(ret.is_ok() || ret.is_err(), "always returns a Result")]
 pub fn validate_range(value: u32, min: u32, max: u32, field: &str) -> ValidationResult<u32> {
@@ -220,6 +225,10 @@ pub fn validate_range(value: u32, min: u32, max: u32, field: &str) -> Validation
 /// ]);
 /// assert_eq!(result, Ok(vec![42, 43, 44]));
 /// ```
+///
+/// # Errors
+///
+/// Returns the first error encountered in the results list.
 pub fn validate_all<T>(results: Vec<ValidationResult<T>>) -> ValidationResult<Vec<T>> {
     let mut ok_values = Vec::with_capacity(results.len());
     for result in results {

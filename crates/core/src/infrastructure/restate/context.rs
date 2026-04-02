@@ -138,7 +138,7 @@ mod tests {
         {
         }
 
-        fn check<F, Fut, T>(f: F)
+        fn check<F, Fut, T>(_f: F)
         where
             F: FnOnce() -> Fut + Send,
             Fut: Future<Output = HandlerResult<T>> + Send,

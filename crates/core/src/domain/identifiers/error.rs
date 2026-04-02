@@ -222,3 +222,146 @@ impl IdentifierError {
         matches!(self, Self::InvalidFormat { .. })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_display() {
+        let err = IdentifierError::Empty;
+        let msg = format!("{err}");
+        assert!(msg.contains("cannot be empty"));
+    }
+
+    #[test]
+    fn too_long_display() {
+        let err = IdentifierError::TooLong { max: 50, actual: 100 };
+        let msg = format!("{err}");
+        assert!(msg.contains("50"));
+        assert!(msg.contains("100"));
+        assert!(msg.contains("too long"));
+    }
+
+    #[test]
+    fn invalid_characters_display() {
+        let err = IdentifierError::InvalidCharacters { details: "spaces not allowed".to_string() };
+        let msg = format!("{err}");
+        assert!(msg.contains("spaces not allowed"));
+        assert!(msg.contains("invalid characters"));
+    }
+
+    #[test]
+    fn invalid_format_display() {
+        let err = IdentifierError::InvalidFormat { details: "must be lowercase".to_string() };
+        let msg = format!("{err}");
+        assert!(msg.contains("must be lowercase"));
+        assert!(msg.contains("invalid identifier format"));
+    }
+
+    #[test]
+    fn invalid_start_display() {
+        let err = IdentifierError::InvalidStart { expected: 'a' };
+        let msg = format!("{err}");
+        assert!(msg.contains("start with a letter"));
+    }
+
+    #[test]
+    fn invalid_prefix_display() {
+        let err = IdentifierError::InvalidPrefix { prefix: "bd-", value: "abc123".to_string() };
+        let msg = format!("{err}");
+        assert!(msg.contains("bd-"));
+        assert!(msg.contains("abc123"));
+    }
+
+    #[test]
+    fn invalid_hex_display() {
+        let err = IdentifierError::InvalidHex { value: "xyz".to_string() };
+        let msg = format!("{err}");
+        assert!(msg.contains("xyz"));
+        assert!(msg.contains("hex"));
+    }
+
+    #[test]
+    fn not_absolute_path_display() {
+        let err = IdentifierError::NotAbsolutePath { value: "relative/path".to_string() };
+        let msg = format!("{err}");
+        assert!(msg.contains("relative/path"));
+        assert!(msg.contains("not absolute"));
+    }
+
+    #[test]
+    fn null_bytes_in_path_display() {
+        let err = IdentifierError::NullBytesInPath;
+        let msg = format!("{err}");
+        assert!(msg.contains("null bytes"));
+    }
+
+    #[test]
+    fn not_ascii_display() {
+        let err = IdentifierError::NotAscii { value: "café".to_string() };
+        let msg = format!("{err}");
+        assert!(msg.contains("café"));
+        assert!(msg.contains("ASCII"));
+    }
+
+    #[test]
+    fn contains_path_separators_display() {
+        let err = IdentifierError::ContainsPathSeparators;
+        let msg = format!("{err}");
+        assert!(msg.contains("path separators"));
+    }
+
+    #[test]
+    fn all_variants_are_exhaustive() {
+        let _ = IdentifierError::Empty;
+        let _ = IdentifierError::TooLong { max: 0, actual: 0 };
+        let _ = IdentifierError::InvalidCharacters { details: String::new() };
+        let _ = IdentifierError::InvalidFormat { details: String::new() };
+        let _ = IdentifierError::InvalidStart { expected: 'a' };
+        let _ = IdentifierError::InvalidPrefix { prefix: "", value: String::new() };
+        let _ = IdentifierError::InvalidHex { value: String::new() };
+        let _ = IdentifierError::NotAbsolutePath { value: String::new() };
+        let _ = IdentifierError::NullBytesInPath;
+        let _ = IdentifierError::NotAscii { value: String::new() };
+        let _ = IdentifierError::ContainsPathSeparators;
+    }
+
+    #[test]
+    fn helper_constructors() {
+        let err = IdentifierError::empty();
+        assert!(err.is_empty());
+
+        let err = IdentifierError::too_long(10, 20);
+        assert!(err.is_too_long());
+
+        let err = IdentifierError::invalid_characters("bad");
+        assert!(err.is_invalid_characters());
+
+        let err = IdentifierError::invalid_format("bad");
+        assert!(err.is_invalid_format());
+
+        let err = IdentifierError::invalid_start('a');
+        assert!(matches!(err, IdentifierError::InvalidStart { .. }));
+
+        let err = IdentifierError::invalid_prefix("bd-", "abc");
+        assert!(matches!(err, IdentifierError::InvalidPrefix { .. }));
+
+        let err = IdentifierError::invalid_hex("xyz");
+        assert!(matches!(err, IdentifierError::InvalidHex { .. }));
+
+        let err = IdentifierError::not_absolute_path("rel");
+        assert!(matches!(err, IdentifierError::NotAbsolutePath { .. }));
+    }
+
+    #[test]
+    fn equality_and_clone() {
+        let a = IdentifierError::Empty;
+        let b = IdentifierError::Empty;
+        assert_eq!(a, b);
+
+        let c = IdentifierError::TooLong { max: 10, actual: 20 };
+        let d = c.clone();
+        assert_eq!(c, d);
+    }
+}

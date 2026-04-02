@@ -5,7 +5,9 @@ pub mod types;
 pub mod config;
 pub mod partial;
 pub mod command_types;
+pub mod config_watcher;
 
+#[cfg(test)]
 mod tests;
 
 #[cfg(test)]
@@ -20,11 +22,16 @@ mod config_proptests;
 // Re-exports
 pub use config_core::{
     Config, ConfigManager, ConfigScope, ConfigSource, ConfigValue, WatchConfig, config_dir,
-    global_config, keys,
+    get_repo_name, global_config, keys, substitute_placeholders, validate_key,
+    VALID_CONFIG_KEYS, ENV_PREFIX,
 };
+pub use config_watcher::{HotReloadConfigManager, MAX_CONFIG_FILE_SIZE, validate_config_file};
 pub use types::ConflictMode;
-pub use config::{ConflictResolutionConfig, SessionConfig};
-pub use partial::{PartialConflictResolutionConfig, PartialSessionConfig};
+pub use config::{AgentConfig, ConflictResolutionConfig, HooksConfig, SessionConfig};
+pub use partial::{
+    PartialAgentConfig, PartialConflictResolutionConfig, PartialHooksConfig,
+    PartialSessionConfig,
+};
 pub use command_types::{
     ConfigKey, ConfigGetResult, ConfigSetResult, ConfigReadPort,
     FileConfigReadPort,

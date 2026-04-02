@@ -28,7 +28,7 @@ impl Queue {
 
     /// Create a queue from a vector of entries (for testing/serialization).
     #[must_use]
-    pub fn from_entries(entries: Vec<QueueEntry>) -> Self {
+    pub const fn from_entries(entries: Vec<QueueEntry>) -> Self {
         Self { entries }
     }
 
@@ -99,13 +99,14 @@ impl Queue {
         }
     }
 
-    /// Remove an entry from the queue by ID, returning (new_queue, removed_entry).
+    /// Remove an entry from the queue by ID, returning (`new_queue`, `removed_entry`).
     ///
     /// Uses functional patterns to find and remove the entry.
     #[must_use]
     pub fn dequeue(&self, id: &QueueEntryId) -> (Self, Option<QueueEntry>) {
-        match self.entries.iter().position(|e| &e.id == id) {
-            Some(idx) => {
+        self.entries.iter().position(|e| &e.id == id).map_or_else(
+            || (self.clone(), None),
+            |idx| {
                 let mut new_entries = self.entries.clone();
                 let removed = new_entries.remove(idx);
                 (
@@ -114,11 +115,15 @@ impl Queue {
                     },
                     Some(removed),
                 )
-            }
-            None => (self.clone(), None),
-        }
+            },
+        )
     }
 
+    /// Insert an entry at a given position.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the position is out of bounds.
     pub fn with_entry(&self, position: usize, entry: QueueEntry) -> ValidationResult<Self> {
         if position > self.entries.len() {
             return Err(ValidationError::OutOfBounds {
@@ -135,7 +140,7 @@ impl Queue {
         })
     }
 
-    /// Update an entry's status by ID, returning Result<Queue, ValidationError>.
+    /// Update an entry's status by ID, returning Result<Queue, `ValidationError`>.
     ///
     /// # Errors
     /// Returns `ValidationError::NotFound` if the entry doesn't exist or
@@ -165,6 +170,11 @@ impl Queue {
         }
     }
 
+    /// Remove an entry at a given position.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the position is out of bounds.
     pub fn remove_at(&self, position: usize) -> ValidationResult<(Self, QueueEntry)> {
         if position >= self.entries.len() {
             return Err(ValidationError::OutOfBounds {

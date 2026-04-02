@@ -282,4 +282,250 @@ mod tests {
         cb.record_failure();
         assert_eq!(cb.state(), CircuitState::Open);
     }
+
+    // --- Open state ignores all events ---
+
+    #[test]
+    fn test_open_state_ignores_success() {
+        let mut cb = CircuitBreaker::new(1, 2, 30000).expect("should create");
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+        cb.record_success();
+        assert_eq!(cb.state(), CircuitState::Open); // Still open
+    }
+
+    #[test]
+    fn test_open_state_ignores_failure() {
+        let mut cb = CircuitBreaker::new(1, 2, 30000).expect("should create");
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+        assert_eq!(cb.failure_count(), 1);
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+        // Open state does not increment failure_count
+        assert_eq!(cb.failure_count(), 1);
+    }
+
+    // --- check_and_transition edge cases ---
+
+    #[test]
+    fn test_check_and_transition_not_yet_elapsed() {
+        let mut cb = CircuitBreaker::new(1, 2, 30000).expect("should create");
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+        let transitioned = cb.check_and_transition(29999);
+        assert!(!transitioned);
+        assert_eq!(cb.state(), CircuitState::Open);
+    }
+
+    #[test]
+    fn test_check_and_transition_already_half_open() {
+        let mut cb = CircuitBreaker::new(1, 2, 30000).expect("should create");
+        cb.record_failure();
+        cb.check_and_transition(30001);
+        assert_eq!(cb.state(), CircuitState::HalfOpen);
+        // Already half-open, check_and_transition should not change state
+        let transitioned = cb.check_and_transition(50000);
+        assert!(!transitioned);
+        assert_eq!(cb.state(), CircuitState::HalfOpen);
+    }
+
+    #[test]
+    fn test_check_and_transition_already_closed() {
+        let mut cb = CircuitBreaker::new(3, 2, 30000).expect("should create");
+        assert_eq!(cb.state(), CircuitState::Closed);
+        let transitioned = cb.check_and_transition(100000);
+        assert!(!transitioned);
+    }
+
+    #[test]
+    fn test_check_and_transition_resets_success_count() {
+        let mut cb = CircuitBreaker::new(1, 2, 30000).expect("should create");
+        cb.record_failure();
+        cb.check_and_transition(30001);
+        assert_eq!(cb.state(), CircuitState::HalfOpen);
+        assert_eq!(cb.success_count(), 0);
+    }
+
+    // --- HalfOpen -> Closed after threshold ---
+
+    #[test]
+    fn test_halfopen_to_closed_with_success_threshold_of_1() {
+        let mut cb = CircuitBreaker::new(1, 1, 30000).expect("should create");
+        cb.record_failure();
+        cb.check_and_transition(30001);
+        assert_eq!(cb.state(), CircuitState::HalfOpen);
+        cb.record_success();
+        assert_eq!(cb.state(), CircuitState::Closed);
+        assert_eq!(cb.failure_count(), 0);
+        assert_eq!(cb.success_count(), 0);
+    }
+
+    #[test]
+    fn test_halfopen_to_closed_with_high_success_threshold() {
+        let mut cb = CircuitBreaker::new(1, 5, 30000).expect("should create");
+        cb.record_failure();
+        cb.check_and_transition(30001);
+        assert_eq!(cb.state(), CircuitState::HalfOpen);
+
+        for i in 0..4 {
+            cb.record_success();
+            assert_eq!(cb.state(), CircuitState::HalfOpen, "Still half-open at success {}", i+1);
+        }
+        cb.record_success();
+        assert_eq!(cb.state(), CircuitState::Closed);
+    }
+
+    // --- HalfOpen -> Open on failure resets success_count ---
+
+    #[test]
+    fn test_halfopen_failure_resets_success_count() {
+        let mut cb = CircuitBreaker::new(1, 3, 30000).expect("should create");
+        cb.record_failure();
+        cb.check_and_transition(30001);
+        cb.record_success(); // success_count = 1
+        cb.record_success(); // success_count = 2
+        cb.record_failure(); // Back to Open, success_count reset
+        assert_eq!(cb.state(), CircuitState::Open);
+        assert_eq!(cb.success_count(), 0);
+    }
+
+    // --- Closed state resets failure_count on success ---
+
+    #[test]
+    fn test_closed_success_resets_failure_count() {
+        let mut cb = CircuitBreaker::new(5, 2, 30000).expect("should create");
+        cb.record_failure();
+        cb.record_failure();
+        cb.record_failure();
+        assert_eq!(cb.failure_count(), 3);
+        cb.record_success();
+        assert_eq!(cb.failure_count(), 0);
+        assert_eq!(cb.state(), CircuitState::Closed);
+    }
+
+    // --- Getter accuracy ---
+
+    #[test]
+    fn test_getters_after_construction() {
+        let cb = CircuitBreaker::new(7, 3, 5000).expect("should create");
+        assert_eq!(cb.failure_threshold(), 7);
+        assert_eq!(cb.success_threshold(), 3);
+        assert_eq!(cb.failure_count(), 0);
+        assert_eq!(cb.success_count(), 0);
+        assert_eq!(cb.open_duration(), std::time::Duration::from_millis(5000));
+    }
+
+    // --- is_execution_allowed ---
+
+    #[test]
+    fn test_is_execution_allowed() {
+        let mut cb = CircuitBreaker::new(2, 2, 30000).expect("should create");
+        assert!(cb.is_execution_allowed()); // Closed
+        cb.record_failure();
+        cb.record_failure();
+        assert!(!cb.is_execution_allowed()); // Open
+        cb.check_and_transition(30001);
+        assert!(cb.is_execution_allowed()); // HalfOpen
+    }
+
+    // --- reset (test-only) ---
+
+    #[test]
+    fn test_reset_clears_all_state() {
+        let mut cb = CircuitBreaker::new(1, 2, 30000).expect("should create");
+        cb.record_failure();
+        cb.check_and_transition(30001);
+        cb.record_success();
+        assert_eq!(cb.state(), CircuitState::HalfOpen);
+
+        cb.reset();
+        assert_eq!(cb.state(), CircuitState::Closed);
+        assert_eq!(cb.failure_count(), 0);
+        assert_eq!(cb.success_count(), 0);
+    }
+
+    // --- Error display ---
+
+    #[test]
+    fn test_circuit_breaker_error_display() {
+        let errors = [
+            CircuitBreakerError::InvalidFailureThreshold,
+            CircuitBreakerError::InvalidSuccessThreshold,
+            CircuitBreakerError::InvalidOpenDuration,
+        ];
+        for err in &errors {
+            let msg = format!("{err}");
+            assert!(!msg.is_empty());
+        }
+    }
+
+    // --- Error trait ---
+
+    #[test]
+    fn test_circuit_breaker_error_implements_error() {
+        use std::error::Error;
+        let err = CircuitBreakerError::InvalidFailureThreshold;
+        assert!(err.source().is_none());
+    }
+
+    // --- Single failure threshold ---
+
+    #[test]
+    fn test_single_failure_threshold_opens_immediately() {
+        let mut cb = CircuitBreaker::new(1, 1, 30000).expect("should create");
+        assert!(cb.is_execution_allowed());
+        cb.record_failure();
+        assert!(!cb.is_execution_allowed());
+        assert_eq!(cb.state(), CircuitState::Open);
+    }
+
+    // --- High threshold doesn't open prematurely ---
+
+    #[test]
+    fn test_high_threshold_does_not_open_prematurely() {
+        let mut cb = CircuitBreaker::new(100, 2, 30000).expect("should create");
+        for _ in 0..99 {
+            cb.record_failure();
+            assert_eq!(cb.state(), CircuitState::Closed);
+            assert!(cb.is_execution_allowed());
+        }
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+        assert!(!cb.is_execution_allowed());
+    }
+
+    // --- Proptests ---
+
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_closed_never_transitions_to_open_before_threshold(
+            threshold in 1u32..20u32,
+            failures in 0u32..20u32,
+        ) {
+            let mut cb = CircuitBreaker::new(threshold, 1, 30000).expect("should create");
+            for _ in 0..failures {
+                cb.record_failure();
+            }
+            let should_be_open = failures >= threshold;
+            prop_assert_eq!(cb.state() == CircuitState::Open, should_be_open);
+        }
+
+        #[test]
+        fn prop_circuit_breaker_success_resets_failure_count_when_closed(
+            num_failures in 0u32..10u32,
+        ) {
+            // Use a high threshold so we stay in Closed state
+            let mut cb = CircuitBreaker::new(100, 1, 30000).expect("should create");
+            for _ in 0..num_failures {
+                cb.record_failure();
+            }
+            // After recording success, failure_count must be 0 (Closed state behavior)
+            cb.record_success();
+            let count_after_success = cb.failure_count();
+            prop_assert_eq!(count_after_success, 0);
+        }
+    }
 }

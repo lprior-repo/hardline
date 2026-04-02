@@ -73,7 +73,7 @@ impl IssueState {
     /// # Errors
     ///
     /// Returns `DomainError::InvalidStateTransition` if the transition is invalid.
-    pub fn transition_to(self, new_state: Self) -> Result<Self, DomainError> {
+    pub const fn transition_to(self, new_state: Self) -> Result<Self, DomainError> {
         // Flexible workflow: can transition from any state to any state.
         // Closed MUST have a timestamp (already enforced by the type system).
         Ok(new_state)

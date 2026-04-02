@@ -9,6 +9,7 @@
 //! 6. Scope precedence: resolved value == highest-precedence source
 
 use proptest::prelude::*;
+use proptest::{prop_assert, prop_assert_eq};
 
 use crate::config::command_types::{get_nested_value, parse_cli_value, set_nested_value, ConfigKey};
 use crate::config::config_core::ConfigScope;
@@ -36,6 +37,10 @@ fn valid_config_key_strategy() -> impl Strategy<Value = String> {
         Just("session.auto_commit".to_string()),
         Just("session.commit_prefix".to_string()),
         Just("session.max_sessions".to_string()),
+        Just("hooks.post_create".to_string()),
+        Just("hooks.pre_remove".to_string()),
+        Just("hooks.post_merge".to_string()),
+        Just("agent.command".to_string()),
         Just("vcs.type".to_string()),
         Just("vcs.default_branch".to_string()),
         Just("workspace.directory".to_string()),

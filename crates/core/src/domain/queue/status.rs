@@ -72,28 +72,14 @@ impl QueueStatus {
     /// Returns `ValidationError::InvalidStateTransition` if the transition is not allowed.
     pub fn transition_to(self, new_status: Self) -> ValidationResult<Self> {
         match (self, new_status) {
-            // Valid transitions from Pending
-            (Self::Pending, Self::Claimed | Self::Cancelled) => Ok(new_status),
-
-            // Valid transitions from Claimed
-            (Self::Claimed, Self::Rebasing | Self::Cancelled) => Ok(new_status),
-
-            // Valid transitions from Rebasing
-            (Self::Rebasing, Self::Testing | Self::FailedRetryable) => Ok(new_status),
-
-            // Valid transitions from Testing
-            (Self::Testing, Self::ReadyToMerge | Self::FailedRetryable | Self::FailedTerminal) => {
-                Ok(new_status)
-            }
-
-            // Valid transitions from ReadyToMerge
-            (Self::ReadyToMerge, Self::Merging | Self::FailedRetryable) => Ok(new_status),
-
-            // Valid transitions from Merging
-            (Self::Merging, Self::Merged | Self::FailedRetryable) => Ok(new_status),
-
-            // Valid transitions from FailedRetryable
-            (Self::FailedRetryable, Self::Pending | Self::Cancelled) => Ok(new_status),
+            // Valid transitions - all lead to Ok(new_status)
+            (Self::Pending, Self::Claimed | Self::Cancelled)
+            | (Self::Claimed, Self::Rebasing | Self::Cancelled)
+            | (Self::Rebasing, Self::Testing | Self::FailedRetryable)
+            | (Self::Testing, Self::ReadyToMerge | Self::FailedRetryable | Self::FailedTerminal)
+            | (Self::ReadyToMerge, Self::Merging | Self::FailedRetryable)
+            | (Self::Merging, Self::Merged | Self::FailedRetryable)
+            | (Self::FailedRetryable, Self::Pending | Self::Cancelled) => Ok(new_status),
 
             // Terminal states and invalid transitions
             _ => Err(ValidationError::InvalidStateTransition {

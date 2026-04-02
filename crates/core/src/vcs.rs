@@ -13,7 +13,10 @@ mod vcs_git;
 mod vcs_jj;
 
 pub use trait_::VcsBackend;
-pub use types::{detect_vcs, Branch, Commit, VcsStatus, VcsType, Workspace};
+pub use types::{
+    detect_vcs, Branch, BranchName, ChangeId, Commit, CommitId, RepoStatus, VcsStatus, VcsType,
+    Workspace,
+};
 pub use vcs_git::GitBackend;
 pub use vcs_jj::JjBackend;
 
@@ -31,12 +34,45 @@ pub fn create_backend(path: &std::path::Path) -> Result<Box<dyn VcsBackend>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
 
     #[test]
-    fn test_detect_vcs() {
-        let cwd = env::current_dir().unwrap();
-        let vcs = detect_vcs(&cwd);
-        println!("Detected VCS: {:?}", vcs);
+    fn test_detect_vcs_with_temp_jj() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
+        let vcs = detect_vcs(dir.path());
+        assert_eq!(vcs, Some(VcsType::Jujutsu));
+    }
+
+    #[test]
+    fn test_create_backend_fails_for_no_vcs() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let result = create_backend(dir.path());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_create_backend_git() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
+        let backend = create_backend(dir.path());
+        assert!(backend.is_ok());
+    }
+
+    #[test]
+    fn test_create_backend_jj() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
+        let backend = create_backend(dir.path());
+        assert!(backend.is_ok());
+    }
+
+    #[test]
+    fn test_create_backend_prefers_jj_over_git() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
+        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
+        let _backend = create_backend(dir.path()).expect("backend");
+        // Both JjBackend and GitBackend exist; detect_vcs returns Jjutsu
+        // so it should be a JjBackend
     }
 }

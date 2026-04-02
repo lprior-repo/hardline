@@ -125,4 +125,89 @@ mod tests {
         let found = repo.get(&enqueued.id).unwrap();
         assert!(found.is_none());
     }
+
+    #[test]
+    fn in_memory_repo_default_is_empty() {
+        let repo = InMemoryQueueRepository::default();
+        let all = repo.list_all().unwrap();
+        assert!(all.is_empty());
+    }
+
+    #[test]
+    fn in_memory_repo_dequeue_empty_returns_none() {
+        let repo = InMemoryQueueRepository::new();
+        let result = repo.dequeue().unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn in_memory_repo_list_pending_filters() {
+        let repo = InMemoryQueueRepository::new();
+        let entry1 = QueueEntry::enqueue("session-1".into(), None, Priority::default()).unwrap();
+        let entry2 = QueueEntry::enqueue("session-2".into(), None, Priority::default())
+            .unwrap()
+            .claim()
+            .unwrap();
+        repo.enqueue(entry1).unwrap();
+        repo.enqueue(entry2).unwrap();
+
+        let pending = repo.list_pending().unwrap();
+        assert_eq!(pending.len(), 1);
+    }
+
+    #[test]
+    fn in_memory_repo_update_nonexistent_returns_error() {
+        let repo = InMemoryQueueRepository::new();
+        let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default()).unwrap();
+        let result = repo.update(entry);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn in_memory_repo_remove_nonexistent_returns_error() {
+        let repo = InMemoryQueueRepository::new();
+        let id = QueueEntryId::generate();
+        let result = repo.remove(&id);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn in_memory_repo_get_nonexistent_returns_none() {
+        let repo = InMemoryQueueRepository::new();
+        let id = QueueEntryId::generate();
+        let result = repo.get(&id).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn in_memory_repo_dequeue_skips_non_pending() {
+        let repo = InMemoryQueueRepository::new();
+        let entry = QueueEntry::enqueue("session-1".into(), None, Priority::default())
+            .unwrap()
+            .claim()
+            .unwrap();
+        repo.enqueue(entry).unwrap();
+
+        let result = repo.dequeue().unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn in_memory_repo_list_all_returns_all() {
+        let repo = InMemoryQueueRepository::new();
+        repo.enqueue(QueueEntry::enqueue("s1".into(), None, Priority::default()).unwrap())
+            .unwrap();
+        repo.enqueue(QueueEntry::enqueue("s2".into(), None, Priority::default()).unwrap())
+            .unwrap();
+        let all = repo.list_all().unwrap();
+        assert_eq!(all.len(), 2);
+    }
+
+    #[test]
+    fn in_memory_repo_enqueue_returns_entry_with_position() {
+        let repo = InMemoryQueueRepository::new();
+        let entry = QueueEntry::enqueue("s1".into(), None, Priority::default()).unwrap();
+        let returned = repo.enqueue(entry).unwrap();
+        assert_eq!(returned.position().value(), 0);
+    }
 }

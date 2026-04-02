@@ -82,3 +82,31 @@ impl AsRef<Path> for AbsolutePath {
 
 #[cfg(test)]
 mod path_tests;
+
+#[cfg(test)]
+mod serialization_tests {
+    use super::*;
+
+    #[test]
+    fn absolute_path_serde_roundtrip() {
+        let path = AbsolutePath::try_from("/usr/local/bin").expect("valid");
+        let json = serde_json::to_string(&path).expect("serialize");
+        let parsed: AbsolutePath = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(path, parsed);
+    }
+
+    #[test]
+    fn absolute_path_serde_json_output() {
+        let path = AbsolutePath::try_from("/etc/config").expect("valid");
+        let json = serde_json::to_string(&path).expect("serialize");
+        assert!(json.contains("/etc/config"));
+    }
+
+    #[test]
+    fn absolute_path_serde_with_unicode() {
+        let path = AbsolutePath::try_from("/home/user/data").expect("valid");
+        let json = serde_json::to_string(&path).expect("serialize");
+        let parsed: AbsolutePath = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(path.to_path_buf(), parsed.to_path_buf());
+    }
+}

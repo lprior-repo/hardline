@@ -1,0 +1,6 @@
+---
+source: crates/queue/tests/snapshot_tests.rs
+assertion_line: 57
+expression: json
+---
+{"id":"qe-ghi789","session":"release-v1","priority":0,"enqueued_at":"2024-01-15T10:30:00Z","status":"Rebasing"}

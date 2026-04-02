@@ -9,24 +9,18 @@
 pub use super::json_docs::ai_contracts::add;
 pub use super::json_docs::ai_contracts::done;
 pub use super::json_docs::ai_contracts::spawn;
-pub use super::json_docs::ai_contracts::work;
-pub use super::json_docs::ai_contracts_part2::abort;
 pub use super::json_docs::ai_contracts_part2::remove;
 pub use super::json_docs::ai_contracts_part2::sync;
 
 // Response types (JSON schema documentation) - suffixed exports
-pub use super::json_docs::response_types::add as add_response;
 pub use super::json_docs::response_types::clean;
 pub use super::json_docs::response_types::config;
 pub use super::json_docs::response_types::diff;
 pub use super::json_docs::response_types::doctor;
-pub use super::json_docs::response_types::done as done_response;
 pub use super::json_docs::response_types::focus;
 pub use super::json_docs::response_types::introspect;
 pub use super::json_docs::response_types::list;
-pub use super::json_docs::response_types::remove as remove_response;
 pub use super::json_docs::response_types::status;
-pub use super::json_docs::response_types::sync as sync_response;
 
 // System commands
 pub use super::json_docs::system_commands::checkpoint;
@@ -34,4 +28,3 @@ pub use super::json_docs::system_commands::context;
 pub use super::json_docs::system_commands::export;
 pub use super::json_docs::system_commands::init;
 pub use super::json_docs::system_commands::query;
-pub use super::json_docs::system_commands::spawn as spawn_system;

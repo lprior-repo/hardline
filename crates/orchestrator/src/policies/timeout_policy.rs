@@ -86,4 +86,39 @@ mod tests {
         let policy = TimeoutPolicy::new(u64::MAX).expect("should create policy");
         assert_eq!(policy.get_timeout_ms(), Some(u64::MAX));
     }
+
+    #[test]
+    fn test_timeout_policy_equality() {
+        let a = TimeoutPolicy::new(5000).expect("create");
+        let b = TimeoutPolicy::new(5000).expect("create");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_timeout_policy_inequality() {
+        let a = TimeoutPolicy::new(5000).expect("create");
+        let b = TimeoutPolicy::new(10000).expect("create");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_timeout_policy_none_vs_value_inequality() {
+        let none = TimeoutPolicy::none();
+        let some = TimeoutPolicy::new(5000).expect("create");
+        assert_ne!(none, some);
+    }
+
+    #[test]
+    fn test_timeout_policy_error_display() {
+        let err = TimeoutPolicyError::ZeroTimeout;
+        let msg = format!("{err}");
+        assert!(msg.contains("timeout must be greater than 0ms"));
+    }
+
+    #[test]
+    fn test_timeout_policy_error_implements_error() {
+        use std::error::Error;
+        let err = TimeoutPolicyError::ZeroTimeout;
+        assert!(err.source().is_none());
+    }
 }

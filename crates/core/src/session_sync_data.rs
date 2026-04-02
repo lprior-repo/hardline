@@ -18,7 +18,7 @@ use crate::types::SessionStatus;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Input for a session sync operation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionSyncInput {
     /// Name of the session to sync
     pub session_name: String,
@@ -51,7 +51,7 @@ impl SessionSyncInput {
 }
 
 /// Result of a successful sync operation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionSyncResult {
     /// Name of the synced session
     pub session_name: String,
@@ -93,7 +93,7 @@ pub enum WorkspaceCleanStatus {
 }
 
 /// Precondition check results
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PreconditionCheck {
     /// Session exists in database
     pub session_exists: bool,
@@ -126,5 +126,267 @@ impl PreconditionCheck {
             current_status: Some(status),
             workspace_status: WorkspaceCleanStatus::Clean,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn session_sync_input_defaults_allow_dirty_false() {
+        let input = SessionSyncInput::new(
+            "s1".into(),
+            PathBuf::from("/w"),
+            "main".into(),
+        );
+        assert!(!input.allow_dirty);
+    }
+
+    #[test]
+    fn session_sync_input_with_dirty_allowed_returns_true() {
+        let input = SessionSyncInput::new(
+            "s1".into(),
+            PathBuf::from("/w"),
+            "main".into(),
+        )
+        .with_dirty_allowed();
+        assert!(input.allow_dirty);
+    }
+
+    #[test]
+    fn session_sync_input_with_dirty_allowed_does_not_affect_other_fields() {
+        let input = SessionSyncInput::new(
+            "my-session".into(),
+            PathBuf::from("/my/workspace"),
+            "develop".into(),
+        )
+        .with_dirty_allowed();
+        assert_eq!(input.session_name, "my-session");
+        assert_eq!(input.workspace_path, PathBuf::from("/my/workspace"));
+        assert_eq!(input.main_branch, "develop");
+    }
+
+    #[test]
+    fn session_sync_input_is_clone() {
+        let input = SessionSyncInput::new(
+            "s1".into(),
+            PathBuf::from("/w"),
+            "main".into(),
+        );
+        let cloned = input.clone();
+        assert_eq!(cloned.session_name, input.session_name);
+    }
+
+    #[test]
+    fn session_sync_result_new_sets_had_conflicts_false() {
+        let result = SessionSyncResult::new("s1".into(), "rev1".into(), false);
+        assert!(!result.had_conflicts);
+    }
+
+    #[test]
+    fn session_sync_result_new_sets_had_conflicts_true() {
+        let result = SessionSyncResult::new("s1".into(), "rev1".into(), true);
+        assert!(result.had_conflicts);
+    }
+
+    #[test]
+    fn session_sync_result_new_sets_synced_at_to_recent_timestamp() {
+        let result = SessionSyncResult::new("s1".into(), "rev1".into(), false);
+        // synced_at should be a reasonable unix timestamp (after year 2020)
+        assert!(result.synced_at > 1_577_836_800, "synced_at should be a recent timestamp");
+    }
+
+    #[test]
+    fn session_sync_result_is_clone() {
+        let result = SessionSyncResult::new("s1".into(), "rev1".into(), true);
+        let cloned = result.clone();
+        assert_eq!(cloned.session_name, result.session_name);
+        assert_eq!(cloned.new_revision, result.new_revision);
+        assert_eq!(cloned.had_conflicts, result.had_conflicts);
+    }
+
+    #[test]
+    fn workspace_clean_status_equality() {
+        assert_eq!(WorkspaceCleanStatus::Clean, WorkspaceCleanStatus::Clean);
+        assert_eq!(WorkspaceCleanStatus::Dirty, WorkspaceCleanStatus::Dirty);
+        assert_eq!(WorkspaceCleanStatus::Unknown, WorkspaceCleanStatus::Unknown);
+        assert_ne!(WorkspaceCleanStatus::Clean, WorkspaceCleanStatus::Dirty);
+        assert_ne!(WorkspaceCleanStatus::Dirty, WorkspaceCleanStatus::Unknown);
+        assert_ne!(WorkspaceCleanStatus::Unknown, WorkspaceCleanStatus::Clean);
+    }
+
+    #[test]
+    fn workspace_clean_status_is_copy() {
+        let status = WorkspaceCleanStatus::Dirty;
+        let copied = status;
+        assert_eq!(copied, status);
+    }
+
+    #[test]
+    fn precondition_check_valid_active() {
+        let check = PreconditionCheck::valid(SessionStatus::Active);
+        assert!(check.session_exists);
+        assert_eq!(check.current_status, Some(SessionStatus::Active));
+        assert_eq!(check.workspace_status, WorkspaceCleanStatus::Clean);
+        assert!(check.is_valid());
+    }
+
+    #[test]
+    fn precondition_check_valid_failed() {
+        let check = PreconditionCheck::valid(SessionStatus::Failed);
+        assert!(check.is_valid());
+    }
+
+    #[test]
+    fn precondition_check_invalid_when_session_missing() {
+        let check = PreconditionCheck {
+            session_exists: false,
+            current_status: Some(SessionStatus::Active),
+            workspace_status: WorkspaceCleanStatus::Clean,
+        };
+        assert!(!check.is_valid());
+    }
+
+    #[test]
+    fn precondition_check_invalid_when_status_creating() {
+        let check = PreconditionCheck {
+            session_exists: true,
+            current_status: Some(SessionStatus::Creating),
+            workspace_status: WorkspaceCleanStatus::Clean,
+        };
+        assert!(!check.is_valid());
+    }
+
+    #[test]
+    fn precondition_check_invalid_when_status_paused() {
+        let check = PreconditionCheck {
+            session_exists: true,
+            current_status: Some(SessionStatus::Paused),
+            workspace_status: WorkspaceCleanStatus::Clean,
+        };
+        assert!(!check.is_valid());
+    }
+
+    #[test]
+    fn precondition_check_invalid_when_status_completed() {
+        let check = PreconditionCheck {
+            session_exists: true,
+            current_status: Some(SessionStatus::Completed),
+            workspace_status: WorkspaceCleanStatus::Clean,
+        };
+        assert!(!check.is_valid());
+    }
+
+    #[test]
+    fn precondition_check_invalid_when_status_none() {
+        let check = PreconditionCheck {
+            session_exists: true,
+            current_status: None,
+            workspace_status: WorkspaceCleanStatus::Clean,
+        };
+        assert!(!check.is_valid());
+    }
+
+    #[test]
+    fn precondition_check_invalid_when_workspace_dirty() {
+        let check = PreconditionCheck {
+            session_exists: true,
+            current_status: Some(SessionStatus::Active),
+            workspace_status: WorkspaceCleanStatus::Dirty,
+        };
+        assert!(!check.is_valid());
+    }
+
+    #[test]
+    fn precondition_check_valid_when_workspace_unknown() {
+        let check = PreconditionCheck {
+            session_exists: true,
+            current_status: Some(SessionStatus::Active),
+            workspace_status: WorkspaceCleanStatus::Unknown,
+        };
+        assert!(check.is_valid());
+    }
+
+    #[test]
+    fn precondition_check_valid_when_status_failed_and_workspace_unknown() {
+        let check = PreconditionCheck {
+            session_exists: true,
+            current_status: Some(SessionStatus::Failed),
+            workspace_status: WorkspaceCleanStatus::Unknown,
+        };
+        assert!(check.is_valid());
+    }
+
+    #[test]
+    fn precondition_check_is_clone() {
+        let check = PreconditionCheck::valid(SessionStatus::Active);
+        let cloned = check.clone();
+        assert_eq!(cloned.session_exists, check.session_exists);
+        assert_eq!(cloned.current_status, check.current_status);
+        assert_eq!(cloned.workspace_status, check.workspace_status);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Serde roundtrip tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_workspace_clean_status_serde_roundtrip_all_variants() {
+        for status in [WorkspaceCleanStatus::Clean, WorkspaceCleanStatus::Dirty, WorkspaceCleanStatus::Unknown] {
+            let json = serde_json::to_string(&status).expect("serialize ok");
+            let deserialized: WorkspaceCleanStatus = serde_json::from_str(&json).expect("deserialize ok");
+            assert_eq!(status, deserialized, "Roundtrip failed for {status:?}");
+        }
+    }
+
+    #[test]
+    fn test_session_sync_input_serde_roundtrip() {
+        let input = SessionSyncInput {
+            session_name: "test-session".to_string(),
+            workspace_path: PathBuf::from("/tmp/workspace"),
+            main_branch: "main".to_string(),
+            allow_dirty: false,
+        };
+        let json = serde_json::to_string(&input).expect("serialize ok");
+        let deserialized: SessionSyncInput = serde_json::from_str(&json).expect("deserialize ok");
+        assert_eq!(input, deserialized);
+    }
+
+    #[test]
+    fn test_session_sync_result_serde_roundtrip() {
+        let result = SessionSyncResult {
+            session_name: "sess".to_string(),
+            new_revision: "abc123".to_string(),
+            had_conflicts: false,
+            synced_at: 1234567890,
+        };
+        let json = serde_json::to_string(&result).expect("serialize ok");
+        let deserialized: SessionSyncResult = serde_json::from_str(&json).expect("deserialize ok");
+        assert_eq!(result, deserialized);
+    }
+
+    #[test]
+    fn test_precondition_check_serde_roundtrip() {
+        let check = PreconditionCheck {
+            session_exists: true,
+            current_status: Some(SessionStatus::Active),
+            workspace_status: WorkspaceCleanStatus::Clean,
+        };
+        let json = serde_json::to_string(&check).expect("serialize ok");
+        let deserialized: PreconditionCheck = serde_json::from_str(&json).expect("deserialize ok");
+        assert_eq!(check, deserialized);
+    }
+
+    #[test]
+    fn test_precondition_check_serde_with_none_status() {
+        let check = PreconditionCheck {
+            session_exists: false,
+            current_status: None,
+            workspace_status: WorkspaceCleanStatus::Unknown,
+        };
+        let json = serde_json::to_string(&check).expect("serialize ok");
+        let deserialized: PreconditionCheck = serde_json::from_str(&json).expect("deserialize ok");
+        assert!(deserialized.current_status.is_none());
     }
 }

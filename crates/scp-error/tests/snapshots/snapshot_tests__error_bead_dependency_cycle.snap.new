@@ -1,6 +1,0 @@
----
-source: crates/scp-error/tests/snapshot_tests.rs
-assertion_line: 95
-expression: json
----
-{"BeadDependencyCycle":"bd-1 -> bd-2 -> bd-3 -> bd-1"}

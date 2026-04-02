@@ -221,4 +221,201 @@ mod tests {
         let result2 = ensure_operation_log_schema(&pool).await;
         assert!(result2.is_ok());
     }
+
+    // =========================================================================
+    // query_stream_events: empty stream returns empty vec
+    // =========================================================================
+
+    #[tokio::test]
+    async fn given_no_events_when_query_stream_then_empty() {
+        let (pool, _temp_dir) = create_test_pool().await;
+
+        let results = query_stream_events(&pool, "nonexistent-stream")
+            .await
+            .expect("Query should succeed");
+
+        assert!(results.is_empty());
+    }
+
+    // =========================================================================
+    // query_stream_events: stream isolation
+    // =========================================================================
+
+    #[tokio::test]
+    async fn given_multiple_streams_when_query_then_only_returns_matching() {
+        let (pool, _temp_dir) = create_test_pool().await;
+
+        insert_operation_log(
+            &pool,
+            &OperationLogEntry::new("evt-a", "{}", "stream-1", 1).unwrap(),
+        )
+        .await
+        .expect("Insert failed");
+        insert_operation_log(
+            &pool,
+            &OperationLogEntry::new("evt-b", "{}", "stream-2", 1).unwrap(),
+        )
+        .await
+        .expect("Insert failed");
+        insert_operation_log(
+            &pool,
+            &OperationLogEntry::new("evt-c", "{}", "stream-1", 2).unwrap(),
+        )
+        .await
+        .expect("Insert failed");
+
+        let results = query_stream_events(&pool, "stream-1")
+            .await
+            .expect("Query failed");
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].event_type, "evt-a");
+        assert_eq!(results[1].event_type, "evt-c");
+    }
+
+    // =========================================================================
+    // get_stream_version: empty stream returns 0
+    // =========================================================================
+
+    #[tokio::test]
+    async fn given_no_events_when_get_stream_version_then_zero() {
+        let (pool, _temp_dir) = create_test_pool().await;
+
+        let version = get_stream_version(&pool, "nonexistent-stream")
+            .await
+            .expect("Query should succeed");
+
+        assert_eq!(version, 0);
+    }
+
+    // =========================================================================
+    // query_all_operations: no limit returns all
+    // =========================================================================
+
+    #[tokio::test]
+    async fn given_events_when_query_all_no_limit_then_returns_all() {
+        let (pool, _temp_dir) = create_test_pool().await;
+
+        for i in 0..5 {
+            insert_operation_log(
+                &pool,
+                &OperationLogEntry::new("evt", "{}", format!("s-{i}"), 1).unwrap(),
+            )
+            .await
+            .expect("Insert failed");
+        }
+
+        let results = query_all_operations(&pool, None)
+            .await
+            .expect("Query failed");
+
+        assert_eq!(results.len(), 5);
+    }
+
+    // =========================================================================
+    // query_all_operations: empty table returns empty vec
+    // =========================================================================
+
+    #[tokio::test]
+    async fn given_no_events_when_query_all_then_empty() {
+        let (pool, _temp_dir) = create_test_pool().await;
+
+        let results = query_all_operations(&pool, None)
+            .await
+            .expect("Query should succeed");
+
+        assert!(results.is_empty());
+    }
+
+    // =========================================================================
+    // query_all_operations: limit greater than count returns all
+    // =========================================================================
+
+    #[tokio::test]
+    async fn given_three_events_when_query_all_limit_100_then_returns_three() {
+        let (pool, _temp_dir) = create_test_pool().await;
+
+        for i in 0..3 {
+            insert_operation_log(
+                &pool,
+                &OperationLogEntry::new("evt", "{}", format!("s-{i}"), 1).unwrap(),
+            )
+            .await
+            .expect("Insert failed");
+        }
+
+        let results = query_all_operations(&pool, Some(100))
+            .await
+            .expect("Query failed");
+
+        assert_eq!(results.len(), 3);
+    }
+
+    // =========================================================================
+    // Insert returns entry with correct fields
+    // =========================================================================
+
+    #[tokio::test]
+    async fn given_valid_entry_when_insert_then_returns_entry_with_id() {
+        let (pool, _temp_dir) = create_test_pool().await;
+
+        let entry = OperationLogEntry::new("test_event", r#"{"key": "val"}"#, "stream-x", 5)
+            .expect("Failed to create entry");
+
+        let inserted = insert_operation_log(&pool, &entry)
+            .await
+            .expect("Insert failed");
+
+        assert!(inserted.id > 0);
+        assert_eq!(inserted.event_type, "test_event");
+        assert_eq!(inserted.payload, r#"{"key": "val"}"#);
+        assert_eq!(inserted.stream_id, "stream-x");
+        assert_eq!(inserted.stream_version, 5);
+    }
+
+    // =========================================================================
+    // Insert with large payload
+    // =========================================================================
+
+    #[tokio::test]
+    async fn given_entry_with_large_payload_when_insert_then_succeeds() {
+        let (pool, _temp_dir) = create_test_pool().await;
+        let large_payload = "x".repeat(10_000);
+
+        let entry = OperationLogEntry::new("big_event", &large_payload, "stream-big", 1)
+            .expect("Failed to create entry");
+
+        let inserted = insert_operation_log(&pool, &entry)
+            .await
+            .expect("Insert failed");
+
+        assert_eq!(inserted.payload.len(), 10_000);
+    }
+
+    // =========================================================================
+    // get_stream_version: multiple streams
+    // =========================================================================
+
+    #[tokio::test]
+    async fn given_multiple_streams_when_get_version_then_returns_correct() {
+        let (pool, _temp_dir) = create_test_pool().await;
+
+        insert_operation_log(&pool, &OperationLogEntry::new("e", "{}", "s-1", 1).unwrap())
+            .await
+            .expect("Insert failed");
+        insert_operation_log(&pool, &OperationLogEntry::new("e", "{}", "s-1", 2).unwrap())
+            .await
+            .expect("Insert failed");
+        insert_operation_log(&pool, &OperationLogEntry::new("e", "{}", "s-2", 1).unwrap())
+            .await
+            .expect("Insert failed");
+
+        let v1 = get_stream_version(&pool, "s-1").await.expect("Query failed");
+        let v2 = get_stream_version(&pool, "s-2").await.expect("Query failed");
+        let v3 = get_stream_version(&pool, "s-3").await.expect("Query failed");
+
+        assert_eq!(v1, 2);
+        assert_eq!(v2, 1);
+        assert_eq!(v3, 0);
+    }
 }

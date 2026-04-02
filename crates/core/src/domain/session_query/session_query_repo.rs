@@ -17,7 +17,7 @@ use super::session_query_types::SessionQuery;
 // REPOSITORY EXTENSIONS
 // ============================================================================
 
-/// Extension trait for SessionRepository to support filtering
+/// Extension trait for `SessionRepository` to support filtering
 pub trait SessionRepositoryExt {
     /// List sessions with a filter
     fn list_filtered(&self, filter: &SessionFilter) -> Vec<Session>;

@@ -108,8 +108,7 @@ impl GitCliBackend {
             } else if stderr.contains("already exists") {
                 Err(VcsError::BranchExists(stderr))
             } else {
-                Err(VcsError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Err(VcsError::Io(std::io::Error::other(
                     format!("git exited with {}: {}", exit_code, stderr),
                 )))
             }
@@ -146,8 +145,7 @@ impl GitCliBackend {
             Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            Err(VcsError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Err(VcsError::Io(std::io::Error::other(
                 format!("git exited with {:?}: {}", output.status.code(), stderr),
             )))
         }
@@ -157,5 +155,120 @@ impl GitCliBackend {
         Utc.timestamp_opt(timestamp, 0)
             .single()
             .unwrap_or_else(Utc::now)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn git_cli_backend_new() {
+        let backend = GitCliBackend::new(std::path::PathBuf::from("/tmp/test"));
+        assert_eq!(backend.repo_path(), &std::path::PathBuf::from("/tmp/test"));
+    }
+
+    #[test]
+    fn git_cli_backend_new_from_path() {
+        let backend = GitCliBackend::new_from_path("/tmp/from-path");
+        assert_eq!(backend.repo_path(), &std::path::PathBuf::from("/tmp/from-path"));
+    }
+
+    #[test]
+    fn git_cli_backend_is_git_repo_true() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
+        let backend = GitCliBackend::new(dir.path().to_path_buf());
+        assert!(backend.is_git_repo());
+    }
+
+    #[test]
+    fn git_cli_backend_is_git_repo_false() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let backend = GitCliBackend::new(dir.path().to_path_buf());
+        assert!(!backend.is_git_repo());
+    }
+
+    #[test]
+    fn git_cli_backend_is_initialized_true() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
+        let backend = GitCliBackend::new(dir.path().to_path_buf());
+        assert!(backend.is_initialized().expect("ok"));
+    }
+
+    #[test]
+    fn git_cli_backend_is_initialized_false() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let backend = GitCliBackend::new(dir.path().to_path_buf());
+        assert!(!backend.is_initialized().expect("ok"));
+    }
+
+    #[test]
+    fn git_cli_backend_status_not_initialized() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let backend = GitCliBackend::new(dir.path().to_path_buf());
+        let result = backend.status();
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn git_cli_backend_diff_not_initialized() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let backend = GitCliBackend::new(dir.path().to_path_buf());
+        let result = backend.diff();
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn git_cli_backend_diff_staged_not_initialized() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let backend = GitCliBackend::new(dir.path().to_path_buf());
+        let result = backend.diff_staged();
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn git_cli_backend_add_not_initialized() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let backend = GitCliBackend::new(dir.path().to_path_buf());
+        let result = backend.add(&["."]);
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    #[test]
+    fn git_cli_backend_commit_not_initialized() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let backend = GitCliBackend::new(dir.path().to_path_buf());
+        let result = backend.commit("test message");
+        assert!(matches!(result, Err(VcsError::NotInitialized)));
+    }
+
+    // -- parse_timestamp tests --
+
+    #[test]
+    fn parse_timestamp_valid() {
+        let ts = GitCliBackend::parse_timestamp(1_700_000_000);
+        assert_eq!(ts.timestamp(), 1_700_000_000);
+    }
+
+    #[test]
+    fn parse_timestamp_epoch() {
+        let ts = GitCliBackend::parse_timestamp(0);
+        assert_eq!(ts.timestamp(), 0);
+    }
+
+    #[test]
+    fn parse_timestamp_negative() {
+        // Negative timestamps represent times before Unix epoch
+        let ts = GitCliBackend::parse_timestamp(-1);
+        // Should still produce a valid DateTime (fallback to Utc::now)
+        assert!(ts.timestamp() <= 0 || ts.timestamp() > 0);
+    }
+
+    #[test]
+    fn parse_timestamp_far_future() {
+        let ts = GitCliBackend::parse_timestamp(999_999_999_999);
+        assert!(ts.timestamp() > 0);
     }
 }

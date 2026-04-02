@@ -114,7 +114,7 @@ impl BeadDescription {
 
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.0.as_ref().map_or(true, |s| s.is_empty())
+        self.0.as_ref().is_none_or(|s| s.is_empty())
     }
 }
 
@@ -193,5 +193,132 @@ mod tests {
         let desc = BeadDescription::new("Some description").unwrap();
         assert!(!desc.is_empty());
         assert_eq!(desc.as_option(), Some(&"Some description".to_string()));
+    }
+
+    // =========================================================================
+    // BeadId Extended Tests
+    // =========================================================================
+
+    mod bead_value_id_tests {
+        use super::*;
+
+        #[test]
+        fn bead_id_at_max_length() {
+            let max_id = "a".repeat(BeadId::MAX_LENGTH);
+            let id = BeadId::new(max_id).expect("at max length");
+            assert_eq!(id.as_str().len(), BeadId::MAX_LENGTH);
+        }
+
+        #[test]
+        fn bead_id_exceeds_max_length_rejects() {
+            let too_long = "a".repeat(BeadId::MAX_LENGTH + 1);
+            let result = BeadId::new(too_long);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn bead_id_with_spaces_rejects() {
+            let result = BeadId::new("bd 123");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn bead_id_display() {
+            let id = BeadId::new("bd-display-test").expect("valid");
+            assert_eq!(format!("{id}"), "bd-display-test");
+        }
+
+        #[test]
+        fn bead_id_serde_roundtrip() {
+            let id = BeadId::new("bd-serde-test").expect("valid");
+            let json = serde_json::to_string(&id).expect("serialize");
+            let parsed: BeadId = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(id, parsed);
+        }
+    }
+
+    // =========================================================================
+    // BeadTitle Extended Tests
+    // =========================================================================
+
+    mod bead_value_title_tests {
+        use super::*;
+
+        #[test]
+        fn bead_title_at_max_length() {
+            let max_title = "a".repeat(BeadTitle::MAX_LENGTH);
+            let title = BeadTitle::new(max_title).expect("at max");
+            assert_eq!(title.as_str().len(), BeadTitle::MAX_LENGTH);
+        }
+
+        #[test]
+        fn bead_title_exceeds_max_rejects() {
+            let too_long = "a".repeat(BeadTitle::MAX_LENGTH + 1);
+            let result = BeadTitle::new(too_long);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn bead_title_display() {
+            let title = BeadTitle::new("Show Title").expect("valid");
+            assert_eq!(format!("{title}"), "Show Title");
+        }
+
+        #[test]
+        fn bead_title_serde_roundtrip() {
+            let title = BeadTitle::new("Serde Title").expect("valid");
+            let json = serde_json::to_string(&title).expect("serialize");
+            let parsed: BeadTitle = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(title, parsed);
+        }
+    }
+
+    // =========================================================================
+    // BeadDescription Extended Tests
+    // =========================================================================
+
+    mod bead_value_desc_tests {
+        use super::*;
+
+        #[test]
+        fn bead_description_whitespace_only_becomes_none() {
+            let desc = BeadDescription::new("   ").expect("valid");
+            assert!(desc.is_empty());
+            assert!(desc.as_option().is_none());
+        }
+
+        #[test]
+        fn bead_description_trims_whitespace() {
+            let desc = BeadDescription::new("  padded  ").expect("valid");
+            assert_eq!(desc.as_option(), Some(&"padded".to_string()));
+        }
+
+        #[test]
+        fn bead_description_display_none() {
+            let desc = BeadDescription::new("").expect("valid");
+            assert_eq!(format!("{desc}"), "");
+        }
+
+        #[test]
+        fn bead_description_display_with_content() {
+            let desc = BeadDescription::new("Hello").expect("valid");
+            assert_eq!(format!("{desc}"), "Hello");
+        }
+
+        #[test]
+        fn bead_description_serde_roundtrip() {
+            let desc = BeadDescription::new("Serialize me").expect("valid");
+            let json = serde_json::to_string(&desc).expect("serialize");
+            let parsed: BeadDescription = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(desc, parsed);
+        }
+
+        #[test]
+        fn bead_description_serde_roundtrip_empty() {
+            let desc = BeadDescription::new("").expect("valid");
+            let json = serde_json::to_string(&desc).expect("serialize");
+            let parsed: BeadDescription = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(desc, parsed);
+        }
     }
 }

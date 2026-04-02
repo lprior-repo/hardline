@@ -1,4 +1,5 @@
 //! Pure validation functions for AbsolutePath.
+#![allow(clippy::type_complexity)]
 
 use std::path::Path;
 

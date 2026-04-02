@@ -40,11 +40,11 @@ use crate::Result;
 ///
 /// ```rust,no_run
 /// # use sqlx::SqlitePool;
-/// # use isolate_core::coordination::conflict_resolutions_insert::insert_conflict_resolution;
+/// # use scp_core::coordination::conflict_resolutions_insert::insert_conflict_resolution;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # let pool = SqlitePool::connect("sqlite:db.sqlite").await?;
-/// use isolate_core::coordination::conflict_resolutions_entities::ConflictResolution;
+/// use scp_core::coordination::conflict_resolutions_entities::ConflictResolution;
 /// let resolution = ConflictResolution {
 ///     id: 0,
 ///     timestamp: "2025-02-18T12:34:56Z".to_string(),

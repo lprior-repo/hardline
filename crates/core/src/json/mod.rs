@@ -13,6 +13,7 @@ pub mod helpers;
 pub mod meta;
 pub mod schemas;
 pub mod serializable;
+pub mod serializers;
 
 #[cfg(test)]
 mod tests;
@@ -24,6 +25,12 @@ pub use error_code::ErrorCode;
 pub use error_mapping::{classify_exit_code, map_error_to_parts};
 pub use error_types::{ErrorDetail, JsonError, JsonSuccess};
 pub use hateoas::{HateoasLink, RelatedResources};
-pub use helpers::error_with_available_sessions;
+pub use helpers::{
+    error_with_available_sessions, output_json_parse_error, output_json_success, semantic_exit_code,
+};
 pub use meta::ResponseMeta;
 pub use serializable::JsonSerializable;
+pub use serializers::{
+    ConfigSetOutput, ConfigValueOutput, DiffOutput, DiffStatOutput, FileDiffStatOutput,
+    InitOutput, TemplateDeleteOutput, TemplateShowOutput,
+};

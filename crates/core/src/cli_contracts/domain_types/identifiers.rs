@@ -12,6 +12,11 @@ pub use crate::domain::AgentId;
 pub use crate::domain::SessionName;
 
 impl AgentId {
+    /// Parses an agent ID from a string, returning a contract error on failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input is not a valid agent ID.
     pub fn try_parse_contract(s: impl Into<String>) -> Result<Self, ContractError> {
         let s = s.into();
         Self::parse(s).map_err(|e| ContractError::invalid_input("agent_id", e.to_string()))
@@ -19,6 +24,11 @@ impl AgentId {
 }
 
 impl SessionName {
+    /// Parses a session name from a string, returning a contract error on failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the input is not a valid session name.
     pub fn try_parse_contract(s: impl Into<String>) -> Result<Self, ContractError> {
         let s = s.into();
         Self::parse(s).map_err(|e| ContractError::invalid_input("name", e.to_string()))

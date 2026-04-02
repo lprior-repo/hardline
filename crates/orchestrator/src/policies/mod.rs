@@ -81,4 +81,50 @@ mod tests {
         assert_eq!(config.retry.max_retries(), 3);
         assert_eq!(config.circuit_breaker.failure_count(), 0);
     }
+
+    #[test]
+    fn test_policy_config_with_deadline() {
+        let config = PolicyConfig::new(1000, 3, 100, 1000, 3, 5000)
+            .expect("should create config")
+            .with_deadline(Deadline::from_now(60000));
+
+        assert!(config.deadline.is_some());
+        assert!(!config.deadline.as_ref().unwrap().is_exceeded());
+    }
+
+    #[test]
+    fn test_policy_config_default_no_deadline() {
+        let config = PolicyConfig::new(1000, 3, 100, 1000, 3, 5000).expect("should create config");
+        assert!(config.deadline.is_none());
+    }
+
+    #[test]
+    fn test_policy_config_invalid_timeout_zero() {
+        let result = PolicyConfig::new(0, 3, 100, 1000, 3, 5000);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_policy_config_invalid_base_delay_zero() {
+        let result = PolicyConfig::new(1000, 3, 0, 1000, 3, 5000);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_policy_config_invalid_max_delay_less_than_base() {
+        let result = PolicyConfig::new(1000, 3, 500, 100, 3, 5000);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_policy_config_invalid_failure_threshold_zero() {
+        let result = PolicyConfig::new(1000, 3, 100, 1000, 0, 5000);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_policy_config_invalid_recovery_timeout_zero() {
+        let result = PolicyConfig::new(1000, 3, 100, 1000, 3, 0);
+        assert!(result.is_err());
+    }
 }

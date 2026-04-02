@@ -2,6 +2,7 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
+#![allow(clippy::missing_errors_doc)]
 #![forbid(unsafe_code)]
 
 //! Domain validation - Railway-Oriented Programming for validation
@@ -288,5 +289,236 @@ mod tests {
             Ok(3),
         ];
         assert!(validate_all(results).is_err());
+    }
+
+    #[test]
+    fn test_validation_error_display_empty_value() {
+        let err = ValidationError::EmptyValue("field_name".into());
+        let msg = format!("{err}");
+        assert!(msg.contains("field_name") && msg.contains("empty"));
+    }
+
+    #[test]
+    fn test_validation_error_display_invalid_characters() {
+        let err = ValidationError::InvalidCharacters {
+            field: "name".into(),
+            found: "$".into(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("name") && msg.contains("$"));
+    }
+
+    #[test]
+    fn test_validation_error_display_exceeds_maximum() {
+        let err = ValidationError::ExceedsMaximum {
+            field: "priority".into(),
+            value: 200,
+            max: 100,
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("priority") && msg.contains("100"));
+    }
+
+    #[test]
+    fn test_validation_error_display_below_minimum() {
+        let err = ValidationError::BelowMinimum {
+            field: "count".into(),
+            value: 0,
+            min: 1,
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("count") && msg.contains("1"));
+    }
+
+    #[test]
+    fn test_validation_error_display_invalid_state_transition() {
+        let err = ValidationError::InvalidStateTransition {
+            from: "Pending".into(),
+            to: "Merged".into(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("Pending") && msg.contains("Merged"));
+    }
+
+    #[test]
+    fn test_validation_error_display_not_found() {
+        let err = ValidationError::NotFound {
+            field: "id".into(),
+            value: "abc".into(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("abc") && msg.contains("not found"));
+    }
+
+    #[test]
+    fn test_validation_error_display_already_exists() {
+        let err = ValidationError::AlreadyExists {
+            field: "session".into(),
+            value: "s1".into(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("s1") && msg.contains("already exists"));
+    }
+
+    #[test]
+    fn test_validation_error_display_out_of_bounds() {
+        let err = ValidationError::OutOfBounds {
+            position: 5,
+            length: 3,
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("5") && msg.contains("3"));
+    }
+
+    #[test]
+    fn test_validation_error_display_multiple() {
+        let errors = vec![
+            ValidationError::EmptyValue("a".into()),
+            ValidationError::EmptyValue("b".into()),
+        ];
+        let err = ValidationError::Multiple(errors);
+        let msg = format!("{err}");
+        assert!(msg.contains("2 error(s)"));
+    }
+
+    #[test]
+    fn test_validation_error_debug() {
+        let err = ValidationError::EmptyValue("x".into());
+        let debug = format!("{err:?}");
+        assert!(debug.contains("EmptyValue"));
+    }
+
+    #[test]
+    fn test_validation_error_clone_and_eq() {
+        let a = ValidationError::EmptyValue("field".into());
+        let b = a.clone();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_validation_error_is_recoverable() {
+        assert!(ValidationError::EmptyValue("x".into()).is_recoverable());
+        assert!(ValidationError::InvalidCharacters {
+            field: "f".into(),
+            found: "c".into(),
+        }
+        .is_recoverable());
+        assert!(ValidationError::OutOfBounds {
+            position: 0,
+            length: 0,
+        }
+        .is_recoverable());
+        assert!(!ValidationError::ExceedsMaximum {
+            field: "f".into(),
+            value: 0,
+            max: 0,
+        }
+        .is_recoverable());
+        assert!(!ValidationError::BelowMinimum {
+            field: "f".into(),
+            value: 0,
+            min: 0,
+        }
+        .is_recoverable());
+        assert!(!ValidationError::InvalidStateTransition {
+            from: "A".into(),
+            to: "B".into(),
+        }
+        .is_recoverable());
+    }
+
+    #[test]
+    fn test_validation_error_multiple_helper() {
+        let errors = vec![
+            ValidationError::EmptyValue("a".into()),
+            ValidationError::EmptyValue("b".into()),
+        ];
+        let err = ValidationError::multiple(errors);
+        assert!(matches!(err, ValidationError::Multiple(_)));
+    }
+
+    #[test]
+    fn test_validator_default_is_empty() {
+        let v = Validator::default();
+        assert!(!v.has_errors());
+        assert_eq!(v.error_count(), 0);
+    }
+
+    #[test]
+    fn test_validator_validate_returns_value() {
+        let mut v = Validator::new();
+        let result = v.validate(Ok(42));
+        assert_eq!(result, Some(42));
+        assert!(!v.has_errors());
+    }
+
+    #[test]
+    fn test_validator_validate_collects_error() {
+        let mut v = Validator::new();
+        let result = v.validate::<()>(Err(ValidationError::EmptyValue("test".into())));
+        assert!(result.is_none());
+        assert!(v.has_errors());
+    }
+
+    #[test]
+    fn test_validator_add_error() {
+        let mut v = Validator::new();
+        v.add_error(ValidationError::EmptyValue("custom".into()));
+        assert!(v.has_errors());
+        assert_eq!(v.error_count(), 1);
+    }
+
+    #[test]
+    fn test_validator_finalize_with_two_errors() {
+        let mut v = Validator::new();
+        v.add_error(ValidationError::EmptyValue("a".into()));
+        v.add_error(ValidationError::EmptyValue("b".into()));
+        let result = v.finalize();
+        assert!(matches!(result, Err(ValidationError::Multiple(_))));
+        if let Err(ValidationError::Multiple(errors)) = result {
+            assert_eq!(errors.len(), 2);
+        }
+    }
+
+    #[test]
+    fn test_validate_range_at_boundary_min() {
+        assert!(validate_range(0, 0, 10, "test").is_ok());
+    }
+
+    #[test]
+    fn test_validate_range_at_boundary_max() {
+        assert!(validate_range(10, 0, 10, "test").is_ok());
+    }
+
+    #[test]
+    fn test_validate_range_field_name_in_error() {
+        let result = validate_range(20, 0, 10, "my_field");
+        match result {
+            Err(ValidationError::ExceedsMaximum { field, .. }) => {
+                assert_eq!(field, "my_field");
+            }
+            _ => panic!("Expected ExceedsMaximum"),
+        }
+    }
+
+    #[test]
+    fn test_validate_that_returns_original_value() {
+        let s = String::from("hello");
+        let result = validate_that(s, |v| !v.is_empty(), "test");
+        assert_eq!(result.unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_validate_all_empty_vec() {
+        let result: Result<Vec<i32>, ValidationError> = validate_all(vec![]);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_validation_error_implements_std_error() {
+        let err: Box<dyn std::error::Error> =
+            Box::new(ValidationError::EmptyValue("x".into()));
+        let _ = format!("{err:?}");
     }
 }

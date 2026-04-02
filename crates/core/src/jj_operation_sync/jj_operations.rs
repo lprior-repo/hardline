@@ -3,6 +3,7 @@
 //! Provides operation info retrieval and synchronized workspace creation.
 
 #![warn(clippy::pedantic)]
+#![allow(clippy::missing_errors_doc)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 #![allow(unused)]
@@ -24,6 +25,10 @@ pub struct RepoOperationInfo {
 }
 
 /// Get the current operation ID and repo root for a working copy
+///
+/// # Errors
+///
+/// Returns an error if the `jj` command fails or returns invalid output.
 pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
     let output = get_jj_command()
         .args(["op", "log", "--no-graph", "--limit", "1", "-T", "id"])
@@ -90,6 +95,11 @@ pub async fn get_current_operation(root: &Path) -> Result<RepoOperationInfo> {
 
 /// Create a workspace with cross-process and in-process locking to prevent
 /// operation graph corruption from concurrent creations.
+///
+/// # Errors
+///
+/// Returns an error if the workspace name is empty, locking fails, or the
+/// `jj workspace add` command fails.
 pub async fn create_workspace_synced(name: &str, path: &Path, repo_root: &Path) -> Result<()> {
     if name.is_empty() {
         return Err(crate::error_config::ConfigErrorKind::Invalid(

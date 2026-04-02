@@ -1,3 +1,3 @@
 pub mod service;
 
-pub use service::{CleanupReport, SnapshotRepository, SnapshotService};
+pub use service::{CleanupReport, SnapshotService};

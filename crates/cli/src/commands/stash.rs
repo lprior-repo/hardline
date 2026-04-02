@@ -133,3 +133,99 @@ pub fn show(stash_ref: Option<&str>, _stat: bool) -> Result<()> {
 
     Ok(())
 }
+
+/// Parse a stash reference string (e.g., "stash@{0}") into a numeric index.
+///
+/// Returns `Some(index)` for valid stash references, `None` otherwise.
+/// Pure function extracted for testability.
+fn parse_stash_ref(stash_ref: &str) -> Option<usize> {
+    stash_ref
+        .strip_prefix("stash@{")
+        .and_then(|s| s.strip_suffix('}'))
+        .and_then(|s| s.parse::<usize>().ok())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_stash_ref_zero() {
+        assert_eq!(parse_stash_ref("stash@{0}"), Some(0));
+    }
+
+    #[test]
+    fn parse_stash_ref_one() {
+        assert_eq!(parse_stash_ref("stash@{1}"), Some(1));
+    }
+
+    #[test]
+    fn parse_stash_ref_large_number() {
+        assert_eq!(parse_stash_ref("stash@{999}"), Some(999));
+    }
+
+    #[test]
+    fn parse_stash_ref_missing_braces() {
+        assert_eq!(parse_stash_ref("stash@0"), None);
+    }
+
+    #[test]
+    fn parse_stash_ref_missing_prefix() {
+        assert_eq!(parse_stash_ref("0"), None);
+    }
+
+    #[test]
+    fn parse_stash_ref_empty_string() {
+        assert_eq!(parse_stash_ref(""), None);
+    }
+
+    #[test]
+    fn parse_stash_ref_non_numeric() {
+        assert_eq!(parse_stash_ref("stash@{abc}"), None);
+    }
+
+    #[test]
+    fn parse_stash_ref_negative_number() {
+        assert_eq!(parse_stash_ref("stash@{-1}"), None);
+    }
+
+    #[test]
+    fn parse_stash_ref_with_spaces() {
+        assert_eq!(parse_stash_ref("stash@{ 0 }"), None);
+    }
+
+    #[test]
+    fn parse_stash_ref_missing_closing_brace() {
+        assert_eq!(parse_stash_ref("stash@{0"), None);
+    }
+
+    #[test]
+    fn parse_stash_ref_missing_opening_brace() {
+        assert_eq!(parse_stash_ref("stash@0}"), None);
+    }
+
+    #[test]
+    fn parse_stash_ref_float() {
+        assert_eq!(parse_stash_ref("stash@{1.5}"), None);
+    }
+
+    #[test]
+    fn parse_stash_ref_leading_zeros() {
+        assert_eq!(parse_stash_ref("stash@{007}"), Some(7));
+    }
+
+    #[test]
+    fn parse_stash_ref_just_braces() {
+        assert_eq!(parse_stash_ref("stash@{}"), None);
+    }
+
+    #[test]
+    fn parse_stash_ref_garbage() {
+        assert_eq!(parse_stash_ref("totally wrong"), None);
+    }
+
+    #[test]
+    fn parse_stash_ref_almost_valid() {
+        assert_eq!(parse_stash_ref("stash{0}"), None);
+    }
+}

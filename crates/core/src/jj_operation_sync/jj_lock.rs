@@ -4,6 +4,7 @@
 //! all processes to prevent operation graph corruption.
 
 #![warn(clippy::pedantic)]
+#![allow(clippy::missing_errors_doc)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
@@ -43,7 +44,7 @@ pub fn calculate_backoff_ms(attempt: u32) -> u64 {
         .map_or(MAX_BACKOFF_MS, |v| v.min(MAX_BACKOFF_MS))
 }
 
-/// Wrapper that impls DerefMut for tokio MutexGuard to allow dropping.
+/// Wrapper that impls `DerefMut` for tokio `MutexGuard` to allow dropping.
 pub struct MutexGuardClosing<'a, T>(tokio::sync::MutexGuard<'a, T>);
 
 impl<'a, T> std::ops::Deref for MutexGuardClosing<'a, T> {
@@ -71,34 +72,32 @@ fn build_workspace_lock_timeout_error(timeout_ms: u64, retries: usize) -> Error 
 }
 
 /// Acquire in-memory lock with exponential backoff.
-pub(super) fn acquire_lock_with_backoff(
-) -> impl std::future::Future<Output = Result<MutexGuardClosing<'static, ()>>> + Send {
-    async move {
-        let timeout_ms = u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis())
-            .map_err(|_| Error::internal("timeout ms overflow"))?;
-        let mut current_timeout = LOCK_ACQUISITION_TIMEOUT;
+pub(super) async fn acquire_lock_with_backoff(
+) -> Result<MutexGuardClosing<'static, ()>> {
+    let timeout_ms = u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis())
+        .map_err(|_| Error::internal("timeout ms overflow"))?;
+    let mut current_timeout = LOCK_ACQUISITION_TIMEOUT;
 
-        for attempt in 0..MAX_LOCK_RETRIES {
-            match timeout(current_timeout, WORKSPACE_CREATION_LOCK.lock()).await {
-                Ok(guard) => return Ok(MutexGuardClosing(guard)),
-                Err(_) if attempt + 1 < MAX_LOCK_RETRIES => {
-                    tokio::time::sleep(current_timeout).await;
-                    current_timeout *= 2;
-                }
-                Err(_) => {
-                    return Err(build_workspace_lock_timeout_error(
-                        timeout_ms,
-                        MAX_LOCK_RETRIES,
-                    ));
-                }
+    for attempt in 0..MAX_LOCK_RETRIES {
+        match timeout(current_timeout, WORKSPACE_CREATION_LOCK.lock()).await {
+            Ok(guard) => return Ok(MutexGuardClosing(guard)),
+            Err(_) if attempt + 1 < MAX_LOCK_RETRIES => {
+                tokio::time::sleep(current_timeout).await;
+                current_timeout *= 2;
+            }
+            Err(_) => {
+                return Err(build_workspace_lock_timeout_error(
+                    timeout_ms,
+                    MAX_LOCK_RETRIES,
+                ));
             }
         }
-
-        Err(build_workspace_lock_timeout_error(
-            timeout_ms,
-            MAX_LOCK_RETRIES,
-        ))
     }
+
+    Err(build_workspace_lock_timeout_error(
+        timeout_ms,
+        MAX_LOCK_RETRIES,
+    ))
 }
 
 /// Build a file lock timeout error with total backoff computation.
@@ -109,7 +108,7 @@ fn build_file_lock_timeout_error(
 ) -> Error {
     let total_wait_ms: u64 = (0u32..max_attempts_u32)
         .map(calculate_backoff_ms)
-        .fold(0u64, |acc, v| acc.saturating_add(v));
+        .fold(0u64, u64::saturating_add);
     crate::error_jj::JjErrorKind::LockTimeout {
         operation: operation.to_string(),
         timeout_ms: total_wait_ms,
@@ -190,11 +189,10 @@ fn enforce_strict_locks(lock_path: &Path, lock_supported: bool) -> Result<()> {
     // Prefer the current env var name; fall back to legacy name with a warning.
     let strict = std::env::var("SCP_STRICT_LOCKS").is_ok()
         || std::env::var("Isolate_STRICT_LOCKS")
-            .map(|_| {
+            .is_ok_and(|_| {
                 tracing::warn!("Isolate_STRICT_LOCKS is deprecated; use SCP_STRICT_LOCKS");
                 true
-            })
-            .unwrap_or(false);
+            });
 
     if strict {
         return Err(Error::validation_error(format!(
@@ -213,6 +211,11 @@ fn enforce_strict_locks(lock_path: &Path, lock_supported: bool) -> Result<()> {
 /// Post-condition: Returns `Ok(File)` with exclusive lock held.
 /// Does NOT create `.isolate` directory. Caller must call
 /// `ensure_data_directory()` AFTER acquiring the lock.
+///
+/// # Errors
+///
+/// Returns an error if the lock file cannot be opened, the lock cannot be
+/// acquired within the timeout, or the blocking task panics.
 pub async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
     let lock_path = repo_root.join(WORKSPACE_CREATION_LOCK_FILE);
 
@@ -243,10 +246,75 @@ pub async fn acquire_cross_process_lock(repo_root: &Path) -> Result<File> {
 /// # Postcondition
 ///
 /// `.isolate` directory exists at `{repo_root}/.isolate`.
+///
+/// # Errors
+///
+/// Returns an error if the directory cannot be created.
 pub async fn ensure_data_directory(repo_root: &Path) -> Result<()> {
     let data_dir = repo_root.join(".isolate");
     tokio::fs::create_dir_all(&data_dir)
         .await
         .map_err(|e| Error::io_error(format!("Failed to create data directory: {e}")))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backoff_attempt_zero_returns_base() {
+        assert_eq!(calculate_backoff_ms(0), FILE_LOCK_BASE_BACKOFF_MS);
+    }
+
+    #[test]
+    fn backoff_attempt_one_doubles() {
+        assert_eq!(calculate_backoff_ms(1), FILE_LOCK_BASE_BACKOFF_MS * 2);
+    }
+
+    #[test]
+    fn backoff_attempt_two_quadruples() {
+        assert_eq!(calculate_backoff_ms(2), FILE_LOCK_BASE_BACKOFF_MS * 4);
+    }
+
+    #[test]
+    fn backoff_is_exponential() {
+        let b0 = calculate_backoff_ms(0);
+        let b1 = calculate_backoff_ms(1);
+        let b2 = calculate_backoff_ms(2);
+        let b3 = calculate_backoff_ms(3);
+        assert!(b1 == b0 * 2);
+        assert!(b2 == b0 * 4);
+        assert!(b3 == b0 * 8);
+    }
+
+    #[test]
+    fn backoff_caps_at_max() {
+        let capped = calculate_backoff_ms(100);
+        assert_eq!(capped, MAX_BACKOFF_MS);
+    }
+
+    #[test]
+    fn backoff_large_attempt_still_caps() {
+        let capped = calculate_backoff_ms(u32::MAX);
+        assert_eq!(capped, MAX_BACKOFF_MS);
+    }
+
+    #[test]
+    fn workspace_creation_lock_file_is_dotfile() {
+        assert!(WORKSPACE_CREATION_LOCK_FILE.starts_with('.'));
+        assert!(WORKSPACE_CREATION_LOCK_FILE.contains("workspace"));
+        assert!(WORKSPACE_CREATION_LOCK_FILE.contains("lock"));
+    }
+
+    #[test]
+    fn lock_constants_are_sensible() {
+        assert!(LOCK_ACQUISITION_TIMEOUT.as_millis() > 0);
+        assert!(MAX_LOCK_RETRIES > 0);
+        assert!(FILE_LOCK_TIMEOUT_MS > 0);
+        assert!(FILE_LOCK_MAX_RETRIES > 0);
+        assert!(FILE_LOCK_BASE_BACKOFF_MS > 0);
+        assert!(MAX_BACKOFF_MS > 0);
+        assert!(MAX_BACKOFF_MS >= FILE_LOCK_BASE_BACKOFF_MS);
+    }
 }

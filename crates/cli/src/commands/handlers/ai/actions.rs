@@ -66,7 +66,7 @@ pub fn run_default() -> Result<()> {
 // Private action helpers
 // =============================================================================
 
-/// Serialize data into an AiEnvelope and write to Output.
+/// Serialize data into an `AiEnvelope` and write to Output.
 fn serialize_and_output<T: serde::Serialize>(schema_name: &str, data: &T) -> Result<()> {
     let envelope = AiEnvelope::new(schema_name, "single", data);
     let json_str = serde_json::to_string_pretty(&envelope)
@@ -131,5 +131,302 @@ fn detect_location_from_path(path: &std::path::Path) -> (Location, Option<String
 fn check_initialized() -> bool {
     std::env::current_dir()
         .map(|path| path.join(".jj").exists() || path.join(".git").exists())
-        .map_or(false, |v| v)
+        .is_ok_and(|v| v)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::handlers::ai::data::AiSubcommand;
+    use serial_test::serial;
+
+    // =========================================================================
+    // Error handling patterns
+    // =========================================================================
+
+    #[test]
+    fn serialize_and_output_succeeds_with_valid_struct_data() {
+        // serialize_and_output wraps data in AiEnvelope which uses #[serde(flatten)],
+        // so only struct/map data is supported (not primitives).
+        #[derive(serde::Serialize)]
+        struct TestPayload { value: String }
+        let result = serialize_and_output("test-schema", &TestPayload { value: "hello".to_string() });
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("serialize_and_output with valid struct data should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn serialize_and_output_succeeds_with_struct_data() {
+        let data = super::super::data::NextActionOutput {
+            action: "test".to_string(),
+            command: "scp work".to_string(),
+            reason: "testing".to_string(),
+            priority: super::super::data::Priority::Medium,
+        };
+        let result = serialize_and_output("test-next", &data);
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("serialize_and_output with NextActionOutput should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn serialize_and_output_succeeds_with_empty_struct() {
+        #[derive(serde::Serialize)]
+        struct Empty {}
+        let result = serialize_and_output("test-empty", &Empty {});
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("serialize_and_output with empty struct should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn serialize_and_output_succeeds_with_nested_data() {
+        let data = super::super::data::WorkflowInfo {
+            name: "test".to_string(),
+            steps: vec![],
+        };
+        let result = serialize_and_output("test-workflow", &data);
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("serialize_and_output with WorkflowInfo should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn serialize_and_output_produces_valid_json() {
+        let data = super::super::data::AiOverview {
+            message: "test".to_string(),
+            subcommands: vec![],
+            quick_commands: vec![],
+        };
+        // Capture output by verifying the function returns Ok
+        let result = serialize_and_output("test-overview", &data);
+        assert!(result.is_ok(), "Should produce valid JSON output");
+
+        // Also verify the serialization step directly
+        let envelope = super::super::data::AiEnvelope::new("test-overview", "single", &data);
+        match serde_json::to_string(&envelope) {
+            Ok(json_str) => {
+                assert!(json_str.contains("\"$schema\""), "Envelope must have $schema");
+                assert!(json_str.contains("\"success\""), "Envelope must have success");
+                // Verify it's parseable
+                match serde_json::from_str::<serde_json::Value>(&json_str) {
+                    Ok(_) => {}
+                    Err(e) => panic!("Envelope JSON should be parseable: {e}"),
+                }
+            }
+            Err(e) => panic!("Should serialize to valid JSON: {e}"),
+        }
+    }
+
+    #[test]
+    fn run_status_returns_ok() {
+        let result = run_status();
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("run_status should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn run_workflow_returns_ok() {
+        let result = run_workflow();
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("run_workflow should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn run_quick_start_returns_ok() {
+        let result = run_quick_start();
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("run_quick_start should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn run_next_returns_ok() {
+        let result = run_next();
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("run_next should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn run_default_returns_ok() {
+        let result = run_default();
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("run_default should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn run_dispatches_status_subcommand() {
+        let opts = super::super::data::AiOptions {
+            subcommand: AiSubcommand::Status,
+        };
+        let result = run(&opts);
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("run with Status should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn run_dispatches_workflow_subcommand() {
+        let opts = super::super::data::AiOptions {
+            subcommand: AiSubcommand::Workflow,
+        };
+        let result = run(&opts);
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("run with Workflow should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn run_dispatches_quick_start_subcommand() {
+        let opts = super::super::data::AiOptions {
+            subcommand: AiSubcommand::QuickStart,
+        };
+        let result = run(&opts);
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("run with QuickStart should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn run_dispatches_next_subcommand() {
+        let opts = super::super::data::AiOptions {
+            subcommand: AiSubcommand::Next,
+        };
+        let result = run(&opts);
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("run with Next should succeed: {e}"),
+        }
+    }
+
+    #[test]
+    fn run_dispatches_default_subcommand() {
+        let opts = super::super::data::AiOptions {
+            subcommand: AiSubcommand::Default,
+        };
+        let result = run(&opts);
+        match result {
+            Ok(()) => {}
+            Err(e) => panic!("run with Default should succeed: {e}"),
+        }
+    }
+
+    // =========================================================================
+    // detect_location_from_path - test with temp directories
+    // =========================================================================
+
+    #[test]
+    fn detect_location_returns_main_for_git_repo() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
+        let (loc, ws) = detect_location_from_path(dir.path());
+        assert_eq!(loc, Location::Main);
+        assert!(ws.is_none());
+    }
+
+    #[test]
+    fn detect_location_returns_main_for_jj_repo() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
+        let (loc, ws) = detect_location_from_path(dir.path());
+        assert_eq!(loc, Location::Main);
+        assert!(ws.is_none());
+    }
+
+    #[test]
+    fn detect_location_returns_not_in_repo_for_plain_dir() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (loc, ws) = detect_location_from_path(dir.path());
+        assert_eq!(loc, Location::NotInRepo);
+        assert!(ws.is_none());
+    }
+
+    #[test]
+    fn detect_location_returns_main_when_both_jj_and_git_exist() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
+        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
+        let (loc, _ws) = detect_location_from_path(dir.path());
+        assert_eq!(loc, Location::Main);
+    }
+
+    // =========================================================================
+    // check_initialized
+    // =========================================================================
+
+    #[test]
+    #[serial]
+    fn check_initialized_returns_true_in_git_repo() {
+        let original_dir = std::env::current_dir().expect("current dir");
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
+        std::env::set_current_dir(dir.path()).expect("cd");
+        let result = check_initialized();
+        assert!(result, "Should be initialized in a git repo");
+        // Restore cwd before TempDir drops so the cwd isn't invalidated
+        std::env::set_current_dir(&original_dir).ok();
+    }
+
+    #[test]
+    #[serial]
+    fn check_initialized_returns_true_in_jj_repo() {
+        let original_dir = std::env::current_dir().expect("current dir");
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
+        std::env::set_current_dir(dir.path()).expect("cd");
+        let result = check_initialized();
+        assert!(result, "Should be initialized in a jj repo");
+        std::env::set_current_dir(&original_dir).ok();
+    }
+
+    #[test]
+    #[serial]
+    fn check_initialized_returns_false_in_plain_dir() {
+        let original_dir = std::env::current_dir().expect("current dir");
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::env::set_current_dir(dir.path()).expect("cd");
+        let result = check_initialized();
+        assert!(!result, "Should not be initialized in a plain dir");
+        std::env::set_current_dir(&original_dir).ok();
+    }
+
+    // =========================================================================
+    // build_default_status - returns valid structure
+    // =========================================================================
+
+    #[test]
+    fn build_default_status_returns_structured_output() {
+        let output = build_default_status();
+        // Verify all fields are populated
+        assert!(!format!("{:?}", output.location).is_empty());
+        // initialized should reflect current dir state
+        // ready, suggestion, next_command should be consistent
+        assert!(!output.suggestion.is_empty());
+        assert!(!output.next_command.is_empty());
+    }
+
+    #[test]
+    fn build_default_next_action_returns_structured_output() {
+        let output = build_default_next_action();
+        assert!(!output.action.is_empty());
+        assert!(!output.command.is_empty());
+        assert!(!output.reason.is_empty());
+    }
 }

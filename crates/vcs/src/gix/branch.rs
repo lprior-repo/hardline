@@ -85,14 +85,13 @@ pub fn create(repo: &gix::Repository, name: &str, force: bool) -> GitResult<()> 
     let reference_name = format!("refs/heads/{}", name);
 
     // Check if branch already exists
-    if !force {
-        if repo.find_reference(&reference_name).is_ok() {
+    if !force
+        && repo.find_reference(&reference_name).is_ok() {
             return Err(GitError::InvalidRef {
                 name: name.to_string(),
                 reason: "Branch already exists".to_string(),
             });
         }
-    }
 
     let constraint = if force {
         gix::refs::transaction::PreviousValue::Any

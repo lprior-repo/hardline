@@ -23,12 +23,12 @@ pub mod status;
 pub mod task;
 pub mod types;
 
+use types::ZjjObject;
+
 pub use commands::build_object_cli;
-pub use legacy_commands::build_legacy_commands;
 pub use session::cmd_session;
 pub use status::cmd_status;
 pub use task::cmd_task;
-pub use types::{ConfigAction, DoctorAction, SessionAction, StatusAction, TaskAction, ZjjObject};
 
 #[cfg(test)]
 mod tests {

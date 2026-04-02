@@ -47,7 +47,7 @@ use crate::Result;
 ///
 /// ```rust,no_run
 /// # use sqlx::SqlitePool;
-/// # use isolate_core::coordination::conflict_resolutions::get_conflict_resolutions;
+/// # use scp_core::coordination::conflict_resolutions::get_conflict_resolutions;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # let pool = SqlitePool::connect("sqlite:db.sqlite").await?;
@@ -116,7 +116,7 @@ pub async fn get_conflict_resolutions(
 ///
 /// ```rust,no_run
 /// # use sqlx::SqlitePool;
-/// # use isolate_core::coordination::conflict_resolutions::get_resolutions_by_decider;
+/// # use scp_core::coordination::conflict_resolutions::get_resolutions_by_decider;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # let pool = SqlitePool::connect("sqlite:db.sqlite").await?;
@@ -181,7 +181,7 @@ pub async fn get_resolutions_by_decider(
 ///
 /// ```rust,no_run
 /// # use sqlx::SqlitePool;
-/// # use isolate_core::coordination::conflict_resolutions::get_resolutions_by_time_range;
+/// # use scp_core::coordination::conflict_resolutions::get_resolutions_by_time_range;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # let pool = SqlitePool::connect("sqlite:db.sqlite").await?;

@@ -217,4 +217,163 @@ mod tests {
         assert!(!policy.is_retryable("failed"));
         assert!(!policy.is_retryable("boom"));
     }
+
+    // --- Edge cases ---
+
+    #[test]
+    fn test_zero_max_retries_allowed() {
+        let policy = RetryPolicy::new(0, 100, 2.0, None, vec![]).expect("should create");
+        assert_eq!(policy.max_retries(), 0);
+    }
+
+    #[test]
+    fn test_max_delay_equal_to_base_delay() {
+        let policy = RetryPolicy::new(3, 100, 2.0, Some(100), vec![]).expect("should create");
+        assert_eq!(policy.max_delay_ms(), Some(100));
+        // All delays should be capped at 100
+        for attempt in 0..10 {
+            assert!(policy.calculate_delay(attempt) <= 100);
+        }
+    }
+
+    #[test]
+    fn test_max_delay_less_than_base_delay_rejected() {
+        let result = RetryPolicy::new(3, 200, 2.0, Some(100), vec![]);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), RetryPolicyError::InvalidMaxDelay);
+    }
+
+    #[test]
+    fn test_factor_must_be_greater_than_one() {
+        let result = RetryPolicy::new(3, 100, 1.0001, None, vec![]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_infinity_factor_rejected() {
+        let result = RetryPolicy::new(3, 100, f64::INFINITY, None, vec![]);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), RetryPolicyError::InvalidFactor);
+    }
+
+    #[test]
+    fn test_nan_factor_rejected() {
+        let result = RetryPolicy::new(3, 100, f64::NAN, None, vec![]);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), RetryPolicyError::InvalidFactor);
+    }
+
+    #[test]
+    fn test_negative_factor_rejected() {
+        let result = RetryPolicy::new(3, 100, -1.0, None, vec![]);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), RetryPolicyError::InvalidFactor);
+    }
+
+    #[test]
+    fn test_calculate_delay_is_monotonically_increasing_without_cap() {
+        let policy = RetryPolicy::new(100, 1, 2.0, None, vec![]).expect("should create");
+        let mut prev = policy.calculate_delay(0);
+        for attempt in 1..20 {
+            let current = policy.calculate_delay(attempt);
+            assert!(current >= prev, "Expected delay at attempt {attempt} ({current}) >= previous ({prev})");
+            prev = current;
+        }
+    }
+
+    #[test]
+    fn test_calculate_delay_respects_max_delay() {
+        let policy = RetryPolicy::new(100, 10, 3.0, Some(500), vec![]).expect("should create");
+        for attempt in 0..100 {
+            assert!(policy.calculate_delay(attempt) <= 500);
+        }
+    }
+
+    #[test]
+    fn test_calculate_delay_zero_attempt_equals_base() {
+        let policy = RetryPolicy::new(3, 250, 2.0, None, vec![]).expect("should create");
+        assert_eq!(policy.calculate_delay(0), 250);
+    }
+
+    #[test]
+    fn test_is_retryable_case_sensitive() {
+        let policy = RetryPolicy::new(3, 100, 2.0, None, vec!["IO".into()])
+            .expect("should create");
+        assert!(policy.is_retryable("IO error"));
+        assert!(!policy.is_retryable("io error")); // lowercase doesn't match
+    }
+
+    #[test]
+    fn test_is_retryable_empty_string() {
+        let policy = RetryPolicy::new(3, 100, 2.0, None, vec!["timeout".into()])
+            .expect("should create");
+        assert!(!policy.is_retryable(""));
+    }
+
+    #[test]
+    fn test_retryable_errors_multiple_patterns() {
+        let policy = RetryPolicy::new(3, 100, 2.0, None, vec!["a".into(), "b".into(), "c".into()])
+            .expect("should create");
+        assert!(policy.is_retryable("has a"));
+        assert!(policy.is_retryable("has b"));
+        assert!(policy.is_retryable("has c"));
+        assert!(!policy.is_retryable("xyz"));
+    }
+
+    // --- Error display ---
+
+    #[test]
+    fn test_retry_policy_error_display() {
+        let errors = [
+            RetryPolicyError::InvalidBaseDelay,
+            RetryPolicyError::InvalidFactor,
+            RetryPolicyError::InvalidMaxDelay,
+        ];
+        for err in &errors {
+            let msg = format!("{err}");
+            assert!(!msg.is_empty());
+        }
+    }
+
+    // --- Error trait ---
+
+    #[test]
+    fn test_retry_policy_error_implements_error() {
+        use std::error::Error;
+        let err = RetryPolicyError::InvalidBaseDelay;
+        assert!(err.source().is_none());
+    }
+
+    // --- Proptests for metrics accumulation properties ---
+
+    use proptest::prelude::*;
+    use proptest::{prop_assert};
+
+    proptest! {
+        #[test]
+        fn prop_delay_never_exceeds_max_delay(
+            base_delay in 1u64..100u64,
+            factor in 1.1f64..5.0f64,
+            max_delay in 1u64..1000u64,
+            attempt in 0u32..50u32,
+        ) {
+            let policy = RetryPolicy::new(10, base_delay, factor, Some(max_delay), vec![]);
+            // May fail if max_delay < base_delay, so skip those
+            if let Ok(p) = policy {
+                prop_assert!(p.calculate_delay(attempt) <= max_delay);
+            }
+        }
+
+        #[test]
+        fn prop_delay_is_always_positive(
+            base_delay in 1u64..100u64,
+            factor in 1.1f64..5.0f64,
+            attempt in 0u32..50u32,
+        ) {
+            let policy = RetryPolicy::new(10, base_delay, factor, None, vec![]);
+            if let Ok(p) = policy {
+                prop_assert!(p.calculate_delay(attempt) > 0);
+            }
+        }
+    }
 }

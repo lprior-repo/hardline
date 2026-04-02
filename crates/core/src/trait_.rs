@@ -2,7 +2,7 @@
 //!
 //! Unified interface for VCS operations supporting both JJ and Git.
 
-use super::types::{Branch, Commit, VcsStatus, Workspace};
+use super::types::{Branch, Commit, CommitId, RepoStatus, VcsStatus, Workspace};
 use crate::error::Result;
 
 /// VCS backend trait - unified interface for JJ and Git
@@ -37,8 +37,27 @@ pub trait VcsBackend: Send + Sync {
     /// Get status of working copy
     fn status(&self) -> Result<VcsStatus>;
 
-    /// Check if VCS is initialized
+    /// Check if VCS is initialized (checks own repo_path)
     fn is_initialized(&self) -> Result<bool>;
+
+    // ========================================================================
+    // Extended operations (ported from Isolate VcsBackend)
+    // ========================================================================
+
+    /// Check if a repository exists at the given path
+    fn repo_exists(&self, path: &str) -> bool;
+
+    /// Checkout a branch or commit ref
+    fn checkout(&self, target: &str) -> Result<()>;
+
+    /// Commit all staged/current changes with the given message
+    fn commit(&self, message: &str) -> Result<CommitId>;
+
+    /// Get diff between two commits
+    fn diff(&self, from: &CommitId, to: &CommitId) -> Result<String>;
+
+    /// Get detailed repository status
+    fn repo_status(&self) -> Result<RepoStatus>;
 
     // ========================================================================
     // Workspace operations (from Isolate)

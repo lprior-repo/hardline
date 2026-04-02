@@ -1,22 +1,38 @@
 use crate::domain::entities::QueueStatus;
+use crate::domain::queue::status::QueueStatus as CanonicalQueueStatus;
 use crate::error::QueueError;
 
+/// Queue state machine validation utilities.
+///
+/// **DEPRECATED**: All transition logic now lives in `QueueStatus::transition_to()`
+/// (in `domain::queue::status`). This struct delegates to that single source of truth.
+/// Prefer calling `QueueStatus::transition_to()` directly for new code.
 pub struct QueueStateMachine;
 
+/// Convert between the two identical-but-separate `QueueStatus` enums used in this crate.
+/// TODO(#unify-queue-status): The crate has two `QueueStatus` enums (entities vs queue module).
+///       This bridge exists only until they are unified into one.
+fn to_canonical(status: QueueStatus) -> CanonicalQueueStatus {
+    match status {
+        QueueStatus::Pending => CanonicalQueueStatus::Pending,
+        QueueStatus::Claimed => CanonicalQueueStatus::Claimed,
+        QueueStatus::Rebasing => CanonicalQueueStatus::Rebasing,
+        QueueStatus::Testing => CanonicalQueueStatus::Testing,
+        QueueStatus::ReadyToMerge => CanonicalQueueStatus::ReadyToMerge,
+        QueueStatus::Merging => CanonicalQueueStatus::Merging,
+        QueueStatus::Merged => CanonicalQueueStatus::Merged,
+        QueueStatus::FailedRetryable => CanonicalQueueStatus::FailedRetryable,
+        QueueStatus::FailedTerminal => CanonicalQueueStatus::FailedTerminal,
+        QueueStatus::Cancelled => CanonicalQueueStatus::Cancelled,
+    }
+}
+
 impl QueueStateMachine {
+    /// Check if a transition is valid by delegating to `QueueStatus::transition_to()`.
+    ///
+    /// This is the single source of truth -- all callers converge here.
     pub fn can_transition(from: QueueStatus, to: QueueStatus) -> bool {
-        match (from, to) {
-            (QueueStatus::Pending, QueueStatus::Claimed) => true,
-            (QueueStatus::Claimed, QueueStatus::Rebasing) => true,
-            (QueueStatus::Rebasing, QueueStatus::Testing) => true,
-            (QueueStatus::Testing, QueueStatus::ReadyToMerge) => true,
-            (QueueStatus::Testing, QueueStatus::FailedRetryable) => true,
-            (QueueStatus::Testing, QueueStatus::FailedTerminal) => true,
-            (QueueStatus::ReadyToMerge, QueueStatus::Merging) => true,
-            (QueueStatus::Merging, QueueStatus::Merged) => true,
-            (_, QueueStatus::Cancelled) => true,
-            _ => false,
-        }
+        to_canonical(from).transition_to(to_canonical(to)).is_ok()
     }
 
     pub fn validate_transition(from: QueueStatus, to: QueueStatus) -> Result<(), QueueError> {
@@ -83,435 +99,315 @@ mod tests {
     fn state_machine_pending_is_not_active() {
         assert!(!QueueStateMachine::is_active(QueueStatus::Pending));
     }
-}
 
-#[cfg(test)]
-mod proptest_state_machine_tests {
-    use crate::domain::entities::{QueueEntry, QueueEntryId, QueueStatus};
-    use crate::domain::value_objects::Priority;
-    use crate::error::QueueError;
-    use proptest::prelude::{any, prop, proptest};
-    use proptest::state_machine::{StateMachine, Transition};
-    use std::collections::BTreeMap;
-
-    #[derive(Debug, Clone, Copy)]
-    enum QueueAction {
-        Enqueue { session_id: String, priority: u8 },
-        Claim { entry_id: u32 },
-        StartRebase { entry_id: u32 },
-        StartTesting { entry_id: u32 },
-        MarkReadyToMerge { entry_id: u32 },
-        StartMerging { entry_id: u32 },
-        MarkMerged { entry_id: u32 },
-        MarkFailedRetryable { entry_id: u32 },
-        MarkFailedTerminal { entry_id: u32 },
-        Cancel { entry_id: u32 },
-    }
-
-    impl QueueAction {
-        fn priority(&self) -> u8 {
-            match self {
-                QueueAction::Enqueue { priority, .. } => *priority,
-                _ => 200,
-            }
-        }
-    }
-
-    #[derive(Debug, Clone)]
-    struct QueueState {
-        entries: BTreeMap<u32, QueueEntry>,
-        next_id: u32,
-        last_error: Option<String>,
-    }
-
-    impl QueueState {
-        fn new() -> Self {
-            Self {
-                entries: BTreeMap::new(),
-                next_id: 1,
-                last_error: None,
-            }
-        }
-
-        fn find_entry_by_local_id(&self, local_id: u32) -> Option<&QueueEntry> {
-            self.entries.get(&local_id)
-        }
-
-        fn find_entry_by_local_id_mut(&mut self, local_id: u32) -> Option<&mut QueueEntry> {
-            self.entries.get_mut(&local_id)
-        }
-
-        fn valid_actions(&self) -> Vec<QueueAction> {
-            let mut actions = Vec::new();
-            actions.push(QueueAction::Enqueue {
-                session_id: format!("session-{}", self.next_id),
-                priority: 200,
-            });
-            for (id, entry) in &self.entries {
-                let local_id = *id;
-                match entry.status {
-                    QueueStatus::Pending => {
-                        actions.push(QueueAction::Claim { entry_id: local_id });
-                        actions.push(QueueAction::Cancel { entry_id: local_id });
-                    }
-                    QueueStatus::Claimed => {
-                        actions.push(QueueAction::StartRebase { entry_id: local_id });
-                        actions.push(QueueAction::Cancel { entry_id: local_id });
-                    }
-                    QueueStatus::Rebasing => {
-                        actions.push(QueueAction::StartTesting { entry_id: local_id });
-                        actions.push(QueueAction::Cancel { entry_id: local_id });
-                    }
-                    QueueStatus::Testing => {
-                        actions.push(QueueAction::MarkReadyToMerge { entry_id: local_id });
-                        actions.push(QueueAction::MarkFailedRetryable { entry_id: local_id });
-                        actions.push(QueueAction::MarkFailedTerminal { entry_id: local_id });
-                        actions.push(QueueAction::Cancel { entry_id: local_id });
-                    }
-                    QueueStatus::ReadyToMerge => {
-                        actions.push(QueueAction::StartMerging { entry_id: local_id });
-                        actions.push(QueueAction::Cancel { entry_id: local_id });
-                    }
-                    QueueStatus::Merging => {
-                        actions.push(QueueAction::MarkMerged { entry_id: local_id });
-                        actions.push(QueueAction::Cancel { entry_id: local_id });
-                    }
-                    QueueStatus::FailedRetryable => {
-                        if entry.retry_count < 3 {
-                            actions.push(QueueAction::Claim { entry_id: local_id });
-                        }
-                        actions.push(QueueAction::Cancel { entry_id: local_id });
-                    }
-                    QueueStatus::Merged | QueueStatus::FailedTerminal | QueueStatus::Cancelled => {}
-                }
-            }
-            actions
-        }
-    }
-
-    struct QueueSM;
-
-    impl StateMachine for QueueSM {
-        type Action = QueueAction;
-        type State = QueueState;
-        type SystemUnderTest = QueueState;
-
-        fn generate_action(state: &Self::State) -> Self::Action {
-            let actions = state.valid_actions();
-            if actions.is_empty() {
-                QueueAction::Enqueue {
-                    session_id: format!("session-{}", state.next_id),
-                    priority: 200,
-                }
-            } else {
-                *proptest::sample::select(actions.as_slice())
-            }
-        }
-
-        fn apply(state: &mut Self::State, action: Self::Action) {
-            state.last_error = None;
-            match action {
-                QueueAction::Enqueue {
-                    session_id,
-                    priority,
-                } => {
-                    let priority = Priority::new(priority).unwrap_or_default();
-                    let entry = QueueEntry::enqueue(session_id, None, priority);
-                    match entry {
-                        Ok(e) => {
-                            state.entries.insert(state.next_id, e);
-                            state.next_id += 1;
-                        }
-                        Err(e) => {
-                            state.last_error = Some(format!("{:?}", e));
-                        }
-                    }
-                }
-                QueueAction::Claim { entry_id } => {
-                    if let Some(entry) = state.find_entry_by_local_id_mut(entry_id) {
-                        match entry.claim() {
-                            Ok(new_entry) => {
-                                *entry = new_entry;
-                            }
-                            Err(e) => {
-                                state.last_error = Some(format!("{:?}", e));
-                            }
-                        }
-                    }
-                }
-                QueueAction::StartRebase { entry_id } => {
-                    if let Some(entry) = state.find_entry_by_local_id_mut(entry_id) {
-                        match entry.start_rebase() {
-                            Ok(new_entry) => {
-                                *entry = new_entry;
-                            }
-                            Err(e) => {
-                                state.last_error = Some(format!("{:?}", e));
-                            }
-                        }
-                    }
-                }
-                QueueAction::StartTesting { entry_id } => {
-                    if let Some(entry) = state.find_entry_by_local_id_mut(entry_id) {
-                        match entry.start_testing() {
-                            Ok(new_entry) => {
-                                *entry = new_entry;
-                            }
-                            Err(e) => {
-                                state.last_error = Some(format!("{:?}", e));
-                            }
-                        }
-                    }
-                }
-                QueueAction::MarkReadyToMerge { entry_id } => {
-                    if let Some(entry) = state.find_entry_by_local_id_mut(entry_id) {
-                        match entry.mark_ready_to_merge() {
-                            Ok(new_entry) => {
-                                *entry = new_entry;
-                            }
-                            Err(e) => {
-                                state.last_error = Some(format!("{:?}", e));
-                            }
-                        }
-                    }
-                }
-                QueueAction::StartMerging { entry_id } => {
-                    if let Some(entry) = state.find_entry_by_local_id_mut(entry_id) {
-                        match entry.start_merging() {
-                            Ok(new_entry) => {
-                                *entry = new_entry;
-                            }
-                            Err(e) => {
-                                state.last_error = Some(format!("{:?}", e));
-                            }
-                        }
-                    }
-                }
-                QueueAction::MarkMerged { entry_id } => {
-                    if let Some(entry) = state.find_entry_by_local_id_mut(entry_id) {
-                        match entry.mark_merged() {
-                            Ok(new_entry) => {
-                                *entry = new_entry;
-                            }
-                            Err(e) => {
-                                state.last_error = Some(format!("{:?}", e));
-                            }
-                        }
-                    }
-                }
-                QueueAction::MarkFailedRetryable { entry_id } => {
-                    if let Some(entry) = state.find_entry_by_local_id_mut(entry_id) {
-                        match entry.mark_failed_retryable("Test failure".into()) {
-                            Ok(new_entry) => {
-                                *entry = new_entry;
-                            }
-                            Err(e) => {
-                                state.last_error = Some(format!("{:?}", e));
-                            }
-                        }
-                    }
-                }
-                QueueAction::MarkFailedTerminal { entry_id } => {
-                    if let Some(entry) = state.find_entry_by_local_id_mut(entry_id) {
-                        match entry.mark_failed_terminal("Test failure".into()) {
-                            Ok(new_entry) => {
-                                *entry = new_entry;
-                            }
-                            Err(e) => {
-                                state.last_error = Some(format!("{:?}", e));
-                            }
-                        }
-                    }
-                }
-                QueueAction::Cancel { entry_id } => {
-                    if let Some(entry) = state.find_entry_by_local_id_mut(entry_id) {
-                        match entry.cancel() {
-                            Ok(new_entry) => {
-                                *entry = new_entry;
-                            }
-                            Err(e) => {
-                                state.last_error = Some(format!("{:?}", e));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        fn initial_state() -> Self::State {
-            QueueState::new()
-        }
-
-        fn new_system_under_test(init: &Self::State) -> Self::SystemUnderTest {
-            init.clone()
-        }
-
-        fn reset(&self, _sut: &mut Self::SystemUnderTest) {}
-    }
-
-    proptest! {
-        #![proptest_config(proptest::prelude::ProptestConfig {
-            cases: 100,
-            ..Default::default()
-        })]
-
-        #[test]
-        fn test_queue_state_machine_100_runs(actions in proptest::collection::vec(any::<QueueAction>(), 0..50)) {
-            let mut state = QueueSM::initial_state();
-            for action in &actions {
-                QueueSM::apply(&mut state, action.clone());
-            }
-            let _sut = QueueSM::new_system_under_test(&state);
-        }
-
-        #[test]
-        fn test_queue_state_machine_respects_valid_transitions(actions in proptest::collection::vec(any::<QueueAction>(), 0..30)) {
-            let mut state = QueueSM::initial_state();
-            for action in &actions {
-                let before = state.clone();
-                QueueSM::apply(&mut state, action.clone());
-                if let Some(error) = &state.last_error {
-                    let valid_actions = before.valid_actions();
-                    assert!(
-                        valid_actions.contains(action),
-                        "Action {:?} should be valid in state {:?}, but got error: {}",
-                        action,
-                        before,
-                        error
-                    );
-                }
-            }
-        }
-
-        #[test]
-        fn test_queue_state_machine_terminal_states_are_stable(actions in proptest::collection::vec(any::<QueueAction>(), 0..20)) {
-            let mut state = QueueSM::initial_state();
-            for action in &actions {
-                QueueSM::apply(&mut state, action.clone());
-            }
-            for entry in state.entries.values() {
-                if entry.is_terminal() {
-                    assert!(
-                        matches!(
-                            entry.status,
-                            QueueStatus::Merged | QueueStatus::FailedTerminal | QueueStatus::Cancelled
-                        ),
-                        "Terminal entry should have terminal status"
-                    );
-                }
-            }
-        }
+    #[test]
+    fn state_machine_merged_is_terminal() {
+        assert!(QueueStateMachine::is_terminal(QueueStatus::Merged));
     }
 
     #[test]
-    fn test_queue_sm_initial_state_is_empty() {
-        let state = QueueSM::initial_state();
-        assert!(state.entries.is_empty());
-        assert_eq!(state.next_id, 1);
+    fn state_machine_failed_terminal_is_terminal() {
+        assert!(QueueStateMachine::is_terminal(QueueStatus::FailedTerminal));
     }
 
     #[test]
-    fn test_queue_sm_enqueue_creates_entry() {
-        let mut state = QueueSM::initial_state();
-        QueueSM::apply(
-            &mut state,
-            QueueAction::Enqueue {
-                session_id: "test-session".into(),
-                priority: 200,
-            },
+    fn state_machine_pending_is_not_terminal() {
+        assert!(!QueueStateMachine::is_terminal(QueueStatus::Pending));
+    }
+
+    #[test]
+    fn state_machine_claimed_is_not_terminal() {
+        assert!(!QueueStateMachine::is_terminal(QueueStatus::Claimed));
+    }
+
+    #[test]
+    fn state_machine_failed_retryable_is_not_terminal() {
+        assert!(!QueueStateMachine::is_terminal(QueueStatus::FailedRetryable));
+    }
+
+    #[test]
+    fn state_machine_validate_transition_valid() {
+        assert!(QueueStateMachine::validate_transition(
+            QueueStatus::Pending,
+            QueueStatus::Claimed
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn state_machine_validate_transition_invalid() {
+        let result = QueueStateMachine::validate_transition(
+            QueueStatus::Pending,
+            QueueStatus::Merged,
         );
-        assert_eq!(state.entries.len(), 1);
-        assert_eq!(state.next_id, 2);
+        assert!(result.is_err());
+        if let Err(QueueError::InvalidStateTransition { from, to }) = result {
+            assert!(from.contains("Pending"));
+            assert!(to.contains("Merged"));
+        }
     }
 
     #[test]
-    fn test_queue_sm_claim_transitions_pending_to_claimed() {
-        let mut state = QueueSM::initial_state();
-        QueueSM::apply(
-            &mut state,
-            QueueAction::Enqueue {
-                session_id: "test-session".into(),
-                priority: 200,
-            },
-        );
-        QueueSM::apply(&mut state, QueueAction::Claim { entry_id: 1 });
-        let entry = state.entries.get(&1).unwrap();
-        assert_eq!(entry.status, QueueStatus::Claimed);
+    fn state_machine_rebasing_is_active() {
+        assert!(QueueStateMachine::is_active(QueueStatus::Rebasing));
     }
 
     #[test]
-    fn test_queue_sm_full_happy_path() {
-        let mut state = QueueSM::initial_state();
-        QueueSM::apply(
-            &mut state,
-            QueueAction::Enqueue {
-                session_id: "test-session".into(),
-                priority: 200,
-            },
-        );
-        QueueSM::apply(&mut state, QueueAction::Claim { entry_id: 1 });
-        QueueSM::apply(&mut state, QueueAction::StartRebase { entry_id: 1 });
-        QueueSM::apply(&mut state, QueueAction::StartTesting { entry_id: 1 });
-        QueueSM::apply(&mut state, QueueAction::MarkReadyToMerge { entry_id: 1 });
-        QueueSM::apply(&mut state, QueueAction::StartMerging { entry_id: 1 });
-        QueueSM::apply(&mut state, QueueAction::MarkMerged { entry_id: 1 });
-        let entry = state.entries.get(&1).unwrap();
-        assert_eq!(entry.status, QueueStatus::Merged);
-        assert!(entry.is_terminal());
+    fn state_machine_testing_is_active() {
+        assert!(QueueStateMachine::is_active(QueueStatus::Testing));
     }
 
     #[test]
-    fn test_queue_sm_failure_path() {
-        let mut state = QueueSM::initial_state();
-        QueueSM::apply(
-            &mut state,
-            QueueAction::Enqueue {
-                session_id: "test-session".into(),
-                priority: 200,
-            },
-        );
-        QueueSM::apply(&mut state, QueueAction::Claim { entry_id: 1 });
-        QueueSM::apply(&mut state, QueueAction::StartRebase { entry_id: 1 });
-        QueueSM::apply(&mut state, QueueAction::StartTesting { entry_id: 1 });
-        QueueSM::apply(&mut state, QueueAction::MarkFailedTerminal { entry_id: 1 });
-        let entry = state.entries.get(&1).unwrap();
-        assert_eq!(entry.status, QueueStatus::FailedTerminal);
-        assert!(entry.is_terminal());
+    fn state_machine_ready_to_merge_is_active() {
+        assert!(QueueStateMachine::is_active(QueueStatus::ReadyToMerge));
     }
 
     #[test]
-    fn test_queue_sm_cancel_from_any_non_terminal() {
-        let mut state = QueueSM::initial_state();
-        QueueSM::apply(
-            &mut state,
-            QueueAction::Enqueue {
-                session_id: "test-session".into(),
-                priority: 200,
-            },
-        );
-        QueueSM::apply(&mut state, QueueAction::Cancel { entry_id: 1 });
-        let entry = state.entries.get(&1).unwrap();
-        assert_eq!(entry.status, QueueStatus::Cancelled);
-        assert!(entry.is_terminal());
+    fn state_machine_merging_is_active() {
+        assert!(QueueStateMachine::is_active(QueueStatus::Merging));
     }
 
     #[test]
-    fn test_queue_sm_retryable_failure_allows_retry() {
-        let mut state = QueueSM::initial_state();
-        QueueSM::apply(
-            &mut state,
-            QueueAction::Enqueue {
-                session_id: "test-session".into(),
-                priority: 200,
-            },
+    fn state_machine_merged_is_not_active() {
+        assert!(!QueueStateMachine::is_active(QueueStatus::Merged));
+    }
+
+    #[test]
+    fn state_machine_failed_terminal_is_not_active() {
+        assert!(!QueueStateMachine::is_active(QueueStatus::FailedTerminal));
+    }
+
+    #[test]
+    fn state_machine_cancelled_is_not_active() {
+        assert!(!QueueStateMachine::is_active(QueueStatus::Cancelled));
+    }
+
+    #[test]
+    fn state_machine_all_cancel_transitions_valid() {
+        let statuses = [
+            QueueStatus::Pending,
+            QueueStatus::Claimed,
+            QueueStatus::Rebasing,
+            QueueStatus::Testing,
+            QueueStatus::ReadyToMerge,
+            QueueStatus::Merging,
+            QueueStatus::FailedRetryable,
+        ];
+        for status in &statuses {
+            assert!(
+                QueueStateMachine::can_transition(*status, QueueStatus::Cancelled),
+                "Cancel from {:?} should be allowed",
+                status
+            );
+        }
+    }
+
+    #[test]
+    fn state_machine_terminal_to_any_rejected() {
+        let terminal = [
+            QueueStatus::Merged,
+            QueueStatus::FailedTerminal,
+            QueueStatus::Cancelled,
+        ];
+        let targets = [
+            QueueStatus::Pending,
+            QueueStatus::Claimed,
+            QueueStatus::Rebasing,
+            QueueStatus::Testing,
+        ];
+        for from in &terminal {
+            for to in &targets {
+                assert!(
+                    !QueueStateMachine::can_transition(*from, *to),
+                    "Transition from {:?} to {:?} should be rejected",
+                    from,
+                    to
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn state_machine_happy_path_all_valid() {
+        let path = [
+            (QueueStatus::Pending, QueueStatus::Claimed),
+            (QueueStatus::Claimed, QueueStatus::Rebasing),
+            (QueueStatus::Rebasing, QueueStatus::Testing),
+            (QueueStatus::Testing, QueueStatus::ReadyToMerge),
+            (QueueStatus::ReadyToMerge, QueueStatus::Merging),
+            (QueueStatus::Merging, QueueStatus::Merged),
+        ];
+        for (from, to) in &path {
+            assert!(
+                QueueStateMachine::can_transition(*from, *to),
+                "{:?} -> {:?} should be valid",
+                from,
+                to
+            );
+        }
+    }
+
+    #[test]
+    fn state_machine_failure_paths_valid() {
+        let failure_paths = [
+            (QueueStatus::Testing, QueueStatus::FailedRetryable),
+            (QueueStatus::Testing, QueueStatus::FailedTerminal),
+        ];
+        for (from, to) in &failure_paths {
+            assert!(
+                QueueStateMachine::can_transition(*from, *to),
+                "{:?} -> {:?} should be valid",
+                from,
+                to
+            );
+        }
+    }
+
+    #[test]
+    fn state_machine_failed_retryable_not_from_ready_to_merge() {
+        assert!(
+            !QueueStateMachine::can_transition(QueueStatus::ReadyToMerge, QueueStatus::FailedRetryable),
+            "ReadyToMerge -> FailedRetryable should be rejected (entity does not support it)"
         );
-        QueueSM::apply(&mut state, QueueAction::Claim { entry_id: 1 });
-        QueueSM::apply(&mut state, QueueAction::StartRebase { entry_id: 1 });
-        QueueSM::apply(&mut state, QueueAction::StartTesting { entry_id: 1 });
-        QueueSM::apply(&mut state, QueueAction::MarkFailedRetryable { entry_id: 1 });
-        let entry = state.entries.get(&1).unwrap();
-        assert_eq!(entry.status, QueueStatus::FailedRetryable);
-        assert!(!entry.is_terminal());
-        assert!(entry.can_retry());
+    }
+
+    #[test]
+    fn state_machine_failed_retryable_not_from_merging() {
+        assert!(
+            !QueueStateMachine::can_transition(QueueStatus::Merging, QueueStatus::FailedRetryable),
+            "Merging -> FailedRetryable should be rejected (entity does not support it)"
+        );
+    }
+
+    #[test]
+    fn state_machine_failed_retryable_not_from_rebasing() {
+        assert!(
+            !QueueStateMachine::can_transition(QueueStatus::Rebasing, QueueStatus::FailedRetryable),
+            "Rebasing -> FailedRetryable should be rejected (entity does not support it)"
+        );
+    }
+
+    #[test]
+    fn state_machine_retryable_to_pending() {
+        assert!(QueueStateMachine::can_transition(
+            QueueStatus::FailedRetryable,
+            QueueStatus::Pending
+        ));
+    }
+
+    /// Exhaustive consistency check: every possible (from, to) pair must produce
+    /// the same result from both `QueueStateMachine::can_transition` and
+    /// `QueueStatus::transition_to` (the canonical source of truth).
+    #[test]
+    fn state_machine_consistent_with_queue_status_transition_to() {
+        use crate::domain::queue::status::QueueStatus as CanonicalStatus;
+        use crate::domain::validation::ValidationResult;
+
+        fn to_canonical(status: QueueStatus) -> CanonicalStatus {
+            match status {
+                QueueStatus::Pending => CanonicalStatus::Pending,
+                QueueStatus::Claimed => CanonicalStatus::Claimed,
+                QueueStatus::Rebasing => CanonicalStatus::Rebasing,
+                QueueStatus::Testing => CanonicalStatus::Testing,
+                QueueStatus::ReadyToMerge => CanonicalStatus::ReadyToMerge,
+                QueueStatus::Merging => CanonicalStatus::Merging,
+                QueueStatus::Merged => CanonicalStatus::Merged,
+                QueueStatus::FailedRetryable => CanonicalStatus::FailedRetryable,
+                QueueStatus::FailedTerminal => CanonicalStatus::FailedTerminal,
+                QueueStatus::Cancelled => CanonicalStatus::Cancelled,
+            }
+        }
+
+        let all_statuses = [
+            QueueStatus::Pending,
+            QueueStatus::Claimed,
+            QueueStatus::Rebasing,
+            QueueStatus::Testing,
+            QueueStatus::ReadyToMerge,
+            QueueStatus::Merging,
+            QueueStatus::Merged,
+            QueueStatus::FailedRetryable,
+            QueueStatus::FailedTerminal,
+            QueueStatus::Cancelled,
+        ];
+
+        for from in &all_statuses {
+            for to in &all_statuses {
+                let sm_result = QueueStateMachine::can_transition(*from, *to);
+                let canonical_result: ValidationResult<_> =
+                    to_canonical(*from).transition_to(to_canonical(*to));
+                let canonical_ok = canonical_result.is_ok();
+
+                assert_eq!(
+                    sm_result, canonical_ok,
+                    "Inconsistency: QueueStateMachine says {:?} -> {:?} is {}, \
+                     but QueueStatus::transition_to says {}",
+                    from, to, sm_result, canonical_ok
+                );
+            }
+        }
+    }
+
+    /// Verify `is_terminal` is consistent with the canonical `QueueStatus::is_terminal`.
+    #[test]
+    fn state_machine_is_terminal_consistent_with_queue_status() {
+        use crate::domain::queue::status::QueueStatus as CanonicalStatus;
+
+        let all = [
+            (QueueStatus::Pending, CanonicalStatus::Pending),
+            (QueueStatus::Claimed, CanonicalStatus::Claimed),
+            (QueueStatus::Rebasing, CanonicalStatus::Rebasing),
+            (QueueStatus::Testing, CanonicalStatus::Testing),
+            (QueueStatus::ReadyToMerge, CanonicalStatus::ReadyToMerge),
+            (QueueStatus::Merging, CanonicalStatus::Merging),
+            (QueueStatus::Merged, CanonicalStatus::Merged),
+            (QueueStatus::FailedRetryable, CanonicalStatus::FailedRetryable),
+            (QueueStatus::FailedTerminal, CanonicalStatus::FailedTerminal),
+            (QueueStatus::Cancelled, CanonicalStatus::Cancelled),
+        ];
+
+        for (entity_status, canonical_status) in &all {
+            assert_eq!(
+                QueueStateMachine::is_terminal(*entity_status),
+                canonical_status.is_terminal(),
+                "is_terminal mismatch for {:?}",
+                entity_status
+            );
+        }
+    }
+
+    /// Verify `is_active` is the complement of `is_terminal` (excluding Pending and FailedRetryable).
+    #[test]
+    fn state_machine_is_active_is_complement_of_terminal() {
+        let all_statuses = [
+            QueueStatus::Pending,
+            QueueStatus::Claimed,
+            QueueStatus::Rebasing,
+            QueueStatus::Testing,
+            QueueStatus::ReadyToMerge,
+            QueueStatus::Merging,
+            QueueStatus::Merged,
+            QueueStatus::FailedRetryable,
+            QueueStatus::FailedTerminal,
+            QueueStatus::Cancelled,
+        ];
+
+        for status in &all_statuses {
+            let is_active = QueueStateMachine::is_active(*status);
+            let is_terminal = QueueStateMachine::is_terminal(*status);
+
+            // Active statuses are neither terminal nor Pending nor FailedRetryable
+            let expected_active = !is_terminal
+                && !matches!(
+                    status,
+                    QueueStatus::Pending | QueueStatus::FailedRetryable
+                );
+
+            assert_eq!(
+                is_active, expected_active,
+                "is_active mismatch for {:?}: got {}, expected {}",
+                status, is_active, expected_active
+            );
+        }
     }
 }

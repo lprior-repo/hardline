@@ -147,3 +147,97 @@ pub fn status() -> Result<()> {
 
     Ok(())
 }
+
+/// Parse a priority string into a Priority enum (pure function for testing)
+pub fn parse_priority(priority: &str) -> Priority {
+    match priority.to_lowercase().as_str() {
+        "low" => Priority::Low,
+        "high" => Priority::High,
+        "critical" => Priority::Critical,
+        _ => Priority::Normal,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_priority_low() {
+        assert_eq!(parse_priority("low"), Priority::Low);
+    }
+
+    #[test]
+    fn parse_priority_low_uppercase() {
+        assert_eq!(parse_priority("LOW"), Priority::Low);
+    }
+
+    #[test]
+    fn parse_priority_low_mixed_case() {
+        assert_eq!(parse_priority("LoW"), Priority::Low);
+    }
+
+    #[test]
+    fn parse_priority_high() {
+        assert_eq!(parse_priority("high"), Priority::High);
+    }
+
+    #[test]
+    fn parse_priority_critical() {
+        assert_eq!(parse_priority("critical"), Priority::Critical);
+    }
+
+    #[test]
+    fn parse_priority_critical_uppercase() {
+        assert_eq!(parse_priority("CRITICAL"), Priority::Critical);
+    }
+
+    #[test]
+    fn parse_priority_normal() {
+        assert_eq!(parse_priority("normal"), Priority::Normal);
+    }
+
+    #[test]
+    fn parse_priority_unknown_falls_back_to_normal() {
+        assert_eq!(parse_priority("unknown"), Priority::Normal);
+    }
+
+    #[test]
+    fn parse_priority_empty_string_falls_back_to_normal() {
+        assert_eq!(parse_priority(""), Priority::Normal);
+    }
+
+    #[test]
+    fn parse_priority_whitespace_falls_back_to_normal() {
+        assert_eq!(parse_priority("  "), Priority::Normal);
+    }
+
+    #[test]
+    fn parse_priority_partial_match_high_is_not_higher() {
+        // "higher" should not match "high"
+        assert_eq!(parse_priority("higher"), Priority::Normal);
+    }
+
+    #[test]
+    fn parse_priority_partial_match_crit_is_not_critical() {
+        assert_eq!(parse_priority("crit"), Priority::Normal);
+    }
+
+    #[test]
+    fn parse_priority_number_falls_back_to_normal() {
+        assert_eq!(parse_priority("42"), Priority::Normal);
+    }
+
+    #[test]
+    fn parse_priority_medium_falls_back_to_normal() {
+        assert_eq!(parse_priority("medium"), Priority::Normal);
+    }
+
+    #[test]
+    fn priority_equality() {
+        assert_eq!(Priority::Low, Priority::Low);
+        assert_eq!(Priority::High, Priority::High);
+        assert_ne!(Priority::Low, Priority::High);
+        assert_ne!(Priority::Normal, Priority::Critical);
+    }
+}

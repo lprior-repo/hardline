@@ -130,3 +130,278 @@ pub fn determine_workspace_status(jj_status_output: &str) -> WorkspaceCleanStatu
         WorkspaceCleanStatus::Unknown
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ========================================================================
+    // validate_sync_preconditions tests
+    // ========================================================================
+
+    #[test]
+    fn validate_preconditions_ok_when_active_clean() {
+        let result = validate_sync_preconditions(true, Some(SessionStatus::Active), WorkspaceCleanStatus::Clean, false);
+        assert!(result.is_ok());
+        let check = result.unwrap();
+        assert!(check.session_exists);
+        assert_eq!(check.current_status, Some(SessionStatus::Active));
+        assert_eq!(check.workspace_status, WorkspaceCleanStatus::Clean);
+    }
+
+    #[test]
+    fn validate_preconditions_ok_when_failed_clean() {
+        let result = validate_sync_preconditions(true, Some(SessionStatus::Failed), WorkspaceCleanStatus::Clean, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_preconditions_ok_when_active_unknown() {
+        let result = validate_sync_preconditions(true, Some(SessionStatus::Active), WorkspaceCleanStatus::Unknown, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_preconditions_ok_when_dirty_allowed() {
+        let result = validate_sync_preconditions(true, Some(SessionStatus::Active), WorkspaceCleanStatus::Dirty, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_preconditions_err_session_not_found() {
+        let result = validate_sync_preconditions(false, None, WorkspaceCleanStatus::Clean, false);
+        assert!(matches!(result, Err(SyncError::SessionNotFound(_))));
+    }
+
+    #[test]
+    fn validate_preconditions_err_creating_status() {
+        let result = validate_sync_preconditions(true, Some(SessionStatus::Creating), WorkspaceCleanStatus::Clean, false);
+        assert!(matches!(result, Err(SyncError::InvalidSessionStatus { .. })));
+    }
+
+    #[test]
+    fn validate_preconditions_err_paused_status() {
+        let result = validate_sync_preconditions(true, Some(SessionStatus::Paused), WorkspaceCleanStatus::Clean, false);
+        assert!(matches!(result, Err(SyncError::InvalidSessionStatus { .. })));
+    }
+
+    #[test]
+    fn validate_preconditions_err_completed_status() {
+        let result = validate_sync_preconditions(true, Some(SessionStatus::Completed), WorkspaceCleanStatus::Clean, false);
+        assert!(matches!(result, Err(SyncError::InvalidSessionStatus { .. })));
+    }
+
+    #[test]
+    fn validate_preconditions_err_no_status() {
+        let result = validate_sync_preconditions(true, None, WorkspaceCleanStatus::Clean, false);
+        let err = result.unwrap_err();
+        assert!(matches!(err, SyncError::InvalidSessionStatus { ref actual, .. } if actual == "None"));
+    }
+
+    #[test]
+    fn validate_preconditions_err_dirty_not_allowed() {
+        let result = validate_sync_preconditions(true, Some(SessionStatus::Active), WorkspaceCleanStatus::Dirty, false);
+        assert!(matches!(result, Err(SyncError::DirtyWorkspace(_))));
+    }
+
+    #[test]
+    fn validate_preconditions_invalid_status_contains_allowed_list() {
+        let result = validate_sync_preconditions(true, Some(SessionStatus::Paused), WorkspaceCleanStatus::Clean, false);
+        if let Err(SyncError::InvalidSessionStatus { allowed, .. }) = result {
+            assert!(allowed.contains(&"Active".to_string()));
+            assert!(allowed.contains(&"Failed".to_string()));
+        } else {
+            panic!("Expected InvalidSessionStatus");
+        }
+    }
+
+    // ========================================================================
+    // parse_rebase_output tests
+    // ========================================================================
+
+    #[test]
+    fn parse_rebase_output_empty_returns_none() {
+        let (rev, conflicts) = parse_rebase_output("");
+        assert!(rev.is_none());
+        assert!(conflicts.is_empty());
+    }
+
+    #[test]
+    fn parse_rebase_output_extracts_hex_revision() {
+        // A 12-char hex string looks like a JJ change ID
+        let output = "Created new commit\nab12cd34ef56\nDone.";
+        let (rev, conflicts) = parse_rebase_output(output);
+        assert_eq!(rev.as_deref(), Some("ab12cd34ef56"));
+        assert!(conflicts.is_empty());
+    }
+
+    #[test]
+    fn parse_rebase_output_extracts_long_hex_revision() {
+        // A 40-char hex string (SHA-1 length)
+        let output = "abc123def456789012345678901234567890abcd";
+        let (rev, _conflicts) = parse_rebase_output(output);
+        assert_eq!(rev.as_deref(), Some("abc123def456789012345678901234567890abcd"));
+    }
+
+    #[test]
+    fn parse_rebase_output_skips_too_short_strings() {
+        // 5-char hex string should NOT be treated as a revision (< 6 chars)
+        let output = "abcde";
+        let (rev, _) = parse_rebase_output(output);
+        assert!(rev.is_none());
+    }
+
+    #[test]
+    fn parse_rebase_output_skips_too_long_strings() {
+        // 65-char hex string should NOT be treated as a revision (> 64 chars)
+        let output = "a".repeat(65);
+        let (rev, _) = parse_rebase_output(&output);
+        assert!(rev.is_none());
+    }
+
+    #[test]
+    fn parse_rebase_output_skips_strings_with_colons() {
+        // "ab12cd34: extra" should NOT be matched (contains ':')
+        let output = "ab12cd34: extra info";
+        let (rev, _) = parse_rebase_output(output);
+        assert!(rev.is_none());
+    }
+
+    #[test]
+    fn parse_rebase_output_skips_strings_with_spaces() {
+        // "ab12cd34 extra" should NOT be matched (contains space)
+        let output = "ab12cd34 extra";
+        let (rev, _) = parse_rebase_output(output);
+        assert!(rev.is_none());
+    }
+
+    #[test]
+    fn parse_rebase_output_collects_conflict_lines() {
+        let output = "Rebased 1 commit\nConflict in src/main.rs\nAlso conflicted file2.rs";
+        let (_rev, conflicts) = parse_rebase_output(output);
+        assert_eq!(conflicts.len(), 2);
+        assert!(conflicts[0].contains("Conflict"));
+        assert!(conflicts[1].contains("conflicted"));
+    }
+
+    #[test]
+    fn parse_rebase_output_case_insensitive_conflicts() {
+        let output = "CONFLICT in file.rs\nAlso Conflicted file2.rs";
+        let (_rev, conflicts) = parse_rebase_output(output);
+        assert_eq!(conflicts.len(), 2);
+    }
+
+    #[test]
+    fn parse_rebase_output_returns_last_revision() {
+        let output = "ab12cd34ef56\nff88aabb9911\nDone.";
+        let (rev, _) = parse_rebase_output(output);
+        // Only the last hex-looking line should be captured (if both match)
+        assert!(rev.is_some());
+    }
+
+    // ========================================================================
+    // has_conflicts_in_output tests
+    // ========================================================================
+
+    #[test]
+    fn has_conflicts_detects_conflict() {
+        assert!(has_conflicts_in_output("Conflict detected in 3 files"));
+    }
+
+    #[test]
+    fn has_conflicts_detects_conflicted() {
+        assert!(has_conflicts_in_output("Conflicted: src/lib.rs"));
+    }
+
+    #[test]
+    fn has_conflicts_detects_some_conflicts() {
+        assert!(has_conflicts_in_output("Created 2 new commits. Some conflicts."));
+    }
+
+    #[test]
+    fn has_conflicts_case_insensitive() {
+        assert!(has_conflicts_in_output("CONFLICT IN FILE"));
+    }
+
+    #[test]
+    fn has_conflicts_returns_false_on_clean_output() {
+        assert!(!has_conflicts_in_output("Rebased 3 commits successfully."));
+    }
+
+    #[test]
+    fn has_conflicts_returns_false_on_empty() {
+        assert!(!has_conflicts_in_output(""));
+    }
+
+    // ========================================================================
+    // create_sync_result tests
+    // ========================================================================
+
+    #[test]
+    fn create_sync_result_no_conflicts() {
+        let result = create_sync_result("s1".into(), "Rebased 3 commits\nabc123def456");
+        assert_eq!(result.session_name, "s1");
+        assert_eq!(result.new_revision, "abc123def456");
+        assert!(!result.had_conflicts);
+        assert!(result.synced_at > 0);
+    }
+
+    #[test]
+    fn create_sync_result_with_conflicts() {
+        let result = create_sync_result("s1".into(), "Conflict in file.rs");
+        assert!(result.had_conflicts);
+    }
+
+    #[test]
+    fn create_sync_result_no_revision_uses_unknown() {
+        let result = create_sync_result("s1".into(), "Some output with no hex strings");
+        assert_eq!(result.new_revision, "unknown");
+    }
+
+    // ========================================================================
+    // determine_workspace_status tests
+    // ========================================================================
+
+    #[test]
+    fn workspace_status_empty_is_clean() {
+        assert_eq!(determine_workspace_status(""), WorkspaceCleanStatus::Clean);
+    }
+
+    #[test]
+    fn workspace_status_whitespace_only_is_clean() {
+        assert_eq!(determine_workspace_status("   \n\t  "), WorkspaceCleanStatus::Clean);
+    }
+
+    #[test]
+    fn workspace_status_working_copy_is_dirty() {
+        assert_eq!(
+            determine_workspace_status("Working copy : file.txt modified"),
+            WorkspaceCleanStatus::Dirty
+        );
+    }
+
+    #[test]
+    fn workspace_status_changes_is_dirty() {
+        assert_eq!(
+            determine_workspace_status("Changes:\n  M file.rs"),
+            WorkspaceCleanStatus::Dirty
+        );
+    }
+
+    #[test]
+    fn workspace_status_files_is_dirty() {
+        assert_eq!(
+            determine_workspace_status("3 files modified"),
+            WorkspaceCleanStatus::Dirty
+        );
+    }
+
+    #[test]
+    fn workspace_status_unknown_output_is_unknown() {
+        // Something that doesn't match any known pattern
+        assert_eq!(
+            determine_workspace_status("Some random JJ output"),
+            WorkspaceCleanStatus::Unknown
+        );
+    }
+}

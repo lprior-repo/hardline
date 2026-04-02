@@ -270,4 +270,32 @@ mod tests {
             assert!(combined.to_string().contains("test2"));
         }
     }
+
+    #[test]
+    fn test_invalid_operation_for_state() {
+        let error = ContractError::invalid_operation_for_state("delete", "Session", "Active");
+        assert!(matches!(error, ContractError::InvalidOperationForState { .. }));
+        let msg = error.to_string();
+        assert!(msg.contains("delete"));
+        assert!(msg.contains("Session"));
+        assert!(msg.contains("Active"));
+    }
+
+    #[test]
+    fn test_multiple_display() {
+        let error = ContractError::Multiple("err1; err2".to_string());
+        let msg = error.to_string();
+        assert!(msg.contains("Multiple contract violations"));
+        assert!(msg.contains("err1"));
+    }
+
+    #[test]
+    fn test_concurrent_modification() {
+        let error = ContractError::ConcurrentModification {
+            description: "race condition".to_string(),
+        };
+        let msg = error.to_string();
+        assert!(msg.contains("race condition"));
+        assert!(msg.contains("Concurrent modification"));
+    }
 }

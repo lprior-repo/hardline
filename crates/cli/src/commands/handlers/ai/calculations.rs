@@ -165,7 +165,7 @@ pub fn build_overview() -> AiOverview {
             .collect(),
         quick_commands: OVERVIEW_QUICK_COMMANDS
             .iter()
-            .map(|s| s.to_string())
+            .map(|s| (*s).to_string())
             .collect(),
     }
 }
@@ -249,7 +249,7 @@ pub fn format_status_human(output: &AiStatusOutput) -> Vec<String> {
             output
                 .workspace
                 .as_deref()
-                .map_or_else(|| "N/A".to_string(), |ws| ws.to_string())
+                .map_or_else(|| "N/A".to_string(), std::string::ToString::to_string)
         ),
         agent_line,
         format!(
@@ -285,4 +285,407 @@ fn commands_from_table(table: &[(&str, &str)]) -> Vec<QuickCommand> {
             purpose: purpose.to_string(),
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::handlers::ai::data::Location;
+
+    // =========================================================================
+    // determine_ready_state - additional edge cases
+    // =========================================================================
+
+    #[test]
+    fn ready_state_workspace_uninitialized_hits_not_initialized_arm() {
+        // The `_ if !initialized` arm is checked BEFORE `Location::Workspace(_)`,
+        // so uninitialized workspace returns (false, "not initialized", "scp init").
+        let (ready, suggestion, next_cmd) =
+            determine_ready_state(false, &Location::Workspace("ws".to_string()));
+        assert!(!ready, "Uninitialized should take priority over workspace");
+        assert!(suggestion.contains("not initialized"), "Got: {suggestion}");
+        assert!(next_cmd.contains("init"), "Got: {next_cmd}");
+    }
+
+    #[test]
+    fn ready_state_unknown_uninitialized_suggests_init() {
+        let (ready, suggestion, next_cmd) = determine_ready_state(false, &Location::Unknown);
+        assert!(!ready, "Unknown + uninitialized should not be ready");
+        assert!(suggestion.contains("not initialized"));
+        assert!(next_cmd.contains("init"));
+    }
+
+    #[test]
+    fn ready_state_main_initialized_has_suggestion() {
+        let (ready, suggestion, next_cmd) = determine_ready_state(true, &Location::Main);
+        assert!(ready);
+        assert!(!suggestion.is_empty());
+        assert!(!next_cmd.is_empty());
+    }
+
+    #[test]
+    fn ready_state_not_in_repo_initialized_suggests_cd() {
+        let (ready, _suggestion, next_cmd) = determine_ready_state(true, &Location::NotInRepo);
+        assert!(!ready);
+        assert!(next_cmd.contains("cd <repo>"));
+        assert!(next_cmd.contains("scp init"));
+    }
+
+    // =========================================================================
+    // format_session_count - boundary cases
+    // =========================================================================
+
+    #[test]
+    fn session_count_one_is_singular() {
+        assert_eq!(format_session_count(1), "1 session");
+    }
+
+    #[test]
+    fn session_count_zero_is_plural() {
+        assert_eq!(format_session_count(0), "0 sessions");
+    }
+
+    #[test]
+    fn session_count_two_is_plural() {
+        assert_eq!(format_session_count(2), "2 sessions");
+    }
+
+    // =========================================================================
+    // build_workflow - structural tests
+    // =========================================================================
+
+    #[test]
+    fn workflow_name_is_not_empty() {
+        let workflow = build_workflow();
+        assert!(!workflow.name.is_empty());
+    }
+
+    #[test]
+    fn workflow_steps_are_sequentially_numbered() {
+        let workflow = build_workflow();
+        for (i, step) in workflow.steps.iter().enumerate() {
+            assert_eq!(step.step, i + 1, "Step {i} should be numbered {}", i + 1);
+        }
+    }
+
+    #[test]
+    fn workflow_all_steps_have_non_empty_command_and_description() {
+        let workflow = build_workflow();
+        for step in &workflow.steps {
+            assert!(!step.command.is_empty(), "Step {} must have command", step.step);
+            assert!(
+                !step.description.is_empty(),
+                "Step {} must have description",
+                step.step
+            );
+        }
+    }
+
+    #[test]
+    fn workflow_is_deterministic() {
+        let a = build_workflow();
+        let b = build_workflow();
+        assert_eq!(a.name, b.name);
+        assert_eq!(a.steps.len(), b.steps.len());
+        for (sa, sb) in a.steps.iter().zip(b.steps.iter()) {
+            assert_eq!(sa.step, sb.step);
+            assert_eq!(sa.command, sb.command);
+            assert_eq!(sa.description, sb.description);
+        }
+    }
+
+    // =========================================================================
+    // build_quick_start - structural tests
+    // =========================================================================
+
+    #[test]
+    fn quick_start_all_commands_have_non_empty_fields() {
+        let qs = build_quick_start();
+        for cmd in &qs.essential_commands {
+            assert!(!cmd.command.is_empty(), "essential command must have command");
+            assert!(!cmd.purpose.is_empty(), "essential command must have purpose");
+        }
+        for cmd in &qs.orientation {
+            assert!(!cmd.command.is_empty(), "orientation command must have command");
+            assert!(!cmd.purpose.is_empty(), "orientation command must have purpose");
+        }
+        for cmd in &qs.workflow {
+            assert!(!cmd.command.is_empty(), "workflow command must have command");
+            assert!(!cmd.purpose.is_empty(), "workflow command must have purpose");
+        }
+    }
+
+    #[test]
+    fn quick_start_is_deterministic() {
+        let a = build_quick_start();
+        let b = build_quick_start();
+        assert_eq!(a.essential_commands.len(), b.essential_commands.len());
+        assert_eq!(a.orientation.len(), b.orientation.len());
+        assert_eq!(a.workflow.len(), b.workflow.len());
+    }
+
+    // =========================================================================
+    // build_overview - structural tests
+    // =========================================================================
+
+    #[test]
+    fn overview_subcommands_all_start_with_scp_ai() {
+        let overview = build_overview();
+        for sub in &overview.subcommands {
+            assert!(
+                sub.command.starts_with("scp ai "),
+                "Subcommand should start with 'scp ai ': {}",
+                sub.command
+            );
+            assert!(
+                !sub.description.is_empty(),
+                "Subcommand must have description: {}",
+                sub.command
+            );
+        }
+    }
+
+    #[test]
+    fn overview_quick_commands_all_non_empty() {
+        let overview = build_overview();
+        for cmd in &overview.quick_commands {
+            assert!(!cmd.is_empty(), "Quick command must be non-empty");
+        }
+    }
+
+    #[test]
+    fn overview_is_deterministic() {
+        let a = build_overview();
+        let b = build_overview();
+        assert_eq!(a.message, b.message);
+        assert_eq!(a.subcommands.len(), b.subcommands.len());
+        assert_eq!(a.quick_commands.len(), b.quick_commands.len());
+    }
+
+    // =========================================================================
+    // determine_next_action - edge cases
+    // =========================================================================
+
+    #[test]
+    fn next_action_uninitialized_in_workspace_hits_not_initialized_arm() {
+        // The `_ if !initialized` arm is checked BEFORE the workspace arm,
+        // so uninitialized workspace returns "scp init" with High priority.
+        let output = determine_next_action(
+            false,
+            &Location::Workspace("ws".to_string()),
+            Some("ws"),
+            0,
+        );
+        assert_eq!(output.priority, Priority::High);
+        assert!(output.command.contains("init"));
+    }
+
+    #[test]
+    fn next_action_uninitialized_unknown_suggests_init() {
+        let output = determine_next_action(false, &Location::Unknown, None, 0);
+        assert_eq!(output.priority, Priority::High);
+        assert!(output.command.contains("init"));
+    }
+
+    #[test]
+    fn next_action_initialized_unknown_no_sessions_suggests_work() {
+        let output = determine_next_action(true, &Location::Unknown, None, 0);
+        assert_eq!(output.priority, Priority::Medium);
+        assert!(output.command.contains("work"));
+    }
+
+    #[test]
+    fn next_action_one_session_suggests_listing() {
+        let output = determine_next_action(true, &Location::Main, None, 1);
+        assert_eq!(output.priority, Priority::Medium);
+        assert!(output.command.contains("list"));
+        assert!(output.reason.contains('1'));
+    }
+
+    #[test]
+    fn next_action_not_in_repo_takes_priority_over_uninitialized() {
+        // Both false, not_in_repo should win
+        let output = determine_next_action(false, &Location::NotInRepo, None, 0);
+        assert_eq!(output.priority, Priority::High);
+        assert!(output.command.contains("cd"));
+    }
+
+    #[test]
+    fn next_action_not_in_repo_takes_priority_over_sessions() {
+        let output = determine_next_action(true, &Location::NotInRepo, None, 50);
+        assert_eq!(output.priority, Priority::High);
+        assert!(output.command.contains("cd"));
+    }
+
+    #[test]
+    fn next_action_not_in_repo_takes_priority_over_workspace() {
+        let output = determine_next_action(
+            true,
+            &Location::NotInRepo,
+            Some("ignored"),
+            0,
+        );
+        assert_eq!(output.priority, Priority::High);
+        assert!(output.command.contains("cd"));
+    }
+
+    #[test]
+    fn next_action_all_fields_non_empty() {
+        let combos: Vec<(bool, Location, Option<&str>, usize)> = vec![
+            (false, Location::Main, None, 0),
+            (true, Location::NotInRepo, None, 0),
+            (true, Location::Workspace("ws".to_string()), Some("ws"), 0),
+            (true, Location::Main, None, 5),
+            (true, Location::Main, None, 0),
+            (true, Location::Unknown, None, 0),
+        ];
+        for (init, loc, ws, sessions) in combos {
+            let output = determine_next_action(init, &loc, ws, sessions);
+            assert!(
+                !output.action.is_empty(),
+                "action must be non-empty for init={init}, loc={loc:?}"
+            );
+            assert!(
+                !output.command.is_empty(),
+                "command must be non-empty for init={init}, loc={loc:?}"
+            );
+            assert!(
+                !output.reason.is_empty(),
+                "reason must be non-empty for init={init}, loc={loc:?}"
+            );
+        }
+    }
+
+    // =========================================================================
+    // format_status_human - additional edge cases
+    // =========================================================================
+
+    #[test]
+    fn format_status_human_carriage_return_is_sanitized() {
+        let status = crate::commands::handlers::ai::data::AiStatusOutput {
+            location: Location::Main,
+            workspace: None,
+            agent_id: None,
+            initialized: true,
+            active_sessions: 0,
+            ready: true,
+            suggestion: "ok\r\nINJECTED".to_string(),
+            next_command: "scp work".to_string(),
+        };
+        let lines = format_status_human(&status);
+        let injected_lines: Vec<&String> = lines.iter().filter(|l| l.contains("INJECTED")).collect();
+        // The \r should be replaced, the \n should be replaced, so INJECTED
+        // appears as part of a suggestion line, not a separate line.
+        assert_eq!(injected_lines.len(), 1, "INJECTED should only appear once, collapsed into suggestion");
+    }
+
+    #[test]
+    fn format_status_human_produces_expected_line_count() {
+        let status = crate::commands::handlers::ai::data::AiStatusOutput {
+            location: Location::Main,
+            workspace: None,
+            agent_id: Some("agent".to_string()),
+            initialized: true,
+            active_sessions: 1,
+            ready: true,
+            suggestion: "Ready".to_string(),
+            next_command: "scp work".to_string(),
+        };
+        let lines = format_status_human(&status);
+        // Expect: title + separator + blank + 6 fields + blank + status + suggestion + blank + "Next command:" + indented cmd = 14 lines
+        assert!(
+            lines.len() >= 10,
+            "Should have at least 10 lines, got {}: {:?}",
+            lines.len(),
+            lines
+        );
+    }
+
+    #[test]
+    fn format_status_human_unknown_location_displayed() {
+        let status = crate::commands::handlers::ai::data::AiStatusOutput {
+            location: Location::Unknown,
+            workspace: None,
+            agent_id: None,
+            initialized: true,
+            active_sessions: 0,
+            ready: true,
+            suggestion: "Ready".to_string(),
+            next_command: "scp work".to_string(),
+        };
+        let lines = format_status_human(&status);
+        let has_unknown = lines.iter().any(|l| l.contains("unknown"));
+        assert!(has_unknown, "Must display unknown location");
+    }
+
+    #[test]
+    fn format_status_human_workspace_na_when_none() {
+        let status = crate::commands::handlers::ai::data::AiStatusOutput {
+            location: Location::Main,
+            workspace: None,
+            agent_id: None,
+            initialized: true,
+            active_sessions: 0,
+            ready: true,
+            suggestion: "Ready".to_string(),
+            next_command: "scp work".to_string(),
+        };
+        let lines = format_status_human(&status);
+        let has_na = lines.iter().any(|l| l.contains("N/A"));
+        assert!(has_na, "Must show N/A when workspace is None");
+    }
+
+    // =========================================================================
+    // commands_from_table - via build_quick_start / build_overview (indirect)
+    // =========================================================================
+
+    #[test]
+    fn commands_from_table_produces_correct_length_via_quick_start() {
+        let qs = build_quick_start();
+        assert_eq!(
+            qs.essential_commands.len(),
+            ESSENTIAL_COMMANDS.len(),
+            "essential_commands length should match data table"
+        );
+        assert_eq!(
+            qs.orientation.len(),
+            ORIENTATION_COMMANDS.len(),
+            "orientation length should match data table"
+        );
+        assert_eq!(
+            qs.workflow.len(),
+            WORKFLOW_COMMANDS.len(),
+            "workflow length should match data table"
+        );
+    }
+
+    #[test]
+    fn workflow_steps_length_matches_data_table() {
+        let workflow = build_workflow();
+        assert_eq!(
+            workflow.steps.len(),
+            WORKFLOW_STEPS.len(),
+            "workflow steps should match data table"
+        );
+    }
+
+    #[test]
+    fn overview_subcommands_length_matches_data_table() {
+        let overview = build_overview();
+        assert_eq!(
+            overview.subcommands.len(),
+            OVERVIEW_SUBCOMMANDS.len(),
+            "subcommands should match data table"
+        );
+    }
+
+    #[test]
+    fn overview_quick_commands_length_matches_data_table() {
+        let overview = build_overview();
+        assert_eq!(
+            overview.quick_commands.len(),
+            OVERVIEW_QUICK_COMMANDS.len(),
+            "quick_commands should match data table"
+        );
+    }
 }

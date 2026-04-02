@@ -20,9 +20,7 @@ fn search_path_for_jj() -> String {
 
     std::env::split_paths(&paths)
         .map(|p| p.join("jj"))
-        .find(|p| p.exists())
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|| "jj".to_string())
+        .find(|p| p.exists()).map_or_else(|| "jj".to_string(), |p| p.to_string_lossy().to_string())
 }
 
 /// Resolve jj path from environment or search PATH

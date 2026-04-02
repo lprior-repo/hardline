@@ -310,4 +310,365 @@ mod tests {
         let task_id = TaskId::parse("bd-abc123").unwrap();
         assert_eq!(task_id.into_inner(), "bd-abc123");
     }
+
+    // =========================================================================
+    // AgentId Tests
+    // =========================================================================
+
+    mod agent_id_tests {
+        use super::*;
+
+        #[test]
+        fn agent_id_valid() {
+            let id = AgentId::new("agent-001").expect("valid");
+            assert_eq!(id.as_str(), "agent-001");
+        }
+
+        #[test]
+        fn agent_id_empty_rejects() {
+            let result = AgentId::new("");
+            assert!(result.is_err());
+            assert!(matches!(result.unwrap_err(), SessionError::InvalidIdentifier(_)));
+        }
+
+        #[test]
+        fn agent_id_whitespace_only_rejects() {
+            // AgentId does NOT trim, so whitespace-only is technically valid (non-empty)
+            let id = AgentId::new("  agent  ").expect("valid");
+            assert_eq!(id.as_str(), "  agent  ");
+        }
+
+        #[test]
+        fn agent_id_display() {
+            let id = AgentId::new("alice").expect("valid");
+            assert_eq!(format!("{id}"), "alice");
+        }
+
+        #[test]
+        fn agent_id_try_from_string() {
+            let id = AgentId::try_from("bob".to_string()).expect("valid");
+            assert_eq!(id.as_str(), "bob");
+        }
+
+        #[test]
+        fn agent_id_try_from_empty_string_fails() {
+            let result = AgentId::try_from("".to_string());
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn agent_id_into_inner() {
+            let id = AgentId::new("charlie").expect("valid");
+            assert_eq!(id.into_inner(), "charlie");
+        }
+
+        #[test]
+        fn agent_id_equality() {
+            let id1 = AgentId::new("same").expect("valid");
+            let id2 = AgentId::new("same").expect("valid");
+            let id3 = AgentId::new("different").expect("valid");
+            assert_eq!(id1, id2);
+            assert_ne!(id1, id3);
+        }
+    }
+
+    // =========================================================================
+    // Title Tests
+    // =========================================================================
+
+    mod title_tests {
+        use super::*;
+
+        #[test]
+        fn title_valid() {
+            let title = Title::new("Implement feature X").expect("valid");
+            assert_eq!(title.as_str(), "Implement feature X");
+        }
+
+        #[test]
+        fn title_trims_whitespace() {
+            let title = Title::new("  Padded Title  ").expect("valid");
+            assert_eq!(title.as_str(), "Padded Title");
+        }
+
+        #[test]
+        fn title_empty_rejects() {
+            let result = Title::new("");
+            assert!(result.is_err());
+            assert!(matches!(result.unwrap_err(), SessionError::InvalidIdentifier(_)));
+        }
+
+        #[test]
+        fn title_whitespace_only_rejects() {
+            let result = Title::new("   ");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn title_max_length_boundary() {
+            let max_title = "a".repeat(Title::MAX_LENGTH);
+            let title = Title::new(max_title).expect("at max length");
+            assert_eq!(title.as_str().len(), Title::MAX_LENGTH);
+        }
+
+        #[test]
+        fn title_exceeds_max_length_rejects() {
+            let too_long = "a".repeat(Title::MAX_LENGTH + 1);
+            let result = Title::new(too_long);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn title_display() {
+            let title = Title::new("My Title").expect("valid");
+            assert_eq!(format!("{title}"), "My Title");
+        }
+
+        #[test]
+        fn title_try_from_string() {
+            let title = Title::try_from("Test".to_string()).expect("valid");
+            assert_eq!(title.as_str(), "Test");
+        }
+
+        #[test]
+        fn title_into_inner() {
+            let title = Title::new("Inner").expect("valid");
+            assert_eq!(title.into_inner(), "Inner");
+        }
+
+        #[test]
+        fn title_with_special_chars() {
+            let title = Title::new("Fix: issue #123 (critical)").expect("valid");
+            assert_eq!(title.as_str(), "Fix: issue #123 (critical)");
+        }
+    }
+
+    // =========================================================================
+    // Description Tests
+    // =========================================================================
+
+    mod description_tests {
+        use super::*;
+
+        #[test]
+        fn description_valid() {
+            let desc = Description::new("A detailed description").expect("valid");
+            assert_eq!(desc.as_str(), "A detailed description");
+        }
+
+        #[test]
+        fn description_empty_allowed() {
+            let desc = Description::new("").expect("empty is valid");
+            assert_eq!(desc.as_str(), "");
+        }
+
+        #[test]
+        fn description_whitespace_preserved() {
+            // Description does NOT trim
+            let desc = Description::new("  spaces  ").expect("valid");
+            assert_eq!(desc.as_str(), "  spaces  ");
+        }
+
+        #[test]
+        fn description_max_length_boundary() {
+            let max_desc = "x".repeat(Description::MAX_LENGTH);
+            let desc = Description::new(max_desc).expect("at max length");
+            assert_eq!(desc.as_str().len(), Description::MAX_LENGTH);
+        }
+
+        #[test]
+        fn description_exceeds_max_length_rejects() {
+            let too_long = "x".repeat(Description::MAX_LENGTH + 1);
+            let result = Description::new(too_long);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn description_display() {
+            let desc = Description::new("Show me").expect("valid");
+            assert_eq!(format!("{desc}"), "Show me");
+        }
+
+        #[test]
+        fn description_try_from_string() {
+            let desc = Description::try_from("via tryfrom".to_string()).expect("valid");
+            assert_eq!(desc.as_str(), "via tryfrom");
+        }
+
+        #[test]
+        fn description_into_inner() {
+            let desc = Description::new("consume").expect("valid");
+            assert_eq!(desc.into_inner(), "consume");
+        }
+
+        #[test]
+        fn description_with_newlines() {
+            let desc = Description::new("Line 1\nLine 2\nLine 3").expect("valid");
+            assert!(desc.as_str().contains('\n'));
+        }
+    }
+
+    // =========================================================================
+    // TaskId Serde Tests
+    // =========================================================================
+
+    mod task_id_serde_tests {
+        use super::*;
+
+        #[test]
+        fn task_id_serde_roundtrip() {
+            let id = TaskId::parse("bd-abc123").expect("valid");
+            let json = serde_json::to_string(&id).expect("serialize");
+            let parsed: TaskId = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(id, parsed);
+        }
+
+        #[test]
+        fn task_id_serde_json_output() {
+            let id = TaskId::parse("bd-cafe").expect("valid");
+            let json = serde_json::to_string(&id).expect("serialize");
+            assert_eq!(json, "\"bd-cafe\"");
+        }
+
+        #[test]
+        fn task_id_serde_roundtrip_uppercase() {
+            let id = TaskId::parse("bd-ABCDEF").expect("valid");
+            let json = serde_json::to_string(&id).expect("serialize");
+            let parsed: TaskId = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(id, parsed);
+        }
+    }
+
+    // =========================================================================
+    // AgentId Serde Tests
+    // =========================================================================
+
+    mod agent_id_serde_tests {
+        use super::*;
+
+        #[test]
+        fn agent_id_serde_roundtrip() {
+            let id = AgentId::new("agent-001").expect("valid");
+            let json = serde_json::to_string(&id).expect("serialize");
+            let parsed: AgentId = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(id, parsed);
+        }
+
+        #[test]
+        fn agent_id_serde_json_output() {
+            let id = AgentId::new("alice").expect("valid");
+            let json = serde_json::to_string(&id).expect("serialize");
+            assert_eq!(json, "\"alice\"");
+        }
+
+        #[test]
+        fn agent_id_serde_roundtrip_with_special_chars() {
+            let id = AgentId::new("agent@domain.com").expect("valid");
+            let json = serde_json::to_string(&id).expect("serialize");
+            let parsed: AgentId = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(id, parsed);
+        }
+    }
+
+    // =========================================================================
+    // Title Serde Tests
+    // =========================================================================
+
+    mod title_serde_tests {
+        use super::*;
+
+        #[test]
+        fn title_serde_roundtrip() {
+            let title = Title::new("My Task Title").expect("valid");
+            let json = serde_json::to_string(&title).expect("serialize");
+            let parsed: Title = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(title, parsed);
+        }
+
+        #[test]
+        fn title_serde_json_output() {
+            let title = Title::new("Hello").expect("valid");
+            let json = serde_json::to_string(&title).expect("serialize");
+            assert_eq!(json, "\"Hello\"");
+        }
+
+        #[test]
+        fn title_serde_roundtrip_with_special_chars() {
+            let title = Title::new("Fix: bug #123 (critical)").expect("valid");
+            let json = serde_json::to_string(&title).expect("serialize");
+            let parsed: Title = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(title, parsed);
+        }
+    }
+
+    // =========================================================================
+    // Description Serde Tests
+    // =========================================================================
+
+    mod description_serde_tests {
+        use super::*;
+
+        #[test]
+        fn description_serde_roundtrip() {
+            let desc = Description::new("A detailed description").expect("valid");
+            let json = serde_json::to_string(&desc).expect("serialize");
+            let parsed: Description = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(desc, parsed);
+        }
+
+        #[test]
+        fn description_serde_roundtrip_empty() {
+            let desc = Description::new("").expect("valid");
+            let json = serde_json::to_string(&desc).expect("serialize");
+            let parsed: Description = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(desc, parsed);
+        }
+
+        #[test]
+        fn description_serde_json_output() {
+            let desc = Description::new("test").expect("valid");
+            let json = serde_json::to_string(&desc).expect("serialize");
+            assert_eq!(json, "\"test\"");
+        }
+
+        #[test]
+        fn description_serde_preserves_whitespace() {
+            let desc = Description::new("  spaces  ").expect("valid");
+            let json = serde_json::to_string(&desc).expect("serialize");
+            let parsed: Description = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(parsed.as_str(), "  spaces  ");
+        }
+    }
+
+    // =========================================================================
+    // TaskId Proptests
+    // =========================================================================
+
+    mod task_id_proptests {
+        use super::*;
+
+        #[test]
+        fn task_id_roundtrip_various() {
+            for suffix in &["1", "abc123", "deadbeef", "ABCDEF", "AbCdEf123456", "f00ba7"] {
+                let full = format!("bd-{suffix}");
+                let id = TaskId::parse(&full).unwrap();
+                assert_eq!(id.to_string(), full);
+            }
+        }
+
+        #[test]
+        fn task_id_equality() {
+            let id1 = TaskId::parse("bd-deadbeef").unwrap();
+            let id2 = TaskId::parse("bd-deadbeef").unwrap();
+            let id3 = TaskId::parse("bd-cafebabe").unwrap();
+            assert_eq!(id1, id2);
+            assert_ne!(id1, id3);
+        }
+
+        #[test]
+        fn task_id_display_matches_as_str() {
+            let id = TaskId::parse("bd-abcdef12").unwrap();
+            assert_eq!(format!("{id}"), "bd-abcdef12");
+        }
+    }
 }

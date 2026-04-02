@@ -4,10 +4,10 @@
 //!
 //! RED PHASE: These tests compile but FAIL because the implementation
 //! has NOT been changed yet. The implementation changes needed:
-//! - WORKSPACE_CREATION_LOCK_FILE changes from "workspace-create.lock" to ".scp-workspace-create.lock"
-//! - New function: ensure_data_directory(repo_root: &Path) -> Result<(), Error>
-//! - acquire_cross_process_lock() should NOT create the .isolate directory
-//! - create_workspace_synced() should call ensure_data_directory() AFTER acquiring lock
+//! - `WORKSPACE_CREATION_LOCK_FILE` changes from "workspace-create.lock" to ".scp-workspace-create.lock"
+//! - New function: `ensure_data_directory(repo_root`: &Path) -> Result<(), Error>
+//! - `acquire_cross_process_lock()` should NOT create the .isolate directory
+//! - `create_workspace_synced()` should call `ensure_data_directory()` AFTER acquiring lock
 
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
@@ -38,7 +38,8 @@ use crate::jj_operation_sync::jj_lock::{
     WORKSPACE_CREATION_LOCK_FILE,
 };
 
-/// Helper: assert that an Error is the Jj variant with LockTimeout message
+#[allow(clippy::unwrap_used, clippy::panic)]
+/// Helper: assert that an Error is the Jj variant with `LockTimeout` message
 fn assert_is_lock_timeout(result: &Result<File>, expected_operation: &str) {
     match result {
         Err(Error::Jj(_)) => {
@@ -58,6 +59,7 @@ fn assert_is_lock_timeout(result: &Result<File>, expected_operation: &str) {
     }
 }
 
+#[allow(clippy::unwrap_used, clippy::panic)]
 /// Helper: assert that an Error is the Io variant containing a substring
 fn assert_is_io_error(result: &Result<File>, expected_substring: &str) {
     match result {
@@ -74,6 +76,7 @@ fn assert_is_io_error(result: &Result<File>, expected_substring: &str) {
     }
 }
 
+#[allow(clippy::unwrap_used, clippy::panic)]
 /// Helper: assert that a Result<()> is the Io variant containing a substring
 fn assert_is_io_error_unit(result: &Result<()>, expected_substring: &str) {
     match result {
@@ -1289,6 +1292,7 @@ mod proptests_p2 {
 mod proptests_p3 {
     use crate::jj_operation_sync::jj_lock::WORKSPACE_CREATION_LOCK_FILE;
     use proptest::prelude::*;
+    use proptest::{prop_assert, prop_assert_eq};
     use std::path::PathBuf;
 
     proptest! {

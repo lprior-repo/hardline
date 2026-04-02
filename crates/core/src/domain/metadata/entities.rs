@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use crate::dag::BranchId;
 
-/// StackMetadata - Storage layer for branch metadata with backend delegation
+/// `StackMetadata` - Storage layer for branch metadata with backend delegation
 #[derive(Clone)]
 pub struct StackMetadata {
     /// `BranchId` -> Option<BranchId> (parent, None for trunk)

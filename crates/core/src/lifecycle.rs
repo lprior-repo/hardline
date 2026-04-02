@@ -149,3 +149,160 @@ pub mod conformance_tests {
         test_all_states_unique::<T>();
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UNIT TESTS FOR THE LIFECYCLE TRAIT AND CONFORMANCE HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::session_state::{SessionState, StateTransition};
+    use crate::type_session_status::SessionStatus;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Conformance test helper validation (using SessionStatus which implements LifecycleState)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_run_all_conformance_tests_for_session_status() {
+        conformance_tests::run_all_tests::<SessionStatus>();
+    }
+
+    #[test]
+    fn test_transition_consistency_for_session_status() {
+        conformance_tests::test_transition_consistency::<SessionStatus>();
+    }
+
+    #[test]
+    fn test_terminal_states_no_transitions_for_session_status() {
+        conformance_tests::test_terminal_states_no_transitions::<SessionStatus>();
+    }
+
+    #[test]
+    fn test_non_terminal_states_have_transitions_for_session_status() {
+        conformance_tests::test_non_terminal_states_have_transitions::<SessionStatus>();
+    }
+
+    #[test]
+    fn test_terminal_states_reject_all_transitions_for_session_status() {
+        conformance_tests::test_terminal_states_reject_all_transitions::<SessionStatus>();
+    }
+
+    #[test]
+    fn test_all_states_unique_for_session_status() {
+        conformance_tests::test_all_states_unique::<SessionStatus>();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // try_transition tests (using SessionStatus which implements LifecycleState)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_try_transition_valid() {
+        let result = SessionStatus::Creating.try_transition(SessionStatus::Active);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), SessionStatus::Active);
+    }
+
+    #[test]
+    fn test_try_transition_invalid() {
+        let result = SessionStatus::Creating.try_transition(SessionStatus::Completed);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_try_transition_from_terminal_fails() {
+        let result = SessionStatus::Completed.try_transition(SessionStatus::Active);
+        assert!(result.is_err());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // StateTransition type tests
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_state_transition_creation() {
+        let transition = StateTransition::new(
+            SessionState::Created,
+            SessionState::Active,
+            "activation",
+        );
+        assert_eq!(transition.from, SessionState::Created);
+        assert_eq!(transition.to, SessionState::Active);
+        assert_eq!(transition.reason, "activation");
+    }
+
+    #[test]
+    fn test_state_transition_validate_valid() {
+        let transition = StateTransition::new(
+            SessionState::Created,
+            SessionState::Active,
+            "test",
+        );
+        assert!(transition.validate().is_ok());
+    }
+
+    #[test]
+    fn test_state_transition_validate_invalid() {
+        let transition = StateTransition::new(
+            SessionState::Completed,
+            SessionState::Active,
+            "invalid",
+        );
+        assert!(transition.validate().is_err());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SessionStatus all variants / Debug
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_session_status_all_variants_exhaustive() {
+        let all = SessionStatus::all_states();
+        assert!(all.contains(&SessionStatus::Creating));
+        assert!(all.contains(&SessionStatus::Active));
+        assert!(all.contains(&SessionStatus::Paused));
+        assert!(all.contains(&SessionStatus::Completed));
+        assert!(all.contains(&SessionStatus::Failed));
+        assert_eq!(all.len(), 5);
+    }
+
+    #[test]
+    fn test_session_status_debug_format() {
+        let states = SessionStatus::all_states();
+        for &state in states {
+            let debug = format!("{state:?}");
+            assert!(!debug.is_empty(), "Debug for {:?} should not be empty", state);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SessionStatus terminal states
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_session_status_terminal_states() {
+        assert!(SessionStatus::Completed.is_terminal());
+        assert!(SessionStatus::Failed.is_terminal());
+        assert!(!SessionStatus::Creating.is_terminal());
+        assert!(!SessionStatus::Active.is_terminal());
+        assert!(!SessionStatus::Paused.is_terminal());
+    }
+
+    #[test]
+    fn test_session_status_valid_transitions() {
+        assert!(SessionStatus::Creating.can_transition_to(SessionStatus::Active));
+        assert!(SessionStatus::Creating.can_transition_to(SessionStatus::Failed));
+        assert!(SessionStatus::Active.can_transition_to(SessionStatus::Paused));
+        assert!(SessionStatus::Active.can_transition_to(SessionStatus::Completed));
+        assert!(SessionStatus::Paused.can_transition_to(SessionStatus::Active));
+        assert!(SessionStatus::Paused.can_transition_to(SessionStatus::Completed));
+
+        // Invalid transitions
+        assert!(!SessionStatus::Creating.can_transition_to(SessionStatus::Paused));
+        assert!(!SessionStatus::Creating.can_transition_to(SessionStatus::Completed));
+        assert!(!SessionStatus::Completed.can_transition_to(SessionStatus::Active));
+        assert!(!SessionStatus::Failed.can_transition_to(SessionStatus::Active));
+    }
+}

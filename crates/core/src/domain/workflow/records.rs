@@ -10,7 +10,7 @@ use crate::domain::workflow::states::{JournalState, OperationState, StepStatus};
 // =============================================================================
 
 /// Record of a durable operation
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperationRecord {
     pub operation_id: String,
     pub state: OperationState,
@@ -25,6 +25,7 @@ pub struct OperationRecord {
 }
 
 impl OperationRecord {
+    #[must_use]
     pub fn new(
         operation_id: String,
         author_id: String,
@@ -45,12 +46,13 @@ impl OperationRecord {
         }
     }
 
-    pub fn with_state(mut self, state: OperationState) -> Self {
+    #[must_use]
+    pub const fn with_state(mut self, state: OperationState) -> Self {
         self.state = state;
         self
     }
 
-    pub fn advance_step(&mut self) {
+    pub const fn advance_step(&mut self) {
         self.current_step += 1;
     }
 
@@ -70,7 +72,7 @@ impl OperationRecord {
         if self.total_steps == 0 {
             0.0
         } else {
-            (self.current_step as f64 / self.total_steps as f64) * 100.0
+            (f64::from(self.current_step) / f64::from(self.total_steps)) * 100.0
         }
     }
 }
@@ -80,7 +82,7 @@ impl OperationRecord {
 // =============================================================================
 
 /// Record of a single step in the step journal
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StepRecord {
     pub operation_id: String,
     pub step_index: u32,
@@ -94,6 +96,7 @@ pub struct StepRecord {
 }
 
 impl StepRecord {
+    #[must_use]
     pub fn new(operation_id: String, step_index: u32, step_name: String) -> Self {
         Self {
             operation_id,
@@ -130,7 +133,7 @@ impl StepRecord {
     }
 
     #[must_use]
-    pub fn duration_ms(&self) -> Option<i64> {
+    pub const fn duration_ms(&self) -> Option<i64> {
         match (self.started_at, self.completed_at) {
             (Some(start), Some(end)) => Some(end - start),
             _ => None,
@@ -143,7 +146,7 @@ impl StepRecord {
 // =============================================================================
 
 /// Journal entry for tracking operation progress
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JournalEntry {
     pub operation_id: String,
     pub state: JournalState,
@@ -153,6 +156,7 @@ pub struct JournalEntry {
 }
 
 impl JournalEntry {
+    #[must_use]
     pub fn new(operation_id: String, state: JournalState) -> Self {
         Self {
             operation_id,
@@ -163,11 +167,13 @@ impl JournalEntry {
         }
     }
 
-    pub fn with_step(mut self, step_index: u32) -> Self {
+    #[must_use]
+    pub const fn with_step(mut self, step_index: u32) -> Self {
         self.step_index = Some(step_index);
         self
     }
 
+    #[must_use]
     pub fn with_error(mut self, error: String) -> Self {
         self.error_message = Some(error);
         self
@@ -179,7 +185,7 @@ impl JournalEntry {
 // =============================================================================
 
 /// Compensation action for a single step
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompensationAction {
     pub step_index: u32,
     pub step_name: String,
@@ -189,7 +195,8 @@ pub struct CompensationAction {
 }
 
 impl CompensationAction {
-    pub fn new(step_index: u32, step_name: String, compensate_fn: String) -> Self {
+    #[must_use]
+    pub const fn new(step_index: u32, step_name: String, compensate_fn: String) -> Self {
         Self {
             step_index,
             step_name,
@@ -199,7 +206,7 @@ impl CompensationAction {
         }
     }
 
-    pub fn mark_compensated(&mut self) {
+    pub const fn mark_compensated(&mut self) {
         self.status = StepStatus::Completed;
     }
 
@@ -214,7 +221,7 @@ impl CompensationAction {
 // =============================================================================
 
 /// Recovery task for resuming incomplete operations
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecoveryTask {
     pub operation_id: String,
     pub resume_from_step: u32,
@@ -222,6 +229,7 @@ pub struct RecoveryTask {
 }
 
 impl RecoveryTask {
+    #[must_use]
     pub fn new(operation_id: String, resume_from_step: u32) -> Self {
         Self {
             operation_id,
@@ -242,6 +250,7 @@ pub struct RecoveryReport {
 }
 
 impl RecoveryReport {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }

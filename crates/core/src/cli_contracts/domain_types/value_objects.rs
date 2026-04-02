@@ -18,6 +18,11 @@ impl NonEmptyString {
         &self.0
     }
 
+    /// Validates a non-empty string value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the string is empty or whitespace-only.
     pub fn validate(s: &str) -> Result<(), ContractError> {
         let trimmed = s.trim();
         if trimmed.is_empty() {
@@ -55,6 +60,11 @@ impl Limit {
         self.0 as usize
     }
 
+    /// Validates a limit value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the limit is zero or exceeds 1000.
     pub fn validate(limit: usize) -> Result<(), ContractError> {
         if limit == 0 {
             return Err(ContractError::invalid_input("limit", "must be at least 1"));
@@ -87,6 +97,11 @@ impl Priority {
         self.0 as u32
     }
 
+    /// Validates a priority value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the priority exceeds 1000.
     pub fn validate(priority: u32) -> Result<(), ContractError> {
         if priority > 1000 {
             return Err(ContractError::invalid_input(
@@ -122,6 +137,11 @@ impl TimeoutSeconds {
     const MIN: u64 = 1;
     const MAX: u64 = 24 * 60 * 60; // 24 hours
 
+    /// Validates a timeout value in seconds.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the timeout is less than 1 or exceeds 24 hours.
     pub fn validate(timeout: u64) -> Result<(), ContractError> {
         if timeout < Self::MIN {
             return Err(ContractError::invalid_input(

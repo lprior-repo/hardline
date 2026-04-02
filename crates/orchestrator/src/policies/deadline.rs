@@ -60,4 +60,35 @@ mod tests {
         // Should be approximately 5000 (within small margin)
         assert!(remaining >= 4900 && remaining <= 5100);
     }
+
+    #[test]
+    fn test_deadline_at_constructor() {
+        let specific_time = Utc::now() + chrono::Duration::hours(1);
+        let deadline = Deadline::at(specific_time);
+        assert_eq!(deadline.deadline_at(), specific_time);
+        assert!(!deadline.is_exceeded());
+    }
+
+    #[test]
+    fn test_deadline_is_exceeded_past() {
+        let past = Utc::now() - chrono::Duration::milliseconds(100);
+        let deadline = Deadline::at(past);
+        assert!(deadline.is_exceeded());
+    }
+
+    #[test]
+    fn test_deadline_remaining_ms_clamped_at_zero() {
+        let past = Utc::now() - chrono::Duration::milliseconds(100);
+        let deadline = Deadline::at(past);
+        assert_eq!(deadline.remaining_ms(), 0);
+    }
+
+    #[test]
+    fn test_deadline_from_now_zero_duration() {
+        let deadline = Deadline::from_now(0);
+        // Deadline was set at now + 0ms, so by the time we check it should be exceeded or very close
+        // Even if not exceeded, remaining_ms should be clamped to 0
+        let remaining = deadline.remaining_ms();
+        assert!(remaining <= 1);
+    }
 }

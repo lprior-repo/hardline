@@ -18,7 +18,7 @@ impl Priority {
     }
 
     pub fn high() -> Self {
-        Self(100)
+        Self(230)
     }
 
     pub fn critical() -> Self {
@@ -61,8 +61,8 @@ mod tests {
     }
 
     #[test]
-    fn priority_high_is_300() {
-        assert_eq!(Priority::high().value(), 300);
+    fn priority_high_is_230() {
+        assert_eq!(Priority::high().value(), 230);
     }
 
     #[test]
@@ -74,5 +74,80 @@ mod tests {
     fn priority_ord_compares_by_value() {
         assert!(Priority::low() < Priority::normal());
         assert!(Priority::normal() < Priority::high());
+    }
+
+    #[test]
+    fn priority_new_arbitrary_value() {
+        let p = Priority::new(42);
+        assert_eq!(p.value(), 42);
+    }
+
+    #[test]
+    fn priority_zero() {
+        let p = Priority::new(0);
+        assert_eq!(p.value(), 0);
+    }
+
+    #[test]
+    fn priority_parse_ok() {
+        let p = Priority::parse(150);
+        assert!(p.is_ok());
+        assert_eq!(p.unwrap().value(), 150);
+    }
+
+    #[test]
+    fn priority_from_u8() {
+        let p: Priority = 77.into();
+        assert_eq!(p.value(), 77);
+    }
+
+    #[test]
+    fn priority_debug() {
+        let p = Priority::critical();
+        let debug = format!("{p:?}");
+        assert!(debug.contains("Priority"));
+    }
+
+    #[test]
+    fn priority_serde_roundtrip() {
+        let p = Priority::normal();
+        let json = serde_json::to_string(&p).unwrap();
+        let back: Priority = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.value(), 200);
+    }
+
+    #[test]
+    fn priority_clone_and_copy() {
+        let a = Priority::normal();
+        let b = a;
+        assert_eq!(a.value(), b.value());
+    }
+
+    #[test]
+    fn priority_equality() {
+        let a = Priority::new(100);
+        let b = Priority::new(100);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn priority_copy_semantics() {
+        let a = Priority::normal();
+        let _b = a;
+        // a is still usable because Priority: Copy
+        assert_eq!(a.value(), 200);
+    }
+
+    #[test]
+    fn priority_ordering_total() {
+        assert!(Priority::new(0) < Priority::low());
+        assert!(Priority::low() <= Priority::low());
+        assert!(Priority::critical() > Priority::normal());
+        assert!(Priority::critical() >= Priority::critical());
+    }
+
+    #[test]
+    fn priority_max_value() {
+        assert_eq!(Priority::critical().value(), u8::MAX);
     }
 }

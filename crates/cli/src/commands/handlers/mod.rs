@@ -7,7 +7,10 @@
 //! uses a builder pattern with build_cli().
 
 pub mod ai;
+pub mod backup;
 pub mod batch;
+pub mod done;
 pub mod json_format;
+pub mod session;
 pub mod sync;
 pub mod task;
