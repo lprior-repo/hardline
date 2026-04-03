@@ -2,16 +2,16 @@
 //! Object-based CLI type definitions
 //!
 //! This module defines the type system for the object-based command structure
-//! following the pattern: `isolate <object> <action>`
+//! following the pattern: `hardline <object> <action>`
 
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-/// Top-level objects in the isolate CLI
+/// Top-level objects in the hardline CLI
 ///
 /// Each object represents a domain of related operations following
-/// the `isolate <object> <action>` pattern.
+/// the `hardline <object> <action>` pattern.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ZjjObject {
     /// Task management (beads, work items)
@@ -55,7 +55,7 @@ impl ZjjObject {
             Self::Task => "Manage tasks and work items (beads)",
             Self::Session => "Manage workspaces and sessions",
             Self::Status => "Query system and session status",
-            Self::Config => "Manage isolate configuration",
+            Self::Config => "Manage hardline configuration",
             Self::Doctor => "Run diagnostics and health checks",
         }
     }
@@ -103,7 +103,7 @@ pub enum SessionAction {
     Spawn,
     /// Sync session with remote
     Sync,
-    /// Initialize isolate in repository
+    /// Initialize hardline in repository
     Init,
 }
 

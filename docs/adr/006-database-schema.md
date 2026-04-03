@@ -81,7 +81,7 @@ CREATE TABLE workspaces (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     path TEXT NOT NULL,
-    backend TEXT NOT NULL CHECK (backend IN ('git', 'jj')),
+    backend TEXT NOT NULL CHECK (backend IN ('git')),
     state TEXT NOT NULL CHECK (state IN (
         'created', 'active', 'syncing', 'paused', 'completed', 'failed'
     )),

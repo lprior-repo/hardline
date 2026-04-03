@@ -1,6 +1,6 @@
 //! KIRK Contracts for Session CLI operations.
 //!
-//! Sessions represent parallel workspaces in jj.
+//! Sessions represent parallel workspaces in Git.
 
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]

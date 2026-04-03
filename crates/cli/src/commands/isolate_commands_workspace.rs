@@ -11,13 +11,13 @@ pub fn cmd_sync() -> ClapCommand {
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
                 "DEFAULT BEHAVIOR (safe and explicit):",
-                "  isolate sync                          Sync current workspace only",
-                "  isolate sync <name>                   Sync ONLY the named session",
-                "  isolate sync --all                    Sync ALL sessions (explicit)",
+                "  hardline sync                          Sync current workspace only",
+                "  hardline sync <name>                   Sync ONLY the named session",
+                "  hardline sync --all                    Sync ALL sessions (explicit)",
                 "",
                 "OPTIONS:",
-                "  isolate sync --dry-run                Preview without changes",
-                "  isolate sync --json                   JSON output with SchemaEnvelope",
+                "  hardline sync --dry-run                Preview without changes",
+                "  hardline sync --json                   JSON output with SchemaEnvelope",
                 "",
                 "SAFETY: Named sync is isolated. Default syncs only current workspace.",
             ],
@@ -67,11 +67,11 @@ pub fn cmd_diff() -> ClapCommand {
         .about("Show diff between session and main branch")
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate diff                        Auto-detect session from workspace",
-                "isolate diff feature-auth           Show diff between feature workspace and main",
-                "isolate diff --stat                 Show diffstat for auto-detected session",
-                "isolate diff feature-auth --stat    Show diffstat summary",
-                "isolate diff feature-auth --json    Output diff metadata in JSON",
+                "hardline diff                        Auto-detect session from workspace",
+                "hardline diff feature-auth           Show diff between feature workspace and main",
+                "hardline diff --stat                 Show diffstat for auto-detected session",
+                "hardline diff feature-auth --stat    Show diffstat summary",
+                "hardline diff feature-auth --json    Output diff metadata in JSON",
             ],
             Some(json_docs::diff()),
         ))
@@ -116,11 +116,11 @@ pub fn cmd_submit() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate submit                        Submit current workspace",
-                "isolate submit --dry-run              Preview submit without changes",
-                "isolate submit --auto-commit          Auto-commit before submitting",
-                "isolate submit -m \"Fix bug\"          Submit with custom commit message",
-                "isolate submit --json                 Output as JSON",
+                "hardline submit                        Submit current workspace",
+                "hardline submit --dry-run              Preview submit without changes",
+                "hardline submit --auto-commit          Auto-commit before submitting",
+                "hardline submit -m \"Fix bug\"          Submit with custom commit message",
+                "hardline submit --json                 Output as JSON",
             ],
             None,
         ))
@@ -161,7 +161,7 @@ pub fn cmd_undo() -> ClapCommand {
     ClapCommand::new("undo")
         .about("Revert last done operation")
         .long_about(
-            "Reverts the most recent 'isolate done' operation, rolling back to the state before the merge.
+            "Reverts the most recent 'hardline done' operation, rolling back to the state before the merge.
 
             Works only if changes haven't been pushed to remote.
 
@@ -189,9 +189,9 @@ pub fn cmd_undo() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate undo                        Undo most recent done",
-                "isolate undo --list                 Show undo history",
-                "isolate undo --dry-run              Preview undo",
+                "hardline undo                        Undo most recent done",
+                "hardline undo --list                 Show undo history",
+                "hardline undo --dry-run              Preview undo",
             ],
             None,
         ))
@@ -228,8 +228,8 @@ pub fn cmd_revert() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate revert feature-x            Revert specific session merge",
-                "isolate revert --dry-run feat       Preview revert",
+                "hardline revert feature-x            Revert specific session merge",
+                "hardline revert --dry-run feat       Preview revert",
             ],
             None,
         ))

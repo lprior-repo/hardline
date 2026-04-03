@@ -10,7 +10,7 @@ pub fn cmd_bookmark() -> ClapCommand {
             "Manage bookmarks (branches) in Git workspaces.
 
 
-            isolate wraps Git completely - use 'isolate bookmark' not 'git bookmark'.
+            hardline wraps Git completely - use 'hardline bookmark' not 'git bookmark'.
 
             Provides: list, create, delete, move operations.",
         )
@@ -113,12 +113,12 @@ pub fn cmd_bookmark() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate bookmark list                List bookmarks in current workspace",
-                "isolate bookmark list --all          Show all bookmarks including remote",
-                "isolate bookmark create feature-x    Create bookmark at current revision",
-                "isolate bookmark create -p stable    Create and push to remote",
-                "isolate bookmark delete old-fix      Delete a bookmark",
-                "isolate bookmark move stable --to @  Move bookmark to current revision",
+                "hardline bookmark list                List bookmarks in current workspace",
+                "hardline bookmark list --all          Show all bookmarks including remote",
+                "hardline bookmark create feature-x    Create bookmark at current revision",
+                "hardline bookmark create -p stable    Create and push to remote",
+                "hardline bookmark delete old-fix      Delete a bookmark",
+                "hardline bookmark move stable --to @  Move bookmark to current revision",
             ],
             None,
         ))

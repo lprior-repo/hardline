@@ -30,7 +30,7 @@ The architecture spec defines error codes 1xxx-9xxx. This ADR formalizes the com
 | 2xxx | Session | Session lifecycle, bead claiming |
 | 3xxx | Bead | Task/bead operations, dependencies |
 | 4xxx | Queue | Queue management, priority, ordering |
-| 5xxx | VCS | Git/JJ operations, conflicts |
+| 5xxx | VCS | Git operations, conflicts |
 | 6xxx | Stack | Stacked PRs, branch stacks |
 | 7xxx | GitHub | GitHub API, PRs, CI status |
 | 8xxx | Snapshot | Backup/restore, checkpoints |

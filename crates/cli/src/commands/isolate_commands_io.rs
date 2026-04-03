@@ -37,7 +37,7 @@ pub fn cmd_clone() -> ClapCommand {
                 .help("AI: Show command flow hints"),
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
-            &["isolate clone feature-x feature-y     Clone session"],
+            &["hardline clone feature-x feature-y     Clone session"],
             None,
         ))
 }
@@ -54,8 +54,8 @@ are exported. To write to a file, you MUST use the -o/--output flag. This
 prevents ambiguity between session names and file paths.
 
 IMPORTANT: Output file paths require -o/--output flag:
-  - 'isolate export -o export.json'    - Correct: export all sessions to file
-  - 'isolate export export.json'       - WRONG: 'export.json' treated as session name!",
+  - 'hardline export -o export.json'    - Correct: export all sessions to file
+  - 'hardline export export.json'       - WRONG: 'export.json' treated as session name!",
         )
         .arg(Arg::new("session").help("Session name to export (all if omitted)"))
         .arg(
@@ -84,14 +84,14 @@ IMPORTANT: Output file paths require -o/--output flag:
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate export feature-x -o state.json  Export specific session to file",
-                "isolate export -o state.json            Export all sessions to file",
-                "isolate export --json                   Export all sessions as JSON to stdout",
-                "isolate export                          Export all sessions to stdout",
+                "hardline export feature-x -o state.json  Export specific session to file",
+                "hardline export -o state.json            Export all sessions to file",
+                "hardline export --json                   Export all sessions as JSON to stdout",
+                "hardline export                          Export all sessions to stdout",
                 "",
                 "NOTE: Always use -o when writing to a file:",
-                "  CORRECT:   isolate export -o output.json",
-                "  INCORRECT: isolate export output.json   (interprets as session name!)",
+                "  CORRECT:   hardline export -o output.json",
+                "  INCORRECT: hardline export output.json   (interprets as session name!)",
             ],
             Some(json_docs::export()),
         ))
@@ -142,9 +142,9 @@ pub fn cmd_import() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate import state.json           Import session from file",
-                "isolate import -f state.json        Force overwrite existing",
-                "isolate import --dry-run state.json  Preview import",
+                "hardline import state.json           Import session from file",
+                "hardline import -f state.json        Force overwrite existing",
+                "hardline import --dry-run state.json  Preview import",
             ],
             None,
         ))
@@ -179,7 +179,7 @@ pub fn cmd_rename() -> ClapCommand {
                 .help("AI: Show command flow hints"),
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
-            &["isolate rename old-name new-name        Rename a session"],
+            &["hardline rename old-name new-name        Rename a session"],
             None,
         ))
 }

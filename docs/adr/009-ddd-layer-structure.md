@@ -63,7 +63,6 @@ crates/core/src/
 │   │   └── mod.rs
 │   ├── vcs/                 # VCS integration
 │   │   ├── git_backend.rs
-│   │   ├── jj_backend.rs
 │   │   └── mod.rs
 │   ├── filesystem.rs        # File operations
 │   └── mod.rs
@@ -282,9 +281,6 @@ impl<R: WorkspaceRepository, V: VcsBackend> WorkspaceService<R, V> {
         match backend {
             VcsType::Git => {
                 self.vcs_backend.init(&path)?;
-            }
-            VcsType::JJ => {
-                self.vcs_backend.workspace_create(&path, name.as_str())?;
             }
         }
         

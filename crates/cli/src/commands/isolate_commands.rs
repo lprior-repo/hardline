@@ -24,7 +24,7 @@ pub fn after_help_text(examples: &[&str], json_output: Option<&'static str>) -> 
 
 pub fn cmd_init() -> ClapCommand {
     ClapCommand::new("init")
-        .about("Initialize isolate in a Git repository (or create one)")
+        .about("Initialize hardline in a Git repository (or create one)")
         .arg(
             Arg::new("json")
                 .long("json")
@@ -39,9 +39,9 @@ pub fn cmd_init() -> ClapCommand {
         )
         .after_help(after_help_text(
             &[
-                "isolate init                        Initialize Isolate in the current Git repository",
-                "isolate init --json                 Output JSON metadata for automation",
-                "isolate init --dry-run              Preview initialization",
+                "hardline init                        Initialize Hardline in the current Git repository",
+                "hardline init --json                 Output JSON metadata for automation",
+                "hardline init --dry-run              Preview initialization",
             ],
             Some(json_docs::init()),
         ))
@@ -53,14 +53,14 @@ pub fn cmd_switch() -> ClapCommand {
         .long_about(
             "Navigate between workspaces.
 
-            Use this for quick workspace switching. Similar to 'isolate focus' but 
+            Use this for quick workspace switching. Similar to 'hardline focus' but
             emphasizes navigation between existing sessions.",
         )
         .after_help(after_help_text(
             &[
-                "isolate switch feature-auth           Switch to named session",
-                "isolate switch                        Interactive session selection",
-                "isolate switch test --show-context    Switch and show session details",
+                "hardline switch feature-auth           Switch to named session",
+                "hardline switch                        Interactive session selection",
+                "hardline switch test --show-context    Switch and show session details",
             ],
             None,
         ))
@@ -89,9 +89,9 @@ pub fn cmd_config() -> ClapCommand {
         .about("View or modify configuration")
         .after_help(after_help_text(
             &[
-                "isolate config                      Show current project config",
-                "isolate config workspace_dir        Display the workspace_dir setting",
-                "isolate config workspace_dir /new/path --json  Update key and emit JSON",
+                "hardline config                      Show current project config",
+                "hardline config workspace_dir        Display the workspace_dir setting",
+                "hardline config workspace_dir /new/path --json  Update key and emit JSON",
             ],
             Some(json_docs::config()),
         ))

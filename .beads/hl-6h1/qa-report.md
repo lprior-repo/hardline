@@ -118,7 +118,7 @@ $ rg -n "unwrap\(\)|expect\(\)|panic!\(" crates/core/src/jj_operation_sync/jj_op
 
 ### Phase 2 — Contract Invariant Verification (Source Code Inspection)
 
-#### 2.1 Lock file is at repo root (NOT inside .isolate)
+#### 2.1 Lock file is at repo root (NOT inside .hardline)
 
 **Evidence from `jj_lock.rs:28`:**
 ```rust
@@ -130,7 +130,7 @@ pub const WORKSPACE_CREATION_LOCK_FILE: &str = ".scp-workspace-create.lock";
 let lock_path = repo_root.join(WORKSPACE_CREATION_LOCK_FILE);
 ```
 
-No `.isolate` path component. Lock path resolves to `{repo_root}/.scp-workspace-create.lock`.
+No `.hardline` path component. Lock path resolves to `{repo_root}/.scp-workspace-create.lock`.
 
 **Result:** PASS
 
@@ -146,7 +146,7 @@ super::jj_lock::ensure_data_directory(repo_root).await?;                 // Line
 The call order is:
 1. In-memory lock (line 107)
 2. Cross-process file lock (line 109)
-3. `.isolate` directory creation (line 114)
+3. `.hardline` directory creation (line 114)
 
 **Evidence from `jj_lock.rs:152-161`** — `acquire_cross_process_lock` does NOT call `create_dir_all`:
 ```rust
@@ -217,9 +217,9 @@ Uses `saturating_add` instead of bare `+` — prevents overflow in the sum. Prev
 
 | Test | Invariant | Result |
 |------|-----------|--------|
-| B2 `acquire_cross_process_lock_places_lock_at_repo_root_when_called` | Lock file at repo root, not `.isolate/` | PASS |
-| B3 `acquire_cross_process_lock_does_not_create_isolate_dir_when_called` | No `.isolate` side effect | PASS |
-| B9 `ensure_data_directory_creates_isolate_dir_when_called` | `.isolate` created on demand | PASS |
+| B2 `acquire_cross_process_lock_places_lock_at_repo_root_when_called` | Lock file at repo root, not `.hardline/` | PASS |
+| B3 `acquire_cross_process_lock_does_not_create_isolate_dir_when_called` | No `.hardline` side effect | PASS |
+| B9 `ensure_data_directory_creates_isolate_dir_when_called` | `.hardline` created on demand | PASS |
 | B12 `ensure_data_directory_does_not_touch_lock_file_when_called` | No lock file side effect | PASS |
 | B13 `create_workspace_synced_calls_ensure_data_dir_after_acquiring_lock` | Correct call order | PASS |
 | B15 `regression_no_phantom_directory_when_lock_acquisition_times_out` | No phantom dir on timeout | PASS |

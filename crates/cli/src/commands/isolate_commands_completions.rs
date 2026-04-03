@@ -31,9 +31,9 @@ pub fn cmd_completions() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate completions bash             Generate bash completions",
-                "isolate completions zsh              Generate zsh completions",
-                "isolate completions fish             Generate fish completions",
+                "hardline completions bash             Generate bash completions",
+                "hardline completions zsh              Generate zsh completions",
+                "hardline completions fish             Generate fish completions",
             ],
             None,
         ))

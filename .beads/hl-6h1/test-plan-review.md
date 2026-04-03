@@ -36,7 +36,7 @@ REJECTED with 6 MAJOR and 5 MINOR findings. This is a re-review round.
 | **m1**: Summary statistics fabricated | **FIXED** | Corrected to "4 unit / 20 integration / 0 e2e / 4 static" with justification. |
 | **m2**: B15/B16 `Err(_)` wildcards | **FIXED** | B15 asserts `Err(Error::Jj(JjError { inner: JjErrorKind::LockTimeout { .. } }))`. B16 asserts `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))`. |
 | **m3**: B8 CI feasibility | **FIXED** | Marked `#[ignore]` with documentation for manual execution. Non-strict variant remains CI-feasible. |
-| **m4**: `.isolate`-as-file boundary | **FIXED** | Added B23 with concrete scenario. |
+| **m4**: `.hardline`-as-file boundary | **FIXED** | Added B23 with concrete scenario. |
 | **m5**: Nonexistent repo_root boundary | **FIXED** | Added B24 with concrete scenario including OS error kind assertion. |
 
 **All 11 previous findings resolved.** Proceeding to full 6-axis re-audit.
@@ -96,8 +96,8 @@ REJECTED with 6 MAJOR and 5 MINOR findings. This is a re-review round.
 | Scenario | Assertion Type | Sharp? |
 |----------|---------------|--------|
 | B1 | `Ok(File)` + `file exists` + `second try_lock fails` | YES — concrete value + side-effect checks |
-| B2 | `path.exists() == true` + `old path.exists() == false` + `.isolate.exists() == false` | YES — concrete booleans |
-| B3 | `.isolate.exists() == false` | YES — concrete |
+| B2 | `path.exists() == true` + `old path.exists() == false` + `.hardline.exists() == false` | YES — concrete booleans |
+| B3 | `.hardline.exists() == false` | YES — concrete |
 | B4 | `try_lock_exclusive()` returns `Ok(())` after drop | YES — concrete |
 | B5 | `Err(Error::Jj(JjError { inner: JjErrorKind::LockTimeout { operation, timeout_ms, retries } }))` with field equality checks | YES — exact variant + field values |
 | B6 | `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))` + `msg.contains("Failed to open workspace lock file")` | YES — exact variant + substring |
@@ -109,7 +109,7 @@ REJECTED with 6 MAJOR and 5 MINOR findings. This is a re-review round.
 | B12 | `Ok(())` + lock file `.exists() == false` | YES — concrete |
 | B13 | Event list `["lock_acquired", "data_dir_created"]` | YES — exact ordered list |
 | B14 | `Err(Error::Config(ConfigError { inner: ConfigErrorKind::Invalid(msg) }))` + `msg == "workspace name cannot be empty"` | YES — exact variant + exact equality |
-| B15 | `Err(Error::Jj(JjError { inner: JjErrorKind::LockTimeout { .. } }))` + `.isolate.exists() == false` | YES — exact variant + concrete state |
+| B15 | `Err(Error::Jj(JjError { inner: JjErrorKind::LockTimeout { .. } }))` + `.hardline.exists() == false` | YES — exact variant + concrete state |
 | B16 | `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))` where `msg.contains("Failed to open workspace lock file")` + no partial dirs | YES — exact variant + substring + filesystem state |
 | B17 | `max(in_critical_section) == 1` + every task is `Ok(File)` or `Err(Error::Jj(JjError { inner: JjErrorKind::LockTimeout { .. } }))` | YES — exact value + exact variant set |
 | B18 | All three acquisitions return `Ok(File)` + one lock file exists | YES — concrete count + state |
@@ -176,7 +176,7 @@ Plan summary (test-plan.md:27): "4 unit / 20 integration / 0 e2e / 4 static". **
 | Lock release on drop | YES | B4 |
 | Idempotent cycle | YES | B18 |
 | Lock file path at repo root | YES | B2 |
-| No `.isolate` side effect | YES | B3 |
+| No `.hardline` side effect | YES | B3 |
 | Content preserved across cycle | YES | B20 |
 | File opened readable | YES | B21 |
 
@@ -189,7 +189,7 @@ Plan summary (test-plan.md:27): "4 unit / 20 integration / 0 e2e / 4 static". **
 | Happy path (doesn't exist) | YES | B9 |
 | Already exists (idempotent) | YES | B10 |
 | Permission denied | YES | B11 |
-| `.isolate` exists as regular file | YES | B23 |
+| `.hardline` exists as regular file | YES | B23 |
 | No lock file side effect | YES | B12 |
 
 **`create_workspace_synced`:**
@@ -212,7 +212,7 @@ Plan summary (test-plan.md:27): "4 unit / 20 integration / 0 e2e / 4 static". **
 | Replace lock file constant | B2 | Path assertion fails |
 | Remove `ensure_data_directory()` call | B13 | Tracing captures only `"lock_acquired"`, missing `"data_dir_created"` |
 | Swap call order | B13 | Tracing captures `"data_dir_created"` before `"lock_acquired"` |
-| Reintroduce `create_dir_all(.isolate)` into `acquire` | B3 | `.isolate` exists after lock call |
+| Reintroduce `create_dir_all(.hardline)` into `acquire` | B3 | `.hardline` exists after lock call |
 | `try_lock_exclusive()` always returns `Ok(())` | B5 | Timeout error not returned |
 | Remove `drop` release behavior | B4 | Second lock attempt fails |
 | Change error message prefix | B11 | Message assertion fails |
@@ -266,7 +266,7 @@ The "Existing Tests to Update" section (test-plan.md:681–703) now includes:
 | Test | Line | Change |
 |------|------|--------|
 | `given_lock_constants_when_validated_then_reasonable_values` | 27 | `"workspace-create.lock"` → `".scp-workspace-create.lock"` |
-| `regression_cross_process_lock_blocks_second_holder` | 103–105 | `.join(".isolate").join(WORKSPACE_CREATION_LOCK_FILE)` → `.join(WORKSPACE_CREATION_LOCK_FILE)` |
+| `regression_cross_process_lock_blocks_second_holder` | 103–105 | `.join(".hardline").join(WORKSPACE_CREATION_LOCK_FILE)` → `.join(WORKSPACE_CREATION_LOCK_FILE)` |
 | `regression_cross_process_lock_releases_on_drop` | 132–134 | Same as above |
 
 **Banned pattern fixes (7 patterns across 2 files):**
@@ -324,7 +324,7 @@ None. All 6 previous MAJOR findings have been resolved with concrete, implementa
 
 1. Implement `ensure_data_directory` function first (new code, simplest)
 2. Relocate lock file path in `acquire_cross_process_lock`
-3. Remove `create_dir_all(.isolate)` from `acquire_cross_process_lock`
+3. Remove `create_dir_all(.hardline)` from `acquire_cross_process_lock`
 4. Add `ensure_data_directory()` call in `create_workspace_synced`
 5. Add tracing spans for B13
 6. Update existing tests (path changes + banned pattern fixes)

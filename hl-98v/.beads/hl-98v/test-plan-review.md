@@ -37,7 +37,7 @@
 **JSON Structure Assertions (7 fixed):**
 - test-plan.md:1603 — BEHAVIOR 96: Now uses `serde_json::from_str::<InitResponse>(json_str).message == "Repository initialized"`
 - test-plan.md:1617 — BEHAVIOR 97: Now uses `serde_json::from_str::<InitResponse>(json_str).root == normalized_current_directory`
-- test-plan.md:1632 — BEHAVIOR 98: Now uses `serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".isolate/"`
+- test-plan.md:1632 — BEHAVIOR 98: Now uses `serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".hardline/"`
 - test-plan.md:1647 — BEHAVIOR 99: Now uses `serde_json::from_str::<InitResponse>(json_str).jj_initialized == true`
 - test-plan.md:1662 — BEHAVIOR 100: Now uses `serde_json::from_str::<InitResponse>(json_str).already_initialized == false`
 - test-plan.md:2257 — BEHAVIOR 144: Now uses parsed field assertions

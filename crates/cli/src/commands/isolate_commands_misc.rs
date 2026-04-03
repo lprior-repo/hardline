@@ -26,7 +26,7 @@ pub fn cmd_pause() -> ClapCommand {
                 .help("AI: Show command flow hints"),
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
-            &["isolate pause feature-x              Pause session"],
+            &["hardline pause feature-x              Pause session"],
             None,
         ))
 }
@@ -55,7 +55,7 @@ pub fn cmd_resume() -> ClapCommand {
                 .help("AI: Show command flow hints"),
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
-            &["isolate resume feature-x             Resume paused session"],
+            &["hardline resume feature-x             Resume paused session"],
             None,
         ))
 }
@@ -117,17 +117,17 @@ pub fn cmd_wait() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate wait session-exists feat      Wait for session to exist",
-                "isolate wait -t 60 healthy           Wait up to 60s for healthy state",
+                "hardline wait session-exists feat      Wait for session to exist",
+                "hardline wait -t 60 healthy           Wait up to 60s for healthy state",
             ],
             None,
         ))
 }
 
-/// Show JSON schemas for isolate protocol
+/// Show JSON schemas for hardline protocol
 pub fn cmd_schema() -> ClapCommand {
     ClapCommand::new("schema")
-        .about("Show JSON schemas for isolate protocol")
+        .about("Show JSON schemas for hardline protocol")
         .arg(
             Arg::new("name")
                 .help("Schema name (e.g., add-response)")
@@ -169,9 +169,9 @@ pub fn cmd_schema() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate schema                      List available schemas",
-                "isolate schema add-response          Show specific schema",
-                "isolate schema --list               List available schemas",
+                "hardline schema                      List available schemas",
+                "hardline schema add-response          Show specific schema",
+                "hardline schema --list               List available schemas",
             ],
             None,
         ))

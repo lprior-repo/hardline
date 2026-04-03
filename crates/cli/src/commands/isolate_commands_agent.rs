@@ -39,9 +39,9 @@ pub fn cmd_whereami() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate whereami                    Returns 'main' or 'workspace:<name>'",
-                "isolate whereami --json             Output location as JSON",
-                "isolate whereami --contract         Show AI contract",
+                "hardline whereami                    Returns 'main' or 'workspace:<name>'",
+                "hardline whereami --json             Output location as JSON",
+                "hardline whereami --contract         Show AI contract",
             ],
             None,
         ))
@@ -57,7 +57,7 @@ pub fn cmd_whoami() -> ClapCommand {
 
             Returns:
 
-            - Agent ID if registered (from Isolate_AGENT_ID env var)
+            - Agent ID if registered (from Hardline_AGENT_ID env var)
 
             - 'unregistered' if no agent registered
 
@@ -84,8 +84,8 @@ pub fn cmd_whoami() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate whoami                      Returns agent ID or 'unregistered'",
-                "isolate whoami --json               Output identity as JSON",
+                "hardline whoami                      Returns agent ID or 'unregistered'",
+                "hardline whoami --json               Output identity as JSON",
             ],
             None,
         ))
@@ -127,9 +127,9 @@ pub fn cmd_can_i() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate can-i done                  Check if done will succeed",
-                "isolate can-i add feature-x         Check if session can be created",
-                "isolate can-i spawn isolate-abc1        Check if bead can be spawned",
+                "hardline can-i done                  Check if done will succeed",
+                "hardline can-i add feature-x         Check if session can be created",
+                "hardline can-i spawn hardline-abc1        Check if bead can be spawned",
             ],
             None,
         ))

@@ -10,7 +10,7 @@ use crate::types::Session;
 // HINT TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// A contextual hint from isolate
+/// A contextual hint from hardline
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Hint {
     /// Hint type

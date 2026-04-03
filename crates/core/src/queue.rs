@@ -38,7 +38,7 @@ pub enum QueueStatus {
 /// Source of queue item
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum QueueSource {
-    /// From isolate workspace
+    /// From hardline workspace
     Workspace(String),
     /// Directly enqueued
     Direct,

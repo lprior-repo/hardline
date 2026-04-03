@@ -10,11 +10,11 @@ pub fn cmd_query() -> ClapCommand {
         .about("Query system state programmatically")
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate query session-exists feature   Check if session exists",
-                "isolate query session-count             Count active sessions",
-                "isolate query can-run                   Check if isolate can run",
-                "isolate query suggest-name PATTERN      Suggest next available sequential name",
-                "isolate query --contract                Show AI contract (inputs/outputs schema)",
+                "hardline query session-exists feature   Check if session exists",
+                "hardline query session-count             Count active sessions",
+                "hardline query can-run                   Check if hardline can run",
+                "hardline query suggest-name PATTERN      Suggest next available sequential name",
+                "hardline query --contract                Show AI contract (inputs/outputs schema)",
             ],
             Some(json_docs::query()),
         ))
@@ -55,9 +55,9 @@ pub fn cmd_context() -> ClapCommand {
         .about("Show complete environment context (AI agent query)")
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate context                     Show environment context summary",
-                "isolate context --field=repository.branch  Extract a single field",
-                "isolate context --json               Emit JSON (default when not TTY)",
+                "hardline context                     Show environment context summary",
+                "hardline context --field=repository.branch  Extract a single field",
+                "hardline context --json               Emit JSON (default when not TTY)",
             ],
             Some(json_docs::context()),
         ))
@@ -99,10 +99,10 @@ pub fn cmd_context() -> ClapCommand {
         )
 }
 
-/// Discover isolate capabilities and command details
+/// Discover hardline capabilities and command details
 pub fn cmd_introspect() -> ClapCommand {
     ClapCommand::new("introspect")
-        .about("Discover isolate capabilities and command details")
+        .about("Discover hardline capabilities and command details")
         .long_about(
             "AI-optimized capability discovery.
 
@@ -113,15 +113,15 @@ pub fn cmd_introspect() -> ClapCommand {
   
             - System state and dependencies
   
-            - Environment variables isolate uses
+            - Environment variables hardline uses
   
             - Common workflow patterns",
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate introspect                Show commands and their arguments",
-                "isolate introspect focus          Inspect focus command contract",
-                "isolate introspect --json         Emit machine-readable capability data",
+                "hardline introspect                Show commands and their arguments",
+                "hardline introspect focus          Inspect focus command contract",
+                "hardline introspect --json         Emit machine-readable capability data",
             ],
             Some(json_docs::introspect()),
         ))
@@ -146,7 +146,7 @@ pub fn cmd_introspect() -> ClapCommand {
             Arg::new("env-vars")
                 .long("env-vars")
                 .action(clap::ArgAction::SetTrue)
-                .help("Show environment variables isolate reads and sets"),
+                .help("Show environment variables hardline reads and sets"),
         )
         .arg(
             Arg::new("workflows")

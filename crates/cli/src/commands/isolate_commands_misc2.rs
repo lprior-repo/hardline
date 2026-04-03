@@ -60,9 +60,9 @@ pub fn cmd_recover() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate recover                      Auto-diagnose and fix issues",
-                "isolate recover --diagnose           Only diagnose, don't fix",
-                "isolate recover feature-x            Recover specific session",
+                "hardline recover                      Auto-diagnose and fix issues",
+                "hardline recover --diagnose           Only diagnose, don't fix",
+                "hardline recover feature-x            Recover specific session",
             ],
             None,
         ))
@@ -91,7 +91,7 @@ pub fn cmd_retry() -> ClapCommand {
                 .help("AI: Show command flow hints"),
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
-            &["isolate retry                       Retry last failed operation"],
+            &["hardline retry                       Retry last failed operation"],
             None,
         ))
 }
@@ -133,8 +133,8 @@ pub fn cmd_rollback() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate rollback feature-x --to 123  Rollback to checkpoint",
-                "isolate rollback --dry-run feature-x --to 123  Preview rollback",
+                "hardline rollback feature-x --to 123  Rollback to checkpoint",
+                "hardline rollback --dry-run feature-x --to 123  Preview rollback",
             ],
             None,
         ))
@@ -162,7 +162,7 @@ pub fn cmd_abort() -> ClapCommand {
             Arg::new("keep-workspace")
                 .long("keep-workspace")
                 .action(clap::ArgAction::SetTrue)
-                .help("Keep workspace files (just remove from isolate tracking)"),
+                .help("Keep workspace files (just remove from hardline tracking)"),
         )
         .arg(
             Arg::new("dry-run")
@@ -190,10 +190,10 @@ pub fn cmd_abort() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate abort                       Abandon current workspace",
-                "isolate abort --session feature-x   Abort specific workspace",
-                "isolate abort --keep-workspace      Keep files, just remove from isolate",
-                "isolate abort --dry-run             Preview abort without executing",
+                "hardline abort                       Abandon current workspace",
+                "hardline abort --session feature-x   Abort specific workspace",
+                "hardline abort --keep-workspace      Keep files, just remove from hardline",
+                "hardline abort --dry-run             Preview abort without executing",
             ],
             None,
         ))
@@ -204,7 +204,7 @@ pub fn cmd_backup() -> ClapCommand {
     ClapCommand::new("backup")
         .about("Manage automated database backups")
         .long_about(
-            "Create, list, restore, and manage backups of isolate databases (state.db, beads.db).\n\n\
+            "Create, list, restore, and manage backups of hardline databases (state.db, beads.db).\n\n\
             Backups include:\n\
             - state.db: Session, workspace state, and merge queue\n\
             - beads.db: Issue tracking database\n\n\
@@ -213,13 +213,13 @@ pub fn cmd_backup() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate backup --create                     Create backups of all databases",
-                "isolate backup --list                       List all available backups",
-                "isolate backup --restore state.db           Restore latest backup of state.db",
-                "isolate backup --restore beads.db --timestamp 20250101-010101  Restore specific backup by timestamp",
-                "isolate backup --status                     Show backup status and retention info",
-                "isolate backup --retention                  Apply retention policy (remove old backups)",
-                "isolate backup --create --json              Create backups with JSON output",
+                "hardline backup --create                     Create backups of all databases",
+                "hardline backup --list                       List all available backups",
+                "hardline backup --restore state.db           Restore latest backup of state.db",
+                "hardline backup --restore beads.db --timestamp 20250101-010101  Restore specific backup by timestamp",
+                "hardline backup --status                     Show backup status and retention info",
+                "hardline backup --retention                  Apply retention policy (remove old backups)",
+                "hardline backup --create --json              Create backups with JSON output",
             ],
             None,
         ))

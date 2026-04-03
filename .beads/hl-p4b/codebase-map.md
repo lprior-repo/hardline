@@ -1,8 +1,8 @@
-# Codebase Map: Isolate `done` Command -> Hardline Port
+# Codebase Map: Hardline `done` Command Port
 
-## 1. Isolate `done` Command File Inventory
+## 1. Hardline `done` Command File Inventory
 
-**Directory:** `~/src/isolate/crates/isolate/src/commands/done/`
+**Directory:** `~/src/hardline/crates/hardline/src/commands/done/`
 
 | File | Purpose |
 |------|---------|
@@ -12,7 +12,7 @@
 | `executor.rs` (140 lines) | JJ command executor abstraction. `JjExecutor` trait, `RealJjExecutor`, `WorkspaceExecutor` (wraps executor with `-R` flag for workspace-scoped commands). `ExecutorError` enum. |
 | `bead.rs` (90 lines) | Bead repository abstraction. `BeadRepository` trait, `RealBeadRepository` wrapper. `BeadError` enum. |
 | `filesystem.rs` (104 lines) | Filesystem abstraction for testability. `FileSystem` trait, `RealFileSystem` using tokio::fs. `FsError` enum. |
-| `newtypes.rs` (182 lines) | Validated wrappers: `RepoRoot`, `CommitId`, `JjOutput`, `ValidationError`. Re-exports `BeadId` and `WorkspaceName` from isolate_core::domain. |
+| `newtypes.rs` (182 lines) | Validated wrappers: `RepoRoot`, `CommitId`, `JjOutput`, `ValidationError`. Re-exports `BeadId` and `WorkspaceName` from hardline_core::domain. |
 
 ### Done-related files outside `done/` directory
 
@@ -20,7 +20,7 @@
 |------|-------------|
 | `commands/abort.rs` | Opposite of done: removes workspace instead of merging it. |
 | `commands/whatif/tests.rs` | Multiple tests for done command simulation ("what would done do"). |
-| `commands/work.rs` | References `isolate done` in user-facing messages. |
+| `commands/work.rs` | References `hardline done` in user-facing messages. |
 | `commands/context/types.rs` | Defines `Location` enum used by done's `validate_location()`. |
 | `commands/context/mod.rs` | Defines `detect_location()` function used by done. |
 | `commands/mod.rs` | Declares `pub mod done` and provides `get_session_db()` helper. |
@@ -80,7 +80,7 @@ description: String
 timestamp: String
 ```
 
-### `UndoEntry` (Logged to .isolate/undo.log)
+### `UndoEntry` (Logged to .hardline/undo.log)
 ```
 session_name: String
 commit_id: String
@@ -222,7 +222,7 @@ pub trait FileSystem: Send + Sync {
 pub struct RepoRoot(PathBuf)   // async fn new(PathBuf) -> Result<Self, ValidationError>
 pub struct CommitId(String)    // fn new(String) -> Result<Self, ValidationError>
 pub struct JjOutput(String)    // fn new(String) -> Result<Self, ValidationError>
-// Re-exports: BeadId, WorkspaceName from isolate_core::domain
+// Re-exports: BeadId, WorkspaceName from hardline_core::domain
 ```
 
 ---
@@ -244,20 +244,20 @@ Error conversion chain: `FsError` -> `DoneError`
 
 ---
 
-## 5. Dependencies on Other Isolate Modules
+## 5. Dependencies on Other Hardline Modules
 
 | Module | Usage |
 |--------|-------|
-| `isolate_core::OutputFormat` | Output format (JSON vs text) |
-| `isolate_core::json::SchemaEnvelope` | JSON output envelope |
-| `isolate_core::WorkspaceState` | Session state enum (Merged, etc.) |
-| `isolate_core::output::{ConflictAnalysis, ConflictDetail, ...}` | JSONL streaming output types |
+| `hardline_core::OutputFormat` | Output format (JSON vs text) |
+| `hardline_core::json::SchemaEnvelope` | JSON output envelope |
+| `hardline_core::WorkspaceState` | Session state enum (Merged, etc.) |
+| `hardline_core::output::{ConflictAnalysis, ConflictDetail, ...}` | JSONL streaming output types |
 | `crate::cli::jj_root` | Get JJ repository root path |
 | `crate::commands::context::{detect_location, Location}` | Detect if in workspace or main |
 | `crate::commands::get_session_db` | Open the session database |
 | `crate::session::{SessionStatus, SessionUpdate}` | Session status transitions |
 | `crate::beads::{BeadRepository as RealBeadRepo, BeadStatus}` | Actual bead database operations |
-| `isolate_core::domain::{BeadId, WorkspaceName}` | Validated identifier types |
+| `hardline_core::domain::{BeadId, WorkspaceName}` | Validated identifier types |
 
 ---
 
@@ -330,7 +330,7 @@ The done command does NOT auto-resolve conflicts. It:
 ### Phase 7: Merge to Main
 - **Squash mode**: `jj squash --from "ancestors({workspace}@) & ~ancestors(main)" --into main -m <message>`
 - **Normal mode**: `jj workspace forget <workspace_name>` (absorbs commits into main)
-- Log undo history to `.isolate/undo.log` (JSONL format with UndoEntry)
+- Log undo history to `.hardline/undo.log` (JSONL format with UndoEntry)
 
 ### Phase 8-9: Finalize
 - **Bead update**: Look up bead ID by workspace name, update status to "closed"
@@ -350,7 +350,7 @@ The done command does NOT auto-resolve conflicts. It:
 | `ai/` | AI command handler with Data/Calc/Actions split |
 | `task/` | Task command handler with Data/Calc/Actions split |
 | `batch.rs` | Atomic batch execution with checkpoint/rollback |
-| `sync.rs` | Session sync handler ported from isolate (rebase with retries, JSONL output) |
+| `sync.rs` | Session sync handler ported from hardline (rebase with retries, JSONL output) |
 | `json_format.rs` | JSON formatting utilities |
 | `backup.rs`, `bookmark.rs`, etc. | Stub files (49 bytes each) |
 
@@ -375,15 +375,15 @@ The done command does NOT auto-resolve conflicts. It:
 | `SessionSyncResult` | `session_sync_data.rs` | session_name, new_revision, had_conflicts, synced_at |
 | `SyncError` | `session_sync_errors.rs` | SessionNotFound, InvalidSessionStatus, DirtyWorkspace, Conflict, RebaseFailure, JjCommandError, IoError |
 
-### Key Differences: Isolate vs Hardline
+### Key Differences: Previous vs Current
 
-| Aspect | Isolate | Hardline |
+| Aspect | Previous | Current |
 |--------|---------|----------|
 | Error handling | `anyhow::Result` at top level, `DoneError` internally | Unified `Error` enum with typed sub-errors |
 | Output | `serde_json` + `SchemaEnvelope` | `output_jsonl` module with typed OutputLine variants |
 | Conflict detection | `ConflictDetector` trait with `JjConflictDetector` | `ConflictManager` with `ConflictState` state machine |
-| Session DB | SQLite via `SessionDb` from isolate | SQLite via `SessionRepository` in session crate |
+| Session DB | SQLite via `SessionDb` from hardline | SQLite via `SessionRepository` in session crate |
 | VCS operations | `JjExecutor` trait (command-based) | `VcsBackend` trait (more abstract, supports multiple backends) |
 | Architecture | Module-per-command with sub-modules | Data/Calc/Actions split per handler |
-| State machine | SessionStatus (isolate_core) | SessionStatus + WorkspaceState with transition validation |
+| State machine | SessionStatus (hardline_core) | SessionStatus + WorkspaceState with transition validation |
 | Beads | `BeadRepository` trait with `RealBeadRepository` | `beads` crate with issue database |

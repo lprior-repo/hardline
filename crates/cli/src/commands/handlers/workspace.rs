@@ -1,1 +1,1 @@
-// Stub - requires isolate-specific dependencies
+// Stub - requires hardline-specific dependencies

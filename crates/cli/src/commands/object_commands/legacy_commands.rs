@@ -28,7 +28,7 @@ pub fn build_legacy_commands() -> ClapCommand {
 /// Build init command
 pub fn build_init_command() -> ClapCommand {
     ClapCommand::new("init")
-        .about("Initialize isolate")
+        .about("Initialize hardline")
         .arg(super::helpers::dry_run_arg())
         .arg(super::helpers::json_arg())
         .arg(super::helpers::contract_arg())

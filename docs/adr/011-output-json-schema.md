@@ -108,7 +108,6 @@ pub struct WorkspaceResponse {
 #[serde(rename_all = "snake_case")]
 pub enum VcsType {
     Git,
-    Jj,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -278,7 +277,7 @@ Response {
         "id": "ws-abc123",
         "name": "agent-123",
         "path": "/workspaces/agent-123",
-        "backend": "jj",
+        "backend": "git",
         "state": "active",
         "agentId": "agent-456",
         "createdAt": "2026-03-20T10:30:00Z",

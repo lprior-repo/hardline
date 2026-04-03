@@ -10,9 +10,9 @@ pub fn cmd_clean() -> ClapCommand {
         .about("Remove stale sessions (where workspace no longer exists)")
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate clean                       Remove stale sessions",
-                "isolate clean --dry-run             List stale sessions without deleting",
-                "isolate clean --force --json        Force clean and emit JSON summary",
+                "hardline clean                       Remove stale sessions",
+                "hardline clean --dry-run             List stale sessions without deleting",
+                "hardline clean --force --json        Force clean and emit JSON summary",
             ],
             Some(json_docs::clean()),
         ))
@@ -67,10 +67,10 @@ Use --yes to skip confirmation for scripting/CI use.",
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate prune-invalid                Remove invalid sessions (with prompt)",
-                "isolate prune-invalid --yes         Remove invalid sessions (no prompt)",
-                "isolate prune-invalid --dry-run     List invalid sessions without deleting",
-                "isolate prune-invalid --yes --json Remove with JSON output",
+                "hardline prune-invalid                Remove invalid sessions (with prompt)",
+                "hardline prune-invalid --yes         Remove invalid sessions (no prompt)",
+                "hardline prune-invalid --dry-run     List invalid sessions without deleting",
+                "hardline prune-invalid --yes --json Remove with JSON output",
             ],
             None,
         ))
@@ -182,11 +182,11 @@ pub fn cmd_integrity() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate integrity validate feature-x    Validate workspace integrity",
-                "isolate integrity repair feature-x      Repair corrupted workspace",
-                "isolate integrity repair -f feature-x   Repair without confirmation",
-                "isolate integrity backup list           List available backups",
-                "isolate integrity backup restore 123    Restore from backup ID",
+                "hardline integrity validate feature-x    Validate workspace integrity",
+                "hardline integrity repair feature-x      Repair corrupted workspace",
+                "hardline integrity repair -f feature-x   Repair without confirmation",
+                "hardline integrity backup list           List available backups",
+                "hardline integrity backup restore 123    Restore from backup ID",
             ],
             None,
         ))

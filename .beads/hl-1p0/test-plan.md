@@ -8,7 +8,7 @@ updated_at: 2026-03-30T12:00:00Z
 # Test Plan: hl-1p0 Session Lock Manager
 
 ## Scope
-Fix 4 failing tests that use isolate-style flat error matching instead of hardline's layered `Error::Lock(LockError(LockErrorKind::...))` pattern.
+Fix 4 failing tests that use flat error matching instead of hardline's layered `Error::Lock(LockError(LockErrorKind::...))` pattern.
 
 ## Testing Trophy Allocation
 - **Unit (70%)**: Error matching pattern fixes in existing tests
@@ -43,7 +43,7 @@ Fix 4 failing tests that use isolate-style flat error matching instead of hardli
 
 ## Pattern Fix
 
-Old (isolate): `matches!(r, Err(Error::SessionLocked { .. }))`
+Old: `matches!(r, Err(Error::SessionLocked { .. }))`
 New (hardline): `matches!(r, Err(Error::Lock(LockError(LockErrorKind::SessionLocked { .. }))))`
 
 Old: `matches!(result, Err(Error::SessionNotFound { .. }))`

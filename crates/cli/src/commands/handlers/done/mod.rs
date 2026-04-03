@@ -1,6 +1,6 @@
 //! Done command handler - Complete work and merge workspace to main.
 //!
-//! This handler ports the done/complete work command from the isolate project,
+//! This handler ports the done/complete work command from the hardline project,
 //! adapted to hardline's architecture and error handling.
 //!
 //! # Architecture (Data -> Calc -> Actions)
@@ -11,7 +11,7 @@
 //!   (dependency injection for Git commands)
 //! - **Actions** (`actions.rs`): run_done, execute_done_workflow (I/O operations)
 //!
-//! # Features (ported from isolate)
+//! # Features (ported from hardline)
 //!
 //! - Conflict detection before merging
 //! - Dry-run preview mode

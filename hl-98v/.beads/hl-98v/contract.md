@@ -4,21 +4,21 @@
 
 - **Bead ID**: hl-98v
 - **Feature**: Port CLI: init command
-- **Source**: `~/src/isolate/crates/isolate/src/commands/init/`
+- **Source**: `~/src/hardline/crates/cli/src/commands/handlers/`
 - **Target**: `~/src/hardline/crates/cli/src/commands/handlers/`
-- **Domain**: Project initialization for Isolate/Hardline workspaces
+- **Domain**: Project initialization for Hardline workspaces
 
 ### Domain Terms
 
 | Term | Meaning |
 |------|---------|
-| **Workspace** | A JJ (Jujutsu) repository managed by isolate |
+| **Workspace** | A Git repository managed by hardline |
 | **Init Lock** | Exclusive file lock preventing concurrent initialization |
 | **Stale Lock** | Lock file with age > 60 seconds (strictly greater than), considered abandoned |
-| **JJ Repository** | Version control system using JJ (Jujutsu) |
-| **Isolate Directory** | `.isolate/` directory containing configuration and state |
+| **Git Repository** | Version control system using Git |
+| **Hardline Directory** | `.hardline/` directory containing configuration and state |
 | **Moon Pipeline** | Build system configuration (`.moon/`) |
-| **JJ Hooks** | Pre-commit enforcement preventing non-isolate commits |
+| **Git Hooks** | Pre-commit enforcement preventing non-hardline commits |
 | **Bead** | Issue/feature tracked via bd (beads) |
 
 **Note on Stale Lock**: A lock is considered stale only when `age > 60` (strictly greater than).
@@ -29,7 +29,7 @@
 ### Assumptions
 
 1. The target project uses Moon as the build system
-2. JJ (Jujutsu) must be installed and available in PATH
+2. Git must be installed and available in PATH
 3. The init command runs within an existing Git repository
 4. All file operations use async Tokio runtime
 5. Lock files prevent TOCTOU (time-of-check-time-of-use) race conditions
@@ -37,7 +37,7 @@
 
 ### Open Questions
 
-1. What is the exact config schema for `config.toml`? (currently CUE-based in isolate)
+1. What is the exact config schema for `config.toml`? (currently CUE-based in source)
 2. Should state.db use SQLite or a different format?
 3. What is the expected error type hierarchy for the CLI crate?
 4. Should the lock file be kept on disk or removed after release?
@@ -50,8 +50,8 @@
 
 - [ ] **P1**: Current working directory must be a Git repository root
 - [ ] **P2**: User must have write permissions to current directory
-- [ ] **P3**: Required dependencies (jj) must be installed and discoverable in PATH
-- [ ] **P4**: If `.isolate/` directory exists, it must not be a symlink
+- [ ] **P3**: Required dependencies (git) must be installed and discoverable in PATH
+- [ ] **P4**: If `.hardline/` directory exists, it must not be a symlink
 - [ ] **P5**: Lock file path must not be a symlink (symlink attack prevention)
 
 ### Function-Specific Preconditions
@@ -59,24 +59,24 @@
 #### `check_dependencies()`
 - [ ] **P6**: None (always safe to call)
 
-#### `ensure_jj_repo_with_cwd(cwd)`
+#### `ensure_git_repo_with_cwd(cwd)`
 - [ ] **P7**: `cwd` must be a valid path that can be accessed
 - [ ] **P8**: User must have read/write permissions in `cwd`
 
-#### `jj_root_with_cwd(cwd)`
-- [ ] **P9**: `cwd` must be inside a JJ repository
-- [ ] **P10**: `jj` command must be executable
+#### `git_root_with_cwd(cwd)`
+- [ ] **P9**: `cwd` must be inside a Git repository
+- [ ] **P10**: `git` command must be executable
 
 #### `InitLock::acquire(lock_path)`
 - [ ] **P11**: `lock_path` parent directory must exist and be writable
 - [ ] **P12**: `lock_path` must not be a symlink
 
-#### `create_jjignore(repo_root)`
-- [ ] **P13**: `repo_root` must be a valid JJ repository root
+#### `create_gitignore(repo_root)`
+- [ ] **P13**: `repo_root` must be a valid Git repository root
 
-#### `create_jj_hooks(repo_root)`
-- [ ] **P14**: `repo_root` must be a valid JJ repository root
-- [ ] **P15**: User must have permissions to create `.jj/hooks/` directory
+#### `create_git_hooks(repo_root)`
+- [ ] **P14**: `repo_root` must be a valid Git repository root
+- [ ] **P15**: User must have permissions to create `.git/hooks/` directory
 
 #### `create_repo_ai_instructions(repo_root)`
 - [ ] **P16**: `repo_root` must be a valid, writable directory
@@ -99,12 +99,12 @@
 
 ### Global Postconditions
 
-- [ ] **POST1**: If initialization succeeds, `.isolate/` directory exists
-- [ ] **POST2**: If initialization succeeds, `.isolate/config.toml` exists with valid TOML
-- [ ] **POST3**: If initialization succeeds, `.isolate/layouts/` directory exists
-- [ ] **POST4**: If initialization succeeds, `.isolate/state.db` database exists
-- [ ] **POST5**: If initialization succeeds, `.jjignore` contains `.isolate/` pattern
-- [ ] **POST6**: If initialization succeeds, `.jj/hooks/pre-commit` exists and is executable
+- [ ] **POST1**: If initialization succeeds, `.hardline/` directory exists
+- [ ] **POST2**: If initialization succeeds, `.hardline/config.toml` exists with valid TOML
+- [ ] **POST3**: If initialization succeeds, `.hardline/layouts/` directory exists
+- [ ] **POST4**: If initialization succeeds, `.hardline/state.db` database exists
+- [ ] **POST5**: If initialization succeeds, `.gitignore` contains `.hardline/` pattern
+- [ ] **POST6**: If initialization succeeds, `.git/hooks/pre-commit` exists and is executable
 - [ ] **POST7**: If initialization succeeds, `.ai-instructions.md` exists
 - [ ] **POST8**: If initialization succeeds, `.moon/workspace.yml` exists
 - [ ] **POST9**: If initialization succeeds, `.moon/toolchain.yml` exists
@@ -114,7 +114,7 @@
 - [ ] **POST13**: If initialization succeeds, `docs/03_WORKFLOW.md` exists
 - [ ] **POST14**: If initialization succeeds, `docs/05_RUST_STANDARDS.md` exists
 - [ ] **POST15**: If initialization succeeds, `docs/08_BEADS.md` exists
-- [ ] **POST16**: If initialization succeeds, `docs/09_JUJUTSU.md` exists
+- [ ] **POST16**: If initialization succeeds, `docs/09_GIT.md` exists
 - [ ] **POST17**: If already initialized, no files are modified
 - [ ] **POST18**: If dry_run mode, no files are created or modified
 
@@ -124,12 +124,12 @@
 - [ ] **POST19**: Returns `Ok(())` if all dependencies present
 - [ ] **POST20**: Returns `Err(MissingDependencies)` if any dependency missing
 
-#### `ensure_jj_repo_with_cwd(cwd)`
-- [ ] **POST21**: Returns `Ok(())` if JJ repo exists or was created
-- [ ] **POST22**: Returns `Err(JJInitFailed)` if JJ initialization fails
+#### `ensure_git_repo_with_cwd(cwd)`
+- [ ] **POST21**: Returns `Ok(())` if Git repo exists or was created
+- [ ] **POST22**: Returns `Err(GitInitFailed)` if Git initialization fails
 
-#### `jj_root_with_cwd(cwd)`
-- [ ] **POST23**: Returns `Ok(PathBuf)` containing the JJ repository root path
+#### `git_root_with_cwd(cwd)`
+- [ ] **POST23**: Returns `Ok(PathBuf)` containing the Git repository root path
 
 #### `InitLock::acquire(lock_path)`
 - [ ] **POST24**: Returns `Ok(InitLock)` with exclusive lock held
@@ -140,12 +140,12 @@
 - [ ] **POST27**: Releases exclusive lock but keeps file on disk
 - [ ] **POST28**: Idempotent - safe to call multiple times
 
-#### `create_jjignore(repo_root)`
-- [ ] **POST29**: `.jjignore` contains `.isolate/` pattern
+#### `create_gitignore(repo_root)`
+- [ ] **POST29**: `.gitignore` contains `.hardline/` pattern
 - [ ] **POST30**: Idempotent - safe to call multiple times
 
-#### `create_jj_hooks(repo_root)`
-- [ ] **POST31**: `.jj/hooks/pre-commit` contains valid shell script
+#### `create_git_hooks(repo_root)`
+- [ ] **POST31**: `.git/hooks/pre-commit` contains valid shell script
 - [ ] **POST32**: Pre-commit hook is executable (mode 0755)
 - [ ] **POST33**: Pre-commit hook references `Isolate_ACTIVE` environment variable
 
@@ -188,16 +188,16 @@
 
 #### `InitResponse`
 - [ ] **INV7**: `root` matches actual repository root
-- [ ] **INV8**: `paths.data_directory` always equals `.isolate/`
-- [ ] **INV9**: `paths.config` always equals `.isolate/config.toml`
-- [ ] **INV10**: `paths.state_db` always equals `.isolate/state.db`
-- [ ] **INV11**: `paths.layouts` always equals `.isolate/layouts/`
-- [ ] **INV12**: `jj_initialized` is always `true` (command ensures this)
+- [ ] **INV8**: `paths.data_directory` always equals `.hardline/`
+- [ ] **INV9**: `paths.config` always equals `.hardline/config.toml`
+- [ ] **INV10**: `paths.state_db` always equals `.hardline/state.db`
+- [ ] **INV11**: `paths.layouts` always equals `.hardline/layouts/`
+- [ ] **INV12**: `git_initialized` is always `true` (command ensures this)
 - [ ] **INV13**: `already_initialized` accurately reflects initialization state
 
 #### `InitPaths`
 - [ ] **INV14**: All paths are relative to repository root
-- [ ] **INV15**: All paths start with `.isolate/`
+- [ ] **INV15**: All paths start with `.hardline/`
 
 ### Operational Invariants
 
@@ -207,9 +207,9 @@
   - Locks with age == 60s are NOT removed (60 > 60 is false)
   - Locks with age == 61s ARE removed (61 > 60 is true)
 - [ ] **INV18**: Lock file is never deleted after creation (inode-based locking)
-- [ ] **INV19**: `.isolate/` directory is created before lock acquisition
+- [ ] **INV19**: `.hardline/` directory is created before lock acquisition
 - [ ] **INV20**: All file creation is idempotent (safe to retry)
-- [ ] **INV21**: JJ repository is initialized before `.isolate/` setup
+- [ ] **INV21**: Git repository is initialized before `.hardline/` setup
 - [ ] **INV22**: Config, layouts, and database are created in single transaction
 - [ ] **INV23**: Hooks are only created if pre-commit doesn't exist
 
@@ -221,7 +221,7 @@
 
 #### Concurrency
 - [ ] **INV28**: No TOCTOU vulnerabilities in file creation
-- [ ] **INV29**: File locks prevent concurrent `.jjignore` modifications
+- [ ] **INV29**: File locks prevent concurrent `.gitignore` modifications
 - [ ] **INV30**: File locks prevent concurrent hook creation
 
 ---
@@ -237,14 +237,14 @@ pub enum InitError {
         missing: Vec<String>,
     },
     
-    // JJ Repository Errors
-    JJNotInstalled,
-    JJCommandFailed {
+    // Git Repository Errors
+    GitNotInstalled,
+    GitCommandFailed {
         command: String,
         stderr: String,
     },
-    JJRepoNotFound,
-    JJInitFailed {
+    GitRepoNotFound,
+    GitInitFailed {
         stderr: String,
     },
     
@@ -292,7 +292,7 @@ pub enum InitError {
         path: std::path::PathBuf,
         source: std::io::Error,
     },
-    JJIgnoreUpdateFailed {
+    GitIgnoreUpdateFailed {
         path: std::path::PathBuf,
         source: std::io::Error,
     },
@@ -356,25 +356,25 @@ pub enum InitError {
 ```rust
 // Multiple missing dependencies
 Err(InitError::MissingDependencies {
-    missing: vec!["jj (Jujutsu)".to_string()],
+    missing: vec!["git".to_string()],
 })
 
 // With installation instructions
 Err(InitError::MissingDependencies {
-    missing: vec!["jj (Jujutsu)".to_string()],
+    missing: vec!["git".to_string()],
 })
 ```
 
-#### JJ Repository Errors
+#### Git Repository Errors
 ```rust
-// JJ command failed
-Err(InitError::JJCommandFailed {
-    command: "jj git init".to_string(),
+// Git command failed
+Err(InitError::GitCommandFailed {
+    command: "git init".to_string(),
     stderr: "error: ...".to_string(),
 })
 
-// JJ not in PATH
-Err(InitError::JJNotInstalled)
+// Git not in PATH
+Err(InitError::GitNotInstalled)
 ```
 
 #### Lock Errors
@@ -387,7 +387,7 @@ Err(InitError::SymlinkAttackDetected {
 // Another init in progress
 Err(InitError::LockNotAcquirable {
     path: PathBuf::from("/path/to/.init.lock"),
-    message: "Another isolate init is in progress".to_string(),
+    message: "Another hardline init is in progress".to_string(),
 })
 ```
 
@@ -442,26 +442,26 @@ pub async fn run_with_cwd_and_options(
 /// Check that required dependencies are installed
 pub async fn check_dependencies() -> Result<(), InitError>;
 
-/// Check if JJ is installed
-pub async fn is_jj_installed() -> bool;
+/// Check if Git is installed
+pub async fn is_git_installed() -> bool;
 ```
 
-### JJ Repository Management
+### Git Repository Management
 
 ```rust
-/// Ensure JJ repository exists, initialize if needed
-pub async fn ensure_jj_repo_with_cwd(
+/// Ensure Git repository exists, initialize if needed
+pub async fn ensure_git_repo_with_cwd(
     cwd: &Path,
     json_mode: bool,
 ) -> Result<(), InitError>;
 
-/// Get the JJ repository root path
-pub async fn jj_root_with_cwd(
+/// Get the Git repository root path
+pub async fn git_root_with_cwd(
     cwd: &Path,
 ) -> Result<PathBuf, InitError>;
 
-/// Check if current directory is a JJ repository
-pub async fn is_jj_repo_with_cwd(
+/// Check if current directory is a Git repository
+pub async fn is_git_repo_with_cwd(
     cwd: &Path,
 ) -> Result<bool, InitError>;
 ```
@@ -490,14 +490,14 @@ impl Drop for InitLock {
 ### File Creation Helpers
 
 ```rust
-/// Create .isolate/layouts/ directory
+/// Create .hardline/layouts/ directory
 pub async fn create_layouts(repo_root: &Path) -> Result<(), InitError>;
 
-/// Create .jjignore file
-pub async fn create_jjignore(repo_root: &Path) -> Result<(), InitError>;
+/// Create .gitignore file
+pub async fn create_gitignore(repo_root: &Path) -> Result<(), InitError>;
 
-/// Create JJ hooks
-pub async fn create_jj_hooks(repo_root: &Path) -> Result<(), InitError>;
+/// Create Git hooks
+pub async fn create_git_hooks(repo_root: &Path) -> Result<(), InitError>;
 
 /// Create repo-level AI instructions
 pub async fn create_repo_ai_instructions(repo_root: &Path) -> Result<(), InitError>;
@@ -530,14 +530,14 @@ pub struct InitResponse {
     /// Paths to created resources
     pub paths: InitPaths,
     
-    /// Whether JJ repository was initialized
-    pub jj_initialized: bool,
+    /// Whether Git repository was initialized
+    pub git_initialized: bool,
     
-    /// Whether isolate was already initialized
+    /// Whether hardline was already initialized
     pub already_initialized: bool,
 }
 
-/// Paths to isolate resources
+/// Paths to hardline resources
 #[derive(Debug, Clone, Serialize)]
 pub struct InitPaths {
     /// Data directory
@@ -578,7 +578,7 @@ impl SessionDb {
 
 ## Non-Goals
 
-- [ ] **NG1**: No migration support for existing `.isolate/` directories
+- [ ] **NG1**: No migration support for existing `.hardline/` directories
 - [ ] **NG2**: No config validation beyond TOML parsing
 - [ ] **NG3**: No interactive prompts or user input
 - [ ] **NG4**: No template customization options
@@ -587,7 +587,7 @@ impl SessionDb {
 - [ ] **NG7**: No configuration upgrade/migration
 - [ ] **NG8**: No dependency version checking (only presence)
 - [ ] **NG9**: No network operations (no fetching from remote)
-- [ ] **NG10**: No git integration beyond JJ repository detection
+- [ ] **NG10**: No integration beyond Git repository detection
 
 ---
 
@@ -605,12 +605,12 @@ impl SessionDb {
 const STALE_LOCK_TIMEOUT_SECS: u64 = 60;
 
 /// Default config content
-pub const DEFAULT_CONFIG: &str = r#"# isolate Configuration File
-# This file was generated by 'isolate init'
+pub const DEFAULT_CONFIG: &str = r#"# hardline Configuration File
+# This file was generated by 'hardline init'
 
 workspace_dir = "../{repo}__workspaces"
 main_branch = ""  # auto-detect
-state_db = ".isolate/state.db"
+state_db = ".hardline/state.db"
 
 [watch]
 enabled = true
@@ -693,9 +693,9 @@ Before marking implementation complete:
 
 ## References
 
-- Source: `~/src/isolate/crates/isolate/src/commands/init/`
+- Source: `~/src/hardline/crates/cli/src/commands/handlers/`
 - Target: `~/src/hardline/crates/cli/src/commands/handlers/`
 - Design Pattern: Railway-Oriented Programming
 - Testing Strategy: Design-by-contract + Martin Fowler tests
 - Build System: Moon (never cargo)
-- Version Control: JJ (Jujutsu) + Git
+- Version Control: Git

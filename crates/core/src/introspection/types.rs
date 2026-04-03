@@ -58,7 +58,7 @@ pub struct DependencyInfo {
 /// Current system state
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SystemState {
-    /// Whether isolate has been initialized in this repo
+    /// Whether hardline has been initialized in this repo
     pub initialized: bool,
     /// Whether current directory is a Git repository
     pub git_repo: bool,

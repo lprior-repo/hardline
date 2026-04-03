@@ -79,14 +79,14 @@ pub fn cmd_doctor() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate doctor                    Run all system health checks (legacy)",
-                "isolate doctor check             Run all system health checks",
-                "isolate doctor fix              Auto-fix issues where possible",
-                "isolate doctor fix --dry-run    Preview what would be fixed without making changes",
-                "isolate doctor fix --verbose    Show detailed progress during fixes",
-                "isolate doctor integrity        Run database integrity check",
-                "isolate doctor clean            Remove stale sessions",
-                "isolate doctor --json           Export check results to JSON (legacy)",
+                "hardline doctor                    Run all system health checks (legacy)",
+                "hardline doctor check             Run all system health checks",
+                "hardline doctor fix              Auto-fix issues where possible",
+                "hardline doctor fix --dry-run    Preview what would be fixed without making changes",
+                "hardline doctor fix --verbose    Show detailed progress during fixes",
+                "hardline doctor integrity        Run database integrity check",
+                "hardline doctor clean            Remove stale sessions",
+                "hardline doctor --json           Export check results to JSON (legacy)",
             ],
             Some(json_docs::doctor()),
         ))

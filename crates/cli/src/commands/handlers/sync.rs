@@ -1,6 +1,6 @@
 //! Sync command handler for Port CLI
 //!
-//! Implementation of the sync command ported from isolate.
+//! Implementation of the sync command ported from hardline.
 
 use scp_core::domain::SessionName;
 use scp_core::output_jsonl::{

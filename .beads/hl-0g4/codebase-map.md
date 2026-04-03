@@ -1,6 +1,6 @@
 # Codebase Map: hl-0g4 Port CLI: config command
 
-## Source (isolate)
+## Source (hardline)
 - config.rs: ConfigOptions struct, run(), run_with_port(), load_config_for_scope(), show_all_config(), show_config_value(), get_nested_value(), set_config_value(), set_nested_value(), parse_value()
 - Dependencies: toml_edit, fs4 (file locking), SchemaEnvelope JSON wrapper
 - Features: dot notation, file locking, JSON/TOML output, global/project scopes
@@ -20,6 +20,6 @@
 - No nested value support
 
 ## File Paths
-- isolate: ~/.config/isolate/config.toml, .isolate/config
+- hardline: ~/.config/hardline/config.toml, .hardline/config
 - hardline: ~/.config/scp/config.toml, .scp/config
-- Env prefix: ISOLATE_ → SCP_
+- Env prefix: HARDLINE_ → SCP_

@@ -1,4 +1,4 @@
-//! Session validation tests (isolate-1w0d: Lock Non-Existent Session).
+//! Session validation tests (hardline: Lock Non-Existent Session).
 use crate::coordination::locks::errors::LockErrorKind;
 use crate::coordination::locks::LockManager;
 

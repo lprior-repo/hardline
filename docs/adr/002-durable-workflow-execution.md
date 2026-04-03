@@ -14,7 +14,7 @@ Hardline needs durable workflow execution for:
 3. Workspace isolation operations (spawn, switch, sync) that are resumable
 4. Queue processing that can recover from mid-processing failures
 
-This ADR documents the implementation approach based on verified patterns from isolate and seshat.
+This ADR documents the implementation approach based on verified patterns from hardline (prior codebase) and seshat.
 
 ---
 
@@ -38,7 +38,7 @@ Every durable operation maintains a **journal** of steps. On restart, the system
 │ 1. StepRecord { name: "create-db-record", status: completed }
 │ 2. StepRecord { name: "create-workspace", status: completed }
 │ 3. StepRecord { name: "update-metadata", status: running }
-│ 4. StepRecord { name: "create-jj-workspace", status: pending }
+│ 4. StepRecord { name: "create-git-workspace", status: pending }
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -115,7 +115,7 @@ Example: `workspace spawn`
 
 ### The Solution: Two-Phase Compensation
 
-From `isolate/crates/isolate/src/commands/add/atomic.rs`:
+From `hardline prior codebase commands/add/atomic.rs`:
 
 ```rust
 const JOURNAL_PENDING_EXTERNAL: &str = "pending_external";
@@ -150,8 +150,8 @@ pub(super) async fn atomic_create_session(
         None,
     ).await?;
 
-    // STEP 2: Create JJ workspace (can be interrupted by SIGKILL)
-    let workspace_result = create_jj_workspace(name, workspace_path, repo_root).await;
+    // STEP 2: Create Git workspace (can be interrupted by SIGKILL)
+    let workspace_result = create_git_workspace(name, workspace_path, repo_root).await;
 
     match workspace_result {
         Ok(()) => {
@@ -236,7 +236,7 @@ pub struct StepRecord {
 
 ### On Startup: Scan for Incomplete Operations
 
-From `isolate/crates/isolate-core/src/recovery.rs`:
+From `hardline prior codebase isolate-core/src/recovery.rs`:
 
 ```rust
 pub async fn recover_incomplete_operations(db: &Database) -> Vec<RecoveryTask> {
@@ -266,7 +266,7 @@ pub async fn recover_incomplete_operations(db: &Database) -> Vec<RecoveryTask> {
 
 ### Recovery Policies
 
-From `isolate/crates/isolate-core/src/recovery.rs`:
+From `hardline prior codebase isolate-core/src/recovery.rs`:
 
 ```rust
 pub enum RecoveryPolicy {
@@ -323,14 +323,14 @@ For hardline, the key operations that need durability:
 
 | Operation | Steps | Compensation |
 |-----------|-------|--------------|
-| `workspace spawn` | 1. Create DB record, 2. Create workspace dir, 3. Init JJ | Delete DB, remove dir |
+| `workspace spawn` | 1. Create DB record, 2. Create workspace dir, 3. Init Git | Delete DB, remove dir |
 | `workspace switch` | 1. Save current state, 2. Update refs, 3. Update working copy | Restore previous state |
 | `sync pull` | 1. Fetch, 2. Rebase, 3. Update working copy | Abort rebase |
 | `operation checkpoint` | 1. Serialize state, 2. Write checkpoint | Delete checkpoint |
 
 ### Domain Events
 
-From `isolate/crates/isolate-core/src/domain/events.rs`:
+From `hardline prior codebase isolate-core/src/domain/events.rs`:
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -464,7 +464,7 @@ pub(super) async fn rollback_partial_state(
 3. **OperationState enum** - State machine for operations
 
 ### Phase 2: Atomic Operations
-4. **atomic_create_workspace** - Port from isolate atomic.rs
+4. **atomic_create_workspace** - Port from hardline prior codebase atomic.rs
 5. **Compensation logic** - Rollback on failure
 6. **Recovery scanner** - On startup, find incomplete ops
 
@@ -484,9 +484,9 @@ pub(super) async fn rollback_partial_state(
 
 | Source | File | Purpose |
 |--------|------|---------|
-| isolate | `isolate-core/src/domain/events.rs` | DomainEvent enum, event sourcing |
-| isolate | `isolate/src/commands/add/atomic.rs` | Two-phase compensation, atomic create |
-| isolate | `isolate-core/src/recovery.rs` | Recovery policies, validation, cleanup |
+| hardline (prior) | `isolate-core/src/domain/events.rs` | DomainEvent enum, event sourcing |
+| hardline (prior) | `isolate/src/commands/add/atomic.rs` | Two-phase compensation, atomic create |
+| hardline (prior) | `isolate-core/src/recovery.rs` | Recovery policies, validation, cleanup |
 | seshat | `diagram_tool/src/store/types/durable_types.rs` | OperationRecord, StepRecord |
 | orchestrator | `orchestrator/src/state.rs` | PipelineState machine |
 

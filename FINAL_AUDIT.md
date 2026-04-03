@@ -59,8 +59,8 @@ Missing import: `use crate::domain::ports::QueueRepository;`
 | `rebase.rs` | 94 | Restack/rebase operations |
 | `util.rs` | 67 | Timestamp, ID generation, env info |
 | `move_duplicate.rs` | 57 | Move/duplicate changes |
-| `cat.rs` | 49 | JJ cat command |
-| `abs.rs` | 48 | JJ abs command |
+| `cat.rs` | 49 | Git cat command |
+| `abs.rs` | 48 | Git abs command |
 | `conflicts.rs` | 38 | Conflict list/resolve |
 | `version.rs` | 8 | Version display |
 
@@ -95,7 +95,7 @@ Missing import: `use crate::domain::ports::QueueRepository;`
 | Command | Backend |
 |---------|---------|
 | `init --vcs git` | Creates `.git/` |
-| `init --vcs jj` | Creates `.jj/` |
+| `init --vcs git` | Creates `.git/` (Git-only) |
 | `workspace commit` | Git commit |
 | `tag list` | Git tags |
 
@@ -218,7 +218,7 @@ Working via gix:
 
 - `init --vcs git` - **WORKS** (my earlier test was contaminated)
 - Config persistence - **WORKS**
-- Most workspace commands - **WORK** (JJ more complete than Git)
+- Most workspace commands - **WORK**
 
 ---
 
@@ -246,7 +246,7 @@ Working via gix:
 - Branch operations (via gix)
 - Commit operations (via gix)
 - Status operations (via gix)
-- JJ workspace operations
+- Git workspace operations
 - Session/Agent registry (stubs)
 - Doctor diagnostics
 - 1,030 core tests passing

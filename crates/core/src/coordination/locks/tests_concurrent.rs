@@ -1,4 +1,4 @@
-//! Concurrent locking tests (isolate-ggji: Lock Race Condition).
+//! Concurrent locking tests (hardline: Lock Race Condition).
 use crate::coordination::locks::errors::LockErrorKind;
 use crate::coordination::locks::{LockManager, LockResponse};
 

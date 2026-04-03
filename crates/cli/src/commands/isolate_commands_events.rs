@@ -7,7 +7,7 @@ pub fn cmd_events() -> ClapCommand {
     ClapCommand::new("events")
         .about("Listen for or query system events")
         .long_about(
-            "Provides access to the isolate event log.
+            "Provides access to the hardline event log.
 
 
             Use this to track session lifecycle, agent heartbeats, and resource claims.",
@@ -59,10 +59,10 @@ pub fn cmd_events() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate events                       Show recent events",
-                "isolate events --follow             Stream events in real-time",
-                "isolate events -l 20                Show last 20 events",
-                "isolate events --type session       Filter by event type",
+                "hardline events                       Show recent events",
+                "hardline events --follow             Stream events in real-time",
+                "hardline events -l 20                Show last 20 events",
+                "hardline events --type session       Filter by event type",
             ],
             None,
         ))

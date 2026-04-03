@@ -10,9 +10,9 @@ pub fn cmd_status() -> ClapCommand {
         .about("Show detailed session status")
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate status                      Show status for all sessions",
-                "isolate status feature-auth         Inspect a specific workspace",
-                "isolate status --watch              Watch live updates (JSON available with --json)",
+                "hardline status                      Show status for all sessions",
+                "hardline status feature-auth         Inspect a specific workspace",
+                "hardline status --watch              Watch live updates (JSON available with --json)",
             ],
             Some(json_docs::status()),
         ))

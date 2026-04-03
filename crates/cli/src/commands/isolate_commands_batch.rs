@@ -58,9 +58,9 @@ pub fn cmd_batch() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate batch add feat1 add feat2     Execute multiple commands",
-                "isolate batch -f commands.txt        Execute commands from file",
-                "isolate batch --atomic --dry-run     Preview execution",
+                "hardline batch add feat1 add feat2     Execute multiple commands",
+                "hardline batch -f commands.txt        Execute commands from file",
+                "hardline batch --atomic --dry-run     Preview execution",
             ],
             None,
         ))

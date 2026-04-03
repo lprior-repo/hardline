@@ -5,7 +5,7 @@ use clap::{Arg, Command as ClapCommand};
 pub fn cmd_config() -> ClapCommand {
     ClapCommand::new("config")
         .alias("cfg")
-        .about("Manage isolate configuration")
+        .about("Manage hardline configuration")
         .subcommand_required(true)
         .arg(json_arg())
         .subcommand(

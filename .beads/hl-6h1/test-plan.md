@@ -40,28 +40,28 @@ This module is fundamentally **filesystem I/O** — advisory file locks, directo
 | # | Behavior |
 |---|----------|
 | B1 | `acquire_cross_process_lock` returns `Ok(File)` with exclusive advisory lock when repo_root is accessible and uncontested |
-| B2 | `acquire_cross_process_lock` places lock file at `{repo_root}/.scp-workspace-create.lock` (repo root, NOT inside `.isolate/`) |
-| B3 | `acquire_cross_process_lock` does NOT create `.isolate` directory as a side effect |
+| B2 | `acquire_cross_process_lock` places lock file at `{repo_root}/.scp-workspace-create.lock` (repo root, NOT inside `.hardline/`) |
+| B3 | `acquire_cross_process_lock` does NOT create `.hardline` directory as a side effect |
 | B4 | `acquire_cross_process_lock` releases file lock when returned `File` is dropped |
 | B5 | `acquire_cross_process_lock` returns `Err(Jj(JjError { inner: JjErrorKind::LockTimeout { ... } }))` when another process holds the lock for the full retry budget |
 | B6 | `acquire_cross_process_lock` returns `Err(Io(IoError { inner: IoErrorKind::IoError(msg) }))` when lock file cannot be opened (permission denied) |
 | B7 | `acquire_cross_process_lock` returns `Err(Io(IoError { inner: IoErrorKind::IoError(msg) }))` when `spawn_blocking` task join fails |
-| B8 | `acquire_cross_process_lock` returns `Err(State(StateError { inner: StateErrorKind::ValidationError(msg) }))` when `Isolate_STRICT_LOCKS` is set and filesystem does not support advisory locks |
-| B9 | `ensure_data_directory` creates `.isolate` directory at `{repo_root}/.isolate` |
-| B10 | `ensure_data_directory` returns `Ok(())` when `.isolate` directory already exists (idempotent) |
+| B8 | `acquire_cross_process_lock` returns `Err(State(StateError { inner: StateErrorKind::ValidationError(msg) }))` when `Hardline_STRICT_LOCKS` is set and filesystem does not support advisory locks |
+| B9 | `ensure_data_directory` creates `.hardline` directory at `{repo_root}/.hardline` |
+| B10 | `ensure_data_directory` returns `Ok(())` when `.hardline` directory already exists (idempotent) |
 | B11 | `ensure_data_directory` returns `Err(Io(IoError { inner: IoErrorKind::IoError(msg) }))` when directory creation fails due to permission denied |
 | B12 | `ensure_data_directory` does NOT acquire or release any file lock |
 | B13 | `create_workspace_synced` calls `ensure_data_directory()` AFTER `acquire_cross_process_lock()` returns `Ok` (verified via tracing span ordering) |
 | B14 | `create_workspace_synced` returns `Err(Config(ConfigError { inner: ConfigErrorKind::Invalid(msg) }))` when workspace name is empty |
-| B15 | **I1 Lock-Before-Create**: `.isolate` directory never exists without the lock having been held (or recently released) — failure path proven with exact error variant |
-| B16 | **I2 No Phantom Directory**: On `Err(Io(IoError))` return from `acquire_cross_process_lock`, `.isolate` directory state is unchanged from before the call |
+| B15 | **I1 Lock-Before-Create**: `.hardline` directory never exists without the lock having been held (or recently released) — failure path proven with exact error variant |
+| B16 | **I2 No Phantom Directory**: On `Err(Io(IoError))` return from `acquire_cross_process_lock`, `.hardline` directory state is unchanged from before the call |
 | B17 | **I5 Single-Holder**: At most one process holds the cross-process lock at any instant — exactly 3 concurrent tasks, no iteration |
 | B18 | **I4 Idempotent**: acquire → drop → acquire succeeds without error |
-| B19 | **I3 Atomic Visibility**: No concurrent process ever observes `.isolate` directory without a corresponding lock holder — cross-process filesystem probe |
+| B19 | **I3 Atomic Visibility**: No concurrent process ever observes `.hardline` directory without a corresponding lock holder — cross-process filesystem probe |
 | B20 | `acquire_cross_process_lock` preserves lock file content across acquire-drop-reacquire cycle (O_TRUNC mutation guard) |
 | B21 | `acquire_cross_process_lock` opens lock file with read permissions (O_RDONLY mutation guard) |
 | B22 | `acquire_file_lock_with_timeout` introduces measurable delays proportional to exponential backoff (sleep deletion mutation guard) |
-| B23 | `ensure_data_directory` returns `Err(Io(IoError { inner: IoErrorKind::IoError(msg) }))` when `.isolate` exists as a regular file (not a directory) |
+| B23 | `ensure_data_directory` returns `Err(Io(IoError { inner: IoErrorKind::IoError(msg) }))` when `.hardline` exists as a regular file (not a directory) |
 | B24 | `acquire_cross_process_lock` returns `Err(Io(IoError { inner: IoErrorKind::IoError(msg) }))` when `repo_root` does not exist |
 
 ---
@@ -72,7 +72,7 @@ This module is fundamentally **filesystem I/O** — advisory file locks, directo
 |---|----------|-------|---------------|
 | B1 | Lock acquisition success | **Integration** | Real filesystem + real `fs2` advisory lock — must verify actual OS behavior |
 | B2 | Lock file path at repo root | **Integration** | Verifies file path on real filesystem via `Path::exists` |
-| B3 | No `.isolate` side effect | **Integration** | Must check real filesystem state — `.isolate` must not appear |
+| B3 | No `.hardline` side effect | **Integration** | Must check real filesystem state — `.hardline` must not appear |
 | B4 | Lock release on drop | **Integration** | RAII behavior with real file lock — second process must succeed after drop |
 | B5 | Lock timeout on contention | **Integration** | Real process-level contention via two `File` handles on same path |
 | B6 | IoError on permission denied | **Integration** | Real filesystem permission check (read-only dir) |
@@ -92,7 +92,7 @@ This module is fundamentally **filesystem I/O** — advisory file locks, directo
 | B20 | Lock file content preserved | **Integration** | Real file I/O — write content, lock cycle, verify content intact |
 | B21 | Lock file opened readable | **Integration** | Real `File` handle — verify read capability after lock |
 | B22 | Backoff sleep is not removed | **Integration** | Wall-clock measurement with controlled lock holder |
-| B23 | `.isolate` exists as file, not directory | **Integration** | Real filesystem — create regular file at `.isolate` path |
+| B23 | `.hardline` exists as file, not directory | **Integration** | Real filesystem — create regular file at `.hardline` path |
 | B24 | Nonexistent repo_root | **Integration** | Real filesystem — path does not exist |
 
 ### Static Analysis (supplementary)
@@ -132,20 +132,20 @@ This module is fundamentally **filesystem I/O** — advisory file locks, directo
 **Given:** a valid `repo_root` directory
 **When:** `acquire_cross_process_lock(&repo_root).await` returns `Ok(_)`
 **Then:** `repo_root.join(".scp-workspace-create.lock").exists()` is `true`
-**And:** `repo_root.join(".isolate").join("workspace-create.lock").exists()` is `false`
-**And:** `repo_root.join(".isolate").exists()` is `false` (no phantom directory)
+**And:** `repo_root.join(".hardline").join("workspace-create.lock").exists()` is `false`
+**And:** `repo_root.join(".hardline").exists()` is `false` (no phantom directory)
 
 ---
 
-### Behavior B3: No `.isolate` directory side effect
+### Behavior B3: No `.hardline` directory side effect
 
 ```rust
 /// fn acquire_cross_process_lock_does_not_create_isolate_dir_when_called()
 ```
 
-**Given:** a valid `repo_root` with NO `.isolate` directory
+**Given:** a valid `repo_root` with NO `.hardline` directory
 **When:** `acquire_cross_process_lock(&repo_root).await` returns `Ok(_)`
-**Then:** `repo_root.join(".isolate").exists()` is `false`
+**Then:** `repo_root.join(".hardline").exists()` is `false`
 
 ---
 
@@ -215,14 +215,14 @@ This module is fundamentally **filesystem I/O** — advisory file locks, directo
 
 > **m3 Resolution — CI Feasibility:** Triggering unsupported-FS behavior requires a filesystem that doesn't support `flock` (e.g., NFS with `noac` mount option, or a tmpfs remounted with specific options). This cannot be reliably reproduced in standard CI environments (GitHub Actions, Docker). **This test is deferred** — marked `#[ignore]` with documentation for manual execution. The lock portability code path is verified structurally (static analysis) and by the non-strict warning variant below.
 
-**Given:** `Isolate_STRICT_LOCKS` environment variable is set
+**Given:** `Hardline_STRICT_LOCKS` environment variable is set
 **And:** a filesystem that does NOT support advisory file locks
 **When:** `acquire_cross_process_lock(&repo_root).await`
 **Then:** returns `Err(Error::State(StateError { inner: StateErrorKind::ValidationError(msg) }))`
 **And:** `msg` contains `"LOCK_PORTABILITY_UNSUPPORTED"`
 
 **Non-strict variant (warning only — CI-feasible):**
-**Given:** `Isolate_STRICT_LOCKS` is NOT set
+**Given:** `Hardline_STRICT_LOCKS` is NOT set
 **And:** filesystem does NOT support advisory locks
 **When:** `acquire_cross_process_lock(&repo_root).await`
 **Then:** returns `Ok(File)` (graceful degradation)
@@ -236,10 +236,10 @@ This module is fundamentally **filesystem I/O** — advisory file locks, directo
 /// fn ensure_data_directory_creates_isolate_dir_when_called()
 ```
 
-**Given:** a valid `repo_root` with NO `.isolate` directory
+**Given:** a valid `repo_root` with NO `.hardline` directory
 **When:** `ensure_data_directory(&repo_root).await`
 **Then:** returns `Ok(())`
-**And:** `repo_root.join(".isolate").is_dir()` is `true`
+**And:** `repo_root.join(".hardline").is_dir()` is `true`
 
 ---
 
@@ -249,10 +249,10 @@ This module is fundamentally **filesystem I/O** — advisory file locks, directo
 /// fn ensure_data_directory_succeeds_when_isolate_dir_already_exists()
 ```
 
-**Given:** a valid `repo_root` where `.isolate` directory already exists
+**Given:** a valid `repo_root` where `.hardline` directory already exists
 **When:** `ensure_data_directory(&repo_root).await`
 **Then:** returns `Ok(())`
-**And:** `.isolate` directory still exists (unchanged)
+**And:** `.hardline` directory still exists (unchanged)
 
 ---
 
@@ -326,11 +326,11 @@ This module is fundamentally **filesystem I/O** — advisory file locks, directo
 
 > **m2 Resolution — Exact error variant:** Invariant tests now assert the specific error variant, not `Err(_)`. This proves that the specific error path leaves no phantom — adding marginal defense against error-path-specific regressions.
 
-**Given:** a valid `repo_root` with NO `.isolate` directory
+**Given:** a valid `repo_root` with NO `.hardline` directory
 **And:** another process already holds the exclusive lock
 **When:** `acquire_cross_process_lock(&repo_root).await`
 **Then:** returns `Err(Error::Jj(JjError { inner: JjErrorKind::LockTimeout { operation: _, timeout_ms: _, retries: _ } }))`
-**And:** `repo_root.join(".isolate").exists()` is `false`
+**And:** `repo_root.join(".hardline").exists()` is `false`
 
 ---
 
@@ -342,11 +342,11 @@ This module is fundamentally **filesystem I/O** — advisory file locks, directo
 
 > **m2 Resolution — Exact error variant:** The precondition now asserts `Err(Io(IoError))`, not `Err(_)`.
 
-**Given:** a valid `repo_root` with NO `.isolate` directory
+**Given:** a valid `repo_root` with NO `.hardline` directory
 **And:** `repo_root` has `0o444` permissions (read-only, causes `IoError`)
 **When:** `acquire_cross_process_lock(&repo_root).await`
 **Then:** returns `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))` where `msg` contains `"Failed to open workspace lock file"`
-**And:** `repo_root.join(".isolate").exists()` is `false`
+**And:** `repo_root.join(".hardline").exists()` is `false`
 **And:** no partial directory structure exists
 
 ---
@@ -397,22 +397,22 @@ This module is fundamentally **filesystem I/O** — advisory file locks, directo
 1. Create a tempdir as `repo_root`
 2. Write a small helper binary (or shell script) `probe_child` that:
    - Takes `repo_root` as argument
-   - Loops (up to 500ms) checking: `repo_root.join(".isolate").exists()`
-   - If `.isolate` exists: check if `repo_root.join(".scp-workspace-create.lock")` can be locked (i.e., the lock is NOT held)
-   - If `.isolate` exists AND lock is NOT held: exit with code 1 (violation)
-   - If `.isolate` exists AND lock IS held: exit with code 0 (valid — lock holder created it)
-   - If `.isolate` never appears within timeout: exit with code 0 (no violation)
+   - Loops (up to 500ms) checking: `repo_root.join(".hardline").exists()`
+   - If `.hardline` exists: check if `repo_root.join(".scp-workspace-create.lock")` can be locked (i.e., the lock is NOT held)
+   - If `.hardline` exists AND lock is NOT held: exit with code 1 (violation)
+   - If `.hardline` exists AND lock IS held: exit with code 0 (valid — lock holder created it)
+   - If `.hardline` never appears within timeout: exit with code 0 (no violation)
 3. Start `probe_child` as a background process via `Command::new`
 4. In the test process: call `acquire_cross_process_lock(&repo_root)`, then `ensure_data_directory(&repo_root)`, hold for 200ms, then drop
 5. Assert `probe_child` exits with code 0
 
-**Given:** a valid `repo_root` with NO `.isolate` directory
-**And:** a child process (`probe_child`) running concurrently, polling for `.isolate` existence and lock status
+**Given:** a valid `repo_root` with NO `.hardline` directory
+**And:** a child process (`probe_child`) running concurrently, polling for `.hardline` existence and lock status
 **When:** the test process calls `acquire_cross_process_lock`, then `ensure_data_directory`, holds for 200ms, then drops
 **Then:** `probe_child` exits with code 0 (no violation detected)
-**And:** the child process never observed `.isolate` existing without the lock being held
+**And:** the child process never observed `.hardline` existing without the lock being held
 
-**Alternative (if child binary is too complex):** Use a single-process test with a spawned tokio task that polls `.isolate` existence at 1ms intervals. Acquire lock, sleep 50ms (to ensure poller is running), then call `ensure_data_directory`. Assert poller never observed `.isolate` without lock held.
+**Alternative (if child binary is too complex):** Use a single-process test with a spawned tokio task that polls `.hardline` existence at 1ms intervals. Acquire lock, sleep 50ms (to ensure poller is running), then call `ensure_data_directory`. Assert poller never observed `.hardline` without lock held.
 
 ---
 
@@ -471,15 +471,15 @@ This module is fundamentally **filesystem I/O** — advisory file locks, directo
 
 ---
 
-### Behavior B23: `.isolate` exists as regular file
+### Behavior B23: `.hardline` exists as regular file
 
 ```rust
 /// fn ensure_data_directory_returns_io_error_when_isolate_is_a_file_not_directory()
 ```
 
-> **m4 Resolution — `.isolate`-as-file boundary test.** If `.isolate` exists as a regular file (not a directory), `create_dir_all` fails with a "Not a directory" OS error. This is a distinct error condition from permission denied (B11) and from already-exists (B10).
+> **m4 Resolution — `.hardline`-as-file boundary test.** If `.hardline` exists as a regular file (not a directory), `create_dir_all` fails with a "Not a directory" OS error. This is a distinct error condition from permission denied (B11) and from already-exists (B10).
 
-**Given:** a valid `repo_root` where `.isolate` exists as a regular file (not a directory)
+**Given:** a valid `repo_root` where `.hardline` exists as a regular file (not a directory)
 **When:** `ensure_data_directory(&repo_root).await`
 **Then:** returns `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))`
 **And:** `msg` contains `"Failed to create data directory"`
@@ -593,7 +593,7 @@ Rationale: Ensures the lock file is hidden (dot-prefixed) at the filesystem leve
 | Replace `.scp-workspace-create.lock` with `workspace-create.lock` | B2 | Path assertion fails |
 | Remove `ensure_data_directory()` call from `create_workspace_synced` | B13 | Tracing captures only `"lock_acquired"`, missing `"data_dir_created"` |
 | Swap order: `ensure_data_directory` before `acquire_cross_process_lock` | B13 | Tracing captures `"data_dir_created"` before `"lock_acquired"` |
-| Reintroduce `create_dir_all(.isolate)` into `acquire_cross_process_lock` | B3 | `.isolate` exists after lock call |
+| Reintroduce `create_dir_all(.hardline)` into `acquire_cross_process_lock` | B3 | `.hardline` exists after lock call |
 | Change `try_lock_exclusive()` to always return `Ok(())` | B5 | Timeout error not returned |
 | Remove `drop` release behavior | B4 | Second lock attempt fails |
 | Change error message prefix from `"Failed to create data directory"` to generic | B11 | Message assertion fails |
@@ -620,13 +620,13 @@ With the 3 new mutation-killing tests (B20, B21, B22), the estimated kill rate r
 |----------|----------------|-----------------|-------|
 | Happy path | writable `repo_root`, no contention | `Ok(File)` with exclusive lock | integration |
 | Lock path correct | any valid `repo_root` | lock file at `{root}/.scp-workspace-create.lock` | integration |
-| No `.isolate` side effect | `repo_root` without `.isolate` | `.isolate` does not exist after call | integration |
+| No `.hardline` side effect | `repo_root` without `.hardline` | `.hardline` does not exist after call | integration |
 | Contended lock | another process holds lock | `Err(Error::Jj(JjError { inner: JjErrorKind::LockTimeout { operation: "workspace creation cross-process lock", retries: 8, timeout_ms: <computed> } }))` | integration |
 | Permission denied | read-only `repo_root` | `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))` where `msg` contains `"Failed to open workspace lock file"` | integration |
 | Nonexistent repo_root | path does not exist | `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))` where `msg` contains `"Failed to open workspace lock file"` and OS error kind is `NotFound` | integration |
 | spawn_blocking failure | tokio runtime shut down | `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))` where `msg` contains `"Failed to join lock task"` | unit |
-| Strict locks + unsupported FS | `Isolate_STRICT_LOCKS` set, no flock support | `Err(Error::State(StateError { inner: StateErrorKind::ValidationError(msg) }))` where `msg` contains `"LOCK_PORTABILITY_UNSUPPORTED"` | integration (deferred) |
-| Non-strict + unsupported FS | `Isolate_STRICT_LOCKS` not set, no flock | `Ok(File)` + warning log | integration |
+| Strict locks + unsupported FS | `Hardline_STRICT_LOCKS` set, no flock support | `Err(Error::State(StateError { inner: StateErrorKind::ValidationError(msg) }))` where `msg` contains `"LOCK_PORTABILITY_UNSUPPORTED"` | integration (deferred) |
+| Non-strict + unsupported FS | `Hardline_STRICT_LOCKS` not set, no flock | `Ok(File)` + warning log | integration |
 | Lock release | drop returned `File` | second process can acquire lock | integration |
 | Idempotent cycle | acquire → drop → acquire → drop → acquire | all return `Ok(File)` | integration |
 | Content preserved | pre-existing file with known content | content unchanged after lock cycle | integration |
@@ -635,9 +635,9 @@ With the 3 new mutation-killing tests (B20, B21, B22), the estimated kill rate r
 
 | Scenario | Input Condition | Expected Output | Layer |
 |----------|----------------|-----------------|-------|
-| Happy path | writable `repo_root`, no `.isolate` | `Ok(())`, `.isolate` exists | integration |
-| Already exists | `.isolate` pre-exists as directory | `Ok(())`, `.isolate` still exists | integration |
-| `.isolate` is a regular file | `.isolate` exists as file | `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))` where `msg` contains `"Failed to create data directory"` | integration |
+| Happy path | writable `repo_root`, no `.hardline` | `Ok(())`, `.hardline` exists | integration |
+| Already exists | `.hardline` pre-exists as directory | `Ok(())`, `.hardline` still exists | integration |
+| `.hardline` is a regular file | `.hardline` exists as file | `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))` where `msg` contains `"Failed to create data directory"` | integration |
 | Permission denied | read-only `repo_root` | `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))` where `msg` contains `"Failed to create data directory"` | integration |
 | No lock file side effect | no lock file exists | lock file still does not exist | integration |
 
@@ -652,8 +652,8 @@ With the 3 new mutation-killing tests (B20, B21, B22), the estimated kill rate r
 
 | Scenario | Input Class | Expected Output | Layer |
 |----------|-------------|-----------------|-------|
-| TOCTOU regression: timeout | contended lock, no `.isolate` | `Err(Error::Jj(JjError { inner: JjErrorKind::LockTimeout { .. } }))` + `.isolate` does not exist | integration |
-| TOCTOU regression: permission | read-only dir, no `.isolate` | `Err(Error::Io(IoError { inner: IoErrorKind::IoError(_) }))` + `.isolate` does not exist | integration |
+| TOCTOU regression: timeout | contended lock, no `.hardline` | `Err(Error::Jj(JjError { inner: JjErrorKind::LockTimeout { .. } }))` + `.hardline` does not exist | integration |
+| TOCTOU regression: permission | read-only dir, no `.hardline` | `Err(Error::Io(IoError { inner: IoErrorKind::IoError(_) }))` + `.hardline` does not exist | integration |
 | Atomic visibility (I3) | concurrent probe child + lock+create | probe child exits code 0 | integration |
 | Single-holder stress | exactly 3 concurrent tasks | `max(in_critical) == 1`, all results are `Ok(File)` or `Err(Error::Jj(JjError { inner: JjErrorKind::LockTimeout { .. } }))` | integration |
 | Idempotent cycle | 3 sequential acquire/drop | all `Ok(File)` | integration |
@@ -685,8 +685,8 @@ The following existing tests in `jj_lock_tests.rs` and `jj_operations.rs` refere
 | Test | Line(s) | Current Reference | Required Change |
 |------|---------|-------------------|-----------------|
 | `given_lock_constants_when_validated_then_reasonable_values` | 27 | `assert_eq!(WORKSPACE_CREATION_LOCK_FILE, "workspace-create.lock")` | Change to `".scp-workspace-create.lock"` |
-| `regression_cross_process_lock_blocks_second_holder` | 103–105 | `repo_root_path.join(".isolate").join(WORKSPACE_CREATION_LOCK_FILE)` | Change to `repo_root_path.join(WORKSPACE_CREATION_LOCK_FILE)` |
-| `regression_cross_process_lock_releases_on_drop` | 132–134 | `repo_root_path.join(".isolate").join(WORKSPACE_CREATION_LOCK_FILE)` | Change to `repo_root_path.join(WORKSPACE_CREATION_LOCK_FILE)` |
+| `regression_cross_process_lock_blocks_second_holder` | 103–105 | `repo_root_path.join(".hardline").join(WORKSPACE_CREATION_LOCK_FILE)` | Change to `repo_root_path.join(WORKSPACE_CREATION_LOCK_FILE)` |
+| `regression_cross_process_lock_releases_on_drop` | 132–134 | `repo_root_path.join(".hardline").join(WORKSPACE_CREATION_LOCK_FILE)` | Change to `repo_root_path.join(WORKSPACE_CREATION_LOCK_FILE)` |
 
 ### Banned Assertion Pattern Fixes (M5 — 6 patterns)
 
@@ -723,14 +723,14 @@ The following existing tests in `jj_lock_tests.rs` and `jj_operations.rs` refere
 | `Error::Io(IoError { inner: IoErrorKind::IoError("Failed to join lock task: ...") })` | B7 | Tokio runtime shutdown | YES (contract.md needs correction) |
 | `Error::State(StateError { inner: StateErrorKind::ValidationError("LOCK_PORTABILITY_UNSUPPORTED: ...") })` | B8 | Strict locks env + unsupported FS | YES (deferred) |
 | `Error::Io(IoError { inner: IoErrorKind::IoError("Failed to create data directory: ...") })` | B11 | Read-only repo_root for ensure_data_directory | YES |
-| `Error::Io(IoError { inner: IoErrorKind::IoError("Failed to create data directory: ... (Not a directory)") })` | B23 | `.isolate` exists as regular file | YES |
+| `Error::Io(IoError { inner: IoErrorKind::IoError("Failed to create data directory: ... (Not a directory)") })` | B23 | `.hardline` exists as regular file | YES |
 | `Error::Config(ConfigError { inner: ConfigErrorKind::Invalid("workspace name cannot be empty") })` | B14 | Empty workspace name | YES |
 
 ## Appendix: Invariant Coverage Checklist
 
 | Invariant | Behavior # | Test Scenario |
 |-----------|-----------|---------------|
-| I1 Lock-Before-Create | B15 | Lock timeout + no phantom `.isolate` |
+| I1 Lock-Before-Create | B15 | Lock timeout + no phantom `.hardline` |
 | I2 No Phantom Directory | B16 | IoError + filesystem unchanged |
 | I3 Atomic Visibility | **B19** | Cross-process probe child |
 | I4 Idempotent | B18 | Sequential acquire → drop → acquire |
@@ -749,5 +749,5 @@ The following existing tests in `jj_lock_tests.rs` and `jj_operations.rs` refere
 | m1: Fabricated statistics | MINOR | **FIXED** | Corrected to 4 unit / 20 integration / 0 e2e / 4 static. |
 | m2: B15/B16 `Err(_)` wildcards | MINOR | **FIXED** | B15 asserts `Err(Error::Jj(JjError { inner: JjErrorKind::LockTimeout { .. } }))`. B16 asserts `Err(Error::Io(IoError { inner: IoErrorKind::IoError(msg) }))`. |
 | m3: B8 CI feasibility | MINOR | **FIXED** | Marked `#[ignore]` with manual run documentation. |
-| m4: `.isolate`-as-file boundary | MINOR | **FIXED** | Added B23. |
+| m4: `.hardline`-as-file boundary | MINOR | **FIXED** | Added B23. |
 | m5: Nonexistent repo_root boundary | MINOR | **FIXED** | Added B24. |

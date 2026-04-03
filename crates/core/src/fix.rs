@@ -53,7 +53,7 @@ impl Fix {
     ///
     /// let fix = Fix::safe(
     ///     "Use different name",
-    ///     vec!["scp add isolate-test-2".to_string()],
+    ///     vec!["scp add hardline-test-2".to_string()],
     /// );
     /// assert!(fix.automatic);
     /// ```
@@ -221,11 +221,11 @@ mod tests {
     fn test_safe_fix_creation() {
         let fix = Fix::safe(
             "Use different name",
-            vec!["scp add isolate-test-2".to_string()],
+            vec!["scp add hardline-test-2".to_string()],
         );
 
         assert_eq!(fix.description, "Use different name");
-        assert_eq!(fix.commands, vec!["scp add isolate-test-2"]);
+        assert_eq!(fix.commands, vec!["scp add hardline-test-2"]);
         assert!(fix.automatic);
         assert_eq!(fix.impact, FixImpact::Safe);
         assert!(fix.rationale.is_none());

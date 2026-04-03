@@ -7,27 +7,27 @@ use clap::Command as ClapCommand;
 
 /// Build the complete object-based CLI
 ///
-/// This creates the new `isolate <object> <action>` command structure
+/// This creates the new `hardline <object> <action>` command structure
 /// while maintaining compatibility with existing handlers.
 #[allow(clippy::too_many_lines)]
 pub fn build_object_cli() -> ClapCommand {
-    ClapCommand::new("isolate")
+    ClapCommand::new("hardline")
         .version(env!("CARGO_PKG_VERSION"))
-        .author("Isolate Contributors")
-        .about("Isolate - Isolated workspace manager (object-based CLI)")
+        .author("Hardline Contributors")
+        .about("Hardline - Isolated workspace manager (object-based CLI)")
         .long_about(
-            "Isolate creates isolated Git workspaces.\n\n\
+            "Hardline creates isolated Git workspaces.\n\n\
              Object-based command structure:\n\
              \n\
-   isolate task <action>     Manage tasks and work items\n\
+   hardline task <action>     Manage tasks and work items\n\
              \n\
-   isolate session <action>  Manage workspaces and sessions\n\
+   hardline session <action>  Manage workspaces and sessions\n\
              \n\
-   isolate status <action>   Query system status\n\
+   hardline status <action>   Query system status\n\
              \n\
-   isolate config <action>   Manage configuration\n\
+   hardline config <action>   Manage configuration\n\
              \n\
-   isolate doctor <action>   Run diagnostics\n",
+   hardline doctor <action>   Run diagnostics\n",
         )
         .subcommand_required(true)
         .arg(json_arg().global(true))

@@ -9,8 +9,8 @@ updated_at: 2026-03-31T12:00:00Z
 
 ## Context
 
-- **Feature**: Port the isolate `config` command to the hardline SCP CLI, replacing the current flat-key-value implementation with dot-notation, typed values, file locking, JSON envelope output, and scoped config (global/project/env).
-- **Source**: `/home/lewis/src/isolate/crates/isolate/src/commands/config.rs`
+- **Feature**: Port the `config` command to the hardline SCP CLI, replacing the current flat-key-value implementation with dot-notation, typed values, file locking, JSON envelope output, and scoped config (global/project/env).
+- **Source**: `/home/lewis/src/hardline/crates/hardline/src/commands/config.rs`
 - **Domain terms**:
   - `ConfigKey`: A dot-separated path into the TOML config structure (e.g., `watch.enabled`, `conflict_resolution.mode`).
   - `ConfigValue`: A typed TOML primitive (bool, integer, string, or string array).

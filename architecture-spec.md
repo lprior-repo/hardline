@@ -71,7 +71,7 @@ scp/
 │   │   ├── domain/      # Workspace state machine
 │   │   └── persistence # Workspace storage
 │   │
-│   ├── session/         # NEW: Session management (from isolate)
+│   ├── session/         # NEW: Session management (from hardline)
 │   │   ├── domain/     # Session aggregate
 │   │   └── persistence # Session storage
 │   │
@@ -96,10 +96,10 @@ scp/
 │   │   ├── views/     # Stack tree, diff, details
 │   │   └── input/    # Key bindings
 │   │
-│   ├── server/          # NEW: Agent coordination API (from isolate twins)
+│   ├── server/          # NEW: Agent coordination API (from hardline twins)
 │   │   └── api/       # HTTP API for swarm
 │   │
-│   └── orchestrator/    # NEW: Multi-step workflows (from isolate)
+│   └── orchestrator/    # NEW: Multi-step workflows (from hardline)
 │       └── phases/     # Phase execution
 │
 └── sql_schemas/        # All DB schemas
@@ -107,7 +107,7 @@ scp/
 
 ### 2.2 Core Domain Types
 
-#### Session (from isolate)
+#### Session (from hardline)
 ```
 SessionState: Created -> Active -> Syncing -> Synced -> Paused -> Completed/Failed
 Session {
@@ -120,7 +120,7 @@ Session {
 }
 ```
 
-#### Workspace (from isolate)
+#### Workspace (from hardline)
 ```
 WorkspaceState: Created -> Working -> Ready -> Merged/Abandoned/Conflict
 Workspace {
@@ -132,7 +132,7 @@ Workspace {
 }
 ```
 
-#### Bead (from isolate)
+#### Bead (from hardline)
 ```
 BeadState: Open -> Claimed -> InProgress -> Ready -> Merged/Abandoned
 Bead {
@@ -382,10 +382,10 @@ struct Fix {
 - Study reference implementations (effectum, triagebot, git-stack)
 
 ### Phase 2: Consolidate Crates (Week 2)
-- Move isolate-core → crates/session
-- Move isolate → crates/cli (integrate commands)
+- Move hardline (the source project) logic → crates/session
+- Move hardline CLI → crates/cli (integrate commands)
 - Move stak-core → crates/queue
-- Move stak → crates/cli (integrate commands)
+- Move stak CLI → crates/cli (integrate commands)
 - Apply functional Rust rules (zero unwrap, no mut)
 
 ### Phase 3: Add Stax Features (Week 3)
@@ -461,7 +461,7 @@ enum WorkspaceState { Created, Working, Ready, Merged }  // not Option + bool
 ### 13.5 Moon CI/CD (with Remote Cache)
 
 ```yaml
-# .moon/tasks.yml - based on isolate's battle-tested config
+# .moon/tasks.yml - based on hardline's battle-tested config
 
 $schema: "https://moonrepo.dev/schemas/tasks.json"
 
@@ -724,7 +724,7 @@ gix = "0.78"
 - Faster compile times
 - Better error messages
 - Actively maintained
-- Used by major Rust projects (including Jujutsu itself)
+- Used by major Rust projects
 
 ### 15.3 Suggested Additions
 
@@ -775,7 +775,7 @@ gix = "0.78"
 | Repo | Purpose | What to Steal |
 |------|---------|---------------|
 | **git-stack** (epage) | Local stacked branch management | Git DAG manipulation, rebase automation |
-| **jj-spr** | Git + GitHub PR bridge | Commits → Stacked PRs conversion |
+| **jj-spr** | Git + GitHub PR bridge | Commits to Stacked PRs conversion |
 | **arxanas/git-branchless** | Git branchless workflow | DAG manipulation, conflict handling |
 
 ### 16.3 Implementation Patterns

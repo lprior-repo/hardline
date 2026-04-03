@@ -6,7 +6,7 @@ This document provides a detailed step-by-step migration plan for the SCP (Sourc
 
 **Current State:**
 - SCP workspace has 10 crates: core, vcs, cli, orchestrator, twins, scenarios, beads, workspace, queue
-- External projects to migrate: `/home/lewis/src/isolate` (isolate-core, twins, orchestrator, scenarios), `/home/lewis/src/stak` (stak-core, stak), `/home/lewis/src/stax` (TUI, GitHub integration, snapshots)
+- External projects to migrate: `/home/lewis/src/hardline` (hardline-core, twins, orchestrator, scenarios), `/home/lewis/src/stak` (stak-core, stak), `/home/lewis/src/stax` (TUI, GitHub integration, snapshots)
 
 **Target State:**
 - Consolidated workspace with DDD-structured crates: session, cli, queue, stack, tui, snapshot
@@ -86,9 +86,9 @@ insta = { version = "1.40", features = ["yaml"] }
 
 ## Phase 2: Consolidate Crates (Week 2)
 
-### 2.1 Move isolate-core → crates/session
+### 2.1 Move hardline-core → crates/session
 
-**Source:** `/home/lewis/src/isolate/crates/isolate-core/`
+**Source:** `/home/lewis/src/hardline/crates/hardline-core/`
 **Target:** `crates/session/`
 
 **Files to create/modify:**
@@ -101,7 +101,7 @@ edition.workspace = true
 
 [dependencies]
 scp-core = { path = "../core" }
-# Add isolate-core dependencies
+# Add hardline-core dependencies
 
 [dev-dependencies]
 tempfile.workspace = true
@@ -122,13 +122,13 @@ members = [
 ]
 ```
 
-### 2.2 Move isolate → crates/cli (integrate commands)
+### 2.2 Move hardline CLI → crates/cli (integrate commands)
 
-**Source:** `/home/lewis/src/isolate/crates/isolate/`
+**Source:** `/home/lewis/src/hardline/crates/hardline/`
 **Target:** Integrate into `crates/cli/`
 
 **Files to modify:**
-- `crates/cli/src/commands/session.rs` - Add isolate commands
+- `crates/cli/src/commands/session.rs` - Add hardline commands
 - `crates/cli/src/main.rs` - Register new commands
 
 ### 2.3 Move stak-core → crates/queue
@@ -155,11 +155,11 @@ members = [
 
 ```
 crates/
-├── cli/           # Main CLI (integrated from isolate, stak)
+├── cli/           # Main CLI (integrated from hardline, stak)
 ├── core/          # Core domain
 ├── vcs/           # VCS abstraction
 ├── queue/         # Merge queue (merged from stak-core)
-├── session/       # Session management (from isolate-core) [NEW]
+├── session/       # Session management (from hardline-core) [NEW]
 ├── workspace/     # Workspace management
 ├── beads/         # Bead tracking
 ├── orchestrator/  # Multi-step workflows

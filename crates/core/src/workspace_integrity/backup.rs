@@ -15,7 +15,7 @@ use crate::{Error, Result};
 /// Manages workspace backups
 #[derive(Debug, Clone)]
 pub struct BackupManager {
-    /// Root directory for backups (.isolate/backups)
+    /// Root directory for backups (.hardline/backups)
     backup_root: PathBuf,
 }
 
@@ -23,7 +23,7 @@ impl BackupManager {
     /// Create a new backup manager
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self {
-            backup_root: root.into().join(".isolate").join("backups"),
+            backup_root: root.into().join(".hardline").join("backups"),
         }
     }
 

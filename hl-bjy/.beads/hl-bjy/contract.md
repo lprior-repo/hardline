@@ -7,7 +7,7 @@ updated_at: 2026-03-25T23:30:00Z
 
 ## Context
 
-- **Feature**: Port session lock manager with TTL and heartbeat from isolate to hardline
+- **Feature**: Port session lock manager with TTL and heartbeat from legacy codebase to hardline
 - **Domain Terms**:
   - **SessionLock**: An exclusive lock on a session held by an agent
   - **LockId**: Unique identifier for a lock instance

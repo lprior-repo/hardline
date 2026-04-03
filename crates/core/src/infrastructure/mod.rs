@@ -4,7 +4,7 @@
 //! - Database access (SQLite, etc.)
 //! - File system operations
 //! - External API clients
-//! - JJ/Git VCS integration
+//! - Git VCS integration
 //! - Event store lock management
 
 pub mod chaos;

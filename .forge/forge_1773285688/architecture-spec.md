@@ -15,7 +15,7 @@
 #### Ubiquitous Requirements
 - THE SYSTEM SHALL provide complete workspace isolation for 600+ AI agents operating concurrently
 - THE SYSTEM SHALL guarantee zero data loss through snapshotted operations with forward/backward recovery
-- THE SYSTEM SHALL abstract JJ and Git behind a unified VCS trait
+- THE SYSTEM SHALL provide a Git-based VCS backend via gitoxide
 - THE SYSTEM SHALL persist all state in SQLite with WAL durability
 - THE SYSTEM SHALL output JSON-only for all operations to enable AI agent consumption
 
@@ -59,8 +59,7 @@ scp/
 │   ├── core/             # Core domain (existing, refactor)
 │   │
 │   ├── vcs/              # VCS abstraction (existing, enhance)
-│   │   ├── git.rs       # Git backend
-│   │   └── jj.rs        # JJ backend
+│   │   └── git.rs       # Git backend (gitoxide)
 │   │
 │   ├── queue/            # Merge queue (existing, enhance)
 │   │   ├── domain/      # QueueStatus state machine
@@ -71,7 +70,7 @@ scp/
 │   │   ├── domain/      # Workspace state machine
 │   │   └── persistence # Workspace storage
 │   │
-│   ├── session/         # NEW: Session management (from isolate)
+│   ├── session/         # NEW: Session management (from hardline)
 │   │   ├── domain/     # Session aggregate
 │   │   └── persistence # Session storage
 │   │
@@ -96,10 +95,10 @@ scp/
 │   │   ├── views/     # Stack tree, diff, details
 │   │   └── input/    # Key bindings
 │   │
-│   ├── server/          # NEW: Agent coordination API (from isolate twins)
+│   ├── server/          # NEW: Agent coordination API
 │   │   └── api/       # HTTP API for swarm
 │   │
-│   └── orchestrator/    # NEW: Multi-step workflows (from isolate)
+│   └── orchestrator/    # NEW: Multi-step workflows
 │       └── phases/     # Phase execution
 │
 └── sql_schemas/        # All DB schemas
@@ -107,7 +106,7 @@ scp/
 
 ### 2.2 Core Domain Types
 
-#### Session (from isolate)
+#### Session
 ```
 SessionState: Created -> Active -> Syncing -> Synced -> Paused -> Completed/Failed
 Session {
@@ -120,19 +119,19 @@ Session {
 }
 ```
 
-#### Workspace (from isolate)
+#### Workspace
 ```
 WorkspaceState: Created -> Working -> Ready -> Merged/Abandoned/Conflict
 Workspace {
   id: WorkspaceId,
   path: AbsolutePath,
-  vcs_backend: BackendType,  // Git or JJ
+  vcs_backend: BackendType,  // Git only (gitoxide)
   state: WorkspaceState,
   session: SessionId,
 }
 ```
 
-#### Bead (from isolate)
+#### Bead
 ```
 BeadState: Open -> Claimed -> InProgress -> Ready -> Merged/Abandoned
 Bead {
@@ -176,31 +175,22 @@ trait VcsBackend {
     // Repository
     fn init(&self, path: &Path) -> Result<()>;
     fn clone(&self, url: &str, path: &Path) -> Result<()>;
-    
+
     // Branches
     fn current_branch(&self) -> Result<Option<BranchName>>;
     fn list_branches(&self) -> Result<Vec<BranchName>>;
     fn create_branch(&self, name: &BranchName) -> Result<()>;
     fn delete_branch(&self, name: &BranchName) -> Result<()>;
-    
+
     // Commits
     fn status(&self) -> Result<VcsStatus>;
     fn add(&self, paths: &[&Path]) -> Result<()>;
     fn commit(&self, message: &str) -> Result<CommitHash>;
     fn log(&self, count: usize) -> Result<Vec<Commit>>;
-    
-    // Workspaces (JJ-specific, no-op for Git)
-    fn workspace_create(&self, name: &str) -> Result<()>;
-    fn workspace_list(&self) -> Result<Vec<WorkspaceInfo>>;
-    fn workspace_switch(&self, name: &str) -> Result<()>;
-    
+
     // Operations
     fn rebase(&self, onto: &BranchName) -> Result<()>;
     fn merge(&self, source: &BranchName) -> Result<()>;
-    
-    // Operation log (JJ-specific)
-    fn operation_log(&self) -> Result<Vec<Operation>>;
-    fn undo(&self, operation_id: &str) -> Result<()>;
 }
 ```
 
@@ -312,7 +302,7 @@ struct Fix {
 | Trigger | Expected | Error Variant |
 |---------|----------|---------------|
 | Network timeout | Retry with backoff | NetworkTimeout |
-| JJ not installed | Clear install guide | VcsNotInstalled |
+| Git not installed | Clear install guide | VcsNotInstalled |
 | Disk full | Error + cleanup suggestion | IoError(DiskFull) |
 | Concurrent write | Retry or queue | WorkspaceLocked |
 
@@ -353,19 +343,19 @@ struct Fix {
 | Scenario | Probability | Severity | Mitigation |
 |----------|-------------|----------|------------|
 | DB corruption | LOW | CRITICAL | WAL + backup + restore |
-| Agent 600+ deadlock | MEDIUM | HIGH | Lock-free JJ backend |
+| Agent 600+ deadlock | MEDIUM | HIGH | Full clone isolation via Git |
 | Network partition | MEDIUM | MEDIUM | Queue persisted locally |
 | Disk full during merge | LOW | HIGH | Pre-check disk space |
 | GitHub rate limit | HIGH | MEDIUM | Exponential backoff |
 | Cyclic bead dependency | LOW | HIGH | Compile-time cycle detection |
-| Lost commits | VERY LOW | CRITICAL | JJ operation log |
+| Lost commits | VERY LOW | CRITICAL | Git reflog + snapshot system |
 
 ### 7.2 Recovery Procedures
 
 | Failure | Recovery |
 |---------|----------|
 | DB corrupt | Restore from WAL checkpoint |
-| Lost commits | JJ operation log recovery |
+| Lost commits | Git reflog + snapshot recovery |
 | Stuck agent | Force-complete via session management |
 | Broken stack | Snapshot rollback + manual intervention |
 | GitHub token | Re-authenticate + retry queue |
@@ -381,8 +371,8 @@ struct Fix {
 - Study reference implementations (effectum, triagebot, git-stack)
 
 ### Phase 2: Consolidate Crates (Week 2)
-- Move isolate-core → crates/session
-- Move isolate → crates/cli (integrate commands)
+- Move session domain → crates/session
+- Move CLI commands → crates/cli (integrate commands)
 - Move stak-core → crates/queue
 - Move stak → crates/cli (integrate commands)
 - Apply functional Rust rules (zero unwrap, no mut)
@@ -460,7 +450,7 @@ enum WorkspaceState { Created, Working, Ready, Merged }  // not Option + bool
 ### 13.5 Moon CI/CD (with Remote Cache)
 
 ```yaml
-# .moon/tasks.yml - based on isolate's battle-tested config
+# .moon/tasks.yml - battle-tested config
 
 $schema: "https://moonrepo.dev/schemas/tasks.json"
 
@@ -699,7 +689,7 @@ tasks:
 | tokio | Async runtime | Keep |
 | sqlx | DB + async | Keep |
 | petgraph | DAG algorithms | Keep |
-| jj-lib | JJ VCS integration | Keep |
+| gix | Git VCS integration (gitoxide) | Keep |
 | thiserror | Error enums | Keep |
 | anyhow | Boundary errors | Keep |
 | serde | Serialization | Keep |
@@ -723,7 +713,7 @@ gix = "0.78"
 - Faster compile times
 - Better error messages
 - Actively maintained
-- Used by Jujutsu itself
+- Used by major Rust projects
 
 ### 15.3 Suggested Additions
 
@@ -774,7 +764,6 @@ gix = "0.78"
 | Repo | Purpose | What to Steal |
 |------|---------|---------------|
 | **git-stack** (epage) | Local stacked branch management | Git DAG manipulation, rebase automation |
-| **jj-spr** | JJ + GitHub PR bridge | JJ commits → Stacked PRs conversion |
 | **arxanas/git-branchless** | Git branchless workflow | DAG manipulation, conflict handling |
 
 ### 16.3 Implementation Patterns
@@ -819,17 +808,9 @@ fn restack(&self, stack: &Stack) -> Result<()> {
 
 ---
 
-## 16. VCS Abstraction (Pure Rust)
+## 16. VCS Backend (Pure Rust)
 
-### 16.1 JJ Backend (jj-lib)
-
-```rust
-// Pure Rust - jj-lib handles operation log
-use jj_lib::repo::Repo;
-use jj_lib::workspace::Workspace;
-```
-
-### 16.2 Git Backend (gix - Pure Rust)
+### 16.1 Git Backend (gix - Pure Rust)
 
 ```rust
 // Replace git2 with gix (pure Rust)
@@ -837,28 +818,23 @@ use gix::Repository;
 use gix::actor::Actor;
 ```
 
-### 16.3 Unified Trait
+### 16.2 Git Backend Trait
 
 ```rust
 pub trait VcsBackend {
-    // Workspaces - JJ specific
-    fn workspace_create(&self, name: &str) -> Result<WorkspaceId>;
-    fn workspace_list(&self) -> Result<Vec<WorkspaceInfo>>;
-    fn workspace_switch(&self, id: &WorkspaceId) -> Result<()>;
-    
-    // Branches - common
+    // Branches
     fn current_branch(&self) -> Result<Option<BranchName>>;
     fn create_branch(&self, name: &BranchName) -> Result<()>;
     fn delete_branch(&self, name: &BranchName) -> Result<()>;
-    
-    // Commits - common
+
+    // Commits
     fn status(&self) -> Result<VcsStatus>;
     fn commit(&self, message: &str) -> Result<CommitHash>;
     fn log(&self, count: usize) -> Result<Vec<Commit>>;
-    
-    // Operation log - JJ only
-    fn operation_log(&self) -> Result<Vec<Operation>>;
-    fn undo(&self, operation_id: &str) -> Result<()>;
+
+    // Operations
+    fn rebase(&self, onto: &BranchName) -> Result<()>;
+    fn merge(&self, source: &BranchName) -> Result<()>;
 }
 ```
 
@@ -1093,13 +1069,13 @@ echo "✓ All gates passed"
 **Ralph Wiggum Loop pattern (from continuous-deployment skill):**
 ```bash
 # After every small slice:
-jj diff
+git diff
 moon run :ci
 
 # If ci fails unrelated:
 moon run :<crate>:test
 
-# Keep jj diff tiny - validate often
+# Keep git diff tiny - validate often
 ```
 
 ### 19.9 AGENTS.md Structure
@@ -1178,7 +1154,7 @@ moon run :<crate>:test
 
 | Risk | Status | Resolution |
 |------|--------|------------|
-| JJ vs Git worktree model difference | OPEN | Abstract at VCS trait level |
+| Git worktree scaling for 600+ agents | OPEN | Full clone isolation per agent |
 | 600+ agent coordination overhead | OPEN | Stateless server, local persistence |
 | GitHub API rate limiting | OPEN | Aggressive caching, queuing |
 | Stack rebase performance | OPEN | Parallel rebase, DAG optimization |
@@ -1243,7 +1219,7 @@ enum DoctorCheck {
     OrphanedBeads,          # no session claims
     QueueStuck,             # status not changed > 24h
     SnapshotCorrupt,        # git ref missing
-    VcsStateMismatch,       # JJ/Git out of sync
+    VcsStateMismatch,       # Git state out of sync
 }
 
 struct DoctorReport {
@@ -1358,7 +1334,7 @@ struct Heartbeat {
 
 | Risk | Status | Resolution |
 |------|--------|------------|
-| JJ vs Git worktree model difference | OPEN | Abstract at VCS trait level |
+| Git worktree scaling for 600+ agents | OPEN | Full clone isolation per agent |
 | 600+ agent coordination overhead | OPEN | Stateless server, local persistence |
 | GitHub API rate limiting | OPEN | Aggressive caching, queuing |
 | Stack rebase performance | OPEN | Parallel rebase, DAG optimization |
@@ -1389,7 +1365,7 @@ struct Heartbeat {
 - [x] TUI displays stack tree and allows navigation
 - [x] Snapshot/undo works for restack operations
 - [x] 100 concurrent agents can operate without corruption
-- [x] Recovery from JJ operation log works
+- [x] Recovery from Git reflog and snapshot system works
 - [x] JSON output for all commands
 - [x] Single SQLite database with async tokio
 - [x] Doctor command checks and fixes integrity issues

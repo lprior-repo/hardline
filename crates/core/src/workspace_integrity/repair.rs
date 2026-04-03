@@ -222,7 +222,7 @@ impl RepairExecutor {
         Ok(RepairResult::success(
             workspace_name,
             RepairStrategy::RemoveAndReclone,
-            "Workspace directory removed. Re-run 'isolate spawn' to recreate.",
+            "Workspace directory removed. Re-run 'hardline spawn' to recreate.",
         ))
     }
 }

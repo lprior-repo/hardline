@@ -28,11 +28,11 @@ updated_at: 2026-03-30T12:00:00Z
 - `LockOperation` enum (Lock, Unlock, Heartbeat, DoubleUnlockWarning)
 
 ### Missing/Broken
-- **4 failing tests** — ported from isolate using flat error matching (`Error::SessionLocked { ... }`) instead of hardline's layered `Error::Lock(LockError(LockErrorKind::SessionLocked { ... }))`
+- **4 failing tests** — ported from hardline using flat error matching (`Error::SessionLocked { ... }`) instead of hardline's layered `Error::Lock(LockError(LockErrorKind::SessionLocked { ... }))`
 
-## 2. Error Mapping (Isolate → Hardline)
+## 2. Error Mapping
 
-| Isolate Error | Hardline Error |
+| Previous Error | Hardline Error |
 |---|---|
 | `Error::SessionLocked { session, holder }` | `Error::Lock(LockError(LockErrorKind::SessionLocked { session, holder }))` |
 | `Error::SessionNotFound { session }` | `Error::Lock(LockError(LockErrorKind::SessionNotFound { session }))` |

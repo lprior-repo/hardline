@@ -37,7 +37,7 @@
 - [x] `crates/core/src/hints/tests.rs` — Renamed `jj_repo` to `git_repo`
 - [x] `crates/cli/src/commands/sync.rs` — Rewrote: Git-only, removed JJ commands
 - [x] `crates/cli/src/commands/tag.rs` — Removed VcsType::Jujutsu match arms
-- [x] `crates/cli/src/commands/isolate_mod.rs` — Removed is_jj_repo/jj_root/is_jj_installed functions
+- [x] `crates/cli/src/commands/hardline_mod.rs` — Removed is_jj_repo/jj_root/is_jj_installed functions
 - [x] `crates/cli/src/commands/handlers/done/executor.rs` — Replaced Error::jj_command_error with Error::vcs_conflict
 - [x] `crates/cli/src/commands/handlers/sync.rs` — Removed jj_operation_sync import
 - [x] `crates/vcs/src/lib.rs` — Removed JjBackend re-export

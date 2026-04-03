@@ -14,15 +14,15 @@ pub fn cmd_add() -> ClapCommand {
   
             Use this when YOU will work in the session.
 
-            For automated agent workflows, use 'isolate spawn' instead.",
+            For automated agent workflows, use 'hardline spawn' instead.",
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate add feature-auth              Create session with standard layout",
-                "isolate add bugfix-123 --no-open       Create without opening terminal",
-                "isolate add quick-test --no-hooks      Skip post-create hooks",
-                "isolate add work --bead isolate-abc123     Associate with bead isolate-abc123",
-                "isolate add --example-json            Show example JSON output",
+                "hardline add feature-auth              Create session with standard layout",
+                "hardline add bugfix-123 --no-open       Create without opening terminal",
+                "hardline add quick-test --no-hooks      Skip post-create hooks",
+                "hardline add work --bead hardline-abc123     Associate with bead hardline-abc123",
+                "hardline add --example-json            Show example JSON output",
             ],
             Some(json_docs::add()),
         ))
@@ -101,11 +101,11 @@ pub fn cmd_list() -> ClapCommand {
         .about("List all sessions")
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate list                        Show all active sessions",
-                "isolate list --verbose              Include workspace paths and bead titles",
-                "isolate list --all --json           Dump every session in JSON",
-                "isolate list --contract             Show AI contract (inputs/outputs schema)",
-                "isolate list --ai-hints             Show AI execution hints",
+                "hardline list                        Show all active sessions",
+                "hardline list --verbose              Include workspace paths and bead titles",
+                "hardline list --all --json           Dump every session in JSON",
+                "hardline list --contract             Show AI contract (inputs/outputs schema)",
+                "hardline list --ai-hints             Show AI execution hints",
             ],
             Some(json_docs::list()),
         ))
@@ -168,12 +168,12 @@ pub fn cmd_remove() -> ClapCommand {
         .about("Remove a session and its workspace")
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate remove old-feature            Remove session (no confirmation)",
-                "isolate remove test-session -f        Remove and skip pre_remove hooks",
-                "isolate remove feature-x --merge       Merge changes to main first",
-                "isolate remove experiment -k -f       Keep branch, skip hooks",
-                "isolate remove stale-session --idempotent  Succeed if already removed",
-                "isolate remove --contract             Show AI contract for this command",
+                "hardline remove old-feature            Remove session (no confirmation)",
+                "hardline remove test-session -f        Remove and skip pre_remove hooks",
+                "hardline remove feature-x --merge       Merge changes to main first",
+                "hardline remove experiment -k -f       Keep branch, skip hooks",
+                "hardline remove stale-session --idempotent  Succeed if already removed",
+                "hardline remove --contract             Show AI contract for this command",
             ],
             Some(json_docs::remove()),
         ))
@@ -246,9 +246,9 @@ pub fn cmd_focus() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate focus feature-auth            Switch to session's workspace",
-                "isolate focus                         Interactive session selection",
-                "isolate focus bugfix-123 --json       Get JSON output of focus operation",
+                "hardline focus feature-auth            Switch to session's workspace",
+                "hardline focus                         Interactive session selection",
+                "hardline focus bugfix-123 --json       Get JSON output of focus operation",
             ],
             Some(json_docs::focus()),
         ))

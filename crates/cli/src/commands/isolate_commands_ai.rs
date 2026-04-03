@@ -30,21 +30,21 @@ pub fn cmd_spawn() -> ClapCommand {
             Use this when an AI AGENT should work autonomously on a bead.
 
 
-            For manual interactive work, use 'isolate add' instead.",
+            For manual interactive work, use 'hardline add' instead.",
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate spawn isolate-abc12               Spawn workspace for bead with Claude",
-                "isolate spawn isolate-xyz34 -b            Run agent in background",
-                "isolate spawn isolate-def56 --agent-command=llm-run  Use custom agent",
-                "isolate spawn isolate-ghi78 --no-auto-merge  Don't auto-merge on success",
+                "hardline spawn hardline-abc12               Spawn workspace for bead with Claude",
+                "hardline spawn hardline-xyz34 -b            Run agent in background",
+                "hardline spawn hardline-def56 --agent-command=llm-run  Use custom agent",
+                "hardline spawn hardline-ghi78 --no-auto-merge  Don't auto-merge on success",
             ],
             Some(json_docs::spawn()),
         ))
         .arg(
             Arg::new("bead")
                 .required(true)
-                .help("Bead ID to work on (e.g., isolate-xxxx)"),
+                .help("Bead ID to work on (e.g., hardline-xxxx)"),
         )
         .arg(
             Arg::new("agent-command")
@@ -150,10 +150,10 @@ pub fn cmd_work() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate work feature-auth              Start working on feature-auth",
-                "isolate work bug-fix --bead isolate-123    Start work on bead",
-                "isolate work test --idempotent         Reuse existing session if exists",
-                "isolate work --dry-run feature         Preview what would be created",
+                "hardline work feature-auth              Start working on feature-auth",
+                "hardline work bug-fix --bead hardline-123    Start work on bead",
+                "hardline work test --idempotent         Reuse existing session if exists",
+                "hardline work --dry-run feature         Preview what would be created",
             ],
             None,
         ))
@@ -221,9 +221,9 @@ pub fn cmd_checkpoint() -> ClapCommand {
         .subcommand_required(true)
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate checkpoint create --description=\"before lunch\"  Snapshot current sessions",
-                "isolate checkpoint list                 Show all available checkpoints",
-                "isolate checkpoint restore ckpt-123     Restore workspace state from checkpoint",
+                "hardline checkpoint create --description=\"before lunch\"  Snapshot current sessions",
+                "hardline checkpoint list                 Show all available checkpoints",
+                "hardline checkpoint restore ckpt-123     Restore workspace state from checkpoint",
             ],
             Some(json_docs::checkpoint()),
         ))

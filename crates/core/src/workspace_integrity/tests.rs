@@ -181,8 +181,8 @@ mod tests {
     #[test]
     fn test_resolve_workspace_path_keeps_relative_path_input() {
         let root = PathBuf::from("/tmp/workspaces");
-        let resolved = resolve_workspace_path(&root, ".isolate/workspaces/ws-a");
-        assert_eq!(resolved, PathBuf::from(".isolate/workspaces/ws-a"));
+        let resolved = resolve_workspace_path(&root, ".hardline/workspaces/ws-a");
+        assert_eq!(resolved, PathBuf::from(".hardline/workspaces/ws-a"));
     }
 
     #[test]
@@ -593,7 +593,7 @@ mod tests {
         let meta = manager.create_backup("ws", "Test").await?;
         assert_eq!(meta.workspace, "ws");
         assert_eq!(meta.reason, "Test");
-        assert!(tokio::fs::try_exists(root.path().join(".isolate").join("backups")).await?);
+        assert!(tokio::fs::try_exists(root.path().join(".hardline").join("backups")).await?);
         Ok(())
     }
 

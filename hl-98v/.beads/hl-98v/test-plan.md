@@ -22,18 +22,18 @@
 ### Public API Behaviors
 
 1. `check_dependencies()` returns `Ok(())` when all dependencies present
-2. `check_dependencies()` returns `Err(MissingDependencies)` when `jj` missing
-3. `is_jj_installed()` returns `true` when `jj` in PATH
-4. `is_jj_installed()` returns `false` when `jj` not in PATH
-5. `ensure_jj_repo_with_cwd()` returns `Ok(())` when JJ repo already exists
-6. `ensure_jj_repo_with_cwd()` returns `Ok(())` when creating new JJ repo
-7. `ensure_jj_repo_with_cwd()` returns `Err(JJCommandFailed)` when `jj git init` fails
-8. `ensure_jj_repo_with_cwd()` returns `Err(JJInitFailed)` when JJ init fails with error context
-9. `jj_root_with_cwd()` returns `Ok(PathBuf)` containing JJ repo root path
-10. `jj_root_with_cwd()` returns `Err(JJRepoNotFound)` when not in JJ repo
-11. `jj_root_with_cwd()` returns `Err(JJNotInstalled)` when `jj` not in PATH
-12. `is_jj_repo_with_cwd()` returns `Ok(true)` when cwd is JJ repo
-13. `is_jj_repo_with_cwd()` returns `Ok(false)` when cwd not JJ repo
+2. `check_dependencies()` returns `Err(MissingDependencies)` when `git` missing
+3. `is_git_installed()` returns `true` when `git` in PATH
+4. `is_git_installed()` returns `false` when `git` not in PATH
+5. `ensure_git_repo_with_cwd()` returns `Ok(())` when Git repo already exists
+6. `ensure_git_repo_with_cwd()` returns `Ok(())` when creating new Git repo
+7. `ensure_git_repo_with_cwd()` returns `Err(GitCommandFailed)` when `git init` fails
+8. `ensure_git_repo_with_cwd()` returns `Err(GitInitFailed)` when Git init fails with error context
+9. `git_root_with_cwd()` returns `Ok(PathBuf)` containing Git repo root path
+10. `git_root_with_cwd()` returns `Err(GitRepoNotFound)` when not in Git repo
+11. `git_root_with_cwd()` returns `Err(GitNotInstalled)` when `git` not in PATH
+12. `is_git_repo_with_cwd()` returns `Ok(true)` when cwd is Git repo
+13. `is_git_repo_with_cwd()` returns `Ok(false)` when cwd not Git repo
 14. `InitLock::acquire()` returns `Err(SymlinkAttackDetected)` when lock path is symlink
 15. `InitLock::acquire()` returns `Err(LockNotAcquirable)` when lock held by another process
 16. `InitLock::acquire()` returns `Ok(InitLock)` when lock acquired successfully
@@ -48,14 +48,14 @@
 25. `InitLock::release()` returns `Err(LockReleaseFailed)` when release fails
 26. `create_layouts()` returns `Ok(())` when layouts directory created
 27. `create_layouts()` returns `Err(LayoutsCreateFailed)` when creation fails
-28. `create_jjignore()` returns `Ok(())` when `.jjignore` created with `.isolate/` pattern
-29. `create_jjignore()` returns `Err(JJIgnoreUpdateFailed)` when write fails
-30. `create_jjignore()` returns `Err(InitError::Io)` with context when IO fails
-31. `create_jjignore()` returns `Err(PreconditionViolation)` when `repo_root` empty
-32. `create_jj_hooks()` returns `Ok(())` when hooks created with executable permissions
-33. `create_jj_hooks()` returns `Err(HooksCreateFailed)` when creation fails
-34. `create_jj_hooks()` returns `Err(HooksPermissionsFailed)` when chmod fails
-35. `create_jj_hooks()` returns `Err(PreconditionViolation)` when `repo_root` empty
+28. `create_gitignore()` returns `Ok(())` when `.gitignore` created with `.hardline/` pattern
+29. `create_gitignore()` returns `Err(GitIgnoreUpdateFailed)` when write fails
+30. `create_gitignore()` returns `Err(InitError::Io)` with context when IO fails
+31. `create_gitignore()` returns `Err(PreconditionViolation)` when `repo_root` empty
+32. `create_git_hooks()` returns `Ok(())` when hooks created with executable permissions
+33. `create_git_hooks()` returns `Err(HooksCreateFailed)` when creation fails
+34. `create_git_hooks()` returns `Err(HooksPermissionsFailed)` when chmod fails
+35. `create_git_hooks()` returns `Err(PreconditionViolation)` when `repo_root` empty
 36. `create_repo_ai_instructions()` returns `Ok(())` when file created
 37. `create_repo_ai_instructions()` returns `Err(AiInstructionsCreateFailed)` when creation fails
 38. `create_agents_md()` returns `Ok(())` when file created
@@ -70,11 +70,11 @@
 47. `SessionDb::create_or_open()` returns `Err(DatabaseCreateFailed)` when creation fails
 48. `build_init_response()` returns `InitResponse` with correct `message`
 49. `build_init_response()` returns `InitResponse` with normalized `root`
-50. `build_init_response()` returns `InitResponse` with `paths.data_directory == ".isolate/"`
-51. `build_init_response()` returns `InitResponse` with `paths.config == ".isolate/config.toml"`
-52. `build_init_response()` returns `InitResponse` with `paths.state_db == ".isolate/state.db"`
-53. `build_init_response()` returns `InitResponse` with `paths.layouts == ".isolate/layouts/"`
-54. `build_init_response()` returns `InitResponse` with `jj_initialized == true`
+50. `build_init_response()` returns `InitResponse` with `paths.data_directory == ".hardline/"`
+51. `build_init_response()` returns `InitResponse` with `paths.config == ".hardline/config.toml"`
+52. `build_init_response()` returns `InitResponse` with `paths.state_db == ".hardline/state.db"`
+53. `build_init_response()` returns `InitResponse` with `paths.layouts == ".hardline/layouts/"`
+54. `build_init_response()` returns `InitResponse` with `git_initialized == true`
 55. `build_init_response()` returns `InitResponse` with `already_initialized == false`
 56. `build_init_response()` returns `InitResponse` with `already_initialized == true`
 57. `build_init_response()` handles path with `..` component (normalizes)
@@ -87,18 +87,18 @@
 64. `run()` returns `Err(CurrentDirFailed)` when `std::env::current_dir()` fails
 65. `run()` returns `Err(PreconditionViolation)` when cwd not Git repo root
 66. `run()` returns `Err(PreconditionViolation)` when user lacks write permissions
-67. `run()` returns `Err(MissingDependencies)` when `jj` not installed
+67. `run()` returns `Err(MissingDependencies)` when `git` not installed
 68. `run()` returns `Err(SymlinkAttackDetected)` when lock path is symlink
 69. `run()` returns `Err(LockNotAcquirable)` when lock held by another process
-70. `run()` returns `Err(AlreadyInitialized)` when `.isolate/` already exists
+70. `run()` returns `Err(AlreadyInitialized)` when `.hardline/` already exists
 71. `run()` returns `Err(Unknown)` when unexpected condition occurs
 72. `run()` returns `Err(InvariantViolated)` when INV8 violated
-73. `run()` creates `.isolate/` directory
-74. `run()` creates `.isolate/config.toml`
-75. `run()` creates `.isolate/layouts/` directory
-76. `run()` creates `.isolate/state.db`
-77. `run()` creates `.jjignore` with `.isolate/` pattern
-78. `run()` creates `.jj/hooks/pre-commit` executable
+73. `run()` creates `.hardline/` directory
+74. `run()` creates `.hardline/config.toml`
+75. `run()` creates `.hardline/layouts/` directory
+76. `run()` creates `.hardline/state.db`
+77. `run()` creates `.gitignore` with `.hardline/` pattern
+78. `run()` creates `.git/hooks/pre-commit` executable
 79. `run()` creates `.ai-instructions.md`
 80. `run()` creates `AGENTS.md`
 81. `run()` creates `CLAUDE.md`
@@ -111,7 +111,7 @@
 88. `run()` creates `docs/05_RUST_STANDARDS.md`
 89. `run()` creates `docs/08_BEADS.md`
 90. `run()` creates `docs/09_JUJUTSU.md`
-91. `run()` initializes JJ repository
+91. `run()` initializes Git repository
 92. `run()` releases lock on success
 93. `run()` releases lock on failure (Drop impl)
 94. `run_with_options()` returns `Ok(())` with `dry_run = false`
@@ -121,7 +121,7 @@
 98. `run_with_options()` returns JSON with `message == "Repository initialized"`
 99. `run_with_options()` returns JSON with `root == normalized_path`
 100. `run_with_options()` returns JSON with `paths` object
-101. `run_with_options()` returns JSON with `jj_initialized == true`
+101. `run_with_options()` returns JSON with `git_initialized == true`
 102. `run_with_options()` returns JSON with `already_initialized == false`
 103. `run_with_cwd_and_options()` returns `Ok(())` with valid `cwd`
 104. `run_with_cwd_and_options()` returns `Err(CurrentDirFailed)` when `cwd` invalid
@@ -129,13 +129,13 @@
 106. `run_with_cwd_and_options()` returns `Err(PreconditionViolation)` when `cwd` not writable
 107. `run_with_cwd_and_options()` uses current directory when `cwd = None`
 108. `run_with_cwd_and_options()` uses `cwd` when `Some(&path)` provided
-109. `check_dependencies()` returns `Err(MissingDependencies)` with `missing = vec!["jj (Jujutsu)"]`
-110. `is_jj_installed()` is deterministic across multiple calls
-111. `is_jj_repo_with_cwd()` is deterministic across multiple calls
+109. `check_dependencies()` returns `Err(MissingDependencies)` with `missing = vec!["git"]`
+110. `is_git_installed()` is deterministic across multiple calls
+111. `is_git_repo_with_cwd()` is deterministic across multiple calls
 112. `InitLock::acquire()` handles empty lock path (returns error)
 113. `InitLock::acquire()` handles relative lock path
 114. `InitLock::acquire()` handles lock path with spaces
-115. `create_jj_hooks()` handles empty `repo_root` (returns PreconditionViolation)
+115. `create_git_hooks()` handles empty `repo_root` (returns PreconditionViolation)
 116. `SessionDb::create_or_open()` handles empty path (returns error)
 117. `SessionDb::create_or_open()` handles DB path as directory (returns error)
 118. `SessionDb::create_or_open()` handles DB path with spaces
@@ -148,13 +148,13 @@
 125. `build_init_response()` preserves Unicode in paths
 126. `build_init_response()` preserves long paths (PATH_MAX limits)
 127. `InitLock::release()` is idempotent (safe to call multiple times)
-128. `create_jjignore()` is idempotent (safe to call multiple times)
-129. `create_jj_hooks()` is idempotent (safe to call multiple times)
-130. `build_init_response()` invariants: `jj_initialized` always true
-131. `build_init_response()` invariants: `paths.data_directory` always `.isolate/`
-132. `build_init_response()` invariants: `paths.config` always `.isolate/config.toml`
-133. `build_init_response()` invariants: `paths.state_db` always `.isolate/state.db`
-134. `build_init_response()` invariants: `paths.layouts` always `.isolate/layouts/`
+128. `create_gitignore()` is idempotent (safe to call multiple times)
+129. `create_git_hooks()` is idempotent (safe to call multiple times)
+130. `build_init_response()` invariants: `git_initialized` always true
+131. `build_init_response()` invariants: `paths.data_directory` always `.hardline/`
+132. `build_init_response()` invariants: `paths.config` always `.hardline/config.toml`
+133. `build_init_response()` invariants: `paths.state_db` always `.hardline/state.db`
+134. `build_init_response()` invariants: `paths.layouts` always `.hardline/layouts/`
 135. `build_init_response()` invariants: `root` always normalized
 136. `build_init_response()` invariants: `already_initialized` is negation of init state
 137. `stale_lock_threshold` boundary: age = 60 NOT stale
@@ -171,7 +171,7 @@
 148. `OutputFormat::Json` variant exists
 149. `OutputFormat::Human` variant exists
 150. `MissingDependencies` variant has `missing: Vec<String>` field
-151. `JJCommandFailed` variant has `command: String, stderr: String` fields
+151. `GitCommandFailed` variant has `command: String, stderr: String` fields
 152. `Io` variant has `source: std::io::Error, context: String` fields
 153. `LockReleaseFailed` variant has `path: PathBuf, source: std::io::Error` fields
 154. `ConfigWriteFailed` variant has `path: PathBuf, source: std::io::Error` fields
@@ -183,7 +183,7 @@
 160. `SymlinkAttackDetected` variant has `path` field
 161. `LockNotAcquirable` variant has `path, message` fields
 162. `LockTOCTOU` variant has `path, operation` fields
-163. `JJInitFailed` variant has `stderr: String` field
+163. `GitInitFailed` variant has `stderr: String` field
 164. `CurrentDirFailed` variant has no fields
 165. `OutputFormatInvalid` variant has no fields
 
@@ -210,8 +210,8 @@
 ### Behavior: check_dependencies_returns_ok_when_all_dependencies_present
 Given: Current directory is writable
 And: Current directory is Git repository root (P1)
-And: `jj` command exists in PATH (P3)
-And: User has execute permissions on `jj`
+And: `git` command exists in PATH (P3)
+And: User has execute permissions on `git`
 When: `check_dependencies()` is called
 Then: Result is Ok(())
 And: No files created
@@ -220,174 +220,174 @@ And: No state changes
 
 **Test function name**: `fn check_dependencies_returns_ok_when_all_dependencies_present()`
 
-### Behavior 2: check_dependencies returns MissingDependencies when jj missing
+### Behavior 2: check_dependencies returns MissingDependencies when git missing
 
 ```
-### Behavior: check_dependencies_returns_missingdependencies_when_jj_missing
+### Behavior: check_dependencies_returns_missingdependencies_when_git_missing
 Given: Current directory is writable
 And: Current directory is Git repository root (P1)
-And: `jj` command NOT in PATH
+And: `git` command NOT in PATH
 And: User has no write permissions to PATH directories
 When: `check_dependencies()` is called
-Then: Result is Err(InitError::MissingDependencies { missing: vec!["jj (Jujutsu)".to_string()] })
-And: missing vector contains exactly "jj (Jujutsu)"
+Then: Result is Err(InitError::MissingDependencies { missing: vec!["git".to_string()] })
+And: missing vector contains exactly "git"
 ```
 
-**Test function name**: `fn check_dependencies_returns_missingdependencies_when_jj_missing()`
+**Test function name**: `fn check_dependencies_returns_missingdependencies_when_git_missing()`
 
-### Behavior 3: is_jj_installed returns true when jj in PATH
+### Behavior 3: is_git_installed returns true when git in PATH
 
 ```
-### Behavior: is_jj_installed_returns_true_when_jj_in_path
+### Behavior: is_git_installed_returns_true_when_git_in_path
 Given: Current directory is writable
-And: `jj` command exists in PATH
-And: `jj --version` executes successfully
-When: `is_jj_installed()` is called
+And: `git` command exists in PATH
+And: `git --version` executes successfully
+When: `is_git_installed()` is called
 Then: Result is Ok(true)
 ```
 
-**Test function name**: `fn is_jj_installed_returns_true_when_jj_in_path()`
+**Test function name**: `fn is_git_installed_returns_true_when_git_in_path()`
 
-### Behavior 4: is_jj_installed returns false when jj not in PATH
+### Behavior 4: is_git_installed returns false when git not in PATH
 
 ```
-### Behavior: is_jj_installed_returns_false_when_jj_not_in_path
+### Behavior: is_git_installed_returns_false_when_git_not_in_path
 Given: Current directory is writable
-And: `jj` command NOT in PATH
-And: PATH environment variable does not contain `jj` location
-When: `is_jj_installed()` is called
+And: `git` command NOT in PATH
+And: PATH environment variable does not contain `git` location
+When: `is_git_installed()` is called
 Then: Result is Ok(false)
 ```
 
-**Test function name**: `fn is_jj_installed_returns_false_when_jj_not_in_path()`
+**Test function name**: `fn is_git_installed_returns_false_when_git_not_in_path()`
 
-### Behavior 5: ensure_jj_repo_with_cwd returns Ok when JJ repo exists
+### Behavior 5: ensure_git_repo_with_cwd returns Ok when Git repo exists
 
 ```
-### Behavior: ensure_jj_repo_with_cwd_returns_ok_when_jj_repo_exists
+### Behavior: ensure_git_repo_with_cwd_returns_ok_when_git_repo_exists
 Given: `cwd` is valid path (P7)
 And: User has read/write permissions in `cwd` (P8)
-And: `cwd` contains `.jj/` directory with valid repository state
-And: `.jj/config` file exists
-And: `.jj/repo` directory exists
-When: `ensure_jj_repo_with_cwd(cwd, false)` is called
+And: `cwd` contains `.git/` directory with valid repository state
+And: `.git/config` file exists
+And: `.git/objects` directory exists
+When: `ensure_git_repo_with_cwd(cwd, false)` is called
 Then: Result is Ok(())
 And: No new files created
-And: `.jj/` directory unchanged
+And: `.git/` directory unchanged
 ```
 
-**Test function name**: `fn ensure_jj_repo_with_cwd_returns_ok_when_jj_repo_exists()`
+**Test function name**: `fn ensure_git_repo_with_cwd_returns_ok_when_git_repo_exists()`
 
-### Behavior 6: ensure_jj_repo_with_cwd returns Ok when creating new JJ repo
+### Behavior 6: ensure_git_repo_with_cwd returns Ok when creating new Git repo
 
 ```
-### Behavior: ensure_jj_repo_with_cwd_returns_ok_when_creating_new_jj_repo
+### Behavior: ensure_git_repo_with_cwd_returns_ok_when_creating_new_git_repo
 Given: `cwd` is valid path (P7)
 And: User has read/write permissions in `cwd` (P8)
-And: `cwd` does NOT contain `.jj/` directory
-And: `jj` command is executable
-When: `ensure_jj_repo_with_cwd(cwd, false)` is called
+And: `cwd` does NOT contain `.git/` directory
+And: `git` command is executable
+When: `ensure_git_repo_with_cwd(cwd, false)` is called
 Then: Result is Ok(())
-And: `.jj/` directory created
-And: `.jj/config` file created
-And: `.jj/repo` directory created
+And: `.git/` directory created
+And: `.git/config` file created
+And: `.git/objects` directory created
 ```
 
-**Test function name**: `fn ensure_jj_repo_with_cwd_returns_ok_when_creating_new_jj_repo()`
+**Test function name**: `fn ensure_git_repo_with_cwd_returns_ok_when_creating_new_git_repo()`
 
-### Behavior 7: ensure_jj_repo_with_cwd returns JJCommandFailed when jj git init fails
+### Behavior 7: ensure_git_repo_with_cwd returns GitCommandFailed when git init fails
 
 ```
-### Behavior: ensure_jj_repo_with_cwd_returns_jjcommandfailed_when_jj_git_init_fails
+### Behavior: ensure_git_repo_with_cwd_returns_gitcommandfailed_when_git_init_fails
 Given: `cwd` is valid path (P7)
 And: User has read/write permissions in `cwd` (P8)
-And: `cwd` does NOT contain `.jj/` directory
-And: `jj git init` command fails with stderr "error: git init failed"
-When: `ensure_jj_repo_with_cwd(cwd, false)` is called
-Then: Result is Err(InitError::JJCommandFailed { command: "jj git init".to_string(), stderr: "error: git init failed".to_string() })
-And: No `.jj` directory created
+And: `cwd` does NOT contain `.git/` directory
+And: `git init` command fails with stderr "error: git init failed"
+When: `ensure_git_repo_with_cwd(cwd, false)` is called
+Then: Result is Err(InitError::GitCommandFailed { command: "git init".to_string(), stderr: "error: git init failed".to_string() })
+And: No `.git` directory created
 ```
 
-**Test function name**: `fn ensure_jj_repo_with_cwd_returns_jjcommandfailed_when_jj_git_init_fails()`
+**Test function name**: `fn ensure_git_repo_with_cwd_returns_gitcommandfailed_when_git_init_fails()`
 
-### Behavior 8: ensure_jj_repo_with_cwd returns JJInitFailed when JJ init fails
+### Behavior 8: ensure_git_repo_with_cwd returns GitInitFailed when Git init fails
 
 ```
-### Behavior: ensure_jj_repo_with_cwd_returns_jjinitfailed_when_jj_init_fails
+### Behavior: ensure_git_repo_with_cwd_returns_gitinitfailed_when_git_init_fails
 Given: `cwd` is valid path (P7)
 And: User has read/write permissions in `cwd` (P8)
-And: `cwd` does NOT contain `.jj/` directory
-And: `jj` command fails with stderr "JJ initialization failed"
-When: `ensure_jj_repo_with_cwd(cwd, true)` is called (json_mode = true)
-Then: Result is Err(InitError::JJInitFailed { stderr: "JJ initialization failed".to_string() })
-And: No `.jj` directory created
+And: `cwd` does NOT contain `.git/` directory
+And: `git` command fails with stderr "Git initialization failed"
+When: `ensure_git_repo_with_cwd(cwd, true)` is called (json_mode = true)
+Then: Result is Err(InitError::GitInitFailed { stderr: "Git initialization failed".to_string() })
+And: No `.git` directory created
 ```
 
-**Test function name**: `fn ensure_jj_repo_with_cwd_returns_jjinitfailed_when_jj_init_fails()`
+**Test function name**: `fn ensure_git_repo_with_cwd_returns_gitinitfailed_when_git_init_fails()`
 
-### Behavior 9: jj_root_with_cwd returns Ok when JJ repo exists
+### Behavior 9: git_root_with_cwd returns Ok when Git repo exists
 
 ```
-### Behavior: jj_root_with_cwd_returns_ok_when_jj_repo_exists
+### Behavior: git_root_with_cwd_returns_ok_when_git_repo_exists
 Given: `cwd` is valid path (P9)
-And: `jj` command is executable (P10)
-And: `cwd` contains `.jj/` directory with valid repository state
-When: `jj_root_with_cwd(cwd)` is called
+And: `git` command is executable (P10)
+And: `cwd` contains `.git/` directory with valid repository state
+When: `git_root_with_cwd(cwd)` is called
 Then: Result is Ok(PathBuf::from("/tmp/test_repo_abc123"))
 And: Returned path equals `cwd`
 ```
 
-**Test function name**: `fn jj_root_with_cwd_returns_ok_when_jj_repo_exists()`
+**Test function name**: `fn git_root_with_cwd_returns_ok_when_git_repo_exists()`
 
-### Behavior 10: jj_root_with_cwd returns JJRepoNotFound when not in JJ repo
+### Behavior 10: git_root_with_cwd returns GitRepoNotFound when not in Git repo
 
 ```
-### Behavior: jj_root_with_cwd_returns_jjrepofound_when_not_in_jj_repo
+### Behavior: git_root_with_cwd_returns_gitrepofound_when_not_in_git_repo
 Given: `cwd` is valid path (P9)
-And: `jj` command is executable (P10)
-And: `cwd` does NOT contain `.jj/` directory
-When: `jj_root_with_cwd(cwd)` is called
-Then: Result is Err(InitError::JJRepoNotFound)
+And: `git` command is executable (P10)
+And: `cwd` does NOT contain `.git/` directory
+When: `git_root_with_cwd(cwd)` is called
+Then: Result is Err(InitError::GitRepoNotFound)
 ```
 
-**Test function name**: `fn jj_root_with_cwd_returns_jjrepofound_when_not_in_jj_repo()`
+**Test function name**: `fn git_root_with_cwd_returns_gitrepofound_when_not_in_git_repo()`
 
-### Behavior 11: jj_root_with_cwd returns JJNotInstalled when jj not in PATH
+### Behavior 11: git_root_with_cwd returns GitNotInstalled when git not in PATH
 
 ```
-### Behavior: jj_root_with_cwd_returns_jjnotinstalled_when_jj_not_in_path
+### Behavior: git_root_with_cwd_returns_gitnotinstalled_when_git_not_in_path
 Given: `cwd` is valid path (P9)
-And: `jj` command NOT in PATH
-When: `jj_root_with_cwd(cwd)` is called
-Then: Result is Err(InitError::JJNotInstalled)
+And: `git` command NOT in PATH
+When: `git_root_with_cwd(cwd)` is called
+Then: Result is Err(InitError::GitNotInstalled)
 ```
 
-**Test function name**: `fn jj_root_with_cwd_returns_jjnotinstalled_when_jj_not_in_path()`
+**Test function name**: `fn git_root_with_cwd_returns_gitnotinstalled_when_git_not_in_path()`
 
-### Behavior 12: is_jj_repo_with_cwd returns true when cwd is JJ repo
+### Behavior 12: is_git_repo_with_cwd returns true when cwd is Git repo
 
 ```
-### Behavior: is_jj_repo_with_cwd_returns_true_when_cwd_is_jj_repo
+### Behavior: is_git_repo_with_cwd_returns_true_when_cwd_is_git_repo
 Given: `cwd` is valid path
-And: `cwd` contains `.jj/` directory with valid repository state
-And: `.jj/config` file exists
-When: `is_jj_repo_with_cwd(cwd)` is called
+And: `cwd` contains `.git/` directory with valid repository state
+And: `.git/config` file exists
+When: `is_git_repo_with_cwd(cwd)` is called
 Then: Result is Ok(true)
 ```
 
-**Test function name**: `fn is_jj_repo_with_cwd_returns_true_when_cwd_is_jj_repo()`
+**Test function name**: `fn is_git_repo_with_cwd_returns_true_when_cwd_is_git_repo()`
 
-### Behavior 13: is_jj_repo_with_cwd returns false when cwd not JJ repo
+### Behavior 13: is_git_repo_with_cwd returns false when cwd not Git repo
 
 ```
-### Behavior: is_jj_repo_with_cwd_returns_false_when_cwd_not_jj_repo
+### Behavior: is_git_repo_with_cwd_returns_false_when_cwd_not_git_repo
 Given: `cwd` is valid path
-And: `cwd` does NOT contain `.jj/` directory
-When: `is_jj_repo_with_cwd(cwd)` is called
+And: `cwd` does NOT contain `.git/` directory
+When: `is_git_repo_with_cwd(cwd)` is called
 Then: Result is Ok(false)
 ```
 
-**Test function name**: `fn is_jj_repo_with_cwd_returns_false_when_cwd_not_jj_repo()`
+**Test function name**: `fn is_git_repo_with_cwd_returns_false_when_cwd_not_git_repo()`
 
 ### Behavior 14: InitLock::acquire returns SymlinkAttackDetected when lock path is symlink
 
@@ -411,7 +411,7 @@ Given: lock_path = PathBuf::from("/tmp/test/.init.lock")
 And: lock file exists with valid lock state
 And: Another process holds the lock
 When: `InitLock::acquire(lock_path.clone())` is called
-Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from("/tmp/test/.init.lock"), message: "Another isolate init is in progress".to_string() })
+Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from("/tmp/test/.init.lock"), message: "Another hardline init is in progress".to_string() })
 And: No lock acquired
 ```
 
@@ -457,7 +457,7 @@ And: lock file exists
 And: lock file age_secs = 60 (NOT greater than 60)
 And: lock file contains PID of another process
 When: `InitLock::acquire(lock_path.clone())` is called
-Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from("/tmp/test/.init.lock"), message: "Another isolate init is in progress".to_string() })
+Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from("/tmp/test/.init.lock"), message: "Another hardline init is in progress".to_string() })
 And: Lock file NOT removed
 And: No new lock acquired
 ```
@@ -473,7 +473,7 @@ And: lock file exists
 And: lock file age_secs = 59 (NOT greater than 60)
 And: lock file contains PID of another process
 When: `InitLock::acquire(lock_path.clone())` is called
-Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from("/tmp/test/.init.lock"), message: "Another isolate init is in progress".to_string() })
+Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from("/tmp/test/.init.lock"), message: "Another hardline init is in progress".to_string() })
 And: Lock file NOT removed
 And: No new lock acquired
 ```
@@ -559,10 +559,10 @@ And: No state changes
 Given: repo_root = PathBuf::from("/tmp/test_repo")
 And: repo_root is valid directory
 And: User has write permissions in repo_root
-And: repo_root/.isolate/ directory exists
+And: repo_root/.hardline/ directory exists
 When: `create_layouts(repo_root)` is called
 Then: Result is Ok(())
-And: repo_root/.isolate/layouts/ directory created
+And: repo_root/.hardline/layouts/ directory created
 And: Directory has mode 0755
 ```
 
@@ -574,129 +574,129 @@ And: Directory has mode 0755
 ### Behavior: create_layouts_returns_layoutscreatefailed_when_creation_fails
 Given: repo_root = PathBuf::from("/tmp/test_repo")
 And: repo_root is valid directory
-And: repo_root/.isolate/ directory exists
-And: repo_root/.isolate/layouts/ exists and is a file (not directory)
+And: repo_root/.hardline/ directory exists
+And: repo_root/.hardline/layouts/ exists and is a file (not directory)
 When: `create_layouts(repo_root)` is called
-Then: Result is Err(InitError::LayoutsCreateFailed { path: PathBuf::from("/tmp/test_repo/.isolate/layouts/"), source: std::io::Error::from_raw_os_error(20) })
+Then: Result is Err(InitError::LayoutsCreateFailed { path: PathBuf::from("/tmp/test_repo/.hardline/layouts/"), source: std::io::Error::from_raw_os_error(20) })
 ```
 
 **Test function name**: `fn create_layouts_returns_layoutscreatefailed_when_creation_fails()`
 
-### Behavior 27: create_jjignore returns Ok when .jjignore created
+### Behavior 27: create_gitignore returns Ok when .gitignore created
 
 ```
-### Behavior: create_jjignore_returns_ok_when_jjignore_created
+### Behavior: create_gitignore_returns_ok_when_gitignore_created
 Given: repo_root = PathBuf::from("/tmp/test_repo")
-And: repo_root is valid JJ repository root (P13)
+And: repo_root is valid Git repository root (P13)
 And: User has write permissions in repo_root
-And: repo_root/.jjignore does NOT exist
-When: `create_jjignore(repo_root)` is called
+And: repo_root/.gitignore does NOT exist
+When: `create_gitignore(repo_root)` is called
 Then: Result is Ok(())
-And: repo_root/.jjignore file created
-And: .jjignore contains ".isolate/" pattern
-And: .jjignore has mode 0644
+And: repo_root/.gitignore file created
+And: .gitignore contains ".hardline/" pattern
+And: .gitignore has mode 0644
 ```
 
-**Test function name**: `fn create_jjignore_returns_ok_when_jjignore_created()`
+**Test function name**: `fn create_gitignore_returns_ok_when_gitignore_created()`
 
-### Behavior 28: create_jjignore returns JJIgnoreUpdateFailed when write fails
+### Behavior 28: create_gitignore returns GitIgnoreUpdateFailed when write fails
 
 ```
-### Behavior: create_jjignore_returns_jjignoreupdatefailed_when_write_fails
+### Behavior: create_gitignore_returns_gitignoreupdatefailed_when_write_fails
 Given: repo_root = PathBuf::from("/tmp/test_repo")
-And: repo_root is valid JJ repository root (P13)
-And: repo_root/.jjignore exists and is read-only (chmod 444)
-When: `create_jjignore(repo_root)` is called
-Then: Result is Err(InitError::JJIgnoreUpdateFailed { path: PathBuf::from("/tmp/test_repo/.jjignore"), source: std::io::Error::from_raw_os_error(13) })
-And: .jjignore content unchanged
+And: repo_root is valid Git repository root (P13)
+And: repo_root/.gitignore exists and is read-only (chmod 444)
+When: `create_gitignore(repo_root)` is called
+Then: Result is Err(InitError::GitIgnoreUpdateFailed { path: PathBuf::from("/tmp/test_repo/.gitignore"), source: std::io::Error::from_raw_os_error(13) })
+And: .gitignore content unchanged
 ```
 
-**Test function name**: `fn create_jjignore_returns_jjignoreupdatefailed_when_write_fails()`
+**Test function name**: `fn create_gitignore_returns_gitignoreupdatefailed_when_write_fails()`
 
-### Behavior 29: create_jjignore returns Io error with context when IO fails
+### Behavior 29: create_gitignore returns Io error with context when IO fails
 
 ```
-### Behavior: create_jjignore_returns_io_error_with_context_when_io_fails
+### Behavior: create_gitignore_returns_io_error_with_context_when_io_fails
 Given: repo_root = PathBuf::from("/tmp/test_repo")
-And: repo_root is valid JJ repository root (P13)
+And: repo_root is valid Git repository root (P13)
 And: repo_root is not writable (disk full or quota exceeded)
-When: `create_jjignore(repo_root)` is called
-Then: Result is Err(InitError::Io { source: std::io::Error::from_raw_os_error(28), context: "writing .jjignore".to_string() })
-And: .jjignore not created
+When: `create_gitignore(repo_root)` is called
+Then: Result is Err(InitError::Io { source: std::io::Error::from_raw_os_error(28), context: "writing .gitignore".to_string() })
+And: .gitignore not created
 ```
 
-**Test function name**: `fn create_jjignore_returns_io_error_with_context_when_io_fails()`
+**Test function name**: `fn create_gitignore_returns_io_error_with_context_when_io_fails()`
 
-### Behavior 30: create_jjignore returns PreconditionViolation when repo_root empty
+### Behavior 30: create_gitignore returns PreconditionViolation when repo_root empty
 
 ```
-### Behavior: create_jjignore_returns_preconditionviolation_when_repo_root_empty
+### Behavior: create_gitignore_returns_preconditionviolation_when_repo_root_empty
 Given: repo_root = PathBuf::new()
-When: `create_jjignore(repo_root)` is called
-Then: Result is Err(InitError::PreconditionViolation { expected: "repo_root cannot be empty".to_string(), actual: "".to_string(), context: "create_jjignore".to_string() })
+When: `create_gitignore(repo_root)` is called
+Then: Result is Err(InitError::PreconditionViolation { expected: "repo_root cannot be empty".to_string(), actual: "".to_string(), context: "create_gitignore".to_string() })
 And: No files created
 ```
 
-**Test function name**: `fn create_jjignore_returns_preconditionviolation_when_repo_root_empty()`
+**Test function name**: `fn create_gitignore_returns_preconditionviolation_when_repo_root_empty()`
 
-### Behavior 31: create_jj_hooks returns Ok when hooks created
+### Behavior 31: create_git_hooks returns Ok when hooks created
 
 ```
-### Behavior: create_jj_hooks_returns_ok_when_hooks_created
+### Behavior: create_git_hooks_returns_ok_when_hooks_created
 Given: repo_root = PathBuf::from("/tmp/test_repo")
-And: repo_root is valid JJ repository root (P14, P15)
-And: User has permissions to create .jj/hooks/ directory
-And: .jj/hooks/pre-commit does NOT exist
-When: `create_jj_hooks(repo_root)` is called
+And: repo_root is valid Git repository root (P14, P15)
+And: User has permissions to create .git/hooks/ directory
+And: .git/hooks/pre-commit does NOT exist
+When: `create_git_hooks(repo_root)` is called
 Then: Result is Ok(())
-And: repo_root/.jj/hooks/ directory created
-And: repo_root/.jj/hooks/pre-commit file created
+And: repo_root/.git/hooks/ directory created
+And: repo_root/.git/hooks/pre-commit file created
 And: pre-commit contains valid shell script
 And: pre-commit is executable (mode 0755)
 And: pre-commit references `Isolate_ACTIVE` environment variable
 ```
 
-**Test function name**: `fn create_jj_hooks_returns_ok_when_hooks_created()`
+**Test function name**: `fn create_git_hooks_returns_ok_when_hooks_created()`
 
-### Behavior 32: create_jj_hooks returns HooksCreateFailed when creation fails
+### Behavior 32: create_git_hooks returns HooksCreateFailed when creation fails
 
 ```
-### Behavior: create_jj_hooks_returns_hookscreatefailed_when_creation_fails
+### Behavior: create_git_hooks_returns_hookscreatefailed_when_creation_fails
 Given: repo_root = PathBuf::from("/tmp/test_repo")
-And: repo_root is valid JJ repository root (P14)
-And: repo_root/.jj/hooks/ directory exists
-And: repo_root/.jj/hooks/pre-commit exists and is a directory (not file)
-When: `create_jj_hooks(repo_root)` is called
-Then: Result is Err(InitError::HooksCreateFailed { path: PathBuf::from("/tmp/test_repo/.jj/hooks/pre-commit"), source: std::io::Error::from_raw_os_error(21) })
+And: repo_root is valid Git repository root (P14)
+And: repo_root/.git/hooks/ directory exists
+And: repo_root/.git/hooks/pre-commit exists and is a directory (not file)
+When: `create_git_hooks(repo_root)` is called
+Then: Result is Err(InitError::HooksCreateFailed { path: PathBuf::from("/tmp/test_repo/.git/hooks/pre-commit"), source: std::io::Error::from_raw_os_error(21) })
 ```
 
-**Test function name**: `fn create_jj_hooks_returns_hookscreatefailed_when_creation_fails()`
+**Test function name**: `fn create_git_hooks_returns_hookscreatefailed_when_creation_fails()`
 
-### Behavior 33: create_jj_hooks returns HooksPermissionsFailed when chmod fails
+### Behavior 33: create_git_hooks returns HooksPermissionsFailed when chmod fails
 
 ```
-### Behavior: create_jj_hooks_returns_hookspermissionsfailed_when_chmod_fails
+### Behavior: create_git_hooks_returns_hookspermissionsfailed_when_chmod_fails
 Given: repo_root = PathBuf::from("/tmp/test_repo")
-And: repo_root is valid JJ repository root (P14)
-And: repo_root/.jj/hooks/ directory exists
-And: repo_root/.jj/hooks/pre-commit exists and is read-only (chmod 444)
-When: `create_jj_hooks(repo_root)` is called
-Then: Result is Err(InitError::HooksPermissionsFailed { path: PathBuf::from("/tmp/test_repo/.jj/hooks/pre-commit"), source: std::io::Error::from_raw_os_error(13) })
+And: repo_root is valid Git repository root (P14)
+And: repo_root/.git/hooks/ directory exists
+And: repo_root/.git/hooks/pre-commit exists and is read-only (chmod 444)
+When: `create_git_hooks(repo_root)` is called
+Then: Result is Err(InitError::HooksPermissionsFailed { path: PathBuf::from("/tmp/test_repo/.git/hooks/pre-commit"), source: std::io::Error::from_raw_os_error(13) })
 ```
 
-**Test function name**: `fn create_jj_hooks_returns_hookspermissionsfailed_when_chmod_fails()`
+**Test function name**: `fn create_git_hooks_returns_hookspermissionsfailed_when_chmod_fails()`
 
-### Behavior 34: create_jj_hooks returns PreconditionViolation when repo_root empty
+### Behavior 34: create_git_hooks returns PreconditionViolation when repo_root empty
 
 ```
-### Behavior: create_jj_hooks_returns_preconditionviolation_when_repo_root_empty
+### Behavior: create_git_hooks_returns_preconditionviolation_when_repo_root_empty
 Given: repo_root = PathBuf::new()
-When: `create_jj_hooks(repo_root)` is called
-Then: Result is Err(InitError::PreconditionViolation { expected: "repo_root cannot be empty".to_string(), actual: "".to_string(), context: "create_jj_hooks".to_string() })
+When: `create_git_hooks(repo_root)` is called
+Then: Result is Err(InitError::PreconditionViolation { expected: "repo_root cannot be empty".to_string(), actual: "".to_string(), context: "create_git_hooks".to_string() })
 And: No files created
 ```
 
-**Test function name**: `fn create_jj_hooks_returns_preconditionviolation_when_repo_root_empty()`
+**Test function name**: `fn create_git_hooks_returns_preconditionviolation_when_repo_root_empty()`
 
 ### Behavior 35: create_repo_ai_instructions returns Ok when file created
 
@@ -849,7 +849,7 @@ Then: Result is Err(InitError::DocsCreateFailed { path: PathBuf::from("/tmp/test
 
 ```
 ### Behavior: sessiondb_create_or_open_returns_ok_when_db_created
-Given: db_path = PathBuf::from("/tmp/test/.isolate/state.db")
+Given: db_path = PathBuf::from("/tmp/test/.hardline/state.db")
 And: db_path parent directory exists and is writable (P20)
 And: db_path file does NOT exist
 When: `SessionDb::create_or_open(db_path)` is called
@@ -864,11 +864,11 @@ And: WAL mode enabled if supported
 
 ```
 ### Behavior: sessiondb_create_or_open_returns_databasecreatefailed_when_creation_fails
-Given: db_path = PathBuf::from("/tmp/test/.isolate/state.db")
+Given: db_path = PathBuf::from("/tmp/test/.hardline/state.db")
 And: db_path parent directory exists
 And: db_path parent directory is read-only (chmod 444)
 When: `SessionDb::create_or_open(db_path)` is called
-Then: Result is Err(InitError::DatabaseCreateFailed { path: PathBuf::from("/tmp/test/.isolate/state.db"), source: anyhow::Error::msg("permission denied") })
+Then: Result is Err(InitError::DatabaseCreateFailed { path: PathBuf::from("/tmp/test/.hardline/state.db"), source: anyhow::Error::msg("permission denied") })
 ```
 
 **Test function name**: `fn sessiondb_create_or_open_returns_databasecreatefailed_when_creation_fails()`
@@ -906,7 +906,7 @@ And: Path is normalized (no . or .. components)
 Given: root = PathBuf::from("/tmp/test_repo")
 And: already_initialized = false
 When: `build_init_response(&root, false)` is called
-Then: Result.paths.data_directory == ".isolate/"
+Then: Result.paths.data_directory == ".hardline/"
 And: INV8 invariant holds
 ```
 
@@ -919,7 +919,7 @@ And: INV8 invariant holds
 Given: root = PathBuf::from("/tmp/test_repo")
 And: already_initialized = false
 When: `build_init_response(&root, false)` is called
-Then: Result.paths.config == ".isolate/config.toml"
+Then: Result.paths.config == ".hardline/config.toml"
 And: INV9 invariant holds
 ```
 
@@ -932,7 +932,7 @@ And: INV9 invariant holds
 Given: root = PathBuf::from("/tmp/test_repo")
 And: already_initialized = false
 When: `build_init_response(&root, false)` is called
-Then: Result.paths.state_db == ".isolate/state.db"
+Then: Result.paths.state_db == ".hardline/state.db"
 And: INV10 invariant holds
 ```
 
@@ -945,24 +945,24 @@ And: INV10 invariant holds
 Given: root = PathBuf::from("/tmp/test_repo")
 And: already_initialized = false
 When: `build_init_response(&root, false)` is called
-Then: Result.paths.layouts == ".isolate/layouts/"
+Then: Result.paths.layouts == ".hardline/layouts/"
 And: INV11 invariant holds
 ```
 
 **Test function name**: `fn build_init_response_returns_correct_layouts_path()`
 
-### Behavior 53: build_init_response returns jj_initialized = true
+### Behavior 53: build_init_response returns git_initialized = true
 
 ```
-### Behavior: build_init_response_returns_jj_initialized_true
+### Behavior: build_init_response_returns_git_initialized_true
 Given: root = PathBuf::from("/tmp/test_repo")
 And: already_initialized = false
 When: `build_init_response(&root, false)` is called
-Then: Result.jj_initialized == true
+Then: Result.git_initialized == true
 And: INV12 invariant holds
 ```
 
-**Test function name**: `fn build_init_response_returns_jj_initialized_true()`
+**Test function name**: `fn build_init_response_returns_git_initialized_true()`
 
 ### Behavior 54: build_init_response returns already_initialized = false
 
@@ -1074,12 +1074,12 @@ And: Unicode preserved
 ### Behavior: run_returns_ok_when_all_preconditions_met
 Given: Current directory is Git repository root (P1)
 And: User has write permissions to current directory (P2)
-And: `jj` is installed and discoverable in PATH (P3)
-And: `.isolate/` directory does NOT exist
+And: `git` is installed and discoverable in PATH (P3)
+And: `.hardline/` directory does NOT exist
 And: Lock file does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
-And: .isolate/ directory created
+And: .hardline/ directory created
 And: All files created with correct content
 ```
 
@@ -1109,19 +1109,19 @@ And: No files created
 
 **Test function name**: `fn run_returns_preconditionviolation_when_cwd_not_git_repo()`
 
-### Behavior 65: run returns MissingDependencies when jj not installed
+### Behavior 65: run returns MissingDependencies when git not installed
 
 ```
-### Behavior: run_returns_missingdependencies_when_jj_not_installed
+### Behavior: run_returns_missingdependencies_when_git_not_installed
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is NOT installed
+And: `git` is NOT installed
 When: `run()` is called
-Then: Result is Err(InitError::MissingDependencies { missing: vec!["jj (Jujutsu)".to_string()] })
+Then: Result is Err(InitError::MissingDependencies { missing: vec!["git".to_string()] })
 And: No files created
 ```
 
-**Test function name**: `fn run_returns_missingdependencies_when_jj_not_installed()`
+**Test function name**: `fn run_returns_missingdependencies_when_git_not_installed()`
 
 ### Behavior 66: run returns SymlinkAttackDetected when lock path is symlink
 
@@ -1129,10 +1129,10 @@ And: No files created
 ### Behavior: run_returns_symlinkattackdetected_when_lock_path_is_symlink
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: Lock file path is a symlink
 When: `run()` is called
-Then: Result is Err(InitError::SymlinkAttackDetected { path: PathBuf::from(".isolate/.init.lock") })
+Then: Result is Err(InitError::SymlinkAttackDetected { path: PathBuf::from(".hardline/.init.lock") })
 And: No files created
 ```
 
@@ -1144,30 +1144,30 @@ And: No files created
 ### Behavior: run_returns_locknotacquirable_when_lock_held
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: Lock file exists with valid lock state
 And: Another process holds the lock
 When: `run()` is called
-Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from(".isolate/.init.lock"), message: "Another isolate init is in progress".to_string() })
+Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from(".hardline/.init.lock"), message: "Another hardline init is in progress".to_string() })
 And: No files created
 ```
 
 **Test function name**: `fn run_returns_locknotacquirable_when_lock_held()`
 
-### Behavior 68: run returns AlreadyInitialized when .isolate exists
+### Behavior 68: run returns AlreadyInitialized when .hardline exists
 
 ```
-### Behavior: run_returns_alreadyinitialized_when_isolate_exists
+### Behavior: run_returns_alreadyinitialized_when_hardline_exists
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ directory exists
+And: `git` is installed (P3)
+And: .hardline/ directory exists
 When: `run()` is called
 Then: Result is Err(InitError::AlreadyInitialized)
 And: No files modified
 ```
 
-**Test function name**: `fn run_returns_alreadyinitialized_when_isolate_exists()`
+**Test function name**: `fn run_returns_alreadyinitialized_when_hardline_exists()`
 
 ### Behavior 69: run returns Unknown when unexpected condition
 
@@ -1175,8 +1175,8 @@ And: No files modified
 ### Behavior: run_returns_unknown_when_unexpected_condition
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 And: Unexpected condition occurs (e.g., disk full)
 When: `run_with_options(InitOptions { format: OutputFormat::Human, dry_run: false })` is called
 Then: Result is Err(InitError::Unknown { message: "unexpected condition".to_string() })
@@ -1191,8 +1191,8 @@ And: No files created
 ### Behavior: run_returns_invariantviolated_when_inv8_violated
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 And: INV8 invariant would be violated (mocked condition)
 When: `run_with_options(InitOptions { format: OutputFormat::Human, dry_run: false })` is called
 Then: Result is Err(InitError::InvariantViolated { invariant: "INV8".to_string(), context: "check".to_string() })
@@ -1201,100 +1201,100 @@ And: No state changes
 
 **Test function name**: `fn run_returns_invariantviolated_when_inv8_violated()`
 
-### Behavior 71: run creates .isolate/ directory
+### Behavior 71: run creates .hardline/ directory
 
 ```
-### Behavior: run_creates_isolate_directory
+### Behavior: run_creates_hardline_directory
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
-And: .isolate/ directory created with mode 0755
+And: .hardline/ directory created with mode 0755
 ```
 
-**Test function name**: `fn run_creates_isolate_directory()`
+**Test function name**: `fn run_creates_hardline_directory()`
 
-### Behavior 72: run creates .isolate/config.toml
+### Behavior 72: run creates .hardline/config.toml
 
 ```
 ### Behavior: run_creates_config_toml
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
-And: .isolate/config.toml created with valid TOML content
+And: .hardline/config.toml created with valid TOML content
 And: config.toml has mode 0644
 ```
 
 **Test function name**: `fn run_creates_config_toml()`
 
-### Behavior 73: run creates .isolate/layouts/ directory
+### Behavior 73: run creates .hardline/layouts/ directory
 
 ```
 ### Behavior: run_creates_layouts_directory
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
-And: .isolate/layouts/ directory created with mode 0755
+And: .hardline/layouts/ directory created with mode 0755
 ```
 
 **Test function name**: `fn run_creates_layouts_directory()`
 
-### Behavior 74: run creates .isolate/state.db
+### Behavior 74: run creates .hardline/state.db
 
 ```
 ### Behavior: run_creates_state_db
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
-And: .isolate/state.db created
+And: .hardline/state.db created
 And: WAL mode enabled if supported
 ```
 
 **Test function name**: `fn run_creates_state_db()`
 
-### Behavior 75: run creates .jjignore with .isolate/ pattern
+### Behavior 75: run creates .gitignore with .hardline/ pattern
 
 ```
-### Behavior: run_creates_jjignore_with_isolate_pattern
+### Behavior: run_creates_gitignore_with_hardline_pattern
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .jjignore does NOT exist
+And: `git` is installed (P3)
+And: .gitignore does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
-And: .jjignore file created
-And: .jjignore contains ".isolate/" pattern
+And: .gitignore file created
+And: .gitignore contains ".hardline/" pattern
 ```
 
-**Test function name**: `fn run_creates_jjignore_with_isolate_pattern()`
+**Test function name**: `fn run_creates_gitignore_with_hardline_pattern()`
 
-### Behavior 76: run creates .jj/hooks/pre-commit executable
+### Behavior 76: run creates .git/hooks/pre-commit executable
 
 ```
-### Behavior: run_creates_jj_hooks_precommit_executable
+### Behavior: run_creates_git_hooks_precommit_executable
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .jj/hooks/pre-commit does NOT exist
+And: `git` is installed (P3)
+And: .git/hooks/pre-commit does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
-And: .jj/hooks/pre-commit created
+And: .git/hooks/pre-commit created
 And: pre-commit is executable (mode 0755)
 And: pre-commit references `Isolate_ACTIVE` environment variable
 ```
 
-**Test function name**: `fn run_creates_jj_hooks_precommit_executable()`
+**Test function name**: `fn run_creates_git_hooks_precommit_executable()`
 
 ### Behavior 77: run creates .ai-instructions.md
 
@@ -1302,7 +1302,7 @@ And: pre-commit references `Isolate_ACTIVE` environment variable
 ### Behavior: run_creates_ai_instructions_md
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: .ai-instructions.md does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1317,7 +1317,7 @@ And: .ai-instructions.md created with valid content
 ### Behavior: run_creates_agents_md
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: AGENTS.md does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1332,7 +1332,7 @@ And: AGENTS.md created with valid content
 ### Behavior: run_creates_claude_md
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: CLAUDE.md does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1347,7 +1347,7 @@ And: CLAUDE.md created with valid content
 ### Behavior: run_creates_moon_workspace_yml
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: .moon/workspace.yml does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1362,7 +1362,7 @@ And: .moon/workspace.yml created with valid Moon schema
 ### Behavior: run_creates_moon_toolchain_yml
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: .moon/toolchain.yml does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1377,7 +1377,7 @@ And: .moon/toolchain.yml created with valid Moon schema
 ### Behavior: run_creates_moon_tasks_yml
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: .moon/tasks.yml does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1392,7 +1392,7 @@ And: .moon/tasks.yml created with valid Moon schema
 ### Behavior: run_creates_docs_01_error_handling_md
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: docs/01_ERROR_HANDLING.md does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1407,7 +1407,7 @@ And: docs/01_ERROR_HANDLING.md created
 ### Behavior: run_creates_docs_02_moon_build_md
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: docs/02_MOON_BUILD.md does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1422,7 +1422,7 @@ And: docs/02_MOON_BUILD.md created
 ### Behavior: run_creates_docs_03_workflow_md
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: docs/03_WORKFLOW.md does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1437,7 +1437,7 @@ And: docs/03_WORKFLOW.md created
 ### Behavior: run_creates_docs_05_rust_standards_md
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: docs/05_RUST_STANDARDS.md does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1452,7 +1452,7 @@ And: docs/05_RUST_STANDARDS.md created
 ### Behavior: run_creates_docs_08_beads_md
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: docs/08_BEADS.md does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1467,7 +1467,7 @@ And: docs/08_BEADS.md created
 ### Behavior: run_creates_docs_09_jujutsu_md
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
+And: `git` is installed (P3)
 And: docs/09_JUJUTSU.md does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
@@ -1476,22 +1476,22 @@ And: docs/09_JUJUTSU.md created
 
 **Test function name**: `fn run_creates_docs_09_jujutsu_md()`
 
-### Behavior 89: run initializes JJ repository
+### Behavior 89: run initializes Git repository
 
 ```
-### Behavior: run_initializes_jj_repository
+### Behavior: run_initializes_git_repository
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .jj/ directory does NOT exist
+And: `git` is installed (P3)
+And: .git/ directory does NOT exist
 When: `run()` is called
 Then: Result is Ok(())
-And: .jj/ directory created
-And: .jj/config file created
-And: .jj/repo directory created
+And: .git/ directory created
+And: .git/config file created
+And: .git/objects directory created
 ```
 
-**Test function name**: `fn run_initializes_jj_repository()`
+**Test function name**: `fn run_initializes_git_repository()`
 
 ### Behavior 90: run releases lock on success
 
@@ -1499,8 +1499,8 @@ And: .jj/repo directory created
 ### Behavior: run_releases_lock_on_success
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 And: Lock file exists with lock held
 When: `run()` completes successfully
 Then: Lock file released
@@ -1516,8 +1516,8 @@ And: `lock.released == true`
 ### Behavior: run_releases_lock_on_failure
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 And: Lock file exists with lock held
 And: Initialization fails mid-process
 When: `run()` panics or returns Err
@@ -1533,8 +1533,8 @@ And: Lock file still exists (not deleted)
 ### Behavior: run_with_options_returns_ok_with_dry_run_false
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Human, dry_run: false })` is called
 Then: Result is Ok(())
 And: All files created
@@ -1548,11 +1548,11 @@ And: All files created
 ### Behavior: run_with_options_returns_ok_with_dry_run_true_no_files_created
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Human, dry_run: true })` is called
 Then: Result is Ok(())
-And: .isolate/ directory NOT created
+And: .hardline/ directory NOT created
 And: All files NOT created
 And: Lock file NOT created
 ```
@@ -1565,8 +1565,8 @@ And: Lock file NOT created
 ### Behavior: run_with_options_returns_outputformatinvalid_with_invalid_format
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 And: Invalid OutputFormat enum variant
 When: `run_with_options(InitOptions { format: OutputFormat::Invalid, dry_run: false })` is called
 Then: Result is Err(InitError::OutputFormatInvalid)
@@ -1581,8 +1581,8 @@ And: No files created
 ### Behavior: run_with_options_returns_jsonserializationfailed_when_serialization_fails
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 And: serde_json serialization fails (mocked)
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` is called
 Then: Result is Err(InitError::JsonSerializationFailed { source: serde_json::Error::msg("serialization failed") })
@@ -1597,17 +1597,17 @@ And: No output written
 ### Behavior: run_with_options_returns_json_with_message_field
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` is called
 Then: Result is Ok(json_str)
 And: serde_json::from_str::<InitResponse>(json_str).message == "Repository initialized"
 And: serde_json::from_str::<InitResponse>(json_str).root == "/tmp/test"
-And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".isolate/"
-And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".isolate/config.toml"
-And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".isolate/state.db"
-And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".isolate/layouts/"
-And: serde_json::from_str::<InitResponse>(json_str).jj_initialized == true
+And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".hardline/"
+And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".hardline/config.toml"
+And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".hardline/state.db"
+And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".hardline/layouts/"
+And: serde_json::from_str::<InitResponse>(json_str).git_initialized == true
 And: serde_json::from_str::<InitResponse>(json_str).already_initialized == false
 ```
 
@@ -1619,8 +1619,8 @@ And: serde_json::from_str::<InitResponse>(json_str).already_initialized == false
 ### Behavior: run_with_options_returns_json_with_root_field
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` is called
 Then: Result is Ok(json_str)
 And: serde_json::from_str::<InitResponse>(json_str).root == normalized_current_directory
@@ -1634,32 +1634,32 @@ And: serde_json::from_str::<InitResponse>(json_str).root == normalized_current_d
 ### Behavior: run_with_options_returns_json_with_paths_object
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` is called
 Then: Result is Ok(json_str)
-And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".isolate/"
-And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".isolate/config.toml"
-And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".isolate/state.db"
-And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".isolate/layouts/"
+And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".hardline/"
+And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".hardline/config.toml"
+And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".hardline/state.db"
+And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".hardline/layouts/"
 ```
 
 **Test function name**: `fn run_with_options_returns_json_with_paths_object()`
 
-### Behavior 99: run_with_options returns JSON with jj_initialized field
+### Behavior 99: run_with_options returns JSON with git_initialized field
 
 ```
-### Behavior: run_with_options_returns_json_with_jj_initialized_field
+### Behavior: run_with_options_returns_json_with_git_initialized_field
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` is called
 Then: Result is Ok(json_str)
-And: serde_json::from_str::<InitResponse>(json_str).jj_initialized == true
+And: serde_json::from_str::<InitResponse>(json_str).git_initialized == true
 ```
 
-**Test function name**: `fn run_with_options_returns_json_with_jj_initialized_field()`
+**Test function name**: `fn run_with_options_returns_json_with_git_initialized_field()`
 
 ### Behavior 100: run_with_options returns JSON with already_initialized field
 
@@ -1667,8 +1667,8 @@ And: serde_json::from_str::<InitResponse>(json_str).jj_initialized == true
 ### Behavior: run_with_options_returns_json_with_already_initialized_field
 Given: Current directory is Git repository root (P1)
 And: User has write permissions (P2)
-And: `jj` is installed (P3)
-And: .isolate/ does NOT exist
+And: `git` is installed (P3)
+And: .hardline/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` is called
 Then: Result is Ok(json_str)
 And: serde_json::from_str::<InitResponse>(json_str).already_initialized == false
@@ -1683,11 +1683,11 @@ And: serde_json::from_str::<InitResponse>(json_str).already_initialized == false
 Given: cwd = PathBuf::from("/tmp/test_repo")
 And: cwd is Git repository root
 And: User has write permissions in cwd
-And: `jj` is installed
-And: cwd/.isolate/ does NOT exist
+And: `git` is installed
+And: cwd/.hardline/ does NOT exist
 When: `run_with_cwd_and_options(Some(&cwd), InitOptions { format: OutputFormat::Human, dry_run: false })` is called
 Then: Result is Ok(())
-And: cwd/.isolate/ directory created
+And: cwd/.hardline/ directory created
 ```
 
 **Test function name**: `fn run_with_cwd_and_options_returns_ok_with_valid_cwd()`
@@ -1738,11 +1738,11 @@ And: No files created
 ### Behavior: run_with_cwd_and_options_uses_current_directory_when_cwd_none
 Given: Current directory is valid Git repo
 And: User has write permissions
-And: `jj` is installed
-And: Current dir/.isolate/ does NOT exist
+And: `git` is installed
+And: Current dir/.hardline/ does NOT exist
 When: `run_with_cwd_and_options(None, InitOptions { format: OutputFormat::Human, dry_run: false })` is called
 Then: Result is Ok(())
-And: .isolate/ created in current directory
+And: .hardline/ created in current directory
 ```
 
 **Test function name**: `fn run_with_cwd_and_options_uses_current_directory_when_cwd_none()`
@@ -1754,11 +1754,11 @@ And: .isolate/ created in current directory
 Given: cwd = PathBuf::from("/tmp/test_repo")
 And: cwd is Git repository root
 And: User has write permissions in cwd
-And: `jj` is installed
-And: cwd/.isolate/ does NOT exist
+And: `git` is installed
+And: cwd/.hardline/ does NOT exist
 When: `run_with_cwd_and_options(Some(&cwd), InitOptions { format: OutputFormat::Human, dry_run: false })` is called
 Then: Result is Ok(())
-And: cwd/.isolate/ directory created
+And: cwd/.hardline/ directory created
 And: No files created in current directory
 ```
 
@@ -1769,39 +1769,39 @@ And: No files created in current directory
 ```
 ### Behavior: check_dependencies_returns_missingdependencies_with_correct_missing_vector
 Given: Current directory is writable
-And: `jj` command NOT in PATH
+And: `git` command NOT in PATH
 When: `check_dependencies()` is called
-Then: Result is Err(InitError::MissingDependencies { missing: vec!["jj (Jujutsu)".to_string()] })
-And: missing vector contains exactly one element: "jj (Jujutsu)"
+Then: Result is Err(InitError::MissingDependencies { missing: vec!["git".to_string()] })
+And: missing vector contains exactly one element: "git"
 ```
 
 **Test function name**: `fn check_dependencies_returns_missingdependencies_with_correct_missing_vector()`
 
-### Behavior 108: is_jj_installed is deterministic across multiple calls
+### Behavior 108: is_git_installed is deterministic across multiple calls
 
 ```
-### Behavior: is_jj_installed_is_deterministic_across_multiple_calls
+### Behavior: is_git_installed_is_deterministic_across_multiple_calls
 Given: PATH environment variable is constant
-And: `jj` command location does not change
-When: `is_jj_installed()` called 100 times
+And: `git` command location does not change
+When: `is_git_installed()` called 100 times
 Then: All 100 calls return same boolean value
 And: No side effects occur
 ```
 
-**Test function name**: `fn is_jj_installed_is_deterministic_across_multiple_calls()`
+**Test function name**: `fn is_git_installed_is_deterministic_across_multiple_calls()`
 
-### Behavior 109: is_jj_repo_with_cwd is deterministic across multiple calls
+### Behavior 109: is_git_repo_with_cwd is deterministic across multiple calls
 
 ```
-### Behavior: is_jj_repo_with_cwd_is_deterministic_across_multiple_calls
+### Behavior: is_git_repo_with_cwd_is_deterministic_across_multiple_calls
 Given: `cwd` is valid path
-And: `.jj/` directory state does not change
-When: `is_jj_repo_with_cwd(cwd)` called 100 times
+And: `.git/` directory state does not change
+When: `is_git_repo_with_cwd(cwd)` called 100 times
 Then: All 100 calls return same boolean value
 And: No side effects occur
 ```
 
-**Test function name**: `fn is_jj_repo_with_cwd_is_deterministic_across_multiple_calls()`
+**Test function name**: `fn is_git_repo_with_cwd_is_deterministic_across_multiple_calls()`
 
 ### Behavior 110: InitLock::acquire handles empty lock path
 
@@ -1841,17 +1841,17 @@ And: Lock file created with spaces in path
 
 **Test function name**: `fn init_lock_acquire_handles_lock_path_with_spaces()`
 
-### Behavior 113: create_jj_hooks returns PreconditionViolation when repo_root empty
+### Behavior 113: create_git_hooks returns PreconditionViolation when repo_root empty
 
 ```
-### Behavior: create_jj_hooks_returns_preconditionviolation_when_repo_root_empty
+### Behavior: create_git_hooks_returns_preconditionviolation_when_repo_root_empty
 Given: repo_root = PathBuf::new()
-When: `create_jj_hooks(repo_root)` is called
-Then: Result is Err(InitError::PreconditionViolation { expected: "repo_root cannot be empty".to_string(), actual: "".to_string(), context: "create_jj_hooks".to_string() })
+When: `create_git_hooks(repo_root)` is called
+Then: Result is Err(InitError::PreconditionViolation { expected: "repo_root cannot be empty".to_string(), actual: "".to_string(), context: "create_git_hooks".to_string() })
 And: No files created
 ```
 
-**Test function name**: `fn create_jj_hooks_returns_preconditionviolation_when_repo_root_empty()`
+**Test function name**: `fn create_git_hooks_returns_preconditionviolation_when_repo_root_empty()`
 
 ### Behavior 114: SessionDb::create_or_open handles empty path
 
@@ -1926,7 +1926,7 @@ And: All 6 doc files created
 ### Behavior: check_dependencies_handles_empty_path
 Given: PATH environment variable = ""
 When: `check_dependencies()` is called
-Then: Result is Err(InitError::MissingDependencies { missing: vec!["jj (Jujutsu)".to_string()] })
+Then: Result is Err(InitError::MissingDependencies { missing: vec!["git".to_string()] })
 ```
 
 **Test function name**: `fn check_dependencies_handles_empty_path()`
@@ -1937,7 +1937,7 @@ Then: Result is Err(InitError::MissingDependencies { missing: vec!["jj (Jujutsu)
 ### Behavior: check_dependencies_handles_path_with_empty_entries
 Given: PATH = "/usr/bin::/bin" (empty entry between colons)
 When: `check_dependencies()` is called
-Then: Result is Ok(()) if `jj` found in /usr/bin or /bin
+Then: Result is Ok(()) if `git` found in /usr/bin or /bin
 And: Empty PATH entries ignored
 ```
 
@@ -1948,7 +1948,7 @@ And: Empty PATH entries ignored
 ```
 ### Behavior: check_dependencies_handles_path_with_spaces
 Given: PATH = "/usr/bin with spaces/bin:/bin"
-And: `jj` exists in "/usr/bin with spaces/bin/"
+And: `git` exists in "/usr/bin with spaces/bin/"
 When: `check_dependencies()` is called
 Then: Result is Ok(())
 And: PATH entries with spaces handled correctly
@@ -2008,96 +2008,96 @@ And: No error thrown
 
 **Test function name**: `fn init_lock_release_is_idempotent()`
 
-### Behavior 126: create_jjignore is idempotent
+### Behavior 126: create_gitignore is idempotent
 
 ```
-### Behavior: create_jjignore_is_idempotent
+### Behavior: create_gitignore_is_idempotent
 Given: repo_root = PathBuf::from("/tmp/test_repo")
-And: repo_root/.jjignore exists with correct content
-When: `create_jjignore(repo_root)` called second time
+And: repo_root/.gitignore exists with correct content
+When: `create_gitignore(repo_root)` called second time
 Then: Result is Ok(())
 And: No error thrown
 ```
 
-**Test function name**: `fn create_jjignore_is_idempotent()`
+**Test function name**: `fn create_gitignore_is_idempotent()`
 
-### Behavior 127: create_jj_hooks is idempotent
+### Behavior 127: create_git_hooks is idempotent
 
 ```
-### Behavior: create_jj_hooks_is_idempotent
+### Behavior: create_git_hooks_is_idempotent
 Given: repo_root = PathBuf::from("/tmp/test_repo")
-And: repo_root/.jj/hooks/pre-commit exists with correct content
-When: `create_jj_hooks(repo_root)` called second time
+And: repo_root/.git/hooks/pre-commit exists with correct content
+When: `create_git_hooks(repo_root)` called second time
 Then: Result is Ok(())
 And: No error thrown
 ```
 
-**Test function name**: `fn create_jj_hooks_is_idempotent()`
+**Test function name**: `fn create_git_hooks_is_idempotent()`
 
-### Behavior 128: build_init_response jj_initialized always true
+### Behavior 128: build_init_response git_initialized always true
 
 ```
-### Behavior: build_init_response_jj_initialized_always_true
+### Behavior: build_init_response_git_initialized_always_true
 Given: root = PathBuf::from("/tmp/test_repo")
 And: already_initialized = false
 When: `build_init_response(&root, false)` called
-Then: Result.jj_initialized == true
+Then: Result.git_initialized == true
 And: INV12 invariant holds regardless of already_initialized value
 ```
 
-**Test function name**: `fn build_init_response_jj_initialized_always_true()`
+**Test function name**: `fn build_init_response_git_initialized_always_true()`
 
-### Behavior 129: build_init_response paths.data_directory always .isolate/
+### Behavior 129: build_init_response paths.data_directory always .hardline/
 
 ```
-### Behavior: build_init_response_paths_data_directory_always_isolate
+### Behavior: build_init_response_paths_data_directory_always_hardline
 Given: root = PathBuf::from("/tmp/test_repo")
 And: already_initialized = false
 When: `build_init_response(&root, false)` called
-Then: Result.paths.data_directory == ".isolate/"
+Then: Result.paths.data_directory == ".hardline/"
 And: INV8 invariant holds regardless of root value
 ```
 
-**Test function name**: `fn build_init_response_paths_data_directory_always_isolate()`
+**Test function name**: `fn build_init_response_paths_data_directory_always_hardline()`
 
-### Behavior 130: build_init_response paths.config always .isolate/config.toml
+### Behavior 130: build_init_response paths.config always .hardline/config.toml
 
 ```
-### Behavior: build_init_response_paths_config_always_isolate_config_toml
+### Behavior: build_init_response_paths_config_always_hardline_config_toml
 Given: root = PathBuf::from("/tmp/test_repo")
 And: already_initialized = false
 When: `build_init_response(&root, false)` called
-Then: Result.paths.config == ".isolate/config.toml"
+Then: Result.paths.config == ".hardline/config.toml"
 And: INV9 invariant holds regardless of root value
 ```
 
-**Test function name**: `fn build_init_response_paths_config_always_isolate_config_toml()`
+**Test function name**: `fn build_init_response_paths_config_always_hardline_config_toml()`
 
-### Behavior 131: build_init_response paths.state_db always .isolate/state.db
+### Behavior 131: build_init_response paths.state_db always .hardline/state.db
 
 ```
-### Behavior: build_init_response_paths_state_db_always_isolate_state_db
+### Behavior: build_init_response_paths_state_db_always_hardline_state_db
 Given: root = PathBuf::from("/tmp/test_repo")
 And: already_initialized = false
 When: `build_init_response(&root, false)` called
-Then: Result.paths.state_db == ".isolate/state.db"
+Then: Result.paths.state_db == ".hardline/state.db"
 And: INV10 invariant holds regardless of root value
 ```
 
-**Test function name**: `fn build_init_response_paths_state_db_always_isolate_state_db()`
+**Test function name**: `fn build_init_response_paths_state_db_always_hardline_state_db()`
 
-### Behavior 132: build_init_response paths.layouts always .isolate/layouts/
+### Behavior 132: build_init_response paths.layouts always .hardline/layouts/
 
 ```
-### Behavior: build_init_response_paths_layouts_always_isolate_layouts
+### Behavior: build_init_response_paths_layouts_always_hardline_layouts
 Given: root = PathBuf::from("/tmp/test_repo")
 And: already_initialized = false
 When: `build_init_response(&root, false)` called
-Then: Result.paths.layouts == ".isolate/layouts/"
+Then: Result.paths.layouts == ".hardline/layouts/"
 And: INV11 invariant holds regardless of root value
 ```
 
-**Test function name**: `fn build_init_response_paths_layouts_always_isolate_layouts()`
+**Test function name**: `fn build_init_response_paths_layouts_always_hardline_layouts()`
 
 ### Behavior 133: build_init_response root always normalized
 
@@ -2136,7 +2136,7 @@ Given: lock_path = PathBuf::from("/tmp/test/.init.lock")
 And: lock file exists
 And: lock file age_secs = 60
 When: `InitLock::acquire(lock_path.clone())` called
-Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from("/tmp/test/.init.lock"), message: "Another isolate init is in progress".to_string() })
+Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from("/tmp/test/.init.lock"), message: "Another hardline init is in progress".to_string() })
 And: Lock NOT removed (60 > 60 is false)
 ```
 
@@ -2164,7 +2164,7 @@ Given: lock_path = PathBuf::from("/tmp/test/.init.lock")
 And: lock file exists
 And: lock file age_secs = 59
 When: `InitLock::acquire(lock_path.clone())` called
-Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from("/tmp/test/.init.lock"), message: "Another isolate init is in progress".to_string() })
+Then: Result is Err(InitError::LockNotAcquirable { path: PathBuf::from("/tmp/test/.init.lock"), message: "Another hardline init is in progress".to_string() })
 And: Lock NOT removed (59 > 60 is false)
 ```
 
@@ -2238,7 +2238,7 @@ And: Trailing slash removed (canonicalization)
 ### Behavior: json_mode_creates_git_repo_when_json_mode_true
 Given: Current directory is Git repository root
 And: Git repo does NOT exist
-When: `ensure_jj_repo_with_cwd(cwd, json_mode=true)` called
+When: `ensure_git_repo_with_cwd(cwd, json_mode=true)` called
 Then: Result is Ok(())
 And: .git directory created
 ```
@@ -2251,17 +2251,17 @@ And: .git directory created
 ### Behavior: json_mode_serializes_to_valid_json_with_all_fields
 Given: Current directory is Git repository root
 And: User has write permissions
-And: `jj` is installed
-And: .isolate/ does NOT exist
+And: `git` is installed
+And: .hardline/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` called
 Then: Result is Ok(json_str)
 And: serde_json::from_str::<InitResponse>(json_str).message == "Repository initialized"
 And: serde_json::from_str::<InitResponse>(json_str).root == "/tmp/test"
-And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".isolate/"
-And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".isolate/config.toml"
-And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".isolate/state.db"
-And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".isolate/layouts/"
-And: serde_json::from_str::<InitResponse>(json_str).jj_initialized == true
+And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".hardline/"
+And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".hardline/config.toml"
+And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".hardline/state.db"
+And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".hardline/layouts/"
+And: serde_json::from_str::<InitResponse>(json_str).git_initialized == true
 And: serde_json::from_str::<InitResponse>(json_str).already_initialized == false
 ```
 
@@ -2273,14 +2273,14 @@ And: serde_json::from_str::<InitResponse>(json_str).already_initialized == false
 ### Behavior: json_mode_serializes_paths_with_exact_values
 Given: Current directory is Git repository root
 And: User has write permissions
-And: `jj` is installed
-And: .isolate/ does NOT exist
+And: `git` is installed
+And: .hardline/ does NOT exist
 When: `run_with_options(InitOptions { format: OutputFormat::Json, dry_run: false })` called
 Then: Result is Ok(json_str)
-And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".isolate/"
-And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".isolate/config.toml"
-And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".isolate/state.db"
-And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".isolate/layouts/"
+And: serde_json::from_str::<InitResponse>(json_str).paths.data_directory == ".hardline/"
+And: serde_json::from_str::<InitResponse>(json_str).paths.config == ".hardline/config.toml"
+And: serde_json::from_str::<InitResponse>(json_str).paths.state_db == ".hardline/state.db"
+And: serde_json::from_str::<InitResponse>(json_str).paths.layouts == ".hardline/layouts/"
 ```
 
 **Test function name**: `fn json_mode_serializes_paths_with_exact_values()`
@@ -2320,16 +2320,16 @@ Then: missing: Vec<String> field exists
 
 **Test function name**: `fn missingdependencies_has_missing_field()`
 
-### Behavior 149: JJCommandFailed has command and stderr fields
+### Behavior 149: GitCommandFailed has command and stderr fields
 
 ```
-### Behavior: jjcommandfailed_has_command_and_stderr_fields
+### Behavior: gitcommandfailed_has_command_and_stderr_fields
 Given: InitError enum defined
-When: InitError::JJCommandFailed constructed
+When: InitError::GitCommandFailed constructed
 Then: command: String and stderr: String fields exist
 ```
 
-**Test function name**: `fn jjcommandfailed_has_command_and_stderr_fields()`
+**Test function name**: `fn gitcommandfailed_has_command_and_stderr_fields()`
 
 ### Behavior 150: Io has source and context fields
 
@@ -2452,16 +2452,16 @@ Then: path: PathBuf and operation: String fields exist
 
 **Test function name**: `fn locktoctou_has_path_and_operation_fields()`
 
-### Behavior 161: JJInitFailed has stderr field
+### Behavior 161: GitInitFailed has stderr field
 
 ```
-### Behavior: jjinitfailed_has_stderr_field
+### Behavior: gitinitfailed_has_stderr_field
 Given: InitError enum defined
-When: InitError::JJInitFailed constructed
+When: InitError::GitInitFailed constructed
 Then: stderr: String field exists
 ```
 
-**Test function name**: `fn jjinitfailed_has_stderr_field()`
+**Test function name**: `fn gitinitfailed_has_stderr_field()`
 
 ### Behavior 162: CurrentDirFailed has no fields
 
@@ -2511,7 +2511,7 @@ Then: Result is "Unknown error: initialization failed"
 
 ## 4. Proptest Invariants
 
-### 4.1 is_jj_installed
+### 4.1 is_git_installed
 
 ```rust
 #[cfg(test)]
@@ -2520,19 +2520,19 @@ mod tests {
     
     proptest! {
         #[test]
-        fn is_jj_installed_is_deterministic(path in string_regex(r".*").unwrap()) {
+        fn is_git_installed_is_deterministic(path in string_regex(r".*").unwrap()) {
             // Same PATH should always return same result
-            let result1 = is_jj_installed();
-            let result2 = is_jj_installed();
-            prop_assert_eq!(result1, result2, "is_jj_installed should be deterministic");
+            let result1 = is_git_installed();
+            let result2 = is_git_installed();
+            prop_assert_eq!(result1, result2, "is_git_installed should be deterministic");
         }
         
         #[test]
-        fn is_jj_installed_same_result_across_multiple_calls(
+        fn is_git_installed_same_result_across_multiple_calls(
             iterations in 10u32..100u32
         ) {
             let results: Vec<bool> = (0..iterations)
-                .map(|_| is_jj_installed())
+                .map(|_| is_git_installed())
                 .collect();
             // All results should be identical
             prop_assert!(results.iter().all(|&r| r == results[0]));
@@ -2561,11 +2561,11 @@ mod tests {
         ) {
             let response = build_init_response(&root, already_initialized);
             // Verify paths are normalized
-            prop_assert!(response.paths.data_directory.starts_with(".isolate/"));
+            prop_assert!(response.paths.data_directory.starts_with(".hardline/"));
             prop_assert!(response.paths.data_directory.ends_with('/'));
-            prop_assert!(response.paths.config.starts_with(".isolate/"));
-            prop_assert!(response.paths.state_db.starts_with(".isolate/"));
-            prop_assert!(response.paths.layouts.starts_with(".isolate/"));
+            prop_assert!(response.paths.config.starts_with(".hardline/"));
+            prop_assert!(response.paths.state_db.starts_with(".hardline/"));
+            prop_assert!(response.paths.layouts.starts_with(".hardline/"));
         }
         
         #[test]
@@ -2578,12 +2578,12 @@ mod tests {
         }
         
         #[test]
-        fn build_init_response_jj_initialized_always_true(
+        fn build_init_response_git_initialized_always_true(
             root in path_strategy(),
             already_initialized in any::<bool>()
         ) {
             let response = build_init_response(&root, already_initialized);
-            prop_assert!(response.jj_initialized);
+            prop_assert!(response.git_initialized);
         }
         
         #[test]
@@ -2615,17 +2615,17 @@ mod tests {
             already_initialized in any::<bool>()
         ) {
             let response = build_init_response(&root, already_initialized);
-            // All paths should start with .isolate/
-            prop_assert!(response.paths.data_directory.starts_with(".isolate/"));
-            prop_assert!(response.paths.config.starts_with(".isolate/"));
-            prop_assert!(response.paths.state_db.starts_with(".isolate/"));
-            prop_assert!(response.paths.layouts.starts_with(".isolate/"));
+            // All paths should start with .hardline/
+            prop_assert!(response.paths.data_directory.starts_with(".hardline/"));
+            prop_assert!(response.paths.config.starts_with(".hardline/"));
+            prop_assert!(response.paths.state_db.starts_with(".hardline/"));
+            prop_assert!(response.paths.layouts.starts_with(".hardline/"));
         }
     }
 }
 ```
 
-**Invariant**: Paths always start with `.isolate/`
+**Invariant**: Paths always start with `.hardline/`
 **Strategy**: `proptest::strategy::path_strategy()` for root, `any::<bool>()` for already_initialized
 **Anti-invariant**: Path not normalized (should never happen)
 
@@ -2757,7 +2757,7 @@ mod tests {
 **Strategy**: `iterations in 10u32..100u32`
 **Anti-invariant**: Different results across calls (should never happen)
 
-### 4.6 is_jj_repo_with_cwd Determinism
+### 4.6 is_git_repo_with_cwd Determinism
 
 ```rust
 #[cfg(test)]
@@ -2766,22 +2766,22 @@ mod tests {
     
     proptest! {
         #[test]
-        fn is_jj_repo_with_cwd_is_deterministic(
+        fn is_git_repo_with_cwd_is_deterministic(
             cwd in path_strategy()
         ) {
             // Same cwd should always return same result
-            let result1 = is_jj_repo_with_cwd(&cwd);
-            let result2 = is_jj_repo_with_cwd(&cwd);
-            prop_assert_eq!(result1, result2, "is_jj_repo_with_cwd should be deterministic");
+            let result1 = is_git_repo_with_cwd(&cwd);
+            let result2 = is_git_repo_with_cwd(&cwd);
+            prop_assert_eq!(result1, result2, "is_git_repo_with_cwd should be deterministic");
         }
         
         #[test]
-        fn is_jj_repo_with_cwd_same_result_across_multiple_calls(
+        fn is_git_repo_with_cwd_same_result_across_multiple_calls(
             cwd in path_strategy(),
             iterations in 10u32..100u32
         ) {
             let results: Vec<Result<bool, InitError>> = (0..iterations)
-                .map(|_| is_jj_repo_with_cwd(&cwd))
+                .map(|_| is_git_repo_with_cwd(&cwd))
                 .collect();
             // All results should be identical
             prop_assert!(results.iter().all(|&r| r == results[0]));
@@ -2790,7 +2790,7 @@ mod tests {
 }
 ```
 
-**Invariant**: is_jj_repo_with_cwd() returns same result across multiple calls
+**Invariant**: is_git_repo_with_cwd() returns same result across multiple calls
 **Strategy**: `cwd in path_strategy()`, `iterations in 10u32..100u32`
 **Anti-invariant**: Different results across calls (should never happen)
 
@@ -2803,56 +2803,56 @@ mod tests {
     
     proptest! {
         #[test]
-        fn init_paths_data_directory_always_isolate(
+        fn init_paths_data_directory_always_hardline(
             root in path_strategy(),
             already_initialized in any::<bool>()
         ) {
             let response = build_init_response(&root, already_initialized);
-            // INV8: data_directory always equals ".isolate/"
-            prop_assert_eq!(response.paths.data_directory, ".isolate/");
+            // INV8: data_directory always equals ".hardline/"
+            prop_assert_eq!(response.paths.data_directory, ".hardline/");
         }
         
         #[test]
-        fn init_paths_config_always_isolate_config_toml(
+        fn init_paths_config_always_hardline_config_toml(
             root in path_strategy(),
             already_initialized in any::<bool>()
         ) {
             let response = build_init_response(&root, already_initialized);
-            // INV9: config always equals ".isolate/config.toml"
-            prop_assert_eq!(response.paths.config, ".isolate/config.toml");
+            // INV9: config always equals ".hardline/config.toml"
+            prop_assert_eq!(response.paths.config, ".hardline/config.toml");
         }
         
         #[test]
-        fn init_paths_state_db_always_isolate_state_db(
+        fn init_paths_state_db_always_hardline_state_db(
             root in path_strategy(),
             already_initialized in any::<bool>()
         ) {
             let response = build_init_response(&root, already_initialized);
-            // INV10: state_db always equals ".isolate/state.db"
-            prop_assert_eq!(response.paths.state_db, ".isolate/state.db");
+            // INV10: state_db always equals ".hardline/state.db"
+            prop_assert_eq!(response.paths.state_db, ".hardline/state.db");
         }
         
         #[test]
-        fn init_paths_layouts_always_isolate_layouts(
+        fn init_paths_layouts_always_hardline_layouts(
             root in path_strategy(),
             already_initialized in any::<bool>()
         ) {
             let response = build_init_response(&root, already_initialized);
-            // INV11: layouts always equals ".isolate/layouts/"
-            prop_assert_eq!(response.paths.layouts, ".isolate/layouts/");
+            // INV11: layouts always equals ".hardline/layouts/"
+            prop_assert_eq!(response.paths.layouts, ".hardline/layouts/");
         }
         
         #[test]
-        fn init_paths_all_start_with_isolate_slash(
+        fn init_paths_all_start_with_hardline_slash(
             root in path_strategy(),
             already_initialized in any::<bool>()
         ) {
             let response = build_init_response(&root, already_initialized);
-            // INV14, INV15: All paths start with ".isolate/"
-            prop_assert!(response.paths.data_directory.starts_with(".isolate/"));
-            prop_assert!(response.paths.config.starts_with(".isolate/"));
-            prop_assert!(response.paths.state_db.starts_with(".isolate/"));
-            prop_assert!(response.paths.layouts.starts_with(".isolate/"));
+            // INV14, INV15: All paths start with ".hardline/"
+            prop_assert!(response.paths.data_directory.starts_with(".hardline/"));
+            prop_assert!(response.paths.config.starts_with(".hardline/"));
+            prop_assert!(response.paths.state_db.starts_with(".hardline/"));
+            prop_assert!(response.paths.layouts.starts_with(".hardline/"));
         }
     }
 }
@@ -2880,12 +2880,12 @@ mod tests {
                 message,
                 root,
                 paths: InitPaths {
-                    data_directory: ".isolate/".into(),
-                    config: ".isolate/config.toml".into(),
-                    state_db: ".isolate/state.db".into(),
-                    layouts: ".isolate/layouts/".into(),
+                    data_directory: ".hardline/".into(),
+                    config: ".hardline/config.toml".into(),
+                    state_db: ".hardline/state.db".into(),
+                    layouts: ".hardline/layouts/".into(),
                 },
-                jj_initialized: true,
+                git_initialized: true,
                 already_initialized: false,
             };
             
@@ -2902,12 +2902,12 @@ mod tests {
                 message: "Repository initialized".into(),
                 root,
                 paths: InitPaths {
-                    data_directory: ".isolate/".into(),
-                    config: ".isolate/config.toml".into(),
-                    state_db: ".isolate/state.db".into(),
-                    layouts: ".isolate/layouts/".into(),
+                    data_directory: ".hardline/".into(),
+                    config: ".hardline/config.toml".into(),
+                    state_db: ".hardline/state.db".into(),
+                    layouts: ".hardline/layouts/".into(),
                 },
-                jj_initialized: true,
+                git_initialized: true,
                 already_initialized: false,
             };
             
@@ -2917,7 +2917,7 @@ mod tests {
                 prop_assert!(json_str.contains("\"message\""));
                 prop_assert!(json_str.contains("\"root\""));
                 prop_assert!(json_str.contains("\"paths\""));
-                prop_assert!(json_str.contains("\"jj_initialized\""));
+                prop_assert!(json_str.contains("\"git_initialized\""));
                 prop_assert!(json_str.contains("\"already_initialized\""));
             }
         }
@@ -3127,12 +3127,12 @@ proptest! {
             message: message_str,
             root: root_str,
             paths: InitPaths {
-                data_directory: ".isolate/".into(),
-                config: ".isolate/config.toml".into(),
-                state_db: ".isolate/state.db".into(),
-                layouts: ".isolate/layouts/".into(),
+                data_directory: ".hardline/".into(),
+                config: ".hardline/config.toml".into(),
+                state_db: ".hardline/state.db".into(),
+                layouts: ".hardline/layouts/".into(),
             },
-            jj_initialized: true,
+            git_initialized: true,
             already_initialized: false,
         };
         
@@ -3160,12 +3160,12 @@ proptest! {
             message,
             root: "/tmp/test".into(),
             paths: InitPaths {
-                data_directory: ".isolate/".into(),
-                config: ".isolate/config.toml".into(),
-                state_db: ".isolate/state.db".into(),
-                layouts: ".isolate/layouts/".into(),
+                data_directory: ".hardline/".into(),
+                config: ".hardline/config.toml".into(),
+                state_db: ".hardline/state.db".into(),
+                layouts: ".hardline/layouts/".into(),
             },
-            jj_initialized: true,
+            git_initialized: true,
             already_initialized: false,
         };
         let result = serde_json::to_string(&response);
@@ -3182,12 +3182,12 @@ proptest! {
             message: "test".into(),
             root: path_str.to_string(),
             paths: InitPaths {
-                data_directory: ".isolate/".into(),
-                config: ".isolate/config.toml".into(),
-                state_db: ".isolate/state.db".into(),
-                layouts: ".isolate/layouts/".into(),
+                data_directory: ".hardline/".into(),
+                config: ".hardline/config.toml".into(),
+                state_db: ".hardline/state.db".into(),
+                layouts: ".hardline/layouts/".into(),
             },
-            jj_initialized: true,
+            git_initialized: true,
             already_initialized: false,
         };
         let result = serde_json::to_string(&response);
@@ -3204,12 +3204,12 @@ proptest! {
             message,
             root,
             paths: InitPaths {
-                data_directory: ".isolate/".into(),
-                config: ".isolate/config.toml".into(),
-                state_db: ".isolate/state.db".into(),
-                layouts: ".isolate/layouts/".into(),
+                data_directory: ".hardline/".into(),
+                config: ".hardline/config.toml".into(),
+                state_db: ".hardline/state.db".into(),
+                layouts: ".hardline/layouts/".into(),
             },
-            jj_initialized: true,
+            git_initialized: true,
             already_initialized: false,
         };
         
@@ -3219,7 +3219,7 @@ proptest! {
             prop_assert!(json_str.contains("\"message\""));
             prop_assert!(json_str.contains("\"root\""));
             prop_assert!(json_str.contains("\"paths\""));
-            prop_assert!(json_str.contains("\"jj_initialized\""));
+            prop_assert!(json_str.contains("\"git_initialized\""));
             prop_assert!(json_str.contains("\"already_initialized\""));
             prop_assert!(json_str.contains("\"data_directory\""));
             prop_assert!(json_str.contains("\"config\""));
@@ -3238,12 +3238,12 @@ fn generate_deeply_nested_response(depth: u32) -> InitResponse {
         message,
         root: "/tmp/test".into(),
         paths: InitPaths {
-            data_directory: ".isolate/".into(),
-            config: ".isolate/config.toml".into(),
-            state_db: ".isolate/state.db".into(),
-            layouts: ".isolate/layouts/".into(),
+            data_directory: ".hardline/".into(),
+            config: ".hardline/config.toml".into(),
+            state_db: ".hardline/state.db".into(),
+            layouts: ".hardline/layouts/".into(),
         },
-        jj_initialized: true,
+        git_initialized: true,
         already_initialized: false,
     }
 }
@@ -3633,24 +3633,24 @@ fn init_paths_invariant() {
     
     let response = build_init_response(&root, already_initialized);
     
-    // INV8: paths.data_directory always equals ".isolate/"
-    kani::assume(response.paths.data_directory == ".isolate/");
+    // INV8: paths.data_directory always equals ".hardline/"
+    kani::assume(response.paths.data_directory == ".hardline/");
     
-    // INV9: paths.config always equals ".isolate/config.toml"
-    kani::assume(response.paths.config == ".isolate/config.toml");
+    // INV9: paths.config always equals ".hardline/config.toml"
+    kani::assume(response.paths.config == ".hardline/config.toml");
     
-    // INV10: paths.state_db always equals ".isolate/state.db"
-    kani::assume(response.paths.state_db == ".isolate/state.db");
+    // INV10: paths.state_db always equals ".hardline/state.db"
+    kani::assume(response.paths.state_db == ".hardline/state.db");
     
-    // INV11: paths.layouts always equals ".isolate/layouts/"
-    kani::assume(response.paths.layouts == ".isolate/layouts/");
+    // INV11: paths.layouts always equals ".hardline/layouts/"
+    kani::assume(response.paths.layouts == ".hardline/layouts/");
 }
 
 // Bound: All possible InitPaths constructions
 // Rationale: Verify path invariants hold for all inputs
 ```
 
-**Property**: All paths start with `.isolate/`
+**Property**: All paths start with `.hardline/`
 **Bound**: All possible constructions
 **Rationale**: Type safety guarantee
 
@@ -3728,12 +3728,12 @@ fn json_serialization_bounds() {
         message: kani::any::<String>(),
         root: kani::any::<String>(),
         paths: InitPaths {
-            data_directory: ".isolate/".into(),
-            config: ".isolate/config.toml".into(),
-            state_db: ".isolate/state.db".into(),
-            layouts: ".isolate/layouts/".into(),
+            data_directory: ".hardline/".into(),
+            config: ".hardline/config.toml".into(),
+            state_db: ".hardline/state.db".into(),
+            layouts: ".hardline/layouts/".into(),
         },
-        jj_initialized: true,
+        git_initialized: true,
         already_initialized: kani::any::<bool>(),
     };
     
@@ -3761,19 +3761,19 @@ fn json_serialization_bounds() {
 
 | Mutation | Test that catches it |
 |----------|---------------------|
-| `check_dependencies` return `Ok(())` → `Err(...)` | `check_dependencies_returns_ok_when_jj_installed` |
-| `is_jj_installed` return `true` → `false` | `is_jj_installed_returns_true_when_jj_exists` |
-| `is_jj_installed` return `false` → `true` | `is_jj_installed_returns_false_when_jj_not_found` |
-| `check_dependencies` error variant `MissingDependencies` → `JJNotInstalled` | `check_dependencies_returns_missing_error_when_jj_not_found` |
+| `check_dependencies` return `Ok(())` → `Err(...)` | `check_dependencies_returns_ok_when_git_installed` |
+| `is_git_installed` return `true` → `false` | `is_git_installed_returns_true_when_git_exists` |
+| `is_git_installed` return `false` → `true` | `is_git_installed_returns_false_when_git_not_found` |
+| `check_dependencies` error variant `MissingDependencies` → `GitNotInstalled` | `check_dependencies_returns_missing_error_when_git_not_found` |
 
-### 7.2 JJ Repository Mutations
+### 7.2 Git Repository Mutations
 
 | Mutation | Test that catches it |
 |----------|---------------------|
-| `jj_root_with_cwd` return `Ok(path)` → `Err(...)` | `jj_root_with_cwd_returns_ok_with_exact_path_when_valid_repo` |
-| `jj_root_with_cwd` error variant `JJRepoNotFound` → `JJNotInstalled` | `jj_root_with_cwd_returns_jjrepofound_when_not_a_repo` |
-| `ensure_jj_repo_with_cwd` return `Ok(())` → `Err(JJInitFailed)` | `ensure_jj_repo_with_cwd_creates_jj_repo_on_success` |
-| `is_jj_repo_with_cwd` return `Ok(true)` → `Ok(false)` | `is_jj_repo_with_cwd_returns_ok_true_when_valid_repo` |
+| `git_root_with_cwd` return `Ok(path)` → `Err(...)` | `git_root_with_cwd_returns_ok_with_exact_path_when_valid_repo` |
+| `git_root_with_cwd` error variant `GitRepoNotFound` → `GitNotInstalled` | `git_root_with_cwd_returns_gitrepofound_when_not_a_repo` |
+| `ensure_git_repo_with_cwd` return `Ok(())` → `Err(GitInitFailed)` | `ensure_git_repo_with_cwd_creates_git_repo_on_success` |
+| `is_git_repo_with_cwd` return `Ok(true)` → `Ok(false)` | `is_git_repo_with_cwd_returns_ok_true_when_valid_repo` |
 
 ### 7.3 InitLock Mutations
 
@@ -3784,23 +3784,23 @@ fn json_serialization_bounds() {
 | `InitLock::release` return `Ok(())` → `Err(...)` | `init_lock_release_returns_ok_when_lock_held` |
 | `InitLock::drop` not releasing lock | `init_lock_drop_releases_lock_if_held` |
 
-### 7.4 .jjignore Mutations
+### 7.4 .gitignore Mutations
 
 | Mutation | Test that catches it |
 |----------|---------------------|
-| `create_jjignore` content `.isolate/\n` → `.isolate` | `create_jjignore_creates_jjignore_with_correct_content` |
-| `create_jjignore` error variant `JJIgnoreUpdateFailed` → `PermissionDenied` | `create_jjignore_returns_jjignoreupdatefailed_on_readonly_file` |
-| `create_jjignore` return `Ok(())` → `Err(...)` | `create_jjignore_is_idempotent` |
-| `create_jjignore` precondition check removed | `create_jjignore_returns_preconditionviolation_when_repo_root_empty` |
+| `create_gitignore` content `.hardline/\n` → `.hardline` | `create_gitignore_creates_gitignore_with_correct_content` |
+| `create_gitignore` error variant `GitIgnoreUpdateFailed` → `PermissionDenied` | `create_gitignore_returns_gitignoreupdatefailed_on_readonly_file` |
+| `create_gitignore` return `Ok(())` → `Err(...)` | `create_gitignore_is_idempotent` |
+| `create_gitignore` precondition check removed | `create_gitignore_returns_preconditionviolation_when_repo_root_empty` |
 
-### 7.5 JJ Hooks Mutations
+### 7.5 Git Hooks Mutations
 
 | Mutation | Test that catches it |
 |----------|---------------------|
-| `create_jj_hooks` file mode 0755 → 0644 | `create_jj_hooks_creates_precommit_hook_with_correct_content` |
-| `create_jj_hooks` content contains `Isolate_ACTIVE` → missing | `create_jj_hooks_creates_precommit_hook_with_correct_content` |
-| `create_jj_hooks` error variant `HooksCreateFailed` → `HooksPermissionsFailed` | `create_jj_hooks_returns_hooksc_createfailed_when_directory_not_writable` |
-| `create_jj_hooks` idempotency removed | `create_jj_hooks_is_idempotent` |
+| `create_git_hooks` file mode 0755 → 0644 | `create_git_hooks_creates_precommit_hook_with_correct_content` |
+| `create_git_hooks` content contains `Isolate_ACTIVE` → missing | `create_git_hooks_creates_precommit_hook_with_correct_content` |
+| `create_git_hooks` error variant `HooksCreateFailed` → `HooksPermissionsFailed` | `create_git_hooks_returns_hooksc_createfailed_when_directory_not_writable` |
+| `create_git_hooks` idempotency removed | `create_git_hooks_is_idempotent` |
 
 ### 7.6 File Creation Mutations
 
@@ -3845,11 +3845,11 @@ fn json_serialization_bounds() {
 |----------|---------------------|
 | `build_init_response` message "Repository initialized" → "Initialized" | `build_init_response_returns_correct_message_when_not_initialized` |
 | `build_init_response` message "Already initialized" → "Initialized" | `build_init_response_returns_correct_message_when_already_initialized` |
-| `build_init_response` paths.data_directory `.isolate/` → `.isolate` | `build_init_response_returns_correct_data_directory_path` |
-| `build_init_response` paths.config `.isolate/config.toml` → `.isolate/config` | `build_init_response_returns_correct_config_path` |
-| `build_init_response` paths.state_db `.isolate/state.db` → `.isolate/state` | `build_init_response_returns_correct_state_db_path` |
-| `build_init_response` paths.layouts `.isolate/layouts/` → `.isolate/layouts` | `build_init_response_returns_correct_layouts_path` |
-| `build_init_response` jj_initialized `true` → `false` | `build_init_response_returns_jj_initialized_true` |
+| `build_init_response` paths.data_directory `.hardline/` → `.hardline` | `build_init_response_returns_correct_data_directory_path` |
+| `build_init_response` paths.config `.hardline/config.toml` → `.hardline/config` | `build_init_response_returns_correct_config_path` |
+| `build_init_response` paths.state_db `.hardline/state.db` → `.hardline/state` | `build_init_response_returns_correct_state_db_path` |
+| `build_init_response` paths.layouts `.hardline/layouts/` → `.hardline/layouts` | `build_init_response_returns_correct_layouts_path` |
+| `build_init_response` git_initialized `true` → `false` | `build_init_response_returns_git_initialized_true` |
 | `build_init_response` already_initialized `false` → `true` | `build_init_response_returns_already_initialized_false` |
 | `build_init_response` already_initialized `true` → `false` | `build_init_response_returns_already_initialized_true` |
 
@@ -3867,7 +3867,7 @@ fn json_serialization_bounds() {
 
 | Mutation | Test that catches it |
 |----------|---------------------|
-| `run_with_cwd_and_options` .isolate/ not in cwd | `run_with_cwd_and_options_creates_isolate_in_specified_cwd` |
+| `run_with_cwd_and_options` .hardline/ not in cwd | `run_with_cwd_and_options_creates_hardline_in_specified_cwd` |
 | `run_with_cwd_and_options` config not in cwd | `run_with_cwd_and_options_config_contains_cwd_path` |
 | `run_with_cwd_and_options` CurrentDirFailed → not caught | `run_with_cwd_and_options_returns_currentdirfailed_when_cwd_not_accessible` |
 
@@ -3876,7 +3876,7 @@ fn json_serialization_bounds() {
 | Mutation | Test that catches it |
 |----------|---------------------|
 | `MissingDependencies display` → wrong message | `MissingDependencies_display_shows_message` |
-| `JJCommandFailed display` → missing stderr | `JJCommandFailed_display_shows_stderr` |
+| `GitCommandFailed display` → missing stderr | `GitCommandFailed_display_shows_stderr` |
 | `SymlinkAttackDetected display` → missing path | `SymlinkAttackDetected_display_shows_path` |
 | `PermissionDenied display` → missing operation | `PermissionDenied_display_shows_path_and_operation` |
 
@@ -3884,8 +3884,8 @@ fn json_serialization_bounds() {
 
 | Mutation | Test that catches it |
 |----------|---------------------|
-| `create_jjignore` not idempotent | `create_jjignore_is_idempotent` |
-| `create_jj_hooks` not idempotent | `create_jj_hooks_is_idempotent` |
+| `create_gitignore` not idempotent | `create_gitignore_is_idempotent` |
+| `create_git_hooks` not idempotent | `create_git_hooks_is_idempotent` |
 | `create_repo_ai_instructions` not idempotent | `create_repo_ai_instructions_is_idempotent` |
 | `create_agents_md` not idempotent | `create_agents_md_is_idempotent` |
 
@@ -3914,23 +3914,23 @@ fn json_serialization_bounds() {
 
 | Scenario | Input Class | Expected Output | Test Layer |
 |----------|-------------|-----------------|------------|
-| happy path | jj installed | Ok(()) | unit |
-| error: MissingDependencies | jj not installed | Err(MissingDependencies { missing: vec!["jj (Jujutsu)"] }) | unit |
-| boundary: is_jj_installed true | jj exists | true | unit |
-| boundary: is_jj_installed false | jj missing | false | unit |
+| happy path | git installed | Ok(()) | unit |
+| error: MissingDependencies | git not installed | Err(MissingDependencies { missing: vec!["git"] }) | unit |
+| boundary: is_git_installed true | git exists | true | unit |
+| boundary: is_git_installed false | git missing | false | unit |
 | invariant: deterministic | same env | same result | proptest |
 
-### 8.2 JJ Repository Coverage
+### 8.2 Git Repository Coverage
 
 | Scenario | Input Class | Expected Output | Test Layer |
 |----------|-------------|-----------------|------------|
-| happy path: repo exists | cwd/.jj/ exists | Ok(()) | integration |
-| happy path: init new | cwd/.jj/ missing | Ok(()) | integration |
-| error: JJInitFailed | jj git init fails | Err(JJInitFailed { stderr: "..." }) | integration |
-| error: JJRepoNotFound | cwd/.jj/ missing | Err(JJRepoNotFound) | integration |
-| error: JJNotInstalled | jj missing | Err(JJNotInstalled) | integration |
-| boundary: is_jj_repo true | cwd/.jj/ exists | Ok(true) | integration |
-| boundary: is_jj_repo false | cwd/.jj/ missing | Ok(false) | integration |
+| happy path: repo exists | cwd/.git/ exists | Ok(()) | integration |
+| happy path: init new | cwd/.git/ missing | Ok(()) | integration |
+| error: GitInitFailed | git init fails | Err(GitInitFailed { stderr: "..." }) | integration |
+| error: GitRepoNotFound | cwd/.git/ missing | Err(GitRepoNotFound) | integration |
+| error: GitNotInstalled | git missing | Err(GitNotInstalled) | integration |
+| boundary: is_git_repo true | cwd/.git/ exists | Ok(true) | integration |
+| boundary: is_git_repo false | cwd/.git/ missing | Ok(false) | integration |
 
 ### 8.3 InitLock Coverage
 
@@ -3945,19 +3945,19 @@ fn json_serialization_bounds() {
 | happy path: release idempotent | lock released | Ok(()) | unit |
 | invariant: drop releases | lock held | lock released | Kani |
 
-### 8.4 .jjignore Coverage
+### 8.4 .gitignore Coverage
 
 | Scenario | Input Class | Expected Output | Test Layer |
 |----------|-------------|-----------------|------------|
 | happy path | repo valid | Ok(()) | integration |
-| content: .isolate/\n | created | ".isolate/\n" | integration |
-| error: JJIgnoreUpdateFailed | file read-only | Err(JJIgnoreUpdateFailed { path, source }) | unit |
+| content: .hardline/\n | created | ".hardline/\n" | integration |
+| error: GitIgnoreUpdateFailed | file read-only | Err(GitIgnoreUpdateFailed { path, source }) | unit |
 | error: PermissionDenied | repo not writable | Err(PermissionDenied { path, operation }) | integration |
-| error: JJRepoNotFound | repo not JJ | Err(JJRepoNotFound) | integration |
+| error: GitRepoNotFound | repo not Git | Err(GitRepoNotFound) | integration |
 | error: PreconditionViolation | repo_root empty | Err(PreconditionViolation { expected, actual }) | unit |
 | idempotent | file exists | Ok(()) + unchanged content | integration |
 
-### 8.5 JJ Hooks Coverage
+### 8.5 Git Hooks Coverage
 
 | Scenario | Input Class | Expected Output | Test Layer |
 |----------|-------------|-----------------|------------|
@@ -3968,7 +3968,7 @@ fn json_serialization_bounds() {
 | error: HooksCreateFailed | directory read-only | Err(HooksCreateFailed { path, source }) | unit |
 | error: HooksPermissionsFailed | chmod fails | Err(HooksPermissionsFailed { path, source }) | unit |
 | error: PermissionDenied | repo not writable | Err(PermissionDenied { path, operation }) | integration |
-| error: JJRepoNotFound | repo not JJ | Err(JJRepoNotFound) | integration |
+| error: GitRepoNotFound | repo not Git | Err(GitRepoNotFound) | integration |
 | idempotent | exists | Ok(()) + unchanged | integration |
 
 ### 8.6 File Creation Coverage
@@ -4031,11 +4031,11 @@ fn json_serialization_bounds() {
 | message: not initialized | already_init = false | "Repository initialized" | unit |
 | message: already initialized | already_init = true | "Already initialized" | unit |
 | root: /tmp/test | root = PathBuf | "/tmp/test" | unit |
-| path: data_directory | any root | ".isolate/" | unit |
-| path: config | any root | ".isolate/config.toml" | unit |
-| path: state_db | any root | ".isolate/state.db" | unit |
-| path: layouts | any root | ".isolate/layouts/" | unit |
-| jj_initialized: true | any input | true | unit |
+| path: data_directory | any root | ".hardline/" | unit |
+| path: config | any root | ".hardline/config.toml" | unit |
+| path: state_db | any root | ".hardline/state.db" | unit |
+| path: layouts | any root | ".hardline/layouts/" | unit |
+| git_initialized: true | any input | true | unit |
 | already_initialized: false | false | false | unit |
 | already_initialized: true | true | true | unit |
 | boundary: empty path | root = PathBuf::new() | "/" | unit |
@@ -4047,13 +4047,13 @@ fn json_serialization_bounds() {
 | Scenario | Input Class | Expected Output | Test Layer |
 |----------|-------------|-----------------|------------|
 | happy path: run | all preconditions | Ok(()) | e2e |
-| happy path: already initialized | .isolate/ exists | Ok(()) | e2e |
+| happy path: already initialized | .hardline/ exists | Ok(()) | e2e |
 | error: CurrentDirFailed | current dir not accessible | Err(CurrentDirFailed) | e2e |
 | error: PreconditionViolation | not a Git repo | Err(PreconditionViolation { expected, actual }) | e2e |
 | happy path: run_with_options Human | format = Human | Ok(()) | e2e |
 | happy path: run_with_options Json | format = Json | Ok(()) | e2e |
 | error: OutputFormatInvalid | invalid format | Err(OutputFormatInvalid) | unit |
-| error: MissingDependencies | jj not installed | Err(MissingDependencies { missing }) | e2e |
+| error: MissingDependencies | git not installed | Err(MissingDependencies { missing }) | e2e |
 | dry_run: no files | dry_run = true | Ok(()) + no files | e2e |
 | dry_run: all files | dry_run = false | Ok(()) + 15 files | e2e |
 
@@ -4062,8 +4062,8 @@ fn json_serialization_bounds() {
 | Scenario | Input Class | Expected Output | Test Layer |
 |----------|-------------|-----------------|------------|
 | happy path: run_with_cwd | cwd valid | Ok(()) | e2e |
-| .isolate/ in cwd | created | cwd/.isolate/ exists | e2e |
-| config in cwd | created | cwd/.isolate/config.toml exists | e2e |
+| .hardline/ in cwd | created | cwd/.hardline/ exists | e2e |
+| config in cwd | created | cwd/.hardline/config.toml exists | e2e |
 | error: CurrentDirFailed | cwd not accessible | Err(CurrentDirFailed) | e2e |
 | error: PermissionDenied | cwd read-only | Err(PermissionDenied { path, operation }) | e2e |
 | error: PreconditionViolation | cwd not Git repo | Err(PreconditionViolation { expected, actual }) | e2e |
@@ -4072,8 +4072,8 @@ fn json_serialization_bounds() {
 
 | Scenario | Input Class | Expected Output | Test Layer |
 |----------|-------------|-----------------|------------|
-| display: MissingDependencies | err variant | "Missing dependencies: jj (Jujutsu)" | unit |
-| display: JJCommandFailed | err variant | "JJ command failed: <stderr>" | unit |
+| display: MissingDependencies | err variant | "Missing dependencies: git" | unit |
+| display: GitCommandFailed | err variant | "Git command failed: <stderr>" | unit |
 | display: SymlinkAttackDetected | err variant | "Symlink attack detected at: <path>" | unit |
 | display: PermissionDenied | err variant | "Permission denied: <path> (<operation>)" | unit |
 | display: CurrentDirFailed | err variant | "Failed to access current directory" | unit |
@@ -4086,7 +4086,7 @@ fn json_serialization_bounds() {
 
 | Scenario | Input Class | Expected Output | Test Layer |
 |----------|-------------|-----------------|------------|
-| idempotent: jjignore | file exists | unchanged content | integration |
+| idempotent: gitignore | file exists | unchanged content | integration |
 | idempotent: hooks | file exists | unchanged content | integration |
 | idempotent: ai_instructions | file exists | unchanged content | integration |
 | idempotent: agents_md | file exists | unchanged content | integration |
@@ -4121,10 +4121,10 @@ fn json_serialization_bounds() {
 | Scenario | Input Class | Expected Output | Test Layer |
 |----------|-------------|-----------------|------------|
 | serialize: valid JSON | response | valid JSON string | unit |
-| path: data_directory | response | "data_directory": ".isolate/" | unit |
-| path: config | response | "config": ".isolate/config.toml" | unit |
-| path: state_db | response | "state_db": ".isolate/state.db" | unit |
-| path: layouts | response | "layouts": ".isolate/layouts/" | unit |
+| path: data_directory | response | "data_directory": ".hardline/" | unit |
+| path: config | response | "config": ".hardline/config.toml" | unit |
+| path: state_db | response | "state_db": ".hardline/state.db" | unit |
+| path: layouts | response | "layouts": ".hardline/layouts/" | unit |
 
 ---
 
@@ -4201,10 +4201,10 @@ moon run :dylint
 - [x] Every parsing/deserialization boundary has a fuzz target (6 targets, all non-tautological)
 - [x] Every error variant in the Error enum has an explicit test scenario (29 variants)
   - MissingDependencies ✓ (BEHAVIOR 2, 65, 107, 109)
-  - JJNotInstalled ✓ (BEHAVIOR 11, 161)
-  - JJCommandFailed ✓ (BEHAVIOR 7, 151)
-  - JJRepoNotFound ✓ (BEHAVIOR 10, 34)
-  - JJInitFailed ✓ (BEHAVIOR 8, 163)
+  - GitNotInstalled ✓ (BEHAVIOR 11, 161)
+  - GitCommandFailed ✓ (BEHAVIOR 7, 151)
+  - GitRepoNotFound ✓ (BEHAVIOR 10, 34)
+  - GitInitFailed ✓ (BEHAVIOR 8, 163)
   - Io ✓ (BEHAVIOR 29, 152)
   - PermissionDenied ✓ (BEHAVIOR 104, 158)
   - SymlinkAttackDetected ✓ (BEHAVIOR 14, 66, 159)
@@ -4215,7 +4215,7 @@ moon run :dylint
   - LayoutsCreateFailed ✓ (BEHAVIOR 26, 47)
   - HooksCreateFailed ✓ (BEHAVIOR 32, 35)
   - HooksPermissionsFailed ✓ (BEHAVIOR 33)
-  - JJIgnoreUpdateFailed ✓ (BEHAVIOR 28)
+  - GitIgnoreUpdateFailed ✓ (BEHAVIOR 28)
   - AgentsMdCreateFailed ✓ (BEHAVIOR 38, 43)
   - ClaudeMdCreateFailed ✓ (BEHAVIOR 40, 44)
   - DocsCreateFailed ✓ (BEHAVIOR 44, 65)
@@ -4266,15 +4266,15 @@ moon run :dylint
 - **Asserts**: Exact variant structure with path and source fields
 - **Test name**: `fn configwritefailed_has_path_and_source_fields()`
 
-#### 11.1.5 `JJCommandFailed` error variant - wrong variant being tested
-- **Added**: BEHAVIOR 7 `ensure_jj_repo_with_cwd_returns_jjcommandfailed_when_jj_git_init_fails`
-- **Asserts**: `Err(InitError::JJCommandFailed { command: "jj git init".to_string(), stderr: "error: git init failed".to_string() })`
-- **Test name**: `fn ensure_jj_repo_with_cwd_returns_jjcommandfailed_when_jj_git_init_fails()`
+#### 11.1.5 `GitCommandFailed` error variant - wrong variant being tested
+- **Added**: BEHAVIOR 7 `ensure_git_repo_with_cwd_returns_gitcommandfailed_when_git_init_fails`
+- **Asserts**: `Err(InitError::GitCommandFailed { command: "git init".to_string(), stderr: "error: git init failed".to_string() })`
+- **Test name**: `fn ensure_git_repo_with_cwd_returns_gitcommandfailed_when_git_init_fails()`
 
 #### 11.1.6 `Io` error variant has no test
-- **Added**: BEHAVIOR 29 `create_jjignore_returns_io_error_with_context_when_io_fails`
-- **Asserts**: `Err(InitError::Io { source: std::io::Error::from_raw_os_error(28), context: "writing .jjignore".to_string() })`
-- **Test name**: `fn create_jjignore_returns_io_error_with_context_when_io_fails()`
+- **Added**: BEHAVIOR 29 `create_gitignore_returns_io_error_with_context_when_io_fails`
+- **Asserts**: `Err(InitError::Io { source: std::io::Error::from_raw_os_error(28), context: "writing .gitignore".to_string() })`
+- **Test name**: `fn create_gitignore_returns_io_error_with_context_when_io_fails()`
 
 #### 11.1.7 `JsonSerializationFailed` error variant has no test
 - **Added**: BEHAVIOR 95 `run_with_options_returns_jsonserializationfailed_when_serialization_fails`
@@ -4290,7 +4290,7 @@ moon run :dylint
 
 #### 11.2.1 BEHAVIOR 126: JSON serialization uses vague assertion
 - **Before**: "serializes to valid JSON with all fields"
-- **Fixed**: `Then: Result is Ok("{\"message\":\"Repository initialized\",\"root\":\"/tmp/test\",\"paths\":{\"data_directory\":\".isolate/\",\"config\":\".isolate/config.toml\",\"state_db\":\".isolate/state.db\",\"layouts\":\".isolate/layouts/\"},\"jj_initialized\":true,\"already_initialized\":false})\"`
+- **Fixed**: `Then: Result is Ok("{\"message\":\"Repository initialized\",\"root\":\"/tmp/test\",\"paths\":{\"data_directory\":\".hardline/\",\"config\":\".hardline/config.toml\",\"state_db\":\".hardline/state.db\",\"layouts\":\".hardline/layouts/\"},\"git_initialized\":true,\"already_initialized\":false})\"`
 - **Test name**: `fn json_mode_serializes_to_valid_json_with_all_fields()`
 
 #### 11.2.2 BEHAVIOR 127: JSON paths assertion is vague
@@ -4314,15 +4314,15 @@ moon run :dylint
 
 ### 11.3 BOUNDARY TESTS TO ADD
 
-#### 11.3.1 `json_mode: true` for `ensure_jj_repo_with_cwd`
+#### 11.3.1 `json_mode: true` for `ensure_git_repo_with_cwd`
 - **Added**: BEHAVIOR 143 `json_mode_creates_git_repo_when_json_mode_true`
 - **Asserts**: `.git` directory created when `json_mode=true`
 - **Test name**: `fn json_mode_creates_git_repo_when_json_mode_true()`
 
-#### 11.3.2 Empty path for `create_jj_hooks`
-- **Added**: BEHAVIOR 34 `create_jj_hooks_returns_preconditionviolation_when_repo_root_empty`
-- **Asserts**: `Err(InitError::PreconditionViolation { expected: "repo_root cannot be empty", actual: "", context: "create_jj_hooks" })`
-- **Test name**: `fn create_jj_hooks_returns_preconditionviolation_when_repo_root_empty()`
+#### 11.3.2 Empty path for `create_git_hooks`
+- **Added**: BEHAVIOR 34 `create_git_hooks_returns_preconditionviolation_when_repo_root_empty`
+- **Asserts**: `Err(InitError::PreconditionViolation { expected: "repo_root cannot be empty", actual: "", context: "create_git_hooks" })`
+- **Test name**: `fn create_git_hooks_returns_preconditionviolation_when_repo_root_empty()`
 
 #### 11.3.3 Path with `.` component for `build_init_response`
 - **Added**: BEHAVIOR 122 `build_init_response_normalizes_paths_with_dot_component`
@@ -4331,7 +4331,7 @@ moon run :dylint
 
 #### 11.3.4 `cwd = None` for `run_with_cwd_and_options`
 - **Added**: BEHAVIOR 105 `run_with_cwd_and_options_uses_current_directory_when_cwd_none`
-- **Asserts**: `.isolate/` created in current directory
+- **Asserts**: `.hardline/` created in current directory
 - **Test name**: `fn run_with_cwd_and_options_uses_current_directory_when_cwd_none()`
 
 ### 11.4 TROPHY ALLOCATION FIXES
@@ -4345,7 +4345,7 @@ moon run :dylint
 
 #### 11.4.2 Add missing proptest invariants
 - **Added**: `check_dependencies()` determinism invariant (INVARIANT 4.5)
-- **Added**: `is_jj_repo_with_cwd()` determinism invariant (INVARIANT 4.6)
+- **Added**: `is_git_repo_with_cwd()` determinism invariant (INVARIANT 4.6)
 - **Added**: `InitPaths` construction invariants (INVARIANT 4.7)
 - **Added**: JSON serialization invariants (INVARIANT 4.8)
 
@@ -4353,10 +4353,10 @@ moon run :dylint
 
 Verify all 29 error variants have tests:
 1. MissingDependencies ✓ (BEHAVIOR 2, 65, 107, 109)
-2. JJNotInstalled ✓ (BEHAVIOR 11, 161)
-3. JJCommandFailed ✓ (BEHAVIOR 7, 151)
-4. JJRepoNotFound ✓ (BEHAVIOR 10, 34)
-5. JJInitFailed ✓ (BEHAVIOR 8, 163)
+2. GitNotInstalled ✓ (BEHAVIOR 11, 161)
+3. GitCommandFailed ✓ (BEHAVIOR 7, 151)
+4. GitRepoNotFound ✓ (BEHAVIOR 10, 34)
+5. GitInitFailed ✓ (BEHAVIOR 8, 163)
 6. Io ✓ (BEHAVIOR 29, 152)
 7. PermissionDenied ✓ (BEHAVIOR 104, 158)
 8. SymlinkAttackDetected ✓ (BEHAVIOR 14, 66, 159)
@@ -4367,7 +4367,7 @@ Verify all 29 error variants have tests:
 13. LayoutsCreateFailed ✓ (BEHAVIOR 26, 47)
 14. HooksCreateFailed ✓ (BEHAVIOR 32, 35)
 15. HooksPermissionsFailed ✓ (BEHAVIOR 33)
-16. JJIgnoreUpdateFailed ✓ (BEHAVIOR 28)
+16. GitIgnoreUpdateFailed ✓ (BEHAVIOR 28)
 17. AgentsMdCreateFailed ✓ (BEHAVIOR 38, 43)
 18. ClaudeMdCreateFailed ✓ (BEHAVIOR 40, 44)
 19. DocsCreateFailed ✓ (BEHAVIOR 44, 65)

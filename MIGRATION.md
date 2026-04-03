@@ -15,7 +15,7 @@ This document provides a comprehensive migration plan for the SCP (Source Contro
 | Component | Location | Status |
 |-----------|----------|--------|
 | SCP Core | `/home/lewis/src/scp/crates/` | 10 crates: core, vcs, cli, orchestrator, twins, scenarios, beads, workspace, queue |
-| External: isolate | `/home/lewis/src/isolate/` | 5 crates: isolate-core, twins, scenarios, orchestrator, isolate |
+| External: hardline | `/home/lewis/src/hardline/` | 5 crates: hardline-core, twins, scenarios, orchestrator, hardline |
 | External: stak | `/home/lewis/src/stak/` | 2 crates: stak-core, stak |
 | External: stax | `/home/lewis/src/stax/` | TUI, GitHub integration, snapshots |
 
@@ -177,13 +177,13 @@ cargo clippy --workspace -- -D warnings
 
 ## Phase 2: Consolidate Crates (Week 2)
 
-**Objective:** Migrate isolate and stak projects into SCP workspace
+**Objective:** Migrate hardline and stak projects into SCP workspace
 
-### 2.1 Migrate isolate-core → crates/session
+### 2.1 Migrate hardline-core → crates/session
 
 | Aspect | Details |
 |--------|---------|
-| Source | `/home/lewis/src/isolate/crates/isolate-core/` |
+| Source | `/home/lewis/src/hardline/crates/hardline-core/` |
 | Target | `/home/lewis/src/scp/crates/session/` |
 
 **Files to create:**
@@ -1293,7 +1293,7 @@ crossterm = "0.28"    # Terminal
 ## References
 
 - Architecture Specification: `architecture-spec.md`
-- Session Domain: `/home/lewis/src/isolate/crates/isolate-core/`
+- Session Domain: `/home/lewis/src/hardline/crates/hardline-core/`
 - Queue Domain: `/home/lewis/src/stak/crates/stak-core/`
 - Stack/TUI/Snapshot: `/home/lewis/src/stax/src/`
 - Reference: triagebot, effectum, git-stack (see architecture-spec.md)

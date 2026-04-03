@@ -152,7 +152,7 @@ skip = [
     { crate = "foldhash", reason = "transitive dependency conflict between hashbrown versions" },
     { crate = "getrandom", reason = "required by multiple crates with different feature requirements" },
     { crate = "hashbrown", reason = "transitive dependency conflict between gix and sqlx" },
-    { crate = "itertools", reason = "transitive dependency conflict between jj-lib and scp-core" },
+    { crate = "itertools", reason = "transitive dependency conflict between gix and scp-core" },
     { crate = "linux-raw-sys", reason = "transitive dependency conflict between rustix versions" },
     { crate = "mio", reason = "transitive dependency conflict between tokio and notify versions" },
     { crate = "r-efi", reason = "transitive dependency conflict between getrandom versions" },

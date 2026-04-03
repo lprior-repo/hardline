@@ -1,6 +1,6 @@
 //! KIRK Contracts for Config CLI operations.
 //!
-//! Config manages isolate configuration settings.
+//! Config manages hardline configuration settings.
 
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
@@ -425,7 +425,7 @@ mod tests {
                 value: "10".to_string(),
                 source: "global".to_string(),
             }],
-            config_files: vec![PathBuf::from("/etc/isolate/config.toml")],
+            config_files: vec![PathBuf::from("/etc/hardline/config.toml")],
         };
         assert!(ConfigContracts::postconditions(&input, &result).is_ok());
     }

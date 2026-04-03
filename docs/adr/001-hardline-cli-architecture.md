@@ -12,7 +12,7 @@ Hardline is a unified CLI for workspace isolation and source control, designed f
 1. AI agents as primary users (JSON-first)
 2. Human developers as secondary (human-optimized output)
 3. Full workspace isolation (not git worktrees - full clones)
-4. Using JJ as the primary VCS with 1:1 git translation
+4. Using Git as the VCS with full clone workspace isolation
 
 ---
 
@@ -24,13 +24,12 @@ Hardline is a unified CLI for workspace isolation and source control, designed f
 
 **Rationale:**
 - Predictable behavior across environments
-- No dependency on git/jj binaries being installed
+- No dependency on git binary being installed
 - Full control over error handling
 - Better for AI agents (no unexpected shell behavior)
 
 **Libraries:**
-- `jj-lib` - Jujutsu's native library (primary VCS)
-- `gix` (gitoxide) - Pure Rust git for git-specific operations
+- `gix` (gitoxide) - Pure Rust Git implementation (primary VCS)
 
 ---
 
@@ -64,27 +63,27 @@ enum OutputMode {
 
 ---
 
-### 3. Full Workspace Isolation via JJ
+### 3. Full Workspace Isolation via Git Clones
 
-**Decision:** Workspaces use JJ's workspace concept for true isolation.
+**Decision:** Workspaces use full Git clones for true isolation.
 
 **Model:**
 ```
 Repository
-├── .scp/                    # Hardline metadata
+├── .hardline/              # Hardline metadata
 │   ├── state.db            # SQLite database
 │   └── workspaces/         # Workspace storage
-│       ├── feature-x/     # Full isolated copy
-│       └── bug-fix/        # Another workspace
-└── .jj/                    # JJ store (shared)
+│       ├── feature-x/     # Full isolated Git clone
+│       └── bug-fix/        # Another full Git clone
+└── .git/                   # Git repository
 ```
 
-**JJ Features Used:**
-- Workspaces (isolated working copies)
-- Bookmarks (JJ's branches, 1:1 with git)
-- Operation log (undo/redo/rollback)
+**Git Features Used:**
+- Full clones (isolated working copies, independent .git directories)
+- Branches (standard Git branches per workspace)
+- Reflogs (undo/rollback capability)
 - Rebase and merge
-- Git sync (push/fetch to git remotes)
+- Remote sync (push/fetch)
 
 ---
 
@@ -95,11 +94,11 @@ Repository
 | Category | Commands | Description |
 |----------|----------|-------------|
 | **Core** | `init`, `status`, `context`, `whereami`, `doctor` | Basic operations |
-| **Workspace** | `spawn`, `switch`, `list`, `forget`, `update-stale` | JJ workspace management |
-| **Branch** | `list`, `create`, `delete`, `set` | Bookmark management (JJ's branches) |
-| **Commit** | `commit <message>` | Gathers ALL commits and commits (JJ-style) |
+| **Workspace** | `spawn`, `switch`, `list`, `forget`, `update-stale` | Workspace management via full clones |
+| **Branch** | `list`, `create`, `delete`, `set` | Branch management |
+| **Commit** | `commit <message>` | Gathers ALL changes and commits automatically |
 | **Sync** | `fetch`, `push`, `pull` | Git remote sync |
-| **Operation** | `checkpoint <name>`, `undo`, `revert <name>`, `log` | Snapshot/rollback via JJ op log |
+| **Operation** | `checkpoint <name>`, `undo`, `revert <name>`, `log` | Snapshot/rollback via Git reflogs |
 | **Queue** | `list`, `enqueue`, `dequeue`, `process` | Merge queue for workspaces |
 | **Agent** | `create`, `list`, `kill`, `status`, `register`, `heartbeat` | Multi-agent awareness |
 | **Maintenance** | `integrity`, `clean`, `prune-invalid`, `query`, `validate`, `whatif` | System health |
@@ -115,18 +114,18 @@ Repository
 
 ---
 
-### 5. Commit Command (JJ-Style)
+### 5. Commit Command
 
 **Decision:** `commit` gathers ALL changes and commits automatically.
 
 **Behavior:**
 ```bash
-# JJ-style: commits everything automatically
+# Commits everything automatically
 hardline commit "Fix bug in auth"
 
 # Equivalent to:
-# 1. jj status (get all changes)
-# 2. jj new敛 commit (create commit with all changes)
+# 1. git status (get all changes)
+# 2. git add . && git commit -m "Fix bug in auth"
 # 3. Automatically handles conflict markers, empty commits, etc.
 ```
 
@@ -134,7 +133,7 @@ hardline commit "Fix bug in auth"
 
 ### 6. Operation/Checkpoint System
 
-**Decision:** Use JJ's operation log for snapshot/rollback.
+**Decision:** Use Git reflogs and snapshots for snapshot/rollback.
 
 **Commands:**
 ```bash
@@ -144,10 +143,10 @@ hardline operation revert <name>     # Revert to named checkpoint
 hardline operation log              # Show operation history
 ```
 
-**Implementation:** Maps to JJ's operation commands:
-- `checkpoint` → `jj snapshot` (if available) or bookmark current state
-- `undo` → `jj op undo`
-- `revert` → `jj op restore <operation_id>`
+**Implementation:** Uses Git reflogs and branch snapshots:
+- `checkpoint` → Create branch/tag snapshot of current state
+- `undo` → `git reset` to previous state
+- `revert` → `git checkout` to named checkpoint
 
 ---
 
@@ -182,7 +181,7 @@ hardline agent heartbeat        # Send heartbeat
 ## Command Reference
 
 ```
-hardline init [--vcs git|jj]     Initialize repository
+hardline init [--vcs git]       Initialize repository (Git only)
 hardline status [--short]       Show status
 hardline context                Show environment context
 hardline whereami               Show current location
@@ -237,17 +236,17 @@ hardline whatif <command>           Dry run
 ### Positive
 - Clean, minimal command set (~30 commands)
 - AI-first (JSON default) but human-usable (-ho flag)
-- True isolation via JJ workspaces
-- Snapshot/rollback via JJ operation log
+- True isolation via full Git clone workspaces
+- Snapshot/rollback via Git reflogs and checkpoints
 - Queue for ordered merging
 
 ### Negative
-- JJ is the primary VCS (git is secondary/translated)
-- Requires jj-lib integration (not shelling out to jj binary)
+- Git is the only VCS backend (via gitoxide, no shelling out)
+- Pure Rust implementation required for WASM compatibility
 
 ### Risks
-- jj-lib API stability (mitigate: version pinning)
-- Migration path for git-only users
+- gitoxide API stability (mitigate: version pinning)
+- Migration path for users switching from other tools
 
 ---
 
@@ -261,9 +260,9 @@ hardline whatif <command>           Dry run
 
 ## Notes
 
-- VCS: JJ primary, git translated 1:1
-- Workspaces: JJ workspace concept
-- Checkpoints: JJ operation log snapshots
+- VCS: Git-only via gitoxide (pure Rust)
+- Workspaces: Full Git clone isolation
+- Checkpoints: Git reflog-based snapshots
 - Queue: Ordered merge of workspaces to main
 - Output: JSON default, `-ho` for human
 - Workflow: Event-sourced saga pattern for durable execution
@@ -274,7 +273,7 @@ hardline whatif <command>           Dry run
 
 **Date:** 2026-03-20  
 **Status:** Proposed  
-**Existing Implementations:** Isolate, Seshat
+**Existing Implementations:** Hardline (prior codebase), Seshat
 
 ---
 
@@ -293,15 +292,15 @@ This mirrors Temporal/Restate's durable execution model.
 
 ### Existing Implementations to Port
 
-**From Isolate (`/home/lewis/src/isolate`):**
+**From Hardline (prior codebase):**
 
 | Pattern | File | Description |
 |---------|------|-------------|
-| Domain Events | `crates/isolate-core/src/domain/events.rs` | DDD event sourcing |
+| Domain Events | `crates/hardline-core/src/domain/events.rs` | DDD event sourcing |
 | Saga Plan | `durable_tasks.jsonl` | 5-task plan for durable execution |
-| Compensation | `crates/isolate/src/commands/add/atomic.rs` | Two-phase rollback |
+| Compensation | `crates/hardline/src/commands/add/atomic.rs` | Two-phase rollback |
 | Event Locks | `sql_schemas/05_event_store_locks.sql` | Distributed locking |
-| Recovery | `crates/isolate-core/src/recovery.rs` | Multiple recovery policies |
+| Recovery | `crates/hardline-core/src/recovery.rs` | Multiple recovery policies |
 | Pipeline State | `crates/orchestrator/src/state.rs` | PipelineState machine |
 | Pipeline Persistence | `crates/orchestrator/src/persistence.rs` | JSON file persistence |
 | Pipeline Recovery | `crates/orchestrator/src/phases.rs` | `recover_pipeline()` |
@@ -323,7 +322,7 @@ This mirrors Temporal/Restate's durable execution model.
 
 ### Decision
 
-**Port existing implementations from isolate and seshat, then extend for hardline.**
+**Port existing implementations from hardline (prior codebase) and seshat, then extend.**
 
 ---
 
@@ -332,7 +331,7 @@ This mirrors Temporal/Restate's durable execution model.
 Every operation is logged BEFORE execution:
 
 ```rust
-// Event structure (from isolate events.rs)
+// Event structure (from prior hardline codebase)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "event_type", content = "data")]
 pub enum DomainEvent {
@@ -351,7 +350,7 @@ struct EventLog {
 
 ---
 
-### Saga Pattern (from isolate atomic.rs)
+### Saga Pattern (from hardline prior codebase atomic.rs)
 
 Multi-step workflows with compensation:
 
@@ -426,7 +425,7 @@ pub struct StepRecord {
 
 ---
 
-### Recovery (from isolate recovery.rs)
+### Recovery (from hardline prior codebase recovery.rs)
 
 On startup, scan for incomplete workflows:
 
@@ -472,4 +471,4 @@ hardline workflow log <id>             # Show event log for workflow
 - Event log enables debugging and audit trail
 - Compensation allows safe rollback
 - Similar to Temporal/Restate but self-hosted
-- **Existing implementations in isolate/seshat provide foundation**
+- **Existing implementations in hardline prior codebase/seshat provide foundation**

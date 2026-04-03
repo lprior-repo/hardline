@@ -1216,51 +1216,31 @@ use scp_vcs::gix;
 pub fn fetch(remote: Option<&str>, prune: bool, tags: bool, all: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+    let repo = gix::repository::open(&cwd)
+        .map_err(|e| Error::Vcs(format!("Failed to open repo: {}", e)))?;
 
-    match vcs_type {
-        scp_core::vcs::VcsType::Git => {
-            let repo = gix::repository::open(&cwd)
-                .map_err(|e| Error::Vcs(format!("Failed to open repo: {}", e)))?;
+    let updated = gix::remote::fetch(&repo, remote, prune, tags, all)
+        .map_err(|e| Error::Vcs(format!("Fetch failed: {}", e)))?;
 
-            let updated = gix::remote::fetch(&repo, remote, prune, tags, all)
-                .map_err(|e| Error::Vcs(format!("Fetch failed: {}", e)))?;
-
-            if !updated.is_empty() {
-                Output::success("Fetched from remote(s)");
-            } else {
-                Output::info("Already up to date");
-            }
-            Ok(())
-        }
-        scp_core::vcs::VcsType::Jujutsu => {
-            // Keep jj for jujutsu - use CLI for now
-            // TODO: migrate jj to jj-lib
-            Err(Error::Vcs("Jujutsu not yet supported".into()))
-        }
+    if !updated.is_empty() {
+        Output::success("Fetched from remote(s)");
+    } else {
+        Output::info("Already up to date");
     }
+    Ok(())
 }
 
 pub fn pull() -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+    let repo = gix::repository::open(&cwd)
+        .map_err(|e| Error::Vcs(format!("Failed to open repo: {}", e)))?;
 
-    match vcs_type {
-        scp_core::vcs::VcsType::Git => {
-            let repo = gix::repository::open(&cwd)
-                .map_err(|e| Error::Vcs(format!("Failed to open repo: {}", e)))?;
+    gix::remote::pull(&repo, Some("origin"), false)
+        .map_err(|e| Error::VcsPullFailed(e.to_string()))?;
 
-            gix::remote::pull(&repo, Some("origin"), false)
-                .map_err(|e| Error::VcsPullFailed(e.to_string()))?;
-
-            Output::success("Pulled from remote");
-            Ok(())
-        }
-        scp_core::vcs::VcsType::Jujutsu => {
-            Err(Error::Vcs("Jujutsu not yet supported".into()))
-        }
-    }
+    Output::success("Pulled from remote");
+    Ok(())
 }
 
 pub fn push(
@@ -1274,23 +1254,14 @@ pub fn push(
 ) -> Result<()> {
     let cwd = std::env::current_dir().map_err(Error::Io)?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::VcsNotInitialized)?;
+    let repo = gix::repository::open(&cwd)
+        .map_err(|e| Error::Vcs(format!("Failed to open repo: {}", e)))?;
 
-    match vcs_type {
-        scp_core::vcs::VcsType::Git => {
-            let repo = gix::repository::open(&cwd)
-                .map_err(|e| Error::Vcs(format!("Failed to open repo: {}", e)))?;
+    gix::remote::push(&repo, remote, branch, force, tags, delete)
+        .map_err(|e| Error::VcsPushFailed(e.to_string()))?;
 
-            gix::remote::push(&repo, remote, branch, force, tags, delete)
-                .map_err(|e| Error::VcsPushFailed(e.to_string()))?;
-
-            Output::success(&format!("Pushed to {}", remote));
-            Ok(())
-        }
-        scp_core::vcs::VcsType::Jujutsu => {
-            Err(Error::Vcs("Jujutsu not yet supported".into()))
-        }
-    }
+    Output::success(&format!("Pushed to {}", remote));
+    Ok(())
 }
 ```
 

@@ -477,7 +477,7 @@ mod tests {
 
         let env = HookEnv {
             event: HookEvent::PreCommit,
-            vcs_type: "jj".to_string(),
+            vcs_type: "git".to_string(),
             ..Default::default()
         };
 
@@ -491,7 +491,7 @@ mod tests {
             event: HookEvent::PreCommit,
             workspace: Some("test-workspace".to_string()),
             branch: Some("main".to_string()),
-            vcs_type: "jj".to_string(),
+            vcs_type: "git".to_string(),
             repo_path: Some(PathBuf::from("/repo")),
             target: None,
         };
@@ -501,7 +501,7 @@ mod tests {
             env_map.get("SCP_HOOK_EVENT"),
             Some(&"pre-commit".to_string())
         );
-        assert_eq!(env_map.get("SCP_HOOK_VCS"), Some(&"jj".to_string()));
+        assert_eq!(env_map.get("SCP_HOOK_VCS"), Some(&"git".to_string()));
         assert_eq!(
             env_map.get("SCP_HOOK_WORKSPACE"),
             Some(&"test-workspace".to_string())
@@ -745,7 +745,7 @@ mod tests {
     fn hook_env_to_env_with_target() {
         let env = HookEnv {
             event: HookEvent::PrePush,
-            vcs_type: "jj".to_string(),
+            vcs_type: "git".to_string(),
             target: Some("origin".to_string()),
             ..Default::default()
         };

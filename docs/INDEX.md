@@ -50,7 +50,7 @@ All Hardline documentation in one place, token-efficient and searchable.
 | **06** | [COMBINATORS](06_COMBINATORS.md) | Complete combinator reference | Reference |
 | **07** | [TESTING](07_TESTING.md) | Testing without panics | 15 min |
 | **08** | [BEADS](08_BEADS.md) | Issue tracking, triage, graph metrics | 25 min |
-| **09** | *(removed — JJ rip-out)* | — | — |
+| **09** | *(removed — VCS abstraction layer)* | — | — |
 | **10** | [MOON CICD INDEXED](10_MOON_CICD_INDEXED.md) | Complete moon task catalog (indexed) | Reference |
 | **11** | [ZELLIJ](11_ZELLIJ.md) | Terminal multiplexing, layouts, tab management | 25 min |
 

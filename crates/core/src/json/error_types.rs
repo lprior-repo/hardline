@@ -631,13 +631,13 @@ mod tests {
 
     #[test]
     fn test_error_detail_from_vcs_init_failed() {
-        let err = crate::error::Error::vcs_init_failed("jj", "/tmp/test", "not found");
+        let err = crate::error::Error::vcs_init_failed("git", "/tmp/test", "not found");
         let detail = ErrorDetail::from_error(&err);
         assert_eq!(detail.code, "VCS_INIT_FAILED");
         assert!(detail.exit_code > 0);
         assert!(detail.details.is_some());
         let ctx = detail.details.unwrap();
-        assert_eq!(ctx["vcs_type"], "jj");
+        assert_eq!(ctx["vcs_type"], "git");
         assert_eq!(ctx["directory"], "/tmp/test");
         assert_eq!(ctx["reason"], "not found");
     }

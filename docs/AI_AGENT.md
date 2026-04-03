@@ -236,11 +236,11 @@ Each autonomous agent follows this pipeline:
 |------|------|----------------|--------|
 | 1 | TRIAGE | `bv --robot-triage --robot-triage-by-track` | Parallel execution tracks |
 | 2 | CLAIM | `br update <bead-id> --status in_progress` | Reserve bead |
-| 3 | ISOLATE | Skill: `isolate` | Spawn isolated Git workspace + Zellij tab |
+| 3 | ISOLATE | `hardline work <name>` | Spawn isolated Git workspace + Zellij tab |
 | 4 | IMPLEMENT | Skill: `functional-rust-generator` (Rust) or `tdd15-gleam` (Gleam) | ZERO unwrap/expect/panic, Railway-Oriented Programming |
 | 5 | REVIEW | Skill: `red-queen` | Adversarial QA, regression hunting |
 | 6 | LAND | Skill: `landing-skill` | Moon quick check, commit, sync, push (MANDATORY) |
-| 7 | MERGE | Skill: `isolate` | git rebase main, cleanup, tab switch |
+| 7 | MERGE | `hardline done` | git rebase main, cleanup, tab switch |
 
 ---
 
@@ -519,7 +519,7 @@ Load these skills for specialized tasks:
 | `tdd15-gleam` | 15-phase TDD workflow for Gleam | Gleam implementation |
 | `red-queen` | Adversarial evolutionary QA, regression hunting | Code review/testing |
 | `landing-skill` | Session completion with quality gates, sync, push | **Before ending session** |
-| `isolate` | Workspace isolation and management | Workspace operations |
+| `hardline work/done` | Workspace isolation and management | Workspace operations |
 | `coding-rigor` | TDD-first development, clean boundaries | Code design |
 | `rust-contract` | Design-by-contract, test planning | Planning Rust features |
 

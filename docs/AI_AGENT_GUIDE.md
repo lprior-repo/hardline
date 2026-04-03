@@ -162,11 +162,11 @@ Each autonomous agent follows this pipeline:
 ```jsonl
 {"step": "1", "name": "TRIAGE", "cmd": "bv --robot-triage --robot-triage-by-track", "output": "Parallel execution tracks", "tool": "bv"}
 {"step": "2", "name": "CLAIM", "cmd": "br update <bead-id> --status in_progress", "output": "Reserve bead", "tool": "br"}
-{"step": "3", "name": "ISOLATE", "skill": "isolate", "output": "Spawn isolated Git workspace + Zellij tab", "tool": "Skill tool"}
+{"step": "3", "name": "ISOLATE", "cmd": "hardline work <name>", "output": "Spawn isolated Git workspace + Zellij tab", "tool": "hardline"}
 {"step": "4", "name": "IMPLEMENT", "skill": "functional-rust-generator (Rust) | tdd15-gleam (Gleam)", "output": "ZERO unwrap/expect/panic, Railway-Oriented Programming", "tool": "Skill tool"}
 {"step": "5", "name": "REVIEW", "skill": "red-queen", "output": "Adversarial QA, regression hunting", "tool": "Skill tool"}
 {"step": "6", "name": "LAND", "skill": "landing-skill", "output": "Moon quick check, commit, sync, push (MANDATORY)", "tool": "Skill tool"}
-{"step": "7", "name": "MERGE", "skill": "isolate", "output": "git rebase main, cleanup, tab switch", "tool": "Skill tool"}
+{"step": "7", "name": "MERGE", "cmd": "hardline done", "output": "git rebase main, cleanup, tab switch", "tool": "hardline"}
 ```
 
 ### Subagent Template
@@ -424,7 +424,7 @@ Load these skills for specialized tasks:
 | `tdd15-gleam` | 15-phase TDD workflow for Gleam | Gleam implementation |
 | `red-queen` | Adversarial evolutionary QA, regression hunting | Code review/testing |
 | `landing-skill` | Session completion with quality gates, sync, push | **Before ending session** |
-| `isolate` | Workspace isolation and management | Workspace operations |
+| `hardline work/done` | Workspace isolation and management | Workspace operations |
 | `coding-rigor` | TDD-first development, clean boundaries | Code design |
 | `rust-contract` | Design-by-contract, test planning | Planning Rust features |
 

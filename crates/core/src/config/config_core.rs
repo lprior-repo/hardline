@@ -514,7 +514,7 @@ impl ConfigManager {
 
         // Validate VCS type
         if let Some(vcs) = config.get(keys::VCS_TYPE) {
-            if vcs != "jj" && vcs != "git" {
+            if vcs != "git" {
                 errors.push(format!("Invalid VCS type: {}", vcs));
             }
         }
@@ -770,13 +770,13 @@ mod tests {
     #[test]
     fn substitute_placeholders_preserves_non_placeholder_values() {
         let mut config = Config::new();
-        config.set("vcs.type", "jj");
+        config.set("vcs.type", "git");
         config.set("logging.level", "debug");
 
         let result = substitute_placeholders(&mut config);
         assert!(result.is_ok());
 
-        assert_eq!(config.get("vcs.type"), Some(&"jj".to_string()));
+        assert_eq!(config.get("vcs.type"), Some(&"git".to_string()));
         assert_eq!(config.get("logging.level"), Some(&"debug".to_string()));
     }
 

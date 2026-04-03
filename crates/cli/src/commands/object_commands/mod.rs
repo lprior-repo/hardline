@@ -2,7 +2,7 @@
 //! Object-based CLI command type system
 //!
 //! This module defines the new object-based command structure following
-//! the pattern: `isolate <object> <action>`
+//! the pattern: `hardline <object> <action>`
 //!
 //! Objects are nouns (Task, Session, Agent, etc.) and actions are verbs.
 

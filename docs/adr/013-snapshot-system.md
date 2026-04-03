@@ -416,7 +416,7 @@ pub struct SnapshotFilter {
 ```
 
 **Chosen because:**
-- Works with both Git and JJ
+- Works with Git
 - Simple to implement and debug
 - No special VCS knowledge needed
 
@@ -429,17 +429,17 @@ pub struct SnapshotFilter {
 
 **Rejected because:**
 - Doesn't capture uncommitted changes
-- Complex for JJ
+- Complex for non-ref-based workflows
 
 ### Variant C: VCS-native Snapshot
 
 ```rust
-// Use git stash or jj snapshot
-// Problem: VCS-specific, not unified
+// Use git stash or similar VCS-native mechanism
+// Problem: VCS-specific, not portable
 ```
 
 **Rejected because:**
-- Different implementation for Git vs JJ
+- VCS-specific implementation details
 - Need unified abstraction
 
 ---

@@ -8,7 +8,7 @@ updated_at: 2026-03-30T12:30:00Z
 # Implementation Summary: hl-1p0
 
 ## Scope
-Fix 3 failing test files (4 tests total) that used isolate-style flat error matching instead of hardline's layered `Error::Lock(LockError(LockErrorKind::...))` pattern.
+Fix 3 failing test files (4 tests total) that used flat error matching instead of hardline's layered `Error::Lock(LockError(LockErrorKind::...))` pattern.
 
 ## Files Changed
 

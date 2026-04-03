@@ -28,9 +28,9 @@ done; wait
 **Actual Results:**
 - 1 command: "lock in progress" (correct)
 - 2 commands: "lock in progress" (correct)  
-- 2 commands: "Failed to init jj: error: unrecognized subcommand 'init'" (incorrect error propagation)
+- 2 commands: "Failed to init git: error: unrecognized subcommand 'init'" (incorrect error propagation)
 
-**Defect Found:** The lock mechanism correctly prevents concurrent access, but error messages from later processes are misleading. One process succeeds in acquiring the lock but fails on JJ initialization, then subsequent processes see the lock still held.
+**Defect Found:** The lock mechanism correctly prevents concurrent access, but error messages from later processes are misleading. One process succeeds in acquiring the lock but fails on Git initialization, then subsequent processes see the lock still held.
 
 ---
 
@@ -42,7 +42,7 @@ done; wait
 ```bash
 cd "/tmp/test_unicode_测试_123" && /home/lewis/src/hardline/target/debug/scp-cli init --format json
 ```
-**Result:** Error message displayed correctly, but JJ initialization fails (unrelated to path handling)
+**Result:** Error message displayed correctly, but Git initialization fails (unrelated to path handling)
 
 #### 2b. Paths with Spaces
 **Test:** Initialize repository with spaces in path  
@@ -50,7 +50,7 @@ cd "/tmp/test_unicode_测试_123" && /home/lewis/src/hardline/target/debug/scp-c
 ```bash
 cd "/tmp/test_path_with_spaces and special chars" && /home/lewis/src/hardline/target/debug/scp-cli init --format json
 ```
-**Result:** Error message displayed correctly, but JJ initialization fails
+**Result:** Error message displayed correctly, but Git initialization fails
 
 #### 2c. Very Long Paths
 **Test:** Initialize repository with extremely long path  
@@ -94,7 +94,7 @@ cd /tmp/test_toctou && /home/lewis/src/hardline/target/debug/scp-cli init --form
 **Test:** Create stale lock file, then immediately run init  
 **Command:**
 ```bash
-cd /tmp/test_lock_stale && mkdir .isolate && touch .isolate/.init.lock && touch -d "1 hour ago" .isolate/.init.lock && /home/lewis/src/hardline/target/debug/scp-cli init
+cd /tmp/test_lock_stale && mkdir .hardline && touch .hardline/.init.lock && touch -d "1 hour ago" .hardline/.init.lock && /home/lewis/src/hardline/target/debug/scp-cli init
 ```
 **Result:** Stale lock detected but NOT removed. Error: "lock is 3 seconds old" instead of "1 hour old"
 
@@ -108,7 +108,7 @@ cd /tmp/test_lock_stale && mkdir .isolate && touch .isolate/.init.lock && touch 
 **Test:** Create symlink to fake target, then run init  
 **Command:**
 ```bash
-cd /tmp/test_symlink_attack && rm -f .isolate && ln -s /tmp/fake_target .isolate && /home/lewis/src/hardline/target/debug/scp-cli init
+cd /tmp/test_symlink_attack && rm -f .hardline && ln -s /tmp/fake_target .hardline && /home/lewis/src/hardline/target/debug/scp-cli init
 ```
 **Result:** Symlink NOT detected. Error: "lock is 11 seconds old"
 
@@ -118,7 +118,7 @@ cd /tmp/test_symlink_attack && rm -f .isolate && ln -s /tmp/fake_target .isolate
 **Test:** Create symlink to real directory, then run init  
 **Command:**
 ```bash
-cd /tmp/test_symlink_real && rm -rf .isolate && mkdir -p /tmp/fake_target && ln -s /tmp/fake_target .isolate && /home/lewis/src/hardline/target/debug/scp-cli init
+cd /tmp/test_symlink_real && rm -rf .hardline && mkdir -p /tmp/fake_target && ln -s /tmp/fake_target .hardline && /home/lewis/src/hardline/target/debug/scp-cli init
 ```
 **Result:** Symlink NOT detected. Code proceeds with initialization.
 
@@ -147,11 +147,11 @@ pub struct InitLock {
 **Defect Found:** **MEDIUM** - The `released` flag is used to track release state, but the actual unlock happens in `Drop`. If the program crashes before `Drop` is called, the lock may not be released properly.
 
 #### 6b. Directory Creation Before Lock
-**Test:** Check if .isolate is created before lock acquisition  
+**Test:** Check if .hardline is created before lock acquisition  
 **Code Location:** `mod.rs:874-887`
 
 **Actual Flow:**
-1. Line 876: `std::fs::create_dir_all(&isolate_path)` - creates directory
+1. Line 876: `std::fs::create_dir_all(&hardline_path)` - creates directory
 2. Line 887: `InitLock::acquire(lock_path)` - acquires lock
 
 **Defect Found:** **MEDIUM** - The directory is created BEFORE the lock is acquired. This creates a race condition where another init process could see the directory and think init is in progress, but without the lock file, the state is inconsistent.
@@ -192,7 +192,7 @@ pub struct InitLock {
 
 5. **Misleading Error Messages**
    - **Location:** Multiple locations
-   - **Issue:** JJ init errors shown instead of lock errors in some cases
+   - **Issue:** Git init errors shown instead of lock errors in some cases
    - **Impact:** Users confused about actual problem
    - **Fix:** Ensure error precedence is correct
 
@@ -210,13 +210,13 @@ pub struct InitLock {
 
 1. **Fix Symlink Check Order** (CRITICAL)
    ```rust
-   // P4: Check if .isolate is a symlink (MUST be before AlreadyInitialized check)
-   if is_symlink(&isolate_path) {
-       return Err(InitError::SymlinkAttackDetected { path: isolate_path });
+   // P4: Check if .hardline is a symlink (MUST be before AlreadyInitialized check)
+   if is_symlink(&hardline_path) {
+       return Err(InitError::SymlinkAttackDetected { path: hardline_path });
    }
    
    // P5: Check if already initialized
-   if isolate_path.exists() {
+   if hardline_path.exists() {
        return Err(InitError::AlreadyInitialized);
    }
    ```
@@ -239,13 +239,13 @@ pub struct InitLock {
 3. **Acquire Lock Before Any File Operations** (HIGH)
    ```rust
    // Create lock file path FIRST
-   let lock_path = isolate_path.join(".init.lock");
+   let lock_path = hardline_path.join(".init.lock");
    
    // Acquire lock BEFORE creating anything
    let mut lock = InitLock::acquire(lock_path)?;
    
    // NOW create directory and files
-   std::fs::create_dir_all(&isolate_path)?;
+   std::fs::create_dir_all(&hardline_path)?;
    ```
 
 ### Short-Term Actions
@@ -256,7 +256,7 @@ pub struct InitLock {
    - Add lock cleanup on program exit
 
 5. **Add Comprehensive Error Handling** (MEDIUM)
-   - Ensure lock errors are shown before JJ errors
+   - Ensure lock errors are shown before Git errors
    - Add more context to error messages
    - Implement error chain tracing
 

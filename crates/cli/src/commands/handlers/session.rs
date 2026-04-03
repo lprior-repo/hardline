@@ -1,6 +1,6 @@
 //! Session management handlers
 //!
-//! Ported from isolate's session_mgmt.rs, adapted to use scp_core types.
+//! Ported from hardline's session management module, adapted to use scp_core types.
 //!
 //! Operations:
 //! - Pause: transition an active session to paused state

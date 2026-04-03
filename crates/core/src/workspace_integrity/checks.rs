@@ -128,10 +128,10 @@ pub async fn check_stale_locks(workspace_path: &Path) -> Result<Option<Integrity
 
 /// Check config file for TOML parsing errors
 ///
-/// Validates that the workspace's .isolate/config.toml file (if present)
+/// Validates that the workspace's .hardline/config.toml file (if present)
 /// is valid TOML and can be parsed.
 pub async fn check_config_file(workspace_path: &Path) -> Result<Option<IntegrityIssue>> {
-    let config_file = workspace_path.join(".isolate").join("config.toml");
+    let config_file = workspace_path.join(".hardline").join("config.toml");
 
     // Check if config file exists
     let config_exists = tokio::fs::try_exists(&config_file)

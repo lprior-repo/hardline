@@ -10,13 +10,13 @@ pub fn cmd_done() -> ClapCommand {
         .about("Complete work and merge workspace to main")
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate done                            Complete work and merge to main",
-                "isolate done -m \"Fix auth bug\"         Use custom commit message",
-                "isolate done --workspace feature-x      Complete specific workspace from main",
-                "isolate done --dry-run                  Preview without executing",
-                "isolate done --keep-workspace           Keep workspace after merge",
-                "isolate done --detect-conflicts         Check for conflicts before merging",
-                "isolate done --json                     Get JSON output",
+                "hardline done                            Complete work and merge to main",
+                "hardline done -m \"Fix auth bug\"         Use custom commit message",
+                "hardline done --workspace feature-x      Complete specific workspace from main",
+                "hardline done --dry-run                  Preview without executing",
+                "hardline done --keep-workspace           Keep workspace after merge",
+                "hardline done --detect-conflicts         Check for conflicts before merging",
+                "hardline done --json                     Get JSON output",
             ],
             Some(json_docs::done()),
         ))

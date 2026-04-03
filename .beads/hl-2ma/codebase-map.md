@@ -1,15 +1,15 @@
-# Session Command Porting Map: Isolate -> Hardline
+# Session Command Porting Map: Hardline
 
-## 1. Isolate Session Source Files
+## 1. Hardline Session Source Files
 
-### 1a. CLI Command Layer (`~/src/isolate/crates/isolate/src/commands/`)
+### 1a. CLI Command Layer (`~/src/hardline/crates/hardline/src/commands/`)
 
 | File | Purpose |
 |------|---------|
-| `session_command.rs` | Main dispatcher: routes `isolate session <action>` to handlers. 10 subcommands: list, add, remove, pause, resume, clone, rename, spawn, sync, init |
+| `session_command.rs` | Main dispatcher: routes `hardline session <action>` to handlers. 10 subcommands: list, add, remove, pause, resume, clone, rename, spawn, sync, init |
 | `session_mgmt.rs` | Pause/Resume/Clone implementations with `PauseOptions`, `ResumeOptions`, `CloneOptions`, and result types |
 
-### 1b. Session Data Model (`~/src/isolate/crates/isolate/src/session.rs`)
+### 1b. Session Data Model (`~/src/hardline/crates/hardline/src/session.rs`)
 
 Key types:
 - `SessionStatus` enum: `Creating | Active | Paused | Completed | Failed` (with `Display`, `FromStr`)
@@ -18,7 +18,7 @@ Key types:
 - `validate_session_name(name: &str) -> Result<()>` -- ASCII-only, starts with letter, 1-64 chars, no reserved keywords
 - `validate_status_transition(from, to) -> Result<()>` -- state machine enforcement
 
-### 1c. Session Business Logic (`~/src/isolate/crates/isolate/src/commands/session_command.rs`)
+### 1c. Session Business Logic (`~/src/hardline/crates/hardline/src/commands/session_command.rs`)
 
 Two-layer architecture:
 - **`SessionManager`** (business logic layer): Wraps `SessionDb` + `LockManager`. Methods:
@@ -36,7 +36,7 @@ Two-layer architecture:
   - `run_list`, `run_add`, `run_remove`, `run_focus`, `run_pause`, `run_resume`, `run_rename`, `run_status`
   - Emits structured JSONL output via `emit_stdout`, `emit_action`, `emit_result_success`
 
-### 1d. Persistence (`~/src/isolate/crates/isolate/src/db.rs`)
+### 1d. Persistence (`~/src/hardline/crates/hardline/src/db.rs`)
 
 - `SessionDb` struct: SQLx `SqlitePool`-backed
   - `create(name, workspace_path) -> Result<Session>`
@@ -54,7 +54,7 @@ Two-layer architecture:
 - `run_clone(CloneOptions) -> Result<()>` -- creates JJ workspace, validates name, checks target uniqueness
 - Result types: `PauseResult`, `ResumeResult`, `CloneResult` (all serializable)
 
-### 1f. Isolate Core Domain (`~/src/isolate/crates/isolate-core/src/domain/`)
+### 1f. Hardline Core Domain (`~/src/hardline/crates/hardline-core/src/domain/`)
 
 - `session.rs`: `BranchState` enum (`Detached | OnBranch { name }`)
 - `session_create.rs`: Session creation with validation (preconditions P1-P7)
@@ -101,14 +101,14 @@ Two-layer architecture:
 - `validate_pure()`, `validate()`, `name()` methods
 
 **Status** (`type_session_status.rs`):
-- `SessionStatus` enum: `Creating | Active | Paused | Completed | Failed` (same as isolate)
+- `SessionStatus` enum: `Creating | Active | Paused | Completed | Failed` (same as hardline)
 - `Operation` enum: `Status | Diff | Focus | Remove`
 - `can_transition_to()`, `valid_next_states()`, `is_terminal()`, `allowed_operations()`
 - Implements `LifecycleState` trait
 
 **ID/Name/Path** (`type_session_id.rs`, `type_session_name.rs`, `type_session_path.rs`):
 - `SessionId`: alphanumeric + hyphens
-- `SessionName`: 1-63 chars, starts with letter, ASCII alphanumeric + dash + underscore (matches isolate)
+- `SessionName`: 1-63 chars, starts with letter, ASCII alphanumeric + dash + underscore (matches hardline)
 - `AbsolutePath`: validates absolute path
 
 **State Machine** (`session_state.rs`):
@@ -136,13 +136,13 @@ Two-layer architecture:
 
 **Object Commands** (`commands/object_commands/session.rs`):
 - Full subcommand definitions: `list`, `add`, `remove`, `pause`, `resume`, `clone`, `rename`, `spawn`, `sync`, `init`
-- Comprehensive arg definitions matching isolate's CLI surface
+- Comprehensive arg definitions matching hardline's CLI surface
 
-**Isolate Commands** (`commands/isolate_commands_session.rs`):
+**Hardline Commands** (`commands/isolate_commands_session.rs`):
 - `cmd_add()`, `cmd_list()`, `cmd_remove()`, `cmd_focus()` -- Clap command definitions with AI contract/hints support
 
 **Handler** (`commands/handlers/session.rs`):
-- **STUB** -- empty file: `// Stub - requires isolate-specific dependencies`
+- **STUB** -- empty file: `// Stub - requires hardline-specific dependencies`
 
 ---
 
@@ -150,8 +150,8 @@ Two-layer architecture:
 
 ### 3.1 Already Ported (Exists in Both)
 
-| Feature | Isolate | Hardline |
-|---------|---------|----------|
+| Feature | Previous | Current |
+|---------|----------|---------|
 | SessionStatus enum | `Creating/Active/Paused/Completed/Failed` | Same (both in core `type_session_status` and session crate `SessionState`) |
 | SessionName validation | 1-64 chars, starts with letter, ASCII | 1-63 chars, same rules (minor length diff: 64 vs 63) |
 | BranchState enum | `Detached/OnBranch` | Same in both core and session crate |
@@ -166,8 +166,8 @@ Two-layer architecture:
 
 | Feature | Status | Gap |
 |---------|--------|-----|
-| `SessionManager` (business logic layer) | Not ported | Isolate has a unified manager wrapping DB + locks. Hardline has no equivalent -- CLI commands go directly to VCS backend or would need to go through `SessionService` (which is stubbed) |
-| `SessionCommand` (shell layer with JSONL output) | Not ported | Isolate emits structured JSONL. Hardline's `commands/session.rs` uses `println!` |
+| `SessionManager` (business logic layer) | Not ported | Previous codebase had a unified manager wrapping DB + locks. Hardline has no equivalent -- CLI commands go directly to VCS backend or would need to go through `SessionService` (which is stubbed) |
+| `SessionCommand` (shell layer with JSONL output) | Not ported | Previous codebase emitted structured JSONL. Hardline's `commands/session.rs` uses `println!` |
 | `SessionService` application layer | Stub | Only `create_session` works; `list_sessions` returns empty, `get_session` returns `NotFound` |
 | `SessionRepository` implementation | Partial | `SqliteSessionRepository` has `init_schema` and mapping, but the `SessionRepository` trait impl is incomplete |
 | Pause/Resume commands | CLI args defined, handler is stub | `session_mgmt.rs` logic needs porting to use hardline's typestate `Session<S>` |
@@ -179,13 +179,13 @@ Two-layer architecture:
 
 ### 3.3 Not Ported (Missing in Hardline)
 
-| Feature | Isolate Location | Description |
+| Feature | Source Location | Description |
 |---------|-----------------|-------------|
 | `SessionManager` unified business logic | `commands/session_command.rs` | Wraps `SessionDb` + `LockManager` into cohesive API |
 | `SessionCommand` JSONL shell layer | `commands/session_command.rs` | Structured output with `emit_action`, `emit_session_output`, `emit_result_success` |
 | Lock integration for session ops | `session_command.rs` (pause/resume/remove acquire locks) | Hardline has `LockManager` in `coordination/locks/` but it is not wired into session commands |
 | Pause idempotency | `session_mgmt.rs` | Pausing already-paused session succeeds silently |
-| Clone with JJ workspace creation | `session_mgmt.rs` | `isolate_core::jj::workspace_create()` + DB create + status update |
+| Clone with JJ workspace creation | `session_mgmt.rs` | `hardline_core::jj::workspace_create()` + DB create + status update |
 | Session name reserved keywords check | `session.rs` | `RESERVED_SESSION_NAMES` check (null, undefined, true, false, etc.) |
 | `AddOptions` struct with hooks/open control | `add.rs` | `no_hooks`, `no_open`, `idempotent`, `dry_run`, `bead_id` |
 | `RemoveOptions` with merge/keep-branch | `remove.rs` | `force`, `merge`, `keep_branch`, `idempotent`, `dry_run` |
@@ -198,8 +198,8 @@ Two-layer architecture:
 
 ### 3.4 Architectural Differences
 
-| Aspect | Isolate | Hardline |
-|--------|---------|----------|
+| Aspect | Previous | Current |
+|--------|----------|---------|
 | Error handling | `anyhow::Result` everywhere | Domain `Error` enum with `thiserror`, typed error kinds |
 | Session state | Runtime enum `SessionStatus` | **Both** runtime `SessionStatus` (core) AND typestate `Session<S>` (session crate) |
 | Timestamps | `u64` Unix epoch | `DateTime<Utc>` (chrono) |

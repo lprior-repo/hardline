@@ -190,7 +190,7 @@ pub fn cmd_session() -> ClapCommand {
         )
         .subcommand(
             ClapCommand::new("init")
-                .about("Initialize isolate in a Git repository")
+                .about("Initialize hardline in a Git repository")
                 .arg(json_arg())
                 .arg(super::helpers::dry_run_arg()),
         )

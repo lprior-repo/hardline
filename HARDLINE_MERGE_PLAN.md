@@ -1,7 +1,7 @@
 # Hardline Merge Plan
 
 ## Overview
-Merge isolate repository (~140k LOC) into hardline (~68k LOC) following functional Rust, Scott Wlaschin DDD, and Bitter Truth principles.
+Merge external hardline repository (~140k LOC) into this hardline workspace (~68k LOC) following functional Rust, Scott Wlaschin DDD, and Bitter Truth principles.
 
 ## Phase 1: Session Crate Enhancement
 
@@ -53,7 +53,7 @@ Merge isolate repository (~140k LOC) into hardline (~68k LOC) following function
 - [ ] **task done** - Complete task
 
 ### 2.4 Backup/Recovery
-- [ ] **checkpoint** - JJ checkpoint management
+- [ ] **checkpoint** - Git checkpoint management
 - [ ] **backup** - Backup with retention
 - [ ] **recover** - Recovery operations
 

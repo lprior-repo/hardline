@@ -39,10 +39,10 @@ pub fn cmd_contract() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate contract                    Show all command contracts",
-                "isolate contract add                Show contract for 'add' command",
-                "isolate contract --json             Output as JSON",
-                "isolate contract --contract         Show contract command's own contract",
+                "hardline contract                    Show all command contracts",
+                "hardline contract add                Show contract for 'add' command",
+                "hardline contract --json             Output as JSON",
+                "hardline contract --contract         Show contract command's own contract",
             ],
             None,
         ))
@@ -135,10 +135,10 @@ pub fn cmd_validate() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate validate add feature-x       Validate inputs for 'add' command",
-                "isolate validate spawn isolate-abc1      Validate bead spawn inputs",
-                "isolate validate --json              Output validation as JSON",
-                "isolate validate --contract          Show AI contract (inputs/outputs schema)",
+                "hardline validate add feature-x       Validate inputs for 'add' command",
+                "hardline validate spawn hardline-abc1      Validate bead spawn inputs",
+                "hardline validate --json              Output validation as JSON",
+                "hardline validate --contract          Show AI contract (inputs/outputs schema)",
             ],
             None,
         ))
@@ -193,11 +193,11 @@ pub fn cmd_whatif() -> ClapCommand {
         )
         .after_help(crate::commands::isolate_commands::after_help_text(
             &[
-                "isolate whatif done add feature-x    Preview 'add' command execution",
-                "isolate whatif spawn isolate-abc1        Preview bead spawn",
-                "isolate whatif --json                Output preview as JSON",
-                "isolate whatif --contract            Show AI contract",
-                "isolate whatif --ai-hints            Show AI execution hints",
+                "hardline whatif done add feature-x    Preview 'add' command execution",
+                "hardline whatif spawn hardline-abc1        Preview bead spawn",
+                "hardline whatif --json                Output preview as JSON",
+                "hardline whatif --contract            Show AI contract",
+                "hardline whatif --ai-hints            Show AI execution hints",
             ],
             None,
         ))
