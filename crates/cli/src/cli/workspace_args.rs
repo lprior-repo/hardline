@@ -138,10 +138,147 @@ pub enum WorkspaceCommands {
         dry_run: bool,
     },
 
+    /// Validate workspace integrity
+    IntegrityValidate {
+        /// Workspace name
+        workspace: String,
+    },
+
+    /// Repair a corrupted workspace
+    IntegrityRepair {
+        /// Workspace name
+        workspace: String,
+
+        /// Force repair without confirmation
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// List available backups
+    IntegrityBackupList,
+
+    /// Restore from a backup
+    IntegrityBackupRestore {
+        /// Backup ID to restore
+        backup_id: String,
+
+        /// Force restore without confirmation
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Recover from broken Git/workspace state
+    Recover {
+        /// Target session or workspace (auto-detect if omitted)
+        target: Option<String>,
+
+        /// Diagnose only, don't fix
+        #[arg(long)]
+        diagnose: bool,
+
+        /// Preview fixes without executing
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Rollback workspace to a specific commit
+    Rollback {
+        /// Session/workspace name
+        session: String,
+
+        /// Commit hash to rollback to
+        commit: String,
+
+        /// Preview without executing
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Add an existing path as a workspace
     Add {
         /// Path to add
         path: String,
+    },
+
+    /// Rename a workspace/session
+    Rename {
+        /// Current session name
+        old_name: String,
+
+        /// New session name
+        new_name: String,
+
+        /// Preview without executing
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Export sessions to file or stdout
+    Export {
+        /// Session to export (or all if omitted)
+        session: Option<String>,
+
+        /// Output file path
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+
+    /// Import sessions from file
+    Import {
+        /// Input file path
+        input: String,
+
+        /// Overwrite existing sessions
+        #[arg(long)]
+        force: bool,
+
+        /// Skip existing sessions
+        #[arg(long)]
+        skip_existing: bool,
+
+        /// Preview without executing
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Validate command inputs
+    Validate {
+        /// Command to validate
+        command: String,
+
+        /// Arguments to validate
+        args: Vec<String>,
+
+        /// Preview without side effects
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Show command contracts
+    Contract {
+        /// Specific command to show contract for
+        command: Option<String>,
+    },
+
+    /// Query session state
+    Query {
+        /// Query type (session-exists, sessions, session-info, blockers, session-count, help)
+        query_type: String,
+
+        /// Query argument (e.g., session name)
+        argument: Option<String>,
+
+        /// Filter by status
+        #[arg(long)]
+        status: Option<String>,
+
+        /// Filter by agent
+        #[arg(long)]
+        agent: Option<String>,
     },
 }
 

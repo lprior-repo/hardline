@@ -166,7 +166,6 @@ mod tests {
         };
         match opts.subcommand {
             IntegritySubcommand::Validate { workspace } => assert_eq!(workspace, "my-ws"),
-            }
             other => panic!("Expected Validate, got {other:?}"),
         }
     }

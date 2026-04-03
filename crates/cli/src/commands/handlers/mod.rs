@@ -9,9 +9,16 @@
 pub mod ai;
 pub mod backup;
 pub mod batch;
+pub mod contract;
 pub mod done;
+pub mod export_import;
+pub mod integrity;
 pub mod json_format;
+pub mod query;
+pub mod recover;
+pub mod rename;
 pub mod revert;
 pub mod session;
 pub mod sync;
 pub mod task;
+pub mod validate;

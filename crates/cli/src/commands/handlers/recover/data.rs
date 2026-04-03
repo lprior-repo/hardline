@@ -523,4 +523,4 @@ mod tests {
         assert!(parsed.get("fix_command").is_some(), "AI needs fix_command for automation");
         assert!(parsed.get("fixed").is_some(), "AI needs fixed for status tracking");
     }
-
+}

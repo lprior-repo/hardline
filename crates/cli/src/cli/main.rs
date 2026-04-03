@@ -136,6 +136,108 @@ pub fn run_command(cli: Cli) -> Result<()> {
                 commands::handlers::revert::run_revert(&options)?;
                 Ok(())
             }
+            crate::cli::workspace_args::WorkspaceCommands::IntegrityValidate { workspace } => {
+                let subcommand = commands::handlers::integrity::IntegritySubcommand::Validate {
+                    workspace,
+                };
+                commands::handlers::integrity::run_integrity(&subcommand)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::IntegrityRepair { workspace, force } => {
+                let subcommand = commands::handlers::integrity::IntegritySubcommand::Repair {
+                    workspace,
+                    force,
+                };
+                commands::handlers::integrity::run_integrity(&subcommand)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::IntegrityBackupList => {
+                let subcommand = commands::handlers::integrity::IntegritySubcommand::BackupList;
+                commands::handlers::integrity::run_integrity(&subcommand)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::IntegrityBackupRestore { backup_id, force } => {
+                let subcommand = commands::handlers::integrity::IntegritySubcommand::BackupRestore {
+                    backup_id,
+                    force,
+                };
+                commands::handlers::integrity::run_integrity(&subcommand)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Recover { target, diagnose, dry_run, verbose } => {
+                let options = commands::handlers::recover::RecoverOptions {
+                    diagnose_only: diagnose,
+                    target,
+                    dry_run,
+                    verbose,
+                };
+                let output = commands::handlers::recover::run_recover(&options)?;
+                if verbose {
+                    scp_core::output::Output::info(&format!("Status: {}", output.status));
+                    scp_core::output::Output::info(&format!("Fixed: {}, Remaining: {}", output.fixed_count, output.remaining_count));
+                }
+                Ok(())
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Rollback { session, commit, dry_run } => {
+                let options = commands::handlers::recover::RollbackOptions {
+                    session,
+                    commit,
+                    dry_run,
+                };
+                let output = commands::handlers::recover::run_rollback(&options)?;
+                if output.succeeded {
+                    scp_core::output::Output::success(&output.message);
+                } else {
+                    scp_core::output::Output::info(&output.message);
+                }
+                Ok(())
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Rename { old_name, new_name, dry_run } => {
+                let options = commands::handlers::rename::RenameOptions {
+                    old_name,
+                    new_name,
+                    dry_run,
+                };
+                commands::handlers::rename::run_rename(&options)?;
+                Ok(())
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Export { session, output } => {
+                let options = commands::handlers::export_import::ExportOptions {
+                    session,
+                    output,
+                };
+                commands::handlers::export_import::run_export(&options)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Import { input, force, skip_existing, dry_run } => {
+                let options = commands::handlers::export_import::ImportOptions {
+                    input,
+                    force,
+                    skip_existing,
+                    dry_run,
+                };
+                commands::handlers::export_import::run_import(&options)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Contract { command } => {
+                let options = commands::handlers::contract::ContractOptions {
+                    command,
+                };
+                commands::handlers::contract::run_contract(&options)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Validate { command, args, dry_run } => {
+                let options = commands::handlers::validate::ValidateOptions {
+                    command,
+                    args,
+                    dry_run,
+                };
+                commands::handlers::validate::run_validate(&options)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Query { query_type, argument, status, agent } => {
+                let qt = commands::handlers::query::data::QueryType::from_str(&query_type)
+                    .ok_or_else(|| scp_core::Error::validation_error(format!("Unknown query type: {query_type}")))?;
+                let options = commands::handlers::query::QueryOptions {
+                    query_type: qt,
+                    argument,
+                    status_filter: status,
+                    agent_filter: agent,
+                };
+                commands::handlers::query::run_query(&options)
+            }
         },
 
         Commands::Lock { command } => match command {

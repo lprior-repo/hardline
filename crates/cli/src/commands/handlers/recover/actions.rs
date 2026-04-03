@@ -304,8 +304,8 @@ fn check_merge_conflicts(issues: &mut Vec<Issue>, executor: &dyn GitExecutor) {
             let conflicted_files: Vec<String> = output
                 .lines()
                 .filter_map(|line| {
-                    let parts: Vec<&str> = line.splitn(4, '\t').collect();
-                    parts.get(3).map(|f| (*f).to_string())
+                    let parts: Vec<&str> = line.splitn(2, '\t').collect();
+                    parts.get(1).map(|f| (*f).to_string())
                 })
                 .collect();
 
