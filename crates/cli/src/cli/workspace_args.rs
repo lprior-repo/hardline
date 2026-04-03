@@ -128,6 +128,16 @@ pub enum WorkspaceCommands {
         name: String,
     },
 
+    /// Revert a specific session merge
+    Revert {
+        /// Session name to revert
+        name: String,
+
+        /// Preview without executing
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Add an existing path as a workspace
     Add {
         /// Path to add
@@ -441,6 +451,35 @@ mod tests {
     #[test]
     fn add_requires_path() {
         let result = WorkspaceParser::try_parse_from(["scp", "add"]);
+        assert!(result.is_err());
+    }
+
+    // -- Revert (required name, optional dry_run flag) --
+    #[test]
+    fn revert_defaults() {
+        match parse(&["revert", "feature-x"]) {
+            WorkspaceCommands::Revert { name, dry_run } => {
+                assert_eq!(name, "feature-x");
+                assert!(!dry_run);
+            }
+            other => panic!("Expected Revert, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn revert_with_dry_run() {
+        match parse(&["revert", "feature-x", "--dry-run"]) {
+            WorkspaceCommands::Revert { name, dry_run } => {
+                assert_eq!(name, "feature-x");
+                assert!(dry_run);
+            }
+            other => panic!("Expected Revert, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn revert_requires_name() {
+        let result = WorkspaceParser::try_parse_from(["scp", "revert"]);
         assert!(result.is_err());
     }
 }

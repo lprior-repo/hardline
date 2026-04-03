@@ -11,6 +11,7 @@ pub mod backup;
 pub mod batch;
 pub mod done;
 pub mod json_format;
+pub mod revert;
 pub mod session;
 pub mod sync;
 pub mod task;

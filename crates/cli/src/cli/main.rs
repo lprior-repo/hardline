@@ -128,6 +128,14 @@ pub fn run_command(cli: Cli) -> Result<()> {
             crate::cli::workspace_args::WorkspaceCommands::Merge { name } => {
                 commands::workspace::merge(&name)
             }
+            crate::cli::workspace_args::WorkspaceCommands::Revert { name, dry_run } => {
+                let options = commands::handlers::revert::RevertOptions {
+                    session_name: name,
+                    dry_run,
+                };
+                commands::handlers::revert::run_revert(&options)?;
+                Ok(())
+            }
         },
 
         Commands::Lock { command } => match command {
