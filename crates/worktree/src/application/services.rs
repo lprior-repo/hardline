@@ -13,7 +13,7 @@ use crate::application::{
     repositories::WorktreeRepository,
 };
 use crate::domain::Worktree;
-use crate::domain::{WorktreeDomainError, WorktreeId};
+use crate::domain::{WorktreeDomainError, WorktreeId, WorktreeState};
 
 pub struct WorktreeService<R: WorktreeRepository> {
     repository: R,
@@ -57,6 +57,14 @@ impl<R: WorktreeRepository> WorktreeService<R> {
             .await?
             .ok_or_else(|| WorktreeDomainError::NotFound(cmd.worktree_id.clone()))?;
 
+        // Validate the worktree is in Creating state before initializing
+        if worktree.state() != WorktreeState::Creating {
+            return Err(WorktreeDomainError::InvalidStateTransition(
+                worktree.state(),
+                WorktreeState::Active,
+            ));
+        }
+
         let worktree = worktree.activate();
 
         let worktree_clone = worktree.clone();
@@ -74,9 +82,18 @@ impl<R: WorktreeRepository> WorktreeService<R> {
             .await?
             .ok_or_else(|| WorktreeDomainError::NotFound(cmd.worktree_id.clone()))?;
 
-        // Transition through active state first, then suspend
-        let worktree = worktree.activate();
-        let worktree = worktree.suspend();
+        // Validate the worktree is actually active before suspending
+        if worktree.state() != WorktreeState::Active {
+            return Err(WorktreeDomainError::InvalidStateTransition(
+                worktree.state(),
+                WorktreeState::Suspended,
+            ));
+        }
+
+        // Use into_state to get the right phantom type, then suspend
+        let active: crate::domain::worktree::Worktree<crate::domain::worktree::Active> =
+            worktree.into_state();
+        let worktree = active.suspend();
 
         let worktree_clone = worktree.clone();
         self.repository.save(worktree).await?;
@@ -93,10 +110,18 @@ impl<R: WorktreeRepository> WorktreeService<R> {
             .await?
             .ok_or_else(|| WorktreeDomainError::NotFound(cmd.worktree_id.clone()))?;
 
-        // Transition to active first, then suspend then resume
-        let worktree = worktree.activate();
-        let worktree = worktree.suspend();
-        let worktree = worktree.resume();
+        // Validate the worktree is actually suspended before resuming
+        if worktree.state() != WorktreeState::Suspended {
+            return Err(WorktreeDomainError::InvalidStateTransition(
+                worktree.state(),
+                WorktreeState::Active,
+            ));
+        }
+
+        // Use into_state to get the right phantom type, then resume
+        let suspended: crate::domain::worktree::Worktree<crate::domain::worktree::Suspended> =
+            worktree.into_state();
+        let worktree = suspended.resume();
 
         let worktree_clone = worktree.clone();
         self.repository.save(worktree).await?;

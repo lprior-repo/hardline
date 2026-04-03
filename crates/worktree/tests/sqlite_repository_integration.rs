@@ -1457,41 +1457,26 @@ mod sqlite_repository_integration {
         let creating_wt = repo.find_by_id(&wt_id).await.unwrap().unwrap();
         assert_eq!(creating_wt.state(), WorktreeState::Creating);
 
-        // Save Active state (done in-memory from a new worktree)
-        let worktree2 = create_test_worktree(
-            "lifecycle-test",
-            "/tmp/lifecycle",
-            "/home/user/proj",
-            WorktreeTypeEnum::Development,
-            Some("main"),
-        );
-        let active = worktree2.activate();
+        // Transition to Active (load from repo, activate, save)
+        let loaded = repo.find_by_id(&wt_id).await.unwrap().unwrap();
+        let active = loaded.activate();
         repo.save(active).await.unwrap();
         let active_wt = repo.find_by_name("lifecycle-test").await.unwrap().unwrap();
         assert_eq!(active_wt.state(), WorktreeState::Active);
 
-        // Save Suspended state (done in-memory)
-        let worktree3 = create_test_worktree(
-            "lifecycle-test",
-            "/tmp/lifecycle",
-            "/home/user/proj",
-            WorktreeTypeEnum::Development,
-            Some("main"),
-        );
-        let suspended = worktree3.activate().suspend();
+        // Transition to Suspended (load from repo, activate then suspend)
+        let loaded = repo.find_by_id(&wt_id).await.unwrap().unwrap();
+        let active_wt = loaded.activate();
+        let suspended = active_wt.suspend();
         repo.save(suspended).await.unwrap();
         let suspended_wt = repo.find_by_name("lifecycle-test").await.unwrap().unwrap();
         assert_eq!(suspended_wt.state(), WorktreeState::Suspended);
 
-        // Save Removed state (done in-memory)
-        let worktree4 = create_test_worktree(
-            "lifecycle-test",
-            "/tmp/lifecycle",
-            "/home/user/proj",
-            WorktreeTypeEnum::Development,
-            Some("main"),
-        );
-        let removed = worktree4.activate().mark_for_removal().complete_removal();
+        // Transition to Removed (load from repo, activate, mark for removal, complete)
+        let loaded = repo.find_by_id(&wt_id).await.unwrap().unwrap();
+        let active_wt = loaded.activate();
+        let removing = active_wt.mark_for_removal();
+        let removed = removing.complete_removal();
         repo.save(removed).await.unwrap();
         let removed_wt = repo.find_by_name("lifecycle-test").await.unwrap().unwrap();
         assert_eq!(removed_wt.state(), WorktreeState::Removed);

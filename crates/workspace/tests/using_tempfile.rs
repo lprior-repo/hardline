@@ -97,26 +97,26 @@ fn test_persist_temp_file() {
 /// Demonstrates atomic replacement with `persist()`.
 ///
 /// This pattern is useful for safe configuration file updates:
-/// 1. Write new config to temp file
+/// 1. Write new config to temp file in same directory as target
 /// 2. Atomically replace old config
 #[test]
 fn test_atomic_config_replace() {
-    let config_path = "config_test.txt";
+    let temp_dir = tempdir().expect("failed to create temp dir");
+    let config_path = temp_dir.path().join("config_test.txt");
 
     let original_content = "original config";
-    fs::write(config_path, original_content).expect("failed to write original config");
+    fs::write(&config_path, original_content).expect("failed to write original config");
 
-    let mut temp_file = NamedTempFile::new().expect("failed to create temp file");
+    // Create temp file in same directory to avoid cross-device link errors
+    let mut temp_file = NamedTempFile::new_in(temp_dir.path()).expect("failed to create temp file");
     writeln!(temp_file, "updated config").expect("failed to write updated config");
 
     temp_file
-        .persist(config_path)
+        .persist(&config_path)
         .expect("failed to atomically replace config");
 
-    let new_content = fs::read_to_string(config_path).expect("failed to read new config");
+    let new_content = fs::read_to_string(&config_path).expect("failed to read new config");
     assert!(new_content.contains("updated config"));
-
-    fs::remove_file(config_path).expect("failed to clean up");
 }
 
 /// Demonstrates using temp directory for workspace operations.

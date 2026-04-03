@@ -28,6 +28,7 @@ impl Worktree<super::Creating> {
             created_at: now,
             updated_at: now,
             metadata: HashMap::new(),
+            worktree_state: WorktreeState::Creating,
             _state: PhantomData,
         }
     }
@@ -68,7 +69,7 @@ impl<S> Worktree<S> {
         parent_path: AbsolutePath,
         worktree_type: WorktreeTypeEnum,
         branch: Option<BranchName>,
-        _state: WorktreeState,
+        worktree_state: WorktreeState,
         created_at: i64,
         updated_at: i64,
         metadata: HashMap<String, String>,
@@ -83,6 +84,7 @@ impl<S> Worktree<S> {
             created_at,
             updated_at,
             metadata,
+            worktree_state,
             _state: PhantomData,
         }
     }

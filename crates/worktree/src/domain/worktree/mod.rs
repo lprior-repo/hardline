@@ -40,6 +40,8 @@ pub struct Worktree<S = Creating> {
     created_at: i64,
     updated_at: i64,
     metadata: HashMap<String, String>,
+    worktree_state: WorktreeState,
+    #[serde(skip)]
     _state: PhantomData<S>,
 }
 
@@ -61,7 +63,7 @@ impl<S> Worktree<S> {
     }
 
     pub fn state(&self) -> WorktreeState {
-        Self::state_from_marker::<S>()
+        self.worktree_state
     }
 
     fn state_from_marker<S2>() -> WorktreeState {
@@ -179,13 +181,26 @@ impl<S> Worktree<S> {
             created_at: self.created_at,
             updated_at: chrono::Utc::now().timestamp(),
             metadata: self.metadata,
+            worktree_state: Self::state_from_marker::<T>(),
             _state: PhantomData,
         }
     }
 
     /// Convert this worktree to a different state type
     pub fn into_state<T>(self) -> Worktree<T> {
-        self.transition_impl()
+        Worktree {
+            id: self.id,
+            name: self.name,
+            path: self.path,
+            worktree_type: self.worktree_type,
+            branch: self.branch,
+            parent_path: self.parent_path,
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+            metadata: self.metadata,
+            worktree_state: self.worktree_state,
+            _state: PhantomData,
+        }
     }
 
     /// Check if this worktree is in Removed state
@@ -194,34 +209,95 @@ impl<S> Worktree<S> {
     }
 }
 
-/// Conversions from specific state types to the default Worktree (Creating)
+/// Conversions from specific state types to the default Worktree (Creating).
+/// Preserves the runtime worktree_state from the source.
 impl From<Worktree<Active>> for Worktree {
     fn from(other: Worktree<Active>) -> Self {
-        other.into_state()
+        Worktree {
+            id: other.id,
+            name: other.name,
+            path: other.path,
+            worktree_type: other.worktree_type,
+            branch: other.branch,
+            parent_path: other.parent_path,
+            created_at: other.created_at,
+            updated_at: other.updated_at,
+            metadata: other.metadata,
+            worktree_state: other.worktree_state,
+            _state: PhantomData,
+        }
     }
 }
 
 impl From<Worktree<Incomplete>> for Worktree {
     fn from(other: Worktree<Incomplete>) -> Self {
-        other.into_state()
+        Worktree {
+            id: other.id,
+            name: other.name,
+            path: other.path,
+            worktree_type: other.worktree_type,
+            branch: other.branch,
+            parent_path: other.parent_path,
+            created_at: other.created_at,
+            updated_at: other.updated_at,
+            metadata: other.metadata,
+            worktree_state: other.worktree_state,
+            _state: PhantomData,
+        }
     }
 }
 
 impl From<Worktree<Suspended>> for Worktree {
     fn from(other: Worktree<Suspended>) -> Self {
-        other.into_state()
+        Worktree {
+            id: other.id,
+            name: other.name,
+            path: other.path,
+            worktree_type: other.worktree_type,
+            branch: other.branch,
+            parent_path: other.parent_path,
+            created_at: other.created_at,
+            updated_at: other.updated_at,
+            metadata: other.metadata,
+            worktree_state: other.worktree_state,
+            _state: PhantomData,
+        }
     }
 }
 
 impl From<Worktree<Removing>> for Worktree {
     fn from(other: Worktree<Removing>) -> Self {
-        other.into_state()
+        Worktree {
+            id: other.id,
+            name: other.name,
+            path: other.path,
+            worktree_type: other.worktree_type,
+            branch: other.branch,
+            parent_path: other.parent_path,
+            created_at: other.created_at,
+            updated_at: other.updated_at,
+            metadata: other.metadata,
+            worktree_state: other.worktree_state,
+            _state: PhantomData,
+        }
     }
 }
 
 impl From<Worktree<Removed>> for Worktree {
     fn from(other: Worktree<Removed>) -> Self {
-        other.into_state()
+        Worktree {
+            id: other.id,
+            name: other.name,
+            path: other.path,
+            worktree_type: other.worktree_type,
+            branch: other.branch,
+            parent_path: other.parent_path,
+            created_at: other.created_at,
+            updated_at: other.updated_at,
+            metadata: other.metadata,
+            worktree_state: other.worktree_state,
+            _state: PhantomData,
+        }
     }
 }
 
