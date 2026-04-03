@@ -10,7 +10,7 @@ pub const fn sync() -> &'static str {
   "prerequisites": [
     "Session must exist in database",
     "Workspace directory must exist",
-    "JJ repository must be accessible",
+    "Git repository must be accessible",
     "No uncommitted changes with conflicts"
   ],
   "side_effects": {
@@ -56,7 +56,7 @@ pub const fn sync() -> &'static str {
       "SessionNotFound",
       "WorkspaceNotFound",
       "RebaseConflict",
-      "JjCommandError"
+      "GitCommandError"
     ]
   },
   "examples": [
@@ -86,7 +86,7 @@ pub const fn abort() -> &'static str {
   ],
   "side_effects": {
     "creates": [],
-    "deletes": ["JJ workspace", "Session record", "Workspace files (unless --keep-workspace)"],
+    "deletes": ["Git workspace", "Session record", "Workspace files (unless --keep-workspace)"],
     "modifies": ["Bead status (set back to ready unless --no-bead-update)"],
     "state_transition": "active → abandoned"
   },
@@ -151,7 +151,7 @@ pub const fn remove() -> &'static str {
   ],
   "side_effects": {
     "creates": [],
-    "deletes": ["JJ workspace", "Session record", "Workspace directory"],
+    "deletes": ["Git workspace", "Session record", "Workspace directory"],
     "modifies": ["Session database", "Main branch (if --merge)"],
     "state_transition": "active → removed"
   },

@@ -31,7 +31,7 @@ pub enum ConflictType {
 pub enum ResolutionStrategy {
     AcceptOurs,
     AcceptTheirs,
-    JjResolve,
+    GitResolve,
     ManualMerge,
     Rebase,
     Abort,
@@ -68,7 +68,7 @@ impl ResolutionOption {
             description: "Accept workspace version".to_string(),
             risk: ResolutionRisk::Moderate,
             automatic: true,
-            command: Some("jj resolve --with workspace".to_string()),
+            command: Some("git checkout --ours -- ".to_string()),
             notes: None,
         }
     }
@@ -80,7 +80,7 @@ impl ResolutionOption {
             description: "Accept main version".to_string(),
             risk: ResolutionRisk::Destructive,
             automatic: true,
-            command: Some("jj resolve --with main".to_string()),
+            command: Some("git checkout --theirs -- ".to_string()),
             notes: Some("Will discard workspace changes".to_string()),
         }
     }
@@ -98,13 +98,13 @@ impl ResolutionOption {
     }
 
     #[must_use]
-    pub fn jj_resolve(file: &str) -> Self {
+    pub fn git_resolve(file: &str) -> Self {
         Self {
-            strategy: ResolutionStrategy::JjResolve,
-            description: "Use jj resolve tool".to_string(),
+            strategy: ResolutionStrategy::GitResolve,
+            description: "Use merge tool to resolve".to_string(),
             risk: ResolutionRisk::Safe,
             automatic: true,
-            command: Some(format!("jj resolve {file}")),
+            command: Some(format!("git mergetool {file}")),
             notes: None,
         }
     }
@@ -116,7 +116,7 @@ impl ResolutionOption {
             description: "Rebase onto fresh main".to_string(),
             risk: ResolutionRisk::Moderate,
             automatic: true,
-            command: Some("jj rebase -d main".to_string()),
+            command: Some("git rebase main".to_string()),
             notes: None,
         }
     }
@@ -128,7 +128,7 @@ impl ResolutionOption {
             description: "Abort the operation".to_string(),
             risk: ResolutionRisk::Safe,
             automatic: true,
-            command: Some("jj abort".to_string()),
+            command: Some("git rebase --abort".to_string()),
             notes: None,
         }
     }
@@ -174,12 +174,12 @@ impl ConflictDetail {
             main_additions: None,
             main_deletions: None,
             resolutions: vec![
-                ResolutionOption::jj_resolve(file),
+                ResolutionOption::git_resolve(file),
                 ResolutionOption::manual_merge(),
                 ResolutionOption::accept_ours(),
                 ResolutionOption::accept_theirs(),
             ],
-            recommended: ResolutionStrategy::JjResolve,
+            recommended: ResolutionStrategy::GitResolve,
         }
     }
 
@@ -193,12 +193,12 @@ impl ConflictDetail {
             main_additions: None,
             main_deletions: None,
             resolutions: vec![
-                ResolutionOption::jj_resolve(file),
+                ResolutionOption::git_resolve(file),
                 ResolutionOption::manual_merge(),
                 ResolutionOption::rebase(),
                 ResolutionOption::abort(),
             ],
-            recommended: ResolutionStrategy::JjResolve,
+            recommended: ResolutionStrategy::GitResolve,
         }
     }
 }
@@ -274,7 +274,7 @@ mod tests {
         let variants = [
             ResolutionStrategy::AcceptOurs,
             ResolutionStrategy::AcceptTheirs,
-            ResolutionStrategy::JjResolve,
+            ResolutionStrategy::GitResolve,
             ResolutionStrategy::ManualMerge,
             ResolutionStrategy::Rebase,
             ResolutionStrategy::Abort,
@@ -288,7 +288,7 @@ mod tests {
         for s in [
             ResolutionStrategy::AcceptOurs,
             ResolutionStrategy::AcceptTheirs,
-            ResolutionStrategy::JjResolve,
+            ResolutionStrategy::GitResolve,
             ResolutionStrategy::ManualMerge,
             ResolutionStrategy::Rebase,
             ResolutionStrategy::Abort,
@@ -368,13 +368,14 @@ mod tests {
     }
 
     #[test]
-    fn test_resolution_option_jj_resolve() {
-        let opt = ResolutionOption::jj_resolve("main.rs");
-        assert_eq!(opt.strategy, ResolutionStrategy::JjResolve);
+    fn test_resolution_option_git_resolve() {
+        let opt = ResolutionOption::git_resolve("main.rs");
+        assert_eq!(opt.strategy, ResolutionStrategy::GitResolve);
         assert!(opt.automatic);
         assert!(opt.command.is_some());
         let cmd = opt.command.expect("has command");
         assert!(cmd.contains("main.rs"));
+        assert!(cmd.contains("git"));
     }
 
     #[test]
@@ -426,8 +427,8 @@ mod tests {
         let detail = ConflictDetail::overlapping("src/main.rs");
         assert_eq!(detail.file, "src/main.rs");
         assert_eq!(detail.conflict_type, ConflictType::Overlapping);
-        assert_eq!(detail.recommended, ResolutionStrategy::JjResolve);
-        assert_eq!(detail.resolutions.len(), 4); // jj_resolve, manual, accept_ours, accept_theirs
+        assert_eq!(detail.recommended, ResolutionStrategy::GitResolve);
+        assert_eq!(detail.resolutions.len(), 4); // git_resolve, manual, accept_ours, accept_theirs
     }
 
     #[test]
@@ -435,7 +436,7 @@ mod tests {
         let detail = ConflictDetail::existing("src/lib.rs");
         assert_eq!(detail.file, "src/lib.rs");
         assert_eq!(detail.conflict_type, ConflictType::Existing);
-        assert_eq!(detail.resolutions.len(), 4); // jj_resolve, manual, rebase, abort
+        assert_eq!(detail.resolutions.len(), 4); // git_resolve, manual, rebase, abort
     }
 
     // ── ConflictDetail serde ─────────────────────────────────────────────────

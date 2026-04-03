@@ -9,10 +9,10 @@ pub const fn add() -> &'static str {
   "intent": "Create scpd workspace for manual interactive development",
   "prerequisites": [
     "scp init must have been run",
-    "JJ repository must be initialized"
+    "Git repository must be initialized"
   ],
   "side_effects": {
-    "creates": ["JJ workspace", "Database session record"],
+    "creates": ["Git workspace", "Database session record"],
     "modifies": [],
     "state_transition": "none → active"
   },
@@ -45,7 +45,7 @@ pub const fn add() -> &'static str {
     "errors": [
       "SessionAlreadyExists",
       "InvalidSessionName",
-      "JJInitFailed",
+      "GitInitFailed",
       "DatabaseError"
     ]
   },
@@ -70,10 +70,10 @@ pub const fn work() -> &'static str {
   "intent": "Create or reuse a named workspace and optionally register an agent",
   "prerequisites": [
     "scp init must have been run",
-    "Must run inside a JJ repository"
+    "Must run inside a Git repository"
   ],
   "side_effects": {
-    "creates": ["JJ workspace", "Database session record"],
+    "creates": ["Git workspace", "Database session record"],
     "modifies": ["Session metadata"],
     "state_transition": "none → active"
   },
@@ -159,7 +159,7 @@ pub const fn spawn() -> &'static str {
     "Agent system must be configured"
   ],
   "side_effects": {
-    "creates": ["JJ workspace", "Agent process", "Database records"],
+    "creates": ["Git workspace", "Agent process", "Database records"],
     "modifies": ["Bead status", "Agent registry"],
     "state_transition": "open → in_progress"
   },
@@ -206,7 +206,7 @@ pub const fn done() -> &'static str {
   ],
   "side_effects": {
     "creates": ["Merge commit on main"],
-    "deletes": ["JJ workspace", "Session record"],
+    "deletes": ["Git workspace", "Session record"],
     "modifies": ["Main branch", "Bead status"],
     "state_transition": "active → completed"
   },

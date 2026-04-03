@@ -149,7 +149,7 @@ mod tests {
         let output = InitOutput {
             message: "Initialized successfully".to_string(),
             repo_dir: "/home/user/project".to_string(),
-            vcs_dir: "/home/user/project/.jj".to_string(),
+            vcs_dir: "/home/user/project/.git".to_string(),
             config_file: "/home/user/project/.scp/config.toml".to_string(),
             state_db: "/home/user/project/.scp/state.db".to_string(),
             layouts_dir: "/home/user/project/.scp/layouts".to_string(),
@@ -167,7 +167,7 @@ mod tests {
         );
         assert_eq!(
             json.get("vcs_dir").and_then(|v| v.as_str()),
-            Some("/home/user/project/.jj")
+            Some("/home/user/project/.git")
         );
         assert_eq!(
             json.get("config_file").and_then(|v| v.as_str()),
@@ -188,7 +188,7 @@ mod tests {
         let output = InitOutput {
             message: "ok".to_string(),
             repo_dir: "/r".to_string(),
-            vcs_dir: "/r/.jj".to_string(),
+            vcs_dir: "/r/.git".to_string(),
             config_file: "/r/.scp/config.toml".to_string(),
             state_db: "/r/.scp/state.db".to_string(),
             layouts_dir: "/r/.scp/layouts".to_string(),

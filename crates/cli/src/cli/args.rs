@@ -47,8 +47,8 @@ pub struct Cli {
 pub enum Commands {
     /// Initialize SCP in current directory
     Init {
-        /// VCS type to use (jj/git)
-        #[arg(long, default_value = "jj")]
+        /// VCS type to use (git only)
+        #[arg(long, default_value = "git")]
         vcs: String,
     },
 
@@ -254,7 +254,7 @@ mod tests {
     fn parse_init_default_vcs() {
         let cli = Cli::parse_from(["scp", "init"]);
         match cli.command {
-            Commands::Init { vcs } => assert_eq!(vcs, "jj"),
+            Commands::Init { vcs } => assert_eq!(vcs, "git"),
             other => panic!("Expected Init, got {:?}", std::mem::discriminant(&other)),
         }
     }

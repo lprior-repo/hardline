@@ -139,9 +139,9 @@ pub fn execute_workspace_abort(backend: &dyn vcs::VcsBackend, name: &str) -> Res
     Ok(())
 }
 
-/// Build JJ diff command
-pub fn build_jj_diff_command(cwd: &std::path::Path, path: Option<&str>) -> Command {
-    let mut cmd = Command::new("jj");
+/// Build git diff command
+pub fn build_git_diff_command(cwd: &std::path::Path, path: Option<&str>) -> Command {
+    let mut cmd = Command::new("git");
     cmd.arg("diff");
     if let Some(p) = path {
         cmd.arg(p);

@@ -103,8 +103,8 @@ pub fn submit(name: Option<&str>, auto_commit: bool, message: Option<&str>) -> R
     if vcs_status == scp_core::vcs::VcsStatus::Dirty {
         if auto_commit {
             if let Some(msg) = message {
-                let output = std::process::Command::new("jj")
-                    .args(["describe", "-m", msg])
+                let output = std::process::Command::new("git")
+                    .args(["commit", "-m", msg])
                     .current_dir(&cwd)
                     .output()
                     .map_err(|e| Error::io_error(e.to_string()))?;

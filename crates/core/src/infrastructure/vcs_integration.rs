@@ -49,7 +49,7 @@ pub fn create_vcs_integration_service() -> impl VcsIntegrationService {
 mod tests {
     use super::*;
 
-    /// Walk up from `start` until a directory containing `.git` or `.jj` is found.
+    /// Walk up from `start` until a directory containing `.git` is found.
     ///
     /// This is needed because `detect_vcs` in the core crate only checks the exact
     /// path (no ancestor walk), and `CARGO_MANIFEST_DIR` points to `crates/core/`
@@ -57,7 +57,7 @@ mod tests {
     fn find_repo_root(start: &Path) -> std::path::PathBuf {
         start
             .ancestors()
-            .find(|dir| dir.join(".git").exists() || dir.join(".jj").exists())
+            .find(|dir| dir.join(".git").exists())
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| start.to_path_buf())
     }

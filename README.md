@@ -1,6 +1,6 @@
 # Hardline
 
-Workspace isolation for AI agent swarms. Built on JJ.
+Workspace isolation for AI agent swarms. Built on Git.
 
 ## The Problem
 
@@ -25,43 +25,30 @@ Real solution: **complete workspace isolation**. Each agent gets their own isola
 
 ---
 
-## FAQ: JJ, Git, and Why This Matters
+## FAQ: Why This Matters
 
-### Why JJ instead of Git?
+### Why complete workspace isolation?
 
-JJ is a fundamentally better VCS for multi-agent workflows:
+Running multiple AI agents against a shared repository creates chaos:
 
-| Feature | Git | JJ (Why it matters) |
-|---------|-----|---------------------|
-| **Concurrency** | Locking required, can corrupt at scale | Lock-free — multiple agents can run in parallel without repo corruption. They just see "divergent changes" and resolve later. |
-| **Undo** | Destructive — reset is permanent | Operation log — undo ANY operation, even non-recent ones. Recover from any mistake. |
-| **Conflicts** | Block merges until resolved | First-class — can commit conflicts, resolve later. No blocking. |
-| **Branches** | Required for everything (branch pollution) | Anonymous — workspaces don't need branch names. No namespace pollution at 8-12 agents. |
-| **State** | Index/staging area is confusing | Working copy auto-committed — simpler, consistent model |
-| **Rebasing** | Manual, can lose work | Auto-rebase — descendants automatically follow rewritten commits |
-| **Merges** | Evil merges exist | No evil merges — merge commits handled correctly |
+| Problem | What happens without isolation |
+|---------|-------------------------------|
+| **Lost code** | Changes overwritten by concurrent agents |
+| **Duplicate work** | Multiple agents implement the same feature |
+| **Bead stealing** | Agents claim work already in progress |
+| **Detached HEAD** | Agents stuck in broken Git states |
+| **Broken main** | Main branch constantly blocked and broken |
 
-**The big ones for agent swarms:**
+### Why not Git Worktrees alone?
 
-- **Lock-free concurrency** means agents don't corrupt each other's work
-- **Operation log** means you can always recover from mistakes
-- **Anonymous commits** means no branch name collisions at scale
-
-### Why not Git Worktrees?
-
-Git Worktrees work great at small scale. They break at agent scale:
+Git Worktrees work fine at small scale (1-3 agents). They break at agent scale:
 
 | Problem | What happens |
 |---------|-------------|
 | **Detached HEAD** | At 4+ agents, you spend half your time in detached HEAD state |
 | **Branch pollution** | 8-12 agents = 8-12 branches to manage. Name collisions are constant. |
 | **No concurrency** | Concurrent worktrees can corrupt the repo |
-| **No operation log** | Mistake = permanent loss |
 | **File locking doesn't scale** | We tried it. It didn't work. |
-
-**The honest threshold:**
-- 1-3 agents with human coordination: Git Worktrees are fine
-- 4+ autonomous agents: You're hitting a wall. We know because we lived it.
 
 ### Why not file locking?
 
@@ -74,11 +61,11 @@ File locking treats symptoms, not causes:
 
 We tried Agentail/MCP. It was a good first crack at the problem. But file locking is fundamentally the wrong abstraction for multi-agent coordination.
 
-**Real solution:** Complete workspace isolation. Each agent has their own environment. No shared state to corrupt.
+**Real solution:** Complete workspace isolation via full Git clones. Each agent has their own environment. No shared state to corrupt.
 
 ---
 
-## What Hardline Adds on Top of JJ
+## What Hardline Adds on Top of Git
 
 - **CLI ergonomics** — `spawn`, `done`, `sync`, `abort` commands
 - **Session state tracking** — knows who's working where
@@ -116,24 +103,24 @@ hardline status
 
 ## Requirements
 
-- **JJ (Jujutsu)** must be installed. Hardline is built on top of JJ and requires it to function.
-- Install via: `cargo install jj-cli` or `brew install jj`
+- **Git** must be installed. Hardline uses Git for all version control operations.
+- Install via: `sudo apt install git` or `brew install git`
 
 ## Tradeoffs
 
-- **JJ learning curve** — new mental model, different from Git
-- **Ecosystem integration** — GitHub, CI, code review tools expect Git (JJ interop exists but isn't first-class everywhere)
+- **Workspace overhead** — each agent gets a full clone, which uses disk space
+- **Merge coordination** — merging multiple agent branches back to main requires careful sequencing
 - **But:** your main stays clean, your agents don't destroy each other's work, and you can actually run 8-12 agents in parallel without losing code
 
-## Why JJ?
+## Why Git?
 
-JJ provides the perfect foundation for isolation:
+Git provides a solid, battle-tested foundation for workspace isolation:
 
-- **Anonymous commits** — workspaces don't need to share branch names
-- **Undo capability** — completely safe operations with easy rollback via operation log
-- **Sparse checkouts** — only see what you need
-- **Conflict resolution** — sane merge handling with first-class conflicts
-- **Operation log** — full history of workspace changes, can recover from any state
+- **Full clones** — each workspace is a complete, independent repository
+- **Branching** — standard Git branches for each agent workspace
+- **Merging** — proven merge and rebase workflows for integrating agent work
+- **Ecosystem** — GitHub, CI, code review tools all work natively
+- **Reliability** — the most widely used VCS with decades of production testing
 
 ## Installation
 

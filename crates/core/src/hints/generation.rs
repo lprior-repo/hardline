@@ -116,11 +116,11 @@ pub fn hints_for_error(error_code: &str, error_msg: &str) -> Vec<Hint> {
                     .with_rationale("Customize workspace paths, hooks, and layouts"),
             ]
         }
-        "JJ_NOT_FOUND" => {
+        "GIT_NOT_FOUND" => {
             vec![
-                Hint::warning("JJ (Jujutsu) is not installed or not in PATH")
-                    .with_rationale("scp requires JJ for workspace management"),
-                Hint::suggestion("Install JJ from https://github.com/martinvonz/jj")
+                Hint::warning("Git is not installed or not in PATH")
+                    .with_rationale("scp requires Git for workspace management"),
+                Hint::suggestion("Install Git from https://git-scm.com")
                     .with_rationale("Follow installation instructions for your platform"),
             ]
         }

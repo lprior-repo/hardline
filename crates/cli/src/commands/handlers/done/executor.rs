@@ -1,7 +1,7 @@
-//! JJ command executor trait for dependency injection.
+//! Git command executor trait for dependency injection.
 //!
-//! Provides a trait for executing JJ commands, enabling testability
-//! without requiring actual JJ installation.
+//! Provides a trait for executing Git commands, enabling testability
+//! without requiring actual Git installation.
 
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 #![cfg_attr(not(test), deny(clippy::expect_used))]
@@ -14,13 +14,13 @@ use scp_core::Error;
 
 use super::data::ConflictDetectionResult;
 
-/// Errors from JJ command execution.
+/// Errors from Git command execution.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExecutorError {
-    /// JJ command not found in PATH.
+    /// Git command not found in PATH.
     CommandNotFound(String),
 
-    /// JJ command failed with exit code.
+    /// Git command failed with exit code.
     CommandFailed { code: i32, stderr: String },
 
     /// Invalid UTF-8 in command output.
@@ -33,9 +33,9 @@ pub enum ExecutorError {
 impl std::fmt::Display for ExecutorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::CommandNotFound(msg) => write!(f, "JJ command not found: {msg}"),
+            Self::CommandNotFound(msg) => write!(f, "VCS command not found: {msg}"),
             Self::CommandFailed { code, stderr } => {
-                write!(f, "JJ command failed with exit code {code}: {stderr}")
+                write!(f, "VCS command failed with exit code {code}: {stderr}")
             }
             Self::InvalidUtf8(msg) => write!(f, "Invalid UTF-8 in command output: {msg}"),
             Self::IoError(msg) => write!(f, "IO error: {msg}"),
@@ -51,12 +51,12 @@ impl From<ExecutorError> for Error {
     }
 }
 
-/// Trait for executing JJ commands.
-pub trait JjExecutor: Send + Sync {
-    /// Run a JJ command with arguments.
+/// Trait for executing Git commands.
+pub trait GitExecutor: Send + Sync {
+    /// Run a Git command with arguments.
     fn run(&self, args: &[&str]) -> std::result::Result<String, ExecutorError>;
 
-    /// Run a JJ command in a specific workspace directory.
+    /// Run a Git command in a specific workspace directory.
     fn run_in_workspace(
         &self,
         args: &[&str],
@@ -64,21 +64,21 @@ pub trait JjExecutor: Send + Sync {
     ) -> std::result::Result<String, ExecutorError>;
 }
 
-/// Real JJ executor that runs actual commands.
+/// Real Git executor that runs actual commands.
 #[derive(Debug, Default)]
-pub struct RealJjExecutor;
+pub struct RealGitExecutor;
 
-impl RealJjExecutor {
-    /// Create a new RealJjExecutor.
+impl RealGitExecutor {
+    /// Create a new RealGitExecutor.
     #[must_use]
     pub const fn new() -> Self {
         Self
     }
 }
 
-impl JjExecutor for RealJjExecutor {
+impl GitExecutor for RealGitExecutor {
     fn run(&self, args: &[&str]) -> std::result::Result<String, ExecutorError> {
-        run_jj_command(args, None)
+        run_git_command(args, None)
     }
 
     fn run_in_workspace(
@@ -86,16 +86,16 @@ impl JjExecutor for RealJjExecutor {
         args: &[&str],
         workspace_path: &str,
     ) -> std::result::Result<String, ExecutorError> {
-        run_jj_command(args, Some(workspace_path))
+        run_git_command(args, Some(workspace_path))
     }
 }
 
-/// Execute a JJ command synchronously.
-fn run_jj_command(
+/// Execute a Git command synchronously.
+fn run_git_command(
     args: &[&str],
     working_dir: Option<&str>,
 ) -> std::result::Result<String, ExecutorError> {
-    let mut cmd = Command::new("jj");
+    let mut cmd = Command::new("git");
     cmd.args(args);
 
     if let Some(dir) = working_dir {
@@ -104,7 +104,7 @@ fn run_jj_command(
 
     let output = cmd.output().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
-            ExecutorError::CommandNotFound("jj command not found in PATH".to_string())
+            ExecutorError::CommandNotFound("git command not found in PATH".to_string())
         } else {
             ExecutorError::IoError(e.to_string())
         }
@@ -122,11 +122,11 @@ fn run_jj_command(
     Ok(stdout)
 }
 
-/// Run conflict detection using JJ commands.
+/// Run conflict detection using Git commands.
 ///
 /// This is a synchronous wrapper around conflict detection logic.
 pub fn detect_conflicts(
-    executor: &dyn JjExecutor,
+    executor: &dyn GitExecutor,
 ) -> std::result::Result<ConflictDetectionResult, ExecutorError> {
     let start = std::time::Instant::now();
 
@@ -194,9 +194,9 @@ pub fn detect_conflicts(
     })
 }
 
-/// Check for existing JJ conflicts in the workspace.
+/// Check for existing Git conflicts in the workspace.
 fn check_existing_conflicts(
-    executor: &dyn JjExecutor,
+    executor: &dyn GitExecutor,
 ) -> std::result::Result<Vec<String>, ExecutorError> {
     let output = executor.run(&[
         "log",
@@ -228,7 +228,7 @@ fn check_existing_conflicts(
 
 /// Find the merge base (common ancestor) between workspace and trunk.
 fn find_merge_base(
-    executor: &dyn JjExecutor,
+    executor: &dyn GitExecutor,
 ) -> std::result::Result<Option<String>, ExecutorError> {
     let output = executor.run(&[
         "log",
@@ -251,7 +251,7 @@ fn find_merge_base(
 
 /// Get files modified in workspace since branching from trunk.
 fn get_workspace_modified_files(
-    executor: &dyn JjExecutor,
+    executor: &dyn GitExecutor,
 ) -> std::result::Result<HashSet<String>, ExecutorError> {
     let output = executor.run(&["diff", "--from", "trunk()", "--to", "@", "--summary"])?;
     Ok(parse_diff_summary(&output))
@@ -259,14 +259,14 @@ fn get_workspace_modified_files(
 
 /// Get files modified in trunk since the merge base.
 fn get_trunk_modified_files(
-    executor: &dyn JjExecutor,
+    executor: &dyn GitExecutor,
     merge_base: &str,
 ) -> std::result::Result<HashSet<String>, ExecutorError> {
     let output = executor.run(&["diff", "--from", merge_base, "--to", "trunk()", "--summary"])?;
     Ok(parse_diff_summary(&output))
 }
 
-/// Parse JJ diff --summary output to extract file paths.
+/// Parse Git diff --summary output to extract file paths.
 ///
 /// Format: "M path/to/file" or "A path" or "D path" or "R old -> new"
 pub fn parse_diff_summary(output: &str) -> HashSet<String> {
@@ -304,10 +304,10 @@ mod tests {
 
     #[test]
     fn executor_error_command_not_found_display() {
-        let err = ExecutorError::CommandNotFound("jj not found".to_string());
+        let err = ExecutorError::CommandNotFound("git not found".to_string());
         let msg = format!("{err}");
         assert!(msg.contains("not found"));
-        assert!(msg.contains("jj not found"));
+        assert!(msg.contains("git not found"));
     }
 
     #[test]
@@ -461,13 +461,13 @@ mod tests {
         assert!(result.contains("file.rs"));
     }
 
-    // ---- Mock JjExecutor ----
+    // ---- Mock GitExecutor ----
 
-    struct MockJjExecutor {
+    struct MockGitExecutor {
         responses: std::collections::HashMap<String, String>,
     }
 
-    impl MockJjExecutor {
+    impl MockGitExecutor {
         fn new() -> Self {
             Self {
                 responses: std::collections::HashMap::new(),
@@ -480,7 +480,7 @@ mod tests {
         }
     }
 
-    impl JjExecutor for MockJjExecutor {
+    impl GitExecutor for MockGitExecutor {
         fn run(&self, args: &[&str]) -> std::result::Result<String, ExecutorError> {
             let key = args.join(" ");
             self.responses
@@ -503,21 +503,21 @@ mod tests {
 
     #[test]
     fn mock_executor_returns_configured_response() {
-        let mock = MockJjExecutor::new().with_response("status", "ok");
+        let mock = MockGitExecutor::new().with_response("status", "ok");
         let result = mock.run(&["status"]).expect("should succeed");
         assert_eq!(result, "ok");
     }
 
     #[test]
     fn mock_executor_returns_error_for_unconfigured_command() {
-        let mock = MockJjExecutor::new();
+        let mock = MockGitExecutor::new();
         let result = mock.run(&["unknown"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn mock_executor_run_in_workspace_delegates_to_run() {
-        let mock = MockJjExecutor::new().with_response("log", "log output");
+        let mock = MockGitExecutor::new().with_response("log", "log output");
         let result = mock
             .run_in_workspace(&["log"], "/some/workspace")
             .expect("should succeed");
@@ -648,7 +648,7 @@ mod tests {
 
     #[test]
     fn detect_conflicts_no_conflicts_with_mock() {
-        let mock = MockJjExecutor::new()
+        let mock = MockGitExecutor::new()
             .with_response(
                 "log -r @ --no-graph -T if(conflict, \"CONFLICT\\n\", \"\")",
                 "",
@@ -676,7 +676,7 @@ mod tests {
 
     #[test]
     fn detect_conflicts_existing_conflicts_with_mock() {
-        let mock = MockJjExecutor::new()
+        let mock = MockGitExecutor::new()
             .with_response(
                 "log -r @ --no-graph -T if(conflict, \"CONFLICT\\n\", \"\")",
                 "CONFLICT\n",
@@ -697,7 +697,7 @@ mod tests {
 
     #[test]
     fn detect_conflicts_overlapping_files_with_mock() {
-        let mock = MockJjExecutor::new()
+        let mock = MockGitExecutor::new()
             .with_response(
                 "log -r @ --no-graph -T if(conflict, \"CONFLICT\\n\", \"\")",
                 "",

@@ -276,29 +276,7 @@ mod tests {
         assert!(detail.details.is_some());
     }
 
-    #[test]
-    fn test_error_detail_from_jj_command_error() {
-        let err = crate::error::Error::jj_command_error("status", "jj not found", true);
-        let detail = ErrorDetail::from_error(&err);
-        assert_eq!(detail.code, "JJ_COMMAND_ERROR");
-        assert!(detail.message.contains("status"));
-        assert!(detail.exit_code > 0);
-        assert!(detail.details.is_some());
-        assert!(detail.suggestion.is_some());
-        assert!(detail.suggestion.as_ref().unwrap().contains("Install JJ"));
-    }
-
-    #[test]
-    fn test_error_detail_from_jj_lock_timeout() {
-        let err = crate::error::Error::jj_lock_timeout("commit", 5000, 3);
-        let detail = ErrorDetail::from_error(&err);
-        assert_eq!(detail.code, "LOCK_TIMEOUT");
-        assert!(detail.exit_code > 0);
-        assert!(detail.details.is_some());
-        let details = detail.details.unwrap();
-        assert_eq!(details["timeout_ms"], 5000);
-        assert_eq!(details["retries"], 3);
-    }
+    // -- VCS error variants --
 
     #[test]
     fn test_error_detail_from_database_error() {
@@ -542,27 +520,6 @@ mod tests {
         assert!(detail.message.contains("future feature"));
         assert!(detail.exit_code > 0);
         assert!(detail.details.is_some());
-    }
-
-    // ── JJ error variants ────────────────────────────────────────────
-
-    #[test]
-    fn test_error_detail_from_jj_workspace_conflict() {
-        use crate::error_types::JjConflictType;
-        let err = crate::error::Error::jj_workspace_conflict(
-            JjConflictType::AlreadyExists,
-            "ws-1",
-            "workspace already exists",
-            "delete and recreate",
-        );
-        let detail = ErrorDetail::from_error(&err);
-        assert_eq!(detail.code, "JJ_WORKSPACE_CONFLICT");
-        assert!(detail.message.contains("ws-1"));
-        assert!(detail.exit_code > 0);
-        assert!(detail.details.is_some());
-        let ctx = detail.details.unwrap();
-        assert_eq!(ctx["workspace_name"], "ws-1");
-        assert_eq!(ctx["conflict_type"], "AlreadyExists");
     }
 
     // ── VCS error variants ───────────────────────────────────────────
@@ -879,8 +836,8 @@ mod tests {
         let detail = ErrorDetail::from_error(&err);
         assert_eq!(detail.exit_code, 3);
 
-        // JJ -> 4 (external command)
-        let err = crate::error::Error::jj_command_error("status", "fail", false);
+        // Internal -> 4 (internal error)
+        let err = crate::error::Error::internal("invariant violated");
         let detail = ErrorDetail::from_error(&err);
         assert_eq!(detail.exit_code, 4);
 

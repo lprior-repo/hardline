@@ -85,7 +85,7 @@ pub fn determine_ready_state(initialized: bool, location: &Location) -> (bool, S
     match location {
         Location::NotInRepo => (
             false,
-            "Not in a JJ repository".to_string(),
+            "Not in a Git repository".to_string(),
             "cd <repo> && scp init".to_string(),
         ),
         _ if !initialized => (
@@ -183,9 +183,9 @@ pub fn determine_next_action(
 ) -> NextActionOutput {
     match location {
         Location::NotInRepo => NextActionOutput {
-            action: "Enter a JJ repository".to_string(),
+            action: "Enter a Git repository".to_string(),
             command: "cd <repo> && scp init".to_string(),
-            reason: "Not currently in a JJ repository".to_string(),
+            reason: "Not currently in a Git repository".to_string(),
             priority: Priority::High,
         },
         _ if !initialized => NextActionOutput {

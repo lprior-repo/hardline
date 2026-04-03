@@ -18,14 +18,14 @@ pub fn fork(name: &str, from: Option<&str>) -> Result<(), Error> {
 
     let from_branch = from.unwrap_or("main");
 
-    let output = Command::new("jj")
-        .args(["workspace", "fork", name, "--from", from_branch])
+    let output = Command::new("git")
+        .args(["worktree", "add", name])
         .current_dir(&cwd)
         .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("jj workspace fork", stderr));
+        return Err(Error::vcs_conflict("worktree add", stderr));
     }
 
     Output::success(&format!(

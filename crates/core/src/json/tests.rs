@@ -47,8 +47,7 @@ fn test_json_error_with_suggestion() {
 #[test]
 fn test_error_code_as_str() {
     assert_eq!(ErrorCode::SessionNotFound.as_str(), "SESSION_NOT_FOUND");
-    assert_eq!(ErrorCode::JjNotInstalled.as_str(), "JJ_NOT_INSTALLED");
-    assert_eq!(ErrorCode::HookFailed.as_str(), "HOOK_FAILED");
+    assert_eq!(ErrorCode::VcsNotInstalled.as_str(), "VCS_NOT_INSTALLED");    assert_eq!(ErrorCode::HookFailed.as_str(), "HOOK_FAILED");
 }
 
 #[test]
@@ -554,16 +553,6 @@ fn test_json_error_from_io_error() {
     assert_eq!(json_error.error.exit_code, 3);
 }
 
-#[test]
-fn test_json_error_from_jj_not_found() {
-    let err = crate::error::Error::jj_command_error("test", "jj not found", true);
-    let json_error = JsonError::from(&err);
-
-    assert!(!json_error.success);
-    assert!(json_error.error.code.contains("JJ"));
-    assert!(json_error.error.suggestion.is_some());
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // CONTEXT_MAP INTEGRATION TESTS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -593,16 +582,15 @@ fn test_json_error_from_error_includes_context_map() {
 }
 
 #[test]
-fn test_error_detail_context_map_jj_command() {
-    let err = crate::error::Error::jj_command_error("log", "fatal error", false);
+fn test_error_detail_context_map_vcs_conflict() {
+    let err = crate::error::Error::vcs_conflict("repo", "merge conflict");
     let detail = ErrorDetail::from_error(&err);
 
-    assert_eq!(detail.code, "JJ_COMMAND_ERROR");
+    assert_eq!(detail.code, "VCS_CONFLICT");
     assert!(detail.details.is_some());
     let details = detail.details.expect("should have details");
-    assert_eq!(details["operation"], "log");
-    assert_eq!(details["source"], "fatal error");
-    assert_eq!(details["is_not_found"], false);
+    assert_eq!(details["repo"], "repo");
+    assert_eq!(details["message"], "merge conflict");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -659,9 +647,9 @@ fn test_semantic_exit_code_io() {
 }
 
 #[test]
-fn test_semantic_exit_code_jj() {
-    let err = crate::error::Error::jj_command_error("status", "error", false);
-    assert_eq!(crate::json::semantic_exit_code(&err), 4);
+fn test_semantic_exit_code_vcs() {
+    let err = crate::error::Error::vcs_not_initialized();
+    assert_eq!(crate::json::semantic_exit_code(&err), 1);
 }
 
 #[test]
@@ -685,7 +673,7 @@ fn test_vcs_not_initialized_maps_correctly() {
     let err = crate::error::Error::from(VcsErrorKind::NotInitialized);
     let (code, msg, suggestion) = crate::json::map_error_to_parts(&err);
 
-    assert_eq!(code, ErrorCode::NotJjRepository);
+    assert_eq!(code, ErrorCode::NotGitRepository);
     assert_eq!(msg, "VCS not initialized");
     assert_eq!(
         suggestion,
@@ -843,9 +831,9 @@ fn test_vcs_merge_no_commit_id_maps_to_unknown() {
 fn test_vcs_init_failed_maps_to_unknown_with_suggestion() {
     use crate::error_vcs::VcsErrorKind;
     let err = crate::error::Error::from(VcsErrorKind::InitFailed {
-        vcs_type: "jj".to_string(),
+        vcs_type: "git".to_string(),
         directory: "/tmp/test".to_string(),
-        reason: "jj not found".to_string(),
+        reason: "not found".to_string(),
     });
     let (code, msg, suggestion) = crate::json::map_error_to_parts(&err);
 

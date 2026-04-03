@@ -145,12 +145,11 @@ pub fn execute_workspace_abort(backend: &dyn VcsBackend, name: &str) -> Result<(
     Ok(())
 }
 
-/// Build jj diff command
+/// Build git diff command
 #[must_use]
-pub fn build_jj_diff_command(cwd: &Path, path: Option<&str>) -> Command {
-    let mut cmd = Command::new("jj");
-    cmd.args(["diff", "--at-op", "working", "--rev", "@"])
-        .current_dir(cwd);
+pub fn build_git_diff_command(cwd: &Path, path: Option<&str>) -> Command {
+    let mut cmd = Command::new("git");
+    cmd.args(["diff", "HEAD"]).current_dir(cwd);
 
     if let Some(p) = path {
         cmd.arg(p);
@@ -344,23 +343,22 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    // ---- build_jj_diff_command ----
+    // ---- build_git_diff_command ----
 
     #[test]
-    fn build_jj_diff_no_path() {
-        let cmd = build_jj_diff_command(std::path::Path::new("/tmp"), None);
+    fn build_git_diff_no_path() {
+        let cmd = build_git_diff_command(std::path::Path::new("/tmp"), None);
         let args: Vec<String> = cmd
             .get_args()
             .map(|a| a.to_string_lossy().to_string())
             .collect();
         assert!(args.contains(&"diff".to_string()));
-        assert!(args.contains(&"working".to_string()));
-        assert!(args.contains(&"@".to_string()));
+        assert!(args.contains(&"HEAD".to_string()));
     }
 
     #[test]
-    fn build_jj_diff_with_path() {
-        let cmd = build_jj_diff_command(std::path::Path::new("/tmp"), Some("src/main.rs"));
+    fn build_git_diff_with_path() {
+        let cmd = build_git_diff_command(std::path::Path::new("/tmp"), Some("src/main.rs"));
         let args: Vec<String> = cmd
             .get_args()
             .map(|a| a.to_string_lossy().to_string())
@@ -369,10 +367,8 @@ mod tests {
     }
 
     #[test]
-    fn build_jj_diff_cwd_is_set() {
-        // Verify the function constructs a valid Command without panicking.
-        // Command::current_dir() is set but cannot be inspected on all platforms.
-        let _cmd = build_jj_diff_command(std::path::Path::new("/test/dir"), None);
+    fn build_git_diff_cwd_is_set() {
+        let _cmd = build_git_diff_command(std::path::Path::new("/test/dir"), None);
     }
 }
 
@@ -402,16 +398,16 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
 
     Output::info(&format!("Adding workspace at '{}'...", path));
 
-    let output = Command::new("jj")
-        .args(["workspace", "add", path])
+    let output = Command::new("git")
+        .args(["worktree", "add", path])
         .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("workspace add", stderr));
+        return Err(Error::vcs_conflict("worktree add", stderr));
     }
 
-    Output::success(&format!("✓ Added workspace at '{}'", path));
+    Output::success(&format!("Added workspace at '{}'", path));
 
     Ok(())
 }

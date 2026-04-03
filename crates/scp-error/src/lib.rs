@@ -126,21 +126,6 @@ pub enum Error {
     #[error("Working copy has uncommitted changes")]
     WorkingCopyDirty,
 
-    #[error("JJ command '{operation}' failed: {msg}")]
-    JjCommandError {
-        operation: String,
-        msg: String,
-        is_not_found: bool,
-    },
-
-    #[error("JJ workspace conflict: {conflict_type:?} for '{workspace_name}': {msg}")]
-    JjWorkspaceConflict {
-        conflict_type: JjConflictType,
-        workspace_name: String,
-        msg: String,
-        recovery_hint: String,
-    },
-
     // ========================================================================
     // Configuration Errors (4xxx)
     // ========================================================================
@@ -270,14 +255,6 @@ pub enum Error {
     InvariantViolation(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-pub enum JjConflictType {
-    AlreadyExists,
-    ConcurrentModification,
-    Abandoned,
-    Stale,
-}
-
 impl Error {
     #[must_use]
     pub fn suggestion(&self) -> Option<String> {
@@ -329,8 +306,6 @@ impl Error {
             Self::BranchExists(_) => 46,
             Self::CommitNotFound(_) => 47,
             Self::WorkingCopyDirty => 48,
-            Self::JjCommandError { .. } => 49,
-            Self::JjWorkspaceConflict { .. } => 50,
             Self::ConfigNotFound(_) => 60,
             Self::ConfigInvalid(_) => 61,
             Self::ConfigPermission(_) => 62,

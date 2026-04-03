@@ -14,10 +14,10 @@ pub enum ErrorCode {
     WorkspaceCreationFailed,
     WorkspaceNotFound,
 
-    // JJ errors
-    JjNotInstalled,
-    JjCommandFailed,
-    NotJjRepository,
+    // VCS errors
+    VcsNotInstalled,
+    VcsCommandFailed,
+    NotGitRepository,
 
     // Zellij errors
     ZellijNotRunning,
@@ -50,7 +50,7 @@ pub enum ErrorCode {
     SpawnMergeFailed,
     SpawnCleanupFailed,
     SpawnDatabaseError,
-    SpawnJjCommandFailed,
+    SpawnVcsCommandFailed,
 
     // Generic errors
     InvalidArgument,
@@ -67,9 +67,9 @@ impl ErrorCode {
             Self::SessionNameInvalid => "SESSION_NAME_INVALID",
             Self::WorkspaceCreationFailed => "WORKSPACE_CREATION_FAILED",
             Self::WorkspaceNotFound => "WORKSPACE_NOT_FOUND",
-            Self::JjNotInstalled => "JJ_NOT_INSTALLED",
-            Self::JjCommandFailed => "JJ_COMMAND_FAILED",
-            Self::NotJjRepository => "NOT_JJ_REPOSITORY",
+            Self::VcsNotInstalled => "VCS_NOT_INSTALLED",
+            Self::VcsCommandFailed => "VCS_COMMAND_FAILED",
+            Self::NotGitRepository => "NOT_GIT_REPOSITORY",
             Self::ZellijNotRunning => "ZELLIJ_NOT_RUNNING",
             Self::ZellijCommandFailed => "ZELLIJ_COMMAND_FAILED",
             Self::ConfigNotFound => "CONFIG_NOT_FOUND",
@@ -90,7 +90,7 @@ impl ErrorCode {
             Self::SpawnMergeFailed => "SPAWN_MERGE_FAILED",
             Self::SpawnCleanupFailed => "SPAWN_CLEANUP_FAILED",
             Self::SpawnDatabaseError => "SPAWN_DATABASE_ERROR",
-            Self::SpawnJjCommandFailed => "SPAWN_JJ_COMMAND_FAILED",
+            Self::SpawnVcsCommandFailed => "SPAWN_VCS_COMMAND_FAILED",
             Self::InvalidArgument => "INVALID_ARGUMENT",
             Self::Unknown => "UNKNOWN",
         }
@@ -118,21 +118,21 @@ impl ErrorCode {
 
             // Workspace errors
             Self::WorkspaceCreationFailed => {
-                Some("Check JJ is working: jj status, or try: scp doctor")
+                Some("Check Git is working: git status, or try: scp doctor")
             }
             Self::WorkspaceNotFound => {
                 Some("Use 'scp workspace list' to see available workspaces, or 'scp doctor' to check system health")
             }
 
-            // JJ errors
-            Self::JjNotInstalled => {
-                Some("Install JJ: cargo install jj-cli or brew install jj or visit https://martinvonz.github.io/jj/latest/install-and-setup/")
+            // VCS errors
+            Self::VcsNotInstalled => {
+                Some("Install Git: https://git-scm.com/downloads or use your package manager")
             }
-            Self::JjCommandFailed => {
-                Some("Check JJ status: jj status, resolve conflicts with: jj resolve, or see: scp doctor")
+            Self::VcsCommandFailed => {
+                Some("Check Git status: git status, resolve conflicts, or see: scp doctor")
             }
-            Self::NotJjRepository => {
-                Some("Run 'scp init' to initialize a JJ repository in this directory")
+            Self::NotGitRepository => {
+                Some("Run 'scp init' to initialize a Git repository in this directory")
             }
 
             // Zellij errors
@@ -180,7 +180,7 @@ impl ErrorCode {
 
             // Spawn errors
             Self::SpawnNotOnMain => {
-                Some("Switch to main branch: jj checkout main")
+                Some("Switch to main branch: git checkout main")
             }
             Self::SpawnInvalidBeadStatus => {
                 Some("Check bead status with: bd show <bead-id>")
@@ -198,7 +198,7 @@ impl ErrorCode {
                 Some("Increase timeout with --timeout flag, or check for infinite loops")
             }
             Self::SpawnMergeFailed => {
-                Some("Resolve conflicts manually in workspace, or use: jj abandon")
+                Some("Resolve conflicts manually in workspace, or use: git merge --abort")
             }
             Self::SpawnCleanupFailed => {
                 Some("Manually clean workspace: rm -rf .scp/workspaces/<bead-id>")
@@ -206,8 +206,8 @@ impl ErrorCode {
             Self::SpawnDatabaseError => {
                 Some("Run: bd sync or scp doctor --fix")
             }
-            Self::SpawnJjCommandFailed => {
-                Some("Check JJ is working: jj status, or run: scp doctor")
+            Self::SpawnVcsCommandFailed => {
+                Some("Check Git is working: git status, or run: scp doctor")
             }
 
             // Generic errors
@@ -231,7 +231,7 @@ impl From<ErrorCode> for String {
 mod tests {
     use super::*;
 
-    // ── ErrorCode enum variants have correct string representations ───
+    // -- ErrorCode enum variants have correct string representations ---
 
     #[test]
     fn test_error_code_as_str_session_errors() {
@@ -247,10 +247,10 @@ mod tests {
     }
 
     #[test]
-    fn test_error_code_as_str_jj_errors() {
-        assert_eq!(ErrorCode::JjNotInstalled.as_str(), "JJ_NOT_INSTALLED");
-        assert_eq!(ErrorCode::JjCommandFailed.as_str(), "JJ_COMMAND_FAILED");
-        assert_eq!(ErrorCode::NotJjRepository.as_str(), "NOT_JJ_REPOSITORY");
+    fn test_error_code_as_str_vcs_errors() {
+        assert_eq!(ErrorCode::VcsNotInstalled.as_str(), "VCS_NOT_INSTALLED");
+        assert_eq!(ErrorCode::VcsCommandFailed.as_str(), "VCS_COMMAND_FAILED");
+        assert_eq!(ErrorCode::NotGitRepository.as_str(), "NOT_GIT_REPOSITORY");
     }
 
     #[test]
@@ -295,7 +295,7 @@ mod tests {
         assert_eq!(ErrorCode::SpawnMergeFailed.as_str(), "SPAWN_MERGE_FAILED");
         assert_eq!(ErrorCode::SpawnCleanupFailed.as_str(), "SPAWN_CLEANUP_FAILED");
         assert_eq!(ErrorCode::SpawnDatabaseError.as_str(), "SPAWN_DATABASE_ERROR");
-        assert_eq!(ErrorCode::SpawnJjCommandFailed.as_str(), "SPAWN_JJ_COMMAND_FAILED");
+        assert_eq!(ErrorCode::SpawnVcsCommandFailed.as_str(), "SPAWN_VCS_COMMAND_FAILED");
     }
 
     #[test]
@@ -304,7 +304,7 @@ mod tests {
         assert_eq!(ErrorCode::Unknown.as_str(), "UNKNOWN");
     }
 
-    // ── All as_str() values are SCREAMING_SNAKE_CASE ──────────────────
+    // -- All as_str() values are SCREAMING_SNAKE_CASE ---
 
     #[test]
     fn test_all_error_codes_are_screaming_snake_case() {
@@ -314,9 +314,9 @@ mod tests {
             ErrorCode::SessionNameInvalid,
             ErrorCode::WorkspaceCreationFailed,
             ErrorCode::WorkspaceNotFound,
-            ErrorCode::JjNotInstalled,
-            ErrorCode::JjCommandFailed,
-            ErrorCode::NotJjRepository,
+            ErrorCode::VcsNotInstalled,
+            ErrorCode::VcsCommandFailed,
+            ErrorCode::NotGitRepository,
             ErrorCode::ZellijNotRunning,
             ErrorCode::ZellijCommandFailed,
             ErrorCode::ConfigNotFound,
@@ -337,7 +337,7 @@ mod tests {
             ErrorCode::SpawnMergeFailed,
             ErrorCode::SpawnCleanupFailed,
             ErrorCode::SpawnDatabaseError,
-            ErrorCode::SpawnJjCommandFailed,
+            ErrorCode::SpawnVcsCommandFailed,
             ErrorCode::InvalidArgument,
             ErrorCode::Unknown,
         ];
@@ -352,7 +352,7 @@ mod tests {
         }
     }
 
-    // ── suggest_resolution() returns sensible suggestions for each code
+    // -- suggest_resolution() returns sensible suggestions for each code
 
     #[test]
     fn test_suggest_resolution_session_errors() {
@@ -373,7 +373,7 @@ mod tests {
     fn test_suggest_resolution_workspace_errors() {
         let s = ErrorCode::WorkspaceCreationFailed.suggest_resolution();
         assert!(s.is_some());
-        assert!(s.unwrap().contains("jj status") || s.unwrap().contains("doctor"));
+        assert!(s.unwrap().contains("git status") || s.unwrap().contains("doctor"));
 
         let s = ErrorCode::WorkspaceNotFound.suggest_resolution();
         assert!(s.is_some());
@@ -381,16 +381,16 @@ mod tests {
     }
 
     #[test]
-    fn test_suggest_resolution_jj_errors() {
-        let s = ErrorCode::JjNotInstalled.suggest_resolution();
+    fn test_suggest_resolution_vcs_errors() {
+        let s = ErrorCode::VcsNotInstalled.suggest_resolution();
         assert!(s.is_some());
-        assert!(s.unwrap().contains("Install JJ") || s.unwrap().contains("cargo install"));
+        assert!(s.unwrap().contains("Install Git"));
 
-        let s = ErrorCode::JjCommandFailed.suggest_resolution();
+        let s = ErrorCode::VcsCommandFailed.suggest_resolution();
         assert!(s.is_some());
-        assert!(s.unwrap().contains("jj status") || s.unwrap().contains("doctor"));
+        assert!(s.unwrap().contains("git status") || s.unwrap().contains("doctor"));
 
-        let s = ErrorCode::NotJjRepository.suggest_resolution();
+        let s = ErrorCode::NotGitRepository.suggest_resolution();
         assert!(s.is_some());
         assert!(s.unwrap().contains("scp init"));
     }
@@ -465,7 +465,7 @@ mod tests {
         assert!(ErrorCode::SpawnMergeFailed.suggest_resolution().is_some());
         assert!(ErrorCode::SpawnCleanupFailed.suggest_resolution().is_some());
         assert!(ErrorCode::SpawnDatabaseError.suggest_resolution().is_some());
-        assert!(ErrorCode::SpawnJjCommandFailed.suggest_resolution().is_some());
+        assert!(ErrorCode::SpawnVcsCommandFailed.suggest_resolution().is_some());
     }
 
     #[test]
@@ -479,7 +479,7 @@ mod tests {
         assert!(s.unwrap().contains("doctor"));
     }
 
-    // ── All variants return Some from suggest_resolution ──────────────
+    // -- All variants return Some from suggest_resolution ---
 
     #[test]
     fn test_all_error_codes_have_suggestions() {
@@ -489,9 +489,9 @@ mod tests {
             ErrorCode::SessionNameInvalid,
             ErrorCode::WorkspaceCreationFailed,
             ErrorCode::WorkspaceNotFound,
-            ErrorCode::JjNotInstalled,
-            ErrorCode::JjCommandFailed,
-            ErrorCode::NotJjRepository,
+            ErrorCode::VcsNotInstalled,
+            ErrorCode::VcsCommandFailed,
+            ErrorCode::NotGitRepository,
             ErrorCode::ZellijNotRunning,
             ErrorCode::ZellijCommandFailed,
             ErrorCode::ConfigNotFound,
@@ -512,7 +512,7 @@ mod tests {
             ErrorCode::SpawnMergeFailed,
             ErrorCode::SpawnCleanupFailed,
             ErrorCode::SpawnDatabaseError,
-            ErrorCode::SpawnJjCommandFailed,
+            ErrorCode::SpawnVcsCommandFailed,
             ErrorCode::InvalidArgument,
             ErrorCode::Unknown,
         ];
@@ -525,7 +525,7 @@ mod tests {
         }
     }
 
-    // ── From<ErrorCode> for String ────────────────────────────────────
+    // -- From<ErrorCode> for String ---
 
     #[test]
     fn test_error_code_into_string() {
@@ -536,7 +536,7 @@ mod tests {
         assert_eq!(s, "UNKNOWN");
     }
 
-    // ── Serialization / Deserialization round-trip ───────────────────
+    // -- Serialization / Deserialization round-trip ---
 
     #[test]
     fn test_error_code_serde_round_trip() {

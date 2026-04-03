@@ -1,16 +1,16 @@
-//! Bookmark command: manage JJ bookmarks/branches
+//! Bookmark command: manage Git bookmarks/branches
 
 use clap::{Arg, Command as ClapCommand};
 
-/// Manage JJ bookmarks/branches
+/// Manage Git bookmarks/branches
 pub fn cmd_bookmark() -> ClapCommand {
     ClapCommand::new("bookmark")
-        .about("Manage JJ bookmarks/branches")
+        .about("Manage Git bookmarks/branches")
         .long_about(
-            "Manage bookmarks (branches) in JJ workspaces.
+            "Manage bookmarks (branches) in Git workspaces.
 
 
-            isolate wraps JJ completely - use 'isolate bookmark' not 'jj bookmark'.
+            isolate wraps Git completely - use 'isolate bookmark' not 'git bookmark'.
 
             Provides: list, create, delete, move operations.",
         )

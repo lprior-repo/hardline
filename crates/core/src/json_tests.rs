@@ -130,22 +130,6 @@ fn given_validation_field_error_when_serialize_then_includes_field() {
     }
 }
 
-#[cfg(any())]
-fn given_jj_command_error_when_serialize_then_includes_operation() {
-    let err = Error::JjCommandError {
-        operation: "status".to_string(),
-        msg: "failed".to_string(),
-        is_not_found: false,
-    };
-    let json = serde_json::to_string(&err).ok();
-    assert!(json.is_some());
-
-    if let Some(s) = json {
-        assert!(s.contains("status"));
-        assert!(s.contains("failed"));
-    }
-}
-
 #[test]
 fn given_error_with_suggestion() {
     let err = Error::workspace_not_found("test");

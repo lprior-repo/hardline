@@ -13,7 +13,7 @@ use super::error_code::ErrorCode;
 /// - 1: Usage/validation errors (invalid config, parse errors, validation failures)
 /// - 2: Not found errors (missing resources)
 /// - 3: System errors (IO, database issues)
-/// - 4: External command errors (JJ, hooks, etc.)
+/// - 4: External command errors (hooks, etc.)
 /// - 5: Lock contention errors
 pub fn classify_exit_code(error: &crate::error::Error) -> i32 {
     match error {
@@ -47,8 +47,6 @@ pub fn classify_exit_code(error: &crate::error::Error) -> i32 {
         }
         // System errors: exit code 3
         Error::Io(_) | Error::Agent(_) | Error::Queue(_) | Error::Task(_) | Error::Wait(_) => 3,
-        // External command errors: exit code 4
-        Error::Jj(_) => 4,
         // Lock contention errors: exit code 5
         Error::Lock(_) => 5,
         // Internal errors: exit code 4 (treated as external/unknown)
@@ -93,7 +91,7 @@ pub fn map_error_to_parts(err: &crate::error::Error) -> (ErrorCode, String, Opti
             use crate::error_vcs::VcsErrorKind;
             match e.kind() {
                 VcsErrorKind::NotInitialized => (
-                    ErrorCode::NotJjRepository,
+                    ErrorCode::NotGitRepository,
                     "VCS not initialized".to_string(),
                     Some("Run 'scp init' to initialize VCS".to_string()),
                 ),
@@ -134,8 +132,6 @@ pub fn map_error_to_parts(err: &crate::error::Error) -> (ErrorCode, String, Opti
         Error::State(_) => (ErrorCode::InvalidArgument, message, suggestion),
         // Internal errors
         Error::Internal(_) => (ErrorCode::Unknown, message, suggestion),
-        // JJ errors
-        Error::Jj(_) => (ErrorCode::JjCommandFailed, message, suggestion),
         // Task errors
         Error::Task(_) => (ErrorCode::Unknown, message, suggestion),
         // Wait/Batch errors
@@ -158,7 +154,6 @@ mod tests {
     use crate::error_queue::QueueErrorKind;
     use crate::error_task::TaskErrorKind;
     use crate::error_wait::WaitErrorKind;
-    use crate::error_jj::JjErrorKind;
     use crate::error_internal::InternalErrorKind;
     use crate::error_io::IoErrorKind;
     use crate::coordination::locks::errors::LockErrorKind;
@@ -345,30 +340,6 @@ mod tests {
         assert_eq!(classify_exit_code(&err), 3);
     }
 
-    // -- Exit code 4: External command errors --
-
-    #[test]
-    fn classify_exit_code_jj_returns_4() {
-        let err: crate::error::Error = JjErrorKind::CommandError {
-            operation: "log".into(),
-            msg: "failed".into(),
-            is_not_found: false,
-        }
-        .into();
-        assert_eq!(classify_exit_code(&err), 4);
-    }
-
-    #[test]
-    fn classify_exit_code_jj_lock_timeout_returns_4() {
-        let err: crate::error::Error = JjErrorKind::LockTimeout {
-            operation: "commit".into(),
-            timeout_ms: 5000,
-            retries: 3,
-        }
-        .into();
-        assert_eq!(classify_exit_code(&err), 4);
-    }
-
     // -- Exit code 5: Lock contention errors --
 
     #[test]
@@ -482,7 +453,7 @@ mod tests {
     fn map_error_to_parts_vcs_not_initialized() {
         let err: crate::error::Error = VcsErrorKind::NotInitialized.into();
         let (code, msg, suggestion) = map_error_to_parts(&err);
-        assert_eq!(code, ErrorCode::NotJjRepository);
+        assert_eq!(code, ErrorCode::NotGitRepository);
         assert_eq!(msg, "VCS not initialized");
         assert_eq!(
             suggestion,
@@ -598,14 +569,14 @@ mod tests {
     #[test]
     fn map_error_to_parts_vcs_init_failed() {
         let err: crate::error::Error = VcsErrorKind::InitFailed {
-            vcs_type: "jj".into(),
+            vcs_type: "git".into(),
             directory: "/tmp".into(),
             reason: "not found".into(),
         }
         .into();
         let (code, msg, _suggestion) = map_error_to_parts(&err);
         assert_eq!(code, ErrorCode::Unknown);
-        assert!(msg.contains("jj"));
+        assert!(msg.contains("git"));
     }
 
     // -- Config error mapping --
@@ -647,36 +618,6 @@ mod tests {
         let (code, msg, _suggestion) = map_error_to_parts(&err);
         assert_eq!(code, ErrorCode::InvalidArgument);
         assert!(msg.contains("name"));
-    }
-
-    // -- JJ error mapping --
-
-    #[test]
-    fn map_error_to_parts_jj_command_failed() {
-        let err: crate::error::Error = JjErrorKind::CommandError {
-            operation: "log".into(),
-            msg: "exit code 1".into(),
-            is_not_found: false,
-        }
-        .into();
-        let (code, msg, suggestion) = map_error_to_parts(&err);
-        assert_eq!(code, ErrorCode::JjCommandFailed);
-        assert!(msg.contains("log"));
-        // CommandError with is_not_found=false has no suggestion
-        assert!(suggestion.is_none());
-    }
-
-    #[test]
-    fn map_error_to_parts_jj_not_found_has_suggestion() {
-        let err: crate::error::Error = JjErrorKind::CommandError {
-            operation: "log".into(),
-            msg: "not found".into(),
-            is_not_found: true,
-        }
-        .into();
-        let (code, _msg, suggestion) = map_error_to_parts(&err);
-        assert_eq!(code, ErrorCode::JjCommandFailed);
-        assert_eq!(suggestion.as_deref(), Some("Install JJ: cargo install jj-cli or brew install jj"));
     }
 
     // -- Agent error mapping --
@@ -794,7 +735,7 @@ mod tests {
             VcsErrorKind::DiffFailed("x".into()).into(),
             VcsErrorKind::MergeNoCommitId.into(),
             VcsErrorKind::InitFailed {
-                vcs_type: "jj".into(),
+                vcs_type: "git".into(),
                 directory: "/tmp".into(),
                 reason: "x".into(),
             }
@@ -809,18 +750,6 @@ mod tests {
             QueueErrorKind::Processing.into(),
             QueueErrorKind::InvalidPosition(0).into(),
             QueueErrorKind::Full(10).into(),
-            JjErrorKind::CommandError {
-                operation: "x".into(),
-                msg: "x".into(),
-                is_not_found: false,
-            }
-            .into(),
-            JjErrorKind::LockTimeout {
-                operation: "x".into(),
-                timeout_ms: 1000,
-                retries: 1,
-            }
-            .into(),
             InternalErrorKind::Internal("x".into()).into(),
             InternalErrorKind::Unimplemented("x".into()).into(),
             TaskErrorKind::NotFound("x".into()).into(),
@@ -882,12 +811,6 @@ mod tests {
             IoErrorKind::IoError("x".into()).into(),
             AgentErrorKind::NotFound("x".into()).into(),
             QueueErrorKind::Empty.into(),
-            JjErrorKind::CommandError {
-                operation: "x".into(),
-                msg: "x".into(),
-                is_not_found: false,
-            }
-            .into(),
             InternalErrorKind::Internal("x".into()).into(),
             TaskErrorKind::NotFound("x".into()).into(),
             WaitErrorKind::Timeout("x".into(), "y".into()).into(),

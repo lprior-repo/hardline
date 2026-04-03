@@ -36,7 +36,7 @@ pub enum SyncError {
     DirtyWorkspace(String),
 
     /// Rebase resulted in conflicts
-    #[error("Rebase conflicts in workspace '{workspace}'. Resolve with 'jj resolve' and retry")]
+    #[error("Rebase conflicts in workspace '{workspace}'. Resolve conflicts and retry")]
     Conflict {
         /// Workspace path
         workspace: String,
@@ -52,10 +52,6 @@ pub enum SyncError {
         /// Underlying error
         reason: String,
     },
-
-    /// JJ command execution failed
-    #[error("JJ command failed: {0}")]
-    JjCommandError(String),
 
     /// IO error
     #[error("IO error: {0}")]
@@ -94,7 +90,6 @@ impl From<SyncError> for CoreError {
                 workspace: _,
                 reason,
             } => VcsErrorKind::RebaseFailed(reason).into(),
-            SyncError::JjCommandError(msg) => VcsErrorKind::Conflict("jj".to_string(), msg).into(),
             SyncError::IoError(msg) => IoErrorKind::IoError(msg).into(),
         }
     }
@@ -163,8 +158,8 @@ mod tests {
             "Display should contain workspace name"
         );
         assert!(
-            msg.contains("jj resolve"),
-            "Display should suggest jj resolve"
+            msg.contains("Resolve conflicts"),
+            "Display should suggest resolving conflicts"
         );
     }
 
@@ -182,20 +177,6 @@ mod tests {
         assert!(
             msg.contains("divergent revisions"),
             "Display should contain reason"
-        );
-    }
-
-    #[test]
-    fn jj_command_error_display_contains_message() {
-        let err = SyncError::JjCommandError("command not found".into());
-        let msg = err.to_string();
-        assert!(
-            msg.contains("command not found"),
-            "Display should contain error message"
-        );
-        assert!(
-            msg.contains("JJ command failed"),
-            "Display should mention JJ command"
         );
     }
 
@@ -281,13 +262,6 @@ mod tests {
             workspace: "ws".into(),
             reason: "err".into(),
         };
-        let core = CoreError::from(err);
-        assert!(matches!(core, CoreError::Vcs(_)));
-    }
-
-    #[test]
-    fn jj_command_error_converts_to_core_vcs_error() {
-        let err = SyncError::JjCommandError("bad".into());
         let core = CoreError::from(err);
         assert!(matches!(core, CoreError::Vcs(_)));
     }

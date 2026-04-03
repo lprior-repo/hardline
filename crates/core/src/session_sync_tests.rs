@@ -260,9 +260,12 @@ fn test_sync_error_rebase_failure_display() {
 }
 
 #[test]
-fn test_sync_error_jj_command_display() {
-    let err = SyncError::JjCommandError("jj not found".to_string());
-    assert!(err.to_string().contains("jj"));
+fn test_sync_error_vcs_command_display() {
+    let err = SyncError::RebaseFailure {
+        workspace: "test-workspace".to_string(),
+        reason: "command not found".to_string(),
+    };
+    assert!(err.to_string().contains("test-workspace"));
 }
 
 #[test]
@@ -329,13 +332,6 @@ fn test_sync_error_to_core_rebase_failure() {
         workspace: "w".to_string(),
         reason: "divergence".to_string(),
     };
-    let core_err = CoreError::from(sync_err);
-    assert!(matches!(core_err, CoreError::Vcs(_)));
-}
-
-#[test]
-fn test_sync_error_to_core_jj_command_error() {
-    let sync_err = SyncError::JjCommandError("cmd failed".to_string());
     let core_err = CoreError::from(sync_err);
     assert!(matches!(core_err, CoreError::Vcs(_)));
 }

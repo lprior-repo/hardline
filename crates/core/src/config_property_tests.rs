@@ -15,10 +15,10 @@ fn test_config_basic() {
 #[test]
 fn test_config_validation_valid_vcs_type() {
     let mut config = Config::new();
-    config.set("vcs.type", "jj");
+    config.set("vcs.type", "git");
 
     let errors = ConfigManager::validate(&config);
-    assert!(errors.is_empty(), "jj should be valid: {:?}", errors);
+    assert!(errors.is_empty(), "git should be valid: {:?}", errors);
 }
 
 #[test]

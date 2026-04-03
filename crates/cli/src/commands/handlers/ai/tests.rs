@@ -138,7 +138,7 @@ fn ready_state_uninitialized_on_main_suggests_init() {
 fn ready_state_not_in_repo_suggests_entering_repo() {
     let (ready, suggestion, next_cmd) = determine_ready_state(true, &Location::NotInRepo);
     assert!(!ready);
-    assert!(suggestion.contains("JJ repository"));
+    assert!(suggestion.contains("Git repository"));
     assert!(next_cmd.contains("cd"));
 }
 
@@ -177,7 +177,7 @@ fn ready_state_not_in_repo_takes_priority_over_uninitialized() {
     let (ready, suggestion, next_cmd) = determine_ready_state(false, &Location::NotInRepo);
     assert!(!ready);
     assert!(
-        suggestion.contains("JJ repository"),
+        suggestion.contains("Git repository"),
         "Should say 'not in repo', got: {suggestion}"
     );
     assert!(
@@ -1027,9 +1027,9 @@ mod red_queen_adversarial {
     fn adversarial_ready_state_not_in_repo_and_uninitialized_suggests_cd_not_init() {
         let (ready, suggestion, next_cmd) = determine_ready_state(false, &Location::NotInRepo);
         assert!(!ready, "Should not be ready");
-        // FIXED: Now returns "Not in a JJ repository" / "cd <repo> && scp init"
+        // FIXED: Now returns "Not in a Git repository" / "cd <repo> && scp init"
         assert!(
-            suggestion.contains("JJ repository"),
+            suggestion.contains("Git repository"),
             "Should say not in repo, got: {suggestion}"
         );
         assert!(

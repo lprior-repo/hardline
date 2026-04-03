@@ -70,7 +70,7 @@ pub enum VcsErrorKind {
     /// VCS initialization failed
     #[error("Failed to initialize {vcs_type} in {directory}: {reason}")]
     InitFailed {
-        /// VCS type being initialized (e.g. "jj", "git")
+        /// VCS type being initialized (e.g. "git")
         vcs_type: String,
         /// Directory where init was attempted
         directory: String,
@@ -190,12 +190,12 @@ mod tests {
         );
         assert_eq!(
             VcsErrorKind::InitFailed {
-                vcs_type: "jj".to_string(),
+                vcs_type: "git".to_string(),
                 directory: "/tmp".to_string(),
                 reason: "not found".to_string(),
             }
             .to_string(),
-            "Failed to initialize jj in /tmp: not found"
+            "Failed to initialize git in /tmp: not found"
         );
     }
 
@@ -208,7 +208,7 @@ mod tests {
             .suggestion()
             .is_some());
         assert!(VcsError::from(VcsErrorKind::InitFailed {
-            vcs_type: "jj".to_string(),
+            vcs_type: "git".to_string(),
             directory: "/tmp".to_string(),
             reason: "lock".to_string(),
         })
@@ -273,7 +273,7 @@ mod tests {
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::InitFailed {
-                vcs_type: "jj".into(),
+                vcs_type: "git".into(),
                 directory: "/tmp".into(),
                 reason: "x".into(),
             })
@@ -284,21 +284,21 @@ mod tests {
 
     #[test]
     fn test_classify_init_failure_suggestion_lock() {
-        let suggestion = classify_init_failure_suggestion("jj", "lock file exists");
+        let suggestion = classify_init_failure_suggestion("git", "lock file exists");
         assert!(suggestion.is_some());
         assert!(suggestion.unwrap().contains("lock"));
     }
 
     #[test]
     fn test_classify_init_failure_suggestion_not_found() {
-        let suggestion = classify_init_failure_suggestion("jj", "command not found");
+        let suggestion = classify_init_failure_suggestion("git", "command not found");
         assert!(suggestion.is_some());
         assert!(suggestion.unwrap().contains("not installed"));
     }
 
     #[test]
     fn test_classify_init_failure_suggestion_already_exists() {
-        let suggestion = classify_init_failure_suggestion("jj", "already initialized");
+        let suggestion = classify_init_failure_suggestion("git", "already initialized");
         assert!(suggestion.is_some());
         assert!(suggestion.unwrap().contains("already initialized"));
     }
@@ -312,7 +312,7 @@ mod tests {
 
     #[test]
     fn test_classify_init_failure_suggestion_unknown() {
-        let suggestion = classify_init_failure_suggestion("jj", "some random error");
+        let suggestion = classify_init_failure_suggestion("git", "some random error");
         assert!(suggestion.is_none());
     }
 

@@ -4,13 +4,13 @@ use clap::{Arg, Command as ClapCommand};
 
 use crate::commands::isolate_mod::json_docs;
 
-/// Create session for manual work (JJ workspace)
+/// Create session for manual work (Git workspace)
 #[allow(clippy::too_many_lines)]
 pub fn cmd_add() -> ClapCommand {
     ClapCommand::new("add")
-        .about("Create session for manual work (JJ workspace)")
+        .about("Create session for manual work (Git workspace)")
         .long_about(
-            "Creates a JJ workspace for interactive development.
+            "Creates a Git workspace for interactive development.
   
             Use this when YOU will work in the session.
 

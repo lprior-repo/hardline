@@ -60,7 +60,7 @@ pub fn validate_sync_preconditions(
     Ok(precheck)
 }
 
-/// Parse JJ rebase output to extract revision and conflicts
+/// Parse rebase output to extract revision and conflicts
 #[must_use]
 pub fn parse_rebase_output(output: &str) -> (Option<String>, Vec<String>) {
     let mut revision = None;
@@ -110,10 +110,10 @@ pub fn create_sync_result(session_name: String, rebase_output: &str) -> SessionS
 // CALCULATIONS - Workspace status detection
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Determine workspace clean status from JJ status output
+/// Determine workspace clean status from VCS status output
 #[must_use]
-pub fn determine_workspace_status(jj_status_output: &str) -> WorkspaceCleanStatus {
-    let trimmed = jj_status_output.trim();
+pub fn determine_workspace_status(status_output: &str) -> WorkspaceCleanStatus {
+    let trimmed = status_output.trim();
     if trimmed.is_empty() {
         return WorkspaceCleanStatus::Clean;
     }
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn parse_rebase_output_extracts_hex_revision() {
-        // A 12-char hex string looks like a JJ change ID
+        // A 12-char hex string looks like a change ID
         let output = "Created new commit\nab12cd34ef56\nDone.";
         let (rev, conflicts) = parse_rebase_output(output);
         assert_eq!(rev.as_deref(), Some("ab12cd34ef56"));
@@ -464,7 +464,7 @@ mod tests {
     fn workspace_status_unknown_output_is_unknown() {
         // Something that doesn't match any known pattern
         assert_eq!(
-            determine_workspace_status("Some random JJ output"),
+            determine_workspace_status("Some random output"),
             WorkspaceCleanStatus::Unknown
         );
     }

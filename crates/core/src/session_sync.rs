@@ -10,7 +10,7 @@
 //!
 //! - **Data**: `SessionSyncInput`, `SessionSyncResult`, `SyncError` types
 //! - **Calculations**: Pure validation and state transition functions
-//! - **Actions**: Async JJ operations wrapped with proper error handling
+//! - **Actions**: Async VCS operations wrapped with proper error handling
 
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]

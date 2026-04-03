@@ -128,9 +128,9 @@ impl StatusContracts {
     pub const PRECOND_SESSION_EXISTS: Precondition =
         Precondition::new("session_exists", "Session must exist if specified");
 
-    /// Precondition: inside a jj workspace.
-    pub const PRECOND_IN_JJ_WORKSPACE: Precondition =
-        Precondition::new("in_jj_workspace", "Must be inside a jj workspace");
+    /// Precondition: inside a Git workspace.
+    pub const PRECOND_IN_GIT_WORKSPACE: Precondition =
+        Precondition::new("in_git_workspace", "Must be inside a Git workspace");
 
     /// Precondition: output format is valid.
     pub const PRECOND_FORMAT_VALID: Precondition = Precondition::new(

@@ -4,9 +4,8 @@ use scp_core::{vcs, Error, Result};
 
 fn check_vcs_available() -> Result<bool> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
-    let is_jj = cwd.join(".jj").exists();
     let is_git = cwd.join(".git").exists();
-    Ok(is_jj || is_git)
+    Ok(is_git)
 }
 
 fn check_dependency(name: &str) -> Result<bool> {
@@ -36,13 +35,11 @@ pub fn run(full: bool) -> Result<()> {
     println!("Running SCP diagnostics...\n");
 
     let check_vcs_result = check_vcs_available();
-    let check_dep_jj = check_dependency("jj");
     let check_dep_git = check_dependency("git");
     let check_config_result = check_config_exists();
     let check_workspaces_result = check_workspaces_count();
 
     let vcs_passed = check_vcs_result.as_ref().copied().unwrap_or(false);
-    let dep_jj_found = check_dep_jj.as_ref().copied().unwrap_or(false);
     let dep_git_found = check_dep_git.as_ref().copied().unwrap_or(false);
     let _config_result = check_config_result.as_ref().copied().unwrap_or(false);
     let _workspaces_count = check_workspaces_result.as_ref().copied().unwrap_or(0);
@@ -52,16 +49,14 @@ pub fn run(full: bool) -> Result<()> {
         println!("  ✓ VCS initialized");
     } else {
         println!("  ✗ No VCS found");
-        println!("    Run 'scp init --vcs jj' or 'scp init --vcs git'");
+        println!("    Run 'scp init --vcs git'");
     }
 
     println!("\n[2/5] Checking dependencies...");
-    if dep_jj_found {
-        println!("  ✓ jj found");
-    } else if dep_git_found {
+    if dep_git_found {
         println!("  ✓ git found");
     } else {
-        println!("  ✗ No VCS CLI found (jj or git)");
+        println!("  ✗ No VCS CLI found (git)");
     }
 
     println!("\n[3/5] Checking configuration...");
@@ -89,7 +84,7 @@ pub fn run(full: bool) -> Result<()> {
         }
     }
 
-    let all_passed = vcs_passed && (dep_jj_found || dep_git_found);
+    let all_passed = vcs_passed && dep_git_found;
 
     if full {
         println!("\n[5/5] Running full diagnostics...");
@@ -108,7 +103,7 @@ pub fn run(full: bool) -> Result<()> {
         }
 
         if let Ok(path) = std::env::current_dir() {
-            let lock_patterns = [".jj", ".git"];
+            let lock_patterns = [".git"];
             for pattern in lock_patterns {
                 let lock_path = path.join(pattern).join("lock");
                 if lock_path.exists() {

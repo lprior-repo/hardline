@@ -61,8 +61,8 @@ pub enum SyncError {
     LockTimeout(u64),
     #[error("Workspace has uncommitted changes: {0}")]
     DirtyWorkspace(String),
-    #[error("JJ command failed: {0}")]
-    JjCommandFailed(String),
+    #[error("VCS command failed: {0}")]
+    VcsCommandFailed(String),
     #[error("Rebase resulted in conflicts in workspace {workspace}: {files}")]
     Conflict { workspace: String, files: String },
     #[error("Retry limit exceeded after {0} attempts")]
@@ -242,10 +242,10 @@ async fn sync_session_internal(
                 if e.to_string().contains("conflict") {
                     return Err(SyncError::Conflict {
                         workspace: name.to_string(),
-                        files: "unknown (see jj status)".to_string(),
+                        files: "unknown (see git status)".to_string(),
                     });
                 }
-                return Err(SyncError::JjCommandFailed(format!(
+                return Err(SyncError::VcsCommandFailed(format!(
                     "Rebase failed after {} attempts: {}",
                     attempts, e
                 )));
@@ -265,10 +265,10 @@ async fn sync_session_internal(
     })
 }
 
-fn find_jj_root(path: &Path) -> Option<PathBuf> {
+fn find_git_root(path: &Path) -> Option<PathBuf> {
     let mut current = path.to_path_buf();
     loop {
-        if current.join(".jj").exists() {
+        if current.join(".git").exists() {
             return Some(current);
         }
         if !current.pop() {
@@ -415,8 +415,8 @@ mod tests {
     }
 
     #[test]
-    fn test_sync_error_display_jj_command_failed() {
-        let err = SyncError::JjCommandFailed("rebase error".to_string());
+    fn test_sync_error_display_vcs_command_failed() {
+        let err = SyncError::VcsCommandFailed("rebase error".to_string());
         let msg = err.to_string();
         assert!(msg.contains("rebase error"));
     }
@@ -530,34 +530,37 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // find_jj_root additional edge cases
+    // find_git_root additional edge cases
     // -----------------------------------------------------------------------
 
     #[test]
-    fn test_find_jj_root_deeply_nested_finds_ancestor() {
-        let dir = std::env::temp_dir().join("hardline_test_jj_deep");
+    fn test_find_git_root_deeply_nested_finds_ancestor() {
+        let dir = std::env::temp_dir().join("hardline_test_git_deep");
         let deep = dir.join("a/b/c/d");
         let _ = std::fs::create_dir_all(&deep);
-        let _ = std::fs::create_dir(dir.join(".jj"));
+        let _ = std::fs::create_dir(dir.join(".git"));
 
-        let result = find_jj_root(&deep);
+        let result = find_git_root(&deep);
         assert_eq!(result, Some(dir.clone()));
 
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn test_find_jj_root_sibling_directory_not_found() {
-        // .jj is in a sibling, not ancestor, so it should not be found
-        let dir = std::env::temp_dir().join("hardline_test_jj_sibling_parent");
+    fn test_find_git_root_sibling_directory_not_found() {
+        // .git is in a sibling, not ancestor, so it should not be found
+        let dir = std::env::temp_dir().join("hardline_test_git_sibling_parent");
         let child_a = dir.join("child_a");
         let child_b = dir.join("child_b");
         let _ = std::fs::create_dir_all(&child_a);
         let _ = std::fs::create_dir_all(&child_b);
-        let _ = std::fs::create_dir(child_b.join(".jj"));
+        let _ = std::fs::create_dir(child_b.join(".git"));
 
-        let result = find_jj_root(&child_a);
-        assert!(result.is_none(), "should not find .jj in sibling directory");
+        let result = find_git_root(&child_a);
+        assert!(
+            result.is_none(),
+            "should not find .git in sibling directory"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -723,16 +726,16 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // find_jj_root
+    // find_git_root
     // -----------------------------------------------------------------------
 
     #[test]
-    fn test_find_jj_root_finds_marker() {
-        let dir = std::env::temp_dir().join("hardline_test_find_jj_root_found");
+    fn test_find_git_root_finds_marker() {
+        let dir = std::env::temp_dir().join("hardline_test_find_git_root_found");
         let _ = std::fs::create_dir_all(&dir);
-        let _ = std::fs::create_dir(dir.join(".jj"));
+        let _ = std::fs::create_dir(dir.join(".git"));
 
-        let result = find_jj_root(&dir);
+        let result = find_git_root(&dir);
         assert_eq!(result, Some(dir.clone()));
 
         // Cleanup
@@ -740,13 +743,13 @@ mod tests {
     }
 
     #[test]
-    fn test_find_jj_root_searches_parent() {
-        let dir = std::env::temp_dir().join("hardline_test_find_jj_root_parent");
+    fn test_find_git_root_searches_parent() {
+        let dir = std::env::temp_dir().join("hardline_test_find_git_root_parent");
         let child = dir.join("subdir");
         let _ = std::fs::create_dir_all(&child);
-        let _ = std::fs::create_dir(dir.join(".jj"));
+        let _ = std::fs::create_dir(dir.join(".git"));
 
-        let result = find_jj_root(&child);
+        let result = find_git_root(&child);
         assert_eq!(result, Some(dir.clone()));
 
         // Cleanup
@@ -754,11 +757,11 @@ mod tests {
     }
 
     #[test]
-    fn test_find_jj_root_not_found() {
-        let dir = std::env::temp_dir().join("hardline_test_find_jj_root_missing");
+    fn test_find_git_root_not_found() {
+        let dir = std::env::temp_dir().join("hardline_test_find_git_root_missing");
         let _ = std::fs::create_dir_all(&dir);
 
-        let result = find_jj_root(&dir);
+        let result = find_git_root(&dir);
         assert!(result.is_none());
 
         // Cleanup
@@ -766,14 +769,14 @@ mod tests {
     }
 
     #[test]
-    fn test_find_jj_root_stops_at_filesystem_root() {
-        // /tmp should not have a .jj dir, so searching from a non-existent
+    fn test_find_git_root_stops_at_filesystem_root() {
+        // /tmp should not have a .git dir, so searching from a non-existent
         // nested path under /tmp should return None.
         // Use a non-existent directory to test the pop-until-empty behavior.
         let nonexistent = PathBuf::from("/nonexistent_dir_for_testing");
-        // The directory won't exist, but find_jj_root only checks .jj existence
+        // The directory won't exist, but find_git_root only checks .git existence
         // via .join().exists(), not that the current dir itself exists.
-        let result = find_jj_root(&nonexistent);
+        let result = find_git_root(&nonexistent);
         assert!(result.is_none());
     }
 }

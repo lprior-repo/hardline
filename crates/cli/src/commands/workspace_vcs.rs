@@ -8,7 +8,7 @@ use scp_core::{
     Error, Result,
 };
 
-use super::workspace_helpers::build_jj_diff_command;
+use super::workspace_helpers::build_git_diff_command;
 
 /// Show workspace log
 pub fn log(limit: Option<usize>) -> Result<()> {
@@ -34,7 +34,7 @@ pub fn log(limit: Option<usize>) -> Result<()> {
 pub fn diff(path: Option<&str>) -> Result<()> {
     let cwd = std::env::current_dir()?;
 
-    let mut cmd = build_jj_diff_command(&cwd, path);
+    let mut cmd = build_git_diff_command(&cwd, path);
     let output = cmd.output()?;
 
     if output.status.success() {
@@ -60,7 +60,7 @@ pub fn uncommitted() -> Result<()> {
         VcsStatus::Clean => println!("Working copy is clean"),
         VcsStatus::Dirty => {
             println!("Uncommitted changes:");
-            let output = Command::new("jj")
+            let output = Command::new("git")
                 .arg("status")
                 .current_dir(&cwd)
                 .output()?;
@@ -68,12 +68,10 @@ pub fn uncommitted() -> Result<()> {
         }
         VcsStatus::Conflicted => {
             println!("Conflicted files:");
-            let output = Command::new("jj")
-                .arg("log")
-                .arg("-r")
-                .arg("@")
-                .arg("-T")
-                .arg("conflicts()")
+            let output = Command::new("git")
+                .arg("diff")
+                .arg("--name-only")
+                .arg("--diff-filter=U")
                 .current_dir(&cwd)
                 .output()?;
             print!("{}", String::from_utf8_lossy(&output.stdout));
@@ -96,9 +94,9 @@ pub fn commit(message: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Run jj describe to set commit message
-    let output = Command::new("jj")
-        .args(["describe", "-m", message])
+    // Run git commit to set commit message
+    let output = Command::new("git")
+        .args(["commit", "-m", message])
         .current_dir(&cwd)
         .output()?;
 
@@ -148,9 +146,9 @@ pub fn branch_create(name: &str) -> Result<()> {
 pub fn branch_delete(name: &str) -> Result<()> {
     let cwd = std::env::current_dir()?;
 
-    // Run jj bookmark delete
-    let output = Command::new("jj")
-        .args(["bookmark", "delete", name])
+    // Run git branch delete
+    let output = Command::new("git")
+        .args(["branch", "-d", name])
         .current_dir(&cwd)
         .output()?;
 
@@ -202,8 +200,8 @@ pub fn add(path: &str) -> Result<()> {
 
     println!("Adding workspace at '{}'...", path);
 
-    let output = Command::new("jj")
-        .args(["workspace", "add", path])
+    let output = Command::new("git")
+        .args(["worktree", "add", path])
         .current_dir(&cwd)
         .output()?;
 

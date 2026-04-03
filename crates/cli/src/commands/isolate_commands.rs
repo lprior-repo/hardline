@@ -24,7 +24,7 @@ pub fn after_help_text(examples: &[&str], json_output: Option<&'static str>) -> 
 
 pub fn cmd_init() -> ClapCommand {
     ClapCommand::new("init")
-        .about("Initialize isolate in a JJ repository (or create one)")
+        .about("Initialize isolate in a Git repository (or create one)")
         .arg(
             Arg::new("json")
                 .long("json")
@@ -39,7 +39,7 @@ pub fn cmd_init() -> ClapCommand {
         )
         .after_help(after_help_text(
             &[
-                "isolate init                        Initialize Isolate in the current JJ repository",
+                "isolate init                        Initialize Isolate in the current Git repository",
                 "isolate init --json                 Output JSON metadata for automation",
                 "isolate init --dry-run              Preview initialization",
             ],

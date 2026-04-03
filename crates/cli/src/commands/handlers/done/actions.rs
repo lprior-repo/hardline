@@ -14,7 +14,7 @@ use super::data::{
     CommitInfo, ConflictDetectionResult, DoneOptions, DoneOutput, DonePreview, UndoEntry,
 };
 use super::executor::{
-    detect_conflicts, parse_diff_summary, ExecutorError, JjExecutor, RealJjExecutor,
+    detect_conflicts, parse_diff_summary, ExecutorError, GitExecutor, RealGitExecutor,
 };
 
 // ============================================================================
@@ -33,7 +33,7 @@ use super::executor::{
 pub fn run_done(options: &DoneOptions) -> Result<DoneOutput> {
     let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
-    let executor = RealJjExecutor::new();
+    let executor = RealGitExecutor::new();
 
     // Phase 1: Validate and resolve workspace
     let workspace_name = resolve_workspace(backend.as_ref(), options.workspace.as_deref())?;
@@ -83,11 +83,11 @@ pub fn run_done(options: &DoneOptions) -> Result<DoneOutput> {
 
 /// Run conflict detection only and return results.
 fn run_conflict_detection_only(
-    executor: &dyn JjExecutor,
+    executor: &dyn GitExecutor,
     workspace_name: &str,
     workspace_path: &str,
 ) -> Result<DoneOutput> {
-    let ws_executor = WorkspaceJjExecutor::new(executor, workspace_path);
+    let ws_executor = WorkspaceGitExecutor::new(executor, workspace_path);
     let result = detect_conflicts(&ws_executor).map_err(Error::from)?;
 
     // Display results
@@ -145,10 +145,10 @@ fn run_conflict_detection_only(
 fn run_dry_run(
     workspace_name: &str,
     workspace_path: &str,
-    executor: &dyn JjExecutor,
+    executor: &dyn GitExecutor,
     options: &DoneOptions,
 ) -> Result<DoneOutput> {
-    let ws_executor = WorkspaceJjExecutor::new(executor, workspace_path);
+    let ws_executor = WorkspaceGitExecutor::new(executor, workspace_path);
 
     let uncommitted_files = get_uncommitted_files(&ws_executor)?;
     let commits_to_merge = get_commits_to_merge(&ws_executor)?;
@@ -205,9 +205,9 @@ fn execute_done_workflow(
     workspace_path: &str,
     options: &DoneOptions,
     backend: &dyn vcs::VcsBackend,
-    executor: &dyn JjExecutor,
+    executor: &dyn GitExecutor,
 ) -> Result<DoneOutput> {
-    let ws_executor = WorkspaceJjExecutor::new(executor, workspace_path);
+    let ws_executor = WorkspaceGitExecutor::new(executor, workspace_path);
 
     // Step 1: Check for conflicts
     let conflicts = get_potential_conflicts(&ws_executor);
@@ -306,8 +306,8 @@ fn get_workspace_path(
     if is_current {
         Ok(cwd.to_path_buf())
     } else {
-        // For non-current workspaces, the path is typically <repo>/.jj/workspaces/<name>
-        let workspace_path = cwd.join(".jj").join("workspaces").join(workspace_name);
+        // For non-current workspaces, the path is typically <repo>/.git/worktrees/<name>
+        let workspace_path = cwd.join(".git").join("worktrees").join(workspace_name);
         if workspace_path.exists() {
             Ok(workspace_path)
         } else {
@@ -316,8 +316,8 @@ fn get_workspace_path(
     }
 }
 
-/// Get list of uncommitted files via JJ status.
-fn get_uncommitted_files(executor: &dyn JjExecutor) -> Result<Vec<String>> {
+/// Get list of uncommitted files via Git status.
+fn get_uncommitted_files(executor: &dyn GitExecutor) -> Result<Vec<String>> {
     let output = executor
         .run(&["status", "--no-pager"])
         .map_err(Error::from)?;
@@ -339,7 +339,7 @@ fn get_uncommitted_files(executor: &dyn JjExecutor) -> Result<Vec<String>> {
 }
 
 /// Get commits that will be merged.
-fn get_commits_to_merge(executor: &dyn JjExecutor) -> Result<Vec<CommitInfo>> {
+fn get_commits_to_merge(executor: &dyn GitExecutor) -> Result<Vec<CommitInfo>> {
     let output = executor
         .run(&[
             "log",
@@ -374,7 +374,7 @@ fn get_commits_to_merge(executor: &dyn JjExecutor) -> Result<Vec<CommitInfo>> {
 }
 
 /// Get potential conflicts via conflict detection.
-fn get_potential_conflicts(executor: &dyn JjExecutor) -> Vec<String> {
+fn get_potential_conflicts(executor: &dyn GitExecutor) -> Vec<String> {
     match detect_conflicts(executor) {
         Ok(result) => {
             let mut conflicts = result.existing_conflicts;
@@ -392,7 +392,7 @@ fn get_potential_conflicts(executor: &dyn JjExecutor) -> Vec<String> {
 /// Log undo history to .scp/undo.log.
 fn log_undo_history(
     workspace_name: &str,
-    executor: &dyn JjExecutor,
+    executor: &dyn GitExecutor,
     pushed_to_remote: bool,
 ) -> Result<()> {
     let cwd = std::env::current_dir()?;
@@ -450,17 +450,17 @@ fn update_workspace_state(_workspace_name: &str) -> bool {
 }
 
 // ============================================================================
-// Workspace JJ Executor Wrapper
+// Workspace Git Executor Wrapper
 // ============================================================================
 
-/// Executor that runs JJ commands in a specific workspace directory.
-struct WorkspaceJjExecutor<'a> {
-    inner: &'a dyn JjExecutor,
+/// Executor that runs Git commands in a specific workspace directory.
+struct WorkspaceGitExecutor<'a> {
+    inner: &'a dyn GitExecutor,
     workspace_path: String,
 }
 
-impl<'a> WorkspaceJjExecutor<'a> {
-    fn new(inner: &'a dyn JjExecutor, workspace_path: &str) -> Self {
+impl<'a> WorkspaceGitExecutor<'a> {
+    fn new(inner: &'a dyn GitExecutor, workspace_path: &str) -> Self {
         Self {
             inner,
             workspace_path: workspace_path.to_string(),
@@ -468,7 +468,7 @@ impl<'a> WorkspaceJjExecutor<'a> {
     }
 }
 
-impl JjExecutor for WorkspaceJjExecutor<'_> {
+impl GitExecutor for WorkspaceGitExecutor<'_> {
     fn run(&self, args: &[&str]) -> std::result::Result<String, ExecutorError> {
         self.inner.run_in_workspace(args, &self.workspace_path)
     }
@@ -698,10 +698,10 @@ mod tests {
     // parse_uncommitted_files (extracted parsing logic for status output)
     // -----------------------------------------------------------------------
 
-    /// Extract file names from `jj status --no-pager` output lines.
+    /// Extract file names from `git status --porcelain` output lines.
     ///
     /// This mirrors the inline parsing in `get_uncommitted_files` so it can be
-    /// tested in isolation without a real JJ process.
+    /// tested in isolation without a real Git process.
     fn parse_status_lines(output: &str) -> Vec<String> {
         output
             .lines()
@@ -763,7 +763,7 @@ mod tests {
     // parse_commits_output (extracted parsing logic for log output)
     // -----------------------------------------------------------------------
 
-    /// Parse JJ log output into `CommitInfo` entries.
+    /// Parse Git log output into `CommitInfo` entries.
     ///
     /// Each commit is 4 consecutive lines: change_id, commit_id, description,
     /// timestamp. This mirrors the inline parsing in `get_commits_to_merge`.
@@ -845,7 +845,7 @@ mod tests {
 
     #[test]
     fn test_parse_commits_output_multiline_description() {
-        // JJ templates may produce multi-line descriptions; the parser reads
+        // Git templates may produce multi-line descriptions; the parser reads
         // in fixed groups of 4, so a 5-line description shifts alignment and
         // produces 2 entries instead of 1.
         let output = "abc123\ndef456\nfeat: add widget\nwith details\n2024-01-15 10:00:00\n";
@@ -860,16 +860,16 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // WorkspaceJjExecutor delegation
+    // WorkspaceGitExecutor delegation
     // -----------------------------------------------------------------------
 
-    /// A mock JJ executor that records calls and returns canned responses.
-    struct MockJjExecutor {
+    /// A mock Git executor that records calls and returns canned responses.
+    struct MockGitExecutor {
         responses: std::sync::Mutex<Vec<std::result::Result<String, ExecutorError>>>,
         calls: std::sync::Mutex<Vec<(String, Option<String>)>>,
     }
 
-    impl MockJjExecutor {
+    impl MockGitExecutor {
         fn new(responses: Vec<std::result::Result<String, ExecutorError>>) -> Self {
             Self {
                 responses: std::sync::Mutex::new(responses),
@@ -882,7 +882,7 @@ mod tests {
         }
     }
 
-    impl JjExecutor for MockJjExecutor {
+    impl GitExecutor for MockGitExecutor {
         fn run(&self, args: &[&str]) -> std::result::Result<String, ExecutorError> {
             self.calls
                 .lock()
@@ -908,8 +908,8 @@ mod tests {
 
     #[test]
     fn test_workspace_executor_delegates_run() {
-        let mock = MockJjExecutor::new(vec![Ok("result".to_string())]);
-        let ws = WorkspaceJjExecutor::new(&mock, "/tmp/workspace");
+        let mock = MockGitExecutor::new(vec![Ok("result".to_string())]);
+        let ws = WorkspaceGitExecutor::new(&mock, "/tmp/workspace");
 
         let result = ws.run(&["status", "--no-pager"]);
         assert_eq!(result.unwrap(), "result");
@@ -923,8 +923,8 @@ mod tests {
 
     #[test]
     fn test_workspace_executor_delegates_run_in_workspace() {
-        let mock = MockJjExecutor::new(vec![Ok("in-workspace-result".to_string())]);
-        let ws = WorkspaceJjExecutor::new(&mock, "/tmp/ws-a");
+        let mock = MockGitExecutor::new(vec![Ok("in-workspace-result".to_string())]);
+        let ws = WorkspaceGitExecutor::new(&mock, "/tmp/ws-a");
 
         let result = ws.run_in_workspace(&["diff", "--summary"], "/tmp/ws-b");
         assert_eq!(result.unwrap(), "in-workspace-result");
@@ -938,15 +938,15 @@ mod tests {
 
     #[test]
     fn test_workspace_executor_propagates_errors() {
-        let mock = MockJjExecutor::new(vec![Err(ExecutorError::CommandNotFound(
-            "jj not found".to_string(),
+        let mock = MockGitExecutor::new(vec![Err(ExecutorError::CommandNotFound(
+            "git not found".to_string(),
         ))]);
-        let ws = WorkspaceJjExecutor::new(&mock, "/tmp/workspace");
+        let ws = WorkspaceGitExecutor::new(&mock, "/tmp/workspace");
 
         let result = ws.run(&["log"]);
         assert_eq!(
             result.unwrap_err(),
-            ExecutorError::CommandNotFound("jj not found".to_string()),
+            ExecutorError::CommandNotFound("git not found".to_string()),
         );
     }
 
@@ -1141,7 +1141,7 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // parse_status_lines: various JJ status prefixes (C for copied, etc.)
+    // parse_status_lines: various Git status prefixes (C for copied, etc.)
     // -----------------------------------------------------------------------
 
     #[test]
@@ -1344,10 +1344,10 @@ mod tests {
         }
     }
 
-    /// Helper: build a list of mock JJ responses that simulate a clean
+    /// Helper: build a list of mock Git responses that simulate a clean
     /// workspace with no conflicts.
     ///
-    /// The detect_conflicts call sequence via WorkspaceJjExecutor.run()
+    /// The detect_conflicts call sequence via WorkspaceGitExecutor.run()
     /// (which delegates to inner.run_in_workspace()) is:
     ///  1. check_existing_conflicts: "log -r @ --no-graph -T ..."
     ///  2. find_merge_base:           "log -r heads(::@ & ::trunk()) ..."
@@ -1366,7 +1366,7 @@ mod tests {
         ]
     }
 
-    /// Helper: build mock JJ responses that simulate existing conflicts.
+    /// Helper: build mock Git responses that simulate existing conflicts.
     ///
     /// detect_conflicts runs all its steps even after finding conflicts
     /// (it doesn't short-circuit), so we must provide the full sequence.
@@ -1385,7 +1385,7 @@ mod tests {
         ]
     }
 
-    /// Helper: build mock JJ responses that simulate overlapping files
+    /// Helper: build mock Git responses that simulate overlapping files
     /// (potential conflicts) but no existing conflicts.
     fn overlapping_conflict_responses() -> Vec<std::result::Result<String, ExecutorError>> {
         vec![
@@ -1400,7 +1400,7 @@ mod tests {
         ]
     }
 
-    /// Helper: build mock JJ responses for an empty diff (no changes to commit).
+    /// Helper: build mock Git responses for an empty diff (no changes to commit).
     fn empty_diff_responses() -> Vec<std::result::Result<String, ExecutorError>> {
         vec![
             // 1. check_existing_conflicts: no CONFLICT
@@ -1414,7 +1414,7 @@ mod tests {
         ]
     }
 
-    /// Helper: build mock JJ responses for a workspace with files modified
+    /// Helper: build mock Git responses for a workspace with files modified
     /// but no conflicts.
     fn workspace_with_changes_responses() -> Vec<std::result::Result<String, ExecutorError>> {
         vec![
@@ -1447,7 +1447,7 @@ mod tests {
         let mut responses = no_conflict_responses();
         responses.push(Ok("commit-sha-abc\n".to_string()));
 
-        let executor = MockJjExecutor::new(responses);
+        let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
         let result = execute_done_workflow("feature-x", "/tmp/ws", &options, &backend, &executor);
@@ -1477,7 +1477,7 @@ mod tests {
         let mut responses = no_conflict_responses();
         responses.push(Ok("sha\n".to_string()));
 
-        let executor = MockJjExecutor::new(responses);
+        let executor = MockGitExecutor::new(responses);
         let options = DoneOptions {
             keep_workspace: true,
             ..Default::default()
@@ -1507,7 +1507,7 @@ mod tests {
         let mut responses = no_conflict_responses();
         responses.push(Ok("sha\n".to_string()));
 
-        let executor = MockJjExecutor::new(responses);
+        let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
         let result =
@@ -1527,7 +1527,7 @@ mod tests {
         }])
         .with_rebase_failure();
 
-        let executor = MockJjExecutor::new(no_conflict_responses());
+        let executor = MockGitExecutor::new(no_conflict_responses());
         let options = DoneOptions::default();
 
         let result =
@@ -1544,7 +1544,7 @@ mod tests {
             is_current: false,
         }]);
 
-        let executor = MockJjExecutor::new(existing_conflict_responses());
+        let executor = MockGitExecutor::new(existing_conflict_responses());
         let options = DoneOptions::default();
 
         let result = execute_done_workflow("conflict-ws", "/tmp/ws", &options, &backend, &executor);
@@ -1560,7 +1560,7 @@ mod tests {
             is_current: false,
         }]);
 
-        let executor = MockJjExecutor::new(overlapping_conflict_responses());
+        let executor = MockGitExecutor::new(overlapping_conflict_responses());
         let options = DoneOptions::default();
 
         let result = execute_done_workflow("overlap-ws", "/tmp/ws", &options, &backend, &executor);
@@ -1582,7 +1582,7 @@ mod tests {
         let mut responses = empty_diff_responses();
         responses.push(Ok("sha\n".to_string()));
 
-        let executor = MockJjExecutor::new(responses);
+        let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
         let result = execute_done_workflow("clean-ws", "/tmp/ws", &options, &backend, &executor);
@@ -1603,7 +1603,7 @@ mod tests {
         let mut responses = workspace_with_changes_responses();
         responses.push(Ok("sha\n".to_string()));
 
-        let executor = MockJjExecutor::new(responses);
+        let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
         let result = execute_done_workflow("changes-ws", "/tmp/ws", &options, &backend, &executor);
@@ -1625,7 +1625,7 @@ mod tests {
         let mut responses = no_conflict_responses();
         responses.push(Ok("sha\n".to_string()));
 
-        let executor = MockJjExecutor::new(responses);
+        let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
         let result = execute_done_workflow("del-fail-ws", "/tmp/ws", &options, &backend, &executor);
@@ -1649,11 +1649,11 @@ mod tests {
         // get_potential_conflicts catches and returns Vec::new()
         let mut responses = vec![Err(ExecutorError::CommandFailed {
             code: 1,
-            stderr: "jj log failed".to_string(),
+            stderr: "git log failed".to_string(),
         })];
         responses.push(Ok("sha\n".to_string()));
 
-        let executor = MockJjExecutor::new(responses);
+        let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
         let result =
@@ -1672,7 +1672,7 @@ mod tests {
 
     #[test]
     fn test_run_conflict_detection_only_no_conflicts() {
-        let executor = MockJjExecutor::new(no_conflict_responses());
+        let executor = MockGitExecutor::new(no_conflict_responses());
 
         let result = run_conflict_detection_only(&executor, "safe-ws", "/tmp/ws");
 
@@ -1684,7 +1684,7 @@ mod tests {
 
     #[test]
     fn test_run_conflict_detection_only_with_existing_conflicts() {
-        let executor = MockJjExecutor::new(existing_conflict_responses());
+        let executor = MockGitExecutor::new(existing_conflict_responses());
 
         let result = run_conflict_detection_only(&executor, "conflict-ws", "/tmp/ws");
 
@@ -1696,7 +1696,7 @@ mod tests {
 
     #[test]
     fn test_run_conflict_detection_only_with_overlapping_files() {
-        let executor = MockJjExecutor::new(overlapping_conflict_responses());
+        let executor = MockGitExecutor::new(overlapping_conflict_responses());
 
         let result = run_conflict_detection_only(&executor, "overlap-ws", "/tmp/ws");
 
@@ -1712,7 +1712,7 @@ mod tests {
 
     #[test]
     fn test_run_dry_run_returns_preview() {
-        let executor = MockJjExecutor::new(vec![
+        let executor = MockGitExecutor::new(vec![
             // get_uncommitted_files: "status --no-pager"
             Ok("M src/modified.rs\nA src/added.rs\n".to_string()),
             // get_commits_to_merge: "log -r @..@- ..."
@@ -1749,7 +1749,7 @@ mod tests {
 
     #[test]
     fn test_run_dry_run_with_conflicts_in_preview() {
-        let executor = MockJjExecutor::new(vec![
+        let executor = MockGitExecutor::new(vec![
             // get_uncommitted_files: empty
             Ok(String::new()),
             // get_commits_to_merge: empty
@@ -1786,7 +1786,7 @@ mod tests {
 
     #[test]
     fn test_run_dry_run_without_conflict_detection() {
-        let executor = MockJjExecutor::new(vec![
+        let executor = MockGitExecutor::new(vec![
             // get_uncommitted_files
             Ok("M src/lib.rs\n".to_string()),
             // get_commits_to_merge
@@ -1818,14 +1818,14 @@ mod tests {
 
     #[test]
     fn test_get_uncommitted_files_clean_tree() {
-        let executor = MockJjExecutor::new(vec![Ok("The working copy is clean\n".to_string())]);
+        let executor = MockGitExecutor::new(vec![Ok("The working copy is clean\n".to_string())]);
         let files = get_uncommitted_files(&executor).expect("should succeed");
         assert!(files.is_empty());
     }
 
     #[test]
     fn test_get_uncommitted_files_with_changes() {
-        let executor = MockJjExecutor::new(vec![Ok(
+        let executor = MockGitExecutor::new(vec![Ok(
             "M src/lib.rs\nA src/new.rs\nD src/old.rs\nR src/renamed.rs\n".to_string(),
         )]);
         let files = get_uncommitted_files(&executor).expect("should succeed");
@@ -1836,9 +1836,9 @@ mod tests {
 
     #[test]
     fn test_get_uncommitted_files_executor_error_propagates() {
-        let executor = MockJjExecutor::new(vec![Err(ExecutorError::CommandFailed {
+        let executor = MockGitExecutor::new(vec![Err(ExecutorError::CommandFailed {
             code: 1,
-            stderr: "jj status failed".to_string(),
+            stderr: "git status failed".to_string(),
         })]);
         let result = get_uncommitted_files(&executor);
         assert!(result.is_err());
@@ -1851,7 +1851,7 @@ mod tests {
     #[test]
     fn test_get_commits_to_merge_multiple() {
         let executor =
-            MockJjExecutor::new(vec![Ok("ch1\ncm1\nfeat: first\n2024-01-15 10:00:00\n\
+            MockGitExecutor::new(vec![Ok("ch1\ncm1\nfeat: first\n2024-01-15 10:00:00\n\
              ch2\ncm2\nfix: second\n2024-01-15 11:00:00\n"
                 .to_string())]);
         let commits = get_commits_to_merge(&executor).expect("should succeed");
@@ -1862,16 +1862,16 @@ mod tests {
 
     #[test]
     fn test_get_commits_to_merge_empty() {
-        let executor = MockJjExecutor::new(vec![Ok(String::new())]);
+        let executor = MockGitExecutor::new(vec![Ok(String::new())]);
         let commits = get_commits_to_merge(&executor).expect("should succeed");
         assert!(commits.is_empty());
     }
 
     #[test]
     fn test_get_commits_to_merge_executor_error_propagates() {
-        let executor = MockJjExecutor::new(vec![Err(ExecutorError::CommandFailed {
+        let executor = MockGitExecutor::new(vec![Err(ExecutorError::CommandFailed {
             code: 1,
-            stderr: "jj log failed".to_string(),
+            stderr: "git log failed".to_string(),
         })]);
         let result = get_commits_to_merge(&executor);
         assert!(result.is_err());

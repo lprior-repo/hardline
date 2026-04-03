@@ -123,7 +123,6 @@ which = "6.0"
 petgraph = "0.6"
 hex = "0.4"
 faster-hex = "0.10"
-jj-lib = "0.38"
 git2 = "0.19"
 
 # === TESTING INFRASTRUCTURE (add) ===

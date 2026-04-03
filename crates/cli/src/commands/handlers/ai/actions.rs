@@ -118,9 +118,9 @@ fn build_default_next_action() -> NextActionOutput {
 
 /// Detect location from the current working directory.
 ///
-/// Checks for JJ or Git markers to determine if we are in a repo.
+/// Checks for Git markers to determine if we are in a repo.
 fn detect_location_from_path(path: &std::path::Path) -> (Location, Option<String>) {
-    if path.join(".jj").exists() || path.join(".git").exists() {
+    if path.join(".git").exists() {
         (Location::Main, None)
     } else {
         (Location::NotInRepo, None)
@@ -130,7 +130,7 @@ fn detect_location_from_path(path: &std::path::Path) -> (Location, Option<String
 /// Check if the current directory appears to be initialized.
 fn check_initialized() -> bool {
     std::env::current_dir()
-        .map(|path| path.join(".jj").exists() || path.join(".git").exists())
+        .map(|path| path.join(".git").exists())
         .is_ok_and(|v| v)
 }
 
@@ -355,29 +355,11 @@ mod tests {
     }
 
     #[test]
-    fn detect_location_returns_main_for_jj_repo() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
-        let (loc, ws) = detect_location_from_path(dir.path());
-        assert_eq!(loc, Location::Main);
-        assert!(ws.is_none());
-    }
-
-    #[test]
     fn detect_location_returns_not_in_repo_for_plain_dir() {
         let dir = tempfile::tempdir().expect("tempdir");
         let (loc, ws) = detect_location_from_path(dir.path());
         assert_eq!(loc, Location::NotInRepo);
         assert!(ws.is_none());
-    }
-
-    #[test]
-    fn detect_location_returns_main_when_both_jj_and_git_exist() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
-        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
-        let (loc, _ws) = detect_location_from_path(dir.path());
-        assert_eq!(loc, Location::Main);
     }
 
     // =========================================================================
@@ -394,18 +376,6 @@ mod tests {
         let result = check_initialized();
         assert!(result, "Should be initialized in a git repo");
         // Restore cwd before TempDir drops so the cwd isn't invalidated
-        std::env::set_current_dir(&original_dir).ok();
-    }
-
-    #[test]
-    #[serial]
-    fn check_initialized_returns_true_in_jj_repo() {
-        let original_dir = std::env::current_dir().expect("current dir");
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir(dir.path().join(".jj")).expect("create .jj");
-        std::env::set_current_dir(dir.path()).expect("cd");
-        let result = check_initialized();
-        assert!(result, "Should be initialized in a jj repo");
         std::env::set_current_dir(&original_dir).ok();
     }
 

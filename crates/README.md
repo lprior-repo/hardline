@@ -146,7 +146,7 @@ Key principles:
 The infrastructure layer implements interfaces defined in the application/domain layers:
 
 - **Repositories**: Persist and retrieve domain entities
-- **External Services**: Git, Jujutsu, HTTP clients
+- **External Services**: Git, HTTP clients
 - **Serialization**: JSON, TOML handling
 
 Example from `beads/src/infrastructure/repository.rs`:

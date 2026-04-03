@@ -120,7 +120,7 @@ impl Default for Capabilities {
             version_control: CapabilityCategory {
                 commands: vec!["diff".to_string()],
                 features: vec![
-                    "jj_integration".to_string(),
+                    "git_integration".to_string(),
                     "workspace_isolation".to_string(),
                 ],
             },

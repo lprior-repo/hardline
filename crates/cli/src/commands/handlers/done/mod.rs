@@ -8,7 +8,7 @@
 //! - **Data** (`data.rs`): DoneOptions, DoneOutput, DonePreview, ConflictDetectionResult,
 //!   CommitInfo, UndoEntry, DonePhase (inert, serializable)
 //! - **Executor** (`executor.rs`): JjExecutor trait, RealJjExecutor, conflict detection
-//!   (dependency injection for JJ commands)
+//!   (dependency injection for Git commands)
 //! - **Actions** (`actions.rs`): run_done, execute_done_workflow (I/O operations)
 //!
 //! # Features (ported from isolate)

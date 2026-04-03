@@ -8,14 +8,14 @@ use scp_core::Error;
 /// List branches
 pub fn branches() -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
-    let output = Command::new("jj")
+    let output = Command::new("git")
         .args(["branch", "list"])
         .current_dir(&cwd)
         .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("jj branch list", stderr));
+        return Err(Error::vcs_conflict("branch list", stderr));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -27,14 +27,14 @@ pub fn branches() -> Result<(), Error> {
 /// Create branch
 pub fn branch_create(name: &str) -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
-    let output = Command::new("jj")
-        .args(["branch", "move", name])
+    let output = Command::new("git")
+        .args(["checkout", "-b", name])
         .current_dir(&cwd)
         .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("jj branch move", stderr));
+        return Err(Error::vcs_conflict("checkout -b", stderr));
     }
 
     Output::success(&format!("Created branch '{}'", name));
@@ -45,14 +45,14 @@ pub fn branch_create(name: &str) -> Result<(), Error> {
 /// Delete branch
 pub fn branch_delete(name: &str) -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
-    let output = Command::new("jj")
-        .args(["branch", "delete", name])
+    let output = Command::new("git")
+        .args(["branch", "-d", name])
         .current_dir(&cwd)
         .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("jj branch delete", stderr));
+        return Err(Error::vcs_conflict("branch delete", stderr));
     }
 
     Output::success(&format!("Deleted branch '{}'", name));
@@ -63,14 +63,14 @@ pub fn branch_delete(name: &str) -> Result<(), Error> {
 /// Show current branch
 pub fn branch_current() -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
-    let output = Command::new("jj")
-        .args(["branch", "show", "@"])
+    let output = Command::new("git")
+        .args(["branch", "--show-current"])
         .current_dir(&cwd)
         .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("jj branch show", stderr));
+        return Err(Error::vcs_conflict("branch show-current", stderr));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);

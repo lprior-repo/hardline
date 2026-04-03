@@ -531,9 +531,6 @@ petgraph = "0.6"
 hex = "0.4"
 faster-hex = "0.10"
 
-# JJ (Jujutsu)
-jj-lib = "0.38"
-
 # Git (gix - pure Rust, replace git2)
 gix = "0.78"
 

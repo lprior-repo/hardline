@@ -25,7 +25,7 @@ const MAX_BATCH_SIZE: usize = 100;
 /// A single command in a batch execution
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchCommand {
-    /// Command name (e.g., "jj", "git")
+    /// Command name (e.g., "git")
     pub name: String,
     /// Command arguments
     pub args: Vec<String>,
@@ -34,7 +34,7 @@ pub struct BatchCommand {
 impl BatchCommand {
     /// Parse a command string into a BatchCommand
     ///
-    /// Format: "jj status" -> BatchCommand { name: "jj", args: ["status"] }
+    /// Format: "git status" -> BatchCommand { name: "git", args: ["status"] }
     pub fn parse(command_str: &str) -> Result<Self> {
         let trimmed = command_str.trim();
         if trimmed.is_empty() {
@@ -281,7 +281,7 @@ async fn rollback_with_error(guard: &CheckpointGuard, checkpoint_id: &str) -> Re
 
 /// Find the path to a workspace
 fn find_workspace_path(cwd: &std::path::Path, workspace_name: &str) -> Result<std::path::PathBuf> {
-    // For JJ, workspaces are typically in .jj/workspace or similar
+    // For Git, workspaces are typically in .git/worktrees or similar
     // The cwd is already the repo root, so we use it directly
     let _ = workspace_name;
     Ok(cwd.to_path_buf())
@@ -364,20 +364,20 @@ mod tests {
 
     #[test]
     fn test_parse_single_command() {
-        let result = BatchCommand::parse("jj status");
+        let result = BatchCommand::parse("git status");
         assert!(result.is_ok());
         let cmd = result.unwrap();
-        assert_eq!(cmd.name, "jj");
+        assert_eq!(cmd.name, "git");
         assert_eq!(cmd.args, vec!["status"]);
     }
 
     #[test]
     fn test_parse_command_with_args() {
-        let result = BatchCommand::parse("jj log -r @ -T commit_id");
+        let result = BatchCommand::parse("git log --oneline -10");
         assert!(result.is_ok());
         let cmd = result.unwrap();
-        assert_eq!(cmd.name, "jj");
-        assert_eq!(cmd.args, vec!["log", "-r", "@", "-T", "commit_id"]);
+        assert_eq!(cmd.name, "git");
+        assert_eq!(cmd.args, vec!["log", "--oneline", "-10"]);
     }
 
     #[test]

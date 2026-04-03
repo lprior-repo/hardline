@@ -650,8 +650,8 @@ mod tests {
     // ═══════════════════════════════════════════════════════════════════════════
 
     #[test]
-    fn test_hints_for_error_jj_not_found() {
-        let hints = hints_for_error("JJ_NOT_FOUND", "jj not found");
+    fn test_hints_for_error_git_not_found() {
+        let hints = hints_for_error("GIT_NOT_FOUND", "git not found");
         assert_eq!(hints.len(), 2);
         assert!(hints.iter().any(|h| h.hint_type == HintType::Warning));
     }

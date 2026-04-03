@@ -9,7 +9,7 @@ Complete guide to understanding and resolving hardline errors.
 | 1 | Validation Error | `INVALID_CONFIG`, `VALIDATION_ERROR`, `PARSE_ERROR` |
 | 2 | Not Found | `NOT_FOUND` |
 | 3 | System Error | `IO_ERROR`, `DATABASE_ERROR` |
-| 4 | External Command | `COMMAND_ERROR`, `JJ_COMMAND_ERROR`, `HOOK_FAILED`, `HOOK_EXECUTION_FAILED` |
+| 4 | External Command | `COMMAND_ERROR`, `GIT_COMMAND_ERROR`, `HOOK_FAILED`, `HOOK_EXECUTION_FAILED` |
 | 5 | Lock Contention | `SESSION_LOCKED`, `NOT_LOCK_HOLDER` |
 | 130 | Cancelled | `OPERATION_CANCELLED` |
 

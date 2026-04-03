@@ -9,12 +9,12 @@ use scp_core::Error;
 pub fn diff(path: Option<&str>) -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
 
-    let mut cmd = super::operations::build_jj_diff_command(&cwd, path);
+    let mut cmd = super::operations::build_git_diff_command(&cwd, path);
     let output = cmd.output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("jj diff", stderr));
+        return Err(Error::vcs_conflict("diff", stderr));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -27,14 +27,14 @@ pub fn diff(path: Option<&str>) -> Result<(), Error> {
 pub fn uncommitted() -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
 
-    let output = Command::new("jj")
+    let output = Command::new("git")
         .args(["diff"])
         .current_dir(&cwd)
         .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("jj diff", stderr));
+        return Err(Error::vcs_conflict("diff", stderr));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -47,14 +47,14 @@ pub fn uncommitted() -> Result<(), Error> {
 pub fn commit(message: &str) -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
 
-    let output = Command::new("jj")
+    let output = Command::new("git")
         .args(["commit", "-m", message])
         .current_dir(&cwd)
         .output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("jj commit", stderr));
+        return Err(Error::vcs_conflict("commit", stderr));
     }
 
     Output::success("Committed changes");
@@ -70,15 +70,15 @@ pub fn log(limit: Option<usize>) -> Result<(), Error> {
     let limit_str = limit.map(|l| l.to_string());
     #[allow(unused_assignments)]
     if let Some(ref s) = limit_str {
-        args.push("-l");
+        args.push("-n");
         args.push(s);
     }
 
-    let output = Command::new("jj").args(&args).current_dir(&cwd).output()?;
+    let output = Command::new("git").args(&args).current_dir(&cwd).output()?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("jj log", stderr));
+        return Err(Error::vcs_conflict("log", stderr));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);

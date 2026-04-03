@@ -44,7 +44,7 @@ pub enum ConflictType {
 pub enum ResolutionStrategy {
     AcceptOurs,
     AcceptTheirs,
-    JjResolve,
+    GitResolve,
     ManualMerge,
     Rebase,
     Abort,
@@ -132,7 +132,7 @@ impl ConflictDetailBuilder {
             .ok_or(super::errors::BuilderError::MissingRequired { field: "file" })?;
 
         let conflict_type = self.conflict_type.unwrap_or(ConflictType::Overlapping);
-        let recommended = self.recommended.unwrap_or(ResolutionStrategy::JjResolve);
+        let recommended = self.recommended.unwrap_or(ResolutionStrategy::GitResolve);
 
         Ok(ConflictDetail {
             file,
@@ -161,7 +161,7 @@ const fn convert_resolution_strategy(strategy: ResolutionStrategy) -> OutputReso
     match strategy {
         ResolutionStrategy::AcceptOurs => OutputResolutionStrategy::AcceptOurs,
         ResolutionStrategy::AcceptTheirs => OutputResolutionStrategy::AcceptTheirs,
-        ResolutionStrategy::JjResolve => OutputResolutionStrategy::JjResolve,
+        ResolutionStrategy::GitResolve => OutputResolutionStrategy::GitResolve,
         ResolutionStrategy::ManualMerge => OutputResolutionStrategy::ManualMerge,
         ResolutionStrategy::Rebase => OutputResolutionStrategy::Rebase,
         ResolutionStrategy::Abort => OutputResolutionStrategy::Abort,

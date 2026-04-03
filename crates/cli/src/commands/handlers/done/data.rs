@@ -107,7 +107,7 @@ pub struct DonePreview {
 /// Information about a commit.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommitInfo {
-    /// Change ID (JJ)
+    /// Change ID
     pub change_id: String,
     /// Commit ID
     pub commit_id: String,
@@ -120,10 +120,10 @@ pub struct CommitInfo {
 /// Comprehensive result of conflict detection.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ConflictDetectionResult {
-    /// Whether there are existing JJ conflicts in the workspace
+    /// Whether there are existing conflicts in the workspace
     pub has_existing_conflicts: bool,
 
-    /// List of files with existing JJ conflicts
+    /// List of files with existing conflicts
     pub existing_conflicts: Vec<String>,
 
     /// Files modified in both workspace and trunk (potential conflicts)

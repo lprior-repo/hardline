@@ -1,11 +1,11 @@
 //! VCS backend trait definition
 //!
-//! Unified interface for VCS operations supporting both JJ and Git.
+//! Unified interface for VCS operations supporting Git.
 
 use super::types::{Branch, Commit, CommitId, RepoStatus, VcsStatus, Workspace};
 use crate::error::Result;
 
-/// VCS backend trait - unified interface for JJ and Git
+/// VCS backend trait - unified interface for Git
 pub trait VcsBackend: Send + Sync {
     /// Get current branch name
     fn current_branch(&self) -> Result<String>;

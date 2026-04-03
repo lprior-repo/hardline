@@ -25,7 +25,7 @@ pub fn cmd_spawn() -> ClapCommand {
     ClapCommand::new("spawn")
         .about("Create session for automated agent work on a bead (issue)")
         .long_about(
-            "Creates a JJ workspace, runs an agent (default: claude), and auto-merges on success.
+            "Creates a Git workspace, runs an agent (default: claude), and auto-merges on success.
 
             Use this when an AI AGENT should work autonomously on a bead.
 

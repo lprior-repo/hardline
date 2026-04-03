@@ -5,7 +5,6 @@
 use thiserror::Error;
 
 // Re-export types from sub-modules
-pub use super::error_types::JjConflictType;
 pub use super::error_types::Result;
 
 // Forward declaration for lock errors
@@ -1254,7 +1253,7 @@ mod tests {
         assert!(matches!(Error::vcs_checkout_failed("msg"), Error::Vcs(_)));
         assert!(matches!(Error::vcs_diff_failed("msg"), Error::Vcs(_)));
         assert!(matches!(
-            Error::vcs_init_failed("jj", "/tmp", "err"),
+            Error::vcs_init_failed("git", "/tmp", "err"),
             Error::Vcs(_)
         ));
     }
@@ -1369,7 +1368,7 @@ mod tests {
         assert_ne!(Error::vcs_commit_failed("m").exit_code(), 0);
         assert_ne!(Error::vcs_checkout_failed("m").exit_code(), 0);
         assert_ne!(Error::vcs_diff_failed("m").exit_code(), 0);
-        assert_ne!(Error::vcs_init_failed("jj", "/tmp", "err").exit_code(), 0);
+        assert_ne!(Error::vcs_init_failed("git", "/tmp", "err").exit_code(), 0);
 
         // Config
         assert_ne!(Error::config_not_found("m").exit_code(), 0);
@@ -1447,7 +1446,7 @@ mod tests {
         assert!(Error::branch_not_found("b").context_map().is_some());
         assert!(Error::working_copy_dirty().context_map().is_some());
         assert!(Error::vcs_commit_failed("m").context_map().is_some());
-        assert!(Error::vcs_init_failed("jj", "/tmp", "err")
+        assert!(Error::vcs_init_failed("git", "/tmp", "err")
             .context_map()
             .is_some());
 
@@ -1672,10 +1671,10 @@ mod tests {
         assert!(Error::working_copy_dirty()
             .to_string()
             .contains("uncommitted"));
-        assert!(Error::vcs_init_failed("jj", "/tmp", "err")
+        assert!(Error::vcs_init_failed("git", "/tmp", "err")
             .to_string()
-            .contains("jj"));
-        assert!(Error::vcs_init_failed("jj", "/tmp", "err")
+            .contains("git"));
+        assert!(Error::vcs_init_failed("git", "/tmp", "err")
             .to_string()
             .contains("/tmp"));
     }
@@ -1911,9 +1910,9 @@ mod tests {
 
     #[test]
     fn test_context_map_vcs_init_failed() {
-        let err = Error::vcs_init_failed("jj", "/home/project", "permission denied");
+        let err = Error::vcs_init_failed("git", "/home/project", "permission denied");
         let ctx = err.context_map().expect("should have context");
-        assert_eq!(ctx["vcs_type"], "jj");
+        assert_eq!(ctx["vcs_type"], "git");
         assert_eq!(ctx["directory"], "/home/project");
         assert_eq!(ctx["reason"], "permission denied");
     }

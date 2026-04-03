@@ -176,8 +176,6 @@ impl DoctorContracts {
     #[must_use]
     pub const fn known_checks() -> &'static [(&'static str, &'static str)] {
         &[
-            ("jj_installed", "Check that jj is installed and accessible"),
-            ("jj_version", "Check jj version compatibility"),
             ("git_installed", "Check that git is installed"),
             ("database", "Check database integrity"),
             ("database_locked", "Check for stale database locks"),
@@ -326,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_validate_check_valid() {
-        assert!(DoctorContracts::validate_check("jj_installed").is_ok());
+        assert!(DoctorContracts::validate_check("git_installed").is_ok());
         assert!(DoctorContracts::validate_check("database").is_ok());
         assert!(DoctorContracts::validate_check("sessions").is_ok());
     }
@@ -343,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_is_known_check() {
-        assert!(DoctorContracts::is_known_check("jj_installed"));
+        assert!(DoctorContracts::is_known_check("git_installed"));
         assert!(DoctorContracts::is_known_check("database"));
         assert!(!DoctorContracts::is_known_check("fake_check"));
     }
@@ -351,7 +349,7 @@ mod tests {
     #[test]
     fn test_run_doctor_contract_preconditions() {
         let input = RunDoctorInput {
-            checks: vec!["jj_installed".to_string(), "database".to_string()],
+            checks: vec!["git_installed".to_string(), "database".to_string()],
             fix: false,
             verbose: false,
         };
@@ -371,15 +369,15 @@ mod tests {
     #[test]
     fn test_run_doctor_contract_postconditions_all_passed() {
         let input = RunDoctorInput {
-            checks: vec!["jj_installed".to_string()],
+            checks: vec!["git_installed".to_string()],
             fix: false,
             verbose: false,
         };
         let result = DoctorResult {
             checks: vec![CheckResult {
-                name: "jj_installed".to_string(),
+                name: "git_installed".to_string(),
                 status: CheckStatus::Pass,
-                message: "jj is installed".to_string(),
+                message: "git is installed".to_string(),
                 fix: None,
             }],
             status: DoctorStatus::Healthy,
@@ -392,15 +390,15 @@ mod tests {
     #[test]
     fn test_run_doctor_contract_postconditions_missing_check() {
         let input = RunDoctorInput {
-            checks: vec!["jj_installed".to_string(), "database".to_string()],
+            checks: vec!["git_installed".to_string(), "database".to_string()],
             fix: false,
             verbose: false,
         };
         let result = DoctorResult {
             checks: vec![CheckResult {
-                name: "jj_installed".to_string(),
+                name: "git_installed".to_string(),
                 status: CheckStatus::Pass,
-                message: "jj is installed".to_string(),
+                message: "git is installed".to_string(),
                 fix: None,
             }],
             status: DoctorStatus::Healthy,
@@ -413,20 +411,20 @@ mod tests {
     #[test]
     fn test_run_doctor_contract_postconditions_status_mismatch() {
         let input = RunDoctorInput {
-            checks: vec!["jj_installed".to_string()],
+            checks: vec!["git_installed".to_string()],
             fix: false,
             verbose: false,
         };
         let result = DoctorResult {
             checks: vec![CheckResult {
-                name: "jj_installed".to_string(),
+                name: "git_installed".to_string(),
                 status: CheckStatus::Fail,
-                message: "jj not found".to_string(),
-                fix: Some("Install jj".to_string()),
+                message: "git not found".to_string(),
+                fix: Some("Install git".to_string()),
             }],
             status: DoctorStatus::Healthy, // Wrong! Should be Fixable
             fixed: vec![],
-            unfixed: vec!["jj_installed".to_string()],
+            unfixed: vec!["git_installed".to_string()],
         };
         assert!(DoctorContracts::postconditions(&input, &result).is_err());
     }
@@ -434,7 +432,7 @@ mod tests {
     #[test]
     fn test_check_component_contract_preconditions() {
         let input = CheckComponentInput {
-            component: "jj_installed".to_string(),
+            component: "git_installed".to_string(),
             fix: false,
         };
         assert!(DoctorContracts::preconditions(&input).is_ok());
@@ -443,13 +441,13 @@ mod tests {
     #[test]
     fn test_check_component_contract_postconditions() {
         let input = CheckComponentInput {
-            component: "jj_installed".to_string(),
+            component: "git_installed".to_string(),
             fix: false,
         };
         let result = CheckResult {
-            name: "jj_installed".to_string(),
+            name: "git_installed".to_string(),
             status: CheckStatus::Pass,
-            message: "jj is installed".to_string(),
+            message: "git is installed".to_string(),
             fix: None,
         };
         assert!(DoctorContracts::postconditions(&input, &result).is_ok());
@@ -458,13 +456,13 @@ mod tests {
     #[test]
     fn test_check_component_contract_postconditions_name_mismatch() {
         let input = CheckComponentInput {
-            component: "jj_installed".to_string(),
+            component: "git_installed".to_string(),
             fix: false,
         };
         let result = CheckResult {
-            name: "jj_version".to_string(), // Wrong!
+            name: "other_check".to_string(), // Wrong!
             status: CheckStatus::Pass,
-            message: "jj is installed".to_string(),
+            message: "git is installed".to_string(),
             fix: None,
         };
         assert!(DoctorContracts::postconditions(&input, &result).is_err());
@@ -473,11 +471,11 @@ mod tests {
     #[test]
     fn test_check_component_contract_postconditions_empty_message() {
         let input = CheckComponentInput {
-            component: "jj_installed".to_string(),
+            component: "git_installed".to_string(),
             fix: false,
         };
         let result = CheckResult {
-            name: "jj_installed".to_string(),
+            name: "git_installed".to_string(),
             status: CheckStatus::Pass,
             message: String::new(), // Wrong!
             fix: None,

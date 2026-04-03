@@ -280,9 +280,9 @@ mod tests {
     }
 
     #[test]
-    fn test_semantic_exit_code_jj() {
-        let err = crate::error::Error::jj_command_error("status", "failed", false);
-        assert_eq!(semantic_exit_code(&err), 4);
+    fn test_semantic_exit_code_vcs_conflict() {
+        let err = crate::error::Error::vcs_conflict("repo", "merge conflict");
+        assert!(semantic_exit_code(&err) > 0);
     }
 
     #[test]

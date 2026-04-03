@@ -282,14 +282,14 @@ proptest! {
 }
 
 proptest! {
-    /// Property: Any VCS type other than "jj" or "git" returns config_invalid.
+    /// Property: Any VCS type other than "git" returns config_invalid.
     #[test]
     #[serial]
     fn prop_unknown_vcs_type_returns_config_error(
         vcs_type in "[A-Za-z0-9_-]{1,50}"
     ) {
         // Skip the two valid types
-        prop_assume!(vcs_type != "jj" && vcs_type != "git");
+        prop_assume!(vcs_type != "git");
 
         // Use a temp dir so current_dir() succeeds even when other tests
         // are racing on set_current_dir.

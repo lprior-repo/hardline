@@ -16,7 +16,7 @@ pub fn build_object_cli() -> ClapCommand {
         .author("Isolate Contributors")
         .about("Isolate - Isolated workspace manager (object-based CLI)")
         .long_about(
-            "Isolate creates isolated JJ workspaces.\n\n\
+            "Isolate creates isolated Git workspaces.\n\n\
              Object-based command structure:\n\
              \n\
    isolate task <action>     Manage tasks and work items\n\

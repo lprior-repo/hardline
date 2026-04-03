@@ -31,7 +31,7 @@ CREATE TABLE workspaces (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     path TEXT NOT NULL,
-    backend TEXT NOT NULL CHECK (backend IN ('git', 'jj')),
+    backend TEXT NOT NULL CHECK (backend IN ('git')),
     state TEXT NOT NULL CHECK (state IN (
         'created', 'active', 'syncing', 'paused', 'completed', 'failed'
     )),
@@ -197,14 +197,12 @@ pub fn initial_schema() -> String {
 #[serde(rename_all = "lowercase")]
 pub enum WorkspaceBackend {
     Git,
-    Jj,
 }
 
 impl WorkspaceBackend {
     pub fn as_str(&self) -> &'static str {
         match self {
             WorkspaceBackend::Git => "git",
-            WorkspaceBackend::Jj => "jj",
         }
     }
 }
@@ -364,7 +362,6 @@ mod tests {
     #[test]
     fn test_workspace_backend_as_str() {
         assert_eq!(WorkspaceBackend::Git.as_str(), "git");
-        assert_eq!(WorkspaceBackend::Jj.as_str(), "jj");
     }
 
     #[test]
@@ -470,7 +467,7 @@ mod tests {
 
     #[test]
     fn given_workspace_backend_when_serialized_then_roundtrips() {
-        for variant in [WorkspaceBackend::Git, WorkspaceBackend::Jj] {
+        for variant in [WorkspaceBackend::Git] {
             let json = serde_json::to_string(&variant).unwrap();
             let deserialized: WorkspaceBackend = serde_json::from_str(&json).unwrap();
             assert_eq!(variant, deserialized);
@@ -484,8 +481,8 @@ mod tests {
             "\"git\""
         );
         assert_eq!(
-            serde_json::to_string(&WorkspaceBackend::Jj).unwrap(),
-            "\"jj\""
+            serde_json::to_string(&WorkspaceBackend::Git).unwrap(),
+            "\"git\""
         );
     }
 
@@ -609,7 +606,7 @@ mod tests {
     #[test]
     fn given_workspace_backend_when_debug_then_contains_variant() {
         assert!(format!("{:?}", WorkspaceBackend::Git).contains("Git"));
-        assert!(format!("{:?}", WorkspaceBackend::Jj).contains("Jj"));
+        assert!(format!("{:?}", WorkspaceBackend::Git).contains("Git"));
     }
 
     #[test]
@@ -648,7 +645,7 @@ mod tests {
 
     #[test]
     fn given_all_workspace_backends_when_as_str_then_non_empty() {
-        for variant in [WorkspaceBackend::Git, WorkspaceBackend::Jj] {
+        for variant in [WorkspaceBackend::Git] {
             assert!(!variant.as_str().is_empty());
         }
     }
@@ -790,7 +787,6 @@ mod tests {
 
     #[test]
     fn given_different_enum_variant_then_not_equal() {
-        assert_ne!(WorkspaceBackend::Git, WorkspaceBackend::Jj);
         assert_ne!(QueueStatus::Pending, QueueStatus::Merged);
         assert_ne!(AgentStatus::Active, AgentStatus::Idle);
     }
