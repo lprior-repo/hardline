@@ -11,13 +11,49 @@ use serde::{Deserialize, Serialize};
 // Input Types
 // ============================================================================
 
+/// Execution mode for the prune command.
+/// Replaces two booleans (`yes`, `dry_run`) with a single enum,
+/// making the three mutually-exclusive modes explicit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PruneMode {
+    /// Interactive: prompt user before removing each item.
+    Interactive,
+    /// Confirm: skip confirmation prompt (scripting/CI use).
+    Confirm,
+    /// DryRun: show what would be removed without removing.
+    DryRun,
+}
+
 /// Options for the prune command (parsed from CLI).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PruneOptions {
-    /// Skip confirmation prompt (for scripting/CI use).
-    pub yes: bool,
-    /// Show what would be removed without actually removing.
-    pub dry_run: bool,
+    /// Execution mode (interactive, confirm, or dry-run).
+    pub mode: PruneMode,
+}
+
+impl Default for PruneOptions {
+    fn default() -> Self {
+        Self {
+            mode: PruneMode::Interactive,
+        }
+    }
+}
+
+impl PruneOptions {
+    /// Construct options from CLI boolean flags.
+    ///
+    /// Maps `--yes` and `--dry-run` flags to the appropriate `PruneMode`.
+    /// Dry-run takes precedence over yes when both are set.
+    pub fn from_cli(yes: bool, dry_run: bool) -> Self {
+        let mode = if dry_run {
+            PruneMode::DryRun
+        } else if yes {
+            PruneMode::Confirm
+        } else {
+            PruneMode::Interactive
+        };
+        Self { mode }
+    }
 }
 
 // ============================================================================
@@ -82,43 +118,37 @@ pub struct PrunableItem {
 mod tests {
     use super::*;
 
-    // -- PruneOptions defaults --
+    // -- PruneMode --
 
     #[test]
-    fn prune_options_default_values() {
+    fn prune_mode_interactive_is_default() {
         let opts = PruneOptions::default();
-        assert!(!opts.yes);
-        assert!(!opts.dry_run);
+        assert_eq!(opts.mode, PruneMode::Interactive);
     }
 
     #[test]
-    fn prune_options_with_yes_flag() {
+    fn prune_mode_confirm() {
         let opts = PruneOptions {
-            yes: true,
-            ..PruneOptions::default()
+            mode: PruneMode::Confirm,
         };
-        assert!(opts.yes);
-        assert!(!opts.dry_run);
+        assert_eq!(opts.mode, PruneMode::Confirm);
     }
 
     #[test]
-    fn prune_options_with_dry_run() {
+    fn prune_mode_dry_run() {
         let opts = PruneOptions {
-            dry_run: true,
-            ..PruneOptions::default()
+            mode: PruneMode::DryRun,
         };
-        assert!(opts.dry_run);
-        assert!(!opts.yes);
+        assert_eq!(opts.mode, PruneMode::DryRun);
     }
 
     #[test]
-    fn prune_options_yes_and_dry_run() {
-        let opts = PruneOptions {
-            yes: true,
-            dry_run: true,
-        };
-        assert!(opts.yes);
-        assert!(opts.dry_run);
+    fn prune_mode_equality() {
+        assert_eq!(PruneMode::Interactive, PruneMode::Interactive);
+        assert_eq!(PruneMode::Confirm, PruneMode::Confirm);
+        assert_eq!(PruneMode::DryRun, PruneMode::DryRun);
+        assert_ne!(PruneMode::Interactive, PruneMode::Confirm);
+        assert_ne!(PruneMode::Confirm, PruneMode::DryRun);
     }
 
     // -- PruneOutput construction --

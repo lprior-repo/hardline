@@ -25,5 +25,5 @@ pub mod data;
 pub use actions::run_bookmark;
 pub use data::{
     BookmarkCreateOutput, BookmarkDeleteOutput, BookmarkInfo, BookmarkListOutput, BookmarkOptions,
-    BookmarkOutput, BookmarkSubcommand, BookmarkTrackOutput,
+    BookmarkOutput, BookmarkSubcommand, BookmarkTrackOutput, parse_branch_list,
 };

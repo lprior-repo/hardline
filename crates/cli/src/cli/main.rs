@@ -282,13 +282,19 @@ pub fn run_command(cli: Cli) -> Result<()> {
                 Ok(())
             }
             crate::cli::workspace_args::WorkspaceCommands::Work { name, bead, agent, no_agent, idempotent, dry_run } => {
+                let mode = if dry_run {
+                    commands::handlers::work::WorkMode::DryRun
+                } else if idempotent {
+                    commands::handlers::work::WorkMode::Idempotent
+                } else {
+                    commands::handlers::work::WorkMode::Normal
+                };
                 let options = commands::handlers::work::WorkOptions {
                     name: name.unwrap_or_default(),
                     bead_id: bead,
                     agent_id: agent,
                     no_agent,
-                    idempotent,
-                    dry_run,
+                    mode,
                     format: scp_core::OutputFormat::Json,
                 };
                 commands::handlers::work::run_work(&options)
@@ -310,9 +316,15 @@ pub fn run_command(cli: Cli) -> Result<()> {
                 Ok(())
             }
             crate::cli::workspace_args::WorkspaceCommands::Undo { dry_run, list } => {
+                let mode = if list {
+                    commands::handlers::undo::UndoMode::ListHistory
+                } else if dry_run {
+                    commands::handlers::undo::UndoMode::DryRun
+                } else {
+                    commands::handlers::undo::UndoMode::Execute
+                };
                 let options = commands::handlers::undo::UndoOptions {
-                    dry_run,
-                    list,
+                    mode,
                 };
                 let output = commands::handlers::undo::run_undo(&options)?;
                 if output.pushed_to_remote {
@@ -334,7 +346,7 @@ pub fn run_command(cli: Cli) -> Result<()> {
                 commands::handlers::checkpoint::run_checkpoint(&options)
             }
             crate::cli::workspace_args::WorkspaceCommands::Introspect { target } => {
-                let options = commands::handlers::introspect::IntrospectOptions { target };
+                let options = commands::handlers::introspect::IntrospectOptions::from_cli(target);
                 commands::handlers::introspect::run_introspect(&options)
             }
             crate::cli::workspace_args::WorkspaceCommands::Completions { shell } => {
@@ -344,10 +356,7 @@ pub fn run_command(cli: Cli) -> Result<()> {
                 commands::handlers::completions::run_completions(&options)
             }
             crate::cli::workspace_args::WorkspaceCommands::Prune { yes, dry_run } => {
-                let options = commands::handlers::prune::PruneOptions {
-                    yes,
-                    dry_run,
-                };
+                let options = commands::handlers::prune::PruneOptions::from_cli(yes, dry_run);
                 let output = commands::handlers::prune::run_prune(&options)?;
                 if dry_run {
                     scp_core::output::Output::info(&format!("Would prune {} invalid items", output.invalid_count));
@@ -355,10 +364,17 @@ pub fn run_command(cli: Cli) -> Result<()> {
                 Ok(())
             }
             crate::cli::workspace_args::WorkspaceCommands::Schema { name, list, all } => {
+                let mode = if list {
+                    commands::handlers::schema::SchemaMode::List
+                } else if all {
+                    commands::handlers::schema::SchemaMode::All
+                } else if let Some(schema_name) = name {
+                    commands::handlers::schema::SchemaMode::Single(schema_name)
+                } else {
+                    commands::handlers::schema::SchemaMode::List
+                };
                 let options = commands::handlers::schema::SchemaOptions {
-                    schema_name: name,
-                    list,
-                    all,
+                    mode,
                     format: scp_core::OutputFormat::Json,
                 };
                 commands::handlers::schema::run_schema(&options)

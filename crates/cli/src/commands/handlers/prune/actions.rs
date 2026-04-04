@@ -1,153 +1,108 @@
 //! Action functions for the prune command handler (Tier 3).
 //!
 //! I/O operations that discover and remove invalid session records.
+//! Currently a honest stub: returns an error indicating the command
+//! is not yet fully implemented, rather than lying about success.
 
-use scp_core::output::Output;
 use scp_core::{Error, Result};
 
-use super::data::{PruneOptions, PruneOutput};
+use super::data::{PruneMode, PruneOptions, PruneOutput};
 
 /// Execute the prune command with the given options.
 ///
-/// Scans for session records whose workspace directories no longer exist
-/// and removes them. In dry-run mode, reports what would be removed
-/// without performing deletions.
+/// Dispatches based on `PruneMode`: dry-run shows what would be pruned,
+/// confirm skips prompts, interactive asks the user.
 ///
 /// # Errors
 ///
-/// Returns errors if the session database cannot be accessed or if
-/// individual deletion operations fail.
-pub fn run_prune(_options: &PruneOptions) -> Result<PruneOutput> {
-    // TODO: Wire to session database once the prune command is integrated
-    // into the CLI dispatch. The full implementation will:
-    // 1. List all sessions from the database
-    // 2. Filter those whose workspace_path no longer exists on disk
-    // 3. Optionally prompt for confirmation (unless --yes)
-    // 4. Delete invalid sessions from the database
-    // 5. Return PruneOutput with counts
-
-    Output::info("No invalid sessions found");
-    Output::info("  All sessions have valid workspaces");
-
-    Ok(PruneOutput::empty())
+/// Returns `Error::invalid_state` until the prune command is fully wired
+/// to the session database.
+pub fn run_prune(options: &PruneOptions) -> Result<PruneOutput> {
+    match options.mode {
+        PruneMode::DryRun => run_prune_dry_run(options),
+        PruneMode::Confirm | PruneMode::Interactive => {
+            // TODO: Wire to session database once the prune command is
+            // integrated into the CLI dispatch. The full implementation
+            // will scan .scp/ for orphaned worktrees and stale lock
+            // files, then optionally prompt for confirmation.
+            Err(Error::invalid_state(
+                "Prune command is not yet implemented. \
+                 Session database integration is required to scan for \
+                 orphaned worktrees and stale lock files.",
+            ))
+        }
+    }
 }
 
 /// Execute a dry-run prune, reporting what would be removed.
 ///
 /// # Errors
 ///
-/// Returns errors if the session database cannot be accessed.
-pub fn run_prune_dry_run(_options: &PruneOptions) -> Result<PruneOutput> {
+/// Returns `Error::invalid_state` until the prune command is fully wired
+/// to the session database.
+fn run_prune_dry_run(_options: &PruneOptions) -> Result<PruneOutput> {
     // TODO: Wire to session database once integrated.
     // Will list sessions with missing workspace directories without deleting.
-    Output::info("No invalid sessions found (dry-run)");
-    Ok(PruneOutput::empty())
-}
-
-/// Validate prune options before execution.
-///
-/// # Errors
-///
-/// Returns a validation error if options are contradictory.
-pub fn validate_prune_options(options: &PruneOptions) -> Result<()> {
-    // Both --yes and --dry-run together is fine: dry-run takes precedence
-    // and --yes is simply ignored. No validation error needed.
-    let _ = options;
-    Ok(())
+    Err(Error::invalid_state(
+        "Prune dry-run is not yet implemented. \
+         Session database integration is required to scan for \
+         orphaned worktrees and stale lock files.",
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // -- run_prune with default options --
+    // -- run_prune returns not-yet-implemented error --
 
     #[test]
-    fn run_prune_default_returns_empty() {
-        let opts = PruneOptions::default();
-        let result = run_prune(&opts);
-        assert!(result.is_ok());
-        let output = result.expect("should be ok");
-        assert_eq!(output.invalid_count, 0);
-        assert_eq!(output.removed_count, 0);
-        assert!(output.invalid_sessions.is_empty());
-    }
-
-    #[test]
-    fn run_prune_with_yes_flag() {
+    fn run_prune_interactive_returns_not_implemented() {
         let opts = PruneOptions {
-            yes: true,
-            ..PruneOptions::default()
+            mode: PruneMode::Interactive,
         };
         let result = run_prune(&opts);
-        assert!(result.is_ok());
-        let output = result.expect("should be ok");
-        assert_eq!(output.invalid_count, 0);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("not yet implemented"),
+            "Expected not-yet-implemented message, got: {err_msg}"
+        );
     }
 
     #[test]
-    fn run_prune_with_dry_run() {
+    fn run_prune_confirm_returns_not_implemented() {
         let opts = PruneOptions {
-            dry_run: true,
-            ..PruneOptions::default()
+            mode: PruneMode::Confirm,
         };
         let result = run_prune(&opts);
-        assert!(result.is_ok());
-    }
-
-    // -- run_prune_dry_run --
-
-    #[test]
-    fn run_prune_dry_run_default() {
-        let opts = PruneOptions::default();
-        let result = run_prune_dry_run(&opts);
-        assert!(result.is_ok());
-        let output = result.expect("should be ok");
-        assert_eq!(output.removed_count, 0);
+        assert!(result.is_err());
     }
 
     #[test]
-    fn run_prune_dry_run_with_yes() {
+    fn run_prune_dry_run_mode_returns_not_implemented() {
         let opts = PruneOptions {
-            yes: true,
-            dry_run: true,
+            mode: PruneMode::DryRun,
         };
-        let result = run_prune_dry_run(&opts);
-        assert!(result.is_ok());
-    }
-
-    // -- validate_prune_options --
-
-    #[test]
-    fn validate_prune_options_default() {
-        let opts = PruneOptions::default();
-        assert!(validate_prune_options(&opts).is_ok());
+        let result = run_prune(&opts);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("not yet implemented"),
+            "Expected not-yet-implemented message, got: {err_msg}"
+        );
     }
 
     #[test]
-    fn validate_prune_options_with_yes() {
+    fn error_message_mentions_session_database() {
         let opts = PruneOptions {
-            yes: true,
-            ..PruneOptions::default()
+            mode: PruneMode::Interactive,
         };
-        assert!(validate_prune_options(&opts).is_ok());
-    }
-
-    #[test]
-    fn validate_prune_options_with_dry_run() {
-        let opts = PruneOptions {
-            dry_run: true,
-            ..PruneOptions::default()
-        };
-        assert!(validate_prune_options(&opts).is_ok());
-    }
-
-    #[test]
-    fn validate_prune_options_both_flags() {
-        let opts = PruneOptions {
-            yes: true,
-            dry_run: true,
-        };
-        assert!(validate_prune_options(&opts).is_ok());
+        let result = run_prune(&opts);
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("Session database"),
+            "Error should mention session database requirement, got: {err_msg}"
+        );
     }
 }

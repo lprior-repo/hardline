@@ -2,8 +2,8 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): IntrospectOptions, CommandInfo, ArgumentInfo, FlagInfo,
-//!   ExampleInfo, ErrorConditionInfo (inert, serializable)
+//! - **Data** (`data.rs`): IntrospectOptions, IntrospectTarget, CommandInfo, ArgumentInfo,
+//!   FlagInfo, ExampleInfo, ErrorConditionInfo (inert, serializable)
 //! - **Actions** (`actions.rs`): run_introspect (I/O operations)
 //!
 //! # CLI Usage
@@ -20,5 +20,5 @@ pub mod data;
 pub use actions::run_introspect;
 pub use data::{
     known_commands, ArgumentInfo, CommandInfo, ErrorConditionInfo, ExampleInfo, FlagInfo,
-    IntrospectOptions,
+    IntrospectOptions, IntrospectTarget,
 };

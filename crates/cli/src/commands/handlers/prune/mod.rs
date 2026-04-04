@@ -7,10 +7,9 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): PruneOptions, PruneOutput, PrunableItem
+//! - **Data** (`data.rs`): PruneOptions, PruneMode, PruneOutput, PrunableItem
 //!   (inert, serializable)
-//! - **Actions** (`actions.rs`): run_prune, run_prune_dry_run, validate_prune_options
-//!   (I/O operations)
+//! - **Actions** (`actions.rs`): run_prune (I/O operations)
 //!
 //! # CLI Usage
 //!
@@ -23,5 +22,5 @@
 pub mod actions;
 pub mod data;
 
-pub use actions::{run_prune, run_prune_dry_run, validate_prune_options};
-pub use data::{PrunableItem, PruneOptions, PruneOutput};
+pub use actions::run_prune;
+pub use data::{PruneMode, PruneOptions, PruneOutput, PrunableItem};

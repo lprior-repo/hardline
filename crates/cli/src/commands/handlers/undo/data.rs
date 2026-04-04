@@ -10,14 +10,26 @@ use serde::{Deserialize, Serialize};
 // Input Types
 // ============================================================================
 
+/// Execution mode for the undo command.
+///
+/// Models mutually exclusive operational modes as a single enum
+/// rather than multiple boolean flags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum UndoMode {
+    /// Execute the undo operation.
+    #[default]
+    Execute,
+    /// Preview without executing.
+    DryRun,
+    /// List undo history without reverting.
+    ListHistory,
+}
+
 /// Options for the undo command (parsed from CLI).
 #[derive(Debug, Clone, Default)]
 pub struct UndoOptions {
-    /// Preview without executing.
-    pub dry_run: bool,
-
-    /// List undo history without reverting.
-    pub list: bool,
+    /// Execution mode (execute / dry-run / list-history).
+    pub mode: UndoMode,
 }
 
 // ============================================================================
@@ -25,6 +37,8 @@ pub struct UndoOptions {
 // ============================================================================
 
 /// Output from the undo command.
+///
+/// Errors are propagated via `Result`, not stored in this struct.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UndoOutput {
     /// Name of the session that was undone.
@@ -38,14 +52,41 @@ pub struct UndoOutput {
 
     /// Whether changes had been pushed to remote.
     pub pushed_to_remote: bool,
-
-    /// Error message (if an error occurred during processing).
-    pub error: Option<String>,
 }
 
 // ============================================================================
 // Shared Types
 // ============================================================================
+
+/// Status of an undo log entry.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UndoStatus {
+    /// Merge completed successfully.
+    Completed,
+    /// Entry has been undone.
+    Undone,
+    /// Entry has been reverted.
+    Reverted,
+}
+
+impl UndoStatus {
+    /// Convert to the string representation used in the log file.
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Completed => "completed",
+            Self::Undone => "undone",
+            Self::Reverted => "reverted",
+        }
+    }
+}
+
+impl std::fmt::Display for UndoStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
 
 /// Undo entry in history log.
 ///
@@ -63,8 +104,8 @@ pub struct UndoEntry {
     pub timestamp: u64,
     /// Whether changes were pushed to remote.
     pub pushed_to_remote: bool,
-    /// Status string (e.g. "completed", "undone").
-    pub status: String,
+    /// Entry status.
+    pub status: UndoStatus,
 }
 
 /// A single entry in the undo history for display (list mode).
@@ -77,7 +118,7 @@ pub struct UndoHistoryEntry {
     /// Human-readable timestamp.
     pub timestamp: String,
     /// Entry status.
-    pub status: String,
+    pub status: UndoStatus,
     /// Whether the commit was pushed to remote.
     pub pushed_to_remote: bool,
     /// Whether this entry can be undone.
@@ -98,65 +139,77 @@ pub struct UndoHistoryOutput {
     pub can_undo: bool,
 }
 
+// ============================================================================
+// Eligibility Calculation
+// ============================================================================
+
+/// Whether an undo entry is eligible for undo.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Eligibility {
+    /// The entry can be undone.
+    Eligible,
+    /// The entry cannot be undone, with a reason.
+    Ineligible {
+        reason: String,
+    },
+}
+
+impl Eligibility {
+    /// Returns `true` if the entry is eligible.
+    #[must_use]
+    pub fn is_eligible(&self) -> bool {
+        matches!(self, Self::Eligible)
+    }
+}
+
 /// Workspace retention window in seconds (24 hours).
 pub const WORKSPACE_RETENTION_SECONDS: u64 = 24 * 3600;
+
+/// Create an `Ineligible` variant with a reason.
+#[must_use]
+fn ineligible(reason: &str) -> Eligibility {
+    Eligibility::Ineligible { reason: reason.to_string() }
+}
 
 /// Compute whether an undo entry is eligible for undo given the current time.
 ///
 /// Pure calculation: no I/O, no side effects.
 #[must_use]
-pub fn compute_undo_eligibility(
-    entry: &UndoEntry,
-    now_seconds: u64,
-) -> (bool, Option<String>) {
+pub fn compute_undo_eligibility(entry: &UndoEntry, now_seconds: u64) -> Eligibility {
     if entry.pushed_to_remote {
-        return (false, Some("Already pushed to remote".to_string()));
+        return ineligible("Already pushed to remote");
     }
 
-    if entry.status == "undone" {
-        return (false, Some("Already undone".to_string()));
+    if entry.status == UndoStatus::Undone {
+        return ineligible("Already undone");
     }
 
-    if entry.status == "reverted" {
-        return (false, Some("Already reverted".to_string()));
+    if entry.status == UndoStatus::Reverted {
+        return ineligible("Already reverted");
     }
 
     if now_seconds.saturating_sub(entry.timestamp) > WORKSPACE_RETENTION_SECONDS {
-        return (
-            false,
-            Some("Expired after 24 hours".to_string()),
-        );
+        return ineligible("Expired after 24 hours");
     }
 
-    (true, None)
+    Eligibility::Eligible
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // ---- UndoOptions ----
+    // ---- UndoMode ----
 
     #[test]
-    fn undo_options_default_has_dry_run_false() {
-        let opts = UndoOptions::default();
-        assert!(!opts.dry_run);
+    fn undo_mode_default_is_execute() {
+        assert_eq!(UndoMode::default(), UndoMode::Execute);
     }
 
     #[test]
-    fn undo_options_default_has_list_false() {
+    fn undo_options_default_has_execute_mode() {
         let opts = UndoOptions::default();
-        assert!(!opts.list);
-    }
-
-    #[test]
-    fn undo_options_with_explicit_fields() {
-        let opts = UndoOptions {
-            dry_run: true,
-            list: true,
-        };
-        assert!(opts.dry_run);
-        assert!(opts.list);
+        assert_eq!(opts.mode, UndoMode::Execute);
     }
 
     // ---- UndoOutput ----
@@ -168,7 +221,6 @@ mod tests {
         assert!(output.commit_id.is_empty());
         assert!(!output.dry_run);
         assert!(!output.pushed_to_remote);
-        assert!(output.error.is_none());
     }
 
     #[test]
@@ -178,7 +230,6 @@ mod tests {
             dry_run: false,
             commit_id: "abc123".to_string(),
             pushed_to_remote: false,
-            error: None,
         };
 
         let json = serde_json::to_string(&output).expect("serialize");
@@ -188,20 +239,36 @@ mod tests {
         assert_eq!(deserialized.commit_id, "abc123");
     }
 
-    #[test]
-    fn undo_output_with_error_field_serializes() {
-        let output = UndoOutput {
-            session_name: "test".to_string(),
-            dry_run: false,
-            commit_id: "abc".to_string(),
-            pushed_to_remote: false,
-            error: Some("undo failed".to_string()),
-        };
+    // ---- UndoStatus ----
 
-        let json = serde_json::to_string(&output).expect("serialize");
-        let deserialized: UndoOutput =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
-        assert_eq!(deserialized.error.as_deref(), Some("undo failed"));
+    #[test]
+    fn undo_status_str_roundtrip() {
+        assert_eq!(UndoStatus::Completed.as_str(), "completed");
+        assert_eq!(UndoStatus::Undone.as_str(), "undone");
+        assert_eq!(UndoStatus::Reverted.as_str(), "reverted");
+    }
+
+    #[test]
+    fn undo_status_serde_roundtrip() {
+        let status = UndoStatus::Completed;
+        let json = serde_json::to_string(&status).expect("serialize");
+        assert_eq!(json, "\"completed\"");
+        let deserialized: UndoStatus = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized, UndoStatus::Completed);
+    }
+
+    #[test]
+    fn undo_status_undone_serde() {
+        let json = serde_json::to_string(&UndoStatus::Undone).expect("serialize");
+        let deserialized: UndoStatus = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized, UndoStatus::Undone);
+    }
+
+    #[test]
+    fn undo_status_reverted_serde() {
+        let json = serde_json::to_string(&UndoStatus::Reverted).expect("serialize");
+        let deserialized: UndoStatus = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized, UndoStatus::Reverted);
     }
 
     // ---- UndoEntry ----
@@ -214,14 +281,14 @@ mod tests {
             pre_merge_commit_id: "sha-before".to_string(),
             timestamp: 1_700_000_000,
             pushed_to_remote: true,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         };
         assert_eq!(entry.session_name, "feature-x");
         assert_eq!(entry.commit_id, "sha-after");
         assert_eq!(entry.pre_merge_commit_id, "sha-before");
         assert_eq!(entry.timestamp, 1_700_000_000);
         assert!(entry.pushed_to_remote);
-        assert_eq!(entry.status, "completed");
+        assert_eq!(entry.status, UndoStatus::Completed);
     }
 
     #[test]
@@ -232,14 +299,37 @@ mod tests {
             pre_merge_commit_id: "c0".to_string(),
             timestamp: 100,
             pushed_to_remote: false,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         };
         let json = serde_json::to_string(&entry).expect("serialize");
         let deserialized: UndoEntry =
             serde_json::from_str(&json).expect("deserialize roundtrip");
         assert!(!deserialized.pushed_to_remote);
         assert_eq!(deserialized.session_name, "ws-1");
-        assert_eq!(deserialized.status, "completed");
+        assert_eq!(deserialized.status, UndoStatus::Completed);
+    }
+
+    // ---- Eligibility ----
+
+    #[test]
+    fn eligibility_is_eligible() {
+        let e = Eligibility::Eligible;
+        assert!(e.is_eligible());
+    }
+
+    #[test]
+    fn eligibility_ineligible_is_not_eligible() {
+        let e = Eligibility::Ineligible { reason: "test".to_string() };
+        assert!(!e.is_eligible());
+    }
+
+    #[test]
+    fn eligibility_equality() {
+        assert_eq!(Eligibility::Eligible, Eligibility::Eligible);
+        assert_ne!(
+            Eligibility::Eligible,
+            Eligibility::Ineligible { reason: "x".to_string() }
+        );
     }
 
     // ---- UndoHistoryEntry ----
@@ -250,7 +340,7 @@ mod tests {
             session_name: "test".to_string(),
             commit_id: "abc123".to_string(),
             timestamp: "2025-01-01 00:00:00 UTC".to_string(),
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
             pushed_to_remote: false,
             can_undo: true,
             reason_cannot_undo: None,
@@ -265,7 +355,7 @@ mod tests {
             session_name: "test".to_string(),
             commit_id: "abc123".to_string(),
             timestamp: "2025-01-01 00:00:00 UTC".to_string(),
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
             pushed_to_remote: true,
             can_undo: false,
             reason_cannot_undo: Some("Already pushed to remote".to_string()),
@@ -280,7 +370,7 @@ mod tests {
             session_name: "test".to_string(),
             commit_id: "abc".to_string(),
             timestamp: "2025-01-01 00:00:00 UTC".to_string(),
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
             pushed_to_remote: false,
             can_undo: true,
             reason_cannot_undo: None,
@@ -313,12 +403,11 @@ mod tests {
             pre_merge_commit_id: "def".to_string(),
             timestamp: 1_000,
             pushed_to_remote: true,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         };
-        let (can_undo, reason) = compute_undo_eligibility(&entry, 2_000);
-        assert!(!can_undo);
-        assert!(reason.is_some());
-        assert!(reason.as_deref().map_or(false, |r| r.contains("pushed")));
+        let eligibility = compute_undo_eligibility(&entry, 2_000);
+        assert!(!eligibility.is_eligible());
+        assert!(matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("pushed")));
     }
 
     #[test]
@@ -329,12 +418,11 @@ mod tests {
             pre_merge_commit_id: "def".to_string(),
             timestamp: 1_000,
             pushed_to_remote: false,
-            status: "undone".to_string(),
+            status: UndoStatus::Undone,
         };
-        let (can_undo, reason) = compute_undo_eligibility(&entry, 2_000);
-        assert!(!can_undo);
-        assert!(reason.is_some());
-        assert!(reason.as_deref().map_or(false, |r| r.contains("undone")));
+        let eligibility = compute_undo_eligibility(&entry, 2_000);
+        assert!(!eligibility.is_eligible());
+        assert!(matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("undone")));
     }
 
     #[test]
@@ -345,12 +433,11 @@ mod tests {
             pre_merge_commit_id: "def".to_string(),
             timestamp: 1_000,
             pushed_to_remote: false,
-            status: "reverted".to_string(),
+            status: UndoStatus::Reverted,
         };
-        let (can_undo, reason) = compute_undo_eligibility(&entry, 2_000);
-        assert!(!can_undo);
-        assert!(reason.is_some());
-        assert!(reason.as_deref().map_or(false, |r| r.contains("reverted")));
+        let eligibility = compute_undo_eligibility(&entry, 2_000);
+        assert!(!eligibility.is_eligible());
+        assert!(matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("reverted")));
     }
 
     #[test]
@@ -361,13 +448,12 @@ mod tests {
             pre_merge_commit_id: "def".to_string(),
             timestamp: 1_000,
             pushed_to_remote: false,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         };
         let now = 1_000 + WORKSPACE_RETENTION_SECONDS + 1;
-        let (can_undo, reason) = compute_undo_eligibility(&entry, now);
-        assert!(!can_undo);
-        assert!(reason.is_some());
-        assert!(reason.as_deref().map_or(false, |r| r.contains("Expired")));
+        let eligibility = compute_undo_eligibility(&entry, now);
+        assert!(!eligibility.is_eligible());
+        assert!(matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("Expired")));
     }
 
     #[test]
@@ -378,11 +464,10 @@ mod tests {
             pre_merge_commit_id: "def".to_string(),
             timestamp: 1_000,
             pushed_to_remote: false,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         };
-        let (can_undo, reason) = compute_undo_eligibility(&entry, 2_000);
-        assert!(can_undo);
-        assert!(reason.is_none());
+        let eligibility = compute_undo_eligibility(&entry, 2_000);
+        assert!(eligibility.is_eligible());
     }
 
     #[test]
@@ -393,11 +478,10 @@ mod tests {
             pre_merge_commit_id: "def".to_string(),
             timestamp: 1_000,
             pushed_to_remote: false,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         };
         // Exactly at the retention boundary should still be eligible.
         let now = 1_000 + WORKSPACE_RETENTION_SECONDS;
-        let (can_undo, _reason) = compute_undo_eligibility(&entry, now);
-        assert!(can_undo);
+        assert!(compute_undo_eligibility(&entry, now).is_eligible());
     }
 }

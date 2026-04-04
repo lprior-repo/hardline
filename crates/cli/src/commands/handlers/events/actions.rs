@@ -28,20 +28,8 @@ pub fn run_events(options: &EventsOptions) -> Result<()> {
 
 /// List recent events, optionally filtered.
 fn run_list(options: &EventsOptions) -> Result<()> {
-    let limit = options.limit.unwrap_or(DEFAULT_LIMIT);
-    let entries = read_events_from_log(
-        options.session.as_deref(),
-        options.event_type.as_deref(),
-        limit,
-        options.since.as_deref(),
-    )?;
-
-    let output = EventsOutput {
-        total: entries.len(),
-        has_more: false,
-        cursor: None,
-        events: entries,
-    };
+    let limit = options.limit.map_or(DEFAULT_LIMIT, |l| l);
+    let output = load_events_output(options, limit)?;
 
     print_events(&output);
     Ok(())
@@ -53,44 +41,57 @@ fn run_list(options: &EventsOptions) -> Result<()> {
 /// synchronous handler. This outputs the current batch and a message
 /// indicating that streaming would continue in a real async context.
 fn run_follow(options: &EventsOptions) -> Result<()> {
-    let limit = options.limit.unwrap_or(DEFAULT_LIMIT);
-    let entries = read_events_from_log(
-        options.session.as_deref(),
-        options.event_type.as_deref(),
-        limit,
-        options.since.as_deref(),
-    )?;
-
-    let output = EventsOutput {
-        total: entries.len(),
-        has_more: false,
-        cursor: None,
-        events: entries,
-    };
+    let limit = options.limit.map_or(DEFAULT_LIMIT, |l| l);
+    let output = load_events_output(options, limit)?;
 
     print_events(&output);
     Output::info("Following events... (streaming requires async runtime)");
     Ok(())
 }
 
-/// Read events from the JSONL event log file, applying filters.
+/// Load events, apply filters, and build the output struct.
 ///
-/// The events file is expected to live at `<data_dir>/events.jsonl`.
-/// Falls back to an empty list if the file does not exist.
-fn read_events_from_log(
+/// Shared by both `run_list` and `run_follow`.
+fn load_events_output(options: &EventsOptions, limit: usize) -> Result<EventsOutput> {
+    let entries = read_and_filter_events(
+        options.session.as_deref(),
+        options.event_type.as_deref(),
+        limit,
+        options.since.as_deref(),
+    )?;
+
+    Ok(EventsOutput {
+        total: entries.len(),
+        has_more: false,
+        cursor: None,
+        events: entries,
+    })
+}
+
+/// Read raw events from the JSONL event log file (I/O).
+///
+/// Falls back to an empty string if the file does not exist.
+fn read_raw_events() -> Result<String> {
+    let events_file = resolve_events_file_path()?;
+
+    match std::fs::read_to_string(&events_file) {
+        Ok(c) => Ok(c),
+        Err(_) => Ok(String::new()),
+    }
+}
+
+/// Parse, filter, sort, and truncate event entries (pure).
+///
+/// Takes raw JSONL content and applies session / event_type / since filters,
+/// then sorts newest-first and truncates to `limit`.
+fn filter_and_sort_events(
+    content: &str,
     session: Option<&str>,
     event_type: Option<&str>,
     limit: usize,
     since: Option<&str>,
-) -> Result<Vec<EventEntry>> {
-    let events_file = resolve_events_file_path()?;
-
-    let content = match std::fs::read_to_string(&events_file) {
-        Ok(c) => c,
-        Err(_) => return Ok(Vec::new()),
-    };
-
-    let mut entries: Vec<EventEntry> = content
+) -> Vec<EventEntry> {
+    let entries: Vec<EventEntry> = content
         .lines()
         .filter(|line| !line.trim().is_empty())
         .filter_map(|line| {
@@ -104,10 +105,28 @@ fn read_events_from_log(
         })
         .collect();
 
-    entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-    entries.truncate(limit);
+    sort_and_truncate(entries, limit)
+}
 
-    Ok(entries)
+/// Sort entries newest-first and truncate to limit.
+fn sort_and_truncate(entries: Vec<EventEntry>, limit: usize) -> Vec<EventEntry> {
+    let mut sorted = entries;
+    sorted.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    sorted.truncate(limit);
+    sorted
+}
+
+/// Read events from the JSONL event log file, applying filters.
+///
+/// Composes `read_raw_events` (I/O) and `filter_and_sort_events` (pure).
+fn read_and_filter_events(
+    session: Option<&str>,
+    event_type: Option<&str>,
+    limit: usize,
+    since: Option<&str>,
+) -> Result<Vec<EventEntry>> {
+    let content = read_raw_events()?;
+    Ok(filter_and_sort_events(&content, session, event_type, limit, since))
 }
 
 /// Resolve the path to the events JSONL log file.
@@ -218,8 +237,8 @@ mod tests {
     }
 
     #[test]
-    fn read_events_from_log_handles_missing_file() {
-        let result = read_events_from_log(None, None, 50, None);
+    fn read_and_filter_events_handles_missing_file() {
+        let result = read_and_filter_events(None, None, 50, None);
         assert!(result.is_ok());
         let entries = result.expect("should be ok");
         assert!(entries.is_empty());
@@ -266,5 +285,36 @@ mod tests {
     #[test]
     fn default_limit_is_fifty() {
         assert_eq!(DEFAULT_LIMIT, 50);
+    }
+
+    #[test]
+    fn filter_and_sort_events_empty_content() {
+        let result = filter_and_sort_events("", None, None, 10, None);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn filter_and_sort_events_parses_valid_jsonl() {
+        let content = r#"{"id":"evt-1","event_type":"session_created","timestamp":"2025-01-15T12:00:00Z","session":"test","agent_id":null,"data":null,"message":"Created"}"#;
+        let result = filter_and_sort_events(content, None, None, 10, None);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "evt-1");
+    }
+
+    #[test]
+    fn filter_and_sort_events_respects_limit() {
+        let entry = r#"{"id":"evt-1","event_type":"session_created","timestamp":"2025-01-15T12:00:00Z","session":null,"agent_id":null,"data":null,"message":"M"}"#;
+        let content = format!("{entry}\n{entry}");
+        let result = filter_and_sort_events(&content, None, None, 1, None);
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn filter_and_sort_events_filters_by_session() {
+        let content = r#"{"id":"evt-1","event_type":"session_created","timestamp":"2025-01-15T12:00:00Z","session":"alpha","agent_id":null,"data":null,"message":"M"}
+{"id":"evt-2","event_type":"session_created","timestamp":"2025-01-15T12:00:00Z","session":"beta","agent_id":null,"data":null,"message":"M"}"#;
+        let result = filter_and_sort_events(content, Some("alpha"), None, 10, None);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "evt-1");
     }
 }

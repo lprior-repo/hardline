@@ -8,8 +8,8 @@ use scp_core::output::Output;
 use scp_core::{Error, Result};
 
 use super::data::{
-    validate_bookmark_name, BookmarkCreateOutput, BookmarkDeleteOutput, BookmarkInfo,
-    BookmarkListOutput, BookmarkOptions, BookmarkOutput, BookmarkSubcommand,
+    parse_branch_list, validate_bookmark_name, BookmarkCreateOutput, BookmarkDeleteOutput,
+    BookmarkInfo, BookmarkListOutput, BookmarkOptions, BookmarkOutput, BookmarkSubcommand,
     BookmarkTrackOutput,
 };
 
@@ -33,35 +33,12 @@ pub fn run_bookmark(options: &BookmarkOptions) -> Result<BookmarkOutput> {
 
 /// Create a new bookmark at the current revision.
 fn run_create(name: &str, push: bool) -> Result<BookmarkOutput> {
-    if !validate_bookmark_name(name) {
-        return Err(Error::validation_error(format!(
-            "Invalid bookmark name '{name}': must be alphanumeric, underscore, or hyphen"
-        )));
-    }
+    validate_name(name)?;
 
-    let git_args = build_create_args(name);
+    create_bookmark(name)?;
 
-    let output = std::process::Command::new("git")
-        .args(&git_args)
-        .output()
-        .map_err(|e| Error::io_error(format!("Failed to execute git branch: {e}")))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if stderr.contains("already exists") {
-            return Err(Error::invalid_state(format!(
-                "Bookmark '{name}' already exists"
-            )));
-        }
-        return Err(Error::io_error(format!(
-            "git branch create failed: {stderr}"
-        )));
-    }
-
-    // Get current revision
     let revision = get_current_revision()?;
 
-    // Push to remote if requested
     if push {
         push_bookmark(name)?;
     }
@@ -83,47 +60,8 @@ fn run_create(name: &str, push: bool) -> Result<BookmarkOutput> {
 
 /// List bookmarks.
 fn run_list(show_all: bool) -> Result<BookmarkOutput> {
-    let mut git_args = vec!["branch".to_string()];
-    if show_all {
-        git_args.push("--all".to_string());
-    }
-
-    let output = std::process::Command::new("git")
-        .args(&git_args)
-        .output()
-        .map_err(|e| Error::io_error(format!("Failed to execute git branch: {e}")))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        // If not in a git repo, return empty list
-        if stderr.contains("not a git repository") {
-            let list_output = BookmarkListOutput {
-                bookmarks: vec![],
-                count: 0,
-            };
-            Output::info("No bookmarks found.");
-            return Ok(BookmarkOutput::List(list_output));
-        }
-        return Err(Error::io_error(format!(
-            "git branch list failed: {stderr}"
-        )));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let bookmarks = parse_branch_list(&stdout);
-
-    if bookmarks.is_empty() {
-        Output::info("No bookmarks found.");
-    } else {
-        Output::info(&format!("Bookmarks ({}):", bookmarks.len()));
-        for bookmark in &bookmarks {
-            let remote_marker = if bookmark.remote { " (remote)" } else { "" };
-            Output::info(&format!(
-                "  {} -> {}{}",
-                bookmark.name, bookmark.revision, remote_marker
-            ));
-        }
-    }
+    let bookmarks = list_bookmarks(show_all)?;
+    format_bookmark_list(&bookmarks);
 
     let count = bookmarks.len();
     Ok(BookmarkOutput::List(BookmarkListOutput {
@@ -134,13 +72,8 @@ fn run_list(show_all: bool) -> Result<BookmarkOutput> {
 
 /// Delete a bookmark.
 fn run_delete(name: &str) -> Result<BookmarkOutput> {
-    if !validate_bookmark_name(name) {
-        return Err(Error::validation_error(format!(
-            "Invalid bookmark name '{name}': must be alphanumeric, underscore, or hyphen"
-        )));
-    }
+    validate_name(name)?;
 
-    // Check the bookmark exists before attempting to delete
     let existing = list_branches(false)?;
     if !existing.iter().any(|b| b.name == name) {
         return Err(Error::not_found(format!(
@@ -148,17 +81,7 @@ fn run_delete(name: &str) -> Result<BookmarkOutput> {
         )));
     }
 
-    let output = std::process::Command::new("git")
-        .args(["branch", "-d", name])
-        .output()
-        .map_err(|e| Error::io_error(format!("Failed to execute git branch -d: {e}")))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::io_error(format!(
-            "git branch delete failed: {stderr}"
-        )));
-    }
+    delete_bookmark(name)?;
 
     Output::success(&format!("Deleted bookmark '{}'", name));
 
@@ -169,35 +92,11 @@ fn run_delete(name: &str) -> Result<BookmarkOutput> {
 
 /// Track a remote bookmark (set upstream).
 fn run_track(name: &str, remote: Option<&str>) -> Result<BookmarkOutput> {
-    if !validate_bookmark_name(name) {
-        return Err(Error::validation_error(format!(
-            "Invalid bookmark name '{name}': must be alphanumeric, underscore, or hyphen"
-        )));
-    }
+    validate_name(name)?;
 
-    let remote_name = remote.unwrap_or("origin");
+    let remote_name = remote.map_or("origin", |r| r);
 
-    let output = std::process::Command::new("git")
-        .args([
-            "branch",
-            "--set-upstream-to",
-            &format!("{remote_name}/{name}"),
-            name,
-        ])
-        .output()
-        .map_err(|e| Error::io_error(format!("Failed to execute git branch --set-upstream-to: {e}")))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if stderr.contains("does not exist") || stderr.contains("No upstream") {
-            return Err(Error::not_found(format!(
-                "Remote bookmark '{remote_name}/{name}' not found"
-            )));
-        }
-        return Err(Error::io_error(format!(
-            "git branch track failed: {stderr}"
-        )));
-    }
+    set_upstream(name, remote_name)?;
 
     Output::success(&format!(
         "Bookmark '{}' now tracking '{}/{}'",
@@ -211,12 +110,123 @@ fn run_track(name: &str, remote: Option<&str>) -> Result<BookmarkOutput> {
 }
 
 // ============================================================================
-// Private Helpers
+// Private Helpers - I/O Operations
 // ============================================================================
 
-/// Build git args for creating a branch.
-fn build_create_args(name: &str) -> Vec<String> {
-    vec!["branch".to_string(), name.to_string()]
+/// Validate a bookmark name, returning an error if invalid.
+fn validate_name(name: &str) -> Result<()> {
+    if validate_bookmark_name(name) {
+        Ok(())
+    } else {
+        Err(Error::validation_error(format!(
+            "Invalid bookmark name '{name}': must be alphanumeric, underscore, or hyphen"
+        )))
+    }
+}
+
+/// Run `git branch <name>` to create a branch.
+///
+/// # Errors
+///
+/// Returns `invalid_state` if the branch already exists, or `io_error` on failure.
+fn create_bookmark(name: &str) -> Result<()> {
+    let output = std::process::Command::new("git")
+        .args(["branch", name])
+        .output()
+        .map_err(|e| Error::io_error(format!("Failed to execute git branch: {e}")))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("already exists") {
+            return Err(Error::invalid_state(format!(
+                "Bookmark '{name}' already exists"
+            )));
+        }
+        return Err(Error::io_error(format!(
+            "git branch create failed: {stderr}"
+        )));
+    }
+
+    Ok(())
+}
+
+/// Run `git branch -d <name>` to delete a branch.
+///
+/// # Errors
+///
+/// Returns `io_error` on git failure.
+fn delete_bookmark(name: &str) -> Result<()> {
+    let output = std::process::Command::new("git")
+        .args(["branch", "-d", name])
+        .output()
+        .map_err(|e| Error::io_error(format!("Failed to execute git branch -d: {e}")))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(Error::io_error(format!(
+            "git branch delete failed: {stderr}"
+        )));
+    }
+
+    Ok(())
+}
+
+/// Run `git branch --set-upstream-to <remote>/<name> <name>`.
+///
+/// # Errors
+///
+/// Returns `not_found` if the remote branch does not exist, or `io_error` on failure.
+fn set_upstream(name: &str, remote_name: &str) -> Result<()> {
+    let output = std::process::Command::new("git")
+        .args([
+            "branch",
+            "--set-upstream-to",
+            &format!("{remote_name}/{name}"),
+            name,
+        ])
+        .output()
+        .map_err(|e| Error::io_error(format!("Failed to execute git branch --set-upstream-to: {e}")))?;
+
+    if !output.status.success() {
+        return handle_upstream_error(&output.stderr, remote_name, name);
+    }
+
+    Ok(())
+}
+
+/// Handle the stderr from a failed `git branch --set-upstream-to`.
+///
+/// Intentionally uses string matching on stderr to classify errors.
+/// This is fragile but unavoidable without a Git library.
+fn handle_upstream_error(
+    stderr: &[u8],
+    remote_name: &str,
+    name: &str,
+) -> Result<()> {
+    let stderr = String::from_utf8_lossy(stderr);
+    if stderr.contains("does not exist") || stderr.contains("No upstream") {
+        return Err(Error::not_found(format!(
+            "Remote bookmark '{remote_name}/{name}' not found"
+        )));
+    }
+    Err(Error::io_error(format!(
+        "git branch track failed: {stderr}"
+    )))
+}
+
+/// Push a bookmark to the default remote.
+fn push_bookmark(name: &str) -> Result<()> {
+    let output = std::process::Command::new("git")
+        .args(["push", "-u", "origin", name])
+        .output()
+        .map_err(|e| Error::io_error(format!("Failed to push bookmark: {e}")))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(Error::io_error(format!("git push failed: {stderr}")));
+    }
+
+    Ok(())
 }
 
 /// Get the current revision (commit hash).
@@ -236,27 +246,12 @@ fn get_current_revision() -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
-/// Push a bookmark to the default remote.
-fn push_bookmark(name: &str) -> Result<()> {
-    let output = std::process::Command::new("git")
-        .args(["push", "-u", "origin", name])
-        .output()
-        .map_err(|e| Error::io_error(format!("Failed to push bookmark: {e}")))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::io_error(format!("git push failed: {stderr}")));
-    }
-
-    Ok(())
-}
-
 /// List branches by running `git branch`.
+///
+/// Intentionally uses string matching on stderr to detect "not a git repository".
+/// This is fragile but unavoidable without a Git library.
 fn list_branches(show_all: bool) -> Result<Vec<BookmarkInfo>> {
-    let mut args = vec!["branch"];
-    if show_all {
-        args.push("--all");
-    }
+    let args = build_list_args(show_all);
 
     let output = std::process::Command::new("git")
         .args(&args)
@@ -277,39 +272,38 @@ fn list_branches(show_all: bool) -> Result<Vec<BookmarkInfo>> {
     Ok(parse_branch_list(&stdout))
 }
 
-/// Parse `git branch` output into `BookmarkInfo` structs.
-///
-/// Handles format:
-/// - `  branch_name` (non-active)
-/// - `* branch_name` (active)
-/// - `  remotes/origin/branch_name` (with --all)
-fn parse_branch_list(output: &str) -> Vec<BookmarkInfo> {
-    output
-        .lines()
-        .filter_map(|line| {
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                return None;
-            }
+/// List bookmarks (alias for `list_branches` that is semantically named).
+fn list_bookmarks(show_all: bool) -> Result<Vec<BookmarkInfo>> {
+    list_branches(show_all)
+}
 
-            // Remove the active marker '* '
-            let name = trimmed.strip_prefix("* ").unwrap_or(trimmed);
+// ============================================================================
+// Pure Helpers
+// ============================================================================
 
-            // Skip remote tracking branches for display but mark as remote
-            let is_remote = name.starts_with("remotes/");
-            let display_name = if is_remote {
-                name.strip_prefix("remotes/")?
-            } else {
-                name
-            };
+/// Build git args for listing branches.
+fn build_list_args(show_all: bool) -> Vec<&'static str> {
+    if show_all {
+        vec!["branch", "--all"]
+    } else {
+        vec!["branch"]
+    }
+}
 
-            Some(BookmarkInfo {
-                name: display_name.to_string(),
-                revision: String::new(), // Revision not available from branch listing
-                remote: is_remote,
-            })
-        })
-        .collect()
+/// Format and print the bookmark list to the user.
+fn format_bookmark_list(bookmarks: &[BookmarkInfo]) {
+    if bookmarks.is_empty() {
+        Output::info("No bookmarks found.");
+    } else {
+        Output::info(&format!("Bookmarks ({}):", bookmarks.len()));
+        bookmarks.iter().for_each(|bookmark| {
+            let remote_marker = if bookmark.remote { " (remote)" } else { "" };
+            Output::info(&format!(
+                "  {} -> {}{}",
+                bookmark.name, bookmark.revision, remote_marker
+            ));
+        });
+    }
 }
 
 #[cfg(test)]
@@ -317,61 +311,7 @@ mod tests {
     use super::*;
     use crate::commands::handlers::bookmark::data::BookmarkSubcommand;
 
-    // -- parse_branch_list (pure, no I/O) --
-
-    #[test]
-    fn parse_branch_list_empty() {
-        let result = parse_branch_list("");
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn parse_branch_list_single_branch() {
-        let output = "  main\n";
-        let result = parse_branch_list(output);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].name, "main");
-        assert!(!result[0].remote);
-    }
-
-    #[test]
-    fn parse_branch_list_active_branch() {
-        let output = "* feature-auth\n";
-        let result = parse_branch_list(output);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].name, "feature-auth");
-        assert!(!result[0].remote);
-    }
-
-    #[test]
-    fn parse_branch_list_multiple_branches() {
-        let output = "  bugfix-123\n* main\n  feature\n";
-        let result = parse_branch_list(output);
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0].name, "bugfix-123");
-        assert_eq!(result[1].name, "main");
-        assert_eq!(result[2].name, "feature");
-    }
-
-    #[test]
-    fn parse_branch_list_with_remotes() {
-        let output = "  main\n  remotes/origin/main\n";
-        let result = parse_branch_list(output);
-        assert_eq!(result.len(), 2);
-        assert!(!result[0].remote);
-        assert!(result[1].remote);
-        assert_eq!(result[1].name, "origin/main");
-    }
-
-    // -- build_create_args --
-
-    #[test]
-    fn build_create_args_contains_name() {
-        let args = build_create_args("feature-auth");
-        assert_eq!(args, vec!["branch", "feature-auth"]);
-    }
-
-    // -- validate_bookmark_name integration --
+    // -- validate_name --
 
     #[test]
     fn validate_rejects_empty_name() {
@@ -381,6 +321,42 @@ mod tests {
     #[test]
     fn validate_accepts_standard_name() {
         assert!(validate_bookmark_name("feature-auth"));
+    }
+
+    // -- build_list_args --
+
+    #[test]
+    fn build_list_args_default() {
+        assert_eq!(build_list_args(false), vec!["branch"]);
+    }
+
+    #[test]
+    fn build_list_args_show_all() {
+        assert_eq!(build_list_args(true), vec!["branch", "--all"]);
+    }
+
+    // -- format_bookmark_list (does not panic) --
+
+    #[test]
+    fn format_bookmark_list_empty() {
+        format_bookmark_list(&[]);
+    }
+
+    #[test]
+    fn format_bookmark_list_with_entries() {
+        let bookmarks = vec![
+            BookmarkInfo {
+                name: "main".to_string(),
+                revision: "abc123".to_string(),
+                remote: false,
+            },
+            BookmarkInfo {
+                name: "origin/main".to_string(),
+                revision: String::new(),
+                remote: true,
+            },
+        ];
+        format_bookmark_list(&bookmarks);
     }
 
     // -- run_bookmark validation gating --

@@ -6,105 +6,78 @@ use scp_core::output::Output;
 use scp_core::validation::domain::validate_session_name;
 use scp_core::{Error, Result};
 
-use super::data::{build_env_vars, generate_short_id, WorkOptions, WorkOutput};
+use super::data::{build_env_vars, generate_short_id, WorkMode, WorkOptions, WorkOutput};
 
 /// Execute the work command with the given options.
 ///
-/// This is the unified workflow start for AI agents, combining session
-/// creation, agent registration, and environment setup into one atomic
-/// operation.
-///
 /// # Errors
 ///
-/// Returns an error if:
-/// - The session name fails validation
-/// - Not in a git repository
-/// - Session creation fails
-/// - Already in a workspace (unless idempotent)
+/// Returns an error if the session name fails validation.
 pub fn run_work(options: &WorkOptions) -> Result<()> {
     validate_session_name(&options.name).map_err(|_| {
         Error::validation_error(format!("Invalid session name: '{}'", options.name))
     })?;
 
-    // Dry run - just show what would happen.
-    if options.dry_run {
-        return output_dry_run(options);
+    match options.mode {
+        WorkMode::DryRun => output_dry_run(options),
+        WorkMode::Normal | WorkMode::Idempotent => execute_work(options),
     }
-
-    // TODO: Wire up actual session creation, workspace detection, and
-    // database lookup once the workspace/session infrastructure is
-    // integrated. For now, validate inputs and produce output.
-
-    let workspace_path = format!(".scp/workspaces/{}", options.name);
-
-    // Generate agent ID if needed.
-    let agent_id = if options.no_agent {
-        None
-    } else {
-        options
-            .agent_id
-            .clone()
-            .or_else(|| Some(format!("agent-{}", generate_short_id())))
-    };
-
-    let output = WorkOutput {
-        name: options.name.clone(),
-        workspace_path: workspace_path.clone(),
-        created: true,
-        agent_id: agent_id.clone(),
-        bead_id: options.bead_id.clone(),
-        env_vars: build_env_vars(
-            &options.name,
-            &workspace_path,
-            agent_id.as_deref(),
-            options.bead_id.as_deref(),
-        ),
-        enter_command: format!("cd {workspace_path}"),
-    };
-
-    output_result(&output)
 }
 
-/// Output result for an existing workspace (idempotent mode).
-fn output_existing_workspace(name: &str, options: &WorkOptions) -> Result<()> {
-    let workspace_path = format!(".scp/workspaces/{name}");
+/// Build the agent ID: return None when `no_agent`, otherwise
+/// use the provided ID or generate one.
+fn resolve_agent_id(options: &WorkOptions) -> Result<Option<String>> {
+    if options.no_agent {
+        return Ok(None);
+    }
 
-    let agent_id = if options.no_agent {
-        None
-    } else {
-        options.agent_id.clone()
+    let agent_id = match &options.agent_id {
+        Some(id) => Some(id.clone()),
+        None => {
+            let short_id = generate_short_id()
+                .map_err(|e| Error::io_error(format!("Failed to generate agent ID: {e}")))?;
+            Some(format!("agent-{short_id}"))
+        }
     };
 
-    let output = WorkOutput {
-        name: name.to_string(),
+    Ok(agent_id)
+}
+
+/// Build a `WorkOutput` from the given options and resolved agent ID.
+fn build_work_output(options: &WorkOptions, agent_id: Option<String>) -> Result<WorkOutput> {
+    let workspace_path = format!(".scp/workspaces/{}", options.name);
+
+    let env_vars = build_env_vars(
+        &options.name,
+        &workspace_path,
+        agent_id.as_deref(),
+        options.bead_id.as_deref(),
+    );
+
+    Ok(WorkOutput {
+        name: options.name.clone(),
         workspace_path: workspace_path.clone(),
-        created: false,
-        agent_id: agent_id.clone(),
+        created: matches!(options.mode, WorkMode::Normal),
+        agent_id,
         bead_id: options.bead_id.clone(),
-        env_vars: build_env_vars(
-            name,
-            &workspace_path,
-            agent_id.as_deref(),
-            options.bead_id.as_deref(),
-        ),
+        env_vars,
         enter_command: format!("cd {workspace_path}"),
-    };
+    })
+}
 
+/// Execute a normal or idempotent work command.
+fn execute_work(options: &WorkOptions) -> Result<()> {
+    let agent_id = resolve_agent_id(options)?;
+    let output = build_work_output(options, agent_id)?;
     output_result(&output)
 }
 
 /// Output for dry run mode.
 fn output_dry_run(options: &WorkOptions) -> Result<()> {
+    let agent_id = resolve_agent_id(options)?;
     let workspace_path = format!(".scp/workspaces/{}", options.name);
 
-    let agent_id = if options.no_agent {
-        None
-    } else {
-        options
-            .agent_id
-            .clone()
-            .or_else(|| Some(format!("agent-{}", generate_short_id())))
-    };
+    let env_vars = build_env_vars(&options.name, &workspace_path, None, None);
 
     let output = WorkOutput {
         name: options.name.clone(),
@@ -112,37 +85,41 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
         created: false,
         agent_id,
         bead_id: options.bead_id.clone(),
-        env_vars: build_env_vars(&options.name, &workspace_path, None, None),
+        env_vars,
         enter_command: format!("cd {workspace_path}"),
     };
 
+    print_dry_run_summary(options, &output)
+}
+
+/// Print the dry-run summary to stdout.
+fn print_dry_run_summary(options: &WorkOptions, output: &WorkOutput) -> Result<()> {
     Output::info(&format!(
         "[DRY RUN] Would create session '{}'",
-        options.name
+        output.name
     ));
-    Output::info(&format!("  Workspace: .scp/workspaces/{}", options.name));
+    Output::info(&format!("  Workspace: {}", output.workspace_path));
+
     if let Some(ref bead) = options.bead_id {
         Output::info(&format!("  Bead: {bead}"));
     }
 
-    let _ = output;
     Ok(())
 }
 
 /// Output the result to stdout.
 fn output_result(output: &WorkOutput) -> Result<()> {
-    if output.created {
-        Output::info(&format!("Created session '{}'", output.name));
-    } else {
-        Output::info(&format!("Using existing session '{}'", output.name));
-    }
+    let status = if output.created { "Created" } else { "Using existing" };
+    Output::info(&format!("{status} session '{}'", output.name));
     Output::info(&format!("  Workspace: {}", output.workspace_path));
+
     if let Some(ref agent) = output.agent_id {
         Output::info(&format!("  Agent: {agent}"));
     }
     if let Some(ref bead) = output.bead_id {
         Output::info(&format!("  Bead: {bead}"));
     }
+
     Output::info("");
     Output::info("To enter workspace:");
     Output::info(&format!("  {}", output.enter_command));
@@ -161,8 +138,7 @@ mod tests {
             bead_id: None,
             agent_id: None,
             no_agent: false,
-            idempotent: false,
-            dry_run: false,
+            mode: WorkMode::Normal,
             format: OutputFormat::Json,
         }
     }
@@ -180,8 +156,7 @@ mod tests {
             bead_id: None,
             agent_id: None,
             no_agent: false,
-            idempotent: false,
-            dry_run: true,
+            mode: WorkMode::DryRun,
             format: OutputFormat::Json,
         };
         assert!(run_work(&options).is_ok());
@@ -194,8 +169,7 @@ mod tests {
             bead_id: None,
             agent_id: None,
             no_agent: false,
-            idempotent: false,
-            dry_run: false,
+            mode: WorkMode::Normal,
             format: OutputFormat::Json,
         };
         assert!(run_work(&options).is_err());
@@ -219,8 +193,7 @@ mod tests {
                 bead_id: None,
                 agent_id: None,
                 no_agent: false,
-                idempotent: false,
-                dry_run: false,
+                mode: WorkMode::Normal,
                 format: OutputFormat::Json,
             };
             assert!(
@@ -237,8 +210,7 @@ mod tests {
             bead_id: Some("scp-12345".to_string()),
             agent_id: None,
             no_agent: false,
-            idempotent: false,
-            dry_run: false,
+            mode: WorkMode::Normal,
             format: OutputFormat::Json,
         };
         assert!(run_work(&options).is_ok());
@@ -251,8 +223,7 @@ mod tests {
             bead_id: None,
             agent_id: None,
             no_agent: true,
-            idempotent: false,
-            dry_run: false,
+            mode: WorkMode::Normal,
             format: OutputFormat::Json,
         };
         assert!(run_work(&options).is_ok());
@@ -265,8 +236,7 @@ mod tests {
             bead_id: None,
             agent_id: Some("agent-custom".to_string()),
             no_agent: false,
-            idempotent: false,
-            dry_run: false,
+            mode: WorkMode::Normal,
             format: OutputFormat::Json,
         };
         assert!(run_work(&options).is_ok());
@@ -293,22 +263,28 @@ mod tests {
     }
 
     #[test]
-    fn output_existing_workspace_succeeds() {
-        let options = test_options("existing");
-        assert!(output_existing_workspace("existing", &options).is_ok());
-    }
-
-    #[test]
     fn output_dry_run_succeeds() {
         let options = WorkOptions {
             name: "dry-test".to_string(),
             bead_id: Some("bead-1".to_string()),
             agent_id: None,
             no_agent: false,
-            idempotent: false,
-            dry_run: true,
+            mode: WorkMode::DryRun,
             format: OutputFormat::Json,
         };
         assert!(output_dry_run(&options).is_ok());
+    }
+
+    #[test]
+    fn run_work_idempotent_mode() {
+        let options = WorkOptions {
+            name: "idem-session".to_string(),
+            bead_id: None,
+            agent_id: None,
+            no_agent: false,
+            mode: WorkMode::Idempotent,
+            format: OutputFormat::Json,
+        };
+        assert!(run_work(&options).is_ok());
     }
 }

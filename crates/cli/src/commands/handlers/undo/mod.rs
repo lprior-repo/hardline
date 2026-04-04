@@ -27,4 +27,4 @@ pub mod data;
 
 // Re-export public API
 pub use actions::run_undo;
-pub use data::{UndoOptions, UndoOutput};
+pub use data::{UndoMode, UndoOptions, UndoOutput};

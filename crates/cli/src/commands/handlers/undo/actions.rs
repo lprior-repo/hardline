@@ -9,8 +9,8 @@ use scp_core::output::Output;
 use scp_core::{Error, Result};
 
 use super::data::{
-    compute_undo_eligibility, UndoEntry, UndoHistoryEntry, UndoHistoryOutput, UndoOptions,
-    UndoOutput, WORKSPACE_RETENTION_SECONDS,
+    compute_undo_eligibility, Eligibility, UndoEntry, UndoHistoryEntry, UndoHistoryOutput,
+    UndoMode, UndoOptions, UndoOutput, UndoStatus, WORKSPACE_RETENTION_SECONDS,
 };
 
 /// Path to the undo log relative to the project root.
@@ -22,52 +22,59 @@ const UNDO_LOG_PATH: &str = ".scp/undo.log";
 
 /// Execute the undo command with the given options.
 ///
-/// This is the main entry point. When `options.list` is set, it displays
-/// undo history. Otherwise it reads the undo log, validates the most recent
-/// entry is eligible for undo, and reverts the merge via `git reset --hard`.
-///
 /// # Errors
 ///
 /// Returns errors for undo log read failures, no undo history,
 /// already-pushed-to-remote, expired entries, or Git command failures.
 pub fn run_undo(options: &UndoOptions) -> Result<UndoOutput> {
-    if options.list {
-        return run_list();
+    match options.mode {
+        UndoMode::ListHistory => run_list(),
+        UndoMode::DryRun => run_execute(true),
+        UndoMode::Execute => run_execute(false),
     }
+}
 
-    // Step 1: Read undo history (most-recent-first order).
+// ============================================================================
+// Execute Mode
+// ============================================================================
+
+/// Execute (or dry-run) the undo operation.
+fn run_execute(is_dry_run: bool) -> Result<UndoOutput> {
     let history = read_undo_history()?;
+    let entry = find_eligible_entry(&history)?;
 
-    // Step 2: Find the first eligible entry.
-    let entry = find_first_eligible_entry(&history)?;
-
-    // Step 3: Handle dry-run mode.
-    if options.dry_run {
-        Output::info(&format!(
-            "Dry-run: would undo session '{}'",
-            entry.session_name
-        ));
-        Output::info(&format!("  Commit to undo: {}", entry.commit_id));
-        Output::info(&format!(
-            "  Would reset to: {}",
-            entry.pre_merge_commit_id
-        ));
-
-        return Ok(UndoOutput {
-            session_name: entry.session_name.clone(),
-            dry_run: true,
-            commit_id: entry.commit_id,
-            pushed_to_remote: false,
-            error: None,
-        });
+    if is_dry_run {
+        return format_dry_run_output(&entry);
     }
 
-    // Step 4: Execute the undo via git reset --hard.
     execute_reset(&entry)?;
-
-    // Step 5: Update undo history to mark entry as "undone".
     update_undo_history(&history, &entry)?;
 
+    format_undo_output(&entry)
+}
+
+/// Build dry-run output and print a preview.
+fn format_dry_run_output(entry: &UndoEntry) -> Result<UndoOutput> {
+    Output::info(&format!(
+        "Dry-run: would undo session '{}'",
+        entry.session_name
+    ));
+    Output::info(&format!("  Commit to undo: {}", entry.commit_id));
+    Output::info(&format!(
+        "  Would reset to: {}",
+        entry.pre_merge_commit_id
+    ));
+
+    Ok(UndoOutput {
+        session_name: entry.session_name.clone(),
+        dry_run: true,
+        commit_id: entry.commit_id.clone(),
+        pushed_to_remote: false,
+    })
+}
+
+/// Print confirmation output after a successful undo.
+fn format_undo_output(entry: &UndoEntry) -> Result<UndoOutput> {
     Output::success(&format!(
         "Undone merge from session '{}'",
         entry.session_name
@@ -83,9 +90,8 @@ pub fn run_undo(options: &UndoOptions) -> Result<UndoOutput> {
     Ok(UndoOutput {
         session_name: entry.session_name.clone(),
         dry_run: false,
-        commit_id: entry.commit_id,
+        commit_id: entry.commit_id.clone(),
         pushed_to_remote: false,
-        error: None,
     })
 }
 
@@ -94,20 +100,12 @@ pub fn run_undo(options: &UndoOptions) -> Result<UndoOutput> {
 // ============================================================================
 
 /// Display the undo history.
-///
-/// Reads the undo log and prints each entry with its eligibility status.
 fn run_list() -> Result<UndoOutput> {
     let history = read_undo_history()?;
 
     if history.is_empty() {
         Output::info("No undo history available.");
-        return Ok(UndoOutput {
-            session_name: String::new(),
-            dry_run: false,
-            commit_id: String::new(),
-            pushed_to_remote: false,
-            error: None,
-        });
+        return Ok(UndoOutput::default());
     }
 
     let now_seconds = current_unix_seconds()?;
@@ -117,18 +115,12 @@ fn run_list() -> Result<UndoOutput> {
     let history_output = UndoHistoryOutput {
         total: display_entries.len(),
         can_undo: can_undo_any,
-        entries: display_entries.clone(),
+        entries: display_entries,
     };
 
     print_history(&history_output);
 
-    Ok(UndoOutput {
-        session_name: String::new(),
-        dry_run: false,
-        commit_id: String::new(),
-        pushed_to_remote: false,
-        error: None,
-    })
+    Ok(UndoOutput::default())
 }
 
 /// Build display entries from raw undo entries and the current time.
@@ -138,29 +130,39 @@ fn build_history_entries(
 ) -> Vec<UndoHistoryEntry> {
     history
         .iter()
-        .map(|entry| {
-            let (can_undo, reason) = compute_undo_eligibility(entry, now_seconds);
-
-            let timestamp_str = chrono::DateTime::from_timestamp(
-                i64::try_from(entry.timestamp).map_or(0, |t| t),
-                0,
-            )
-            .map_or_else(
-                || entry.timestamp.to_string(),
-                |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-            );
-
-            UndoHistoryEntry {
-                session_name: entry.session_name.clone(),
-                commit_id: entry.commit_id.clone(),
-                timestamp: timestamp_str,
-                status: entry.status.clone(),
-                pushed_to_remote: entry.pushed_to_remote,
-                can_undo,
-                reason_cannot_undo: reason,
-            }
-        })
+        .map(|entry| history_entry_from_undo(entry, now_seconds))
         .collect()
+}
+
+/// Convert a single `UndoEntry` to a display `UndoHistoryEntry`.
+fn history_entry_from_undo(entry: &UndoEntry, now_seconds: u64) -> UndoHistoryEntry {
+    let eligibility = compute_undo_eligibility(entry, now_seconds);
+
+    let (can_undo, reason) = match eligibility {
+        Eligibility::Eligible => (true, None),
+        Eligibility::Ineligible { reason } => (false, Some(reason)),
+    };
+
+    let timestamp_str = format_timestamp(entry.timestamp);
+
+    UndoHistoryEntry {
+        session_name: entry.session_name.clone(),
+        commit_id: entry.commit_id.clone(),
+        timestamp: timestamp_str,
+        status: entry.status.clone(),
+        pushed_to_remote: entry.pushed_to_remote,
+        can_undo,
+        reason_cannot_undo: reason,
+    }
+}
+
+/// Format a unix timestamp as a human-readable UTC string.
+fn format_timestamp(timestamp: u64) -> String {
+    chrono::DateTime::from_timestamp(i64::try_from(timestamp).map_or(0, |t| t), 0)
+        .map_or_else(
+            || timestamp.to_string(),
+            |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+        )
 }
 
 /// Print history output in human-readable format.
@@ -172,17 +174,7 @@ fn print_history(output: &UndoHistoryOutput) {
         let indicator = if entry.can_undo { "[ok]" } else { "[x]" };
         let index = i + 1;
 
-        Output::info(&format!(
-            "{index}. {indicator} {} ({})",
-            entry.session_name, entry.status
-        ));
-        Output::info(&format!("      Commit: {}", entry.commit_id));
-        Output::info(&format!("      Time:   {}", entry.timestamp));
-
-        if let Some(reason) = &entry.reason_cannot_undo {
-            Output::info(&format!("      Cannot undo: {reason}"));
-        }
-        Output::info("");
+        print_single_entry(index, indicator, entry);
     }
 
     if output.can_undo {
@@ -192,27 +184,28 @@ fn print_history(output: &UndoHistoryOutput) {
     }
 }
 
+/// Print a single history entry.
+fn print_single_entry(index: usize, indicator: &str, entry: &UndoHistoryEntry) {
+    Output::info(&format!(
+        "{index}. {indicator} {} ({})",
+        entry.session_name, entry.status
+    ));
+    Output::info(&format!("      Commit: {}", entry.commit_id));
+    Output::info(&format!("      Time:   {}", entry.timestamp));
+
+    if let Some(reason) = &entry.reason_cannot_undo {
+        Output::info(&format!("      Cannot undo: {reason}"));
+    }
+    Output::info("");
+}
+
 // ============================================================================
 // Internal Helpers
 // ============================================================================
 
-/// Read undo history from `.scp/undo.log` in most-recent-first order.
-///
-/// The log file stores entries in chronological order (oldest first).
-/// This function reverses them so index 0 is the most recent.
-fn read_undo_history() -> Result<Vec<UndoEntry>> {
-    let undo_log_path = Path::new(UNDO_LOG_PATH);
-
-    if !undo_log_path.exists() {
-        return Err(Error::not_found(
-            "No undo history found. Cannot undo.",
-        ));
-    }
-
-    let content = std::fs::read_to_string(undo_log_path)
-        .map_err(|e| Error::io_error(format!("Failed to read undo log: {e}")))?;
-
-    let mut entries: Vec<UndoEntry> = content
+/// Parse non-empty lines into `UndoEntry` values.
+fn parse_log_lines(content: &str) -> Result<Vec<UndoEntry>> {
+    content
         .lines()
         .enumerate()
         .filter(|(_, line)| !line.trim().is_empty())
@@ -224,24 +217,36 @@ fn read_undo_history() -> Result<Vec<UndoEntry>> {
                 ))
             })
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Result<Vec<_>>>()
+}
 
-    entries.reverse();
-    Ok(entries)
+/// Read undo history from `.scp/undo.log` in most-recent-first order.
+///
+/// The log file stores entries in chronological order (oldest first).
+/// Uses `.rev()` on the iterator to avoid `let mut`.
+fn read_undo_history() -> Result<Vec<UndoEntry>> {
+    let undo_log_path = Path::new(UNDO_LOG_PATH);
+
+    if !undo_log_path.exists() {
+        return Err(Error::not_found("No undo history found. Cannot undo."));
+    }
+
+    let content = std::fs::read_to_string(undo_log_path)
+        .map_err(|e| Error::io_error(format!("Failed to read undo log: {e}")))?;
+
+    let entries = parse_log_lines(&content)?;
+    Ok(entries.into_iter().rev().collect())
 }
 
 /// Find the first eligible entry in the history for undo.
 ///
 /// The history is assumed to be in most-recent-first order.
-fn find_first_eligible_entry(history: &[UndoEntry]) -> Result<UndoEntry> {
+fn find_eligible_entry(history: &[UndoEntry]) -> Result<UndoEntry> {
     let now_seconds = current_unix_seconds()?;
 
     history
         .iter()
-        .find(|entry| {
-            let (eligible, _) = compute_undo_eligibility(entry, now_seconds);
-            eligible
-        })
+        .find(|entry| compute_undo_eligibility(entry, now_seconds).is_eligible())
         .cloned()
         .ok_or_else(|| Error::not_found("No eligible undo entries found."))
 }
@@ -263,29 +268,56 @@ fn execute_reset(entry: &UndoEntry) -> Result<()> {
     Ok(())
 }
 
+/// Mark an entry as undone using functional construction.
+///
+/// Preserves the chronological order of entries in the log file
+/// (writes back in the same order as received, with the matching
+/// entry's status updated to `UndoStatus::Undone`).
+fn mark_entry_undone(entry: &UndoEntry) -> UndoEntry {
+    UndoEntry {
+        session_name: entry.session_name.clone(),
+        commit_id: entry.commit_id.clone(),
+        pre_merge_commit_id: entry.pre_merge_commit_id.clone(),
+        timestamp: entry.timestamp,
+        pushed_to_remote: entry.pushed_to_remote,
+        status: UndoStatus::Undone,
+    }
+}
+
+/// Serialize history entries back to the log file format.
+///
+/// Reverses most-recent-first order back to chronological, marks
+/// the matching entry as undone.
+fn serialize_updated_history(
+    history: &[UndoEntry],
+    target: &UndoEntry,
+) -> Result<String> {
+    let lines: std::result::Result<Vec<_>, _> = history
+        .iter()
+        .rev()
+        .map(|e| {
+            let updated = if e.session_name == target.session_name
+                && e.commit_id == target.commit_id
+            {
+                mark_entry_undone(e)
+            } else {
+                e.clone()
+            };
+            serde_json::to_string(&updated)
+        })
+        .collect();
+
+    lines
+        .map(|l| l.join("\n") + "\n")
+        .map_err(|e| Error::io_error(format!("Failed to serialize undo entry: {e}")))
+}
+
 /// Update undo history after a successful undo.
 ///
-/// Marks the matching entry's status as "undone".
+/// Reverses the most-recent-first order back to chronological before writing.
 fn update_undo_history(history: &[UndoEntry], entry: &UndoEntry) -> Result<()> {
     let undo_log_path = Path::new(UNDO_LOG_PATH);
-
-    let new_content = history
-        .iter()
-        .map(|hist_entry| {
-            if hist_entry.session_name == entry.session_name
-                && hist_entry.commit_id == entry.commit_id
-            {
-                let mut updated = hist_entry.clone();
-                updated.status = "undone".to_string();
-                serde_json::to_string(&updated)
-            } else {
-                serde_json::to_string(hist_entry)
-            }
-        })
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(|e| Error::io_error(format!("Failed to serialize undo entry: {e}")))?
-        .join("\n")
-        + "\n";
+    let new_content = serialize_updated_history(history, entry)?;
 
     std::fs::write(undo_log_path, &new_content)
         .map_err(|e| Error::io_error(format!("Failed to write undo log: {e}")))?;
@@ -320,21 +352,16 @@ mod tests {
             pre_merge_commit_id: "def456".to_string(),
             timestamp: 1_000,
             pushed_to_remote: false,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         }];
 
-        // Inject a known "now" by testing the compute_undo_eligibility
-        // function directly, then verify find_first_eligible works.
-        let (can_undo, _) =
-            compute_undo_eligibility(&history[0], now);
-        assert!(can_undo);
+        let eligibility = compute_undo_eligibility(&history[0], now);
+        assert!(eligibility.is_eligible());
     }
 
     #[test]
     fn find_first_eligible_entry_empty_history() {
         let history: Vec<UndoEntry> = vec![];
-        // Empty history should fail at the read level, but we test
-        // the eligibility logic with a unit-level check.
         assert!(history.is_empty());
     }
 
@@ -348,12 +375,11 @@ mod tests {
             pre_merge_commit_id: "def".to_string(),
             timestamp: 1_000,
             pushed_to_remote: true,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         };
 
-        let (eligible, reason) = compute_undo_eligibility(&entry, 2_000);
-        assert!(!eligible);
-        assert!(reason.is_some());
+        let eligibility = compute_undo_eligibility(&entry, 2_000);
+        assert!(!eligibility.is_eligible());
     }
 
     #[test]
@@ -364,11 +390,11 @@ mod tests {
             pre_merge_commit_id: "def".to_string(),
             timestamp: 1_000,
             pushed_to_remote: false,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         };
 
-        let (eligible, _) = compute_undo_eligibility(&entry, 2_000);
-        assert!(eligible);
+        let eligibility = compute_undo_eligibility(&entry, 2_000);
+        assert!(eligibility.is_eligible());
     }
 
     #[test]
@@ -379,14 +405,15 @@ mod tests {
             pre_merge_commit_id: "def".to_string(),
             timestamp: 1_000,
             pushed_to_remote: false,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         };
 
         let now = 1_000 + WORKSPACE_RETENTION_SECONDS + 1;
-        let (eligible, reason) = compute_undo_eligibility(&entry, now);
-        assert!(!eligible);
-        assert!(reason.is_some());
-        assert!(reason.as_deref().map_or(false, |r| r.contains("Expired")));
+        let eligibility = compute_undo_eligibility(&entry, now);
+        assert!(!eligibility.is_eligible());
+        assert!(
+            matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("Expired"))
+        );
     }
 
     // ---- build_history_entries tests ----
@@ -399,7 +426,7 @@ mod tests {
             pre_merge_commit_id: "def".to_string(),
             timestamp: 1_700_000_000,
             pushed_to_remote: false,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         }];
 
         let entries = build_history_entries(&history, 1_700_000_100);
@@ -416,7 +443,7 @@ mod tests {
             pre_merge_commit_id: "def".to_string(),
             timestamp: 1_000,
             pushed_to_remote: true,
-            status: "completed".to_string(),
+            status: UndoStatus::Completed,
         }];
 
         let entries = build_history_entries(&history, 2_000);
@@ -435,7 +462,7 @@ mod tests {
                 pre_merge_commit_id: "def".to_string(),
                 timestamp: 100,
                 pushed_to_remote: false,
-                status: "completed".to_string(),
+                status: UndoStatus::Completed,
             },
             UndoEntry {
                 session_name: "feature-y".to_string(),
@@ -443,33 +470,16 @@ mod tests {
                 pre_merge_commit_id: "jkl".to_string(),
                 timestamp: 200,
                 pushed_to_remote: false,
-                status: "completed".to_string(),
+                status: UndoStatus::Completed,
             },
         ];
 
         let target = &history[0];
-
-        let new_content = history
-            .iter()
-            .map(|hist_entry| {
-                if hist_entry.session_name == target.session_name
-                    && hist_entry.commit_id == target.commit_id
-                {
-                    let mut updated = hist_entry.clone();
-                    updated.status = "undone".to_string();
-                    serde_json::to_string(&updated)
-                } else {
-                    serde_json::to_string(hist_entry)
-                }
-            })
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .expect("serialize")
-            .join("\n");
+        let new_content = serialize_updated_history(&history, target).expect("serialize");
 
         assert!(new_content.contains("\"status\":\"undone\""));
         assert!(new_content.contains("feature-x"));
         assert!(new_content.contains("feature-y"));
-        // feature-y should still be completed.
         assert!(new_content.contains("\"status\":\"completed\""));
     }
 
@@ -491,7 +501,6 @@ mod tests {
             dry_run: true,
             commit_id: "abc123".to_string(),
             pushed_to_remote: false,
-            error: None,
         };
         assert_eq!(output.session_name, "test-session");
         assert!(output.dry_run);
@@ -505,9 +514,27 @@ mod tests {
             dry_run: false,
             commit_id: "def456".to_string(),
             pushed_to_remote: false,
-            error: None,
         };
         assert!(!output.dry_run);
         assert_eq!(output.session_name, "feature-auth");
+    }
+
+    // ---- mark_entry_undone ----
+
+    #[test]
+    fn mark_entry_undone_functional() {
+        let entry = UndoEntry {
+            session_name: "test".to_string(),
+            commit_id: "abc".to_string(),
+            pre_merge_commit_id: "def".to_string(),
+            timestamp: 100,
+            pushed_to_remote: false,
+            status: UndoStatus::Completed,
+        };
+
+        let updated = mark_entry_undone(&entry);
+        assert_eq!(updated.status, UndoStatus::Undone);
+        assert_eq!(updated.session_name, "test");
+        assert_eq!(updated.commit_id, "abc");
     }
 }

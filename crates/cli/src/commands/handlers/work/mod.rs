@@ -19,4 +19,4 @@ pub mod actions;
 pub mod data;
 
 pub use actions::run_work;
-pub use data::{EnvVar, WorkOptions, WorkOutput};
+pub use data::{EnvVar, WorkMode, WorkOptions, WorkOutput};

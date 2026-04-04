@@ -6,9 +6,28 @@ use serde::{Deserialize, Serialize};
 
 use scp_core::OutputFormat;
 
+/// Execution mode for the work command.
+///
+/// Models mutually exclusive operational modes as a single enum
+/// rather than multiple boolean flags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkMode {
+    /// Normal execution — create session and register agent.
+    Normal,
+    /// Idempotent — succeed if session already exists.
+    Idempotent,
+    /// Dry run — preview without creating.
+    DryRun,
+}
+
+impl Default for WorkMode {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
 /// Options for the work command (parsed from CLI).
 #[derive(Debug, Clone)]
-#[allow(clippy::struct_excessive_bools)]
 pub struct WorkOptions {
     /// Session name to create/use.
     pub name: String,
@@ -16,12 +35,10 @@ pub struct WorkOptions {
     pub bead_id: Option<String>,
     /// Agent ID to register (optional, auto-generated if not provided).
     pub agent_id: Option<String>,
+    /// Execution mode (normal / idempotent / dry-run).
+    pub mode: WorkMode,
     /// Don't register as agent.
     pub no_agent: bool,
-    /// Idempotent mode - succeed if session already exists.
-    pub idempotent: bool,
-    /// Dry run - don't actually create.
-    pub dry_run: bool,
     /// Output format.
     pub format: OutputFormat,
 }
@@ -82,46 +99,35 @@ pub fn build_env_vars(
         },
     ];
 
-    let agent_vars = agent_id
-        .map(|agent| {
-            vec![EnvVar {
-                name: "SCP_AGENT_ID".to_string(),
-                value: agent.to_string(),
-            }]
-        })
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
+    let agent_var = agent_id.map(|a| EnvVar {
+        name: "SCP_AGENT_ID".to_string(),
+        value: a.to_string(),
+    });
 
-    let bead_vars = bead_id
-        .map(|bead| {
-            vec![EnvVar {
-                name: "SCP_BEAD_ID".to_string(),
-                value: bead.to_string(),
-            }]
-        })
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
+    let bead_var = bead_id.map(|b| EnvVar {
+        name: "SCP_BEAD_ID".to_string(),
+        value: b.to_string(),
+    });
 
-    [base_vars, agent_vars, bead_vars]
+    base_vars
         .into_iter()
-        .flatten()
+        .chain(agent_var)
+        .chain(bead_var)
         .collect()
 }
 
 /// Generate a short random ID from the current timestamp.
-#[must_use]
+///
+/// Returns a `Result` to propagate `SystemTimeError` instead of
+/// silently defaulting to 0.
 #[allow(clippy::cast_possible_truncation)]
-pub fn generate_short_id() -> String {
+pub fn generate_short_id() -> Result<String, std::time::SystemTimeError> {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_millis());
+    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
 
     // Use last 8 hex chars of timestamp (truncation intentional).
-    format!("{:08x}", timestamp as u32)
+    Ok(format!("{:08x}", timestamp as u32))
 }
 
 #[cfg(test)]
@@ -212,27 +218,53 @@ mod tests {
 
     #[test]
     fn generate_short_id_format() {
-        let id = generate_short_id();
+        let id = generate_short_id().expect("should succeed");
 
         assert_eq!(id.len(), 8);
         assert!(id.chars().all(|c| c.is_ascii_hexdigit()));
     }
 
     #[test]
-    fn work_options_defaults() {
+    fn work_mode_default_is_normal() {
         let options = WorkOptions {
             name: "test-session".to_string(),
             bead_id: None,
             agent_id: None,
             no_agent: false,
-            idempotent: false,
-            dry_run: false,
+            mode: WorkMode::default(),
             format: OutputFormat::Json,
         };
 
         assert!(!options.no_agent);
-        assert!(!options.idempotent);
-        assert!(!options.dry_run);
+        assert_eq!(options.mode, WorkMode::Normal);
+    }
+
+    #[test]
+    fn work_mode_idempotent_variant() {
+        let options = WorkOptions {
+            name: "test-session".to_string(),
+            bead_id: None,
+            agent_id: None,
+            no_agent: false,
+            mode: WorkMode::Idempotent,
+            format: OutputFormat::Json,
+        };
+
+        assert_eq!(options.mode, WorkMode::Idempotent);
+    }
+
+    #[test]
+    fn work_mode_dry_run_variant() {
+        let options = WorkOptions {
+            name: "test-session".to_string(),
+            bead_id: None,
+            agent_id: None,
+            no_agent: false,
+            mode: WorkMode::DryRun,
+            format: OutputFormat::Json,
+        };
+
+        assert_eq!(options.mode, WorkMode::DryRun);
     }
 
     #[test]

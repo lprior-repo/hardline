@@ -2,8 +2,7 @@
 //!
 //! I/O operations that create, restore, and list session checkpoints.
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::Result;
 
 use super::data::{
     generate_checkpoint_id, CheckpointAction, CheckpointInfo, CheckpointOptions, CheckpointOutput,
@@ -18,11 +17,14 @@ use super::data::{
 /// - The checkpoint ID is empty for a restore action
 /// - Any I/O operation fails during checkpoint creation
 pub fn run_checkpoint(options: &CheckpointOptions) -> Result<()> {
-    match &options.action {
+    let output = match &options.action {
         CheckpointAction::Create { description } => run_create(description.as_deref()),
         CheckpointAction::Restore { checkpoint_id } => run_restore(checkpoint_id),
         CheckpointAction::List => run_list(),
-    }
+    }?;
+
+    output_checkpoint(&output);
+    Ok(())
 }
 
 /// Create a new checkpoint of all session state.
@@ -30,25 +32,18 @@ pub fn run_checkpoint(options: &CheckpointOptions) -> Result<()> {
 /// # Errors
 ///
 /// Returns an error if checkpoint creation fails.
-fn run_create(description: Option<&str>) -> Result<()> {
+fn run_create(description: Option<&str>) -> Result<CheckpointOutput> {
     let checkpoint_id = generate_checkpoint_id();
 
     // TODO: Wire up actual session enumeration and database storage
     // once the workspace/session infrastructure is integrated.
     // For now, produce output based on validated inputs.
 
-    let output = CheckpointOutput::Created {
-        checkpoint_id: checkpoint_id.clone(),
+    Ok(CheckpointOutput::Created {
+        checkpoint_id,
         metadata_only: vec![],
-    };
-
-    Output::info(&format!("Checkpoint created: {checkpoint_id}"));
-    if let Some(desc) = description {
-        Output::info(&format!("  Description: {desc}"));
-    }
-
-    let _ = output;
-    Ok(())
+        description: description.map(String::from),
+    })
 }
 
 /// Restore session state from a checkpoint.
@@ -57,31 +52,25 @@ fn run_create(description: Option<&str>) -> Result<()> {
 ///
 /// Returns an error if the checkpoint ID is empty or the checkpoint
 /// is not found.
-fn run_restore(checkpoint_id: &str) -> Result<()> {
+fn run_restore(checkpoint_id: &str) -> Result<CheckpointOutput> {
     if checkpoint_id.is_empty() {
-        return Err(Error::validation_error(
+        return Err(scp_core::Error::validation_error(
             "Checkpoint ID cannot be empty",
         ));
     }
 
     if !checkpoint_id.starts_with("chk-") {
-        return Err(Error::validation_error(format!(
+        return Err(scp_core::Error::validation_error(format!(
             "Invalid checkpoint ID format: '{checkpoint_id}' (must start with 'chk-')"
         )));
     }
 
     // TODO: Wire up actual checkpoint lookup and restore logic
     // once the workspace/session infrastructure is integrated.
-    // For now, validate inputs and produce output.
 
-    let output = CheckpointOutput::Restored {
+    Ok(CheckpointOutput::Restored {
         checkpoint_id: checkpoint_id.to_string(),
-    };
-
-    Output::info(&format!("Restored to checkpoint: {checkpoint_id}"));
-
-    let _ = output;
-    Ok(())
+    })
 }
 
 /// List all available checkpoints.
@@ -89,64 +78,66 @@ fn run_restore(checkpoint_id: &str) -> Result<()> {
 /// # Errors
 ///
 /// Returns an error if listing fails due to I/O.
-fn run_list() -> Result<()> {
+fn run_list() -> Result<CheckpointOutput> {
     // TODO: Wire up actual checkpoint listing from database
     // once the workspace/session infrastructure is integrated.
-    // For now, show an empty list.
 
-    let output = CheckpointOutput::List {
+    Ok(CheckpointOutput::List {
         checkpoints: vec![],
-    };
-
-    Output::info("No checkpoints found.");
-
-    let _ = output;
-    Ok(())
+    })
 }
 
 /// Output a checkpoint result to the user.
 ///
-/// Formats the checkpoint output for display.
-fn output_checkpoint(output: &CheckpointOutput) -> Result<()> {
+/// Formats the checkpoint output for display using the unified output type.
+fn output_checkpoint(output: &CheckpointOutput) {
     match output {
         CheckpointOutput::Created {
             checkpoint_id,
             metadata_only,
+            description,
         } => {
-            Output::info(&format!("Checkpoint created: {checkpoint_id}"));
+            scp_core::output::Output::info(&format!("Checkpoint created: {checkpoint_id}"));
+            if let Some(desc) = description {
+                scp_core::output::Output::info(&format!("  Description: {desc}"));
+            }
             if !metadata_only.is_empty() {
-                Output::info(&format!(
+                scp_core::output::Output::info(&format!(
                     "Metadata-only snapshots recorded for {} session(s):",
                     metadata_only.len()
                 ));
-                for session in metadata_only {
-                    Output::info(&format!("  - {session}"));
-                }
+                metadata_only.iter().for_each(|session| {
+                    scp_core::output::Output::info(&format!("  - {session}"));
+                });
             }
         }
         CheckpointOutput::Restored { checkpoint_id } => {
-            Output::info(&format!("Restored to checkpoint: {checkpoint_id}"));
+            scp_core::output::Output::info(&format!("Restored to checkpoint: {checkpoint_id}"));
         }
         CheckpointOutput::List { checkpoints } => {
-            if checkpoints.is_empty() {
-                Output::info("No checkpoints found.");
-            } else {
-                Output::info(&format!(
-                    "{:<20} {:<28} {:>8}  Description",
-                    "ID", "Created", "Sessions"
-                ));
-                Output::info(&"-".repeat(72));
-                for cp in checkpoints {
-                    let desc = cp.description.as_deref().unwrap_or("");
-                    Output::info(&format!(
-                        "{:<20} {:<28} {:>8}  {}",
-                        cp.id, cp.created_at, cp.session_count, desc
-                    ));
-                }
-            }
+            output_checkpoint_list(checkpoints);
         }
     }
-    Ok(())
+}
+
+/// Display the checkpoint list, either empty message or tabular format.
+fn output_checkpoint_list(checkpoints: &[CheckpointInfo]) {
+    if checkpoints.is_empty() {
+        scp_core::output::Output::info("No checkpoints found.");
+    } else {
+        scp_core::output::Output::info(&format!(
+            "{:<20} {:<28} {:>8}  Description",
+            "ID", "Created", "Sessions"
+        ));
+        scp_core::output::Output::info(&"-".repeat(72));
+        checkpoints.iter().for_each(|cp| {
+            let desc = cp.description.as_deref().map_or("", |d| d);
+            scp_core::output::Output::info(&format!(
+                "{:<20} {:<28} {:>8}  {}",
+                cp.id, cp.created_at, cp.session_count, desc
+            ));
+        });
+    }
 }
 
 #[cfg(test)]
@@ -226,8 +217,9 @@ mod tests {
         let output = CheckpointOutput::Created {
             checkpoint_id: "chk-test123".to_string(),
             metadata_only: vec![],
+            description: None,
         };
-        assert!(output_checkpoint(&output).is_ok());
+        output_checkpoint(&output);
     }
 
     #[test]
@@ -235,8 +227,19 @@ mod tests {
         let output = CheckpointOutput::Created {
             checkpoint_id: "chk-test456".to_string(),
             metadata_only: vec!["session-a".to_string(), "session-b".to_string()],
+            description: Some("desc".to_string()),
         };
-        assert!(output_checkpoint(&output).is_ok());
+        output_checkpoint(&output);
+    }
+
+    #[test]
+    fn output_checkpoint_created_with_description() {
+        let output = CheckpointOutput::Created {
+            checkpoint_id: "chk-desc".to_string(),
+            metadata_only: vec![],
+            description: Some("my description".to_string()),
+        };
+        output_checkpoint(&output);
     }
 
     #[test]
@@ -244,7 +247,7 @@ mod tests {
         let output = CheckpointOutput::Restored {
             checkpoint_id: "chk-restore".to_string(),
         };
-        assert!(output_checkpoint(&output).is_ok());
+        output_checkpoint(&output);
     }
 
     #[test]
@@ -252,7 +255,7 @@ mod tests {
         let output = CheckpointOutput::List {
             checkpoints: vec![],
         };
-        assert!(output_checkpoint(&output).is_ok());
+        output_checkpoint(&output);
     }
 
     #[test]
@@ -273,7 +276,7 @@ mod tests {
                 },
             ],
         };
-        assert!(output_checkpoint(&output).is_ok());
+        output_checkpoint(&output);
     }
 
     // -- run_create / run_restore / run_list direct tests --
@@ -286,6 +289,17 @@ mod tests {
     #[test]
     fn run_create_with_description_succeeds() {
         assert!(run_create(Some("my desc")).is_ok());
+    }
+
+    #[test]
+    fn run_create_output_contains_description() {
+        let output = run_create(Some("test desc")).expect("should succeed");
+        match output {
+            CheckpointOutput::Created { description, .. } => {
+                assert_eq!(description, Some("test desc".to_string()));
+            }
+            _ => panic!("Expected Created variant"),
+        }
     }
 
     #[test]

@@ -19,4 +19,4 @@ pub mod actions;
 pub mod data;
 
 pub use actions::run_schema;
-pub use data::{AllSchemasOutput, SchemaInfo, SchemaListOutput, SchemaOptions};
+pub use data::{AllSchemasOutput, SchemaInfo, SchemaListOutput, SchemaMode, SchemaOptions};

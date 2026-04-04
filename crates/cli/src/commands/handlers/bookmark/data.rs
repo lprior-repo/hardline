@@ -182,6 +182,47 @@ pub fn parse_bookmark_list(output: &str) -> Vec<BookmarkInfo> {
         .collect()
 }
 
+/// Parse `git branch` output into `BookmarkInfo` structs.
+///
+/// Handles format:
+/// - `  branch_name` (non-active)
+/// - `* branch_name` (active)
+/// - `  remotes/origin/branch_name` (with --all)
+///
+/// Revision is not available from `git branch` listing and is left empty.
+#[must_use]
+pub fn parse_branch_list(output: &str) -> Vec<BookmarkInfo> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                return None;
+            }
+
+            // Remove the active marker '* '
+            let name = match trimmed.strip_prefix("* ") {
+                Some(n) => n,
+                None => trimmed,
+            };
+
+            // Skip remote tracking branches for display but mark as remote
+            let is_remote = name.starts_with("remotes/");
+            let display_name = if is_remote {
+                name.strip_prefix("remotes/")?
+            } else {
+                name
+            };
+
+            Some(BookmarkInfo {
+                name: display_name.to_string(),
+                revision: String::new(),
+                remote: is_remote,
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -530,5 +571,51 @@ bugfix: kmnopqr6 2d4e5f6c fix: Critical bug\n";
             subcommand: BookmarkSubcommand::List { show_all: true },
         };
         assert!(matches!(opts.subcommand, BookmarkSubcommand::List { show_all: true }));
+    }
+
+    // -- parse_branch_list --
+
+    #[test]
+    fn parse_branch_list_empty() {
+        let result = parse_branch_list("");
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn parse_branch_list_single_branch() {
+        let output = "  main\n";
+        let result = parse_branch_list(output);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "main");
+        assert!(!result[0].remote);
+    }
+
+    #[test]
+    fn parse_branch_list_active_branch() {
+        let output = "* feature-auth\n";
+        let result = parse_branch_list(output);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "feature-auth");
+        assert!(!result[0].remote);
+    }
+
+    #[test]
+    fn parse_branch_list_multiple_branches() {
+        let output = "  bugfix-123\n* main\n  feature\n";
+        let result = parse_branch_list(output);
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].name, "bugfix-123");
+        assert_eq!(result[1].name, "main");
+        assert_eq!(result[2].name, "feature");
+    }
+
+    #[test]
+    fn parse_branch_list_with_remotes() {
+        let output = "  main\n  remotes/origin/main\n";
+        let result = parse_branch_list(output);
+        assert_eq!(result.len(), 2);
+        assert!(!result[0].remote);
+        assert!(result[1].remote);
+        assert_eq!(result[1].name, "origin/main");
     }
 }

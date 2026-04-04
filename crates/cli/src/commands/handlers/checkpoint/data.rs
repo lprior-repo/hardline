@@ -40,6 +40,9 @@ pub enum CheckpointOutput {
         checkpoint_id: String,
         /// Sessions that were recorded as metadata-only (no file backup).
         metadata_only: Vec<String>,
+        /// Optional human-readable description of the checkpoint.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
     },
     /// A checkpoint was restored.
     Restored {
@@ -132,6 +135,7 @@ mod tests {
         let output = CheckpointOutput::Created {
             checkpoint_id: "chk-abc123".to_string(),
             metadata_only: vec!["session1".to_string()],
+            description: None,
         };
         let json = serde_json::to_string(&output);
         assert!(json.is_ok(), "serialization should succeed");
@@ -195,6 +199,7 @@ mod tests {
         let output = CheckpointOutput::Created {
             checkpoint_id: "chk-roundtrip".to_string(),
             metadata_only: vec![],
+            description: None,
         };
         let json = serde_json::to_string(&output).expect("serialize");
         let deserialized: CheckpointOutput = serde_json::from_str(&json).expect("deserialize");

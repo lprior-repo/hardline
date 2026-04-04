@@ -41,8 +41,22 @@ pub enum EventType {
 
 impl std::fmt::Display for EventType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = serde_json::to_string(self)
-            .map_or_else(|_| "unknown".to_string(), |v| v.trim_matches('"').to_string());
+        let s = match self {
+            Self::SessionCreated => "session_created",
+            Self::SessionRemoved => "session_removed",
+            Self::SessionFocused => "session_focused",
+            Self::SessionMerged => "session_merged",
+            Self::SessionAborted => "session_aborted",
+            Self::SessionSynced => "session_synced",
+            Self::AgentRegistered => "agent_registered",
+            Self::AgentUnregistered => "agent_unregistered",
+            Self::AgentHeartbeat => "agent_heartbeat",
+            Self::LockAcquired => "lock_acquired",
+            Self::LockReleased => "lock_released",
+            Self::CheckpointCreated => "checkpoint_created",
+            Self::CheckpointRestored => "checkpoint_restored",
+            Self::BeadStatusChanged => "bead_status_changed",
+        };
         write!(f, "{s}")
     }
 }
@@ -55,7 +69,9 @@ pub struct EventEntry {
     /// Event type.
     #[allow(clippy::struct_field_names)]
     pub event_type: EventType,
-    /// Timestamp (ISO 8601).
+    /// Timestamp in ISO 8601 format (e.g. `"2025-01-15T12:00:00Z"`).
+    /// Used as a bare string for serialization compatibility with the event log;
+    /// consumers should parse into a datetime type if arithmetic is needed.
     pub timestamp: String,
     /// Session name if applicable.
     #[serde(skip_serializing_if = "Option::is_none")]

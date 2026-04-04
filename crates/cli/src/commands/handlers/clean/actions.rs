@@ -13,13 +13,6 @@ use super::data::{CleanOptions, CleanOutput};
 
 /// Execute the clean command with the given options.
 ///
-/// Workflow:
-/// 1. List git worktrees from the current repository.
-/// 2. Filter to find stale worktrees (directory no longer exists).
-/// 3. In dry-run mode, list stale worktrees and exit.
-/// 4. Otherwise, prune stale worktree references via `git worktree prune`.
-/// 5. Report results.
-///
 /// # Errors
 ///
 /// Returns errors if the current directory is not a git repository,
@@ -28,66 +21,97 @@ pub fn run_clean(options: &CleanOptions) -> Result<CleanOutput> {
     let cwd = std::env::current_dir()
         .map_err(|e| Error::io_error(format!("Failed to determine current directory: {e}")))?;
 
-    // Verify we are in a git repository
-    let backend = scp_core::vcs::create_backend(&cwd)?;
+    let _backend = scp_core::vcs::create_backend(&cwd)?;
+    let worktree_entries = list_worktrees(&cwd)?;
+    let stale_sessions = detect_stale_worktrees(&worktree_entries);
 
-    // 1. List worktrees via git worktree list
-    let worktree_entries = list_worktrees(backend.as_ref(), &cwd)?;
-
-    // 2. Find stale worktrees (directory no longer exists)
-    let stale_sessions: Vec<String> = worktree_entries
-        .into_iter()
-        .filter(|entry| {
-            // Skip the main worktree (always at repo root, always valid)
-            if entry.is_main {
-                return false;
-            }
-            !Path::new(&entry.path).exists()
-        })
-        .map(|entry| entry.name)
-        .collect();
-
-    // 3. Handle no stale sessions
     if stale_sessions.is_empty() {
         Output::success("No stale sessions found");
         Output::info("  All sessions have valid workspaces");
         return Ok(CleanOutput::no_stale());
     }
 
-    // 4. Dry-run: list and exit
     if options.dry_run {
-        Output::info(&format!(
-            "Found {} stale session(s) (dry-run, no changes made):",
-            stale_sessions.len()
-        ));
-        for name in &stale_sessions {
-            Output::info(&format!("  - {name}"));
-        }
-        Output::info("");
-        Output::info("Run 'hardline clean' to remove these sessions");
+        report_dry_run(&stale_sessions);
         return Ok(CleanOutput::dry_run(stale_sessions));
     }
 
-    // 5. Report stale sessions in verbose mode
-    if options.verbose {
-        Output::info(&format!("Found {} stale session(s):", stale_sessions.len()));
-        for name in &stale_sessions {
-            Output::info(&format!("  - {name}"));
-        }
-    }
-
-    // 6. Prune stale worktrees
-    let removed_count = prune_stale_worktrees(backend.as_ref())?;
-
-    // 7. Report results
-    Output::success(&format!("Removed {removed_count} stale session(s)"));
-    if options.verbose {
-        for name in &stale_sessions {
-            Output::info(&format!("  - {name}"));
-        }
-    }
-
+    report_verbose_stale(options.verbose, &stale_sessions);
+    let removed_count = execute_prune()?;
+    report_results(removed_count, options.verbose, &stale_sessions);
     Ok(CleanOutput::cleaned(removed_count, stale_sessions))
+}
+
+/// Filter worktree entries to find those whose directories no longer exist.
+fn detect_stale_worktrees(entries: &[WorktreeEntry]) -> Vec<String> {
+    entries
+        .iter()
+        .filter(|entry| !entry.is_main && !Path::new(&entry.path).exists())
+        .map(|entry| entry.name.clone())
+        .collect()
+}
+
+/// Report dry-run results without making changes.
+fn report_dry_run(stale_sessions: &[String]) {
+    Output::info(&format!(
+        "Found {} stale session(s) (dry-run, no changes made):",
+        stale_sessions.len()
+    ));
+    for name in stale_sessions {
+        Output::info(&format!("  - {name}"));
+    }
+    Output::info("");
+    Output::info("Run 'hardline clean' to remove these sessions");
+}
+
+/// Report stale sessions when verbose mode is enabled.
+fn report_verbose_stale(verbose: bool, stale_sessions: &[String]) {
+    if verbose {
+        Output::info(&format!("Found {} stale session(s):", stale_sessions.len()));
+        for name in stale_sessions {
+            Output::info(&format!("  - {name}"));
+        }
+    }
+}
+
+/// Execute `git worktree prune` and return the number pruned.
+///
+/// # Errors
+///
+/// Returns an error if the git command fails.
+fn execute_prune() -> Result<usize> {
+    let output = std::process::Command::new("git")
+        .args(["worktree", "prune", "--verbose"])
+        .output()
+        .map_err(|e| Error::io_error(format!("Failed to run git worktree prune: {e}")))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(Error::io_error(format!(
+            "git worktree prune failed: {stderr}"
+        )));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(count_non_empty_lines(&stdout))
+}
+
+/// Count non-empty lines in a string.
+fn count_non_empty_lines(output: &str) -> usize {
+    output
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .count()
+}
+
+/// Report final cleanup results.
+fn report_results(removed_count: usize, verbose: bool, stale_sessions: &[String]) {
+    Output::success(&format!("Removed {removed_count} stale session(s)"));
+    if verbose {
+        for name in stale_sessions {
+            Output::info(&format!("  - {name}"));
+        }
+    }
 }
 
 /// A parsed worktree entry from `git worktree list`.
@@ -102,16 +126,10 @@ struct WorktreeEntry {
 
 /// List all git worktrees in the current repository.
 ///
-/// Parses the output of `git worktree list --porcelain` to extract
-/// worktree paths and identifiers.
-///
 /// # Errors
 ///
 /// Returns an error if the git command fails.
-fn list_worktrees(
-    _backend: &dyn scp_core::vcs::VcsBackend,
-    cwd: &Path,
-) -> Result<Vec<WorktreeEntry>> {
+fn list_worktrees(cwd: &Path) -> Result<Vec<WorktreeEntry>> {
     let output = std::process::Command::new("git")
         .args(["worktree", "list", "--porcelain"])
         .current_dir(cwd)
@@ -129,101 +147,89 @@ fn list_worktrees(
     Ok(parse_worktree_porcelain(&stdout))
 }
 
-/// Parse `git worktree list --porcelain` output into structured entries.
-///
-/// The porcelain format is:
-/// ```text
-/// worktree /path/to/worktree
-/// HEAD abc123...
-/// branch refs/heads/branch-name
-///
-/// worktree /path/to/another
-/// ...
-/// ```
-fn parse_worktree_porcelain(output: &str) -> Vec<WorktreeEntry> {
-    let mut entries = Vec::new();
-    let mut current_path: Option<String> = None;
-    let mut current_branch: Option<String> = None;
-    let mut is_main = false;
+/// Accumulator for parsing a single worktree entry from porcelain output.
+struct PartialEntry {
+    path: Option<String>,
+    branch: Option<String>,
+    is_main: bool,
+}
 
-    for line in output.lines() {
-        if line.starts_with("worktree ") {
-            // Save previous entry if any
-            if let Some(path) = current_path.take() {
-                let name = current_branch
-                    .as_deref()
-                    .unwrap_or_else(|| path.as_str())
-                    .to_string();
-                entries.push(WorktreeEntry {
-                    name,
-                    path,
-                    is_main,
-                });
-            }
-            current_path = Some(line.strip_prefix("worktree ").unwrap_or("").to_string());
-            current_branch = None;
-            is_main = false;
-        } else if line.starts_with("branch ") {
-            let branch = line.strip_prefix("branch ").unwrap_or("");
-            // Main worktree typically has refs/heads/main or refs/heads/master
-            current_branch = branch
-                .strip_prefix("refs/heads/")
-                .unwrap_or(branch)
-                .to_string()
-                .into();
-            is_main = branch == "refs/heads/main" || branch == "refs/heads/master";
+impl PartialEntry {
+    fn new() -> Self {
+        Self {
+            path: None,
+            branch: None,
+            is_main: false,
         }
     }
 
-    // Don't forget the last entry
-    if let Some(path) = current_path {
-        let name = current_branch
-            .as_deref()
-            .unwrap_or_else(|| path.as_str())
-            .to_string();
-        entries.push(WorktreeEntry {
-            name,
-            path,
-            is_main,
-        });
+    /// Convert into a `WorktreeEntry` if a path was recorded.
+    fn into_entry(self) -> Option<WorktreeEntry> {
+        self.path.map(|path| {
+            let name = self.branch.as_deref().unwrap_or(path.as_str()).to_string();
+            WorktreeEntry {
+                name,
+                path,
+                is_main: self.is_main,
+            }
+        })
     }
-
-    entries
 }
 
-/// Prune stale git worktree references.
-///
-/// Runs `git worktree prune` which removes worktree administrative
-/// files for worktrees whose directories no longer exist.
-///
-/// # Errors
-///
-/// Returns an error if the git command fails.
-fn prune_stale_worktrees(_backend: &dyn scp_core::vcs::VcsBackend) -> Result<usize> {
-    let cwd = std::env::current_dir()
-        .map_err(|e| Error::io_error(format!("Failed to determine current directory: {e}")))?;
+/// Parse `git worktree list --porcelain` output into structured entries.
+fn parse_worktree_porcelain(output: &str) -> Vec<WorktreeEntry> {
+    let (entries, partial) = output.lines().fold(
+        (Vec::new(), PartialEntry::new()),
+        |(entries, partial), line| apply_porcelain_line(entries, partial, line),
+    );
+    finalize_entries(entries, partial)
+}
 
-    let output = std::process::Command::new("git")
-        .args(["worktree", "prune", "--verbose"])
-        .current_dir(&cwd)
-        .output()
-        .map_err(|e| Error::io_error(format!("Failed to run git worktree prune: {e}")))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::io_error(format!(
-            "git worktree prune failed: {stderr}"
-        )));
+/// Process a single line of porcelain output, returning updated accumulator.
+fn apply_porcelain_line(
+    entries: Vec<WorktreeEntry>,
+    partial: PartialEntry,
+    line: &str,
+) -> (Vec<WorktreeEntry>, PartialEntry) {
+    if let Some(path) = line.strip_prefix("worktree ") {
+        let updated = flush_partial(entries, partial);
+        let new_partial = PartialEntry {
+            path: Some(path.to_string()),
+            branch: None,
+            is_main: false,
+        };
+        (updated, new_partial)
+    } else if let Some(branch) = line.strip_prefix("branch ") {
+        let display = branch
+            .strip_prefix("refs/heads/")
+            .unwrap_or(branch)
+            .to_string();
+        let is_main = branch == "refs/heads/main" || branch == "refs/heads/master";
+        let new_partial = PartialEntry {
+            path: partial.path,
+            branch: Some(display),
+            is_main,
+        };
+        (entries, new_partial)
+    } else {
+        (entries, partial)
     }
+}
 
-    // Count pruned worktrees from verbose output (each line is a removed entry)
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let count = stdout
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .count();
+/// Append a completed partial entry to the entries list, if present.
+fn flush_partial(entries: Vec<WorktreeEntry>, partial: PartialEntry) -> Vec<WorktreeEntry> {
+    match partial.into_entry() {
+        Some(entry) => entries.into_iter().chain(std::iter::once(entry)).collect(),
+        None => entries,
+    }
+}
 
-    Ok(count)
+/// Flush the final partial entry into the entries list.
+fn finalize_entries(entries: Vec<WorktreeEntry>, partial: PartialEntry) -> Vec<WorktreeEntry> {
+    match partial.into_entry() {
+        Some(entry) => entries.into_iter().chain(std::iter::once(entry)).collect(),
+        None => entries,
+    }
 }
 
 #[cfg(test)]
@@ -324,5 +330,36 @@ HEAD def456
             CleanOutput::cleaned(3, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
         assert_eq!(output.removed_count, 3);
         assert_eq!(output.stale_count, 3);
+    }
+
+    // ---- count_non_empty_lines ----
+
+    #[test]
+    fn count_non_empty_lines_counts_real_lines() {
+        assert_eq!(count_non_empty_lines("a\nb\nc\n"), 3);
+    }
+
+    #[test]
+    fn count_non_empty_lines_skips_blanks() {
+        assert_eq!(count_non_empty_lines("a\n\n  \nb\n"), 2);
+    }
+
+    #[test]
+    fn count_non_empty_lines_empty_string() {
+        assert_eq!(count_non_empty_lines(""), 0);
+    }
+
+    // ---- detect_stale_worktrees ----
+
+    #[test]
+    fn detect_stale_skips_main_worktree() {
+        let entries = vec![WorktreeEntry {
+            name: "main".to_string(),
+            path: "/nonexistent/path".to_string(),
+            is_main: true,
+        }];
+        // Main worktree is always skipped regardless of path existence
+        let stale = detect_stale_worktrees(&entries);
+        assert!(stale.is_empty());
     }
 }
