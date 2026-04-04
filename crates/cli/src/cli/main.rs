@@ -505,6 +505,9 @@ pub fn run_command(cli: Cli) -> Result<()> {
                 commands::config::set(&key, &value)
             }
             crate::cli::config_args::ConfigCommands::List => commands::config::list(),
+            crate::cli::config_args::ConfigCommands::Ports { json } => {
+                commands::handlers::config_ports::run_config_ports(json)
+            }
         },
 
         Commands::Stash { command } => match command {
@@ -587,5 +590,21 @@ pub fn run_command(cli: Cli) -> Result<()> {
         Commands::Context => commands::context::run(),
 
         Commands::Whereami => commands::context::whereami(),
+
+        Commands::Whatif { command, args } => {
+            let options = commands::handlers::whatif::WhatIfOptions {
+                command,
+                args,
+                format: scp_core::OutputFormat::Json,
+            };
+            commands::handlers::whatif::run_whatif(&options)        }
+
+        Commands::Examples { command, use_case } => {
+            let options = commands::handlers::examples::ExamplesOptions {
+                command,
+                use_case,
+                format: scp_core::OutputFormat::Json,
+            };
+            commands::handlers::examples::run_examples(&options)        }
     }
 }

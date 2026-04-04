@@ -189,6 +189,25 @@ pub enum Commands {
 
     /// Alias for context - shows current location
     Whereami,
+
+    /// Preview what a command would do without executing it
+    Whatif {
+        /// Command to preview
+        command: String,
+
+        /// Arguments for the command
+        args: Vec<String>,
+    },
+
+    /// Show usage examples for commands
+    Examples {
+        /// Filter by specific command
+        command: Option<String>,
+
+        /// Filter by use case
+        #[arg(long)]
+        use_case: Option<String>,
+    },
 }
 
 #[cfg(test)]

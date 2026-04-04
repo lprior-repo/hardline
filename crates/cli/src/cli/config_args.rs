@@ -23,6 +23,13 @@ pub enum ConfigCommands {
 
     /// List all config
     List,
+
+    /// Show resolved configuration paths (ports)
+    Ports {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[cfg(test)]
