@@ -88,34 +88,33 @@ fn run_list() -> Result<CheckpointOutput> {
 }
 
 /// Output a checkpoint result to the user.
-///
-/// Formats the checkpoint output for display using the unified output type.
 fn output_checkpoint(output: &CheckpointOutput) {
     match output {
-        CheckpointOutput::Created {
-            checkpoint_id,
-            metadata_only,
-            description,
-        } => {
-            scp_core::output::Output::info(&format!("Checkpoint created: {checkpoint_id}"));
-            if let Some(desc) = description {
-                scp_core::output::Output::info(&format!("  Description: {desc}"));
-            }
-            if !metadata_only.is_empty() {
-                scp_core::output::Output::info(&format!(
-                    "Metadata-only snapshots recorded for {} session(s):",
-                    metadata_only.len()
-                ));
-                metadata_only.iter().for_each(|session| {
-                    scp_core::output::Output::info(&format!("  - {session}"));
-                });
-            }
+        CheckpointOutput::Created { checkpoint_id, metadata_only, description } => {
+            output_created(checkpoint_id, metadata_only, description);
         }
         CheckpointOutput::Restored { checkpoint_id } => {
             scp_core::output::Output::info(&format!("Restored to checkpoint: {checkpoint_id}"));
         }
         CheckpointOutput::List { checkpoints } => {
             output_checkpoint_list(checkpoints);
+        }
+    }
+}
+
+/// Display a created checkpoint with optional metadata.
+fn output_created(id: &str, metadata_only: &[String], description: &Option<String>) {
+    scp_core::output::Output::info(&format!("Checkpoint created: {id}"));
+    if let Some(desc) = description {
+        scp_core::output::Output::info(&format!("  Description: {desc}"));
+    }
+    if !metadata_only.is_empty() {
+        scp_core::output::Output::info(&format!(
+            "Metadata-only snapshots recorded for {} session(s):",
+            metadata_only.len()
+        ));
+        for session in metadata_only {
+            scp_core::output::Output::info(&format!("  - {session}"));
         }
     }
 }

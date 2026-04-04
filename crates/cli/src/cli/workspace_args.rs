@@ -322,10 +322,6 @@ pub enum WorkspaceCommands {
         /// Verbose output
         #[arg(short, long)]
         verbose: bool,
-
-        /// Age threshold in hours for stale detection
-        #[arg(long)]
-        age: Option<u64>,
     },
 
     /// Manage bookmarks (Git branches)

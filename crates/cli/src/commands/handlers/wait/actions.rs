@@ -19,14 +19,15 @@ use super::data::{format_condition, WaitCondition, WaitOptions, WaitOutput};
 /// Returns `Error::invalid_state` if the condition check encounters a fatal error.
 pub fn run_wait(options: &WaitOptions) -> Result<WaitOutput> {
     validate_options(options)?;
-
     let start = Instant::now();
+    poll_loop(options, start)
+}
 
+/// Poll until the condition is met or timeout expires.
+fn poll_loop(options: &WaitOptions, start: Instant) -> Result<WaitOutput> {
     loop {
-        let (met, state) = match check_condition(&options.condition) {
-            Ok(result) => result,
-            Err(e) => (false, Some(format!("error: {e}"))),
-        };
+        let (met, state) = check_condition(&options.condition)
+            .unwrap_or_else(|e| (false, Some(format!("error: {e}"))));
 
         if met {
             let output = build_output(true, &options.condition, start, false, state);

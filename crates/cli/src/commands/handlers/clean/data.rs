@@ -20,9 +20,6 @@ pub struct CleanOptions {
 
     /// Enable verbose output showing session details.
     pub verbose: bool,
-
-    /// Age threshold in seconds for considering a session stale (default: 7200 = 2hr).
-    pub age_threshold: Option<u64>,
 }
 
 // ============================================================================
@@ -76,18 +73,6 @@ impl CleanOutput {
     }
 }
 
-// ============================================================================
-// Pure Helper Functions
-// ============================================================================
-
-/// Determine the effective age threshold in seconds.
-///
-/// Falls back to the default of 7200 seconds (2 hours) if not specified.
-#[must_use]
-pub fn effective_age_threshold(options: &CleanOptions) -> u64 {
-    options.age_threshold.unwrap_or(7200)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,7 +85,6 @@ mod tests {
         assert!(!opts.dry_run);
         assert!(!opts.force);
         assert!(!opts.verbose);
-        assert!(opts.age_threshold.is_none());
     }
 
     #[test]
@@ -109,12 +93,10 @@ mod tests {
             dry_run: true,
             force: true,
             verbose: true,
-            age_threshold: Some(3600),
         };
         assert!(opts.dry_run);
         assert!(opts.force);
         assert!(opts.verbose);
-        assert_eq!(opts.age_threshold, Some(3600));
     }
 
     // ---- CleanOutput ----
@@ -179,29 +161,4 @@ mod tests {
         assert!(deserialized.stale_sessions.is_empty());
     }
 
-    // ---- effective_age_threshold ----
-
-    #[test]
-    fn effective_age_threshold_defaults_to_7200() {
-        let opts = CleanOptions::default();
-        assert_eq!(effective_age_threshold(&opts), 7200);
-    }
-
-    #[test]
-    fn effective_age_threshold_uses_custom_value() {
-        let opts = CleanOptions {
-            age_threshold: Some(3600),
-            ..Default::default()
-        };
-        assert_eq!(effective_age_threshold(&opts), 3600);
-    }
-
-    #[test]
-    fn effective_age_threshold_uses_zero_if_specified() {
-        let opts = CleanOptions {
-            age_threshold: Some(0),
-            ..Default::default()
-        };
-        assert_eq!(effective_age_threshold(&opts), 0);
-    }
 }

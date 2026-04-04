@@ -256,12 +256,11 @@ pub fn run_command(cli: Cli) -> Result<()> {
                 };
                 commands::handlers::events::run_events(&options)
             }
-            crate::cli::workspace_args::WorkspaceCommands::Clean { dry_run, force, verbose, age } => {
+            crate::cli::workspace_args::WorkspaceCommands::Clean { dry_run, force, verbose, .. } => {
                 let options = commands::handlers::clean::CleanOptions {
                     dry_run,
                     force,
                     verbose,
-                    age_threshold: age,
                 };
                 let output = commands::handlers::clean::run_clean(&options)?;
                 if verbose {

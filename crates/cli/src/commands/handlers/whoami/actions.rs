@@ -31,7 +31,7 @@ pub fn run_whoami(options: &WhoamiOptions) -> Result<()> {
 /// Build the identity output from environment variables.
 ///
 /// Checks `SCP_AGENT_ID` (with `ISOLATE_AGENT_ID` fallback), `SCP_BEAD_ID`
-/// (with `Isolate_BEAD_ID` fallback), and `SCP_WORKSPACE` / `SCP_SESSION`
+/// (with `ISOLATE_BEAD_ID` fallback), and `SCP_WORKSPACE` / `SCP_SESSION`
 /// for context.
 pub fn build_identity() -> WhoamiOutput {
     let agent_id = std::env::var("SCP_AGENT_ID")
@@ -40,15 +40,15 @@ pub fn build_identity() -> WhoamiOutput {
 
     let bead_id = std::env::var("SCP_BEAD_ID")
         .ok()
-        .or_else(|| std::env::var("Isolate_BEAD_ID").ok());
+        .or_else(|| std::env::var("ISOLATE_BEAD_ID").ok());
 
     let env_workspace = std::env::var("SCP_WORKSPACE")
         .ok()
-        .or_else(|| std::env::var("Isolate_WORKSPACE").ok());
+        .or_else(|| std::env::var("ISOLATE_WORKSPACE").ok());
 
     let env_session = std::env::var("SCP_SESSION")
         .ok()
-        .or_else(|| std::env::var("Isolate_SESSION").ok());
+        .or_else(|| std::env::var("ISOLATE_SESSION").ok());
 
     let current_session = env_session.or_else(|| {
         env_workspace
@@ -239,13 +239,10 @@ mod tests {
             &[
                 "SCP_AGENT_ID",
                 "ISOLATE_AGENT_ID",
-                "Isolate_AGENT_ID",
                 "SCP_SESSION",
                 "ISOLATE_SESSION",
-                "Isolate_SESSION",
                 "SCP_WORKSPACE",
                 "ISOLATE_WORKSPACE",
-                "Isolate_WORKSPACE",
                 "SCP_BEAD_ID",
             ],
             || {

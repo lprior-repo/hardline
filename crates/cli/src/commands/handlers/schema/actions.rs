@@ -256,27 +256,19 @@ fn schema_properties(def: &SchemaDefinition, is_error: bool) -> serde_json::Valu
 
 /// Build the data field for a schema definition.
 fn build_data_field(def: &SchemaDefinition) -> serde_json::Value {
+    let inner = serde_json::json!({
+        "type": "object",
+        "required": def.data_properties.get("required"),
+        "properties": def.data_properties.get("properties"),
+    });
+
     if def.schema_type == "list" {
         serde_json::json!({
             "type": "array",
-            "items": {
-                "type": "object",
-                "required": def.data_properties.get("required"),
-                "properties": def.data_properties.get("properties"),
-            }
-        })
-    } else if def.schema_type == "error" {
-        serde_json::json!({
-            "type": "object",
-            "required": def.data_properties.get("required"),
-            "properties": def.data_properties.get("properties"),
+            "items": inner,
         })
     } else {
-        serde_json::json!({
-            "type": "object",
-            "required": def.data_properties.get("required"),
-            "properties": def.data_properties.get("properties"),
-        })
+        inner
     }
 }
 
