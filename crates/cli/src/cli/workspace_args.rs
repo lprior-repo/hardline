@@ -280,6 +280,200 @@ pub enum WorkspaceCommands {
         #[arg(long)]
         agent: Option<String>,
     },
+
+    /// Check if an operation is permitted
+    CanI {
+        /// Action to check (add, remove, done, merge, undo, sync, spawn)
+        action: String,
+
+        /// Resource to check (optional)
+        resource: Option<String>,
+    },
+
+    /// Show session event history
+    Events {
+        /// Filter by session name
+        #[arg(long)]
+        session: Option<String>,
+
+        /// Filter by event type
+        #[arg(long)]
+        event_type: Option<String>,
+
+        /// Follow mode (stream new events)
+        #[arg(short, long)]
+        follow: bool,
+
+        /// Maximum events to show
+        #[arg(short, long)]
+        limit: Option<usize>,
+    },
+
+    /// Remove stale workspaces and temp files
+    Clean {
+        /// Preview without executing
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Force cleanup without confirmation
+        #[arg(long)]
+        force: bool,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// Age threshold in hours for stale detection
+        #[arg(long)]
+        age: Option<u64>,
+    },
+
+    /// Manage bookmarks (Git branches)
+    Bookmark {
+        #[command(subcommand)]
+        command: BookmarkCommands,
+    },
+
+    /// Show current work context
+    Work {
+        /// Session name to create/use
+        name: Option<String>,
+
+        /// Bead ID to associate
+        #[arg(long)]
+        bead: Option<String>,
+
+        /// Agent ID to register
+        #[arg(long)]
+        agent: Option<String>,
+
+        /// Don't register as agent
+        #[arg(long)]
+        no_agent: bool,
+
+        /// Idempotent mode
+        #[arg(long)]
+        idempotent: bool,
+
+        /// Preview without executing
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Show who you are (agent identity)
+    Whoami {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Wait for a condition to be met
+    Wait {
+        /// Condition to wait for
+        condition: String,
+
+        /// Timeout in seconds
+        #[arg(short, long, default_value = "60")]
+        timeout: u64,
+
+        /// Poll interval in seconds
+        #[arg(long, default_value = "5")]
+        poll_interval: u64,
+    },
+
+    /// Undo last workspace operation
+    Undo {
+        /// Preview without executing
+        #[arg(long)]
+        dry_run: bool,
+
+        /// List undo history
+        #[arg(long)]
+        list: bool,
+    },
+
+    /// Manage session checkpoints
+    Checkpoint {
+        #[command(subcommand)]
+        command: CheckpointCommands,
+    },
+
+    /// Introspect command metadata
+    Introspect {
+        /// Command to introspect
+        target: Option<String>,
+    },
+
+    /// Generate shell completions
+    Completions {
+        /// Shell type (bash, zsh, fish, powershell, elvish)
+        shell: String,
+    },
+
+    /// Prune invalid/orphaned data
+    Prune {
+        /// Confirm pruning
+        #[arg(long)]
+        yes: bool,
+
+        /// Preview without executing
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Display JSON Schema definitions
+    Schema {
+        /// Schema name to display
+        name: Option<String>,
+
+        /// List available schemas
+        #[arg(long)]
+        list: bool,
+
+        /// Show all schemas
+        #[arg(long)]
+        all: bool,
+    },
+}
+
+/// Bookmark subcommands
+#[derive(Subcommand)]
+pub enum BookmarkCommands {
+    /// Create a bookmark
+    Create {
+        /// Bookmark name
+        name: String,
+    },
+    /// List bookmarks
+    List,
+    /// Delete a bookmark
+    Delete {
+        /// Bookmark name
+        name: String,
+    },
+    /// Track (set upstream for) a bookmark
+    Track {
+        /// Bookmark name
+        name: String,
+    },
+}
+
+/// Checkpoint subcommands
+#[derive(Subcommand)]
+pub enum CheckpointCommands {
+    /// Create a checkpoint
+    Create {
+        /// Checkpoint description
+        #[arg(short, long)]
+        message: Option<String>,
+    },
+    /// Restore from a checkpoint
+    Restore {
+        /// Checkpoint ID
+        id: String,
+    },
+    /// List checkpoints
+    List,
 }
 
 #[cfg(test)]

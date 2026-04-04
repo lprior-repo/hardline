@@ -181,6 +181,9 @@ pub fn validate_session_name(name: &str) -> Result<(), ValidationError> {
     if trimmed.is_empty() {
         return Err(ValidationError::EmptyInput);
     }
+    if trimmed.contains('/') || trimmed.contains('\\') {
+        return Err(ValidationError::ShellMetacharacter);
+    }
     if trimmed.contains('\0') || contains_shell_metachar(trimmed) {
         return Err(ValidationError::ShellMetacharacter);
     }

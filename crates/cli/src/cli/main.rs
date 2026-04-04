@@ -238,6 +238,131 @@ pub fn run_command(cli: Cli) -> Result<()> {
                 };
                 commands::handlers::query::run_query(&options)
             }
+            crate::cli::workspace_args::WorkspaceCommands::CanI { action, resource } => {
+                let options = commands::handlers::can_i::CanIOptions {
+                    action,
+                    resource,
+                };
+                commands::handlers::can_i::run_can_i(&options)?;
+                Ok(())
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Events { session, event_type, follow, limit } => {
+                let options = commands::handlers::events::EventsOptions {
+                    session,
+                    event_type,
+                    follow,
+                    limit,
+                    since: None,
+                };
+                commands::handlers::events::run_events(&options)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Clean { dry_run, force, verbose, age } => {
+                let options = commands::handlers::clean::CleanOptions {
+                    dry_run,
+                    force,
+                    verbose,
+                    age_threshold: age,
+                };
+                let output = commands::handlers::clean::run_clean(&options)?;
+                if verbose {
+                    scp_core::output::Output::info(&format!("Removed {} of {} stale items", output.removed_count, output.stale_count));
+                }
+                Ok(())
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Bookmark { command } => {
+                use crate::cli::workspace_args::BookmarkCommands;
+                let subcmd = match command {
+                    BookmarkCommands::Create { name } => commands::handlers::bookmark::BookmarkSubcommand::Create { name, push: false },
+                    BookmarkCommands::List => commands::handlers::bookmark::BookmarkSubcommand::List { show_all: false },
+                    BookmarkCommands::Delete { name } => commands::handlers::bookmark::BookmarkSubcommand::Delete { name },
+                    BookmarkCommands::Track { name } => commands::handlers::bookmark::BookmarkSubcommand::Track { name, remote: None },
+                };
+                let options = commands::handlers::bookmark::BookmarkOptions { subcommand: subcmd };
+                commands::handlers::bookmark::run_bookmark(&options)?;
+                Ok(())
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Work { name, bead, agent, no_agent, idempotent, dry_run } => {
+                let options = commands::handlers::work::WorkOptions {
+                    name: name.unwrap_or_default(),
+                    bead_id: bead,
+                    agent_id: agent,
+                    no_agent,
+                    idempotent,
+                    dry_run,
+                    format: scp_core::OutputFormat::Json,
+                };
+                commands::handlers::work::run_work(&options)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Whoami { json } => {
+                let options = commands::handlers::whoami::WhoamiOptions { json };
+                commands::handlers::whoami::run_whoami(&options)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Wait { condition, timeout, poll_interval } => {
+                let options = commands::handlers::wait::WaitOptions {
+                    condition: commands::handlers::wait::WaitCondition::SessionExists(condition),
+                    timeout: std::time::Duration::from_secs(timeout),
+                    poll_interval: std::time::Duration::from_secs(poll_interval),
+                };
+                let output = commands::handlers::wait::run_wait(&options)?;
+                if output.timed_out {
+                    scp_core::output::Output::warn(&format!("Timed out waiting for: {}", output.condition));
+                }
+                Ok(())
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Undo { dry_run, list } => {
+                let options = commands::handlers::undo::UndoOptions {
+                    dry_run,
+                    list,
+                };
+                let output = commands::handlers::undo::run_undo(&options)?;
+                if output.pushed_to_remote {
+                    scp_core::output::Output::info("Changes pushed to remote");
+                }
+                Ok(())
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Checkpoint { command } => {
+                use crate::cli::workspace_args::CheckpointCommands;
+                let action = match command {
+                    CheckpointCommands::Create { message } => commands::handlers::checkpoint::CheckpointAction::Create { description: message },
+                    CheckpointCommands::Restore { id } => commands::handlers::checkpoint::CheckpointAction::Restore { checkpoint_id: id },
+                    CheckpointCommands::List => commands::handlers::checkpoint::CheckpointAction::List,
+                };
+                let options = commands::handlers::checkpoint::CheckpointOptions {
+                    action,
+                    format: scp_core::OutputFormat::Json,
+                };
+                commands::handlers::checkpoint::run_checkpoint(&options)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Introspect { target } => {
+                let options = commands::handlers::introspect::IntrospectOptions { target };
+                commands::handlers::introspect::run_introspect(&options)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Completions { shell } => {
+                let shell_type = shell.parse::<commands::handlers::completions::Shell>()
+                    .map_err(|e| scp_core::Error::validation_error(e.to_string()))?;
+                let options = commands::handlers::completions::CompletionsOptions { shell: shell_type };
+                commands::handlers::completions::run_completions(&options)
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Prune { yes, dry_run } => {
+                let options = commands::handlers::prune::PruneOptions {
+                    yes,
+                    dry_run,
+                };
+                let output = commands::handlers::prune::run_prune(&options)?;
+                if dry_run {
+                    scp_core::output::Output::info(&format!("Would prune {} invalid items", output.invalid_count));
+                }
+                Ok(())
+            }
+            crate::cli::workspace_args::WorkspaceCommands::Schema { name, list, all } => {
+                let options = commands::handlers::schema::SchemaOptions {
+                    schema_name: name,
+                    list,
+                    all,
+                    format: scp_core::OutputFormat::Json,
+                };
+                commands::handlers::schema::run_schema(&options)
+            }
         },
 
         Commands::Lock { command } => match command {
