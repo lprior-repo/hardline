@@ -19,6 +19,18 @@ pub enum IsolateError {
     /// A workspace operation failed.
     #[error("workspace operation failed: {0}")]
     OperationFailed(String),
+
+    /// An invalid workspace ID was provided.
+    #[error("invalid workspace id: {0}")]
+    InvalidWorkspaceId(String),
+
+    /// An invalid bead ID was provided.
+    #[error("invalid bead id: {0}")]
+    InvalidBeadId(String),
+
+    /// The workspace guard was dropped without being properly committed.
+    #[error("workspace guard dropped without commit: workspace '{workspace_id}' needs cleanup")]
+    GuardNotCommitted { workspace_id: String },
 }
 
 /// Result alias for isolate operations.
@@ -75,5 +87,31 @@ mod tests {
             Err(IsolateError::OperationFailed("fail".into()))
         }
         assert!(err_result().is_err());
+    }
+
+    #[test]
+    fn invalid_workspace_id_display() {
+        let err = IsolateError::InvalidWorkspaceId("empty id".into());
+        let msg = format!("{err}");
+        assert!(msg.contains("workspace id"));
+        assert!(msg.contains("empty id"));
+    }
+
+    #[test]
+    fn invalid_bead_id_display() {
+        let err = IsolateError::InvalidBeadId("empty id".into());
+        let msg = format!("{err}");
+        assert!(msg.contains("bead id"));
+        assert!(msg.contains("empty id"));
+    }
+
+    #[test]
+    fn guard_not_committed_display() {
+        let err = IsolateError::GuardNotCommitted {
+            workspace_id: "iso-123".into(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("guard dropped"));
+        assert!(msg.contains("iso-123"));
     }
 }

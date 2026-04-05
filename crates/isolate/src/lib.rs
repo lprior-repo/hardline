@@ -31,5 +31,8 @@ pub mod domain;
 pub mod error;
 
 pub use dag::{BranchDag, BranchId, DagError};
-pub use domain::{EventContext, EventType, IsolateEvent, WorkspaceState, WorkspaceStateMachine};
+pub use domain::{
+    BeadId, BeadWorkspaceMapping, CommittedGuard, EventContext, EventType, IsolateEvent,
+    WorkspaceGuard, WorkspaceId, WorkspaceState, WorkspaceStateMachine,
+};
 pub use error::{IsolateError, Result};

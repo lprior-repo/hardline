@@ -3,6 +3,7 @@
 use std::fmt;
 use std::str::FromStr;
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::error::IsolateError;
@@ -83,5 +84,108 @@ impl FromStr for WorkspaceState {
             "conflict" => Ok(Self::Conflict),
             _ => Err(IsolateError::InvalidState(s.to_string())),
         }
+    }
+}
+
+/// Unique identifier for an isolated workspace.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct WorkspaceId(String);
+
+impl WorkspaceId {
+    /// Generate a new unique workspace ID.
+    #[must_use]
+    pub fn generate() -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let ts = Utc::now().timestamp_millis();
+        let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+        Self(format!("iso-{ts}-{seq}"))
+    }
+
+    /// Parse a workspace ID from a string, validating it's non-empty.
+    pub fn parse(s: String) -> std::result::Result<Self, IsolateError> {
+        if s.is_empty() {
+            return Err(IsolateError::InvalidWorkspaceId("empty id".into()));
+        }
+        Ok(Self(s))
+    }
+
+    /// View the workspace ID as a string slice.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for WorkspaceId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// Unique identifier for a bead (work unit) in the tracking system.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct BeadId(String);
+
+impl BeadId {
+    /// Parse a bead ID from a string, validating it's non-empty.
+    pub fn parse(s: String) -> std::result::Result<Self, IsolateError> {
+        if s.is_empty() {
+            return Err(IsolateError::InvalidBeadId("empty id".into()));
+        }
+        Ok(Self(s))
+    }
+
+    /// View the bead ID as a string slice.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for BeadId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// Mapping between a bead (work unit) and its assigned workspace.
+///
+/// Each bead maps to at most one workspace. This is the link between
+/// the task tracking system and the isolation system.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BeadWorkspaceMapping {
+    bead_id: BeadId,
+    workspace_id: WorkspaceId,
+    assigned_at: DateTime<Utc>,
+}
+
+impl BeadWorkspaceMapping {
+    /// Create a new bead-to-workspace mapping.
+    #[must_use]
+    pub fn new(bead_id: BeadId, workspace_id: WorkspaceId) -> Self {
+        Self {
+            bead_id,
+            workspace_id,
+            assigned_at: Utc::now(),
+        }
+    }
+
+    /// The bead ID in this mapping.
+    #[must_use]
+    pub fn bead_id(&self) -> &BeadId {
+        &self.bead_id
+    }
+
+    /// The workspace ID in this mapping.
+    #[must_use]
+    pub fn workspace_id(&self) -> &WorkspaceId {
+        &self.workspace_id
+    }
+
+    /// When this mapping was created.
+    #[must_use]
+    pub fn assigned_at(&self) -> DateTime<Utc> {
+        self.assigned_at
     }
 }
