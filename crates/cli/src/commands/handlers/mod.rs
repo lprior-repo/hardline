@@ -31,6 +31,7 @@ pub mod rename;
 pub mod revert;
 pub mod schema;
 pub mod session;
+pub mod stack_sync;
 pub mod sync;
 pub mod task;
 pub mod undo;
