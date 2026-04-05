@@ -47,3 +47,15 @@
 [branch "polecat/opal-mnm0wazu"]
 	remote = origin
 	merge = refs/heads/polecat/opal-mnm0wazu
+[branch "polecat/onyx/ha-8an@mnmfaa4m"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/opal/ha-n9k@mnmfapku"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/quartz/ha-43k@mnmfawyr"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/obsidian/ha-8s6@mnmfb11q"]
+	remote = origin
+	merge = refs/heads/main
