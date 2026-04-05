@@ -1,7 +1,7 @@
 //! Lock repository trait and in-memory implementation.
 //!
 //! Provides the repository interface for distributed lock operations,
-//! following the same sync + Mutex pattern as QueueRepository.
+//! following the same sync + Mutex pattern as `QueueRepository`.
 
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
@@ -66,6 +66,11 @@ pub trait LockRepository: Send + Sync {
     /// - Invalid input (`InvalidInput`)
     ///
     /// If `ttl_seconds` is 0, uses the repository's default TTL (300s).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RepositoryError::Conflict`] if the session is locked by another agent,
+    /// or [`RepositoryError::InvalidInput`] if session or `agent_id` is empty.
     fn acquire(
         &self,
         session: &str,
@@ -77,6 +82,10 @@ pub trait LockRepository: Send + Sync {
     ///
     /// Returns an error if agent is not the lock holder (`Conflict`).
     /// Logs a double-unlock warning if no active lock exists.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RepositoryError::Conflict`] if the agent is not the lock holder.
     fn release(&self, session: &str, agent_id: &str) -> RepositoryResult<()>;
 
     /// Extend lock TTL via heartbeat.
@@ -84,25 +93,50 @@ pub trait LockRepository: Send + Sync {
     /// Returns the updated lock with new expiration.
     /// Returns an error if agent is not the holder (`Conflict`)
     /// or no active lock exists (`NotFound`).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RepositoryError::Conflict`] if the agent is not the lock holder,
+    /// or [`RepositoryError::NotFound`] if no active lock exists.
     fn heartbeat(&self, session: &str, agent_id: &str) -> RepositoryResult<Lock>;
 
     /// Get all active (non-expired) locks.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying storage fails.
     fn list_active(&self) -> RepositoryResult<Vec<Lock>>;
 
     /// Get current lock for a session.
     ///
     /// Returns `None` if no active lock exists.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying storage fails.
     fn get_state(&self, session: &str) -> RepositoryResult<Option<Lock>>;
 
     /// Get audit log entries for a session.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying storage fails.
     fn get_audit_log(&self, session: &str) -> RepositoryResult<Vec<LockAudit>>;
 
     /// Remove all expired locks.
     ///
     /// Returns the number of locks removed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying storage fails.
     fn cleanup_expired(&self) -> RepositoryResult<u64>;
 
     /// Initialize the lock schema (tables, indexes).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if schema initialization fails.
     fn init_schema(&self) -> RepositoryResult<()> {
         Ok(())
     }
@@ -223,7 +257,7 @@ impl LockRepository for InMemoryLockRepository {
         }
 
         let ttl = if ttl_seconds > 0 {
-            chrono::Duration::seconds(ttl_seconds as i64)
+            chrono::Duration::seconds(ttl_seconds.cast_signed())
         } else {
             self.default_ttl
         };
@@ -260,8 +294,7 @@ impl LockRepository for InMemoryLockRepository {
                     Ok(())
                 } else {
                     Err(RepositoryError::Conflict(format!(
-                        "Agent '{}' does not hold lock on session '{}'",
-                        agent_id, session
+                        "Agent '{agent_id}' does not hold lock on session '{session}'"
                     )))
                 }
             }
@@ -292,8 +325,7 @@ impl LockRepository for InMemoryLockRepository {
                     Ok(updated)
                 } else {
                     Err(RepositoryError::Conflict(format!(
-                        "Agent '{}' does not hold lock on session '{}'",
-                        agent_id, session
+                        "Agent '{agent_id}' does not hold lock on session '{session}'"
                     )))
                 }
             }
@@ -341,14 +373,16 @@ impl LockRepository for InMemoryLockRepository {
     }
 
     fn cleanup_expired(&self) -> RepositoryResult<u64> {
-        let mut locks = self
-            .locks
-            .lock()
-            .map_err(|e| RepositoryError::StorageError(e.to_string()))?;
-        let now = Utc::now();
-        let before = locks.len();
-        locks.retain(|_, l| l.expires_at >= now);
-        let removed = before - locks.len();
+        let removed = {
+            let mut locks = self
+                .locks
+                .lock()
+                .map_err(|e| RepositoryError::StorageError(e.to_string()))?;
+            let now = Utc::now();
+            let before = locks.len();
+            locks.retain(|_, l| l.expires_at >= now);
+            before - locks.len()
+        };
         Ok(removed as u64)
     }
 }
