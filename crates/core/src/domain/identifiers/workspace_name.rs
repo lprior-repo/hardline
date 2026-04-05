@@ -14,7 +14,7 @@ use crate::domain::identifiers::validation::validate_workspace_name;
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// use isolate_core::domain::WorkspaceName;
+/// use scp_core::domain::WorkspaceName;
 ///
 /// let workspace = WorkspaceName::parse("my-workspace")?;
 /// # Ok(())

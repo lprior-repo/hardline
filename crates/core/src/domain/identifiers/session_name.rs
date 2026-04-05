@@ -14,7 +14,7 @@ use crate::domain::identifiers::validation::validate_session_name;
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// use isolate_core::domain::SessionName;
+/// use scp_core::SessionName;
 ///
 /// // Parse and validate
 /// let name = SessionName::parse("my-session")?;

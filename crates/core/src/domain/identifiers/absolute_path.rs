@@ -14,7 +14,7 @@ use crate::domain::identifiers::validation::validate_absolute_path;
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// use isolate_core::domain::AbsolutePath;
+/// use scp_core::AbsolutePath;
 ///
 /// let path = AbsolutePath::parse("/home/user/workspace")?;
 /// # Ok(())

@@ -13,7 +13,7 @@ use crate::domain::validation::{ValidationError, ValidationResult};
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// use isolate_core::domain::QueueEntryId;
+/// use scp_core::domain::identifiers::QueueEntryId;
 ///
 /// // Parse and validate
 /// let id = QueueEntryId::parse("entry-123")?;

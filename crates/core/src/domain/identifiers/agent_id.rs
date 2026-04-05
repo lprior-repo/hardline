@@ -14,7 +14,7 @@ use crate::domain::identifiers::validation::validate_agent_id;
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// use isolate_core::domain::AgentId;
+/// use scp_core::domain::AgentId;
 ///
 /// let agent = AgentId::parse("agent-123")?;
 /// # Ok(())
