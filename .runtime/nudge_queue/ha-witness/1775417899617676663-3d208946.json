@@ -1,0 +1,8 @@
+{
+  "sender": "system",
+  "message": "Remember to reply to hardline/refinery (subject: \"MERGED topaz\") via `gt mail send hardline/refinery` — not in chat.",
+  "priority": "normal",
+  "timestamp": "2026-04-05T14:38:19.617676663-05:00",
+  "expires_at": "2026-04-05T15:08:19.617676663-05:00",
+  "deliver_after": "2026-04-05T14:38:49.617648003-05:00"
+}
