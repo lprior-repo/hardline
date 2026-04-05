@@ -1,0 +1,8 @@
+{
+  "sender": "hardline/witness",
+  "message": "Witness: Topaz merged. Queue scan — multiple polecat branches still on remote. Resume merge queue processing?",
+  "priority": "normal",
+  "timestamp": "2026-04-05T14:39:49.963428597-05:00",
+  "expires_at": "2026-04-05T15:09:49.963428597-05:00",
+  "deliver_after": "0001-01-01T00:00:00Z"
+}
