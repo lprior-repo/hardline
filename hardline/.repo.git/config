@@ -1,0 +1,52 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = true
+[remote "origin"]
+	url = https://github.com/lprior-repo/hardline.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "dog/alpha-hardline-1775387982478"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/obsidian-mnlzluqj"]
+	remote = origin
+	merge = refs/heads/main
+[beads]
+	issue-prefix = ha
+	role = contributor
+[branch "polecat/quartz-mnlzlx4x"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/jasper-mnlzlxgw"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/onyx-mnlzlxtb"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/opal-mnlzly7q"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/jasper/ha-hqf@mnlzmi0u"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/obsidian/hq-vzq@mnm0vt4d"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/onyx/hq-wisp-r3h@mnm0w1nt"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/opal/hq-cv-foma6@mnm0w777"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/quartz/hq-cv-tmhha@mnm0wcwg"]
+	remote = origin
+	merge = refs/heads/main
+[branch "main-check"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/opal-mnm0wazu"]
+	remote = origin
+	merge = refs/heads/polecat/opal-mnm0wazu
+[branch "temp"]
+	remote = origin
+	merge = refs/heads/polecat/flint-mnm2lq4l

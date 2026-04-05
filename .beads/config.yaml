@@ -57,6 +57,11 @@
 dolt:
   auto-start: false
 
-dolt.port: 43001
+dolt.port: 3307
 
-dolt.database: "dolt"
+dolt.database: "hq"
+
+routing.mode: "explicit"
+prefix: hq
+issue-prefix: hq
+dolt.idle-timeout: "0"

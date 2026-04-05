@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "rigs": {
+    "hardline": {
+      "git_url": "https://github.com/lprior-repo/hardline.git",
+      "added_at": "2026-04-05T05:53:26.789324905-05:00",
+      "beads": {
+        "repo": "",
+        "prefix": "ha"
+      }
+    }
+  }
+}
