@@ -8,8 +8,8 @@
 //!
 //! ```text
 //! WorkspaceState: Created → Working → Ready → Merged
-//!                                  ├→ Conflict → Working
-//!                                  └→ Abandoned
+//!                                 ├→ Conflict → Working
+//!                                 └→ Abandoned
 //! ```
 //!
 //! # Design Principles
@@ -17,6 +17,7 @@
 //! - **Zero panic**: No unwrap/expect in source code (tests exempt)
 //! - **Railway-oriented**: All operations return `Result<T, E>`
 //! - **DDD**: Domain types with explicit invariants
+//! - **Data->Calc->Actions**: Layered architecture separating pure logic from side effects
 
 #![deny(warnings)]
 #![deny(clippy::unwrap_used)]
@@ -26,13 +27,16 @@
 #![allow(clippy::missing_errors_doc)]
 #![forbid(unsafe_code)]
 
+pub mod checkpoint;
 pub mod dag;
 pub mod domain;
 pub mod error;
 
+pub use checkpoint::{find_pending_restores, AutoCheckpoint, CheckpointGuard};
 pub use dag::{BranchDag, BranchId, DagError};
 pub use domain::{
-    BeadId, BeadWorkspaceMapping, CommittedGuard, EventContext, EventType, IsolateEvent,
-    WorkspaceGuard, WorkspaceId, WorkspaceState, WorkspaceStateMachine,
+    BeadId, BeadWorkspaceMapping, CheckpointRecord, CheckpointState, CommittedGuard,
+    EventContext, EventType, IsolateEvent, OperationRisk, WorkspaceGuard, WorkspaceId,
+    WorkspaceState, WorkspaceStateMachine, classify_command,
 };
 pub use error::{IsolateError, Result};
