@@ -9,6 +9,7 @@
 pub mod ai;
 pub mod backup;
 pub mod batch;
+pub mod branch;
 pub mod bookmark;
 pub mod can_i;
 pub mod checkpoint;

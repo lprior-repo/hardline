@@ -119,6 +119,14 @@ pub fn run_command(cli: Cli) -> Result<()> {
             crate::cli::workspace_args::WorkspaceCommands::BranchCurrent => {
                 commands::workspace::branch_current()
             }
+            crate::cli::workspace_args::WorkspaceCommands::BranchRename { old_name, new_name, dry_run } => {
+                let options = commands::handlers::branch::BranchRenameOptions {
+                    old_name,
+                    new_name,
+                    dry_run,
+                };
+                commands::handlers::branch::run_branch_rename(&options)
+            }
             crate::cli::workspace_args::WorkspaceCommands::Add { path } => {
                 commands::workspace::add(&path)
             }

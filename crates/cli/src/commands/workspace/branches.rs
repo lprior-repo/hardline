@@ -1,80 +1,64 @@
 //! Workspace branch commands
-
-use std::process::Command;
+//!
+//! Ported from workspace/branches.rs to branch handler
+//! for proper Data->Calc->Actions architecture with validation
+//! and protected branch check.
+//!
+//! CLI commands:
+//!
+//! ```text
+//! scp workspace branch <name>                          # Create branch
+//! scp workspace branch-delete <name> [--force]   # Delete branch
+//! scp workspace branch-rename <old> <new> [--dry-run]  # Rename branch
+//! ```
 
 use scp_core::output::Output;
-use scp_core::Error;
+use scp_core::{Error, Result};
+
+use crate::commands::handlers::branch;
 
 /// List branches
-pub fn branches() -> Result<(), Error> {
+pub fn branches() -> Result<()> {
     let cwd = std::env::current_dir()?;
-    let output = Command::new("git")
-        .args(["branch", "list"])
-        .current_dir(&cwd)
-        .output()?;
+    let backend = scp_core::vcs::create_backend(&cwd)?;
+    let branch_list = backend.list_branches()?;
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("branch list", stderr));
+    if branch_list.is_empty() {
+        Output::info("No branches found");
+    } else {
+        for b in &branch_list {
+            let current = if b.is_current { " (current)" } else { "" };
+            Output::info(&format!("  - {}{}", b.name, current));
+        }
     }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    Output::info(&stdout);
-
     Ok(())
 }
 
-/// Create branch
-pub fn branch_create(name: &str) -> Result<(), Error> {
-    let cwd = std::env::current_dir()?;
-    let output = Command::new("git")
-        .args(["checkout", "-b", name])
-        .current_dir(&cwd)
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("checkout -b", stderr));
-    }
-
-    Output::success(&format!("Created branch '{}'", name));
-
+/// Create branch using handler
+pub fn branch_create(name: &str) -> Result<()> {
+    let options = branch::BranchCreateOptions {
+        name: name.to_string(),
+        dry_run: false,
+    };
+    branch::run_branch_create(&options)?;
     Ok(())
 }
 
-/// Delete branch
-pub fn branch_delete(name: &str) -> Result<(), Error> {
-    let cwd = std::env::current_dir()?;
-    let output = Command::new("git")
-        .args(["branch", "-d", name])
-        .current_dir(&cwd)
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("branch delete", stderr));
-    }
-
-    Output::success(&format!("Deleted branch '{}'", name));
-
-    Ok(())
+/// Delete branch using handler
+pub fn branch_delete(name: &str) -> Result<()> {
+    let options = branch::BranchDeleteOptions {
+        name: name.to_string(),
+        force: false,
+        dry_run: false,
+    };
+    branch::run_branch_delete(&options)
 }
 
 /// Show current branch
-pub fn branch_current() -> Result<(), Error> {
+pub fn branch_current() -> Result<()> {
     let cwd = std::env::current_dir()?;
-    let output = Command::new("git")
-        .args(["branch", "--show-current"])
-        .current_dir(&cwd)
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("branch show-current", stderr));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    Output::info(&stdout);
-
+    let backend = scp_core::vcs::create_backend(&cwd)?;
+    let branch_name = backend.current_branch()?;
+    Output::info(&format!("Current branch: {}", branch_name));
     Ok(())
 }

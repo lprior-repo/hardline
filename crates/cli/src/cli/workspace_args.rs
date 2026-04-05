@@ -113,6 +113,19 @@ pub enum WorkspaceCommands {
     /// Show current branch
     BranchCurrent,
 
+    /// Rename a branch
+    BranchRename {
+        /// Current branch name
+        old_name: String,
+
+        /// New branch name
+        new_name: String,
+
+        /// Preview without executing
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Fork a workspace from current or another workspace
     Fork {
         /// Name of the new workspace
@@ -807,6 +820,45 @@ mod tests {
     #[test]
     fn revert_requires_name() {
         let result = WorkspaceParser::try_parse_from(["scp", "revert"]);
+        assert!(result.is_err());
+    }
+
+    // -- BranchRename (required old_name, new_name) --
+    #[test]
+    fn branch_rename_defaults() {
+        match parse(&["branch-rename", "old-name", "new-name"]) {
+            WorkspaceCommands::BranchRename {
+                old_name,
+                new_name,
+                dry_run,
+            } => {
+                assert_eq!(old_name, "old-name");
+                assert_eq!(new_name, "new-name");
+                assert!(!dry_run);
+            }
+            other => panic!("Expected BranchRename, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn branch_rename_with_dry_run() {
+        match parse(&["branch-rename", "old-name", "new-name", "--dry-run"]) {
+            WorkspaceCommands::BranchRename {
+                old_name,
+                new_name,
+                dry_run,
+            } => {
+                assert_eq!(old_name, "old-name");
+                assert_eq!(new_name, "new-name");
+                assert!(dry_run);
+            }
+            other => panic!("Expected BranchRename with dry_run, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn branch_rename_requires_names() {
+        let result = WorkspaceParser::try_parse_from(["scp", "branch-rename"]);
         assert!(result.is_err());
     }
 }
