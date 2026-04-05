@@ -135,7 +135,7 @@ pub use workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTr
 
 pub use application::{
     create_coordination_service, create_queue_service, CoordinationService,
-    CoordinationServiceImpl, QueueService, QueueServiceImpl,
+    QueueService, QueueServiceImpl,
 };
 pub use infrastructure::{
     create_database_service, create_vcs_integration_service, DatabaseConfig, DatabaseService,

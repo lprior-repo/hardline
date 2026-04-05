@@ -8,5 +8,5 @@
 pub mod coordination;
 pub mod queue_service;
 
-pub use coordination::{create_coordination_service, CoordinationService, CoordinationServiceImpl};
+pub use coordination::{create_coordination_service, CoordinationService};
 pub use queue_service::{create_queue_service, QueueService, QueueServiceImpl};

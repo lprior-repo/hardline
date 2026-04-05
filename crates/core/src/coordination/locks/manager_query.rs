@@ -141,4 +141,24 @@ impl LockManager {
             }),
         }
     }
+
+    /// Remove all expired locks from the database.
+    ///
+    /// Returns the number of locks that were cleaned up.
+    /// This is used by the doctor command for periodic maintenance.
+    pub async fn cleanup_expired(&self) -> Result<u64> {
+        let now_str = Utc::now().to_rfc3339();
+
+        let result = sqlx::query("DELETE FROM session_locks WHERE expires_at < ?")
+            .bind(&now_str)
+            .execute(&self.db)
+            .await
+            .map_err(|e| {
+                crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(
+                    e.to_string(),
+                ))
+            })?;
+
+        Ok(result.rows_affected())
+    }
 }

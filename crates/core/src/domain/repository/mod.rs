@@ -55,6 +55,7 @@ mod agent;
 mod bead;
 mod error;
 mod in_memory;
+mod lock;
 mod session;
 mod workspace;
 
@@ -63,5 +64,6 @@ pub use agent::{Agent, AgentRepository, AgentState};
 pub use bead::{Bead, BeadRepository, BeadState};
 pub use error::{RepositoryError, RepositoryResult};
 pub use in_memory::InMemorySessionRepository;
+pub use lock::{InMemoryLockRepository, Lock, LockAudit, LockOperation, LockRepository};
 pub use session::{Session, SessionRepository};
 pub use workspace::{Workspace, WorkspaceRepository, WorkspaceState};
