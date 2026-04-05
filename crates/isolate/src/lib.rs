@@ -31,5 +31,5 @@ pub mod domain;
 pub mod error;
 
 pub use dag::{BranchDag, BranchId, DagError};
-pub use domain::{WorkspaceState, WorkspaceStateMachine};
+pub use domain::{EventContext, EventType, IsolateEvent, WorkspaceState, WorkspaceStateMachine};
 pub use error::{IsolateError, Result};
