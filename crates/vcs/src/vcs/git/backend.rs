@@ -1,5 +1,8 @@
 //! VcsBackend trait implementation for GitBackend (read operations)
 //!
+//! Delegates to `crate::gix` module functions where possible,
+//! with inline gix for operations requiring detailed data (e.g., status counts).
+//!
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
@@ -10,6 +13,7 @@ use crate::vcs::{
     BackendType, BranchName, CommitId, RepoStatus, RepositoryPath, VcsBackend, VcsError,
 };
 
+use super::helpers;
 use super::types::GitBackend;
 
 impl VcsBackend for GitBackend {
@@ -31,6 +35,9 @@ impl VcsBackend for GitBackend {
 
     /// Get the current branch name
     ///
+    /// Delegates to `crate::gix::branch::current()` via `helpers::current_branch_via_gix`.
+    /// Maps detached HEAD (error in gix module) to `Ok(None)`.
+    ///
     /// # Preconditions
     /// - P5: Repository is open and valid
     ///
@@ -42,42 +49,13 @@ impl VcsBackend for GitBackend {
     /// # Errors
     /// - `VcsError::GitReferenceError` if HEAD is unreadable (corrupt)
     fn current_branch(&self) -> Result<Option<BranchName>, VcsError> {
-        let repo = self.repo.lock().map_err(|_| {
-            VcsError::GitReferenceError("Failed to acquire repository lock".to_string())
-        })?;
-
-        let head = repo.head();
-
-        match head {
-            Ok(head) => {
-                let reference = head.detach();
-                if reference.is_empty() || reference.symbolic_target().is_some() {
-                    return Ok(None);
-                }
-                let branch_name = reference.shorthand();
-                branch_name
-                    .map(|name| {
-                        BranchName::new(name).map_err(|_| {
-                            VcsError::GitReferenceError(format!("Invalid branch name: {name}"))
-                        })
-                    })
-                    .transpose()
-            }
-            Err(e) => {
-                if e.kind() == gix::reference::head::existing::ErrorKind::NotFound
-                    || e.kind() == gix::reference::head::existing::ErrorKind::Unborn
-                {
-                    return Ok(None);
-                }
-                Err(VcsError::GitReferenceError(format!(
-                    "Failed to read HEAD: {}",
-                    e
-                )))
-            }
-        }
+        let repo = helpers::lock_repo(&self.repo)?;
+        helpers::current_branch_via_gix(&repo)
     }
 
     /// List all local branches
+    ///
+    /// Delegates to `crate::gix::branch::list()` via `helpers::list_branches_via_gix`.
     ///
     /// # Preconditions
     /// - P5: Repository is open and valid
@@ -89,30 +67,15 @@ impl VcsBackend for GitBackend {
     /// # Errors
     /// - `VcsError::GitReferenceError` if references unreadable
     fn list_branches(&self) -> Result<Vec<BranchName>, VcsError> {
-        let repo = self.repo.lock().map_err(|_| {
-            VcsError::GitReferenceError("Failed to acquire repository lock".to_string())
-        })?;
-
-        let references = repo
-            .references()
-            .map_err(|e| VcsError::GitReferenceError(format!("Failed to list branches: {}", e)))?;
-
-        let mut result = references
-            .local_branches()
-            .filter_map(|branch_result| {
-                branch_result.ok().and_then(|branch| {
-                    let name = branch.name().ok().flatten()?;
-                    BranchName::new(name).ok()
-                })
-            })
-            .collect::<Vec<_>>();
-
-        result.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-
-        Ok(result)
+        let repo = helpers::lock_repo(&self.repo)?;
+        helpers::list_branches_via_gix(&repo)
     }
 
     /// Get repository status
+    ///
+    /// Uses inline gix rather than `crate::gix::status` because the trait
+    /// requires detailed change counts (added/modified/deleted), while the
+    /// gix module's `status()` returns only `VcsStatus::Clean/Dirty`.
     ///
     /// # Preconditions
     /// - P5: Repository is open and valid
@@ -125,9 +88,7 @@ impl VcsBackend for GitBackend {
     /// - `VcsError::GitOpenFailed` if status check fails
     fn status(&self) -> Result<RepoStatus, VcsError> {
         let (added, modified, deleted) = {
-            let repo = self.repo.lock().map_err(|_| {
-                VcsError::GitReferenceError("Failed to acquire repository lock".to_string())
-            })?;
+            let repo = helpers::lock_repo(&self.repo)?;
 
             let mut opts = gix::status::Options::default();
             opts.include_untracked(false)
@@ -138,7 +99,7 @@ impl VcsBackend for GitBackend {
                 .status_files_with_index(opts, std::iter::empty::<&std::path::Path>())
                 .map_err(|e| VcsError::GitOpenFailed {
                     path: self.path.as_path().to_path_buf(),
-                    message: format!("Failed to get status: {}", e),
+                    message: format!("Failed to get status: {e}"),
                     source: None,
                 })?;
 
@@ -149,7 +110,7 @@ impl VcsBackend for GitBackend {
             for entry in statuses {
                 let entry = entry.map_err(|e| VcsError::GitOpenFailed {
                     path: self.path.as_path().to_path_buf(),
-                    message: format!("Failed to read status entry: {}", e),
+                    message: format!("Failed to read status entry: {e}"),
                     source: None,
                 })?;
                 let change = entry.index_to_worktree_entry();
@@ -181,6 +142,8 @@ impl VcsBackend for GitBackend {
 
     /// Check if a commit exists
     ///
+    /// Delegates to `helpers::resolve_ref` which uses gix's `rev_parse`.
+    ///
     /// # Preconditions
     /// - P5: Repository is open and valid
     /// - P8: Commit ID is not empty (validated by `CommitId`)
@@ -193,31 +156,11 @@ impl VcsBackend for GitBackend {
     /// # Errors
     /// - `VcsError::GitOpenFailed` if lookup fails due to repository corruption
     fn commit_exists(&self, id: &CommitId) -> Result<bool, VcsError> {
-        let repo = self.repo.lock().map_err(|_| {
-            VcsError::GitReferenceError("Failed to acquire repository lock".to_string())
-        })?;
-
-        let revision = id.as_str();
-
-        match repo.rev_parse(revision) {
-            Ok(obj) => {
-                let is_commit = obj.kind == gix::object::Kind::Commit;
-                Ok(is_commit)
-            }
-            Err(e) => {
-                let is_not_found = e.to_string().contains("not found")
-                    || e.to_string().contains("ambiguous")
-                    || e.to_string().contains("invalid");
-                if is_not_found {
-                    Ok(false)
-                } else {
-                    Err(VcsError::GitOpenFailed {
-                        path: self.path.as_path().to_path_buf(),
-                        message: format!("Failed to lookup commit: {}", e),
-                        source: None,
-                    })
-                }
-            }
+        let repo = helpers::lock_repo(&self.repo)?;
+        match helpers::resolve_ref(&repo, id.as_str()) {
+            Ok(_) => Ok(true),
+            Err(VcsError::NotFound { .. }) => Ok(false),
+            Err(e) => Err(e),
         }
     }
 
