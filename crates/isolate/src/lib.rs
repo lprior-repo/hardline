@@ -26,7 +26,10 @@
 #![allow(clippy::missing_errors_doc)]
 #![forbid(unsafe_code)]
 
+pub mod dag;
 pub mod domain;
 pub mod error;
 
-pub use domain::{WorkspaceState, WorkspaceStateMachine};pub use error::{IsolateError, Result};
+pub use dag::{BranchDag, BranchId, DagError};
+pub use domain::{WorkspaceState, WorkspaceStateMachine};
+pub use error::{IsolateError, Result};
