@@ -47,6 +47,3 @@
 [branch "polecat/opal-mnm0wazu"]
 	remote = origin
 	merge = refs/heads/polecat/opal-mnm0wazu
-[branch "temp"]
-	remote = origin
-	merge = refs/heads/polecat/flint-mnm2lq4l
