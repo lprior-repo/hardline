@@ -245,6 +245,18 @@
 [branch "polecat/onyx/ha-c4o@mnmm4wth"]
 	remote = origin
 	merge = refs/heads/main
+[branch "polecat/obsidian/hq-cv-limju@mnmmmnoi"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/quartz/hq-cv-gjg2i@mnmmmwvu"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/jasper/hq-cv-laqw2@mnmmn5d0"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/onyx/hq-cv-i4qf6@mnmmneqq"]
+	remote = origin
+	merge = refs/heads/main
 [branch "main"]
 	remote = origin
 	merge = refs/heads/main
