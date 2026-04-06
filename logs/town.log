@@ -2,3 +2,10 @@
 2026-04-05 14:40:50 [nudge] hardline/refinery nudged with "Witness: Topaz merged. Queue scan — multiple ..."
 2026-04-05 14:54:48 [handoff] hardline/refinery handed off (Refinery patrol idle)
 2026-04-05 14:56:52 [nudge] hardline/witness nudged with "Refinery patrol complete. Queue empty. All 17 s..."
+2026-04-05 19:26:05 [nudge] hardline/amber nudged with "IMPORTANT: Run the full /go-skill pipeline for ..."
+2026-04-05 19:26:31 [done] hardline/polecats/jade completed ha-eb0
+2026-04-05 19:27:17 [nudge] hardline/amber nudged with "Run the full /go-skill pipeline for this bead. ..."
+2026-04-05 19:27:21 [nudge] hardline/garnet nudged with "IMPORTANT: Run the full /go-skill pipeline for ..."
+2026-04-05 19:27:57 [done] hardline/polecats/ruby completed ha-bo9
+2026-04-05 19:27:59 [done] hardline/polecats/topaz completed ha-9qb
+2026-04-05 19:28:36 [nudge] hardline/jasper nudged with "IMPORTANT: Run the full /go-skill pipeline for ..."
