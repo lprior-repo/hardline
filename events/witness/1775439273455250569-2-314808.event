@@ -1,0 +1,9 @@
+{
+  "channel": "witness",
+  "payload": {
+    "message": "POLECAT_DONE obsidian exit=COMPLETED",
+    "source": "polecat"
+  },
+  "timestamp": "2026-04-05T20:34:33-05:00",
+  "type": "POLECAT_DONE"
+}
