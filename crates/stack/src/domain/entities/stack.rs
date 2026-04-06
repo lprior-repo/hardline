@@ -566,6 +566,391 @@ mod tests {
         assert_eq!(order.len(), 3);
     }
 
+    // ── Exhaustive topological_order tests (ha-ais2) ──
+
+    /// Helper: push a branch into the stack with minimal boilerplate.
+    fn push_branch(
+        stack: &mut Stack<Draft>,
+        name: &str,
+        parent: Option<&str>,
+    ) {
+        stack.branches.push(StackBranch {
+            name: BranchName::new(name.to_string()),
+            parent: parent.map(|p| BranchName::new(p.to_string())),
+            children: vec![],
+            needs_restack: false,
+            pr_info: None,
+        });
+    }
+
+    /// Helper: get the name at position i in topological order.
+    fn topo_name_at(order: &[&StackBranch], i: usize) -> Option<String> {
+        order.get(i).map(|b| b.name.as_str().to_string())
+    }
+
+    /// Helper: build index map from branch name → position in topo order.
+    fn topo_index_map(order: &[&StackBranch]) -> std::collections::HashMap<String, usize> {
+        order
+            .iter()
+            .enumerate()
+            .map(|(i, b)| (b.name.as_str().to_string(), i))
+            .collect()
+    }
+
+    // 1. Single branch — returns single-element list (already tested above,
+    //    but this version asserts the exact element, not just length).
+
+    #[test]
+    fn test_topo_single_branch_returns_exact_element() {
+        let stack = Stack::<Draft>::new(BranchName::new("main"));
+        let mut s = stack;
+        push_branch(&mut s, "only", None);
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 1, "single branch should produce 1 element");
+        assert_eq!(order[0].name.as_str(), "only");
+    }
+
+    // 2. Linear chain A→B→C returns [A,B,C] (exact ordering).
+
+    #[test]
+    fn test_topo_linear_chain_abc_exact_order() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "a", Some("main"));
+        push_branch(&mut s, "b", Some("a"));
+        push_branch(&mut s, "c", Some("b"));
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 3);
+        let idx = topo_index_map(&order);
+        assert!(
+            idx["a"] < idx["b"],
+            "a ({}) must come before b ({})",
+            idx["a"],
+            idx["b"],
+        );
+        assert!(
+            idx["b"] < idx["c"],
+            "b ({}) must come before c ({})",
+            idx["b"],
+            idx["c"],
+        );
+        // Verify the exact sequence is [a, b, c]
+        assert_eq!(topo_name_at(&order, 0), Some("a".to_string()));
+        assert_eq!(topo_name_at(&order, 1), Some("b".to_string()));
+        assert_eq!(topo_name_at(&order, 2), Some("c".to_string()));
+    }
+
+    // 3. Diamond DAG: A→B, A→C, B→D — valid topological sort.
+    //    Invariant: B comes before D; A is not in branches so it has no node.
+
+    #[test]
+    fn test_topo_diamond_dag_invariants() {
+        let mut s = Stack::<Draft>::new(BranchName::new("A"));
+        push_branch(&mut s, "B", Some("A"));
+        push_branch(&mut s, "C", Some("A"));
+        push_branch(&mut s, "D", Some("B"));
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 3, "should have B, C, D");
+        let idx = topo_index_map(&order);
+        assert!(
+            idx["B"] < idx["D"],
+            "B must come before D: got B={:?}, D={:?}",
+            idx.get("B"),
+            idx.get("D"),
+        );
+    }
+
+    // 3b. Diamond with two paths converging: main→a, main→b, a→c, b→c
+    //     This requires c to have only one parent, so we test what's possible.
+
+    #[test]
+    fn test_topo_diamond_two_paths() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "a", Some("main"));
+        push_branch(&mut s, "b", Some("main"));
+        push_branch(&mut s, "c", Some("a")); // c depends on a
+        push_branch(&mut s, "d", Some("b")); // d depends on b
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 4);
+        let idx = topo_index_map(&order);
+        assert!(idx["a"] < idx["c"], "a must precede c");
+        assert!(idx["b"] < idx["d"], "b must precede d");
+        // No constraint between {a,c} and {b,d} — they are independent chains
+    }
+
+    // 4. Cycle detection: A→B→C→A returns fallback (all branches present).
+
+    #[test]
+    fn test_topo_cycle_three_nodes() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "cycle-a", Some("cycle-c")); // a depends on c
+        push_branch(&mut s, "cycle-b", Some("cycle-a")); // b depends on a
+        push_branch(&mut s, "cycle-c", Some("cycle-b")); // c depends on b
+        // cycle: a→b→c→a
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 3, "cycle should fall back to all branches");
+        // All branches present
+        let names: Vec<&str> = order.iter().map(|b| b.name.as_str()).collect();
+        assert!(names.contains(&"cycle-a"));
+        assert!(names.contains(&"cycle-b"));
+        assert!(names.contains(&"cycle-c"));
+    }
+
+    #[test]
+    fn test_topo_cycle_two_nodes() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "x", Some("y")); // x depends on y
+        push_branch(&mut s, "y", Some("x")); // y depends on x
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 2, "2-node cycle should fall back");
+    }
+
+    // 5. Disconnected components: two independent subgraphs.
+
+    #[test]
+    fn test_topo_disconnected_components() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        // Subgraph 1: a → b
+        push_branch(&mut s, "a", None); // no parent — disconnected root
+        push_branch(&mut s, "b", Some("a"));
+        // Subgraph 2: c → d
+        push_branch(&mut s, "c", None); // no parent — disconnected root
+        push_branch(&mut s, "d", Some("c"));
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 4, "all branches present");
+        let idx = topo_index_map(&order);
+        assert!(idx["a"] < idx["b"], "a must precede b");
+        assert!(idx["c"] < idx["d"], "c must precede d");
+        // No ordering constraint between subgraphs
+    }
+
+    #[test]
+    fn test_topo_disconnected_three_islands() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        // Island 1: solo branch
+        push_branch(&mut s, "island-1", None);
+        // Island 2: chain x → y
+        push_branch(&mut s, "x", None);
+        push_branch(&mut s, "y", Some("x"));
+        // Island 3: solo branch
+        push_branch(&mut s, "island-3", None);
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 4);
+        let idx = topo_index_map(&order);
+        assert!(idx["x"] < idx["y"], "x before y within island 2");
+        // island-1 and island-3 are free-floating — just verify they're present
+        assert!(idx.contains_key("island-1"));
+        assert!(idx.contains_key("island-3"));
+    }
+
+    // 6. Self-referencing branch: branch whose parent is itself.
+
+    #[test]
+    fn test_topo_self_referencing_branch() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        // Self-loop: branch "self-loop" has parent "self-loop"
+        s.branches.push(StackBranch {
+            name: BranchName::new("self-loop".to_string()),
+            parent: Some(BranchName::new("self-loop".to_string())),
+            children: vec![],
+            needs_restack: false,
+            pr_info: None,
+        });
+
+        let order = s.topological_order();
+        // Self-loop is a cycle — should fall back to all branches
+        assert_eq!(order.len(), 1, "self-referencing branch should still appear");
+        assert_eq!(order[0].name.as_str(), "self-loop");
+    }
+
+    // 7. Dependency on non-existent branch: parent points to branch not in the stack.
+    //    The graph builder skips edges where parent is not found, so the branch
+    //    becomes a disconnected node.
+
+    #[test]
+    fn test_topo_dependency_on_nonexistent_branch() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "a", Some("main"));
+        push_branch(&mut s, "b", Some("ghost")); // "ghost" doesn't exist
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 2, "both branches should appear");
+        let names: Vec<&str> = order.iter().map(|b| b.name.as_str()).collect();
+        assert!(names.contains(&"a"));
+        assert!(names.contains(&"b"));
+        // "ghost" is not in branches, so no edge from ghost→b is created.
+        // b is effectively a root node.
+    }
+
+    // 8. Topological sort stability: consistent ordering for same input.
+
+    #[test]
+    fn test_topo_stability_consistent_ordering() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "a", Some("main"));
+        push_branch(&mut s, "b", Some("main"));
+        push_branch(&mut s, "c", Some("a"));
+        push_branch(&mut s, "d", Some("b"));
+
+        let order1 = s.topological_order();
+        let order2 = s.topological_order();
+        let order3 = s.topological_order();
+
+        let names1: Vec<&str> = order1.iter().map(|b| b.name.as_str()).collect();
+        let names2: Vec<&str> = order2.iter().map(|b| b.name.as_str()).collect();
+        let names3: Vec<&str> = order3.iter().map(|b| b.name.as_str()).collect();
+
+        assert_eq!(names1, names2, "topo order must be deterministic");
+        assert_eq!(names2, names3, "topo order must be deterministic across calls");
+    }
+
+    #[test]
+    fn test_topo_stability_with_disconnected_components() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "x", None);
+        push_branch(&mut s, "y", None);
+        push_branch(&mut s, "z", Some("x"));
+
+        let names1: Vec<&str> = s.topological_order().iter().map(|b| b.name.as_str()).collect();
+        let names2: Vec<&str> = s.topological_order().iter().map(|b| b.name.as_str()).collect();
+        assert_eq!(names1, names2, "disconnected graph topo must be deterministic");
+    }
+
+    // 9. Linear chain of 5 — deeper chain with exact ordering verification.
+
+    #[test]
+    fn test_topo_linear_chain_five_deep() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "a", Some("main"));
+        push_branch(&mut s, "b", Some("a"));
+        push_branch(&mut s, "c", Some("b"));
+        push_branch(&mut s, "d", Some("c"));
+        push_branch(&mut s, "e", Some("d"));
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 5);
+        // Exact sequence: a, b, c, d, e
+        assert_eq!(topo_name_at(&order, 0), Some("a".to_string()));
+        assert_eq!(topo_name_at(&order, 1), Some("b".to_string()));
+        assert_eq!(topo_name_at(&order, 2), Some("c".to_string()));
+        assert_eq!(topo_name_at(&order, 3), Some("d".to_string()));
+        assert_eq!(topo_name_at(&order, 4), Some("e".to_string()));
+    }
+
+    // 10. All branches with no parents (fully disconnected).
+
+    #[test]
+    fn test_topo_all_branches_no_parent() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "a", None);
+        push_branch(&mut s, "b", None);
+        push_branch(&mut s, "c", None);
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 3);
+        // All present, no ordering constraints
+        let names: Vec<&str> = order.iter().map(|b| b.name.as_str()).collect();
+        assert!(names.contains(&"a"));
+        assert!(names.contains(&"b"));
+        assert!(names.contains(&"c"));
+    }
+
+    // 11. Diamond with shared leaf: main→a, main→b, a→c, b→c.
+    //     Since c can only have one parent, we create two branches that
+    //     both point to c as child. The graph edge is only from one parent.
+    //     Test the actual diamond from the existing test but with stronger invariants.
+
+    #[test]
+    fn test_topo_diamond_shared_leaf_strict() {
+        let mut s = Stack::<Draft>::new(BranchName::new("root"));
+        push_branch(&mut s, "left", Some("root"));
+        push_branch(&mut s, "right", Some("root"));
+        push_branch(&mut s, "merge", Some("left")); // merge depends on left
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 3);
+        let idx = topo_index_map(&order);
+        // left must come before merge; right is independent
+        assert!(idx["left"] < idx["merge"]);
+    }
+
+    // 12. Cycle with extra non-cyclic branch attached.
+
+    #[test]
+    fn test_topo_cycle_with_outside_branch() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        // Cycle
+        push_branch(&mut s, "cycle-a", Some("cycle-b"));
+        push_branch(&mut s, "cycle-b", Some("cycle-a"));
+        // Non-cyclic branch attached to main
+        push_branch(&mut s, "safe", Some("main"));
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 3, "all branches present despite cycle");
+        let names: Vec<&str> = order.iter().map(|b| b.name.as_str()).collect();
+        assert!(names.contains(&"cycle-a"));
+        assert!(names.contains(&"cycle-b"));
+        assert!(names.contains(&"safe"));
+    }
+
+    // 13. Single branch with parent = main (the root). Tests root-level dependency.
+
+    #[test]
+    fn test_topo_single_branch_parent_is_main() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "feature", Some("main"));
+        // main is not in branches, so no edge created — feature is a root node
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 1);
+        assert_eq!(order[0].name.as_str(), "feature");
+    }
+
+    // 14. Multiple branches sharing the same parent (fan-out).
+
+    #[test]
+    fn test_topo_fan_out_from_root() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "feat-1", Some("main"));
+        push_branch(&mut s, "feat-2", Some("main"));
+        push_branch(&mut s, "feat-3", Some("main"));
+        push_branch(&mut s, "feat-4", Some("main"));
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 4);
+        // All should be present; no inter-branch ordering constraints
+        let names: Vec<&str> = order.iter().map(|b| b.name.as_str()).collect();
+        assert!(names.contains(&"feat-1"));
+        assert!(names.contains(&"feat-2"));
+        assert!(names.contains(&"feat-3"));
+        assert!(names.contains(&"feat-4"));
+    }
+
+    // 15. Wide-then-narrow: many roots converging to single leaf.
+
+    #[test]
+    fn test_topo_converging_branches() {
+        let mut s = Stack::<Draft>::new(BranchName::new("main"));
+        push_branch(&mut s, "a", Some("main"));
+        push_branch(&mut s, "b", Some("main"));
+        push_branch(&mut s, "c", Some("a")); // c depends on a
+        // b has no children — it's independent
+
+        let order = s.topological_order();
+        assert_eq!(order.len(), 3);
+        let idx = topo_index_map(&order);
+        assert!(idx["a"] < idx["c"]);
+    }
+
+    // ── End exhaustive topological_order tests ──
+
     #[test]
     fn test_ancestors_from_root() {
         let stack = create_test_stack();
