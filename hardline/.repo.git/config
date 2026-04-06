@@ -260,3 +260,15 @@
 [branch "main"]
 	remote = origin
 	merge = refs/heads/main
+[branch "polecat/obsidian/hq-cv-oefxi@mnmmv50y"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/onyx/hq-cv-limju@mnmmw8sd"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/quartz/hq-cv-rzywo@mnmmwqwl"]
+	remote = origin
+	merge = refs/heads/main
+[branch "temp"]
+	remote = origin
+	merge = refs/heads/polecat/obsidian-mnmmvd03
