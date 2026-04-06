@@ -19,3 +19,4 @@ tokio-test = { workspace = true }
 tempfile = { workspace = true }
 serde_json = { workspace = true }
 proptest = { workspace = true }
+bincode = "1.3"
