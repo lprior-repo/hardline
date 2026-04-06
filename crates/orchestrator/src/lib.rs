@@ -37,6 +37,7 @@ pub use policies::{
 };
 pub use queue::{
     InMemoryJobRepository, Job, JobOutcome, JobPayload, JobPriority, JobProcessor,
-    JobProcessorConfig, JobRepository, JobResult, JobState, QueueError, QueueResult,
+    JobProcessorConfig, JobRepository, JobResult, JobState, JobTransitionError, QueueError,
+    QueueResult,
 };
 pub use state::{Pipeline, PipelineId, PipelineState};

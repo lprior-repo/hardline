@@ -12,7 +12,7 @@ pub mod types;
 
 pub use processor::{JobProcessor, JobProcessorConfig, QueueError, QueueResult};
 pub use repository::{sort_jobs_by_priority, InMemoryJobRepository, JobRepository};
-pub use types::{Job, JobOutcome, JobPayload, JobPriority, JobResult, JobState};
+pub use types::{Job, JobOutcome, JobPayload, JobPriority, JobResult, JobState, JobTransitionError};
 
 #[cfg(test)]
 mod tests {
