@@ -128,3 +128,21 @@
 [branch "polecat/jasper/ha-t1td@mnmi0rr4"]
 	remote = origin
 	merge = refs/heads/main
+[branch "polecat/obsidian/ha-r1eg@mnmi9e35"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/onyx/ha-ais2@mnmi9hck"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/quartz/ha-j7gq@mnmibjvw"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/jasper/ha-alvc@mnmibnzm"]
+	remote = origin
+	merge = refs/heads/main
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+[branch "temp"]
+	remote = origin
+	merge = refs/heads/polecat/onyx-mnmi9jfc

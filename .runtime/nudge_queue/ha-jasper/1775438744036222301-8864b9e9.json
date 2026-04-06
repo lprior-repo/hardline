@@ -1,0 +1,8 @@
+{
+  "sender": "mayor",
+  "message": "Start ha-alvc immediately. /go-skill pipeline. Close bead when done.",
+  "priority": "normal",
+  "timestamp": "2026-04-05T20:25:44.036222301-05:00",
+  "expires_at": "2026-04-05T20:55:44.036222301-05:00",
+  "deliver_after": "0001-01-01T00:00:00Z"
+}
