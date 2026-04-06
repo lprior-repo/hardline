@@ -302,3 +302,12 @@
 [branch "polecat/opal/ha-eswb@mnmnvb3o"]
 	remote = origin
 	merge = refs/heads/main
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/obsidian-mnmnv040"]
+	remote = origin
+	merge = refs/heads/polecat/obsidian-mnmnv040
+[branch "polecat/opal-mnmnvj6a"]
+	remote = origin
+	merge = refs/heads/polecat/opal-mnmnvj6a
