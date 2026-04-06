@@ -77,9 +77,18 @@
 [branch "polecat/jade/ha-eb0@mnmg5pys"]
 	remote = origin
 	merge = refs/heads/main
-[branch "polecat/topaz-mnmg4dqz"]
+[branch "polecat/obsidian/ha-d9vg@mnmgmso2"]
 	remote = origin
-	merge = refs/heads/polecat/topaz-mnmg4dqz
-[branch "temp"]
+	merge = refs/heads/main
+[branch "polecat/quartz/ha-t1td@mnmgmsux"]
 	remote = origin
-	merge = refs/heads/polecat/ruby-mnmg5g5s
+	merge = refs/heads/main
+[branch "polecat/obsidian/ha-o9co@mnmgohj2"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/jasper/ha-hpbx@mnmgohq3"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/onyx/ha-d9vg@mnmgpjct"]
+	remote = origin
+	merge = refs/heads/main

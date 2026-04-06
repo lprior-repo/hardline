@@ -1,0 +1,8 @@
+{
+  "sender": "mayor",
+  "message": "CRITICAL: You must run the full /go-skill pipeline for your bead. Start with /go-skill command now. The GoMasterOrchestrator is mandatory: claim -\u003e go-skill -\u003e implement -\u003e review -\u003e land.",
+  "priority": "normal",
+  "timestamp": "2026-04-05T19:30:22.474786316-05:00",
+  "expires_at": "2026-04-05T20:00:22.474786316-05:00",
+  "deliver_after": "0001-01-01T00:00:00Z"
+}

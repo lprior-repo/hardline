@@ -9,3 +9,10 @@
 2026-04-05 19:27:57 [done] hardline/polecats/ruby completed ha-bo9
 2026-04-05 19:27:59 [done] hardline/polecats/topaz completed ha-9qb
 2026-04-05 19:28:36 [nudge] hardline/jasper nudged with "IMPORTANT: Run the full /go-skill pipeline for ..."
+2026-04-05 19:31:22 [nudge] hardline/amber nudged with "CRITICAL: You must run the full /go-skill pipel..."
+2026-04-05 19:31:45 [done] hardline/polecats/garnet completed ha-ao6
+2026-04-05 19:31:47 [nudge] hardline/garnet nudged with "CRITICAL: Run the full /go-skill pipeline for y..."
+2026-04-05 19:31:55 [done] hardline/polecats/jasper completed ha-72j
+2026-04-05 19:32:08 [nudge] hardline/jasper nudged with "CRITICAL: Run the full /go-skill pipeline for y..."
+2026-04-05 19:32:12 [done] hardline/polecats/amber completed ha-dl99
+2026-04-05 19:38:38 [nudge] hardline/witness nudged with "Patrol cycle done. Merged 4: ruby, topaz, jaspe..."
