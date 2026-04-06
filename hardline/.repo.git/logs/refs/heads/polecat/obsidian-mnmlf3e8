@@ -1,0 +1,3 @@
+0000000000000000000000000000000000000000 813bdefddaa867273ea39f898fec90a1e5d6e101 Lewis <priorlewis43@gmail.com> 1775443835 -0500	branch: Created from polecat/obsidian/ha-hpbx@mnmlewx7
+813bdefddaa867273ea39f898fec90a1e5d6e101 17718d0cd32990fbb09a83eaa9905536cdb1c1da Lewis <priorlewis43@gmail.com> 1775444289 -0500	commit: test: exhaustive Lifecycle state machine tests — transitions, guards, history, proptests (ha-hpbx)
+17718d0cd32990fbb09a83eaa9905536cdb1c1da 1e23aa7dc46ee9c12f2ec6bc1f0232752c9a125b Lewis <priorlewis43@gmail.com> 1775444293 -0500	commit: fix: auto-save uncommitted implementation work (gt-pvx safety net)
