@@ -958,6 +958,149 @@ mod tests {
             let desc = BeadDescription::new("line1\nline2\nline3").unwrap();
             assert_eq!(desc.as_str().lines().count(), 3);
         }
+
+        // ── Markdown content preservation ──────────────────────────────────
+        //
+        // BeadDescription stores raw text. Markdown syntax must pass through
+        // unchanged — no parsing, no stripping, no transformation.
+
+        #[test]
+        fn markdown_headers_preserved() {
+            let md = "# Heading 1\n## Heading 2\n### Heading 3";
+            let desc = BeadDescription::new(md).unwrap();
+            assert_eq!(desc.as_str(), md);
+        }
+
+        #[test]
+        fn markdown_bold_italic_preserved() {
+            let md = "This is **bold** and *italic* and ***both***.";
+            let desc = BeadDescription::new(md).unwrap();
+            assert_eq!(desc.as_str(), md);
+        }
+
+        #[test]
+        fn markdown_code_blocks_preserved() {
+            let md = "Inline `code` and:\n```\nfenced block\n```";
+            let desc = BeadDescription::new(md).unwrap();
+            assert!(desc.as_str().contains("`code`"));
+            assert!(desc.as_str().contains("```\nfenced block\n```"));
+        }
+
+        #[test]
+        fn markdown_links_preserved() {
+            let md = "[link text](https://example.com)";
+            let desc = BeadDescription::new(md).unwrap();
+            assert_eq!(desc.as_str(), md);
+        }
+
+        #[test]
+        fn markdown_lists_preserved() {
+            let md = "- item one\n- item two\n  - nested\n1. ordered";
+            let desc = BeadDescription::new(md).unwrap();
+            assert_eq!(desc.as_str(), md);
+        }
+
+        #[test]
+        fn markdown_mixed_content() {
+            let md = "# Title\n\nParagraph with **bold** and `code`.\n\n- list item\n- [link](url)\n\n> blockquote";
+            let desc = BeadDescription::new(md).unwrap();
+            assert_eq!(desc.as_str(), md);
+        }
+
+        // ── Empty string vs None distinction ───────────────────────────────
+        //
+        // At the value-object level, BeadDescription("") is valid and
+        // distinguishable from None (which lives at the Bead entity level).
+        // An empty-string description is a deliberate choice — "I set a
+        // description, but it's empty" vs "no description at all".
+
+        #[test]
+        fn empty_string_is_some_not_none() {
+            // Empty string creates a valid BeadDescription (Some), not None
+            let desc = BeadDescription::new("");
+            assert!(desc.is_ok());
+            let desc = desc.unwrap();
+            assert!(desc.is_empty());
+            // The value object itself proves it exists (is Some)
+            assert_eq!(desc.as_str(), "");
+        }
+
+        #[test]
+        fn none_is_not_a_bead_description() {
+            // None lives at Option<BeadDescription> level, not inside the type
+            let none_desc: Option<BeadDescription> = None;
+            let empty_desc: Option<BeadDescription> = Some(BeadDescription::new("").unwrap());
+            assert!(none_desc.is_none());
+            assert!(empty_desc.is_some());
+            // They are definitively different
+            assert_ne!(none_desc, empty_desc);
+        }
+
+        #[test]
+        fn option_some_empty_vs_option_some_content() {
+            let none_like: Option<BeadDescription> = Some(BeadDescription::new("").unwrap());
+            let some_content: Option<BeadDescription> =
+                Some(BeadDescription::new("actual content").unwrap());
+            // Both are Some, but content differs
+            assert!(none_like.is_some());
+            assert!(some_content.is_some());
+            assert_ne!(none_like, some_content);
+            assert!(none_like.as_ref().unwrap().is_empty());
+            assert!(!some_content.as_ref().unwrap().is_empty());
+        }
+
+        // ── Derive coverage ────────────────────────────────────────────────
+
+        #[test]
+        fn clone_produces_equal_value() {
+            let desc = BeadDescription::new("clonable").unwrap();
+            let cloned = desc.clone();
+            assert_eq!(desc, cloned);
+        }
+
+        #[test]
+        fn debug_output_contains_inner() {
+            let desc = BeadDescription::new("visible in debug").unwrap();
+            let debug_str = format!("{desc:?}");
+            assert!(debug_str.contains("visible in debug"));
+        }
+
+        // ── TryFrom failure path ───────────────────────────────────────────
+
+        #[test]
+        fn try_from_rejects_oversized() {
+            let long = "x".repeat(BeadDescription::MAX_LENGTH + 1);
+            let result = BeadDescription::try_from(long);
+            assert!(result.is_err());
+        }
+
+        // ── Serde edge cases ───────────────────────────────────────────────
+
+        #[test]
+        fn serde_roundtrip_at_max_length() {
+            let desc =
+                BeadDescription::new("x".repeat(BeadDescription::MAX_LENGTH)).unwrap();
+            let json = serde_json::to_string(&desc).unwrap();
+            let parsed: BeadDescription = serde_json::from_str(&json).unwrap();
+            assert_eq!(desc, parsed);
+        }
+
+        #[test]
+        fn serde_roundtrip_with_markdown() {
+            let md = "# Title\n**bold** `code`\n- item";
+            let desc = BeadDescription::new(md).unwrap();
+            let json = serde_json::to_string(&desc).unwrap();
+            let parsed: BeadDescription = serde_json::from_str(&json).unwrap();
+            assert_eq!(desc, parsed);
+            assert_eq!(parsed.as_str(), md);
+        }
+
+        #[test]
+        fn serde_deserializes_empty_string() {
+            let json = r#""""#;
+            let desc: BeadDescription = serde_json::from_str(json).unwrap();
+            assert!(desc.is_empty());
+        }
     }
 
     // ── BeadState tests ──────────────────────────────────────────────────────
