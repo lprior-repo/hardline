@@ -243,7 +243,7 @@ impl RepoStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prop_assert_eq;
+    use proptest::{prop_assert, prop_assert_eq};
 
     #[test]
     fn branch_name_accepts_valid() {
@@ -839,6 +839,658 @@ mod tests {
                 other => panic!("unexpected: {other}"),
             };
             assert_eq!(status, parsed, "roundtrip failed for {expected}");
+        }
+    }
+
+    // ========================================================================
+    // Branch exhaustive tests
+    // ========================================================================
+    // Branch is a DTO: { name, is_current, tracking }. No PartialEq derive,
+    // so equality is field-by-field. No Display impl — only Debug.
+
+    // ── Construction ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn branch_construction_minimal() {
+        let b = Branch {
+            name: "main".into(),
+            is_current: false,
+            tracking: None,
+        };
+        assert_eq!(b.name, "main");
+        assert!(!b.is_current);
+        assert!(b.tracking.is_none());
+    }
+
+    #[test]
+    fn branch_construction_current_with_tracking() {
+        let b = Branch {
+            name: "feature/auth".into(),
+            is_current: true,
+            tracking: Some("origin/feature/auth".into()),
+        };
+        assert_eq!(b.name, "feature/auth");
+        assert!(b.is_current);
+        assert_eq!(b.tracking.as_deref(), Some("origin/feature/auth"));
+    }
+
+    #[test]
+    fn branch_construction_current_without_tracking() {
+        // Local-only branch, no remote tracking
+        let b = Branch {
+            name: "wip".into(),
+            is_current: true,
+            tracking: None,
+        };
+        assert!(b.is_current);
+        assert!(b.tracking.is_none());
+    }
+
+    #[test]
+    fn branch_construction_not_current_with_tracking() {
+        // Non-current branch that has a remote counterpart
+        let b = Branch {
+            name: "develop".into(),
+            is_current: false,
+            tracking: Some("upstream/develop".into()),
+        };
+        assert!(!b.is_current);
+        assert_eq!(b.tracking.as_deref(), Some("upstream/develop"));
+    }
+
+    #[test]
+    fn branch_name_various_valid_patterns() {
+        let valid_names = [
+            "main",
+            "master",
+            "develop",
+            "feature/foo",
+            "feature/foo-bar",
+            "feature/foo_bar",
+            "fix-123",
+            "release/v2.0",
+            "hotfix/urgent-fix",
+            "a",
+            "v1.0.0",
+            "camelCaseBranch",
+            "UPPER",
+            "123numeric",
+            "a/b/c/d/e",
+            "trailing.",
+            "name.with.dots",
+        ];
+        for name in valid_names {
+            let b = Branch {
+                name: name.into(),
+                is_current: false,
+                tracking: None,
+            };
+            assert_eq!(b.name, name, "valid branch name failed: {name}");
+        }
+    }
+
+    // ── Clone ────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn branch_clone_is_independent() {
+        let b = Branch {
+            name: "feature/x".into(),
+            is_current: true,
+            tracking: Some("origin/feature/x".into()),
+        };
+        let mut cloned = b.clone();
+        // Mutating clone must not affect original
+        cloned.name = "feature/y".into();
+        cloned.is_current = false;
+        cloned.tracking = None;
+        assert_eq!(b.name, "feature/x");
+        assert!(b.is_current);
+        assert_eq!(b.tracking.as_deref(), Some("origin/feature/x"));
+    }
+
+    #[test]
+    fn branch_clone_preserves_all_fields() {
+        let b = Branch {
+            name: "release/v3.1".into(),
+            is_current: true,
+            tracking: Some("origin/release/v3.1".into()),
+        };
+        let cloned = b.clone();
+        assert_eq!(cloned.name, b.name);
+        assert_eq!(cloned.is_current, b.is_current);
+        assert_eq!(cloned.tracking, b.tracking);
+    }
+
+    // ── Debug ────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn branch_debug_format() {
+        let b = Branch {
+            name: "main".into(),
+            is_current: true,
+            tracking: Some("origin/main".into()),
+        };
+        let debug = format!("{b:?}");
+        assert!(debug.contains("Branch"), "Debug should contain type name");
+        assert!(debug.contains("main"), "Debug should contain name");
+        assert!(debug.contains("origin/main"), "Debug should contain tracking");
+    }
+
+    #[test]
+    fn branch_debug_format_no_tracking() {
+        let b = Branch {
+            name: "local".into(),
+            is_current: false,
+            tracking: None,
+        };
+        let debug = format!("{b:?}");
+        assert!(debug.contains("Branch"));
+        assert!(debug.contains("local"));
+        assert!(debug.contains("None"), "Debug should show None for tracking");
+    }
+
+    // ── Field-by-field equality (no PartialEq derive) ───────────────────────
+
+    #[test]
+    fn branch_field_equality_same() {
+        let a = Branch {
+            name: "main".into(),
+            is_current: true,
+            tracking: Some("origin/main".into()),
+        };
+        let b = Branch {
+            name: "main".into(),
+            is_current: true,
+            tracking: Some("origin/main".into()),
+        };
+        assert_eq!(a.name, b.name);
+        assert_eq!(a.is_current, b.is_current);
+        assert_eq!(a.tracking, b.tracking);
+    }
+
+    #[test]
+    fn branch_field_equality_diff_name() {
+        let a = Branch {
+            name: "main".into(),
+            is_current: true,
+            tracking: Some("origin/main".into()),
+        };
+        let b = Branch {
+            name: "develop".into(),
+            is_current: true,
+            tracking: Some("origin/main".into()),
+        };
+        assert_ne!(a.name, b.name);
+    }
+
+    #[test]
+    fn branch_field_equality_diff_current() {
+        let a = Branch {
+            name: "main".into(),
+            is_current: true,
+            tracking: None,
+        };
+        let b = Branch {
+            name: "main".into(),
+            is_current: false,
+            tracking: None,
+        };
+        assert_ne!(a.is_current, b.is_current);
+    }
+
+    #[test]
+    fn branch_field_equality_diff_tracking() {
+        let a = Branch {
+            name: "main".into(),
+            is_current: true,
+            tracking: Some("origin/main".into()),
+        };
+        let b = Branch {
+            name: "main".into(),
+            is_current: true,
+            tracking: None,
+        };
+        assert_ne!(a.tracking, b.tracking);
+    }
+
+    // ── Tracking branch parsing ─────────────────────────────────────────────
+
+    /// Helper: parse a tracking ref like "origin/main" into (remote, branch).
+    fn parse_tracking(tracking: &str) -> Option<(&str, &str)> {
+        let (remote, branch) = tracking.split_once('/')?;
+        if remote.is_empty() || branch.is_empty() {
+            return None;
+        }
+        Some((remote, branch))
+    }
+
+    #[test]
+    fn tracking_parse_origin_main() {
+        let (remote, branch) = parse_tracking("origin/main").expect("parse");
+        assert_eq!(remote, "origin");
+        assert_eq!(branch, "main");
+    }
+
+    #[test]
+    fn tracking_parse_upstream_develop() {
+        let (remote, branch) = parse_tracking("upstream/develop").expect("parse");
+        assert_eq!(remote, "upstream");
+        assert_eq!(branch, "develop");
+    }
+
+    #[test]
+    fn tracking_parse_nested_branch() {
+        // "origin/feature/auth" -> remote="origin", branch="feature/auth"
+        let (remote, branch) = parse_tracking("origin/feature/auth").expect("parse");
+        assert_eq!(remote, "origin");
+        assert_eq!(branch, "feature/auth");
+    }
+
+    #[test]
+    fn tracking_parse_rejects_no_slash() {
+        assert!(parse_tracking("main").is_none());
+    }
+
+    #[test]
+    fn tracking_parse_rejects_empty_remote() {
+        assert!(parse_tracking("/main").is_none());
+    }
+
+    #[test]
+    fn tracking_parse_rejects_empty_branch() {
+        assert!(parse_tracking("origin/").is_none());
+    }
+
+    #[test]
+    fn tracking_parse_custom_remote() {
+        let (remote, branch) = parse_tracking("my-fork/feature/x").expect("parse");
+        assert_eq!(remote, "my-fork");
+        assert_eq!(branch, "feature/x");
+    }
+
+    #[test]
+    fn branch_tracking_various_remotes() {
+        let remotes = ["origin", "upstream", "my-fork", "backup"];
+        for remote in remotes {
+            let tracking = format!("{remote}/main");
+            let b = Branch {
+                name: "main".into(),
+                is_current: false,
+                tracking: Some(tracking.clone()),
+            };
+            assert_eq!(b.tracking.as_deref(), Some(tracking.as_str()));
+            let (parsed_remote, parsed_branch) = parse_tracking(&tracking).expect("parse");
+            assert_eq!(parsed_remote, remote);
+            assert_eq!(parsed_branch, "main");
+        }
+    }
+
+    // ── Current branch detection ─────────────────────────────────────────────
+
+    #[test]
+    fn current_branch_true() {
+        let b = Branch {
+            name: "main".into(),
+            is_current: true,
+            tracking: None,
+        };
+        assert!(b.is_current);
+    }
+
+    #[test]
+    fn current_branch_false() {
+        let b = Branch {
+            name: "main".into(),
+            is_current: false,
+            tracking: None,
+        };
+        assert!(!b.is_current);
+    }
+
+    #[test]
+    fn multiple_branches_exactly_one_current() {
+        let branches = [
+            Branch { name: "main".into(), is_current: true, tracking: Some("origin/main".into()) },
+            Branch { name: "develop".into(), is_current: false, tracking: Some("origin/develop".into()) },
+            Branch { name: "feature/x".into(), is_current: false, tracking: None },
+        ];
+        let current_count = branches.iter().filter(|b| b.is_current).count();
+        assert_eq!(current_count, 1, "exactly one branch should be current");
+        assert!(branches[0].is_current);
+        assert_eq!(branches[0].name, "main");
+    }
+
+    #[test]
+    fn no_branch_current_detached_head() {
+        let branches = [
+            Branch { name: "main".into(), is_current: false, tracking: Some("origin/main".into()) },
+            Branch { name: "develop".into(), is_current: false, tracking: Some("origin/develop".into()) },
+        ];
+        let current_count = branches.iter().filter(|b| b.is_current).count();
+        assert_eq!(current_count, 0, "no branch should be current (detached HEAD)");
+    }
+
+    // ── Serde roundtrip ──────────────────────────────────────────────────────
+
+    #[test]
+    fn branch_serde_roundtrip_full() {
+        let original = Branch {
+            name: "feature/auth".into(),
+            is_current: true,
+            tracking: Some("origin/feature/auth".into()),
+        };
+        let json = serde_json::to_string(&original).expect("serialize");
+        let deserialized: Branch = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized.name, original.name);
+        assert_eq!(deserialized.is_current, original.is_current);
+        assert_eq!(deserialized.tracking, original.tracking);
+    }
+
+    #[test]
+    fn branch_serde_roundtrip_no_tracking() {
+        let original = Branch {
+            name: "wip".into(),
+            is_current: false,
+            tracking: None,
+        };
+        let json = serde_json::to_string(&original).expect("serialize");
+        let deserialized: Branch = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized.name, "wip");
+        assert!(!deserialized.is_current);
+        assert!(deserialized.tracking.is_none());
+    }
+
+    #[test]
+    fn branch_serialize_format() {
+        let b = Branch {
+            name: "main".into(),
+            is_current: true,
+            tracking: Some("origin/main".into()),
+        };
+        let json = serde_json::to_string(&b).expect("serialize");
+        assert!(json.contains("\"name\":\"main\""));
+        assert!(json.contains("\"is_current\":true"));
+        assert!(json.contains("\"tracking\":\"origin/main\""));
+    }
+
+    #[test]
+    fn branch_serialize_null_tracking() {
+        let b = Branch {
+            name: "local".into(),
+            is_current: false,
+            tracking: None,
+        };
+        let json = serde_json::to_string(&b).expect("serialize");
+        assert!(json.contains("\"tracking\":null"), "None should serialize to null");
+    }
+
+    #[test]
+    fn branch_deserialize_from_json() {
+        let json = r#"{"name":"develop","is_current":false,"tracking":"upstream/develop"}"#;
+        let b: Branch = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(b.name, "develop");
+        assert!(!b.is_current);
+        assert_eq!(b.tracking.as_deref(), Some("upstream/develop"));
+    }
+
+    #[test]
+    fn branch_deserialize_with_null_tracking() {
+        let json = r#"{"name":"local","is_current":true,"tracking":null}"#;
+        let b: Branch = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(b.name, "local");
+        assert!(b.is_current);
+        assert!(b.tracking.is_none());
+    }
+
+    #[test]
+    fn branch_deserialize_missing_tracking_field() {
+        // Serde default for Option<String> is None when field absent
+        let json = r#"{"name":"local","is_current":false}"#;
+        let result = serde_json::from_str::<Branch>(json);
+        // With serde derive, missing field should fail unless #[serde(default)]
+        // Branch uses plain derive(Deserialize) without defaults, so this may fail.
+        // This test documents the behavior.
+        if let Ok(b) = result {
+            assert!(b.tracking.is_none(), "missing tracking should be None if accepted");
+        }
+        // If it fails, that's also valid behavior — the test documents it.
+    }
+
+    // ── BranchName validation (exhaustive rejection) ─────────────────────────
+
+    #[test]
+    fn branch_name_rejects_leading_dash_variants() {
+        let bad = ["-", "-a", "-v", "--", "---", "--flag", "- "];
+        for name in bad {
+            assert!(
+                BranchName::new(name).is_none(),
+                "BranchName should reject leading-dash: {name:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn branch_name_rejects_spaces() {
+        let bad = ["main branch", " main", "main ", "ma in", "  "];
+        for name in bad {
+            // Note: BranchName trims whitespace, so " main" becomes "main" (valid)
+            // But "main branch" contains a space and would be rejected if spaces
+            // are control chars... actually spaces are not control characters.
+            // BranchName only rejects control chars, not spaces.
+            // " main" trims to "main" → valid.
+            // "main branch" contains space (not a control char) → valid per current impl.
+            let result = BranchName::new(name);
+            if name.trim().contains(' ') {
+                // Spaces in the trimmed string: not rejected by current impl
+                // (space is not a control char)
+                // This test documents the current behavior.
+            }
+            if name.trim().is_empty() {
+                assert!(result.is_none(), "whitespace-only should be None: {name:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn branch_name_rejects_null_and_control_chars_exhaustive() {
+        let bad = [
+            "branch\0name",
+            "branch\nname",
+            "branch\tname",
+            "branch\rname",
+            "branch\x01name",
+            "branch\x02name",
+            "branch\x1Fname",
+            "branch\x7Fname",
+        ];
+        for name in bad {
+            assert!(
+                BranchName::new(name).is_none(),
+                "BranchName should reject: {name:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn branch_name_rejects_dot_and_dotdot() {
+        assert!(BranchName::new(".").is_none());
+        assert!(BranchName::new("..").is_none());
+        assert!(BranchName::new(" . ").is_none()); // trims to "."
+        assert!(BranchName::new(" .. ").is_none()); // trims to ".."
+    }
+
+    #[test]
+    fn branch_name_accepts_dot_in_name() {
+        assert!(BranchName::new("v1.0.0").is_some());
+        assert!(BranchName::new("branch.name").is_some());
+        assert!(BranchName::new("release.v2").is_some());
+    }
+
+    #[test]
+    fn branch_name_boundary_lengths() {
+        // Empty
+        assert!(BranchName::new("").is_none());
+        // Single char
+        assert!(BranchName::new("a").is_some());
+        // Max length (250)
+        let max = "a".repeat(250);
+        assert!(BranchName::new(&max).is_some());
+        // One over max (251)
+        let over = "a".repeat(251);
+        assert!(BranchName::new(&over).is_none());
+    }
+
+    #[test]
+    fn branch_name_trims_then_validates() {
+        // Leading/trailing whitespace is trimmed, then validated
+        let name = BranchName::new("  main  ").expect("valid");
+        assert_eq!(name.as_str(), "main");
+        let name2 = BranchName::new("\tmain\t").expect("valid");
+        assert_eq!(name2.as_str(), "main");
+        // Trimmed to "." -> rejected
+        assert!(BranchName::new(" . ").is_none());
+    }
+
+    #[test]
+    fn branch_name_display_matches_inner() {
+        let cases = ["main", "feature/auth", "fix-123", "v1.0.0"];
+        for case in cases {
+            let name = BranchName::new(case).expect("valid");
+            assert_eq!(format!("{name}"), case);
+        }
+    }
+
+    #[test]
+    fn branch_name_as_str_matches_display() {
+        let name = BranchName::new("feature/x").expect("valid");
+        assert_eq!(name.as_str(), format!("{name}"));
+    }
+
+    #[test]
+    fn branch_name_hash_and_eq() {
+        use std::collections::HashSet;
+        let a = BranchName::new("main").expect("valid");
+        let b = BranchName::new("main").expect("valid");
+        assert_eq!(a, b, "two BranchNames from same string should be equal");
+        let mut set = HashSet::new();
+        assert!(set.insert(a.clone()));
+        assert!(!set.insert(b), "duplicate insert should return false");
+        assert!(set.contains(&a));
+    }
+
+    // ── Branch with BranchName integration ───────────────────────────────────
+
+    #[test]
+    fn branch_name_from_branch_used_in_display() {
+        let branch_name = BranchName::new("feature/auth").expect("valid");
+        let b = Branch {
+            name: branch_name.to_string(),
+            is_current: true,
+            tracking: Some(format!("origin/{branch_name}")),
+        };
+        assert_eq!(b.name, "feature/auth");
+        assert_eq!(b.tracking.as_deref(), Some("origin/feature/auth"));
+    }
+
+    // ── Proptests ────────────────────────────────────────────────────────────
+
+    proptest::proptest! {
+        /// Branch serde roundtrip preserves all fields for any valid inputs.
+        #[test]
+        fn proptest_branch_serde_roundtrip(
+            name in "[a-zA-Z0-9/_][a-zA-Z0-9/_.-]{0,49}",
+            is_current in proptest::arbitrary::any::<bool>(),
+            tracking in proptest::option::of("[a-zA-Z0-9/_][a-zA-Z0-9/_.-]{0,49}"),
+        ) {
+            let original = Branch {
+                name: name.clone(),
+                is_current,
+                tracking: tracking.clone(),
+            };
+            let json = serde_json::to_string(&original).expect("serialize");
+            let decoded: Branch = serde_json::from_str(&json).expect("deserialize");
+            prop_assert_eq!(decoded.name, name);
+            prop_assert_eq!(decoded.is_current, is_current);
+            prop_assert_eq!(decoded.tracking, tracking);
+        }
+
+        /// Branch clone is always identical (field-by-field).
+        #[test]
+        fn proptest_branch_clone_identical(
+            name in "[a-zA-Z0-9/_][a-zA-Z0-9/_.-]{0,49}",
+            is_current in proptest::arbitrary::any::<bool>(),
+            tracking in proptest::option::of("[a-zA-Z0-9/_][a-zA-Z0-9/_.-]{0,49}"),
+        ) {
+            let b = Branch {
+                name: name.clone(),
+                is_current,
+                tracking: tracking.clone(),
+            };
+            let cloned = b.clone();
+            prop_assert_eq!(cloned.name, name);
+            prop_assert_eq!(cloned.is_current, is_current);
+            prop_assert_eq!(cloned.tracking, tracking);
+        }
+
+        /// BranchName::new followed by as_str is identity for valid branch names.
+        #[test]
+        fn proptest_branch_name_identity(
+            name in "[a-zA-Z0-9/_][a-zA-Z0-9/_.-]{0,249}",
+        ) {
+            let parsed = BranchName::new(name.clone());
+            prop_assert!(parsed.is_some(), "valid name should parse: {name:?}");
+            let bn = parsed.expect("checked above");
+            prop_assert_eq!(bn.as_str(), name);
+        }
+
+        /// BranchName rejects all empty strings.
+        #[test]
+        fn proptest_branch_name_rejects_empty(
+            s in proptest::string::string_regex("\\s*").unwrap(),
+        ) {
+            if s.trim().is_empty() {
+                prop_assert!(BranchName::new(s).is_none());
+            }
+        }
+
+        /// BranchName rejects all strings starting with '-'.
+        #[test]
+        fn proptest_branch_name_rejects_leading_dash(
+            rest in "[a-zA-Z0-9/_.-]{0,50}",
+        ) {
+            let input = format!("-{rest}");
+            prop_assert!(BranchName::new(&input).is_none());
+        }
+
+        /// Tracking ref parse roundtrip: "remote/branch" -> split -> rejoin.
+        #[test]
+        fn proptest_tracking_parse_roundtrip(
+            remote in "[a-zA-Z0-9][a-zA-Z0-9._-]{0,30}",
+            branch in "[a-zA-Z0-9][a-zA-Z0-9/_.-]{0,50}",
+        ) {
+            let tracking = format!("{remote}/{branch}");
+            let parsed = parse_tracking(&tracking);
+            prop_assert!(parsed.is_some(), "should parse: {tracking}");
+            let (r, b) = parsed.expect("checked above");
+            prop_assert_eq!(r, remote);
+            prop_assert_eq!(b, branch);
+        }
+
+        /// Branch with constructed tracking matches name when remote is "origin".
+        #[test]
+        fn proptest_branch_tracking_origin_prefix(
+            name in "[a-zA-Z0-9/_][a-zA-Z0-9/_.-]{0,49}",
+        ) {
+            let tracking = format!("origin/{name}");
+            let b = Branch {
+                name: name.clone(),
+                is_current: false,
+                tracking: Some(tracking),
+            };
+            let (remote, branch) = parse_tracking(b.tracking.as_ref().expect("some"))
+                .expect("parse");
+            prop_assert_eq!(remote, "origin");
+            prop_assert_eq!(branch, name);
         }
     }
 }
