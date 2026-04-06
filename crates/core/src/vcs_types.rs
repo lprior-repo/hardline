@@ -621,6 +621,677 @@ mod tests {
         assert_eq!(cloned.id, commit.id);
     }
 
+    // ========================================================================
+    // Commit exhaustive tests
+    // ========================================================================
+
+    // ── Construction ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn commit_root_commit_no_parents() {
+        let ts = chrono::DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let commit = Commit {
+            id: "e7c805d7ba5e7a8b5e4c3d2f1a0b9c8d7e6f5a4b".to_string(),
+            message: "Initial commit".to_string(),
+            author: "Alice <alice@example.com>".to_string(),
+            timestamp: ts,
+            parents: vec![],
+        };
+        assert_eq!(commit.id, "e7c805d7ba5e7a8b5e4c3d2f1a0b9c8d7e6f5a4b");
+        assert_eq!(commit.message, "Initial commit");
+        assert_eq!(commit.author, "Alice <alice@example.com>");
+        assert_eq!(commit.parents, Vec::<String>::new());
+        assert_eq!(commit.timestamp, ts);
+    }
+
+    #[test]
+    fn commit_normal_one_parent() {
+        let commit = Commit {
+            id: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0".to_string(),
+            message: "Add feature X".to_string(),
+            author: "Bob <bob@example.com>".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec!["e7c805d7ba5e7a8b5e4c3d2f1a0b9c8d7e6f5a4b".to_string()],
+        };
+        assert_eq!(commit.parents.len(), 1);
+        assert_eq!(commit.parents[0], "e7c805d7ba5e7a8b5e4c3d2f1a0b9c8d7e6f5a4b");
+    }
+
+    #[test]
+    fn commit_merge_two_parents() {
+        let commit = Commit {
+            id: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef".to_string(),
+            message: "Merge branch 'feature' into main".to_string(),
+            author: "Carol <carol@example.com>".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![
+                "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0".to_string(),
+                "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1".to_string(),
+            ],
+        };
+        assert_eq!(commit.parents.len(), 2);
+        assert_eq!(commit.parents[0], "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0");
+        assert_eq!(commit.parents[1], "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1");
+    }
+
+    #[test]
+    fn commit_octopus_merge_three_parents() {
+        let commit = Commit {
+            id: "1234567890abcdef1234567890abcdef12345678".to_string(),
+            message: "Octopus merge: feature-a + feature-b + feature-c".to_string(),
+            author: "Dana <dana@example.com>".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string(),
+                "cccccccccccccccccccccccccccccccccccccccc".to_string(),
+            ],
+        };
+        assert_eq!(commit.parents.len(), 3);
+    }
+
+    #[test]
+    fn commit_many_parents() {
+        let parents: Vec<String> = (0..10)
+            .map(|i| format!("{i:040x}"))
+            .collect();
+        let commit = Commit {
+            id: "ffffffffffffffffffffffffffffffffffffffff".to_string(),
+            message: "Unusual octopus".to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: parents.clone(),
+        };
+        assert_eq!(commit.parents.len(), 10);
+        assert_eq!(commit.parents, parents);
+    }
+
+    // ── SHA patterns ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn commit_sha_40_char_lowercase_hex() {
+        let sha = "e7c805d7ba5e7a8b5e4c3d2f1a0b9c8d7e6f5a4b";
+        assert_eq!(sha.len(), 40);
+        assert!(sha.chars().all(|c| c.is_ascii_hexdigit()));
+        let commit = Commit {
+            id: sha.to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert_eq!(commit.id, sha);
+    }
+
+    #[test]
+    fn commit_sha_40_char_uppercase_hex() {
+        let sha = "E7C805D7BA5E7A8B5E4C3D2F1A0B9C8D7E6F5A4B";
+        assert_eq!(sha.len(), 40);
+        let commit = Commit {
+            id: sha.to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert_eq!(commit.id, sha);
+    }
+
+    #[test]
+    fn commit_sha_short_7_char() {
+        let short_sha = "e7c805d";
+        let commit = Commit {
+            id: short_sha.to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert_eq!(commit.id, "e7c805d");
+        assert_eq!(commit.id.len(), 7);
+    }
+
+    #[test]
+    fn commit_sha_short_8_char() {
+        let short_sha = "e7c805d7";
+        let commit = Commit {
+            id: short_sha.to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert_eq!(commit.id.len(), 8);
+    }
+
+    // ── Parent tracking ──────────────────────────────────────────────────────
+
+    #[test]
+    fn commit_parents_order_preserved() {
+        let parents = vec![
+            "1111111111111111111111111111111111111111".to_string(),
+            "2222222222222222222222222222222222222222".to_string(),
+        ];
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: parents.clone(),
+        };
+        assert_eq!(commit.parents[0], "1111111111111111111111111111111111111111");
+        assert_eq!(commit.parents[1], "2222222222222222222222222222222222222222");
+    }
+
+    #[test]
+    fn commit_parents_dedup_not_enforced() {
+        // Commit is a plain struct; duplicate parent SHAs are allowed.
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![
+                "same111111111111111111111111111111111111".to_string(),
+                "same111111111111111111111111111111111111".to_string(),
+            ],
+        };
+        assert_eq!(commit.parents[0], commit.parents[1]);
+    }
+
+    // ── Timestamp handling ───────────────────────────────────────────────────
+
+    #[test]
+    fn commit_timestamp_epoch_zero() {
+        let epoch = chrono::DateTime::from_timestamp(0, 0).expect("epoch");
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: epoch,
+            parents: vec![],
+        };
+        assert_eq!(commit.timestamp, chrono::DateTime::from_timestamp(0, 0).unwrap());
+    }
+
+    #[test]
+    fn commit_timestamp_specific_date() {
+        let ts = chrono::DateTime::parse_from_rfc3339("2024-06-15T12:30:45Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: ts,
+            parents: vec![],
+        };
+        assert_eq!(commit.timestamp.to_rfc3339(), "2024-06-15T12:30:45+00:00");
+    }
+
+    #[test]
+    fn commit_timestamp_far_future() {
+        let ts = chrono::DateTime::parse_from_rfc3339("2099-12-31T23:59:59Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: ts,
+            parents: vec![],
+        };
+        assert_eq!(commit.timestamp, ts);
+    }
+
+    #[test]
+    fn commit_timestamp_with_millis() {
+        let ts = chrono::DateTime::parse_from_rfc3339("2024-01-01T00:00:00.123Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: ts,
+            parents: vec![],
+        };
+        assert_eq!(commit.timestamp.timestamp_millis(), 1704067200123);
+    }
+
+    // ── Author field ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn commit_author_with_email() {
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "test".to_string(),
+            author: "Alice <alice@example.com>".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert!(commit.author.contains('<'));
+        assert!(commit.author.contains('>'));
+        assert!(commit.author.contains('@'));
+    }
+
+    #[test]
+    fn commit_author_name_only() {
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "test".to_string(),
+            author: "Alice".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert_eq!(commit.author, "Alice");
+    }
+
+    #[test]
+    fn commit_author_empty_string() {
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "test".to_string(),
+            author: String::new(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert!(commit.author.is_empty());
+    }
+
+    #[test]
+    fn commit_author_unicode() {
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "test".to_string(),
+            author: "José García <jose@example.com>".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert!(commit.author.contains('é'));
+        assert!(commit.author.contains('í'));
+    }
+
+    // ── Message access ───────────────────────────────────────────────────────
+
+    #[test]
+    fn commit_message_single_line() {
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "Fix bug in parser".to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert_eq!(commit.message, "Fix bug in parser");
+        assert!(!commit.message.contains('\n'));
+    }
+
+    #[test]
+    fn commit_message_multiline() {
+        let msg = "Fix bug in parser\n\nDetailed explanation of the fix.\n\nSigned-off-by: Alice";
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: msg.to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert_eq!(commit.message, msg);
+        assert!(commit.message.contains('\n'));
+    }
+
+    #[test]
+    fn commit_message_empty() {
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: String::new(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert!(commit.message.is_empty());
+    }
+
+    #[test]
+    fn commit_message_unicode() {
+        let commit = Commit {
+            id: "abc".to_string(),
+            message: "修正解析器错误 🐛".to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert!(commit.message.contains("修正"));
+    }
+
+    // ── Comparison by SHA (field-level, no PartialEq derive) ────────────────
+
+    #[test]
+    fn commit_comparison_same_sha() {
+        let sha = "e7c805d7ba5e7a8b5e4c3d2f1a0b9c8d7e6f5a4b";
+        let a = Commit {
+            id: sha.to_string(),
+            message: "first".to_string(),
+            author: "A".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        let b = Commit {
+            id: sha.to_string(),
+            message: "second".to_string(),
+            author: "B".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert_eq!(a.id, b.id);
+    }
+
+    #[test]
+    fn commit_comparison_different_sha() {
+        let a = Commit {
+            id: "aaa".to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        let b = Commit {
+            id: "bbb".to_string(),
+            message: "test".to_string(),
+            author: "test".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        assert_ne!(a.id, b.id);
+    }
+
+    #[test]
+    fn commit_comparison_same_sha_different_everything_else() {
+        let sha = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+        let ts = chrono::Utc::now();
+        let a = Commit {
+            id: sha.to_string(),
+            message: "msg a".to_string(),
+            author: "author a".to_string(),
+            timestamp: ts,
+            parents: vec!["111".to_string()],
+        };
+        let b = Commit {
+            id: sha.to_string(),
+            message: "msg b".to_string(),
+            author: "author b".to_string(),
+            timestamp: chrono::DateTime::from_timestamp(99999, 0).unwrap(),
+            parents: vec!["222".to_string()],
+        };
+        // Same SHA but different content
+        assert_eq!(a.id, b.id);
+        assert_ne!(a.message, b.message);
+        assert_ne!(a.author, b.author);
+        assert_ne!(a.timestamp, b.timestamp);
+        assert_ne!(a.parents, b.parents);
+    }
+
+    // ── Debug format ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn commit_debug_format() {
+        let commit = Commit {
+            id: "abc123".to_string(),
+            message: "test msg".to_string(),
+            author: "Test Author".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec!["parent1".to_string()],
+        };
+        let debug = format!("{commit:?}");
+        assert!(debug.contains("Commit"), "Debug should contain type name");
+        assert!(debug.contains("abc123"), "Debug should contain id");
+    }
+
+    // ── Serde roundtrip ──────────────────────────────────────────────────────
+
+    #[test]
+    fn commit_serde_roundtrip_root() {
+        let ts = chrono::DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let original = Commit {
+            id: "e7c805d7ba5e7a8b5e4c3d2f1a0b9c8d7e6f5a4b".to_string(),
+            message: "Initial commit".to_string(),
+            author: "Alice <alice@example.com>".to_string(),
+            timestamp: ts,
+            parents: vec![],
+        };
+        let json = serde_json::to_string(&original).expect("serialize");
+        let decoded: Commit = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(decoded.id, original.id);
+        assert_eq!(decoded.message, original.message);
+        assert_eq!(decoded.author, original.author);
+        assert_eq!(decoded.timestamp, original.timestamp);
+        assert_eq!(decoded.parents, original.parents);
+    }
+
+    #[test]
+    fn commit_serde_roundtrip_merge() {
+        let ts = chrono::Utc::now();
+        let original = Commit {
+            id: "deadbeef".to_string(),
+            message: "Merge".to_string(),
+            author: "Bob".to_string(),
+            timestamp: ts,
+            parents: vec!["aaa".to_string(), "bbb".to_string()],
+        };
+        let json = serde_json::to_string(&original).expect("serialize");
+        let decoded: Commit = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(decoded.id, original.id);
+        assert_eq!(decoded.parents.len(), 2);
+    }
+
+    #[test]
+    fn commit_serde_preserves_empty_fields() {
+        let original = Commit {
+            id: "abc".to_string(),
+            message: String::new(),
+            author: String::new(),
+            timestamp: chrono::Utc::now(),
+            parents: vec![],
+        };
+        let json = serde_json::to_string(&original).expect("serialize");
+        let decoded: Commit = serde_json::from_str(&json).expect("deserialize");
+        assert!(decoded.message.is_empty());
+        assert!(decoded.author.is_empty());
+        assert!(decoded.parents.is_empty());
+    }
+
+    #[test]
+    fn commit_deserialize_from_json() {
+        let json = r#"{"id":"abc123","message":"test","author":"Alice","timestamp":"2024-01-01T00:00:00Z","parents":["p1","p2"]}"#;
+        let c: Commit = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(c.id, "abc123");
+        assert_eq!(c.message, "test");
+        assert_eq!(c.author, "Alice");
+        assert_eq!(c.parents.len(), 2);
+    }
+
+    // ── Clone independence ───────────────────────────────────────────────────
+
+    #[test]
+    fn commit_clone_independence() {
+        let mut commit = Commit {
+            id: "abc".to_string(),
+            message: "original".to_string(),
+            author: "Alice".to_string(),
+            timestamp: chrono::Utc::now(),
+            parents: vec!["p1".to_string()],
+        };
+        let cloned = commit.clone();
+        commit.id = "changed".to_string();
+        commit.message = "changed".to_string();
+        commit.parents.push("p2".to_string());
+        assert_eq!(cloned.id, "abc");
+        assert_eq!(cloned.message, "original");
+        assert_eq!(cloned.parents.len(), 1);
+    }
+
+    #[test]
+    fn commit_clone_preserves_all_fields() {
+        let ts = chrono::DateTime::parse_from_rfc3339("2024-06-15T12:30:45Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let commit = Commit {
+            id: "deadbeef".to_string(),
+            message: "Merge commit".to_string(),
+            author: "Bob <bob@example.com>".to_string(),
+            timestamp: ts,
+            parents: vec!["aaa".to_string(), "bbb".to_string()],
+        };
+        let cloned = commit.clone();
+        assert_eq!(cloned.id, commit.id);
+        assert_eq!(cloned.message, commit.message);
+        assert_eq!(cloned.author, commit.author);
+        assert_eq!(cloned.timestamp, commit.timestamp);
+        assert_eq!(cloned.parents, commit.parents);
+    }
+
+    // ========================================================================
+    // Commit property-based tests (proptest)
+    // ========================================================================
+
+    proptest::proptest! {
+        /// Commit serde roundtrip preserves all fields for any string inputs.
+        #[test]
+        fn proptest_commit_serde_roundtrip(
+            id in "[a-f0-9]{40}",
+            message in ".*",
+            author in ".*",
+            parents in proptest::collection::vec("[a-f0-9]{40}", 0..5),
+        ) {
+            let ts = chrono::Utc::now();
+            let original = Commit {
+                id: id.clone(),
+                message: message.clone(),
+                author: author.clone(),
+                timestamp: ts,
+                parents: parents.clone(),
+            };
+            let json = serde_json::to_string(&original).expect("serialize");
+            let decoded: Commit = serde_json::from_str(&json).expect("deserialize");
+            prop_assert_eq!(decoded.id, id);
+            prop_assert_eq!(decoded.message, message);
+            prop_assert_eq!(decoded.author, author);
+            prop_assert_eq!(decoded.parents, parents);
+        }
+
+        /// Commit clone is always identical (field-by-field).
+        #[test]
+        fn proptest_commit_clone_identical(
+            id in "[a-f0-9]{40}",
+            message in ".*",
+            author in ".*",
+            parents in proptest::collection::vec("[a-f0-9]{40}", 0..5),
+        ) {
+            let ts = chrono::Utc::now();
+            let commit = Commit {
+                id: id.clone(),
+                message: message.clone(),
+                author: author.clone(),
+                timestamp: ts,
+                parents: parents.clone(),
+            };
+            let cloned = commit.clone();
+            prop_assert_eq!(cloned.id, id);
+            prop_assert_eq!(cloned.message, message);
+            prop_assert_eq!(cloned.author, author);
+            prop_assert_eq!(cloned.parents, parents);
+        }
+
+        /// Commit id is exactly 40 hex chars when constructed with 40-hex input.
+        #[test]
+        fn proptest_commit_sha_is_40_hex(
+            hex in "[a-f0-9]{40}",
+        ) {
+            let commit = Commit {
+                id: hex.clone(),
+                message: "test".to_string(),
+                author: "test".to_string(),
+                timestamp: chrono::Utc::now(),
+                parents: vec![],
+            };
+            prop_assert_eq!(commit.id.len(), 40);
+            prop_assert!(commit.id.chars().all(|c| c.is_ascii_hexdigit()));
+            prop_assert_eq!(commit.id, hex);
+        }
+
+        /// Commit parents count matches input for any 0-5 parents.
+        #[test]
+        fn proptest_commit_parents_count(
+            parents in proptest::collection::vec("[a-f0-9]{40}", 0..=5),
+        ) {
+            let count = parents.len();
+            let commit = Commit {
+                id: "abc".to_string(),
+                message: "test".to_string(),
+                author: "test".to_string(),
+                timestamp: chrono::Utc::now(),
+                parents: parents.clone(),
+            };
+            prop_assert_eq!(commit.parents.len(), count);
+            for (i, p) in parents.iter().enumerate() {
+                prop_assert_eq!(&commit.parents[i], p);
+            }
+        }
+
+        /// Two commits with the same id field compare equal on id.
+        #[test]
+        fn proptest_commit_same_id_compares_equal(
+            id in "[a-f0-9]{40}",
+            msg_a in ".*",
+            msg_b in ".*",
+        ) {
+            let a = Commit {
+                id: id.clone(),
+                message: msg_a,
+                author: "A".to_string(),
+                timestamp: chrono::Utc::now(),
+                parents: vec![],
+            };
+            let b = Commit {
+                id: id.clone(),
+                message: msg_b,
+                author: "B".to_string(),
+                timestamp: chrono::Utc::now(),
+                parents: vec![],
+            };
+            prop_assert_eq!(a.id, b.id);
+        }
+
+        /// Two commits with different id fields compare different on id.
+        #[test]
+        fn proptest_commit_different_id_compares_different(
+            id_a in "[a-f0-9]{40}",
+            id_b in "[a-f0-9]{40}",
+        ) {
+            proptest::prop_assume!(id_a != id_b);
+            let a = Commit {
+                id: id_a,
+                message: "same".to_string(),
+                author: "same".to_string(),
+                timestamp: chrono::Utc::now(),
+                parents: vec![],
+            };
+            let b = Commit {
+                id: id_b,
+                message: "same".to_string(),
+                author: "same".to_string(),
+                timestamp: chrono::Utc::now(),
+                parents: vec![],
+            };
+            prop_assert!(a.id != b.id);
+        }
+    }
+
     #[test]
     fn branch_construction() {
         let branch = Branch {
