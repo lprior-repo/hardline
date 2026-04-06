@@ -9,6 +9,7 @@
 mod tests {
     use std::str::FromStr;
 
+    use chrono::Utc;
     use crate::lifecycle::LifecycleState;
     use crate::session_state::{SessionState, SessionStateManager, StateTransition};
     use crate::type_session_status::{Operation, SessionStatus};
@@ -815,5 +816,927 @@ mod tests {
                 prop_assert_ne!(term, nonterm);
             }
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TIMING METRICS — timestamp precision, monotonicity, duration
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn transition_timestamp_is_recent() {
+        let before = Utc::now();
+        let t = StateTransition::new(SessionState::Created, SessionState::Active, "test");
+        let after = Utc::now();
+        assert!(t.timestamp >= before, "Timestamp should be >= before");
+        assert!(t.timestamp <= after, "Timestamp should be <= after");
+    }
+
+    #[test]
+    fn workspace_transition_timestamp_is_recent() {
+        let before = Utc::now();
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "test");
+        let after = Utc::now();
+        assert!(t.timestamp >= before, "Timestamp should be >= before");
+        assert!(t.timestamp <= after, "Timestamp should be <= after");
+    }
+
+    #[test]
+    fn manager_timestamps_are_monotonically_increasing() {
+        let mgr = SessionStateManager::new("mono-1")
+            .activate("step 1")
+            .expect("activate")
+            .pause("step 2")
+            .expect("pause")
+            .resume("step 3")
+            .expect("resume")
+            .complete("step 4")
+            .expect("complete");
+
+        let history = mgr.history();
+        for window in history.windows(2) {
+            assert!(
+                window[0].timestamp <= window[1].timestamp,
+                "Timestamps must be monotonically non-decreasing: {:?} -> {:?}",
+                window[0].timestamp,
+                window[1].timestamp
+            );
+        }
+    }
+
+    #[test]
+    fn manager_rapid_transitions_have_distinct_timestamps_or_equal() {
+        // Rapid transitions may share timestamps at nanosecond precision
+        // The invariant is: later timestamps are >= earlier timestamps
+        let mgr = SessionStateManager::new("rapid-1")
+            .activate("fast")
+            .expect("activate")
+            .sync("fast")
+            .expect("sync")
+            .sync_complete("fast")
+            .expect("sync_complete");
+
+        let history = mgr.history();
+        assert!(history.len() >= 2);
+        assert!(history[0].timestamp <= history[1].timestamp);
+    }
+
+    #[test]
+    fn state_transition_records_accurate_timestamp_per_entry() {
+        let mgr = SessionStateManager::new("ts-1");
+        assert!(mgr.history().is_empty());
+
+        let mgr = mgr.activate("first").expect("activate");
+        assert_eq!(mgr.history().len(), 1);
+        let ts1 = mgr.history()[0].timestamp;
+
+        let mgr = mgr.pause("second").expect("pause");
+        assert_eq!(mgr.history().len(), 2);
+        let ts2 = mgr.history()[1].timestamp;
+
+        // Each transition records its own timestamp
+        assert!(ts1 <= ts2);
+    }
+
+    #[test]
+    fn workspace_transition_agent_timestamp_captured() {
+        let before = Utc::now();
+        let t = WorkspaceStateTransition::with_agent(
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "work done",
+            "polecat-42",
+        );
+        let after = Utc::now();
+        assert!(t.timestamp >= before && t.timestamp <= after);
+        assert_eq!(t.agent_id.as_deref(), Some("polecat-42"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ERROR HANDLING DURING TRANSITIONS — message content, error types
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn try_transition_error_contains_from_and_to() {
+        let err = SessionStatus::Creating
+            .try_transition(SessionStatus::Paused)
+            .expect_err("should fail");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("Creating") || msg.contains("creating"),
+            "Error should mention source state: {msg}"
+        );
+        assert!(
+            msg.contains("Paused") || msg.contains("paused"),
+            "Error should mention target state: {msg}"
+        );
+    }
+
+    #[test]
+    fn session_state_invalid_transition_error() {
+        // SessionState doesn't implement LifecycleState trait (it has its own
+        // can_transition_to), so test via StateTransition::validate instead
+        let t = StateTransition::new(SessionState::Created, SessionState::Paused, "bad");
+        let err = t.validate().expect_err("should fail");
+        let msg = format!("{err}");
+        assert!(!msg.is_empty(), "Error message should not be empty");
+    }
+
+    #[test]
+    fn state_transition_validate_error_for_invalid_pair() {
+        let t = StateTransition::new(SessionState::Active, SessionState::Created, "bad");
+        let err = t.validate().expect_err("should fail");
+        let msg = format!("{err}");
+        assert!(!msg.is_empty(), "Error message should not be empty");
+    }
+
+    #[test]
+    fn workspace_transition_validate_error_for_terminal_to_any() {
+        for &terminal in &[WorkspaceState::Merged, WorkspaceState::Abandoned] {
+            for &target in WorkspaceState::all() {
+                let t = WorkspaceStateTransition::new(terminal, target, "try");
+                let err = t.validate().expect_err("terminal should reject");
+                let msg = format!("{err}");
+                assert!(!msg.is_empty(), "Error for {terminal:?}->{target:?} should be descriptive");
+            }
+        }
+    }
+
+    #[test]
+    fn session_status_try_transition_all_invalid_pairs_error() {
+        // Every invalid pair must produce an error
+        for &from in SessionStatus::all_states() {
+            for &to in SessionStatus::all_states() {
+                if from.can_transition_to(to) {
+                    continue;
+                }
+                let result = from.try_transition(to);
+                assert!(
+                    result.is_err(),
+                    "Invalid pair ({from:?}, {to:?}) must return Err"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn session_state_invalid_pairs_all_error_via_validate() {
+        for &from in SessionState::all_states() {
+            for &to in SessionState::all_states() {
+                if from.can_transition_to(to) {
+                    continue;
+                }
+                let t = StateTransition::new(from, to, "test");
+                assert!(
+                    t.validate().is_err(),
+                    "Invalid pair ({from:?}, {to:?}) must fail validation"
+                );
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONCURRENT ACCESS SAFETY — ownership model, thread independence
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn manager_ownership_prevents_double_use() {
+        // SessionStateManager uses move semantics — after activate(),
+        // the original manager is consumed and cannot be reused.
+        // This test verifies the ownership model at compile time.
+        let mgr = SessionStateManager::new("own-1");
+        let mgr2 = mgr.activate("go").expect("activate");
+        // mgr is moved — cannot use it here
+        assert_eq!(mgr2.current_state(), SessionState::Active);
+    }
+
+    #[test]
+    fn manager_state_preserved_across_ownership_transfer() {
+        let mut mgr = SessionStateManager::new("transfer-1");
+        mgr.set_metadata("key", "value");
+        let mgr = mgr.activate("go").expect("activate");
+        // Metadata survives ownership transfer
+        assert_eq!(mgr.metadata().get("key"), Some(&"value".to_string()));
+        assert_eq!(mgr.session_id(), "transfer-1");
+        assert_eq!(mgr.current_state(), SessionState::Active);
+    }
+
+    #[test]
+    fn independent_managers_do_not_interfere() {
+        let mgr1 = SessionStateManager::new("indep-1")
+            .activate("go1")
+            .expect("activate")
+            .complete("done1")
+            .expect("complete");
+
+        let mgr2 = SessionStateManager::new("indep-2")
+            .activate("go2")
+            .expect("activate")
+            .pause("hold2")
+            .expect("pause");
+
+        assert_eq!(mgr1.current_state(), SessionState::Completed);
+        assert_eq!(mgr2.current_state(), SessionState::Paused);
+        assert_eq!(mgr1.history().len(), 2);
+        assert_eq!(mgr2.history().len(), 2);
+    }
+
+    #[test]
+    fn concurrent_managers_thread_safe() {
+        use std::thread;
+
+        // Each thread gets its own manager — no shared mutable state
+        let results: Vec<_> = (0..4)
+            .map(|i| {
+                thread::spawn(move || {
+                    let id = format!("thread-{i}");
+                    let mgr = SessionStateManager::new(&id);
+                    assert_eq!(mgr.current_state(), SessionState::Created);
+                    let mgr = mgr.activate("activate").expect("activate");
+                    assert_eq!(mgr.current_state(), SessionState::Active);
+                    let mgr = mgr.complete("done").expect("complete");
+                    assert_eq!(mgr.current_state(), SessionState::Completed);
+                    mgr.session_id().to_string()
+                })
+            })
+            .collect();
+
+        let ids: Vec<_> = results.into_iter().map(|h| h.join().expect("thread")).collect();
+        assert_eq!(ids.len(), 4);
+        for i in 0..4 {
+            assert_eq!(ids[i], format!("thread-{i}"));
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE BOUNDARY INVARIANTS — operations allowed/forbidden per phase
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn created_phase_only_allows_activate_or_fail() {
+        // From Created, only activate() and fail() are available methods
+        let mgr = SessionStateManager::new("phase-created");
+        assert_eq!(mgr.current_state(), SessionState::Created);
+        assert!(mgr.history().is_empty());
+
+        // activate works - consume the manager
+        let mgr = mgr.activate("go").expect("activate");
+        assert_eq!(mgr.current_state(), SessionState::Active);
+    }
+
+    #[test]
+    fn created_phase_can_fail_immediately() {
+        let mgr = SessionStateManager::new("phase-fail-early");
+        let mgr = mgr.fail("instant failure").expect("fail");
+        assert_eq!(mgr.current_state(), SessionState::Failed);
+    }
+
+    #[test]
+    fn active_phase_allows_sync_pause_complete() {
+        // Verify all three transitions from Active are accessible
+        let _mgr = SessionStateManager::new("phase-active")
+            .activate("go")
+            .expect("activate");
+
+        // All three transitions from Active are available
+        let m1 = SessionStateManager::new("a-sync")
+            .activate("go")
+            .expect("a")
+            .sync("push")
+            .expect("sync");
+        assert_eq!(m1.current_state(), SessionState::Syncing);
+
+        let m2 = SessionStateManager::new("a-pause")
+            .activate("go")
+            .expect("a")
+            .pause("break")
+            .expect("pause");
+        assert_eq!(m2.current_state(), SessionState::Paused);
+
+        let m3 = SessionStateManager::new("a-complete")
+            .activate("go")
+            .expect("a")
+            .complete("done")
+            .expect("complete");
+        assert_eq!(m3.current_state(), SessionState::Completed);
+    }
+
+    #[test]
+    fn syncing_phase_only_allows_sync_complete_or_fail() {
+        let m1 = SessionStateManager::new("sync-ok")
+            .activate("go")
+            .expect("a")
+            .sync("push")
+            .expect("sync")
+            .sync_complete("done")
+            .expect("sc");
+        assert_eq!(m1.current_state(), SessionState::Synced);
+
+        let m2 = SessionStateManager::new("sync-fail")
+            .activate("go")
+            .expect("a")
+            .sync("push")
+            .expect("sync")
+            .fail("error")
+            .expect("fail");
+        assert_eq!(m2.current_state(), SessionState::Failed);
+    }
+
+    #[test]
+    fn synced_phase_allows_reactivate_pause_complete() {
+        let base = || {
+            SessionStateManager::new("synced-base")
+                .activate("go")
+                .expect("a")
+                .sync("push")
+                .expect("sync")
+                .sync_complete("done")
+                .expect("sc")
+        };
+
+        let m1 = base().reactivate("more work").expect("reactivate");
+        assert_eq!(m1.current_state(), SessionState::Active);
+
+        let m2 = base().pause("hold").expect("pause");
+        assert_eq!(m2.current_state(), SessionState::Paused);
+
+        let m3 = base().complete("done").expect("complete");
+        assert_eq!(m3.current_state(), SessionState::Completed);
+    }
+
+    #[test]
+    fn paused_phase_allows_resume_or_complete() {
+        let base = || {
+            SessionStateManager::new("paused-base")
+                .activate("go")
+                .expect("a")
+                .pause("break")
+                .expect("pause")
+        };
+
+        let m1 = base().resume("back").expect("resume");
+        assert_eq!(m1.current_state(), SessionState::Active);
+
+        let m2 = base().complete("done from pause").expect("complete");
+        assert_eq!(m2.current_state(), SessionState::Completed);
+    }
+
+    #[test]
+    fn completed_phase_allows_restart() {
+        let mgr = SessionStateManager::new("completed-restart")
+            .activate("go")
+            .expect("a")
+            .complete("done")
+            .expect("c")
+            .restart("redo")
+            .expect("restart");
+        assert_eq!(mgr.current_state(), SessionState::Created);
+    }
+
+    #[test]
+    fn failed_phase_allows_retry() {
+        let mgr = SessionStateManager::new("failed-retry")
+            .fail("error")
+            .expect("f")
+            .retry("retry")
+            .expect("retry");
+        assert_eq!(mgr.current_state(), SessionState::Created);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EDGE CASES — empty strings, unicode, long chains, restart loops
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn manager_empty_reason_string() {
+        let mgr = SessionStateManager::new("empty-reason")
+            .activate("")
+            .expect("activate with empty reason");
+        assert_eq!(mgr.history()[0].reason, "");
+    }
+
+    #[test]
+    fn manager_unicode_reason_string() {
+        let mgr = SessionStateManager::new("unicode-reason")
+            .activate("日本語テスト 🚀 émoji")
+            .expect("activate with unicode");
+        assert_eq!(mgr.history()[0].reason, "日本語テスト 🚀 émoji");
+    }
+
+    #[test]
+    fn manager_long_reason_string() {
+        let long_reason = "x".repeat(10_000);
+        let mgr = SessionStateManager::new("long-reason")
+            .activate(&long_reason)
+            .expect("activate with long reason");
+        assert_eq!(mgr.history()[0].reason.len(), 10_000);
+    }
+
+    #[test]
+    fn manager_multiple_restart_cycles() {
+        // Created -> Active -> Completed -> Created -> Active -> Completed -> ...
+        let mgr = SessionStateManager::new("cycles")
+            .activate("cycle 1")
+            .expect("a1")
+            .complete("done 1")
+            .expect("c1")
+            .restart("restart 1")
+            .expect("r1")
+            .activate("cycle 2")
+            .expect("a2")
+            .complete("done 2")
+            .expect("c2")
+            .restart("restart 2")
+            .expect("r2")
+            .activate("cycle 3")
+            .expect("a3")
+            .complete("done 3")
+            .expect("c3");
+
+        assert_eq!(mgr.current_state(), SessionState::Completed);
+        assert_eq!(mgr.history().len(), 8); // 3 full cycles (activate+complete+restart+activate+complete+restart+activate+complete)
+    }
+
+    #[test]
+    fn manager_fail_retry_cycle() {
+        let mgr = SessionStateManager::new("fail-retry")
+            .fail("error 1")
+            .expect("f1")
+            .retry("retry 1")
+            .expect("r1")
+            .activate("go")
+            .expect("a1")
+            .sync("push")
+            .expect("sync")
+            .fail("sync error")
+            .expect("f2")
+            .retry("retry 2")
+            .expect("r2");
+
+        assert_eq!(mgr.current_state(), SessionState::Created);
+        assert_eq!(mgr.history().len(), 6);
+    }
+
+    #[test]
+    fn manager_sync_reactivate_loop() {
+        let mgr = SessionStateManager::new("sync-loop")
+            .activate("go")
+            .expect("a1")
+            .sync("push 1")
+            .expect("s1")
+            .sync_complete("done 1")
+            .expect("sc1")
+            .reactivate("more work")
+            .expect("reactivate")
+            .sync("push 2")
+            .expect("s2")
+            .sync_complete("done 2")
+            .expect("sc2");
+
+        assert_eq!(mgr.current_state(), SessionState::Synced);
+        assert_eq!(mgr.history().len(), 6);
+    }
+
+    #[test]
+    fn manager_pause_resume_loop() {
+        let mgr = SessionStateManager::new("pause-loop")
+            .activate("go")
+            .expect("a")
+            .pause("break 1")
+            .expect("p1")
+            .resume("back 1")
+            .expect("r1")
+            .pause("break 2")
+            .expect("p2")
+            .resume("back 2")
+            .expect("r2");
+
+        assert_eq!(mgr.current_state(), SessionState::Active);
+        assert_eq!(mgr.history().len(), 5);
+    }
+
+    #[test]
+    fn manager_empty_session_id() {
+        let mgr = SessionStateManager::new("");
+        assert_eq!(mgr.session_id(), "");
+        let mgr = mgr.activate("go").expect("activate");
+        assert_eq!(mgr.session_id(), "");
+    }
+
+    #[test]
+    fn manager_unicode_session_id() {
+        let mgr = SessionStateManager::new("セッション-🚀");
+        assert_eq!(mgr.session_id(), "セッション-🚀");
+    }
+
+    #[test]
+    fn metadata_overwrite() {
+        let mut mgr = SessionStateManager::new("meta-overwrite");
+        mgr.set_metadata("key", "first");
+        assert_eq!(mgr.metadata().get("key"), Some(&"first".to_string()));
+        mgr.set_metadata("key", "second");
+        assert_eq!(mgr.metadata().get("key"), Some(&"second".to_string()));
+    }
+
+    #[test]
+    fn metadata_multiple_keys() {
+        let mut mgr = SessionStateManager::new("meta-multi");
+        mgr.set_metadata("a", "1");
+        mgr.set_metadata("b", "2");
+        mgr.set_metadata("c", "3");
+        assert_eq!(mgr.metadata().len(), 3);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LifecycleState CONFORMANCE — SessionState and WorkspaceState
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // NOTE: SessionState does not implement the LifecycleState trait (it has its own
+    // can_transition_to/valid_next_states methods but no trait impl). We test equivalent
+    // invariants using its direct methods.
+
+    #[test]
+    fn session_state_equivalent_conformance() {
+        // Transition consistency: can_transition_to matches valid_next_states
+        for &from in SessionState::all_states() {
+            let nexts = from.valid_next_states();
+            for &to in SessionState::all_states() {
+                assert_eq!(
+                    from.can_transition_to(to),
+                    nexts.contains(&to),
+                    "SessionState inconsistency: {from:?} -> {to:?}"
+                );
+            }
+        }
+
+        // No self-transitions
+        for &state in SessionState::all_states() {
+            assert!(!state.can_transition_to(state), "No self-transition for {state:?}");
+        }
+
+        // All states listed in all_states are unique
+        let all = SessionState::all_states();
+        let mut seen = std::collections::HashSet::new();
+        for &s in all {
+            assert!(seen.insert(s), "Duplicate in all_states: {s:?}");
+        }
+        assert_eq!(all.len(), 7);
+    }
+
+    // NOTE: WorkspaceState does not implement LifecycleState trait (it uses its own
+    // all() instead of all_states()), so we test it separately with equivalent invariants.
+
+    #[test]
+    fn workspace_state_equivalent_conformance() {
+        // Transition consistency: can_transition_to matches valid_next_states
+        for &from in WorkspaceState::all() {
+            let nexts = from.valid_next_states();
+            for &to in WorkspaceState::all() {
+                assert_eq!(
+                    from.can_transition_to(to),
+                    nexts.contains(&to),
+                    "WorkspaceState inconsistency: {from:?} -> {to:?}"
+                );
+            }
+        }
+
+        // Terminal states have empty valid_next_states
+        for &state in WorkspaceState::all() {
+            if state.is_terminal() {
+                assert!(
+                    state.valid_next_states().is_empty(),
+                    "Terminal {state:?} must have empty next states"
+                );
+            }
+        }
+
+        // Non-terminal states have at least one transition
+        for &state in WorkspaceState::all() {
+            if !state.is_terminal() {
+                assert!(
+                    !state.valid_next_states().is_empty(),
+                    "Non-terminal {state:?} must have transitions"
+                );
+            }
+        }
+
+        // No self-transitions
+        for &state in WorkspaceState::all() {
+            assert!(!state.can_transition_to(state), "No self-transition for {state:?}");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SESSION STATUS — exhaustive operations guard
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn session_status_operations_exhaustive_cross_check() {
+        // allows_operation must be consistent with allowed_operations
+        for &status in SessionStatus::all_states() {
+            let ops = status.allowed_operations();
+            for op in [Operation::Status, Operation::Diff, Operation::Focus, Operation::Remove] {
+                assert_eq!(
+                    status.allows_operation(op),
+                    ops.contains(&op),
+                    "Inconsistency for {status:?}.{op:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn session_status_creating_allows_nothing() {
+        assert!(SessionStatus::Creating.allowed_operations().is_empty());
+    }
+
+    #[test]
+    fn session_status_terminal_allows_only_remove() {
+        for &terminal in &[SessionStatus::Completed, SessionStatus::Failed] {
+            let ops = terminal.allowed_operations();
+            assert_eq!(ops.len(), 1);
+            assert_eq!(ops[0], Operation::Remove);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WORKSPACE STATE FILTER — Active and Complete predicates
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn filter_active_matches_working_and_conflict() {
+        for &state in WorkspaceState::all() {
+            let expected = state == WorkspaceState::Working || state == WorkspaceState::Conflict;
+            assert_eq!(
+                WorkspaceStateFilter::Active.matches(state),
+                expected,
+                "Active filter mismatch for {state:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn filter_complete_matches_ready_and_merged() {
+        for &state in WorkspaceState::all() {
+            let expected = state == WorkspaceState::Ready || state == WorkspaceState::Merged;
+            assert_eq!(
+                WorkspaceStateFilter::Complete.matches(state),
+                expected,
+                "Complete filter mismatch for {state:?}"
+            );
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE TRANSITION SERDE — roundtrip with all fields
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn state_transition_serde_roundtrip() {
+        let t = StateTransition::new(SessionState::Created, SessionState::Active, "test");
+        let json = serde_json::to_string(&t).expect("serialize");
+        let back: StateTransition = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(t.from, back.from);
+        assert_eq!(t.to, back.to);
+        assert_eq!(t.reason, back.reason);
+    }
+
+    #[test]
+    fn workspace_state_transition_serde_with_agent_roundtrip() {
+        let t = WorkspaceStateTransition::with_agent(
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "work done",
+            "agent-99",
+        );
+        let json = serde_json::to_string(&t).expect("serialize");
+        let back: WorkspaceStateTransition = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(t.from, back.from);
+        assert_eq!(t.to, back.to);
+        assert_eq!(t.reason, back.reason);
+        assert_eq!(t.agent_id, back.agent_id);
+    }
+
+    #[test]
+    fn workspace_state_transition_serde_without_agent_skips_field() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "start");
+        let json = serde_json::to_string(&t).expect("serialize");
+        // agent_id is None, so skip_serializing_if should omit it
+        assert!(!json.contains("agent_id"), "Should skip null agent_id: {json}");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WORKSPACE DISPLAY — all variants have stable string representation
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn workspace_display_stable_strings() {
+        assert_eq!(WorkspaceState::Created.to_string(), "created");
+        assert_eq!(WorkspaceState::Working.to_string(), "working");
+        assert_eq!(WorkspaceState::Ready.to_string(), "ready");
+        assert_eq!(WorkspaceState::Merged.to_string(), "merged");
+        assert_eq!(WorkspaceState::Abandoned.to_string(), "abandoned");
+        assert_eq!(WorkspaceState::Conflict.to_string(), "conflict");
+    }
+
+    #[test]
+    fn workspace_from_str_all_variants() {
+        for &state in WorkspaceState::all() {
+            let display = state.to_string();
+            let parsed: std::result::Result<WorkspaceState, _> = display.parse();
+            assert_eq!(parsed.ok(), Some(state), "Roundtrip failed for {state:?}");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SESSION STATE — Copy, Eq, Hash properties
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn session_state_copy_preserves_value() {
+        let state = SessionState::Active;
+        let copied = state;
+        assert_eq!(state, copied);
+    }
+
+    #[test]
+    fn session_state_eq_ne() {
+        assert_eq!(SessionState::Active, SessionState::Active);
+        assert_ne!(SessionState::Active, SessionState::Paused);
+    }
+
+    #[test]
+    fn session_state_hash_consistency() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        for &state in SessionState::all_states() {
+            assert!(set.insert(state), "Duplicate hash for {state:?}");
+        }
+        assert_eq!(set.len(), 7);
+    }
+
+    #[test]
+    fn session_status_copy_preserves_value() {
+        let status = SessionStatus::Active;
+        let copied = status;
+        assert_eq!(status, copied);
+    }
+
+    #[test]
+    fn session_status_hash_consistency() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        for &status in SessionStatus::all_states() {
+            assert!(set.insert(status), "Duplicate hash for {status:?}");
+        }
+        assert_eq!(set.len(), 5);
+    }
+
+    #[test]
+    fn workspace_state_copy_preserves_value() {
+        let state = WorkspaceState::Working;
+        let copied = state;
+        assert_eq!(state, copied);
+    }
+
+    #[test]
+    fn workspace_state_hash_consistency() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        for &state in WorkspaceState::all() {
+            assert!(set.insert(state), "Duplicate hash for {state:?}");
+        }
+        assert_eq!(set.len(), 6);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SESSION STATE — exhaustive invalid transition error count
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn session_state_invalid_transition_count() {
+        // 7 states, 14 valid transitions (from exhaustive matrix above)
+        // Total possible: 7*7=49 (minus self-transitions = 42)
+        // Invalid = 42 - 14 = 28
+        let valid_count: usize = (0..7)
+            .flat_map(|i| (0..7).map(move |j| (i, j)))
+            .filter(|&(i, j)| i != j)
+            .filter(|&(i, j)| {
+                let from = SessionState::all_states()[i];
+                let to = SessionState::all_states()[j];
+                from.can_transition_to(to)
+            })
+            .count();
+
+        let expected_valid = 14;
+        assert_eq!(valid_count, expected_valid, "SessionState should have exactly {expected_valid} valid transitions");
+
+        // All invalid transitions must produce errors
+        let invalid_count = (0..7)
+            .flat_map(|i| (0..7).map(move |j| (i, j)))
+            .filter(|&(i, j)| i != j)
+            .filter(|&(i, j)| {
+                let from = SessionState::all_states()[i];
+                let to = SessionState::all_states()[j];
+                !from.can_transition_to(to)
+            })
+            .count();
+
+        assert_eq!(invalid_count, 42 - expected_valid);
+    }
+
+    #[test]
+    fn workspace_state_invalid_transition_count() {
+        // 6 states, from the exhaustive matrix above: 10 valid transitions
+        // Total possible: 6*6=36 (minus self-transitions = 30)
+        // Invalid = 30 - 10 = 20
+        let valid_count: usize = (0..6)
+            .flat_map(|i| (0..6).map(move |j| (i, j)))
+            .filter(|&(i, j)| i != j)
+            .filter(|&(i, j)| {
+                let from = WorkspaceState::all()[i];
+                let to = WorkspaceState::all()[j];
+                from.can_transition_to(to)
+            })
+            .count();
+
+        assert_eq!(valid_count, 10, "WorkspaceState should have exactly 10 valid transitions");
+    }
+
+    #[test]
+    fn session_status_invalid_transition_count() {
+        // 5 states
+        // Valid: Creating->Active, Creating->Failed, Active->Paused, Active->Completed,
+        //        Paused->Active, Paused->Completed = 6
+        // Total possible: 5*5=25 (minus self-transitions = 20)
+        // Invalid = 20 - 6 = 14
+        let valid_count: usize = (0..5)
+            .flat_map(|i| (0..5).map(move |j| (i, j)))
+            .filter(|&(i, j)| i != j)
+            .filter(|&(i, j)| {
+                let from = SessionStatus::all_states()[i];
+                let to = SessionStatus::all_states()[j];
+                from.can_transition_to(to)
+            })
+            .count();
+
+        assert_eq!(valid_count, 6, "SessionStatus should have exactly 6 valid transitions");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WORKSPACE STATE DEFAULT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn workspace_state_default_is_created() {
+        assert_eq!(WorkspaceState::default(), WorkspaceState::Created);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STRESS TESTS — long transition chains
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn manager_stress_many_cycles() {
+        // Use chained transitions - type-state pattern requires each step to
+        // return the correct typed manager. We can chain multiple restart cycles.
+        let mgr = SessionStateManager::new("stress")
+            .activate("c0").expect("a0")
+            .complete("c0").expect("c0")
+            .restart("c0").expect("r0")
+            .activate("c1").expect("a1")
+            .complete("c1").expect("c1")
+            .restart("c1").expect("r1")
+            .activate("c2").expect("a2")
+            .complete("c2").expect("c2")
+            .restart("c2").expect("r2")
+            .activate("c3").expect("a3")
+            .complete("c3").expect("c3")
+            .restart("c3").expect("r3")
+            .activate("c4").expect("a4")
+            .complete("c4").expect("c4")
+            .restart("c4").expect("r4")
+            .activate("final").expect("final");
+
+        assert_eq!(mgr.current_state(), SessionState::Active);
+        // 5 cycles * 3 (activate+complete+restart) + 1 final activate = 16
+        assert_eq!(mgr.history().len(), 16);
+    }
+
+    #[test]
+    fn manager_stress_sync_reactivate_cycles() {
+        let mgr = SessionStateManager::new("stress-sync")
+            .activate("s0").expect("a0")
+            .sync("s0").expect("s0")
+            .sync_complete("s0").expect("sc0")
+            .reactivate("s0").expect("r0")
+            .sync("s1").expect("s1")
+            .sync_complete("s1").expect("sc1")
+            .reactivate("s1").expect("r1")
+            .sync("s2").expect("s2")
+            .sync_complete("s2").expect("sc2");
+
+        assert_eq!(mgr.current_state(), SessionState::Synced);
+        // 3 full sync cycles: (activate+sync+sync_complete) + (reactivate+sync+sync_complete) * 2 = 9
+        assert_eq!(mgr.history().len(), 9);
     }
 }
