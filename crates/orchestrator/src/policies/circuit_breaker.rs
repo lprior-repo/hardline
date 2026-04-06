@@ -500,6 +500,95 @@ mod tests {
         assert!(!cb.is_execution_allowed());
     }
 
+    // --- Full end-to-end lifecycle test ---
+
+    #[test]
+    fn test_full_lifecycle_closed_open_halfopen_closed() {
+        // Thresholds: 3 failures to open, 2 successes to close from half-open, 30s open duration
+        let mut cb = CircuitBreaker::new(3, 2, 30000).expect("should create");
+
+        // Phase 1: Closed — requests allowed
+        assert_eq!(cb.state(), CircuitState::Closed);
+        assert!(cb.is_execution_allowed());
+
+        // Phase 2: Accumulate failures BELOW threshold — stays Closed
+        cb.record_failure();
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Closed, "2 failures < threshold 3");
+        assert!(cb.is_execution_allowed());
+        assert_eq!(cb.failure_count(), 2);
+
+        // Phase 3: Hit failure threshold — transitions to Open
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open, "3 failures >= threshold 3");
+        assert!(!cb.is_execution_allowed(), "Open rejects requests");
+
+        // Phase 3b: Open ignores successes and failures
+        cb.record_success();
+        assert_eq!(cb.state(), CircuitState::Open, "Open ignores success");
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open, "Open ignores failure");
+
+        // Phase 4: Not enough time elapsed — stays Open
+        assert!(
+            !cb.check_and_transition(29999),
+            "29999ms < 30000ms open duration"
+        );
+        assert_eq!(cb.state(), CircuitState::Open);
+
+        // Phase 5: Enough time elapsed — transitions to HalfOpen (probe)
+        assert!(cb.check_and_transition(30000));
+        assert_eq!(cb.state(), CircuitState::HalfOpen, "elapsed >= open_duration");
+        assert!(cb.is_execution_allowed(), "HalfOpen allows probe requests");
+        assert_eq!(cb.success_count(), 0, "success_count reset on transition");
+
+        // Phase 6: Partial successes — stays HalfOpen
+        cb.record_success();
+        assert_eq!(
+            cb.state(),
+            CircuitState::HalfOpen,
+            "1 success < success_threshold 2"
+        );
+        assert_eq!(cb.success_count(), 1);
+
+        // Phase 7: Hit success threshold — transitions to Closed
+        cb.record_success();
+        assert_eq!(cb.state(), CircuitState::Closed, "recovered after 2 successes");
+        assert!(cb.is_execution_allowed());
+        assert_eq!(cb.failure_count(), 0, "failure_count reset on close");
+        assert_eq!(cb.success_count(), 0, "success_count reset on close");
+    }
+
+    #[test]
+    fn test_full_lifecycle_halfopen_failure_reopens() {
+        let mut cb = CircuitBreaker::new(2, 2, 30000).expect("should create");
+
+        // Open the circuit
+        cb.record_failure();
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open);
+
+        // Transition to HalfOpen
+        cb.check_and_transition(30001);
+        assert_eq!(cb.state(), CircuitState::HalfOpen);
+
+        // Partial success then failure — reopens immediately
+        cb.record_success();
+        assert_eq!(cb.success_count(), 1);
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitState::Open, "failure in HalfOpen reopens");
+        assert_eq!(cb.success_count(), 0, "success_count reset on reopen");
+
+        // Can transition to HalfOpen again
+        cb.check_and_transition(60001);
+        assert_eq!(cb.state(), CircuitState::HalfOpen);
+
+        // This time, succeed fully
+        cb.record_success();
+        cb.record_success();
+        assert_eq!(cb.state(), CircuitState::Closed);
+    }
+
     // --- Proptests ---
 
     use proptest::prelude::*;
