@@ -1,0 +1,8 @@
+{
+  "sender": "mayor",
+  "message": "Start working on your hooked bead ha-j7gq immediately. Run /go-skill pipeline. Claim the bead, implement the tests, review, land, close the bead.",
+  "priority": "normal",
+  "timestamp": "2026-04-05T19:53:25.845259332-05:00",
+  "expires_at": "2026-04-05T20:23:25.845259332-05:00",
+  "deliver_after": "0001-01-01T00:00:00Z"
+}

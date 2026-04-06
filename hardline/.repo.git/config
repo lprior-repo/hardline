@@ -92,9 +92,18 @@
 [branch "polecat/onyx/ha-d9vg@mnmgpjct"]
 	remote = origin
 	merge = refs/heads/main
-[branch "main"]
+[branch "polecat/obsidian/ha-j7gq@mnmh7okg"]
 	remote = origin
 	merge = refs/heads/main
-[branch "temp"]
+[branch "polecat/onyx/ha-alvc@mnmh7tf8"]
 	remote = origin
-	merge = refs/heads/polecat/onyx-mnmgplnr
+	merge = refs/heads/main
+[branch "polecat/onyx-mnmh7wvr"]
+	remote = origin
+	merge = refs/heads/polecat/onyx-mnmh7wvr
+[branch "polecat/quartz/ha-n9k4@mnmhdao0"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/jasper/ha-r1eg@mnmhdff4"]
+	remote = origin
+	merge = refs/heads/main
