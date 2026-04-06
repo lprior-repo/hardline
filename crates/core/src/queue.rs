@@ -1404,4 +1404,986 @@ mod tests {
         assert!(!deserialized.success);
         assert_eq!(deserialized.error, Some("disk full".to_string()));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // EXHAUSTIVE TESTS: QueueItem, QueueManager (ha-im3)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ── FIFO ordering for same priority ──────────────────────────────
+
+    #[test]
+    fn test_fifo_same_priority_dequeue_order() -> Result<()> {
+        let queue = make_queue();
+
+        // All Normal priority (default) — should dequeue in insertion order
+        let id_a = {
+            let item = QueueItem::direct("alpha");
+            let id = item.id.clone();
+            queue.enqueue(item)?;
+            id
+        };
+        let id_b = {
+            let item = QueueItem::direct("bravo");
+            let id = item.id.clone();
+            queue.enqueue(item)?;
+            id
+        };
+        let id_c = {
+            let item = QueueItem::direct("charlie");
+            let id = item.id.clone();
+            queue.enqueue(item)?;
+            id
+        };
+
+        let first = queue.dequeue()?.expect("first item");
+        assert_eq!(first.id, id_a, "FIFO: first enqueued should dequeue first");
+        let second = queue.dequeue()?.expect("second item");
+        assert_eq!(second.id, id_b, "FIFO: second enqueued should dequeue second");
+        let third = queue.dequeue()?.expect("third item");
+        assert_eq!(third.id, id_c, "FIFO: third enqueued should dequeue third");
+
+        assert!(queue.dequeue()?.is_none(), "queue should be empty after draining");
+        Ok(())
+    }
+
+    #[test]
+    fn test_fifo_same_critical_priority() -> Result<()> {
+        let queue = make_queue();
+
+        for name in &["c1", "c2", "c3", "c4", "c5"] {
+            let mut item = QueueItem::direct(*name);
+            item.priority = Priority::Critical;
+            queue.enqueue(item)?;
+        }
+
+        let order: Vec<String> = std::iter::from_fn(|| queue.dequeue().ok().flatten().map(|i| i.branch))
+            .take(5)
+            .collect();
+        assert_eq!(order, vec!["c1", "c2", "c3", "c4", "c5"]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fifo_same_low_priority() -> Result<()> {
+        let queue = make_queue();
+
+        for name in &["low-a", "low-b"] {
+            let mut item = QueueItem::direct(*name);
+            item.priority = Priority::Low;
+            queue.enqueue(item)?;
+        }
+
+        let first = queue.dequeue()?.unwrap();
+        assert_eq!(first.branch, "low-a");
+        let second = queue.dequeue()?.unwrap();
+        assert_eq!(second.branch, "low-b");
+        Ok(())
+    }
+
+    #[test]
+    fn test_priority_preempts_fifo() -> Result<()> {
+        // Even though normal-priority items were enqueued first,
+        // critical should dequeue before them.
+        let queue = make_queue();
+
+        queue.enqueue(QueueItem::direct("normal-1"))?; // Normal (default)
+        queue.enqueue(QueueItem::direct("normal-2"))?;
+
+        let mut crit = QueueItem::direct("critical-late");
+        crit.priority = Priority::Critical;
+        queue.enqueue(crit)?;
+
+        let first = queue.dequeue()?.unwrap();
+        assert_eq!(first.branch, "critical-late");
+        assert_eq!(first.priority, Priority::Critical);
+
+        let second = queue.dequeue()?.unwrap();
+        assert_eq!(second.branch, "normal-1");
+        let third = queue.dequeue()?.unwrap();
+        assert_eq!(third.branch, "normal-2");
+        Ok(())
+    }
+
+    #[test]
+    fn test_mixed_priority_insertion_fifo_within_tier() -> Result<()> {
+        let queue = make_queue();
+
+        // Enqueue: Low, High, Normal, Critical, High, Low, Normal
+        let cases = [
+            ("l1", Priority::Low),
+            ("h1", Priority::High),
+            ("n1", Priority::Normal),
+            ("c1", Priority::Critical),
+            ("h2", Priority::High),
+            ("l2", Priority::Low),
+            ("n2", Priority::Normal),
+        ];
+        for (branch, priority) in cases {
+            let mut item = QueueItem::direct(branch);
+            item.priority = priority;
+            queue.enqueue(item)?;
+        }
+
+        // Expected: Critical first, then High in FIFO, Normal in FIFO, Low in FIFO
+        let expected = vec![
+            ("c1", Priority::Critical),
+            ("h1", Priority::High),
+            ("h2", Priority::High),
+            ("n1", Priority::Normal),
+            ("n2", Priority::Normal),
+            ("l1", Priority::Low),
+            ("l2", Priority::Low),
+        ];
+
+        for (expected_branch, expected_pri) in expected {
+            let item = queue
+                .dequeue()?
+                .unwrap_or_else(|| panic!("expected item {expected_branch}"));
+            assert_eq!(item.branch, expected_branch, "branch mismatch at {expected_branch}");
+            assert_eq!(item.priority, expected_pri, "priority mismatch at {expected_branch}");
+        }
+
+        assert!(queue.dequeue()?.is_none());
+        Ok(())
+    }
+
+    // ── Duplicate item handling ──────────────────────────────────────
+
+    #[test]
+    fn test_enqueue_same_item_twice_both_stored() -> Result<()> {
+        // MemQueue does not deduplicate — same ID enqueued twice is stored twice
+        let queue = make_queue();
+        let item = QueueItem::direct("dup-branch");
+        let id = item.id.clone();
+
+        queue.enqueue(item.clone())?;
+        queue.enqueue(item)?;
+
+        assert_eq!(queue.len()?, 2);
+        let all = queue.list()?;
+        assert!(all.iter().all(|i| i.id == id));
+        Ok(())
+    }
+
+    #[test]
+    fn test_dequeue_duplicate_items_both_processing() -> Result<()> {
+        let queue = make_queue();
+        let item = QueueItem::direct("dup-dequeue");
+        queue.enqueue(item.clone())?;
+        queue.enqueue(item)?;
+
+        let first = queue.dequeue()?.expect("first dequeue");
+        assert_eq!(first.status, QueueStatus::Processing);
+        assert_eq!(first.branch, "dup-dequeue");
+
+        let second = queue.dequeue()?.expect("second dequeue");
+        assert_eq!(second.status, QueueStatus::Processing);
+        assert_eq!(second.branch, "dup-dequeue");
+
+        assert!(queue.is_empty()?);
+        Ok(())
+    }
+
+    // ── Item cancellation in queue context ───────────────────────────
+
+    #[test]
+    fn test_cancel_then_dequeue_skips_cancelled() -> Result<()> {
+        let queue = make_queue();
+
+        queue.enqueue(QueueItem::direct("should-cancel"))?;
+        queue.enqueue(QueueItem::direct("should-dequeue"))?;
+
+        // Cancel the first item in-place
+        let all = queue.list()?;
+        let cancel_item = all.iter().find(|i| i.branch == "should-cancel").unwrap();
+        let mut updated = cancel_item.clone();
+        updated.cancel();
+        queue.update(updated)?;
+
+        // Dequeue should skip the cancelled item
+        let item = queue.dequeue()?.expect("should get pending item");
+        assert_eq!(item.branch, "should-dequeue");
+
+        // Now queue has one cancelled item left — dequeue should return None
+        assert!(queue.dequeue()?.is_none());
+        assert_eq!(queue.len()?, 1); // cancelled item still in queue
+        Ok(())
+    }
+
+    #[test]
+    fn test_cancel_all_items_then_dequeue_returns_none() -> Result<()> {
+        let queue = make_queue();
+
+        for name in &["a", "b", "c"] {
+            queue.enqueue(QueueItem::direct(*name))?;
+        }
+
+        let all = queue.list()?;
+        for item in &all {
+            let mut updated = item.clone();
+            updated.cancel();
+            queue.update(updated)?;
+        }
+
+        assert!(queue.dequeue()?.is_none(), "all cancelled — dequeue should return None");
+        assert_eq!(queue.len()?, 3, "cancelled items still in queue");
+        Ok(())
+    }
+
+    #[test]
+    fn test_cancel_one_of_same_priority_fifo_continues() -> Result<()> {
+        let queue = make_queue();
+
+        queue.enqueue(QueueItem::direct("first"))?;
+        queue.enqueue(QueueItem::direct("second"))?;
+        queue.enqueue(QueueItem::direct("third"))?;
+
+        // Cancel "second"
+        let all = queue.list()?;
+        let second = all.iter().find(|i| i.branch == "second").unwrap();
+        let mut updated = second.clone();
+        updated.cancel();
+        queue.update(updated)?;
+
+        // Dequeue should get "first", then "third" (skipping cancelled "second")
+        let d1 = queue.dequeue()?.unwrap();
+        assert_eq!(d1.branch, "first");
+        let d2 = queue.dequeue()?.unwrap();
+        assert_eq!(d2.branch, "third");
+        assert!(queue.dequeue()?.is_none());
+        Ok(())
+    }
+
+    // ── Queue persistence (serde roundtrip of full queue state) ──────
+
+    #[test]
+    fn test_queue_state_persistence_via_list() -> Result<()> {
+        let queue = make_queue();
+
+        let mut crit = QueueItem::direct("critical-work");
+        crit.priority = Priority::Critical;
+        queue.enqueue(crit)?;
+
+        queue.enqueue(QueueItem::direct("normal-work"))?;
+
+        let mut low = QueueItem::direct("low-work");
+        low.priority = Priority::Low;
+        queue.enqueue(low)?;
+
+        // Serialize queue state via list
+        let state = queue.list()?;
+        let json = serde_json::to_string(&state).expect("serialize queue state");
+
+        // Deserialize and reconstruct
+        let restored: Vec<QueueItem> = serde_json::from_str(&json).expect("deserialize queue state");
+        assert_eq!(restored.len(), 3);
+
+        // Verify priority ordering preserved
+        assert_eq!(restored[0].priority, Priority::Critical);
+        assert_eq!(restored[1].priority, Priority::Normal);
+        assert_eq!(restored[2].priority, Priority::Low);
+
+        // Verify all fields survived roundtrip
+        for (orig, rest) in state.iter().zip(restored.iter()) {
+            assert_eq!(orig.id, rest.id);
+            assert_eq!(orig.branch, rest.branch);
+            assert_eq!(orig.source, rest.source);
+            assert_eq!(orig.priority, rest.priority);
+            assert_eq!(orig.status, rest.status);
+            assert_eq!(orig.attempt_count, rest.attempt_count);
+            assert_eq!(orig.last_error, rest.last_error);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_queue_state_roundtrip_with_all_statuses() -> Result<()> {
+        let queue = make_queue();
+
+        let mut items = Vec::new();
+
+        let mut pending = QueueItem::direct("pending-item");
+        pending.status = QueueStatus::Pending;
+        items.push(pending.clone());
+        queue.enqueue(pending)?;
+
+        let mut processing = QueueItem::direct("processing-item");
+        processing.start_processing();
+        items.push(processing.clone());
+        queue.enqueue(processing)?;
+
+        let mut completed = QueueItem::direct("completed-item");
+        completed.complete();
+        items.push(completed.clone());
+        queue.enqueue(completed)?;
+
+        let mut failed = QueueItem::direct("failed-item");
+        failed.fail("catastrophic failure");
+        items.push(failed.clone());
+        queue.enqueue(failed)?;
+
+        let mut cancelled = QueueItem::direct("cancelled-item");
+        cancelled.cancel();
+        items.push(cancelled.clone());
+        queue.enqueue(cancelled)?;
+
+        let state = queue.list()?;
+        let json = serde_json::to_string_pretty(&state).unwrap();
+        let restored: Vec<QueueItem> = serde_json::from_str(&json).unwrap();
+
+        for (orig, rest) in items.iter().zip(restored.iter()) {
+            assert_eq!(orig.status, rest.status, "status roundtrip failed for {}", orig.branch);
+            assert_eq!(orig.last_error, rest.last_error, "last_error roundtrip failed");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_queue_state_roundtrip_preserves_source_attribution() -> Result<()> {
+        let queue = make_queue();
+
+        queue.enqueue(QueueItem::direct("direct-item"))?;
+        queue.enqueue(QueueItem::from_workspace("ws-alpha", "ws-item-1"))?;
+        queue.enqueue(QueueItem::from_workspace("ws-beta", "ws-item-2"))?;
+
+        let state = queue.list()?;
+        let json = serde_json::to_string(&state).unwrap();
+        let restored: Vec<QueueItem> = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(restored[0].source, QueueSource::Direct);
+        assert_eq!(
+            restored[1].source,
+            QueueSource::Workspace("ws-alpha".to_string())
+        );
+        assert_eq!(
+            restored[2].source,
+            QueueSource::Workspace("ws-beta".to_string())
+        );
+        Ok(())
+    }
+
+    // ── Queue size tracking edge cases ───────────────────────────────
+
+    #[test]
+    fn test_len_after_mixed_operations() -> Result<()> {
+        let queue = make_queue();
+        assert_eq!(queue.len()?, 0);
+
+        queue.enqueue(QueueItem::direct("a"))?;
+        queue.enqueue(QueueItem::direct("b"))?;
+        assert_eq!(queue.len()?, 2);
+
+        let _ = queue.dequeue()?;
+        assert_eq!(queue.len()?, 1); // dequeue removes from queue
+
+        queue.enqueue(QueueItem::direct("c"))?;
+        assert_eq!(queue.len()?, 2);
+
+        let item = queue.get(queue.list()?[0].id.as_str())?.unwrap();
+        queue.remove(&item.id)?;
+        assert_eq!(queue.len()?, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_is_empty_after_dequeue_all() -> Result<()> {
+        let queue = make_queue();
+        queue.enqueue(QueueItem::direct("x"))?;
+        queue.enqueue(QueueItem::direct("y"))?;
+
+        let _ = queue.dequeue()?;
+        assert!(!queue.is_empty()?);
+        let _ = queue.dequeue()?;
+        assert!(queue.is_empty()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_clear_completed_with_only_pending_returns_zero() -> Result<()> {
+        let queue = make_queue();
+        queue.enqueue(QueueItem::direct("pending-1"))?;
+        queue.enqueue(QueueItem::direct("pending-2"))?;
+
+        let cleared = queue.clear_completed()?;
+        assert_eq!(cleared, 0);
+        assert_eq!(queue.len()?, 2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_clear_completed_then_dequeue_works() -> Result<()> {
+        let queue = make_queue();
+
+        let mut done = QueueItem::direct("done-item");
+        done.complete();
+        queue.enqueue(done)?;
+
+        queue.enqueue(QueueItem::direct("pending-item"))?;
+
+        let cleared = queue.clear_completed()?;
+        assert_eq!(cleared, 1);
+
+        let item = queue.dequeue()?.expect("should dequeue pending");
+        assert_eq!(item.branch, "pending-item");
+        Ok(())
+    }
+
+    #[test]
+    fn test_clear_completed_removes_failed_and_cancelled() -> Result<()> {
+        let queue = make_queue();
+
+        let mut failed = QueueItem::direct("failed");
+        failed.fail("err");
+        queue.enqueue(failed)?;
+
+        let mut cancelled = QueueItem::direct("cancelled");
+        cancelled.cancel();
+        queue.enqueue(cancelled)?;
+
+        queue.enqueue(QueueItem::direct("pending"))?;
+
+        let cleared = queue.clear_completed()?;
+        assert_eq!(cleared, 2);
+        assert_eq!(queue.len()?, 1);
+
+        let remaining = queue.list()?;
+        assert_eq!(remaining[0].branch, "pending");
+        Ok(())
+    }
+
+    // ── Dequeue edge cases ───────────────────────────────────────────
+
+    #[test]
+    fn test_dequeue_only_processing_items_returns_none() -> Result<()> {
+        let queue = make_queue();
+
+        // Simulate items that are already Processing (e.g., from a previous crash)
+        let mut item = QueueItem::direct("stuck-processing");
+        item.start_processing();
+        queue.enqueue(item)?;
+
+        assert!(queue.dequeue()?.is_none(), "should skip processing items");
+        assert_eq!(queue.len()?, 1, "item remains in queue");
+        Ok(())
+    }
+
+    #[test]
+    fn test_dequeue_mixed_statuses_picks_first_pending() -> Result<()> {
+        let queue = make_queue();
+
+        let mut completed = QueueItem::direct("completed");
+        completed.complete();
+        queue.enqueue(completed)?;
+
+        let mut failed = QueueItem::direct("failed");
+        failed.fail("err");
+        queue.enqueue(failed)?;
+
+        queue.enqueue(QueueItem::direct("pending-target"))?;
+
+        let mut cancelled = QueueItem::direct("cancelled");
+        cancelled.cancel();
+        queue.enqueue(cancelled)?;
+
+        let item = queue.dequeue()?.expect("should find pending");
+        assert_eq!(item.branch, "pending-target");
+        Ok(())
+    }
+
+    #[test]
+    fn test_dequeue_sets_attempt_count_to_one() -> Result<()> {
+        let queue = make_queue();
+        queue.enqueue(QueueItem::direct("attempt-test"))?;
+
+        let item = queue.dequeue()?.unwrap();
+        assert_eq!(item.attempt_count, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_dequeue_sets_updated_at() -> Result<()> {
+        let queue = make_queue();
+        let item = QueueItem::direct("timestamp-test");
+        let original_updated = item.updated_at;
+        queue.enqueue(item)?;
+
+        let dequeued = queue.dequeue()?.unwrap();
+        // After dequeue, updated_at should be >= original (start_processing updates it)
+        assert!(dequeued.updated_at >= original_updated);
+        Ok(())
+    }
+
+    // ── Update edge cases ────────────────────────────────────────────
+
+    #[test]
+    fn test_update_priority_change() -> Result<()> {
+        let queue = make_queue();
+
+        queue.enqueue(QueueItem::direct("promote-me"))?;
+        let mut low = QueueItem::direct("low-item");
+        low.priority = Priority::Low;
+        queue.enqueue(low)?;
+
+        let all = queue.list()?;
+        let item = all.iter().find(|i| i.branch == "promote-me").unwrap().clone();
+        let mut promoted = item;
+        promoted.priority = Priority::Critical;
+        queue.update(promoted)?;
+
+        let first = queue.dequeue()?.unwrap();
+        assert_eq!(first.branch, "promote-me");
+        assert_eq!(first.priority, Priority::Critical);
+        Ok(())
+    }
+
+    #[test]
+    fn test_update_status_transition_to_failed() -> Result<()> {
+        let queue = make_queue();
+        let item = QueueItem::direct("will-fail");
+        let id = item.id.clone();
+        queue.enqueue(item)?;
+
+        let mut fetched = queue.get(&id)?.unwrap();
+        fetched.start_processing();
+        fetched.fail("timeout after 30s");
+        queue.update(fetched)?;
+
+        let updated = queue.get(&id)?.unwrap();
+        assert_eq!(updated.status, QueueStatus::Failed);
+        assert_eq!(updated.last_error, Some("timeout after 30s".to_string()));
+        assert_eq!(updated.attempt_count, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_update_nonexistent_returns_error() {
+        let queue = make_queue();
+        let mut ghost = QueueItem::direct("ghost");
+        ghost.id = "does-not-exist".to_string();
+        assert!(queue.update(ghost).is_err());
+    }
+
+    // ── Remove edge cases ────────────────────────────────────────────
+
+    #[test]
+    fn test_remove_middle_item_preserves_others() -> Result<()> {
+        let queue = make_queue();
+
+        let mut crit = QueueItem::direct("critical");
+        crit.priority = Priority::Critical;
+        queue.enqueue(crit)?;
+
+        queue.enqueue(QueueItem::direct("normal"))?;
+
+        let mut low = QueueItem::direct("low");
+        low.priority = Priority::Low;
+        queue.enqueue(low)?;
+
+        let all = queue.list()?;
+        let normal = all.iter().find(|i| i.branch == "normal").unwrap();
+        queue.remove(&normal.id)?;
+
+        assert_eq!(queue.len()?, 2);
+        let first = queue.dequeue()?.unwrap();
+        assert_eq!(first.branch, "critical");
+        let second = queue.dequeue()?.unwrap();
+        assert_eq!(second.branch, "low");
+        Ok(())
+    }
+
+    #[test]
+    fn test_remove_then_enqueue_replaces() -> Result<()> {
+        let queue = make_queue();
+        let item = QueueItem::direct("original");
+        let id = item.id.clone();
+        queue.enqueue(item)?;
+
+        queue.remove(&id)?;
+        assert_eq!(queue.len()?, 0);
+
+        queue.enqueue(QueueItem::direct("replacement"))?;
+        assert_eq!(queue.len()?, 1);
+
+        let fetched = queue.list()?;
+        assert_eq!(fetched[0].branch, "replacement");
+        Ok(())
+    }
+
+    // ── QueueItem clone / debug / unique ID ──────────────────────────
+
+    #[test]
+    fn test_queue_item_clone_is_independent() {
+        let mut original = QueueItem::direct("clone-test");
+        original.fail("original error");
+        let cloned = original.clone();
+
+        // Mutating original doesn't affect clone
+        original.complete();
+        assert_eq!(cloned.status, QueueStatus::Failed);
+        assert_eq!(cloned.last_error, Some("original error".to_string()));
+    }
+
+    #[test]
+    fn test_queue_item_debug_format() {
+        let item = QueueItem::direct("debug-branch");
+        let debug = format!("{item:?}");
+        assert!(debug.contains("debug-branch"));
+        assert!(debug.contains("Pending"));
+    }
+
+    #[test]
+    fn test_queue_item_unique_ids() {
+        let ids: std::collections::HashSet<String> = (0..100)
+            .map(|_| QueueItem::direct("branch").id)
+            .collect();
+        // All 100 items should have unique IDs
+        assert_eq!(ids.len(), 100, "each QueueItem should get a unique ID");
+    }
+
+    #[test]
+    fn test_queue_item_created_at_not_default() {
+        let item = QueueItem::direct("ts-check");
+        let epoch = DateTime::from_timestamp(0, 0).unwrap();
+        assert!(item.created_at > epoch, "created_at should be a real timestamp");
+    }
+
+    #[test]
+    fn test_queue_item_created_at_equals_updated_at_initially() {
+        let item = QueueItem::direct("ts-equal");
+        assert_eq!(item.created_at, item.updated_at);
+    }
+
+    #[test]
+    fn test_memqueue_debug_format() {
+        let queue = make_queue();
+        queue.enqueue(QueueItem::direct("debug-queue")).ok();
+        let debug = format!("{queue:?}");
+        assert!(debug.contains("MemQueue"));
+        assert!(debug.contains("debug-queue"));
+    }
+
+    // ── Concurrent access safety ─────────────────────────────────────
+
+    #[test]
+    fn test_concurrent_enqueue_dequeue() -> Result<()> {
+        use std::sync::Arc;
+        use std::thread;
+
+        let queue = Arc::new(make_queue());
+        let mut handles = Vec::new();
+
+        // Spawn 4 threads each enqueueing 25 items
+        for t in 0..4 {
+            let q = Arc::clone(&queue);
+            handles.push(thread::spawn(move || {
+                for i in 0..25 {
+                    let branch = format!("t{t}-item{i}");
+                    q.enqueue(QueueItem::direct(&branch)).expect("enqueue");
+                }
+            }));
+        }
+
+        for h in handles {
+            h.join().expect("thread panicked");
+        }
+
+        assert_eq!(queue.len()?, 100, "all 100 items should be enqueued");
+
+        // Dequeue all — should get 100 items
+        let mut count = 0;
+        while queue.dequeue()?.is_some() {
+            count += 1;
+        }
+        assert_eq!(count, 100);
+        Ok(())
+    }
+
+    #[test]
+    fn test_concurrent_enqueue_and_dequeue_interleaved() -> Result<()> {
+        use std::sync::Arc;
+        use std::thread;
+
+        let queue = Arc::new(make_queue());
+        let mut handles = Vec::new();
+
+        // Enqueuers
+        for t in 0..2 {
+            let q = Arc::clone(&queue);
+            handles.push(thread::spawn(move || {
+                for i in 0..50 {
+                    q.enqueue(QueueItem::direct(&format!("e{t}-{i}")))
+                        .expect("enqueue");
+                }
+            }));
+        }
+
+        // Dequeuer
+        let q = Arc::clone(&queue);
+        let dequeuer = thread::spawn(move || {
+            let mut dequeued = 0;
+            for _ in 0..200 {
+                if q.dequeue().ok().flatten().is_some() {
+                    dequeued += 1;
+                }
+            }
+            dequeued
+        });
+
+        for h in handles {
+            h.join().expect("enqueuer panicked");
+        }
+        let dequeued = dequeuer.join().expect("dequeuer panicked");
+
+        // Total items in queue + dequeued = 100
+        let remaining = queue.len()?;
+        assert_eq!(remaining + dequeued, 100);
+        Ok(())
+    }
+
+    // ── Large queue stress tests ─────────────────────────────────────
+
+    #[test]
+    fn test_enqueue_dequeue_1000_items() -> Result<()> {
+        let queue = make_queue();
+
+        for i in 0..1000 {
+            let mut item = QueueItem::direct(&format!("item-{i:04}"));
+            // Cycle through priorities
+            item.priority = match i % 4 {
+                0 => Priority::Critical,
+                1 => Priority::High,
+                2 => Priority::Normal,
+                _ => Priority::Low,
+            };
+            queue.enqueue(item)?;
+        }
+
+        assert_eq!(queue.len()?, 1000);
+
+        // Verify priority ordering is maintained
+        let mut last_priority = Priority::Critical;
+        for _ in 0..1000 {
+            let item = queue.dequeue()?.expect("should have item");
+            assert!(
+                item.priority >= last_priority,
+                "priority ordering violated: {:?} < {:?}",
+                item.priority,
+                last_priority
+            );
+            last_priority = item.priority;
+        }
+
+        assert!(queue.is_empty()?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_rapid_enqueue_dequeue_cycle() -> Result<()> {
+        let queue = make_queue();
+
+        for cycle in 0..100 {
+            queue.enqueue(QueueItem::direct(&format!("cycle-{cycle}")))?;
+            let item = queue.dequeue()?.expect("should dequeue immediately");
+            assert_eq!(item.branch, format!("cycle-{cycle}"));
+        }
+
+        assert!(queue.is_empty()?);
+        Ok(())
+    }
+
+    // ── ProcessResult exhaustive tests ───────────────────────────────
+
+    #[test]
+    fn test_process_result_debug_format() {
+        let result = ProcessResult {
+            item_id: "item-debug".to_string(),
+            success: true,
+            error: None,
+            processed_at: Utc::now(),
+        };
+        let debug = format!("{result:?}");
+        assert!(debug.contains("item-debug"));
+        assert!(debug.contains("true"));
+    }
+
+    #[test]
+    fn test_process_result_clone() {
+        let result = ProcessResult {
+            item_id: "item-clone".to_string(),
+            success: false,
+            error: Some("err".to_string()),
+            processed_at: Utc::now(),
+        };
+        let cloned = result.clone();
+        assert_eq!(cloned.item_id, "item-clone");
+        assert!(!cloned.success);
+        assert_eq!(cloned.error, Some("err".to_string()));
+    }
+
+    // ── Proptests: property-based testing ────────────────────────────
+
+    #[test]
+    fn proptest_enqueue_dequeue_roundtrip_preserves_items() {
+        proptest::proptest!(|(branches in proptest::collection::vec("[a-z]{1,10}", 0..20))| {
+            let queue = make_queue();
+            let mut enqueued = Vec::new();
+
+            for branch in &branches {
+                let item = QueueItem::direct(branch);
+                enqueued.push(item.branch.clone());
+                queue.enqueue(item).expect("enqueue");
+            }
+
+            assert_eq!(queue.len().expect("len"), branches.len());
+
+            let mut dequeued = Vec::new();
+            while let Some(item) = queue.dequeue().expect("dequeue opt") {
+                dequeued.push(item.branch);
+            }
+
+            // All enqueued branches should be present in dequeued
+            let mut enq_sorted = enqueued;
+            enq_sorted.sort();
+            let mut deq_sorted = dequeued;
+            deq_sorted.sort();
+            assert_eq!(enq_sorted, deq_sorted);
+        });
+    }
+
+    #[test]
+    fn proptest_priority_ordering_invariant() {
+        proptest::proptest!(|(priorities in proptest::collection::vec(0u8..4, 1..30))| {
+            let queue = make_queue();
+
+            for (i, &p) in priorities.iter().enumerate() {
+                let mut item = QueueItem::direct(&format!("item-{i}"));
+                item.priority = match p {
+                    0 => Priority::Critical,
+                    1 => Priority::High,
+                    2 => Priority::Normal,
+                    _ => Priority::Low,
+                };
+                queue.enqueue(item).expect("enqueue");
+            }
+
+            let mut prev: Option<Priority> = None;
+            while let Some(item) = queue.dequeue().expect("dequeue") {
+                if let Some(p) = prev {
+                    assert!(item.priority >= p,
+                        "dequeue violated priority ordering: {:?} came after {:?}",
+                        item.priority, p);
+                }
+                prev = Some(item.priority);
+            }
+        });
+    }
+
+    #[test]
+    fn proptest_queue_item_serde_roundtrip() {
+        proptest::proptest!(|(
+            branch in "[a-z][a-z0-9-]{0,20}",
+            attempt_count in 0u32..100,
+            has_error in proptest::bool::ANY,
+            error_msg in proptest::option::of("[a-z ]{0,50}"),
+        )| {
+            let mut item = QueueItem::direct(&branch);
+            for _ in 0..attempt_count {
+                item.start_processing();
+            }
+            if has_error {
+                if let Some(msg) = &error_msg {
+                    item.fail(msg);
+                }
+            }
+
+            let json = serde_json::to_string(&item).expect("serialize");
+            let restored: QueueItem = serde_json::from_str(&json).expect("deserialize");
+
+            assert_eq!(item.branch, restored.branch);
+            assert_eq!(item.attempt_count, restored.attempt_count);
+            assert_eq!(item.last_error, restored.last_error);
+        });
+    }
+
+    #[test]
+    fn proptest_clear_completed_never_removes_pending_or_processing() {
+        proptest::proptest!(|(
+            statuses in proptest::collection::vec(
+                proptest::sample::select(&[
+                    QueueStatus::Pending,
+                    QueueStatus::Processing,
+                    QueueStatus::Completed,
+                    QueueStatus::Failed,
+                    QueueStatus::Cancelled,
+                ]), 1..30)
+        )| {
+            let queue = make_queue();
+            let mut pending_count = 0usize;
+            let mut processing_count = 0usize;
+
+            for (i, &status) in statuses.iter().enumerate() {
+                let mut item = QueueItem::direct(&format!("s-{i}"));
+                item.status = status;
+                if status == QueueStatus::Pending {
+                    pending_count += 1;
+                }
+                if status == QueueStatus::Processing {
+                    processing_count += 1;
+                }
+                queue.enqueue(item).expect("enqueue");
+            }
+
+            let cleared = queue.clear_completed().expect("clear");
+            let remaining = queue.len().expect("len");
+
+            // Pending + Processing items should never be cleared
+            assert_eq!(remaining, pending_count + processing_count,
+                "cleared {} items but {} pending + {} processing should remain",
+                cleared, pending_count, processing_count);
+        });
+    }
+
+    #[test]
+    fn proptest_list_pending_always_sorted_by_priority() {
+        proptest::proptest!(|(
+            priorities in proptest::collection::vec(0u8..4, 0..20)
+        )| {
+            let queue = make_queue();
+
+            for (i, &p) in priorities.iter().enumerate() {
+                let mut item = QueueItem::direct(&format!("p-{i}"));
+                item.priority = match p {
+                    0 => Priority::Critical,
+                    1 => Priority::High,
+                    2 => Priority::Normal,
+                    _ => Priority::Low,
+                };
+                queue.enqueue(item).expect("enqueue");
+            }
+
+            let pending = queue.list_pending().expect("list_pending");
+            for window in pending.windows(2) {
+                assert!(window[0].priority <= window[1].priority,
+                    "list_pending not sorted: {:?} before {:?}",
+                    window[0].priority, window[1].priority);
+            }
+        });
+    }
+
+    #[test]
+    fn proptest_dequeue_always_pending_status() {
+        proptest::proptest!(|(n in 1u8..50)| {
+            let queue = make_queue();
+            for i in 0..n {
+                queue.enqueue(QueueItem::direct(&format!("d-{i}"))).expect("enqueue");
+            }
+
+            while let Some(item) = queue.dequeue().expect("dequeue") {
+                assert_eq!(item.status, QueueStatus::Processing,
+                    "dequeued item should be Processing, got {:?}", item.status);
+                assert_eq!(item.attempt_count, 1,
+                    "dequeued item should have attempt_count = 1");
+            }
+        });
+    }
 }
