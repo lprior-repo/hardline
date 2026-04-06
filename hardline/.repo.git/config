@@ -176,9 +176,18 @@
 [branch "polecat/onyx/ha-sdu2@mnmjj6s9"]
 	remote = origin
 	merge = refs/heads/main
+[branch "polecat/obsidian/ha-0kl@mnmk2pxr"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/quartz/ha-81v@mnmk2wxb"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/jasper/ha-ah8@mnmk320t"]
+	remote = origin
+	merge = refs/heads/main
 [branch "main"]
 	remote = origin
 	merge = refs/heads/main
-[branch "temp"]
+[branch "polecat/onyx/ha-c4o@mnmk913q"]
 	remote = origin
-	merge = refs/heads/polecat/jasper-mnmjj5hf
+	merge = refs/heads/main
