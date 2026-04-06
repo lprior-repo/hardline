@@ -1,3 +1,0 @@
-0000000000000000000000000000000000000000 f98a982d9f8a8d085527ec01d46c2aec34de8913 Lewis <priorlewis43@gmail.com> 1775447962 -0500	branch: Created from polecat/opal/ha-eswb@mnmnvb3o
-f98a982d9f8a8d085527ec01d46c2aec34de8913 8db099c94fdc4565501ac6579c3f0b91025f6fe0 Lewis <priorlewis43@gmail.com> 1775448875 -0500	commit: test: exhaustive Lifecycle tests — timing metrics, error handling, concurrent safety, phase boundaries (ha-eswb)
-8db099c94fdc4565501ac6579c3f0b91025f6fe0 54aef19b4b2f4b3977847649a0a1268b996911dc Lewis <priorlewis43@gmail.com> 1775448891 -0500	commit: fix: auto-save uncommitted implementation work (gt-pvx safety net)
