@@ -15,6 +15,20 @@ pub struct ScenarioResult {
     pub error: Option<String>,
 }
 
+impl std::fmt::Display for ScenarioResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let status = if self.passed { "PASS" } else { "FAIL" };
+        match &self.error {
+            Some(err) => write!(
+                f,
+                "[{}] {} ({:.3}s) — {}",
+                status, self.name, self.duration_secs, err
+            ),
+            None => write!(f, "[{}] {} ({:.3}s)", status, self.name, self.duration_secs),
+        }
+    }
+}
+
 /// Metrics for a single phase execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PhaseMetrics {
@@ -1034,6 +1048,576 @@ mod tests {
             }
             let agg = metrics.aggregated();
             prop_assert_eq!(agg.total_pipelines, count);
+        }
+    }
+
+    // ========================================================================
+    // ha-ah8: Exhaustive ScenarioResult tests — construction, serde, display,
+    //         aggregation from multiple phases
+    // ========================================================================
+
+    // --- Construction ---
+
+    #[test]
+    fn test_scenario_result_construct_pass() {
+        let r = ScenarioResult {
+            name: "login_flow".into(),
+            passed: true,
+            duration_secs: 1.234,
+            error: None,
+        };
+        assert_eq!(r.name, "login_flow");
+        assert!(r.passed);
+        assert!((r.duration_secs - 1.234).abs() < f64::EPSILON);
+        assert!(r.error.is_none());
+    }
+
+    #[test]
+    fn test_scenario_result_construct_fail_with_error() {
+        let r = ScenarioResult {
+            name: "checkout".into(),
+            passed: false,
+            duration_secs: 0.5,
+            error: Some("assertion failed: status 404".into()),
+        };
+        assert!(!r.passed);
+        assert_eq!(r.error.as_deref(), Some("assertion failed: status 404"));
+    }
+
+    #[test]
+    fn test_scenario_result_construct_fail_no_error_message() {
+        // A result can fail without an error message
+        let r = ScenarioResult {
+            name: "timeout_test".into(),
+            passed: false,
+            duration_secs: 30.0,
+            error: None,
+        };
+        assert!(!r.passed);
+        assert!(r.error.is_none());
+    }
+
+    #[test]
+    fn test_scenario_result_zero_duration() {
+        let r = ScenarioResult {
+            name: "instant".into(),
+            passed: true,
+            duration_secs: 0.0,
+            error: None,
+        };
+        assert!((r.duration_secs).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_scenario_result_empty_name() {
+        let r = ScenarioResult {
+            name: String::new(),
+            passed: true,
+            duration_secs: 1.0,
+            error: None,
+        };
+        assert!(r.name.is_empty());
+    }
+
+    #[test]
+    fn test_scenario_result_clone_preserves_fields() {
+        let original = ScenarioResult {
+            name: "deep_copy_test".into(),
+            passed: true,
+            duration_secs: 2.5,
+            error: Some("minor warning".into()),
+        };
+        let cloned = original.clone();
+        assert_eq!(original.name, cloned.name);
+        assert_eq!(original.passed, cloned.passed);
+        assert_eq!(original.duration_secs, cloned.duration_secs);
+        assert_eq!(original.error, cloned.error);
+    }
+
+    // --- Serialization round-trip (JSON) ---
+
+    #[test]
+    fn test_scenario_result_serde_pass_roundtrip() {
+        let r = ScenarioResult {
+            name: "happy_path".into(),
+            passed: true,
+            duration_secs: 1.5,
+            error: None,
+        };
+        let json = serde_json::to_string(&r).expect("serialize");
+        let back: ScenarioResult = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(r.name, back.name);
+        assert_eq!(r.passed, back.passed);
+        assert!((r.duration_secs - back.duration_secs).abs() < f64::EPSILON);
+        assert_eq!(r.error, back.error);
+    }
+
+    #[test]
+    fn test_scenario_result_serde_fail_roundtrip() {
+        let r = ScenarioResult {
+            name: "failure_case".into(),
+            passed: false,
+            duration_secs: 0.3,
+            error: Some("assertion failed".into()),
+        };
+        let json = serde_json::to_string(&r).expect("serialize");
+        let back: ScenarioResult = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(r.error, back.error);
+        assert!(!back.passed);
+    }
+
+    #[test]
+    fn test_scenario_result_json_structure() {
+        let r = ScenarioResult {
+            name: "struct_test".into(),
+            passed: true,
+            duration_secs: 3.14,
+            error: None,
+        };
+        let val: serde_json::Value =
+            serde_json::to_value(&r).expect("to_value");
+        assert_eq!(val["name"], "struct_test");
+        assert_eq!(val["passed"], true);
+        assert_eq!(val["duration_secs"], 3.14);
+        assert!(val["error"].is_null());
+    }
+
+    #[test]
+    fn test_scenario_result_json_structure_with_error() {
+        let r = ScenarioResult {
+            name: "err_struct".into(),
+            passed: false,
+            duration_secs: 0.1,
+            error: Some("boom".into()),
+        };
+        let val: serde_json::Value =
+            serde_json::to_value(&r).expect("to_value");
+        assert_eq!(val["error"], "boom");
+    }
+
+    #[test]
+    fn test_scenario_result_pretty_json_roundtrip() {
+        let r = ScenarioResult {
+            name: "pretty".into(),
+            passed: true,
+            duration_secs: 99.9,
+            error: Some("warning".into()),
+        };
+        let json = serde_json::to_string_pretty(&r).expect("pretty serialize");
+        let back: ScenarioResult = serde_json::from_str(&json).expect("pretty deserialize");
+        assert_eq!(r.name, back.name);
+        assert_eq!(r.error, back.error);
+    }
+
+    #[test]
+    fn test_scenario_result_deserialize_from_literal_json() {
+        let json = r#"{"name":"literal","passed":true,"duration_secs":5.0,"error":null}"#;
+        let r: ScenarioResult = serde_json::from_str(json).expect("deserialize literal");
+        assert_eq!(r.name, "literal");
+        assert!(r.passed);
+        assert!(r.error.is_none());
+    }
+
+    #[test]
+    fn test_scenario_result_vec_serde_roundtrip() {
+        let results = vec![
+            ScenarioResult {
+                name: "a".into(),
+                passed: true,
+                duration_secs: 1.0,
+                error: None,
+            },
+            ScenarioResult {
+                name: "b".into(),
+                passed: false,
+                duration_secs: 2.0,
+                error: Some("fail".into()),
+            },
+        ];
+        let json = serde_json::to_string(&results).expect("serialize vec");
+        let back: Vec<ScenarioResult> = serde_json::from_str(&json).expect("deserialize vec");
+        assert_eq!(back.len(), 2);
+        assert_eq!(back[0].name, "a");
+        assert!(back[0].passed);
+        assert!(!back[1].passed);
+        assert_eq!(back[1].error.as_deref(), Some("fail"));
+    }
+
+    // --- Display formatting ---
+
+    #[test]
+    fn test_scenario_result_display_pass_no_error() {
+        let r = ScenarioResult {
+            name: "login_test".into(),
+            passed: true,
+            duration_secs: 1.5,
+            error: None,
+        };
+        let display = format!("{r}");
+        assert!(display.contains("[PASS]"));
+        assert!(display.contains("login_test"));
+        assert!(display.contains("1.500"));
+        assert!(!display.contains("—"));
+    }
+
+    #[test]
+    fn test_scenario_result_display_fail_with_error() {
+        let r = ScenarioResult {
+            name: "checkout".into(),
+            passed: false,
+            duration_secs: 0.25,
+            error: Some("status 500".into()),
+        };
+        let display = format!("{r}");
+        assert!(display.contains("[FAIL]"));
+        assert!(display.contains("checkout"));
+        assert!(display.contains("0.250"));
+        assert!(display.contains("—"));
+        assert!(display.contains("status 500"));
+    }
+
+    #[test]
+    fn test_scenario_result_display_fail_no_error() {
+        // FAIL without error message — no em-dash
+        let r = ScenarioResult {
+            name: "timeout".into(),
+            passed: false,
+            duration_secs: 30.0,
+            error: None,
+        };
+        let display = format!("{r}");
+        assert!(display.contains("[FAIL]"));
+        assert!(!display.contains("—"));
+    }
+
+    #[test]
+    fn test_scenario_result_display_zero_duration() {
+        let r = ScenarioResult {
+            name: "instant".into(),
+            passed: true,
+            duration_secs: 0.0,
+            error: None,
+        };
+        let display = format!("{r}");
+        assert!(display.contains("0.000"));
+    }
+
+    #[test]
+    fn test_scenario_result_display_empty_name() {
+        let r = ScenarioResult {
+            name: String::new(),
+            passed: true,
+            duration_secs: 1.0,
+            error: None,
+        };
+        let display = format!("{r}");
+        assert!(display.contains("[PASS]"));
+    }
+
+    #[test]
+    fn test_scenario_result_display_multiline_error() {
+        let r = ScenarioResult {
+            name: "multi".into(),
+            passed: false,
+            duration_secs: 1.0,
+            error: Some("line1\nline2\nline3".into()),
+        };
+        let display = format!("{r}");
+        assert!(display.contains("line1\nline2\nline3"));
+    }
+
+    // --- Aggregation from multiple phases ---
+
+    #[test]
+    fn test_scenario_aggregation_all_pass_100_percent() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".into(),
+            phase: "validation".into(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+        metrics.record_scenarios(
+            "p1",
+            vec![
+                ScenarioResult {
+                    name: "s1".into(),
+                    passed: true,
+                    duration_secs: 0.5,
+                    error: None,
+                },
+                ScenarioResult {
+                    name: "s2".into(),
+                    passed: true,
+                    duration_secs: 0.3,
+                    error: None,
+                },
+                ScenarioResult {
+                    name: "s3".into(),
+                    passed: true,
+                    duration_secs: 0.2,
+                    error: None,
+                },
+            ],
+        );
+        assert!((metrics.scenario_pass_rate() - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_scenario_aggregation_mixed_pass_fail() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".into(),
+            phase: "validation".into(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+        metrics.record_scenarios(
+            "p1",
+            vec![
+                ScenarioResult {
+                    name: "pass".into(),
+                    passed: true,
+                    duration_secs: 1.0,
+                    error: None,
+                },
+                ScenarioResult {
+                    name: "fail1".into(),
+                    passed: false,
+                    duration_secs: 2.0,
+                    error: Some("err".into()),
+                },
+                ScenarioResult {
+                    name: "fail2".into(),
+                    passed: false,
+                    duration_secs: 3.0,
+                    error: Some("err".into()),
+                },
+            ],
+        );
+        assert!((metrics.scenario_pass_rate() - 33.333).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_scenario_aggregation_across_multiple_pipelines() {
+        let mut metrics = Metrics::new();
+
+        // Pipeline 1: 2 passed, 1 failed
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".into(),
+            phase: "validation".into(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+        metrics.record_scenarios(
+            "p1",
+            vec![
+                ScenarioResult {
+                    name: "p1_s1".into(),
+                    passed: true,
+                    duration_secs: 0.1,
+                    error: None,
+                },
+                ScenarioResult {
+                    name: "p1_s2".into(),
+                    passed: true,
+                    duration_secs: 0.2,
+                    error: None,
+                },
+                ScenarioResult {
+                    name: "p1_s3".into(),
+                    passed: false,
+                    duration_secs: 0.3,
+                    error: Some("fail".into()),
+                },
+            ],
+        );
+
+        // Pipeline 2: 1 passed
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p2".into(),
+            phase: "validation".into(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+        metrics.record_scenarios(
+            "p2",
+            vec![ScenarioResult {
+                name: "p2_s1".into(),
+                passed: true,
+                duration_secs: 0.5,
+                error: None,
+            }],
+        );
+
+        // Total: 3 passed, 1 failed out of 4 = 75%
+        assert!((metrics.scenario_pass_rate() - 75.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_scenario_aggregation_overwrite_via_record_scenarios() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".into(),
+            phase: "val".into(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+
+        // First batch: all pass
+        metrics.record_scenarios(
+            "p1",
+            vec![
+                ScenarioResult {
+                    name: "s1".into(),
+                    passed: true,
+                    duration_secs: 1.0,
+                    error: None,
+                },
+            ],
+        );
+        assert!((metrics.scenario_pass_rate() - 100.0).abs() < 0.01);
+
+        // Overwrite: all fail
+        metrics.record_scenarios(
+            "p1",
+            vec![
+                ScenarioResult {
+                    name: "s1".into(),
+                    passed: false,
+                    duration_secs: 1.0,
+                    error: Some("replaced".into()),
+                },
+            ],
+        );
+        assert!((metrics.scenario_pass_rate() - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_scenario_aggregation_preserved_through_export() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".into(),
+            phase: "val".into(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+        let results = vec![
+            ScenarioResult {
+                name: "s1".into(),
+                passed: true,
+                duration_secs: 0.5,
+                error: None,
+            },
+            ScenarioResult {
+                name: "s2".into(),
+                passed: false,
+                duration_secs: 0.5,
+                error: Some("err".into()),
+            },
+        ];
+        metrics.record_scenarios("p1", results.clone());
+
+        let exported = metrics.export().expect("export");
+        let parsed: std::collections::HashMap<String, PipelineMetrics> =
+            serde_json::from_str(&exported).expect("parse export");
+        let pm = parsed.get("p1").expect("pipeline p1");
+        assert_eq!(pm.scenario_results.len(), 2);
+        assert_eq!(pm.scenario_results[0].name, "s1");
+        assert!(pm.scenario_results[0].passed);
+        assert!(!pm.scenario_results[1].passed);
+    }
+
+    // --- Proptests for ScenarioResult serde ---
+
+    proptest! {
+        #[test]
+        fn prop_scenario_result_serde_roundtrip(
+            name in "[a-zA-Z0-9_ ]{0,20}",
+            passed: bool,
+            duration_secs in 0.0f64..1e6,
+            error in proptest::option::of("[a-zA-Z0-9_ ]{0,30}"),
+        ) {
+            let r = ScenarioResult {
+                name: name.clone(),
+                passed,
+                duration_secs,
+                error: error.clone(),
+            };
+            let json = serde_json::to_string(&r).expect("serialize");
+            let back: ScenarioResult = serde_json::from_str(&json).expect("deserialize");
+            prop_assert_eq!(back.name, name);
+            prop_assert_eq!(back.passed, passed);
+            prop_assert_eq!(back.error, error);
+            prop_assert!((back.duration_secs - duration_secs).abs() < 1e-6);
+        }
+
+        #[test]
+        fn prop_scenario_result_display_contains_status(
+            passed: bool,
+            error in proptest::option::of("error_.*"),
+        ) {
+            let r = ScenarioResult {
+                name: "test".into(),
+                passed,
+                duration_secs: 1.0,
+                error,
+            };
+            let display = format!("{r}");
+            if passed {
+                prop_assert!(display.contains("[PASS]"));
+            } else {
+                prop_assert!(display.contains("[FAIL]"));
+            }
+        }
+
+        #[test]
+        fn prop_scenario_pass_rate_with_n_results(
+            n_passed in 0u32..20u32,
+            n_failed in 0u32..20u32,
+        ) {
+            let mut metrics = Metrics::new();
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: "p".into(),
+                phase: "v".into(),
+                started_at: Utc::now(),
+                duration_secs: 1.0,
+                success: true,
+            });
+
+            let total = n_passed + n_failed;
+            let mut results = Vec::new();
+            for i in 0..n_passed {
+                results.push(ScenarioResult {
+                    name: format!("p{i}"),
+                    passed: true,
+                    duration_secs: 1.0,
+                    error: None,
+                });
+            }
+            for i in 0..n_failed {
+                results.push(ScenarioResult {
+                    name: format!("f{i}"),
+                    passed: false,
+                    duration_secs: 1.0,
+                    error: Some("err".into()),
+                });
+            }
+            metrics.record_scenarios("p", results);
+
+            let rate = metrics.scenario_pass_rate();
+            if total == 0 {
+                prop_assert_eq!(rate, 0.0);
+            } else {
+                let expected = (n_passed as f64 / total as f64) * 100.0;
+                prop_assert!((rate - expected).abs() < 0.01);
+            }
         }
     }
 }
