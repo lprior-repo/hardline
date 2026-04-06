@@ -1,0 +1,9 @@
+{
+  "channel": "witness",
+  "payload": {
+    "message": "POLECAT_DONE quartz exit=COMPLETED",
+    "source": "polecat"
+  },
+  "timestamp": "2026-04-05T21:04:01-05:00",
+  "type": "POLECAT_DONE"
+}

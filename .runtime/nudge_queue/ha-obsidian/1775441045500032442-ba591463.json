@@ -1,0 +1,8 @@
+{
+  "sender": "mayor",
+  "message": "Great work on ha-706a! Pick up next ready bead: bd ready, claim it, /go-skill.",
+  "priority": "normal",
+  "timestamp": "2026-04-05T21:04:05.500032442-05:00",
+  "expires_at": "2026-04-05T21:34:05.500032442-05:00",
+  "deliver_after": "0001-01-01T00:00:00Z"
+}

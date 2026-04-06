@@ -176,3 +176,9 @@
 [branch "polecat/onyx/ha-sdu2@mnmjj6s9"]
 	remote = origin
 	merge = refs/heads/main
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+[branch "temp"]
+	remote = origin
+	merge = refs/heads/polecat/jasper-mnmjj5hf

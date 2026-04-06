@@ -1,0 +1,8 @@
+{
+  "sender": "mayor",
+  "message": "Close ha-8wrx when done. Then pick up next bead.",
+  "priority": "normal",
+  "timestamp": "2026-04-05T21:04:05.666943285-05:00",
+  "expires_at": "2026-04-05T21:34:05.666943285-05:00",
+  "deliver_after": "0001-01-01T00:00:00Z"
+}
