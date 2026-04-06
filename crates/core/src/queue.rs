@@ -2386,4 +2386,649 @@ mod tests {
             }
         });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Exhaustive QueueStatus status-tracking tests (ha-oeea)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Every QueueStatus variant — used for exhaustive iteration.
+    const ALL_CORE_STATUSES: [QueueStatus; 5] = [
+        QueueStatus::Pending,
+        QueueStatus::Processing,
+        QueueStatus::Completed,
+        QueueStatus::Failed,
+        QueueStatus::Cancelled,
+    ];
+
+    #[test]
+    fn test_status_display_all_variants() {
+        assert_eq!(format!("{:?}", QueueStatus::Pending), "Pending");
+        assert_eq!(format!("{:?}", QueueStatus::Processing), "Processing");
+        assert_eq!(format!("{:?}", QueueStatus::Completed), "Completed");
+        assert_eq!(format!("{:?}", QueueStatus::Failed), "Failed");
+        assert_eq!(format!("{:?}", QueueStatus::Cancelled), "Cancelled");
+    }
+
+    #[test]
+    fn test_status_copy_preserves_value() {
+        for status in ALL_CORE_STATUSES {
+            let copied = status;
+            assert_eq!(status, copied);
+        }
+    }
+
+    #[test]
+    fn test_status_equality_reflexive_all() {
+        for status in ALL_CORE_STATUSES {
+            assert_eq!(status, status, "Reflexive eq failed for {:?}", status);
+        }
+    }
+
+    #[test]
+    fn test_status_equality_symmetric_all() {
+        for a in ALL_CORE_STATUSES {
+            for b in ALL_CORE_STATUSES {
+                if a == b {
+                    assert_eq!(b, a, "Symmetric eq failed for {:?} == {:?}", a, b);
+                } else {
+                    assert_ne!(b, a, "Symmetric ne failed for {:?} != {:?}", a, b);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_status_equality_transitive_all() {
+        for a in ALL_CORE_STATUSES {
+            for b in ALL_CORE_STATUSES {
+                for c in ALL_CORE_STATUSES {
+                    if a == b && b == c {
+                        assert_eq!(a, c, "Transitive eq failed");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_status_serde_json_format() {
+        // Verify PascalCase serialization format (default serde convention)
+        assert_eq!(
+            serde_json::to_string(&QueueStatus::Pending).unwrap(),
+            "\"Pending\""
+        );
+        assert_eq!(
+            serde_json::to_string(&QueueStatus::Processing).unwrap(),
+            "\"Processing\""
+        );
+        assert_eq!(
+            serde_json::to_string(&QueueStatus::Completed).unwrap(),
+            "\"Completed\""
+        );
+        assert_eq!(
+            serde_json::to_string(&QueueStatus::Failed).unwrap(),
+            "\"Failed\""
+        );
+        assert_eq!(
+            serde_json::to_string(&QueueStatus::Cancelled).unwrap(),
+            "\"Cancelled\""
+        );
+    }
+
+    #[test]
+    fn test_status_serde_rejects_invalid_string() {
+        let result = serde_json::from_str::<QueueStatus>("\"InvalidStatus\"");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_status_serde_rejects_null() {
+        let result = serde_json::from_str::<QueueStatus>("null");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_status_serde_rejects_number() {
+        let result = serde_json::from_str::<QueueStatus>("42");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_status_serde_rejects_empty_string() {
+        let result = serde_json::from_str::<QueueStatus>("\"\"");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_status_serde_rejects_lowercase() {
+        let result = serde_json::from_str::<QueueStatus>("\"pending\"");
+        assert!(result.is_err());
+    }
+
+    /// Valid lifecycle: Pending → Processing → Completed
+    #[test]
+    fn test_status_lifecycle_happy_path() {
+        let mut item = QueueItem::direct("happy-path");
+        assert_eq!(item.status, QueueStatus::Pending);
+
+        item.start_processing();
+        assert_eq!(item.status, QueueStatus::Processing);
+        assert_eq!(item.attempt_count, 1);
+
+        item.complete();
+        assert_eq!(item.status, QueueStatus::Completed);
+    }
+
+    /// Valid lifecycle: Pending → Processing → Failed
+    #[test]
+    fn test_status_lifecycle_failure_path() {
+        let mut item = QueueItem::direct("failure-path");
+        assert_eq!(item.status, QueueStatus::Pending);
+
+        item.start_processing();
+        assert_eq!(item.status, QueueStatus::Processing);
+
+        item.fail("test error");
+        assert_eq!(item.status, QueueStatus::Failed);
+        assert_eq!(item.last_error, Some("test error".to_string()));
+    }
+
+    /// Valid lifecycle: Pending → Cancelled (direct cancel before processing)
+    #[test]
+    fn test_status_lifecycle_cancel_before_processing() {
+        let mut item = QueueItem::direct("cancel-early");
+        assert_eq!(item.status, QueueStatus::Pending);
+        item.cancel();
+        assert_eq!(item.status, QueueStatus::Cancelled);
+    }
+
+    /// Retry cycle: Pending → Processing → Failed → Processing → Completed
+    #[test]
+    fn test_status_lifecycle_retry_then_success() {
+        let mut item = QueueItem::direct("retry-cycle");
+
+        // First attempt
+        item.start_processing();
+        assert_eq!(item.status, QueueStatus::Processing);
+        assert_eq!(item.attempt_count, 1);
+
+        item.fail("transient error");
+        assert_eq!(item.status, QueueStatus::Failed);
+        assert_eq!(item.last_error, Some("transient error".to_string()));
+
+        // Retry
+        item.start_processing();
+        assert_eq!(item.status, QueueStatus::Processing);
+        assert_eq!(item.attempt_count, 2);
+
+        // Success
+        item.complete();
+        assert_eq!(item.status, QueueStatus::Completed);
+    }
+
+    /// Multiple retries: fail-retry-fail-retry-success
+    #[test]
+    fn test_status_lifecycle_multiple_retries() {
+        let mut item = QueueItem::direct("multi-retry");
+
+        for i in 1..=3 {
+            item.start_processing();
+            assert_eq!(item.attempt_count, i);
+            item.fail(&format!("error {}", i));
+        }
+
+        item.start_processing();
+        assert_eq!(item.attempt_count, 4);
+        item.complete();
+        assert_eq!(item.status, QueueStatus::Completed);
+        // Last error is from the most recent fail
+        assert_eq!(item.last_error, Some("error 3".to_string()));
+    }
+
+    /// Cancel after processing started
+    #[test]
+    fn test_status_lifecycle_cancel_during_processing() {
+        let mut item = QueueItem::direct("cancel-mid");
+        item.start_processing();
+        assert_eq!(item.status, QueueStatus::Processing);
+        item.cancel();
+        assert_eq!(item.status, QueueStatus::Cancelled);
+    }
+
+    /// Cancel after failure (not retrying)
+    #[test]
+    fn test_status_lifecycle_cancel_after_failure() {
+        let mut item = QueueItem::direct("cancel-after-fail");
+        item.start_processing();
+        item.fail("broken");
+        assert_eq!(item.status, QueueStatus::Failed);
+        item.cancel();
+        assert_eq!(item.status, QueueStatus::Cancelled);
+    }
+
+    /// Status timestamps advance monotonically through lifecycle
+    #[test]
+    fn test_status_timestamps_advance_on_each_transition() {
+        let mut item = QueueItem::direct("ts-tracking");
+        let t0 = item.updated_at;
+
+        item.start_processing();
+        let t1 = item.updated_at;
+        assert!(t1 >= t0, "start_processing must advance updated_at");
+
+        item.complete();
+        let t2 = item.updated_at;
+        assert!(t2 >= t1, "complete must advance updated_at");
+    }
+
+    /// Status tracking through queue operations: enqueue → dequeue
+    #[test]
+    fn test_status_tracking_through_dequeue() -> Result<()> {
+        let queue = make_queue();
+        queue.enqueue(QueueItem::direct("track-dequeue"))?;
+
+        let item = queue.dequeue()?.expect("should dequeue");
+        assert_eq!(item.status, QueueStatus::Processing);
+        assert_eq!(item.attempt_count, 1);
+        assert_eq!(item.branch, "track-dequeue");
+        Ok(())
+    }
+
+    /// Status filtering: count items per status
+    #[test]
+    fn test_status_count_by_status() -> Result<()> {
+        let queue = make_queue();
+
+        // 3 pending
+        queue.enqueue(QueueItem::direct("p1"))?;
+        queue.enqueue(QueueItem::direct("p2"))?;
+        queue.enqueue(QueueItem::direct("p3"))?;
+
+        // 1 completed
+        let mut completed = QueueItem::direct("c1");
+        completed.status = QueueStatus::Completed;
+        queue.enqueue(completed)?;
+
+        // 1 failed
+        let mut failed = QueueItem::direct("f1");
+        failed.status = QueueStatus::Failed;
+        queue.enqueue(failed)?;
+
+        let all = queue.list()?;
+        let pending_count = all.iter().filter(|i| i.status == QueueStatus::Pending).count();
+        let completed_count = all.iter().filter(|i| i.status == QueueStatus::Completed).count();
+        let failed_count = all.iter().filter(|i| i.status == QueueStatus::Failed).count();
+
+        assert_eq!(pending_count, 3);
+        assert_eq!(completed_count, 1);
+        assert_eq!(failed_count, 1);
+        assert_eq!(all.len(), 5);
+
+        Ok(())
+    }
+
+    /// Status-based cleanup: clear_completed removes Completed, Failed, Cancelled
+    #[test]
+    fn test_status_cleanup_preserves_pending_and_processing() -> Result<()> {
+        let queue = make_queue();
+
+        let mut processing = QueueItem::direct("proc-1");
+        processing.status = QueueStatus::Processing;
+        queue.enqueue(processing)?;
+
+        queue.enqueue(QueueItem::direct("pend-1"))?;
+
+        let mut completed = QueueItem::direct("done-1");
+        completed.status = QueueStatus::Completed;
+        queue.enqueue(completed)?;
+
+        let mut failed = QueueItem::direct("fail-1");
+        failed.status = QueueStatus::Failed;
+        queue.enqueue(failed)?;
+
+        let mut cancelled = QueueItem::direct("cancel-1");
+        cancelled.status = QueueStatus::Cancelled;
+        queue.enqueue(cancelled)?;
+
+        assert_eq!(queue.len()?, 5);
+        let removed = queue.clear_completed()?;
+        assert_eq!(removed, 3); // Completed + Failed + Cancelled
+        assert_eq!(queue.len()?, 2);
+
+        let remaining = queue.list()?;
+        let statuses: Vec<_> = remaining.iter().map(|i| i.status).collect();
+        assert!(statuses.contains(&QueueStatus::Pending));
+        assert!(statuses.contains(&QueueStatus::Processing));
+
+        Ok(())
+    }
+
+    /// QueueItem.last_error tracks error across multiple fails
+    #[test]
+    fn test_status_last_error_overwritten_on_each_fail() {
+        let mut item = QueueItem::direct("error-tracking");
+        assert!(item.last_error.is_none());
+
+        item.fail("first error");
+        assert_eq!(item.last_error, Some("first error".to_string()));
+
+        item.start_processing();
+        item.fail("second error");
+        assert_eq!(item.last_error, Some("second error".to_string()));
+    }
+
+    /// Completed item has no error
+    #[test]
+    fn test_status_completed_has_no_error() {
+        let mut item = QueueItem::direct("clean-complete");
+        item.start_processing();
+        item.fail("oops");
+        assert!(item.last_error.is_some());
+
+        item.start_processing();
+        item.complete();
+        assert_eq!(item.status, QueueStatus::Completed);
+        // complete() does NOT clear last_error — it just sets status
+        // This verifies the behavior is consistent
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Exhaustive QueueSource status-tracking tests (ha-oeea)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_source_workspace_unicode_name() {
+        let source = QueueSource::Workspace("日本語ワークスペース".to_string());
+        if let QueueSource::Workspace(name) = &source {
+            assert_eq!(name, "日本語ワークスペース");
+        } else {
+            panic!("Expected Workspace variant");
+        }
+    }
+
+    #[test]
+    fn test_source_workspace_very_long_name() {
+        let long_name = "x".repeat(10_000);
+        let source = QueueSource::Workspace(long_name.clone());
+        if let QueueSource::Workspace(name) = &source {
+            assert_eq!(name.len(), 10_000);
+        } else {
+            panic!("Expected Workspace variant");
+        }
+    }
+
+    #[test]
+    fn test_source_workspace_name_with_spaces() {
+        let source = QueueSource::Workspace("my workspace name".to_string());
+        if let QueueSource::Workspace(name) = &source {
+            assert_eq!(name, "my workspace name");
+        } else {
+            panic!("Expected Workspace variant");
+        }
+    }
+
+    #[test]
+    fn test_source_serde_workspace_unicode_roundtrip() {
+        let source = QueueSource::Workspace("ワークスペース".to_string());
+        let json = serde_json::to_string(&source).unwrap();
+        let back: QueueSource = serde_json::from_str(&json).unwrap();
+        assert_eq!(source, back);
+    }
+
+    #[test]
+    fn test_source_serde_workspace_empty_roundtrip() {
+        let source = QueueSource::Workspace(String::new());
+        let json = serde_json::to_string(&source).unwrap();
+        let back: QueueSource = serde_json::from_str(&json).unwrap();
+        assert_eq!(source, back);
+    }
+
+    #[test]
+    fn test_source_item_branch_preserved_through_status_changes() {
+        let mut item = QueueItem::from_workspace("ws", "feature-branch");
+        assert_eq!(item.branch, "feature-branch");
+
+        item.start_processing();
+        assert_eq!(item.branch, "feature-branch");
+
+        item.fail("error");
+        assert_eq!(item.branch, "feature-branch");
+
+        item.start_processing();
+        assert_eq!(item.branch, "feature-branch");
+
+        item.complete();
+        assert_eq!(item.branch, "feature-branch");
+    }
+
+    #[test]
+    fn test_source_item_id_preserved_through_status_changes() {
+        let mut item = QueueItem::direct("id-preservation");
+        let original_id = item.id.clone();
+
+        item.start_processing();
+        assert_eq!(item.id, original_id);
+
+        item.complete();
+        assert_eq!(item.id, original_id);
+    }
+
+    /// Queue source attribution is immutable through complete lifecycle
+    #[test]
+    fn test_source_attribution_full_lifecycle() -> Result<()> {
+        let queue = make_queue();
+
+        let item = QueueItem::from_workspace("lifecycle-ws", "lifecycle-branch");
+        assert_eq!(item.source, QueueSource::Workspace("lifecycle-ws".to_string()));
+        queue.enqueue(item)?;
+
+        // Dequeue marks as Processing, but source must be preserved
+        let mut dequeued = queue.dequeue()?.expect("should dequeue");
+        assert_eq!(dequeued.source, QueueSource::Workspace("lifecycle-ws".to_string()));
+        assert_eq!(dequeued.status, QueueStatus::Processing);
+
+        // Complete it
+        dequeued.complete();
+        assert_eq!(dequeued.source, QueueSource::Workspace("lifecycle-ws".to_string()));
+        assert_eq!(dequeued.status, QueueStatus::Completed);
+
+        Ok(())
+    }
+
+    /// Multiple items from different sources coexist correctly
+    #[test]
+    fn test_source_multiple_sources_in_queue() -> Result<()> {
+        let queue = make_queue();
+
+        queue.enqueue(QueueItem::from_workspace("ws-alpha", "branch-1"))?;
+        queue.enqueue(QueueItem::direct("branch-2"))?;
+        queue.enqueue(QueueItem::from_workspace("ws-beta", "branch-3"))?;
+        queue.enqueue(QueueItem::direct("branch-4"))?;
+
+        let all = queue.list()?;
+
+        let ws_items: Vec<_> = all
+            .iter()
+            .filter(|i| matches!(&i.source, QueueSource::Workspace(_)))
+            .collect();
+        assert_eq!(ws_items.len(), 2);
+
+        let direct_items: Vec<_> = all
+            .iter()
+            .filter(|i| matches!(&i.source, QueueSource::Direct))
+            .collect();
+        assert_eq!(direct_items.len(), 2);
+
+        Ok(())
+    }
+
+    /// Source + status combined filter across queue
+    #[test]
+    fn test_source_status_combined_filter() -> Result<()> {
+        let queue = make_queue();
+
+        let mut ws_pending = QueueItem::from_workspace("ws", "ws-p");
+        ws_pending.status = QueueStatus::Pending;
+        queue.enqueue(ws_pending)?;
+
+        let mut ws_completed = QueueItem::from_workspace("ws", "ws-c");
+        ws_completed.status = QueueStatus::Completed;
+        queue.enqueue(ws_completed)?;
+
+        let mut direct_pending = QueueItem::direct("d-p");
+        direct_pending.status = QueueStatus::Pending;
+        queue.enqueue(direct_pending)?;
+
+        let all = queue.list()?;
+
+        // workspace + pending = 1
+        let count = all
+            .iter()
+            .filter(|i| {
+                matches!(&i.source, QueueSource::Workspace(_))
+                    && i.status == QueueStatus::Pending
+            })
+            .count();
+        assert_eq!(count, 1);
+
+        // direct + completed = 0
+        let count = all
+            .iter()
+            .filter(|i| i.source == QueueSource::Direct && i.status == QueueStatus::Completed)
+            .count();
+        assert_eq!(count, 0);
+
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Proptests: QueueStatus and QueueSource status tracking (ha-oeea)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    use proptest::prelude::*;
+
+    prop_compose! {
+        fn arb_queue_source()(ws in "[a-zA-Z0-9_-]{0,20}") -> QueueSource {
+            if ws.is_empty() {
+                QueueSource::Direct
+            } else {
+                QueueSource::Workspace(ws)
+            }
+        }
+    }
+
+    static CORE_STATUS_SLICE: &[QueueStatus] = &ALL_CORE_STATUSES;
+
+    proptest! {
+        #[test]
+        fn prop_queue_status_serde_roundtrip(idx in 0usize..5) {
+            let status = CORE_STATUS_SLICE[idx];
+            let json = serde_json::to_string(&status).unwrap();
+            let back: QueueStatus = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(status, back);
+        }
+
+        #[test]
+        fn prop_queue_source_serde_roundtrip(source in arb_queue_source()) {
+            let json = serde_json::to_string(&source).unwrap();
+            let back: QueueSource = serde_json::from_str(&json).unwrap();
+            prop_assert_eq!(source, back);
+        }
+
+        #[test]
+        fn prop_queue_item_source_immutable_through_lifecycle(
+            branch in "[a-zA-Z0-9_-]{1,20}",
+            source in arb_queue_source()
+        ) {
+            let mut item = QueueItem::new(branch.clone(), source);
+            let original_source = item.source.clone();
+
+            item.start_processing();
+            prop_assert_eq!(item.source.clone(), original_source.clone());
+
+            item.fail("error");
+            prop_assert_eq!(item.source.clone(), original_source.clone());
+
+            item.start_processing();
+            prop_assert_eq!(item.source.clone(), original_source.clone());
+
+            item.complete();
+            prop_assert_eq!(item.source.clone(), original_source.clone());
+        }
+
+        #[test]
+        fn prop_queue_item_attempt_count_increments_on_start(
+            branch in "[a-zA-Z0-9_-]{1,20}",
+            retries in 0u32..10
+        ) {
+            let mut item = QueueItem::new(branch, QueueSource::Direct);
+            for _ in 0..retries {
+                item.start_processing();
+                item.fail("retry");
+            }
+            item.start_processing();
+            prop_assert_eq!(item.attempt_count, retries + 1);
+        }
+
+        #[test]
+        fn prop_queue_item_branch_immutable(
+            branch in "[a-zA-Z0-9_-]{1,20}",
+            source in arb_queue_source()
+        ) {
+            let mut item = QueueItem::new(branch.clone(), source);
+            item.start_processing();
+            item.fail("error");
+            item.start_processing();
+            item.complete();
+            prop_assert_eq!(item.branch, branch);
+        }
+
+        #[test]
+        fn prop_queue_item_id_immutable(
+            branch in "[a-zA-Z0-9_-]{1,20}",
+            source in arb_queue_source()
+        ) {
+            let mut item = QueueItem::new(branch, source);
+            let original_id = item.id.clone();
+            item.start_processing();
+            item.complete();
+            prop_assert_eq!(item.id, original_id);
+        }
+
+        #[test]
+        fn prop_queue_item_created_at_unchanged_through_lifecycle(
+            branch in "[a-zA-Z0-9_-]{1,20}"
+        ) {
+            let mut item = QueueItem::new(branch, QueueSource::Direct);
+            let created = item.created_at;
+
+            item.start_processing();
+            prop_assert_eq!(item.created_at, created);
+
+            item.complete();
+            prop_assert_eq!(item.created_at, created);
+        }
+
+        #[test]
+        fn prop_queue_item_serde_preserves_status_tracking(
+            branch in "[a-zA-Z0-9_-]{1,20}",
+            source in arb_queue_source(),
+            attempt_count in 0u32..5
+        ) {
+            let mut item = QueueItem::new(branch, source);
+            for _ in 0..attempt_count {
+                item.start_processing();
+                item.fail("retry");
+            }
+
+            let json = serde_json::to_string(&item).unwrap();
+            let back: QueueItem = serde_json::from_str(&json).unwrap();
+
+            prop_assert_eq!(back.branch, item.branch);
+            prop_assert_eq!(back.source, item.source);
+            prop_assert_eq!(back.status, item.status);
+            prop_assert_eq!(back.attempt_count, item.attempt_count);
+            prop_assert_eq!(back.last_error, item.last_error);
+        }
+    }
 }

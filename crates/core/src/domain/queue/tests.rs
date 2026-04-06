@@ -775,3 +775,607 @@ fn test_queue_entry_with_status() {
     let entry = QueueEntry::with_status(id, session, 50, timestamp, QueueStatus::Claimed).unwrap();
     assert_eq!(entry.status, QueueStatus::Claimed);
 }
+
+// =========================================================================
+// Exhaustive QueueStatus state machine tests (ha-oeea)
+// =========================================================================
+
+/// All 10 status variants for exhaustive iteration.
+const ALL_SM_STATUSES: [QueueStatus; 10] = [
+    QueueStatus::Pending,
+    QueueStatus::Claimed,
+    QueueStatus::Rebasing,
+    QueueStatus::Testing,
+    QueueStatus::ReadyToMerge,
+    QueueStatus::Merging,
+    QueueStatus::Merged,
+    QueueStatus::FailedRetryable,
+    QueueStatus::FailedTerminal,
+    QueueStatus::Cancelled,
+];
+
+// ── Display ──────────────────────────────────────────────────────────────
+
+#[test]
+fn test_sm_display_all_variants() {
+    use std::fmt::Write;
+    let mut buf = String::new();
+    for status in ALL_SM_STATUSES {
+        buf.clear();
+        write!(&mut buf, "{}", status).unwrap();
+        assert!(!buf.is_empty(), "Display produced empty string for {:?}", status);
+    }
+}
+
+#[test]
+fn test_sm_display_matches_expected_strings() {
+    assert_eq!(format!("{}", QueueStatus::Pending), "pending");
+    assert_eq!(format!("{}", QueueStatus::Claimed), "claimed");
+    assert_eq!(format!("{}", QueueStatus::Rebasing), "rebasing");
+    assert_eq!(format!("{}", QueueStatus::Testing), "testing");
+    assert_eq!(format!("{}", QueueStatus::ReadyToMerge), "ready_to_merge");
+    assert_eq!(format!("{}", QueueStatus::Merging), "merging");
+    assert_eq!(format!("{}", QueueStatus::Merged), "merged");
+    assert_eq!(format!("{}", QueueStatus::FailedRetryable), "failed_retryable");
+    assert_eq!(format!("{}", QueueStatus::FailedTerminal), "failed_terminal");
+    assert_eq!(format!("{}", QueueStatus::Cancelled), "cancelled");
+}
+
+// ── Predicates ───────────────────────────────────────────────────────────
+
+#[test]
+fn test_sm_is_terminal_exhaustive() {
+    for status in ALL_SM_STATUSES {
+        let expected = matches!(status, QueueStatus::Merged | QueueStatus::FailedTerminal | QueueStatus::Cancelled);
+        assert_eq!(status.is_terminal(), expected, "is_terminal wrong for {:?}", status);
+    }
+}
+
+#[test]
+fn test_sm_is_failed_exhaustive() {
+    for status in ALL_SM_STATUSES {
+        let expected = matches!(status, QueueStatus::FailedRetryable | QueueStatus::FailedTerminal);
+        assert_eq!(status.is_failed(), expected, "is_failed wrong for {:?}", status);
+    }
+}
+
+#[test]
+fn test_sm_terminal_and_failed_disjoint() {
+    // FailedRetryable is failed but NOT terminal
+    assert!(QueueStatus::FailedRetryable.is_failed());
+    assert!(!QueueStatus::FailedRetryable.is_terminal());
+    // FailedTerminal is both failed AND terminal
+    assert!(QueueStatus::FailedTerminal.is_failed());
+    assert!(QueueStatus::FailedTerminal.is_terminal());
+}
+
+// ── Transition matrix ────────────────────────────────────────────────────
+
+/// The full happy path: Pending → Claimed → Rebasing → Testing → ReadyToMerge → Merging → Merged
+#[test]
+fn test_sm_full_happy_path() {
+    let chain = [
+        (QueueStatus::Pending, QueueStatus::Claimed),
+        (QueueStatus::Claimed, QueueStatus::Rebasing),
+        (QueueStatus::Rebasing, QueueStatus::Testing),
+        (QueueStatus::Testing, QueueStatus::ReadyToMerge),
+        (QueueStatus::ReadyToMerge, QueueStatus::Merging),
+        (QueueStatus::Merging, QueueStatus::Merged),
+    ];
+    for (from, to) in &chain {
+        let result = from.transition_to(*to);
+        assert!(result.is_ok(), "Transition {:?} → {:?} should succeed", from, to);
+        assert_eq!(result.unwrap(), *to);
+    }
+}
+
+/// Cancel from every state that allows it (based on actual transition rules)
+#[test]
+fn test_sm_cancel_from_all_cancellable() {
+    // From the state machine: Pending, Claimed, FailedRetryable can cancel
+    let cancellable = [
+        QueueStatus::Pending,
+        QueueStatus::Claimed,
+        QueueStatus::FailedRetryable,
+    ];
+    for status in &cancellable {
+        let result = status.transition_to(QueueStatus::Cancelled);
+        assert!(result.is_ok(), "Cancel from {:?} should succeed", status);
+        assert_eq!(result.unwrap(), QueueStatus::Cancelled);
+    }
+}
+
+/// All transitions from terminal states are rejected
+#[test]
+fn test_sm_terminal_states_reject_all_transitions() {
+    let terminal = [
+        QueueStatus::Merged,
+        QueueStatus::FailedTerminal,
+        QueueStatus::Cancelled,
+    ];
+    for from in &terminal {
+        for to in ALL_SM_STATUSES {
+            // Same-state transitions also rejected for terminals
+            let result = from.transition_to(to);
+            assert!(result.is_err(), "Transition {:?} → {:?} should be rejected", from, to);
+        }
+    }
+}
+
+/// Self-transitions are rejected for all states
+#[test]
+fn test_sm_self_transitions_rejected() {
+    for status in ALL_SM_STATUSES {
+        let result = status.transition_to(status);
+        assert!(result.is_err(), "Self-transition {:?} → {:?} should be rejected", status, status);
+    }
+}
+
+/// Exhaustive invalid transition matrix: test every (from, to) pair that should fail
+#[test]
+fn test_sm_exhaustive_invalid_transitions() {
+    // Define the valid transitions as a set (from the actual state machine)
+    let valid: std::collections::HashSet<(QueueStatus, QueueStatus)> = [
+        // Pending
+        (QueueStatus::Pending, QueueStatus::Claimed),
+        (QueueStatus::Pending, QueueStatus::Cancelled),
+        // Claimed
+        (QueueStatus::Claimed, QueueStatus::Rebasing),
+        (QueueStatus::Claimed, QueueStatus::Cancelled),
+        // Rebasing
+        (QueueStatus::Rebasing, QueueStatus::Testing),
+        (QueueStatus::Rebasing, QueueStatus::FailedRetryable),
+        // Testing
+        (QueueStatus::Testing, QueueStatus::ReadyToMerge),
+        (QueueStatus::Testing, QueueStatus::FailedRetryable),
+        (QueueStatus::Testing, QueueStatus::FailedTerminal),
+        // ReadyToMerge
+        (QueueStatus::ReadyToMerge, QueueStatus::Merging),
+        (QueueStatus::ReadyToMerge, QueueStatus::FailedRetryable),
+        // Merging
+        (QueueStatus::Merging, QueueStatus::Merged),
+        (QueueStatus::Merging, QueueStatus::FailedRetryable),
+        // FailedRetryable
+        (QueueStatus::FailedRetryable, QueueStatus::Pending),
+        (QueueStatus::FailedRetryable, QueueStatus::Cancelled),
+    ].into_iter().collect();
+
+    let mut invalid_count = 0;
+    for from in ALL_SM_STATUSES {
+        for to in ALL_SM_STATUSES {
+            if from == to || valid.contains(&(from, to)) {
+                continue;
+            }
+            let result = from.transition_to(to);
+            assert!(result.is_err(), "Invalid transition {:?} → {:?} should fail", from, to);
+            // Verify error contains correct from/to strings
+            if let Err(crate::domain::validation::ValidationError::InvalidStateTransition { from: f, to: t }) = result {
+                assert_eq!(f, format!("{}", from));
+                assert_eq!(t, format!("{}", to));
+            } else {
+                panic!("Expected InvalidStateTransition error for {:?} → {:?}", from, to);
+            }
+            invalid_count += 1;
+        }
+    }
+    // Sanity: should have many invalid transitions
+    assert!(invalid_count > 50, "Expected many invalid transitions, got {}", invalid_count);
+}
+
+// ── Failure paths ────────────────────────────────────────────────────────
+
+/// Testing → FailedRetryable
+#[test]
+fn test_sm_testing_to_failed_retryable() {
+    let result = QueueStatus::Testing.transition_to(QueueStatus::FailedRetryable);
+    assert!(result.is_ok());
+}
+
+/// Testing → FailedTerminal
+#[test]
+fn test_sm_testing_to_failed_terminal() {
+    let result = QueueStatus::Testing.transition_to(QueueStatus::FailedTerminal);
+    assert!(result.is_ok());
+}
+
+/// Rebasing → FailedRetryable
+#[test]
+fn test_sm_rebasing_to_failed_retryable() {
+    let result = QueueStatus::Rebasing.transition_to(QueueStatus::FailedRetryable);
+    assert!(result.is_ok());
+}
+
+/// ReadyToMerge → FailedRetryable
+#[test]
+fn test_sm_ready_to_merge_to_failed_retryable() {
+    let result = QueueStatus::ReadyToMerge.transition_to(QueueStatus::FailedRetryable);
+    assert!(result.is_ok());
+}
+
+/// Merging → FailedRetryable
+#[test]
+fn test_sm_merging_to_failed_retryable() {
+    let result = QueueStatus::Merging.transition_to(QueueStatus::FailedRetryable);
+    assert!(result.is_ok());
+}
+
+/// FailedRetryable → Pending (retry)
+#[test]
+fn test_sm_failed_retryable_to_pending() {
+    let result = QueueStatus::FailedRetryable.transition_to(QueueStatus::Pending);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), QueueStatus::Pending);
+}
+
+// ── Retry cycle through queue entry ──────────────────────────────────────
+
+/// Full retry cycle: Pending → Claimed → Rebasing → Testing → FailedRetryable → Pending → Claimed → ... → Merged
+#[test]
+fn test_sm_entry_retry_cycle() {
+    let entry = QueueEntry::new("retry-test", "session", 10).unwrap();
+
+    // First attempt: fail at Testing
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    let entry = entry.transition_status(QueueStatus::Testing).unwrap();
+    let entry = entry.transition_status(QueueStatus::FailedRetryable).unwrap();
+    assert!(entry.status.is_failed());
+    assert!(!entry.status.is_terminal());
+
+    // Retry: go back to Pending and succeed
+    let entry = entry.transition_status(QueueStatus::Pending).unwrap();
+    assert_eq!(entry.status, QueueStatus::Pending);
+
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    let entry = entry.transition_status(QueueStatus::Testing).unwrap();
+    let entry = entry.transition_status(QueueStatus::ReadyToMerge).unwrap();
+    let entry = entry.transition_status(QueueStatus::Merging).unwrap();
+    let entry = entry.transition_status(QueueStatus::Merged).unwrap();
+    assert!(entry.status.is_terminal());
+}
+
+/// Failure at Rebasing → retry → success
+#[test]
+fn test_sm_entry_fail_at_rebasing_retry_success() {
+    let entry = QueueEntry::new("rebasing-fail", "session", 10).unwrap();
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    let entry = entry.transition_status(QueueStatus::FailedRetryable).unwrap();
+
+    // Retry
+    let entry = entry.transition_status(QueueStatus::Pending).unwrap();
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    let entry = entry.transition_status(QueueStatus::Testing).unwrap();
+    let entry = entry.transition_status(QueueStatus::ReadyToMerge).unwrap();
+    let entry = entry.transition_status(QueueStatus::Merging).unwrap();
+    let entry = entry.transition_status(QueueStatus::Merged).unwrap();
+    assert!(entry.status.is_terminal());
+}
+
+/// Failure at ReadyToMerge → retry → success
+#[test]
+fn test_sm_entry_fail_at_ready_to_merge_retry_success() {
+    let entry = QueueEntry::new("rtm-fail", "session", 10).unwrap();
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    let entry = entry.transition_status(QueueStatus::Testing).unwrap();
+    let entry = entry.transition_status(QueueStatus::ReadyToMerge).unwrap();
+    let entry = entry.transition_status(QueueStatus::FailedRetryable).unwrap();
+
+    // Retry
+    let entry = entry.transition_status(QueueStatus::Pending).unwrap();
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    let entry = entry.transition_status(QueueStatus::Testing).unwrap();
+    let entry = entry.transition_status(QueueStatus::ReadyToMerge).unwrap();
+    let entry = entry.transition_status(QueueStatus::Merging).unwrap();
+    let entry = entry.transition_status(QueueStatus::Merged).unwrap();
+    assert!(entry.status.is_terminal());
+}
+
+/// Failure at Merging → retry → success
+#[test]
+fn test_sm_entry_fail_at_merging_retry_success() {
+    let entry = QueueEntry::new("merge-fail", "session", 10).unwrap();
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    let entry = entry.transition_status(QueueStatus::Testing).unwrap();
+    let entry = entry.transition_status(QueueStatus::ReadyToMerge).unwrap();
+    let entry = entry.transition_status(QueueStatus::Merging).unwrap();
+    let entry = entry.transition_status(QueueStatus::FailedRetryable).unwrap();
+
+    // Retry
+    let entry = entry.transition_status(QueueStatus::Pending).unwrap();
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    let entry = entry.transition_status(QueueStatus::Testing).unwrap();
+    let entry = entry.transition_status(QueueStatus::ReadyToMerge).unwrap();
+    let entry = entry.transition_status(QueueStatus::Merging).unwrap();
+    let entry = entry.transition_status(QueueStatus::Merged).unwrap();
+    assert!(entry.status.is_terminal());
+}
+
+// ── Terminal failure paths ───────────────────────────────────────────────
+
+/// Testing → FailedTerminal (non-recoverable)
+#[test]
+fn test_sm_entry_terminal_failure_from_testing() {
+    let entry = QueueEntry::new("terminal-fail", "session", 10).unwrap();
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    let entry = entry.transition_status(QueueStatus::Testing).unwrap();
+    let entry = entry.transition_status(QueueStatus::FailedTerminal).unwrap();
+
+    assert!(entry.status.is_terminal());
+    assert!(entry.status.is_failed());
+
+    // No transitions from FailedTerminal
+    let result = entry.transition_status(QueueStatus::Pending);
+    assert!(result.is_err());
+}
+
+// ── Cancel paths ─────────────────────────────────────────────────────────
+
+/// Cancel from each stage that allows cancellation
+#[test]
+fn test_sm_cancel_at_each_stage() {
+    // Only Pending, Claimed, and FailedRetryable can cancel directly
+    let cancellable = [
+        QueueStatus::Pending,
+        QueueStatus::Claimed,
+        QueueStatus::FailedRetryable,
+    ];
+
+    for cancel_from in cancellable {
+        let entry = QueueEntry::new("cancel-test", "session", 10).unwrap();
+        // Transition to the target state
+        let entry = match cancel_from {
+            QueueStatus::Pending => entry,
+            QueueStatus::Claimed => entry.transition_status(QueueStatus::Claimed).unwrap(),
+            QueueStatus::FailedRetryable => entry
+                .transition_status(QueueStatus::Claimed).unwrap()
+                .transition_status(QueueStatus::Rebasing).unwrap()
+                .transition_status(QueueStatus::Testing).unwrap()
+                .transition_status(QueueStatus::FailedRetryable).unwrap(),
+            _ => entry,
+        };
+
+        let cancelled = entry.transition_status(QueueStatus::Cancelled);
+        assert!(cancelled.is_ok(), "Cancel from {:?} should succeed", cancel_from);
+        assert!(cancelled.unwrap().status.is_terminal());
+    }
+}
+
+// ── Serde roundtrip for all variants ─────────────────────────────────────
+
+#[test]
+fn test_sm_serde_roundtrip_all_variants() {
+    for status in ALL_SM_STATUSES {
+        let json = serde_json::to_string(&status).unwrap();
+        let back: QueueStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(status, back, "Serde roundtrip failed for {:?}", status);
+    }
+}
+
+#[test]
+fn test_sm_serde_format_pascal_case() {
+    assert_eq!(serde_json::to_string(&QueueStatus::Pending).unwrap(), "\"Pending\"");
+    assert_eq!(serde_json::to_string(&QueueStatus::FailedRetryable).unwrap(), "\"FailedRetryable\"");
+    assert_eq!(serde_json::to_string(&QueueStatus::ReadyToMerge).unwrap(), "\"ReadyToMerge\"");
+}
+
+#[test]
+fn test_sm_serde_rejects_invalid() {
+    assert!(serde_json::from_str::<QueueStatus>("\"invalid\"").is_err());
+    assert!(serde_json::from_str::<QueueStatus>("null").is_err());
+    assert!(serde_json::from_str::<QueueStatus>("42").is_err());
+    assert!(serde_json::from_str::<QueueStatus>("\"pending\"").is_err()); // lowercase
+}
+
+// ── Copy, Clone, Hash ───────────────────────────────────────────────────
+
+#[test]
+fn test_sm_copy_semantics() {
+    for status in ALL_SM_STATUSES {
+        let copied = status;
+        assert_eq!(status, copied);
+    }
+}
+
+#[test]
+fn test_sm_clone_semantics() {
+    for status in ALL_SM_STATUSES {
+        let cloned = status.clone();
+        assert_eq!(status, cloned);
+    }
+}
+
+#[test]
+fn test_sm_hash_deduplication() {
+    use std::collections::HashSet;
+    let mut set = HashSet::new();
+    for status in ALL_SM_STATUSES {
+        set.insert(status);
+    }
+    assert_eq!(set.len(), 10);
+
+    // Insert duplicates
+    for status in ALL_SM_STATUSES {
+        set.insert(status);
+    }
+    assert_eq!(set.len(), 10);
+}
+
+// ── Queue-level status tracking ──────────────────────────────────────────
+
+#[test]
+fn test_sm_queue_status_tracking_through_transitions() {
+    let queue = Queue::new();
+
+    // Enqueue pending entry
+    let queue = queue.enqueue(QueueEntry::new("track-1", "sess-1", 10).unwrap());
+    assert_eq!(queue.find(&QueueEntryId::new("track-1").unwrap()).unwrap().status, QueueStatus::Pending);
+
+    // Transition to Claimed
+    let id = QueueEntryId::new("track-1").unwrap();
+    let queue = queue.update_status(&id, QueueStatus::Claimed).unwrap();
+    assert_eq!(queue.find(&id).unwrap().status, QueueStatus::Claimed);
+
+    // Transition through full path
+    let queue = queue.update_status(&id, QueueStatus::Rebasing).unwrap();
+    assert_eq!(queue.find(&id).unwrap().status, QueueStatus::Rebasing);
+
+    let queue = queue.update_status(&id, QueueStatus::Testing).unwrap();
+    assert_eq!(queue.find(&id).unwrap().status, QueueStatus::Testing);
+
+    let queue = queue.update_status(&id, QueueStatus::ReadyToMerge).unwrap();
+    assert_eq!(queue.find(&id).unwrap().status, QueueStatus::ReadyToMerge);
+
+    let queue = queue.update_status(&id, QueueStatus::Merging).unwrap();
+    assert_eq!(queue.find(&id).unwrap().status, QueueStatus::Merging);
+
+    let queue = queue.update_status(&id, QueueStatus::Merged).unwrap();
+    assert!(queue.find(&id).unwrap().status.is_terminal());
+
+    // count_active should be 0 (all terminal)
+    assert_eq!(queue.count_active(), 0);
+}
+
+#[test]
+fn test_sm_queue_multiple_entries_different_statuses() {
+    let queue = Queue::new();
+
+    // Entry 1: pending
+    let queue = queue.enqueue(QueueEntry::new("e1", "s1", 10).unwrap());
+
+    // Entry 2: advance to Testing
+    let entry2 = QueueEntry::new("e2", "s2", 20).unwrap()
+        .transition_status(QueueStatus::Claimed).unwrap()
+        .transition_status(QueueStatus::Rebasing).unwrap()
+        .transition_status(QueueStatus::Testing).unwrap();
+    let queue = queue.enqueue(entry2);
+
+    // Entry 3: advance to Merged (terminal)
+    let entry3 = QueueEntry::new("e3", "s3", 30).unwrap()
+        .transition_status(QueueStatus::Claimed).unwrap()
+        .transition_status(QueueStatus::Rebasing).unwrap()
+        .transition_status(QueueStatus::Testing).unwrap()
+        .transition_status(QueueStatus::ReadyToMerge).unwrap()
+        .transition_status(QueueStatus::Merging).unwrap()
+        .transition_status(QueueStatus::Merged).unwrap();
+    let queue = queue.enqueue(entry3);
+
+    assert_eq!(queue.len(), 3);
+    assert_eq!(queue.count_active(), 2); // e1 (Pending) + e2 (Testing)
+
+    let grouped = queue.group_by_status();
+    assert_eq!(grouped.len(), 3); // Pending, Testing, Merged
+}
+
+#[test]
+fn test_sm_queue_filter_by_terminal_vs_active() {
+    let queue = Queue::new();
+
+    let queue = queue.enqueue(QueueEntry::new("active-1", "s1", 10).unwrap());
+
+    let claimed = QueueEntry::new("active-2", "s2", 20).unwrap()
+        .transition_status(QueueStatus::Claimed).unwrap();
+    let queue = queue.enqueue(claimed);
+
+    // Terminal: Merged (full chain)
+    let merged = QueueEntry::new("term-1", "s3", 30).unwrap()
+        .transition_status(QueueStatus::Claimed).unwrap()
+        .transition_status(QueueStatus::Rebasing).unwrap()
+        .transition_status(QueueStatus::Testing).unwrap()
+        .transition_status(QueueStatus::ReadyToMerge).unwrap()
+        .transition_status(QueueStatus::Merging).unwrap()
+        .transition_status(QueueStatus::Merged).unwrap();
+    let queue = queue.enqueue(merged);
+
+    // Terminal: Cancelled (from Pending)
+    let cancelled = QueueEntry::new("term-2", "s4", 40).unwrap()
+        .transition_status(QueueStatus::Cancelled).unwrap();
+    let queue = queue.enqueue(cancelled);
+
+    let active: Vec<_> = queue.entries().iter().filter(|e| !e.status.is_terminal()).collect();
+    let terminal: Vec<_> = queue.entries().iter().filter(|e| e.status.is_terminal()).collect();
+
+    assert_eq!(active.len(), 2);
+    assert_eq!(terminal.len(), 2);
+}
+
+// ── Entry immutability through status transitions ────────────────────────
+
+#[test]
+fn test_sm_entry_priority_preserved_through_transitions() {
+    let entry = QueueEntry::new("prio-test", "session", 42).unwrap();
+    assert_eq!(entry.priority, 42);
+
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    assert_eq!(entry.priority, 42);
+
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    assert_eq!(entry.priority, 42);
+
+    let entry = entry.transition_status(QueueStatus::Testing).unwrap();
+    assert_eq!(entry.priority, 42);
+
+    let entry = entry.transition_status(QueueStatus::ReadyToMerge).unwrap();
+    assert_eq!(entry.priority, 42);
+
+    let entry = entry.transition_status(QueueStatus::Merging).unwrap();
+    assert_eq!(entry.priority, 42);
+
+    let entry = entry.transition_status(QueueStatus::Merged).unwrap();
+    assert_eq!(entry.priority, 42);
+}
+
+#[test]
+fn test_sm_entry_id_preserved_through_transitions() {
+    let entry = QueueEntry::new("id-test", "session", 10).unwrap();
+    let original_id = entry.id.clone();
+
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    assert_eq!(entry.id, original_id);
+
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    assert_eq!(entry.id, original_id);
+
+    let entry = entry.transition_status(QueueStatus::Testing).unwrap();
+    assert_eq!(entry.id, original_id);
+
+    let entry = entry.transition_status(QueueStatus::ReadyToMerge).unwrap();
+    assert_eq!(entry.id, original_id);
+
+    let entry = entry.transition_status(QueueStatus::Merging).unwrap();
+    assert_eq!(entry.id, original_id);
+
+    let entry = entry.transition_status(QueueStatus::Merged).unwrap();
+    assert_eq!(entry.id, original_id);
+}
+
+#[test]
+fn test_sm_entry_session_preserved_through_transitions() {
+    let entry = QueueEntry::new("sess-test", "my-session", 10).unwrap();
+    let original_session = entry.session.clone();
+
+    let entry = entry.transition_status(QueueStatus::Claimed).unwrap();
+    assert_eq!(entry.session, original_session);
+
+    let entry = entry.transition_status(QueueStatus::Rebasing).unwrap();
+    assert_eq!(entry.session, original_session);
+
+    let entry = entry.transition_status(QueueStatus::Testing).unwrap();
+    assert_eq!(entry.session, original_session);
+
+    let entry = entry.transition_status(QueueStatus::ReadyToMerge).unwrap();
+    assert_eq!(entry.session, original_session);
+
+    let entry = entry.transition_status(QueueStatus::Merging).unwrap();
+    assert_eq!(entry.session, original_session);
+
+    let entry = entry.transition_status(QueueStatus::Merged).unwrap();
+    assert_eq!(entry.session, original_session);
+}
