@@ -1069,6 +1069,124 @@ mod tests {
     }
 
     // =========================================================================
+    // State Machine Transition Path Tests (ha-bo9)
+    // =========================================================================
+
+    mod state_machine_transition_tests {
+        use super::*;
+        use crate::domain::events::{SessionEvent, serialize_event};
+
+        /// Path 1: Created → Active → Completed
+        /// Verifies state correctness and event correspondence at each step.
+        #[test]
+        fn transition_path_created_active_completed() {
+            let name = SessionName::parse("sm-path-1").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            assert_eq!(session.state(), SessionState::Created);
+            assert!(!session.state().is_terminal());
+
+            // Created → Active: state changes, Activated event corresponds
+            let active = session.activate().expect("activate");
+            assert_eq!(active.state(), SessionState::Active);
+            assert!(active.is_active());
+            let activated_evt = serialize_event(&SessionEvent::Activated).expect("serialize");
+            assert_eq!(activated_evt, "\"Activated\"");
+
+            // Active → Completed: state changes to terminal, Completed event corresponds
+            let completed = active.complete().expect("complete");
+            assert_eq!(completed.state(), SessionState::Completed);
+            assert!(completed.state().is_terminal());
+            let completed_evt = serialize_event(&SessionEvent::Completed).expect("serialize");
+            assert_eq!(completed_evt, "\"Completed\"");
+        }
+
+        /// Path 2: Created → Active → Failed
+        /// Verifies state correctness and event correspondence at each step.
+        #[test]
+        fn transition_path_created_active_failed() {
+            let name = SessionName::parse("sm-path-2").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            assert_eq!(session.state(), SessionState::Created);
+
+            // Created → Active
+            let active = session.activate().expect("activate");
+            assert_eq!(active.state(), SessionState::Active);
+            assert!(active.is_active());
+
+            // Active → Failed: state changes to terminal, Failed event corresponds
+            let failed = active.fail().expect("fail");
+            assert_eq!(failed.state(), SessionState::Failed);
+            assert!(failed.state().is_terminal());
+            let failed_evt = serialize_event(&SessionEvent::Failed).expect("serialize");
+            assert_eq!(failed_evt, "\"Failed\"");
+        }
+
+        /// Path 3: Active → Paused (Suspended) → Active
+        /// Verifies state correctness and event correspondence at each step.
+        #[test]
+        fn transition_path_active_paused_active() {
+            let name = SessionName::parse("sm-path-3").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+
+            // Created → Active
+            let active = session.activate().expect("activate");
+            assert_eq!(active.state(), SessionState::Active);
+            assert!(active.is_active());
+
+            // Active → Paused (Suspended)
+            let paused = active.pause().expect("pause");
+            assert_eq!(paused.state(), SessionState::Paused);
+            assert!(!paused.state().is_terminal());
+            let paused_evt = serialize_event(&SessionEvent::Paused).expect("serialize");
+            assert_eq!(paused_evt, "\"Paused\"");
+
+            // Paused → Active (resume)
+            let resumed = paused.resume().expect("resume");
+            assert_eq!(resumed.state(), SessionState::Active);
+            assert!(resumed.is_active());
+            let resumed_evt = serialize_event(&SessionEvent::Activated).expect("serialize");
+            assert_eq!(resumed_evt, "\"Activated\"");
+        }
+
+        /// Verify identity preservation across all three transition paths.
+        #[test]
+        fn transition_paths_preserve_session_identity() {
+            let name = SessionName::parse("identity-check").expect("valid");
+            let original_id = {
+                let s = Session::<Created>::create(name.clone()).expect("created");
+                s.id.as_str().to_string()
+            };
+
+            // Path 1: Created→Active→Completed
+            let s = Session::<Created>::create(name.clone()).expect("created");
+            let id1 = s.id.as_str().to_string();
+            let completed = s.activate().expect("a").complete().expect("c");
+            assert_eq!(completed.id.as_str(), id1);
+            assert_eq!(completed.name.as_str(), "identity-check");
+
+            // Path 2: Created→Active→Failed
+            let s = Session::<Created>::create(name.clone()).expect("created");
+            let id2 = s.id.as_str().to_string();
+            let failed = s.activate().expect("a").fail().expect("f");
+            assert_eq!(failed.id.as_str(), id2);
+            assert_eq!(failed.name.as_str(), "identity-check");
+
+            // Path 3: Active→Paused→Active
+            let s = Session::<Created>::create(name).expect("created");
+            let id3 = s.id.as_str().to_string();
+            let resumed = s.activate().expect("a").pause().expect("p").resume().expect("r");
+            assert_eq!(resumed.id.as_str(), id3);
+            assert_eq!(resumed.name.as_str(), "identity-check");
+
+            // All three sessions have unique IDs
+            assert_ne!(id1, original_id);
+            assert_ne!(id2, original_id);
+            assert_ne!(id1, id2);
+            assert_ne!(id1, id3);
+        }
+    }
+
+    // =========================================================================
     // Session Entity Proptests
     // =========================================================================
 
