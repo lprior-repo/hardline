@@ -88,6 +88,8 @@ mod error_tests;
 #[cfg(test)]
 mod json_tests;
 #[cfg(test)]
+mod lifecycle_tests;
+#[cfg(test)]
 mod session_state_tests;
 #[cfg(test)]
 mod types_tests;
