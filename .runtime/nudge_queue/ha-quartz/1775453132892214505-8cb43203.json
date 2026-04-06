@@ -1,8 +1,0 @@
-{
-  "sender": "mayor",
-  "message": "Check your hook with gt hook, then invoke /go-skill with the bead ID. GoMasterOrchestrator pipeline is MANDATORY.",
-  "priority": "normal",
-  "timestamp": "2026-04-06T00:25:32.892214505-05:00",
-  "expires_at": "2026-04-06T00:55:32.892214505-05:00",
-  "deliver_after": "0001-01-01T00:00:00Z"
-}

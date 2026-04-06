@@ -314,3 +314,15 @@
 [branch "polecat/onyx/ha-d1gp@mnmqwcue"]
 	remote = origin
 	merge = refs/heads/main
+[branch "polecat/obsidian/ha-d1gp@mnmr8vrt"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/quartz/ha-sdu2@mnmr8yy5"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/jasper/ha-dqn@mnmr925o"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/onyx/ha-im3@mnmr9brb"]
+	remote = origin
+	merge = refs/heads/main
