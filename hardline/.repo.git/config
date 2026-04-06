@@ -257,9 +257,6 @@
 [branch "polecat/onyx/hq-cv-i4qf6@mnmmneqq"]
 	remote = origin
 	merge = refs/heads/main
-[branch "main"]
-	remote = origin
-	merge = refs/heads/main
 [branch "polecat/obsidian/hq-cv-oefxi@mnmmv50y"]
 	remote = origin
 	merge = refs/heads/main
@@ -269,6 +266,39 @@
 [branch "polecat/quartz/hq-cv-rzywo@mnmmwqwl"]
 	remote = origin
 	merge = refs/heads/main
-[branch "temp"]
+[branch "polecat/obsidian/hq-cv-laqw2@mnmn86kc"]
 	remote = origin
-	merge = refs/heads/polecat/obsidian-mnmmvd03
+	merge = refs/heads/main
+[branch "polecat/quartz/hq-cv-i4qf6@mnmn8jkr"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/jasper/hq-cv-zh6ty@mnmn8t07"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/onyx/hq-cv-xs6uw@mnmn923v"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/obsidian/hq-cv-laqw2@mnmnjqyu"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/quartz/hq-cv-i4qf6@mnmnk5sk"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/jasper/hq-cv-zh6ty@mnmnkb73"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/onyx/hq-cv-xs6uw@mnmnkg0c"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/jasper/ha-7ve0@mnmnugr2"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/obsidian/ha-9en3@mnmnusjk"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/onyx/ha-g1t4@mnmnv1uf"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/opal/ha-eswb@mnmnvb3o"]
+	remote = origin
+	merge = refs/heads/main
