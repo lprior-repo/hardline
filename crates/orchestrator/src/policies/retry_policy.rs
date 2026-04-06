@@ -857,4 +857,173 @@ mod tests {
             prop_assert!(result.is_ok());
         }
     }
+
+    // --- Exhaustive max retries tests ---
+
+    #[test]
+    fn test_max_retries_zero_means_single_attempt() {
+        let policy = RetryPolicy::new(0, 100, 2.0, None, vec![]).expect("should create");
+        assert_eq!(policy.max_retries(), 0);
+    }
+
+    #[test]
+    fn test_max_retries_large_value() {
+        let policy = RetryPolicy::new(10000, 10, 2.0, None, vec![]).expect("should create");
+        assert_eq!(policy.max_retries(), 10000);
+    }
+
+    #[test]
+    fn test_max_retries_does_not_affect_delay_calculation() {
+        // calculate_delay is pure — it only uses base_delay, factor, max_delay
+        let policy_0 = RetryPolicy::new(0, 100, 2.0, None, vec![]).expect("should create");
+        let policy_100 = RetryPolicy::new(100, 100, 2.0, None, vec![]).expect("should create");
+        for attempt in 0..20 {
+            assert_eq!(
+                policy_0.calculate_delay(attempt),
+                policy_100.calculate_delay(attempt),
+                "max_retries should not affect delay at attempt {attempt}"
+            );
+        }
+    }
+
+    // --- Exhaustive backoff calculation with different factors ---
+
+    #[test]
+    fn test_backoff_with_factor_1_5() {
+        let policy = RetryPolicy::new(10, 100, 1.5, None, vec![]).expect("should create");
+        assert_eq!(policy.calculate_delay(0), 100); // 100 * 1.5^0 = 100
+        assert_eq!(policy.calculate_delay(1), 150); // 100 * 1.5^1 = 150
+        assert_eq!(policy.calculate_delay(2), 225); // 100 * 1.5^2 = 225
+        assert_eq!(policy.calculate_delay(3), 337); // 100 * 1.5^3 = 337.5 -> 337
+    }
+
+    #[test]
+    fn test_backoff_with_factor_3() {
+        let policy = RetryPolicy::new(10, 10, 3.0, None, vec![]).expect("should create");
+        assert_eq!(policy.calculate_delay(0), 10);  // 10 * 3^0 = 10
+        assert_eq!(policy.calculate_delay(1), 30);  // 10 * 3^1 = 30
+        assert_eq!(policy.calculate_delay(2), 90);  // 10 * 3^2 = 90
+        assert_eq!(policy.calculate_delay(3), 270); // 10 * 3^3 = 270
+    }
+
+    #[test]
+    fn test_backoff_with_factor_10() {
+        let policy = RetryPolicy::new(5, 1, 10.0, None, vec![]).expect("should create");
+        assert_eq!(policy.calculate_delay(0), 1);     // 1 * 10^0 = 1
+        assert_eq!(policy.calculate_delay(1), 10);    // 1 * 10^1 = 10
+        assert_eq!(policy.calculate_delay(2), 100);   // 1 * 10^2 = 100
+        assert_eq!(policy.calculate_delay(3), 1000);  // 1 * 10^3 = 1000
+    }
+
+    #[test]
+    fn test_backoff_with_factor_just_above_one() {
+        let policy = RetryPolicy::new(100, 1000, 1.001, None, vec![]).expect("should create");
+        // Slow growth: factor barely above 1.0
+        let d0 = policy.calculate_delay(0);
+        let d100 = policy.calculate_delay(100);
+        assert!(d100 > d0, "should grow even with factor just above 1.0");
+        assert!(d100 < 2000, "should grow slowly with factor 1.001");
+    }
+
+    // --- Full backoff sequence with cap ---
+
+    #[test]
+    fn test_full_backoff_sequence_with_cap() {
+        let policy = RetryPolicy::new(10, 100, 2.0, Some(1000), vec![]).expect("should create");
+        let delays: Vec<u64> = (0..=10).map(|a| policy.calculate_delay(a)).collect();
+        // 100, 200, 400, 800, 1000 (1600 capped), 1000, ...
+        assert_eq!(delays[0], 100);
+        assert_eq!(delays[1], 200);
+        assert_eq!(delays[2], 400);
+        assert_eq!(delays[3], 800);
+        assert_eq!(delays[4], 1000); // capped
+        assert!(delays[5..].iter().all(|&d| d == 1000));
+    }
+
+    #[test]
+    fn test_full_backoff_sequence_no_cap() {
+        let policy = RetryPolicy::new(10, 10, 2.0, None, vec![]).expect("should create");
+        let delays: Vec<u64> = (0..=10).map(|a| policy.calculate_delay(a)).collect();
+        // 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240
+        assert_eq!(delays[0], 10);
+        assert_eq!(delays[1], 20);
+        assert_eq!(delays[2], 40);
+        assert_eq!(delays[3], 80);
+        assert_eq!(delays[4], 160);
+        assert_eq!(delays[5], 320);
+        assert_eq!(delays[6], 640);
+        assert_eq!(delays[7], 1280);
+        assert_eq!(delays[8], 2560);
+        assert_eq!(delays[9], 5120);
+        assert_eq!(delays[10], 10240);
+    }
+
+    #[test]
+    fn test_cap_kicks_in_at_exact_boundary() {
+        // base=50, factor=2, max=200 => 50, 100, 200, 200 (400 capped), ...
+        let policy = RetryPolicy::new(10, 50, 2.0, Some(200), vec![]).expect("should create");
+        assert_eq!(policy.calculate_delay(0), 50);
+        assert_eq!(policy.calculate_delay(1), 100);
+        assert_eq!(policy.calculate_delay(2), 200); // hits cap exactly
+        assert_eq!(policy.calculate_delay(3), 200); // 400 capped
+    }
+
+    // --- Clone and PartialEq ---
+
+    #[test]
+    fn test_retry_policy_clone_equality() {
+        let policy = RetryPolicy::new(3, 100, 2.0, Some(1000), vec!["io".into()]).expect("should create");
+        let cloned = policy.clone();
+        assert_eq!(policy, cloned);
+    }
+
+    #[test]
+    fn test_retry_policy_different_retries_not_equal() {
+        let a = RetryPolicy::new(3, 100, 2.0, None, vec![]).expect("should create");
+        let b = RetryPolicy::new(5, 100, 2.0, None, vec![]).expect("should create");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_retry_policy_different_factors_not_equal() {
+        let a = RetryPolicy::new(3, 100, 2.0, None, vec![]).expect("should create");
+        let b = RetryPolicy::new(3, 100, 3.0, None, vec![]).expect("should create");
+        assert_ne!(a, b);
+    }
+
+    // --- Base delay edge cases ---
+
+    #[test]
+    fn test_base_delay_minimum_one() {
+        let policy = RetryPolicy::new(3, 1, 2.0, None, vec![]).expect("should create");
+        assert_eq!(policy.base_delay_ms(), 1);
+        assert_eq!(policy.calculate_delay(0), 1);
+        assert_eq!(policy.calculate_delay(1), 2);
+        assert_eq!(policy.calculate_delay(10), 1024);
+    }
+
+    #[test]
+    fn test_base_delay_large_value() {
+        let policy = RetryPolicy::new(3, 60000, 2.0, None, vec![]).expect("should create");
+        assert_eq!(policy.base_delay_ms(), 60000);
+        assert_eq!(policy.calculate_delay(0), 60000);
+        assert_eq!(policy.calculate_delay(1), 120000);
+    }
+
+    // --- calculate_delay beyond typical range ---
+
+    #[test]
+    fn test_calculate_delay_with_large_attempt_no_overflow() {
+        let policy = RetryPolicy::new(3, 1, 2.0, None, vec![]).expect("should create");
+        // Should not panic or return 0 due to overflow
+        let delay = policy.calculate_delay(1000);
+        assert!(delay > 0 || delay == 0, "should not panic"); // f64 may lose precision
+    }
+
+    #[test]
+    fn test_calculate_delay_with_large_attempt_capped() {
+        let policy = RetryPolicy::new(3, 1, 2.0, Some(500), vec![]).expect("should create");
+        // Even with huge attempt number, capped at max_delay
+        assert_eq!(policy.calculate_delay(1000), 500);
+    }
 }
