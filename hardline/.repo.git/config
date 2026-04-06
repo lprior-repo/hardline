@@ -152,3 +152,9 @@
 [branch "polecat/jasper/ha-29t2@mnmivljn"]
 	remote = origin
 	merge = refs/heads/main
+[branch "polecat/obsidian/ha-jpko@mnmj4p3f"]
+	remote = origin
+	merge = refs/heads/main
+[branch "polecat/onyx/ha-n9k4@mnmj4ukj"]
+	remote = origin
+	merge = refs/heads/main
