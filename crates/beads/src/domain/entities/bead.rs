@@ -1290,6 +1290,165 @@ mod tests {
         assert!(result.is_none());
     }
 
+    // ── Exhaustive invalid transition tests (ha-29t2) ──────────────────────
+
+    #[test]
+    fn invalid_transition_open_to_blocked_returns_none() {
+        let bead = make_bead();
+        assert!(!bead.can_transition_to(&BeadState::Blocked));
+        assert!(bead.transition_to(&BeadState::Blocked).is_none());
+    }
+
+    #[test]
+    fn invalid_transition_open_to_deferred_returns_none() {
+        let bead = make_bead();
+        assert!(!bead.can_transition_to(&BeadState::Deferred));
+        assert!(bead.transition_to(&BeadState::Deferred).is_none());
+    }
+
+    #[test]
+    fn invalid_transition_closed_to_in_progress_returns_none() {
+        let closed = make_bead().start().close();
+        assert!(!closed.can_transition_to(&BeadState::InProgress));
+        assert!(closed.transition_to(&BeadState::InProgress).is_none());
+    }
+
+    #[test]
+    fn invalid_transition_closed_to_blocked_returns_none() {
+        let closed = make_bead().start().close();
+        assert!(!closed.can_transition_to(&BeadState::Blocked));
+        assert!(closed.transition_to(&BeadState::Blocked).is_none());
+    }
+
+    #[test]
+    fn invalid_transition_closed_to_deferred_returns_none() {
+        let closed = make_bead().start().close();
+        assert!(!closed.can_transition_to(&BeadState::Deferred));
+        assert!(closed.transition_to(&BeadState::Deferred).is_none());
+    }
+
+    #[test]
+    fn invalid_transition_closed_to_closed_returns_none() {
+        let closed = make_bead().start().close();
+        let double_close = BeadState::Closed {
+            closed_at: Utc::now(),
+        };
+        assert!(!closed.can_transition_to(&double_close));
+        assert!(closed.transition_to(&double_close).is_none());
+    }
+
+    #[test]
+    fn invalid_transition_in_progress_to_open_state_unchanged() {
+        let bead = make_bead().start();
+        assert_eq!(bead.state(), BeadState::InProgress);
+        // can_transition_to takes &self — bead must remain InProgress
+        assert!(!bead.can_transition_to(&BeadState::Open));
+        assert_eq!(bead.state(), BeadState::InProgress);
+    }
+
+    #[test]
+    fn invalid_transition_blocked_to_open_state_unchanged() {
+        let blocked = make_bead().start().block();
+        assert_eq!(blocked.state(), BeadState::Blocked);
+        assert!(!blocked.can_transition_to(&BeadState::Open));
+        assert_eq!(blocked.state(), BeadState::Blocked);
+    }
+
+    #[test]
+    fn invalid_transition_deferred_to_blocked_state_unchanged() {
+        let deferred = make_bead().start().defer();
+        assert_eq!(deferred.state(), BeadState::Deferred);
+        assert!(!deferred.can_transition_to(&BeadState::Blocked));
+        assert_eq!(deferred.state(), BeadState::Deferred);
+    }
+
+    #[test]
+    fn invalid_transition_deferred_to_open_state_unchanged() {
+        let deferred = make_bead().start().defer();
+        assert_eq!(deferred.state(), BeadState::Deferred);
+        assert!(!deferred.can_transition_to(&BeadState::Open));
+        assert_eq!(deferred.state(), BeadState::Deferred);
+    }
+
+    /// Exhaustive matrix: every invalid (from, to) pair must fail both checks.
+    #[test]
+    fn all_invalid_transitions_are_rejected() {
+        let closed_ts = || BeadState::Closed {
+            closed_at: Utc::now(),
+        };
+
+        // ── From Open ──
+        let open = make_bead();
+        for target in [BeadState::Blocked, BeadState::Deferred, closed_ts()] {
+            assert!(
+                !open.can_transition_to(&target),
+                "can_transition_to should reject Open → {target:?}"
+            );
+            assert!(
+                open.transition_to(&target).is_none(),
+                "transition_to should return None for Open → {target:?}"
+            );
+        }
+
+        // ── From InProgress ──
+        let in_progress = make_bead().start();
+        for target in [BeadState::Open] {
+            assert!(
+                !in_progress.can_transition_to(&target),
+                "can_transition_to should reject InProgress → {target:?}"
+            );
+            assert!(
+                in_progress.transition_to(&target).is_none(),
+                "transition_to should return None for InProgress → {target:?}"
+            );
+        }
+
+        // ── From Blocked ──
+        let blocked = make_bead().start().block();
+        for target in [BeadState::Open] {
+            assert!(
+                !blocked.can_transition_to(&target),
+                "can_transition_to should reject Blocked → {target:?}"
+            );
+            assert!(
+                blocked.transition_to(&target).is_none(),
+                "transition_to should return None for Blocked → {target:?}"
+            );
+        }
+
+        // ── From Deferred ──
+        let deferred = make_bead().start().defer();
+        for target in [BeadState::Open, BeadState::Blocked] {
+            assert!(
+                !deferred.can_transition_to(&target),
+                "can_transition_to should reject Deferred → {target:?}"
+            );
+            assert!(
+                deferred.transition_to(&target).is_none(),
+                "transition_to should return None for Deferred → {target:?}"
+            );
+        }
+
+        // ── From Closed (terminal — nothing allowed) ──
+        let closed = make_bead().start().close();
+        for target in [
+            BeadState::Open,
+            BeadState::InProgress,
+            BeadState::Blocked,
+            BeadState::Deferred,
+            closed_ts(),
+        ] {
+            assert!(
+                !closed.can_transition_to(&target),
+                "can_transition_to should reject Closed → {target:?}"
+            );
+            assert!(
+                closed.transition_to(&target).is_none(),
+                "transition_to should return None for Closed → {target:?}"
+            );
+        }
+    }
+
     // ── can_transition_to same-state ────────────────────────────────────────
 
     #[test]
