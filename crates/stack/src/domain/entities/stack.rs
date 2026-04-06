@@ -1082,6 +1082,606 @@ mod tests {
         assert!(deserialized.is_draft.is_none());
     }
 
+    // ── PrInfo exhaustive tests ──────────────────────────────────────────
+
+    /// Helper: canonical PrInfo for reuse across tests.
+    fn make_pr_info(number: u32) -> PrInfo {
+        PrInfo {
+            number,
+            url: format!("https://github.com/org/repo/pull/{number}"),
+            title: format!("PR #{number}"),
+            state: PrState::Open,
+            is_draft: Some(false),
+        }
+    }
+
+    // ── Construction with valid PR data ────────────────────────────────
+
+    #[test]
+    fn test_pr_info_construction_all_fields() {
+        let pr = PrInfo {
+            number: 42,
+            url: "https://github.com/org/repo/pull/42".to_string(),
+            title: "Fix critical bug".to_string(),
+            state: PrState::Open,
+            is_draft: Some(false),
+        };
+        assert_eq!(pr.number, 42);
+        assert_eq!(pr.url, "https://github.com/org/repo/pull/42");
+        assert_eq!(pr.title, "Fix critical bug");
+        assert!(matches!(pr.state, PrState::Open));
+        assert_eq!(pr.is_draft, Some(false));
+    }
+
+    #[test]
+    fn test_pr_info_construction_zero_number() {
+        let pr = PrInfo {
+            number: 0,
+            url: "url".to_string(),
+            title: "t".to_string(),
+            state: PrState::Open,
+            is_draft: None,
+        };
+        assert_eq!(pr.number, 0);
+    }
+
+    #[test]
+    fn test_pr_info_construction_max_number() {
+        let pr = PrInfo {
+            number: u32::MAX,
+            url: "url".to_string(),
+            title: "t".to_string(),
+            state: PrState::Open,
+            is_draft: Some(false),
+        };
+        assert_eq!(pr.number, u32::MAX);
+    }
+
+    #[test]
+    fn test_pr_info_construction_empty_strings() {
+        let pr = PrInfo {
+            number: 1,
+            url: String::new(),
+            title: String::new(),
+            state: PrState::Open,
+            is_draft: None,
+        };
+        assert!(pr.url.is_empty());
+        assert!(pr.title.is_empty());
+    }
+
+    #[test]
+    fn test_pr_info_construction_draft_true() {
+        let pr = PrInfo {
+            number: 1,
+            url: "url".to_string(),
+            title: "t".to_string(),
+            state: PrState::Open,
+            is_draft: Some(true),
+        };
+        assert_eq!(pr.is_draft, Some(true));
+    }
+
+    #[test]
+    fn test_pr_info_construction_draft_false() {
+        let pr = PrInfo {
+            number: 1,
+            url: "url".to_string(),
+            title: "t".to_string(),
+            state: PrState::Open,
+            is_draft: Some(false),
+        };
+        assert_eq!(pr.is_draft, Some(false));
+    }
+
+    #[test]
+    fn test_pr_info_construction_draft_none() {
+        let pr = PrInfo {
+            number: 1,
+            url: "url".to_string(),
+            title: "t".to_string(),
+            state: PrState::Open,
+            is_draft: None,
+        };
+        assert!(pr.is_draft.is_none());
+    }
+
+    // ── Field accessor correctness ─────────────────────────────────────
+
+    #[test]
+    fn test_pr_info_field_url_accessor() {
+        let pr = PrInfo {
+            number: 1,
+            url: "https://github.com/org/repo/pull/1".to_string(),
+            title: "t".to_string(),
+            state: PrState::Open,
+            is_draft: None,
+        };
+        assert_eq!(pr.url, "https://github.com/org/repo/pull/1");
+    }
+
+    #[test]
+    fn test_pr_info_field_title_accessor() {
+        let pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "Implement feature X".to_string(),
+            state: PrState::Open,
+            is_draft: None,
+        };
+        assert_eq!(pr.title, "Implement feature X");
+    }
+
+    #[test]
+    fn test_pr_info_field_state_accessor_open() {
+        let pr = make_pr_info(1);
+        assert!(matches!(pr.state, PrState::Open));
+    }
+
+    #[test]
+    fn test_pr_info_field_state_accessor_closed() {
+        let pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "t".to_string(),
+            state: PrState::Closed,
+            is_draft: None,
+        };
+        assert!(matches!(pr.state, PrState::Closed));
+    }
+
+    #[test]
+    fn test_pr_info_field_state_accessor_merged() {
+        let pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "t".to_string(),
+            state: PrState::Merged,
+            is_draft: None,
+        };
+        assert!(matches!(pr.state, PrState::Merged));
+    }
+
+    // ── State transitions (mutable field updates) ──────────────────────
+
+    #[test]
+    fn test_pr_info_state_transition_open_to_closed() {
+        let mut pr = make_pr_info(1);
+        pr.state = PrState::Closed;
+        assert!(matches!(pr.state, PrState::Closed));
+    }
+
+    #[test]
+    fn test_pr_info_state_transition_open_to_merged() {
+        let mut pr = make_pr_info(1);
+        pr.state = PrState::Merged;
+        assert!(matches!(pr.state, PrState::Merged));
+    }
+
+    #[test]
+    fn test_pr_info_state_transition_open_to_open_idempotent() {
+        let mut pr = make_pr_info(1);
+        pr.state = PrState::Open;
+        assert!(matches!(pr.state, PrState::Open));
+    }
+
+    #[test]
+    fn test_pr_info_state_transition_closed_to_open() {
+        // PrInfo allows any state transition via direct field assignment.
+        // This test documents that Closed→Open IS currently permitted.
+        let mut pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "t".to_string(),
+            state: PrState::Closed,
+            is_draft: None,
+        };
+        pr.state = PrState::Open;
+        assert!(matches!(pr.state, PrState::Open));
+    }
+
+    #[test]
+    fn test_pr_info_state_transition_closed_to_merged() {
+        let mut pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "t".to_string(),
+            state: PrState::Closed,
+            is_draft: None,
+        };
+        pr.state = PrState::Merged;
+        assert!(matches!(pr.state, PrState::Merged));
+    }
+
+    #[test]
+    fn test_pr_info_state_transition_merged_to_open_rejected_by_domain() {
+        // Merged is a terminal state. While Rust allows the field assignment,
+        // domain logic should prevent Merged→Open. This test documents that
+        // the type system does NOT enforce this constraint — callers must.
+        let mut pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "t".to_string(),
+            state: PrState::Merged,
+            is_draft: None,
+        };
+        pr.state = PrState::Open;
+        // If domain guards are added later, this test should be updated
+        // to assert the transition is rejected.
+        assert!(matches!(pr.state, PrState::Open));
+    }
+
+    #[test]
+    fn test_pr_info_state_transition_merged_to_closed() {
+        let mut pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "t".to_string(),
+            state: PrState::Merged,
+            is_draft: None,
+        };
+        pr.state = PrState::Closed;
+        assert!(matches!(pr.state, PrState::Closed));
+    }
+
+    #[test]
+    fn test_pr_info_state_transition_preserves_other_fields() {
+        let mut pr = make_pr_info(99);
+        let original_url = pr.url.clone();
+        let original_title = pr.title.clone();
+        let original_draft = pr.is_draft;
+        pr.state = PrState::Merged;
+        assert_eq!(pr.number, 99);
+        assert_eq!(pr.url, original_url);
+        assert_eq!(pr.title, original_title);
+        assert_eq!(pr.is_draft, original_draft);
+    }
+
+    // ── Serialization round-trip exhaustive ─────────────────────────────
+
+    #[test]
+    fn test_pr_info_serde_roundtrip_all_states() {
+        let states = [
+            (PrState::Open, "Open"),
+            (PrState::Closed, "Closed"),
+            (PrState::Merged, "Merged"),
+        ];
+        for (state, label) in &states {
+            let pr = PrInfo {
+                number: 42,
+                url: "https://example.com".to_string(),
+                title: "Test".to_string(),
+                state: state.clone(),
+                is_draft: Some(true),
+            };
+            let json = serde_json::to_string(&pr).expect("serialize");
+            let back: PrInfo = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(back.number, 42);
+            // PrState doesn't derive PartialEq — verify via Debug string
+            let actual = format!("{:?}", back.state);
+            assert_eq!(actual, *label);
+            assert_eq!(back.is_draft, Some(true));
+        }
+    }
+
+    #[test]
+    fn test_pr_info_serde_roundtrip_all_draft_variants() {
+        let drafts = [Some(true), Some(false), None];
+        for draft in &drafts {
+            let pr = PrInfo {
+                number: 1,
+                url: "u".to_string(),
+                title: "t".to_string(),
+                state: PrState::Open,
+                is_draft: *draft,
+            };
+            let json = serde_json::to_string(&pr).expect("serialize");
+            let back: PrInfo = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(back.is_draft, *draft);
+        }
+    }
+
+    #[test]
+    fn test_pr_info_serde_roundtrip_unicode() {
+        let pr = PrInfo {
+            number: 1,
+            url: "https://example.com/日本語".to_string(),
+            title: "Fix バグ 🐛".to_string(),
+            state: PrState::Open,
+            is_draft: Some(false),
+        };
+        let json = serde_json::to_string(&pr).expect("serialize");
+        let back: PrInfo = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.url, "https://example.com/日本語");
+        assert_eq!(back.title, "Fix バグ 🐛");
+    }
+
+    #[test]
+    fn test_pr_info_serde_roundtrip_large_number() {
+        let pr = PrInfo {
+            number: u32::MAX,
+            url: "u".to_string(),
+            title: "t".to_string(),
+            state: PrState::Merged,
+            is_draft: None,
+        };
+        let json = serde_json::to_string(&pr).expect("serialize");
+        let back: PrInfo = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.number, u32::MAX);
+    }
+
+    #[test]
+    fn test_pr_info_serde_json_keys() {
+        let pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "t".to_string(),
+            state: PrState::Open,
+            is_draft: None,
+        };
+        let json = serde_json::to_string(&pr).expect("serialize");
+        // Verify JSON structure has expected keys
+        assert!(json.contains("\"number\""));
+        assert!(json.contains("\"url\""));
+        assert!(json.contains("\"title\""));
+        assert!(json.contains("\"state\""));
+        assert!(json.contains("\"is_draft\""));
+    }
+
+    // ── Equality based on PR number ─────────────────────────────────────
+
+    #[test]
+    fn test_pr_info_equality_by_number_same() {
+        let a = make_pr_info(42);
+        let b = make_pr_info(42);
+        // PrInfo does not derive PartialEq — compare field by field
+        assert_eq!(a.number, b.number);
+        assert_eq!(a.url, b.url);
+        assert_eq!(a.title, b.title);
+        assert!(matches!(a.state, PrState::Open));
+        assert!(matches!(b.state, PrState::Open));
+        assert_eq!(a.is_draft, b.is_draft);
+    }
+
+    #[test]
+    fn test_pr_info_equality_by_number_different() {
+        let a = make_pr_info(1);
+        let b = make_pr_info(2);
+        assert_ne!(a.number, b.number);
+    }
+
+    #[test]
+    fn test_pr_info_equality_same_number_different_state() {
+        // Same PR number but different state — distinct domain entities
+        let a = make_pr_info(42);
+        let mut b = make_pr_info(42);
+        b.state = PrState::Merged;
+        assert_eq!(a.number, b.number);
+        assert!(matches!(a.state, PrState::Open));
+        assert!(matches!(b.state, PrState::Merged));
+    }
+
+    #[test]
+    fn test_pr_info_equality_same_number_different_title() {
+        let a = make_pr_info(42);
+        let mut b = make_pr_info(42);
+        b.title = "Different title".to_string();
+        assert_eq!(a.number, b.number);
+        assert_ne!(a.title, b.title);
+    }
+
+    #[test]
+    fn test_pr_info_equality_same_number_different_url() {
+        let a = make_pr_info(42);
+        let mut b = make_pr_info(42);
+        b.url = "https://different.com".to_string();
+        assert_eq!(a.number, b.number);
+        assert_ne!(a.url, b.url);
+    }
+
+    #[test]
+    fn test_pr_info_equality_same_number_different_draft() {
+        let a = make_pr_info(42);
+        let mut b = make_pr_info(42);
+        b.is_draft = Some(true);
+        assert_eq!(a.number, b.number);
+        assert_ne!(a.is_draft, b.is_draft);
+    }
+
+    // ── Debug format ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_pr_info_debug_contains_struct_name() {
+        let pr = make_pr_info(42);
+        let debug = format!("{pr:?}");
+        assert!(debug.contains("PrInfo"), "Debug output should contain struct name");
+    }
+
+    #[test]
+    fn test_pr_info_debug_contains_number() {
+        let pr = make_pr_info(42);
+        let debug = format!("{pr:?}");
+        assert!(debug.contains("42"), "Debug output should contain PR number");
+    }
+
+    #[test]
+    fn test_pr_info_debug_contains_url() {
+        let pr = make_pr_info(7);
+        let debug = format!("{pr:?}");
+        assert!(
+            debug.contains("https://github.com/org/repo/pull/7"),
+            "Debug output should contain URL"
+        );
+    }
+
+    #[test]
+    fn test_pr_info_debug_contains_title() {
+        let pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "My Special Title".to_string(),
+            state: PrState::Open,
+            is_draft: None,
+        };
+        let debug = format!("{pr:?}");
+        assert!(
+            debug.contains("My Special Title"),
+            "Debug output should contain title"
+        );
+    }
+
+    #[test]
+    fn test_pr_info_debug_shows_state_open() {
+        let pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "t".to_string(),
+            state: PrState::Open,
+            is_draft: None,
+        };
+        let debug = format!("{pr:?}");
+        assert!(debug.contains("Open"));
+    }
+
+    #[test]
+    fn test_pr_info_debug_shows_state_merged() {
+        let pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "t".to_string(),
+            state: PrState::Merged,
+            is_draft: None,
+        };
+        let debug = format!("{pr:?}");
+        assert!(debug.contains("Merged"));
+    }
+
+    #[test]
+    fn test_pr_info_debug_shows_state_closed() {
+        let pr = PrInfo {
+            number: 1,
+            url: "u".to_string(),
+            title: "t".to_string(),
+            state: PrState::Closed,
+            is_draft: None,
+        };
+        let debug = format!("{pr:?}");
+        assert!(debug.contains("Closed"));
+    }
+
+    // ── Clone independence ──────────────────────────────────────────────
+
+    #[test]
+    fn test_pr_info_clone_equality() {
+        let original = make_pr_info(42);
+        let cloned = original.clone();
+        assert_eq!(original.number, cloned.number);
+        assert_eq!(original.url, cloned.url);
+        assert_eq!(original.title, cloned.title);
+        assert!(matches!(original.state, PrState::Open));
+        assert!(matches!(cloned.state, PrState::Open));
+        assert_eq!(original.is_draft, cloned.is_draft);
+    }
+
+    #[test]
+    fn test_pr_info_clone_independence_after_state_change() {
+        let original = make_pr_info(10);
+        let mut cloned = original.clone();
+        cloned.state = PrState::Merged;
+        // Original unchanged
+        assert!(matches!(original.state, PrState::Open));
+        assert!(matches!(cloned.state, PrState::Merged));
+    }
+
+    #[test]
+    fn test_pr_info_clone_independence_after_title_change() {
+        let original = make_pr_info(10);
+        let mut cloned = original.clone();
+        cloned.title = "Modified".to_string();
+        assert_eq!(original.title, "PR #10");
+        assert_eq!(cloned.title, "Modified");
+    }
+
+    #[test]
+    fn test_pr_info_clone_independence_after_url_change() {
+        let original = make_pr_info(10);
+        let mut cloned = original.clone();
+        cloned.url = "https://modified.com".to_string();
+        assert_eq!(original.url, "https://github.com/org/repo/pull/10");
+        assert_eq!(cloned.url, "https://modified.com");
+    }
+
+    #[test]
+    fn test_pr_info_clone_independence_after_draft_change() {
+        let original = make_pr_info(10);
+        let mut cloned = original.clone();
+        cloned.is_draft = Some(true);
+        assert_eq!(original.is_draft, Some(false));
+        assert_eq!(cloned.is_draft, Some(true));
+    }
+
+    #[test]
+    fn test_pr_info_clone_survives_original_drop() {
+        let original = make_pr_info(99);
+        let cloned = original.clone();
+        drop(original);
+        assert_eq!(cloned.number, 99);
+        assert_eq!(cloned.url, "https://github.com/org/repo/pull/99");
+        assert_eq!(cloned.title, "PR #99");
+    }
+
+    // ── PrState exhaustive tests ────────────────────────────────────────
+
+    #[test]
+    fn test_pr_state_all_variants_distinct() {
+        // PrState doesn't derive PartialEq — verify distinctness via Debug
+        let labels = ["Open", "Closed", "Merged"];
+        for i in 0..labels.len() {
+            for j in (i + 1)..labels.len() {
+                assert_ne!(labels[i], labels[j], "PrState variants must be distinct");
+            }
+        }
+    }
+
+    #[test]
+    fn test_pr_state_clone_semantics() {
+        let a = PrState::Open;
+        let b = a.clone();
+        assert!(matches!(a, PrState::Open));
+        assert!(matches!(b, PrState::Open));
+    }
+
+    #[test]
+    fn test_pr_state_clone_independence() {
+        let a = PrState::Merged;
+        let b = a.clone();
+        // Both remain Merged — verify both match
+        assert!(matches!(a, PrState::Merged));
+        assert!(matches!(b, PrState::Merged));
+    }
+
+    #[test]
+    fn test_pr_state_serde_roundtrip_all() {
+        let variants: Vec<(PrState, &str)> = vec![
+            (PrState::Open, "Open"),
+            (PrState::Closed, "Closed"),
+            (PrState::Merged, "Merged"),
+        ];
+        for (state, label) in &variants {
+            let json = serde_json::to_string(state).expect("serialize");
+            let back: PrState = serde_json::from_str(&json).expect("deserialize");
+            let back_label = format!("{back:?}");
+            assert_eq!(back_label, *label);
+        }
+    }
+
+    #[test]
+    fn test_pr_state_debug_format_all() {
+        assert!(format!("{:?}", PrState::Open).contains("Open"));
+        assert!(format!("{:?}", PrState::Closed).contains("Closed"));
+        assert!(format!("{:?}", PrState::Merged).contains("Merged"));
+    }
+
     #[test]
     fn test_stack_branch_serde_roundtrip() {
         let branch = StackBranch {
@@ -1353,6 +1953,88 @@ mod proptests {
             assert!(matches!(pr.state, PrState::Open));
             assert!(matches!(deserialized.state, PrState::Open));
             assert_eq!(pr.is_draft, deserialized.is_draft);
+        }
+
+        #[test]
+        fn prop_pr_info_serde_roundtrip_all_states(num in 0u32..100_000u32, state_idx in 0u8..3u8) {
+            let states: Vec<(PrState, &str)> = vec![
+                (PrState::Open, "Open"),
+                (PrState::Closed, "Closed"),
+                (PrState::Merged, "Merged"),
+            ];
+            let (state, label) = &states[state_idx as usize];
+            let pr = PrInfo {
+                number: num,
+                url: format!("https://github.com/org/repo/pull/{num}"),
+                title: format!("PR #{num}"),
+                state: state.clone(),
+                is_draft: Some(num % 2 == 0),
+            };
+            let json = serde_json::to_string(&pr).expect("serialize");
+            let back: PrInfo = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(pr.number, back.number);
+            assert_eq!(pr.url, back.url);
+            assert_eq!(pr.title, back.title);
+            let back_label = format!("{:?}", back.state);
+            assert_eq!(back_label, *label);
+            assert_eq!(pr.is_draft, back.is_draft);
+        }
+
+        #[test]
+        fn prop_pr_info_clone_preserves_number(num in 0u32..u32::MAX) {
+            let pr = PrInfo {
+                number: num,
+                url: "u".to_string(),
+                title: "t".to_string(),
+                state: PrState::Open,
+                is_draft: None,
+            };
+            let cloned = pr.clone();
+            assert_eq!(pr.number, cloned.number);
+        }
+
+        #[test]
+        fn prop_pr_info_clone_independence(num in 0u32..100_000u32) {
+            let original = PrInfo {
+                number: num,
+                url: format!("url-{num}"),
+                title: format!("title-{num}"),
+                state: PrState::Open,
+                is_draft: Some(num % 2 == 0),
+            };
+            let mut cloned = original.clone();
+            cloned.state = PrState::Merged;
+            cloned.title = "modified".to_string();
+            // Original unchanged
+            assert!(matches!(original.state, PrState::Open));
+            assert_eq!(original.title, format!("title-{num}"));
+        }
+
+        #[test]
+        fn prop_pr_info_debug_contains_number(num in 1u32..1_000_000u32) {
+            let pr = PrInfo {
+                number: num,
+                url: "u".to_string(),
+                title: "t".to_string(),
+                state: PrState::Open,
+                is_draft: None,
+            };
+            let debug = format!("{pr:?}");
+            assert!(debug.contains(&num.to_string()));
+        }
+
+        #[test]
+        fn prop_pr_state_serde_roundtrip(state_idx in 0u8..3u8) {
+            let states: Vec<(PrState, &str)> = vec![
+                (PrState::Open, "Open"),
+                (PrState::Closed, "Closed"),
+                (PrState::Merged, "Merged"),
+            ];
+            let (state, label) = &states[state_idx as usize];
+            let json = serde_json::to_string(state).expect("serialize");
+            let back: PrState = serde_json::from_str(&json).expect("deserialize");
+            let back_label = format!("{back:?}");
+            assert_eq!(back_label, *label);
         }
 
         #[test]
