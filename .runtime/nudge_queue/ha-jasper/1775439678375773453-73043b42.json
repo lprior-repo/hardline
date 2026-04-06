@@ -1,8 +1,0 @@
-{
-  "sender": "mayor",
-  "message": "Start ha-29t2 immediately. /go-skill. Close when done.",
-  "priority": "normal",
-  "timestamp": "2026-04-05T20:41:18.375773453-05:00",
-  "expires_at": "2026-04-05T21:11:18.375773453-05:00",
-  "deliver_after": "0001-01-01T00:00:00Z"
-}
