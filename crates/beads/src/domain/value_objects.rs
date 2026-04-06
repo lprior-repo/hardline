@@ -973,6 +973,75 @@ mod tests {
             // Closed -> Closed: doesn't match the special pattern, goes to Ok(new_state)
             // which would be the passed-in Closed state
         }
+
+        // ── Transition chain tests (ha-dl99) ──────────────────────────────────
+
+        #[test]
+        fn chain_open_to_in_progress_to_closed() {
+            let state = BeadState::Open;
+
+            // Open → InProgress
+            let in_progress = state
+                .transition_to(BeadState::InProgress)
+                .expect("Open→InProgress should succeed");
+            assert_eq!(in_progress, BeadState::InProgress);
+            assert!(in_progress.is_active());
+            assert!(!in_progress.is_closed());
+
+            // InProgress → Closed
+            let closed = in_progress
+                .transition_to(BeadState::Closed {
+                    closed_at: Utc::now(),
+                })
+                .expect("InProgress→Closed should succeed");
+            assert!(closed.is_closed());
+            assert!(closed.closed_at().is_some());
+            assert!(!closed.is_active());
+        }
+
+        #[test]
+        fn chain_open_to_blocked_to_open() {
+            let state = BeadState::Open;
+
+            // Open → Blocked
+            let blocked = state
+                .transition_to(BeadState::Blocked)
+                .expect("Open→Blocked should succeed");
+            assert_eq!(blocked, BeadState::Blocked);
+            assert!(blocked.is_blocked());
+            assert!(!blocked.is_active());
+            assert!(!blocked.is_closed());
+
+            // Blocked → Open
+            let back_to_open = blocked
+                .transition_to(BeadState::Open)
+                .expect("Blocked→Open should succeed");
+            assert_eq!(back_to_open, BeadState::Open);
+            assert!(back_to_open.is_active());
+            assert!(!back_to_open.is_blocked());
+            assert!(!back_to_open.is_closed());
+        }
+
+        #[test]
+        fn chain_open_to_deferred_to_open() {
+            let state = BeadState::Open;
+
+            // Open → Deferred
+            let deferred = state
+                .transition_to(BeadState::Deferred)
+                .expect("Open→Deferred should succeed");
+            assert_eq!(deferred, BeadState::Deferred);
+            assert!(!deferred.is_active());
+            assert!(!deferred.is_closed());
+
+            // Deferred → Open
+            let back_to_open = deferred
+                .transition_to(BeadState::Open)
+                .expect("Deferred→Open should succeed");
+            assert_eq!(back_to_open, BeadState::Open);
+            assert!(back_to_open.is_active());
+            assert!(!back_to_open.is_closed());
+        }
     }
 
     // ── Priority tests ───────────────────────────────────────────────────────
