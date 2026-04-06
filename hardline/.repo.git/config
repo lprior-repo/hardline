@@ -92,3 +92,9 @@
 [branch "polecat/onyx/ha-d9vg@mnmgpjct"]
 	remote = origin
 	merge = refs/heads/main
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+[branch "temp"]
+	remote = origin
+	merge = refs/heads/polecat/onyx-mnmgplnr
