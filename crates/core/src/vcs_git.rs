@@ -289,10 +289,31 @@ impl VcsBackend for GitBackend {
         Ok(())
     }
 
-    fn abort_workspace(&self, _name: &str) -> Result<()> {
-        // Abort workspace by restoring working copy to last commit
-        // This uses git checkout -- . to discard uncommitted changes
-        let output = self.run_git(&["checkout", "--", "."])?;
+    fn abort_workspace(&self, name: &str) -> Result<()> {
+        // Abort workspace by finding the named worktree and restoring its working copy
+        // First, locate the worktree path for the given name
+        let output = self.run_git(&["worktree", "list", "--porcelain"])?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(
+                VcsErrorKind::Conflict("worktree list".to_string(), stderr.to_string()).into(),
+            );
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let worktree_path = find_worktree_path(&stdout, name).ok_or_else(|| {
+            WorkspaceErrorKind::NotFound(format!(
+                "worktree '{}' not found in worktree list",
+                name
+            ))
+        })?;
+
+        // Discard uncommitted changes in the target worktree
+        let output = Command::new("git")
+            .args(["checkout", "--", "."])
+            .current_dir(&worktree_path)
+            .output()
+            .map_err(|e| IoErrorKind::IoError(e.to_string()))?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(
@@ -306,6 +327,64 @@ impl VcsBackend for GitBackend {
 // ============================================================================
 // Parsing helpers (extracted for unit testing without subprocess calls)
 // ============================================================================
+
+/// Parse `git worktree list --porcelain` output to find the path for a named worktree.
+///
+/// Porcelain format is blocks separated by blank lines:
+/// ```text
+/// worktree /path/to/main
+/// HEAD abc123
+/// branch refs/heads/main
+///
+/// worktree /path/to/feature
+/// HEAD def456
+/// branch refs/heads/feature-x
+/// ```
+fn find_worktree_path(porcelain_output: &str, name: &str) -> Option<std::path::PathBuf> {
+    let mut current_path: Option<String> = None;
+    let mut current_branch: Option<String> = None;
+
+    for line in porcelain_output.lines() {
+        if line.is_empty() {
+            // End of block — check if this block matches our target
+            if let (Some(path), Some(branch)) = (&current_path, &current_branch) {
+                // Match by branch name: refs/heads/<name>
+                if branch.ends_with(&format!("/{}", name)) || branch == name {
+                    return Some(std::path::PathBuf::from(path));
+                }
+                // Also match by worktree directory name (last component of path)
+                if let Some(dir_name) = std::path::Path::new(path).file_name() {
+                    if dir_name == name {
+                        return Some(std::path::PathBuf::from(path));
+                    }
+                }
+            }
+            current_path = None;
+            current_branch = None;
+            continue;
+        }
+        if let Some(path) = line.strip_prefix("worktree ") {
+            current_path = Some(path.to_string());
+        }
+        if let Some(branch) = line.strip_prefix("branch ") {
+            current_branch = Some(branch.to_string());
+        }
+    }
+
+    // Check the last block (no trailing newline)
+    if let (Some(path), Some(branch)) = (&current_path, &current_branch) {
+        if branch.ends_with(&format!("/{}", name)) || branch == name {
+            return Some(std::path::PathBuf::from(path));
+        }
+        if let Some(dir_name) = std::path::Path::new(path).file_name() {
+            if dir_name == name {
+                return Some(std::path::PathBuf::from(path));
+            }
+        }
+    }
+
+    None
+}
 
 /// Parse `git status --porcelain` output into a VcsStatus.
 fn parse_git_porcelain_status(stdout: &str) -> VcsStatus {

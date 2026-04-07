@@ -38,6 +38,11 @@ pub fn run_done(options: &DoneOptions) -> Result<DoneOutput> {
     // Phase 1: Validate and resolve workspace
     let workspace_name = resolve_workspace(backend.as_ref(), options.workspace.as_deref())?;
 
+    // Validate workspace name format (prevents path traversal)
+    if let Some(err) = crate::commands::workspace::validators::validate_workspace_name(&workspace_name) {
+        return Err(err);
+    }
+
     // Ensure not main workspace
     if workspace_name == "main" {
         return Err(Error::invalid_state("cannot complete the main workspace"));
@@ -152,7 +157,7 @@ fn run_dry_run(
 
     let uncommitted_files = get_uncommitted_files(&ws_executor)?;
     let commits_to_merge = get_commits_to_merge(&ws_executor)?;
-    let potential_conflicts = get_potential_conflicts(&ws_executor);
+    let potential_conflicts = get_potential_conflicts(&ws_executor)?;
 
     // Run detailed conflict detection if requested
     let conflict_detection = if options.detect_conflicts {
@@ -210,7 +215,7 @@ fn execute_done_workflow(
     let ws_executor = WorkspaceGitExecutor::new(executor, workspace_path);
 
     // Step 1: Check for conflicts
-    let conflicts = get_potential_conflicts(&ws_executor);
+    let conflicts = get_potential_conflicts(&ws_executor)?;
     if !conflicts.is_empty() {
         return Err(Error::vcs_conflict(
             workspace_name,
@@ -374,22 +379,31 @@ fn get_commits_to_merge(executor: &dyn GitExecutor) -> Result<Vec<CommitInfo>> {
 }
 
 /// Get potential conflicts via conflict detection.
-fn get_potential_conflicts(executor: &dyn GitExecutor) -> Vec<String> {
+///
+/// Returns Ok(conflicts) if detection succeeded, or Err if detection itself failed.
+/// A failed detection is treated as a safety gate failure — we do NOT silently
+/// proceed with zero conflicts when we cannot determine whether conflicts exist.
+fn get_potential_conflicts(executor: &dyn GitExecutor) -> Result<Vec<String>> {
     match detect_conflicts(executor) {
         Ok(result) => {
             let mut conflicts = result.existing_conflicts;
             conflicts.extend(result.overlapping_files);
-            conflicts
+            Ok(conflicts)
         }
         Err(e) => {
-            // Log warning but don't fail - conflict detection is best-effort
             Output::warn(&format!("Conflict detection failed: {e}"));
-            Vec::new()
+            Err(Error::vcs_conflict(
+                "conflict-detection",
+                format!("Conflict detection failed: {e}"),
+            ))
         }
     }
 }
 
 /// Log undo history to .scp/undo.log.
+///
+/// Uses atomic write (write to temp file + rename) to prevent corruption
+/// from concurrent done operations.
 fn log_undo_history(
     workspace_name: &str,
     executor: &dyn GitExecutor,
@@ -413,10 +427,20 @@ fn log_undo_history(
         pre_merge_commit_id: pre_merge_commit_id.trim().to_string(),
         timestamp,
         pushed_to_remote,
-        status: "completed".to_string(),
+        status: if pushed_to_remote {
+            "completed".to_string()
+        } else {
+            "merged_push_failed".to_string()
+        },
     };
 
     let json = serde_json::to_string(&undo_entry).map_err(|e| Error::io_error(e.to_string()))?;
+
+    // Ensure parent directory exists
+    if let Some(parent) = undo_log_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| Error::io_error(format!("Failed to create undo log directory: {e}")))?;
+    }
 
     // Read existing content or start fresh
     let mut content = if undo_log_path.exists() {
@@ -428,14 +452,13 @@ fn log_undo_history(
     content.push_str(&json);
     content.push('\n');
 
-    // Ensure parent directory exists
-    if let Some(parent) = undo_log_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| Error::io_error(format!("Failed to create undo log directory: {e}")))?;
-    }
-
-    std::fs::write(&undo_log_path, &content)
-        .map_err(|e| Error::io_error(format!("Failed to write undo log: {e}")))?;
+    // Atomic write: write to temp file, then rename over the target.
+    // This prevents corruption from concurrent writes (rename is atomic on POSIX).
+    let tmp_path = undo_log_path.with_extension("tmp");
+    std::fs::write(&tmp_path, &content)
+        .map_err(|e| Error::io_error(format!("Failed to write undo log temp: {e}")))?;
+    std::fs::rename(&tmp_path, &undo_log_path)
+        .map_err(|e| Error::io_error(format!("Failed to rename undo log: {e}")))?;
 
     Ok(())
 }
@@ -1636,9 +1659,10 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_done_workflow_conflict_detection_executor_error_returns_empty_conflicts() {
-        // If conflict detection fails, get_potential_conflicts swallows the error
-        // and returns an empty Vec, allowing the workflow to continue.
+    fn test_execute_done_workflow_conflict_detection_executor_error_blocks_merge() {
+        // SECURITY FIX: If conflict detection fails, the workflow now returns an
+        // error instead of silently proceeding with zero conflicts. This prevents
+        // undetected conflicts from reaching main.
         let backend = MockVcsBackend::new(vec![scp_core::Workspace {
             name: "detect-fail-ws".to_string(),
             branch: "detect-fail-ws".to_string(),
@@ -1646,23 +1670,20 @@ mod tests {
         }]);
 
         // First call fails, which means detect_conflicts fails, which
-        // get_potential_conflicts catches and returns Vec::new()
-        let mut responses = vec![Err(ExecutorError::CommandFailed {
+        // get_potential_conflicts now propagates as an error
+        let responses = vec![Err(ExecutorError::CommandFailed {
             code: 1,
             stderr: "git log failed".to_string(),
         })];
-        responses.push(Ok("sha\n".to_string()));
 
         let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
         let result =
             execute_done_workflow("detect-fail-ws", "/tmp/ws", &options, &backend, &executor);
-        let output =
-            result.expect("conflict detection failure should not abort workflow (best-effort)");
         assert!(
-            output.merged,
-            "should still merge even if conflict detection failed"
+            result.is_err(),
+            "conflict detection failure should now block the merge"
         );
     }
 
@@ -2125,28 +2146,20 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[test]
-    fn test_execute_done_workflow_conflict_detect_failure_allows_merge() {
-        // When conflict detection itself fails (e.g., git command error),
-        // get_potential_conflicts catches the error and returns empty Vec.
-        // This means the workflow proceeds with NO conflict protection.
-        //
-        // QA NOTE: This is a design choice - conflict detection is best-effort.
-        // A failure in detection does NOT block the merge, which could lead
-        // to undetected conflicts during rebase.
+    fn test_execute_done_workflow_conflict_detect_failure_blocks_merge() {
+        // SECURITY FIX: When conflict detection itself fails (e.g., git command error),
+        // get_potential_conflicts now propagates the error instead of returning
+        // an empty Vec. This prevents merging with undetected conflicts.
         let backend = MockVcsBackend::new(vec![scp_core::Workspace {
             name: "detect-err-ws".to_string(),
             branch: "detect-err-ws".to_string(),
             is_current: false,
         }]);
 
-        // First call (detect_conflicts) fails, second call (undo log) succeeds
-        let responses = vec![
-            Err(ExecutorError::CommandFailed {
-                code: 128,
-                stderr: "fatal: bad revision 'trunk()'".to_string(),
-            }),
-            Ok("sha\n".to_string()),
-        ];
+        let responses = vec![Err(ExecutorError::CommandFailed {
+            code: 128,
+            stderr: "fatal: bad revision 'trunk()'".to_string(),
+        })];
 
         let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
@@ -2159,10 +2172,9 @@ mod tests {
             &executor,
         );
 
-        let output = result.expect("conflict detection failure should not block merge");
         assert!(
-            output.merged,
-            "merge should proceed despite failed conflict detection"
+            result.is_err(),
+            "conflict detection failure should now block merge"
         );
     }
 
