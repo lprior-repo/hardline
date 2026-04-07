@@ -341,6 +341,7 @@ fn is_trunk_only_for_trunk() {
     assert!(!dag.is_trunk(&BranchId::new("trunk-")));
     assert!(!dag.is_trunk(&BranchId::new("trunk1")));
 }
+<<<<<<< HEAD
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EXHAUSTIVE TESTS — add nodes, topological sort, cycle detection, ancestry
@@ -930,3 +931,5 @@ fn empty_dag_after_trunk_removal() {
     let topo = dag.topological_sort();
     assert!(matches!(topo, Err(DagError::EmptyDag)));
 }
+=======
+>>>>>>> 44984de (feat: port isolate crate from hardline source (3,151 lines))
