@@ -73,4 +73,12 @@ pub trait VcsClientTrait: Send + Sync {
         branch: &BranchName,
     ) -> Result<scp_vcs::domain::types::CommitHash, StackError>;
     fn get_parent_commit(&self, branch: &BranchName) -> Result<Option<BranchName>, StackError>;
+    /// Resolve the current OID for a branch (for transaction before/after tracking).
+    fn resolve_branch_oid(&self, branch: &BranchName) -> Result<Option<String>, StackError>;
+    /// Get the `.git` directory path for receipt storage.
+    fn git_dir(&self) -> Result<std::path::PathBuf, StackError>;
+    /// Get the repository working directory.
+    fn workdir(&self) -> Result<std::path::PathBuf, StackError>;
+    /// Get the currently checked-out branch name.
+    fn current_branch(&self) -> Result<BranchName, StackError>;
 }

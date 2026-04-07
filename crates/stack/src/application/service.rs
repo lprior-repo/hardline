@@ -6,6 +6,8 @@ use crate::domain::state::{BranchState, StackState};
 use crate::domain::value_objects::BranchName;
 use crate::error::{Result, StackError};
 use scp_vcs::domain::types::CommitHash;
+use scp_vcs::domain::entities::ops::OpKind;
+use scp_vcs::application::ops::Transaction;
 
 pub struct StackService<R, G, V> {
     stack_repo: R,
@@ -47,12 +49,49 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         Ok(stack)
     }
 
+    /// Publish a stack by creating PRs for each branch.
+    ///
+    /// Wraps the operation in a VCS `Transaction` so that if the process
+    /// crashes mid-operation, the receipt persists for crash recovery.
+    /// Backup refs are created for all branches before any remote changes.
     pub fn publish_stack(&self, stack_id: StackId) -> Result<Stack, StackError> {
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
-            .ok_or(StackError::NotFound(stack_id.to_string()))?;
+            .ok_or_else(|| StackError::NotFound(stack_id.to_string()))?;
 
+        let git_dir = self.vcs.git_dir()?;
+        let workdir = self.vcs.workdir()?;
+        let head_branch = self.vcs.current_branch()?;
+
+        let mut tx = Transaction::begin(
+            OpKind::Submit,
+            git_dir,
+            workdir,
+            stack.base_branch.as_str().to_string(),
+            head_branch.as_str().to_string(),
+        )
+        .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        // Plan all branches with their current OIDs.
+        let branch_oids: Vec<(String, Option<String>)> = stack
+            .branches
+            .iter()
+            .map(|b| {
+                let oid = self
+                    .vcs
+                    .resolve_branch_oid(&b.branch_name)
+                    .ok()
+                    .flatten();
+                (b.branch_name.as_str().to_string(), oid)
+            })
+            .collect();
+
+        tx.plan_branches(&branch_oids);
+        tx.snapshot()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        // Execute: create PRs for each branch.
         for branch in &stack.branches {
             let pr_info = self
                 .github
@@ -60,18 +99,69 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
             branch.pr_info = Some(pr_info);
         }
 
+        // Record after-state for all branches.
+        tx.record_all_after(|branch| {
+            self.vcs
+                .resolve_branch_oid(&BranchName::new(branch))
+                .ok()
+                .flatten()
+        });
+
         stack.state = StackState::Published;
         stack.updated_at = Utc::now();
         self.stack_repo.save(&stack)?;
 
+        tx.finish_ok()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
         Ok(stack)
     }
 
+    /// Restack all branches in a stack onto their parents.
+    ///
+    /// Uses a VCS `Transaction` with `OpKind::Restack` for crash recovery.
+    /// Creates backup refs before rebasing so the operation can be undone
+    /// if interrupted.
     pub fn restack(&self, stack_id: StackId) -> Result<Stack, StackError> {
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
-            .ok_or(StackError::NotFound(stack_id.to_string()))?;
+            .ok_or_else(|| StackError::NotFound(stack_id.to_string()))?;
+
+        let git_dir = self.vcs.git_dir()?;
+        let workdir = self.vcs.workdir()?;
+        let head_branch = self.vcs.current_branch()?;
+
+        let mut tx = Transaction::begin(
+            OpKind::Restack,
+            git_dir,
+            workdir,
+            stack.base_branch.as_str().to_string(),
+            head_branch.as_str().to_string(),
+        )
+        .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        // Plan all branches with their pre-rebase OIDs.
+        for branch in &stack.branches {
+            let oid_before = self
+                .vcs
+                .resolve_branch_oid(&branch.branch_name)
+                .ok()
+                .flatten();
+            tx.plan_branch(branch.branch_name.as_str(), oid_before.as_deref());
+        }
+
+        let mut summary = scp_vcs::domain::entities::ops::PlanSummary::default();
+        summary.branches_to_rebase = stack.branches.len();
+        summary.branches_to_push = stack.branches.len();
+        summary.description = vec![format!(
+            "Restacking {} branches onto updated parents",
+            stack.branches.len()
+        )];
+        tx.set_plan_summary(summary);
+
+        tx.snapshot()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
 
         self.github.fetch(&stack.base_branch)?;
 
@@ -82,21 +172,78 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
                 stack.branches[i - 1].branch_name.clone()
             };
 
-            self.vcs.rebase(&branch.branch_name, &parent)?;
-            self.github.force_push(&branch.branch_name)?;
+            self.vcs
+                .rebase(&branch.branch_name, &parent)
+                .map_err(|e| {
+                    let _ = tx.finish_err(
+                        &e.to_string(),
+                        Some("rebase"),
+                        Some(branch.branch_name.as_str()),
+                    );
+                    e
+                })?;
+
+            self.github.force_push(&branch.branch_name).map_err(|e| {
+                let _ = tx.finish_err(
+                    &e.to_string(),
+                    Some("force_push"),
+                    Some(branch.branch_name.as_str()),
+                );
+                e
+            })?;
         }
+
+        // Record post-rebase OIDs.
+        tx.record_all_after(|branch| {
+            self.vcs
+                .resolve_branch_oid(&BranchName::new(branch))
+                .ok()
+                .flatten()
+        });
 
         stack.updated_at = Utc::now();
         self.stack_repo.save(&stack)?;
 
+        tx.finish_ok()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
         Ok(stack)
     }
 
+    /// Merge all PRs in a stack (bottom to top).
+    ///
+    /// Uses a VCS `Transaction` with `OpKind::MergeWhenReady` for crash
+    /// recovery. Records the state of each branch before and after merge.
     pub fn merge_stack(&self, stack_id: StackId) -> Result<Stack, StackError> {
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
-            .ok_or(StackError::NotFound(stack_id.to_string()))?;
+            .ok_or_else(|| StackError::NotFound(stack_id.to_string()))?;
+
+        let git_dir = self.vcs.git_dir()?;
+        let workdir = self.vcs.workdir()?;
+        let head_branch = self.vcs.current_branch()?;
+
+        let mut tx = Transaction::begin(
+            OpKind::MergeWhenReady,
+            git_dir,
+            workdir,
+            stack.base_branch.as_str().to_string(),
+            head_branch.as_str().to_string(),
+        )
+        .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        for branch in &stack.branches {
+            let oid_before = self
+                .vcs
+                .resolve_branch_oid(&branch.branch_name)
+                .ok()
+                .flatten();
+            tx.plan_branch(branch.branch_name.as_str(), oid_before.as_deref());
+        }
+
+        tx.snapshot()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
 
         stack.state = StackState::Merging;
         stack.updated_at = Utc::now();
@@ -104,14 +251,34 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
 
         for branch in &mut stack.branches {
             if let Some(pr_info) = &branch.pr_info {
-                self.github.merge_pull_request(pr_info.pr_number)?;
+                self.github
+                    .merge_pull_request(pr_info.pr_number)
+                    .map_err(|e| {
+                        let _ = tx.finish_err(
+                            &e.to_string(),
+                            Some("merge_pr"),
+                            Some(branch.branch_name.as_str()),
+                        );
+                        e
+                    })?;
                 branch.state = BranchState::Merged;
             }
         }
 
+        // Record after-state.
+        tx.record_all_after(|branch| {
+            self.vcs
+                .resolve_branch_oid(&BranchName::new(branch))
+                .ok()
+                .flatten()
+        });
+
         stack.state = StackState::Merged;
         stack.updated_at = Utc::now();
         self.stack_repo.save(&stack)?;
+
+        tx.finish_ok()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
 
         Ok(stack)
     }
