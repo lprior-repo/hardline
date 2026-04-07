@@ -1,3 +1,4 @@
+use crate::domain::metadata::BranchMetadata;
 use crate::domain::stack::{Stack, StackBranch, StackId};
 use crate::domain::state::StackState;
 use crate::domain::value_objects::BranchName;
@@ -11,6 +12,30 @@ pub trait StackRepository: Send + Sync {
     fn list_all(&self) -> Result<Vec<Stack>, StackError>;
     fn list_by_state(&self, state: StackState) -> Result<Vec<Stack>, StackError>;
     fn delete(&self, id: &StackId) -> Result<(), StackError>;
+}
+
+/// Abstraction over git ref-based branch metadata storage.
+///
+/// Ported from stax `git::refs` module. Metadata is stored as JSON
+/// blobs under `refs/branch-metadata/<branch>`.
+pub trait MetadataStore: Send + Sync {
+    /// Read metadata for a branch. Returns `None` if no metadata exists.
+    fn read(&self, branch: &str) -> Result<Option<BranchMetadata>>;
+
+    /// Write metadata for a branch.
+    fn write(&self, branch: &str, metadata: &BranchMetadata) -> Result<()>;
+
+    /// Delete metadata for a branch.
+    fn delete(&self, branch: &str) -> Result<()>;
+
+    /// List all branches that have metadata.
+    fn list_branches(&self) -> Result<Vec<String>>;
+
+    /// Read the configured trunk branch name. Returns `None` if not set.
+    fn read_trunk(&self) -> Result<Option<String>>;
+
+    /// Get the current commit hash of a local branch. Returns `None` if branch doesn't exist.
+    fn branch_revision(&self, branch: &str) -> Result<Option<String>>;
 }
 
 pub trait GitHubClientTrait: Send + Sync {
