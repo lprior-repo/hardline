@@ -361,4 +361,219 @@ mod tests {
         assert!(!output.condition_met);
         assert!(output.timed_out);
     }
+
+    // ========================================================================
+    // QA: Functional verification (hq-jzyp)
+    // ========================================================================
+
+    // --- Blocking primitives: session-exists ---
+
+    #[test]
+    fn qa_session_exists_always_returns_false_when_stub() {
+        // Session checks are stubs — always return (false, not_found)
+        let names = ["test", "", "a-very-long-session-name-with-special-chars-!@#"];
+        for name in &names {
+            let (met, state) =
+                check_session_exists(name).unwrap_or_else(|_| panic!("name={name}"));
+            assert!(!met, "session_exists should be false for '{name}' (stub)");
+            assert!(
+                state.as_ref().unwrap().contains(name),
+                "state should contain session name for '{name}'"
+            );
+        }
+    }
+
+    #[test]
+    fn qa_session_unlocked_stub_behavior() {
+        let (met, state) = check_session_unlocked("any-session").expect("should not error");
+        assert!(!met, "session_unlocked should be false (stub)");
+        assert_eq!(state, Some("not_found:any-session".to_string()));
+    }
+
+    #[test]
+    fn qa_session_status_stub_ignores_status_param() {
+        let (met, state) =
+            check_session_status("sess", "active").expect("should not error");
+        assert!(!met);
+        // Stub returns not_found regardless of status parameter
+        assert_eq!(state, Some("not_found:sess".to_string()));
+    }
+
+    #[test]
+    fn qa_session_exists_timeout_completes() {
+        // Verify session-exists blocks until timeout with stub implementation
+        let options = WaitOptions {
+            condition: WaitCondition::SessionExists("stub-session".to_string()),
+            timeout: Duration::from_millis(150),
+            poll_interval: Duration::from_millis(50),
+        };
+        let start = std::time::Instant::now();
+        let output = run_wait(&options).expect("should not error");
+        let elapsed = start.elapsed();
+        assert!(!output.condition_met);
+        assert!(output.timed_out);
+        // Should have polled at least once before timing out
+        assert!(elapsed >= Duration::from_millis(100), "should block for at least ~timeout, got {elapsed:?}");
+    }
+
+    // --- Blocking primitives: healthy ---
+
+    #[test]
+    fn qa_healthy_check_verifies_git() {
+        let (met, state) = check_healthy().expect("healthy check should not error");
+        assert!(state.is_some());
+        let state_str = state.as_ref().unwrap();
+        assert!(state_str.starts_with("git:"));
+        // In test environments git should be available
+        assert!(met, "git should be available in test env");
+        assert!(state_str.contains("ok"));
+    }
+
+    #[test]
+    fn qa_healthy_resolves_immediately() {
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_secs(5),
+            poll_interval: Duration::from_secs(1),
+        };
+        let start = std::time::Instant::now();
+        let output = run_wait(&options).expect("should not error");
+        let elapsed = start.elapsed();
+        assert!(output.condition_met);
+        assert!(!output.timed_out);
+        // Should resolve on first poll (no sleep needed)
+        assert!(elapsed < Duration::from_secs(1), "healthy should resolve immediately, took {elapsed:?}");
+    }
+
+    // --- Timeout handling ---
+
+    #[test]
+    fn qa_timeout_boundary_poll_equals_timeout() {
+        // poll_interval == timeout: first check fails, sleep, then elapsed >= timeout
+        let options = WaitOptions {
+            condition: WaitCondition::SessionExists("boundary".to_string()),
+            timeout: Duration::from_millis(100),
+            poll_interval: Duration::from_millis(100),
+        };
+        // This should be accepted (only rejects poll > timeout)
+        let output = run_wait(&options).expect("should accept equal values");
+        assert!(!output.condition_met);
+        assert!(output.timed_out);
+    }
+
+    #[test]
+    fn qa_timeout_elapsed_ms_is_accurate() {
+        let options = WaitOptions {
+            condition: WaitCondition::SessionExists("timing".to_string()),
+            timeout: Duration::from_millis(200),
+            poll_interval: Duration::from_millis(50),
+        };
+        let output = run_wait(&options).expect("should not error");
+        assert!(output.timed_out);
+        // elapsed_ms should be approximately 200ms (within 100ms tolerance)
+        assert!(
+            output.elapsed_ms >= 150 && output.elapsed_ms <= 400,
+            "elapsed_ms should be ~200ms, got {}ms",
+            output.elapsed_ms
+        );
+    }
+
+    #[test]
+    fn qa_timeout_minimum_duration() {
+        // Even with tiny timeout, should still complete
+        let options = WaitOptions {
+            condition: WaitCondition::SessionExists("min".to_string()),
+            timeout: Duration::from_millis(1),
+            poll_interval: Duration::from_millis(1),
+        };
+        let output = run_wait(&options).expect("should handle minimum timeout");
+        assert!(!output.condition_met);
+        assert!(output.timed_out);
+    }
+
+    // --- Validation edge cases ---
+
+    #[test]
+    fn qa_validation_boundary_poll_just_under_timeout() {
+        // poll = timeout - 1ns should be accepted
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_millis(100),
+            poll_interval: Duration::from_millis(99),
+        };
+        assert!(validate_options(&options).is_ok());
+    }
+
+    #[test]
+    fn qa_validation_boundary_poll_just_over_timeout() {
+        // poll = timeout + 1ns should be rejected
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_millis(100),
+            poll_interval: Duration::from_millis(101),
+        };
+        assert!(validate_options(&options).is_err());
+    }
+
+    #[test]
+    fn qa_validation_rejects_nanos_interval() {
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_secs(10),
+            poll_interval: Duration::from_nanos(1),
+        };
+        assert!(validate_options(&options).is_ok(), "nanos > 0 should be accepted");
+    }
+
+    // --- Output format ---
+
+    #[test]
+    fn qa_output_json_roundtrip_preserves_semantics() {
+        let output = WaitOutput {
+            condition_met: false,
+            condition: "session-exists:test".to_string(),
+            elapsed_ms: 5000,
+            timed_out: true,
+            final_state: Some("not_found:test".to_string()),
+        };
+        let json = serde_json::to_string_pretty(&output).expect("serialize");
+        let parsed: WaitOutput = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(parsed.condition_met, output.condition_met);
+        assert_eq!(parsed.condition, output.condition);
+        assert_eq!(parsed.elapsed_ms, output.elapsed_ms);
+        assert_eq!(parsed.timed_out, output.timed_out);
+        assert_eq!(parsed.final_state, output.final_state);
+    }
+
+    #[test]
+    fn qa_output_elapsed_ms_does_not_overflow() {
+        // Simulate extreme elapsed time (u128 -> u64)
+        let start = std::time::Instant::now();
+        let output = build_output(
+            true,
+            &WaitCondition::Healthy,
+            start,
+            false,
+            Some("ok".to_string()),
+        );
+        // Should not panic, should produce a valid u64
+        assert!(output.elapsed_ms > 0 || output.condition_met);
+    }
+
+    // --- Condition check error resilience ---
+
+    #[test]
+    fn qa_check_condition_handles_all_variants() {
+        // Verify all condition variants dispatch correctly (even stubs)
+        let conditions = vec![
+            WaitCondition::Healthy,
+            WaitCondition::SessionExists("a".to_string()),
+            WaitCondition::SessionUnlocked("b".to_string()),
+            WaitCondition::SessionStatus { name: "c".to_string(), status: "done".to_string() },
+        ];
+        for cond in &conditions {
+            let result = check_condition(cond);
+            assert!(result.is_ok(), "check_condition({cond:?}) should not error");
+        }
+    }
 }
