@@ -10,6 +10,9 @@ pub mod operations;
 pub mod types;
 pub mod validators;
 
+#[cfg(test)]
+mod adversarial_tests;
+
 pub use branches::*;
 pub use commits::*;
 pub use completion::*;

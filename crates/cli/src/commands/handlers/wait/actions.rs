@@ -576,4 +576,287 @@ mod tests {
             assert!(result.is_ok(), "check_condition({cond:?}) should not error");
         }
     }
+
+    // ========================================================================
+    // RED QUEEN: Adversarial tests for wait command
+    // ========================================================================
+
+    // --- Infinite wait scenarios ---
+
+    #[test]
+    fn adversarial_wait_max_timeout_does_not_hang() {
+        let options = WaitOptions {
+            condition: WaitCondition::SessionExists("never-exists".to_string()),
+            timeout: Duration::from_secs(1),
+            poll_interval: Duration::from_millis(100),
+        };
+        let output = run_wait(&options).expect("should not error");
+        assert!(!output.condition_met);
+        assert!(output.timed_out);
+    }
+
+    #[test]
+    fn adversarial_wait_tiny_timeout_valid_output() {
+        let options = WaitOptions {
+            condition: WaitCondition::SessionExists("x".to_string()),
+            timeout: Duration::from_millis(1),
+            poll_interval: Duration::from_millis(1),
+        };
+        let output = run_wait(&options).expect("should not error");
+        assert!(!output.condition_met);
+        assert!(output.timed_out);
+        assert!(output.elapsed_ms > 0 || output.condition_met);
+    }
+
+    #[test]
+    fn adversarial_wait_zero_poll_rejected() {
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_secs(60),
+            poll_interval: Duration::ZERO,
+        };
+        assert!(run_wait(&options).is_err());
+    }
+
+    #[test]
+    fn adversarial_wait_poll_exceeds_timeout_rejected() {
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_millis(1),
+            poll_interval: Duration::from_secs(9999),
+        };
+        assert!(run_wait(&options).is_err());
+    }
+
+    // --- Non-existent conditions with adversarial inputs ---
+
+    #[test]
+    fn adversarial_wait_empty_session_name() {
+        let options = WaitOptions {
+            condition: WaitCondition::SessionExists(String::new()),
+            timeout: Duration::from_millis(100),
+            poll_interval: Duration::from_millis(10),
+        };
+        let output = run_wait(&options).expect("empty name should not crash");
+        assert!(!output.condition_met);
+        assert!(output.timed_out);
+    }
+
+    #[test]
+    fn adversarial_wait_evil_session_names() {
+        let evil_names = [
+            "../../../etc/passwd",
+            "'; DROP TABLE sessions; --",
+            "session\x00null",
+            "session\nnewline",
+            "<script>alert('xss')</script>",
+            "${SHELL_INJECTION}",
+            "`command_injection`",
+            "$(subshell)",
+        ];
+        for name in &evil_names {
+            let options = WaitOptions {
+                condition: WaitCondition::SessionExists(name.to_string()),
+                timeout: Duration::from_millis(50),
+                poll_interval: Duration::from_millis(10),
+            };
+            let output = run_wait(&options).unwrap_or_else(|e| {
+                panic!("name {:?} caused error: {}", name, e)
+            });
+            assert!(!output.condition_met, "evil name {:?} met condition", name);
+            assert!(output.timed_out, "evil name {:?} didn't time out", name);
+        }
+    }
+
+    #[test]
+    fn adversarial_wait_very_long_session_name() {
+        let long_name = "x".repeat(65536);
+        let options = WaitOptions {
+            condition: WaitCondition::SessionExists(long_name.clone()),
+            timeout: Duration::from_millis(50),
+            poll_interval: Duration::from_millis(10),
+        };
+        let output = run_wait(&options).expect("long name should not crash");
+        assert!(!output.condition_met);
+        assert!(output.timed_out);
+        assert!(output.condition.contains(&long_name));
+    }
+
+    #[test]
+    fn adversarial_wait_evil_status_values() {
+        let evil_statuses = [
+            "'; DROP TABLE statuses; --",
+            "\x00",
+            "active\x00inactive",
+            "../../../evil",
+        ];
+        for status in &evil_statuses {
+            let options = WaitOptions {
+                condition: WaitCondition::SessionStatus {
+                    name: "test".to_string(),
+                    status: status.to_string(),
+                },
+                timeout: Duration::from_millis(50),
+                poll_interval: Duration::from_millis(10),
+            };
+            let output = run_wait(&options).unwrap_or_else(|e| {
+                panic!("status {:?} caused error: {}", status, e)
+            });
+            assert!(!output.condition_met, "evil status {:?} met condition", status);
+        }
+    }
+
+    // --- State consistency invariants ---
+
+    #[test]
+    fn adversarial_met_and_timed_out_mutually_exclusive() {
+        let healthy = run_wait(&WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_secs(5),
+            poll_interval: Duration::from_millis(100),
+        })
+        .expect("should not error");
+        if healthy.condition_met {
+            assert!(!healthy.timed_out, "met and timed_out both true!");
+        }
+
+        let timeout = run_wait(&WaitOptions {
+            condition: WaitCondition::SessionExists("nope".to_string()),
+            timeout: Duration::from_millis(50),
+            poll_interval: Duration::from_millis(10),
+        })
+        .expect("should not error");
+        if timeout.timed_out {
+            assert!(!timeout.condition_met, "timed_out and condition_met both true!");
+        }
+    }
+
+    #[test]
+    fn adversarial_elapsed_ms_positive() {
+        let output = run_wait(&WaitOptions {
+            condition: WaitCondition::SessionExists("timing".to_string()),
+            timeout: Duration::from_millis(100),
+            poll_interval: Duration::from_millis(10),
+        })
+        .expect("should not error");
+        assert!(
+            output.elapsed_ms > 0 || output.condition_met,
+            "elapsed_ms should be positive, got {}",
+            output.elapsed_ms
+        );
+    }
+
+    #[test]
+    fn adversarial_condition_string_contains_name() {
+        let output = run_wait(&WaitOptions {
+            condition: WaitCondition::SessionExists("verify-format".to_string()),
+            timeout: Duration::from_millis(50),
+            poll_interval: Duration::from_millis(10),
+        })
+        .expect("should not error");
+        assert!(output.condition.contains("verify-format"));
+    }
+
+    // --- check_condition direct adversarial ---
+
+    #[test]
+    fn adversarial_check_unicode_session_names() {
+        let unicode_names = ["日本語", "🔑-session", "🦀", "session\u{202E}evil"];
+        for name in &unicode_names {
+            let (met, state) = check_session_exists(name)
+                .unwrap_or_else(|e| panic!("unicode {:?} caused error: {}", name, e));
+            assert!(!met, "unicode {:?} should not exist", name);
+            assert!(state.as_ref().map_or(false, |s| s.contains(name)));
+        }
+    }
+
+    #[test]
+    fn adversarial_check_unlocked_consistent_with_exists() {
+        let name = "test-session";
+        let (exists_met, exists_state) = check_session_exists(name).expect("should not error");
+        let (unlocked_met, unlocked_state) = check_session_unlocked(name).expect("should not error");
+        assert_eq!(exists_met, unlocked_met);
+        assert_eq!(exists_state, unlocked_state);
+    }
+
+    #[test]
+    fn adversarial_check_condition_never_panics() {
+        let conditions = vec![
+            WaitCondition::Healthy,
+            WaitCondition::SessionExists(String::new()),
+            WaitCondition::SessionExists("x".repeat(10000)),
+            WaitCondition::SessionUnlocked(String::new()),
+            WaitCondition::SessionStatus {
+                name: String::new(),
+                status: String::new(),
+            },
+            WaitCondition::SessionStatus {
+                name: "x".repeat(10000),
+                status: "y".repeat(10000),
+            },
+        ];
+        for cond in &conditions {
+            assert!(check_condition(cond).is_ok(), "check_condition({cond:?}) should not error");
+        }
+    }
+
+    // --- validate_options boundary ---
+
+    #[test]
+    fn adversarial_validate_1ns_poll_interval() {
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_secs(10),
+            poll_interval: Duration::from_nanos(1),
+        };
+        assert!(validate_options(&options).is_ok());
+    }
+
+    #[test]
+    fn adversarial_validate_max_timeout() {
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::MAX,
+            poll_interval: Duration::from_secs(1),
+        };
+        assert!(validate_options(&options).is_ok());
+    }
+
+    #[test]
+    fn adversarial_validate_sub_ns_over_timeout() {
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_millis(100),
+            poll_interval: Duration::from_millis(100) + Duration::from_nanos(1),
+        };
+        assert!(validate_options(&options).is_err());
+    }
+
+    // --- Serialization adversarial ---
+
+    #[test]
+    fn adversarial_json_roundtrip_evil_strings() {
+        let evil = WaitOutput {
+            condition_met: false,
+            condition: "session-exists:\x00\x01\x02".to_string(),
+            elapsed_ms: u64::MAX,
+            timed_out: true,
+            final_state: Some("\n\r\t\x1b".to_string()),
+        };
+        let json = serde_json::to_string(&evil).expect("should serialize");
+        let parsed: WaitOutput = serde_json::from_str(&json).expect("should deserialize");
+        assert_eq!(parsed.condition_met, evil.condition_met);
+        assert_eq!(parsed.elapsed_ms, evil.elapsed_ms);
+        assert_eq!(parsed.timed_out, evil.timed_out);
+    }
+
+    // --- Trait bounds (compile-time guarantee) ---
+
+    #[test]
+    fn adversarial_wait_options_is_send_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<WaitOptions>();
+        assert_send_sync::<WaitOutput>();
+        assert_send_sync::<WaitCondition>();
+    }
 }

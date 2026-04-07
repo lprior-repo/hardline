@@ -1159,4 +1159,273 @@ mod tests {
             prop_assert_eq!(result.stderr, cloned.stderr);
         }
     }
+
+    // ========================================================================
+    // RED QUEEN: Adversarial tests for batch command
+    // ========================================================================
+
+    // --- Command injection attempts ---
+
+    #[test]
+    fn adversarial_parse_rejects_bash() {
+        assert!(BatchCommand::parse("bash -c 'rm -rf /'").is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_rejects_sh() {
+        assert!(BatchCommand::parse("sh -c 'echo evil'").is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_rejects_zsh() {
+        assert!(BatchCommand::parse("zsh -c 'evil'").is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_rejects_python() {
+        assert!(BatchCommand::parse("python -c 'import os'").is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_rejects_perl() {
+        assert!(BatchCommand::parse("perl -e 'print 1'").is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_rejects_awk() {
+        assert!(BatchCommand::parse("awk '{print $1}'").is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_rejects_sed() {
+        assert!(BatchCommand::parse("sed 's/old/new/' file.txt").is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_rejects_curl() {
+        assert!(BatchCommand::parse("curl http://evil.com").is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_rejects_wget() {
+        assert!(BatchCommand::parse("wget http://evil.com").is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_rejects_chmod() {
+        assert!(BatchCommand::parse("chmod 777 /etc/passwd").is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_rejects_docker() {
+        assert!(BatchCommand::parse("docker run -it ubuntu").is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_pipe_not_interpreted() {
+        let result = BatchCommand::parse("git log | grep secret");
+        assert!(result.is_ok());
+        let cmd = result.unwrap();
+        assert_eq!(cmd.name, "git");
+        assert!(cmd.args.iter().any(|a| a.contains('|')));
+    }
+
+    #[test]
+    fn adversarial_parse_redirect_not_interpreted() {
+        let result = BatchCommand::parse("git log > /tmp/output");
+        assert!(result.is_ok());
+        let cmd = result.unwrap();
+        assert_eq!(cmd.name, "git");
+    }
+
+    #[test]
+    fn adversarial_parse_semicolon_not_split() {
+        let result = BatchCommand::parse("git log ; rm -rf /");
+        assert!(result.is_ok());
+        let cmd = result.unwrap();
+        assert_eq!(cmd.name, "git");
+    }
+
+    #[test]
+    fn adversarial_parse_backtick_args() {
+        let result = BatchCommand::parse("git log `echo evil`");
+        assert!(result.is_ok() || result.is_err(), "should not panic");
+    }
+
+    #[test]
+    fn adversarial_parse_dollar_substitution() {
+        let result = BatchCommand::parse("git log $(cat /etc/passwd)");
+        assert!(result.is_ok() || result.is_err(), "should not panic");
+    }
+
+    #[test]
+    fn adversarial_parse_null_byte() {
+        let result = BatchCommand::parse("git\x00log");
+        let _ = result; // should not panic
+    }
+
+    #[test]
+    fn adversarial_parse_only_allowed_accepted() {
+        for allowed in ALLOWED_COMMANDS {
+            let result = BatchCommand::parse(&format!("{} status", allowed));
+            assert!(result.is_ok(), "{} should be allowed", allowed);
+        }
+    }
+
+    #[test]
+    fn adversarial_parse_absolute_path_rejected() {
+        let result = BatchCommand::parse("/usr/bin/git status");
+        assert!(result.is_err(), "absolute path should not bypass allowlist");
+    }
+
+    // --- Rollback boundary conditions ---
+
+    #[test]
+    fn adversarial_rolled_back_at_position_zero() {
+        let result = BatchResult::RolledBack {
+            failed_at: 0,
+            error: "first command failed".to_string(),
+            partial_results: vec![],
+        };
+        if let BatchResult::RolledBack { failed_at, partial_results, .. } = result {
+            assert_eq!(failed_at, 0);
+            assert!(partial_results.is_empty());
+        } else {
+            panic!("expected RolledBack");
+        }
+    }
+
+    #[test]
+    fn adversarial_committed_with_zero_results() {
+        let result = BatchResult::Committed {
+            checkpoint_id: "cp-empty".to_string(),
+            results: vec![],
+        };
+        if let BatchResult::Committed { results, .. } = result {
+            assert!(results.is_empty());
+        } else {
+            panic!("expected Committed");
+        }
+    }
+
+    // --- Workspace state contamination ---
+
+    #[test]
+    fn adversarial_workspace_dirty_error_informative() {
+        let err = check_workspace_ready(VcsStatus::Dirty).unwrap_err();
+        let msg = err.to_string().to_lowercase();
+        assert!(msg.contains("dirty") || msg.contains("uncommitted"), "got: {msg}");
+    }
+
+    #[test]
+    fn adversarial_workspace_conflicted_error_informative() {
+        let err = check_workspace_ready(VcsStatus::Conflicted).unwrap_err();
+        let msg = err.to_string().to_lowercase();
+        assert!(msg.contains("conflict"), "got: {msg}");
+    }
+
+    #[test]
+    fn adversarial_workspace_detached_error_informative() {
+        let err = check_workspace_ready(VcsStatus::Detached).unwrap_err();
+        let msg = err.to_string().to_lowercase();
+        assert!(msg.contains("detached") || msg.contains("head"), "got: {msg}");
+    }
+
+    // --- Parsing edge cases ---
+
+    #[test]
+    fn adversarial_parse_unicode_command_rejected() {
+        let result = BatchCommand::parse("🦀 status");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn adversarial_parse_dangerous_git_flags() {
+        let dangerous = vec![
+            "git push --force origin main",
+            "git clean -fdx",
+            "git reset --hard HEAD",
+            "git checkout -- .",
+            "git branch -D main",
+        ];
+        for cmd_str in &dangerous {
+            assert!(
+                BatchCommand::parse(cmd_str).is_ok(),
+                "git commands should parse: {}",
+                cmd_str
+            );
+        }
+    }
+
+    #[test]
+    fn adversarial_parse_unmatched_quote_rejected() {
+        let result = BatchCommand::parse(r#"git commit -m "unclosed quote"#);
+        assert!(result.is_err());
+    }
+
+    // --- ALLOWED_COMMANDS integrity ---
+
+    #[test]
+    fn adversarial_allowed_no_shells() {
+        let shells = ["sh", "bash", "zsh", "fish", "dash", "ksh", "csh", "tcsh"];
+        for shell in &shells {
+            assert!(!ALLOWED_COMMANDS.contains(shell), "{shell} must not be allowed");
+        }
+    }
+
+    #[test]
+    fn adversarial_allowed_no_dangerous_commands() {
+        let dangerous = [
+            "rm", "chmod", "chown", "sudo", "su", "kill", "dd", "mkfs",
+            "curl", "wget", "nc", "ncat", "telnet", "ssh",
+        ];
+        for cmd in &dangerous {
+            assert!(!ALLOWED_COMMANDS.contains(cmd), "{cmd} must not be allowed");
+        }
+    }
+
+    #[test]
+    fn adversarial_allowed_commands_exactly_git_jj_scp() {
+        assert_eq!(ALLOWED_COMMANDS, &["git", "jj", "scp"]);
+    }
+
+    // --- CommandResult edge cases ---
+
+    #[test]
+    fn adversarial_command_result_negative_exit_code() {
+        let result = CommandResult {
+            command: BatchCommand { name: "git".to_string(), args: vec![] },
+            success: false,
+            exit_code: -1,
+            stdout: String::new(),
+            stderr: "signal killed".to_string(),
+        };
+        assert!(!result.success);
+        assert_eq!(result.exit_code, -1);
+    }
+
+    #[test]
+    fn adversarial_command_result_large_output() {
+        let large = "x".repeat(1_000_000);
+        let result = CommandResult {
+            command: BatchCommand { name: "git".to_string(), args: vec![] },
+            success: true,
+            exit_code: 0,
+            stdout: large.clone(),
+            stderr: large.clone(),
+        };
+        let cloned = result.clone();
+        assert_eq!(cloned.stdout.len(), 1_000_000);
+    }
+
+    // --- Trait bounds ---
+
+    #[test]
+    fn adversarial_batch_types_are_send_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<BatchCommand>();
+        assert_send_sync::<CommandResult>();
+        assert_send_sync::<BatchResult>();
+        assert_send_sync::<BatchExecutionError>();
+    }
 }
