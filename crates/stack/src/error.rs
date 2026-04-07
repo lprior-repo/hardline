@@ -25,6 +25,15 @@ pub enum StackError {
 
     #[error("Forge error: {0}")]
     ForgeError(String),
+
+    #[error("Transaction error: {0}")]
+    TransactionError(String),
+}
+
+impl From<scp_vcs::VcsError> for StackError {
+    fn from(err: scp_vcs::VcsError) -> Self {
+        StackError::TransactionError(err.to_string())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, StackError>;

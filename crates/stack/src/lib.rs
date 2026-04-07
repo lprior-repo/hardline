@@ -14,4 +14,5 @@ pub mod infrastructure;
 
 pub use domain::entities::{PrInfo, PrState, Stack, StackBranch};
 pub use domain::value_objects::BranchName;
+pub use engine::transactional_engine::{TransactionalStackOps, TransactionConfig};
 pub use error::{Result, StackError};
