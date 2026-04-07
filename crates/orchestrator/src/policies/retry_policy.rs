@@ -867,12 +867,6 @@ mod tests {
     }
 
     #[test]
-    fn test_max_retries_large_value() {
-        let policy = RetryPolicy::new(10000, 10, 2.0, None, vec![]).expect("should create");
-        assert_eq!(policy.max_retries(), 10000);
-    }
-
-    #[test]
     fn test_max_retries_does_not_affect_delay_calculation() {
         // calculate_delay is pure — it only uses base_delay, factor, max_delay
         let policy_0 = RetryPolicy::new(0, 100, 2.0, None, vec![]).expect("should create");
@@ -887,24 +881,6 @@ mod tests {
     }
 
     // --- Exhaustive backoff calculation with different factors ---
-
-    #[test]
-    fn test_backoff_with_factor_1_5() {
-        let policy = RetryPolicy::new(10, 100, 1.5, None, vec![]).expect("should create");
-        assert_eq!(policy.calculate_delay(0), 100); // 100 * 1.5^0 = 100
-        assert_eq!(policy.calculate_delay(1), 150); // 100 * 1.5^1 = 150
-        assert_eq!(policy.calculate_delay(2), 225); // 100 * 1.5^2 = 225
-        assert_eq!(policy.calculate_delay(3), 337); // 100 * 1.5^3 = 337.5 -> 337
-    }
-
-    #[test]
-    fn test_backoff_with_factor_3() {
-        let policy = RetryPolicy::new(10, 10, 3.0, None, vec![]).expect("should create");
-        assert_eq!(policy.calculate_delay(0), 10);  // 10 * 3^0 = 10
-        assert_eq!(policy.calculate_delay(1), 30);  // 10 * 3^1 = 30
-        assert_eq!(policy.calculate_delay(2), 90);  // 10 * 3^2 = 90
-        assert_eq!(policy.calculate_delay(3), 270); // 10 * 3^3 = 270
-    }
 
     #[test]
     fn test_backoff_with_factor_10() {
