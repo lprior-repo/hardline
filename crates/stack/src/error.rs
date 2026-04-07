@@ -22,6 +22,9 @@ pub enum StackError {
 
     #[error("GitHub error: {0}")]
     GitHubError(String),
+
+    #[error("Forge error: {0}")]
+    ForgeError(String),
 }
 
 pub type Result<T> = std::result::Result<T, StackError>;
@@ -52,6 +55,9 @@ mod tests {
 
         let err = StackError::GitHubError("API rate limit".to_string());
         assert_eq!(format!("{err}"), "GitHub error: API rate limit");
+
+        let err = StackError::ForgeError("connection refused".to_string());
+        assert_eq!(format!("{err}"), "Forge error: connection refused");
     }
 
     #[test]
@@ -100,12 +106,13 @@ mod tests {
             StackError::InvalidBranchName("a".to_string()),
             StackError::GitError("a".to_string()),
             StackError::GitHubError("a".to_string()),
+            StackError::ForgeError("a".to_string()),
         ];
         let mut display_strings: Vec<String> = variants.iter().map(|v| format!("{v}")).collect();
         display_strings.dedup();
         assert_eq!(
             display_strings.len(),
-            7,
+            8,
             "All error variants should have distinct display messages"
         );
     }

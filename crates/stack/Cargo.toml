@@ -9,6 +9,7 @@ scp-core = { path = "../core" }
 scp-vcs = { path = "../vcs" }
 gix = "0.78"
 octocrab = "0.44"
+reqwest = { version = "0.12", features = ["json"] }
 tokio.workspace = true
 thiserror.workspace = true
 serde.workspace = true

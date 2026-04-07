@@ -10,6 +10,7 @@ pub mod domain;
 pub mod engine;
 pub mod error;
 pub mod github;
+pub mod infrastructure;
 
 pub use domain::entities::{PrInfo, PrState, Stack, StackBranch};
 pub use domain::value_objects::BranchName;
