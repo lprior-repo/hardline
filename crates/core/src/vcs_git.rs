@@ -869,4 +869,185 @@ mod tests {
         assert_eq!(VcsStatus::Conflicted, VcsStatus::Conflicted);
         assert_eq!(VcsStatus::Detached, VcsStatus::Detached);
     }
+
+    // ========================================================================
+    // RED QUEEN: Adversarial tests for find_worktree_path (abort command)
+    // ========================================================================
+    //
+    // These tests attempt to violate contracts by feeding malicious, ambiguous,
+    // or edge-case porcelain input to the worktree path parser.
+
+    fn porcelain_block(path: &str, head: &str, branch: &str) -> String {
+        format!("worktree {path}\nHEAD {head}\nbranch {branch}\n")
+    }
+
+    // --- RED QUEEN: Path traversal via worktree name matching ---
+
+    #[test]
+    fn rq_find_worktree_path_traversal_dotdot() {
+        // Attacker tries to match a worktree whose path contains ".."
+        // Path::file_name() normalizes: "/tmp/repo/../etc" → file_name is "etc"
+        // So searching for ".." by directory name will NOT match this path.
+        let input = porcelain_block("/tmp/repo/../etc", "abc123", "refs/heads/feature");
+        let result = find_worktree_path(&input, "..");
+        // ".." doesn't match by branch suffix (refs/heads/feature doesn't end with "/..")
+        // and Path::file_name("/tmp/repo/../etc") = "etc", not ".."
+        assert!(result.is_none(), "'..' should not match normalized path directory name");
+    }
+
+    #[test]
+    fn rq_find_worktree_path_traversal_in_name() {
+        // Name containing path separators should not match partial paths
+        let input = porcelain_block("/home/user/worktrees/feature", "abc123", "refs/heads/feature");
+        let result = find_worktree_path(&input, "user/worktrees/feature");
+        assert!(
+            result.is_none(),
+            "Name with slashes should not match by branch suffix or dir name"
+        );
+    }
+
+    // --- RED QUEEN: Ambiguous worktree names (first match wins) ---
+
+    #[test]
+    fn rq_find_worktree_path_duplicate_branch_names_last_wins() {
+        // RED QUEEN FINDING: Two worktrees with branches ending in the same name.
+        // The parser returns the LAST match, not the first. This is a real bug:
+        // if two worktrees share a branch name suffix, the wrong worktree could
+        // be targeted for abort. The function does not stop on first match.
+        let input = format!(
+            "{}{}",
+            porcelain_block("/path/first", "aaa111", "refs/heads/feature"),
+            porcelain_block("/path/second", "bbb222", "refs/heads/feature"),
+        );
+        let result = find_worktree_path(&input, "feature");
+        assert!(result.is_some());
+        // BUG: Returns /path/second instead of /path/first
+        assert_eq!(
+            result.unwrap().to_str().unwrap(),
+            "/path/second",
+            "RED QUEEN: duplicate branch names return LAST match, not first — ambiguous abort target"
+        );
+    }
+
+    #[test]
+    fn rq_find_worktree_path_branch_vs_dir_name_conflict() {
+        // Branch matches by suffix, directory matches by file_name — branch takes priority
+        let input = porcelain_block("/path/named-differently", "abc123", "refs/heads/target");
+        let result = find_worktree_path(&input, "target");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().to_str().unwrap(), "/path/named-differently");
+    }
+
+    // --- RED QUEEN: Empty/malformed porcelain input ---
+
+    #[test]
+    fn rq_find_worktree_path_empty_input() {
+        assert_eq!(find_worktree_path("", "feature"), None);
+    }
+
+    #[test]
+    fn rq_find_worktree_path_only_whitespace() {
+        assert_eq!(find_worktree_path("   \n  \n  ", "feature"), None);
+    }
+
+    #[test]
+    fn rq_find_worktree_path_missing_branch() {
+        // Block with worktree and HEAD but no branch line
+        let input = "worktree /path/to/ws\nHEAD abc123\n\n";
+        assert_eq!(find_worktree_path(&input, "ws"), None);
+    }
+
+    #[test]
+    fn rq_find_worktree_path_missing_path() {
+        // Block with branch and HEAD but no worktree line
+        let input = "HEAD abc123\nbranch refs/heads/feature\n\n";
+        assert_eq!(find_worktree_path(&input, "feature"), None);
+    }
+
+    #[test]
+    fn rq_find_worktree_path_missing_head() {
+        // Block with worktree and branch but no HEAD — should still match
+        let input = "worktree /path/to/ws\nbranch refs/heads/feature\n\n";
+        let result = find_worktree_path(&input, "feature");
+        assert!(result.is_some(), "HEAD is not required for matching");
+    }
+
+    #[test]
+    fn rq_find_worktree_path_no_trailing_newline() {
+        // Last block has no trailing blank line — should still be checked
+        let input = "worktree /path/to/ws\nHEAD abc123\nbranch refs/heads/feature";
+        let result = find_worktree_path(&input, "feature");
+        assert!(result.is_some(), "Last block without trailing newline should match");
+    }
+
+    // --- RED QUEEN: Case sensitivity ---
+
+    #[test]
+    fn rq_find_worktree_path_case_sensitive() {
+        let input = porcelain_block("/path/Feature", "abc123", "refs/heads/Feature");
+        assert!(find_worktree_path(&input, "feature").is_none());
+        assert!(find_worktree_path(&input, "Feature").is_some());
+    }
+
+    // --- RED QUEEN: Unicode and special characters ---
+
+    #[test]
+    fn rq_find_worktree_path_unicode_name() {
+        let input = porcelain_block("/path/über", "abc123", "refs/heads/über");
+        assert!(find_worktree_path(&input, "über").is_some());
+    }
+
+    #[test]
+    fn rq_find_worktree_path_name_with_spaces() {
+        let input = porcelain_block("/path/my feature", "abc123", "refs/heads/my feature");
+        // Branch names with spaces are unusual but should still match
+        assert!(find_worktree_path(&input, "my feature").is_some());
+    }
+
+    // --- RED QUEEN: Prefix/suffix confusion ---
+
+    #[test]
+    fn rq_find_worktree_path_suffix_not_prefix() {
+        // "feature" should NOT match branch "refs/heads/my-feature" by suffix
+        // because format!("/{}", name) = "/feature" doesn't match "/my-feature"
+        let input = porcelain_block("/path/ws", "abc123", "refs/heads/my-feature");
+        let result = find_worktree_path(&input, "feature");
+        // ends_with("/feature") on "refs/heads/my-feature" is FALSE — correct
+        assert!(result.is_none(), "Suffix match must be exact after '/'");
+    }
+
+    #[test]
+    fn rq_find_worktree_path_exact_branch_match() {
+        // Branch name is exactly the search name (not prefixed with refs/heads/)
+        let input = porcelain_block("/path/ws", "abc123", "feature");
+        assert!(find_worktree_path(&input, "feature").is_some());
+    }
+
+    // --- RED QUEEN: Injection via porcelain output ---
+
+    #[test]
+    fn rq_find_worktree_path_injected_newlines() {
+        // If porcelain output were somehow tampered, newlines in fields
+        // would split the block and prevent matching
+        let input = "worktree /path/to/ws\nHEAD abc123\nbranch refs/heads/fea\nture\n\n";
+        // The branch is split across lines — should not match "feature"
+        assert_eq!(find_worktree_path(&input, "feature"), None);
+    }
+
+    #[test]
+    fn rq_find_worktree_path_empty_name() {
+        // Searching for empty string should not match anything
+        let input = porcelain_block("/path/ws", "abc123", "refs/heads/feature");
+        // ends_with("/") on "refs/heads/feature" is FALSE
+        assert_eq!(find_worktree_path(&input, ""), None);
+    }
+
+    // --- RED QUEEN: Bare worktree (detached HEAD, no branch) ---
+
+    #[test]
+    fn rq_find_worktree_path_detached_head_no_branch() {
+        // Bare worktree with no branch — cannot match by branch name
+        let input = "worktree /path/to/ws\nHEAD abc123\n\n";
+        assert_eq!(find_worktree_path(&input, "ws"), None);
+    }
 }
