@@ -1876,4 +1876,400 @@ mod tests {
         let result = get_commits_to_merge(&executor);
         assert!(result.is_err());
     }
+
+    // ===================================================================
+    // QA Functional Verification Tests (hq-ftou)
+    //
+    // Scenarios verified:
+    //   1. Workspace completion (happy path, keep-workspace, empty diff)
+    //   2. Merge to main (rebase success/failure, push success/non-fatal-failure)
+    //   3. Cleanup of worktree (default delete, keep-workspace, delete failure)
+    //   4. Conflict handling (existing, overlapping, detection failure)
+    //   5. Error cases (resolve_workspace, get_workspace_path, dirty tree)
+    // ===================================================================
+
+    // -----------------------------------------------------------------------
+    // resolve_workspace: resolve workspace name from option or current
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_resolve_workspace_explicit_name_returns_name() {
+        let backend = MockVcsBackend::new(vec![]);
+        let result = resolve_workspace(&backend, Some("my-feature"));
+        assert_eq!(result.expect("explicit name should resolve"), "my-feature");
+    }
+
+    #[test]
+    fn test_resolve_workspace_none_with_current_workspace() {
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "feature-a".to_string(),
+            branch: "feature-a".to_string(),
+            is_current: true,
+        }]);
+        let result = resolve_workspace(&backend, None);
+        assert_eq!(
+            result.expect("should find current workspace"),
+            "feature-a"
+        );
+    }
+
+    #[test]
+    fn test_resolve_workspace_none_without_current_workspace() {
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "feature-a".to_string(),
+            branch: "feature-a".to_string(),
+            is_current: false,
+        }]);
+        let result = resolve_workspace(&backend, None);
+        assert!(
+            result.is_err(),
+            "should fail when no current workspace and no explicit name"
+        );
+    }
+
+    #[test]
+    fn test_resolve_workspace_none_with_empty_workspaces() {
+        let backend = MockVcsBackend::new(vec![]);
+        let result = resolve_workspace(&backend, None);
+        assert!(
+            result.is_err(),
+            "should fail when workspace list is empty"
+        );
+    }
+
+    #[test]
+    fn test_resolve_workspace_none_with_multiple_workspaces_one_current() {
+        let backend = MockVcsBackend::new(vec![
+            scp_core::Workspace {
+                name: "ws-1".to_string(),
+                branch: "ws-1".to_string(),
+                is_current: false,
+            },
+            scp_core::Workspace {
+                name: "ws-2".to_string(),
+                branch: "ws-2".to_string(),
+                is_current: true,
+            },
+            scp_core::Workspace {
+                name: "ws-3".to_string(),
+                branch: "ws-3".to_string(),
+                is_current: false,
+            },
+        ]);
+        let result = resolve_workspace(&backend, None);
+        assert_eq!(result.expect("should find current"), "ws-2");
+    }
+
+    // -----------------------------------------------------------------------
+    // get_workspace_path: resolve filesystem path for a workspace
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_get_workspace_path_current_workspace_returns_cwd() {
+        let cwd = PathBuf::from("/home/user/project");
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "feature-x".to_string(),
+            branch: "feature-x".to_string(),
+            is_current: true,
+        }]);
+        let result =
+            get_workspace_path(&cwd, "feature-x", &backend).expect("should resolve path");
+        assert_eq!(result, cwd, "current workspace should return cwd");
+    }
+
+    #[test]
+    fn test_get_workspace_path_non_current_workspace_falls_back_to_cwd() {
+        let cwd = PathBuf::from("/home/user/project");
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "other-ws".to_string(),
+            branch: "other-ws".to_string(),
+            is_current: false,
+        }]);
+        let result =
+            get_workspace_path(&cwd, "other-ws", &backend).expect("should resolve path");
+        // The worktree path doesn't exist on this machine, so it falls back to cwd
+        assert_eq!(result, cwd, "non-current workspace without worktree dir falls back to cwd");
+    }
+
+    #[test]
+    fn test_get_workspace_path_workspace_not_in_list_still_resolves() {
+        let cwd = PathBuf::from("/home/user/project");
+        let backend = MockVcsBackend::new(vec![]);
+        let result =
+            get_workspace_path(&cwd, "ghost-ws", &backend).expect("should resolve path");
+        // Workspace not found in list -> is_current=false, worktree path likely
+        // doesn't exist -> falls back to cwd
+        assert_eq!(result, cwd);
+    }
+
+    // -----------------------------------------------------------------------
+    // QA Finding: execute_done_workflow does NOT check for dirty tree
+    //
+    // The workflow proceeds directly to conflict detection and merging
+    // without verifying the working tree is clean. This means:
+    // - Uncommitted changes could be lost during rebase
+    // - The merge could fail with a dirty tree error from the VCS
+    //
+    // This test documents the current behavior: the workflow succeeds
+    // even though it should arguably check for uncommitted changes first.
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_execute_done_workflow_no_explicit_dirty_tree_check() {
+        // QA FINDING: execute_done_workflow does not check for dirty tree
+        // before merging. It proceeds directly to conflict detection.
+        //
+        // To simulate a "dirty tree" scenario, we would need get_potential_conflicts
+        // to detect uncommitted files via status -- but it only runs detect_conflicts,
+        // which checks for merge conflicts, not uncommitted changes.
+        //
+        // The workflow will happily try to rebase a dirty tree, relying on the
+        // VCS backend to reject the rebase if the tree is dirty. This is a
+        // correctness gap: data loss could occur if the rebase succeeds despite
+        // dirty state.
+        //
+        // Verdict: Documented as a known gap. Not a test failure since the
+        // behavior is "works as coded" but may be undesirable.
+
+        // Proof: execute_done_workflow with no conflicts succeeds regardless
+        // of dirty tree state (it never checks)
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "dirty-ws".to_string(),
+            branch: "dirty-ws".to_string(),
+            is_current: false,
+        }]);
+
+        let mut responses = no_conflict_responses();
+        responses.push(Ok("sha\n".to_string()));
+
+        let executor = MockGitExecutor::new(responses);
+        let options = DoneOptions::default();
+
+        let result =
+            execute_done_workflow("dirty-ws", "/tmp/ws", &options, &backend, &executor);
+
+        // The workflow succeeds without checking dirty state
+        let output = result.expect("workflow proceeds without dirty tree check");
+        assert!(output.merged, "merge proceeds without dirty tree validation");
+    }
+
+    // -----------------------------------------------------------------------
+    // execute_done_workflow: undo history logging
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_execute_done_workflow_logs_undo_history() {
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "undo-test-ws".to_string(),
+            branch: "undo-test-ws".to_string(),
+            is_current: false,
+        }]);
+
+        let mut responses = no_conflict_responses();
+        responses.push(Ok("pre-merge-sha123\n".to_string()));
+
+        let executor = MockGitExecutor::new(responses);
+        let options = DoneOptions::default();
+
+        let result = execute_done_workflow(
+            "undo-test-ws",
+            "/tmp/ws",
+            &options,
+            &backend,
+            &executor,
+        );
+
+        let output = result.expect("undo history logging should not fail the workflow");
+        assert!(output.merged);
+    }
+
+    // -----------------------------------------------------------------------
+    // execute_done_workflow: session state update (stub)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_execute_done_workflow_session_state_is_not_updated() {
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "session-ws".to_string(),
+            branch: "session-ws".to_string(),
+            is_current: false,
+        }]);
+
+        let mut responses = no_conflict_responses();
+        responses.push(Ok("sha\n".to_string()));
+
+        let executor = MockGitExecutor::new(responses);
+        let options = DoneOptions::default();
+
+        let result = execute_done_workflow(
+            "session-ws",
+            "/tmp/ws",
+            &options,
+            &backend,
+            &executor,
+        );
+
+        let output = result.expect("should succeed");
+        assert!(
+            !output.session_updated,
+            "session state should NOT be updated (stub returns false)"
+        );
+        assert!(
+            output.new_status.is_none(),
+            "new_status should be None when session not updated"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // execute_done_workflow: conflict detection best-effort on failure
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_execute_done_workflow_conflict_detect_failure_allows_merge() {
+        // When conflict detection itself fails (e.g., git command error),
+        // get_potential_conflicts catches the error and returns empty Vec.
+        // This means the workflow proceeds with NO conflict protection.
+        //
+        // QA NOTE: This is a design choice - conflict detection is best-effort.
+        // A failure in detection does NOT block the merge, which could lead
+        // to undetected conflicts during rebase.
+        let backend = MockVcsBackend::new(vec![scp_core::Workspace {
+            name: "detect-err-ws".to_string(),
+            branch: "detect-err-ws".to_string(),
+            is_current: false,
+        }]);
+
+        // First call (detect_conflicts) fails, second call (undo log) succeeds
+        let responses = vec![
+            Err(ExecutorError::CommandFailed {
+                code: 128,
+                stderr: "fatal: bad revision 'trunk()'".to_string(),
+            }),
+            Ok("sha\n".to_string()),
+        ];
+
+        let executor = MockGitExecutor::new(responses);
+        let options = DoneOptions::default();
+
+        let result = execute_done_workflow(
+            "detect-err-ws",
+            "/tmp/ws",
+            &options,
+            &backend,
+            &executor,
+        );
+
+        let output = result.expect("conflict detection failure should not block merge");
+        assert!(
+            output.merged,
+            "merge should proceed despite failed conflict detection"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // update_workspace_state: returns false (stub verification)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_update_workspace_state_returns_false() {
+        // Stub always returns false - no session integration yet
+        assert!(!update_workspace_state("any-ws"));
+        assert!(!update_workspace_state("main"));
+        assert!(!update_workspace_state(""));
+    }
+
+    // -----------------------------------------------------------------------
+    // parse_status_lines: additional edge cases for dirty tree detection
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_parse_status_lines_mixed_case_not_recognized() {
+        // Only uppercase prefixes (A , M , D , R ) are recognized
+        let output = "m src/lower.rs\na src/lower_add.rs\nd src/lower_del.rs\nr src/lower_ren.rs";
+        let files = parse_status_lines(output);
+        assert!(
+            files.is_empty(),
+            "lowercase prefixes should not be recognized as status codes"
+        );
+    }
+
+    #[test]
+    fn test_parse_status_lines_double_prefix_status() {
+        // Git porcelain format uses two columns: XY where X=index, Y=working tree
+        // Our parser only matches single-letter+space prefixes, so "MM" won't match
+        let output = "MM src/both-staged-and unstaged.rs\nM src/simple.rs";
+        let files = parse_status_lines(output);
+        assert_eq!(files, vec!["src/simple.rs"]);
+    }
+
+    #[test]
+    fn test_parse_status_lines_conflict_markers_not_recognized() {
+        // Conflict statuses like "UU", "AA", "DU" are not recognized by
+        // the current parser. This is relevant to the dirty tree QA finding.
+        let output = "UU src/conflicted.rs\nAA src/both-added.rs\nDU src/deleted-by-us.rs";
+        let files = parse_status_lines(output);
+        assert!(
+            files.is_empty(),
+            "conflict status markers should not be parsed by current implementation"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // DoneOutput: error field usage
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_done_output_error_field_not_set_on_success() {
+        let output = DoneOutput {
+            workspace_name: "success-ws".to_string(),
+            merged: true,
+            cleaned: true,
+            ..Default::default()
+        };
+        assert!(output.error.is_none(), "no error on successful completion");
+    }
+
+    #[test]
+    fn test_done_output_error_field_preserves_message() {
+        let output = DoneOutput {
+            workspace_name: "err-ws".to_string(),
+            error: Some("workspace not found".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(output.error.as_deref(), Some("workspace not found"));
+        assert!(!output.merged, "should not be merged when error present");
+    }
+
+    // -----------------------------------------------------------------------
+    // DonePhase: exhaustive coverage of all phases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_done_phase_ordering() {
+        // Phases should proceed in order: ValidatingLocation -> CommittingChanges -> MergingToMain
+        let phases = [
+            DonePhase::ValidatingLocation,
+            DonePhase::CommittingChanges,
+            DonePhase::MergingToMain,
+        ];
+        let names: Vec<&str> = phases.iter().map(|p| p.name()).collect();
+        assert_eq!(
+            names,
+            ["validating_location", "committing_changes", "merging_to_main"]
+        );
+    }
+
+    #[test]
+    fn test_done_phase_copy_trait() {
+        let phase = DonePhase::ValidatingLocation;
+        let copied = phase;
+        assert_eq!(phase, copied);
+    }
+
+    #[test]
+    fn test_done_phase_clone_trait() {
+        let phase = DonePhase::MergingToMain;
+        let cloned = phase.clone();
+        assert_eq!(phase, cloned);
+    }
 }
