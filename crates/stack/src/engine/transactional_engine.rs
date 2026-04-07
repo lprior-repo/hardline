@@ -113,7 +113,7 @@ impl StackGraph {
                     .branch_revision(&meta.parent_branch_name)
                     .ok()
                     .flatten()
-                    .map_or(false, |rev| meta.needs_restack(&rev));
+                    .is_some_and(|rev| meta.needs_restack(&rev));
 
                 branches.insert(
                     branch_name.clone(),
@@ -377,9 +377,9 @@ impl<M: MetadataStore> TransactionalStackOps<M> {
 
         let planned: Vec<(String, Option<String>)> = descendants
             .iter()
-            .filter_map(|name| {
+            .map(|name| {
                 let oid = self.metadata_store.branch_revision(name).ok().flatten();
-                Some((name.clone(), oid))
+                (name.clone(), oid)
             })
             .collect();
 
