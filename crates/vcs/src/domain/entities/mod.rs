@@ -1,5 +1,7 @@
 //! VCS Domain Entities
 
+pub mod ops;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

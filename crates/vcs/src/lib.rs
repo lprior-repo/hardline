@@ -27,7 +27,11 @@ pub mod hooks;
 pub mod infrastructure;
 
 pub use application::{create_vcs_service, VcsService, VcsServiceImpl};
+pub use application::ops::Transaction;
 pub use domain::entities::{Branch, Commit, Workspace};
+pub use domain::entities::ops::{
+    LocalRefEntry, OpError, OpKind, OpReceipt, OpStatus, PlanSummary, RemoteRefEntry,
+};
 pub use domain::traits::VcsBackend;
 pub use domain::value_objects::{VcsStatus, VcsType};
 pub use error::{Result, VcsError};
