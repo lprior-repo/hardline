@@ -152,7 +152,7 @@ pub fn build_git_diff_command(cwd: &Path, path: Option<&str>) -> Command {
     cmd.args(["diff", "HEAD"]).current_dir(cwd);
 
     if let Some(p) = path {
-        cmd.arg(p);
+        cmd.arg("--").arg(p);
     }
 
     cmd
@@ -399,7 +399,7 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
     Output::info(&format!("Adding workspace at '{}'...", path));
 
     let output = Command::new("git")
-        .args(["worktree", "add", path])
+        .args(["worktree", "add", "--", path])
         .output()?;
 
     if !output.status.success() {

@@ -8,6 +8,11 @@ use scp_core::Error;
 
 /// Fork workspace
 pub fn fork(name: &str, from: Option<&str>) -> Result<(), Error> {
+    // P1: Validate workspace name BEFORE any I/O
+    if let Some(err) = super::validators::validate_workspace_name(name) {
+        return Err(err);
+    }
+
     let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
@@ -19,7 +24,7 @@ pub fn fork(name: &str, from: Option<&str>) -> Result<(), Error> {
     let from_branch = from.unwrap_or("main");
 
     let output = Command::new("git")
-        .args(["worktree", "add", name])
+        .args(["worktree", "add", "--", name])
         .current_dir(&cwd)
         .output()?;
 
@@ -38,6 +43,11 @@ pub fn fork(name: &str, from: Option<&str>) -> Result<(), Error> {
 
 /// Merge workspace
 pub fn merge(name: &str) -> Result<(), Error> {
+    // P1: Validate workspace name BEFORE any I/O
+    if let Some(err) = super::validators::validate_workspace_name(name) {
+        return Err(err);
+    }
+
     let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 

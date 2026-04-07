@@ -30,9 +30,9 @@ pub fn spawn(name: &str, sync: SyncOption) -> Result<(), Error> {
 
 /// Switch to a workspace
 pub fn switch(name: &str) -> Result<(), Error> {
-    // P1: Validate workspace name is not empty
-    if name.is_empty() {
-        return Err(Error::invalid_identifier("workspace name cannot be empty"));
+    // P1: Validate workspace name BEFORE any I/O
+    if let Some(err) = super::validators::validate_workspace_name(name) {
+        return Err(err);
     }
 
     Output::info(&format!("Switching to workspace '{}'...", name));

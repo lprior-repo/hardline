@@ -35,9 +35,9 @@ pub fn spawn(name: &str, sync: bool) -> Result<()> {
 
 /// Switch to a workspace
 pub fn switch(name: &str) -> Result<()> {
-    // P1: Validate workspace name is not empty
-    if name.is_empty() {
-        return Err(Error::invalid_identifier("workspace name cannot be empty"));
+    // P1: Validate workspace name BEFORE any I/O
+    if let Some(err) = validate_workspace_name(name) {
+        return Err(err);
     }
 
     Output::info(&format!("Switching to workspace '{}'...", name));

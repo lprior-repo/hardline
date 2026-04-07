@@ -240,8 +240,25 @@ impl VcsBackend for GitBackend {
 
     fn fork_workspace(&self, source: &str, target: &str) -> Result<()> {
         let worktree_path = self.repo_path.join(target);
+
+        // Path traversal protection: ensure target stays within the repo
+        let canonical_repo = self
+            .repo_path
+            .canonicalize()
+            .map_err(|e| IoErrorKind::IoError(format!("Cannot canonicalize repo path: {}", e)))?;
+        let canonical_target = worktree_path
+            .canonicalize()
+            .unwrap_or_else(|_| worktree_path.clone());
+        if !canonical_target.starts_with(&canonical_repo) {
+            return Err(WorkspaceErrorKind::NotFound(format!(
+                "Target path escapes repository: {}",
+                target
+            ))
+            .into());
+        }
+
         let output =
-            self.run_git(&["worktree", "add", &worktree_path.to_string_lossy(), source])?;
+            self.run_git(&["worktree", "add", "--", &worktree_path.to_string_lossy(), source])?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             if stderr.contains("already exists") {

@@ -144,7 +144,7 @@ pub fn build_git_diff_command(cwd: &std::path::Path, path: Option<&str>) -> Comm
     let mut cmd = Command::new("git");
     cmd.arg("diff");
     if let Some(p) = path {
-        cmd.arg(p);
+        cmd.arg("--").arg(p);
     }
     cmd.current_dir(cwd);
     cmd

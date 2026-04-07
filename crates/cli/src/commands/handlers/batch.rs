@@ -22,6 +22,9 @@ use sqlx::SqlitePool;
 /// Maximum number of commands in a single batch
 const MAX_BATCH_SIZE: usize = 100;
 
+/// Allowed command prefixes for batch execution
+const ALLOWED_COMMANDS: &[&str] = &["git", "jj", "scp"];
+
 /// A single command in a batch execution
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BatchCommand {
@@ -50,6 +53,15 @@ impl BatchCommand {
 
         let name = parts[0].clone();
         let args = parts.into_iter().skip(1).collect();
+
+        // Validate command is in allowed list
+        if !ALLOWED_COMMANDS.contains(&name.as_str()) {
+            return Err(Error::validation_error(format!(
+                "Command '{}' is not allowed in batch execution. Allowed: {}",
+                name,
+                ALLOWED_COMMANDS.join(", ")
+            )));
+        }
 
         Ok(Self { name, args })
     }
@@ -467,20 +479,20 @@ mod tests {
 
     #[test]
     fn test_parse_command_with_quoted_args() {
-        let result = BatchCommand::parse("echo \"hello world\"");
+        let result = BatchCommand::parse("git commit -m \"hello world\"");
         assert!(result.is_ok());
         let cmd = result.unwrap();
-        assert_eq!(cmd.name, "echo");
-        assert_eq!(cmd.args, vec!["hello world"]);
+        assert_eq!(cmd.name, "git");
+        assert_eq!(cmd.args, vec!["commit", "-m", "hello world"]);
     }
 
     #[test]
     fn test_parse_command_with_single_quotes() {
-        let result = BatchCommand::parse("echo 'single quoted'");
+        let result = BatchCommand::parse("git commit -m 'single quoted'");
         assert!(result.is_ok());
         let cmd = result.unwrap();
-        assert_eq!(cmd.name, "echo");
-        assert_eq!(cmd.args, vec!["single quoted"]);
+        assert_eq!(cmd.name, "git");
+        assert_eq!(cmd.args, vec!["commit", "-m", "single quoted"]);
     }
 
     #[test]
@@ -494,11 +506,11 @@ mod tests {
 
     #[test]
     fn test_parse_command_with_tabs() {
-        let result = BatchCommand::parse("echo\thello");
+        let result = BatchCommand::parse("git\tcommit");
         assert!(result.is_ok());
         let cmd = result.unwrap();
-        assert_eq!(cmd.name, "echo");
-        assert_eq!(cmd.args, vec!["hello"]);
+        assert_eq!(cmd.name, "git");
+        assert_eq!(cmd.args, vec!["commit"]);
     }
 
     #[test]
@@ -647,30 +659,30 @@ mod tests {
 
     #[test]
     fn test_parse_command_with_env_var_syntax() {
-        let result = BatchCommand::parse("echo $HOME");
+        let result = BatchCommand::parse("git log $HOME");
         assert!(result.is_ok());
         let cmd = result.unwrap();
-        assert_eq!(cmd.name, "echo");
-        assert_eq!(cmd.args, vec!["$HOME"]);
+        assert_eq!(cmd.name, "git");
+        assert_eq!(cmd.args, vec!["log", "$HOME"]);
     }
 
     #[test]
     fn test_parse_command_with_pipe_not_split() {
         // shell_words::split treats pipe as literal characters, not shell operators
-        let result = BatchCommand::parse("echo hello | grep hello");
+        let result = BatchCommand::parse("git log | grep hello");
         assert!(result.is_ok());
         let cmd = result.unwrap();
         // shell_words::split preserves pipe characters as literals
-        assert_eq!(cmd.name, "echo");
+        assert_eq!(cmd.name, "git");
     }
 
     #[test]
     fn test_parse_command_with_redirect_preserved() {
         // shell_words does not interpret shell redirections
-        let result = BatchCommand::parse("echo hello > /dev/null");
+        let result = BatchCommand::parse("git log > /dev/null");
         assert!(result.is_ok());
         let cmd = result.unwrap();
-        assert_eq!(cmd.name, "echo");
+        assert_eq!(cmd.name, "git");
     }
 
     #[test]
@@ -678,7 +690,7 @@ mod tests {
         // shell_words may or may not handle backslash-escaped quotes depending
         // on the exact string. The key invariant is that it doesn't panic and
         // returns a result (either Ok or Err).
-        let result = BatchCommand::parse(r#"echo "hello \"world\""#);
+        let result = BatchCommand::parse(r#"git commit -m "hello \"world\""#);
         // Whether it parses or not is implementation-defined; just ensure no panic
         let _ = result;
     }
@@ -686,37 +698,72 @@ mod tests {
     #[test]
     fn test_parse_command_with_newline_rejected() {
         // shell_words should reject unescaped newlines
-        let result = BatchCommand::parse("echo\ntest");
+        let result = BatchCommand::parse("git\nlog");
         // Behavior depends on shell_words implementation
         // Key invariant: it should not produce a command that runs arbitrary input
         if let Ok(cmd) = result {
-            // If it parses, name should be "echo" and newline is not part of it
-            assert_eq!(cmd.name, "echo");
+            // If it parses, name should be "git" and newline is not part of it
+            assert_eq!(cmd.name, "git");
         }
         // Either error or safe parsing is acceptable
     }
 
     #[test]
     fn test_parse_command_leading_whitespace_stripped() {
-        let result = BatchCommand::parse("   echo hello");
+        let result = BatchCommand::parse("   git log");
         assert!(result.is_ok());
         let cmd = result.unwrap();
-        assert_eq!(cmd.name, "echo");
+        assert_eq!(cmd.name, "git");
     }
 
     #[test]
     fn test_parse_command_trailing_whitespace_stripped() {
-        let result = BatchCommand::parse("echo hello   ");
+        let result = BatchCommand::parse("git status   ");
         assert!(result.is_ok());
         let cmd = result.unwrap();
-        assert_eq!(cmd.name, "echo");
-        assert_eq!(cmd.args, vec!["hello"]);
+        assert_eq!(cmd.name, "git");
+        assert_eq!(cmd.args, vec!["status"]);
     }
 
     #[test]
     fn test_parse_command_just_whitespace_is_empty() {
         let result = BatchCommand::parse(" \t\n ");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_command_rejects_disallowed_command() {
+        let result = BatchCommand::parse("rm -rf /");
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("not allowed"),
+            "Error should mention whitelist: {err}"
+        );
+    }
+
+    #[test]
+    fn test_parse_command_rejects_sh() {
+        let result = BatchCommand::parse("sh -c 'echo evil'");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_command_accepts_git() {
+        let result = BatchCommand::parse("git status");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_command_accepts_jj() {
+        let result = BatchCommand::parse("jj status");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_command_accepts_scp() {
+        let result = BatchCommand::parse("scp workspace list");
+        assert!(result.is_ok());
     }
 
     #[test]
