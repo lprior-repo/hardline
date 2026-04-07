@@ -40,6 +40,12 @@ pub trait MetadataStore: Send + Sync {
     /// Read metadata for a branch. Returns `None` if no metadata exists.
     fn read(&self, branch: &str) -> Result<Option<BranchMetadata>>;
 
+    /// Write metadata for a branch.
+    fn write(&self, branch: &str, metadata: &BranchMetadata) -> Result<()>;
+
+    /// Delete metadata for a branch.
+    fn delete(&self, branch: &str) -> Result<()>;
+
     /// Get the current commit hash of a local branch. Returns `None` if branch doesn't exist.
     fn branch_revision(&self, branch: &str) -> Result<Option<String>>;
 
@@ -73,23 +79,23 @@ pub struct TransactionalStackOps<M: MetadataStore> {
 
 /// A branch within the loaded stack graph.
 #[derive(Debug, Clone)]
-struct StackNode {
-    name: String,
-    parent: Option<String>,
-    children: Vec<String>,
-    needs_restack: bool,
+pub struct StackNode {
+    pub name: String,
+    pub parent: Option<String>,
+    pub children: Vec<String>,
+    pub needs_restack: bool,
 }
 
 /// The full stack structure loaded from git metadata.
 #[derive(Debug, Clone)]
-struct StackGraph {
-    branches: HashMap<String, StackNode>,
-    trunk: String,
+pub struct StackGraph {
+    pub branches: HashMap<String, StackNode>,
+    pub trunk: String,
 }
 
 impl StackGraph {
     /// Load the stack from git metadata.
-    fn load<M: MetadataStore>(store: &M) -> Result<Self> {
+    pub fn load<M: MetadataStore>(store: &M) -> Result<Self> {
         let trunk = store
             .read_trunk()?
             .unwrap_or_else(|| "main".to_string());
@@ -159,7 +165,7 @@ impl StackGraph {
     }
 
     /// Get ancestors of a branch (up to trunk).
-    fn ancestors(&self, branch: &str) -> Vec<String> {
+    pub fn ancestors(&self, branch: &str) -> Vec<String> {
         let mut result = Vec::new();
         let mut current = branch.to_string();
         let mut visited = HashSet::from([current.clone()]);
@@ -180,7 +186,7 @@ impl StackGraph {
     }
 
     /// Get all descendants of a branch.
-    fn descendants(&self, branch: &str) -> Vec<String> {
+    pub fn descendants(&self, branch: &str) -> Vec<String> {
         let mut result = Vec::new();
         let mut to_visit = vec![branch.to_string()];
         let mut visited = HashSet::from([branch.to_string()]);
@@ -201,7 +207,7 @@ impl StackGraph {
     }
 
     /// Get the current stack (ancestors + current + descendants).
-    fn current_stack(&self, branch: &str) -> Vec<String> {
+    pub fn current_stack(&self, branch: &str) -> Vec<String> {
         let mut seen = HashSet::new();
         let mut result = Vec::new();
 
@@ -225,6 +231,46 @@ impl StackGraph {
         }
 
         result
+    }
+
+    /// Get branches that need restacking.
+    pub fn needs_restack(&self) -> Vec<String> {
+        self.branches
+            .values()
+            .filter(|b| b.needs_restack)
+            .map(|b| b.name.clone())
+            .collect()
+    }
+
+    /// Get siblings of a branch (other branches with the same parent).
+    pub fn get_siblings(&self, branch: &str) -> Vec<String> {
+        let branch_info = match self.branches.get(branch) {
+            Some(b) => b,
+            None => return vec![branch.to_string()],
+        };
+
+        let parent = match &branch_info.parent {
+            Some(p) => p,
+            None => return vec![branch.to_string()],
+        };
+
+        let parent_info = match self.branches.get(parent) {
+            Some(p) => p,
+            None => {
+                let mut siblings: Vec<String> = self
+                    .branches
+                    .values()
+                    .filter(|b| b.parent.as_ref() == Some(&parent.to_string()))
+                    .map(|b| b.name.clone())
+                    .collect();
+                siblings.sort();
+                return siblings;
+            }
+        };
+
+        let mut siblings = parent_info.children.clone();
+        siblings.sort();
+        siblings
     }
 }
 
@@ -671,6 +717,14 @@ mod tests {
     impl MetadataStore for MockStore {
         fn read(&self, branch: &str) -> Result<Option<BranchMetadata>> {
             Ok(self.metadata.get(branch).cloned())
+        }
+
+        fn write(&self, _branch: &str, _metadata: &BranchMetadata) -> Result<()> {
+            Ok(())
+        }
+
+        fn delete(&self, _branch: &str) -> Result<()> {
+            Ok(())
         }
 
         fn branch_revision(&self, branch: &str) -> Result<Option<String>> {

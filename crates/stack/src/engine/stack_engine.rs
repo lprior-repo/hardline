@@ -1,20 +1,23 @@
 //! Domain service for stack operations.
 //!
 //! Ported from stax `engine/stack.rs`. Provides the core `load_stack` operation
-//! that constructs a `Stack` entity from persisted branch metadata, plus
+//! that constructs the stack graph from persisted branch metadata, plus
 //! read-only queries (branch ancestry, restack detection).
+//!
+//! The actual mutating VCS operations (restack, create branch, delete branch)
+//! live in `TransactionalStackOps`; this service provides read-only stack
+//! loading and query capabilities.
 
-use std::collections::HashMap;
-
-use crate::domain::entities::{Draft, PrInfo, PrState, Stack, StackBranch};
+use super::transactional_engine::MetadataStore;
 use crate::domain::metadata::BranchMetadata;
-use crate::domain::value_objects::BranchName;
-use crate::engine::transactional_engine::MetadataStore;
 use crate::error::{Result, StackError};
+
+/// Re-export StackGraph from transactional_engine for use in query results.
+pub use super::transactional_engine::StackGraph;
 
 /// Domain service for stack graph construction and queries.
 ///
-/// Wraps a `MetadataStore` to build the `Stack` entity from persisted
+/// Wraps a `MetadataStore` to build the stack graph from persisted
 /// per-branch metadata. All mutating VCS operations (restack, create branch,
 /// delete branch) live in `TransactionalStackOps`; this service is read-only.
 pub struct StackEngine<M: MetadataStore> {
@@ -27,491 +30,365 @@ impl<M: MetadataStore> StackEngine<M> {
         Self { metadata }
     }
 
-    /// Load the full stack from persisted metadata.
+    /// Load the stack graph from persisted metadata.
     ///
-    /// Ported from stax `Stack::load`. Walks all branches that have metadata,
-    /// prunes branches whose git refs no longer exist, populates parent/child
-    /// links, handles orphaned branches, and returns a `Stack<Draft>`.
-    pub fn load_stack(&self) -> Result<Stack<Draft>> {
-        let trunk = self
+    /// Ported from stax `Stack::load`. Reads all branch metadata refs,
+    /// builds the parent-child graph, handles orphaned branches, and
+    /// prunes stale metadata for deleted branches.
+    pub fn load_stack(&self) -> Result<StackGraph> {
+        StackGraph::load(&self.metadata)
+    }
+
+    /// Get the ancestors of a branch (up to trunk).
+    pub fn ancestors(&self, branch: &str) -> Result<Vec<String>> {
+        let graph = self.load_stack()?;
+        Ok(graph.ancestors(branch))
+    }
+
+    /// Get all descendants of a branch.
+    pub fn descendants(&self, branch: &str) -> Result<Vec<String>> {
+        let graph = self.load_stack()?;
+        Ok(graph.descendants(branch))
+    }
+
+    /// Get the current stack (ancestors + current + descendants).
+    pub fn current_stack(&self, branch: &str) -> Result<Vec<String>> {
+        let graph = self.load_stack()?;
+        Ok(graph.current_stack(branch))
+    }
+
+    /// Get branches that need restacking.
+    pub fn needs_restack(&self) -> Result<Vec<String>> {
+        let graph = self.load_stack()?;
+        Ok(graph.needs_restack())
+    }
+
+    /// Get siblings of a branch (other branches with the same parent).
+    pub fn siblings(&self, branch: &str) -> Result<Vec<String>> {
+        let graph = self.load_stack()?;
+        Ok(graph.get_siblings(branch))
+    }
+
+    /// Read metadata for a specific branch.
+    pub fn read_branch_metadata(&self, branch: &str) -> Result<Option<BranchMetadata>> {
+        self.metadata.read(branch)
+    }
+
+    /// Write metadata for a branch.
+    pub fn write_branch_metadata(&self, branch: &str, metadata: &BranchMetadata) -> Result<()> {
+        metadata.validate()?;
+        self.metadata.write(branch, metadata)
+    }
+
+    /// Delete metadata for a branch.
+    pub fn delete_branch_metadata(&self, branch: &str) -> Result<()> {
+        self.metadata.delete(branch)
+    }
+
+    /// Get the trunk branch name.
+    pub fn trunk(&self) -> Result<String> {
+        Ok(self
             .metadata
             .read_trunk()?
-            .ok_or_else(|| StackError::NotFound("trunk branch not configured".to_string()))?;
-
-        let tracked = self.metadata.list_branches()?;
-
-        // First pass: load metadata for each tracked branch.
-        let mut branch_map: HashMap<String, BranchMetadata> = HashMap::new();
-        for name in &tracked {
-            // Prune metadata for branches that no longer exist on disk.
-            if self.metadata.branch_revision(name)?.is_none() {
-                continue;
-            }
-
-            if let Some(meta) = self.metadata.read(name)? {
-                branch_map.insert(name.clone(), meta);
-            }
-        }
-
-        // Build StackBranch entries and track children.
-        let mut branches: Vec<StackBranch> = Vec::new();
-        let mut children_map: HashMap<String, Vec<BranchName>> = HashMap::new();
-        let mut orphaned: Vec<BranchName> = Vec::new();
-
-        for (name, meta) in &branch_map {
-            let parent_name = &meta.parent_branch_name;
-            let parent_rev = match self.metadata.branch_revision(parent_name) {
-                Ok(Some(rev)) => rev,
-                _ => String::new(),
-            };
-            let needs_restack = meta.needs_restack(&parent_rev);
-
-            let pr_info = meta.pr_info.as_ref().map(|p| PrInfo {
-                number: u32::try_from(p.number).unwrap_or(u32::MAX),
-                url: String::new(),
-                title: String::new(),
-                state: parse_pr_state(&p.state),
-                is_draft: p.is_draft,
-            });
-
-            let parent_bn = BranchName::new(parent_name.clone());
-
-            // Track children for the parent.
-            if *parent_name == trunk {
-                // direct child of trunk — handled below
-            } else if branch_map.contains_key(parent_name) {
-                children_map
-                    .entry(parent_name.clone())
-                    .or_default()
-                    .push(BranchName::new(name.clone()));
-            } else {
-                // Parent not tracked — orphaned; treat as direct child of trunk.
-                orphaned.push(BranchName::new(name.clone()));
-            }
-
-            branches.push(StackBranch {
-                name: BranchName::new(name.clone()),
-                parent: Some(parent_bn),
-                children: Vec::new(), // populated in second pass
-                needs_restack,
-                pr_info,
-            });
-        }
-
-        // Collect direct children of trunk (including orphaned branches).
-        let mut trunk_children: Vec<BranchName> = branches
-            .iter()
-            .filter(|b| b.parent.as_ref().is_some_and(|p| p.as_str() == trunk))
-            .map(|b| b.name.clone())
-            .collect();
-        trunk_children.extend(orphaned);
-
-        // Second pass: populate children arrays.
-        for branch in &mut branches {
-            if let Some(children) = children_map.get(branch.name.as_str()) {
-                branch.children = children.clone();
-            }
-        }
-
-        // Add trunk root node.
-        let trunk_bn = BranchName::new(&trunk);
-        branches.push(StackBranch {
-            name: trunk_bn.clone(),
-            parent: None,
-            children: trunk_children,
-            needs_restack: false,
-            pr_info: None,
-        });
-
-        let mut stack = Stack::<Draft>::new(trunk_bn);
-        for branch in branches {
-            stack.branches.push(branch);
-        }
-
-        Ok(stack)
-    }
-}
-
-/// Parse a PR state string from metadata into a domain `PrState`.
-///
-/// The metadata format uses uppercase strings ("OPEN", "CLOSED", "MERGED").
-/// Unknown values default to `PrState::Open`.
-fn parse_pr_state(state: &str) -> PrState {
-    match state.to_uppercase().as_str() {
-        "CLOSED" => PrState::Closed,
-        "MERGED" => PrState::Merged,
-        _ => PrState::Open,
-    }
-}
-
-/// In-memory `MetadataStore` for testing.
-#[cfg(test)]
-pub(crate) struct InMemoryMetadataStore {
-    trunk: String,
-    branches: HashMap<String, BranchMetadata>,
-    revisions: HashMap<String, String>,
-}
-
-#[cfg(test)]
-impl InMemoryMetadataStore {
-    pub(crate) fn new(trunk: &str) -> Self {
-        Self {
-            trunk: trunk.to_string(),
-            branches: HashMap::new(),
-            revisions: HashMap::new(),
-        }
+            .unwrap_or_else(|| "main".to_string()))
     }
 
-    pub(crate) fn add_branch(
-        &mut self,
-        name: &str,
-        meta: BranchMetadata,
-        revision: &str,
-    ) {
-        self.branches.insert(name.to_string(), meta);
-        self.revisions.insert(name.to_string(), revision.to_string());
-    }
-}
-
-#[cfg(test)]
-impl MetadataStore for InMemoryMetadataStore {
-    fn read(&self, branch: &str) -> Result<Option<BranchMetadata>> {
-        Ok(self.branches.get(branch).cloned())
+    /// Check if a branch exists (has a revision).
+    pub fn branch_exists(&self, branch: &str) -> Result<bool> {
+        Ok(self.metadata.branch_revision(branch)?.is_some())
     }
 
-    fn branch_revision(&self, branch: &str) -> Result<Option<String>> {
-        Ok(self.revisions.get(branch).cloned())
+    /// Get the current revision of a branch.
+    pub fn branch_revision(&self, branch: &str) -> Result<Option<String>> {
+        self.metadata.branch_revision(branch)
     }
 
-    fn list_branches(&self) -> Result<Vec<String>> {
-        Ok(self.branches.keys().cloned().collect())
-    }
+    /// Create metadata for a new branch.
+    ///
+    /// Records the parent branch and its current revision so restack
+    /// detection works correctly.
+    pub fn create_branch(&self, name: &str, parent: &str) -> Result<()> {
+        let parent_revision = self
+            .metadata
+            .branch_revision(parent)?
+            .ok_or_else(|| StackError::BranchNotFound(parent.to_string()))?;
 
-    fn read_trunk(&self) -> Result<Option<String>> {
-        Ok(Some(self.trunk.clone()))
+        let metadata = BranchMetadata::new(parent, &parent_revision);
+        self.metadata.write(name, &metadata)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::metadata::BranchMetadata;
+    use std::collections::HashMap;
 
-    fn create_test_store() -> InMemoryMetadataStore {
-        let mut store = InMemoryMetadataStore::new("main");
-
-        // main at revision "aaa"
-        store.revisions.insert("main".to_string(), "aaa".to_string());
-
-        // feature-a: parent=main@aaa, revision=bbb
-        store.add_branch(
-            "feature-a",
-            BranchMetadata::new("main", "aaa").with_pr(1, "OPEN", Some(false)),
-            "bbb",
-        );
-
-        // feature-a-1: parent=feature-a@bbb, revision=ccc
-        store.add_branch(
-            "feature-a-1",
-            BranchMetadata::new("feature-a", "bbb").with_pr(2, "OPEN", Some(true)),
-            "ccc",
-        );
-
-        // feature-a-2: parent=feature-a-1@ccc, revision=ddd
-        store.add_branch(
-            "feature-a-2",
-            BranchMetadata::new("feature-a-1", "ccc"),
-            "ddd",
-        );
-
-        // feature-b: parent=main@aaa (parent has moved to "eee"), needs restack
-        store.add_branch(
-            "feature-b",
-            BranchMetadata::new("main", "old").with_pr(3, "MERGED", None),
-            "fff",
-        );
-        // Simulate main having moved
-        store.revisions.insert("main".to_string(), "eee".to_string());
-
-        store
+    /// In-memory metadata store for testing.
+    struct MockStore {
+        metadata: HashMap<String, BranchMetadata>,
+        trunk: Option<String>,
+        revisions: HashMap<String, String>,
     }
 
-    #[test]
-    fn test_load_stack_basic() {
-        let store = create_test_store();
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        // Should have: main, feature-a, feature-a-1, feature-a-2, feature-b = 5
-        assert_eq!(stack.branches.len(), 5);
-        assert_eq!(stack.main_branch, BranchName::new("main"));
-    }
-
-    #[test]
-    fn test_load_stack_trunk_children() {
-        let store = create_test_store();
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let trunk = stack
-            .branches
-            .iter()
-            .find(|b| b.name.as_str() == "main")
-            .expect("trunk should exist");
-        let mut children: Vec<&str> = trunk.children.iter().map(|c| c.as_str()).collect();
-        children.sort();
-        assert_eq!(children, vec!["feature-a", "feature-b"]);
-    }
-
-    #[test]
-    fn test_load_stack_parent_child_links() {
-        let store = create_test_store();
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let feature_a = stack
-            .branches
-            .iter()
-            .find(|b| b.name.as_str() == "feature-a")
-            .expect("feature-a should exist");
-        assert_eq!(feature_a.children.len(), 1);
-        assert_eq!(feature_a.children[0].as_str(), "feature-a-1");
-    }
-
-    #[test]
-    fn test_load_stack_deep_chain() {
-        let store = create_test_store();
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let ancestors = stack.ancestors(&BranchName::new("feature-a-2"));
-        let ancestor_strs: Vec<&str> = ancestors.iter().map(|a| a.as_str()).collect();
-        assert!(ancestor_strs.contains(&"feature-a-1"));
-        assert!(ancestor_strs.contains(&"feature-a"));
-        assert!(ancestor_strs.contains(&"main"));
-    }
-
-    #[test]
-    fn test_load_stack_needs_restack() {
-        let store = create_test_store();
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let needs = stack.needs_restack();
-        // feature-b's parent (main) has moved from "old" to "eee"
-        let needs_strs: Vec<&str> = needs.iter().map(|n| n.as_str()).collect();
-        assert!(
-            needs_strs.contains(&"feature-b"),
-            "feature-b should need restack, got: {needs_strs:?}"
-        );
-    }
-
-    #[test]
-    fn test_load_stack_pr_info_preserved() {
-        let store = create_test_store();
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let feature_a = stack
-            .branches
-            .iter()
-            .find(|b| b.name.as_str() == "feature-a")
-            .expect("feature-a should exist");
-        let pr = feature_a.pr_info.as_ref().expect("should have PR info");
-        assert_eq!(pr.number, 1);
-        assert!(matches!(pr.state, PrState::Open));
-        assert_eq!(pr.is_draft, Some(false));
-    }
-
-    #[test]
-    fn test_load_stack_pr_merged_state() {
-        let store = create_test_store();
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let feature_b = stack
-            .branches
-            .iter()
-            .find(|b| b.name.as_str() == "feature-b")
-            .expect("feature-b should exist");
-        let pr = feature_b.pr_info.as_ref().expect("should have PR info");
-        assert!(matches!(pr.state, PrState::Merged));
-    }
-
-    #[test]
-    fn test_load_stack_pr_draft_state() {
-        let store = create_test_store();
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let feature_a1 = stack
-            .branches
-            .iter()
-            .find(|b| b.name.as_str() == "feature-a-1")
-            .expect("feature-a-1 should exist");
-        let pr = feature_a1.pr_info.as_ref().expect("should have PR info");
-        assert_eq!(pr.is_draft, Some(true));
-    }
-
-    #[test]
-    fn test_load_stack_no_pr_info() {
-        let store = create_test_store();
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let feature_a2 = stack
-            .branches
-            .iter()
-            .find(|b| b.name.as_str() == "feature-a-2")
-            .expect("feature-a-2 should exist");
-        assert!(feature_a2.pr_info.is_none());
-    }
-
-    #[test]
-    fn test_load_stack_empty() {
-        let mut store = InMemoryMetadataStore::new("main");
-        store.revisions.insert("main".to_string(), "aaa".to_string());
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        // Only trunk should exist
-        assert_eq!(stack.branches.len(), 1);
-        assert_eq!(stack.main_branch, BranchName::new("main"));
-    }
-
-    #[test]
-    fn test_load_stack_no_trunk() {
-        let mut store = InMemoryMetadataStore::new("main");
-        store.trunk = String::new(); // no trunk
-        // MetadataStore::read_trunk returns Some("") which is still Some
-        // Actually our impl returns Some(self.trunk), so trunk = "" means Some("")
-        // This should still "work" — it'll use "" as trunk name.
-        // Let's make read_trunk return None instead.
-        struct NoTrunkStore;
-        impl MetadataStore for NoTrunkStore {
-            fn read(&self, _branch: &str) -> Result<Option<BranchMetadata>> {
-                Ok(None)
-            }
-            fn branch_revision(&self, _branch: &str) -> Result<Option<String>> {
-                Ok(None)
-            }
-            fn list_branches(&self) -> Result<Vec<String>> {
-                Ok(vec![])
-            }
-            fn read_trunk(&self) -> Result<Option<String>> {
-                Ok(None)
+    impl MockStore {
+        fn new() -> Self {
+            Self {
+                metadata: HashMap::new(),
+                trunk: None,
+                revisions: HashMap::new(),
             }
         }
-        let engine = StackEngine::new(NoTrunkStore);
-        let result = engine.load_stack();
+
+        fn with_trunk(mut self, trunk: &str) -> Self {
+            self.trunk = Some(trunk.to_string());
+            self.revisions.insert(trunk.to_string(), "trunk-rev".to_string());
+            self
+        }
+
+        fn add_branch(
+            mut self,
+            name: &str,
+            parent: &str,
+            parent_rev: &str,
+            current_rev: &str,
+        ) -> Self {
+            self.metadata.insert(
+                name.to_string(),
+                BranchMetadata::new(parent, parent_rev),
+            );
+            self.revisions.insert(name.to_string(), current_rev.to_string());
+            self
+        }
+
+        fn add_branch_with_pr(
+            mut self,
+            name: &str,
+            parent: &str,
+            parent_rev: &str,
+            current_rev: &str,
+            pr_number: u64,
+            pr_state: &str,
+        ) -> Self {
+            self.metadata.insert(
+                name.to_string(),
+                BranchMetadata::new(parent, parent_rev).with_pr(pr_number, pr_state, None),
+            );
+            self.revisions.insert(name.to_string(), current_rev.to_string());
+            self
+        }
+    }
+
+    impl MetadataStore for MockStore {
+        fn read(&self, branch: &str) -> Result<Option<BranchMetadata>> {
+            Ok(self.metadata.get(branch).cloned())
+        }
+
+        fn write(&self, _branch: &str, _metadata: &BranchMetadata) -> Result<()> {
+            Ok(())
+        }
+
+        fn delete(&self, _branch: &str) -> Result<()> {
+            Ok(())
+        }
+
+        fn list_branches(&self) -> Result<Vec<String>> {
+            Ok(self.metadata.keys().cloned().collect())
+        }
+
+        fn read_trunk(&self) -> Result<Option<String>> {
+            Ok(self.trunk.clone())
+        }
+
+        fn branch_revision(&self, branch: &str) -> Result<Option<String>> {
+            Ok(self.revisions.get(branch).cloned())
+        }
+    }
+
+    fn create_test_store() -> MockStore {
+        MockStore::new()
+            .with_trunk("main")
+            .add_branch("feature-a", "main", "trunk-rev", "rev-a")
+            .add_branch_with_pr("feature-a-1", "feature-a", "rev-a", "rev-a1", 2, "OPEN")
+            .add_branch("feature-a-2", "feature-a-1", "rev-a1", "rev-a2")
+            .add_branch_with_pr("feature-b", "main", "trunk-rev-old", "rev-b", 3, "MERGED")
+    }
+
+    #[test]
+    fn test_engine_load_stack() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let graph = engine.load_stack().expect("load");
+        assert!(graph.branches.contains_key("main"));
+        assert!(graph.branches.contains_key("feature-a"));
+        assert!(graph.branches.contains_key("feature-a-1"));
+        assert!(graph.branches.contains_key("feature-a-2"));
+        assert!(graph.branches.contains_key("feature-b"));
+        assert_eq!(graph.trunk, "main");
+    }
+
+    #[test]
+    fn test_engine_ancestors_from_leaf() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let ancestors = engine.ancestors("feature-a-2").expect("ancestors");
+        assert_eq!(ancestors, vec!["feature-a-1", "feature-a", "main"]);
+    }
+
+    #[test]
+    fn test_engine_ancestors_from_trunk() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let ancestors = engine.ancestors("main").expect("ancestors");
+        assert!(ancestors.is_empty());
+    }
+
+    #[test]
+    fn test_engine_descendants_from_trunk() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let mut descendants = engine.descendants("main").expect("descendants");
+        descendants.sort();
+        assert_eq!(
+            descendants,
+            vec!["feature-a", "feature-a-1", "feature-a-2", "feature-b"]
+        );
+    }
+
+    #[test]
+    fn test_engine_descendants_from_leaf() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let descendants = engine.descendants("feature-a-2").expect("descendants");
+        assert!(descendants.is_empty());
+    }
+
+    #[test]
+    fn test_engine_current_stack_from_leaf() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let current = engine.current_stack("feature-a-2").expect("current_stack");
+        assert_eq!(
+            current,
+            vec!["main", "feature-a", "feature-a-1", "feature-a-2"]
+        );
+    }
+
+    #[test]
+    fn test_engine_current_stack_from_first_level() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let current = engine.current_stack("feature-b").expect("current_stack");
+        assert_eq!(current, vec!["main", "feature-b"]);
+    }
+
+    #[test]
+    fn test_engine_needs_restack() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let mut needs = engine.needs_restack().expect("needs_restack");
+        needs.sort();
+        // feature-b has mismatched parent revision (trunk-rev-old vs trunk-rev)
+        assert_eq!(needs, vec!["feature-b"]);
+    }
+
+    #[test]
+    fn test_engine_siblings() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let siblings = engine.siblings("feature-a").expect("siblings");
+        assert!(siblings.contains(&"feature-a".to_string()));
+        assert!(siblings.contains(&"feature-b".to_string()));
+    }
+
+    #[test]
+    fn test_engine_read_branch_metadata() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let meta = engine
+            .read_branch_metadata("feature-a")
+            .expect("read")
+            .expect("some");
+        assert_eq!(meta.parent_branch_name, "main");
+        assert_eq!(meta.parent_branch_revision, "trunk-rev");
+    }
+
+    #[test]
+    fn test_engine_read_branch_metadata_not_found() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let result = engine.read_branch_metadata("nonexistent").expect("read");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_engine_trunk() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        assert_eq!(engine.trunk().expect("trunk"), "main");
+    }
+
+    #[test]
+    fn test_engine_trunk_default() {
+        let store = MockStore::new();
+        let engine = StackEngine::new(store);
+        assert_eq!(engine.trunk().expect("trunk"), "main");
+    }
+
+    #[test]
+    fn test_engine_branch_exists() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        assert!(engine.branch_exists("feature-a").expect("exists"));
+        assert!(!engine.branch_exists("nonexistent").expect("exists"));
+    }
+
+    #[test]
+    fn test_engine_branch_revision() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        assert_eq!(
+            engine.branch_revision("feature-a").expect("revision"),
+            Some("rev-a".to_string())
+        );
+        assert_eq!(
+            engine.branch_revision("nonexistent").expect("revision"),
+            None
+        );
+    }
+
+    #[test]
+    fn test_engine_create_branch_parent_not_found() {
+        let store = create_test_store();
+        let engine = StackEngine::new(store);
+        let result = engine.create_branch("new-branch", "nonexistent-parent");
         assert!(result.is_err());
-        let err = result.err().expect("should be error");
-        assert!(matches!(err, StackError::NotFound(_)));
+        let err = result.err().expect("error");
+        assert!(matches!(err, StackError::BranchNotFound(_)));
     }
 
     #[test]
-    fn test_load_stack_prunes_deleted_branches() {
-        let mut store = InMemoryMetadataStore::new("main");
-        // Add metadata for "deleted-branch" but don't add a revision
-        // (simulating a branch whose git ref was deleted but metadata remains)
-        store.branches.insert(
-            "deleted-branch".to_string(),
-            BranchMetadata::new("main", "aaa"),
-        );
-        // No revision for "deleted-branch" — branch_revision returns None
-        store.revisions.insert("main".to_string(), "aaa".to_string());
-
+    fn test_engine_empty_stack() {
+        let store = MockStore::new().with_trunk("main");
         let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        // deleted-branch should be pruned; only trunk remains
-        assert_eq!(stack.branches.len(), 1);
-        assert_eq!(stack.branches[0].name.as_str(), "main");
+        let graph = engine.load_stack().expect("load");
+        assert_eq!(graph.branches.len(), 1);
+        assert!(graph.branches.contains_key("main"));
     }
 
     #[test]
-    fn test_load_stack_orphaned_branch_becomes_trunk_child() {
-        let mut store = InMemoryMetadataStore::new("main");
-        store.revisions.insert("main".to_string(), "aaa".to_string());
-
-        // orphan-branch's parent is "nonexistent" which is not tracked
-        store.add_branch(
-            "orphan-branch",
-            BranchMetadata::new("nonexistent", "zzz"),
-            "bbb",
-        );
-
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let trunk = stack
-            .branches
-            .iter()
-            .find(|b| b.name.as_str() == "main")
-            .expect("trunk");
-        assert!(trunk.children.contains(&BranchName::new("orphan-branch")));
-    }
-
-    #[test]
-    fn test_load_stack_current_stack() {
+    fn test_engine_ancestors_nonexistent() {
         let store = create_test_store();
         let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let current = stack.current_stack(&BranchName::new("feature-a-2"));
-        let names: Vec<&str> = current.iter().map(|n| n.as_str()).collect();
-        assert!(names.contains(&"main"));
-        assert!(names.contains(&"feature-a"));
-        assert!(names.contains(&"feature-a-1"));
-        assert!(names.contains(&"feature-a-2"));
+        let ancestors = engine.ancestors("nonexistent").expect("ancestors");
+        assert!(ancestors.is_empty());
     }
 
     #[test]
-    fn test_parse_pr_state_open() {
-        assert!(matches!(parse_pr_state("OPEN"), PrState::Open));
-    }
-
-    #[test]
-    fn test_parse_pr_state_closed() {
-        assert!(matches!(parse_pr_state("CLOSED"), PrState::Closed));
-    }
-
-    #[test]
-    fn test_parse_pr_state_merged() {
-        assert!(matches!(parse_pr_state("MERGED"), PrState::Merged));
-    }
-
-    #[test]
-    fn test_parse_pr_state_case_insensitive() {
-        assert!(matches!(parse_pr_state("open"), PrState::Open));
-        assert!(matches!(parse_pr_state("merged"), PrState::Merged));
-    }
-
-    #[test]
-    fn test_parse_pr_state_unknown_defaults_open() {
-        assert!(matches!(parse_pr_state("UNKNOWN"), PrState::Open));
-    }
-
-    #[test]
-    fn test_load_stack_descendants() {
+    fn test_engine_descendants_nonexistent() {
         let store = create_test_store();
         let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let desc = stack.descendants(&BranchName::new("main"));
-        let mut names: Vec<&str> = desc.iter().map(|n| n.as_str()).collect();
-        names.sort();
-        assert_eq!(names, vec!["feature-a", "feature-a-1", "feature-a-2", "feature-b"]);
-    }
-
-    #[test]
-    fn test_load_stack_descendants_from_middle() {
-        let store = create_test_store();
-        let engine = StackEngine::new(store);
-        let stack = engine.load_stack().expect("load_stack should succeed");
-
-        let desc = stack.descendants(&BranchName::new("feature-a"));
-        let mut names: Vec<&str> = desc.iter().map(|n| n.as_str()).collect();
-        names.sort();
-        assert_eq!(names, vec!["feature-a-1", "feature-a-2"]);
+        let descendants = engine.descendants("nonexistent").expect("descendants");
+        assert!(descendants.is_empty());
     }
 }
