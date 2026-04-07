@@ -24,6 +24,8 @@ pub mod application;
 pub mod architecture_boundaries;
 pub mod beads;
 pub mod checkpoint;
+#[cfg(test)]
+mod checkpoint_redqueen;
 pub mod cli_contracts;
 pub mod config;
 pub mod conflict;
