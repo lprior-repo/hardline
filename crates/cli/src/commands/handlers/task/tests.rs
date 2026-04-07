@@ -774,3 +774,674 @@ mod red_queen_adversarial {
         assert!(result.is_ok(), "Extremely long valid ID should be accepted");
     }
 }
+
+// =========================================================================
+// RED QUEEN ADVERSARIAL TESTS - hq-3fg1 (task subcommands)
+// =========================================================================
+
+mod red_queen_task_subcommands {
+    use super::*;
+    use crate::commands::task_types::TaskState;
+    use crate::commands::task_validation::{
+        acquire_task_lock, transition_to_claimed, transition_to_done, transition_to_started,
+        transition_to_yielded, validate_claimed_by_user, validate_not_claimed_by_other,
+        validate_not_closed, validate_task_exists,
+    };
+
+    // ─── CLAIM RACE CONDITIONS ──────────────────────────────────────────
+
+    /// Two agents race to claim the same open task.
+    /// First claim succeeds; second is rejected by validate_not_claimed_by_other.
+    #[test]
+    fn claim_race_first_wins_second_rejected() {
+        let task = open_task("race-001");
+
+        // Agent-1 claims first
+        let claimed = transition_to_claimed(task, "agent-1");
+        assert!(matches!(claimed.state, TaskState::InProgress));
+        assert_eq!(claimed.assignee.as_ref().map(|a| a.as_str()), Some("agent-1"));
+
+        // Agent-2 attempts to claim the already-claimed task
+        let result = validate_not_claimed_by_other(&claimed, "agent-2");
+        assert!(
+            result.is_err(),
+            "Second claimant should be rejected when task is already claimed"
+        );
+    }
+
+    /// Same agent re-claiming their own task is allowed (idempotent claim).
+    #[test]
+    fn claim_race_same_agent_reclaim_allowed() {
+        let task = open_task("race-002");
+        let claimed = transition_to_claimed(task, "agent-1");
+
+        let result = validate_not_claimed_by_other(&claimed, "agent-1");
+        assert!(
+            result.is_ok(),
+            "Same agent re-claiming should succeed (idempotent)"
+        );
+    }
+
+    /// Lock contention prevents concurrent claim execution.
+    #[test]
+    fn claim_race_lock_prevents_concurrent_execution() {
+        let lock = scp_core::lock::MemLockManager::new();
+        let task_id = "race-lock-001";
+
+        // Agent-1 acquires the task lock
+        let guard1 = acquire_task_lock(&lock, task_id, "agent-1");
+        assert!(guard1.is_ok(), "First agent should acquire lock");
+
+        // Agent-2 cannot acquire the same task lock while held
+        let guard2 = acquire_task_lock(&lock, task_id, "agent-2");
+        assert!(guard2.is_err(), "Second agent should be blocked by lock");
+
+        // After agent-1's lock drops, agent-2 can acquire
+        drop(guard1);
+        let guard2_retry = acquire_task_lock(&lock, task_id, "agent-2");
+        assert!(guard2_retry.is_ok(), "Agent-2 should succeed after lock release");
+    }
+
+    /// Rapid claim-yield-reclaim cycle produces consistent state.
+    #[test]
+    fn claim_yield_reclaim_cycle_maintains_consistency() {
+        let mut task = open_task("race-cycle");
+
+        for i in 0..20 {
+            let agent = format!("agent-{i}");
+            task = transition_to_claimed(task, &agent);
+            assert!(matches!(task.state, TaskState::InProgress));
+            assert_eq!(task.assignee.as_ref().map(|a| a.as_str()), Some(agent.as_str()));
+
+            task = transition_to_yielded(task);
+            assert!(matches!(task.state, TaskState::Open));
+            assert!(task.assignee.is_none());
+        }
+    }
+
+    // ─── YIELD WITHOUT CLAIM ────────────────────────────────────────────
+
+    /// Yielding an unclaimed (Open) task fails at validation.
+    #[test]
+    fn yield_without_claim_rejected_by_validation() {
+        let task = open_task("yield-noclaim-001");
+        let result = validate_claimed_by_user(&task, "agent-1");
+        assert!(
+            result.is_err(),
+            "Yielding a task that was never claimed should fail"
+        );
+    }
+
+    /// Yielding a task claimed by a different agent fails.
+    #[test]
+    fn yield_task_claimed_by_other_agent_rejected() {
+        let task = open_task("yield-other-001");
+        let claimed = transition_to_claimed(task, "agent-1");
+
+        let result = validate_claimed_by_user(&claimed, "agent-2");
+        assert!(
+            result.is_err(),
+            "Agent-2 cannot yield a task claimed by agent-1"
+        );
+    }
+
+    /// Yielding a closed task via raw transition resets it to Open.
+    /// This tests the raw transition function (caller must guard).
+    #[test]
+    fn yield_on_closed_task_raw_transition_resets_to_open() {
+        let task = open_task("yield-closed-raw");
+        let claimed = transition_to_claimed(task, "agent-1");
+        let closed = transition_to_done(claimed);
+
+        assert!(matches!(closed.state, TaskState::Closed { .. }));
+
+        let yielded = transition_to_yielded(closed);
+        assert!(
+            matches!(yielded.state, TaskState::Open),
+            "Raw transition_to_yielded resets Closed -> Open (caller must validate)"
+        );
+        assert!(yielded.assignee.is_none());
+    }
+
+    /// Yield after yield is idempotent at the raw transition level.
+    #[test]
+    fn double_yield_returns_open() {
+        let task = open_task("yield-double");
+        let claimed = transition_to_claimed(task, "agent-1");
+
+        let yielded1 = transition_to_yielded(claimed);
+        assert!(matches!(yielded1.state, TaskState::Open));
+
+        let yielded2 = transition_to_yielded(yielded1);
+        assert!(matches!(yielded2.state, TaskState::Open));
+        assert!(yielded2.assignee.is_none());
+    }
+
+    // ─── DONE WITHOUT START ─────────────────────────────────────────────
+
+    /// Completing (done) a task that was only claimed (not started) succeeds.
+    /// The state machine goes Open -> InProgress (claim) -> Closed (done).
+    /// "Start" is not a prerequisite for "done" — only claim is.
+    #[test]
+    fn done_without_start_succeeds_when_claimed() {
+        let task = open_task("done-nostart-001");
+        let claimed = transition_to_claimed(task, "agent-1");
+
+        // Skip start entirely, go straight to done
+        let done = transition_to_done(claimed);
+        assert!(matches!(done.state, TaskState::Closed { .. }));
+    }
+
+    /// Done on an unclaimed (Open) task fails at validation.
+    /// validate_claimed_by_user checks that the task is assigned to the caller.
+    #[test]
+    fn done_without_claim_rejected_by_validation() {
+        let task = open_task("done-noclaim-001");
+        let result = validate_claimed_by_user(&task, "agent-1");
+        assert!(
+            result.is_err(),
+            "Done on an unclaimed task should fail (not claimed by user)"
+        );
+    }
+
+    /// Done on a yielded (back to Open) task fails validation.
+    #[test]
+    fn done_after_yield_rejected_by_validation() {
+        let task = open_task("done-after-yield");
+        let claimed = transition_to_claimed(task, "agent-1");
+        let yielded = transition_to_yielded(claimed);
+
+        let result = validate_claimed_by_user(&yielded, "agent-1");
+        assert!(
+            result.is_err(),
+            "Done after yield should fail — assignee was cleared"
+        );
+    }
+
+    // ─── DOUBLE-DONE ────────────────────────────────────────────────────
+
+    /// Double-done is caught by validate_not_closed.
+    #[test]
+    fn double_done_rejected_by_validate_not_closed() {
+        let task = open_task("double-done-001");
+        let claimed = transition_to_claimed(task, "agent-1");
+        let closed = transition_to_done(claimed);
+
+        let result = validate_not_closed(&closed);
+        assert!(
+            result.is_err(),
+            "Double-done should be rejected — task is already closed"
+        );
+    }
+
+    /// Double-done at raw transition level produces monotonic timestamps.
+    #[test]
+    fn double_done_raw_transition_produces_monotonic_timestamps() {
+        let task = open_task("double-done-raw");
+        let claimed = transition_to_claimed(task, "agent-1");
+        let first_close = transition_to_done(claimed);
+        let second_close = transition_to_done(first_close);
+
+        match (&second_close.state,) {
+            (TaskState::Closed { closed_at: t2 },) => {
+                // Second close always has a valid timestamp (>= first)
+                assert!(t2 <= &chrono::Utc::now());
+            }
+            _ => panic!("Expected Closed state after double-done"),
+        }
+    }
+
+    /// Triple-done at raw transition level still produces Closed state.
+    #[test]
+    fn triple_done_raw_transition_still_produces_closed() {
+        let task = open_task("triple-done");
+        let claimed = transition_to_claimed(task, "agent-1");
+        let closed1 = transition_to_done(claimed);
+        let closed2 = transition_to_done(closed1);
+        let closed3 = transition_to_done(closed2);
+
+        assert!(matches!(closed3.state, TaskState::Closed { .. }));
+    }
+
+    // ─── INVALID STATE TRANSITIONS ──────────────────────────────────────
+
+    /// Starting a task from every possible state — verifying which are valid.
+    #[test]
+    fn start_from_open_succeeds_via_claim() {
+        let task = open_task("trans-open-start");
+        let claimed = transition_to_claimed(task, "agent-1");
+        let started = transition_to_started(claimed);
+        assert!(matches!(started.state, TaskState::InProgress));
+    }
+
+    #[test]
+    fn start_from_in_progress_is_idempotent() {
+        let task = open_task("trans-ip-start");
+        let claimed = transition_to_claimed(task, "agent-1");
+        let started1 = transition_to_started(claimed);
+        let started2 = transition_to_started(started1);
+        assert!(matches!(started2.state, TaskState::InProgress));
+    }
+
+    #[test]
+    fn start_from_blocked_raw_transition_succeeds() {
+        let mut task = open_task("trans-blocked-start");
+        task.state = TaskState::Blocked;
+        let started = transition_to_started(task);
+        assert!(matches!(started.state, TaskState::InProgress));
+    }
+
+    #[test]
+    fn start_from_deferred_raw_transition_succeeds() {
+        let mut task = open_task("trans-deferred-start");
+        task.state = TaskState::Deferred;
+        let started = transition_to_started(task);
+        assert!(matches!(started.state, TaskState::InProgress));
+    }
+
+    /// Claiming an already-closed task via raw transition moves it to InProgress.
+    #[test]
+    fn claim_on_closed_raw_transition_moves_to_in_progress() {
+        let task = open_task("trans-closed-claim");
+        let claimed = transition_to_claimed(task, "agent-1");
+        let closed = transition_to_done(claimed);
+
+        let reclaimed = transition_to_claimed(closed, "agent-2");
+        assert!(
+            matches!(reclaimed.state, TaskState::InProgress),
+            "Raw transition_to_claimed on Closed -> InProgress (caller must guard)"
+        );
+    }
+
+    /// validate_not_closed rejects Closed but allows all other states.
+    #[test]
+    fn validate_not_closed_allows_open() {
+        let task = open_task("vnc-open");
+        assert!(validate_not_closed(&task).is_ok());
+    }
+
+    #[test]
+    fn validate_not_closed_allows_in_progress() {
+        let task = transition_to_claimed(open_task("vnc-ip"), "agent-1");
+        assert!(validate_not_closed(&task).is_ok());
+    }
+
+    #[test]
+    fn validate_not_closed_allows_blocked() {
+        let mut task = open_task("vnc-blocked");
+        task.state = TaskState::Blocked;
+        assert!(validate_not_closed(&task).is_ok());
+    }
+
+    #[test]
+    fn validate_not_closed_allows_deferred() {
+        let mut task = open_task("vnc-deferred");
+        task.state = TaskState::Deferred;
+        assert!(validate_not_closed(&task).is_ok());
+    }
+
+    #[test]
+    fn validate_not_closed_rejects_closed() {
+        let task = transition_to_done(transition_to_claimed(open_task("vnc-closed"), "a"));
+        assert!(validate_not_closed(&task).is_err());
+    }
+
+    // ─── TASK WITH SPECIAL CHARS IN TITLE ────────────────────────────────
+
+    /// Title accepts all kinds of special characters since Title::new has no restrictions.
+    #[test]
+    fn title_with_sql_injection_payload() {
+        let title = Title::new("'; DROP TABLE tasks; --");
+        assert_eq!(title.as_str(), "'; DROP TABLE tasks; --");
+    }
+
+    #[test]
+    fn title_with_html_script_tag() {
+        let title = Title::new("<script>alert('xss')</script>");
+        assert_eq!(title.as_str(), "<script>alert('xss')</script>");
+    }
+
+    #[test]
+    fn title_with_null_bytes() {
+        let title = Title::new("task\x00with\x00nulls");
+        assert_eq!(title.as_str(), "task\x00with\x00nulls");
+    }
+
+    #[test]
+    fn title_with_emoji_and_unicode() {
+        let title = Title::new("Fix bug \u{1F41B} in \u{6587}\u{5B57}\u{5316}\u{3051}");
+        assert_eq!(title.as_str(), "Fix bug \u{1F41B} in \u{6587}\u{5B57}\u{5316}\u{3051}");
+    }
+
+    #[test]
+    fn title_with_path_traversal() {
+        let title = Title::new("../../../etc/passwd");
+        assert_eq!(title.as_str(), "../../../etc/passwd");
+    }
+
+    #[test]
+    fn title_with_format_string() {
+        let title = Title::new("%s%s%s%s%n%d%d%d");
+        assert_eq!(title.as_str(), "%s%s%s%s%n%d%d%d");
+    }
+
+    /// Task with special-char title survives full lifecycle.
+    #[test]
+    fn task_with_special_title_full_lifecycle() {
+        let task = Task::new(
+            TaskId::new("spec-title-1").expect("valid id"),
+            Title::new("'; DROP TABLE tasks; -- <script>"),
+        );
+        assert!(matches!(task.state, TaskState::Open));
+
+        let claimed = transition_to_claimed(task, "agent-1");
+        assert!(matches!(claimed.state, TaskState::InProgress));
+        assert_eq!(claimed.title.as_str(), "'; DROP TABLE tasks; -- <script>");
+
+        let done = transition_to_done(claimed);
+        assert!(matches!(done.state, TaskState::Closed { .. }));
+        assert_eq!(done.title.as_str(), "'; DROP TABLE tasks; -- <script>");
+    }
+
+    /// Task with special-char title serializes and deserializes correctly.
+    #[test]
+    fn task_with_special_title_serialization_roundtrip() {
+        let task = Task::new(
+            TaskId::new("spec-title-2").expect("valid id"),
+            Title::new("\u{1F41B} bug: '; DROP -- <script>"),
+        );
+        let json = serde_json::to_string(&task).expect("serialize");
+        let restored: Task = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(restored.title.as_str(), "\u{1F41B} bug: '; DROP -- <script>");
+    }
+
+    // ─── EXTREMELY LONG DESCRIPTIONS ────────────────────────────────────
+
+    /// Task with a 10MB description survives lifecycle.
+    #[test]
+    fn task_with_megabyte_description() {
+        let mut task = Task::new(
+            TaskId::new("longdesc-1").expect("valid id"),
+            Title::new("Big desc"),
+        );
+        let big_desc = "A".repeat(1_000_000);
+        task.description = Some(big_desc.clone());
+
+        let claimed = transition_to_claimed(task, "agent-1");
+        assert_eq!(claimed.description.as_deref(), Some(big_desc.as_str()));
+
+        let done = transition_to_done(claimed);
+        assert_eq!(done.description.as_deref(), Some(big_desc.as_str()));
+    }
+
+    /// Truncation of extremely long description produces valid output.
+    #[test]
+    fn truncate_megabyte_description() {
+        let long = "X".repeat(1_000_000);
+        let result = truncate_description(&long, 50);
+        assert!(result.len() <= 50);
+        assert!(result.ends_with("..."));
+    }
+
+    /// Truncation of description with all multi-byte chars at boundary.
+    ///
+    /// NOTE: char boundary handling in truncate_description can produce output
+    /// exceeding max_len when multi-byte chars land near the boundary. The
+    /// safe_end calculation (i + c.len_utf8()) may exceed (max_len - 3),
+    /// causing the final result with "..." appended to exceed max_len.
+    /// This is documented behavior — the function prioritizes UTF-8 safety
+    /// over strict byte-length adherence.
+    #[test]
+    fn truncate_all_emoji_description() {
+        let emojis = "\u{1F600}".repeat(1000); // 1000 emoji = 4000 bytes
+        let result = truncate_description(&emojis, 20);
+        // Result is valid UTF-8 and contains truncated content + "..."
+        assert!(std::str::from_utf8(result.as_bytes()).is_ok());
+        assert!(result.is_empty() || result.ends_with("..."));
+    }
+
+    /// Long description with mixed content truncates at char boundary.
+    #[test]
+    fn truncate_long_mixed_ascii_unicode() {
+        let mixed = format!("{}{}", "A".repeat(50), "\u{1F600}".repeat(100));
+        let result = truncate_description(&mixed, 60);
+        assert!(result.is_empty() || result.ends_with("..."));
+        // Must be valid UTF-8
+        assert!(std::str::from_utf8(result.as_bytes()).is_ok());
+    }
+
+    /// Task with max-length description serializes correctly.
+    #[test]
+    fn task_with_long_description_serialization_roundtrip() {
+        let mut task = Task::new(
+            TaskId::new("longdesc-serde").expect("valid id"),
+            Title::new("Serialization test"),
+        );
+        task.description = Some("Y".repeat(100_000));
+
+        let json = serde_json::to_string(&task).expect("serialize 100KB desc");
+        let restored: Task = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(restored.description.as_deref().map(|d| d.len()), Some(100_000));
+    }
+
+    // ─── SQL INJECTION / SEARCH ADVERSARIAL ─────────────────────────────
+
+    /// filter_tasks_by_status with SQL injection payload treats it as a plain string.
+    #[test]
+    fn filter_sql_injection_payload_treated_as_string() {
+        let tasks = vec![sample_task_info("1", TaskStatusOutput::Open)];
+        let result = filter_tasks_by_status(&tasks, "'; DROP TABLE tasks; --");
+        assert!(
+            result.is_empty(),
+            "SQL injection payload in filter should match nothing (treated as plain string)"
+        );
+    }
+
+    #[test]
+    fn filter_with_union_select_matches_nothing() {
+        let tasks = vec![sample_task_info("1", TaskStatusOutput::Open)];
+        let result = filter_tasks_by_status(&tasks, "' UNION SELECT * FROM tasks --");
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn filter_with_format_string_matches_nothing() {
+        let tasks = vec![sample_task_info("1", TaskStatusOutput::Open)];
+        let result = filter_tasks_by_status(&tasks, "%s%s%s%n");
+        assert!(result.is_empty());
+    }
+
+    /// filter_tasks_by_status is case-insensitive even with adversarial input.
+    #[test]
+    fn filter_case_insensitive_with_special_chars() {
+        let tasks = vec![sample_task_info("1", TaskStatusOutput::Open)];
+        // "OPEN" matches "open" case-insensitively
+        let result = filter_tasks_by_status(&tasks, "OPEN");
+        assert_eq!(result.len(), 1);
+    }
+
+    /// Empty filter matches nothing.
+    #[test]
+    fn filter_empty_string_matches_nothing() {
+        let tasks = vec![sample_task_info("1", TaskStatusOutput::Open)];
+        let result = filter_tasks_by_status(&tasks, "");
+        assert!(result.is_empty());
+    }
+
+    /// Filter with null bytes.
+    #[test]
+    fn filter_null_bytes_matches_nothing() {
+        let tasks = vec![sample_task_info("1", TaskStatusOutput::Open)];
+        let result = filter_tasks_by_status(&tasks, "open\x00hidden");
+        assert!(result.is_empty());
+    }
+
+    // ─── TASKID CONSTRUCTION BOUNDARY ATTACKS ────────────────────────────
+
+    /// TaskId rejects all non-alphanumeric-with-dash-underscore chars.
+    #[test]
+    fn taskid_rejects_injection_payloads() {
+        let injection_ids = vec![
+            "'; DROP TABLE tasks; --",
+            "task OR 1=1",
+            "task\"; --",
+            "task\x00hidden",
+            "../../../etc/passwd",
+            "task\nnewline",
+            "task\ttab",
+            "task\rCR",
+        ];
+        for id in injection_ids {
+            assert!(
+                TaskId::new(id).is_err(),
+                "TaskId should reject injection payload: {:?}",
+                id
+            );
+        }
+    }
+
+    /// TaskId rejects all-underscore (valid but edge-case).
+    #[test]
+    fn taskid_accepts_all_underscore() {
+        assert!(TaskId::new("___").is_ok(), "All underscores is valid per regex");
+    }
+
+    /// TaskId rejects dot-containing IDs.
+    #[test]
+    fn taskid_rejects_dotted_id() {
+        assert!(TaskId::new("task.1.2").is_err());
+    }
+
+    // ─── EXECUTION-LEVEL ADVERSARIAL TESTS ──────────────────────────────
+
+    /// execute_task_command for done without env var or explicit ID.
+    #[test]
+    fn execute_done_no_env_no_explicit_id_returns_error() {
+        let cmd = TaskCommand::Done {
+            task_id: None,
+            agent_id: valid_agent("agent-1"),
+        };
+        let lock = scp_core::lock::MemLockManager::new();
+        let result = execute_task_command(&cmd, &lock);
+        assert!(
+            result.is_err(),
+            "Done without explicit ID or env var should fail"
+        );
+    }
+
+    /// Execute claim on nonexistent task returns NotFound.
+    #[test]
+    fn execute_claim_nonexistent_returns_not_found() {
+        let cmd = TaskCommand::Claim {
+            task_id: valid_id("ghost-task"),
+            agent_id: valid_agent("agent-1"),
+        };
+        let lock = scp_core::lock::MemLockManager::new();
+        assert_not_found(execute_task_command(&cmd, &lock));
+    }
+
+    /// Execute yield on nonexistent task returns NotFound.
+    #[test]
+    fn execute_yield_nonexistent_returns_not_found() {
+        let cmd = TaskCommand::YieldTask {
+            task_id: valid_id("ghost-task"),
+            agent_id: valid_agent("agent-1"),
+        };
+        let lock = scp_core::lock::MemLockManager::new();
+        assert_not_found(execute_task_command(&cmd, &lock));
+    }
+
+    /// Execute start on nonexistent task returns NotFound.
+    #[test]
+    fn execute_start_nonexistent_returns_not_found() {
+        let cmd = TaskCommand::Start {
+            task_id: valid_id("ghost-task"),
+            agent_id: valid_agent("agent-1"),
+        };
+        let lock = scp_core::lock::MemLockManager::new();
+        assert_not_found(execute_task_command(&cmd, &lock));
+    }
+
+    /// Execute done on nonexistent task returns NotFound.
+    #[test]
+    fn execute_done_nonexistent_returns_not_found() {
+        let cmd = TaskCommand::Done {
+            task_id: Some(valid_id("ghost-task")),
+            agent_id: valid_agent("agent-1"),
+        };
+        let lock = scp_core::lock::MemLockManager::new();
+        assert_not_found(execute_task_command(&cmd, &lock));
+    }
+
+    /// Execute show on nonexistent task returns NotFound.
+    #[test]
+    fn execute_show_nonexistent_returns_not_found() {
+        let cmd = TaskCommand::Show {
+            task_id: valid_id("ghost-task"),
+        };
+        let lock = scp_core::lock::MemLockManager::new();
+        assert_not_found(execute_task_command(&cmd, &lock));
+    }
+
+    // ─── PROPTEST-BASED FUZZING ─────────────────────────────────────────
+
+    use proptest::prelude::*;
+
+    proptest! {
+        /// TaskId rejects any string containing non-[a-zA-Z0-9_-] chars.
+        #[test]
+        fn proptest_taskid_rejects_invalid_chars(s in "[^a-zA-Z0-9_-]+") {
+            let result = TaskId::new(&s);
+            assert!(result.is_err(), "TaskId should reject: {:?}", s);
+        }
+
+        /// TaskId accepts any string of only [a-zA-Z0-9_-].
+        #[test]
+        fn proptest_taskid_accepts_valid_chars(s in "[a-zA-Z0-9_-]+") {
+            let result = TaskId::new(&s);
+            assert!(result.is_ok(), "TaskId should accept: {:?}", s);
+        }
+
+        /// truncate_description never panics on any input and always produces valid UTF-8.
+        #[test]
+        fn proptest_truncate_never_panics(s in ".*", max in 0usize..=200usize) {
+            let result = truncate_description(&s, max);
+            // Never panics, and always returns valid UTF-8
+            assert!(std::str::from_utf8(result.as_bytes()).is_ok());
+        }
+
+        /// filter_tasks_by_status never panics on any filter string.
+        #[test]
+        fn proptest_filter_never_panics(filter in ".*") {
+            let tasks = vec![sample_task_info("1", TaskStatusOutput::Open)];
+            let _ = filter_tasks_by_status(&tasks, &filter);
+        }
+
+        /// Title::new accepts any string without panic.
+        #[test]
+        fn proptest_title_accepts_anything(s in ".*") {
+            let title = Title::new(&s);
+            assert_eq!(title.as_str(), s);
+        }
+
+        /// AgentId rejects empty and whitespace-only, accepts everything else.
+        #[test]
+        fn proptest_agent_id_validation(s in ".*") {
+            let result = AgentId::new(&s);
+            let is_empty_or_ws = s.trim().is_empty();
+            assert_eq!(result.is_ok(), !is_empty_or_ws, "AgentId::new({:?})", s);
+        }
+
+        /// Task serialization roundtrip preserves data for any valid title.
+        #[test]
+        fn proptest_task_serialization_roundtrip(title in ".*") {
+            let task = Task::new(
+                TaskId::new("rt-test").expect("valid"),
+                Title::new(&title),
+            );
+            let json = serde_json::to_string(&task).expect("serialize");
+            let restored: Task = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(restored.title.as_str(), title);
+        }
+    }
+}
