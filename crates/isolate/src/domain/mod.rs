@@ -1,8 +1,8 @@
 //! Isolate domain — types, events, state machine, and checkpoint logic.
 //!
 //! Follows Data->Calc->Actions layering:
-//! - Data: Value types (WorkspaceState, OperationRisk, CheckpointState)
-//! - Calc: Pure functions (classify_command, state transitions)
+//! - Data: Value types ([`WorkspaceState`], [`OperationRisk`], [`CheckpointState`])
+//! - Calc: Pure functions ([`classify_command`], state transitions)
 //! - Actions: Side effects (in parent module)
 
 pub mod checkpoint_calc;
