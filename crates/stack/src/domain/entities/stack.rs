@@ -182,6 +182,36 @@ impl<S> Stack<S> {
             .map(|b| b.name.clone())
             .collect()
     }
+
+    /// Get siblings of a branch (other branches with the same parent).
+    ///
+    /// Ported from stax `Stack::get_siblings`. Returns the branch itself
+    /// if it has no siblings or is the trunk.
+    #[must_use]
+    pub fn get_siblings(&self, branch: &BranchName) -> Vec<BranchName> {
+        let Some(branch_info) = self.find_branch(branch) else {
+            return vec![branch.clone()];
+        };
+
+        let Some(parent) = &branch_info.parent else {
+            return vec![branch.clone()];
+        };
+
+        let Some(parent_info) = self.find_branch(parent) else {
+            let mut siblings: Vec<BranchName> = self
+                .branches
+                .iter()
+                .filter(|b| b.parent.as_ref() == Some(parent))
+                .map(|b| b.name.clone())
+                .collect();
+            siblings.sort();
+            return siblings;
+        };
+
+        let mut siblings = parent_info.children.clone();
+        siblings.sort();
+        siblings
+    }
 }
 
 impl Stack<Published> {
@@ -1017,6 +1047,38 @@ mod tests {
         });
 
         assert!(stack.needs_restack().is_empty());
+    }
+
+    // ── get_siblings tests (ported from stax) ──
+
+    #[test]
+    fn test_get_siblings_with_one_sibling() {
+        let stack = create_test_stack();
+        let siblings = stack.get_siblings(&BranchName::new("feature-a".to_string()));
+        assert!(siblings.contains(&BranchName::new("feature-a".to_string())));
+        assert!(siblings.contains(&BranchName::new("feature-b".to_string())));
+        assert_eq!(siblings.len(), 2);
+    }
+
+    #[test]
+    fn test_get_siblings_only_child() {
+        let stack = create_test_stack();
+        let siblings = stack.get_siblings(&BranchName::new("feature-a-1".to_string()));
+        assert_eq!(siblings, vec![BranchName::new("feature-a-1".to_string())]);
+    }
+
+    #[test]
+    fn test_get_siblings_trunk() {
+        let stack = create_test_stack();
+        let siblings = stack.get_siblings(&BranchName::new("main".to_string()));
+        assert_eq!(siblings, vec![BranchName::new("main".to_string())]);
+    }
+
+    #[test]
+    fn test_get_siblings_nonexistent() {
+        let stack = create_test_stack();
+        let siblings = stack.get_siblings(&BranchName::new("nonexistent".to_string()));
+        assert_eq!(siblings, vec![BranchName::new("nonexistent".to_string())]);
     }
 
     #[test]

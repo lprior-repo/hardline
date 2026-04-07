@@ -1,3 +1,3 @@
 mod stack;
 
-pub use stack::{PrInfo, PrState, Stack, StackBranch};
+pub use stack::{Draft, PrInfo, PrState, Stack, StackBranch};
