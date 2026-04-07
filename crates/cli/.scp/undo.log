@@ -1,3 +1,9 @@
 {"session_name":"feature-x","commit_id":"","pre_merge_commit_id":"commit-sha-abc","timestamp":1775575237,"pushed_to_remote":true,"status":"completed"}
 {"session_name":"changes-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775575237,"pushed_to_remote":true,"status":"completed"}
 {"session_name":"clean-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775575237,"pushed_to_remote":true,"status":"completed"}
+{"session_name":"clean-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775583013,"pushed_to_remote":true,"status":"completed"}
+{"session_name":"changes-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775583013,"pushed_to_remote":true,"status":"completed"}
+{"session_name":"push-fail-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775583013,"pushed_to_remote":false,"status":"completed"}
+{"session_name":"feature-y","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775583013,"pushed_to_remote":true,"status":"completed"}
+{"session_name":"feature-x","commit_id":"","pre_merge_commit_id":"commit-sha-abc","timestamp":1775583013,"pushed_to_remote":true,"status":"completed"}
+{"session_name":"detect-fail-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775583013,"pushed_to_remote":true,"status":"completed"}
