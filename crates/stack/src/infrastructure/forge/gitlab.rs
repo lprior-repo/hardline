@@ -660,6 +660,46 @@ impl GitLabClient {
         }
         Ok(reviews)
     }
+
+    /// Get recently opened MRs by a user.
+    pub async fn get_recent_opened_mrs(
+        &self,
+        hours: i64,
+        username: &str,
+    ) -> Result<Vec<MrActivity>> {
+        let since = Utc::now() - chrono::Duration::hours(hours);
+        let url = format!(
+            "{}?author_username={}&created_after={}&per_page=30&order_by=created_at&sort=desc",
+            self.project_url("/merge_requests"),
+            encode_query_value(username),
+            since.to_rfc3339()
+        );
+        let mrs: Vec<GitLabMr> = get_json(&self.client, &url).await?;
+        Ok(mrs
+            .into_iter()
+            .filter_map(|mr| {
+                let ts = mr.created_at?;
+                if ts < since {
+                    return None;
+                }
+                Some(MrActivity {
+                    iid: mr.iid,
+                    title: mr.title,
+                    timestamp: ts,
+                    url: mr.web_url.unwrap_or_default(),
+                })
+            })
+            .collect())
+    }
+
+    /// Get reviews given by a user (not efficiently supported by GitLab API).
+    pub async fn get_reviews_given(
+        &self,
+        _hours: i64,
+        _username: &str,
+    ) -> Result<Vec<ReviewActivity>> {
+        Ok(vec![])
+    }
 }
 
 // --- Data types ---

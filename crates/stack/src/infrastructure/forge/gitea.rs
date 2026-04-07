@@ -519,6 +519,122 @@ impl GiteaClient {
             .collect())
     }
 
+    /// List open PRs authored by a specific user.
+    pub async fn get_user_open_prs(&self, username: &str) -> Result<Vec<UserPrInfo>> {
+        let url = format!("{}?state=open&limit=50", self.repo_url("pulls"));
+        let prs: Vec<GiteaPull> = get_json(&self.client, &url).await?;
+        Ok(prs
+            .iter()
+            .filter(|pr| pr.user.as_ref().is_some_and(|u| u.login == username))
+            .map(|pr| UserPrInfo {
+                number: pr.number,
+                head_branch: pr.head.ref_name.clone(),
+                base_branch: pr.base.ref_name.clone(),
+                state: normalize_gitea_state(pr),
+                is_draft: pr.draft.unwrap_or(false),
+            })
+            .collect())
+    }
+
+    /// Get recently merged PRs authored by a user.
+    pub async fn get_recent_merged_prs(
+        &self,
+        hours: i64,
+        username: &str,
+    ) -> Result<Vec<PrActivity>> {
+        let since = Utc::now() - chrono::Duration::hours(hours);
+        let url = format!("{}?state=closed&sort=recentupdate&limit=30", self.repo_url("pulls"));
+        let prs: Vec<GiteaPull> = get_json(&self.client, &url).await?;
+        Ok(prs
+            .iter()
+            .filter(|pr| {
+                pr.merged == Some(true)
+                    && pr.user.as_ref().is_some_and(|u| u.login == username)
+                    && pr.updated_at.is_some_and(|t| t >= since)
+            })
+            .map(|pr| PrActivity {
+                number: pr.number,
+                title: pr.title.clone().unwrap_or_default(),
+                timestamp: pr.updated_at.unwrap_or_default(),
+                url: pr.html_url.clone().unwrap_or_default(),
+            })
+            .collect())
+    }
+
+    /// Get recently opened PRs authored by a user.
+    pub async fn get_recent_opened_prs(
+        &self,
+        hours: i64,
+        username: &str,
+    ) -> Result<Vec<PrActivity>> {
+        let since = Utc::now() - chrono::Duration::hours(hours);
+        let url = format!("{}?state=open&sort=newest&limit=30", self.repo_url("pulls"));
+        let prs: Vec<GiteaPull> = get_json(&self.client, &url).await?;
+        Ok(prs
+            .iter()
+            .filter(|pr| {
+                pr.user.as_ref().is_some_and(|u| u.login == username)
+                    && pr.created_at.is_some_and(|t| t >= since)
+            })
+            .map(|pr| PrActivity {
+                number: pr.number,
+                title: pr.title.clone().unwrap_or_default(),
+                timestamp: pr.created_at.unwrap_or_default(),
+                url: pr.html_url.clone().unwrap_or_default(),
+            })
+            .collect())
+    }
+
+    /// Get reviews received on a user's open PRs.
+    pub async fn get_reviews_received(
+        &self,
+        hours: i64,
+        username: &str,
+    ) -> Result<Vec<ReviewActivity>> {
+        let since = Utc::now() - chrono::Duration::hours(hours);
+        let prs_url = format!("{}?state=open&limit=20", self.repo_url("pulls"));
+        let prs: Vec<GiteaPull> = get_json(&self.client, &prs_url).await?;
+
+        let mut reviews = Vec::new();
+        for pr in prs {
+            if pr.user.as_ref().is_none_or(|u| u.login != username) {
+                continue;
+            }
+            let reviews_url = self.repo_url(&format!("pulls/{}/reviews", pr.number));
+            let pr_reviews: Vec<GiteaReview> = match get_json(&self.client, &reviews_url).await {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            for review in pr_reviews {
+                let reviewer = match &review.user {
+                    Some(u) if u.login != username => u.login.clone(),
+                    _ => continue,
+                };
+                if let Some(ts) = review.submitted_at {
+                    if ts >= since {
+                        reviews.push(ReviewActivity {
+                            pr_number: pr.number,
+                            pr_title: pr.title.clone().unwrap_or_default(),
+                            reviewer,
+                            state: review.state.unwrap_or_else(|| "COMMENTED".to_string()),
+                            timestamp: ts,
+                        });
+                    }
+                }
+            }
+        }
+        Ok(reviews)
+    }
+
+    /// Get reviews given by a user (not yet efficiently supported by Gitea API).
+    pub async fn get_reviews_given(
+        &self,
+        _hours: i64,
+        _username: &str,
+    ) -> Result<Vec<ReviewActivity>> {
+        Ok(vec![])
+    }
+
     /// List open issues in the repository.
     pub async fn list_open_issues(&self, limit: u8) -> Result<Vec<RepoIssueListItem>> {
         let limit = limit.clamp(1, 50);
@@ -586,6 +702,44 @@ pub struct RepoIssueListItem {
     pub author: String,
     pub labels: Vec<String>,
     pub updated_at: DateTime<Utc>,
+}
+
+// --- Review types ---
+
+#[derive(Debug, Deserialize)]
+struct GiteaReview {
+    user: Option<GiteaUser>,
+    state: Option<String>,
+    submitted_at: Option<DateTime<Utc>>,
+}
+
+/// PR activity for reporting.
+#[derive(Debug, Clone)]
+pub struct PrActivity {
+    pub number: u64,
+    pub title: String,
+    pub timestamp: DateTime<Utc>,
+    pub url: String,
+}
+
+/// Review activity for reporting.
+#[derive(Debug, Clone)]
+pub struct ReviewActivity {
+    pub pr_number: u64,
+    pub pr_title: String,
+    pub reviewer: String,
+    pub state: String,
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Summary of a user's open PR.
+#[derive(Debug, Clone)]
+pub struct UserPrInfo {
+    pub number: u64,
+    pub head_branch: String,
+    pub base_branch: String,
+    pub state: String,
+    pub is_draft: bool,
 }
 
 #[cfg(test)]
