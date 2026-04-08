@@ -14,6 +14,8 @@
 
 pub mod actions;
 pub mod data;
+#[cfg(test)]
+mod tests;
 
 pub use actions::run_rename;
 pub use data::{RenameOptions, RenameOutput};
