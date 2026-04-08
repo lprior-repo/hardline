@@ -26,6 +26,7 @@ pub mod introspect;
 pub mod json_format;
 pub mod lock;
 pub mod prune;
+pub mod queue;
 pub mod query;
 pub mod recover;
 pub mod rename;
