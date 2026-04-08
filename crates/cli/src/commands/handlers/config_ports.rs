@@ -150,42 +150,60 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_state_db_default() {
-        // Remove env vars to test default behavior
-        std::env::remove_var("SCP_STATE_DB");
-        std::env::remove_var("SCP_DATABASE_PATH");
+    fn test_resolve_state_db_env_priority() {
+        // All state-db resolution tests combined into one to avoid parallel
+        // env-var races (std::env::set_var is process-global).
+        // Tests priority: SCP_STATE_DB > SCP_DATABASE_PATH > default
 
         let cwd = std::env::current_dir().unwrap();
-        let path = resolve_state_db_path(&cwd);
-        assert!(path.is_ok());
-        let p = path.unwrap();
-        assert!(p.to_string_lossy().contains(".scp"));
-        assert!(p.to_string_lossy().contains("state.db"));
-    }
 
-    #[test]
-    fn test_resolve_state_db_from_env() {
+        // 1. Neither set → default path (was test_resolve_state_db_default)
+        std::env::remove_var("SCP_STATE_DB");
+        std::env::remove_var("SCP_DATABASE_PATH");
+        let path = resolve_state_db_path(&cwd).unwrap();
+        assert!(
+            path.to_string_lossy().contains(".scp"),
+            "default path should contain .scp: got {:?}",
+            path
+        );
+        assert!(
+            path.to_string_lossy().contains("state.db"),
+            "default path should contain state.db: got {:?}",
+            path
+        );
+
+        // Also verify resolve_all_paths with no env vars (was test_resolve_all_paths)
+        let paths = resolve_all_paths().unwrap();
+        assert!(paths.global_config.to_string_lossy().contains("scp"));
+        assert!(paths.project_config.to_string_lossy().contains(".scp"));
+        assert!(paths.state_db.to_string_lossy().contains("state.db"));
+
+        // 2. Only SCP_STATE_DB set → uses it (was test_resolve_state_db_from_env)
         std::env::set_var("SCP_STATE_DB", "/tmp/custom.db");
+        assert_eq!(
+            resolve_state_db_path(&cwd).unwrap(),
+            PathBuf::from("/tmp/custom.db"),
+            "should use SCP_STATE_DB"
+        );
 
-        let cwd = std::env::current_dir().unwrap();
-        let path = resolve_state_db_path(&cwd);
-        assert!(path.is_ok());
-        assert_eq!(path.unwrap(), PathBuf::from("/tmp/custom.db"));
+        // 3. Both set → SCP_STATE_DB wins
+        std::env::set_var("SCP_DATABASE_PATH", "/tmp/from-flag.db");
+        assert_eq!(
+            resolve_state_db_path(&cwd).unwrap(),
+            PathBuf::from("/tmp/custom.db"),
+            "SCP_STATE_DB should take priority over SCP_DATABASE_PATH"
+        );
 
+        // 4. Only SCP_DATABASE_PATH set → uses it
         std::env::remove_var("SCP_STATE_DB");
-    }
+        assert_eq!(
+            resolve_state_db_path(&cwd).unwrap(),
+            PathBuf::from("/tmp/from-flag.db"),
+            "should use SCP_DATABASE_PATH when SCP_STATE_DB is not set"
+        );
 
-    #[test]
-    fn test_resolve_all_paths() {
-        std::env::remove_var("SCP_STATE_DB");
+        // Cleanup
         std::env::remove_var("SCP_DATABASE_PATH");
-
-        let paths = resolve_all_paths();
-        assert!(paths.is_ok());
-        let p = paths.unwrap();
-        assert!(p.global_config.to_string_lossy().contains("scp"));
-        assert!(p.project_config.to_string_lossy().contains(".scp"));
-        assert!(p.state_db.to_string_lossy().contains("state.db"));
     }
 
     #[test]
@@ -203,32 +221,5 @@ mod tests {
         assert!(json.contains("state_db_path"));
         assert!(json.contains("true"));
         assert!(json.contains("false"));
-    }
-
-    #[test]
-    fn test_resolve_state_db_priority_database_path() {
-        // SCP_DATABASE_PATH should be used if SCP_STATE_DB is not set
-        std::env::remove_var("SCP_STATE_DB");
-        std::env::set_var("SCP_DATABASE_PATH", "/tmp/from-flag.db");
-
-        let cwd = std::env::current_dir().unwrap();
-        let path = resolve_state_db_path(&cwd);
-        assert_eq!(path.unwrap(), PathBuf::from("/tmp/from-flag.db"));
-
-        std::env::remove_var("SCP_DATABASE_PATH");
-    }
-
-    #[test]
-    fn test_resolve_state_db_state_db_overrides_database_path() {
-        // SCP_STATE_DB should take priority over SCP_DATABASE_PATH
-        std::env::set_var("SCP_STATE_DB", "/tmp/state-db-path.db");
-        std::env::set_var("SCP_DATABASE_PATH", "/tmp/database-path.db");
-
-        let cwd = std::env::current_dir().unwrap();
-        let path = resolve_state_db_path(&cwd);
-        assert_eq!(path.unwrap(), PathBuf::from("/tmp/state-db-path.db"));
-
-        std::env::remove_var("SCP_STATE_DB");
-        std::env::remove_var("SCP_DATABASE_PATH");
     }
 }
