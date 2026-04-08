@@ -597,6 +597,277 @@ mod tests {
             let desc = Description::new("Line 1\nLine 2\nLine 3").expect("valid");
             assert!(desc.as_str().contains('\n'));
         }
+
+        // --- Length boundary tests ---
+
+        #[test]
+        fn description_zero_length_is_valid() {
+            let desc = Description::new("").expect("empty string is valid");
+            assert_eq!(desc.as_str().len(), 0);
+        }
+
+        #[test]
+        fn description_single_char_is_valid() {
+            let desc = Description::new("X").expect("single char is valid");
+            assert_eq!(desc.as_str(), "X");
+        }
+
+        #[test]
+        fn description_max_length_minus_one() {
+            let content = "a".repeat(Description::MAX_LENGTH - 1);
+            let desc = Description::new(content).expect("one below max");
+            assert_eq!(desc.as_str().len(), Description::MAX_LENGTH - 1);
+        }
+
+        #[test]
+        fn description_exactly_max_length() {
+            let content = "b".repeat(Description::MAX_LENGTH);
+            let desc = Description::new(content).expect("exactly at max");
+            assert_eq!(desc.as_str().len(), Description::MAX_LENGTH);
+        }
+
+        #[test]
+        fn description_one_over_max_rejects() {
+            let content = "c".repeat(Description::MAX_LENGTH + 1);
+            let result = Description::new(content);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn description_far_over_max_rejects() {
+            let content = "d".repeat(Description::MAX_LENGTH + 1000);
+            let result = Description::new(content);
+            assert!(result.is_err());
+        }
+
+        // --- Equality & cloning ---
+
+        #[test]
+        fn description_equality_same_content() {
+            let d1 = Description::new("same").unwrap();
+            let d2 = Description::new("same").unwrap();
+            assert_eq!(d1, d2);
+        }
+
+        #[test]
+        fn description_inequality_different_content() {
+            let d1 = Description::new("alpha").unwrap();
+            let d2 = Description::new("beta").unwrap();
+            assert_ne!(d1, d2);
+        }
+
+        #[test]
+        fn description_clone_preserves_content() {
+            let original = Description::new("clone me").unwrap();
+            let cloned = original.clone();
+            assert_eq!(original, cloned);
+            assert_eq!(original.as_str(), cloned.as_str());
+        }
+    }
+
+    // =========================================================================
+    // Description Markdown Tests
+    // =========================================================================
+
+    mod description_markdown_tests {
+        use super::*;
+
+        #[test]
+        fn description_markdown_headers() {
+            let md = "# Heading 1\n## Heading 2\n### Heading 3";
+            let desc = Description::new(md).expect("valid");
+            assert_eq!(desc.as_str(), md);
+            assert!(desc.as_str().contains("# Heading 1"));
+        }
+
+        #[test]
+        fn description_markdown_bold_and_italic() {
+            let md = "This is **bold** and *italic* and ***both***";
+            let desc = Description::new(md).expect("valid");
+            assert!(desc.as_str().contains("**bold**"));
+            assert!(desc.as_str().contains("*italic*"));
+            assert!(desc.as_str().contains("***both***"));
+        }
+
+        #[test]
+        fn description_markdown_inline_code() {
+            let md = "Use `cargo test` to run tests";
+            let desc = Description::new(md).expect("valid");
+            assert!(desc.as_str().contains("`cargo test`"));
+        }
+
+        #[test]
+        fn description_markdown_code_block() {
+            let md = "```rust\nfn main() {}\n```";
+            let desc = Description::new(md).expect("valid");
+            assert!(desc.as_str().contains("```rust"));
+            assert!(desc.as_str().contains("fn main()"));
+        }
+
+        #[test]
+        fn description_markdown_link() {
+            let md = "[click here](https://example.com)";
+            let desc = Description::new(md).expect("valid");
+            assert!(desc.as_str().contains("[click here]"));
+            assert!(desc.as_str().contains("(https://example.com)"));
+        }
+
+        #[test]
+        fn description_markdown_unordered_list() {
+            let md = "- item one\n- item two\n- item three";
+            let desc = Description::new(md).expect("valid");
+            assert_eq!(desc.as_str(), md);
+        }
+
+        #[test]
+        fn description_markdown_ordered_list() {
+            let md = "1. first\n2. second\n3. third";
+            let desc = Description::new(md).expect("valid");
+            assert_eq!(desc.as_str(), md);
+        }
+
+        #[test]
+        fn description_markdown_blockquote() {
+            let md = "> This is a quote\n> spanning lines";
+            let desc = Description::new(md).expect("valid");
+            assert!(desc.as_str().starts_with('>'));
+        }
+
+        #[test]
+        fn description_markdown_horizontal_rule() {
+            let md = "above\n---\nbelow";
+            let desc = Description::new(md).expect("valid");
+            assert!(desc.as_str().contains("\n---\n"));
+        }
+
+        #[test]
+        fn description_markdown_table() {
+            let md = "| A | B |\n|---|---|\n| 1 | 2 |";
+            let desc = Description::new(md).expect("valid");
+            assert!(desc.as_str().contains("| A | B |"));
+            assert!(desc.as_str().contains("|---|---|"));
+        }
+
+        #[test]
+        fn description_special_chars_asterisk() {
+            let desc = Description::new("*.txt").expect("valid");
+            assert_eq!(desc.as_str(), "*.txt");
+        }
+
+        #[test]
+        fn description_special_chars_brackets() {
+            let desc = Description::new("[test](url)").expect("valid");
+            assert_eq!(desc.as_str(), "[test](url)");
+        }
+
+        #[test]
+        fn description_special_chars_angle_brackets() {
+            let desc = Description::new("<html>tag</html>").expect("valid");
+            assert_eq!(desc.as_str(), "<html>tag</html>");
+        }
+
+        #[test]
+        fn description_special_chars_backslashes() {
+            let desc = Description::new(r"path\to\file").expect("valid");
+            assert_eq!(desc.as_str(), r"path\to\file");
+        }
+
+        #[test]
+        fn description_special_chars_pipe() {
+            let desc = Description::new("a | b | c").expect("valid");
+            assert_eq!(desc.as_str(), "a | b | c");
+        }
+
+        #[test]
+        fn description_special_chars_hash() {
+            let desc = Description::new("issue #123").expect("valid");
+            assert_eq!(desc.as_str(), "issue #123");
+        }
+
+        #[test]
+        fn description_special_chars_underscore() {
+            let desc = Description::new("snake_case_name").expect("valid");
+            assert_eq!(desc.as_str(), "snake_case_name");
+        }
+
+        #[test]
+        fn description_special_chars_tilde() {
+            let desc = Description::new("~~strikethrough~~").expect("valid");
+            assert_eq!(desc.as_str(), "~~strikethrough~~");
+        }
+
+        #[test]
+        fn description_unicode_content() {
+            let desc = Description::new("日本語テスト emoji: 🎉").expect("valid");
+            assert!(desc.as_str().contains("日本語テスト"));
+        }
+
+        #[test]
+        fn description_mixed_markdown_document() {
+            let md = r#"# Task
+
+## Description
+
+This task does **important** things.
+
+- [ ] unchecked item
+- [x] checked item
+
+```rust
+let x = 42;
+```
+
+> A wise developer once said...
+
+See [docs](https://example.com) for details.
+"#;
+            let desc = Description::new(md).expect("valid");
+            assert!(desc.as_str().contains("# Task"));
+            assert!(desc.as_str().contains("**important**"));
+            assert!(desc.as_str().contains("- [x]"));
+            assert!(desc.as_str().contains("let x = 42"));
+            assert!(desc.as_str().contains("> A wise"));
+        }
+
+        #[test]
+        fn description_markdown_serde_roundtrip() {
+            let md = "# Title\n\n**bold** and *italic*\n\n```\ncode\n```\n";
+            let desc = Description::new(md).expect("valid");
+            let json = serde_json::to_string(&desc).expect("serialize");
+            let parsed: Description = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(desc, parsed);
+            assert_eq!(parsed.as_str(), md);
+        }
+
+        #[test]
+        fn description_markdown_at_max_length() {
+            // Build a description that fills MAX_LENGTH with markdown content
+            let header = "# H\n\n";
+            let body = "x".repeat(Description::MAX_LENGTH - header.len());
+            let md = format!("{header}{body}");
+            let desc = Description::new(&md).expect("valid at max");
+            assert_eq!(desc.as_str().len(), Description::MAX_LENGTH);
+        }
+
+        #[test]
+        fn description_tabs_preserved() {
+            let desc = Description::new("col1\tcol2\tcol3").expect("valid");
+            assert!(desc.as_str().contains('\t'));
+        }
+
+        #[test]
+        fn description_crlf_preserved() {
+            let desc = Description::new("line1\r\nline2").expect("valid");
+            assert!(desc.as_str().contains("\r\n"));
+        }
+
+        #[test]
+        fn description_display_shows_raw_markdown() {
+            let md = "**bold**";
+            let desc = Description::new(md).expect("valid");
+            // Display should show raw markdown, not rendered
+            assert_eq!(format!("{desc}"), md);
+        }
     }
 
     // =========================================================================
