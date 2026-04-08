@@ -9,7 +9,7 @@
 use std::path::PathBuf;
 
 /// Workspace state
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WorkspaceState {
     /// Workspace is being created
     Creating,
