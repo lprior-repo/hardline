@@ -36,7 +36,7 @@ impl super::config::ConflictResolutionConfig {
     /// # Examples
     ///
     /// ```rust
-    /// use isolate_core::config::conflict_resolution::{
+    /// use scp_core::config::{
     ///     ConflictMode, ConflictResolutionConfig, PartialConflictResolutionConfig,
     /// };
     ///

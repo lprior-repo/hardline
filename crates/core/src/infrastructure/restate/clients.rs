@@ -10,7 +10,7 @@
 //!
 //! ## Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! async fn my_handler(ctx: &impl ContextClient, req: Request) -> Result<Response, HandlerError> {
 //!     // Call another service
 //!     let service_client = ctx.service_client::<MyServiceClient>();

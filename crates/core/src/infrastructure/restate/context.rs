@@ -12,7 +12,7 @@
 //!
 //! ## Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! async fn my_handler(ctx: &impl DurableContext, req: Request) -> Result<Response, HandlerError> {
 //!     // Journaled non-deterministic operation
 //!     let result = ctx.run(|| async { external_api_call().await }).await?;

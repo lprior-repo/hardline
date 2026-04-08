@@ -17,7 +17,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! use chrono::Utc;
-//! use isolate_core::domain::{events::DomainEvent, identifiers::SessionName};
+//! use scp_core::domain::{events::DomainEvent, identifiers::SessionName};
 //!
 //! let event = DomainEvent::session_created(
 //!     "session-123".to_string(),
