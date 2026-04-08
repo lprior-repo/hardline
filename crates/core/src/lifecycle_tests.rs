@@ -1739,4 +1739,747 @@ mod tests {
         // 3 full sync cycles: (activate+sync+sync_complete) + (reactivate+sync+sync_complete) * 2 = 9
         assert_eq!(mgr.history().len(), 9);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WorkspaceStateTransition — all 10 valid pairs explicitly via validate()
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn wst_valid_created_to_working() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "start");
+        assert!(t.validate().is_ok());
+        assert_eq!(t.from, WorkspaceState::Created);
+        assert_eq!(t.to, WorkspaceState::Working);
+    }
+
+    #[test]
+    fn wst_valid_working_to_ready() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Ready, "work complete");
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn wst_valid_working_to_conflict() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Conflict, "merge conflict");
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn wst_valid_working_to_abandoned() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Abandoned, "agent quit");
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn wst_valid_ready_to_working() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Working, "rework needed");
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn wst_valid_ready_to_merged() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Merged, "approved");
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn wst_valid_ready_to_conflict() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Conflict, "conflict detected");
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn wst_valid_ready_to_abandoned() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Abandoned, "withdrawn");
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn wst_valid_conflict_to_working() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Conflict, WorkspaceState::Working, "resolved");
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn wst_valid_conflict_to_abandoned() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Conflict, WorkspaceState::Abandoned, "abandon conflict");
+        assert!(t.validate().is_ok());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WorkspaceStateTransition — exhaustive invalid pairs via validate()
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn wst_all_invalid_pairs_rejected() {
+        // Every (from, to) pair where can_transition_to returns false must fail validate
+        for &from in WorkspaceState::all() {
+            for &to in WorkspaceState::all() {
+                if from.can_transition_to(to) {
+                    continue;
+                }
+                let t = WorkspaceStateTransition::new(from, to, "invalid");
+                assert!(
+                    t.validate().is_err(),
+                    "WorkspaceStateTransition::validate should reject {from:?} -> {to:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn wst_invalid_created_skips_to_ready() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Ready, "skip work");
+        assert!(t.validate().is_err());
+    }
+
+    #[test]
+    fn wst_invalid_created_skips_to_merged() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Merged, "skip everything");
+        assert!(t.validate().is_err());
+    }
+
+    #[test]
+    fn wst_invalid_created_to_abandoned() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Abandoned, "never started");
+        assert!(t.validate().is_err());
+    }
+
+    #[test]
+    fn wst_invalid_created_to_conflict() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Conflict, "conflict before work");
+        assert!(t.validate().is_err());
+    }
+
+    #[test]
+    fn wst_invalid_merged_to_any() {
+        for &target in WorkspaceState::all() {
+            let t = WorkspaceStateTransition::new(WorkspaceState::Merged, target, "unmerge");
+            assert!(t.validate().is_err(), "Merged -> {target:?} must be rejected");
+        }
+    }
+
+    #[test]
+    fn wst_invalid_abandoned_to_any() {
+        for &target in WorkspaceState::all() {
+            let t = WorkspaceStateTransition::new(WorkspaceState::Abandoned, target, "unabandon");
+            assert!(t.validate().is_err(), "Abandoned -> {target:?} must be rejected");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WorkspaceStateTransition — guards and preconditions
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn wst_guard_no_self_transition() {
+        for &state in WorkspaceState::all() {
+            let t = WorkspaceStateTransition::new(state, state, "self");
+            assert!(t.validate().is_err(), "Self-transition {state:?} -> {state:?} must be rejected");
+        }
+    }
+
+    #[test]
+    fn wst_guard_terminal_states_are_sink_nodes() {
+        // Terminal states (Merged, Abandoned) have no outgoing edges
+        for &terminal in &[WorkspaceState::Merged, WorkspaceState::Abandoned] {
+            assert!(terminal.is_terminal());
+            assert!(terminal.valid_next_states().is_empty());
+            // No state can reach them and then continue
+            for &other in WorkspaceState::all() {
+                assert!(
+                    !terminal.can_transition_to(other),
+                    "Terminal {terminal:?} must not transition to {other:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn wst_guard_non_terminal_states_have_outgoing_edges() {
+        for &state in WorkspaceState::all() {
+            if !state.is_terminal() {
+                assert!(
+                    !state.valid_next_states().is_empty(),
+                    "Non-terminal {state:?} must have at least one valid transition"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn wst_guard_created_has_single_exit() {
+        // Created can ONLY go to Working
+        let nexts = WorkspaceState::Created.valid_next_states();
+        assert_eq!(nexts.len(), 1);
+        assert_eq!(nexts[0], WorkspaceState::Working);
+    }
+
+    #[test]
+    fn wst_guard_merged_is_only_reachable_from_ready() {
+        // Only Ready can transition to Merged
+        let mut sources = vec![];
+        for &state in WorkspaceState::all() {
+            if state.can_transition_to(WorkspaceState::Merged) {
+                sources.push(state);
+            }
+        }
+        assert_eq!(sources, vec![WorkspaceState::Ready]);
+    }
+
+    #[test]
+    fn wst_guard_working_is_reachable_from_three_states() {
+        let mut sources = vec![];
+        for &state in WorkspaceState::all() {
+            if state.can_transition_to(WorkspaceState::Working) {
+                sources.push(state);
+            }
+        }
+        assert!(sources.contains(&WorkspaceState::Created));
+        assert!(sources.contains(&WorkspaceState::Ready));
+        assert!(sources.contains(&WorkspaceState::Conflict));
+        assert_eq!(sources.len(), 3);
+    }
+
+    #[test]
+    fn wst_guard_abandoned_reachable_from_working_ready_conflict() {
+        let mut sources = vec![];
+        for &state in WorkspaceState::all() {
+            if state.can_transition_to(WorkspaceState::Abandoned) {
+                sources.push(state);
+            }
+        }
+        assert_eq!(sources.len(), 3);
+        assert!(sources.contains(&WorkspaceState::Working));
+        assert!(sources.contains(&WorkspaceState::Ready));
+        assert!(sources.contains(&WorkspaceState::Conflict));
+    }
+
+    #[test]
+    fn wst_guard_conflict_reachable_from_working_and_ready() {
+        let mut sources = vec![];
+        for &state in WorkspaceState::all() {
+            if state.can_transition_to(WorkspaceState::Conflict) {
+                sources.push(state);
+            }
+        }
+        assert_eq!(sources.len(), 2);
+        assert!(sources.contains(&WorkspaceState::Working));
+        assert!(sources.contains(&WorkspaceState::Ready));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WorkspaceStateTransition — transition side effects
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn wst_side_effect_timestamp_captured() {
+        let before = Utc::now();
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "test");
+        let after = Utc::now();
+        assert!(t.timestamp >= before, "timestamp must be >= before");
+        assert!(t.timestamp <= after, "timestamp must be <= after");
+    }
+
+    #[test]
+    fn wst_side_effect_agent_id_propagated() {
+        let t = WorkspaceStateTransition::with_agent(
+            WorkspaceState::Working, WorkspaceState::Ready, "done", "polecat-shale",
+        );
+        assert_eq!(t.agent_id.as_deref(), Some("polecat-shale"));
+    }
+
+    #[test]
+    fn wst_side_effect_agent_id_none_by_default() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "start");
+        assert!(t.agent_id.is_none());
+    }
+
+    #[test]
+    fn wst_side_effect_reason_preserved() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Ready, "all tests pass");
+        assert_eq!(t.reason, "all tests pass");
+    }
+
+    #[test]
+    fn wst_side_effect_reason_empty_string() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "");
+        assert_eq!(t.reason, "");
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn wst_side_effect_reason_unicode() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Ready, "完了 🚀");
+        assert_eq!(t.reason, "完了 🚀");
+    }
+
+    #[test]
+    fn wst_side_effect_reason_long_string() {
+        let reason = "x".repeat(10_000);
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, &reason);
+        assert_eq!(t.reason.len(), 10_000);
+    }
+
+    #[test]
+    fn wst_side_effect_timestamps_ordered_in_sequence() {
+        let t1 = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "start");
+        let t2 = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Ready, "done");
+        assert!(t1.timestamp <= t2.timestamp, "Timestamps must be ordered");
+    }
+
+    #[test]
+    fn wst_side_effect_from_and_to_fields() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Conflict, WorkspaceState::Working, "fix");
+        assert_eq!(t.from, WorkspaceState::Conflict);
+        assert_eq!(t.to, WorkspaceState::Working);
+    }
+
+    #[test]
+    fn wst_side_effect_with_agent_empty_string() {
+        let t = WorkspaceStateTransition::with_agent(
+            WorkspaceState::Created, WorkspaceState::Working, "start", "",
+        );
+        assert_eq!(t.agent_id.as_deref(), Some(""));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WorkspaceStateTransition — transition recording (history sequences)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Helper: validate and record a transition into a history vec
+    fn record_transition(
+        history: &mut Vec<WorkspaceStateTransition>,
+        from: WorkspaceState,
+        to: WorkspaceState,
+        reason: &str,
+    ) -> crate::error::Result<()> {
+        let t = WorkspaceStateTransition::new(from, to, reason);
+        t.validate()?;
+        history.push(t);
+        Ok(())
+    }
+
+    #[test]
+    fn wst_recording_happy_path_to_merge() {
+        let mut history = vec![];
+        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start work").expect("r1");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "work done").expect("r2");
+        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "merged").expect("r3");
+
+        assert_eq!(history.len(), 3);
+        assert_eq!(history[0].from, WorkspaceState::Created);
+        assert_eq!(history[0].to, WorkspaceState::Working);
+        assert_eq!(history[1].from, WorkspaceState::Working);
+        assert_eq!(history[1].to, WorkspaceState::Ready);
+        assert_eq!(history[2].from, WorkspaceState::Ready);
+        assert_eq!(history[2].to, WorkspaceState::Merged);
+    }
+
+    #[test]
+    fn wst_recording_happy_path_to_abandon() {
+        let mut history = vec![];
+        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Abandoned, "abandon").expect("r2");
+
+        assert_eq!(history.len(), 2);
+    }
+
+    #[test]
+    fn wst_recording_conflict_resolution_path() {
+        let mut history = vec![];
+        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Conflict, "conflict").expect("r2");
+        record_transition(&mut history, WorkspaceState::Conflict, WorkspaceState::Working, "resolve").expect("r3");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "done").expect("r4");
+        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "merged").expect("r5");
+
+        assert_eq!(history.len(), 5);
+        // Verify chain is contiguous: each to == next from
+        for window in history.windows(2) {
+            assert_eq!(window[0].to, window[1].from, "History must be contiguous");
+        }
+    }
+
+    #[test]
+    fn wst_recording_ready_rework_cycle() {
+        let mut history = vec![];
+        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "v1").expect("r2");
+        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Working, "feedback").expect("r3");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "v2").expect("r4");
+        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "approved").expect("r5");
+
+        assert_eq!(history.len(), 5);
+        // Verify the rework loop
+        assert_eq!(history[1].to, WorkspaceState::Ready);
+        assert_eq!(history[2].from, WorkspaceState::Ready);
+        assert_eq!(history[2].to, WorkspaceState::Working);
+    }
+
+    #[test]
+    fn wst_recording_conflict_abandon_path() {
+        let mut history = vec![];
+        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Conflict, "conflict").expect("r2");
+        record_transition(&mut history, WorkspaceState::Conflict, WorkspaceState::Abandoned, "give up").expect("r3");
+
+        assert_eq!(history.len(), 3);
+    }
+
+    #[test]
+    fn wst_recording_ready_conflict_resolution_path() {
+        let mut history = vec![];
+        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "done").expect("r2");
+        // Conflict detected AFTER marking ready
+        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Conflict, "late conflict").expect("r3");
+        record_transition(&mut history, WorkspaceState::Conflict, WorkspaceState::Working, "fix").expect("r4");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "fixed").expect("r5");
+        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "merged").expect("r6");
+
+        assert_eq!(history.len(), 6);
+    }
+
+    #[test]
+    fn wst_recording_invalid_transition_rejected() {
+        let mut history = vec![];
+        // Created -> Merged is invalid
+        let result = record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Merged, "skip");
+        assert!(result.is_err());
+        assert!(history.is_empty(), "Invalid transition must not be recorded");
+    }
+
+    #[test]
+    fn wst_recording_terminal_blocks_further_transitions() {
+        let mut history = vec![];
+        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "done").expect("r2");
+        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "merged").expect("r3");
+
+        // Merged is terminal — no further transitions
+        let result = record_transition(&mut history, WorkspaceState::Merged, WorkspaceState::Working, "unmerge");
+        assert!(result.is_err());
+        assert_eq!(history.len(), 3, "No new entry after terminal state");
+    }
+
+    #[test]
+    fn wst_recording_history_reasons_preserved() {
+        let mut history = vec![];
+        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "agent assigned").expect("r1");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "all tests green").expect("r2");
+
+        assert_eq!(history[0].reason, "agent assigned");
+        assert_eq!(history[1].reason, "all tests green");
+    }
+
+    #[test]
+    fn wst_recording_history_timestamps_monotonic() {
+        let mut history = vec![];
+        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "r1").expect("r1");
+        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "r2").expect("r2");
+        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "r3").expect("r3");
+
+        for window in history.windows(2) {
+            assert!(
+                window[0].timestamp <= window[1].timestamp,
+                "History timestamps must be monotonically non-decreasing"
+            );
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WorkspaceStateTransition — rollback / reverse transition patterns
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn wst_rollback_ready_to_working() {
+        // Ready -> Working is the "rollback" — work needs rework
+        let t = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Working, "rework: review feedback");
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn wst_rollback_conflict_to_working() {
+        // Conflict -> Working is the "resolution rollback"
+        let t = WorkspaceStateTransition::new(WorkspaceState::Conflict, WorkspaceState::Working, "conflict resolved");
+        assert!(t.validate().is_ok());
+    }
+
+    #[test]
+    fn wst_rollback_multiple_rework_cycles() {
+        // Simulate: work -> ready -> rework -> ready -> rework -> ready -> merged
+        let transitions: Vec<(WorkspaceState, WorkspaceState)> = vec![
+            (WorkspaceState::Created, WorkspaceState::Working),
+            (WorkspaceState::Working, WorkspaceState::Ready),
+            (WorkspaceState::Ready, WorkspaceState::Working),     // rollback 1
+            (WorkspaceState::Working, WorkspaceState::Ready),
+            (WorkspaceState::Ready, WorkspaceState::Working),     // rollback 2
+            (WorkspaceState::Working, WorkspaceState::Ready),
+            (WorkspaceState::Ready, WorkspaceState::Merged),
+        ];
+
+        for (from, to) in &transitions {
+            let t = WorkspaceStateTransition::new(*from, *to, "step");
+            assert!(t.validate().is_ok(), "Rollback cycle {from:?} -> {to:?} must be valid");
+        }
+        assert_eq!(transitions.len(), 7);
+    }
+
+    #[test]
+    fn wst_rollback_conflict_cycle() {
+        // Working -> Conflict -> Working -> Conflict -> Working -> Ready -> Merged
+        let transitions: Vec<(WorkspaceState, WorkspaceState)> = vec![
+            (WorkspaceState::Created, WorkspaceState::Working),
+            (WorkspaceState::Working, WorkspaceState::Conflict),
+            (WorkspaceState::Conflict, WorkspaceState::Working),  // resolve 1
+            (WorkspaceState::Working, WorkspaceState::Conflict),
+            (WorkspaceState::Conflict, WorkspaceState::Working),  // resolve 2
+            (WorkspaceState::Working, WorkspaceState::Ready),
+            (WorkspaceState::Ready, WorkspaceState::Merged),
+        ];
+
+        for (from, to) in &transitions {
+            let t = WorkspaceStateTransition::new(*from, *to, "step");
+            assert!(t.validate().is_ok(), "Conflict cycle {from:?} -> {to:?} must be valid");
+        }
+    }
+
+    #[test]
+    fn wst_rollback_ready_to_abandon_not_undoable() {
+        // Ready -> Abandoned is valid but Abandoned is terminal
+        let t1 = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Abandoned, "withdrawn");
+        assert!(t1.validate().is_ok());
+
+        // Cannot undo the abandonment
+        let t2 = WorkspaceStateTransition::new(WorkspaceState::Abandoned, WorkspaceState::Working, "un-abandon");
+        assert!(t2.validate().is_err());
+    }
+
+    #[test]
+    fn wst_rollback_terminal_states_are_irreversible() {
+        // Both terminal states (Merged, Abandoned) cannot be rolled back
+        for &terminal in &[WorkspaceState::Merged, WorkspaceState::Abandoned] {
+            for &any in WorkspaceState::all() {
+                if any == terminal {
+                    continue;
+                }
+                let t = WorkspaceStateTransition::new(terminal, any, "undo");
+                assert!(t.validate().is_err(), "Terminal {terminal:?} cannot rollback to {any:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn wst_rollback_created_cannot_be_rolled_back_from() {
+        // Created is the initial state — there's no "previous" state to roll back to
+        assert!(WorkspaceState::Created.valid_next_states().len() == 1);
+        assert_eq!(WorkspaceState::Created.valid_next_states()[0], WorkspaceState::Working);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WorkspaceStateTransition — error message content
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn wst_error_message_contains_from_and_to() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Merged, "skip");
+        let err = t.validate().expect_err("should fail");
+        let msg = format!("{err}");
+        // Error message should reference both states
+        assert!(!msg.is_empty(), "Error message must not be empty");
+    }
+
+    #[test]
+    fn wst_error_message_for_terminal_source() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Merged, WorkspaceState::Working, "unmerge");
+        let err = t.validate().expect_err("should fail");
+        let msg = format!("{err}");
+        assert!(!msg.is_empty());
+    }
+
+    #[test]
+    fn wst_error_message_for_self_transition() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Working, "self");
+        let err = t.validate().expect_err("should fail");
+        let msg = format!("{err}");
+        assert!(!msg.is_empty());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WorkspaceStateTransition — serde exhaustive coverage
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn wst_serde_roundtrip_all_valid_pairs() {
+        let valid_pairs: Vec<(WorkspaceState, WorkspaceState)> = vec![
+            (WorkspaceState::Created, WorkspaceState::Working),
+            (WorkspaceState::Working, WorkspaceState::Ready),
+            (WorkspaceState::Working, WorkspaceState::Conflict),
+            (WorkspaceState::Working, WorkspaceState::Abandoned),
+            (WorkspaceState::Ready, WorkspaceState::Working),
+            (WorkspaceState::Ready, WorkspaceState::Merged),
+            (WorkspaceState::Ready, WorkspaceState::Conflict),
+            (WorkspaceState::Ready, WorkspaceState::Abandoned),
+            (WorkspaceState::Conflict, WorkspaceState::Working),
+            (WorkspaceState::Conflict, WorkspaceState::Abandoned),
+        ];
+
+        for (from, to) in valid_pairs {
+            let t = WorkspaceStateTransition::with_agent(from, to, "test", "agent-1");
+            let json = serde_json::to_string(&t).expect("serialize");
+            let back: WorkspaceStateTransition = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(t.from, back.from, "from mismatch for {from:?} -> {to:?}");
+            assert_eq!(t.to, back.to, "to mismatch for {from:?} -> {to:?}");
+            assert_eq!(t.reason, back.reason, "reason mismatch for {from:?} -> {to:?}");
+            assert_eq!(t.agent_id, back.agent_id, "agent_id mismatch for {from:?} -> {to:?}");
+        }
+    }
+
+    #[test]
+    fn wst_serde_agent_id_omitted_when_none() {
+        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "start");
+        let json = serde_json::to_string(&t).expect("serialize");
+        assert!(!json.contains("agent_id"), "agent_id must be omitted when None: {json}");
+    }
+
+    #[test]
+    fn wst_serde_agent_id_present_when_some() {
+        let t = WorkspaceStateTransition::with_agent(
+            WorkspaceState::Created, WorkspaceState::Working, "start", "agent-x",
+        );
+        let json = serde_json::to_string(&t).expect("serialize");
+        assert!(json.contains("agent_id"), "agent_id must appear when Some: {json}");
+        assert!(json.contains("agent-x"), "agent_id value must be in JSON");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WorkspaceStateTransition — proptest suite
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    mod wst_proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn wst_validate_matches_can_transition_to(from_idx in 0..6usize, to_idx in 0..6usize) {
+                let from = WorkspaceState::all()[from_idx];
+                let to = WorkspaceState::all()[to_idx];
+                let t = WorkspaceStateTransition::new(from, to, "proptest");
+                let can = from.can_transition_to(to);
+                let result = t.validate();
+                if can {
+                    prop_assert!(result.is_ok(), "validate should succeed for {from:?} -> {to:?}");
+                } else {
+                    prop_assert!(result.is_err(), "validate should fail for {from:?} -> {to:?}");
+                }
+            }
+
+            #[test]
+            fn wst_constructor_preserves_fields(from_idx in 0..6usize, to_idx in 0..6usize, reason in ".*") {
+                let from = WorkspaceState::all()[from_idx];
+                let to = WorkspaceState::all()[to_idx];
+                let t = WorkspaceStateTransition::new(from, to, &reason);
+                prop_assert_eq!(t.from, from);
+                prop_assert_eq!(t.to, to);
+                prop_assert_eq!(t.reason, reason);
+                prop_assert!(t.agent_id.is_none());
+            }
+
+            #[test]
+            fn wst_with_agent_preserves_agent_id(
+                from_idx in 0..6usize, to_idx in 0..6usize,
+                reason in ".*", agent_id in ".*"
+            ) {
+                let from = WorkspaceState::all()[from_idx];
+                let to = WorkspaceState::all()[to_idx];
+                let t = WorkspaceStateTransition::with_agent(from, to, &reason, &agent_id);
+                prop_assert_eq!(t.agent_id.as_deref(), Some(agent_id.as_str()));
+                prop_assert_eq!(t.from, from);
+                prop_assert_eq!(t.to, to);
+                prop_assert_eq!(t.reason, reason);
+            }
+
+            #[test]
+            fn wst_no_self_transition(state_idx in 0..6usize) {
+                let state = WorkspaceState::all()[state_idx];
+                let t = WorkspaceStateTransition::new(state, state, "self");
+                prop_assert!(t.validate().is_err(), "Self-transition must be rejected");
+            }
+
+            #[test]
+            fn wst_terminal_rejects_all(state_idx in 0..6usize, target_idx in 0..6usize) {
+                let state = WorkspaceState::all()[state_idx];
+                if !state.is_terminal() {
+                    return Ok(());
+                }
+                let target = WorkspaceState::all()[target_idx];
+                let t = WorkspaceStateTransition::new(state, target, "try");
+                prop_assert!(t.validate().is_err(), "Terminal must reject all");
+            }
+
+            #[test]
+            fn wst_serde_roundtrip(from_idx in 0..6usize, to_idx in 0..6usize, reason in ".*") {
+                let from = WorkspaceState::all()[from_idx];
+                let to = WorkspaceState::all()[to_idx];
+                let t = WorkspaceStateTransition::new(from, to, &reason);
+                let json = serde_json::to_string(&t).expect("serialize");
+                let back: WorkspaceStateTransition = serde_json::from_str(&json).expect("deserialize");
+                prop_assert_eq!(t.from, back.from);
+                prop_assert_eq!(t.to, back.to);
+                prop_assert_eq!(t.reason, back.reason);
+                prop_assert_eq!(t.agent_id, back.agent_id);
+            }
+
+            #[test]
+            fn wst_with_agent_serde_roundtrip(
+                from_idx in 0..6usize, to_idx in 0..6usize,
+                reason in ".*", agent_id in "[a-zA-Z0-9-]*"
+            ) {
+                let from = WorkspaceState::all()[from_idx];
+                let to = WorkspaceState::all()[to_idx];
+                let t = WorkspaceStateTransition::with_agent(from, to, &reason, &agent_id);
+                let json = serde_json::to_string(&t).expect("serialize");
+                let back: WorkspaceStateTransition = serde_json::from_str(&json).expect("deserialize");
+                prop_assert_eq!(t.from, back.from);
+                prop_assert_eq!(t.to, back.to);
+                prop_assert_eq!(t.reason, back.reason);
+                prop_assert_eq!(t.agent_id, back.agent_id);
+            }
+
+            #[test]
+            fn wst_timestamp_within_epoch(from_idx in 0..6usize, to_idx in 0..6usize) {
+                let from = WorkspaceState::all()[from_idx];
+                let to = WorkspaceState::all()[to_idx];
+                let before = Utc::now();
+                let t = WorkspaceStateTransition::new(from, to, "test");
+                let after = Utc::now();
+                prop_assert!(t.timestamp >= before);
+                prop_assert!(t.timestamp <= after);
+            }
+
+            #[test]
+            fn wst_validate_error_not_empty_for_invalid(from_idx in 0..6usize, to_idx in 0..6usize) {
+                let from = WorkspaceState::all()[from_idx];
+                let to = WorkspaceState::all()[to_idx];
+                if from.can_transition_to(to) {
+                    return Ok(());
+                }
+                let t = WorkspaceStateTransition::new(from, to, "test");
+                let err = t.validate().expect_err("must fail");
+                let msg = format!("{err}");
+                prop_assert!(!msg.is_empty());
+            }
+
+            #[test]
+            fn wst_valid_next_states_subset_of_all(from_idx in 0..6usize) {
+                let state = WorkspaceState::all()[from_idx];
+                let nexts = state.valid_next_states();
+                for &next in &nexts {
+                    prop_assert!(WorkspaceState::all().contains(&next), "next state must be in all()");
+                }
+            }
+        }
+    }
 }
