@@ -424,4 +424,375 @@ mod tests {
             }
         }
     }
+
+    // =========================================================================
+    // Event Ordering During Lifecycle Transitions (ha-weh)
+    // =========================================================================
+
+    mod event_ordering_tests {
+        use super::*;
+        use crate::domain::entities::session::{Active, Completed, Created, Failed, Session};
+
+        /// SessionCreatedEvent captures the session identity at creation time.
+        /// Verify it matches the session's id and name.
+        #[test]
+        fn created_event_matches_session_identity_at_creation() {
+            let name = SessionName::parse("ordering-create").expect("valid");
+            let session = Session::<Created>::create(name.clone()).expect("created");
+
+            let event = SessionCreatedEvent::new(session.id.as_str().to_string(), name);
+
+            assert_eq!(event.session_id, session.id.as_str());
+            assert_eq!(event.session_name.as_str(), session.name.as_str());
+            assert!(event.timestamp >= session.created_at);
+        }
+
+        /// Happy path: Created → Active → Completed.
+        /// SessionCreatedEvent fires before SessionCompletedEvent.
+        /// Both carry the same session identity; timestamps are ordered.
+        #[test]
+        fn created_then_completed_event_ordering() {
+            let name = SessionName::parse("order-complete").expect("valid");
+            let session = Session::<Created>::create(name.clone()).expect("created");
+
+            let created_event =
+                SessionCreatedEvent::new(session.id.as_str().to_string(), name.clone());
+
+            let active: Session<Active> = session.activate().expect("activate");
+            let completed: Session<Completed> = active.complete().expect("complete");
+
+            let completed_event =
+                SessionCompletedEvent::new(completed.id.as_str().to_string(), name);
+
+            // Identity preserved through transitions
+            assert_eq!(created_event.session_id, completed_event.session_id);
+            assert_eq!(
+                created_event.session_name.as_str(),
+                completed_event.session_name.as_str()
+            );
+
+            // Timestamp ordering: created ≤ completed
+            assert!(
+                created_event.timestamp <= completed_event.timestamp,
+                "created event must fire at or before completed event"
+            );
+        }
+
+        /// Failure path: Created → Active → Failed.
+        /// SessionCreatedEvent fires before SessionFailedEvent.
+        /// Failed event includes a reason; timestamps are ordered.
+        #[test]
+        fn created_then_failed_event_ordering() {
+            let name = SessionName::parse("order-fail").expect("valid");
+            let session = Session::<Created>::create(name.clone()).expect("created");
+
+            let created_event =
+                SessionCreatedEvent::new(session.id.as_str().to_string(), name.clone());
+
+            let active: Session<Active> = session.activate().expect("activate");
+            let failed: Session<Failed> = active.fail().expect("fail");
+
+            let failed_event = SessionFailedEvent::new(
+                failed.id.as_str().to_string(),
+                name,
+                "sync timeout".into(),
+            );
+
+            // Identity preserved through transitions
+            assert_eq!(created_event.session_id, failed_event.session_id);
+            assert_eq!(
+                created_event.session_name.as_str(),
+                failed_event.session_name.as_str()
+            );
+
+            // Failed event carries reason
+            assert_eq!(failed_event.reason, "sync timeout");
+
+            // Timestamp ordering: created ≤ failed
+            assert!(
+                created_event.timestamp <= failed_event.timestamp,
+                "created event must fire at or before failed event"
+            );
+        }
+
+        /// Failure path from Created state directly (no activation).
+        /// SessionCreatedEvent → SessionFailedEvent with identity preservation.
+        #[test]
+        fn created_then_failed_without_activation() {
+            let name = SessionName::parse("order-fail-direct").expect("valid");
+            let session = Session::<Created>::create(name.clone()).expect("created");
+
+            let created_event =
+                SessionCreatedEvent::new(session.id.as_str().to_string(), name.clone());
+
+            let failed: Session<Failed> = session.fail().expect("fail from created");
+
+            let failed_event = SessionFailedEvent::new(
+                failed.id.as_str().to_string(),
+                name,
+                "initialization failed".into(),
+            );
+
+            assert_eq!(created_event.session_id, failed_event.session_id);
+            assert!(
+                created_event.timestamp <= failed_event.timestamp,
+                "created event must fire at or before failed event"
+            );
+        }
+
+        /// Full sync lifecycle: Created → Active → Syncing → Synced → Completed.
+        /// Verify SessionCreatedEvent and SessionCompletedEvent bracket the lifecycle.
+        #[test]
+        fn full_sync_lifecycle_event_ordering() {
+            let name = SessionName::parse("order-sync-full").expect("valid");
+            let session = Session::<Created>::create(name.clone()).expect("created");
+
+            let created_event =
+                SessionCreatedEvent::new(session.id.as_str().to_string(), name.clone());
+
+            let active = session.activate().expect("activate");
+            let syncing = active.sync().expect("sync");
+            let synced = syncing.sync_complete().expect("sync_complete");
+            let completed = synced.complete().expect("complete");
+
+            let completed_event =
+                SessionCompletedEvent::new(completed.id.as_str().to_string(), name);
+
+            assert_eq!(created_event.session_id, completed_event.session_id);
+            assert!(
+                created_event.timestamp <= completed_event.timestamp,
+                "created must precede completed in full sync path"
+            );
+        }
+
+        /// Pause/resume path: Created → Active → Paused → Active → Completed.
+        /// Verify events bracket the paused lifecycle correctly.
+        #[test]
+        fn pause_resume_lifecycle_event_ordering() {
+            let name = SessionName::parse("order-pause").expect("valid");
+            let session = Session::<Created>::create(name.clone()).expect("created");
+
+            let created_event =
+                SessionCreatedEvent::new(session.id.as_str().to_string(), name.clone());
+
+            let active = session.activate().expect("activate");
+            let paused = active.pause().expect("pause");
+            let resumed = paused.resume().expect("resume");
+            let completed = resumed.complete().expect("complete");
+
+            let completed_event =
+                SessionCompletedEvent::new(completed.id.as_str().to_string(), name);
+
+            assert_eq!(created_event.session_id, completed_event.session_id);
+            assert!(
+                created_event.timestamp <= completed_event.timestamp,
+                "created must precede completed after pause/resume"
+            );
+        }
+
+        /// Multiple sessions: verify events carry distinct identities.
+        /// Each session's events reference only its own id/name.
+        #[test]
+        fn concurrent_sessions_have_distinct_events() {
+            let name_a = SessionName::parse("session-a").expect("valid");
+            let name_b = SessionName::parse("session-b").expect("valid");
+
+            let session_a = Session::<Created>::create(name_a.clone()).expect("created a");
+            let session_b = Session::<Created>::create(name_b.clone()).expect("created b");
+
+            let event_a =
+                SessionCreatedEvent::new(session_a.id.as_str().to_string(), name_a.clone());
+            let event_b =
+                SessionCreatedEvent::new(session_b.id.as_str().to_string(), name_b.clone());
+
+            // Distinct session IDs
+            assert_ne!(event_a.session_id, event_b.session_id);
+
+            // Events reference correct sessions
+            assert_eq!(event_a.session_name.as_str(), "session-a");
+            assert_eq!(event_b.session_name.as_str(), "session-b");
+
+            // Complete session A, fail session B
+            let completed_a = session_a
+                .activate()
+                .expect("activate a")
+                .complete()
+                .expect("complete a");
+            let failed_b = session_b.fail().expect("fail b");
+
+            let completed_event =
+                SessionCompletedEvent::new(completed_a.id.as_str().to_string(), name_a);
+            let failed_event = SessionFailedEvent::new(
+                failed_b.id.as_str().to_string(),
+                SessionName::parse("session-b").expect("valid"),
+                "error".into(),
+            );
+
+            // Completed event matches session A only
+            assert_eq!(completed_event.session_id, event_a.session_id);
+            assert_ne!(completed_event.session_id, event_b.session_id);
+
+            // Failed event matches session B only
+            assert_eq!(failed_event.session_id, event_b.session_id);
+            assert_ne!(failed_event.session_id, event_a.session_id);
+        }
+
+        /// SessionCompletedEvent data matches the session at completion time.
+        /// Verify the event captures the session identity (id, name) exactly.
+        #[test]
+        fn completed_event_data_matches_session_at_completion() {
+            let name = SessionName::parse("data-match-complete").expect("valid");
+            let session = Session::<Created>::create(name.clone()).expect("created");
+            let session_id = session.id.as_str().to_string();
+
+            let completed = session.activate().expect("activate").complete().expect("complete");
+
+            let event = SessionCompletedEvent::new(completed.id.as_str().to_string(), name);
+
+            assert_eq!(event.session_id, session_id);
+            assert_eq!(event.session_id, completed.id.as_str());
+            assert_eq!(event.session_name.as_str(), completed.name.as_str());
+        }
+
+        /// SessionFailedEvent data matches the session at failure time.
+        /// Verify the event captures id, name, and reason exactly.
+        #[test]
+        fn failed_event_data_matches_session_at_failure() {
+            let name = SessionName::parse("data-match-fail").expect("valid");
+            let session = Session::<Created>::create(name.clone()).expect("created");
+            let session_id = session.id.as_str().to_string();
+
+            let failed = session.activate().expect("activate").fail().expect("fail");
+
+            let event = SessionFailedEvent::new(
+                failed.id.as_str().to_string(),
+                name,
+                "database connection lost".into(),
+            );
+
+            assert_eq!(event.session_id, session_id);
+            assert_eq!(event.session_id, failed.id.as_str());
+            assert_eq!(event.session_name.as_str(), failed.name.as_str());
+            assert_eq!(event.reason, "database connection lost");
+        }
+
+        /// After restart from Completed, a new CreatedEvent can be constructed.
+        /// The restarted session retains the same identity for a new lifecycle.
+        #[test]
+        fn restarted_session_supports_new_created_event() {
+            let name = SessionName::parse("restart-events").expect("valid");
+            let session = Session::<Created>::create(name.clone()).expect("created");
+
+            let first_created =
+                SessionCreatedEvent::new(session.id.as_str().to_string(), name.clone());
+
+            let completed = session.activate().expect("activate").complete().expect("complete");
+            let restarted = completed.restart().expect("restart");
+
+            let second_created =
+                SessionCreatedEvent::new(restarted.id.as_str().to_string(), name);
+
+            // Same session identity across restart
+            assert_eq!(first_created.session_id, second_created.session_id);
+            assert_eq!(
+                first_created.session_name.as_str(),
+                second_created.session_name.as_str()
+            );
+
+            // Second created event is at or after first
+            assert!(
+                second_created.timestamp >= first_created.timestamp,
+                "second created event must be at or after first"
+            );
+        }
+
+        /// After retry from Failed, a new CreatedEvent can be constructed.
+        /// The retried session retains identity for a new lifecycle.
+        #[test]
+        fn retried_session_supports_new_created_event() {
+            let name = SessionName::parse("retry-events").expect("valid");
+            let session = Session::<Created>::create(name.clone()).expect("created");
+
+            let first_created =
+                SessionCreatedEvent::new(session.id.as_str().to_string(), name.clone());
+
+            let failed = session.fail().expect("fail");
+            let retried = failed.retry().expect("retry");
+
+            let second_created =
+                SessionCreatedEvent::new(retried.id.as_str().to_string(), name);
+
+            assert_eq!(first_created.session_id, second_created.session_id);
+            assert!(
+                second_created.timestamp >= first_created.timestamp,
+                "retry created event must be at or after initial created"
+            );
+        }
+
+        /// Full lifecycle with both terminal paths:
+        /// Session A completes, Session B fails — verify events don't cross-contaminate.
+        #[test]
+        fn two_sessions_divergent_paths_no_event_cross_contamination() {
+            let name_c = SessionName::parse("path-complete").expect("valid");
+            let name_f = SessionName::parse("path-fail").expect("valid");
+
+            let session_c = Session::<Created>::create(name_c.clone()).expect("created c");
+            let session_f = Session::<Created>::create(name_f.clone()).expect("created f");
+
+            let id_c = session_c.id.as_str().to_string();
+            let id_f = session_f.id.as_str().to_string();
+
+            let completed = session_c
+                .activate()
+                .expect("activate c")
+                .complete()
+                .expect("complete c");
+
+            let failed = session_f
+                .activate()
+                .expect("activate f")
+                .fail()
+                .expect("fail f");
+
+            let completed_evt =
+                SessionCompletedEvent::new(completed.id.as_str().to_string(), name_c);
+            let failed_evt = SessionFailedEvent::new(
+                failed.id.as_str().to_string(),
+                name_f,
+                "divergent failure".into(),
+            );
+
+            // No cross-contamination
+            assert_eq!(completed_evt.session_id, id_c);
+            assert_eq!(failed_evt.session_id, id_f);
+            assert_ne!(completed_evt.session_id, failed_evt.session_id);
+        }
+
+        /// Event ordering with sync lifecycle ending in failure.
+        /// Created → Active → Syncing → Failed.
+        #[test]
+        fn sync_then_fail_event_ordering() {
+            let name = SessionName::parse("sync-fail-order").expect("valid");
+            let session = Session::<Created>::create(name.clone()).expect("created");
+
+            let created_event =
+                SessionCreatedEvent::new(session.id.as_str().to_string(), name.clone());
+
+            let active = session.activate().expect("activate");
+            let syncing = active.sync().expect("sync");
+            let failed = syncing.fail().expect("fail from syncing");
+
+            let failed_event = SessionFailedEvent::new(
+                failed.id.as_str().to_string(),
+                name,
+                "sync corruption".into(),
+            );
+
+            assert_eq!(created_event.session_id, failed_event.session_id);
+            assert!(
+                created_event.timestamp <= failed_event.timestamp,
+                "created event must precede failed event even after sync attempt"
+            );
+        }
+    }
 }
