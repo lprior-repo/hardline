@@ -221,4 +221,115 @@ mod tests {
         assert_eq!(a, b);
         assert_ne!(a, c);
     }
+
+    // -- Serde roundtrip --
+
+    #[test]
+    fn serde_serialize_roundtrip() {
+        let id = AgentId::parse("agent-42").expect("valid");
+        let json = serde_json::to_string(&id).expect("serialize");
+        assert_eq!(json, "\"agent-42\"");
+        let deserialized: AgentId = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized, id);
+    }
+
+    #[test]
+    fn serde_deserialize_valid() {
+        let json = "\"my.agent:01\"";
+        let id: AgentId = serde_json::from_str(json).expect("deserialize valid");
+        assert_eq!(id.as_str(), "my.agent:01");
+    }
+
+    #[test]
+    fn serde_deserialize_invalid_rejects() {
+        // Empty string should fail deserialization (try_from validates)
+        let json = "\"\"";
+        let result = serde_json::from_str::<AgentId>(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn serde_deserialize_invalid_chars_rejects() {
+        let json = "\"agent@host\"";
+        let result = serde_json::from_str::<AgentId>(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn serde_deserialize_too_long_rejects() {
+        let long_val = "a".repeat(129);
+        let json = format!("\"{long_val}\"");
+        let result = serde_json::from_str::<AgentId>(&json);
+        assert!(result.is_err());
+    }
+
+    // -- Error variant matching --
+
+    #[test]
+    fn parse_empty_returns_empty_error() {
+        let err = AgentId::parse("").unwrap_err();
+        assert!(matches!(err, IdentifierError::Empty));
+    }
+
+    #[test]
+    fn parse_too_long_returns_correct_bounds() {
+        let long = "a".repeat(129);
+        let err = AgentId::parse(&long).unwrap_err();
+        assert!(matches!(
+            err,
+            IdentifierError::TooLong { max: 128, actual: 129 }
+        ));
+    }
+
+    #[test]
+    fn parse_invalid_chars_returns_invalid_characters() {
+        let err = AgentId::parse("bad!id").unwrap_err();
+        assert!(matches!(err, IdentifierError::InvalidCharacters { .. }));
+    }
+
+    // -- Edge cases --
+
+    #[test]
+    fn parse_single_char() {
+        let id = AgentId::parse("a").expect("single char valid");
+        assert_eq!(id.as_str(), "a");
+    }
+
+    #[test]
+    fn parse_all_valid_chars_combined() {
+        let id = AgentId::parse("aB3-_.:xY9").expect("all valid chars");
+        assert_eq!(id.as_str(), "aB3-_.:xY9");
+    }
+
+    #[test]
+    fn parse_129_chars_fails() {
+        let too_long = "x".repeat(129);
+        assert!(AgentId::parse(&too_long).is_err());
+    }
+
+    #[test]
+    fn parse_128_chars_succeeds() {
+        let max = "x".repeat(128);
+        assert!(AgentId::parse(&max).is_ok());
+    }
+
+    #[test]
+    fn parse_rejects_null_byte() {
+        assert!(AgentId::parse("agent\0id").is_err());
+    }
+
+    #[test]
+    fn parse_rejects_newline() {
+        assert!(AgentId::parse("agent\nid").is_err());
+    }
+
+    #[test]
+    fn parse_rejects_tab() {
+        assert!(AgentId::parse("agent\tid").is_err());
+    }
+
+    #[test]
+    fn parse_rejects_unicode_emoji() {
+        assert!(AgentId::parse("agent\u{1F600}").is_err());
+    }
 }
