@@ -107,6 +107,31 @@ pub enum VcsError {
     /// Failed to parse Git CLI output
     #[error("Failed to parse Git output: {0}")]
     GitParseError(String),
+
+    /// Rebase failed with conflicts
+    #[error("Rebase conflict in {branch}: {conflicted_files:?}")]
+    RebaseConflict {
+        /// Branch being rebased
+        branch: String,
+        /// Files with conflicts
+        conflicted_files: Vec<String>,
+    },
+
+    /// Rebase failed (non-conflict)
+    #[error("Rebase failed: {message}")]
+    RebaseFailed {
+        /// Error message
+        message: String,
+    },
+
+    /// Merge base not found (branches share no common ancestor)
+    #[error("No common ancestor between {branch_a} and {branch_b}")]
+    NoMergeBase {
+        /// First branch
+        branch_a: String,
+        /// Second branch
+        branch_b: String,
+    },
 }
 
 impl PartialEq for VcsError {
@@ -148,6 +173,27 @@ impl PartialEq for VcsError {
             (Self::NotFound { entity: a1, id: a2 }, Self::NotFound { entity: b1, id: b2 }) => {
                 a1 == b1 && a2 == b2
             }
+            (
+                Self::RebaseConflict {
+                    branch: a,
+                    conflicted_files: f1,
+                },
+                Self::RebaseConflict {
+                    branch: b,
+                    conflicted_files: f2,
+                },
+            ) => a == b && f1 == f2,
+            (Self::RebaseFailed { message: a }, Self::RebaseFailed { message: b }) => a == b,
+            (
+                Self::NoMergeBase {
+                    branch_a: a1,
+                    branch_b: a2,
+                },
+                Self::NoMergeBase {
+                    branch_a: b1,
+                    branch_b: b2,
+                },
+            ) => a1 == b1 && a2 == b2,
             _ => false,
         }
     }
@@ -444,6 +490,82 @@ mod tests {
         assert_eq!(a, ChangeError::EmptyMessage);
         let b = ChangeError::EmptyAuthor.clone();
         assert_eq!(b, ChangeError::EmptyAuthor);
+    }
+
+    // -- Rebase error Display tests --
+
+    #[test]
+    fn rebase_conflict_display() {
+        let err = VcsError::RebaseConflict {
+            branch: "feature".to_string(),
+            conflicted_files: vec!["file.rs".to_string()],
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("feature"));
+        assert!(msg.contains("file.rs"));
+    }
+
+    #[test]
+    fn rebase_failed_display() {
+        let err = VcsError::RebaseFailed {
+            message: "cherry-pick failed".to_string(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("cherry-pick failed"));
+    }
+
+    #[test]
+    fn no_merge_base_display() {
+        let err = VcsError::NoMergeBase {
+            branch_a: "main".to_string(),
+            branch_b: "feature".to_string(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("main"));
+        assert!(msg.contains("feature"));
+        assert!(msg.contains("common ancestor"));
+    }
+
+    #[test]
+    fn rebase_conflict_eq() {
+        let a = VcsError::RebaseConflict {
+            branch: "f".to_string(),
+            conflicted_files: vec!["a.rs".to_string()],
+        };
+        let b = VcsError::RebaseConflict {
+            branch: "f".to_string(),
+            conflicted_files: vec!["a.rs".to_string()],
+        };
+        let c = VcsError::RebaseConflict {
+            branch: "g".to_string(),
+            conflicted_files: vec!["a.rs".to_string()],
+        };
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn rebase_failed_eq() {
+        let a = VcsError::RebaseFailed {
+            message: "x".to_string(),
+        };
+        let b = VcsError::RebaseFailed {
+            message: "x".to_string(),
+        };
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn no_merge_base_eq() {
+        let a = VcsError::NoMergeBase {
+            branch_a: "main".to_string(),
+            branch_b: "dev".to_string(),
+        };
+        let b = VcsError::NoMergeBase {
+            branch_a: "main".to_string(),
+            branch_b: "dev".to_string(),
+        };
+        assert_eq!(a, b);
     }
 
 }

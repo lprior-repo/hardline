@@ -11,9 +11,9 @@ pub mod entities;
 pub mod traits;
 pub mod value_objects;
 
-pub use entities::{Branch, Commit, Workspace};
 pub use entities::ops::{
     LocalRefEntry, OpError, OpKind, OpReceipt, OpStatus, PlanSummary, RemoteRefEntry,
 };
+pub use entities::{Branch, Commit, Workspace};
 pub use traits::VcsBackend;
 pub use value_objects::{VcsStatus, VcsType};

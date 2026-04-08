@@ -151,10 +151,7 @@ impl Transaction {
     ///
     /// `resolve_branch_oid` is a function that, given a branch name, returns
     /// its current OID. This keeps I/O out of the transaction itself.
-    pub fn record_all_after(
-        &mut self,
-        resolve_branch_oid: impl Fn(&str) -> Option<String>,
-    ) {
+    pub fn record_all_after(&mut self, resolve_branch_oid: impl Fn(&str) -> Option<String>) {
         let branches: Vec<String> = self
             .receipt
             .local_refs
@@ -358,10 +355,7 @@ mod tests {
         tx.plan_branch("feature", Some("abc"));
         tx.record_after("feature", "def");
 
-        assert_eq!(
-            tx.receipt.local_refs[0].oid_after,
-            Some("def".to_string())
-        );
+        assert_eq!(tx.receipt.local_refs[0].oid_after, Some("def".to_string()));
     }
 
     #[test]
@@ -404,10 +398,7 @@ mod tests {
         tx.plan_remote_branch("origin", "feature", Some("abc"));
         tx.record_remote_after("origin", "feature", "def");
 
-        assert_eq!(
-            tx.receipt.remote_refs[0].oid_after,
-            Some("def".to_string())
-        );
+        assert_eq!(tx.receipt.remote_refs[0].oid_after, Some("def".to_string()));
     }
 
     #[test]
@@ -434,8 +425,7 @@ mod tests {
         };
 
         // Load receipt from disk and verify
-        let receipt =
-            crate::infrastructure::ops::load_receipt(&git_dir, &op_id).expect("load");
+        let receipt = crate::infrastructure::ops::load_receipt(&git_dir, &op_id).expect("load");
         assert!(matches!(receipt.status, OpStatus::Success));
     }
 
@@ -536,7 +526,8 @@ mod tests {
 
         tx.plan_branch("feature", None);
         tx.snapshot().expect("first snapshot");
-        tx.snapshot().expect("second snapshot - should be idempotent");
+        tx.snapshot()
+            .expect("second snapshot - should be idempotent");
         assert!(tx.is_snapshotted());
     }
 

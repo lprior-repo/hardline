@@ -1,27 +1,41 @@
 //! Git sync (rebase) operations
 //!
+//! Pure gix implementation — no CLI spawning.
+//! Delegates to `crate::gix::rebase` for the rebase algorithm.
+//!
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 
-use std::process::Command;
-
 use crate::vcs::{BranchName, VcsError};
 
+use super::helpers;
 use super::types::GitBackend;
 
 impl GitBackend {
     /// Rebase the given branch onto its parent branch
     ///
+    /// Uses pure gix (no CLI). The rebase replays commits from `branch`
+    /// that are not in `parent` onto the tip of `parent`.
+    ///
     /// # Preconditions
     /// - Branch must exist in the repository
     /// - Working directory must be clean
     ///
+    /// # Postconditions
+    /// - Branch reference is updated to the new tip
+    /// - If rebase encounters conflicts, branch points to last successful state
+    ///
     /// # Errors
-    /// Returns `VcsError` if the rebase fails.
+    /// - `VcsError::DirtyWorkingDirectory` if working tree has changes
+    /// - `VcsError::NotFound` if branch or parent doesn't exist
+    /// - `VcsError::RebaseConflict` if cherry-pick encounters conflicts
+    /// - `VcsError::RebaseFailed` for other rebase failures
+    /// - `VcsError::NoMergeBase` if branches share no common ancestor
     pub fn sync(&self, branch: &BranchName, parent: &BranchName) -> Result<(), VcsError> {
+        // Precondition: working directory must be clean
         self.is_clean().and_then(|clean| {
             if clean {
                 Ok(clean)
@@ -30,6 +44,7 @@ impl GitBackend {
             }
         })?;
 
+        // Precondition: branch must exist
         let branches = self.list_branches()?;
         let current = self.current_branch()?;
 
@@ -47,6 +62,7 @@ impl GitBackend {
                 id: branch.as_str().to_string(),
             })?;
 
+        // Precondition: parent must exist (or be "trunk" special case)
         let parent_exists =
             parent.as_str() == "trunk" || branches.iter().any(|b| b.as_str() == parent.as_str());
 
@@ -57,57 +73,32 @@ impl GitBackend {
                 id: parent.as_str().to_string(),
             })?;
 
-        let original_branch = current;
+        // Perform pure gix rebase
+        let repo = helpers::lock_repo(&self.repo)?;
 
-        let _checkout_result = Command::new("git")
-            .args(["checkout", branch.as_str()])
-            .current_dir(self.path.as_path())
-            .output()
-            .map_err(|e| VcsError::CommandFailed {
-                message: format!("Failed to checkout branch '{}'", branch.as_str()),
-                source: Some(e),
-            })
-            .and_then(|output| {
-                output
-                    .status
-                    .success()
-                    .then_some(())
-                    .ok_or_else(|| VcsError::GitCliFailed {
-                        command: format!("git checkout {}", branch.as_str()),
-                        source: None,
-                    })
-            })?;
+        let result = crate::gix::rebase::rebase_branch_onto(
+            &repo,
+            branch.as_str(),
+            parent.as_str(),
+        )
+        .map_err(|e| VcsError::from(e))?;
 
-        let _rebase_result = Command::new("git")
-            .args(["rebase", "--update-refs", parent.as_str()])
-            .current_dir(self.path.as_path())
-            .output()
-            .map_err(|e| VcsError::CommandFailed {
-                message: format!("Failed to rebase onto '{}'", parent.as_str()),
-                source: Some(e),
-            })
-            .and_then(|output| {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let is_up_to_date =
-                    stderr.contains("Current branch") && stderr.contains("is up to date");
-                (output.status.success() || is_up_to_date)
-                    .then_some(())
-                    .ok_or_else(|| VcsError::GitCliFailed {
-                        command: format!("git rebase --update-refs {}", parent.as_str()),
-                        source: None,
-                    })
-            })?;
-
-        let _ = original_branch
-            .filter(|orig| orig.as_str() != branch.as_str())
-            .and_then(|orig| {
-                Command::new("git")
-                    .args(["checkout", orig.as_str()])
-                    .current_dir(self.path.as_path())
-                    .output()
-                    .ok()
-            });
-
-        Ok(())
+        match result {
+            crate::gix::rebase::RebaseResult::Success { .. } => Ok(()),
+            crate::gix::rebase::RebaseResult::AlreadyUpToDate => Ok(()),
+            crate::gix::rebase::RebaseResult::Conflict {
+                conflicted_files,
+                commits_replayed,
+                remaining_commits,
+            } => Err(VcsError::RebaseConflict {
+                branch: branch.as_str().to_string(),
+                conflicted_files,
+            }
+            .into()).map_err(|e| {
+                // Log additional context via the error message
+                let _ = (commits_replayed, remaining_commits);
+                e
+            }),
+        }
     }
 }

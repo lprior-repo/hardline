@@ -56,14 +56,11 @@ pub fn fetch(
 /// # Errors
 /// - `GitError::Network` if fetch fails
 /// - `GitError::InvalidRef` if branch resolution fails
-pub fn pull(
-    repo: &gix::Repository,
-    remote: Option<&str>,
-    rebase: bool,
-) -> GitResult<Vec<String>> {
+pub fn pull(repo: &gix::Repository, remote: Option<&str>, rebase: bool) -> GitResult<Vec<String>> {
     if rebase {
         return Err(GitError::Network(
-            "pull with rebase is not yet supported via gix; use git pull --rebase via CLI".to_string(),
+            "pull with rebase is not yet supported via gix; use git pull --rebase via CLI"
+                .to_string(),
         ));
     }
 
@@ -118,7 +115,9 @@ pub fn pull(
     }
 
     let mut results = fetch_results;
-    results.push(format!("Fast-forwarded {branch_name} to {remote_name}/{branch_name}"));
+    results.push(format!(
+        "Fast-forwarded {branch_name} to {remote_name}/{branch_name}"
+    ));
     Ok(results)
 }
 
@@ -191,9 +190,13 @@ pub fn push(
         let stderr = String::from_utf8_lossy(&output.stderr);
         let msg = stderr.trim().to_string();
         if msg.contains("authentication") || msg.contains("credential") || msg.contains("403") {
-            return Err(GitError::Unauthorized(format!("Push to '{remote}' failed: {msg}")));
+            return Err(GitError::Unauthorized(format!(
+                "Push to '{remote}' failed: {msg}"
+            )));
         }
-        return Err(GitError::Network(format!("Push to '{remote}' failed: {msg}")));
+        return Err(GitError::Network(format!(
+            "Push to '{remote}' failed: {msg}"
+        )));
     }
 
     Ok(())
@@ -225,7 +228,9 @@ fn fetch_via_gix(
 
     let prepare = connection
         .prepare_fetch(gix::progress::Discard, ref_map_opts)
-        .map_err(|e| GitError::Network(format!("Failed to prepare fetch from '{remote_name}': {e}")))?;
+        .map_err(|e| {
+            GitError::Network(format!("Failed to prepare fetch from '{remote_name}': {e}"))
+        })?;
 
     let outcome = prepare
         .receive(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)
@@ -304,9 +309,9 @@ fn fetch_via_cli(
 
 /// Fetch from all configured remotes.
 fn fetch_all_remotes(repo: &gix::Repository, prune: bool, tags: bool) -> GitResult<Vec<String>> {
-    let workdir = repo.workdir().ok_or_else(|| GitError::Network(
-        "Cannot fetch all remotes from a bare repository".to_string(),
-    ))?;
+    let workdir = repo.workdir().ok_or_else(|| {
+        GitError::Network("Cannot fetch all remotes from a bare repository".to_string())
+    })?;
 
     let output = std::process::Command::new("git")
         .args(["remote"])

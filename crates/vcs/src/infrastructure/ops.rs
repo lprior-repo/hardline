@@ -82,7 +82,8 @@ pub fn receipt_path(git_dir: &Path, op_id: &str) -> PathBuf {
 pub fn save_receipt(git_dir: &Path, receipt: &OpReceipt) -> Result<()> {
     ensure_ops_dir(git_dir)?;
     let path = receipt_path(git_dir, &receipt.op_id);
-    let json = serde_json::to_string_pretty(receipt).map_err(|e| VcsError::ParseError(e.to_string()))?;
+    let json =
+        serde_json::to_string_pretty(receipt).map_err(|e| VcsError::ParseError(e.to_string()))?;
     std::fs::write(&path, json).map_err(VcsError::Io)?;
     Ok(())
 }
@@ -159,7 +160,10 @@ mod tests {
     #[test]
     fn backup_ref_name_format() {
         let name = backup_ref_name("20251229T120500Z-abc123", "feature/foo");
-        assert_eq!(name, "refs/stax/backups/20251229T120500Z-abc123/feature/foo");
+        assert_eq!(
+            name,
+            "refs/stax/backups/20251229T120500Z-abc123/feature/foo"
+        );
     }
 
     #[test]
@@ -307,7 +311,9 @@ mod tests {
         save_receipt(&git_dir, &old).expect("save old");
         save_receipt(&git_dir, &new).expect("save new");
 
-        let latest = load_latest_receipt(&git_dir).expect("load latest").expect("some");
+        let latest = load_latest_receipt(&git_dir)
+            .expect("load latest")
+            .expect("some");
         assert_eq!(latest.op_id, "20251229T120200Z-new");
     }
 }

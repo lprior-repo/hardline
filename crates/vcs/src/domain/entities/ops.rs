@@ -374,10 +374,7 @@ mod tests {
         receipt.add_local_ref("feature/foo", Some("abc123"));
         receipt.update_local_ref_after("feature/foo", "def456");
 
-        assert_eq!(
-            receipt.local_refs[0].oid_after,
-            Some("def456".to_string())
-        );
+        assert_eq!(receipt.local_refs[0].oid_after, Some("def456".to_string()));
     }
 
     #[test]
@@ -409,10 +406,7 @@ mod tests {
         receipt.add_remote_ref("origin", "feature", Some("abc123"));
         receipt.update_remote_ref_after("origin", "feature", "def456");
 
-        assert_eq!(
-            receipt.remote_refs[0].oid_after,
-            Some("def456".to_string())
-        );
+        assert_eq!(receipt.remote_refs[0].oid_after, Some("def456".to_string()));
     }
 
     #[test]

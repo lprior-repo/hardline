@@ -4,6 +4,7 @@
 
 pub mod branch;
 pub mod commit;
+pub mod rebase;
 pub mod remote;
 pub mod repository;
 pub mod stash;
