@@ -5,13 +5,15 @@
 //! # Usage
 //!
 //! ```rust
-//! use crate::domain::contracts::requires;
+//! use scp_core::domain::contracts::{ensures, requires};
 //!
 //! #[requires(x > 0, "x must be positive")]
 //! #[ensures(ret > 0, "result must be positive")]
 //! pub fn safe_div(x: i32, y: i32) -> i32 {
 //!     x / y
 //! }
+//!
+//! # fn main() { safe_div(4, 2); }
 //! ```
 //!
 //! # Categories

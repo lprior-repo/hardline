@@ -11,12 +11,13 @@
 //!
 //! use scp_core::{
 //!     config::WatchConfig,
+//!     config::types::ValidatedBool,
 //!     watcher::{FileWatcher, WatchEvent},
 //! };
 //!
 //! # async fn example() -> scp_core::Result<()> {
 //! let config = WatchConfig {
-//!     enabled: crate::config::types::ValidatedBool::new(true),
+//!     enabled: ValidatedBool::new(true),
 //!     debounce_ms: 100,
 //!     paths: vec![".beads/beads.db".to_string()],
 //! };

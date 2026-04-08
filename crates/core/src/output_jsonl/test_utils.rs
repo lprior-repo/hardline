@@ -52,7 +52,7 @@ impl OutputEmitter for StdoutEmitter {
 /// # Example
 ///
 /// ```
-/// use isolate_core::output::{
+/// use scp_core::output_jsonl::{
 ///     domain_types::Message, OutputEmitter, OutputLine, Summary, SummaryType, VecEmitter,
 /// };
 ///

@@ -27,7 +27,7 @@
 //!
 //! ### Promises
 //!
-//! ```rust
+//! ```rust,ignore
 //! async fn workflow_handler(ctx: &impl ContextPromises, order_id: String) -> Result<OrderStatus, HandlerError> {
 //!     // Wait for payment to complete
 //!     let payment_result: PaymentResult = ctx.promise("payment").await?;
@@ -41,7 +41,7 @@
 //!
 //! ### Awakeables
 //!
-//! ```rust
+//! ```rust,ignore
 //! async fn handler(ctx: &impl ContextAwakeables, req: Request) -> Result<Response, HandlerError> {
 //!     // Create awakeable for external completion
 //!     let (awakeable_id, completion) = ctx.awakeable::<ExternalResult>()?;

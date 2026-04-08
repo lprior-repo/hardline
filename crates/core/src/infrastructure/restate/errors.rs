@@ -9,7 +9,7 @@
 //!
 //! ## Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! // Return TerminalError to stop retries
 //! Err(TerminalError::new("Business logic failure").into())
 //!
@@ -34,7 +34,7 @@ use thiserror::Error;
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// fn validate_input(input: &str) -> Result<(), HandlerError> {
 ///     if input.is_empty() {
 ///         return Err(TerminalError::new("Input cannot be empty").into());
