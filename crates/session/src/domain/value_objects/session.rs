@@ -506,6 +506,364 @@ mod tests {
     }
 
     // =========================================================================
+    // SessionName Validation Edge Cases (ha-vms)
+    // =========================================================================
+
+    mod session_name_validation_edge_cases {
+        use super::*;
+
+        // --- Special characters rejected ---
+
+        #[test]
+        fn session_name_rejects_dot() {
+            let err = SessionName::parse("name.with.dots").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidCharacters(_)));
+        }
+
+        #[test]
+        fn session_name_rejects_slash() {
+            let err = SessionName::parse("path/name").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidCharacters(_)));
+        }
+
+        #[test]
+        fn session_name_rejects_backslash() {
+            let err = SessionName::parse("path\\name").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidCharacters(_)));
+        }
+
+        #[test]
+        fn session_name_rejects_at_sign() {
+            let err = SessionName::parse("user@domain").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidCharacters(_)));
+        }
+
+        #[test]
+        fn session_name_rejects_exclamation() {
+            let err = SessionName::parse("name!").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidCharacters(_)));
+        }
+
+        #[test]
+        fn session_name_rejects_hash() {
+            let err = SessionName::parse("name#1").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidCharacters(_)));
+        }
+
+        #[test]
+        fn session_name_rejects_dollar() {
+            let err = SessionName::parse("$name").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidStart));
+        }
+
+        #[test]
+        fn session_name_rejects_percent() {
+            let err = SessionName::parse("name%20").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidCharacters(_)));
+        }
+
+        #[test]
+        fn session_name_rejects_ampersand() {
+            let err = SessionName::parse("a&b").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidCharacters(_)));
+        }
+
+        #[test]
+        fn session_name_rejects_asterisk() {
+            let err = SessionName::parse("wild*card").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidCharacters(_)));
+        }
+
+        #[test]
+        fn session_name_rejects_equals() {
+            let err = SessionName::parse("key=value").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidCharacters(_)));
+        }
+
+        #[test]
+        fn session_name_rejects_plus() {
+            let err = SessionName::parse("a+b").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidCharacters(_)));
+        }
+
+        #[test]
+        fn session_name_rejects_brackets() {
+            assert!(SessionName::parse("name[0]").is_err());
+            assert!(SessionName::parse("name{0}").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_parens() {
+            assert!(SessionName::parse("name(1)").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_pipe() {
+            assert!(SessionName::parse("a|b").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_semicolon() {
+            assert!(SessionName::parse("a;b").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_colon() {
+            assert!(SessionName::parse("a:b").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_single_quote() {
+            assert!(SessionName::parse("it's").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_double_quote() {
+            assert!(SessionName::parse("a\"b").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_less_greater() {
+            assert!(SessionName::parse("a<b").is_err());
+            assert!(SessionName::parse("a>b").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_question_mark() {
+            assert!(SessionName::parse("what?").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_comma() {
+            assert!(SessionName::parse("a,b").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_tilde() {
+            assert!(SessionName::parse("~name").unwrap_err() == IdentifierError::InvalidStart);
+        }
+
+        #[test]
+        fn session_name_rejects_backtick() {
+            assert!(SessionName::parse("a`b").is_err());
+        }
+
+        // --- Unicode / non-ASCII ---
+
+        #[test]
+        fn session_name_rejects_accented_chars() {
+            assert!(SessionName::parse("café").is_err());
+            assert!(SessionName::parse("naïve").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_cjk() {
+            assert!(SessionName::parse("日本語").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_emoji() {
+            assert!(SessionName::parse("test🎉").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_non_breaking_space() {
+            let name = "a\u{00A0}b"; // non-breaking space
+            assert!(SessionName::parse(name).is_err());
+        }
+
+        // --- Control characters ---
+
+        #[test]
+        fn session_name_rejects_embedded_tab() {
+            assert!(SessionName::parse("name\tvalue").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_embedded_newline() {
+            assert!(SessionName::parse("name\nvalue").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_embedded_carriage_return() {
+            assert!(SessionName::parse("name\rvalue").is_err());
+        }
+
+        #[test]
+        fn session_name_rejects_null_byte() {
+            assert!(SessionName::parse("name\0value").is_err());
+        }
+
+        // --- Start character edge cases ---
+
+        #[test]
+        fn session_name_start_with_hyphen_rejects() {
+            let err = SessionName::parse("-name").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidStart));
+        }
+
+        #[test]
+        fn session_name_start_with_underscore_rejects() {
+            let err = SessionName::parse("_name").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidStart));
+        }
+
+        #[test]
+        fn session_name_start_with_digit_rejects() {
+            let err = SessionName::parse("1name").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidStart));
+        }
+
+        #[test]
+        fn session_name_start_with_zero_rejects() {
+            let err = SessionName::parse("0abc").unwrap_err();
+            assert!(matches!(err, IdentifierError::InvalidStart));
+        }
+
+        // --- Boundary length tests with error specificity ---
+
+        #[test]
+        fn session_name_exactly_max_length_returns_ok() {
+            let name = "a".repeat(63);
+            let result = SessionName::parse(&name);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().as_str().len(), 63);
+        }
+
+        #[test]
+        fn session_name_one_over_max_returns_too_long() {
+            let name = "a".repeat(64);
+            let err = SessionName::parse(&name).unwrap_err();
+            assert!(matches!(err, IdentifierError::TooLong(64, 63)));
+        }
+
+        #[test]
+        fn session_name_one_below_max_is_valid() {
+            let name = "a".repeat(62);
+            assert!(SessionName::parse(&name).is_ok());
+        }
+
+        #[test]
+        fn session_name_single_char_is_valid() {
+            let name = SessionName::parse("a").expect("single letter is valid");
+            assert_eq!(name.as_str(), "a");
+        }
+
+        #[test]
+        fn session_name_very_long_rejected() {
+            let name = "a".repeat(1000);
+            let err = SessionName::parse(&name).unwrap_err();
+            assert!(matches!(err, IdentifierError::TooLong(1000, 63)));
+        }
+
+        // --- Whitespace handling specifics ---
+
+        #[test]
+        fn session_name_trailing_whitespace_trimmed() {
+            let name = SessionName::parse("test  ").expect("valid after trim");
+            assert_eq!(name.as_str(), "test");
+        }
+
+        #[test]
+        fn session_name_leading_whitespace_trimmed() {
+            let name = SessionName::parse("  test").expect("valid after trim");
+            assert_eq!(name.as_str(), "test");
+        }
+
+        #[test]
+        fn session_name_tab_only_rejected() {
+            assert!(SessionName::parse("\t").is_err());
+        }
+
+        #[test]
+        fn session_name_newline_only_rejected() {
+            assert!(SessionName::parse("\n").is_err());
+        }
+
+        #[test]
+        fn session_name_mixed_whitespace_only_rejected() {
+            assert!(SessionName::parse(" \t \n ").is_err());
+        }
+
+        // --- Valid names stored correctly ---
+
+        #[test]
+        fn session_name_single_letter_stored() {
+            let name = SessionName::parse("Z").expect("valid");
+            assert_eq!(name.as_str(), "Z");
+        }
+
+        #[test]
+        fn session_name_all_digits_after_first_letter() {
+            let name = SessionName::parse("a123456789").expect("valid");
+            assert_eq!(name.as_str(), "a123456789");
+        }
+
+        #[test]
+        fn session_name_consecutive_hyphens_valid() {
+            assert!(SessionName::parse("a--b").is_ok());
+        }
+
+        #[test]
+        fn session_name_consecutive_underscores_valid() {
+            assert!(SessionName::parse("a__b").is_ok());
+        }
+
+        #[test]
+        fn session_name_mixed_hyphens_underscores_valid() {
+            let name = SessionName::parse("my_test-session_name").expect("valid");
+            assert_eq!(name.as_str(), "my_test-session_name");
+        }
+
+        #[test]
+        fn session_name_case_sensitive_stored() {
+            let lower = SessionName::parse("abc").expect("valid");
+            let upper = SessionName::parse("ABC").expect("valid");
+            assert_ne!(lower, upper);
+            assert_eq!(lower.as_str(), "abc");
+            assert_eq!(upper.as_str(), "ABC");
+        }
+
+        // --- Empty string specificity ---
+
+        #[test]
+        fn session_name_empty_returns_empty_error() {
+            let err = SessionName::parse("").unwrap_err();
+            assert!(matches!(err, IdentifierError::Empty));
+        }
+
+        // --- Error message content verification ---
+
+        #[test]
+        fn session_name_too_long_error_message() {
+            let err = SessionName::parse(&"a".repeat(64)).unwrap_err();
+            let msg = format!("{err}");
+            assert!(msg.contains("64"), "error should mention actual length");
+            assert!(msg.contains("63"), "error should mention max length");
+        }
+
+        #[test]
+        fn session_name_invalid_chars_error_message() {
+            let err = SessionName::parse("bad!name").unwrap_err();
+            let msg = format!("{err}");
+            assert!(
+                msg.contains("invalid") || msg.contains("Invalid"),
+                "error should mention invalid characters"
+            );
+        }
+
+        #[test]
+        fn session_name_invalid_start_error_message() {
+            let err = SessionName::parse("1bad").unwrap_err();
+            let msg = format!("{err}");
+            assert!(
+                msg.contains("letter") || msg.contains("start"),
+                "error should mention letter/start requirement"
+            );
+        }
+    }
+
+    // =========================================================================
     // BeadId Proptests
     // =========================================================================
 
