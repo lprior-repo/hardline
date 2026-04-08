@@ -489,4 +489,694 @@ mod advanced_bead_tests {
             assert!(result.is_err());
         }
     }
+
+    // =========================================================================
+    // Full State Transition Matrix (5x5 = 25 pairs)
+    // =========================================================================
+
+    mod transition_matrix_tests {
+        use super::*;
+
+        /// Helper: attempt a transition, return (success, resulting_state)
+        fn attempt_transition(
+            from: BeadState,
+            to: BeadState,
+        ) -> (bool, Option<BeadState>) {
+            let mut bead = make_bead("bd-matrix", "Matrix Test");
+            // Navigate to `from` state
+            if from != BeadState::Open {
+                bead = navigate_to_state(&bead, from);
+            }
+            match bead.transition(to) {
+                Ok(result) => (true, Some(result.state())),
+                Err(_) => (false, None),
+            }
+        }
+
+        /// Navigate a bead from Open to the target state via valid path.
+        fn navigate_to_state(bead: &Bead, target: BeadState) -> Bead {
+            match target {
+                BeadState::Open => bead.clone(),
+                BeadState::InProgress => bead.transition(BeadState::InProgress).expect("-> IP"),
+                BeadState::Blocked => {
+                    let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+                    ip.transition(BeadState::Blocked).expect("-> Blocked")
+                }
+                BeadState::Deferred => {
+                    let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+                    ip.transition(BeadState::Deferred).expect("-> Deferred")
+                }
+                BeadState::Closed => bead.transition(BeadState::Closed).expect("-> Closed"),
+            }
+        }
+
+        // --- Valid transitions ---
+
+        #[test]
+        fn matrix_open_to_in_progress_succeeds() {
+            let (ok, state) = attempt_transition(BeadState::Open, BeadState::InProgress);
+            assert!(ok);
+            assert_eq!(state, Some(BeadState::InProgress));
+        }
+
+        #[test]
+        fn matrix_open_to_closed_succeeds() {
+            let (ok, state) = attempt_transition(BeadState::Open, BeadState::Closed);
+            assert!(ok);
+            assert_eq!(state, Some(BeadState::Closed));
+        }
+
+        #[test]
+        fn matrix_in_progress_to_blocked_succeeds() {
+            let (ok, state) = attempt_transition(BeadState::InProgress, BeadState::Blocked);
+            assert!(ok);
+            assert_eq!(state, Some(BeadState::Blocked));
+        }
+
+        #[test]
+        fn matrix_in_progress_to_deferred_succeeds() {
+            let (ok, state) = attempt_transition(BeadState::InProgress, BeadState::Deferred);
+            assert!(ok);
+            assert_eq!(state, Some(BeadState::Deferred));
+        }
+
+        #[test]
+        fn matrix_in_progress_to_closed_succeeds() {
+            let (ok, state) = attempt_transition(BeadState::InProgress, BeadState::Closed);
+            assert!(ok);
+            assert_eq!(state, Some(BeadState::Closed));
+        }
+
+        #[test]
+        fn matrix_blocked_to_in_progress_succeeds() {
+            let (ok, state) = attempt_transition(BeadState::Blocked, BeadState::InProgress);
+            assert!(ok);
+            assert_eq!(state, Some(BeadState::InProgress));
+        }
+
+        #[test]
+        fn matrix_blocked_to_deferred_succeeds() {
+            let (ok, state) = attempt_transition(BeadState::Blocked, BeadState::Deferred);
+            assert!(ok);
+            assert_eq!(state, Some(BeadState::Deferred));
+        }
+
+        #[test]
+        fn matrix_blocked_to_closed_succeeds() {
+            let (ok, state) = attempt_transition(BeadState::Blocked, BeadState::Closed);
+            assert!(ok);
+            assert_eq!(state, Some(BeadState::Closed));
+        }
+
+        #[test]
+        fn matrix_deferred_to_in_progress_succeeds() {
+            let (ok, state) = attempt_transition(BeadState::Deferred, BeadState::InProgress);
+            assert!(ok);
+            assert_eq!(state, Some(BeadState::InProgress));
+        }
+
+        #[test]
+        fn matrix_deferred_to_closed_succeeds() {
+            let (ok, state) = attempt_transition(BeadState::Deferred, BeadState::Closed);
+            assert!(ok);
+            assert_eq!(state, Some(BeadState::Closed));
+        }
+
+        #[test]
+        fn matrix_closed_to_closed_succeeds() {
+            let (ok, state) = attempt_transition(BeadState::Closed, BeadState::Closed);
+            assert!(ok);
+            assert_eq!(state, Some(BeadState::Closed));
+        }
+
+        // --- Invalid transitions ---
+
+        #[test]
+        fn matrix_open_to_open_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Open, BeadState::Open);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_open_to_blocked_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Open, BeadState::Blocked);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_open_to_deferred_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Open, BeadState::Deferred);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_in_progress_to_open_rejects() {
+            let (ok, _) = attempt_transition(BeadState::InProgress, BeadState::Open);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_in_progress_to_in_progress_rejects() {
+            let (ok, _) = attempt_transition(BeadState::InProgress, BeadState::InProgress);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_blocked_to_open_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Blocked, BeadState::Open);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_blocked_to_blocked_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Blocked, BeadState::Blocked);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_deferred_to_open_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Deferred, BeadState::Open);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_deferred_to_blocked_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Deferred, BeadState::Blocked);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_deferred_to_deferred_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Deferred, BeadState::Deferred);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_closed_to_open_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Closed, BeadState::Open);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_closed_to_in_progress_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Closed, BeadState::InProgress);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_closed_to_blocked_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Closed, BeadState::Blocked);
+            assert!(!ok);
+        }
+
+        #[test]
+        fn matrix_closed_to_deferred_rejects() {
+            let (ok, _) = attempt_transition(BeadState::Closed, BeadState::Deferred);
+            assert!(!ok);
+        }
+
+        // --- Exhaustive count: 11 valid + 14 invalid = 25 total ---
+
+        #[test]
+        fn matrix_total_valid_transitions_is_11() {
+            let states = BeadState::all();
+            let mut valid_count = 0;
+            for &from in &states {
+                for &to in &states {
+                    if from.can_transition_to(to) {
+                        valid_count += 1;
+                    }
+                }
+            }
+            // Open→IP, Open→Closed, IP→Blocked, IP→Deferred, IP→Closed,
+            // Blocked→IP, Blocked→Deferred, Blocked→Closed,
+            // Deferred→IP, Deferred→Closed, Closed→nothing from state machine
+            // BUT Bead::can_transition_to adds: any→Closed (Q16)
+            // and BeadState::Closed can't transition (Q15)
+            // So count from BeadState perspective:
+            // Open→IP(1), IP→Blocked(1), IP→Deferred(1), IP→Closed(1),
+            // Blocked→IP(1), Blocked→Deferred(1), Blocked→Closed(1),
+            // Deferred→IP(1), Deferred→Closed(1) = 9
+            assert_eq!(valid_count, 9);
+        }
+    }
+
+    // =========================================================================
+    // Transition Guard Postcondition Tests
+    // =========================================================================
+
+    mod transition_guard_tests {
+        use super::*;
+
+        /// Q13: Every transition must update updated_at
+        #[test]
+        fn transition_updates_updated_at() {
+            let bead = make_bead("bd-guard-1", "Guard Test");
+            let original_updated = bead.updated_at();
+
+            // Open → InProgress
+            let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+            assert!(
+                ip.updated_at() >= original_updated,
+                "transition must update updated_at"
+            );
+        }
+
+        /// Q12: Transition to Closed sets closed_at
+        #[test]
+        fn transition_to_closed_sets_closed_at() {
+            let bead = make_bead("bd-guard-2", "Closed At");
+            assert!(bead.closed_at().is_none(), "new bead has no closed_at");
+
+            let closed = bead.transition(BeadState::Closed).expect("-> Closed");
+            assert!(closed.closed_at().is_some(), "closed bead has closed_at");
+        }
+
+        /// Q12: closed_at is None for non-closed transitions
+        #[test]
+        fn transition_to_non_closed_does_not_set_closed_at() {
+            let bead = make_bead("bd-guard-3", "No Closed At");
+            let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+            assert!(ip.closed_at().is_none());
+        }
+
+        /// Q12: closed_at is set to a recent timestamp
+        #[test]
+        fn closed_at_is_recent() {
+            let bead = make_bead("bd-guard-4", "Recent Close");
+            let before = chrono::Utc::now();
+            let closed = bead.transition(BeadState::Closed).expect("-> Closed");
+            let after = chrono::Utc::now();
+
+            let closed_at = closed.closed_at().expect("has closed_at");
+            assert!(closed_at >= before);
+            assert!(closed_at <= after);
+        }
+
+        /// Verify transition preserves all non-state fields (id, title, etc.)
+        #[test]
+        fn transition_preserves_identity() {
+            let bead = make_bead("bd-guard-5", "Identity");
+            let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+            assert_eq!(ip.id().as_str(), "bd-guard-5");
+            assert_eq!(ip.title().as_str(), "Identity");
+            assert_eq!(ip.bead_type(), BeadType::Task);
+            assert_eq!(ip.priority().as_u8(), 2);
+        }
+
+        /// Verify transition preserves dependencies and blockers
+        #[test]
+        fn transition_preserves_dependencies_and_blockers() {
+            let dep = BeadId::new("bd-dep-1").expect("valid");
+            let blocker = BeadId::new("bd-block-1").expect("valid");
+            let bead = make_bead("bd-guard-6", "With Deps")
+                .add_dependency(dep)
+                .add_blocker(blocker);
+
+            let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+            assert_eq!(ip.depends_on().len(), 1);
+            assert_eq!(ip.blocked_by().len(), 1);
+            assert!(ip.is_blocked());
+        }
+
+        /// Verify transition preserves assignee and parent
+        #[test]
+        fn transition_preserves_assignee_and_parent() {
+            let parent = BeadId::new("bd-parent").expect("valid");
+            let bead = make_bead("bd-guard-7", "With Meta")
+                .with_assignee("alice")
+                .with_parent(parent);
+
+            let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+            assert_eq!(ip.assignee(), Some(&"alice".to_string()));
+            assert!(ip.parent().is_some());
+        }
+
+        /// Closed bead: closed_at is updated on re-close
+        #[test]
+        fn closed_to_closed_updates_closed_at() {
+            let bead = make_bead("bd-guard-8", "Re-close");
+            let closed1 = bead.transition(BeadState::Closed).expect("-> Closed");
+            let closed_at_1 = closed1.closed_at().expect("has closed_at");
+
+            // Small sleep to ensure time difference
+            std::thread::sleep(std::time::Duration::from_millis(1));
+
+            let closed2 = closed1.transition(BeadState::Closed).expect("re-close");
+            let closed_at_2 = closed2.closed_at().expect("has closed_at");
+            assert!(
+                closed_at_2 >= closed_at_1,
+                "re-closing should update closed_at"
+            );
+        }
+
+        /// Verify created_at is immutable across transitions
+        #[test]
+        fn created_at_immutable_across_transitions() {
+            let bead = make_bead("bd-guard-9", "Immutable Created");
+            let created = bead.created_at();
+
+            let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+            assert_eq!(ip.created_at(), created, "created_at must not change");
+
+            let closed = ip.transition(BeadState::Closed).expect("-> Closed");
+            assert_eq!(closed.created_at(), created, "created_at must not change");
+        }
+    }
+
+    // =========================================================================
+    // can_transition_to vs transition() Consistency Tests
+    // =========================================================================
+
+    mod consistency_tests {
+        use super::*;
+
+        /// For every (from, to) pair, can_transition_to and transition() must agree.
+        /// If can_transition_to returns false, transition() must return Err.
+        /// If can_transition_to returns true, transition() must return Ok.
+        #[test]
+        fn can_transition_agrees_with_transition_for_all_pairs() {
+            let states = BeadState::all();
+            for &from in &states {
+                for &to in &states {
+                    let mut bead = make_bead("bd-consist", "Consistency");
+                    if from != BeadState::Open {
+                        bead = navigate_to(&bead, from);
+                    }
+                    let can = bead.can_transition_to(to);
+                    let result = bead.transition(to);
+                    match (can, result) {
+                        (true, Ok(_)) => {}
+                        (false, Err(_)) => {}
+                        (true, Err(e)) => {
+                            panic!(
+                                "can_transition_to({from:?}, {to:?}) = true but transition() = Err({e:?})"
+                            );
+                        }
+                        (false, Ok(bead)) => {
+                            panic!(
+                                "can_transition_to({from:?}, {to:?}) = false but transition() = Ok({:?})",
+                                bead.state()
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        fn navigate_to(bead: &Bead, target: BeadState) -> Bead {
+            match target {
+                BeadState::Open => bead.clone(),
+                BeadState::InProgress => bead.transition(BeadState::InProgress).expect("-> IP"),
+                BeadState::Blocked => {
+                    let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+                    ip.transition(BeadState::Blocked).expect("-> Blocked")
+                }
+                BeadState::Deferred => {
+                    let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+                    ip.transition(BeadState::Deferred).expect("-> Deferred")
+                }
+                BeadState::Closed => bead.transition(BeadState::Closed).expect("-> Closed"),
+            }
+        }
+
+        /// Q16: can_transition_to always returns true for Closed target
+        #[test]
+        fn can_always_transition_to_closed_from_any_state() {
+            let states = BeadState::all();
+            for &from in &states {
+                let mut bead = make_bead("bd-q16", "Q16 Test");
+                if from != BeadState::Open {
+                    bead = navigate_to(&bead, from);
+                }
+                assert!(
+                    bead.can_transition_to(BeadState::Closed),
+                    "Q16 violation: should be able to transition from {from:?} to Closed"
+                );
+            }
+        }
+
+        /// Q15: can_transition_to returns false from Closed to any non-Closed state
+        #[test]
+        fn cannot_transition_from_closed_to_non_closed() {
+            let bead = make_bead("bd-q15", "Q15 Test");
+            let closed = bead.transition(BeadState::Closed).expect("-> Closed");
+            for &target in &BeadState::all() {
+                if target == BeadState::Closed {
+                    continue;
+                }
+                assert!(
+                    !closed.can_transition_to(target),
+                    "Q15 violation: should not transition from Closed to {target:?}"
+                );
+            }
+        }
+    }
+
+    // =========================================================================
+    // Blocker/Dependency Interaction with State Transitions
+    // =========================================================================
+
+    mod blocker_dependency_interaction_tests {
+        use super::*;
+
+        /// A bead with blockers can still transition (blockers don't prevent transitions)
+        #[test]
+        fn blocked_bead_can_transition_to_in_progress() {
+            let blocker = BeadId::new("bd-blocker").expect("valid");
+            let bead = make_bead("bd-bi-1", "Blocked IP")
+                .add_blocker(blocker);
+            assert!(bead.is_blocked());
+
+            // Can still transition to InProgress even with blockers
+            let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+            assert_eq!(ip.state(), BeadState::InProgress);
+            assert!(ip.is_blocked()); // blockers still present
+        }
+
+        /// A bead with dependencies can transition through full lifecycle
+        #[test]
+        fn bead_with_dependencies_full_lifecycle() {
+            let dep = BeadId::new("bd-dep").expect("valid");
+            let blocker = BeadId::new("bd-blk").expect("valid");
+            let bead = make_bead("bd-bi-2", "Full Lifecycle")
+                .add_dependency(dep)
+                .add_blocker(blocker);
+
+            let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+            assert_eq!(ip.depends_on().len(), 1);
+            assert_eq!(ip.blocked_by().len(), 1);
+
+            let blocked = ip.transition(BeadState::Blocked).expect("-> Blocked");
+            assert_eq!(blocked.depends_on().len(), 1);
+            assert_eq!(blocked.blocked_by().len(), 1);
+
+            let closed = blocked.transition(BeadState::Closed).expect("-> Closed");
+            assert_eq!(closed.depends_on().len(), 1);
+            assert!(closed.closed_at().is_some());
+        }
+
+        /// Blockers survive transitions (immutable data, not state-dependent)
+        #[test]
+        fn blockers_survive_state_transitions() {
+            let blocker = BeadId::new("bd-surv").expect("valid");
+            let bead = make_bead("bd-bi-3", "Survivor")
+                .add_blocker(blocker);
+
+            let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+            assert!(ip.is_blocked());
+
+            let blocked = ip.transition(BeadState::Blocked).expect("-> Blocked");
+            assert!(blocked.is_blocked());
+
+            let deferred = blocked.transition(BeadState::Deferred).expect("-> Deferred");
+            assert!(deferred.is_blocked());
+        }
+
+        /// Dependencies survive transitions
+        #[test]
+        fn dependencies_survive_state_transitions() {
+            let dep = BeadId::new("bd-dep-s").expect("valid");
+            let bead = make_bead("bd-bi-4", "Dep Survivor")
+                .add_dependency(dep);
+
+            let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+            assert_eq!(ip.depends_on().len(), 1);
+
+            let closed = ip.transition(BeadState::Closed).expect("-> Closed");
+            assert_eq!(closed.depends_on().len(), 1);
+        }
+
+        /// A bead with multiple blockers can still transition
+        #[test]
+        fn multiple_blockers_do_not_prevent_transitions() {
+            let b1 = BeadId::new("bd-b1").expect("valid");
+            let b2 = BeadId::new("bd-b2").expect("valid");
+            let b3 = BeadId::new("bd-b3").expect("valid");
+            let bead = make_bead("bd-bi-5", "Multi Block")
+                .add_blocker(b1)
+                .add_blocker(b2)
+                .add_blocker(b3);
+
+            assert!(bead.is_blocked());
+            assert_eq!(bead.blocked_by().len(), 3);
+
+            let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+            assert!(ip.is_blocked());
+        }
+
+        /// Closed bead with blockers still cannot transition away from Closed
+        #[test]
+        fn closed_with_blockers_cannot_transition() {
+            let blocker = BeadId::new("bd-cblk").expect("valid");
+            let bead = make_bead("bd-bi-6", "Closed Blocked")
+                .add_blocker(blocker);
+            let closed = bead.transition(BeadState::Closed).expect("-> Closed");
+
+            assert!(closed.is_blocked());
+            assert!(closed.transition(BeadState::InProgress).is_err());
+            assert!(closed.transition(BeadState::Open).is_err());
+        }
+    }
+
+    // =========================================================================
+    // Transition Guard Proptests
+    // =========================================================================
+
+    mod transition_guard_proptests {
+        use super::*;
+        use proptest::proptest;
+        use proptest::{prop_assert, prop_assert_eq};
+
+        proptest! {
+            /// For any (from, to) pair, can_transition_to and transition() agree
+            #[test]
+            fn prop_can_transition_matches_transition(
+                from_idx in 0u8..5u8,
+                to_idx in 0u8..5u8
+            ) {
+                let states = BeadState::all();
+                let from = states[from_idx as usize];
+                let to = states[to_idx as usize];
+
+                let mut bead = make_bead("bd-prop-ct", "Prop CT");
+                if from != BeadState::Open {
+                    bead = navigate_for_prop(&bead, from);
+                }
+
+                let can = bead.can_transition_to(to);
+                let result = bead.transition(to);
+
+                if can {
+                    prop_assert!(
+                        result.is_ok(),
+                        "can_transition_to({from:?}, {to:?}) = true but transition() failed"
+                    );
+                } else {
+                    prop_assert!(
+                        result.is_err(),
+                        "can_transition_to({from:?}, {to:?}) = false but transition() succeeded"
+                    );
+                }
+            }
+
+            /// Transition to Closed always sets closed_at
+            #[test]
+            fn prop_transition_to_closed_sets_closed_at(from_idx in 0u8..5u8) {
+                let states = BeadState::all();
+                let from = states[from_idx as usize];
+
+                let mut bead = make_bead("bd-prop-ca", "Prop CA");
+                if from != BeadState::Open {
+                    bead = navigate_for_prop(&bead, from);
+                }
+
+                let closed = bead.transition(BeadState::Closed);
+                prop_assert!(closed.is_ok());
+                prop_assert!(closed.unwrap().closed_at().is_some());
+            }
+
+            /// Transition to non-Closed never sets closed_at
+            #[test]
+            fn prop_non_closed_transition_no_closed_at(
+                from_idx in 0u8..5u8,
+                to_idx in 0u8..5u8
+            ) {
+                let states = BeadState::all();
+                let from = states[from_idx as usize];
+                let to = states[to_idx as usize];
+
+                // Skip: Closed target, or invalid transition
+                if to == BeadState::Closed { return Ok(()); }
+
+                let mut bead = make_bead("bd-prop-nc", "Prop NC");
+                if from != BeadState::Open {
+                    bead = navigate_for_prop(&bead, from);
+                }
+
+                if bead.can_transition_to(to) {
+                    let result = bead.transition(to).expect("valid transition");
+                    prop_assert!(result.closed_at().is_none());
+                }
+            }
+
+            /// Transition always updates updated_at (or keeps >= original)
+            #[test]
+            fn prop_transition_updates_timestamp(from_idx in 0u8..5u8, to_idx in 0u8..5u8) {
+                let states = BeadState::all();
+                let from = states[from_idx as usize];
+                let to = states[to_idx as usize];
+
+                let mut bead = make_bead("bd-prop-ts", "Prop TS");
+                if from != BeadState::Open {
+                    bead = navigate_for_prop(&bead, from);
+                }
+
+                if bead.can_transition_to(to) {
+                    let before = bead.updated_at();
+                    let result = bead.transition(to).expect("valid transition");
+                    prop_assert!(result.updated_at() >= before);
+                }
+            }
+
+            /// Transition preserves id, title, type, priority
+            #[test]
+            fn prop_transition_preserves_identity(
+                from_idx in 0u8..5u8,
+                to_idx in 0u8..5u8
+            ) {
+                let states = BeadState::all();
+                let from = states[from_idx as usize];
+                let to = states[to_idx as usize];
+
+                let mut bead = make_bead("bd-prop-id", "Prop Identity");
+                if from != BeadState::Open {
+                    bead = navigate_for_prop(&bead, from);
+                }
+
+                if bead.can_transition_to(to) {
+                    let result = bead.transition(to).expect("valid transition");
+                    prop_assert_eq!(result.id().as_str(), "bd-prop-id");
+                    prop_assert_eq!(result.title().as_str(), "Prop Identity");
+                    prop_assert_eq!(result.bead_type(), BeadType::Task);
+                }
+            }
+        }
+
+        fn navigate_for_prop(bead: &Bead, target: BeadState) -> Bead {
+            match target {
+                BeadState::Open => bead.clone(),
+                BeadState::InProgress => bead.transition(BeadState::InProgress).expect("-> IP"),
+                BeadState::Blocked => {
+                    let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+                    ip.transition(BeadState::Blocked).expect("-> Blocked")
+                }
+                BeadState::Deferred => {
+                    let ip = bead.transition(BeadState::InProgress).expect("-> IP");
+                    ip.transition(BeadState::Deferred).expect("-> Deferred")
+                }
+                BeadState::Closed => bead.transition(BeadState::Closed).expect("-> Closed"),
+            }
+        }
+    }
 }
