@@ -87,6 +87,12 @@ impl SessionState {
         }
     }
 
+    /// Returns true if this is an active (non-dormant, non-terminal) state.
+    #[must_use]
+    pub const fn is_active(self) -> bool {
+        matches!(self, Self::Active | Self::Syncing | Self::Synced)
+    }
+
     /// Returns true if this is a terminal state.
     #[must_use]
     pub const fn is_terminal(self) -> bool {
@@ -821,7 +827,70 @@ mod tests {
     }
 
     // ========================================================================
-    // 7. Terminal State Invariants
+    // 7. State Query Predicates — is_active, is_terminal
+    // ========================================================================
+
+    #[test]
+    fn active_state_is_active() {
+        assert!(SessionState::Active.is_active());
+    }
+
+    #[test]
+    fn syncing_state_is_active() {
+        assert!(SessionState::Syncing.is_active());
+    }
+
+    #[test]
+    fn synced_state_is_active() {
+        assert!(SessionState::Synced.is_active());
+    }
+
+    #[test]
+    fn created_state_is_not_active() {
+        assert!(!SessionState::Created.is_active());
+    }
+
+    #[test]
+    fn paused_state_is_not_active() {
+        assert!(!SessionState::Paused.is_active());
+    }
+
+    #[test]
+    fn completed_state_is_not_active() {
+        assert!(!SessionState::Completed.is_active());
+    }
+
+    #[test]
+    fn failed_state_is_not_active() {
+        assert!(!SessionState::Failed.is_active());
+    }
+
+    #[test]
+    fn is_active_and_is_terminal_are_disjoint() {
+        // No state should be both active and terminal
+        for &state in SessionState::all_states() {
+            assert!(
+                !(state.is_active() && state.is_terminal()),
+                "{state:?} should not be both active and terminal"
+            );
+        }
+    }
+
+    #[test]
+    fn is_active_or_is_terminal_covers_all_states() {
+        // Every state is either active, terminal, or dormant (Created/Paused)
+        for &state in SessionState::all_states() {
+            let active = state.is_active();
+            let terminal = state.is_terminal();
+            assert!(
+                active || terminal || matches!(state, SessionState::Created | SessionState::Paused),
+                "{state:?} should be active, terminal, or dormant"
+            );
+        }
+    }
+
+    // ========================================================================
+    // 7b. Terminal State Invariants
     // ========================================================================
 
     #[test]
@@ -982,6 +1051,26 @@ mod tests {
             let t = StateTransition::new(from, to, &reason);
             prop_assert_eq!(t.from, from);
             prop_assert_eq!(t.to, to);
+        }
+
+        #[test]
+        fn prop_is_active_never_true_for_terminal_states(
+            state in arb_session_state()
+        ) {
+            if state.is_terminal() {
+                prop_assert!(!state.is_active());
+            }
+        }
+
+        #[test]
+        fn prop_valid_transitions_never_cross_terminal_to_active(
+            from in arb_session_state(),
+            to in arb_session_state()
+        ) {
+            if from.is_terminal() && from.can_transition_to(to) {
+                // Terminal states can only go to Created
+                prop_assert_eq!(to, SessionState::Created);
+            }
         }
     }
 }
