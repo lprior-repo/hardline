@@ -1,5 +1,7 @@
 //! Metadata value objects: Labels, DependsOn, Priority, IssueType, WorkspaceName
 
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
 
 use crate::error::SessionError;
@@ -146,7 +148,7 @@ impl TryFrom<String> for DependsOn {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Priority(u8);
 
 impl Priority {
@@ -181,6 +183,17 @@ impl TryFrom<u8> for Priority {
     type Error = SessionError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl FromStr for Priority {
+    type Err = SessionError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value: u8 = s.parse().map_err(|_| {
+            SessionError::InvalidPriority(format!("Priority must be 0-4, got \"{s}\""))
+        })?;
         Self::new(value)
     }
 }
@@ -444,17 +457,47 @@ mod tests {
     mod priority_tests {
         use super::*;
 
+        // --- Range enforcement: P0-P4 valid ---
+
         #[test]
         fn priority_zero_valid() {
-            let p = Priority::new(0).expect("critical");
+            let p = Priority::new(0).expect("P0 critical");
             assert_eq!(p.as_u8(), 0);
         }
 
         #[test]
+        fn priority_one_valid() {
+            let p = Priority::new(1).expect("P1 high");
+            assert_eq!(p.as_u8(), 1);
+        }
+
+        #[test]
+        fn priority_two_valid() {
+            let p = Priority::new(2).expect("P2 medium");
+            assert_eq!(p.as_u8(), 2);
+        }
+
+        #[test]
+        fn priority_three_valid() {
+            let p = Priority::new(3).expect("P3 low");
+            assert_eq!(p.as_u8(), 3);
+        }
+
+        #[test]
         fn priority_four_valid() {
-            let p = Priority::new(4).expect("backlog");
+            let p = Priority::new(4).expect("P4 backlog");
             assert_eq!(p.as_u8(), 4);
         }
+
+        #[test]
+        fn priority_all_valid_levels() {
+            for level in 0..=4u8 {
+                let p = Priority::new(level).unwrap_or_else(|_| panic!("P{level} should be valid"));
+                assert_eq!(p.as_u8(), level);
+            }
+        }
+
+        // --- Out-of-range rejection ---
 
         #[test]
         fn priority_five_rejects() {
@@ -467,10 +510,223 @@ mod tests {
         }
 
         #[test]
+        fn priority_six_rejects() {
+            let result = Priority::new(6);
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidPriority(_)
+            ));
+        }
+
+        #[test]
         fn priority_max_u8_rejects() {
             let result = Priority::new(255);
             assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidPriority(_)
+            ));
         }
+
+        #[test]
+        fn priority_boundary_values_above_range() {
+            for invalid in [5u8, 10, 50, 100, 200, 255] {
+                assert!(
+                    Priority::new(invalid).is_err(),
+                    "Priority {invalid} should be rejected"
+                );
+            }
+        }
+
+        // --- Ordering: Ord semantics (lower number = higher priority, sorts first) ---
+
+        #[test]
+        fn priority_ordering_lower_is_greater_priority() {
+            let p0 = Priority::new(0).expect("P0");
+            let p1 = Priority::new(1).expect("P1");
+            let p2 = Priority::new(2).expect("P2");
+            let p3 = Priority::new(3).expect("P3");
+            let p4 = Priority::new(4).expect("P4");
+
+            // P0 < P1 < P2 < P3 < P4 (natural u8 ordering)
+            assert!(p0 < p1);
+            assert!(p1 < p2);
+            assert!(p2 < p3);
+            assert!(p3 < p4);
+        }
+
+        #[test]
+        fn priority_ordering_transitive() {
+            let p0 = Priority::new(0).expect("P0");
+            let p4 = Priority::new(4).expect("P4");
+            // P0 < P4 via transitivity
+            assert!(p0 < p4);
+            assert!(p4 > p0);
+        }
+
+        #[test]
+        fn priority_ordering_sort() {
+            let mut priorities = vec![
+                Priority::new(4).expect("P4"),
+                Priority::new(0).expect("P0"),
+                Priority::new(2).expect("P2"),
+                Priority::new(1).expect("P1"),
+                Priority::new(3).expect("P3"),
+            ];
+            priorities.sort();
+            assert_eq!(
+                priorities.iter().map(|p| p.as_u8()).collect::<Vec<_>>(),
+                vec![0, 1, 2, 3, 4]
+            );
+        }
+
+        #[test]
+        fn priority_ordering_reverse_sort() {
+            let mut priorities = vec![
+                Priority::new(1).expect("P1"),
+                Priority::new(3).expect("P3"),
+                Priority::new(0).expect("P0"),
+            ];
+            priorities.sort_by(|a, b| b.cmp(a));
+            assert_eq!(
+                priorities.iter().map(|p| p.as_u8()).collect::<Vec<_>>(),
+                vec![3, 1, 0]
+            );
+        }
+
+        #[test]
+        fn priority_cmp_min_max() {
+            let p0 = Priority::new(0).expect("P0");
+            let p4 = Priority::new(4).expect("P4");
+            assert_eq!(p0.cmp(&p4), std::cmp::Ordering::Less);
+            assert_eq!(p4.cmp(&p0), std::cmp::Ordering::Greater);
+        }
+
+        // --- Equality ---
+
+        #[test]
+        fn priority_equality_same_level() {
+            let a = Priority::new(2).expect("P2");
+            let b = Priority::new(2).expect("P2");
+            assert_eq!(a, b);
+            assert!(a <= b);
+            assert!(a >= b);
+        }
+
+        #[test]
+        fn priority_inequality_different_levels() {
+            let p0 = Priority::new(0).expect("P0");
+            let p4 = Priority::new(4).expect("P4");
+            assert_ne!(p0, p4);
+        }
+
+        #[test]
+        fn priority_hash_consistency() {
+            use std::collections::HashSet;
+            let p1 = Priority::new(1).expect("P1");
+            let p2 = Priority::new(1).expect("P1");
+            let mut set = HashSet::new();
+            set.insert(p1);
+            assert!(set.contains(&p2));
+        }
+
+        // --- Parsing from string ---
+
+        #[test]
+        fn priority_from_str_valid_all_levels() {
+            for level in 0..=4u8 {
+                let p = format!("{level}").parse::<Priority>().unwrap_or_else(|_| {
+                    panic!("Parsing \"{level}\" should succeed")
+                });
+                assert_eq!(p.as_u8(), level);
+            }
+        }
+
+        #[test]
+        fn priority_from_str_zero() {
+            let p = "0".parse::<Priority>().expect("P0 from string");
+            assert_eq!(p.as_u8(), 0);
+        }
+
+        #[test]
+        fn priority_from_str_four() {
+            let p = "4".parse::<Priority>().expect("P4 from string");
+            assert_eq!(p.as_u8(), 4);
+        }
+
+        #[test]
+        fn priority_from_str_out_of_range() {
+            let result = "5".parse::<Priority>();
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidPriority(_)
+            ));
+        }
+
+        #[test]
+        fn priority_from_str_invalid_text() {
+            let result = "high".parse::<Priority>();
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidPriority(_)
+            ));
+        }
+
+        #[test]
+        fn priority_from_str_empty() {
+            let result = "".parse::<Priority>();
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidPriority(_)
+            ));
+        }
+
+        #[test]
+        fn priority_from_str_negative() {
+            let result = "-1".parse::<Priority>();
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidPriority(_)
+            ));
+        }
+
+        #[test]
+        fn priority_from_str_large_number() {
+            let result = "100".parse::<Priority>();
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidPriority(_)
+            ));
+        }
+
+        // --- Parsing from integer (TryFrom<u8>) ---
+
+        #[test]
+        fn priority_try_from_u8_all_valid() {
+            for level in 0..=4u8 {
+                let p = Priority::try_from(level)
+                    .unwrap_or_else(|_| panic!("TryFrom u8 {level} should succeed"));
+                assert_eq!(p.as_u8(), level);
+            }
+        }
+
+        #[test]
+        fn priority_try_from_u8_invalid() {
+            let result = Priority::try_from(10);
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidPriority(_)
+            ));
+        }
+
+        // --- Display / Conversion ---
 
         #[test]
         fn priority_display() {
@@ -479,21 +735,34 @@ mod tests {
         }
 
         #[test]
-        fn priority_try_from_u8() {
-            let p = Priority::try_from(3).expect("valid");
-            assert_eq!(p.as_u8(), 3);
-        }
-
-        #[test]
-        fn priority_try_from_u8_invalid() {
-            let result = Priority::try_from(10);
-            assert!(result.is_err());
+        fn priority_display_all_levels() {
+            for level in 0..=4u8 {
+                let p = Priority::new(level).expect("valid");
+                assert_eq!(format!("{p}"), format!("{level}"));
+            }
         }
 
         #[test]
         fn priority_into_inner() {
             let p = Priority::new(1).expect("valid");
             assert_eq!(p.into_inner(), 1);
+        }
+
+        #[test]
+        fn priority_as_u8_all_levels() {
+            for level in 0..=4u8 {
+                let p = Priority::new(level).expect("valid");
+                assert_eq!(p.as_u8(), level);
+            }
+        }
+
+        // --- Copy semantics ---
+
+        #[test]
+        fn priority_copy_semantics() {
+            let p1 = Priority::new(2).expect("valid");
+            let p2 = p1; // Copy, not move
+            assert_eq!(p1, p2); // p1 still valid after copy
         }
     }
 
