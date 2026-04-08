@@ -1,0 +1,9 @@
+error[E0599]: no method named `complete` found for struct `Session<scp_session::domain::entities::session::Paused>` in the current scope
+  --> compile_fail/typestate_paused_cannot_complete.rs:11:12
+   |
+11 |     paused.complete();
+   |            ^^^^^^^^ method not found in `Session<scp_session::domain::entities::session::Paused>`
+   |
+   = note: the method was found for
+           - `Session<scp_session::domain::entities::session::Active>`
+           - `Session<scp_session::domain::entities::session::Synced>`

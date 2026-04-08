@@ -1,0 +1,11 @@
+error[E0599]: no method named `fail` found for struct `Session<scp_session::domain::entities::session::Completed>` in the current scope
+  --> compile_fail/typestate_completed_cannot_fail.rs:11:15
+   |
+11 |     completed.fail();
+   |               ^^^^ method not found in `Session<scp_session::domain::entities::session::Completed>`
+   |
+   = note: the method was found for
+           - `Session`
+           - `Session<scp_session::domain::entities::session::Active>`
+           - `Session<scp_session::domain::entities::session::Paused>`
+           - `Session<scp_session::domain::entities::session::Syncing>`

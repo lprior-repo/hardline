@@ -1,0 +1,7 @@
+error[E0599]: no method named `activate` found for struct `Session<scp_session::domain::entities::session::Completed>` in the current scope
+  --> compile_fail/typestate_completed_cannot_activate.rs:11:15
+   |
+11 |     completed.activate();
+   |               ^^^^^^^^ method not found in `Session<scp_session::domain::entities::session::Completed>`
+   |
+   = note: the method was found for `Session`

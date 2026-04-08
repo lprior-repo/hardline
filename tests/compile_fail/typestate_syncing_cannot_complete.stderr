@@ -1,0 +1,10 @@
+error[E0599]: no method named `complete` found for struct `Session<scp_session::domain::entities::session::Syncing>` in the current scope
+  --> compile_fail/typestate_syncing_cannot_complete.rs:11:13
+   |
+11 |     syncing.complete();
+   |             ^^^^^^^^
+   |
+help: there is a method `sync_complete` with a similar name
+   |
+11 |     syncing.sync_complete();
+   |             +++++
