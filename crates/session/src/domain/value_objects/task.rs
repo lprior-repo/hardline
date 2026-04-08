@@ -447,6 +447,91 @@ mod tests {
             let title = Title::new("Fix: issue #123 (critical)").expect("valid");
             assert_eq!(title.as_str(), "Fix: issue #123 (critical)");
         }
+
+        #[test]
+        fn title_single_char_min_boundary() {
+            let title = Title::new("X").expect("single char is valid");
+            assert_eq!(title.as_str(), "X");
+        }
+
+        #[test]
+        fn title_trims_tabs() {
+            let title = Title::new("\tTabbed\t").expect("valid");
+            assert_eq!(title.as_str(), "Tabbed");
+        }
+
+        #[test]
+        fn title_trims_newlines() {
+            let title = Title::new("\nLine\n").expect("valid");
+            assert_eq!(title.as_str(), "Line");
+        }
+
+        #[test]
+        fn title_trims_mixed_whitespace() {
+            let title = Title::new(" \t\n Mixed \n\t ").expect("valid");
+            assert_eq!(title.as_str(), "Mixed");
+        }
+
+        #[test]
+        fn title_whitespace_only_tabs_rejects() {
+            let result = Title::new("\t\t");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn title_whitespace_only_newlines_rejects() {
+            let result = Title::new("\n\n");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn title_whitespace_only_mixed_rejects() {
+            let result = Title::new(" \t\n ");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn title_interior_whitespace_preserved() {
+            let title = Title::new("Hello  World").expect("valid");
+            assert_eq!(title.as_str(), "Hello  World");
+        }
+
+        #[test]
+        fn title_max_length_exactly_after_trim() {
+            // Input is padded with spaces, but after trim it's exactly MAX_LENGTH
+            let inner = "a".repeat(Title::MAX_LENGTH);
+            let input = format!("  {inner}  ");
+            let title = Title::new(input).expect("valid after trim");
+            assert_eq!(title.as_str().len(), Title::MAX_LENGTH);
+        }
+
+        #[test]
+        fn title_over_max_length_after_trim_rejects() {
+            let inner = "a".repeat(Title::MAX_LENGTH + 1);
+            let input = format!("  {inner}  ");
+            let result = Title::new(input);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn title_exactly_max_length_accepted() {
+            let title_str = "a".repeat(Title::MAX_LENGTH);
+            let title = Title::new(&title_str).expect("exactly at max");
+            assert_eq!(title.as_str().len(), Title::MAX_LENGTH);
+        }
+
+        #[test]
+        fn title_one_over_max_length_rejected() {
+            let title_str = "a".repeat(Title::MAX_LENGTH + 1);
+            let result = Title::new(&title_str);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn title_two_chars_valid() {
+            let title = Title::new("AB").expect("valid");
+            assert_eq!(title.as_str(), "AB");
+        }
     }
 
     // =========================================================================
