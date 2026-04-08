@@ -342,6 +342,53 @@ mod tests {
         assert!(!id.0.is_empty());
     }
 
+    #[test]
+    fn test_pipeline_id_new_produces_uuid_format() {
+        let id = PipelineId::new();
+        // UUID v4 format: 8-4-4-4-12 hex chars
+        let parts: Vec<&str> = id.0.split('-').collect();
+        assert_eq!(parts.len(), 5);
+        assert_eq!(parts[0].len(), 8);
+        assert_eq!(parts[1].len(), 4);
+        assert_eq!(parts[2].len(), 4);
+        assert_eq!(parts[3].len(), 4);
+        assert_eq!(parts[4].len(), 12);
+        // All chars should be hex digits or hyphens
+        assert!(id.0.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
+    }
+
+    #[test]
+    fn test_pipeline_id_batch_uniqueness() {
+        let ids: Vec<PipelineId> = (0..100).map(|_| PipelineId::new()).collect();
+        let strings: Vec<&str> = ids.iter().map(|id| id.0.as_str()).collect();
+        let unique: std::collections::HashSet<&str> = strings.iter().copied().collect();
+        assert_eq!(unique.len(), 100, "all generated IDs must be unique");
+    }
+
+    #[test]
+    fn test_pipeline_id_equality_is_structural() {
+        let a = PipelineId("same-value".to_string());
+        let b = PipelineId("same-value".to_string());
+        let c = PipelineId("different".to_string());
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_pipeline_id_clone_preserves_value() {
+        let id = PipelineId::new();
+        let cloned = id.clone();
+        assert_eq!(id, cloned);
+        assert_eq!(id.0, cloned.0);
+    }
+
+    #[test]
+    fn test_pipeline_id_debug_format() {
+        let id = PipelineId("test-debug".to_string());
+        let debug = format!("{id:?}");
+        assert!(debug.contains("test-debug"));
+    }
+
     // --- PipelineState tests ---
 
     #[test]
