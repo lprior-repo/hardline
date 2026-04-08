@@ -1,4 +1,5 @@
 pub mod entities;
+pub mod events;
 pub mod metadata;
 pub mod stack; // Required for StackId, StackState types used by application layer
 pub mod state;
