@@ -130,6 +130,7 @@ pub fn run_config_ports(json: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
     fn test_global_config_path_returns_something() {
@@ -150,6 +151,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_resolve_state_db_default() {
         // Remove env vars to test default behavior
         std::env::remove_var("SCP_STATE_DB");
@@ -164,6 +166,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_resolve_state_db_from_env() {
         std::env::set_var("SCP_STATE_DB", "/tmp/custom.db");
 
@@ -176,6 +179,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_resolve_all_paths() {
         std::env::remove_var("SCP_STATE_DB");
         std::env::remove_var("SCP_DATABASE_PATH");
@@ -206,6 +210,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_resolve_state_db_priority_database_path() {
         // SCP_DATABASE_PATH should be used if SCP_STATE_DB is not set
         std::env::remove_var("SCP_STATE_DB");
@@ -219,6 +224,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_resolve_state_db_state_db_overrides_database_path() {
         // SCP_STATE_DB should take priority over SCP_DATABASE_PATH
         std::env::set_var("SCP_STATE_DB", "/tmp/state-db-path.db");
