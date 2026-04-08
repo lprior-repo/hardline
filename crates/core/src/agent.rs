@@ -1000,4 +1000,343 @@ mod tests {
         assert!(deserialized.is_working());
         assert_eq!(deserialized.session(), Some("my-session"));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Concurrent access tests — MemAgentRegistry
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_concurrent_register_different_agents() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let registry = Arc::new(MemAgentRegistry::new());
+        let mut handles = Vec::new();
+
+        for i in 0..50 {
+            let reg = Arc::clone(&registry);
+            handles.push(thread::spawn(move || {
+                let id = AgentId::new(format!("concurrent-agent-{i}"));
+                reg.register(Agent::new(id))
+            }));
+        }
+
+        for handle in handles {
+            assert!(handle.join().expect("thread panicked").is_ok());
+        }
+
+        let all = registry.list().expect("list succeeds");
+        assert_eq!(all.len(), 50);
+    }
+
+    #[test]
+    fn test_concurrent_register_duplicate_agents_most_fail() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let registry = Arc::new(MemAgentRegistry::new());
+        let mut handles = Vec::new();
+
+        // All threads try to register the same agent ID
+        for _ in 0..20 {
+            let reg = Arc::clone(&registry);
+            handles.push(thread::spawn(move || {
+                let id = AgentId::new("shared-id");
+                reg.register(Agent::new(id))
+            }));
+        }
+
+        let results: Vec<_> = handles
+            .into_iter()
+            .map(|h| h.join().expect("thread panicked"))
+            .collect();
+
+        let successes = results.iter().filter(|r| r.is_ok()).count();
+        let failures = results.iter().filter(|r| r.is_err()).count();
+
+        // Exactly one must succeed, the rest must fail
+        assert_eq!(successes, 1, "exactly one register should succeed");
+        assert_eq!(failures, 19, "all others should fail with duplicate");
+
+        // Verify the agent is there
+        let found = registry.get(&AgentId::new("shared-id")).expect("get succeeds");
+        assert!(found.is_some());
+    }
+
+    #[test]
+    fn test_concurrent_register_and_unregister() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let registry = Arc::new(MemAgentRegistry::new());
+
+        // Register 20 agents
+        for i in 0..20 {
+            let id = AgentId::new(format!("race-agent-{i}"));
+            registry.register(Agent::new(id)).expect("register");
+        }
+
+        let mut handles = Vec::new();
+
+        // Half the threads unregister, half heartbeat
+        for i in 0..20 {
+            let reg = Arc::clone(&registry);
+            handles.push(thread::spawn(move || {
+                let id = AgentId::new(format!("race-agent-{i}"));
+                if i % 2 == 0 {
+                    reg.unregister(&id)
+                        .map(|agent| agent.id.as_str().to_string())
+                        .map_err(|e| e.to_string())
+                } else {
+                    reg.heartbeat(&id)
+                        .map(|_| "ok".to_string())
+                        .map_err(|e| e.to_string())
+                }
+            }));
+        }
+
+        let results: Vec<_> = handles
+            .into_iter()
+            .map(|h| h.join().expect("thread panicked"))
+            .collect();
+
+        // All unregister operations should succeed
+        let unregister_oks = results
+            .iter()
+            .enumerate()
+            .filter(|(i, r)| i % 2 == 0 && r.is_ok())
+            .count();
+        assert_eq!(unregister_oks, 10);
+
+        // All heartbeat operations should succeed (agents still exist when heartbeating)
+        let hb_oks = results
+            .iter()
+            .enumerate()
+            .filter(|(i, r)| i % 2 == 1 && r.is_ok())
+            .count();
+        assert_eq!(hb_oks, 10);
+
+        // 10 agents should remain
+        let remaining = registry.list().expect("list");
+        assert_eq!(remaining.len(), 10);
+    }
+
+    #[test]
+    fn test_concurrent_heartbeat_many_agents() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let registry = Arc::new(MemAgentRegistry::new());
+
+        // Register 30 agents
+        for i in 0..30 {
+            let id = AgentId::new(format!("hb-agent-{i}"));
+            registry.register(Agent::new(id)).expect("register");
+        }
+
+        let mut handles = Vec::new();
+
+        // Each thread heartbeats a different agent 100 times
+        for i in 0..30 {
+            let reg = Arc::clone(&registry);
+            handles.push(thread::spawn(move || {
+                let id = AgentId::new(format!("hb-agent-{i}"));
+                for _ in 0..100 {
+                    reg.heartbeat(&id).expect("heartbeat");
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().expect("thread panicked");
+        }
+
+        // All agents should still be present and active
+        let all = registry.list().expect("list");
+        assert_eq!(all.len(), 30);
+
+        let active = registry.list_active().expect("list_active");
+        assert_eq!(active.len(), 30);
+    }
+
+    #[test]
+    fn test_concurrent_unregister_same_agent_one_wins() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let registry = Arc::new(MemAgentRegistry::new());
+        let id = AgentId::new("contended-agent");
+        registry.register(Agent::new(id.clone())).expect("register");
+
+        let mut handles = Vec::new();
+        for _ in 0..10 {
+            let reg = Arc::clone(&registry);
+            let id_clone = id.clone();
+            handles.push(thread::spawn(move || reg.unregister(&id_clone)));
+        }
+
+        let results: Vec<_> = handles
+            .into_iter()
+            .map(|h| h.join().expect("thread panicked"))
+            .collect();
+
+        let successes = results.iter().filter(|r| r.is_ok()).count();
+        let failures = results.iter().filter(|r| r.is_err()).count();
+
+        assert_eq!(successes, 1, "exactly one unregister should succeed");
+        assert_eq!(failures, 9, "all others should fail with not found");
+
+        // Agent should be gone
+        assert!(registry.get(&id).expect("get").is_none());
+    }
+
+    #[test]
+    fn test_concurrent_reads_during_writes() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let registry = Arc::new(MemAgentRegistry::new());
+
+        // Pre-register some agents
+        for i in 0..10 {
+            let id = AgentId::new(format!("pre-{i}"));
+            registry.register(Agent::new(id)).expect("register");
+        }
+
+        let mut handles = Vec::new();
+
+        // Writer threads: register new agents
+        for i in 0..20 {
+            let reg = Arc::clone(&registry);
+            handles.push(thread::spawn(move || {
+                let id = AgentId::new(format!("writer-{i}"));
+                reg.register(Agent::new(id))
+            }));
+        }
+
+        // Reader threads: list all agents repeatedly
+        for _ in 0..20 {
+            let reg = Arc::clone(&registry);
+            handles.push(thread::spawn(move || -> Result<()> {
+                for _ in 0..50 {
+                    let list = reg.list()?;
+                    assert!(list.len() >= 10, "at least pre-registered agents present");
+                }
+                Ok(())
+            }));
+        }
+
+        for handle in handles {
+            let _ = handle.join().expect("thread panicked");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Proptests — MemAgentRegistry
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    mod proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        prop_compose! {
+            fn arb_agent_id()(id in "[a-zA-Z0-9_-]{1,32}") -> AgentId {
+                AgentId::new(id)
+            }
+        }
+
+        prop_compose! {
+            fn arb_agent()(id in arb_agent_id()) -> Agent {
+                Agent::new(id)
+            }
+        }
+
+        proptest! {
+            #[test]
+            fn prop_register_then_get_roundtrip(agent in arb_agent()) {
+                let registry = MemAgentRegistry::new();
+                let id = agent.id.clone();
+                registry.register(agent)?;
+
+                let found = registry.get(&id)?;
+                prop_assert!(found.is_some());
+                prop_assert_eq!(found.unwrap().id, id);
+            }
+
+            #[test]
+            fn prop_duplicate_register_rejects(id in arb_agent_id()) {
+                let registry = MemAgentRegistry::new();
+                registry.register(Agent::new(id.clone()))?;
+
+                let second = registry.register(Agent::new(id.clone()));
+                prop_assert!(second.is_err());
+            }
+
+            #[test]
+            fn prop_unregister_returns_same_agent(agent in arb_agent()) {
+                let registry = MemAgentRegistry::new();
+                let id = agent.id.clone();
+                registry.register(agent)?;
+
+                let removed = registry.unregister(&id)?;
+                prop_assert_eq!(removed.id, id.clone());
+
+                let found = registry.get(&id)?;
+                prop_assert!(found.is_none());
+            }
+
+            #[test]
+            fn prop_list_contains_all_registered(ids in prop::collection::vec(arb_agent_id(), 0..20)) {
+                let registry = MemAgentRegistry::new();
+                let unique_ids: Vec<AgentId> = {
+                    let mut seen = std::collections::HashSet::new();
+                    ids.into_iter().filter(|id| seen.insert(id.clone())).collect()
+                };
+
+                for id in &unique_ids {
+                    registry.register(Agent::new(id.clone()))?;
+                }
+
+                let list = registry.list()?;
+                prop_assert_eq!(list.len(), unique_ids.len());
+
+                let listed_ids: std::collections::HashSet<AgentId> =
+                    list.into_iter().map(|a| a.id).collect();
+                for id in &unique_ids {
+                    prop_assert!(listed_ids.contains(id));
+                }
+            }
+
+            #[test]
+            fn prop_heartbeat_keeps_agent_active(id in arb_agent_id()) {
+                let registry = MemAgentRegistry::new();
+                registry.register(Agent::new(id.clone()))?;
+                registry.heartbeat(&id)?;
+
+                let agent = registry.get(&id)?.expect("present");
+                prop_assert!(agent.is_active());
+            }
+
+            #[test]
+            fn prop_get_nonexistent_returns_none(id in arb_agent_id()) {
+                let registry = MemAgentRegistry::new();
+                let result = registry.get(&id)?;
+                prop_assert!(result.is_none());
+            }
+
+            #[test]
+            fn prop_unregister_nonexistent_errors(id in arb_agent_id()) {
+                let registry = MemAgentRegistry::new();
+                let result = registry.unregister(&id);
+                prop_assert!(result.is_err());
+            }
+
+            #[test]
+            fn prop_heartbeat_nonexistent_errors(id in arb_agent_id()) {
+                let registry = MemAgentRegistry::new();
+                let result = registry.heartbeat(&id);
+                prop_assert!(result.is_err());
+            }
+        }
+    }
 }
