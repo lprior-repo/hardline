@@ -16,6 +16,8 @@ pub mod cleanup;
 pub mod metrics;
 pub mod parallel;
 #[cfg(test)]
+mod cleanup_tests;
+#[cfg(test)]
 mod parallel_tests;
 pub mod persistence;
 pub mod phases;

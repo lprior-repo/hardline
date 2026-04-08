@@ -1,8 +1,8 @@
 //! Tests for cleanup and rollback handling
 
 use crate::cleanup::{
-    AgentDevelopmentCleanupHandler, CleanupContext, CleanupError, CleanupManager, CleanupResult,
-    CleanupStatus, NoopCleanupHandler, PhaseType, ResourceId,
+    AgentDevelopmentCleanupHandler, CleanupContext, CleanupError, CleanupHandler, CleanupManager,
+    CleanupResult, CleanupStatus, NoopCleanupHandler, PhaseType, ResourceId,
 };
 use crate::state::{PipelineId, PipelineState};
 
@@ -18,15 +18,15 @@ fn test_cleanup_context() {
 #[test]
 fn test_cleanup_result() {
     let result = CleanupResult::success();
-    assert!(result.success);
+    assert!(result.success_flag());
 
     let result = CleanupResult::success()
         .with_resource(ResourceId::new("test"))
         .with_error("test error".to_string());
 
-    assert!(!result.success);
+    assert!(!result.success_flag());
     assert_eq!(result.cleaned_resources.len(), 1);
-    assert_eq!(result.errors.len(), 1);
+    assert_eq!(result.errors().len(), 1);
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn test_cleanup_manager() {
     // Test cleanup
     let ctx = CleanupContext::new(PipelineId::new(), PhaseType::UniverseSetup);
     let result = manager.cleanup(&ctx);
-    assert!(result.success);
+    assert!(result.success_flag());
 }
 
 #[test]
@@ -325,11 +325,79 @@ fn test_phase_type_serde_roundtrip_all_variants() {
 }
 
 #[test]
-fn test_phase_type_serde_uses_snake_case() {
+fn test_phase_type_serde_snake_case_all_variants() {
+    assert_eq!(
+        serde_json::to_string(&crate::cleanup::PhaseType::SpecReview).expect("serialize"),
+        "\"spec_review\""
+    );
+    assert_eq!(
+        serde_json::to_string(&crate::cleanup::PhaseType::UniverseSetup).expect("serialize"),
+        "\"universe_setup\""
+    );
     assert_eq!(
         serde_json::to_string(&crate::cleanup::PhaseType::AgentDevelopment).expect("serialize"),
         "\"agent_development\""
     );
+    assert_eq!(
+        serde_json::to_string(&crate::cleanup::PhaseType::Validation).expect("serialize"),
+        "\"validation\""
+    );
+}
+
+#[test]
+fn test_phase_type_debug_format_all_variants() {
+    assert_eq!(
+        format!("{:?}", crate::cleanup::PhaseType::SpecReview),
+        "SpecReview"
+    );
+    assert_eq!(
+        format!("{:?}", crate::cleanup::PhaseType::UniverseSetup),
+        "UniverseSetup"
+    );
+    assert_eq!(
+        format!("{:?}", crate::cleanup::PhaseType::AgentDevelopment),
+        "AgentDevelopment"
+    );
+    assert_eq!(
+        format!("{:?}", crate::cleanup::PhaseType::Validation),
+        "Validation"
+    );
+}
+
+#[test]
+fn test_phase_type_rejects_invalid_deserialization() {
+    let result = serde_json::from_str::<crate::cleanup::PhaseType>("\"not_a_phase\"");
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_phase_type_copy_and_clone() {
+    let a = crate::cleanup::PhaseType::SpecReview;
+    let b = a; // Copy semantics
+    let c = a; // Still valid after copy (Copy trait)
+    assert_eq!(a, b);
+    assert_eq!(a, c);
+
+    let d = crate::cleanup::PhaseType::Validation.clone();
+    assert_eq!(d, crate::cleanup::PhaseType::Validation);
+}
+
+#[test]
+fn test_phase_type_equality_and_hash() {
+    use std::collections::HashSet;
+    let all = [
+        crate::cleanup::PhaseType::SpecReview,
+        crate::cleanup::PhaseType::UniverseSetup,
+        crate::cleanup::PhaseType::AgentDevelopment,
+        crate::cleanup::PhaseType::Validation,
+    ];
+    // All variants are distinct
+    let set: HashSet<_> = all.iter().copied().collect();
+    assert_eq!(set.len(), 4);
+    // Self-equality
+    for phase in &all {
+        assert_eq!(*phase, *phase);
+    }
 }
 
 #[test]
