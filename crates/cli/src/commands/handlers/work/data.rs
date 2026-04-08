@@ -10,20 +10,15 @@ use scp_core::OutputFormat;
 ///
 /// Models mutually exclusive operational modes as a single enum
 /// rather than multiple boolean flags.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WorkMode {
     /// Normal execution — create session and register agent.
+    #[default]
     Normal,
     /// Idempotent — succeed if session already exists.
     Idempotent,
     /// Dry run — preview without creating.
     DryRun,
-}
-
-impl Default for WorkMode {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 /// Options for the work command (parsed from CLI).

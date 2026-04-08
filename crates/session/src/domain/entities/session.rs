@@ -2232,7 +2232,8 @@ mod tests {
 
             assert_eq!(retried.id.as_str(), id);
             assert_eq!(retried.state(), SessionState::Created);
-
         }
+    }
+    }
     }
 }

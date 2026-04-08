@@ -184,7 +184,7 @@ fn has_worktrees() -> bool {
 /// Check if the user can add a workspace.
 fn check_can_add(resource: Option<&str>) -> CanIOutput {
     let fs = FsState::probe();
-    let name_available = resource.map_or(true, |name| !workspace_exists(name));
+    let name_available = resource.is_none_or(|name| !workspace_exists(name));
     let permitted = fs.in_git_repo && name_available;
 
     let prerequisites = vec![
@@ -247,7 +247,7 @@ fn add_fix_commands(
 /// Check if the user can remove a workspace.
 fn check_can_remove(resource: Option<&str>) -> CanIOutput {
     let fs = FsState::probe();
-    let ws_exists = resource.map_or(false, workspace_exists);
+    let ws_exists = resource.is_some_and(workspace_exists);
 
     let prerequisites = vec![
         git_repo_prereq(fs.in_git_repo),
