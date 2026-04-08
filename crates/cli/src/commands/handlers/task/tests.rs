@@ -1744,3 +1744,888 @@ mod red_queen_execution {
         );
     }
 }
+
+// =========================================================================
+// EXHAUSTIVE TASK HANDLER TESTS — ha-9vio
+// =========================================================================
+
+/// Exhaustive tests covering: task CRUD via execution paths, state transitions,
+/// assignment, priority, filtering, detail display, and invariants.
+///
+/// Note: The task handler implements list/show/claim/yield/start/done (no
+/// create/update/delete commands or dependency management — those features
+/// don't exist in this handler). Tests cover all available operations.
+mod exhaustive_task_handler {
+    use super::*;
+    use crate::commands::task_types::{Assignee, Priority, TaskState};
+    use crate::commands::task_validation::{
+        transition_to_claimed, transition_to_done, transition_to_started, transition_to_yielded,
+        validate_claimed_by_user, validate_not_claimed_by_other, validate_not_closed,
+    };
+
+    // ─── RESOLVE TASK ID ────────────────────────────────────────────────
+
+    #[test]
+    fn resolve_task_id_with_explicit_id_returns_it() {
+        use super::super::calculations::resolve_task_id;
+        let id = valid_id("explicit-task-123");
+        let result = resolve_task_id(Some(&id));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().as_str(), "explicit-task-123");
+    }
+
+    #[test]
+    fn resolve_task_id_none_without_env_returns_error() {
+        use super::super::calculations::resolve_task_id;
+        let result = resolve_task_id(None);
+        assert_invalid_id(result);
+    }
+
+    // ─── FILTER TASKS BY STATUS — ALL VARIANTS ──────────────────────────
+
+    #[test]
+    fn filter_open_status_extracts_only_open() {
+        let tasks = vec![
+            sample_task_info("1", TaskStatusOutput::Open),
+            sample_task_info("2", TaskStatusOutput::InProgress),
+            sample_task_info("3", TaskStatusOutput::Closed),
+        ];
+        let filtered = filter_tasks_by_status(&tasks, "open");
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, "1");
+    }
+
+    #[test]
+    fn filter_in_progress_status_extracts_only_in_progress() {
+        let tasks = vec![
+            sample_task_info("1", TaskStatusOutput::Open),
+            sample_task_info("2", TaskStatusOutput::InProgress),
+            sample_task_info("3", TaskStatusOutput::Closed),
+        ];
+        let filtered = filter_tasks_by_status(&tasks, "in_progress");
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, "2");
+    }
+
+    #[test]
+    fn filter_blocked_status_extracts_only_blocked() {
+        let tasks = vec![
+            sample_task_info("1", TaskStatusOutput::Blocked),
+            sample_task_info("2", TaskStatusOutput::Open),
+            sample_task_info("3", TaskStatusOutput::Closed),
+        ];
+        let filtered = filter_tasks_by_status(&tasks, "blocked");
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, "1");
+    }
+
+    #[test]
+    fn filter_deferred_status_extracts_only_deferred() {
+        let tasks = vec![
+            sample_task_info("1", TaskStatusOutput::Deferred),
+            sample_task_info("2", TaskStatusOutput::Open),
+            sample_task_info("3", TaskStatusOutput::Closed),
+        ];
+        let filtered = filter_tasks_by_status(&tasks, "deferred");
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, "1");
+    }
+
+    #[test]
+    fn filter_closed_status_extracts_only_closed() {
+        let tasks = vec![
+            sample_task_info("1", TaskStatusOutput::Open),
+            sample_task_info("2", TaskStatusOutput::InProgress),
+            sample_task_info("3", TaskStatusOutput::Closed),
+        ];
+        let filtered = filter_tasks_by_status(&tasks, "closed");
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, "3");
+    }
+
+    #[test]
+    fn filter_with_all_five_statuses() {
+        let tasks = vec![
+            sample_task_info("a", TaskStatusOutput::Open),
+            sample_task_info("b", TaskStatusOutput::InProgress),
+            sample_task_info("c", TaskStatusOutput::Blocked),
+            sample_task_info("d", TaskStatusOutput::Deferred),
+            sample_task_info("e", TaskStatusOutput::Closed),
+        ];
+        assert_eq!(filter_tasks_by_status(&tasks, "open").len(), 1);
+        assert_eq!(filter_tasks_by_status(&tasks, "in_progress").len(), 1);
+        assert_eq!(filter_tasks_by_status(&tasks, "blocked").len(), 1);
+        assert_eq!(filter_tasks_by_status(&tasks, "deferred").len(), 1);
+        assert_eq!(filter_tasks_by_status(&tasks, "closed").len(), 1);
+    }
+
+    #[test]
+    fn filter_multiple_tasks_same_status() {
+        let tasks = vec![
+            sample_task_info("1", TaskStatusOutput::Open),
+            sample_task_info("2", TaskStatusOutput::Open),
+            sample_task_info("3", TaskStatusOutput::Open),
+            sample_task_info("4", TaskStatusOutput::Closed),
+        ];
+        let filtered = filter_tasks_by_status(&tasks, "open");
+        assert_eq!(filtered.len(), 3);
+    }
+
+    #[test]
+    fn filter_empty_input_returns_empty() {
+        let tasks: Vec<TaskInfoOutput> = vec![];
+        let filtered = filter_tasks_by_status(&tasks, "open");
+        assert!(filtered.is_empty());
+    }
+
+    #[test]
+    fn filter_nonexistent_status_returns_empty() {
+        let tasks = vec![sample_task_info("1", TaskStatusOutput::Open)];
+        let filtered = filter_tasks_by_status(&tasks, "nonexistent");
+        assert!(filtered.is_empty());
+    }
+
+    // ─── TASK TO OUTPUT — FULL FIELD COVERAGE ────────────────────────────
+
+    #[test]
+    fn task_to_output_with_description_and_priority_and_assignee() {
+        let mut task = Task::new(valid_id("full-out"), Title::new("Full output task"));
+        task.description = Some("Detailed description".to_string());
+        task.priority = Some(Priority::new("P0-critical"));
+        task.assignee = Some(Assignee::new("agent-x"));
+        task.state = TaskState::InProgress;
+
+        let output = task_to_output(&task);
+        assert_eq!(output.id, "full-out");
+        assert_eq!(output.title, "Full output task");
+        assert_eq!(output.status, TaskStatusOutput::InProgress);
+        assert_eq!(output.description.as_deref(), Some("Detailed description"));
+        assert_eq!(output.priority.as_deref(), Some("P0-critical"));
+        assert_eq!(output.assignee.as_deref(), Some("agent-x"));
+    }
+
+    #[test]
+    fn task_to_output_minimal_fields() {
+        let task = open_task("minimal-out");
+        let output = task_to_output(&task);
+        assert_eq!(output.id, "minimal-out");
+        assert_eq!(output.title, "Test task");
+        assert_eq!(output.status, TaskStatusOutput::Open);
+        assert!(output.description.is_none());
+        assert!(output.assignee.is_none());
+        assert!(output.priority.is_none());
+    }
+
+    #[test]
+    fn task_to_output_blocked_state() {
+        let mut task = open_task("blocked-out");
+        task.state = TaskState::Blocked;
+        let output = task_to_output(&task);
+        assert_eq!(output.status, TaskStatusOutput::Blocked);
+    }
+
+    #[test]
+    fn task_to_output_deferred_state() {
+        let mut task = open_task("deferred-out");
+        task.state = TaskState::Deferred;
+        let output = task_to_output(&task);
+        assert_eq!(output.status, TaskStatusOutput::Deferred);
+    }
+
+    #[test]
+    fn task_to_output_closed_state() {
+        let task = open_task("closed-out");
+        let claimed = transition_to_claimed(task, "agent-1");
+        let done = transition_to_done(claimed);
+        let output = task_to_output(&done);
+        assert_eq!(output.status, TaskStatusOutput::Closed);
+        assert_eq!(output.assignee.as_deref(), Some("agent-1"));
+    }
+
+    #[test]
+    fn task_to_output_preserves_timestamps() {
+        let task = open_task("ts-out");
+        let created = task.created_at;
+        let updated = task.updated_at;
+        let output = task_to_output(&task);
+        assert_eq!(output.created_at, created);
+        assert_eq!(output.updated_at, updated);
+    }
+
+    // ─── PRIORITY THROUGH FULL LIFECYCLE ────────────────────────────────
+
+    #[test]
+    fn priority_preserved_through_claim_start_done() {
+        let mut task = open_task("prio-lifecycle");
+        task.priority = Some(Priority::new("P1-high"));
+        let claimed = transition_to_claimed(task, "agent-1");
+        assert_eq!(claimed.priority.as_ref().map(|p| p.as_str()), Some("P1-high"));
+        let started = transition_to_started(claimed);
+        assert_eq!(started.priority.as_ref().map(|p| p.as_str()), Some("P1-high"));
+        let done = transition_to_done(started);
+        assert_eq!(done.priority.as_ref().map(|p| p.as_str()), Some("P1-high"));
+    }
+
+    #[test]
+    fn priority_preserved_through_claim_yield_cycle() {
+        let mut task = open_task("prio-yield");
+        task.priority = Some(Priority::new("P2-medium"));
+        let claimed = transition_to_claimed(task, "agent-1");
+        let yielded = transition_to_yielded(claimed);
+        assert_eq!(yielded.priority.as_ref().map(|p| p.as_str()), Some("P2-medium"));
+    }
+
+    #[test]
+    fn no_priority_stays_none_through_lifecycle() {
+        let task = open_task("no-prio");
+        let claimed = transition_to_claimed(task, "agent-1");
+        assert!(claimed.priority.is_none());
+        let done = transition_to_done(claimed);
+        assert!(done.priority.is_none());
+    }
+
+    #[test]
+    fn priority_serialization_roundtrip() {
+        let mut task = open_task("prio-serde");
+        task.priority = Some(Priority::new("P3-low"));
+        let json = serde_json::to_string(&task).expect("serialize");
+        let restored: Task = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(restored.priority.as_ref().map(|p| p.as_str()), Some("P3-low"));
+    }
+
+    // ─── ASSIGNMENT THROUGH FULL LIFECYCLE ──────────────────────────────
+
+    #[test]
+    fn claim_sets_assignee_yield_clears_it() {
+        let task = open_task("assign-cycle");
+        assert!(task.assignee.is_none());
+
+        let claimed = transition_to_claimed(task, "worker-1");
+        assert_eq!(claimed.assignee.as_ref().map(|a| a.as_str()), Some("worker-1"));
+
+        let yielded = transition_to_yielded(claimed);
+        assert!(yielded.assignee.is_none());
+    }
+
+    #[test]
+    fn claim_overwrites_previous_assignee() {
+        let task = open_task("assign-overwrite");
+        let claimed1 = transition_to_claimed(task, "agent-A");
+        assert_eq!(claimed1.assignee.as_ref().map(|a| a.as_str()), Some("agent-A"));
+
+        let claimed2 = transition_to_claimed(claimed1, "agent-B");
+        assert_eq!(claimed2.assignee.as_ref().map(|a| a.as_str()), Some("agent-B"));
+    }
+
+    #[test]
+    fn done_preserves_assignee() {
+        let task = open_task("assign-done");
+        let claimed = transition_to_claimed(task, "final-agent");
+        let done = transition_to_done(claimed);
+        assert_eq!(done.assignee.as_ref().map(|a| a.as_str()), Some("final-agent"));
+    }
+
+    #[test]
+    fn started_preserves_assignee() {
+        let task = open_task("assign-start");
+        let claimed = transition_to_claimed(task, "starter-agent");
+        let started = transition_to_started(claimed);
+        assert_eq!(started.assignee.as_ref().map(|a| a.as_str()), Some("starter-agent"));
+    }
+
+    // ─── STATE TRANSITION INVARIANTS ────────────────────────────────────
+
+    #[test]
+    fn transition_preserves_task_id() {
+        let task = open_task("id-inv");
+        let claimed = transition_to_claimed(task, "agent-1");
+        assert_eq!(claimed.id.as_str(), "id-inv");
+        let started = transition_to_started(claimed);
+        assert_eq!(started.id.as_str(), "id-inv");
+        let done = transition_to_done(started);
+        assert_eq!(done.id.as_str(), "id-inv");
+
+        // Also test yield path
+        let task2 = open_task("id-inv-2");
+        let claimed2 = transition_to_claimed(task2, "agent-1");
+        let yielded = transition_to_yielded(claimed2);
+        assert_eq!(yielded.id.as_str(), "id-inv-2");
+    }
+
+    #[test]
+    fn transition_preserves_title() {
+        let task = Task::new(valid_id("title-inv"), Title::new("Original Title"));
+        let claimed = transition_to_claimed(task, "agent-1");
+        assert_eq!(claimed.title.as_str(), "Original Title");
+        let started = transition_to_started(claimed);
+        assert_eq!(started.title.as_str(), "Original Title");
+        let done = transition_to_done(started);
+        assert_eq!(done.title.as_str(), "Original Title");
+    }
+
+    #[test]
+    fn transition_preserves_description() {
+        let mut task = open_task("desc-inv");
+        task.description = Some("Important context".to_string());
+        let claimed = transition_to_claimed(task, "agent-1");
+        assert_eq!(claimed.description.as_deref(), Some("Important context"));
+        let started = transition_to_started(claimed);
+        assert_eq!(started.description.as_deref(), Some("Important context"));
+        let done = transition_to_done(started);
+        assert_eq!(done.description.as_deref(), Some("Important context"));
+    }
+
+    #[test]
+    fn transition_preserves_created_at() {
+        let task = open_task("cat-inv");
+        let original_created = task.created_at;
+        let claimed = transition_to_claimed(task, "agent-1");
+        assert_eq!(claimed.created_at, original_created);
+        let started = transition_to_started(claimed);
+        assert_eq!(started.created_at, original_created);
+        let done = transition_to_done(started);
+        assert_eq!(done.created_at, original_created);
+    }
+
+    #[test]
+    fn transition_updates_updated_at() {
+        let task = open_task("uat-inv");
+        let t0 = task.updated_at;
+
+        let claimed = transition_to_claimed(task, "agent-1");
+        let claimed_time = claimed.updated_at;
+        assert!(claimed_time >= t0);
+
+        let started = transition_to_started(claimed);
+        let started_time = started.updated_at;
+        assert!(started_time >= claimed_time);
+
+        let done = transition_to_done(started);
+        assert!(done.updated_at >= started_time);
+    }
+
+    // ─── STATE TRANSITION MATRIX ────────────────────────────────────────
+
+    /// Systematic test of claim from every state.
+    #[test]
+    fn claim_from_open_sets_in_progress() {
+        let task = open_task("claim-open");
+        let result = transition_to_claimed(task, "agent-1");
+        assert!(matches!(result.state, TaskState::InProgress));
+    }
+
+    #[test]
+    fn claim_from_in_progress_updates_assignee() {
+        let task = transition_to_claimed(open_task("claim-ip"), "agent-1");
+        let reclaimed = transition_to_claimed(task, "agent-2");
+        assert!(matches!(reclaimed.state, TaskState::InProgress));
+        assert_eq!(reclaimed.assignee.as_ref().map(|a| a.as_str()), Some("agent-2"));
+    }
+
+    #[test]
+    fn claim_from_blocked_sets_in_progress() {
+        let mut task = open_task("claim-blocked");
+        task.state = TaskState::Blocked;
+        let claimed = transition_to_claimed(task, "agent-1");
+        assert!(matches!(claimed.state, TaskState::InProgress));
+    }
+
+    #[test]
+    fn claim_from_deferred_sets_in_progress() {
+        let mut task = open_task("claim-deferred");
+        task.state = TaskState::Deferred;
+        let claimed = transition_to_claimed(task, "agent-1");
+        assert!(matches!(claimed.state, TaskState::InProgress));
+    }
+
+    /// Start from every state.
+    #[test]
+    fn start_from_claimed_is_in_progress() {
+        let claimed = transition_to_claimed(open_task("start-claimed"), "agent-1");
+        let started = transition_to_started(claimed);
+        assert!(matches!(started.state, TaskState::InProgress));
+    }
+
+    #[test]
+    fn start_from_in_progress_is_idempotent() {
+        let claimed = transition_to_claimed(open_task("start-ip"), "agent-1");
+        let started = transition_to_started(claimed);
+        let restarted = transition_to_started(started);
+        assert!(matches!(restarted.state, TaskState::InProgress));
+    }
+
+    #[test]
+    fn start_from_blocked_sets_in_progress() {
+        let mut task = open_task("start-blocked");
+        task.state = TaskState::Blocked;
+        let started = transition_to_started(task);
+        assert!(matches!(started.state, TaskState::InProgress));
+    }
+
+    #[test]
+    fn start_from_deferred_sets_in_progress() {
+        let mut task = open_task("start-deferred");
+        task.state = TaskState::Deferred;
+        let started = transition_to_started(task);
+        assert!(matches!(started.state, TaskState::InProgress));
+    }
+
+    /// Done from every non-closed state.
+    #[test]
+    fn done_from_open_raw_transition() {
+        let task = open_task("done-open-raw");
+        let done = transition_to_done(task);
+        assert!(matches!(done.state, TaskState::Closed { .. }));
+    }
+
+    #[test]
+    fn done_from_in_progress() {
+        let claimed = transition_to_claimed(open_task("done-ip"), "agent-1");
+        let done = transition_to_done(claimed);
+        assert!(matches!(done.state, TaskState::Closed { .. }));
+    }
+
+    #[test]
+    fn done_from_blocked_raw_transition() {
+        let mut task = open_task("done-blocked-raw");
+        task.state = TaskState::Blocked;
+        let done = transition_to_done(task);
+        assert!(matches!(done.state, TaskState::Closed { .. }));
+    }
+
+    #[test]
+    fn done_from_deferred_raw_transition() {
+        let mut task = open_task("done-deferred-raw");
+        task.state = TaskState::Deferred;
+        let done = transition_to_done(task);
+        assert!(matches!(done.state, TaskState::Closed { .. }));
+    }
+
+    /// Yield from every state.
+    #[test]
+    fn yield_from_in_progress_sets_open() {
+        let claimed = transition_to_claimed(open_task("yield-ip"), "agent-1");
+        let yielded = transition_to_yielded(claimed);
+        assert!(matches!(yielded.state, TaskState::Open));
+        assert!(yielded.assignee.is_none());
+    }
+
+    #[test]
+    fn yield_from_open_is_idempotent() {
+        let task = open_task("yield-open");
+        let yielded = transition_to_yielded(task);
+        assert!(matches!(yielded.state, TaskState::Open));
+        assert!(yielded.assignee.is_none());
+    }
+
+    #[test]
+    fn yield_from_blocked_raw_transition() {
+        let mut task = open_task("yield-blocked-raw");
+        task.state = TaskState::Blocked;
+        let yielded = transition_to_yielded(task);
+        assert!(matches!(yielded.state, TaskState::Open));
+        assert!(yielded.assignee.is_none());
+    }
+
+    #[test]
+    fn yield_from_deferred_raw_transition() {
+        let mut task = open_task("yield-deferred-raw");
+        task.state = TaskState::Deferred;
+        let yielded = transition_to_yielded(task);
+        assert!(matches!(yielded.state, TaskState::Open));
+        assert!(yielded.assignee.is_none());
+    }
+
+    // ─── VALIDATION GUARDS — STATE-AWARE ────────────────────────────────
+
+    #[test]
+    fn validate_not_claimed_by_other_allows_unclaimed() {
+        let task = open_task("vnc-unclaimed");
+        assert!(validate_not_claimed_by_other(&task, "any-agent").is_ok());
+    }
+
+    #[test]
+    fn validate_not_claimed_by_other_allows_same_agent() {
+        let claimed = transition_to_claimed(open_task("vnc-same"), "agent-1");
+        assert!(validate_not_claimed_by_other(&claimed, "agent-1").is_ok());
+    }
+
+    #[test]
+    fn validate_not_claimed_by_other_rejects_different_agent() {
+        let claimed = transition_to_claimed(open_task("vnc-diff"), "agent-1");
+        assert!(validate_not_claimed_by_other(&claimed, "agent-2").is_err());
+    }
+
+    #[test]
+    fn validate_claimed_by_user_succeeds_for_owner() {
+        let claimed = transition_to_claimed(open_task("vcu-owner"), "agent-1");
+        assert!(validate_claimed_by_user(&claimed, "agent-1").is_ok());
+    }
+
+    #[test]
+    fn validate_claimed_by_user_fails_for_non_owner() {
+        let claimed = transition_to_claimed(open_task("vcu-nonowner"), "agent-1");
+        assert!(validate_claimed_by_user(&claimed, "agent-2").is_err());
+    }
+
+    #[test]
+    fn validate_claimed_by_user_fails_for_unclaimed() {
+        let task = open_task("vcu-unclaimed");
+        assert!(validate_claimed_by_user(&task, "agent-1").is_err());
+    }
+
+    #[test]
+    fn validate_not_closed_allows_all_non_closed_states() {
+        let open = open_task("vnc-open");
+        let in_progress = transition_to_claimed(open_task("vnc-ip"), "agent-1");
+        let mut blocked = open_task("vnc-blocked");
+        blocked.state = TaskState::Blocked;
+        let mut deferred = open_task("vnc-deferred");
+        deferred.state = TaskState::Deferred;
+
+        assert!(validate_not_closed(&open).is_ok());
+        assert!(validate_not_closed(&in_progress).is_ok());
+        assert!(validate_not_closed(&blocked).is_ok());
+        assert!(validate_not_closed(&deferred).is_ok());
+    }
+
+    #[test]
+    fn validate_not_closed_rejects_closed() {
+        let closed = transition_to_done(transition_to_claimed(open_task("vnc-closed"), "agent-1"));
+        assert!(validate_not_closed(&closed).is_err());
+    }
+
+    // ─── VALIDATION + EXECUTION COMBOS ──────────────────────────────────
+
+    #[test]
+    fn validate_list_with_status_filter() {
+        let cmd = TaskCommand::List {
+            status_filter: Some("open".to_string()),
+            include_all: false,
+        };
+        assert!(validate_task_command(&cmd).is_ok());
+    }
+
+    #[test]
+    fn validate_list_include_all() {
+        let cmd = TaskCommand::List {
+            status_filter: None,
+            include_all: true,
+        };
+        assert!(validate_task_command(&cmd).is_ok());
+    }
+
+    #[test]
+    fn validate_list_with_both_filter_and_include_all() {
+        let cmd = TaskCommand::List {
+            status_filter: Some("in_progress".to_string()),
+            include_all: true,
+        };
+        assert!(validate_task_command(&cmd).is_ok());
+    }
+
+    // ─── TASKCOMMAND CLONE AND EQUALITY ─────────────────────────────────
+
+    #[test]
+    fn task_command_list_clone_equals_original() {
+        let cmd = TaskCommand::List {
+            status_filter: Some("open".to_string()),
+            include_all: false,
+        };
+        let cloned = cmd.clone();
+        assert_eq!(cmd, cloned);
+    }
+
+    #[test]
+    fn task_command_claim_clone_equals_original() {
+        let cmd = TaskCommand::Claim {
+            task_id: valid_id("clone-claim"),
+            agent_id: valid_agent("clone-agent"),
+        };
+        let cloned = cmd.clone();
+        assert_eq!(cmd, cloned);
+    }
+
+    #[test]
+    fn task_command_done_clone_equals_original() {
+        let cmd = TaskCommand::Done {
+            task_id: Some(valid_id("clone-done")),
+            agent_id: valid_agent("clone-agent"),
+        };
+        let cloned = cmd.clone();
+        assert_eq!(cmd, cloned);
+    }
+
+    #[test]
+    fn task_command_done_none_clone_equals_original() {
+        let cmd = TaskCommand::Done {
+            task_id: None,
+            agent_id: valid_agent("clone-agent"),
+        };
+        let cloned = cmd.clone();
+        assert_eq!(cmd, cloned);
+    }
+
+    // ─── TASKID HASH AND COLLECTIONS ────────────────────────────────────
+
+    #[test]
+    fn taskid_usable_as_hashmap_key() {
+        let mut map = std::collections::HashMap::new();
+        let id = valid_id("hash-test-1");
+        map.insert(id.clone(), "value-1");
+        assert_eq!(map.get(&id), Some(&"value-1"));
+    }
+
+    #[test]
+    fn taskid_hashmap_lookup_different_keys() {
+        let mut map = std::collections::HashMap::new();
+        let id1 = valid_id("key-A");
+        let id2 = valid_id("key-B");
+        map.insert(id1.clone(), "v1");
+        map.insert(id2.clone(), "v2");
+        assert_eq!(map.get(&id1), Some(&"v1"));
+        assert_eq!(map.get(&id2), Some(&"v2"));
+    }
+
+    #[test]
+    fn taskid_hashset_deduplication() {
+        let mut set = std::collections::HashSet::new();
+        let id = valid_id("dedup-id");
+        set.insert(id.clone());
+        set.insert(id.clone()); // Duplicate
+        assert_eq!(set.len(), 1);
+    }
+
+    // ─── TASKSTATUSOUTPUT COPY AND CLONE ────────────────────────────────
+
+    #[test]
+    fn task_status_output_copy_semantics() {
+        let original = TaskStatusOutput::InProgress;
+        let copied = original;
+        // Both are still valid (Copy trait)
+        assert_eq!(original, copied);
+    }
+
+    #[test]
+    fn task_status_output_clone_equals() {
+        let original = TaskStatusOutput::Blocked;
+        let cloned = original.clone();
+        assert_eq!(original, cloned);
+    }
+
+    // ─── FULL LIFECYCLE WITH ALL FIELDS ─────────────────────────────────
+
+    #[test]
+    fn full_lifecycle_preserves_all_fields() {
+        let mut task = Task::new(valid_id("lifecycle-full"), Title::new("Complete task"));
+        task.description = Some("Detailed description with 'quotes'".to_string());
+        task.priority = Some(Priority::new("P0-critical"));
+        let original_created = task.created_at;
+
+        // Claim
+        let claimed = transition_to_claimed(task, "worker-1");
+        assert!(matches!(claimed.state, TaskState::InProgress));
+        assert_eq!(claimed.assignee.as_ref().map(|a| a.as_str()), Some("worker-1"));
+        assert_eq!(claimed.title.as_str(), "Complete task");
+        assert_eq!(claimed.description.as_deref(), Some("Detailed description with 'quotes'"));
+        assert_eq!(claimed.priority.as_ref().map(|p| p.as_str()), Some("P0-critical"));
+        assert_eq!(claimed.created_at, original_created);
+        assert_eq!(claimed.id.as_str(), "lifecycle-full");
+
+        // Start
+        let started = transition_to_started(claimed);
+        assert!(matches!(started.state, TaskState::InProgress));
+        assert_eq!(started.assignee.as_ref().map(|a| a.as_str()), Some("worker-1"));
+        assert_eq!(started.title.as_str(), "Complete task");
+        assert_eq!(started.description.as_deref(), Some("Detailed description with 'quotes'"));
+        assert_eq!(started.priority.as_ref().map(|p| p.as_str()), Some("P0-critical"));
+        assert_eq!(started.created_at, original_created);
+
+        // Done
+        let done = transition_to_done(started);
+        assert!(matches!(done.state, TaskState::Closed { .. }));
+        assert_eq!(done.assignee.as_ref().map(|a| a.as_str()), Some("worker-1"));
+        assert_eq!(done.title.as_str(), "Complete task");
+        assert_eq!(done.description.as_deref(), Some("Detailed description with 'quotes'"));
+        assert_eq!(done.priority.as_ref().map(|p| p.as_str()), Some("P0-critical"));
+        assert_eq!(done.created_at, original_created);
+        assert_eq!(done.id.as_str(), "lifecycle-full");
+
+        // Serialization roundtrip after full lifecycle
+        let json = serde_json::to_string(&done).expect("serialize");
+        let restored: Task = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(restored.id.as_str(), "lifecycle-full");
+        assert_eq!(restored.title.as_str(), "Complete task");
+        assert_eq!(restored.description.as_deref(), Some("Detailed description with 'quotes'"));
+        assert_eq!(restored.priority.as_ref().map(|p| p.as_str()), Some("P0-critical"));
+        assert_eq!(restored.assignee.as_ref().map(|a| a.as_str()), Some("worker-1"));
+        assert!(matches!(restored.state, TaskState::Closed { .. }));
+    }
+
+    #[test]
+    fn claim_yield_reclaim_different_agents_preserves_priority() {
+        let mut task = open_task("prio-handoff");
+        task.priority = Some(Priority::new("urgent"));
+        let claimed1 = transition_to_claimed(task, "agent-1");
+        assert_eq!(claimed1.priority.as_ref().map(|p| p.as_str()), Some("urgent"));
+        let yielded = transition_to_yielded(claimed1);
+        assert_eq!(yielded.priority.as_ref().map(|p| p.as_str()), Some("urgent"));
+        let claimed2 = transition_to_claimed(yielded, "agent-2");
+        assert_eq!(claimed2.priority.as_ref().map(|p| p.as_str()), Some("urgent"));
+        assert_eq!(claimed2.assignee.as_ref().map(|a| a.as_str()), Some("agent-2"));
+    }
+
+    // ─── TRUNCATE DESCRIPTION BOUNDARY CASES ────────────────────────────
+
+    #[test]
+    fn truncate_at_min_viable_length() {
+        // max_len=4: end=1, so we can fit 1 char + "..."
+        let result = truncate_description("abcdef", 4);
+        assert!(result.ends_with("..."));
+        assert!(result.len() <= 4);
+    }
+
+    #[test]
+    fn truncate_exact_ellipsis_length() {
+        // "..." is 3 chars. Input "abc" is exactly 3, should return unchanged.
+        assert_eq!(truncate_description("abc", 3), "abc");
+    }
+
+    #[test]
+    fn truncate_one_past_exact_length() {
+        let result = truncate_description("abcd", 3);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn truncate_mixed_ascii_unicode_boundary() {
+        let input = "Hello, \u{1F600} world!";
+        let result = truncate_description(input, 12);
+        assert!(std::str::from_utf8(result.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn truncate_all_whitespace() {
+        assert_eq!(truncate_description("   ", 10), "   ");
+    }
+
+    #[test]
+    fn truncate_single_char_string() {
+        assert_eq!(truncate_description("x", 10), "x");
+    }
+
+    #[test]
+    fn truncate_single_char_over_limit() {
+        let result = truncate_description("x", 0);
+        assert_eq!(result, "");
+    }
+
+    // ─── AGENT ID EDGE CASES ────────────────────────────────────────────
+
+    #[test]
+    fn agent_id_accepts_numeric() {
+        let agent = AgentId::new("42");
+        assert_eq!(agent.expect("ok").as_str(), "42");
+    }
+
+    #[test]
+    fn agent_id_accepts_slashes() {
+        let agent = AgentId::new("rig/polecat/name");
+        assert_eq!(agent.expect("ok").as_str(), "rig/polecat/name");
+    }
+
+    #[test]
+    fn agent_id_accepts_unicode() {
+        let agent = AgentId::new("agent-\u{00e9}");
+        assert_eq!(agent.expect("ok").as_str(), "agent-\u{00e9}");
+    }
+
+    #[test]
+    fn agent_id_accepts_very_long_string() {
+        let long = "a".repeat(10_000);
+        let agent = AgentId::new(&long);
+        assert!(agent.is_ok());
+    }
+
+    // ─── EXECUTION PATHS WITH MEM LOCK MANAGER ──────────────────────────
+
+    #[test]
+    fn execute_list_with_status_filter_succeeds() {
+        let cmd = TaskCommand::List {
+            status_filter: Some("blocked".to_string()),
+            include_all: false,
+        };
+        let lock = scp_core::lock::MemLockManager::new();
+        let result = execute_task_command(&cmd, &lock);
+        assert!(result.is_ok(), "List with 'blocked' filter should succeed");
+    }
+
+    #[test]
+    fn execute_list_with_deferred_filter_succeeds() {
+        let cmd = TaskCommand::List {
+            status_filter: Some("deferred".to_string()),
+            include_all: false,
+        };
+        let lock = scp_core::lock::MemLockManager::new();
+        let result = execute_task_command(&cmd, &lock);
+        assert!(result.is_ok(), "List with 'deferred' filter should succeed");
+    }
+
+    #[test]
+    fn execute_list_include_all_on_empty() {
+        let cmd = TaskCommand::List {
+            status_filter: None,
+            include_all: true,
+        };
+        let lock = scp_core::lock::MemLockManager::new();
+        let result = execute_task_command(&cmd, &lock);
+        assert!(result.is_ok(), "List --all on empty store should succeed");
+    }
+
+    #[test]
+    fn execute_run_task_command_delegates_to_mem_lock() {
+        let cmd = TaskCommand::List {
+            status_filter: None,
+            include_all: true,
+        };
+        let result = run_task_command(&cmd);
+        assert!(result.is_ok(), "run_task_command should delegate correctly");
+    }
+
+    // ─── TASK WITH ALL OPTIONAL FIELDS SERIALIZATION ────────────────────
+
+    #[test]
+    fn task_info_output_with_all_optional_fields_json() {
+        let info = TaskInfoOutput {
+            id: "full-json".to_string(),
+            title: "Full task".to_string(),
+            status: TaskStatusOutput::InProgress,
+            description: Some("Has desc".to_string()),
+            assignee: Some("agent-1".to_string()),
+            priority: Some("P0".to_string()),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&info).expect("serialize");
+        assert!(json.contains("\"description\""));
+        assert!(json.contains("\"assignee\""));
+        assert!(json.contains("\"priority\""));
+    }
+
+    #[test]
+    fn task_list_output_with_multiple_tasks_json() {
+        let output = TaskListOutput {
+            tasks: vec![
+                sample_task_info("a", TaskStatusOutput::Open),
+                sample_task_info("b", TaskStatusOutput::InProgress),
+                sample_task_info("c", TaskStatusOutput::Closed),
+            ],
+            total: 3,
+        };
+        let json = serde_json::to_string(&output).expect("serialize");
+        assert!(json.contains("\"total\":3"));
+        let restored: TaskListOutput = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(restored.total, 3);
+        assert_eq!(restored.tasks.len(), 3);
+    }
+}
