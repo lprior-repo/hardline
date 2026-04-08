@@ -5,14 +5,14 @@
 //!
 //!   From      → To        Valid?   Method
 //!   ─────────────────────────────────────────────
-//!   Creating  → Ready      ✓      mark_ready
-//!   Creating  → Removed    ✓      mark_removed
-//!   Ready     → Active     ✓      mark_active
-//!   Ready     → Cleaning   ✓      start_cleaning
-//!   Ready     → Removed    ✓      mark_removed
-//!   Active    → Cleaning   ✓      start_cleaning
-//!   Active    → Removed    ✓      mark_removed
-//!   Cleaning  → Removed    ✓      mark_removed
+//!   Creating  → Ready      ✓      `mark_ready`
+//!   Creating  → Removed    ✓      `mark_removed`
+//!   Ready     → Active     ✓      `mark_active`
+//!   Ready     → Cleaning   ✓      `start_cleaning`
+//!   Ready     → Removed    ✓      `mark_removed`
+//!   Active    → Cleaning   ✓      `start_cleaning`
+//!   Active    → Removed    ✓      `mark_removed`
+//!   Cleaning  → Removed    ✓      `mark_removed`
 //!   All others            ✗
 
 #![warn(clippy::pedantic)]

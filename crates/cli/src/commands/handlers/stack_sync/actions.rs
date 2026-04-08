@@ -102,7 +102,7 @@ pub fn run_stack_sync(
                 stack,
                 branch,
                 method,
-                &options,
+                options,
             );
             result.merged_branches.push(merged);
         }
@@ -231,7 +231,7 @@ fn update_trunk(
         .output();
 
     match output {
-        Ok(out) if out.status.success() => return Ok(true),
+        Ok(out) if out.status.success() => Ok(true),
         Ok(_) => {
             // ff-only failed
             if safe {
@@ -419,8 +419,7 @@ fn stash_push(workdir: &Path) -> Result<(), std::io::Error> {
     if output.status.success() {
         Ok(())
     } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(std::io::Error::other(
             String::from_utf8_lossy(&output.stderr).to_string(),
         ))
     }
@@ -436,8 +435,7 @@ fn stash_pop(workdir: &Path) -> Result<(), std::io::Error> {
     if output.status.success() {
         Ok(())
     } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(std::io::Error::other(
             String::from_utf8_lossy(&output.stderr).to_string(),
         ))
     }

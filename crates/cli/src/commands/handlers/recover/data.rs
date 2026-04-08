@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 /// Options for the recover command (parsed from CLI).
 #[derive(Debug, Clone, Default)]
-#[expect(clippy::struct_excessive_bools)] // CLI flags: independent options
+#[allow(clippy::struct_excessive_bools)] // CLI flags: independent options
 pub struct RecoverOptions {
     /// Just diagnose without fixing
     pub diagnose_only: bool,

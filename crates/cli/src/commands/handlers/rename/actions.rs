@@ -30,8 +30,8 @@ pub fn run_rename(options: &RenameOptions) -> Result<RenameOutput> {
     }
 
     // Validate new name
-    validate_name_length(&options.new_name).map_err(|e| Error::validation_error(e))?;
-    validate_session_name(&options.new_name).map_err(|e| Error::validation_error(e))?;
+    validate_name_length(&options.new_name).map_err(Error::validation_error)?;
+    validate_session_name(&options.new_name).map_err(Error::validation_error)?;
 
     // Dry-run mode
     if options.dry_run {
