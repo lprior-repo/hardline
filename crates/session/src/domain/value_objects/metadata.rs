@@ -67,6 +67,13 @@ impl Labels {
                 Self::MAX_LABELS
             )));
         }
+        for label in &labels {
+            if label.trim().is_empty() {
+                return Err(SessionError::InvalidIdentifier(
+                    "Label cannot be empty or whitespace".into(),
+                ));
+            }
+        }
         let unique: std::collections::HashSet<_> = labels.iter().collect();
         if unique.len() != labels.len() {
             return Err(SessionError::InvalidIdentifier(
@@ -84,6 +91,44 @@ impl Labels {
     #[must_use]
     pub fn into_inner(self) -> Vec<String> {
         self.0
+    }
+
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    #[must_use]
+    pub fn contains(&self, label: &str) -> bool {
+        self.0.iter().any(|l| l == label)
+    }
+
+    #[must_use]
+    pub fn sorted(&self) -> Self {
+        let mut sorted = self.0.clone();
+        sorted.sort();
+        Self(sorted)
+    }
+}
+
+impl FromStr for Labels {
+    type Err = SessionError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Ok(Self(vec![]));
+        }
+        let labels: Vec<String> = s
+            .split(',')
+            .map(|part| part.trim().to_string())
+            .filter(|part| !part.is_empty())
+            .collect();
+        Self::new(labels)
     }
 }
 
@@ -1038,10 +1083,330 @@ mod tests {
         }
 
         #[test]
-        fn labels_empty_string_item_rejected_for_duplication() {
-            // Empty strings are technically valid as unique items
-            let labels = Labels::new(vec!["".to_string()]).expect("empty string valid");
-            assert_eq!(labels.as_slice(), &["".to_string()]);
+        fn labels_empty_string_item_rejected() {
+            let result = Labels::new(vec!["".to_string()]);
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidIdentifier(_)
+            ));
+        }
+
+        #[test]
+        fn labels_whitespace_only_item_rejected() {
+            let result = Labels::new(vec!["   ".to_string()]);
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidIdentifier(_)
+            ));
+        }
+    }
+
+    // =========================================================================
+    // Labels Comprehensive Tests — parsing, containment, sorting, equality
+    // =========================================================================
+
+    mod labels_comprehensive_tests {
+        use super::*;
+
+        // --- FromStr: comma-separated parsing ---
+
+        #[test]
+        fn labels_from_str_simple() {
+            let labels: Labels = "bug,feature,urgent".parse().expect("valid");
+            assert_eq!(
+                labels.as_slice(),
+                &["bug".to_string(), "feature".to_string(), "urgent".to_string()]
+            );
+        }
+
+        #[test]
+        fn labels_from_str_single() {
+            let labels: Labels = "bug".parse().expect("valid");
+            assert_eq!(labels.as_slice(), &["bug".to_string()]);
+        }
+
+        #[test]
+        fn labels_from_str_empty_string() {
+            let labels: Labels = "".parse().expect("empty is valid");
+            assert!(labels.is_empty());
+        }
+
+        #[test]
+        fn labels_from_str_trims_whitespace() {
+            let labels: Labels = "  bug  ,  feature  ,  urgent  ".parse().expect("valid");
+            assert_eq!(
+                labels.as_slice(),
+                &["bug".to_string(), "feature".to_string(), "urgent".to_string()]
+            );
+        }
+
+        #[test]
+        fn labels_from_str_with_spaces_between() {
+            let labels: Labels = "bug, feature, urgent".parse().expect("valid");
+            assert_eq!(
+                labels.as_slice(),
+                &["bug".to_string(), "feature".to_string(), "urgent".to_string()]
+            );
+        }
+
+        #[test]
+        fn labels_from_str_rejects_duplicates() {
+            let result = "bug,feature,bug".parse::<Labels>();
+            assert!(result.is_err());
+            assert!(matches!(
+                result.unwrap_err(),
+                SessionError::InvalidIdentifier(_)
+            ));
+        }
+
+        #[test]
+        fn labels_from_str_skips_empty_segments() {
+            // "a,,b" splits to ["a", "", "b"] — empty filtered out → ["a", "b"]
+            let labels: Labels = "a,,b".parse().expect("empty segments filtered");
+            assert_eq!(
+                labels.as_slice(),
+                &["a".to_string(), "b".to_string()]
+            );
+        }
+
+        #[test]
+        fn labels_from_str_trailing_comma() {
+            let labels: Labels = "a,b,".parse().expect("trailing comma ok");
+            assert_eq!(labels.as_slice(), &["a".to_string(), "b".to_string()]);
+        }
+
+        #[test]
+        fn labels_from_str_leading_comma() {
+            let labels: Labels = ",a,b".parse().expect("leading comma ok");
+            assert_eq!(labels.as_slice(), &["a".to_string(), "b".to_string()]);
+        }
+
+        #[test]
+        fn labels_from_str_only_commas() {
+            let labels: Labels = ",,,".parse().expect("only commas = empty");
+            assert!(labels.is_empty());
+        }
+
+        #[test]
+        fn labels_from_str_whitespace_only_between_commas() {
+            let labels: Labels = "a,   ,b".parse().expect("whitespace segments filtered");
+            assert_eq!(labels.as_slice(), &["a".to_string(), "b".to_string()]);
+        }
+
+        #[test]
+        fn labels_from_str_exceeds_max() {
+            let input: String = (0..=Labels::MAX_LABELS)
+                .map(|i| format!("label-{i}"))
+                .collect::<Vec<_>>()
+                .join(",");
+            let result = input.parse::<Labels>();
+            assert!(result.is_err());
+        }
+
+        // --- Empty label rejection ---
+
+        #[test]
+        fn labels_rejects_empty_string_in_list() {
+            let result = Labels::new(vec!["bug".to_string(), "".to_string()]);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn labels_rejects_whitespace_only_in_list() {
+            let result = Labels::new(vec!["bug".to_string(), "   ".to_string()]);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn labels_rejects_tab_only_in_list() {
+            let result = Labels::new(vec!["bug".to_string(), "\t".to_string()]);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn labels_accepts_label_with_internal_spaces() {
+            let labels = Labels::new(vec!["high priority".to_string()]).expect("valid");
+            assert_eq!(labels.as_slice(), &["high priority".to_string()]);
+        }
+
+        // --- Containment ---
+
+        #[test]
+        fn labels_contains_existing() {
+            let labels = Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
+            assert!(labels.contains("bug"));
+            assert!(labels.contains("feature"));
+        }
+
+        #[test]
+        fn labels_contains_missing() {
+            let labels = Labels::new(vec!["bug".to_string()]).expect("valid");
+            assert!(!labels.contains("feature"));
+        }
+
+        #[test]
+        fn labels_contains_empty_string() {
+            let labels = Labels::new(vec!["bug".to_string()]).expect("valid");
+            assert!(!labels.contains(""));
+        }
+
+        #[test]
+        fn labels_contains_case_sensitive() {
+            let labels = Labels::new(vec!["Bug".to_string()]).expect("valid");
+            assert!(labels.contains("Bug"));
+            assert!(!labels.contains("bug"));
+            assert!(!labels.contains("BUG"));
+        }
+
+        #[test]
+        fn labels_contains_empty_labels() {
+            let labels = Labels::new(vec![]).expect("valid");
+            assert!(!labels.contains("anything"));
+        }
+
+        // --- Equality ---
+
+        #[test]
+        fn labels_equal_same_order() {
+            let a = Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
+            let b = Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
+            assert_eq!(a, b);
+        }
+
+        #[test]
+        fn labels_not_equal_different_order() {
+            let a = Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
+            let b = Labels::new(vec!["feature".to_string(), "bug".to_string()]).expect("valid");
+            assert_ne!(a, b);
+        }
+
+        #[test]
+        fn labels_not_equal_different_labels() {
+            let a = Labels::new(vec!["bug".to_string()]).expect("valid");
+            let b = Labels::new(vec!["feature".to_string()]).expect("valid");
+            assert_ne!(a, b);
+        }
+
+        #[test]
+        fn labels_equal_both_empty() {
+            let a = Labels::new(vec![]).expect("valid");
+            let b = Labels::new(vec![]).expect("valid");
+            assert_eq!(a, b);
+        }
+
+        #[test]
+        fn labels_not_equal_different_count() {
+            let a = Labels::new(vec!["bug".to_string()]).expect("valid");
+            let b = Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
+            assert_ne!(a, b);
+        }
+
+        #[test]
+        fn labels_hash_consistency() {
+            use std::collections::HashSet;
+            let a = Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
+            let b = Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
+            let mut set = HashSet::new();
+            set.insert(a);
+            assert!(set.contains(&b));
+        }
+
+        // --- Sorting ---
+
+        #[test]
+        fn labels_sorted_alphabetical() {
+            let labels = Labels::new(vec![
+                "zebra".to_string(),
+                "apple".to_string(),
+                "mango".to_string(),
+            ])
+            .expect("valid");
+            let sorted = labels.sorted();
+            assert_eq!(
+                sorted.as_slice(),
+                &["apple".to_string(), "mango".to_string(), "zebra".to_string()]
+            );
+        }
+
+        #[test]
+        fn labels_sorted_does_not_mutate_original() {
+            let labels = Labels::new(vec![
+                "zebra".to_string(),
+                "apple".to_string(),
+            ])
+            .expect("valid");
+            let _sorted = labels.sorted();
+            // Original preserves insertion order
+            assert_eq!(
+                labels.as_slice(),
+                &["zebra".to_string(), "apple".to_string()]
+            );
+        }
+
+        #[test]
+        fn labels_sorted_empty() {
+            let labels = Labels::new(vec![]).expect("valid");
+            let sorted = labels.sorted();
+            assert!(sorted.is_empty());
+        }
+
+        #[test]
+        fn labels_sorted_single() {
+            let labels = Labels::new(vec!["only".to_string()]).expect("valid");
+            let sorted = labels.sorted();
+            assert_eq!(sorted.as_slice(), &["only".to_string()]);
+        }
+
+        #[test]
+        fn labels_sorted_already_sorted() {
+            let labels = Labels::new(vec![
+                "apple".to_string(),
+                "banana".to_string(),
+                "cherry".to_string(),
+            ])
+            .expect("valid");
+            let sorted = labels.sorted();
+            assert_eq!(
+                sorted.as_slice(),
+                &["apple".to_string(), "banana".to_string(), "cherry".to_string()]
+            );
+        }
+
+        // --- len / is_empty ---
+
+        #[test]
+        fn labels_len() {
+            let labels = Labels::new(vec!["a".to_string(), "b".to_string()]).expect("valid");
+            assert_eq!(labels.len(), 2);
+        }
+
+        #[test]
+        fn labels_len_empty() {
+            let labels = Labels::new(vec![]).expect("valid");
+            assert_eq!(labels.len(), 0);
+        }
+
+        #[test]
+        fn labels_is_empty_true() {
+            let labels = Labels::new(vec![]).expect("valid");
+            assert!(labels.is_empty());
+        }
+
+        #[test]
+        fn labels_is_empty_false() {
+            let labels = Labels::new(vec!["a".to_string()]).expect("valid");
+            assert!(!labels.is_empty());
+        }
+
+        // --- Clone ---
+
+        #[test]
+        fn labels_clone_equal() {
+            let labels = Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
+            let cloned = labels.clone();
+            assert_eq!(labels, cloned);
         }
     }
 
