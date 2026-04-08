@@ -30,6 +30,8 @@
 
 pub mod actions;
 pub mod data;
+#[cfg(test)]
+mod tests;
 
 // Re-export public API
 pub use actions::run_integrity;
