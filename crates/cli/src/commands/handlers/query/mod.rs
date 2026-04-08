@@ -17,6 +17,8 @@
 
 pub mod actions;
 pub mod data;
+#[cfg(test)]
+mod tests;
 
 pub use actions::run_query;
 pub use data::{QueryOptions, QueryOutput};
