@@ -1040,7 +1040,7 @@ mod sqlite_repository_integration {
 
         let save_handle = {
             let wt = create_test_worktree(
-                "concurrent-del-save",
+                "concurrent-del-save-replacement",
                 "/tmp/wt2",
                 "/home/user/proj",
                 WorktreeTypeEnum::Testing,
