@@ -60,30 +60,155 @@ pub enum Decision {
 mod tests {
     use super::*;
 
+    // --- PhaseError: construction tests ---
+
     #[test]
-    fn test_phase_error_variants_display() {
-        let errors = [
-            PhaseError::SpecReviewFailed("lint error".to_string()),
-            PhaseError::SetupFailed("disk full".to_string()),
-            PhaseError::DevelopmentFailed("oom".to_string()),
-            PhaseError::ValidationFailed("scenario failed".to_string()),
-            PhaseError::CleanupFailed("rollback error".to_string()),
-            PhaseError::PersistenceFailed("io error".to_string()),
-            PhaseError::InvalidStateTransition("bad transition".to_string()),
-            PhaseError::ParallelExecutionFailed("dependency error".to_string()),
-            PhaseError::DependencyNotMet(PhaseType::Validation),
+    fn test_phase_error_construction_string_variants() {
+        let _ = PhaseError::SpecReviewFailed("lint error".to_string());
+        let _ = PhaseError::SetupFailed("disk full".to_string());
+        let _ = PhaseError::DevelopmentFailed("oom".to_string());
+        let _ = PhaseError::ValidationFailed("scenario failed".to_string());
+        let _ = PhaseError::CleanupFailed("rollback error".to_string());
+        let _ = PhaseError::PersistenceFailed("io error".to_string());
+        let _ = PhaseError::InvalidStateTransition("bad transition".to_string());
+        let _ = PhaseError::ParallelExecutionFailed("dependency error".to_string());
+    }
+
+    #[test]
+    fn test_phase_error_construction_phase_type_variant() {
+        let _ = PhaseError::DependencyNotMet(PhaseType::Validation);
+        let _ = PhaseError::DependencyNotMet(PhaseType::SpecReview);
+        let _ = PhaseError::DependencyNotMet(PhaseType::UniverseSetup);
+        let _ = PhaseError::DependencyNotMet(PhaseType::AgentDevelopment);
+    }
+
+    // --- PhaseError: Display formatting tests ---
+
+    #[test]
+    fn test_phase_error_display_spec_review_failed() {
+        let err = PhaseError::SpecReviewFailed("lint error".to_string());
+        assert_eq!(format!("{err}"), "Spec review failed: lint error");
+    }
+
+    #[test]
+    fn test_phase_error_display_setup_failed() {
+        let err = PhaseError::SetupFailed("disk full".to_string());
+        assert_eq!(format!("{err}"), "Universe setup failed: disk full");
+    }
+
+    #[test]
+    fn test_phase_error_display_development_failed() {
+        let err = PhaseError::DevelopmentFailed("oom".to_string());
+        assert_eq!(format!("{err}"), "Agent development failed: oom");
+    }
+
+    #[test]
+    fn test_phase_error_display_validation_failed() {
+        let err = PhaseError::ValidationFailed("scenario failed".to_string());
+        assert_eq!(format!("{err}"), "Scenario validation failed: scenario failed");
+    }
+
+    #[test]
+    fn test_phase_error_display_cleanup_failed() {
+        let err = PhaseError::CleanupFailed("rollback error".to_string());
+        assert_eq!(format!("{err}"), "Cleanup/rollback failed: rollback error");
+    }
+
+    #[test]
+    fn test_phase_error_display_persistence_failed() {
+        let err = PhaseError::PersistenceFailed("io error".to_string());
+        assert_eq!(format!("{err}"), "State persistence failed: io error");
+    }
+
+    #[test]
+    fn test_phase_error_display_invalid_state_transition() {
+        let err = PhaseError::InvalidStateTransition("bad transition".to_string());
+        assert_eq!(format!("{err}"), "Invalid state transition: bad transition");
+    }
+
+    #[test]
+    fn test_phase_error_display_parallel_execution_failed() {
+        let err = PhaseError::ParallelExecutionFailed("dependency error".to_string());
+        assert_eq!(format!("{err}"), "Parallel execution failed: dependency error");
+    }
+
+    #[test]
+    fn test_phase_error_display_dependency_not_met() {
+        let err = PhaseError::DependencyNotMet(PhaseType::Validation);
+        assert_eq!(format!("{err}"), "Dependency not met for phase: Validation");
+    }
+
+    #[test]
+    fn test_phase_error_display_preserves_message_content() {
+        let msg = "error with 'quotes' and \"double quotes\" and \n newlines";
+        let err = PhaseError::SpecReviewFailed(msg.to_string());
+        assert!(format!("{err}").contains(msg));
+    }
+
+    #[test]
+    fn test_phase_error_display_empty_message() {
+        let err = PhaseError::SetupFailed(String::new());
+        assert_eq!(format!("{err}"), "Universe setup failed: ");
+    }
+
+    // --- PhaseError: Error trait / source() tests ---
+
+    #[test]
+    fn test_phase_error_source_is_none_for_all_string_variants() {
+        use std::error::Error;
+        let errors: Vec<PhaseError> = vec![
+            PhaseError::SpecReviewFailed("e".to_string()),
+            PhaseError::SetupFailed("e".to_string()),
+            PhaseError::DevelopmentFailed("e".to_string()),
+            PhaseError::ValidationFailed("e".to_string()),
+            PhaseError::CleanupFailed("e".to_string()),
+            PhaseError::PersistenceFailed("e".to_string()),
+            PhaseError::InvalidStateTransition("e".to_string()),
+            PhaseError::ParallelExecutionFailed("e".to_string()),
         ];
         for err in &errors {
-            let msg = format!("{err}");
-            assert!(!msg.is_empty());
+            assert!(err.source().is_none(), "expected no source for {err:?}");
         }
     }
 
     #[test]
-    fn test_phase_error_implements_error() {
+    fn test_phase_error_source_is_none_for_dependency_not_met() {
         use std::error::Error;
-        let err = PhaseError::SpecReviewFailed("test".to_string());
+        let err = PhaseError::DependencyNotMet(PhaseType::Validation);
         assert!(err.source().is_none());
+    }
+
+    #[test]
+    fn test_phase_error_implements_error_trait() {
+        fn assert_error<E: std::error::Error>(_: &E) {}
+        assert_error(&PhaseError::SpecReviewFailed("test".to_string()));
+        assert_error(&PhaseError::DependencyNotMet(PhaseType::SpecReview));
+    }
+
+    // --- PhaseError: chain / nesting tests ---
+
+    #[test]
+    fn test_phase_error_no_chain() {
+        // PhaseError variants don't use #[source], so error chains are not possible.
+        // Verify that repeated source() calls on a dyn Error always return None.
+        use std::error::Error;
+        let err: Box<dyn Error> = Box::new(PhaseError::SetupFailed("root".to_string()));
+        assert!(err.source().is_none());
+    }
+
+    #[test]
+    fn test_phase_error_debug_format_includes_variant() {
+        // Debug output should contain the variant name for diagnostics
+        let err = PhaseError::ValidationFailed("bad".to_string());
+        let debug = format!("{err:?}");
+        assert!(debug.contains("ValidationFailed"));
+    }
+
+    #[test]
+    fn test_phase_error_clone_preserves_display() {
+        let err = PhaseError::PersistenceFailed("disk I/O".to_string());
+        let cloned = err.clone();
+        assert_eq!(format!("{err}"), format!("{cloned}"));
     }
 
     #[test]
