@@ -166,6 +166,14 @@ impl<R: BeadRepository> BeadService<R> {
         self.repository.find_by_state(state).await
     }
 
+    pub async fn find_by_assignee(&self, assignee: Option<&str>) -> Result<Vec<Bead>> {
+        self.repository.find_by_assignee(assignee).await
+    }
+
+    pub async fn find_by_priority(&self, priority: Option<Priority>) -> Result<Vec<Bead>> {
+        self.repository.find_by_priority(priority).await
+    }
+
     pub async fn delete_bead(&self, id: &BeadId) -> Result<BeadEvent> {
         let _bead = self.get_bead(id).await?;
         self.repository.delete(id).await?;
@@ -614,7 +622,7 @@ mod tests {
         assert_eq!(list.len(), 2);
     }
 
-    // ── find_by_state ────────────────────────────────────────────────────────
+  // ── find_by_state ────────────────────────────────────────────────────────
 
     #[tokio::test]
     async fn find_by_state_filters() {
@@ -631,6 +639,888 @@ mod tests {
         service.create_bead("fs-3", "Three", None).await.unwrap();
         let in_progress = service.find_by_state(BeadState::InProgress).await.unwrap();
         assert!(in_progress.is_empty());
+    }
+
+    // ── find_by_assignee ─────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn find_by_assignee_returns_all_when_none() {
+        let service = make_service();
+        service
+            .create_bead("fa-1", "Unassigned 1", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("fa-2", "Unassigned 2", None)
+            .await
+            .unwrap();
+        let result = service.find_by_assignee(None).await.unwrap();
+        assert_eq!(result.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn find_by_assignee_filters_by_assignee() {
+        let service = make_service();
+        service
+            .create_bead("fa-3", "Alice 1", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("fa-4", "Alice 2", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("fa-5", "Bob 1", None)
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("fa-3").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("fa-4").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("fa-5").unwrap(), Some("bob".into()))
+            .await
+            .unwrap();
+
+        let alice_beads = service.find_by_assignee(Some("alice")).await.unwrap();
+        assert_eq!(alice_beads.len(), 2);
+        for bead in &alice_beads {
+            assert_eq!(bead.assignee(), Some("alice"));
+        }
+    }
+
+    #[tokio::test]
+    async fn find_by_assignee_returns_empty_for_nonexistent_assignee() {
+        let service = make_service();
+        service
+            .create_bead("fa-6", "Charlie", None)
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("fa-6").unwrap(), Some("charlie".into()))
+            .await
+            .unwrap();
+
+        let result = service.find_by_assignee(Some("nobody")).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn find_by_assignee_empty_repo() {
+        let service = make_service();
+        let result = service.find_by_assignee(Some("alice")).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn find_by_assignee_combined_with_state() {
+        let service = make_service();
+
+        service
+            .create_bead("fca-1", "Alice Open", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("fca-2", "Alice InProgress", None)
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("fca-1").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("fca-2").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .update_bead_state(&BeadId::new("fca-2").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+
+        let open_alice = service
+            .find_by_assignee(Some("alice"))
+            .await
+            .unwrap();
+        assert_eq!(open_alice.len(), 2);
+
+        let in_progress = service
+            .find_by_state(BeadState::InProgress)
+            .await
+            .unwrap();
+        assert_eq!(in_progress.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn find_by_assignee_case_sensitive() {
+        let service = make_service();
+        service
+            .create_bead("facs-1", "Alice Case", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("facs-2", "alice case", None)
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("facs-1").unwrap(), Some("Alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("facs-2").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+
+        let uppercase = service.find_by_assignee(Some("Alice")).await.unwrap();
+        let lowercase = service.find_by_assignee(Some("alice")).await.unwrap();
+
+        assert_eq!(uppercase.len(), 1);
+        assert_eq!(lowercase.len(), 1);
+        assert_ne!(uppercase[0].id(), lowercase[0].id());
+    }
+
+    // ── find_by_priority ────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn find_by_priority_returns_all_when_none() {
+        let service = make_service();
+        service
+            .create_bead("fp-1", "No Priority 1", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("fp-2", "No Priority 2", None)
+            .await
+            .unwrap();
+
+        let result = service.find_by_priority(None).await.unwrap();
+        assert_eq!(result.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn find_by_priority_filters_by_priority() {
+        let service = make_service();
+
+        service
+            .create_bead("fp-3", "P0 Bead", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("fp-4", "P1 Bead", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("fp-5", "P0 Bead 2", None)
+            .await
+            .unwrap();
+
+        service
+            .set_priority(&BeadId::new("fp-3").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("fp-4").unwrap(), Priority::P1)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("fp-5").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+
+        let p0_beads = service.find_by_priority(Some(Priority::P0)).await.unwrap();
+        assert_eq!(p0_beads.len(), 2);
+        for bead in &p0_beads {
+            assert_eq!(bead.priority(), Some(&Priority::P0));
+        }
+    }
+
+    #[tokio::test]
+    async fn find_by_priority_returns_empty_for_nonexistent_priority() {
+        let service = make_service();
+        service
+            .create_bead("fp-6", "P1 Bead", None)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("fp-6").unwrap(), Priority::P1)
+            .await
+            .unwrap();
+
+        let result = service.find_by_priority(Some(Priority::P4)).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn find_by_priority_empty_repo() {
+        let service = make_service();
+        let result = service.find_by_priority(Some(Priority::P0)).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn find_by_priority_combined_with_state() {
+        let service = make_service();
+
+        service
+            .create_bead("fpp-1", "P0 Open", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("fpp-2", "P0 InProgress", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("fpp-3", "P1 InProgress", None)
+            .await
+            .unwrap();
+
+        service
+            .set_priority(&BeadId::new("fpp-1").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("fpp-2").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("fpp-3").unwrap(), Priority::P1)
+            .await
+            .unwrap();
+
+        service
+            .update_bead_state(&BeadId::new("fpp-2").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+        service
+            .update_bead_state(&BeadId::new("fpp-3").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+
+        let p0_in_progress = service
+            .find_by_priority(Some(Priority::P0))
+            .await
+            .unwrap();
+        assert_eq!(p0_in_progress.len(), 2);
+
+        let in_progress = service
+            .find_by_state(BeadState::InProgress)
+            .await
+            .unwrap();
+        assert_eq!(in_progress.len(), 2);
+    }
+
+ #[tokio::test]
+    async fn find_by_priority_all_priority_levels() {
+        let service = make_service();
+
+        let priorities = vec![
+            (Priority::P0, "P0"),
+            (Priority::P1, "P1"),
+            (Priority::P2, "P2"),
+            (Priority::P3, "P3"),
+            (Priority::P4, "P4"),
+        ];
+
+        for (prio, name) in &priorities {
+            service
+                .create_bead(format!("fpal-{name}"), *name, None)
+                .await
+                .unwrap();
+            service
+                .set_priority(&BeadId::new(format!("fpal-{name}")).unwrap(), *prio)
+                .await
+                .unwrap();
+        }
+
+        for (prio, name) in &priorities {
+            let result = service.find_by_priority(Some(*prio)).await.unwrap();
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0].id().as_str(), format!("fpal-{name}"));
+        }
+    }
+
+    // ── Combined filters ────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn combined_state_and_assignee() {
+        let service = make_service();
+
+        // Create beads with various states and assignees
+        service
+            .create_bead("csa-1", "Alice Open", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("csa-2", "Alice InProgress", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("csa-3", "Bob Open", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("csa-4", "Bob InProgress", None)
+            .await
+            .unwrap();
+
+        service
+            .assign_bead(&BeadId::new("csa-1").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("csa-2").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("csa-3").unwrap(), Some("bob".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("csa-4").unwrap(), Some("bob".into()))
+            .await
+            .unwrap();
+
+        service
+            .update_bead_state(&BeadId::new("csa-2").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+        service
+            .update_bead_state(&BeadId::new("csa-4").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+
+        // Query: Alice, InProgress
+        let alice_in_progress = service
+            .find_by_assignee(Some("alice"))
+            .await
+            .unwrap();
+        assert_eq!(alice_in_progress.len(), 2);
+
+        // Filter by state from the assignee result
+        let alice_in_progress_filtered: Vec<_> = alice_in_progress
+            .into_iter()
+            .filter(|b| b.state() == BeadState::InProgress)
+            .collect();
+        assert_eq!(alice_in_progress_filtered.len(), 1);
+        assert_eq!(alice_in_progress_filtered[0].id().as_str(), "csa-2");
+    }
+
+    #[tokio::test]
+    async fn combined_state_and_priority() {
+        let service = make_service();
+
+        service
+            .create_bead("csp-1", "P0 Open", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("csp-2", "P0 InProgress", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("csp-3", "P1 InProgress", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("csp-4", "P1 Closed", None)
+            .await
+            .unwrap();
+
+        service
+            .set_priority(&BeadId::new("csp-1").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("csp-2").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("csp-3").unwrap(), Priority::P1)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("csp-4").unwrap(), Priority::P1)
+            .await
+            .unwrap();
+
+        service
+            .update_bead_state(&BeadId::new("csp-2").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+        service
+            .update_bead_state(&BeadId::new("csp-3").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+        service
+            .update_bead_state(&BeadId::new("csp-4").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+        service
+            .update_bead_state(
+                &BeadId::new("csp-4").unwrap(),
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
+            )
+            .await
+            .unwrap();
+
+        let p0_in_progress: Vec<_> = service
+            .find_by_priority(Some(Priority::P0))
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|b| b.state() == BeadState::InProgress)
+            .collect();
+        assert_eq!(p0_in_progress.len(), 1);
+        assert_eq!(p0_in_progress[0].id().as_str(), "csp-2");
+    }
+
+    #[tokio::test]
+    async fn combined_assignee_and_priority() {
+        let service = make_service();
+
+        service
+            .create_bead("cap-1", "Alice P0", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("cap-2", "Alice P1", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("cap-3", "Bob P0", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("cap-4", "Bob P2", None)
+            .await
+            .unwrap();
+
+        service
+            .assign_bead(&BeadId::new("cap-1").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("cap-2").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("cap-3").unwrap(), Some("bob".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("cap-4").unwrap(), Some("bob".into()))
+            .await
+            .unwrap();
+
+        service
+            .set_priority(&BeadId::new("cap-1").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("cap-2").unwrap(), Priority::P1)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("cap-3").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("cap-4").unwrap(), Priority::P2)
+            .await
+            .unwrap();
+
+        let alice_p0: Vec<_> = service
+            .find_by_assignee(Some("alice"))
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|b| b.priority() == Some(&Priority::P0))
+            .collect();
+        assert_eq!(alice_p0.len(), 1);
+        assert_eq!(alice_p0[0].id().as_str(), "cap-1");
+    }
+
+    #[tokio::test]
+    async fn combined_all_three_filters() {
+        let service = make_service();
+
+        service
+            .create_bead("cab-1", "Alice P0 InProgress", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("cab-2", "Alice P0 Open", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("cab-3", "Bob P0 InProgress", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("cab-4", "Alice P1 InProgress", None)
+            .await
+            .unwrap();
+
+        service
+            .assign_bead(&BeadId::new("cab-1").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("cab-2").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("cab-3").unwrap(), Some("bob".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("cab-4").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+
+        service
+            .set_priority(&BeadId::new("cab-1").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("cab-2").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("cab-3").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("cab-4").unwrap(), Priority::P1)
+            .await
+            .unwrap();
+
+        service
+            .update_bead_state(&BeadId::new("cab-1").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+        service
+            .update_bead_state(&BeadId::new("cab-3").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+        service
+            .update_bead_state(&BeadId::new("cab-4").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+
+        // Alice, P0, InProgress = cab-1 only
+        let alice_p0_in_progress: Vec<_> = service
+            .find_by_assignee(Some("alice"))
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|b| b.priority() == Some(&Priority::P0))
+            .filter(|b| b.state() == BeadState::InProgress)
+            .collect();
+        assert_eq!(alice_p0_in_progress.len(), 1);
+        assert_eq!(alice_p0_in_progress[0].id().as_str(), "cab-1");
+    }
+
+    // ── Result ordering ─────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn find_by_assignee_ordering_preserves_insertion() {
+        let service = make_service();
+
+        service
+            .create_bead("oaa-1", "First", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("oaa-2", "Second", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("oaa-3", "Third", None)
+            .await
+            .unwrap();
+
+        service
+            .assign_bead(&BeadId::new("oaa-1").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("oaa-2").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("oaa-3").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+
+        let result = service.find_by_assignee(Some("alice")).await.unwrap();
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].id().as_str(), "oaa-1");
+        assert_eq!(result[1].id().as_str(), "oaa-2");
+        assert_eq!(result[2].id().as_str(), "oaa-3");
+    }
+
+    #[tokio::test]
+    async fn find_by_priority_ordering_preserves_insertion() {
+        let service = make_service();
+
+        service
+            .create_bead("oap-1", "First", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("oap-2", "Second", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("oap-3", "Third", None)
+            .await
+            .unwrap();
+
+        service
+            .set_priority(&BeadId::new("oap-1").unwrap(), Priority::P1)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("oap-2").unwrap(), Priority::P1)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("oap-3").unwrap(), Priority::P1)
+            .await
+            .unwrap();
+
+        let result = service.find_by_priority(Some(Priority::P1)).await.unwrap();
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].id().as_str(), "oap-1");
+        assert_eq!(result[1].id().as_str(), "oap-2");
+        assert_eq!(result[2].id().as_str(), "oap-3");
+    }
+
+    #[tokio::test]
+    async fn find_by_state_ordering_preserves_insertion() {
+        let service = make_service();
+
+        service
+            .create_bead("oas-1", "First", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("oas-2", "Second", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("oas-3", "Third", None)
+            .await
+            .unwrap();
+
+        service
+            .update_bead_state(&BeadId::new("oas-1").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+        service
+            .update_bead_state(&BeadId::new("oas-2").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+        service
+            .update_bead_state(&BeadId::new("oas-3").unwrap(), BeadState::InProgress)
+            .await
+            .unwrap();
+
+        let result = service.find_by_state(BeadState::InProgress).await.unwrap();
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].id().as_str(), "oas-1");
+        assert_eq!(result[1].id().as_str(), "oas-2");
+        assert_eq!(result[2].id().as_str(), "oas-3");
+    }
+
+    #[tokio::test]
+    async fn find_by_assignee_ordering_with_mixed_assignees() {
+        let service = make_service();
+
+        service
+            .create_bead("oama-1", "Alice", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("oama-2", "Bob", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("oama-3", "Alice", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("oama-4", "Charlie", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("oama-5", "Alice", None)
+            .await
+            .unwrap();
+
+        service
+            .assign_bead(&BeadId::new("oama-1").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("oama-2").unwrap(), Some("bob".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("oama-3").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("oama-4").unwrap(), Some("charlie".into()))
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("oama-5").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+
+        let alice_beads = service.find_by_assignee(Some("alice")).await.unwrap();
+        assert_eq!(alice_beads.len(), 3);
+        assert_eq!(alice_beads[0].id().as_str(), "oama-1");
+        assert_eq!(alice_beads[1].id().as_str(), "oama-3");
+        assert_eq!(alice_beads[2].id().as_str(), "oama-5");
+    }
+
+    #[tokio::test]
+    async fn find_by_priority_ordering_with_mixed_priorities() {
+        let service = make_service();
+
+        service
+            .create_bead("omap-1", "P0", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("omap-2", "P1", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("omap-3", "P0", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("omap-4", "P2", None)
+            .await
+            .unwrap();
+        service
+            .create_bead("omap-5", "P0", None)
+            .await
+            .unwrap();
+
+        service
+            .set_priority(&BeadId::new("omap-1").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("omap-2").unwrap(), Priority::P1)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("omap-3").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("omap-4").unwrap(), Priority::P2)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("omap-5").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+
+        let p0_beads = service.find_by_priority(Some(Priority::P0)).await.unwrap();
+        assert_eq!(p0_beads.len(), 3);
+        assert_eq!(p0_beads[0].id().as_str(), "omap-1");
+        assert_eq!(p0_beads[1].id().as_str(), "omap-3");
+        assert_eq!(p0_beads[2].id().as_str(), "omap-5");
+    }
+
+    // ── Empty result set tests ──────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn find_by_assignee_empty_result() {
+        let service = make_service();
+
+        service
+            .create_bead("fe-1", "Unassigned", None)
+            .await
+            .unwrap();
+        service
+            .assign_bead(&BeadId::new("fe-1").unwrap(), Some("alice".into()))
+            .await
+            .unwrap();
+
+        let bob_beads = service.find_by_assignee(Some("bob")).await.unwrap();
+        assert!(bob_beads.is_empty());
+    }
+
+    #[tokio::test]
+    async fn find_by_priority_empty_result() {
+        let service = make_service();
+
+        service
+            .create_bead("fep-1", "P0 Bead", None)
+            .await
+            .unwrap();
+        service
+            .set_priority(&BeadId::new("fep-1").unwrap(), Priority::P0)
+            .await
+            .unwrap();
+
+        let p5_beads = service.find_by_priority(Some(Priority::P4)).await.unwrap();
+        assert!(p5_beads.is_empty());
+    }
+
+    #[tokio::test]
+    async fn find_by_state_empty_result() {
+        let service = make_service();
+
+        service
+            .create_bead("fes-1", "Open Bead", None)
+            .await
+            .unwrap();
+
+        let closed_beads = service
+            .find_by_state(BeadState::Closed {
+                closed_at: Utc::now(),
+            })
+            .await
+            .unwrap();
+        assert!(closed_beads.is_empty());
+    }
+
+    #[tokio::test]
+    async fn find_by_assignee_empty_repo_result() {
+        let service = make_service();
+
+        let result = service.find_by_assignee(Some("alice")).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn find_by_priority_empty_repo_result() {
+        let service = make_service();
+
+        let result = service.find_by_priority(Some(Priority::P0)).await.unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[tokio::test]
+    async fn find_by_state_empty_repo_result() {
+        let service = make_service();
+
+        let result = service.find_by_state(BeadState::Open).await.unwrap();
+        assert!(result.is_empty());
     }
 
     // ── delete_bead ──────────────────────────────────────────────────────────

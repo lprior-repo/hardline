@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::domain::entities::bead::Bead;
-use crate::domain::value_objects::{BeadId, BeadState};
+use crate::domain::value_objects::{BeadId, BeadState, Priority};
 use crate::error::{BeadError, Result};
 
 #[async_trait]
@@ -14,6 +14,8 @@ pub trait BeadRepository: Send + Sync {
     async fn find(&self, id: &BeadId) -> Result<Option<Bead>>;
     async fn find_all(&self) -> Result<Vec<Bead>>;
     async fn find_by_state(&self, state: BeadState) -> Result<Vec<Bead>>;
+    async fn find_by_assignee(&self, assignee: Option<&str>) -> Result<Vec<Bead>>;
+    async fn find_by_priority(&self, priority: Option<Priority>) -> Result<Vec<Bead>>;
     async fn exists(&self, id: &BeadId) -> bool;
 }
 
@@ -79,11 +81,35 @@ impl BeadRepository for InMemoryBeadRepository {
 
     async fn find_by_state(&self, state: BeadState) -> Result<Vec<Bead>> {
         let beads = self.beads.read().await;
-        Ok(beads
+        let mut filtered: Vec<Bead> = beads
             .values()
             .filter(|b| b.state() == state)
             .cloned()
-            .collect())
+            .collect();
+        filtered.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        Ok(filtered)
+    }
+
+    async fn find_by_assignee(&self, assignee: Option<&str>) -> Result<Vec<Bead>> {
+        let beads = self.beads.read().await;
+        let mut filtered: Vec<Bead> = beads
+            .values()
+            .filter(|b| b.assignee() == assignee)
+            .cloned()
+            .collect();
+        filtered.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        Ok(filtered)
+    }
+
+    async fn find_by_priority(&self, priority: Option<Priority>) -> Result<Vec<Bead>> {
+        let beads = self.beads.read().await;
+        let mut filtered: Vec<Bead> = beads
+            .values()
+            .filter(|b| b.priority() == priority.as_ref())
+            .cloned()
+            .collect();
+        filtered.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        Ok(filtered)
     }
 
     async fn exists(&self, id: &BeadId) -> bool {

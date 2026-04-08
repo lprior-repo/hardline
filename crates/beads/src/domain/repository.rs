@@ -4,7 +4,7 @@
 //! Implementations live in the infrastructure layer.
 
 use crate::domain::entities::bead::Bead;
-use crate::domain::value_objects::{BeadId, BeadState};
+use crate::domain::value_objects::{BeadId, BeadState, Priority};
 use crate::error::Result;
 
 /// Repository trait for Bead aggregate persistence.
@@ -58,6 +58,18 @@ pub trait BeadRepository: Send + Sync {
     ///
     /// Returns empty vector if no beads match the state.
     fn find_by_state(&self, state: BeadState) -> Result<Vec<Bead>>;
+
+    /// Find beads by assignee.
+    ///
+    /// Returns empty vector if no beads match the assignee.
+    /// If `assignee` is `None`, returns beads with no assignee.
+    fn find_by_assignee(&self, assignee: Option<&str>) -> Result<Vec<Bead>>;
+
+    /// Find beads by priority.
+    ///
+    /// Returns empty vector if no beads match the priority.
+    /// If `priority` is `None`, returns beads with no priority set.
+    fn find_by_priority(&self, priority: Option<Priority>) -> Result<Vec<Bead>>;
 
     /// Check if a bead exists.
     ///
