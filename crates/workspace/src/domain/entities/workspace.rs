@@ -55,6 +55,20 @@ impl WorkspaceId {
     }
 }
 
+impl std::fmt::Display for WorkspaceId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::str::FromStr for WorkspaceId {
+    type Err = WorkspaceError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s.to_owned())
+    }
+}
+
 impl Default for WorkspaceId {
     fn default() -> Self {
         Self::generate()
