@@ -63,6 +63,9 @@ mod task_id;
 mod workspace_name;
 
 #[cfg(test)]
+mod proptests;
+
+#[cfg(test)]
 mod tests;
 
 // Re-export for use in validation functions
