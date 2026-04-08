@@ -1,4 +1,4 @@
-//! Tests for AgentConfig, SessionConfig, HooksConfig and their Partial variants
+//! Tests for AgentConfig, SessionConfig, HooksConfig, WatchConfig and their Partial variants
 #![allow(clippy::redundant_clone)]
 
 use std::collections::HashMap;
@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use crate::config::types::ValidatedBool;
 use crate::config::{
     AgentConfig, HooksConfig, PartialAgentConfig, PartialHooksConfig, PartialSessionConfig,
-    SessionConfig,
+    SessionConfig, WatchConfig,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -442,4 +442,277 @@ fn partial_hooks_config_serde_roundtrip() {
     let json = serde_json::to_string(&partial).expect("should serialize");
     let deserialized: PartialHooksConfig = serde_json::from_str(&json).expect("should deserialize");
     assert_eq!(partial, deserialized);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WatchConfig tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+// --- Construction ---
+
+#[test]
+fn watch_config_construction_enabled() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 100,
+        paths: vec![".beads/beads.db".to_string()],
+    };
+    assert!(config.enabled.value());
+    assert_eq!(config.debounce_ms, 100);
+    assert_eq!(config.paths, [".beads/beads.db"]);
+}
+
+#[test]
+fn watch_config_construction_disabled() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(false),
+        debounce_ms: 100,
+        paths: vec![".beads/beads.db".to_string()],
+    };
+    assert!(!config.enabled.value());
+}
+
+#[test]
+fn watch_config_empty_paths() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 100,
+        paths: vec![],
+    };
+    assert!(config.paths.is_empty());
+}
+
+#[test]
+fn watch_config_multiple_paths() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 250,
+        paths: vec![
+            "src/".to_string(),
+            ".beads/beads.db".to_string(),
+            "tests/".to_string(),
+        ],
+    };
+    assert_eq!(config.paths.len(), 3);
+    assert_eq!(config.paths[0], "src/");
+    assert_eq!(config.paths[2], "tests/");
+}
+
+#[test]
+fn watch_config_paths_with_special_chars() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 100,
+        paths: vec![
+            "src/**/*.rs".to_string(),
+            "path with spaces/".to_string(),
+            "unicode/日本語/".to_string(),
+        ],
+    };
+    assert_eq!(config.paths.len(), 3);
+    assert_eq!(config.paths[0], "src/**/*.rs");
+    assert_eq!(config.paths[2], "unicode/日本語/");
+}
+
+// --- Debounce duration edge cases ---
+
+#[test]
+fn watch_config_zero_debounce() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 0,
+        paths: vec!["src/".to_string()],
+    };
+    // Construction succeeds — validation happens at the watcher level
+    assert_eq!(config.debounce_ms, 0);
+}
+
+#[test]
+fn watch_config_debounce_boundary_minimum() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 10,
+        paths: vec!["src/".to_string()],
+    };
+    assert_eq!(config.debounce_ms, 10);
+}
+
+#[test]
+fn watch_config_debounce_boundary_maximum() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 5000,
+        paths: vec!["src/".to_string()],
+    };
+    assert_eq!(config.debounce_ms, 5000);
+}
+
+#[test]
+fn watch_config_debounce_just_below_minimum() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 9,
+        paths: vec!["src/".to_string()],
+    };
+    assert_eq!(config.debounce_ms, 9);
+}
+
+#[test]
+fn watch_config_debounce_just_above_maximum() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 5001,
+        paths: vec!["src/".to_string()],
+    };
+    assert_eq!(config.debounce_ms, 5001);
+}
+
+#[test]
+fn watch_config_debounce_u32_max() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: u32::MAX,
+        paths: vec!["src/".to_string()],
+    };
+    assert_eq!(config.debounce_ms, u32::MAX);
+}
+
+// --- Serialization / Deserialization ---
+
+#[test]
+fn watch_config_serde_json_roundtrip() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 250,
+        paths: vec!["src/".to_string(), ".beads/".to_string()],
+    };
+    let json = serde_json::to_string(&config).expect("should serialize");
+    let deserialized: WatchConfig = serde_json::from_str(&json).expect("should deserialize");
+    assert_eq!(config.enabled, deserialized.enabled);
+    assert_eq!(config.debounce_ms, deserialized.debounce_ms);
+    assert_eq!(config.paths, deserialized.paths);
+}
+
+#[test]
+fn watch_config_serde_toml_roundtrip() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 100,
+        paths: vec![".beads/beads.db".to_string()],
+    };
+    let toml_str = toml::to_string(&config).expect("should serialize to toml");
+    let deserialized: WatchConfig =
+        toml::from_str(&toml_str).expect("should deserialize from toml");
+    assert_eq!(config.enabled, deserialized.enabled);
+    assert_eq!(config.debounce_ms, deserialized.debounce_ms);
+    assert_eq!(config.paths, deserialized.paths);
+}
+
+#[test]
+fn watch_config_json_roundtrip_empty_paths() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(false),
+        debounce_ms: 500,
+        paths: vec![],
+    };
+    let json = serde_json::to_string(&config).expect("should serialize");
+    let deserialized: WatchConfig = serde_json::from_str(&json).expect("should deserialize");
+    assert!(deserialized.paths.is_empty());
+    assert!(!deserialized.enabled.value());
+}
+
+#[test]
+fn watch_config_toml_roundtrip_empty_paths() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 50,
+        paths: vec![],
+    };
+    let toml_str = toml::to_string(&config).expect("should serialize");
+    let deserialized: WatchConfig = toml::from_str(&toml_str).expect("should deserialize");
+    assert!(deserialized.paths.is_empty());
+}
+
+// --- ValidatedBool strict rejection in WatchConfig context ---
+
+#[test]
+fn watch_config_deserialize_rejects_string_enabled() {
+    let json = r#"{"enabled":"true","debounce_ms":100,"paths":[]}"#;
+    let result: std::result::Result<WatchConfig, _> = serde_json::from_str(json);
+    assert!(
+        result.is_err(),
+        "String 'true' should be rejected for enabled field"
+    );
+}
+
+#[test]
+fn watch_config_deserialize_rejects_number_enabled() {
+    let json = r#"{"enabled":1,"debounce_ms":100,"paths":[]}"#;
+    let result: std::result::Result<WatchConfig, _> = serde_json::from_str(json);
+    assert!(
+        result.is_err(),
+        "Number 1 should be rejected for enabled field"
+    );
+}
+
+#[test]
+fn watch_config_deserialize_rejects_null_enabled() {
+    let json = r#"{"enabled":null,"debounce_ms":100,"paths":[]}"#;
+    let result: std::result::Result<WatchConfig, _> = serde_json::from_str(json);
+    assert!(
+        result.is_err(),
+        "Null should be rejected for enabled field"
+    );
+}
+
+#[test]
+fn watch_config_deserialize_rejects_object_enabled() {
+    let json = r#"{"enabled":{},"debounce_ms":100,"paths":[]}"#;
+    let result: std::result::Result<WatchConfig, _> = serde_json::from_str(json);
+    assert!(
+        result.is_err(),
+        "Object should be rejected for enabled field"
+    );
+}
+
+// --- Trait implementations ---
+
+#[test]
+fn watch_config_clone_equality() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 100,
+        paths: vec![".beads/beads.db".to_string()],
+    };
+    let cloned = config.clone();
+    assert_eq!(config.enabled, cloned.enabled);
+    assert_eq!(config.debounce_ms, cloned.debounce_ms);
+    assert_eq!(config.paths, cloned.paths);
+}
+
+#[test]
+fn watch_config_debug_format() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 100,
+        paths: vec![".beads/beads.db".to_string()],
+    };
+    let debug_str = format!("{config:?}");
+    assert!(debug_str.contains("WatchConfig"));
+    assert!(debug_str.contains("100"));
+    assert!(debug_str.contains("enabled"));
+}
+
+#[test]
+fn watch_config_clone_independent() {
+    let config = WatchConfig {
+        enabled: ValidatedBool::new(true),
+        debounce_ms: 100,
+        paths: vec!["src/".to_string()],
+    };
+    let mut cloned = config.clone();
+    cloned.paths.push("tests/".to_string());
+    // Original unchanged
+    assert_eq!(config.paths.len(), 1);
+    assert_eq!(cloned.paths.len(), 2);
 }
