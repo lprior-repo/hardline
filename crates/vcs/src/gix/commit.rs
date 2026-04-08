@@ -373,14 +373,6 @@ pub struct CommitInfo {
 // ============================================================================
 
 /// Resolve a branch name or ref to an OID.
-pub(crate) fn resolve_to_oid_export(
-    repo: &gix::Repository,
-    refspec: &str,
-) -> GitResult<gix::ObjectId> {
-    resolve_to_oid(repo, refspec)
-}
-
-/// Resolve a branch name or ref to an OID.
 fn resolve_to_oid(repo: &gix::Repository, refspec: &str) -> GitResult<gix::ObjectId> {
     // Try as local branch
     let local_ref = format!("refs/heads/{refspec}");

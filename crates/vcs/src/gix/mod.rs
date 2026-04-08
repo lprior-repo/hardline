@@ -8,6 +8,7 @@ pub mod branch;
 pub mod commit;
 pub mod diff;
 pub mod merge;
+pub mod merge_detect;
 pub mod rebase;
 pub mod refs;
 pub mod remote;

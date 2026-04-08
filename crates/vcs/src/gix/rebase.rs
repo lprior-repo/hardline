@@ -264,8 +264,11 @@ pub fn find_merge_base(
     match repo.merge_base(a, b) {
         Ok(id) => Ok(Some(id.detach())),
         Err(e) => {
-            let msg = e.to_string();
-            if msg.contains("no merge base") || msg.contains("not found") {
+            let msg = e.to_string().to_lowercase();
+            if msg.contains("no merge base")
+                || msg.contains("not found")
+                || msg.contains("could not find a merge-base")
+            {
                 Ok(None)
             } else {
                 Err(GitError::InvalidRef {
