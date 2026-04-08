@@ -1590,4 +1590,265 @@ mod tests {
             }
         }
     }
+
+    // =========================================================================
+    // SessionId Extended Tests — generation, uniqueness, parse round-trip,
+    // display formatting (ha-9j6)
+    // =========================================================================
+
+    mod session_id_extended_tests {
+        use super::*;
+
+        // --- Generation ---
+
+        #[test]
+        fn session_id_generate_has_uuid_suffix() {
+            let id = SessionId::generate();
+            let suffix = &id.as_str()["session-".len()..];
+            // UUID v4 format: 8-4-4-4-12 (36 chars with hyphens)
+            assert_eq!(suffix.len(), 36);
+            assert!(suffix.contains('-'));
+        }
+
+        #[test]
+        fn session_id_generate_batch_uniqueness() {
+            let mut ids = std::collections::HashSet::new();
+            for _ in 0..200 {
+                ids.insert(SessionId::generate());
+            }
+            assert_eq!(ids.len(), 200);
+        }
+
+        #[test]
+        fn session_id_generate_all_ascii() {
+            for _ in 0..50 {
+                let id = SessionId::generate();
+                assert!(id.as_str().is_ascii());
+            }
+        }
+
+        #[test]
+        fn session_id_generate_parse_roundtrip() {
+            let id = SessionId::generate();
+            let parsed = SessionId::parse(id.as_str()).expect("generated id should parse");
+            assert_eq!(id, parsed);
+        }
+
+        #[test]
+        fn session_id_generate_display_parse_roundtrip() {
+            let id = SessionId::generate();
+            let displayed = format!("{id}");
+            let reparsed = SessionId::parse(&displayed).expect("display output should parse");
+            assert_eq!(id, reparsed);
+        }
+
+        // --- Parse round-trip ---
+
+        #[test]
+        fn session_id_parse_as_str_parse_roundtrip() {
+            let original = "session-550e8400-e29b-41d4-a716-446655440000";
+            let id = SessionId::parse(original).expect("valid");
+            let roundtripped = SessionId::parse(id.as_str()).expect("round-trip");
+            assert_eq!(id, roundtripped);
+            assert_eq!(roundtripped.as_str(), original);
+        }
+
+        #[test]
+        fn session_id_display_output_equals_as_str() {
+            let id = SessionId::parse("test-display-id").expect("valid");
+            assert_eq!(format!("{id}"), id.as_str());
+        }
+
+        #[test]
+        fn session_id_display_parse_roundtrip_many() {
+            for input in &[
+                "a",
+                "session-abc",
+                "x-y-z",
+                "UPPER",
+                "mixed-Case_123",
+                "with spaces",
+                "with.dots",
+                "with:colons",
+                "with/slashes",
+            ] {
+                let id = SessionId::parse(*input).expect("valid");
+                let displayed = format!("{id}");
+                let reparsed = SessionId::parse(&displayed).expect("display round-trip");
+                assert_eq!(id, reparsed, "round-trip failed for: {input}");
+            }
+        }
+
+        // --- Parse valid ASCII formats ---
+
+        #[test]
+        fn session_id_parse_uuid_format() {
+            let uuid = "session-550e8400-e29b-41d4-a716-446655440000";
+            let id = SessionId::parse(uuid).expect("valid UUID format");
+            assert_eq!(id.as_str(), uuid);
+        }
+
+        #[test]
+        fn session_id_parse_with_spaces() {
+            let id = SessionId::parse("session abc").expect("spaces are ASCII");
+            assert_eq!(id.as_str(), "session abc");
+        }
+
+        #[test]
+        fn session_id_parse_with_dots() {
+            let id = SessionId::parse("session.abc.123").expect("dots are ASCII");
+            assert_eq!(id.as_str(), "session.abc.123");
+        }
+
+        #[test]
+        fn session_id_parse_with_colons() {
+            let id = SessionId::parse("session:abc:123").expect("colons are ASCII");
+            assert_eq!(id.as_str(), "session:abc:123");
+        }
+
+        #[test]
+        fn session_id_parse_with_slashes() {
+            let id = SessionId::parse("session/abc/123").expect("slashes are ASCII");
+            assert_eq!(id.as_str(), "session/abc/123");
+        }
+
+        #[test]
+        fn session_id_parse_with_special_ascii() {
+            let id = SessionId::parse("!@#$%^&*()_+-=[]{}|;:',.<>?~`")
+                .expect("printable ASCII special chars");
+            assert_eq!(id.as_str(), "!@#$%^&*()_+-=[]{}|;:',.<>?~`");
+        }
+
+        #[test]
+        fn session_id_parse_long_ascii_string() {
+            let long = "a".repeat(1000);
+            let id = SessionId::parse(&long).expect("long ASCII string accepted");
+            assert_eq!(id.as_str().len(), 1000);
+        }
+
+        #[test]
+        fn session_id_parse_single_digit() {
+            let id = SessionId::parse("1").expect("single digit is valid ASCII");
+            assert_eq!(id.as_str(), "1");
+        }
+
+        #[test]
+        fn session_id_parse_all_printable_ascii_range() {
+            // All printable ASCII chars (0x20-0x7E)
+            let printable: String = (0x20u8..=0x7E).map(char::from).collect();
+            let id = SessionId::parse(&printable).expect("all printable ASCII");
+            assert_eq!(id.as_str(), printable);
+        }
+
+        // --- Parse invalid formats ---
+
+        #[test]
+        fn session_id_parse_empty_error_message() {
+            let err = SessionId::parse("").unwrap_err();
+            let msg = format!("{err}");
+            assert!(
+                msg.to_lowercase().contains("empty"),
+                "error should mention empty: {msg}"
+            );
+        }
+
+        #[test]
+        fn session_id_parse_non_ascii_error_message() {
+            let err = SessionId::parse("café").unwrap_err();
+            let msg = format!("{err}");
+            assert!(
+                msg.to_lowercase().contains("ascii"),
+                "error should mention ASCII: {msg}"
+            );
+        }
+
+        #[test]
+        fn session_id_parse_emoji_rejects() {
+            let result = SessionId::parse("session-🎉");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn session_id_parse_cjk_rejects() {
+            let result = SessionId::parse("session-日本語");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn session_id_parse_accented_chars_rejects() {
+            assert!(SessionId::parse("café").is_err());
+            assert!(SessionId::parse("naïve").is_err());
+        }
+
+        #[test]
+        fn session_id_parse_mixed_ascii_and_unicode_rejects() {
+            let result = SessionId::parse("abc\u{00E9}def");
+            assert!(result.is_err());
+        }
+
+        // --- Clone ---
+
+        #[test]
+        fn session_id_clone_is_equal() {
+            let id = SessionId::parse("clone-test").expect("valid");
+            let cloned = id.clone();
+            assert_eq!(id, cloned);
+            assert_eq!(id.as_str(), cloned.as_str());
+        }
+
+        // --- Serde for generated IDs ---
+
+        #[test]
+        fn session_id_serde_roundtrip_generated() {
+            let id = SessionId::generate();
+            let json = serde_json::to_string(&id).expect("serialize");
+            let parsed: SessionId = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(id, parsed);
+        }
+
+        #[test]
+        fn session_id_serde_roundtrip_many() {
+            for input in &["a", "session-abc", "with spaces", "x-y_z.1"] {
+                let id = SessionId::parse(*input).expect("valid");
+                let json = serde_json::to_string(&id).expect("serialize");
+                let back: SessionId = serde_json::from_str(&json).expect("deserialize");
+                assert_eq!(id, back, "serde roundtrip failed for: {input}");
+            }
+        }
+
+        // --- Proptests ---
+
+        mod session_id_proptests {
+            use super::*;
+            use proptest::prelude::*;
+
+            proptest! {
+                /// Any non-empty ASCII string should parse successfully
+                #[test]
+                fn prop_session_id_ascii_parse_ok(s in "[ -~]{1,50}") {
+                    let result = SessionId::parse(&s);
+                    prop_assert!(result.is_ok(), "ASCII string rejected: {:?}", s);
+                    let id = result.unwrap();
+                    prop_assert_eq!(id.as_str(), s);
+                }
+
+                /// Parse → display → parse round-trip for any valid ASCII string
+                #[test]
+                fn prop_session_id_display_roundtrip(s in "[ -~]{1,50}") {
+                    let id = SessionId::parse(&s).unwrap();
+                    let displayed = format!("{id}");
+                    let reparsed = SessionId::parse(&displayed).unwrap();
+                    prop_assert_eq!(id, reparsed);
+                }
+
+                /// Generated IDs are always parseable and unique
+                #[test]
+                fn prop_session_id_generate_parse_unique(_ in 0u8..20) {
+                    let id = SessionId::generate();
+                    let parsed = SessionId::parse(id.as_str()).unwrap();
+                    prop_assert_eq!(id, parsed);
+                }
+            }
+        }
+    }
 }
