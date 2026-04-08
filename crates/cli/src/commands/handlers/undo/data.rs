@@ -484,4 +484,285 @@ mod tests {
         let now = 1_000 + WORKSPACE_RETENTION_SECONDS;
         assert!(compute_undo_eligibility(&entry, now).is_eligible());
     }
+
+    // ---- Exhaustive eligibility tests ----
+
+    #[test]
+    fn compute_eligibility_one_second_before_expiry_is_eligible() {
+        let entry = make_completed_entry(1_000);
+        let now = 1_000 + WORKSPACE_RETENTION_SECONDS - 1;
+        assert!(compute_undo_eligibility(&entry, now).is_eligible());
+    }
+
+    #[test]
+    fn compute_eligibility_one_second_after_expiry_is_ineligible() {
+        let entry = make_completed_entry(1_000);
+        let now = 1_000 + WORKSPACE_RETENTION_SECONDS + 1;
+        let result = compute_undo_eligibility(&entry, now);
+        assert!(!result.is_eligible());
+        assert_matches_reason(&result, "Expired");
+    }
+
+    #[test]
+    fn compute_eligibility_zero_timestamp_is_eligible() {
+        let entry = UndoEntry {
+            timestamp: 0,
+            ..make_completed_entry(0)
+        };
+        // Far future relative to epoch zero — definitely expired.
+        let now = WORKSPACE_RETENTION_SECONDS + 1;
+        assert!(!compute_undo_eligibility(&entry, now).is_eligible());
+    }
+
+    #[test]
+    fn compute_eligibility_far_future_entry_is_eligible() {
+        // An entry from the far future (relative to now) — saturation-safe.
+        let entry = make_completed_entry(999_999_999_999);
+        let now = 999_999_999_999 + 100;
+        assert!(compute_undo_eligibility(&entry, now).is_eligible());
+    }
+
+    #[test]
+    fn compute_eligibility_same_timestamp_is_eligible() {
+        let ts = 5_000u64;
+        let entry = make_completed_entry(ts);
+        assert!(compute_undo_eligibility(&entry, ts).is_eligible());
+    }
+
+    #[test]
+    fn compute_eligibility_pushed_takes_priority_over_undone() {
+        let entry = UndoEntry {
+            pushed_to_remote: true,
+            status: UndoStatus::Undone,
+            ..make_completed_entry(1_000)
+        };
+        let result = compute_undo_eligibility(&entry, 2_000);
+        assert!(!result.is_eligible());
+        // "pushed" is checked first.
+        assert_matches_reason(&result, "pushed");
+    }
+
+    #[test]
+    fn compute_eligibility_pushed_takes_priority_over_reverted() {
+        let entry = UndoEntry {
+            pushed_to_remote: true,
+            status: UndoStatus::Reverted,
+            ..make_completed_entry(1_000)
+        };
+        let result = compute_undo_eligibility(&entry, 2_000);
+        assert_matches_reason(&result, "pushed");
+    }
+
+    #[test]
+    fn compute_eligibility_undone_takes_priority_over_expired() {
+        let entry = UndoEntry {
+            pushed_to_remote: false,
+            status: UndoStatus::Undone,
+            ..make_completed_entry(1_000)
+        };
+        let now = 1_000 + WORKSPACE_RETENTION_SECONDS + 100; // also expired
+        let result = compute_undo_eligibility(&entry, now);
+        assert_matches_reason(&result, "undone");
+    }
+
+    #[test]
+    fn compute_eligibility_reverted_takes_priority_over_expired() {
+        let entry = UndoEntry {
+            pushed_to_remote: false,
+            status: UndoStatus::Reverted,
+            ..make_completed_entry(1_000)
+        };
+        let now = 1_000 + WORKSPACE_RETENTION_SECONDS + 100;
+        let result = compute_undo_eligibility(&entry, now);
+        assert_matches_reason(&result, "reverted");
+    }
+
+    // ---- UndoStatus Display ----
+
+    #[test]
+    fn undo_status_display_completed() {
+        assert_eq!(format!("{}", UndoStatus::Completed), "completed");
+    }
+
+    #[test]
+    fn undo_status_display_undone() {
+        assert_eq!(format!("{}", UndoStatus::Undone), "undone");
+    }
+
+    #[test]
+    fn undo_status_display_reverted() {
+        assert_eq!(format!("{}", UndoStatus::Reverted), "reverted");
+    }
+
+    // ---- UndoHistoryEntry with reason present ----
+
+    #[test]
+    fn undo_history_entry_serialization_includes_reason_when_present() {
+        let entry = UndoHistoryEntry {
+            session_name: "test".to_string(),
+            commit_id: "abc".to_string(),
+            timestamp: "2025-06-15 12:00:00 UTC".to_string(),
+            status: UndoStatus::Completed,
+            pushed_to_remote: true,
+            can_undo: false,
+            reason_cannot_undo: Some("Already pushed to remote".to_string()),
+        };
+        let json = serde_json::to_string(&entry).expect("serialize");
+        assert!(json.contains("reason_cannot_undo"));
+        assert!(json.contains("Already pushed to remote"));
+    }
+
+    // ---- UndoHistoryOutput with populated entries ----
+
+    #[test]
+    fn undo_history_output_with_entries() {
+        let entries = vec![
+            UndoHistoryEntry {
+                session_name: "session-1".to_string(),
+                commit_id: "aaa".to_string(),
+                timestamp: "2025-01-01 00:00:00 UTC".to_string(),
+                status: UndoStatus::Completed,
+                pushed_to_remote: false,
+                can_undo: true,
+                reason_cannot_undo: None,
+            },
+            UndoHistoryEntry {
+                session_name: "session-2".to_string(),
+                commit_id: "bbb".to_string(),
+                timestamp: "2025-01-02 00:00:00 UTC".to_string(),
+                status: UndoStatus::Undone,
+                pushed_to_remote: false,
+                can_undo: false,
+                reason_cannot_undo: Some("Already undone".to_string()),
+            },
+        ];
+        let output = UndoHistoryOutput {
+            total: entries.len(),
+            can_undo: true,
+            entries,
+        };
+        assert_eq!(output.total, 2);
+        assert!(output.can_undo);
+        assert!(output.entries[0].can_undo);
+        assert!(!output.entries[1].can_undo);
+    }
+
+    #[test]
+    fn undo_history_output_can_undo_false_when_no_eligible() {
+        let entries = vec![UndoHistoryEntry {
+            session_name: "old".to_string(),
+            commit_id: "zzz".to_string(),
+            timestamp: "2024-01-01 00:00:00 UTC".to_string(),
+            status: UndoStatus::Undone,
+            pushed_to_remote: false,
+            can_undo: false,
+            reason_cannot_undo: Some("Already undone".to_string()),
+        }];
+        let output = UndoHistoryOutput {
+            total: 1,
+            can_undo: false,
+            entries,
+        };
+        assert!(!output.can_undo);
+    }
+
+    // ---- UndoEntry edge cases ----
+
+    #[test]
+    fn undo_entry_with_empty_strings() {
+        let entry = UndoEntry {
+            session_name: String::new(),
+            commit_id: String::new(),
+            pre_merge_commit_id: String::new(),
+            timestamp: 0,
+            pushed_to_remote: false,
+            status: UndoStatus::Completed,
+        };
+        let json = serde_json::to_string(&entry).expect("serialize");
+        let restored: UndoEntry = serde_json::from_str(&json).expect("deserialize");
+        assert!(restored.session_name.is_empty());
+        assert!(restored.commit_id.is_empty());
+    }
+
+    #[test]
+    fn undo_entry_with_special_characters() {
+        let entry = UndoEntry {
+            session_name: "session-with-\"quotes\"-and\\backslash".to_string(),
+            commit_id: "abc\ndef".to_string(),
+            pre_merge_commit_id: "normal".to_string(),
+            timestamp: 100,
+            pushed_to_remote: false,
+            status: UndoStatus::Completed,
+        };
+        let json = serde_json::to_string(&entry).expect("serialize");
+        let restored: UndoEntry = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(restored.session_name, entry.session_name);
+        assert_eq!(restored.commit_id, entry.commit_id);
+    }
+
+    #[test]
+    fn undo_entry_max_timestamp() {
+        let entry = UndoEntry {
+            timestamp: u64::MAX,
+            ..make_completed_entry(0)
+        };
+        let json = serde_json::to_string(&entry).expect("serialize");
+        let restored: UndoEntry = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(restored.timestamp, u64::MAX);
+    }
+
+    // ---- Retention constant ----
+
+    #[test]
+    fn workspace_retention_is_24_hours() {
+        assert_eq!(WORKSPACE_RETENTION_SECONDS, 24 * 3600);
+        assert_eq!(WORKSPACE_RETENTION_SECONDS, 86_400);
+    }
+
+    // ---- UndoOutput serde roundtrip with all fields populated ----
+
+    #[test]
+    fn undo_output_full_roundtrip() {
+        let output = UndoOutput {
+            session_name: "full-test".to_string(),
+            dry_run: true,
+            commit_id: "deadbeef".to_string(),
+            pushed_to_remote: true,
+        };
+        let json = serde_json::to_string(&output).expect("serialize");
+        let restored: UndoOutput = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(restored.session_name, "full-test");
+        assert!(restored.dry_run);
+        assert_eq!(restored.commit_id, "deadbeef");
+        assert!(restored.pushed_to_remote);
+    }
+
+    // ---- Helpers ----
+
+    /// Create a basic completed entry at the given timestamp.
+    fn make_completed_entry(timestamp: u64) -> UndoEntry {
+        UndoEntry {
+            session_name: "test".to_string(),
+            commit_id: "abc".to_string(),
+            pre_merge_commit_id: "def".to_string(),
+            timestamp,
+            pushed_to_remote: false,
+            status: UndoStatus::Completed,
+        }
+    }
+
+    /// Assert the eligibility result contains the expected reason substring.
+    fn assert_matches_reason(eligibility: &Eligibility, expected_substring: &str) {
+        match eligibility {
+            Eligibility::Ineligible { reason } => {
+                assert!(
+                    reason.contains(expected_substring),
+                    "Expected reason containing '{expected_substring}', got '{reason}'"
+                );
+            }
+            Eligibility::Eligible => {
+                panic!("Expected Ineligible, got Eligible");
+            }
+        }
+    }
 }
