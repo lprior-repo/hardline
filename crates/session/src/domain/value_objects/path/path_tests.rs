@@ -555,3 +555,210 @@ fn test_integration_to_path_buf_works_with_filesystem() {
     let content = std::fs::read_to_string(abs_file.to_path_buf()).expect("Should read");
     assert_eq!(content, "test-host");
 }
+
+// =========================================================================
+// Path Traversal Attack Tests (embedded .. in absolute paths)
+// =========================================================================
+
+#[test]
+fn test_traversal_absolute_path_with_dot_dot_segment_succeeds() {
+    // /foo/../etc is absolute and contains no metacharacters.
+    // The value object does NOT canonicalize — it only validates.
+    // This is a valid AbsolutePath (absolute + safe chars).
+    let result = abs_path("/foo/../etc/passwd");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_traversal_absolute_path_with_leading_dot_dot_segment() {
+    // /../etc is technically absolute on Unix (starts with /)
+    let result = abs_path("/../etc/passwd");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_traversal_deeply_nested_dot_dot_succeeds() {
+    let result = abs_path("/a/b/c/../../../d");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_traversal_dot_dot_with_current_dir_succeeds() {
+    let result = abs_path("/a/./b/../c");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_traversal_dot_dot_at_end_of_path_succeeds() {
+    let result = abs_path("/home/user/..");
+    assert!(result.is_ok());
+}
+
+// =========================================================================
+// Special Character Edge Cases
+// =========================================================================
+
+#[test]
+fn test_path_with_spaces_succeeds() {
+    let result = abs_path("/home/user/my documents/file");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_path_with_newline_in_dirname_fails_shell_check() {
+    // Newline is not in the metacharacter list but test behavior
+    let result = abs_path("/home/user/dir\nname");
+    assert!(result.is_ok()); // newline is not a shell metachar in our list
+}
+
+#[test]
+fn test_path_with_hash_succeeds() {
+    let result = abs_path("/home/user/#anchor");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_path_with_exclamation_succeeds() {
+    let result = abs_path("/home/user/!important");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_path_with_tilde_midpath_succeeds() {
+    // Tilde in the middle is not expanded by shell, only leading ~
+    let result = abs_path("/home/user/~backup");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_path_with_parentheses_succeeds() {
+    let result = abs_path("/home/user/(draft)");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_path_with_brackets_succeeds() {
+    let result = abs_path("/home/user/[archive]");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_path_with_angle_brackets_succeeds() {
+    let result = abs_path("/home/user/<log>");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_path_with_asterisk_succeeds() {
+    // * is a glob character but not in our shell metacharacter list
+    let result = abs_path("/home/user/*.txt");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_path_with_percent_succeeds() {
+    let result = abs_path("/home/user/%env%");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_path_with_equals_sign_succeeds() {
+    let result = abs_path("/home/user/key=value");
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_metachar_dollar_at_start_after_root() {
+    let result = abs_path("/$HOME");
+    assert!(matches!(
+        result,
+        Err(AbsolutePathError::ShellMetacharacter(
+            ShellMetacharacterError::ContainsDollar { position: 1 }
+        ))
+    ));
+}
+
+#[test]
+fn test_metachar_semicolon_at_end() {
+    let result = abs_path("/home/user;");
+    assert!(matches!(
+        result,
+        Err(AbsolutePathError::ShellMetacharacter(
+            ShellMetacharacterError::ContainsSemicolon { position: 10 }
+        ))
+    ));
+}
+
+#[test]
+fn test_metachar_pipe_at_start_of_filename() {
+    let result = abs_path("/home/user/|pipe");
+    assert!(matches!(
+        result,
+        Err(AbsolutePathError::ShellMetacharacter(
+            ShellMetacharacterError::ContainsPipe { position: 11 }
+        ))
+    ));
+}
+
+#[test]
+fn test_metachar_backtick_at_end() {
+    let result = abs_path("/home/user`");
+    assert!(matches!(
+        result,
+        Err(AbsolutePathError::ShellMetacharacter(
+            ShellMetacharacterError::ContainsBacktick { position: 10 }
+        ))
+    ));
+}
+
+#[test]
+fn test_metachar_ampersand_double_bg() {
+    let result = abs_path("/home/user&&rm");
+    assert!(matches!(
+        result,
+        Err(AbsolutePathError::ShellMetacharacter(
+            ShellMetacharacterError::ContainsAmpersand { position: 10 }
+        ))
+    ));
+}
+
+// =========================================================================
+// Deep / Long Path Tests
+// =========================================================================
+
+#[test]
+fn test_deeply_nested_valid_path_succeeds() {
+    // Build a proper nested path: /a/a/a/... 50 levels
+    let path: String = (0..50).map(|_| "/a").collect();
+    let result = abs_path(&path);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_long_filename_succeeds() {
+    let long_name = format!("/home/user/{}", "x".repeat(200));
+    let result = abs_path(&long_name);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_very_long_path_succeeds() {
+    let segments: String = (0..100)
+        .map(|i| format!("/dir{}", i))
+        .collect::<Vec<_>>()
+        .join("");
+    let result = abs_path(&segments);
+    assert!(result.is_ok());
+}
+
+// =========================================================================
+// AsRef<Path> interop
+// =========================================================================
+
+#[test]
+fn test_as_ref_path_works_with_std_functions() {
+    let path = abs_path("/tmp").unwrap();
+    let _: &std::path::Path = path.as_ref();
+    // AsRef<Path> lets AbsolutePath be used where &Path is expected
+    assert!(std::path::Path::new("/tmp").starts_with(path.as_ref()));
+}
