@@ -17,6 +17,9 @@
 pub mod actions;
 pub mod data;
 
+#[cfg(test)]
+mod tests;
+
 pub use actions::run_introspect;
 pub use data::{
     known_commands, ArgumentInfo, CommandInfo, ErrorConditionInfo, ExampleInfo, FlagInfo,
