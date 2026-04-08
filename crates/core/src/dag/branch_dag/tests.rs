@@ -4,6 +4,8 @@ use crate::dag::BranchDag;
 use crate::dag::BranchId;
 use crate::dag::DagError;
 
+use proptest::prelude::*;
+
 // ── Construction ────────────────────────────────────────────────────────────
 
 #[test]
@@ -996,4 +998,555 @@ fn test_empty_dag_after_trunk_removal() {
     assert!(!dag.contains(&BranchId::new("trunk")));
     let topo = dag.topological_sort();
     assert!(matches!(topo, Err(DagError::EmptyDag)));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROPTESTS — property-based testing for DAG invariants
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Helper: check if `candidate` is an ancestor of `id`
+fn is_ancestor(dag: &BranchDag, id: &BranchId, candidate: &BranchId) -> bool {
+    dag.ancestors(id)
+        .is_ok_and(|ancs| ancs.contains(candidate))
+}
+
+/// Helper: check if `candidate` is a descendant of `id`
+fn is_descendant(dag: &BranchDag, id: &BranchId, candidate: &BranchId) -> bool {
+    dag.descendants(id)
+        .is_ok_and(|descs| descs.contains(candidate))
+}
+
+/// Strategy: generate a valid DAG as a list of parent-lists.
+/// Each entry i (for i >= 1) is a non-empty Vec<usize> of parent indices,
+/// where all indices are in 0..i (i.e., refer to already-added branches).
+/// Index 0 is always trunk.
+fn valid_dag_strategy(max_branches: usize) -> impl Strategy<Value = Vec<Vec<usize>>> {
+    // Build incrementally: for branch i, pick 1..3 parents from 0..i
+    (1..max_branches)
+        .map(|i| {
+            let upper = i; // valid parent indices are 0..i
+            proptest::sample::subsequence((0..upper).collect::<Vec<_>>(), 1..=upper.min(3).max(1))
+        })
+        .collect::<Vec<_>>()
+        .prop_map(|lists| {
+            let mut result = vec![vec![]]; // trunk at index 0
+            result.extend(lists);
+            result
+        })
+}
+
+/// Build a BranchDag from the strategy output
+fn build_dag_from_parents(parent_lists: &[Vec<usize>]) -> BranchDag {
+    let mut dag = BranchDag::new();
+    let mut names: Vec<BranchId> = vec![BranchId::new("trunk")];
+
+    for (i, parents) in parent_lists.iter().enumerate().skip(1) {
+        let name = BranchId::new(format!("b-{i}"));
+        let parent_ids: Vec<BranchId> = parents.iter().map(|&pi| names[pi].clone()).collect();
+        dag.add_branch(name.clone(), parent_ids)
+            .unwrap_or_else(|e| panic!("b-{i} with parents {parents:?}: {e}"));
+        names.push(name);
+    }
+
+    dag
+}
+
+// ── Proptest: adding branches always succeeds with valid parents ────────────
+
+proptest! {
+    #[test]
+    fn proptest_add_branch_valid_parents(parent_lists in valid_dag_strategy(20)) {
+        let dag = build_dag_from_parents(&parent_lists);
+        let expected_len = parent_lists.len();
+        prop_assert_eq!(dag.len(), expected_len);
+
+        // All branches are present
+        for i in 0..expected_len {
+            let name = if i == 0 { "trunk".to_string() } else { format!("b-{i}") };
+            prop_assert!(dag.contains(&BranchId::new(&name)),
+                "branch {} not found", name);
+        }
+    }
+}
+
+// ── Proptest: topological sort parents-before-children invariant ────────────
+
+proptest! {
+    #[test]
+    fn proptest_topological_sort_parents_before_children(parent_lists in valid_dag_strategy(20)) {
+        let dag = build_dag_from_parents(&parent_lists);
+        let Ok(order) = dag.topological_sort() else {
+            return Ok(());
+        };
+
+        // Build position map
+        let pos_map: std::collections::HashMap<BranchId, usize> = order
+            .iter()
+            .enumerate()
+            .map(|(pos, id)| (id.clone(), pos))
+            .collect();
+
+        for (child_idx, parents) in parent_lists.iter().enumerate() {
+            let child_name = if child_idx == 0 {
+                "trunk".to_string()
+            } else {
+                format!("b-{child_idx}")
+            };
+            let child_id = BranchId::new(&child_name);
+
+            if let Some(&child_pos) = pos_map.get(&child_id) {
+                for &parent_idx in parents {
+                    let parent_name = if parent_idx == 0 {
+                        "trunk".to_string()
+                    } else {
+                        format!("b-{parent_idx}")
+                    };
+                    let parent_id = BranchId::new(&parent_name);
+                    if let Some(&parent_pos) = pos_map.get(&parent_id) {
+                        prop_assert!(parent_pos < child_pos,
+                            "parent {} at {} must come before child {} at {}",
+                            parent_name, parent_pos, child_name, child_pos);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Proptest: topological sort has no duplicates and covers all branches ────
+
+proptest! {
+    #[test]
+    fn proptest_topological_sort_complete_and_unique(parent_lists in valid_dag_strategy(25)) {
+        let dag = build_dag_from_parents(&parent_lists);
+        let Ok(order) = dag.topological_sort() else { return Ok(()); };
+
+        // No duplicates
+        let mut seen = std::collections::HashSet::new();
+        for id in &order {
+            prop_assert!(seen.insert(id.clone()), "duplicate branch in topo sort");
+        }
+
+        // Covers all branches
+        prop_assert_eq!(order.len(), dag.len());
+        for id in dag.branch_ids() {
+            prop_assert!(order.contains(&id), "missing branch in topo sort");
+        }
+    }
+}
+
+// ── Proptest: ancestors/descendants are inverse relationships ───────────────
+
+proptest! {
+    #[test]
+    fn proptest_ancestors_descendants_inverse(parent_lists in valid_dag_strategy(15)) {
+        let dag = build_dag_from_parents(&parent_lists);
+
+        for i in 1..parent_lists.len() {
+            let name = BranchId::new(format!("b-{i}"));
+
+            // Every ancestor of X should have X as a descendant
+            let ancs = dag.ancestors(&name).unwrap();
+            for anc in &ancs {
+                let desc = dag.descendants(anc).unwrap();
+                prop_assert!(desc.contains(&name),
+                    "ancestor should have branch as descendant");
+            }
+
+            // Every descendant of X should have X as an ancestor
+            let descs = dag.descendants(&name).unwrap();
+            for desc in &descs {
+                let anc = dag.ancestors(desc).unwrap();
+                prop_assert!(anc.contains(&name),
+                    "descendant should have branch as ancestor");
+            }
+        }
+    }
+}
+
+// ── Proptest: branch is never its own ancestor or descendant ────────────────
+
+proptest! {
+    #[test]
+    fn proptest_no_self_ancestor_descendant(parent_lists in valid_dag_strategy(20)) {
+        let dag = build_dag_from_parents(&parent_lists);
+
+        for i in 0..parent_lists.len() {
+            let name = if i == 0 {
+                BranchId::new("trunk")
+            } else {
+                BranchId::new(format!("b-{i}"))
+            };
+
+            let ancs = dag.ancestors(&name).unwrap();
+            prop_assert!(!ancs.contains(&name), "branch should not be its own ancestor");
+
+            let descs = dag.descendants(&name).unwrap();
+            prop_assert!(!descs.contains(&name), "branch should not be its own descendant");
+        }
+    }
+}
+
+// ── Proptest: path_to_root always terminates at trunk ───────────────────────
+
+proptest! {
+    #[test]
+    fn proptest_path_to_root_reaches_trunk(parent_lists in valid_dag_strategy(20)) {
+        let dag = build_dag_from_parents(&parent_lists);
+
+        for i in 1..parent_lists.len() {
+            let name = BranchId::new(format!("b-{i}"));
+            let path = dag.path_to_root(&name).unwrap();
+
+            // Path starts at the branch itself
+            prop_assert_eq!(&path[0], &name);
+
+            // Path ends at trunk
+            prop_assert_eq!(path.last().unwrap(), &BranchId::new("trunk"));
+
+            // Each step in path: parent is actually a parent of the child
+            for window in path.windows(2) {
+                let child = &window[0];
+                let parent = &window[1];
+                let child_parents = dag.parents.get(child).cloned().unwrap_or_default();
+                prop_assert!(
+                    child_parents.contains(parent),
+                    "parent should be a parent of child in path"
+                );
+            }
+        }
+    }
+}
+
+// ── Proptest: is_ancestor / is_descendant consistency ───────────────────────
+
+proptest! {
+    #[test]
+    fn proptest_is_ancestor_descendant_symmetric(parent_lists in valid_dag_strategy(15)) {
+        let dag = build_dag_from_parents(&parent_lists);
+        let branch_names: Vec<BranchId> = (0..parent_lists.len())
+            .map(|i| if i == 0 { BranchId::new("trunk") } else { BranchId::new(format!("b-{i}")) })
+            .collect();
+
+        for a in &branch_names {
+            for b in &branch_names {
+                if a == b { continue; }
+                // is_ancestor(a, b) <=> is_descendant(b, a)
+                let a_anc_of_b = is_ancestor(&dag, b, a);
+                let b_desc_of_a = is_descendant(&dag, a, b);
+                prop_assert_eq!(a_anc_of_b, b_desc_of_a,
+                    "is_ancestor and is_descendant should be symmetric");
+            }
+        }
+    }
+}
+
+// ── Proptest: cycle detection rejects all self-references ───────────────────
+
+proptest! {
+    #[test]
+    fn proptest_self_reference_always_rejected(name in "[a-z]{1,10}") {
+        let mut dag = BranchDag::new();
+        let id = BranchId::new(&name);
+        let result = dag.add_branch(id.clone(), vec![id.clone()]);
+        prop_assert!(matches!(result, Err(DagError::CycleDetected(_))));
+    }
+}
+
+// ── Proptest: duplicate branch names always rejected ────────────────────────
+
+proptest! {
+    #[test]
+    fn proptest_duplicate_branch_rejected(name in "[a-z][a-z0-9-]{0,9}") {
+        let mut dag = BranchDag::new();
+        let id = BranchId::new(&name);
+        // Skip if name is "trunk" (already exists + self-ref)
+        if name != "trunk" {
+            dag.add_branch(id.clone(), vec![BranchId::new("trunk")]).unwrap();
+            let result = dag.add_branch(id.clone(), vec![BranchId::new("trunk")]);
+            prop_assert!(matches!(result, Err(DagError::BranchAlreadyExists(_))));
+        }
+    }
+}
+
+// ── Proptest: invalid parent always rejected ────────────────────────────────
+
+proptest! {
+    #[test]
+    fn proptest_nonexistent_parent_rejected(
+        name in "[a-z][a-z0-9-]{0,9}",
+        bad_parent in "[a-z][a-z0-9-]{0,9}"
+    ) {
+        let mut dag = BranchDag::new();
+        let id = BranchId::new(&name);
+        let parent = BranchId::new(&bad_parent);
+        if bad_parent != "trunk" && name != "trunk" {
+            let result = dag.add_branch(id, vec![parent]);
+            prop_assert!(matches!(result, Err(DagError::InvalidParent(_))));
+        }
+    }
+}
+
+// ── Proptest: remove then re-add works ──────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn proptest_remove_readd_roundtrip(branches in prop::collection::vec("[a-z][a-z0-9]{0,5}", 1..=5)) {
+        let mut dag = BranchDag::new();
+        let mut names: Vec<BranchId> = Vec::new();
+
+        // Add all branches as children of trunk
+        for name in &branches {
+            if name == "trunk" { continue; }
+            let id = BranchId::new(name);
+            if !dag.contains(&id) {
+                dag.add_branch(id.clone(), vec![BranchId::new("trunk")]).unwrap();
+                names.push(id);
+            }
+        }
+
+        // Remove all
+        let added_count = names.len();
+        for id in &names {
+            dag.remove_branch(id.clone()).unwrap();
+        }
+        prop_assert_eq!(dag.len(), 1); // only trunk
+
+        // Re-add all
+        for id in &names {
+            dag.add_branch(id.clone(), vec![BranchId::new("trunk")]).unwrap();
+        }
+        prop_assert_eq!(dag.len(), added_count + 1);
+    }
+}
+
+// ── Proptest: clone independence ────────────────────────────────────────────
+
+proptest! {
+    #[test]
+    fn proptest_clone_independence(parent_lists in valid_dag_strategy(10)) {
+        let mut dag = build_dag_from_parents(&parent_lists);
+        let cloned = dag.clone();
+
+        // Same state initially
+        prop_assert_eq!(dag.len(), cloned.len());
+        prop_assert_eq!(dag.branch_ids(), cloned.branch_ids());
+
+        // Mutations to original don't affect clone
+        let branch_name = BranchId::new("new-branch");
+        dag.add_branch(branch_name.clone(), vec![BranchId::new("trunk")]).unwrap();
+        prop_assert!(dag.contains(&branch_name));
+        prop_assert!(!cloned.contains(&branch_name));
+    }
+}
+
+// ── Proptest: branch_ids sorted invariant ───────────────────────────────────
+
+proptest! {
+    #[test]
+    fn proptest_branch_ids_always_sorted(parent_lists in valid_dag_strategy(25)) {
+        let dag = build_dag_from_parents(&parent_lists);
+        let ids = dag.branch_ids();
+        let mut sorted = ids.clone();
+        sorted.sort();
+        prop_assert_eq!(ids, sorted);
+    }
+}
+
+// ── Proptest: large DAG performance sanity ──────────────────────────────────
+
+proptest! {
+    #[test]
+    fn proptest_large_dag_operations(parent_lists in valid_dag_strategy(100)) {
+        let dag = build_dag_from_parents(&parent_lists);
+
+        // topological_sort succeeds
+        let topo = dag.topological_sort();
+        prop_assert!(topo.is_ok());
+        prop_assert_eq!(topo.unwrap().len(), dag.len());
+
+        // ancestors/descendants succeed for all branches
+        for i in 0..parent_lists.len() {
+            let name = if i == 0 { BranchId::new("trunk") } else { BranchId::new(format!("b-{i}")) };
+            prop_assert!(dag.ancestors(&name).is_ok());
+            prop_assert!(dag.descendants(&name).is_ok());
+            prop_assert!(dag.path_to_root(&name).is_ok());
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADDITIONAL EXHAUSTIVE UNIT TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── is_ancestor / is_descendant helpers ────────────────────────────────────
+
+#[test]
+fn test_is_ancestor_true_for_direct_parent() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("child"), vec![BranchId::new("trunk")])
+        .unwrap();
+    assert!(is_ancestor(&dag, &BranchId::new("child"), &BranchId::new("trunk")));
+}
+
+#[test]
+fn test_is_ancestor_true_for_transitive() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
+    assert!(is_ancestor(&dag, &BranchId::new("b"), &BranchId::new("trunk")));
+    assert!(is_ancestor(&dag, &BranchId::new("b"), &BranchId::new("a")));
+}
+
+#[test]
+fn test_is_ancestor_false_for_unrelated() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")]).unwrap();
+    assert!(!is_ancestor(&dag, &BranchId::new("left"), &BranchId::new("right")));
+    assert!(!is_ancestor(&dag, &BranchId::new("right"), &BranchId::new("left")));
+}
+
+#[test]
+fn test_is_descendant_true_for_direct_child() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("child"), vec![BranchId::new("trunk")])
+        .unwrap();
+    assert!(is_descendant(&dag, &BranchId::new("trunk"), &BranchId::new("child")));
+}
+
+#[test]
+fn test_is_descendant_false_for_leaf() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("leaf"), vec![BranchId::new("trunk")])
+        .unwrap();
+    assert!(!is_descendant(&dag, &BranchId::new("leaf"), &BranchId::new("trunk")));
+}
+
+#[test]
+fn test_is_ancestor_diamond_reaches_all_parents() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(
+        BranchId::new("merge"),
+        vec![BranchId::new("left"), BranchId::new("right")],
+    ).unwrap();
+
+    assert!(is_ancestor(&dag, &BranchId::new("merge"), &BranchId::new("left")));
+    assert!(is_ancestor(&dag, &BranchId::new("merge"), &BranchId::new("right")));
+    assert!(is_ancestor(&dag, &BranchId::new("merge"), &BranchId::new("trunk")));
+    assert!(!is_ancestor(&dag, &BranchId::new("merge"), &BranchId::new("merge")));
+}
+
+// ── Edge count (total parent relationships) ─────────────────────────────────
+
+#[test]
+fn test_edge_count_single_branch() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
+    // 1 edge: trunk -> a
+    let total_edges: usize = dag.parents.values().map(|p| p.len()).sum();
+    assert_eq!(total_edges, 1);
+}
+
+#[test]
+fn test_edge_count_diamond() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(
+        BranchId::new("merge"),
+        vec![BranchId::new("left"), BranchId::new("right")],
+    ).unwrap();
+    // left: 1 parent, right: 1 parent, merge: 2 parents = 4 edges
+    let total_edges: usize = dag.parents.values().map(|p| p.len()).sum();
+    assert_eq!(total_edges, 4);
+}
+
+#[test]
+fn test_edge_count_after_remove() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
+    dag.remove_branch(BranchId::new("b")).unwrap();
+    // Only trunk -> a remains = 1 edge (trunk has 0)
+    let total_edges: usize = dag.parents.values().map(|p| p.len()).sum();
+    assert_eq!(total_edges, 1);
+}
+
+// ── Additional path_to_root edge cases ──────────────────────────────────────
+
+#[test]
+fn test_path_to_root_with_diamond_picks_first_parent_path() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(
+        BranchId::new("merge"),
+        vec![BranchId::new("left"), BranchId::new("right")],
+    ).unwrap();
+
+    let path = dag.path_to_root(&BranchId::new("merge")).unwrap();
+    assert_eq!(path[0], BranchId::new("merge"));
+    assert!(path.contains(&BranchId::new("trunk")));
+    // Should go through left (first parent) or right (second parent), but not both
+    assert!(path.contains(&BranchId::new("left")) || path.contains(&BranchId::new("right")));
+}
+
+#[test]
+fn test_path_to_root_deep_chain_length() {
+    let mut dag = BranchDag::new();
+    let depth = 30;
+    for i in 1..=depth {
+        let parent = if i == 1 { BranchId::new("trunk") } else { BranchId::new(format!("lvl-{}", i - 1)) };
+        dag.add_branch(BranchId::new(format!("lvl-{i}")), vec![parent]).unwrap();
+    }
+    let path = dag.path_to_root(&BranchId::new(format!("lvl-{depth}"))).unwrap();
+    assert_eq!(path.len(), depth + 1);
+}
+
+// ── Ancestors/descendants count consistency ─────────────────────────────────
+
+#[test]
+fn test_ancestors_count_plus_descendants_count_leaves() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a")]).unwrap();
+    dag.add_branch(BranchId::new("d"), vec![BranchId::new("b")]).unwrap();
+
+    // Leaves (c, d) have no descendants
+    assert!(dag.descendants(&BranchId::new("c")).unwrap().is_empty());
+    assert!(dag.descendants(&BranchId::new("d")).unwrap().is_empty());
+
+    // Trunk has all 4 as descendants
+    assert_eq!(dag.descendants(&BranchId::new("trunk")).unwrap().len(), 4);
+}
+
+// ── Add branch with single parent vs multiple parents consistency ────────────
+
+#[test]
+fn test_add_branch_single_vs_multi_parent_ancestor_set() {
+    let mut dag = BranchDag::new();
+    dag.add_branch(BranchId::new("p1"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("p2"), vec![BranchId::new("trunk")]).unwrap();
+
+    // Single parent child
+    dag.add_branch(BranchId::new("single"), vec![BranchId::new("p1")]).unwrap();
+    let single_anc = dag.ancestors(&BranchId::new("single")).unwrap();
+    assert!(single_anc.contains(&BranchId::new("p1")));
+    assert!(single_anc.contains(&BranchId::new("trunk")));
+    assert_eq!(single_anc.len(), 2);
+
+    // Multi parent child
+    dag.add_branch(
+        BranchId::new("multi"),
+        vec![BranchId::new("p1"), BranchId::new("p2")],
+    ).unwrap();
+    let multi_anc = dag.ancestors(&BranchId::new("multi")).unwrap();
+    assert!(multi_anc.contains(&BranchId::new("p1")));
+    assert!(multi_anc.contains(&BranchId::new("p2")));
+    assert!(multi_anc.contains(&BranchId::new("trunk")));
+    assert_eq!(multi_anc.len(), 3);
 }
