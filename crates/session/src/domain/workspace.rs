@@ -781,4 +781,591 @@ mod tests {
             assert!(result.is_err());
         }
     }
+
+    // =========================================================================
+    // WorkspaceId Generation, Uniqueness, and Type-level Tests
+    // =========================================================================
+
+    mod workspace_id_type_tests {
+        use super::*;
+
+        #[test]
+        fn workspace_id_clone_preserves_value() {
+            let id = WorkspaceId::new("ws-clone-test").expect("valid");
+            let cloned = id.clone();
+            assert_eq!(id, cloned);
+            assert_eq!(id.as_str(), cloned.as_str());
+        }
+
+        #[test]
+        fn workspace_id_hash_consistency() {
+            use std::collections::HashSet;
+            let id1 = WorkspaceId::new("ws-hash-test").expect("valid");
+            let id2 = WorkspaceId::new("ws-hash-test").expect("valid");
+            let mut set = HashSet::new();
+            set.insert(id1);
+            assert!(set.contains(&id2));
+        }
+
+        #[test]
+        fn workspace_id_different_values_hash_differently() {
+            use std::collections::HashSet;
+            let id1 = WorkspaceId::new("ws-alpha").expect("valid");
+            let id2 = WorkspaceId::new("ws-beta").expect("valid");
+            let mut set = HashSet::new();
+            set.insert(id1.clone());
+            assert!(!set.contains(&id2));
+            set.insert(id2);
+            assert_eq!(set.len(), 2);
+        }
+
+        #[test]
+        fn workspace_id_serde_roundtrip() {
+            let id = WorkspaceId::new("ws-serde-123").expect("valid");
+            let json = serde_json::to_string(&id).expect("serialize");
+            let parsed: WorkspaceId = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(id, parsed);
+            assert_eq!(parsed.as_str(), "ws-serde-123");
+        }
+
+        #[test]
+        fn workspace_id_serde_json_output() {
+            let id = WorkspaceId::new("ws-json").expect("valid");
+            let json = serde_json::to_string(&id).expect("serialize");
+            assert_eq!(json, "\"ws-json\"");
+        }
+
+        #[test]
+        fn workspace_id_uniqueness_across_workspace_creates() {
+            let name = WorkspaceName::new("unique-test").expect("valid");
+            let path = WorkspacePath::new("/tmp/unique").expect("valid");
+            let mut ids = std::collections::HashSet::new();
+            for _ in 0..50 {
+                let ws = Workspace::create(name.clone(), path.clone()).expect("created");
+                ids.insert(ws.id().clone());
+            }
+            assert_eq!(ids.len(), 50, "each Workspace::create should produce a unique ID");
+        }
+
+        #[test]
+        fn workspace_id_generated_has_uuid_structure() {
+            let name = WorkspaceName::new("uuid-struct").expect("valid");
+            let path = WorkspacePath::new("/tmp/uuid").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+            let id_str = ws.id().as_str();
+            // ws-{uuid} format: "ws-" + 36-char UUID = 39 chars
+            assert!(id_str.starts_with("ws-"));
+            let suffix = &id_str[3..];
+            assert_eq!(suffix.len(), 36, "UUID should be 36 chars with hyphens");
+            assert!(suffix.contains('-'), "UUID should contain hyphens");
+        }
+
+        #[test]
+        fn workspace_id_accepts_various_formats() {
+            // WorkspaceId::new is flexible — accepts any non-empty string
+            assert!(WorkspaceId::new("ws-001").is_ok());
+            assert!(WorkspaceId::new("custom-id").is_ok());
+            assert!(WorkspaceId::new("with spaces").is_ok());
+            assert!(WorkspaceId::new("bd-abc123").is_ok());
+        }
+    }
+
+    // =========================================================================
+    // WorkspaceName Extended Type Tests
+    // =========================================================================
+
+    mod workspace_name_type_tests {
+        use super::*;
+
+        #[test]
+        fn workspace_name_clone_preserves_value() {
+            let name = WorkspaceName::new("clone-me").expect("valid");
+            let cloned = name.clone();
+            assert_eq!(name, cloned);
+            assert_eq!(name.as_str(), cloned.as_str());
+        }
+
+        #[test]
+        fn workspace_name_hash_consistency() {
+            use std::collections::HashSet;
+            let n1 = WorkspaceName::new("hash-ws").expect("valid");
+            let n2 = WorkspaceName::new("hash-ws").expect("valid");
+            let mut set = HashSet::new();
+            set.insert(n1);
+            assert!(set.contains(&n2));
+        }
+
+        #[test]
+        fn workspace_name_serde_roundtrip() {
+            let name = WorkspaceName::new("serde-workspace").expect("valid");
+            let json = serde_json::to_string(&name).expect("serialize");
+            let parsed: WorkspaceName = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(name, parsed);
+            assert_eq!(parsed.as_str(), "serde-workspace");
+        }
+
+        #[test]
+        fn workspace_name_serde_json_output() {
+            let name = WorkspaceName::new("json-ws").expect("valid");
+            let json = serde_json::to_string(&name).expect("serialize");
+            assert_eq!(json, "\"json-ws\"");
+        }
+
+        #[test]
+        fn workspace_name_boundary_single_char() {
+            let name = WorkspaceName::new("a").expect("single char valid");
+            assert_eq!(name.as_str(), "a");
+        }
+
+        #[test]
+        fn workspace_name_with_special_chars_valid() {
+            // WorkspaceName allows spaces, dots, etc (unlike SessionName)
+            assert!(WorkspaceName::new("my workspace").is_ok());
+            assert!(WorkspaceName::new("ws.name").is_ok());
+            assert!(WorkspaceName::new("ws/v2").is_ok());
+        }
+
+        #[test]
+        fn workspace_name_error_type_on_empty() {
+            let err = WorkspaceName::new("").unwrap_err();
+            assert!(
+                matches!(err, SessionError::InvalidWorkspaceName(_)),
+                "empty should produce InvalidWorkspaceName"
+            );
+        }
+
+        #[test]
+        fn workspace_name_error_type_on_too_long() {
+            let too_long = "x".repeat(WorkspaceName::MAX_LENGTH + 1);
+            let err = WorkspaceName::new(too_long).unwrap_err();
+            assert!(
+                matches!(err, SessionError::InvalidWorkspaceName(_)),
+                "too long should produce InvalidWorkspaceName"
+            );
+        }
+    }
+
+    // =========================================================================
+    // WorkspacePath Extended Validation Tests
+    // =========================================================================
+
+    mod workspace_path_type_tests {
+        use super::*;
+
+        #[test]
+        fn workspace_path_parent_relative_valid() {
+            let path = WorkspacePath::new("../parent/dir").expect("valid");
+            assert_eq!(path.as_str(), "../parent/dir");
+        }
+
+        #[test]
+        fn workspace_path_dotdot_only_valid() {
+            // Starts with '.' so accepted
+            let path = WorkspacePath::new("..").expect("valid");
+            assert_eq!(path.as_str(), "..");
+        }
+
+        #[test]
+        fn workspace_path_trailing_slash_valid() {
+            let path = WorkspacePath::new("/tmp/dir/").expect("valid");
+            assert_eq!(path.as_str(), "/tmp/dir/");
+        }
+
+        #[test]
+        fn workspace_path_root_only_valid() {
+            let path = WorkspacePath::new("/").expect("valid");
+            assert_eq!(path.as_str(), "/");
+        }
+
+        #[test]
+        fn workspace_path_deep_nested_valid() {
+            let deep = "/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p";
+            let path = WorkspacePath::new(deep).expect("valid");
+            assert_eq!(path.as_str(), deep);
+        }
+
+        #[test]
+        fn workspace_path_dot_only_valid() {
+            let path = WorkspacePath::new(".").expect("valid");
+            assert_eq!(path.as_str(), ".");
+        }
+
+        #[test]
+        fn workspace_path_dot_slash_valid() {
+            let path = WorkspacePath::new("./").expect("valid");
+            assert_eq!(path.as_str(), "./");
+        }
+
+        #[test]
+        fn workspace_path_home_tilde_rejected() {
+            // '~' doesn't start with '/' or '.'
+            let result = WorkspacePath::new("~/home");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn workspace_path_colon_rejected() {
+            // Windows-style or URL paths rejected
+            let result = WorkspacePath::new("C:/Users");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn workspace_path_http_rejected() {
+            let result = WorkspacePath::new("http://example.com");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn workspace_path_clone_preserves_value() {
+            let path = WorkspacePath::new("/tmp/clone-test").expect("valid");
+            let cloned = path.clone();
+            assert_eq!(path, cloned);
+            assert_eq!(path.as_str(), cloned.as_str());
+        }
+
+        #[test]
+        fn workspace_path_hash_consistency() {
+            use std::collections::HashSet;
+            let p1 = WorkspacePath::new("/tmp/hash-test").expect("valid");
+            let p2 = WorkspacePath::new("/tmp/hash-test").expect("valid");
+            let mut set = HashSet::new();
+            set.insert(p1);
+            assert!(set.contains(&p2));
+        }
+
+        #[test]
+        fn workspace_path_different_paths_hash_differently() {
+            use std::collections::HashSet;
+            let p1 = WorkspacePath::new("/tmp/alpha").expect("valid");
+            let p2 = WorkspacePath::new("/tmp/beta").expect("valid");
+            let mut set = HashSet::new();
+            set.insert(p1.clone());
+            assert!(!set.contains(&p2));
+            set.insert(p2);
+            assert_eq!(set.len(), 2);
+        }
+
+        #[test]
+        fn workspace_path_serde_roundtrip() {
+            let path = WorkspacePath::new("/tmp/serde-path").expect("valid");
+            let json = serde_json::to_string(&path).expect("serialize");
+            let parsed: WorkspacePath = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(path, parsed);
+            assert_eq!(parsed.as_str(), "/tmp/serde-path");
+        }
+
+        #[test]
+        fn workspace_path_serde_json_output() {
+            let path = WorkspacePath::new("/tmp/json").expect("valid");
+            let json = serde_json::to_string(&path).expect("serialize");
+            assert_eq!(json, "\"/tmp/json\"");
+        }
+
+        #[test]
+        fn workspace_path_error_type_on_empty() {
+            let err = WorkspacePath::new("").unwrap_err();
+            assert!(
+                matches!(err, SessionError::InvalidWorkspacePath(_)),
+                "empty should produce InvalidWorkspacePath"
+            );
+        }
+
+        #[test]
+        fn workspace_path_error_type_on_bare_name() {
+            let err = WorkspacePath::new("no-prefix").unwrap_err();
+            assert!(
+                matches!(err, SessionError::InvalidWorkspacePath(_)),
+                "bare name should produce InvalidWorkspacePath"
+            );
+        }
+
+        #[test]
+        fn workspace_path_relative_dotdot_deep() {
+            let path = WorkspacePath::new("../../../deep/relative").expect("valid");
+            assert_eq!(path.as_str(), "../../../deep/relative");
+        }
+    }
+
+    // =========================================================================
+    // Session-Workspace Integration Tests
+    // =========================================================================
+
+    mod session_workspace_integration_tests {
+        use super::*;
+        use crate::domain::entities::session::{BranchState, Session};
+        use crate::domain::entities::session::{Active, Created, Syncing};
+        use crate::domain::entities::session::SessionId;
+        use crate::domain::value_objects::{BeadId, SessionName, WorkspaceId as VoWorkspaceId};
+
+        /// Verify Session can reference a Workspace via WorkspaceId from value_objects
+        #[test]
+        fn session_with_workspace_id_from_parts() {
+            let name = SessionName::parse("ws-integration").expect("valid");
+            let ws_id = VoWorkspaceId::parse("ws-int-test").expect("valid");
+            let bead_id = BeadId::parse("bd-abc123").expect("valid");
+
+            let session = Session::from_parts(
+                SessionId::parse("s-1").expect("valid"),
+                name,
+                Some(ws_id.clone()),
+                Some(bead_id),
+                BranchState::OnBranch {
+                    name: "feature".into(),
+                },
+                None,
+                chrono::Utc::now(),
+            );
+
+            assert!(session.workspace().is_some());
+            assert_eq!(session.workspace().unwrap().as_str(), "ws-int-test");
+        }
+
+        /// Workspace ID persists through session state transitions
+        #[test]
+        fn workspace_id_persists_through_session_lifecycle() {
+            let name = SessionName::parse("lifecycle-ws").expect("valid");
+            let ws_id = VoWorkspaceId::parse("ws-lifecycle").expect("valid");
+            let bead_id = BeadId::parse("bd-feed").expect("valid");
+
+            let session = Session::from_parts(
+                SessionId::parse("s-lc").expect("valid"),
+                name,
+                Some(ws_id),
+                Some(bead_id),
+                BranchState::OnBranch {
+                    name: "main".into(),
+                },
+                None,
+                chrono::Utc::now(),
+            );
+
+            assert_eq!(
+                session.workspace().map(|w| w.as_str()),
+                Some("ws-lifecycle")
+            );
+
+            let active: Session<Active> = session.activate().expect("activate");
+            assert_eq!(
+                active.workspace().map(|w| w.as_str()),
+                Some("ws-lifecycle")
+            );
+
+            let syncing: Session<Syncing> = active.sync().expect("sync");
+            assert_eq!(
+                syncing.workspace().map(|w| w.as_str()),
+                Some("ws-lifecycle")
+            );
+        }
+
+        /// Session without workspace (workspace is None)
+        #[test]
+        fn session_without_workspace() {
+            let name = SessionName::parse("no-ws").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            assert!(session.workspace().is_none());
+        }
+
+        /// Domain Workspace creates IDs that match the value_objects WorkspaceId format
+        #[test]
+        fn workspace_create_id_format_matches_value_object_workspace_id() {
+            let name = WorkspaceName::new("format-match").expect("valid");
+            let path = WorkspacePath::new("/tmp/match").expect("valid");
+            let ws = Workspace::create(name, path).expect("created");
+
+            let ws_id_str = ws.id().as_str();
+            assert!(ws_id_str.starts_with("ws-"));
+
+            let vo_id = VoWorkspaceId::parse(ws_id_str)
+                .expect("domain ID should be parseable by value_objects WorkspaceId");
+            assert_eq!(vo_id.as_str(), ws_id_str);
+        }
+
+        /// Full session-workspace lifecycle: create workspace, assign to session,
+        /// transition through states, verify workspace reference intact
+        #[test]
+        fn full_session_workspace_lifecycle() {
+            // Create a workspace (domain level)
+            let ws_name = WorkspaceName::new("lifecycle-ws").expect("valid");
+            let ws_path = WorkspacePath::new("/tmp/lifecycle").expect("valid");
+            let workspace = Workspace::create(ws_name, ws_path).expect("ws created");
+
+            // Create a session referencing this workspace
+            let ws_id = VoWorkspaceId::parse(workspace.id().as_str()).expect("valid");
+            let session_name = SessionName::parse("full-lifecycle").expect("valid");
+            let bead_id = BeadId::parse("bd-deadbeef").expect("valid");
+
+            let session = Session::from_parts(
+                SessionId::parse("s-full").expect("valid"),
+                session_name,
+                Some(ws_id),
+                Some(bead_id),
+                BranchState::Detached,
+                None,
+                chrono::Utc::now(),
+            );
+
+            // Full lifecycle: Created → Active → Syncing → Synced → Completed
+            let active = session.activate().expect("activate");
+            assert!(active.workspace().is_some());
+
+            let syncing = active.sync().expect("sync");
+            assert!(syncing.workspace().is_some());
+
+            let synced = syncing.sync_complete().expect("sync_complete");
+            assert!(synced.workspace().is_some());
+
+            let completed = synced.complete().expect("complete");
+            assert!(completed.workspace().is_some());
+            assert_eq!(completed.workspace().unwrap().as_str(), workspace.id().as_str());
+            assert!(completed.state().is_terminal());
+
+            // Meanwhile, workspace lifecycle: Created → Working → Ready → Merged
+            let ws_working = workspace.start_working().expect("working");
+            let ws_ready = ws_working.mark_ready().expect("ready");
+            let ws_merged = ws_ready.merge().expect("merged");
+            assert!(ws_merged.is_terminal());
+        }
+
+        /// Multiple sessions can reference the same workspace ID
+        #[test]
+        fn multiple_sessions_same_workspace_id() {
+            let ws_id = VoWorkspaceId::parse("ws-shared").expect("valid");
+
+            let s1_name = SessionName::parse("session-a").expect("valid");
+            let s1 = Session::from_parts(
+                SessionId::parse("s-a").expect("valid"),
+                s1_name,
+                Some(ws_id.clone()),
+                None,
+                BranchState::Detached,
+                None,
+                chrono::Utc::now(),
+            );
+
+            let s2_name = SessionName::parse("session-b").expect("valid");
+            let s2 = Session::from_parts(
+                SessionId::parse("s-b").expect("valid"),
+                s2_name,
+                Some(ws_id),
+                None,
+                BranchState::Detached,
+                None,
+                chrono::Utc::now(),
+            );
+
+            assert_eq!(
+                s1.workspace().map(|w| w.as_str()),
+                s2.workspace().map(|w| w.as_str())
+            );
+        }
+    }
+
+    // =========================================================================
+    // WorkspaceId / WorkspaceName / WorkspacePath Proptests
+    // =========================================================================
+
+    mod workspace_value_object_proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            /// WorkspaceId rejects empty, accepts any non-empty string
+            #[test]
+            fn prop_workspace_id_non_empty_accepted(s in ".+") {
+                let result = WorkspaceId::new(&s);
+                prop_assert!(result.is_ok());
+                let id = result.unwrap();
+                prop_assert_eq!(id.as_str(), s);
+            }
+
+            /// WorkspaceId always rejects empty
+            #[test]
+            fn prop_workspace_id_empty_rejected(_ in 0u8..1) {
+                prop_assert!(WorkspaceId::new("").is_err());
+            }
+
+            /// WorkspaceId clone equals original
+            #[test]
+            fn prop_workspace_id_clone_equals(s in "[a-zA-Z0-9_-]{1,20}") {
+                let id = WorkspaceId::new(&s).unwrap();
+                let cloned = id.clone();
+                prop_assert_eq!(id, cloned);
+            }
+
+            /// WorkspaceId serde roundtrip preserves value
+            #[test]
+            fn prop_workspace_id_serde_roundtrip(s in "[a-zA-Z0-9/_.-]{1,30}") {
+                let id = WorkspaceId::new(&s).unwrap();
+                let json = serde_json::to_string(&id).unwrap();
+                let parsed: WorkspaceId = serde_json::from_str(&json).unwrap();
+                prop_assert_eq!(id, parsed);
+            }
+
+            /// WorkspaceName rejects empty and whitespace-only
+            #[test]
+            fn prop_workspace_name_empty_or_whitespace_rejected(s in "[ \t\n\r]*") {
+                let trimmed = s.trim();
+                let result = WorkspaceName::new(&s);
+                if trimmed.is_empty() {
+                    prop_assert!(result.is_err());
+                }
+            }
+
+            /// WorkspaceName serde roundtrip preserves value for valid names
+            #[test]
+            fn prop_workspace_name_serde_roundtrip(s in "[a-zA-Z0-9 _/-]{1,100}") {
+                let name = WorkspaceName::new(&s);
+                if let Ok(name) = name {
+                    let json = serde_json::to_string(&name).unwrap();
+                    let parsed: WorkspaceName = serde_json::from_str(&json).unwrap();
+                    prop_assert_eq!(name, parsed);
+                }
+            }
+
+            /// WorkspaceName clone equals original for valid names
+            #[test]
+            fn prop_workspace_name_clone_equals(s in "[a-zA-Z][a-zA-Z0-9 _-]{0,20}") {
+                if let Ok(name) = WorkspaceName::new(&s) {
+                    let cloned = name.clone();
+                    prop_assert_eq!(name, cloned);
+                }
+            }
+
+            /// WorkspacePath accepts absolute paths
+            #[test]
+            fn prop_workspace_path_absolute_accepted(s in "/[a-zA-Z0-9_/._-]*") {
+                if !s.is_empty() {
+                    let result = WorkspacePath::new(&s);
+                    prop_assert!(result.is_ok());
+                }
+            }
+
+            /// WorkspacePath accepts dot-prefixed relative paths
+            #[test]
+            fn prop_workspace_path_relative_dot_accepted(s in "\\.[a-zA-Z0-9_/._-]*") {
+                if !s.is_empty() {
+                    let result = WorkspacePath::new(&s);
+                    prop_assert!(result.is_ok());
+                }
+            }
+
+            /// WorkspacePath rejects bare names (no / or . prefix)
+            #[test]
+            fn prop_workspace_path_bare_name_rejected(s in "[a-zA-Z0-9_-]+") {
+                let result = WorkspacePath::new(&s);
+                prop_assert!(result.is_err());
+            }
+
+            /// WorkspacePath serde roundtrip for valid paths
+            #[test]
+            fn prop_workspace_path_serde_roundtrip(s in "/[a-zA-Z0-9_/._-]{0,50}") {
+                if let Ok(path) = WorkspacePath::new(&s) {
+                    let json = serde_json::to_string(&path).unwrap();
+                    let parsed: WorkspacePath = serde_json::from_str(&json).unwrap();
+                    prop_assert_eq!(path, parsed);
+                }
+            }
+        }
+    }
 }
