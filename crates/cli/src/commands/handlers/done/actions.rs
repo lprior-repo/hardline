@@ -39,7 +39,9 @@ pub fn run_done(options: &DoneOptions) -> Result<DoneOutput> {
     let workspace_name = resolve_workspace(backend.as_ref(), options.workspace.as_deref())?;
 
     // Validate workspace name format (prevents path traversal)
-    if let Some(err) = crate::commands::workspace::validators::validate_workspace_name(&workspace_name) {
+    if let Some(err) =
+        crate::commands::workspace::validators::validate_workspace_name(&workspace_name)
+    {
         return Err(err);
     }
 
@@ -404,7 +406,7 @@ fn get_potential_conflicts(executor: &dyn GitExecutor) -> Result<Vec<String>> {
 ///
 /// Uses atomic write (write to temp file + rename) to prevent corruption
 /// from concurrent done operations.
-fn log_undo_history(
+pub(super) fn log_undo_history(
     workspace_name: &str,
     executor: &dyn GitExecutor,
     pushed_to_remote: bool,
@@ -1928,10 +1930,7 @@ mod tests {
             is_current: true,
         }]);
         let result = resolve_workspace(&backend, None);
-        assert_eq!(
-            result.expect("should find current workspace"),
-            "feature-a"
-        );
+        assert_eq!(result.expect("should find current workspace"), "feature-a");
     }
 
     #[test]
@@ -1952,10 +1951,7 @@ mod tests {
     fn test_resolve_workspace_none_with_empty_workspaces() {
         let backend = MockVcsBackend::new(vec![]);
         let result = resolve_workspace(&backend, None);
-        assert!(
-            result.is_err(),
-            "should fail when workspace list is empty"
-        );
+        assert!(result.is_err(), "should fail when workspace list is empty");
     }
 
     #[test]
@@ -1993,8 +1989,7 @@ mod tests {
             branch: "feature-x".to_string(),
             is_current: true,
         }]);
-        let result =
-            get_workspace_path(&cwd, "feature-x", &backend).expect("should resolve path");
+        let result = get_workspace_path(&cwd, "feature-x", &backend).expect("should resolve path");
         assert_eq!(result, cwd, "current workspace should return cwd");
     }
 
@@ -2006,18 +2001,19 @@ mod tests {
             branch: "other-ws".to_string(),
             is_current: false,
         }]);
-        let result =
-            get_workspace_path(&cwd, "other-ws", &backend).expect("should resolve path");
+        let result = get_workspace_path(&cwd, "other-ws", &backend).expect("should resolve path");
         // The worktree path doesn't exist on this machine, so it falls back to cwd
-        assert_eq!(result, cwd, "non-current workspace without worktree dir falls back to cwd");
+        assert_eq!(
+            result, cwd,
+            "non-current workspace without worktree dir falls back to cwd"
+        );
     }
 
     #[test]
     fn test_get_workspace_path_workspace_not_in_list_still_resolves() {
         let cwd = PathBuf::from("/home/user/project");
         let backend = MockVcsBackend::new(vec![]);
-        let result =
-            get_workspace_path(&cwd, "ghost-ws", &backend).expect("should resolve path");
+        let result = get_workspace_path(&cwd, "ghost-ws", &backend).expect("should resolve path");
         // Workspace not found in list -> is_current=false, worktree path likely
         // doesn't exist -> falls back to cwd
         assert_eq!(result, cwd);
@@ -2066,12 +2062,14 @@ mod tests {
         let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
-        let result =
-            execute_done_workflow("dirty-ws", "/tmp/ws", &options, &backend, &executor);
+        let result = execute_done_workflow("dirty-ws", "/tmp/ws", &options, &backend, &executor);
 
         // The workflow succeeds without checking dirty state
         let output = result.expect("workflow proceeds without dirty tree check");
-        assert!(output.merged, "merge proceeds without dirty tree validation");
+        assert!(
+            output.merged,
+            "merge proceeds without dirty tree validation"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -2092,13 +2090,8 @@ mod tests {
         let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
-        let result = execute_done_workflow(
-            "undo-test-ws",
-            "/tmp/ws",
-            &options,
-            &backend,
-            &executor,
-        );
+        let result =
+            execute_done_workflow("undo-test-ws", "/tmp/ws", &options, &backend, &executor);
 
         let output = result.expect("undo history logging should not fail the workflow");
         assert!(output.merged);
@@ -2122,13 +2115,7 @@ mod tests {
         let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
-        let result = execute_done_workflow(
-            "session-ws",
-            "/tmp/ws",
-            &options,
-            &backend,
-            &executor,
-        );
+        let result = execute_done_workflow("session-ws", "/tmp/ws", &options, &backend, &executor);
 
         let output = result.expect("should succeed");
         assert!(
@@ -2164,13 +2151,8 @@ mod tests {
         let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
-        let result = execute_done_workflow(
-            "detect-err-ws",
-            "/tmp/ws",
-            &options,
-            &backend,
-            &executor,
-        );
+        let result =
+            execute_done_workflow("detect-err-ws", "/tmp/ws", &options, &backend, &executor);
 
         assert!(
             result.is_err(),
@@ -2267,7 +2249,11 @@ mod tests {
         let names: Vec<&str> = phases.iter().map(|p| p.name()).collect();
         assert_eq!(
             names,
-            ["validating_location", "committing_changes", "merging_to_main"]
+            [
+                "validating_location",
+                "committing_changes",
+                "merging_to_main"
+            ]
         );
     }
 

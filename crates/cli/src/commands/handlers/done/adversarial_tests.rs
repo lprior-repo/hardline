@@ -18,9 +18,9 @@ use proptest::prelude::*;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
+use super::actions::*;
 use super::data::*;
 use super::executor::{detect_conflicts, parse_diff_summary, ExecutorError, GitExecutor};
-use super::actions::*;
 
 // ============================================================================
 // ATTACK VECTOR 1: parse_diff_summary injection and malformed input
@@ -113,7 +113,10 @@ fn adversarial_diff_summary_only_status_no_file() {
     // Lines that are just a status character with no file part
     let input = "M\nA\nD\nR";
     let files = parse_diff_summary(input);
-    assert!(files.is_empty(), "status-only lines should produce no files");
+    assert!(
+        files.is_empty(),
+        "status-only lines should produce no files"
+    );
 }
 
 #[test]
@@ -141,7 +144,10 @@ fn adversarial_conflict_result_inconsistent_flags() {
     // FINDING: No validation between flags — data model allows inconsistencies
     assert!(result.has_existing_conflicts, "flag says conflicts exist");
     assert!(result.existing_conflicts.is_empty(), "but list is empty");
-    assert!(result.merge_likely_safe, "claims safe despite conflicts flag");
+    assert!(
+        result.merge_likely_safe,
+        "claims safe despite conflicts flag"
+    );
     // This is a data integrity gap: the struct has no constructor validation
 }
 
@@ -204,8 +210,7 @@ fn adversarial_conflict_result_serialization_integrity() {
         detection_time_ms: u64::MAX,
     };
     let json = serde_json::to_string(&result).expect("serialize");
-    let back: ConflictDetectionResult =
-        serde_json::from_str(&json).expect("deserialize");
+    let back: ConflictDetectionResult = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(back, result, "roundtrip must preserve adversarial data");
 }
 
@@ -343,7 +348,10 @@ fn adversarial_executor_error_stderr_leak() {
         stderr: "fatal: could not read Password for 'https://user:secret@github.com/'".to_string(),
     };
     let msg = format!("{err}");
-    assert!(msg.contains("secret"), "FINDING: stderr leaked into Display");
+    assert!(
+        msg.contains("secret"),
+        "FINDING: stderr leaked into Display"
+    );
     // In production, this would expose credentials in logs
 }
 
@@ -414,9 +422,10 @@ fn adversarial_detect_conflicts_partial_failure_recovery() {
     // detect_conflicts calls 4 git commands sequentially.
     // What if the 3rd call fails?
     let executor = AdversarialExecutor::new(vec![
-        Ok(String::new()),                      // check_existing_conflicts: ok
-        Ok("merge_base\n".to_string()),          // find_merge_base: ok
-        Err(ExecutorError::CommandFailed {        // get_workspace_modified_files: FAIL
+        Ok(String::new()),              // check_existing_conflicts: ok
+        Ok("merge_base\n".to_string()), // find_merge_base: ok
+        Err(ExecutorError::CommandFailed {
+            // get_workspace_modified_files: FAIL
             code: 128,
             stderr: "fatal: bad object".to_string(),
         }),
@@ -424,7 +433,11 @@ fn adversarial_detect_conflicts_partial_failure_recovery() {
 
     let result = detect_conflicts(&executor);
     assert!(result.is_err(), "3rd step failure must propagate");
-    assert_eq!(executor.call_count(), 3, "should have called 3 git commands");
+    assert_eq!(
+        executor.call_count(),
+        3,
+        "should have called 3 git commands"
+    );
 }
 
 #[test]
@@ -443,15 +456,18 @@ fn adversarial_detect_conflicts_step2_failure() {
 fn adversarial_detect_conflicts_existing_conflicts_then_merge_base_fails() {
     // Step 1 finds conflicts, step 2 fails — what happens?
     let executor = AdversarialExecutor::new(vec![
-        Ok("CONFLICT\n".to_string()),             // check_existing_conflicts: CONFLICT
-        Ok("file_a.rs normal\n".to_string()),      // resolve --list: ok
+        Ok("CONFLICT\n".to_string()), // check_existing_conflicts: CONFLICT
+        Ok("file_a.rs normal\n".to_string()), // resolve --list: ok
         Err(ExecutorError::IoError("disk error".to_string())), // find_merge_base: FAIL
     ]);
 
     let result = detect_conflicts(&executor);
     // detect_conflicts does NOT short-circuit on existing conflicts —
     // it continues to find_merge_base and fails there
-    assert!(result.is_err(), "merge base failure after conflict detection");
+    assert!(
+        result.is_err(),
+        "merge base failure after conflict detection"
+    );
 }
 
 // ============================================================================

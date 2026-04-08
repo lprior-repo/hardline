@@ -37,6 +37,9 @@ pub mod executor;
 #[cfg(test)]
 mod adversarial_tests;
 
+#[cfg(test)]
+mod integration_tests;
+
 // Re-export public API
 pub use actions::run_done;
 pub use data::{DoneOptions, DoneOutput};
