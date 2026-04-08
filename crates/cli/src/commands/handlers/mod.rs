@@ -24,6 +24,7 @@ pub mod export_import;
 pub mod integrity;
 pub mod introspect;
 pub mod json_format;
+pub mod lock;
 pub mod prune;
 pub mod query;
 pub mod recover;
