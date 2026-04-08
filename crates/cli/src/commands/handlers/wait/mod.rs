@@ -19,4 +19,4 @@ pub mod actions;
 pub mod data;
 
 pub use actions::run_wait;
-pub use data::{format_condition, WaitCondition, WaitOptions, WaitOutput};
+pub use data::{format_condition, parse_condition, WaitCondition, WaitOptions, WaitOutput};

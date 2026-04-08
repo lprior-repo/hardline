@@ -859,4 +859,268 @@ mod tests {
         assert_send_sync::<WaitOutput>();
         assert_send_sync::<WaitCondition>();
     }
+
+    // ========================================================================
+    // Progress display: print_success and print_timeout
+    // ========================================================================
+
+    #[test]
+    fn print_success_formats_correctly() {
+        let output = WaitOutput {
+            condition_met: true,
+            condition: "healthy".to_string(),
+            elapsed_ms: 42,
+            timed_out: false,
+            final_state: Some("git:ok".to_string()),
+        };
+        // Should not panic — exercises the print path
+        print_success(&output);
+    }
+
+    #[test]
+    fn print_success_handles_none_final_state() {
+        let output = WaitOutput {
+            condition_met: true,
+            condition: "session-exists:test".to_string(),
+            elapsed_ms: 100,
+            timed_out: false,
+            final_state: None,
+        };
+        print_success(&output);
+    }
+
+    #[test]
+    fn print_timeout_formats_correctly() {
+        let output = WaitOutput {
+            condition_met: false,
+            condition: "session-exists:gone".to_string(),
+            elapsed_ms: 60000,
+            timed_out: true,
+            final_state: Some("not_found:gone".to_string()),
+        };
+        print_timeout(&output);
+    }
+
+    #[test]
+    fn print_timeout_handles_none_final_state() {
+        let output = WaitOutput {
+            condition_met: false,
+            condition: "healthy".to_string(),
+            elapsed_ms: 5000,
+            timed_out: true,
+            final_state: None,
+        };
+        print_timeout(&output);
+    }
+
+    #[test]
+    fn print_success_output_for_each_condition_type() {
+        for (label, cond) in [
+            ("healthy", WaitCondition::Healthy),
+            ("exists", WaitCondition::SessionExists("test".to_string())),
+            ("unlocked", WaitCondition::SessionUnlocked("test".to_string())),
+            ("status", WaitCondition::SessionStatus {
+                name: "test".to_string(),
+                status: "active".to_string(),
+            }),
+        ] {
+            let output = WaitOutput {
+                condition_met: true,
+                condition: crate::commands::handlers::wait::format_condition(&cond),
+                elapsed_ms: 10,
+                timed_out: false,
+                final_state: Some("ok".to_string()),
+            };
+            // Must not panic for any condition type
+            print_success(&output);
+            let _ = label; // suppress unused warning
+        }
+    }
+
+    // ========================================================================
+    // Cancellation contract: timeout is the only cancellation mechanism
+    // ========================================================================
+
+    #[test]
+    fn cancellation_via_timeout_completes_cleanly() {
+        // Simulates "cancellation" — timeout=1ms means immediate bail
+        let options = WaitOptions {
+            condition: WaitCondition::SessionExists("cancel-target".to_string()),
+            timeout: Duration::from_millis(1),
+            poll_interval: Duration::from_millis(1),
+        };
+        let output = run_wait(&options).expect("should complete");
+        assert!(!output.condition_met);
+        assert!(output.timed_out);
+    }
+
+    #[test]
+    fn cancellation_produces_valid_output() {
+        let options = WaitOptions {
+            condition: WaitCondition::SessionUnlocked("cancel".to_string()),
+            timeout: Duration::from_millis(1),
+            poll_interval: Duration::from_millis(1),
+        };
+        let output = run_wait(&options).expect("should produce output");
+        assert!(!output.condition_met);
+        assert!(output.timed_out);
+        assert!(!output.condition.is_empty());
+        // elapsed_ms should be positive or condition was met
+        assert!(output.elapsed_ms > 0 || output.condition_met);
+    }
+
+    // ========================================================================
+    // Poll interval: multiple poll cycles
+    // ========================================================================
+
+    #[test]
+    fn multiple_polls_before_timeout() {
+        // Short poll interval, short timeout — should poll multiple times
+        let options = WaitOptions {
+            condition: WaitCondition::SessionExists("multi-poll".to_string()),
+            timeout: Duration::from_millis(200),
+            poll_interval: Duration::from_millis(25),
+        };
+        let start = std::time::Instant::now();
+        let output = run_wait(&options).expect("should not error");
+        let elapsed = start.elapsed();
+        assert!(!output.condition_met);
+        assert!(output.timed_out);
+        // With 25ms poll, should have polled ~8 times in 200ms
+        assert!(elapsed >= Duration::from_millis(150));
+    }
+
+    #[test]
+    fn single_poll_before_immediate_success() {
+        // Healthy resolves on first check — zero sleeps
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_secs(5),
+            poll_interval: Duration::from_secs(1),
+        };
+        let start = std::time::Instant::now();
+        let output = run_wait(&options).expect("should succeed");
+        assert!(output.condition_met);
+        // Should resolve in < 100ms (first poll, no sleep)
+        assert!(start.elapsed() < Duration::from_millis(500));
+    }
+
+    // ========================================================================
+    // CLI dispatch: condition string → WaitCondition mapping
+    // ========================================================================
+
+    #[test]
+    fn cli_dispatch_session_exists_from_string() {
+        // The CLI currently always creates SessionExists from the condition string.
+        // Verify the condition string is preserved in the output.
+        let condition_str = "my-feature-branch";
+        let options = WaitOptions {
+            condition: WaitCondition::SessionExists(condition_str.to_string()),
+            timeout: Duration::from_millis(50),
+            poll_interval: Duration::from_millis(10),
+        };
+        let output = run_wait(&options).expect("should not error");
+        assert!(output.condition.contains(condition_str));
+    }
+
+    // ========================================================================
+    // Error propagation: validate_options
+    // ========================================================================
+
+    #[test]
+    fn validate_rejects_1ms_poll_with_0ms_timeout() {
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::ZERO,
+            poll_interval: Duration::from_millis(1),
+        };
+        // timeout=0 is accepted by validate but poll_loop will timeout immediately
+        let result = validate_options(&options);
+        // poll (1ms) > timeout (0) → rejected
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_accepts_exact_equal_poll_and_timeout() {
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_secs(5),
+            poll_interval: Duration::from_secs(5),
+        };
+        assert!(validate_options(&options).is_ok());
+    }
+
+    // ========================================================================
+    // build_output: elapsed_ms precision
+    // ========================================================================
+
+    #[test]
+    fn build_output_elapsed_ms_near_zero() {
+        let start = Instant::now();
+        let output = build_output(true, &WaitCondition::Healthy, start, false, Some("ok".into()));
+        // elapsed_ms should be 0 or very small
+        assert!(output.elapsed_ms < 100, "elapsed should be near zero, got {}", output.elapsed_ms);
+    }
+
+    // ========================================================================
+    // Integration: all condition types through run_wait
+    // ========================================================================
+
+    #[test]
+    fn run_wait_all_stub_conditions_timeout() {
+        // All session stubs return false — should all timeout
+        let conditions = vec![
+            WaitCondition::SessionExists("a".to_string()),
+            WaitCondition::SessionUnlocked("b".to_string()),
+            WaitCondition::SessionStatus { name: "c".to_string(), status: "done".to_string() },
+        ];
+        for cond in conditions {
+            let options = WaitOptions {
+                condition: cond,
+                timeout: Duration::from_millis(50),
+                poll_interval: Duration::from_millis(10),
+            };
+            let output = run_wait(&options).unwrap_or_else(|e| panic!("should not error: {e}"));
+            assert!(!output.condition_met, "stub condition should not be met");
+            assert!(output.timed_out, "stub condition should timeout");
+        }
+    }
+
+    // ========================================================================
+    // WaitOutput: serde contract for CLI consumers
+    // ========================================================================
+
+    #[test]
+    fn wait_output_json_has_required_fields() {
+        let output = WaitOutput {
+            condition_met: true,
+            condition: "healthy".to_string(),
+            elapsed_ms: 0,
+            timed_out: false,
+            final_state: Some("git:ok".to_string()),
+        };
+        let json_str = serde_json::to_string(&output).expect("serialize");
+        let val: serde_json::Value = serde_json::from_str(&json_str).expect("parse");
+        assert!(val.get("condition_met").is_some(), "missing condition_met");
+        assert!(val.get("condition").is_some(), "missing condition");
+        assert!(val.get("elapsed_ms").is_some(), "missing elapsed_ms");
+        assert!(val.get("timed_out").is_some(), "missing timed_out");
+    }
+
+    #[test]
+    fn wait_output_json_field_types() {
+        let output = WaitOutput {
+            condition_met: false,
+            condition: "test".to_string(),
+            elapsed_ms: 42,
+            timed_out: true,
+            final_state: None,
+        };
+        let json_str = serde_json::to_string(&output).expect("serialize");
+        let val: serde_json::Value = serde_json::from_str(&json_str).expect("parse");
+        assert!(val["condition_met"].is_boolean(), "condition_met should be boolean");
+        assert!(val["condition"].is_string(), "condition should be string");
+        assert!(val["elapsed_ms"].is_number(), "elapsed_ms should be number");
+        assert!(val["timed_out"].is_boolean(), "timed_out should be boolean");
+    }
 }

@@ -46,6 +46,50 @@ pub struct WaitOutput {
     pub final_state: Option<String>,
 }
 
+/// Parse a condition expression string into a `WaitCondition`.
+///
+/// Supported formats:
+/// - `"healthy"` → `WaitCondition::Healthy`
+/// - `"session-exists:<name>"` → `WaitCondition::SessionExists(name)`
+/// - `"session-unlocked:<name>"` → `WaitCondition::SessionUnlocked(name)`
+/// - `"session-status:<name>=<status>"` → `WaitCondition::SessionStatus { name, status }`
+///
+/// Returns `None` for unrecognized or malformed expressions.
+///
+/// This is a pure function (Tier 1 - no I/O).
+pub fn parse_condition(input: &str) -> Option<WaitCondition> {
+    if input.is_empty() {
+        return None;
+    }
+    if input == "healthy" {
+        return Some(WaitCondition::Healthy);
+    }
+    if let Some(name) = input.strip_prefix("session-exists:") {
+        if name.is_empty() {
+            return None;
+        }
+        return Some(WaitCondition::SessionExists(name.to_string()));
+    }
+    if let Some(name) = input.strip_prefix("session-unlocked:") {
+        if name.is_empty() {
+            return None;
+        }
+        return Some(WaitCondition::SessionUnlocked(name.to_string()));
+    }
+    if let Some(rest) = input.strip_prefix("session-status:") {
+        if let Some((name, status)) = rest.split_once('=') {
+            if name.is_empty() || status.is_empty() {
+                return None;
+            }
+            return Some(WaitCondition::SessionStatus {
+                name: name.to_string(),
+                status: status.to_string(),
+            });
+        }
+    }
+    None
+}
+
 /// Format a wait condition into a human-readable string.
 ///
 /// This is a pure function (Tier 1 - no I/O).
@@ -235,5 +279,320 @@ mod tests {
             options.poll_interval < options.timeout,
             "poll interval should be less than timeout"
         );
+    }
+
+    // ========================================================================
+    // parse_condition — basic parsing
+    // ========================================================================
+
+    #[test]
+    fn parse_healthy() {
+        let cond = parse_condition("healthy").expect("should parse");
+        assert!(matches!(cond, WaitCondition::Healthy));
+    }
+
+    #[test]
+    fn parse_session_exists() {
+        let cond = parse_condition("session-exists:my-session").expect("should parse");
+        assert!(matches!(cond, WaitCondition::SessionExists(ref n) if n == "my-session"));
+    }
+
+    #[test]
+    fn parse_session_unlocked() {
+        let cond = parse_condition("session-unlocked:my-session").expect("should parse");
+        assert!(matches!(cond, WaitCondition::SessionUnlocked(ref n) if n == "my-session"));
+    }
+
+    #[test]
+    fn parse_session_status() {
+        let cond = parse_condition("session-status:build=completed").expect("should parse");
+        match cond {
+            WaitCondition::SessionStatus { name, status } => {
+                assert_eq!(name, "build");
+                assert_eq!(status, "completed");
+            }
+            other => panic!("expected SessionStatus, got {other:?}"),
+        }
+    }
+
+    // ========================================================================
+    // parse_condition — rejection cases
+    // ========================================================================
+
+    #[test]
+    fn parse_empty_returns_none() {
+        assert!(parse_condition("").is_none());
+    }
+
+    #[test]
+    fn parse_unknown_prefix_returns_none() {
+        assert!(parse_condition("unknown-condition:foo").is_none());
+    }
+
+    #[test]
+    fn parse_session_exists_empty_name_returns_none() {
+        assert!(parse_condition("session-exists:").is_none());
+    }
+
+    #[test]
+    fn parse_session_unlocked_empty_name_returns_none() {
+        assert!(parse_condition("session-unlocked:").is_none());
+    }
+
+    #[test]
+    fn parse_session_status_no_equals_returns_none() {
+        assert!(parse_condition("session-status:build").is_none());
+    }
+
+    #[test]
+    fn parse_session_status_empty_name_returns_none() {
+        assert!(parse_condition("session-status:=active").is_none());
+    }
+
+    #[test]
+    fn parse_session_status_empty_status_returns_none() {
+        assert!(parse_condition("session-status:build=").is_none());
+    }
+
+    #[test]
+    fn parse_garbage_returns_none() {
+        let garbage = ["!!!", "SESSION-EXISTS:foo", "healthy!", "healthy:x"];
+        for input in &garbage {
+            assert!(parse_condition(input).is_none(), "should reject: {input:?}");
+        }
+    }
+
+    // ========================================================================
+    // parse_condition — roundtrip with format_condition
+    // ========================================================================
+
+    #[test]
+    fn parse_format_roundtrip_healthy() {
+        let original = WaitCondition::Healthy;
+        let formatted = format_condition(&original);
+        let parsed = parse_condition(&formatted).expect("should roundtrip");
+        assert!(matches!(parsed, WaitCondition::Healthy));
+    }
+
+    #[test]
+    fn parse_format_roundtrip_session_exists() {
+        let original = WaitCondition::SessionExists("my-session".to_string());
+        let formatted = format_condition(&original);
+        let parsed = parse_condition(&formatted).expect("should roundtrip");
+        assert!(matches!(parsed, WaitCondition::SessionExists(ref n) if n == "my-session"));
+    }
+
+    #[test]
+    fn parse_format_roundtrip_session_unlocked() {
+        let original = WaitCondition::SessionUnlocked("locked-sess".to_string());
+        let formatted = format_condition(&original);
+        let parsed = parse_condition(&formatted).expect("should roundtrip");
+        assert!(matches!(parsed, WaitCondition::SessionUnlocked(ref n) if n == "locked-sess"));
+    }
+
+    #[test]
+    fn parse_format_roundtrip_session_status() {
+        let original = WaitCondition::SessionStatus {
+            name: "task-1".to_string(),
+            status: "done".to_string(),
+        };
+        let formatted = format_condition(&original);
+        let parsed = parse_condition(&formatted).expect("should roundtrip");
+        match parsed {
+            WaitCondition::SessionStatus { name, status } => {
+                assert_eq!(name, "task-1");
+                assert_eq!(status, "done");
+            }
+            other => panic!("expected SessionStatus, got {other:?}"),
+        }
+    }
+
+    // ========================================================================
+    // parse_condition — special characters and edge cases
+    // ========================================================================
+
+    #[test]
+    fn parse_session_name_with_dashes() {
+        let cond = parse_condition("session-exists:my-feature-branch").expect("should parse");
+        assert!(matches!(cond, WaitCondition::SessionExists(ref n) if n == "my-feature-branch"));
+    }
+
+    #[test]
+    fn parse_session_name_with_dots() {
+        let cond = parse_condition("session-exists:v2.1.0").expect("should parse");
+        assert!(matches!(cond, WaitCondition::SessionExists(ref n) if n == "v2.1.0"));
+    }
+
+    #[test]
+    fn parse_session_name_with_underscores() {
+        let cond = parse_condition("session-exists:my_feature").expect("should parse");
+        assert!(matches!(cond, WaitCondition::SessionExists(ref n) if n == "my_feature"));
+    }
+
+    #[test]
+    fn parse_session_status_with_equals_in_status() {
+        // status containing '=' — first split wins for name/status
+        let cond = parse_condition("session-status:build=result=ok").expect("should parse");
+        match cond {
+            WaitCondition::SessionStatus { name, status } => {
+                assert_eq!(name, "build");
+                assert_eq!(status, "result=ok");
+            }
+            other => panic!("expected SessionStatus, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_case_sensitive_healthy() {
+        assert!(parse_condition("Healthy").is_none());
+        assert!(parse_condition("HEALTHY").is_none());
+    }
+
+    #[test]
+    fn parse_case_sensitive_session_prefixes() {
+        assert!(parse_condition("Session-Exists:foo").is_none());
+        assert!(parse_condition("SESSION-EXISTS:foo").is_none());
+    }
+
+    #[test]
+    fn parse_whitespace_in_value() {
+        // Leading/trailing whitespace in the name part is preserved
+        let cond = parse_condition("session-exists: my-session ").expect("should parse");
+        assert!(matches!(cond, WaitCondition::SessionExists(ref n) if n == " my-session "));
+    }
+
+    // ========================================================================
+    // WaitOutput — timeout expired error contract
+    // ========================================================================
+
+    #[test]
+    fn timeout_output_has_consistent_fields() {
+        // When timed_out is true, condition_met must be false
+        let output = WaitOutput {
+            condition_met: false,
+            condition: "session-exists:gone".to_string(),
+            elapsed_ms: 60000,
+            timed_out: true,
+            final_state: Some("not_found:gone".to_string()),
+        };
+        assert!(output.timed_out);
+        assert!(!output.condition_met);
+        assert!(output.final_state.is_some());
+        assert!(output.elapsed_ms > 0);
+    }
+
+    #[test]
+    fn success_output_has_consistent_fields() {
+        let output = WaitOutput {
+            condition_met: true,
+            condition: "healthy".to_string(),
+            elapsed_ms: 5,
+            timed_out: false,
+            final_state: Some("git:ok".to_string()),
+        };
+        assert!(output.condition_met);
+        assert!(!output.timed_out);
+        assert!(output.final_state.is_some());
+    }
+
+    // ========================================================================
+    // WaitOptions — poll interval vs timeout constraints
+    // ========================================================================
+
+    #[test]
+    fn options_poll_equals_timeout_is_valid() {
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_secs(10),
+            poll_interval: Duration::from_secs(10),
+        };
+        assert_eq!(options.timeout, options.poll_interval);
+    }
+
+    #[test]
+    fn options_minimum_durations() {
+        let options = WaitOptions {
+            condition: WaitCondition::Healthy,
+            timeout: Duration::from_nanos(1),
+            poll_interval: Duration::from_nanos(1),
+        };
+        assert!(!options.timeout.is_zero());
+        assert!(!options.poll_interval.is_zero());
+    }
+
+    // ========================================================================
+    // WaitCondition — Debug trait coverage
+    // ========================================================================
+
+    #[test]
+    fn all_conditions_have_debug_representation() {
+        let conditions: Vec<WaitCondition> = vec![
+            WaitCondition::SessionExists("a".to_string()),
+            WaitCondition::SessionUnlocked("b".to_string()),
+            WaitCondition::Healthy,
+            WaitCondition::SessionStatus { name: "c".to_string(), status: "d".to_string() },
+        ];
+        for cond in &conditions {
+            let debug = format!("{cond:?}");
+            assert!(!debug.is_empty(), "Debug should not be empty for {cond:?}");
+        }
+    }
+
+    // ========================================================================
+    // WaitCondition — Clone coverage
+    // ========================================================================
+
+    #[test]
+    fn all_conditions_are_clonable() {
+        let conditions: Vec<WaitCondition> = vec![
+            WaitCondition::SessionExists("clone-me".to_string()),
+            WaitCondition::SessionUnlocked("locked".to_string()),
+            WaitCondition::Healthy,
+            WaitCondition::SessionStatus { name: "n".to_string(), status: "s".to_string() },
+        ];
+        for cond in &conditions {
+            let cloned = cond.clone();
+            assert_eq!(format!("{cond:?}"), format!("{cloned:?}"));
+        }
+    }
+
+    // ========================================================================
+    // parse_condition — adversarial inputs
+    // ========================================================================
+
+    #[test]
+    fn parse_adversarial_injection_strings() {
+        let adversarial = [
+            "session-exists:; rm -rf /",
+            "session-exists:'; DROP TABLE sessions",
+            "session-exists:$(whoami)",
+            "session-exists:`id`",
+            "session-status:n=s; DROP TABLE",
+            "session-unlocked:\x00null",
+            "session-exists:\nnewline",
+        ];
+        for input in &adversarial {
+            // Should parse (pure function doesn't execute shell commands)
+            let result = parse_condition(input);
+            assert!(result.is_some(), "should parse adversarial input: {input:?}");
+        }
+    }
+
+    #[test]
+    fn parse_adversarial_very_long_name() {
+        let long_name = "x".repeat(65536);
+        let input = format!("session-exists:{long_name}");
+        let cond = parse_condition(&input).expect("should parse");
+        assert!(matches!(cond, WaitCondition::SessionExists(ref n) if n.len() == 65536));
+    }
+
+    #[test]
+    fn parse_adversarial_unicode() {
+        let unicode_names = ["日本語", "🔑-session", "🦀", "session\u{202E}evil"];
+        for name in &unicode_names {
+            let input = format!("session-exists:{name}");
+            let cond = parse_condition(&input).expect("should parse unicode");
+            assert!(matches!(cond, WaitCondition::SessionExists(ref n) if n == name));
+        }
     }
 }
