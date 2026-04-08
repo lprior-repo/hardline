@@ -148,7 +148,7 @@ pub enum Commands {
         set_upstream: bool,
 
         /// Force push
-        #[arg(short, long)]
+        #[arg(long)]
         force: bool,
 
         /// Force push with lease
@@ -167,7 +167,7 @@ pub enum Commands {
     /// Health check
     Doctor {
         /// Run full diagnostics
-        #[arg(short, long)]
+        #[arg(long)]
         full: bool,
     },
 
@@ -307,12 +307,8 @@ mod tests {
     }
 
     // -- Doctor command --
-    // NOTE: Doctor::full uses #[arg(short, long)] which creates a '-f' conflict with
-    // the global `format` flag. This is a pre-existing clap short-flag collision bug.
-    // Testing Doctor is skipped because clap's debug_asserts panic during Parser construction.
-    //
-    // TODO: fix the short-flag conflict by removing `short` from either Doctor::full
-    //       or the global format flag, then re-enable these tests.
+    // Doctor::full uses #[arg(long)] (no short flag) to avoid conflict with
+    // the global format flag's -f. Use --full for full diagnostics.
 
     // -- Fetch command --
     #[test]
@@ -361,13 +357,8 @@ mod tests {
     }
 
     // -- Push command --
-    // NOTE: Push::force has #[arg(short, long)] creating a '-f' conflict with the
-    // global `format` flag. This is a pre-existing clap short-flag collision bug.
-    // Testing Push via the full Cli is skipped because clap's debug_asserts panic
-    // during Parser construction.
-    //
-    // TODO: fix the short-flag conflict by removing `short` from either Push::force
-    //       or the global format flag, then re-enable Push tests here.
+    // Push::force uses #[arg(long)] (no short flag) to avoid conflict with the
+    // global format flag's -f. Use --force for force push.
 
     // -- Pull command --
     #[test]
