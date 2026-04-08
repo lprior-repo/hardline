@@ -1046,6 +1046,550 @@ mod tests {
     }
 
     // =========================================================================
+    // DependsOn: Construction — exhaustive valid references
+    // =========================================================================
+
+    mod depends_on_construction_tests {
+        use super::*;
+
+        #[test]
+        fn depends_on_all_valid_hex_chars() {
+            let valid = [
+                "bd-0123456789", "bd-abcdef", "bd-ABCDEF", "bd-aBcDeF",
+            ];
+            for id in valid {
+                let dep = DependsOn::new(id).unwrap_or_else(|_| panic!("'{id}' should be valid"));
+                assert_eq!(dep.as_str(), id);
+            }
+        }
+
+        #[test]
+        fn depends_on_single_digit_hex() {
+            let dep = DependsOn::new("bd-0").expect("single digit valid");
+            assert_eq!(dep.as_str(), "bd-0");
+        }
+
+        #[test]
+        fn depends_on_long_hex() {
+            let long_hex = "bd-deadbeefcafebabe12345678";
+            let dep = DependsOn::new(long_hex).expect("long hex valid");
+            assert_eq!(dep.as_str(), long_hex);
+        }
+
+        #[test]
+        fn depends_on_all_hex_digits_individually() {
+            for c in '0'..='9' {
+                let id = format!("bd-{c}");
+                assert!(DependsOn::new(&id).is_ok(), "'{id}' should be valid");
+            }
+            for c in 'a'..='f' {
+                let id = format!("bd-{c}");
+                assert!(DependsOn::new(&id).is_ok(), "'{id}' should be valid");
+            }
+            for c in 'A'..='F' {
+                let id = format!("bd-{c}");
+                assert!(DependsOn::new(&id).is_ok(), "'{id}' should be valid");
+            }
+        }
+
+        #[test]
+        fn depends_on_rejects_non_hex_chars() {
+            let invalid = [
+                "bd-g", "bd-G", "bd-z", "bd-Z", "bd-!", "bd-@",
+                "bd- ", "bd-\t", "bd-\n", "bd-.", "bd-/",
+            ];
+            for id in invalid {
+                assert!(
+                    DependsOn::new(id).is_err(),
+                    "'{id}' should be rejected"
+                );
+            }
+        }
+
+        #[test]
+        fn depends_on_rejects_prefix_only_variants() {
+            let wrong_prefix = [
+                "BD-abc",   // uppercase prefix
+                "Bd-abc",   // mixed case prefix
+                "bD-abc",   // mixed case prefix
+                "bb-abc",   // wrong second char
+                "da-abc",   // wrong prefix
+                "bd_abc",   // underscore separator
+                "bd.abc",   // dot separator
+            ];
+            for id in wrong_prefix {
+                assert!(
+                    DependsOn::new(id).is_err(),
+                    "'{id}' should be rejected (wrong prefix)"
+                );
+            }
+        }
+
+        #[test]
+        fn depends_on_accepts_string_ref() {
+            let s = String::from("bd-abc");
+            let dep = DependsOn::new(&s).expect("&String should work");
+            assert_eq!(dep.as_str(), "bd-abc");
+        }
+
+        #[test]
+        fn depends_on_accepts_str() {
+            let dep = DependsOn::new("bd-def").expect("&str should work");
+            assert_eq!(dep.as_str(), "bd-def");
+        }
+    }
+
+    // =========================================================================
+    // DependsOn: Cycle detection hints in API design
+    // =========================================================================
+    //
+    // These tests verify that DependsOn supports the trait implementations
+    // needed for cycle detection algorithms: Eq, Hash, Clone for use in
+    // HashSet (visited tracking), HashMap (adjacency lists), and Vec
+    // (topological sort).
+
+    mod depends_on_cycle_detection_hint_tests {
+        use super::*;
+        use std::collections::{HashMap, HashSet};
+
+        // --- Eq + Hash: HashSet membership (cycle detection visited set) ---
+
+        #[test]
+        fn depends_on_hashset_membership_for_visited_tracking() {
+            let dep1 = DependsOn::new("bd-aaa").expect("valid");
+            let dep2 = DependsOn::new("bd-bbb").expect("valid");
+            let dep1_dup = DependsOn::new("bd-aaa").expect("valid");
+
+            let mut visited: HashSet<DependsOn> = HashSet::new();
+            visited.insert(dep1.clone());
+
+            assert!(visited.contains(&dep1), "same value must be found");
+            assert!(visited.contains(&dep1_dup), "equal value must be found");
+            assert!(!visited.contains(&dep2), "different value must not be found");
+        }
+
+        #[test]
+        fn depends_on_hashmap_for_adjacency_list() {
+            let dep_a = DependsOn::new("bd-a").expect("valid");
+            let dep_b = DependsOn::new("bd-b").expect("valid");
+            let dep_c = DependsOn::new("bd-c").expect("valid");
+
+            // Build adjacency list: a -> [b, c]
+            let mut graph: HashMap<DependsOn, Vec<DependsOn>> = HashMap::new();
+            graph.insert(dep_a.clone(), vec![dep_b, dep_c]);
+
+            let neighbors = graph.get(&dep_a).expect("should find adjacency");
+            assert_eq!(neighbors.len(), 2);
+
+            let same_key = DependsOn::new("bd-a").expect("valid");
+            assert!(graph.contains_key(&same_key), "equal key must be found");
+        }
+
+        #[test]
+        fn depends_on_equality_for_cycle_detection() {
+            let a1 = DependsOn::new("bd-abc").expect("valid");
+            let a2 = DependsOn::new("bd-abc").expect("valid");
+            let b = DependsOn::new("bd-def").expect("valid");
+
+            assert_eq!(a1, a2, "same bead ID must be equal");
+            assert_ne!(a1, b, "different bead IDs must not be equal");
+        }
+
+        #[test]
+        fn depends_on_clone_for_graph_copy() {
+            let dep = DependsOn::new("bd-c10e").expect("valid");
+            let cloned = dep.clone();
+            assert_eq!(dep, cloned);
+            // Both usable independently
+            assert_eq!(dep.as_str(), "bd-c10e");
+            assert_eq!(cloned.as_str(), "bd-c10e");
+        }
+
+        #[test]
+        fn depends_on_collect_into_hashset_deduplicates() {
+            let deps: Vec<DependsOn> = vec![
+                DependsOn::new("bd-a").expect("valid"),
+                DependsOn::new("bd-b").expect("valid"),
+                DependsOn::new("bd-a").expect("valid"), // duplicate
+                DependsOn::new("bd-c").expect("valid"),
+                DependsOn::new("bd-b").expect("valid"), // duplicate
+            ];
+            let set: HashSet<DependsOn> = deps.into_iter().collect();
+            assert_eq!(set.len(), 3, "HashSet should deduplicate equal DependsOn values");
+        }
+
+        #[test]
+        fn depends_on_used_in_topological_sort_pattern() {
+            // Simulate a simple topological sort check:
+            // A depends on B, B depends on C, C has no deps
+            let a = DependsOn::new("bd-a").expect("valid");
+            let b = DependsOn::new("bd-b").expect("valid");
+            let c = DependsOn::new("bd-c").expect("valid");
+
+            let mut adj: HashMap<DependsOn, Vec<DependsOn>> = HashMap::new();
+            adj.insert(a.clone(), vec![b.clone()]);
+            adj.insert(b.clone(), vec![c.clone()]);
+            adj.insert(c.clone(), vec![]);
+
+            // Verify chain: A -> B -> C
+            let a_deps = adj.get(&a).expect("A has deps");
+            assert_eq!(a_deps[0], b);
+            let b_deps = adj.get(&b).expect("B has deps");
+            assert_eq!(b_deps[0], c);
+            let c_deps = adj.get(&c).expect("C has deps");
+            assert!(c_deps.is_empty());
+        }
+
+        #[test]
+        fn depends_on_dfs_cycle_detection_pattern() {
+            // Simulate DFS-based cycle detection:
+            // A -> B -> C -> A (cycle!)
+            let a = DependsOn::new("bd-a").expect("valid");
+            let b = DependsOn::new("bd-b").expect("valid");
+            let c = DependsOn::new("bd-c").expect("valid");
+
+            let mut adj: HashMap<DependsOn, Vec<DependsOn>> = HashMap::new();
+            adj.insert(a.clone(), vec![b.clone()]);
+            adj.insert(b.clone(), vec![c.clone()]);
+            adj.insert(c.clone(), vec![a.clone()]); // cycle back to A
+
+            // DFS from A: visited = {A, B, C}, then A is a neighbor of C -> cycle!
+            let mut visited: HashSet<DependsOn> = HashSet::new();
+            let mut stack = vec![a.clone()];
+
+            let mut cycle_detected = false;
+            while let Some(node) = stack.pop() {
+                if visited.contains(&node) {
+                    cycle_detected = true;
+                    break;
+                }
+                visited.insert(node.clone());
+                if let Some(neighbors) = adj.get(&node) {
+                    for n in neighbors {
+                        if visited.contains(n) {
+                            cycle_detected = true;
+                            break;
+                        }
+                        stack.push(n.clone());
+                    }
+                }
+                if cycle_detected {
+                    break;
+                }
+            }
+            assert!(cycle_detected, "DFS must detect cycle A -> B -> C -> A");
+        }
+
+        #[test]
+        fn depends_on_no_cycle_detected_in_dag() {
+            // DAG: A -> B, A -> C, B -> D, C -> D (diamond, no cycle)
+            let a = DependsOn::new("bd-a").expect("valid");
+            let b = DependsOn::new("bd-b").expect("valid");
+            let c = DependsOn::new("bd-c").expect("valid");
+            let d = DependsOn::new("bd-d").expect("valid");
+
+            let mut adj: HashMap<DependsOn, Vec<DependsOn>> = HashMap::new();
+            adj.insert(a.clone(), vec![b.clone(), c.clone()]);
+            adj.insert(b.clone(), vec![d.clone()]);
+            adj.insert(c.clone(), vec![d.clone()]);
+            adj.insert(d.clone(), vec![]);
+
+            // Simple DFS cycle check
+            fn has_cycle_from(
+                node: &DependsOn,
+                adj: &HashMap<DependsOn, Vec<DependsOn>>,
+                visiting: &mut HashSet<DependsOn>,
+                visited: &mut HashSet<DependsOn>,
+            ) -> bool {
+                if visited.contains(node) {
+                    return false;
+                }
+                if visiting.contains(node) {
+                    return true; // cycle!
+                }
+                visiting.insert(node.clone());
+                if let Some(neighbors) = adj.get(node) {
+                    for n in neighbors {
+                        if has_cycle_from(n, adj, visiting, visited) {
+                            return true;
+                        }
+                    }
+                }
+                visiting.remove(node);
+                visited.insert(node.clone());
+                false
+            }
+
+            let mut visiting = HashSet::new();
+            let mut visited = HashSet::new();
+            assert!(
+                !has_cycle_from(&a, &adj, &mut visiting, &mut visited),
+                "diamond DAG must not have cycle"
+            );
+        }
+    }
+
+    // =========================================================================
+    // DependsOn: Self-referential rejection
+    // =========================================================================
+
+    mod depends_on_self_reference_tests {
+        use super::*;
+        use std::collections::HashSet;
+
+        #[test]
+        fn depends_on_self_reference_detectable_via_equality() {
+            // A DependsOn value equal to the bead's own ID signals self-reference
+            let bead_id = "bd-5e1f";
+            let dep = DependsOn::new(bead_id).expect("valid");
+            assert_eq!(dep.as_str(), bead_id, "self-reference is detectable by equality");
+        }
+
+        #[test]
+        fn depends_on_self_reference_rejected_by_aggregate() {
+            // Verify the pattern: Bead::add_dependency rejects self-IDs
+            // (tested at Bead level, but DependsOn enables it via Eq)
+            use crate::domain::bead::Bead;
+            use crate::domain::bead_value::{BeadId, BeadTitle};
+
+            let id = BeadId::new("bd-self2").expect("valid");
+            let title = BeadTitle::new("Self-ref test").expect("valid");
+            let bead = Bead::create(id, title, None);
+
+            let self_dep = BeadId::new("bd-self2").expect("valid");
+            let result = bead.add_dependency(self_dep);
+            assert!(
+                result.depends_on().is_empty(),
+                "self-referential dependency must be rejected"
+            );
+        }
+
+        #[test]
+        fn depends_on_self_reference_detectable_in_collection() {
+            let self_id = DependsOn::new("bd-5e13").expect("valid");
+            let mut deps: HashSet<DependsOn> = HashSet::new();
+            deps.insert(self_id.clone());
+
+            // Check if self is in the dependency set
+            assert!(deps.contains(&self_id), "self in dependency set is detectable");
+        }
+
+        #[test]
+        fn depends_on_self_ref_vs_different_dep() {
+            let self_dep = DependsOn::new("bd-aa").expect("valid");
+            let other_dep = DependsOn::new("bd-bb").expect("valid");
+            assert_ne!(self_dep, other_dep, "self-dep and other-dep are distinct");
+        }
+
+        #[test]
+        fn depends_on_self_reference_deduplication_pattern() {
+            // Pattern: adding self-reference multiple times still results in no deps
+            use crate::domain::bead::Bead;
+            use crate::domain::bead_value::{BeadId, BeadTitle};
+
+            let id = BeadId::new("bd-dedup").expect("valid");
+            let title = BeadTitle::new("Self-dedup").expect("valid");
+            let bead = Bead::create(id, title, None);
+
+            let self_id = BeadId::new("bd-dedup").expect("valid");
+            let result = bead
+                .add_dependency(self_id.clone())
+                .add_dependency(self_id);
+            assert!(
+                result.depends_on().is_empty(),
+                "repeated self-reference must still result in no deps"
+            );
+        }
+
+        #[test]
+        fn depends_on_self_blocker_rejected_by_aggregate() {
+            use crate::domain::bead::Bead;
+            use crate::domain::bead_value::{BeadId, BeadTitle};
+
+            let id = BeadId::new("bd-sblk").expect("valid");
+            let title = BeadTitle::new("Self-blocker").expect("valid");
+            let bead = Bead::create(id, title, None);
+
+            let self_blocker = BeadId::new("bd-sblk").expect("valid");
+            let result = bead.add_blocker(self_blocker);
+            assert!(
+                result.blocked_by().is_empty(),
+                "self-referential blocker must be rejected"
+            );
+        }
+    }
+
+    // =========================================================================
+    // DependsOn: Transitive dependency awareness
+    // =========================================================================
+
+    mod depends_on_transitive_tests {
+        use super::*;
+        use std::collections::{HashMap, HashSet};
+
+        #[test]
+        fn depends_on_linear_chain() {
+            // A -> B -> C -> D (linear transitive chain)
+            let a = DependsOn::new("bd-a").expect("valid");
+            let b = DependsOn::new("bd-b").expect("valid");
+            let c = DependsOn::new("bd-c").expect("valid");
+            let d = DependsOn::new("bd-d").expect("valid");
+
+            let mut adj: HashMap<DependsOn, Vec<DependsOn>> = HashMap::new();
+            adj.insert(a.clone(), vec![b.clone()]);
+            adj.insert(b.clone(), vec![c.clone()]);
+            adj.insert(c.clone(), vec![d.clone()]);
+            adj.insert(d.clone(), vec![]);
+
+            // Transitive closure from A should reach B, C, D
+            fn reachable_from(
+                start: &DependsOn,
+                adj: &HashMap<DependsOn, Vec<DependsOn>>,
+            ) -> HashSet<DependsOn> {
+                let mut visited = HashSet::new();
+                let mut stack = vec![start.clone()];
+                while let Some(node) = stack.pop() {
+                    if visited.insert(node.clone()) {
+                        if let Some(neighbors) = adj.get(&node) {
+                            for n in neighbors {
+                                stack.push(n.clone());
+                            }
+                        }
+                    }
+                }
+                visited
+            }
+
+            let reachable = reachable_from(&a, &adj);
+            assert!(reachable.contains(&b), "B is transitively reachable from A");
+            assert!(reachable.contains(&c), "C is transitively reachable from A");
+            assert!(reachable.contains(&d), "D is transitively reachable from A");
+            assert_eq!(reachable.len(), 4, "A, B, C, D all reachable");
+        }
+
+        #[test]
+        fn depends_on_diamond_transitive() {
+            // A -> B, A -> C, B -> D, C -> D (diamond)
+            let a = DependsOn::new("bd-a").expect("valid");
+            let b = DependsOn::new("bd-b").expect("valid");
+            let c = DependsOn::new("bd-c").expect("valid");
+            let d = DependsOn::new("bd-d").expect("valid");
+
+            let mut adj: HashMap<DependsOn, Vec<DependsOn>> = HashMap::new();
+            adj.insert(a.clone(), vec![b.clone(), c.clone()]);
+            adj.insert(b.clone(), vec![d.clone()]);
+            adj.insert(c.clone(), vec![d.clone()]);
+            adj.insert(d.clone(), vec![]);
+
+            // D should be reachable from A via both paths
+            let mut visited = HashSet::new();
+            let mut stack = vec![a.clone()];
+            while let Some(node) = stack.pop() {
+                if visited.insert(node.clone()) {
+                    if let Some(neighbors) = adj.get(&node) {
+                        for n in neighbors {
+                            stack.push(n.clone());
+                        }
+                    }
+                }
+            }
+            assert!(visited.contains(&d), "D reachable from A in diamond");
+            assert_eq!(visited.len(), 4);
+        }
+
+        #[test]
+        fn depends_on_transitive_cycle_detection() {
+            // A -> B -> C -> B (cycle involving B and C)
+            let a = DependsOn::new("bd-a").expect("valid");
+            let b = DependsOn::new("bd-b").expect("valid");
+            let c = DependsOn::new("bd-c").expect("valid");
+
+            let mut adj: HashMap<DependsOn, Vec<DependsOn>> = HashMap::new();
+            adj.insert(a.clone(), vec![b.clone()]);
+            adj.insert(b.clone(), vec![c.clone()]);
+            adj.insert(c.clone(), vec![b.clone()]); // cycle
+
+            // Three-color DFS
+            fn detect_cycle(
+                node: &DependsOn,
+                adj: &HashMap<DependsOn, Vec<DependsOn>>,
+                white: &mut HashSet<DependsOn>,
+                gray: &mut HashSet<DependsOn>,
+            ) -> bool {
+                if gray.contains(node) {
+                    return true;
+                }
+                if !white.contains(node) {
+                    return false;
+                }
+                white.remove(node);
+                gray.insert(node.clone());
+                if let Some(neighbors) = adj.get(node) {
+                    for n in neighbors {
+                        if detect_cycle(n, adj, white, gray) {
+                            return true;
+                        }
+                    }
+                }
+                gray.remove(node);
+                false
+            }
+
+            let all: HashSet<DependsOn> = [a.clone(), b.clone(), c.clone()].into_iter().collect();
+            let mut white = all;
+            let mut gray = HashSet::new();
+            assert!(
+                detect_cycle(&a, &adj, &mut white, &mut gray),
+                "transitive cycle B -> C -> B must be detected"
+            );
+        }
+
+        #[test]
+        fn depends_on_empty_deps_has_no_transitive() {
+            let a = DependsOn::new("bd-a").expect("valid");
+            let adj: HashMap<DependsOn, Vec<DependsOn>> = HashMap::new();
+            assert!(adj.get(&a).is_none(), "no deps means no transitive deps");
+        }
+
+        #[test]
+        fn depends_on_multiple_roots_converge() {
+            // A -> C, B -> C (two roots pointing to same target)
+            let a = DependsOn::new("bd-a").expect("valid");
+            let b = DependsOn::new("bd-b").expect("valid");
+            let c = DependsOn::new("bd-c").expect("valid");
+
+            let mut adj: HashMap<DependsOn, Vec<DependsOn>> = HashMap::new();
+            adj.insert(a.clone(), vec![c.clone()]);
+            adj.insert(b.clone(), vec![c.clone()]);
+            adj.insert(c.clone(), vec![]);
+
+            // C is reachable from both A and B
+            fn reachable_from(
+                start: &DependsOn,
+                adj: &HashMap<DependsOn, Vec<DependsOn>>,
+            ) -> HashSet<DependsOn> {
+                let mut visited = HashSet::new();
+                let mut stack = vec![start.clone()];
+                while let Some(node) = stack.pop() {
+                    if visited.insert(node.clone()) {
+                        if let Some(neighbors) = adj.get(&node) {
+                            for n in neighbors {
+                                stack.push(n.clone());
+                            }
+                        }
+                    }
+                }
+                visited
+            }
+
+            let from_a = reachable_from(&a, &adj);
+            let from_b = reachable_from(&b, &adj);
+            assert!(from_a.contains(&c));
+            assert!(from_b.contains(&c));
+        }
+    }
+
+    // =========================================================================
     // Proptests
     // =========================================================================
 
