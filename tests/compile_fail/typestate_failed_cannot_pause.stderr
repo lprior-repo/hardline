@@ -1,0 +1,9 @@
+error[E0599]: no method named `pause` found for struct `Session<scp_session::domain::entities::session::Failed>` in the current scope
+  --> compile_fail/typestate_failed_cannot_pause.rs:10:12
+   |
+10 |     failed.pause();
+   |            ^^^^^ method not found in `Session<scp_session::domain::entities::session::Failed>`
+   |
+   = note: the method was found for
+           - `Session<scp_session::domain::entities::session::Active>`
+           - `Session<scp_session::domain::entities::session::Synced>`

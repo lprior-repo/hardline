@@ -1,0 +1,7 @@
+error[E0432]: unresolved import `sqlx`
+ --> compile_fail/session_domain_no_sqlx.rs:2:5
+  |
+2 | use sqlx::SqlitePool;
+  |     ^^^^ use of unresolved module or unlinked crate `sqlx`
+  |
+  = help: if you wanted to use a crate named `sqlx`, use `cargo add sqlx` to add it to your `Cargo.toml`

@@ -1,0 +1,7 @@
+error[E0599]: no method named `sync` found for struct `Session` in the current scope
+ --> compile_fail/typestate_created_cannot_sync.rs:9:13
+  |
+9 |     session.sync();
+  |             ^^^^ method not found in `Session`
+  |
+  = note: the method was found for `Session<scp_session::domain::entities::session::Active>`
