@@ -280,6 +280,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_watcher_debounce_boundary_minimum_accepted() {
+        let config = WatchConfig {
+            enabled: crate::config::types::ValidatedBool::new(true),
+            debounce_ms: 10,
+            paths: vec![".beads/beads.db".to_string()],
+        };
+
+        let result = FileWatcher::watch_workspaces(&config, &[]);
+        assert!(
+            result.is_ok(),
+            "debounce_ms=10 should be accepted at minimum boundary"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_watcher_debounce_boundary_maximum_accepted() {
+        let config = WatchConfig {
+            enabled: crate::config::types::ValidatedBool::new(true),
+            debounce_ms: 5000,
+            paths: vec![".beads/beads.db".to_string()],
+        };
+
+        let result = FileWatcher::watch_workspaces(&config, &[]);
+        assert!(
+            result.is_ok(),
+            "debounce_ms=5000 should be accepted at maximum boundary"
+        );
+    }
+
+    #[test]
+    fn test_watcher_debounce_zero_rejected() {
+        let config = WatchConfig {
+            enabled: crate::config::types::ValidatedBool::new(true),
+            debounce_ms: 0,
+            paths: vec![".beads/beads.db".to_string()],
+        };
+
+        let result = FileWatcher::watch_workspaces(&config, &[]);
+        assert!(result.is_err());
+        if let Err(err) = result {
+            assert!(
+                err.to_string().contains("debounce_ms"),
+                "Zero debounce should be rejected, got: {err}"
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn test_query_beads_status_no_beads() -> Result<()> {
         let Ok(temp_dir) = TempDir::new() else {
             return Ok(());
