@@ -1,22 +1,36 @@
-//! Proptest invariants for SessionId and SessionName
+//! Proptest invariants for SessionId, SessionName, and AgentId
 //!
-//! 10 invariants:
+//! SessionId invariants (1-5):
 //! 1. SessionId roundtrip: any non-empty ASCII string parses and roundtrips
 //! 2. SessionId rejects all non-ASCII inputs
 //! 3. SessionId rejects empty string
 //! 4. SessionId Display matches as_str
 //! 5. SessionId equality: same input => equal; different => not equal
+//!
+//! SessionName invariants (6-10):
 //! 6. SessionName roundtrip: valid name chars parse and roundtrip
 //! 7. SessionName rejects names not starting with a letter
 //! 8. SessionName length boundary: ≤63 OK, >63 fails
 //! 9. SessionName rejects invalid characters
 //! 10. SessionName Display matches as_str
+//!
+//! AgentId invariants (11-20):
+//! 11. AgentId roundtrip: valid chars parse and roundtrip
+//! 12. AgentId rejects empty string
+//! 13. AgentId length boundary: 1-128 OK, >128 fails
+//! 14. AgentId rejects invalid characters
+//! 15. AgentId Display matches as_str
+//! 16. AgentId equality consistency
+//! 17. AgentId TryFrom matches parse
+//! 18. AgentId serde roundtrip
+//! 19. AgentId rejects whitespace/control chars
+//! 20. AgentId uniqueness: different inputs => not equal
 
 use proptest::prelude::*;
 use proptest::{prop_assert, prop_assert_eq};
 
 use crate::domain::identifiers::error::IdentifierError;
-use crate::domain::identifiers::{SessionId, SessionName};
+use crate::domain::identifiers::{AgentId, SessionId, SessionName};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Strategies
@@ -330,5 +344,192 @@ proptest! {
             "Expected Empty error, got: {:?}",
             result
         );
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AgentId Strategies
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Generate a valid agent ID string (1-128 valid chars)
+fn valid_agent_id_strategy() -> impl Strategy<Value = String> {
+    prop_oneof![
+        "[a-zA-Z0-9]{1,64}",
+        "[a-zA-Z0-9_-]{1,64}",
+        "[a-zA-Z0-9_.:]{1,64}",
+        "[a-zA-Z0-9][a-zA-Z0-9-_.:]{0,127}",
+        "[a-zA-Z0-9-_.:]{1,128}",
+    ]
+}
+
+/// Generate invalid agent ID strings (contain illegal chars)
+fn invalid_agent_id_strategy() -> impl Strategy<Value = String> {
+    prop_oneof![
+        "[a-zA-Z0-9]{1,10}[!@#$%][a-zA-Z0-9]{1,10}",
+        "[a-zA-Z0-9]{1,10} [a-zA-Z0-9]{1,10}",
+        Just("agent/123".to_string()),
+        Just("agent@host".to_string()),
+        Just("agent\0id".to_string()),
+        Just("agent\nid".to_string()),
+        Just("agent\tid".to_string()),
+    ]
+}
+
+/// Generate strings that are too long (>128 chars)
+fn too_long_agent_id_strategy() -> impl Strategy<Value = String> {
+    (129usize..=200usize).prop_flat_map(|len| {
+        let s: String = "a".repeat(len);
+        Just(s)
+    })
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AgentId Proptests
+// ═══════════════════════════════════════════════════════════════════════════
+
+proptest! {
+    /// Invariant 11: Valid agent ID strings parse and roundtrip
+    #[test]
+    fn proptest_agent_id_roundtrip(s in valid_agent_id_strategy()) {
+        let id = AgentId::parse(&s);
+        prop_assert!(id.is_ok(), "Valid string '{s}' should parse, got {:?}", id);
+        let parsed = id.expect("already checked");
+        prop_assert_eq!(parsed.as_str(), s);
+        // Double roundtrip
+        let again = AgentId::parse(parsed.as_str()).expect("roundtrip");
+        prop_assert_eq!(again.as_str(), parsed.as_str());
+    }
+
+    /// Invariant 12: Empty string always fails
+    #[test]
+    fn proptest_agent_id_rejects_empty(_s in "\\PC{0,0}") {
+        let result = AgentId::parse("");
+        prop_assert!(result.is_err());
+        prop_assert!(matches!(result, Err(IdentifierError::Empty)));
+    }
+
+    /// Invariant 13: Length boundary — 1-128 OK, >128 fails
+    #[test]
+    fn proptest_agent_id_length_boundary(n in 1usize..=128usize) {
+        let valid = "a".repeat(n);
+        let result = AgentId::parse(&valid);
+        prop_assert!(result.is_ok(), "AgentId of length {n} should be valid");
+    }
+
+    /// Invariant 13b: Over 128 chars always fails
+    #[test]
+    fn proptest_agent_id_too_long(s in too_long_agent_id_strategy()) {
+        let result = AgentId::parse(&s);
+        prop_assert!(result.is_err(), "AgentId of length {} should be rejected", s.len());
+        prop_assert!(
+            matches!(result, Err(IdentifierError::TooLong { max: 128, .. })),
+            "Expected TooLong error, got: {:?}",
+            result
+        );
+    }
+
+    /// Invariant 14: Invalid characters are always rejected
+    #[test]
+    fn proptest_agent_id_rejects_invalid_chars(s in invalid_agent_id_strategy()) {
+        let result = AgentId::parse(&s);
+        prop_assert!(
+            result.is_err(),
+            "String with invalid chars '{s}' should be rejected"
+        );
+    }
+
+    /// Invariant 15: Display output matches as_str
+    #[test]
+    fn proptest_agent_id_display_matches_as_str(s in valid_agent_id_strategy()) {
+        let id = AgentId::parse(&s).expect("valid");
+        let display = format!("{id}");
+        let as_str = id.as_str();
+        prop_assert!(display == as_str);
+        prop_assert!(display == s);
+    }
+
+    /// Invariant 16: Equality is consistent (reflexive, symmetric, transitive)
+    #[test]
+    fn proptest_agent_id_equality(a in valid_agent_id_strategy(), b in valid_agent_id_strategy()) {
+        let id_a = AgentId::parse(&a).expect("valid");
+        let id_b = AgentId::parse(&b).expect("valid");
+        let id_a2 = AgentId::parse(&a).expect("valid");
+
+        // Reflexive
+        prop_assert!(id_a == id_a);
+
+        // Symmetric
+        prop_assert_eq!(id_a == id_b, id_b == id_a);
+
+        // Same string => equal
+        prop_assert!(id_a == id_a2);
+
+        // Hash consistency: equal values => equal hashes
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let hash_val = |v: &AgentId| {
+            let mut h = DefaultHasher::new();
+            v.hash(&mut h);
+            h.finish()
+        };
+        prop_assert_eq!(hash_val(&id_a), hash_val(&id_a2));
+    }
+
+    /// Invariant 17: TryFrom<String> and TryFrom<&str> match parse()
+    #[test]
+    fn proptest_agent_id_try_from_consistency(s in valid_agent_id_strategy()) {
+        let via_parse = AgentId::parse(&s);
+        let via_try_from_string = <AgentId as TryFrom<String>>::try_from(s.clone());
+        let via_try_from_str = <AgentId as TryFrom<&str>>::try_from(s.as_str());
+        prop_assert_eq!(via_parse.is_ok(), via_try_from_string.is_ok());
+        prop_assert_eq!(via_parse.is_ok(), via_try_from_str.is_ok());
+        if let (Ok(ref p), Ok(ref t)) = (via_parse, via_try_from_string) {
+            prop_assert_eq!(p.as_str(), t.as_str());
+        }
+    }
+
+    /// Invariant 18: Serde roundtrip preserves value
+    #[test]
+    fn proptest_agent_id_serde_roundtrip(s in valid_agent_id_strategy()) {
+        let id = AgentId::parse(&s).expect("valid");
+        let json = serde_json::to_string(&id).expect("serialize");
+        let deserialized: AgentId = serde_json::from_str(&json).expect("deserialize");
+        prop_assert_eq!(id.as_str(), deserialized.as_str());
+    }
+
+    /// Invariant 19: Whitespace and control characters always rejected
+    #[test]
+    fn proptest_agent_id_rejects_whitespace(ctrl in any::<char>().prop_filter("control/whitespace", |c| {
+        c.is_control() || c.is_whitespace()
+    })) {
+        let s = format!("agent{ctrl}id");
+        let result = AgentId::parse(&s);
+        prop_assert!(result.is_err(), "Control/whitespace char should be rejected");
+    }
+
+    /// Invariant 20: Different inputs => different IDs
+    #[test]
+    fn proptest_agent_id_uniqueness(a in valid_agent_id_strategy(), b in valid_agent_id_strategy().prop_filter("different", |s| !s.is_empty())) {
+        if a != b {
+            let id_a = AgentId::parse(&a).expect("valid");
+            let id_b = AgentId::parse(&b).expect("valid");
+            prop_assert!(id_a != id_b, "Different inputs should produce different IDs");
+        }
+    }
+
+    /// AgentId into_string roundtrip
+    #[test]
+    fn proptest_agent_id_into_string_roundtrip(s in valid_agent_id_strategy()) {
+        let id = AgentId::parse(&s).expect("valid");
+        let inner = id.into_string();
+        prop_assert_eq!(inner, s);
+    }
+
+    /// AgentId AsRef<str> consistency
+    #[test]
+    fn proptest_agent_id_as_ref_consistency(s in valid_agent_id_strategy()) {
+        let id = AgentId::parse(&s).expect("valid");
+        let as_ref: &str = id.as_ref();
+        prop_assert_eq!(as_ref, s);
     }
 }
