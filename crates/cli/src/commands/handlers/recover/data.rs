@@ -518,9 +518,21 @@ mod tests {
         let json = serde_json::to_string(&issue).expect("serialize");
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse");
 
-        assert!(parsed.get("code").is_some(), "AI needs code for categorization");
-        assert!(parsed.get("severity").is_some(), "AI needs severity for prioritization");
-        assert!(parsed.get("fix_command").is_some(), "AI needs fix_command for automation");
-        assert!(parsed.get("fixed").is_some(), "AI needs fixed for status tracking");
+        assert!(
+            parsed.get("code").is_some(),
+            "AI needs code for categorization"
+        );
+        assert!(
+            parsed.get("severity").is_some(),
+            "AI needs severity for prioritization"
+        );
+        assert!(
+            parsed.get("fix_command").is_some(),
+            "AI needs fix_command for automation"
+        );
+        assert!(
+            parsed.get("fixed").is_some(),
+            "AI needs fixed for status tracking"
+        );
     }
 }
