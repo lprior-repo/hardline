@@ -16,3 +16,5 @@ sh_failed"}
 {"session_name":"undo-test-ws","commit_id":"","pre_merge_commit_id":"pre-merge-sha123","timestamp":1775670759,"pushed_to_remote":true,"status":"completed"}
 {"session_name":"session-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775678832,"pushed_to_remote":true,"status":"completed"}
 sh_failed"}
+{"session_name":"session-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775690837,"pushed_to_remote":true,"status":"completed"}
+{"session_name":"session-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775690851,"pushed_to_remote":true,"status":"completed"}
