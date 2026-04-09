@@ -490,3 +490,7 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod database_integration_tests;
+
