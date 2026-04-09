@@ -31,3 +31,9 @@ pub use data::{AgentId, TaskCommand};
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod integration_tests;
+
+#[cfg(test)]
+mod adversarial_tests;
