@@ -4,8 +4,11 @@
 
 use crate::commands::task_types::{Assignee, Task, TaskState};
 use scp_core::{
-    error_task::TaskErrorKind, lock::LockGuard, lock::LockManager, lock::LockType, Error,
-    Result as CoreResult,
+    error_task::{TaskError, TaskErrorKind},
+    lock::LockGuard,
+    lock::LockManager,
+    lock::LockType,
+    Error, Result as CoreResult,
 };
 
 /// Validate task exists
@@ -551,5 +554,425 @@ mod tests {
         let task = open_task("task-001");
         let result = validate_claimed_by_user(&task, "anyone");
         assert!(result.is_err());
+    }
+
+    // ---- Error Message Clarity Tests ----
+
+    #[test]
+    fn test_error_message_not_found_contains_task_id() {
+        let result = validate_task_exists(None, "missing-task-123");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("missing-task-123"),
+            "Error message should contain task ID"
+        );
+        assert!(
+            msg.to_lowercase().contains("not found"),
+            "Error message should indicate not found"
+        );
+    }
+
+    #[test]
+    fn test_error_message_already_claimed_contains_task_id_and_assignee() {
+        let task = claimed_task("task-001", "current-owner");
+        let result = validate_not_claimed_by_other(&task, "new-claimant");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("task-001"),
+            "Error message should contain task ID"
+        );
+        assert!(
+            msg.contains("current-owner"),
+            "Error message should contain current assignee"
+        );
+        assert!(
+            msg.to_lowercase().contains("claimed"),
+            "Error message should indicate claimed"
+        );
+    }
+
+    #[test]
+    fn test_error_message_not_claimed_contains_task_id() {
+        let task = open_task("task-001");
+        let result = validate_claimed_by_user(&task, "any-user");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("task-001"),
+            "Error message should contain task ID"
+        );
+        assert!(
+            msg.to_lowercase().contains("not claimed"),
+            "Error message should indicate not claimed"
+        );
+    }
+
+    #[test]
+    fn test_error_message_invalid_state_transition_contains_task_id_and_reason() {
+        let task = closed_task("task-001", "user");
+        let result = validate_not_closed(&task);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("task-001"),
+            "Error message should contain task ID"
+        );
+        assert!(
+            msg.to_lowercase().contains("closed") || msg.to_lowercase().contains("state"),
+            "Error message should mention closed/state"
+        );
+    }
+
+    #[test]
+    fn test_error_message_actionable_for_not_found() {
+        let result = validate_task_exists(None, "bead-42");
+        let err = result.unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("bead-42") && msg.to_lowercase().contains("not found"),
+            "Error should tell user which task was not found: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_error_message_actionable_for_already_claimed() {
+        let task = claimed_task("task-007", "alice");
+        let result = validate_not_claimed_by_other(&task, "bob");
+        let err = result.unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("task-007")
+                && msg.contains("alice")
+                && msg.to_lowercase().contains("claimed"),
+            "Error should identify task and current owner: {}",
+            msg
+        );
+    }
+
+    // ---- Error Exit Code Tests ----
+
+    #[test]
+    fn test_error_exit_code_not_found() {
+        let result = validate_task_exists(None, "task-x");
+        let err = result.unwrap_err();
+        if let Error::Task(te) = err {
+            assert_eq!(te.exit_code(), 60, "NotFound should have exit code 60");
+        } else {
+            panic!("Expected Task error");
+        }
+    }
+
+    #[test]
+    fn test_error_exit_code_already_claimed() {
+        let task = claimed_task("task-x", "owner");
+        let result = validate_not_claimed_by_other(&task, "other");
+        let err = result.unwrap_err();
+        if let Error::Task(te) = err {
+            assert_eq!(
+                te.exit_code(),
+                61,
+                "AlreadyClaimed should have exit code 61"
+            );
+        } else {
+            panic!("Expected Task error");
+        }
+    }
+
+    #[test]
+    fn test_error_exit_code_not_claimed() {
+        let task = open_task("task-x");
+        let result = validate_claimed_by_user(&task, "user");
+        let err = result.unwrap_err();
+        if let Error::Task(te) = err {
+            assert_eq!(te.exit_code(), 62, "NotClaimed should have exit code 62");
+        } else {
+            panic!("Expected Task error");
+        }
+    }
+
+    #[test]
+    fn test_error_exit_code_locked() {
+        let err = TaskErrorKind::Locked("task-x".to_string());
+        let task_err: Error = err.into();
+        if let Error::Task(te) = task_err {
+            assert_eq!(te.exit_code(), 63, "Locked should have exit code 63");
+        } else {
+            panic!("Expected Task error");
+        }
+    }
+
+    #[test]
+    fn test_error_exit_code_invalid_id() {
+        let result = TaskId::new("bad id!");
+        let err = result.unwrap_err();
+        if let Error::Task(te) = err {
+            assert_eq!(te.exit_code(), 64, "InvalidId should have exit code 64");
+        } else {
+            panic!("Expected Task error");
+        }
+    }
+
+    #[test]
+    fn test_error_exit_code_invalid_state_transition() {
+        let task = closed_task("task-x", "user");
+        let result = validate_not_closed(&task);
+        let err = result.unwrap_err();
+        if let Error::Task(te) = err {
+            assert_eq!(
+                te.exit_code(),
+                65,
+                "InvalidStateTransition should have exit code 65"
+            );
+        } else {
+            panic!("Expected Task error");
+        }
+    }
+
+    // ---- Immutability Tests ----
+
+    #[test]
+    fn test_transition_to_done_does_not_mutate_original() {
+        let task = in_progress_task("task-001", "user");
+        let original_state = task.state.clone();
+
+        let _result = transition_to_done(task);
+
+        assert!(
+            matches!(original_state, TaskState::InProgress),
+            "Original should be InProgress, immutable verification"
+        );
+    }
+
+    #[test]
+    fn test_transition_to_started_returns_new_instance() {
+        let task = in_progress_task("task-001", "user");
+        let original_updated_at = task.updated_at;
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        let result = transition_to_started(task);
+
+        assert!(
+            result.updated_at >= original_updated_at,
+            "New instance should have updated timestamp"
+        );
+    }
+
+    // ---- State Transition Edge Cases ----
+
+    #[test]
+    fn test_transition_to_claimed_on_already_claimed_same_user() {
+        let task = claimed_task("task-001", "alice");
+        let result = transition_to_claimed(task, "alice");
+        assert!(matches!(result.state, TaskState::InProgress));
+        assert_eq!(result.assignee.as_ref().map(|a| a.as_str()), Some("alice"));
+    }
+
+    #[test]
+    fn test_transition_to_yielded_from_open_task() {
+        let task = open_task("task-001");
+        let result = transition_to_yielded(task);
+        assert!(matches!(result.state, TaskState::Open));
+        assert!(result.assignee.is_none());
+    }
+
+    #[test]
+    fn test_transition_to_started_on_blocked_task() {
+        let mut task = in_progress_task("task-001", "user");
+        task.state = TaskState::Blocked;
+        let result = transition_to_started(task);
+        assert!(matches!(result.state, TaskState::InProgress));
+    }
+
+    #[test]
+    fn test_transition_to_started_on_deferred_task() {
+        let mut task = in_progress_task("task-001", "user");
+        task.state = TaskState::Deferred;
+        let result = transition_to_started(task);
+        assert!(matches!(result.state, TaskState::InProgress));
+    }
+
+    #[test]
+    fn test_transition_to_done_from_open_task() {
+        let task = open_task("task-001");
+        let result = transition_to_done(task);
+        assert!(matches!(result.state, TaskState::Closed { .. }));
+    }
+
+    #[test]
+    fn test_transition_to_done_from_blocked_task() {
+        let mut task = in_progress_task("task-001", "user");
+        task.state = TaskState::Blocked;
+        let result = transition_to_done(task);
+        assert!(matches!(result.state, TaskState::Closed { .. }));
+    }
+
+    // ---- TaskId Validation Edge Cases ----
+
+    #[test]
+    fn test_task_id_max_length_accepted() {
+        let long_id = "a".repeat(256);
+        let result = TaskId::new(&long_id);
+        assert!(result.is_ok(), "Long but valid ID should be accepted");
+    }
+
+    #[test]
+    fn test_task_id_with_only_dashes_and_underscores() {
+        let result = TaskId::new("---___---");
+        assert!(
+            result.is_ok(),
+            "ID with only dashes and underscores should be valid"
+        );
+    }
+
+    #[test]
+    fn test_task_id_unicode_rejected() {
+        let result = TaskId::new("task-你好");
+        assert!(result.is_err(), "Unicode characters should be rejected");
+    }
+
+    #[test]
+    fn test_task_id_newline_rejected() {
+        let result = TaskId::new("task\n001");
+        assert!(result.is_err(), "Newlines should be rejected");
+    }
+
+    #[test]
+    fn test_task_id_tab_rejected() {
+        let result = TaskId::new("task\t001");
+        assert!(result.is_err(), "Tabs should be rejected");
+    }
+
+    // ---- Cross-Validation Scenarios ----
+
+    #[test]
+    fn test_full_task_lifecycle_open_to_closed() {
+        let task = open_task("lifecycle-001");
+
+        let claimed = transition_to_claimed(task, "user");
+        assert!(matches!(claimed.state, TaskState::InProgress));
+        assert_eq!(claimed.assignee.as_ref().map(|a| a.as_str()), Some("user"));
+
+        let started = transition_to_started(claimed);
+        assert!(matches!(started.state, TaskState::InProgress));
+
+        let done = transition_to_done(started);
+        assert!(matches!(done.state, TaskState::Closed { .. }));
+
+        let closed_result = validate_not_closed(&done);
+        assert!(closed_result.is_err());
+    }
+
+    #[test]
+    fn test_yield_and_reclaim_workflow() {
+        let task = open_task("yield-001");
+
+        let claimed = transition_to_claimed(task, "alice");
+        assert!(validate_claimed_by_user(&claimed, "alice").is_ok());
+
+        let yielded = transition_to_yielded(claimed);
+        assert!(yielded.assignee.is_none());
+
+        let reclaimed = transition_to_claimed(yielded, "bob");
+        assert!(validate_claimed_by_user(&reclaimed, "bob").is_ok());
+    }
+
+    #[test]
+    fn test_validate_not_claimed_by_other_allows_unclaimed_task() {
+        let task = open_task("unclaimed-001");
+        let result = validate_not_claimed_by_other(&task, "anyone");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_not_claimed_by_other_allows_same_user() {
+        let task = claimed_task("same-user-001", "alice");
+        let result = validate_not_claimed_by_other(&task, "alice");
+        assert!(result.is_ok());
+    }
+
+    // ---- Transition Timestamp Tests ----
+
+    #[test]
+    fn test_transition_to_claimed_updates_timestamp() {
+        let task = open_task("ts-001");
+        let original = task.updated_at;
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        let result = transition_to_claimed(task, "user");
+
+        assert!(result.updated_at > original);
+    }
+
+    #[test]
+    fn test_transition_to_yielded_updates_timestamp() {
+        let task = claimed_task("ts-002", "user");
+        let original = task.updated_at;
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        let result = transition_to_yielded(task);
+
+        assert!(result.updated_at > original);
+    }
+
+    #[test]
+    fn test_transition_to_started_updates_timestamp() {
+        let task = claimed_task("ts-003", "user");
+        let original = task.updated_at;
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        let result = transition_to_started(task);
+
+        assert!(result.updated_at > original);
+    }
+
+    #[test]
+    fn test_transition_to_done_updates_timestamp() {
+        let task = in_progress_task("ts-004", "user");
+        let original = task.updated_at;
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        let result = transition_to_done(task);
+
+        assert!(result.updated_at > original);
+    }
+
+    // ---- Error Kind Matching Tests ----
+
+    #[test]
+    fn test_error_kind_kind_method() {
+        let task_err = TaskError::from(TaskErrorKind::NotFound("test".into()));
+        assert!(matches!(task_err.kind(), TaskErrorKind::NotFound(_)));
+    }
+
+    #[test]
+    fn test_error_kind_all_variants_have_exit_codes() {
+        let variants = vec![
+            TaskErrorKind::NotFound("x".into()),
+            TaskErrorKind::AlreadyClaimed("x".into(), "y".into()),
+            TaskErrorKind::NotClaimed("x".into()),
+            TaskErrorKind::Locked("x".into()),
+            TaskErrorKind::InvalidId("x".into()),
+            TaskErrorKind::InvalidStateTransition("x".into(), "y".into()),
+        ];
+
+        for variant in variants {
+            let err: Error = variant.into();
+            if let Error::Task(te) = err {
+                let code = te.exit_code();
+                assert!(
+                    code >= 60 && code <= 65,
+                    "Exit code should be in 60-65 range"
+                );
+            } else {
+                panic!("Should convert to Task error");
+            }
+        }
     }
 }
