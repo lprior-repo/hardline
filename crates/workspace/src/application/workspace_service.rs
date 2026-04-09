@@ -1587,4 +1587,417 @@ mod tests {
             }
         }
     }
+
+    // =============================================================================
+    // create_workspace exhaustive tests (ha-5ka)
+    // =============================================================================
+
+    mod create_workspace_exhaustive {
+        use super::*;
+        use crate::domain::entities::workspace::VcsType;
+
+        // ── Happy path ──────────────────────────────────────────────────────────
+
+        #[test]
+        fn create_workspace_happy_path_valid_name_and_path() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("test-workspace".into()).unwrap(),
+                WorkspacePath::new("/tmp/test-workspace".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.state, WorkspaceState::Initializing);
+            assert_eq!(ws.name.as_str(), "test-workspace");
+            assert!(ws.path.as_str().unwrap().contains("test-workspace"));
+        }
+
+        #[test]
+        fn create_workspace_produces_init_state() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("init-check".into()).unwrap(),
+                WorkspacePath::new("/tmp/init-check".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.state, WorkspaceState::Initializing);
+            assert!(!ws.is_active());
+            assert!(!ws.is_locked());
+            assert!(!ws.is_terminal());
+        }
+
+        #[test]
+        fn create_workspace_generates_unique_id() {
+            let ws1 = WorkspaceService::create_workspace(
+                WorkspaceName::new("unique-1".into()).unwrap(),
+                WorkspacePath::new("/tmp/unique-1".into()).unwrap(),
+            )
+            .unwrap();
+            let ws2 = WorkspaceService::create_workspace(
+                WorkspaceName::new("unique-2".into()).unwrap(),
+                WorkspacePath::new("/tmp/unique-2".into()).unwrap(),
+            )
+            .unwrap();
+            assert_ne!(ws1.id.as_str(), ws2.id.as_str());
+        }
+
+        #[test]
+        fn create_workspace_sets_created_at_and_updated_at_equal() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("timestamps".into()).unwrap(),
+                WorkspacePath::new("/tmp/timestamps".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.created_at, ws.updated_at);
+        }
+
+        #[test]
+        fn create_workspace_has_no_lock_holder() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("no-lock".into()).unwrap(),
+                WorkspacePath::new("/tmp/no-lock".into()).unwrap(),
+            )
+            .unwrap();
+            assert!(ws.lock_holder().is_none());
+        }
+
+        #[test]
+        fn create_workspace_has_default_config() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("config-check".into()).unwrap(),
+                WorkspacePath::new("/tmp/config-check".into()).unwrap(),
+            )
+            .unwrap();
+            let config = ws.config().expect("should have config");
+            assert_eq!(config.default_branch, "main");
+            assert!(config.auto_sync);
+        }
+
+        #[test]
+        fn create_workspace_preserves_name_exactly() {
+            let name_cases = vec!["simple", "with-dash", "with_underscore", "WithCaps123"];
+            for name in name_cases {
+                let ws = WorkspaceService::create_workspace(
+                    WorkspaceName::new(name.into()).unwrap(),
+                    WorkspacePath::new("/tmp/test".into()).unwrap(),
+                )
+                .unwrap();
+                assert_eq!(ws.name.as_str(), name);
+            }
+        }
+
+        #[test]
+        fn create_workspace_accepts_root_path() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("root-path".into()).unwrap(),
+                WorkspacePath::new("/".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.state, WorkspaceState::Initializing);
+        }
+
+        // ── Empty name rejection ─────────────────────────────────────────────────
+        // Note: WorkspaceService::create_workspace takes WorkspaceName directly,
+        // so invalid names fail at value object construction BEFORE calling the service.
+        // These tests verify the value object rejects empty names.
+
+        #[test]
+        fn workspace_name_empty_is_rejected() {
+            let name_result = WorkspaceName::new("".into());
+            assert!(name_result.is_err());
+            match name_result.err().unwrap() {
+                WorkspaceError::InvalidWorkspaceName(msg) => {
+                    assert!(msg.contains("empty"));
+                }
+                other => panic!("expected InvalidWorkspaceName, got {:?}", other),
+            }
+        }
+
+        // ── Name too long rejection ──────────────────────────────────────────────
+
+        #[test]
+        fn create_workspace_rejects_name_too_long() {
+            let long_name = "a".repeat(256);
+            let result = WorkspaceName::new(long_name.into());
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn create_workspace_accepts_name_at_max_length() {
+            let max_name = "a".repeat(255);
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new(max_name.into()).unwrap(),
+                WorkspacePath::new("/tmp/test".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.name.as_str().len(), 255);
+        }
+
+        // ── Name with invalid characters ────────────────────────────────────────
+
+        #[test]
+        fn create_workspace_rejects_name_with_space() {
+            let result = WorkspaceName::new("my workspace".into());
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn create_workspace_rejects_name_with_dot() {
+            let result = WorkspaceName::new("my.workspace".into());
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn create_workspace_rejects_name_with_slash() {
+            let result = WorkspaceName::new("my/workspace".into());
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn create_workspace_rejects_name_with_colon() {
+            let result = WorkspaceName::new("my:workspace".into());
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn create_workspace_rejects_name_with_backslash() {
+            let result = WorkspaceName::new("my\\workspace".into());
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn create_workspace_rejects_name_with_tab() {
+            let result = WorkspaceName::new("my\tworkspace".into());
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn create_workspace_rejects_name_with_newline() {
+            let result = WorkspaceName::new("my\nworkspace".into());
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn create_workspace_accepts_name_with_hyphen_and_underscore() {
+            let valid_names = vec![
+                "a-b",
+                "a_b",
+                "a-b-c",
+                "a_b_c",
+                "-leading",
+                "trailing-",
+                "_leading",
+                "trailing_",
+            ];
+            for name in valid_names {
+                let result = WorkspaceService::create_workspace(
+                    WorkspaceName::new(name.into()).unwrap(),
+                    WorkspacePath::new("/tmp/test".into()).unwrap(),
+                );
+                assert!(result.is_ok(), "should accept: {}", name);
+            }
+        }
+
+        // ── Empty path rejection ────────────────────────────────────────────────
+
+        #[test]
+        fn create_workspace_rejects_empty_path() {
+            let result = WorkspacePath::new("".into());
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn create_workspace_rejects_empty_path_error_type() {
+            let result = WorkspacePath::new("".into());
+            match result.err().unwrap() {
+                WorkspaceError::InvalidWorkspacePath(msg) => {
+                    assert!(msg.contains("empty"));
+                }
+                other => panic!("expected InvalidWorkspacePath, got {:?}", other),
+            }
+        }
+
+        // ── Path traversal behavior ────────────────────────────────────────────
+
+        #[test]
+        fn create_workspace_accepts_path_with_dot_segments() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("dot-path".into()).unwrap(),
+                WorkspacePath::new("/tmp/./subdir/../other".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.state, WorkspaceState::Initializing);
+        }
+
+        #[test]
+        fn create_workspace_accepts_relative_path() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("relative-path".into()).unwrap(),
+                WorkspacePath::new("relative/workspace".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.state, WorkspaceState::Initializing);
+            assert!(ws.path.as_path().is_absolute());
+        }
+
+        // ── Path existence note ────────────────────────────────────────────────
+        // WorkspacePath does NOT validate path existence - non-existent paths
+        // are accepted. This is by design: the path may not exist yet when
+        // the workspace is created, and will be validated at activation time.
+
+        #[test]
+        fn create_workspace_accepts_nonexistent_path() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("nonexistent".into()).unwrap(),
+                WorkspacePath::new("/tmp/this-path-does-not-exist-xyz123".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.state, WorkspaceState::Initializing);
+            assert!(!ws.path.exists());
+        }
+
+        // ── Multiple workspaces with same path (note: stateless service) ─────────
+        // The WorkspaceService::create_workspace is stateless and does NOT
+        // check for duplicate names or path conflicts. This check must be
+        // done at a higher application layer that manages workspace collections.
+
+        #[test]
+        fn create_workspace_allows_duplicate_names_different_ids() {
+            let ws1 = WorkspaceService::create_workspace(
+                WorkspaceName::new("same-name".into()).unwrap(),
+                WorkspacePath::new("/tmp/path-1".into()).unwrap(),
+            )
+            .unwrap();
+            let ws2 = WorkspaceService::create_workspace(
+                WorkspaceName::new("same-name".into()).unwrap(),
+                WorkspacePath::new("/tmp/path-2".into()).unwrap(),
+            )
+            .unwrap();
+            // Both succeed because the service is stateless
+            assert_ne!(ws1.id.as_str(), ws2.id.as_str());
+            assert_eq!(ws1.name.as_str(), ws2.name.as_str());
+        }
+
+        #[test]
+        fn create_workspace_allows_same_path_different_names() {
+            let ws1 = WorkspaceService::create_workspace(
+                WorkspaceName::new("name-1".into()).unwrap(),
+                WorkspacePath::new("/tmp/same-path".into()).unwrap(),
+            )
+            .unwrap();
+            let ws2 = WorkspaceService::create_workspace(
+                WorkspaceName::new("name-2".into()).unwrap(),
+                WorkspacePath::new("/tmp/same-path".into()).unwrap(),
+            )
+            .unwrap();
+            // Both succeed - path conflict detection is at repository level
+            assert_ne!(ws1.name.as_str(), ws2.name.as_str());
+        }
+
+        // ── Single character and edge case names ────────────────────────────────
+
+        #[test]
+        fn create_workspace_accepts_single_char_name() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("a".into()).unwrap(),
+                WorkspacePath::new("/tmp/test".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.name.as_str(), "a");
+        }
+
+        #[test]
+        fn create_workspace_accepts_numeric_name() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("12345".into()).unwrap(),
+                WorkspacePath::new("/tmp/test".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.name.as_str(), "12345");
+        }
+
+        // ── Timestamp behavior ─────────────────────────────────────────────────
+
+        #[test]
+        fn create_workspace_timestamps_are_chronological() {
+            let ws1 = WorkspaceService::create_workspace(
+                WorkspaceName::new("first".into()).unwrap(),
+                WorkspacePath::new("/tmp/first".into()).unwrap(),
+            )
+            .unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            let ws2 = WorkspaceService::create_workspace(
+                WorkspaceName::new("second".into()).unwrap(),
+                WorkspacePath::new("/tmp/second".into()).unwrap(),
+            )
+            .unwrap();
+            assert!(ws2.created_at >= ws1.created_at);
+        }
+
+        // ── Config preservation ───────────────────────────────────────────────
+
+        #[test]
+        fn create_workspace_config_has_git_vcs_type() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("vcs-check".into()).unwrap(),
+                WorkspacePath::new("/tmp/vcs-check".into()).unwrap(),
+            )
+            .unwrap();
+            let config = ws.config().expect("should have config");
+            assert_eq!(config.vcs_type, VcsType::Git);
+        }
+
+        // ── State machine integration ─────────────────────────────────────────
+
+        #[test]
+        fn create_workspace_state_can_be_activated() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("to-activate".into()).unwrap(),
+                WorkspacePath::new("/tmp/to-activate".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.state, WorkspaceState::Initializing);
+            let activated = WorkspaceService::initialize_workspace(ws).unwrap();
+            assert_eq!(activated.state, WorkspaceState::Active);
+        }
+
+        #[test]
+        fn create_workspace_state_can_be_deleted_directly() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("to-delete".into()).unwrap(),
+                WorkspacePath::new("/tmp/to-delete".into()).unwrap(),
+            )
+            .unwrap();
+            let deleted = WorkspaceService::delete_workspace(ws).unwrap();
+            assert_eq!(deleted.state, WorkspaceState::Deleted);
+        }
+
+        // ── ID generation uniqueness (batch) ──────────────────────────────────
+
+        #[test]
+        fn create_workspace_id_uniqueness_100_workspaces() {
+            let ids: std::collections::HashSet<String> = (0..100)
+                .map(|i| {
+                    WorkspaceService::create_workspace(
+                        WorkspaceName::new(format!("ws-{}", i)).unwrap(),
+                        WorkspacePath::new(format!("/tmp/ws-{}", i)).unwrap(),
+                    )
+                    .unwrap()
+                    .id
+                    .as_str()
+                    .to_string()
+                })
+                .collect();
+            assert_eq!(ids.len(), 100);
+        }
+
+        // ── Unicode names (allowed by WorkspaceName) ────────────────────────────
+
+        #[test]
+        fn create_workspace_accepts_unicode_letters_in_name() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("ワークスペース".into()).unwrap(),
+                WorkspacePath::new("/tmp/unicode".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.name.as_str(), "ワークスペース");
+        }
+    }
 }
