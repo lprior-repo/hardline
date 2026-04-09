@@ -1502,6 +1502,7 @@ mod tests {
     }
 
     // --- Exhaustive initialize_workspace tests (ha-o0o) ---
+    // --- Exhaustive initialize_workspace tests (ha-o0o) ---
 
     mod initialize_workspace_exhaustive {
         use super::*;
@@ -1919,6 +1920,379 @@ mod tests {
             let ids: std::collections::HashSet<&str> =
                 initialized.iter().map(|w| w.id.as_str()).collect();
             assert_eq!(ids.len(), 10, "all workspace IDs must be unique");
+        }
+    }
+
+    // --- Exhaustive lock_workspace tests (ha-da9) ---
+
+    mod lock_workspace_exhaustive {
+        use super::*;
+
+        fn make_active(name: &str) -> Workspace {
+            WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .and_then(WorkspaceService::initialize_workspace)
+            .unwrap()
+        }
+
+        fn make_locked(name: &str, holder: &str) -> Workspace {
+            WorkspaceService::lock_workspace(make_active(name), holder.into()).unwrap()
+        }
+
+        fn make_initializing(name: &str) -> Workspace {
+            WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .unwrap()
+        }
+
+        fn make_corrupted(name: &str) -> Workspace {
+            let ws = make_active(name);
+            Workspace {
+                state: WorkspaceState::Corrupted,
+                ..ws
+            }
+        }
+
+        fn make_deleted(name: &str) -> Workspace {
+            let ws = make_active(name);
+            Workspace {
+                state: WorkspaceState::Deleted,
+                ..ws
+            }
+        }
+
+        // ── Happy path: Active → Locked ──
+
+        #[test]
+        fn lock_happy_path_transitions_active_to_locked() {
+            let active = make_active("lock-happy");
+            let locked = WorkspaceService::lock_workspace(active, "agent-1".into()).unwrap();
+            assert_eq!(locked.state, WorkspaceState::Locked);
+            assert!(locked.is_locked());
+        }
+
+        #[test]
+        fn lock_happy_path_records_lock_holder() {
+            let active = make_active("lock-holder-rec");
+            let locked = WorkspaceService::lock_workspace(active, "agent-42".into()).unwrap();
+            assert_eq!(locked.lock_holder(), Some("agent-42"));
+        }
+
+        #[test]
+        fn lock_happy_path_preserves_workspace_id() {
+            let active = make_active("lock-id");
+            let id_before = active.id.as_str().to_string();
+            let locked = WorkspaceService::lock_workspace(active, "agent".into()).unwrap();
+            assert_eq!(locked.id.as_str(), id_before);
+        }
+
+        #[test]
+        fn lock_happy_path_preserves_workspace_name() {
+            let active = make_active("lock-name");
+            let locked = WorkspaceService::lock_workspace(active, "agent".into()).unwrap();
+            assert_eq!(locked.name.as_str(), "lock-name");
+        }
+
+        #[test]
+        fn lock_happy_path_preserves_workspace_path() {
+            let active = make_active("lock-path");
+            let locked = WorkspaceService::lock_workspace(active, "agent".into()).unwrap();
+            assert_eq!(locked.path.as_str(), Some("/tmp/lock-path"));
+        }
+
+        #[test]
+        fn lock_happy_path_preserves_config() {
+            let active = make_active("lock-cfg");
+            let locked = WorkspaceService::lock_workspace(active, "agent".into()).unwrap();
+            let config = locked.config().expect("config should be present");
+            assert_eq!(config.default_branch, "main");
+            assert!(config.auto_sync);
+        }
+
+        #[test]
+        fn lock_happy_path_updates_updated_at() {
+            let active = make_active("lock-ts");
+            let ts_before = active.updated_at();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            let locked = WorkspaceService::lock_workspace(active, "agent".into()).unwrap();
+            assert!(locked.updated_at() >= ts_before);
+        }
+
+        // ── Already locked: re-lock behavior ──
+
+        #[test]
+        fn lock_on_already_locked_succeeds_with_new_holder() {
+            let locked = make_locked("relock", "agent-1");
+            let relocked = WorkspaceService::lock_workspace(locked, "agent-2".into()).unwrap();
+            assert_eq!(relocked.state, WorkspaceState::Locked);
+            assert!(relocked.is_locked());
+        }
+
+        #[test]
+        fn lock_on_already_locked_overwrites_holder() {
+            let locked = make_locked("relock-holder", "agent-original");
+            let relocked = WorkspaceService::lock_workspace(locked, "agent-new".into()).unwrap();
+            assert_eq!(relocked.lock_holder(), Some("agent-new"));
+        }
+
+        #[test]
+        fn lock_on_already_locked_preserves_id() {
+            let locked = make_locked("relock-id", "a1");
+            let id_before = locked.id.as_str().to_string();
+            let relocked = WorkspaceService::lock_workspace(locked, "a2".into()).unwrap();
+            assert_eq!(relocked.id.as_str(), id_before);
+        }
+
+        #[test]
+        fn lock_on_already_locked_preserves_name() {
+            let locked = make_locked("relock-name", "a1");
+            let relocked = WorkspaceService::lock_workspace(locked, "a2".into()).unwrap();
+            assert_eq!(relocked.name.as_str(), "relock-name");
+        }
+
+        // ── Lock by different holder ──
+
+        #[test]
+        fn lock_by_different_holder_replaces_original_holder() {
+            let active = make_active("diff-holder");
+            let locked1 = WorkspaceService::lock_workspace(active, "holder-A".into()).unwrap();
+            assert_eq!(locked1.lock_holder(), Some("holder-A"));
+
+            let locked2 = WorkspaceService::lock_workspace(locked1, "holder-B".into()).unwrap();
+            assert_eq!(locked2.lock_holder(), Some("holder-B"));
+        }
+
+        #[test]
+        fn lock_by_different_holder_does_not_preserve_original() {
+            let locked = make_locked("no-original", "first");
+            let relocked = WorkspaceService::lock_workspace(locked, "second".into()).unwrap();
+            assert_ne!(relocked.lock_holder(), Some("first"));
+            assert_eq!(relocked.lock_holder(), Some("second"));
+        }
+
+        #[test]
+        fn lock_by_same_holder_is_idempotent() {
+            let locked = make_locked("same-holder", "agent-X");
+            let relocked = WorkspaceService::lock_workspace(locked, "agent-X".into()).unwrap();
+            assert_eq!(relocked.lock_holder(), Some("agent-X"));
+            assert_eq!(relocked.state, WorkspaceState::Locked);
+        }
+
+        // ── Lock on non-Active workspace states ──
+
+        #[test]
+        fn lock_on_initializing_succeeds_and_sets_locked() {
+            let initializing = make_initializing("lock-init");
+            let locked =
+                WorkspaceService::lock_workspace(initializing, "agent-init".into()).unwrap();
+            assert_eq!(locked.state, WorkspaceState::Locked);
+            assert_eq!(locked.lock_holder(), Some("agent-init"));
+        }
+
+        #[test]
+        fn lock_on_corrupted_succeeds_and_sets_locked() {
+            let corrupted = make_corrupted("lock-corrupt");
+            let locked =
+                WorkspaceService::lock_workspace(corrupted, "agent-corrupt".into()).unwrap();
+            assert_eq!(locked.state, WorkspaceState::Locked);
+            assert_eq!(locked.lock_holder(), Some("agent-corrupt"));
+        }
+
+        #[test]
+        fn lock_on_deleted_succeeds_and_sets_locked() {
+            let deleted = make_deleted("lock-deleted");
+            let locked = WorkspaceService::lock_workspace(deleted, "agent-del".into()).unwrap();
+            assert_eq!(locked.state, WorkspaceState::Locked);
+            assert_eq!(locked.lock_holder(), Some("agent-del"));
+        }
+
+        #[test]
+        fn lock_on_corrupted_preserves_identity() {
+            let corrupted = make_corrupted("lock-corrupt-id");
+            let id_before = corrupted.id.as_str().to_string();
+            let locked = WorkspaceService::lock_workspace(corrupted, "agent".into()).unwrap();
+            assert_eq!(locked.id.as_str(), id_before);
+        }
+
+        #[test]
+        fn lock_on_deleted_preserves_identity() {
+            let deleted = make_deleted("lock-del-id");
+            let id_before = deleted.id.as_str().to_string();
+            let locked = WorkspaceService::lock_workspace(deleted, "agent".into()).unwrap();
+            assert_eq!(locked.id.as_str(), id_before);
+        }
+
+        // ── Lock holder identity preserved across queries ──
+
+        #[test]
+        fn lock_holder_visible_in_get_locked_workspaces() {
+            let locked = make_locked("query-holder", "agent-query");
+            let all = vec![locked];
+            let locked_list = WorkspaceService::get_locked_workspaces(&all);
+            assert_eq!(locked_list.len(), 1);
+            assert_eq!(locked_list[0].lock_holder(), Some("agent-query"));
+        }
+
+        #[test]
+        fn lock_holder_visible_in_find_workspace() {
+            let locked = make_locked("find-holder", "agent-find");
+            let id = locked.id.as_str().to_string();
+            let all = vec![locked];
+            let found = WorkspaceService::find_workspace(&all, &WorkspaceId::parse(id).unwrap());
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().lock_holder(), Some("agent-find"));
+        }
+
+        #[test]
+        fn lock_holder_visible_in_find_by_name() {
+            let locked = make_locked("find-name-holder", "agent-name");
+            let all = vec![locked.clone()];
+            let found = WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("find-name-holder".into()).unwrap(),
+            );
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().lock_holder(), Some("agent-name"));
+        }
+
+        #[test]
+        fn multiple_locked_workspaces_each_retain_their_holder() {
+            let locked1 = make_locked("multi-1", "holder-alpha");
+            let locked2 = make_locked("multi-2", "holder-beta");
+            let locked3 = make_locked("multi-3", "holder-gamma");
+            let all = vec![locked1, locked2, locked3];
+            let locked_list = WorkspaceService::get_locked_workspaces(&all);
+            assert_eq!(locked_list.len(), 3);
+            let holders: Vec<Option<&str>> = locked_list.iter().map(|w| w.lock_holder()).collect();
+            assert!(holders.contains(&Some("holder-alpha")));
+            assert!(holders.contains(&Some("holder-beta")));
+            assert!(holders.contains(&Some("holder-gamma")));
+        }
+
+        #[test]
+        fn lock_holder_cleared_after_unlock() {
+            let locked = make_locked("unlock-clear", "agent-clear");
+            assert_eq!(locked.lock_holder(), Some("agent-clear"));
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert!(unlocked.lock_holder().is_none());
+            assert!(unlocked.is_active());
+        }
+
+        // ── Lock holder with various string values ──
+
+        #[test]
+        fn lock_with_empty_string_holder() {
+            let active = make_active("lock-empty");
+            let locked = WorkspaceService::lock_workspace(active, "".into()).unwrap();
+            assert_eq!(locked.lock_holder(), Some(""));
+        }
+
+        #[test]
+        fn lock_with_long_holder_name() {
+            let active = make_active("lock-long");
+            let long_holder = "a".repeat(1000);
+            let expected = long_holder.clone();
+            let locked = WorkspaceService::lock_workspace(active, long_holder).unwrap();
+            assert_eq!(locked.lock_holder(), Some(expected.as_str()));
+        }
+
+        #[test]
+        fn lock_with_special_chars_holder() {
+            let active = make_active("lock-special");
+            let holder = "agent-🎉/子@#$%";
+            let locked = WorkspaceService::lock_workspace(active, holder.into()).unwrap();
+            assert_eq!(locked.lock_holder(), Some("agent-🎉/子@#$%"));
+        }
+
+        #[test]
+        fn lock_with_whitespace_holder() {
+            let active = make_active("lock-ws");
+            let locked = WorkspaceService::lock_workspace(active, "  spaces  ".into()).unwrap();
+            assert_eq!(locked.lock_holder(), Some("  spaces  "));
+        }
+
+        // ── Lock/unlock roundtrip ──
+
+        #[test]
+        fn lock_then_unlock_returns_to_active() {
+            let active = make_active("roundtrip");
+            let locked = WorkspaceService::lock_workspace(active, "agent-rt".into()).unwrap();
+            assert!(locked.is_locked());
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert!(unlocked.is_active());
+            assert!(unlocked.lock_holder().is_none());
+        }
+
+        #[test]
+        fn lock_unlock_relock_preserves_latest_holder() {
+            let active = make_active("relock-cycle");
+            let locked1 = WorkspaceService::lock_workspace(active, "first".into()).unwrap();
+            let unlocked = WorkspaceService::unlock_workspace(locked1).unwrap();
+            let locked2 = WorkspaceService::lock_workspace(unlocked, "second".into()).unwrap();
+            assert_eq!(locked2.lock_holder(), Some("second"));
+        }
+
+        // ── Lock preserves created_at ──
+
+        #[test]
+        fn lock_preserves_created_at() {
+            let active = make_active("lock-created");
+            let created_at = active.created_at();
+            let locked = WorkspaceService::lock_workspace(active, "agent".into()).unwrap();
+            assert_eq!(locked.created_at(), created_at);
+        }
+
+        // ── Lock after recover ──
+
+        #[test]
+        fn lock_after_recover_succeeds() {
+            let locked = make_locked("lock-recover", "agent-old");
+            let recovered = WorkspaceService::recover_workspace(locked).unwrap();
+            assert!(recovered.is_active());
+            let relocked = WorkspaceService::lock_workspace(recovered, "agent-new".into()).unwrap();
+            assert!(relocked.is_locked());
+            assert_eq!(relocked.lock_holder(), Some("agent-new"));
+        }
+
+        // ── Exhaustive state matrix: lock from every state ──
+
+        #[test]
+        fn lock_from_every_state_succeeds() {
+            let states: Vec<(&str, Workspace)> = vec![
+                ("Initializing", make_initializing("matrix-init")),
+                ("Active", make_active("matrix-active")),
+                ("Locked", make_locked("matrix-locked", "original")),
+                ("Corrupted", make_corrupted("matrix-corrupt")),
+                ("Deleted", make_deleted("matrix-deleted")),
+            ];
+
+            for (label, ws) in states {
+                let result =
+                    WorkspaceService::lock_workspace(ws, format!("holder-{}", label).into());
+                assert!(
+                    result.is_ok(),
+                    "lock_workspace should succeed from state {}",
+                    label
+                );
+                let locked = result.unwrap();
+                assert_eq!(
+                    locked.state,
+                    WorkspaceState::Locked,
+                    "state after lock from {} should be Locked",
+                    label
+                );
+                let expected_holder = format!("holder-{}", label);
+                assert_eq!(
+                    locked.lock_holder(),
+                    Some(expected_holder.as_str()),
+                    "lock holder should be set when locking from {}",
+                    label
+                );
+            }
         }
     }
 
