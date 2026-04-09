@@ -27,9 +27,10 @@ fn test_cli_end_to_end() {
     assert!(output.status.success(), "scp --help failed: {:?}", output);
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Usage:"));
-
-    // Assuming the full system wiring requires initializing some state or running a specific command.
-    // E.g. scp init, or similar. We wire up persistence + orchestrator + queue.
-    // Without knowing the exact subcommands, we can run a dummy or known command.
-    // For now, let's just test that the binary executes and returns success.
 }
+
+// Re-export all test modules
+pub mod cli;
+pub mod lock_integration;
+pub mod red_queen_adversarial;
+pub mod workspace_switch_tests;
