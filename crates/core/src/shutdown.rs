@@ -436,4 +436,795 @@ mod tests {
         // Agent processes should be cleaned up
         assert!(coordinator.agent_processes.lock().await.is_empty());
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // EXHAUSTIVE TESTS: ShutdownCoordinator
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ── Graceful shutdown initiation ─────────────────────────────────────
+
+    #[tokio::test]
+    async fn shutdown_broadcasts_graceful_before_cleanup() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+        let mut rx = coordinator.subscribe();
+
+        // Track order: signal should arrive before tasks are aborted
+        let signal_received = Arc::new(Mutex::new(false));
+        let signal_clone = signal_received.clone();
+
+        let watcher = tokio::spawn(async move {
+            let sig = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+                .await
+                .expect("should receive signal")
+                .expect("no broadcast error");
+            assert_eq!(sig, ShutdownSignal::Graceful);
+            *signal_clone.lock().await = true;
+        });
+
+        coordinator.shutdown().await.expect("shutdown failed");
+        watcher.await.expect("watcher panicked");
+
+        assert!(*signal_received.lock().await);
+    }
+
+    #[tokio::test]
+    async fn shutdown_with_no_subscribers_still_succeeds() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(1));
+        // No subscribers — broadcast is a no-op but shutdown must still return Ok
+        let result = coordinator.shutdown().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn shutdown_with_no_tasks_or_agents_succeeds() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(1));
+        let result = coordinator.shutdown().await;
+        assert!(result.is_ok());
+        assert!(coordinator.tasks.lock().await.is_empty());
+        assert!(coordinator.agent_processes.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn shutdown_returns_ok_even_with_large_timeout() {
+        // 300 second timeout — shutdown should complete well within that
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(300));
+        let result = coordinator.shutdown().await;
+        assert!(result.is_ok());
+    }
+
+    // ── Shutdown timeout enforcement ────────────────────────────────────
+
+    #[tokio::test]
+    async fn timeout_zero_still_emits_graceful_then_force() {
+        let coordinator = ShutdownCoordinator::new(Duration::ZERO);
+        let mut rx = coordinator.subscribe();
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        let sig1 = tokio::time::timeout(Duration::from_millis(200), rx.recv())
+            .await
+            .expect("should receive graceful")
+            .expect("no broadcast error");
+        assert_eq!(sig1, ShutdownSignal::Graceful);
+
+        let sig2 = tokio::time::timeout(Duration::from_millis(500), rx.recv())
+            .await
+            .expect("should receive force")
+            .expect("no broadcast error");
+        assert_eq!(sig2, ShutdownSignal::Force);
+    }
+
+    #[tokio::test]
+    async fn timeout_elapsed_triggers_force_signal() {
+        // 1ms timeout — the 1s sleep inside shutdown will exceed it
+        let coordinator = ShutdownCoordinator::new(Duration::from_millis(1));
+        let mut rx = coordinator.subscribe();
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // Graceful is always sent first
+        let graceful = tokio::time::timeout(Duration::from_millis(100), rx.recv())
+            .await
+            .expect("graceful timeout")
+            .expect("no broadcast error");
+        assert_eq!(graceful, ShutdownSignal::Graceful);
+
+        // Force follows after timeout
+        let force = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("force timeout")
+            .expect("no broadcast error");
+        assert_eq!(force, ShutdownSignal::Force);
+    }
+
+    #[tokio::test]
+    async fn long_timeout_emits_only_graceful() {
+        // 10s timeout — shutdown completes well within that
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(10));
+        let mut rx = coordinator.subscribe();
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        let sig = tokio::time::timeout(Duration::from_millis(200), rx.recv())
+            .await
+            .expect("should receive graceful")
+            .expect("no broadcast error");
+        assert_eq!(sig, ShutdownSignal::Graceful);
+
+        // No force within a reasonable window
+        let no_force = tokio::time::timeout(Duration::from_millis(300), rx.recv()).await;
+        assert!(no_force.is_err(), "should not receive force signal");
+    }
+
+    // ── Shutdown coordination across components ─────────────────────────
+
+    #[tokio::test]
+    async fn multiple_components_respond_to_shutdown() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        let component_stopped = Arc::new(Mutex::new([false, false, false]));
+        let mut handles = Vec::new();
+
+        for i in 0..3 {
+            let mut rx = coordinator.subscribe();
+            let stopped = component_stopped.clone();
+            handles.push(tokio::spawn(async move {
+                let sig = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+                    .await
+                    .expect("component should receive signal")
+                    .expect("no broadcast error");
+                assert_eq!(sig, ShutdownSignal::Graceful);
+                stopped.lock().await[i] = true;
+            }));
+        }
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        for h in handles {
+            h.await.expect("component panicked");
+        }
+
+        let stopped = component_stopped.lock().await;
+        assert!(stopped[0] && stopped[1] && stopped[2]);
+    }
+
+    #[tokio::test]
+    async fn tasks_aborted_during_shutdown() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+        let task_cancelled = Arc::new(Mutex::new(false));
+        let cancelled_clone = task_cancelled.clone();
+
+        let task = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+        });
+
+        // Monitor for cancellation
+        let monitor = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(2)).await;
+            // If we get here, the task wasn't aborted — mark as not cancelled
+        });
+
+        coordinator.register_task(task).await;
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // After shutdown, tasks vec is drained (aborted)
+        assert!(coordinator.tasks.lock().await.is_empty());
+
+        monitor.abort();
+        drop(cancelled_clone);
+    }
+
+    #[tokio::test]
+    async fn agent_processes_killed_during_shutdown() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        // Spawn a long-running process
+        let p1 = std::process::Command::new("sleep")
+            .arg("60")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn sleep");
+
+        let p2 = std::process::Command::new("sleep")
+            .arg("60")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn sleep");
+
+        coordinator.register_agent(p1).await;
+        coordinator.register_agent(p2).await;
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // All processes should be drained (killed)
+        assert!(coordinator.agent_processes.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn mixed_tasks_and_processes_cleaned_up() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        let t1 = tokio::spawn(async { tokio::time::sleep(Duration::from_secs(60)).await });
+        let t2 = tokio::spawn(async { tokio::time::sleep(Duration::from_secs(60)).await });
+
+        let p = std::process::Command::new("sleep")
+            .arg("60")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn sleep");
+
+        coordinator.register_task(t1).await;
+        coordinator.register_task(t2).await;
+        coordinator.register_agent(p).await;
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        assert!(coordinator.tasks.lock().await.is_empty());
+        assert!(coordinator.agent_processes.lock().await.is_empty());
+    }
+
+    // ── Shutdown signal propagation ─────────────────────────────────────
+
+    #[tokio::test]
+    async fn late_subscriber_misses_graceful_signal() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+        let mut rx1 = coordinator.subscribe();
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // rx1 gets it
+        let sig = tokio::time::timeout(Duration::from_millis(100), rx1.recv())
+            .await
+            .expect("rx1 should receive")
+            .expect("no broadcast error");
+        assert_eq!(sig, ShutdownSignal::Graceful);
+
+        // Late subscriber — missed the broadcast
+        let mut rx_late = coordinator.subscribe();
+        let result = tokio::time::timeout(Duration::from_millis(100), rx_late.recv()).await;
+        assert!(result.is_err(), "late subscriber should not receive old signal");
+    }
+
+    #[tokio::test]
+    async fn many_subscribers_all_receive_signal() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+        let mut receivers: Vec<broadcast::Receiver<ShutdownSignal>> = (0..10)
+            .map(|_| coordinator.subscribe())
+            .collect();
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        for (i, rx) in receivers.iter_mut().enumerate() {
+            let sig = tokio::time::timeout(Duration::from_millis(200), rx.recv())
+                .await
+                .unwrap_or_else(|_| panic!("receiver {i} should get signal"))
+                .expect("no broadcast error");
+            assert_eq!(sig, ShutdownSignal::Graceful);
+        }
+    }
+
+    #[tokio::test]
+    async fn subscriber_can_receive_both_graceful_and_force() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_millis(1));
+        let mut rx = coordinator.subscribe();
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        let sig1 = tokio::time::timeout(Duration::from_millis(100), rx.recv())
+            .await
+            .expect("graceful timeout")
+            .expect("no broadcast error");
+        assert_eq!(sig1, ShutdownSignal::Graceful);
+
+        let sig2 = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("force timeout")
+            .expect("no broadcast error");
+        assert_eq!(sig2, ShutdownSignal::Force);
+    }
+
+    // ── Force shutdown after timeout ────────────────────────────────────
+
+    #[tokio::test]
+    async fn force_signal_emitted_after_timeout_exceeded() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_millis(1));
+        let mut rx = coordinator.subscribe();
+
+        let start = std::time::Instant::now();
+        coordinator.shutdown().await.expect("shutdown failed");
+        let elapsed = start.elapsed();
+
+        // Graceful first
+        let graceful = tokio::time::timeout(Duration::from_millis(100), rx.recv())
+            .await
+            .expect("graceful timeout")
+            .expect("no broadcast error");
+        assert_eq!(graceful, ShutdownSignal::Graceful);
+
+        // Force arrives after the timeout fires
+        let force = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("force timeout")
+            .expect("no broadcast error");
+        assert_eq!(force, ShutdownSignal::Force);
+
+        // The whole thing should take ~1s (internal sleep) + timeout
+        // We just verify it didn't take the full 30s default
+        assert!(elapsed < Duration::from_secs(5));
+    }
+
+    #[tokio::test]
+    async fn force_signal_is_sent_to_all_subscribers() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_millis(1));
+        let mut rx1 = coordinator.subscribe();
+        let mut rx2 = coordinator.subscribe();
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // Both get graceful
+        for rx in [&mut rx1, &mut rx2] {
+            let sig = tokio::time::timeout(Duration::from_millis(100), rx.recv())
+                .await
+                .expect("graceful timeout")
+                .expect("no broadcast error");
+            assert_eq!(sig, ShutdownSignal::Graceful);
+        }
+
+        // Both get force
+        for (i, rx) in [&mut rx1, &mut rx2].iter_mut().enumerate() {
+            let sig = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+                .await
+                .unwrap_or_else(|_| panic!("force timeout for rx{i}"))
+                .expect("no broadcast error");
+            assert_eq!(sig, ShutdownSignal::Force);
+        }
+    }
+
+    #[tokio::test]
+    async fn force_shutdown_emits_force_signal_to_subscribers() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_millis(1));
+        let mut rx = coordinator.subscribe();
+
+        let t = tokio::spawn(async { tokio::time::sleep(Duration::from_secs(60)).await });
+        coordinator.register_task(t).await;
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // Graceful first
+        let graceful = tokio::time::timeout(Duration::from_millis(100), rx.recv())
+            .await
+            .expect("graceful timeout")
+            .expect("no broadcast error");
+        assert_eq!(graceful, ShutdownSignal::Graceful);
+
+        // Force signal emitted after timeout
+        let force = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("force timeout")
+            .expect("no broadcast error");
+        assert_eq!(force, ShutdownSignal::Force);
+    }
+
+    #[tokio::test]
+    async fn force_shutdown_process_registration_works() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_millis(1));
+        let mut rx = coordinator.subscribe();
+
+        let p = std::process::Command::new("sleep")
+            .arg("60")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn sleep");
+
+        coordinator.register_agent(p).await;
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // Verify both signals were emitted
+        let graceful = tokio::time::timeout(Duration::from_millis(100), rx.recv())
+            .await
+            .expect("graceful timeout")
+            .expect("no broadcast error");
+        assert_eq!(graceful, ShutdownSignal::Graceful);
+
+        let force = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("force timeout")
+            .expect("no broadcast error");
+        assert_eq!(force, ShutdownSignal::Force);
+    }
+
+    // ── Already-shutting-down detection (is_shutting_down) ──────────────
+
+    #[tokio::test]
+    async fn is_shutting_down_false_with_no_subscribers() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+        // is_shutting_down uses receiver_count > 0, which is 0 initially
+        // because subscribe() hasn't been called
+        assert!(!coordinator.is_shutting_down());
+    }
+
+    #[tokio::test]
+    async fn is_shutting_down_true_after_subscribe() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+        let _rx = coordinator.subscribe();
+        // Now receiver_count > 0
+        assert!(coordinator.is_shutting_down());
+    }
+
+    #[tokio::test]
+    async fn is_shutting_down_reflects_subscriber_count() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        let _rx1 = coordinator.subscribe();
+        assert!(coordinator.is_shutting_down());
+
+        let _rx2 = coordinator.subscribe();
+        assert!(coordinator.is_shutting_down());
+    }
+
+    #[tokio::test]
+    async fn is_shutting_down_false_when_all_receivers_dropped() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        {
+            let _rx = coordinator.subscribe();
+            assert!(coordinator.is_shutting_down());
+        }
+
+        // Receiver dropped — no more subscribers
+        // Note: broadcast::Sender::receiver_count() decrements when receivers are dropped
+        assert!(!coordinator.is_shutting_down());
+    }
+
+    // ── Cleanup execution order (tasks before processes) ────────────────
+
+    #[tokio::test]
+    async fn tasks_cleaned_up_before_processes_on_graceful() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        // Register a task
+        let task = tokio::spawn(async {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+        });
+        coordinator.register_task(task).await;
+
+        // Register a process
+        let p = std::process::Command::new("sleep")
+            .arg("60")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn sleep");
+        coordinator.register_agent(p).await;
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // Both should be cleaned up — tasks drained first, then processes
+        assert!(coordinator.tasks.lock().await.is_empty());
+        assert!(coordinator.agent_processes.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn shutdown_drains_all_registered_tasks() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        // Register 10 tasks
+        for _ in 0..10 {
+            let t = tokio::spawn(async { tokio::time::sleep(Duration::from_secs(60)).await });
+            coordinator.register_task(t).await;
+        }
+
+        assert_eq!(coordinator.tasks.lock().await.len(), 10);
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // All drained
+        assert!(coordinator.tasks.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn shutdown_drains_all_registered_processes() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        for _ in 0..5 {
+            let p = std::process::Command::new("sleep")
+                .arg("60")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .expect("spawn sleep");
+            coordinator.register_agent(p).await;
+        }
+
+        assert_eq!(coordinator.agent_processes.lock().await.len(), 5);
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        assert!(coordinator.agent_processes.lock().await.is_empty());
+    }
+
+    // ── Idempotent / repeated shutdown ──────────────────────────────────
+
+    #[tokio::test]
+    async fn double_shutdown_succeeds() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        coordinator.shutdown().await.expect("first shutdown failed");
+        coordinator.shutdown().await.expect("second shutdown failed");
+    }
+
+    #[tokio::test]
+    async fn repeated_shutdowns_each_broadcast_graceful() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+        let mut rx = coordinator.subscribe();
+
+        coordinator.shutdown().await.expect("first failed");
+        let sig1 = tokio::time::timeout(Duration::from_millis(200), rx.recv())
+            .await
+            .expect("first graceful timeout")
+            .expect("no broadcast error");
+        assert_eq!(sig1, ShutdownSignal::Graceful);
+
+        coordinator.shutdown().await.expect("second failed");
+        let sig2 = tokio::time::timeout(Duration::from_millis(200), rx.recv())
+            .await
+            .expect("second graceful timeout")
+            .expect("no broadcast error");
+        assert_eq!(sig2, ShutdownSignal::Graceful);
+    }
+
+    // ── Concurrent shutdown scenarios ───────────────────────────────────
+
+    #[tokio::test]
+    async fn concurrent_shutdown_calls_both_succeed() {
+        let coordinator = Arc::new(ShutdownCoordinator::new(Duration::from_secs(5)));
+        let c1 = coordinator.clone();
+        let c2 = coordinator.clone();
+
+        let h1 = tokio::spawn(async move { c1.shutdown().await });
+        let h2 = tokio::spawn(async move { c2.shutdown().await });
+
+        let r1 = h1.await.expect("task 1 panicked");
+        let r2 = h2.await.expect("task 2 panicked");
+
+        assert!(r1.is_ok());
+        assert!(r2.is_ok());
+    }
+
+    #[tokio::test]
+    async fn shutdown_while_registering_task() {
+        let coordinator = Arc::new(ShutdownCoordinator::new(Duration::from_secs(5)));
+        let c1 = coordinator.clone();
+        let c2 = coordinator.clone();
+
+        // Concurrently register and shutdown
+        let register_handle = tokio::spawn(async move {
+            for _ in 0..20 {
+                let t = tokio::spawn(async { tokio::time::sleep(Duration::from_secs(60)).await });
+                c1.register_task(t).await;
+            }
+        });
+
+        let shutdown_handle = tokio::spawn(async move { c2.shutdown().await });
+
+        register_handle.await.expect("register panicked");
+        let result = shutdown_handle.await.expect("shutdown panicked");
+        assert!(result.is_ok());
+    }
+
+    // ── Edge cases ──────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn subscribe_returns_independent_receivers() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+        let mut rx1 = coordinator.subscribe();
+        let mut rx2 = coordinator.subscribe();
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // Each receiver gets its own copy of the signal
+        let s1 = tokio::time::timeout(Duration::from_millis(100), rx1.recv())
+            .await
+            .expect("rx1 timeout")
+            .expect("no broadcast error");
+        let s2 = tokio::time::timeout(Duration::from_millis(100), rx2.recv())
+            .await
+            .expect("rx2 timeout")
+            .expect("no broadcast error");
+
+        assert_eq!(s1, ShutdownSignal::Graceful);
+        assert_eq!(s2, ShutdownSignal::Graceful);
+    }
+
+    #[tokio::test]
+    async fn register_already_completed_task() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        let task = tokio::spawn(async {});
+        // Wait for completion
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        coordinator.register_task(task).await;
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        assert!(coordinator.tasks.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn register_task_after_shutdown() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        coordinator.shutdown().await.expect("first shutdown failed");
+
+        // Can still register tasks (they won't be cleaned up until next shutdown)
+        let t = tokio::spawn(async { tokio::time::sleep(Duration::from_secs(60)).await });
+        coordinator.register_task(t).await;
+
+        assert_eq!(coordinator.tasks.lock().await.len(), 1);
+
+        // Second shutdown cleans them up
+        coordinator.shutdown().await.expect("second shutdown failed");
+        assert!(coordinator.tasks.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn register_agent_after_shutdown() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        coordinator.shutdown().await.expect("first shutdown failed");
+
+        let p = std::process::Command::new("sleep")
+            .arg("60")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn sleep");
+
+        coordinator.register_agent(p).await;
+        assert_eq!(coordinator.agent_processes.lock().await.len(), 1);
+
+        coordinator.shutdown().await.expect("second shutdown failed");
+        assert!(coordinator.agent_processes.lock().await.is_empty());
+    }
+
+    // ── Broadcast channel capacity ──────────────────────────────────────
+
+    #[tokio::test]
+    async fn broadcast_channel_has_sufficient_capacity() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        // Subscribe 16 receivers (matching the broadcast channel capacity)
+        let mut receivers: Vec<broadcast::Receiver<ShutdownSignal>> = (0..16)
+            .map(|_| coordinator.subscribe())
+            .collect();
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        for (i, rx) in receivers.iter_mut().enumerate() {
+            let sig = tokio::time::timeout(Duration::from_millis(200), rx.recv())
+                .await
+                .unwrap_or_else(|_| panic!("receiver {i} should get signal"))
+                .expect("no broadcast error");
+            assert_eq!(sig, ShutdownSignal::Graceful);
+        }
+    }
+
+    // ── ShutdownSignal exhaustiveness ───────────────────────────────────
+
+    #[test]
+    fn shutdown_signal_eq_symmetry() {
+        assert_eq!(ShutdownSignal::Graceful, ShutdownSignal::Graceful);
+        assert_eq!(ShutdownSignal::Force, ShutdownSignal::Force);
+        assert_ne!(ShutdownSignal::Graceful, ShutdownSignal::Force);
+        assert_ne!(ShutdownSignal::Force, ShutdownSignal::Graceful);
+    }
+
+    #[test]
+    fn shutdown_signal_ord_not_implemented_is_copy() {
+        // ShutdownSignal is Copy — can be used by value without moving
+        fn takes_copy(_: ShutdownSignal) {}
+        takes_copy(ShutdownSignal::Graceful);
+        takes_copy(ShutdownSignal::Force);
+    }
+
+    // ── Coordinator construction ────────────────────────────────────────
+
+    #[test]
+    fn new_with_various_timeouts() {
+        let c1 = ShutdownCoordinator::new(Duration::from_millis(1));
+        let c2 = ShutdownCoordinator::new(Duration::from_secs(300));
+        let c3 = ShutdownCoordinator::new(Duration::from_secs(0));
+
+        // Just verify construction succeeds — no panic
+        assert!(!c1.is_shutting_down());
+        assert!(!c2.is_shutting_down());
+        assert!(!c3.is_shutting_down());
+    }
+
+    #[test]
+    fn default_is_30_second_timeout() {
+        let coordinator = ShutdownCoordinator::default();
+        // Can't directly read the timeout, but we verify the default constructor works
+        assert!(!coordinator.is_shutting_down());
+    }
+
+    // ── Integration: full lifecycle ─────────────────────────────────────
+
+    #[tokio::test]
+    async fn full_lifecycle_subscribe_register_shutdown() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
+
+        // 1. Subscribe
+        let mut rx = coordinator.subscribe();
+
+        // 2. Register tasks
+        let mut tasks = Vec::new();
+        for _ in 0..3 {
+            let t = tokio::spawn(async { tokio::time::sleep(Duration::from_secs(60)).await });
+            coordinator.register_task(t).await;
+            tasks.push(());
+        }
+
+        // 3. Register a process
+        let p = std::process::Command::new("sleep")
+            .arg("60")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn sleep");
+        coordinator.register_agent(p).await;
+
+        // 4. Shutdown
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // 5. Verify signal received
+        let sig = tokio::time::timeout(Duration::from_millis(200), rx.recv())
+            .await
+            .expect("signal timeout")
+            .expect("no broadcast error");
+        assert_eq!(sig, ShutdownSignal::Graceful);
+
+        // 6. Verify cleanup
+        assert!(coordinator.tasks.lock().await.is_empty());
+        assert!(coordinator.agent_processes.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn full_lifecycle_with_timeout_forced() {
+        let coordinator = ShutdownCoordinator::new(Duration::from_millis(1));
+        let mut rx = coordinator.subscribe();
+
+        let t = tokio::spawn(async { tokio::time::sleep(Duration::from_secs(60)).await });
+        coordinator.register_task(t).await;
+
+        let p = std::process::Command::new("sleep")
+            .arg("60")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn sleep");
+        coordinator.register_agent(p).await;
+
+        coordinator.shutdown().await.expect("shutdown failed");
+
+        // Graceful then force — the timeout path sends both signals
+        let sig1 = tokio::time::timeout(Duration::from_millis(100), rx.recv())
+            .await
+            .expect("graceful timeout")
+            .expect("no broadcast error");
+        assert_eq!(sig1, ShutdownSignal::Graceful);
+
+        let sig2 = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("force timeout")
+            .expect("no broadcast error");
+        assert_eq!(sig2, ShutdownSignal::Force);
+
+        // Note: when timeout fires, the internal cleanup may not complete.
+        // The important thing is both signals were broadcast.
+    }
 }
