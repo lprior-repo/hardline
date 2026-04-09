@@ -71,9 +71,7 @@ impl AutoCheckpoint {
         .execute(&self.db)
         .await
         .map_err(|e| {
-            IsolateError::OperationFailed(format!(
-                "Failed to create checkpoints table: {e}"
-            ))
+            IsolateError::OperationFailed(format!("Failed to create checkpoints table: {e}"))
         })?;
 
         Ok(())
@@ -187,9 +185,7 @@ pub async fn find_pending_restores(db: &SqlitePool) -> Result<Vec<String>> {
     .fetch_all(db)
     .await
     .map_err(|e| {
-        IsolateError::OperationFailed(format!(
-            "Failed to query pending checkpoints: {e}"
-        ))
+        IsolateError::OperationFailed(format!("Failed to query pending checkpoints: {e}"))
     })?;
 
     Ok(rows.into_iter().map(|(id,)| id).collect())
@@ -200,13 +196,9 @@ mod tests {
     use super::*;
 
     async fn test_pool() -> Result<SqlitePool> {
-        let pool = SqlitePool::connect("sqlite::memory:")
-            .await
-            .map_err(|e| {
-                IsolateError::OperationFailed(format!(
-                    "Failed to connect to test database: {e}"
-                ))
-            })?;
+        let pool = SqlitePool::connect("sqlite::memory:").await.map_err(|e| {
+            IsolateError::OperationFailed(format!("Failed to connect to test database: {e}"))
+        })?;
         let auto_cp = AutoCheckpoint::new(pool.clone());
         let _ = auto_cp.ensure_table().await;
         Ok(pool)
@@ -262,8 +254,9 @@ mod tests {
         };
 
         if !checkpoint_id.is_empty() {
-            let pending =
-                find_pending_restores(&pool).await.unwrap_or_else(|_| Vec::new());
+            let pending = find_pending_restores(&pool)
+                .await
+                .unwrap_or_else(|_| Vec::new());
             assert!(pending.contains(&checkpoint_id));
         }
         Ok(())
@@ -285,10 +278,7 @@ mod tests {
                     .await
                     .ok()
                     .flatten();
-            assert_eq!(
-                row.map(|(s,)| s),
-                Some("needs_restore".to_string())
-            );
+            assert_eq!(row.map(|(s,)| s), Some("needs_restore".to_string()));
         }
         Ok(())
     }

@@ -509,12 +509,10 @@ mod tests {
     #[test]
     fn test_queue_status_serde_json_each_variant() {
         for status in ALL_STATUSES {
-            let json = serde_json::to_string(&status).unwrap_or_else(|e| {
-                panic!("Serialize failed for {:?}: {}", status, e)
-            });
-            let roundtrip: QueueStatus = serde_json::from_str(&json).unwrap_or_else(|e| {
-                panic!("Deserialize failed for {:?}: {}", status, e)
-            });
+            let json = serde_json::to_string(&status)
+                .unwrap_or_else(|e| panic!("Serialize failed for {:?}: {}", status, e));
+            let roundtrip: QueueStatus = serde_json::from_str(&json)
+                .unwrap_or_else(|e| panic!("Deserialize failed for {:?}: {}", status, e));
             assert_eq!(status, roundtrip, "Roundtrip failed for {:?}", status);
         }
     }
@@ -696,10 +694,16 @@ mod tests {
     #[test]
     fn test_queue_source_attribution_preserved_through_processing() {
         let mut item = QueueItem::from_workspace("my-workspace", "feature-branch");
-        assert_eq!(item.source, QueueSource::Workspace("my-workspace".to_string()));
+        assert_eq!(
+            item.source,
+            QueueSource::Workspace("my-workspace".to_string())
+        );
 
         item.start_processing();
-        assert_eq!(item.source, QueueSource::Workspace("my-workspace".to_string()));
+        assert_eq!(
+            item.source,
+            QueueSource::Workspace("my-workspace".to_string())
+        );
     }
 
     #[test]
@@ -707,7 +711,10 @@ mod tests {
         let mut item = QueueItem::from_workspace("ws-complete", "branch");
         item.start_processing();
         item.complete();
-        assert_eq!(item.source, QueueSource::Workspace("ws-complete".to_string()));
+        assert_eq!(
+            item.source,
+            QueueSource::Workspace("ws-complete".to_string())
+        );
     }
 
     #[test]
@@ -744,9 +751,14 @@ mod tests {
         queue.enqueue(QueueItem::from_workspace("ws", "ws-2"))?;
 
         let all = queue.list()?;
-        let direct_items: Vec<_> = all.iter().filter(|i| i.source == QueueSource::Direct).collect();
+        let direct_items: Vec<_> = all
+            .iter()
+            .filter(|i| i.source == QueueSource::Direct)
+            .collect();
         assert_eq!(direct_items.len(), 2);
-        assert!(direct_items.iter().all(|i| matches!(i.source, QueueSource::Direct)));
+        assert!(direct_items
+            .iter()
+            .all(|i| matches!(i.source, QueueSource::Direct)));
 
         Ok(())
     }
@@ -779,9 +791,7 @@ mod tests {
         let all = queue.list()?;
         let target_items: Vec<_> = all
             .iter()
-            .filter(|i| {
-                matches!(&i.source, QueueSource::Workspace(name) if name == "target-ws")
-            })
+            .filter(|i| matches!(&i.source, QueueSource::Workspace(name) if name == "target-ws"))
             .collect();
         assert_eq!(target_items.len(), 2);
 
@@ -834,8 +844,7 @@ mod tests {
         let ws_pending_items: Vec<_> = all
             .iter()
             .filter(|i| {
-                matches!(&i.source, QueueSource::Workspace(_))
-                    && i.status == QueueStatus::Pending
+                matches!(&i.source, QueueSource::Workspace(_)) && i.status == QueueStatus::Pending
             })
             .collect();
         assert_eq!(ws_pending_items.len(), 1);
@@ -844,9 +853,7 @@ mod tests {
         // Filter: direct + pending
         let direct_pending_items: Vec<_> = all
             .iter()
-            .filter(|i| {
-                i.source == QueueSource::Direct && i.status == QueueStatus::Pending
-            })
+            .filter(|i| i.source == QueueSource::Direct && i.status == QueueStatus::Pending)
             .collect();
         assert_eq!(direct_pending_items.len(), 1);
         assert_eq!(direct_pending_items[0].branch, "direct-pending");
@@ -1438,11 +1445,17 @@ mod tests {
         let first = queue.dequeue()?.expect("first item");
         assert_eq!(first.id, id_a, "FIFO: first enqueued should dequeue first");
         let second = queue.dequeue()?.expect("second item");
-        assert_eq!(second.id, id_b, "FIFO: second enqueued should dequeue second");
+        assert_eq!(
+            second.id, id_b,
+            "FIFO: second enqueued should dequeue second"
+        );
         let third = queue.dequeue()?.expect("third item");
         assert_eq!(third.id, id_c, "FIFO: third enqueued should dequeue third");
 
-        assert!(queue.dequeue()?.is_none(), "queue should be empty after draining");
+        assert!(
+            queue.dequeue()?.is_none(),
+            "queue should be empty after draining"
+        );
         Ok(())
     }
 
@@ -1456,9 +1469,10 @@ mod tests {
             queue.enqueue(item)?;
         }
 
-        let order: Vec<String> = std::iter::from_fn(|| queue.dequeue().ok().flatten().map(|i| i.branch))
-            .take(5)
-            .collect();
+        let order: Vec<String> =
+            std::iter::from_fn(|| queue.dequeue().ok().flatten().map(|i| i.branch))
+                .take(5)
+                .collect();
         assert_eq!(order, vec!["c1", "c2", "c3", "c4", "c5"]);
         Ok(())
     }
@@ -1539,8 +1553,14 @@ mod tests {
             let item = queue
                 .dequeue()?
                 .unwrap_or_else(|| panic!("expected item {expected_branch}"));
-            assert_eq!(item.branch, expected_branch, "branch mismatch at {expected_branch}");
-            assert_eq!(item.priority, expected_pri, "priority mismatch at {expected_branch}");
+            assert_eq!(
+                item.branch, expected_branch,
+                "branch mismatch at {expected_branch}"
+            );
+            assert_eq!(
+                item.priority, expected_pri,
+                "priority mismatch at {expected_branch}"
+            );
         }
 
         assert!(queue.dequeue()?.is_none());
@@ -1625,7 +1645,10 @@ mod tests {
             queue.update(updated)?;
         }
 
-        assert!(queue.dequeue()?.is_none(), "all cancelled — dequeue should return None");
+        assert!(
+            queue.dequeue()?.is_none(),
+            "all cancelled — dequeue should return None"
+        );
         assert_eq!(queue.len()?, 3, "cancelled items still in queue");
         Ok(())
     }
@@ -1675,7 +1698,8 @@ mod tests {
         let json = serde_json::to_string(&state).expect("serialize queue state");
 
         // Deserialize and reconstruct
-        let restored: Vec<QueueItem> = serde_json::from_str(&json).expect("deserialize queue state");
+        let restored: Vec<QueueItem> =
+            serde_json::from_str(&json).expect("deserialize queue state");
         assert_eq!(restored.len(), 3);
 
         // Verify priority ordering preserved
@@ -1732,8 +1756,15 @@ mod tests {
         let restored: Vec<QueueItem> = serde_json::from_str(&json).unwrap();
 
         for (orig, rest) in items.iter().zip(restored.iter()) {
-            assert_eq!(orig.status, rest.status, "status roundtrip failed for {}", orig.branch);
-            assert_eq!(orig.last_error, rest.last_error, "last_error roundtrip failed");
+            assert_eq!(
+                orig.status, rest.status,
+                "status roundtrip failed for {}",
+                orig.branch
+            );
+            assert_eq!(
+                orig.last_error, rest.last_error,
+                "last_error roundtrip failed"
+            );
         }
         Ok(())
     }
@@ -1925,7 +1956,11 @@ mod tests {
         queue.enqueue(low)?;
 
         let all = queue.list()?;
-        let item = all.iter().find(|i| i.branch == "promote-me").unwrap().clone();
+        let item = all
+            .iter()
+            .find(|i| i.branch == "promote-me")
+            .unwrap()
+            .clone();
         let mut promoted = item;
         promoted.priority = Priority::Critical;
         queue.update(promoted)?;
@@ -2033,9 +2068,8 @@ mod tests {
 
     #[test]
     fn test_queue_item_unique_ids() {
-        let ids: std::collections::HashSet<String> = (0..100)
-            .map(|_| QueueItem::direct("branch").id)
-            .collect();
+        let ids: std::collections::HashSet<String> =
+            (0..100).map(|_| QueueItem::direct("branch").id).collect();
         // All 100 items should have unique IDs
         assert_eq!(ids.len(), 100, "each QueueItem should get a unique ID");
     }
@@ -2044,7 +2078,10 @@ mod tests {
     fn test_queue_item_created_at_not_default() {
         let item = QueueItem::direct("ts-check");
         let epoch = DateTime::from_timestamp(0, 0).unwrap();
-        assert!(item.created_at > epoch, "created_at should be a real timestamp");
+        assert!(
+            item.created_at > epoch,
+            "created_at should be a real timestamp"
+        );
     }
 
     #[test]
@@ -2655,9 +2692,18 @@ mod tests {
         queue.enqueue(failed)?;
 
         let all = queue.list()?;
-        let pending_count = all.iter().filter(|i| i.status == QueueStatus::Pending).count();
-        let completed_count = all.iter().filter(|i| i.status == QueueStatus::Completed).count();
-        let failed_count = all.iter().filter(|i| i.status == QueueStatus::Failed).count();
+        let pending_count = all
+            .iter()
+            .filter(|i| i.status == QueueStatus::Pending)
+            .count();
+        let completed_count = all
+            .iter()
+            .filter(|i| i.status == QueueStatus::Completed)
+            .count();
+        let failed_count = all
+            .iter()
+            .filter(|i| i.status == QueueStatus::Failed)
+            .count();
 
         assert_eq!(pending_count, 3);
         assert_eq!(completed_count, 1);
@@ -2819,17 +2865,26 @@ mod tests {
         let queue = make_queue();
 
         let item = QueueItem::from_workspace("lifecycle-ws", "lifecycle-branch");
-        assert_eq!(item.source, QueueSource::Workspace("lifecycle-ws".to_string()));
+        assert_eq!(
+            item.source,
+            QueueSource::Workspace("lifecycle-ws".to_string())
+        );
         queue.enqueue(item)?;
 
         // Dequeue marks as Processing, but source must be preserved
         let mut dequeued = queue.dequeue()?.expect("should dequeue");
-        assert_eq!(dequeued.source, QueueSource::Workspace("lifecycle-ws".to_string()));
+        assert_eq!(
+            dequeued.source,
+            QueueSource::Workspace("lifecycle-ws".to_string())
+        );
         assert_eq!(dequeued.status, QueueStatus::Processing);
 
         // Complete it
         dequeued.complete();
-        assert_eq!(dequeued.source, QueueSource::Workspace("lifecycle-ws".to_string()));
+        assert_eq!(
+            dequeued.source,
+            QueueSource::Workspace("lifecycle-ws".to_string())
+        );
         assert_eq!(dequeued.status, QueueStatus::Completed);
 
         Ok(())
@@ -2885,8 +2940,7 @@ mod tests {
         let count = all
             .iter()
             .filter(|i| {
-                matches!(&i.source, QueueSource::Workspace(_))
-                    && i.status == QueueStatus::Pending
+                matches!(&i.source, QueueSource::Workspace(_)) && i.status == QueueStatus::Pending
             })
             .count();
         assert_eq!(count, 1);

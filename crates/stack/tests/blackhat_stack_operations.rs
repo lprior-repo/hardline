@@ -26,7 +26,12 @@ fn branch(name: &str, parent: Option<&str>, children: &[&str]) -> StackBranch {
     }
 }
 
-fn branch_restock(name: &str, parent: Option<&str>, children: &[&str], restack: bool) -> StackBranch {
+fn branch_restock(
+    name: &str,
+    parent: Option<&str>,
+    children: &[&str],
+    restack: bool,
+) -> StackBranch {
     StackBranch {
         name: bn(name),
         parent: parent.map(bn),
@@ -223,9 +228,12 @@ fn needs_restack_empty_when_none_marked() {
 #[test]
 fn needs_restack_returns_marked_branches() {
     let mut s = Stack::new(main_bn());
-    s.branches.push(branch_restock("a", Some("main"), &[], true));
-    s.branches.push(branch_restock("b", Some("main"), &[], false));
-    s.branches.push(branch_restock("c", Some("main"), &[], true));
+    s.branches
+        .push(branch_restock("a", Some("main"), &[], true));
+    s.branches
+        .push(branch_restock("b", Some("main"), &[], false));
+    s.branches
+        .push(branch_restock("c", Some("main"), &[], true));
 
     let mut needs = s.needs_restack();
     needs.sort();
@@ -235,8 +243,10 @@ fn needs_restack_returns_marked_branches() {
 #[test]
 fn needs_restack_all_branches() {
     let mut s = Stack::new(main_bn());
-    s.branches.push(branch_restock("a", Some("main"), &[], true));
-    s.branches.push(branch_restock("b", Some("main"), &[], true));
+    s.branches
+        .push(branch_restock("a", Some("main"), &[], true));
+    s.branches
+        .push(branch_restock("b", Some("main"), &[], true));
 
     let needs = s.needs_restack();
     assert_eq!(needs.len(), 2);
@@ -341,9 +351,21 @@ fn topo_self_referencing_handled() {
 #[test]
 fn topo_deterministic() {
     let s = deep_chain_stack();
-    let o1: Vec<_> = s.topological_order().iter().map(|b| b.name.clone()).collect();
-    let o2: Vec<_> = s.topological_order().iter().map(|b| b.name.clone()).collect();
-    let o3: Vec<_> = s.topological_order().iter().map(|b| b.name.clone()).collect();
+    let o1: Vec<_> = s
+        .topological_order()
+        .iter()
+        .map(|b| b.name.clone())
+        .collect();
+    let o2: Vec<_> = s
+        .topological_order()
+        .iter()
+        .map(|b| b.name.clone())
+        .collect();
+    let o3: Vec<_> = s
+        .topological_order()
+        .iter()
+        .map(|b| b.name.clone())
+        .collect();
     assert_eq!(o1, o2);
     assert_eq!(o2, o3);
 }
@@ -364,10 +386,12 @@ fn topo_fan_out_all_present() {
 #[test]
 fn stack_isolation_separate_stacks_dont_share_branches() {
     let mut s1 = Stack::new(bn("main"));
-    s1.add_branch(branch("feature-1", Some("main"), &[])).unwrap();
+    s1.add_branch(branch("feature-1", Some("main"), &[]))
+        .unwrap();
 
     let mut s2 = Stack::new(bn("main"));
-    s2.add_branch(branch("feature-2", Some("main"), &[])).unwrap();
+    s2.add_branch(branch("feature-2", Some("main"), &[]))
+        .unwrap();
 
     assert_eq!(s1.branches.len(), 1);
     assert_eq!(s2.branches.len(), 1);

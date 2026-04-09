@@ -257,8 +257,13 @@ impl VcsBackend for GitBackend {
             .into());
         }
 
-        let output =
-            self.run_git(&["worktree", "add", "--", &worktree_path.to_string_lossy(), source])?;
+        let output = self.run_git(&[
+            "worktree",
+            "add",
+            "--",
+            &worktree_path.to_string_lossy(),
+            source,
+        ])?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             if stderr.contains("already exists") {
@@ -302,10 +307,7 @@ impl VcsBackend for GitBackend {
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let worktree_path = find_worktree_path(&stdout, name).ok_or_else(|| {
-            WorkspaceErrorKind::NotFound(format!(
-                "worktree '{}' not found in worktree list",
-                name
-            ))
+            WorkspaceErrorKind::NotFound(format!("worktree '{}' not found in worktree list", name))
         })?;
 
         // Discard uncommitted changes in the target worktree
@@ -892,13 +894,20 @@ mod tests {
         let result = find_worktree_path(&input, "..");
         // ".." doesn't match by branch suffix (refs/heads/feature doesn't end with "/..")
         // and Path::file_name("/tmp/repo/../etc") = "etc", not ".."
-        assert!(result.is_none(), "'..' should not match normalized path directory name");
+        assert!(
+            result.is_none(),
+            "'..' should not match normalized path directory name"
+        );
     }
 
     #[test]
     fn rq_find_worktree_path_traversal_in_name() {
         // Name containing path separators should not match partial paths
-        let input = porcelain_block("/home/user/worktrees/feature", "abc123", "refs/heads/feature");
+        let input = porcelain_block(
+            "/home/user/worktrees/feature",
+            "abc123",
+            "refs/heads/feature",
+        );
         let result = find_worktree_path(&input, "user/worktrees/feature");
         assert!(
             result.is_none(),
@@ -977,7 +986,10 @@ mod tests {
         // Last block has no trailing blank line — should still be checked
         let input = "worktree /path/to/ws\nHEAD abc123\nbranch refs/heads/feature";
         let result = find_worktree_path(&input, "feature");
-        assert!(result.is_some(), "Last block without trailing newline should match");
+        assert!(
+            result.is_some(),
+            "Last block without trailing newline should match"
+        );
     }
 
     // --- RED QUEEN: Case sensitivity ---

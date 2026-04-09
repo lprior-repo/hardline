@@ -40,8 +40,10 @@ fn make_branch_with_pr(name: &str, parent: Option<&str>, pr_number: u32) -> Stac
 
 fn make_draft_stack() -> Stack {
     let mut s = Stack::new(main_branch());
-    s.add_branch(make_branch("feature-a", Some("main"))).unwrap();
-    s.add_branch(make_branch("feature-b", Some("main"))).unwrap();
+    s.add_branch(make_branch("feature-a", Some("main")))
+        .unwrap();
+    s.add_branch(make_branch("feature-b", Some("main")))
+        .unwrap();
     s
 }
 
@@ -82,7 +84,8 @@ fn draft_add_branch_with_valid_parent_succeeds() {
 #[test]
 fn draft_add_branch_with_existing_branch_parent_succeeds() {
     let mut s = Stack::new(main_branch());
-    s.add_branch(make_branch("feature-a", Some("main"))).unwrap();
+    s.add_branch(make_branch("feature-a", Some("main")))
+        .unwrap();
     let result = s.add_branch(make_branch("feature-a-1", Some("feature-a")));
     assert!(result.is_ok());
     assert_eq!(s.branches.len(), 2);
@@ -133,7 +136,12 @@ fn happy_path_draft_fail_retry_publish() {
 #[test]
 fn happy_path_conflict_resolution() {
     let s = make_draft_stack();
-    let _merging = s.publish().start_merge().mark_conflict().resolve().start_merge();
+    let _merging = s
+        .publish()
+        .start_merge()
+        .mark_conflict()
+        .resolve()
+        .start_merge();
 }
 
 #[test]
@@ -158,7 +166,14 @@ fn happy_path_conflict_fail_then_retry() {
 fn happy_path_retry_loop() {
     // Draft → Fail → retry → Draft → Fail → retry → Draft → Publish → Merge
     let s = make_draft_stack();
-    let _merged = s.fail().retry().fail().retry().publish().start_merge().complete_merge();
+    let _merged = s
+        .fail()
+        .retry()
+        .fail()
+        .retry()
+        .publish()
+        .start_merge()
+        .complete_merge();
 }
 
 // ── Data Preservation Through Transitions ──
@@ -166,8 +181,10 @@ fn happy_path_retry_loop() {
 #[test]
 fn transition_preserves_branches() {
     let mut s = Stack::new(main_branch());
-    s.add_branch(make_branch_with_pr("a", Some("main"), 1)).unwrap();
-    s.add_branch(make_branch_with_pr("b", Some("main"), 2)).unwrap();
+    s.add_branch(make_branch_with_pr("a", Some("main"), 1))
+        .unwrap();
+    s.add_branch(make_branch_with_pr("b", Some("main"), 2))
+        .unwrap();
 
     let branches_len = s.branches.len();
     let published = s.publish();
@@ -196,7 +213,8 @@ fn transition_preserves_main_branch_name() {
 #[test]
 fn transition_preserves_pr_info_number() {
     let mut s = Stack::new(main_branch());
-    s.add_branch(make_branch_with_pr("feature", Some("main"), 42)).unwrap();
+    s.add_branch(make_branch_with_pr("feature", Some("main"), 42))
+        .unwrap();
 
     let pr_number_before = s.branches[0].pr_info.as_ref().map(|p| p.number);
     let published = s.publish();
@@ -406,7 +424,10 @@ fn branch_name_ordering() {
 
 #[test]
 fn branch_name_display() {
-    assert_eq!(format!("{}", BranchName::new("feature/test")), "feature/test");
+    assert_eq!(
+        format!("{}", BranchName::new("feature/test")),
+        "feature/test"
+    );
 }
 
 #[test]

@@ -7,9 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use scp_queue::domain::queue::status::MAX_PRIORITY;
-use scp_queue::{
-    Queue, QueueEntry, QueueEntryId, QueueStatus,
-};
+use scp_queue::{Queue, QueueEntry, QueueEntryId, QueueStatus};
 
 // ── Helpers ──
 
@@ -111,10 +109,18 @@ fn dequeue_does_not_modify_original() {
 #[test]
 fn update_status_does_not_modify_original() {
     let original = Queue::new().enqueue(make_entry("a", "s1", 10));
-    let updated = original.update_status(&entry_id("a"), QueueStatus::Claimed).unwrap();
+    let updated = original
+        .update_status(&entry_id("a"), QueueStatus::Claimed)
+        .unwrap();
 
-    assert!(matches!(original.find(&entry_id("a")).unwrap().status, QueueStatus::Pending));
-    assert!(matches!(updated.find(&entry_id("a")).unwrap().status, QueueStatus::Claimed));
+    assert!(matches!(
+        original.find(&entry_id("a")).unwrap().status,
+        QueueStatus::Pending
+    ));
+    assert!(matches!(
+        updated.find(&entry_id("a")).unwrap().status,
+        QueueStatus::Claimed
+    ));
 }
 
 #[test]
@@ -275,10 +281,11 @@ fn entry_full_lifecycle_to_failed_terminal() {
 
 #[test]
 fn filter_by_status() {
-    let queue = Queue::new()
-        .enqueue(make_entry("a", "s1", 10))
-        .enqueue(make_entry("b", "s2", 20)
-            .transition_status(QueueStatus::Claimed).unwrap());
+    let queue = Queue::new().enqueue(make_entry("a", "s1", 10)).enqueue(
+        make_entry("b", "s2", 20)
+            .transition_status(QueueStatus::Claimed)
+            .unwrap(),
+    );
 
     let pending = queue.filter(|e| e.status == QueueStatus::Pending);
     assert_eq!(pending.len(), 1);
@@ -333,10 +340,16 @@ fn partition_entries() {
 fn group_by_status() {
     let queue = Queue::new()
         .enqueue(make_entry("a", "s1", 10))
-        .enqueue(make_entry("b", "s2", 20)
-            .transition_status(QueueStatus::Claimed).unwrap())
-        .enqueue(make_entry("c", "s3", 30)
-            .transition_status(QueueStatus::Cancelled).unwrap());
+        .enqueue(
+            make_entry("b", "s2", 20)
+                .transition_status(QueueStatus::Claimed)
+                .unwrap(),
+        )
+        .enqueue(
+            make_entry("c", "s3", 30)
+                .transition_status(QueueStatus::Cancelled)
+                .unwrap(),
+        );
 
     let grouped = queue.group_by_status();
     assert_eq!(grouped.len(), 3);
@@ -346,13 +359,21 @@ fn group_by_status() {
 fn count_active_excludes_terminal() {
     let queue = Queue::new()
         .enqueue(make_entry("active", "s1", 10))
-        .enqueue(make_entry("a", "s2", 20)
-            .transition_status(QueueStatus::Claimed).unwrap()
-            .transition_status(QueueStatus::Rebasing).unwrap()
-            .transition_status(QueueStatus::Testing).unwrap()
-            .transition_status(QueueStatus::ReadyToMerge).unwrap()
-            .transition_status(QueueStatus::Merging).unwrap()
-            .transition_status(QueueStatus::Merged).unwrap());
+        .enqueue(
+            make_entry("a", "s2", 20)
+                .transition_status(QueueStatus::Claimed)
+                .unwrap()
+                .transition_status(QueueStatus::Rebasing)
+                .unwrap()
+                .transition_status(QueueStatus::Testing)
+                .unwrap()
+                .transition_status(QueueStatus::ReadyToMerge)
+                .unwrap()
+                .transition_status(QueueStatus::Merging)
+                .unwrap()
+                .transition_status(QueueStatus::Merged)
+                .unwrap(),
+        );
 
     assert_eq!(queue.count_active(), 1);
 }
@@ -419,11 +440,9 @@ fn concurrent_enqueue_via_mutex() {
     for i in 0..100 {
         let q = Arc::clone(&shared);
         handles.push(thread::spawn(move || {
-            let entry = QueueEntry::new(
-                format!("id-{i}"),
-                format!("session-{i}"),
-                (i % 100) as u32,
-            ).unwrap();
+            let entry =
+                QueueEntry::new(format!("id-{i}"), format!("session-{i}"), (i % 100) as u32)
+                    .unwrap();
             let mut guard = q.lock().unwrap();
             *guard = guard.clone().enqueue(entry);
         }));
@@ -445,7 +464,7 @@ fn concurrent_enqueue_dequeue_via_mutex() {
         let mut guard = shared.lock().unwrap();
         for i in 0..50 {
             *guard = guard.clone().enqueue(
-                QueueEntry::new(format!("initial-{i}"), format!("session-{i}"), 10).unwrap()
+                QueueEntry::new(format!("initial-{i}"), format!("session-{i}"), 10).unwrap(),
             );
         }
     }
@@ -481,10 +500,11 @@ fn concurrent_enqueue_dequeue_via_mutex() {
 
 #[test]
 fn concurrent_read_only_safe() {
-    let queue = Arc::new(Queue::new()
-        .enqueue(make_entry("a", "s1", 10))
-        .enqueue(make_entry("b", "s2", 20))
-        .enqueue(make_entry("c", "s3", 30))
+    let queue = Arc::new(
+        Queue::new()
+            .enqueue(make_entry("a", "s1", 10))
+            .enqueue(make_entry("b", "s2", 20))
+            .enqueue(make_entry("c", "s3", 30)),
     );
 
     let mut handles = vec![];

@@ -69,7 +69,11 @@ fn chain_stack(n: usize) -> Stack {
     let mut s = Stack::new(main_bn());
     for i in 0..n {
         let name = format!("branch-{i}");
-        let parent = if i == 0 { "main" } else { &format!("branch-{}", i - 1) };
+        let parent = if i == 0 {
+            "main"
+        } else {
+            &format!("branch-{}", i - 1)
+        };
         s.add_branch(branch(&name, Some(parent))).expect("add");
     }
     s
@@ -81,7 +85,10 @@ fn chain_stack(n: usize) -> Stack {
 fn happy_path_add_single_branch_to_empty_stack() {
     let mut s = empty_stack();
     let result = s.add_branch(branch("feature", Some("main")));
-    assert!(result.is_ok(), "adding a branch with main as parent should succeed");
+    assert!(
+        result.is_ok(),
+        "adding a branch with main as parent should succeed"
+    );
     assert_eq!(s.branches.len(), 1);
     assert_eq!(s.branches[0].name, bn("feature"));
 }
@@ -125,7 +132,8 @@ fn happy_path_add_branch_parent_is_main() {
 #[test]
 fn happy_path_add_branch_parent_is_existing_branch() {
     let mut s = empty_stack();
-    s.add_branch(branch("base", Some("main"))).expect("add base");
+    s.add_branch(branch("base", Some("main")))
+        .expect("add base");
     let result = s.add_branch(branch("child", Some("base")));
     assert!(result.is_ok());
     assert_eq!(s.branches[1].parent, Some(bn("base")));
@@ -178,9 +186,13 @@ fn duplicate_branch_name_same_name_added_twice() {
 fn duplicate_branch_name_with_different_parent() {
     let mut s = empty_stack();
     s.add_branch(branch("base", Some("main"))).expect("base");
-    s.add_branch(branch("dup", Some("main"))).expect("first dup");
+    s.add_branch(branch("dup", Some("main")))
+        .expect("first dup");
     let result = s.add_branch(branch("dup", Some("base")));
-    assert!(result.is_ok(), "duplicate name with different parent accepted");
+    assert!(
+        result.is_ok(),
+        "duplicate name with different parent accepted"
+    );
     assert_eq!(s.branches.len(), 3);
 }
 
@@ -213,7 +225,8 @@ fn ordering_branches_appear_in_insertion_order() {
 #[test]
 fn ordering_new_branch_always_appended_to_end() {
     let mut s = chain_stack(5);
-    s.add_branch(branch("appended", Some("branch-4"))).expect("append");
+    s.add_branch(branch("appended", Some("branch-4")))
+        .expect("append");
     assert_eq!(s.branches.last().map(|b| b.name.as_str()), Some("appended"));
 }
 
@@ -235,7 +248,11 @@ fn ordering_topological_order_matches_insertion_for_chain() {
     s.add_branch(branch("b", Some("a"))).expect("b");
     s.add_branch(branch("c", Some("b"))).expect("c");
 
-    let topo: Vec<&str> = s.topological_order().iter().map(|b| b.name.as_str()).collect();
+    let topo: Vec<&str> = s
+        .topological_order()
+        .iter()
+        .map(|b| b.name.as_str())
+        .collect();
     assert_eq!(topo, vec!["a", "b", "c"]);
 }
 
@@ -256,7 +273,10 @@ fn parent_validation_rejects_nonexistent_parent_in_nonempty_stack() {
     s.add_branch(branch("a", Some("main"))).expect("a");
     let result = s.add_branch(branch("b", Some("nonexistent")));
     assert!(result.is_err());
-    assert!(matches!(result.err().expect("err"), StackError::OrphanedBranch(_)));
+    assert!(matches!(
+        result.err().expect("err"),
+        StackError::OrphanedBranch(_)
+    ));
 }
 
 #[test]
@@ -291,7 +311,10 @@ fn parent_validation_orphan_in_nonempty_stack() {
     let result = s.add_branch(branch("b", Some("x")));
     assert!(result.is_err());
     let err_msg = format!("{}", result.err().expect("err"));
-    assert!(err_msg.contains("b"), "error should mention the orphaned branch name");
+    assert!(
+        err_msg.contains("b"),
+        "error should mention the orphaned branch name"
+    );
 }
 
 #[test]
@@ -308,7 +331,8 @@ fn parent_validation_deep_stack_orphan_at_depth() {
 #[test]
 fn state_add_branch_works_on_published_stack() {
     let mut s = empty_stack();
-    s.add_branch(branch("before-publish", Some("main"))).expect("add");
+    s.add_branch(branch("before-publish", Some("main")))
+        .expect("add");
     let published = s.publish();
     // After publish, add_branch is no longer available (owned, not &mut)
     // But we can test the impl<S> behavior before transition
@@ -368,14 +392,16 @@ fn fields_pr_info_preserved() {
 #[test]
 fn fields_needs_restack_false_preserved() {
     let mut s = empty_stack();
-    s.add_branch(branch_restack("clean", Some("main"), false)).expect("add");
+    s.add_branch(branch_restack("clean", Some("main"), false))
+        .expect("add");
     assert!(!s.branches[0].needs_restack);
 }
 
 #[test]
 fn fields_needs_restack_true_preserved() {
     let mut s = empty_stack();
-    s.add_branch(branch_restack("dirty", Some("main"), true)).expect("add");
+    s.add_branch(branch_restack("dirty", Some("main"), true))
+        .expect("add");
     assert!(s.branches[0].needs_restack);
 }
 
@@ -448,8 +474,14 @@ fn edge_case_branch_name_matches_parent_name() {
     // "self-loop" has itself as parent, but it's not yet in the stack
     // when validation runs, so it fails
     let result = s.add_branch(branch("self-ref", Some("self-ref")));
-    assert!(result.is_err(), "self-referencing as parent fails since not yet in stack");
-    assert!(matches!(result.err().expect("err"), StackError::OrphanedBranch(_)));
+    assert!(
+        result.is_err(),
+        "self-referencing as parent fails since not yet in stack"
+    );
+    assert!(matches!(
+        result.err().expect("err"),
+        StackError::OrphanedBranch(_)
+    ));
 }
 
 #[test]
@@ -458,7 +490,10 @@ fn edge_case_self_reference_after_adding() {
     let mut s = empty_stack();
     s.add_branch(branch("existing", Some("main"))).expect("add");
     let result = s.add_branch(branch("existing", Some("existing")));
-    assert!(result.is_ok(), "can use an existing branch as parent, even for duplicate name");
+    assert!(
+        result.is_ok(),
+        "can use an existing branch as parent, even for duplicate name"
+    );
 }
 
 #[test]
@@ -508,7 +543,8 @@ fn count_tracking_empty_stack_has_zero() {
 fn count_tracking_increments_on_each_add() {
     let mut s = empty_stack();
     for i in 1..=10 {
-        s.add_branch(branch(&format!("b-{i}"), Some("main"))).expect("add");
+        s.add_branch(branch(&format!("b-{i}"), Some("main")))
+            .expect("add");
         assert_eq!(s.branches.len(), i);
     }
 }
@@ -529,7 +565,11 @@ fn count_tracking_after_multiple_failures() {
     for i in 0..5 {
         let _ = s.add_branch(branch(&format!("orphan-{i}"), Some("nonexistent")));
     }
-    assert_eq!(s.branches.len(), 1, "multiple failures should not change count");
+    assert_eq!(
+        s.branches.len(),
+        1,
+        "multiple failures should not change count"
+    );
 }
 
 // ── 9. Main branch reference behavior ──
@@ -546,7 +586,10 @@ fn main_ref_main_accepted_even_with_different_stack_main() {
     let s = Stack::new(BranchName::new("develop"));
     let mut s = s;
     let result = s.add_branch(branch("feat", Some("develop")));
-    assert!(result.is_ok(), "develop is the main_branch and should be accepted as parent");
+    assert!(
+        result.is_ok(),
+        "develop is the main_branch and should be accepted as parent"
+    );
 }
 
 #[test]
@@ -555,7 +598,10 @@ fn main_ref_non_main_branch_not_accepted_if_not_in_stack() {
     // "develop" is not main and not in branches → orphan
     let result = s.add_branch(branch("feat", Some("develop")));
     assert!(result.is_err());
-    assert!(matches!(result.err().expect("err"), StackError::OrphanedBranch(_)));
+    assert!(matches!(
+        result.err().expect("err"),
+        StackError::OrphanedBranch(_)
+    ));
 }
 
 // ── 10. Error message quality ──
@@ -565,14 +611,20 @@ fn error_message_contains_branch_name() {
     let mut s = empty_stack();
     let result = s.add_branch(branch("my-orphan", Some("ghost")));
     let err_msg = format!("{}", result.err().expect("err"));
-    assert!(err_msg.contains("my-orphan"), "error should contain the branch name: {err_msg}");
+    assert!(
+        err_msg.contains("my-orphan"),
+        "error should contain the branch name: {err_msg}"
+    );
 }
 
 #[test]
 fn error_is_orphaned_branch_variant() {
     let mut s = empty_stack();
     let result = s.add_branch(branch("lost", Some("nowhere")));
-    assert!(matches!(result.err().expect("err"), StackError::OrphanedBranch(_)));
+    assert!(matches!(
+        result.err().expect("err"),
+        StackError::OrphanedBranch(_)
+    ));
 }
 
 // ── 11. Integration with stack queries ──
@@ -591,7 +643,8 @@ fn integration_ancestors_after_add_branch() {
 #[test]
 fn integration_descendants_after_add_branch() {
     let mut s = empty_stack();
-    s.add_branch(branch_with_children("a", Some("main"), &["b", "c"])).expect("a");
+    s.add_branch(branch_with_children("a", Some("main"), &["b", "c"]))
+        .expect("a");
     s.add_branch(branch("b", Some("a"))).expect("b");
     s.add_branch(branch("c", Some("a"))).expect("c");
 
@@ -604,8 +657,10 @@ fn integration_descendants_after_add_branch() {
 #[test]
 fn integration_needs_restack_after_add_branch() {
     let mut s = empty_stack();
-    s.add_branch(branch_restack("clean", Some("main"), false)).expect("clean");
-    s.add_branch(branch_restack("dirty", Some("main"), true)).expect("dirty");
+    s.add_branch(branch_restack("clean", Some("main"), false))
+        .expect("clean");
+    s.add_branch(branch_restack("dirty", Some("main"), true))
+        .expect("dirty");
 
     let needs = s.needs_restack();
     assert_eq!(needs.len(), 1);
@@ -667,7 +722,10 @@ fn pr_info_open_state() {
         }),
     };
     s.add_branch(br).expect("add");
-    assert!(matches!(s.branches[0].pr_info.as_ref().expect("pr").state, PrState::Open));
+    assert!(matches!(
+        s.branches[0].pr_info.as_ref().expect("pr").state,
+        PrState::Open
+    ));
 }
 
 #[test]
@@ -687,7 +745,10 @@ fn pr_info_merged_state() {
         }),
     };
     s.add_branch(br).expect("add");
-    assert!(matches!(s.branches[0].pr_info.as_ref().expect("pr").state, PrState::Merged));
+    assert!(matches!(
+        s.branches[0].pr_info.as_ref().expect("pr").state,
+        PrState::Merged
+    ));
 }
 
 #[test]
@@ -707,7 +768,10 @@ fn pr_info_closed_state() {
         }),
     };
     s.add_branch(br).expect("add");
-    assert!(matches!(s.branches[0].pr_info.as_ref().expect("pr").state, PrState::Closed));
+    assert!(matches!(
+        s.branches[0].pr_info.as_ref().expect("pr").state,
+        PrState::Closed
+    ));
 }
 
 // ── 13. Stress / boundary tests ──
@@ -716,7 +780,8 @@ fn pr_info_closed_state() {
 fn stress_many_branches_same_parent() {
     let mut s = empty_stack();
     for i in 0..50 {
-        s.add_branch(branch(&format!("branch-{i}"), Some("main"))).expect("add");
+        s.add_branch(branch(&format!("branch-{i}"), Some("main")))
+            .expect("add");
     }
     assert_eq!(s.branches.len(), 50);
     for b in &s.branches {
@@ -730,7 +795,8 @@ fn stress_deep_chain() {
     s.add_branch(branch("b-0", Some("main"))).expect("0");
     for i in 1..50 {
         let parent = format!("b-{}", i - 1);
-        s.add_branch(branch(&format!("b-{i}"), Some(&parent))).expect("add");
+        s.add_branch(branch(&format!("b-{i}"), Some(&parent)))
+            .expect("add");
     }
     assert_eq!(s.branches.len(), 50);
     // Verify chain integrity
@@ -743,7 +809,8 @@ fn stress_deep_chain() {
 #[test]
 fn boundary_zero_children() {
     let mut s = empty_stack();
-    s.add_branch(branch_with_children("no-kids", Some("main"), &[])).expect("add");
+    s.add_branch(branch_with_children("no-kids", Some("main"), &[]))
+        .expect("add");
     assert!(s.branches[0].children.is_empty());
 }
 
@@ -752,7 +819,8 @@ fn boundary_many_children() {
     let children: Vec<String> = (0..100).map(|i| format!("child-{i}")).collect();
     let child_refs: Vec<&str> = children.iter().map(|s| s.as_str()).collect();
     let mut s = empty_stack();
-    s.add_branch(branch_with_children("parent", Some("main"), &child_refs)).expect("add");
+    s.add_branch(branch_with_children("parent", Some("main"), &child_refs))
+        .expect("add");
     assert_eq!(s.branches[0].children.len(), 100);
 }
 

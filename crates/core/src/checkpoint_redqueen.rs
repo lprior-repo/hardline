@@ -34,8 +34,7 @@ mod tests {
     }
 
     fn create_test_root() -> Result<TempDir> {
-        TempDir::new()
-            .map_err(|e| Error::io_error(format!("Failed to create temp dir: {e}")))
+        TempDir::new().map_err(|e| Error::io_error(format!("Failed to create temp dir: {e}")))
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -83,13 +82,12 @@ mod tests {
         guard.commit().await?;
 
         // Verify committed state in DB
-        let row: Option<(String,)> =
-            sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
-                .bind(&id)
-                .fetch_optional(&pool)
-                .await
-                .ok()
-                .flatten();
+        let row: Option<(String,)> = sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+            .bind(&id)
+            .fetch_optional(&pool)
+            .await
+            .ok()
+            .flatten();
         assert_eq!(row.map(|(s,)| s), Some("committed".to_string()));
         Ok(())
     }
@@ -110,29 +108,24 @@ mod tests {
         guard.rollback().await?;
 
         // Verify needs_restore state
-        let row: Option<(String,)> =
-            sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
-                .bind(&id)
-                .fetch_optional(&pool)
-                .await
-                .ok()
-                .flatten();
-        assert_eq!(
-            row.map(|(s,)| s),
-            Some("needs_restore".to_string())
-        );
+        let row: Option<(String,)> = sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+            .bind(&id)
+            .fetch_optional(&pool)
+            .await
+            .ok()
+            .flatten();
+        assert_eq!(row.map(|(s,)| s), Some("needs_restore".to_string()));
 
         // Now commit (consumes guard)
         guard.commit().await?;
 
         // Verify committed state overwrote needs_restore
-        let row: Option<(String,)> =
-            sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
-                .bind(&id)
-                .fetch_optional(&pool)
-                .await
-                .ok()
-                .flatten();
+        let row: Option<(String,)> = sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+            .bind(&id)
+            .fetch_optional(&pool)
+            .await
+            .ok()
+            .flatten();
         assert_eq!(row.map(|(s,)| s), Some("committed".to_string()));
         Ok(())
     }
@@ -151,13 +144,12 @@ mod tests {
             .map_err(|e| Error::database(format!("Insert failed: {e}")))?;
 
         // Try to insert a duplicate manually - table enforces uniqueness
-        let result = sqlx::query(
-            "INSERT INTO checkpoints (id, created_at, state) VALUES (?, ?, 'pending')",
-        )
-        .bind("auto-dup-test")
-        .bind("2026-01-01T00:00:00Z")
-        .execute(&pool)
-        .await;
+        let result =
+            sqlx::query("INSERT INTO checkpoints (id, created_at, state) VALUES (?, ?, 'pending')")
+                .bind("auto-dup-test")
+                .bind("2026-01-01T00:00:00Z")
+                .execute(&pool)
+                .await;
 
         assert!(result.is_err(), "Duplicate checkpoint ID must be rejected");
         Ok(())
@@ -213,10 +205,7 @@ mod tests {
         ];
         for input in junk_inputs {
             let result = input.parse::<RecoveryPolicy>();
-            assert!(
-                result.is_err(),
-                "Input '{input}': expected error, got ok"
-            );
+            assert!(result.is_err(), "Input '{input}': expected error, got ok");
         }
     }
 
@@ -543,13 +532,12 @@ mod tests {
         g1.commit().await?;
         drop(g2); // g2 should be pending
 
-        let row1: Option<(String,)> =
-            sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
-                .bind(&id1)
-                .fetch_optional(&pool)
-                .await
-                .ok()
-                .flatten();
+        let row1: Option<(String,)> = sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+            .bind(&id1)
+            .fetch_optional(&pool)
+            .await
+            .ok()
+            .flatten();
         assert_eq!(row1.map(|(s,)| s), Some("committed".to_string()));
 
         let pending = find_pending_restores(&pool).await?;
@@ -599,8 +587,10 @@ mod tests {
         tokio::fs::write(ws_path.join(".git").join("index.lock"), "lock").await?;
 
         // Create validation result (workspace exists at this point)
-        let issues = vec![IntegrityIssue::new(CorruptionType::StaleLocks, "Stale lock")
-            .with_path(ws_path.join(".git").join("index.lock"))];
+        let issues = vec![
+            IntegrityIssue::new(CorruptionType::StaleLocks, "Stale lock")
+                .with_path(ws_path.join(".git").join("index.lock")),
+        ];
         let validation = ValidationResult::invalid("race-ws", &ws_path, issues);
 
         // RACE: Delete workspace between validation and repair
@@ -760,11 +750,7 @@ mod tests {
         let root = create_test_root()?;
         let validator = IntegrityValidator::new(root.path());
 
-        let traversal_names = [
-            "../etc/passwd",
-            "../../root",
-            "../../../tmp/evil",
-        ];
+        let traversal_names = ["../etc/passwd", "../../root", "../../../tmp/evil"];
 
         for name in traversal_names {
             let result = validator.validate(name).await?;
@@ -826,10 +812,7 @@ mod tests {
             "unknown_field": "should_be_ignored"
         }"#;
         let result = serde_json::from_str::<RecoveryConfig>(json);
-        assert!(
-            result.is_ok(),
-            "serde ignores unknown fields by default"
-        );
+        assert!(result.is_ok(), "serde ignores unknown fields by default");
     }
 
     /// Adversarial: Serde with missing fields.

@@ -35,8 +35,8 @@ pub mod error;
 pub use checkpoint::{find_pending_restores, AutoCheckpoint, CheckpointGuard};
 pub use dag::{BranchDag, BranchId, DagError};
 pub use domain::{
-    BeadId, BeadWorkspaceMapping, classify_command, CheckpointRecord, CheckpointState,
-    CommittedGuard, EventContext, EventType, IsolateEvent, OperationRisk,
-    WorkspaceGuard, WorkspaceId, WorkspaceState, WorkspaceStateMachine,
+    classify_command, BeadId, BeadWorkspaceMapping, CheckpointRecord, CheckpointState,
+    CommittedGuard, EventContext, EventType, IsolateEvent, OperationRisk, WorkspaceGuard,
+    WorkspaceId, WorkspaceState, WorkspaceStateMachine,
 };
 pub use error::{IsolateError, Result};

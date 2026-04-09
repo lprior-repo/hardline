@@ -685,15 +685,17 @@ mod tests {
         // Late subscriber — missed the broadcast
         let mut rx_late = coordinator.subscribe();
         let result = tokio::time::timeout(Duration::from_millis(100), rx_late.recv()).await;
-        assert!(result.is_err(), "late subscriber should not receive old signal");
+        assert!(
+            result.is_err(),
+            "late subscriber should not receive old signal"
+        );
     }
 
     #[tokio::test]
     async fn many_subscribers_all_receive_signal() {
         let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
-        let mut receivers: Vec<broadcast::Receiver<ShutdownSignal>> = (0..10)
-            .map(|_| coordinator.subscribe())
-            .collect();
+        let mut receivers: Vec<broadcast::Receiver<ShutdownSignal>> =
+            (0..10).map(|_| coordinator.subscribe()).collect();
 
         coordinator.shutdown().await.expect("shutdown failed");
 
@@ -954,7 +956,10 @@ mod tests {
         let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
 
         coordinator.shutdown().await.expect("first shutdown failed");
-        coordinator.shutdown().await.expect("second shutdown failed");
+        coordinator
+            .shutdown()
+            .await
+            .expect("second shutdown failed");
     }
 
     #[tokio::test]
@@ -1067,7 +1072,10 @@ mod tests {
         assert_eq!(coordinator.tasks.lock().await.len(), 1);
 
         // Second shutdown cleans them up
-        coordinator.shutdown().await.expect("second shutdown failed");
+        coordinator
+            .shutdown()
+            .await
+            .expect("second shutdown failed");
         assert!(coordinator.tasks.lock().await.is_empty());
     }
 
@@ -1087,7 +1095,10 @@ mod tests {
         coordinator.register_agent(p).await;
         assert_eq!(coordinator.agent_processes.lock().await.len(), 1);
 
-        coordinator.shutdown().await.expect("second shutdown failed");
+        coordinator
+            .shutdown()
+            .await
+            .expect("second shutdown failed");
         assert!(coordinator.agent_processes.lock().await.is_empty());
     }
 
@@ -1098,9 +1109,8 @@ mod tests {
         let coordinator = ShutdownCoordinator::new(Duration::from_secs(5));
 
         // Subscribe 16 receivers (matching the broadcast channel capacity)
-        let mut receivers: Vec<broadcast::Receiver<ShutdownSignal>> = (0..16)
-            .map(|_| coordinator.subscribe())
-            .collect();
+        let mut receivers: Vec<broadcast::Receiver<ShutdownSignal>> =
+            (0..16).map(|_| coordinator.subscribe()).collect();
 
         coordinator.shutdown().await.expect("shutdown failed");
 

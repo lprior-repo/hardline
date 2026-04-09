@@ -6,8 +6,8 @@
 //!
 //! Plus: parse_cli_value (type coercion), get_nested_value, missing/null handling.
 
-use super::config_core::{Config, ConfigManager, ConfigScope, ConfigValue as CoreConfigValue};
 use super::command_types::{get_nested_value, parse_cli_value};
+use super::config_core::{Config, ConfigManager, ConfigScope, ConfigValue as CoreConfigValue};
 use crate::cli_contracts::{ConfigValue as ContractConfigValue, ContractError};
 use proptest::prelude::*;
 use proptest::{prop_assert, prop_assert_eq};
@@ -159,8 +159,7 @@ fn core_config_value_new_with_all_scopes() {
 
 #[test]
 fn core_config_value_with_source_sets_source() {
-    let cv =
-        CoreConfigValue::with_source("k", "v", ConfigScope::Project, "/etc/scp/config.toml");
+    let cv = CoreConfigValue::with_source("k", "v", ConfigScope::Project, "/etc/scp/config.toml");
     assert_eq!(cv.source.to_str(), Some("/etc/scp/config.toml"));
 }
 
@@ -209,7 +208,10 @@ fn core_config_value_json_fields_present() {
     assert_eq!(val.get("key").and_then(|v| v.as_str()), Some("editor"));
     assert_eq!(val.get("value").and_then(|v| v.as_str()), Some("vim"));
     assert_eq!(val.get("scope").and_then(|v| v.as_str()), Some("Project"));
-    assert!(val.get("source").is_some(), "source field should be present");
+    assert!(
+        val.get("source").is_some(),
+        "source field should be present"
+    );
 }
 
 #[test]
@@ -451,7 +453,9 @@ fn config_overwrite_replaces_value() {
 #[test]
 fn get_nested_value_from_flat() {
     let mut config = Config::new();
-    config.values.insert("logging.level".to_string(), "debug".to_string());
+    config
+        .values
+        .insert("logging.level".to_string(), "debug".to_string());
     let result = get_nested_value(&config, "logging.level").expect("should find");
     assert_eq!(result, "debug");
 }
@@ -484,7 +488,10 @@ fn get_nested_value_table_returns_error() {
     let config = Config::new();
     // "conflict" is a table (object), not a leaf value
     let result = get_nested_value(&config, "conflict_resolution");
-    assert!(result.is_err(), "table values should not be returned as strings");
+    assert!(
+        result.is_err(),
+        "table values should not be returned as strings"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -538,7 +545,9 @@ fn validate_rejects_invalid_vcs_type() {
     config.set("vcs.type", "svn");
     let errors = ConfigManager::validate(&config);
     assert!(!errors.is_empty());
-    assert!(errors.iter().any(|e| e.contains("VCS") || e.contains("vcs")));
+    assert!(errors
+        .iter()
+        .any(|e| e.contains("VCS") || e.contains("vcs")));
 }
 
 #[test]
@@ -564,7 +573,10 @@ fn validate_accepts_all_valid_log_levels() {
         let mut config = Config::new();
         config.set("logging.level", *level);
         let errors = ConfigManager::validate(&config);
-        assert!(errors.is_empty(), "level '{level}' should be valid: {errors:?}");
+        assert!(
+            errors.is_empty(),
+            "level '{level}' should be valid: {errors:?}"
+        );
     }
 }
 

@@ -659,10 +659,7 @@ fn watch_config_deserialize_rejects_number_enabled() {
 fn watch_config_deserialize_rejects_null_enabled() {
     let json = r#"{"enabled":null,"debounce_ms":100,"paths":[]}"#;
     let result: std::result::Result<WatchConfig, _> = serde_json::from_str(json);
-    assert!(
-        result.is_err(),
-        "Null should be rejected for enabled field"
-    );
+    assert!(result.is_err(), "Null should be rejected for enabled field");
 }
 
 #[test]

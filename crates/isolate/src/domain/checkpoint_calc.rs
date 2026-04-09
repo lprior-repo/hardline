@@ -20,7 +20,9 @@ mod tests {
 
     #[test]
     fn classify_safe_commands() {
-        for cmd in ["list", "status", "context", "focus", "help", "version", "show"] {
+        for cmd in [
+            "list", "status", "context", "focus", "help", "version", "show",
+        ] {
             assert_eq!(
                 classify_command(cmd),
                 OperationRisk::Safe,

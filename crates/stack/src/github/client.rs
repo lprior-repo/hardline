@@ -297,9 +297,9 @@ impl GitHubClient {
             })?;
         }
 
-        let octocrab = builder.build().map_err(|e| {
-            StackError::GitHubError(format!("Failed to create GitHub client: {e}"))
-        })?;
+        let octocrab = builder
+            .build()
+            .map_err(|e| StackError::GitHubError(format!("Failed to create GitHub client: {e}")))?;
 
         Ok(Self {
             octocrab,
@@ -342,9 +342,7 @@ impl GitHubClient {
 
         match (check_runs_status, commit_status) {
             (Some(cr_status), _) => Ok(Some(cr_status)),
-            (None, Some(status)) => {
-                Ok(Some(format!("{:?}", status.state).to_lowercase()))
-            }
+            (None, Some(status)) => Ok(Some(format!("{:?}", status.state).to_lowercase())),
             (None, None) => Ok(None),
         }
     }
@@ -383,7 +381,9 @@ impl GitHubClient {
             match run.status.as_str() {
                 "completed" => match run.conclusion.as_deref() {
                     Some("success") | Some("skipped") | Some("neutral") => {}
-                    Some("failure") | Some("timed_out") | Some("cancelled")
+                    Some("failure")
+                    | Some("timed_out")
+                    | Some("cancelled")
                     | Some("action_required") => {
                         has_failure = true;
                         all_success = false;
@@ -465,7 +465,11 @@ impl GitHubClient {
                 head_label: pr.head.label.clone(),
                 info: GitHubPrInfo {
                     number: pr.number,
-                    state: pr.state.as_ref().map(|s| format!("{s:?}")).unwrap_or_default(),
+                    state: pr
+                        .state
+                        .as_ref()
+                        .map(|s| format!("{s:?}"))
+                        .unwrap_or_default(),
                     is_draft: pr.draft.unwrap_or(false),
                     base: pr.base.ref_field.clone(),
                 },
@@ -516,7 +520,11 @@ impl GitHubClient {
                         head_label: pr.head.label.clone(),
                         info: GitHubPrInfo {
                             number: pr.number,
-                            state: pr.state.as_ref().map(|s| format!("{s:?}")).unwrap_or_default(),
+                            state: pr
+                                .state
+                                .as_ref()
+                                .map(|s| format!("{s:?}"))
+                                .unwrap_or_default(),
                             is_draft: pr.draft.unwrap_or(false),
                             base: pr.base.ref_field.clone(),
                         },
@@ -556,7 +564,11 @@ impl GitHubClient {
 
         Ok(GitHubPrInfo {
             number: pr.number,
-            state: pr.state.as_ref().map(|s| format!("{s:?}")).unwrap_or_default(),
+            state: pr
+                .state
+                .as_ref()
+                .map(|s| format!("{s:?}"))
+                .unwrap_or_default(),
             is_draft: pr.draft.unwrap_or(false),
             base: pr.base.ref_field.clone(),
         })
@@ -574,7 +586,11 @@ impl GitHubClient {
 
         Ok(GitHubPrInfo {
             number: pr.number,
-            state: pr.state.as_ref().map(|s| format!("{s:?}")).unwrap_or_default(),
+            state: pr
+                .state
+                .as_ref()
+                .map(|s| format!("{s:?}"))
+                .unwrap_or_default(),
             is_draft: pr.draft.unwrap_or(false),
             base: pr.base.ref_field.clone(),
         })
@@ -595,7 +611,11 @@ impl GitHubClient {
             head_label: pr.head.label.clone(),
             info: GitHubPrInfo {
                 number: pr.number,
-                state: pr.state.as_ref().map(|s| format!("{s:?}")).unwrap_or_default(),
+                state: pr
+                    .state
+                    .as_ref()
+                    .map(|s| format!("{s:?}"))
+                    .unwrap_or_default(),
                 is_draft: pr.draft.unwrap_or(false),
                 base: pr.base.ref_field.clone(),
             },
@@ -631,7 +651,8 @@ impl GitHubClient {
             Ok(_) => Ok(()),
             Err(e) => {
                 let msg = e.to_string();
-                if msg.contains("Update is not required") || msg.contains("There are no new commits")
+                if msg.contains("Update is not required")
+                    || msg.contains("There are no new commits")
                 {
                     Ok(())
                 } else {
@@ -722,7 +743,10 @@ impl GitHubClient {
         Ok(())
     }
 
-    async fn find_stack_comment_id(&self, pr_number: u64) -> Result<Option<octocrab::models::CommentId>> {
+    async fn find_stack_comment_id(
+        &self,
+        pr_number: u64,
+    ) -> Result<Option<octocrab::models::CommentId>> {
         self.record_api_call("issues.comments.list");
         let url = format!(
             "/repos/{}/{}/issues/{}/comments",
@@ -798,9 +822,10 @@ impl GitHubClient {
             merge_builder = merge_builder.message(message);
         }
 
-        merge_builder.send().await.map_err(|e| {
-            StackError::GitHubError(format!("Merge PR failed: {e}"))
-        })?;
+        merge_builder
+            .send()
+            .await
+            .map_err(|e| StackError::GitHubError(format!("Merge PR failed: {e}")))?;
 
         Ok(())
     }
@@ -833,7 +858,11 @@ impl GitHubClient {
         Ok(PrMergeStatus {
             number: pr.number,
             title: pr.title.clone().unwrap_or_default(),
-            state: pr.state.as_ref().map(|s| format!("{s:?}")).unwrap_or_default(),
+            state: pr
+                .state
+                .as_ref()
+                .map(|s| format!("{s:?}"))
+                .unwrap_or_default(),
             is_draft: pr.draft.unwrap_or(false),
             mergeable: pr.mergeable,
             mergeable_state: pr
@@ -849,10 +878,7 @@ impl GitHubClient {
     }
 
     /// Get PR review info via GraphQL.
-    async fn get_pr_reviews(
-        &self,
-        pr_number: u64,
-    ) -> Result<(Option<String>, usize, bool)> {
+    async fn get_pr_reviews(&self, pr_number: u64) -> Result<(Option<String>, usize, bool)> {
         let query = format!(
             r#"
             query {{
@@ -950,11 +976,10 @@ impl GitHubClient {
             "/repos/{}/{}/pulls/{}/comments",
             self.owner, self.repo, pr_number
         );
-        let comments: Vec<ApiReviewComment> = self
-            .octocrab
-            .get(&url, None::<&()>)
-            .await
-            .map_err(|e| StackError::GitHubError(format!("List review comments failed: {e}")))?;
+        let comments: Vec<ApiReviewComment> =
+            self.octocrab.get(&url, None::<&()>).await.map_err(|e| {
+                StackError::GitHubError(format!("List review comments failed: {e}"))
+            })?;
 
         Ok(comments
             .into_iter()

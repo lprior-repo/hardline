@@ -103,12 +103,10 @@ pub fn write_prev_branch(repo: &gix::Repository, branch: &str) -> GitResult<()> 
 ///
 /// Resolves the OID string and updates the ref. Creates the ref if it doesn't exist.
 pub fn update_ref(repo: &gix::Repository, refname: &str, oid: &str) -> GitResult<()> {
-    let target: gix::ObjectId = oid
-        .parse()
-        .map_err(|e| GitError::InvalidRef {
-            name: refname.to_string(),
-            reason: format!("Invalid OID '{oid}': {e}"),
-        })?;
+    let target: gix::ObjectId = oid.parse().map_err(|e| GitError::InvalidRef {
+        name: refname.to_string(),
+        reason: format!("Invalid OID '{oid}': {e}"),
+    })?;
 
     repo.reference(
         refname,
@@ -126,10 +124,12 @@ pub fn update_ref(repo: &gix::Repository, refname: &str, oid: &str) -> GitResult
 
 /// Delete a ref by name.
 pub fn delete_ref(repo: &gix::Repository, refname: &str) -> GitResult<()> {
-    let reference = repo.find_reference(refname).map_err(|e| GitError::InvalidRef {
-        name: refname.to_string(),
-        reason: format!("Ref not found: {e}"),
-    })?;
+    let reference = repo
+        .find_reference(refname)
+        .map_err(|e| GitError::InvalidRef {
+            name: refname.to_string(),
+            reason: format!("Ref not found: {e}"),
+        })?;
 
     reference.delete().map_err(|e| GitError::InvalidRef {
         name: refname.to_string(),
@@ -237,11 +237,10 @@ fn read_blob_ref(repo: &gix::Repository, ref_name: &str) -> GitResult<Option<Str
         reason: format!("Not a blob: {e}"),
     })?;
 
-    let content =
-        String::from_utf8(blob.data.to_vec()).map_err(|e| GitError::InvalidRef {
-            name: ref_name.to_string(),
-            reason: format!("Invalid UTF-8 in blob: {e}"),
-        })?;
+    let content = String::from_utf8(blob.data.to_vec()).map_err(|e| GitError::InvalidRef {
+        name: ref_name.to_string(),
+        reason: format!("Invalid UTF-8 in blob: {e}"),
+    })?;
 
     Ok(Some(content))
 }

@@ -56,10 +56,7 @@ impl BranchDag {
             return Err(DagError::CycleDetected(id));
         }
 
-        if let Some(invalid) = parent_ids
-            .iter()
-            .find(|pid| !self.branches.contains(*pid))
-        {
+        if let Some(invalid) = parent_ids.iter().find(|pid| !self.branches.contains(*pid)) {
             return Err(DagError::InvalidParent(invalid.clone()));
         }
 

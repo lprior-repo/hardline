@@ -216,7 +216,12 @@ mod tests {
 
     #[test]
     fn test_pr_state_serde_roundtrip() {
-        let states = [PrState::Open, PrState::Closed, PrState::Merged, PrState::Draft];
+        let states = [
+            PrState::Open,
+            PrState::Closed,
+            PrState::Merged,
+            PrState::Draft,
+        ];
         for state in &states {
             let json = serde_json::to_string(state).expect("serialize");
             let deserialized: PrState = serde_json::from_str(&json).expect("deserialize");
@@ -281,7 +286,12 @@ mod tests {
 
     #[test]
     fn test_all_pr_states_are_distinct() {
-        let states = [PrState::Open, PrState::Closed, PrState::Merged, PrState::Draft];
+        let states = [
+            PrState::Open,
+            PrState::Closed,
+            PrState::Merged,
+            PrState::Draft,
+        ];
         assert_eq!(states.len(), 4);
         for i in 0..states.len() {
             for j in (i + 1)..states.len() {
@@ -314,7 +324,12 @@ mod tests {
 
     #[test]
     fn test_pr_state_display_matches_from_str_roundtrip() {
-        let states = [PrState::Open, PrState::Closed, PrState::Merged, PrState::Draft];
+        let states = [
+            PrState::Open,
+            PrState::Closed,
+            PrState::Merged,
+            PrState::Draft,
+        ];
         for state in &states {
             let displayed = format!("{}", state);
             let parsed: PrState = displayed.parse().expect("roundtrip parse");
@@ -351,7 +366,10 @@ mod tests {
     #[test]
     fn test_pr_state_from_str_with_whitespace() {
         assert_eq!("  open  ".parse::<PrState>().as_ref(), Ok(&PrState::Open));
-        assert_eq!("\tclosed\n".parse::<PrState>().as_ref(), Ok(&PrState::Closed));
+        assert_eq!(
+            "\tclosed\n".parse::<PrState>().as_ref(),
+            Ok(&PrState::Closed)
+        );
         assert_eq!(" merged ".parse::<PrState>().as_ref(), Ok(&PrState::Merged));
         assert_eq!("  draft  ".parse::<PrState>().as_ref(), Ok(&PrState::Draft));
     }
@@ -375,7 +393,10 @@ mod tests {
     fn test_pr_state_from_str_garbage_returns_error() {
         let inputs = ["foo", "bar123", "OPENED", "DRAFFT", "merge", "close"];
         for input in &inputs {
-            assert!(input.parse::<PrState>().is_err(), "expected error for: {input}");
+            assert!(
+                input.parse::<PrState>().is_err(),
+                "expected error for: {input}"
+            );
         }
     }
 
@@ -396,18 +417,39 @@ mod tests {
     #[test]
     fn test_pr_state_ordering_is_total() {
         // derive(Ord) uses declaration order: Open < Closed < Merged < Draft
-        let states = [PrState::Draft, PrState::Merged, PrState::Closed, PrState::Open];
+        let states = [
+            PrState::Draft,
+            PrState::Merged,
+            PrState::Closed,
+            PrState::Open,
+        ];
         let mut sorted = states;
         sorted.sort();
-        assert_eq!(sorted, [PrState::Open, PrState::Closed, PrState::Merged, PrState::Draft]);
+        assert_eq!(
+            sorted,
+            [
+                PrState::Open,
+                PrState::Closed,
+                PrState::Merged,
+                PrState::Draft
+            ]
+        );
     }
 
     #[test]
     fn test_pr_state_partial_ord_consistent_with_ord() {
-        let states = [PrState::Open, PrState::Closed, PrState::Merged, PrState::Draft];
+        let states = [
+            PrState::Open,
+            PrState::Closed,
+            PrState::Merged,
+            PrState::Draft,
+        ];
         for i in 0..states.len() {
             for j in 0..states.len() {
-                assert_eq!(states[i].cmp(&states[j]), states[i].partial_cmp(&states[j]).expect("partial_cmp"));
+                assert_eq!(
+                    states[i].cmp(&states[j]),
+                    states[i].partial_cmp(&states[j]).expect("partial_cmp")
+                );
             }
         }
     }
@@ -471,39 +513,63 @@ mod tests {
 
     #[test]
     fn test_from_github_fields_open_pr() {
-        assert_eq!(PrState::from_github_fields("open", false, false), PrState::Open);
+        assert_eq!(
+            PrState::from_github_fields("open", false, false),
+            PrState::Open
+        );
     }
 
     #[test]
     fn test_from_github_fields_closed_pr() {
-        assert_eq!(PrState::from_github_fields("closed", false, false), PrState::Closed);
+        assert_eq!(
+            PrState::from_github_fields("closed", false, false),
+            PrState::Closed
+        );
     }
 
     #[test]
     fn test_from_github_fields_merged_pr() {
-        assert_eq!(PrState::from_github_fields("closed", true, false), PrState::Merged);
+        assert_eq!(
+            PrState::from_github_fields("closed", true, false),
+            PrState::Merged
+        );
     }
 
     #[test]
     fn test_from_github_fields_merged_overrides_state() {
         // GitHub returns state=closed when merged, merged=true is the discriminator
-        assert_eq!(PrState::from_github_fields("closed", true, false), PrState::Merged);
-        assert_eq!(PrState::from_github_fields("open", true, false), PrState::Merged);
+        assert_eq!(
+            PrState::from_github_fields("closed", true, false),
+            PrState::Merged
+        );
+        assert_eq!(
+            PrState::from_github_fields("open", true, false),
+            PrState::Merged
+        );
     }
 
     #[test]
     fn test_from_github_fields_draft_pr() {
-        assert_eq!(PrState::from_github_fields("open", false, true), PrState::Draft);
+        assert_eq!(
+            PrState::from_github_fields("open", false, true),
+            PrState::Draft
+        );
     }
 
     #[test]
     fn test_from_github_fields_merged_takes_priority_over_draft() {
-        assert_eq!(PrState::from_github_fields("open", true, true), PrState::Merged);
+        assert_eq!(
+            PrState::from_github_fields("open", true, true),
+            PrState::Merged
+        );
     }
 
     #[test]
     fn test_from_github_fields_unknown_state_falls_back_to_open() {
-        assert_eq!(PrState::from_github_fields("unknown", false, false), PrState::Open);
+        assert_eq!(
+            PrState::from_github_fields("unknown", false, false),
+            PrState::Open
+        );
     }
 
     #[test]

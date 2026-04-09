@@ -18,9 +18,7 @@
 //! }
 //! ```
 
-use scp_workspace::domain::entities::{
-    Workspace, WorkspaceId, WorkspaceState,
-};
+use scp_workspace::domain::entities::{Workspace, WorkspaceId, WorkspaceState};
 use scp_workspace::domain::value_objects::{WorkspaceName, WorkspacePath};
 use scp_workspace::infrastructure::workspace_repository::WorkspaceRepository;
 
@@ -159,10 +157,7 @@ fn delete_then_get_returns_none(f: &RepoFactory) {
     repo.delete(&saved.id).unwrap();
 
     let found = repo.get(&saved.id).expect("get should not error");
-    assert!(
-        found.is_none(),
-        "workspace should not exist after delete"
-    );
+    assert!(found.is_none(), "workspace should not exist after delete");
 }
 
 fn delete_then_get_by_name_returns_none(f: &RepoFactory) {
@@ -170,7 +165,9 @@ fn delete_then_get_by_name_returns_none(f: &RepoFactory) {
     let saved = repo.save(make_workspace("del-name")).unwrap();
     repo.delete(&saved.id).unwrap();
 
-    let found = repo.get_by_name("del-name").expect("get_by_name should not error");
+    let found = repo
+        .get_by_name("del-name")
+        .expect("get_by_name should not error");
     assert!(
         found.is_none(),
         "workspace should not be findable by name after delete"
@@ -277,7 +274,9 @@ fn get_nonexistent_returns_none(f: &RepoFactory) {
 
 fn get_by_name_nonexistent_returns_none(f: &RepoFactory) {
     let repo = f();
-    let found = repo.get_by_name("nope").expect("get_by_name should not error");
+    let found = repo
+        .get_by_name("nope")
+        .expect("get_by_name should not error");
     assert!(found.is_none());
 }
 
@@ -341,10 +340,7 @@ fn get_is_idempotent(f: &RepoFactory) {
 
     let first = repo.get(&saved.id).unwrap();
     let second = repo.get(&saved.id).unwrap();
-    assert_eq!(
-        first.unwrap().id.as_str(),
-        second.unwrap().id.as_str()
-    );
+    assert_eq!(first.unwrap().id.as_str(), second.unwrap().id.as_str());
 }
 
 fn list_returns_independent_snapshot(f: &RepoFactory) {
@@ -355,7 +351,11 @@ fn list_returns_independent_snapshot(f: &RepoFactory) {
     let list2 = repo.list().unwrap();
 
     list1.clear();
-    assert_eq!(list2.len(), 1, "mutating a returned list must not affect the repo");
+    assert_eq!(
+        list2.len(),
+        1,
+        "mutating a returned list must not affect the repo"
+    );
 }
 
 /// Verify the trait is object-safe (can be used as `dyn WorkspaceRepository`).

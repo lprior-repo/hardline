@@ -1059,7 +1059,9 @@ mod tests {
         assert_eq!(failures, 19, "all others should fail with duplicate");
 
         // Verify the agent is there
-        let found = registry.get(&AgentId::new("shared-id")).expect("get succeeds");
+        let found = registry
+            .get(&AgentId::new("shared-id"))
+            .expect("get succeeds");
         assert!(found.is_some());
     }
 

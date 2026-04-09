@@ -8,9 +8,8 @@
 //! - Full end-to-end workspace lifecycle scenarios
 
 use scp_isolate::{
-    BeadId, CheckpointState,
-    WorkspaceGuard, WorkspaceId, WorkspaceState, WorkspaceStateMachine,
-    classify_command,
+    classify_command, BeadId, CheckpointState, WorkspaceGuard, WorkspaceId, WorkspaceState,
+    WorkspaceStateMachine,
 };
 
 fn fresh_ws_id() -> WorkspaceId {
@@ -18,7 +17,11 @@ fn fresh_ws_id() -> WorkspaceId {
 }
 
 fn fresh_bead_id(tag: &str) -> BeadId {
-    BeadId::parse(format!("bead-{tag}-{}", chrono::Utc::now().timestamp_millis())).unwrap()
+    BeadId::parse(format!(
+        "bead-{tag}-{}",
+        chrono::Utc::now().timestamp_millis()
+    ))
+    .unwrap()
 }
 
 // === Full lifecycle: Guard + State Machine + Events ===
@@ -58,26 +61,27 @@ fn full_conflict_recovery_lifecycle() {
     let bead_id = fresh_bead_id("conflict");
 
     // 1. Acquire guard (Created -> Working)
-    let guard = WorkspaceGuard::acquire(ws_id.clone(), bead_id.clone(), WorkspaceState::Created)
-        .unwrap();
+    let guard =
+        WorkspaceGuard::acquire(ws_id.clone(), bead_id.clone(), WorkspaceState::Created).unwrap();
 
     // 2. Commit (Working -> Ready)
     let committed = guard.commit().unwrap();
     assert!(committed.is_ready());
 
     // 3. Ready -> Conflict (merge conflict detected)
-    let conflict = WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Conflict)
-        .unwrap();
+    let conflict =
+        WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Conflict).unwrap();
     assert!(conflict.is_active());
 
     // 4. Conflict -> Working (resolve and rework)
-    let working = WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Working)
-        .unwrap();
+    let working =
+        WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Working)
+            .unwrap();
     assert!(working.is_active());
 
     // 5. Working -> Ready (done again)
-    let ready = WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Ready)
-        .unwrap();
+    let ready =
+        WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Ready).unwrap();
 
     // 6. Ready -> Merged
     let merged = WorkspaceStateMachine::transition(ready, WorkspaceState::Merged).unwrap();
@@ -110,11 +114,13 @@ fn full_abandon_lifecycle_from_conflict() {
     let _committed = guard.commit().unwrap(); // Working -> Ready
 
     // Ready -> Conflict
-    let _ = WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Conflict).unwrap();
+    let _ =
+        WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Conflict).unwrap();
 
     // Conflict -> Abandoned
-    let abandoned = WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Abandoned)
-        .unwrap();
+    let abandoned =
+        WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Abandoned)
+            .unwrap();
     assert!(abandoned.is_terminal());
 }
 
@@ -130,8 +136,9 @@ fn full_abandon_lifecycle_from_ready() {
     let _committed = guard.commit().unwrap(); // Working -> Ready
 
     // Ready -> Abandoned
-    let abandoned = WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Abandoned)
-        .unwrap();
+    let abandoned =
+        WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Abandoned)
+            .unwrap();
     assert!(abandoned.is_terminal());
 }
 
@@ -142,7 +149,8 @@ fn guard_mapping_preserves_bead_workspace_association() {
     let ws_id = fresh_ws_id();
     let bead_id = fresh_bead_id("assoc");
 
-    let guard = WorkspaceGuard::acquire(ws_id.clone(), bead_id.clone(), WorkspaceState::Created).unwrap();
+    let guard =
+        WorkspaceGuard::acquire(ws_id.clone(), bead_id.clone(), WorkspaceState::Created).unwrap();
 
     let mapping = guard.mapping().unwrap();
     assert_eq!(mapping.bead_id(), &bead_id);
@@ -161,17 +169,44 @@ fn guard_mapping_preserves_bead_workspace_association() {
 fn state_transitions_correspond_to_lifecycle_events() {
     // Verify the mapping between state transitions and event types
     let cases = vec![
-        (WorkspaceState::Created, WorkspaceState::Working, "workspace.activated"),
-        (WorkspaceState::Working, WorkspaceState::Ready, "workspace.completed"),
-        (WorkspaceState::Ready, WorkspaceState::Merged, "workspace.completed"),
-        (WorkspaceState::Ready, WorkspaceState::Conflict, "vcs.conflict_detected"),
-        (WorkspaceState::Conflict, WorkspaceState::Working, "workspace.resumed"),
-        (WorkspaceState::Working, WorkspaceState::Abandoned, "workspace.failed"),
+        (
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "workspace.activated",
+        ),
+        (
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "workspace.completed",
+        ),
+        (
+            WorkspaceState::Ready,
+            WorkspaceState::Merged,
+            "workspace.completed",
+        ),
+        (
+            WorkspaceState::Ready,
+            WorkspaceState::Conflict,
+            "vcs.conflict_detected",
+        ),
+        (
+            WorkspaceState::Conflict,
+            WorkspaceState::Working,
+            "workspace.resumed",
+        ),
+        (
+            WorkspaceState::Working,
+            WorkspaceState::Abandoned,
+            "workspace.failed",
+        ),
     ];
 
     for (from, to, event_prefix) in cases {
         let result = WorkspaceStateMachine::transition(from, to);
-        assert!(result.is_ok(), "{from:?} -> {to:?} should succeed (event: {event_prefix})");
+        assert!(
+            result.is_ok(),
+            "{from:?} -> {to:?} should succeed (event: {event_prefix})"
+        );
     }
 }
 
@@ -200,7 +235,10 @@ fn safe_commands_skip_checkpoint() {
 
     for cmd in &safe_commands {
         let risk = classify_command(cmd);
-        assert!(!risk.needs_checkpoint(), "'{cmd}' should not need checkpoint");
+        assert!(
+            !risk.needs_checkpoint(),
+            "'{cmd}' should not need checkpoint"
+        );
     }
 }
 
@@ -270,9 +308,12 @@ fn multiple_workspaces_independent_lifecycles() {
 #[test]
 fn merged_workspace_cannot_be_reused() {
     // Simulate: workspace goes through full lifecycle to merged
-    let _ = WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Working).unwrap();
-    let _ = WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Ready).unwrap();
-    let merged = WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Merged).unwrap();
+    let _ = WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Working)
+        .unwrap();
+    let _ =
+        WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Ready).unwrap();
+    let merged =
+        WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Merged).unwrap();
 
     // After merge, no further transitions possible
     for &target in WorkspaceState::all() {
@@ -284,9 +325,11 @@ fn merged_workspace_cannot_be_reused() {
 #[test]
 fn abandoned_workspace_cannot_be_recovered() {
     // Workspace abandoned at Working state
-    let _ = WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Working).unwrap();
-    let abandoned = WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Abandoned)
+    let _ = WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Working)
         .unwrap();
+    let abandoned =
+        WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Abandoned)
+            .unwrap();
 
     // No recovery possible
     for &target in WorkspaceState::all() {

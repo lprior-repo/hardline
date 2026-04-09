@@ -681,9 +681,9 @@ mod tests {
         #[test]
         fn priority_from_str_valid_all_levels() {
             for level in 0..=4u8 {
-                let p = format!("{level}").parse::<Priority>().unwrap_or_else(|_| {
-                    panic!("Parsing \"{level}\" should succeed")
-                });
+                let p = format!("{level}")
+                    .parse::<Priority>()
+                    .unwrap_or_else(|_| panic!("Parsing \"{level}\" should succeed"));
                 assert_eq!(p.as_u8(), level);
             }
         }
@@ -1117,7 +1117,11 @@ mod tests {
             let labels: Labels = "bug,feature,urgent".parse().expect("valid");
             assert_eq!(
                 labels.as_slice(),
-                &["bug".to_string(), "feature".to_string(), "urgent".to_string()]
+                &[
+                    "bug".to_string(),
+                    "feature".to_string(),
+                    "urgent".to_string()
+                ]
             );
         }
 
@@ -1138,7 +1142,11 @@ mod tests {
             let labels: Labels = "  bug  ,  feature  ,  urgent  ".parse().expect("valid");
             assert_eq!(
                 labels.as_slice(),
-                &["bug".to_string(), "feature".to_string(), "urgent".to_string()]
+                &[
+                    "bug".to_string(),
+                    "feature".to_string(),
+                    "urgent".to_string()
+                ]
             );
         }
 
@@ -1147,7 +1155,11 @@ mod tests {
             let labels: Labels = "bug, feature, urgent".parse().expect("valid");
             assert_eq!(
                 labels.as_slice(),
-                &["bug".to_string(), "feature".to_string(), "urgent".to_string()]
+                &[
+                    "bug".to_string(),
+                    "feature".to_string(),
+                    "urgent".to_string()
+                ]
             );
         }
 
@@ -1165,10 +1177,7 @@ mod tests {
         fn labels_from_str_skips_empty_segments() {
             // "a,,b" splits to ["a", "", "b"] — empty filtered out → ["a", "b"]
             let labels: Labels = "a,,b".parse().expect("empty segments filtered");
-            assert_eq!(
-                labels.as_slice(),
-                &["a".to_string(), "b".to_string()]
-            );
+            assert_eq!(labels.as_slice(), &["a".to_string(), "b".to_string()]);
         }
 
         #[test]
@@ -1235,7 +1244,8 @@ mod tests {
 
         #[test]
         fn labels_contains_existing() {
-            let labels = Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
+            let labels =
+                Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
             assert!(labels.contains("bug"));
             assert!(labels.contains("feature"));
         }
@@ -1326,17 +1336,18 @@ mod tests {
             let sorted = labels.sorted();
             assert_eq!(
                 sorted.as_slice(),
-                &["apple".to_string(), "mango".to_string(), "zebra".to_string()]
+                &[
+                    "apple".to_string(),
+                    "mango".to_string(),
+                    "zebra".to_string()
+                ]
             );
         }
 
         #[test]
         fn labels_sorted_does_not_mutate_original() {
-            let labels = Labels::new(vec![
-                "zebra".to_string(),
-                "apple".to_string(),
-            ])
-            .expect("valid");
+            let labels =
+                Labels::new(vec!["zebra".to_string(), "apple".to_string()]).expect("valid");
             let _sorted = labels.sorted();
             // Original preserves insertion order
             assert_eq!(
@@ -1370,7 +1381,11 @@ mod tests {
             let sorted = labels.sorted();
             assert_eq!(
                 sorted.as_slice(),
-                &["apple".to_string(), "banana".to_string(), "cherry".to_string()]
+                &[
+                    "apple".to_string(),
+                    "banana".to_string(),
+                    "cherry".to_string()
+                ]
             );
         }
 
@@ -1404,7 +1419,8 @@ mod tests {
 
         #[test]
         fn labels_clone_equal() {
-            let labels = Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
+            let labels =
+                Labels::new(vec!["bug".to_string(), "feature".to_string()]).expect("valid");
             let cloned = labels.clone();
             assert_eq!(labels, cloned);
         }
@@ -1419,9 +1435,7 @@ mod tests {
 
         #[test]
         fn depends_on_all_valid_hex_chars() {
-            let valid = [
-                "bd-0123456789", "bd-abcdef", "bd-ABCDEF", "bd-aBcDeF",
-            ];
+            let valid = ["bd-0123456789", "bd-abcdef", "bd-ABCDEF", "bd-aBcDeF"];
             for id in valid {
                 let dep = DependsOn::new(id).unwrap_or_else(|_| panic!("'{id}' should be valid"));
                 assert_eq!(dep.as_str(), id);
@@ -1460,27 +1474,24 @@ mod tests {
         #[test]
         fn depends_on_rejects_non_hex_chars() {
             let invalid = [
-                "bd-g", "bd-G", "bd-z", "bd-Z", "bd-!", "bd-@",
-                "bd- ", "bd-\t", "bd-\n", "bd-.", "bd-/",
+                "bd-g", "bd-G", "bd-z", "bd-Z", "bd-!", "bd-@", "bd- ", "bd-\t", "bd-\n", "bd-.",
+                "bd-/",
             ];
             for id in invalid {
-                assert!(
-                    DependsOn::new(id).is_err(),
-                    "'{id}' should be rejected"
-                );
+                assert!(DependsOn::new(id).is_err(), "'{id}' should be rejected");
             }
         }
 
         #[test]
         fn depends_on_rejects_prefix_only_variants() {
             let wrong_prefix = [
-                "BD-abc",   // uppercase prefix
-                "Bd-abc",   // mixed case prefix
-                "bD-abc",   // mixed case prefix
-                "bb-abc",   // wrong second char
-                "da-abc",   // wrong prefix
-                "bd_abc",   // underscore separator
-                "bd.abc",   // dot separator
+                "BD-abc", // uppercase prefix
+                "Bd-abc", // mixed case prefix
+                "bD-abc", // mixed case prefix
+                "bb-abc", // wrong second char
+                "da-abc", // wrong prefix
+                "bd_abc", // underscore separator
+                "bd.abc", // dot separator
             ];
             for id in wrong_prefix {
                 assert!(
@@ -1530,7 +1541,10 @@ mod tests {
 
             assert!(visited.contains(&dep1), "same value must be found");
             assert!(visited.contains(&dep1_dup), "equal value must be found");
-            assert!(!visited.contains(&dep2), "different value must not be found");
+            assert!(
+                !visited.contains(&dep2),
+                "different value must not be found"
+            );
         }
 
         #[test]
@@ -1580,7 +1594,11 @@ mod tests {
                 DependsOn::new("bd-b").expect("valid"), // duplicate
             ];
             let set: HashSet<DependsOn> = deps.into_iter().collect();
-            assert_eq!(set.len(), 3, "HashSet should deduplicate equal DependsOn values");
+            assert_eq!(
+                set.len(),
+                3,
+                "HashSet should deduplicate equal DependsOn values"
+            );
         }
 
         #[test]
@@ -1707,7 +1725,11 @@ mod tests {
             // A DependsOn value equal to the bead's own ID signals self-reference
             let bead_id = "bd-5e1f";
             let dep = DependsOn::new(bead_id).expect("valid");
-            assert_eq!(dep.as_str(), bead_id, "self-reference is detectable by equality");
+            assert_eq!(
+                dep.as_str(),
+                bead_id,
+                "self-reference is detectable by equality"
+            );
         }
 
         #[test]
@@ -1736,7 +1758,10 @@ mod tests {
             deps.insert(self_id.clone());
 
             // Check if self is in the dependency set
-            assert!(deps.contains(&self_id), "self in dependency set is detectable");
+            assert!(
+                deps.contains(&self_id),
+                "self in dependency set is detectable"
+            );
         }
 
         #[test]
@@ -1757,9 +1782,7 @@ mod tests {
             let bead = Bead::create(id, title, None);
 
             let self_id = BeadId::new("bd-dedup").expect("valid");
-            let result = bead
-                .add_dependency(self_id.clone())
-                .add_dependency(self_id);
+            let result = bead.add_dependency(self_id.clone()).add_dependency(self_id);
             assert!(
                 result.depends_on().is_empty(),
                 "repeated self-reference must still result in no deps"

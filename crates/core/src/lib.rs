@@ -138,8 +138,8 @@ pub use watcher::{BeadsStatus, FileWatcher, WatchEvent};
 pub use workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition};
 
 pub use application::{
-    create_coordination_service, create_queue_service, CoordinationService,
-    QueueService, QueueServiceImpl,
+    create_coordination_service, create_queue_service, CoordinationService, QueueService,
+    QueueServiceImpl,
 };
 pub use infrastructure::{
     create_database_service, create_vcs_integration_service, DatabaseConfig, DatabaseService,

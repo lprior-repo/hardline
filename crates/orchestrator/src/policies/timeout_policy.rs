@@ -202,9 +202,8 @@ mod tests {
         assert!(!deadline.is_exceeded());
 
         // Simulate waiting past the deadline by creating a deadline in the past
-        let expired = super::super::Deadline::at(
-            chrono::Utc::now() - chrono::Duration::milliseconds(100),
-        );
+        let expired =
+            super::super::Deadline::at(chrono::Utc::now() - chrono::Duration::milliseconds(100));
         assert!(expired.is_exceeded());
     }
 

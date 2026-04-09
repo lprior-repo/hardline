@@ -24,7 +24,14 @@ pub enum WorkspaceState {
 impl WorkspaceState {
     #[must_use]
     pub const fn all() -> &'static [Self] {
-        &[Self::Created, Self::Working, Self::Ready, Self::Merged, Self::Abandoned, Self::Conflict]
+        &[
+            Self::Created,
+            Self::Working,
+            Self::Ready,
+            Self::Merged,
+            Self::Abandoned,
+            Self::Conflict,
+        ]
     }
 
     #[must_use]

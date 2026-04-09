@@ -656,7 +656,10 @@ mod tests {
             parents: vec!["e7c805d7ba5e7a8b5e4c3d2f1a0b9c8d7e6f5a4b".to_string()],
         };
         assert_eq!(commit.parents.len(), 1);
-        assert_eq!(commit.parents[0], "e7c805d7ba5e7a8b5e4c3d2f1a0b9c8d7e6f5a4b");
+        assert_eq!(
+            commit.parents[0],
+            "e7c805d7ba5e7a8b5e4c3d2f1a0b9c8d7e6f5a4b"
+        );
     }
 
     #[test]
@@ -672,8 +675,14 @@ mod tests {
             ],
         };
         assert_eq!(commit.parents.len(), 2);
-        assert_eq!(commit.parents[0], "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0");
-        assert_eq!(commit.parents[1], "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1");
+        assert_eq!(
+            commit.parents[0],
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
+        );
+        assert_eq!(
+            commit.parents[1],
+            "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1"
+        );
     }
 
     #[test]
@@ -694,9 +703,7 @@ mod tests {
 
     #[test]
     fn commit_many_parents() {
-        let parents: Vec<String> = (0..10)
-            .map(|i| format!("{i:040x}"))
-            .collect();
+        let parents: Vec<String> = (0..10).map(|i| format!("{i:040x}")).collect();
         let commit = Commit {
             id: "ffffffffffffffffffffffffffffffffffffffff".to_string(),
             message: "Unusual octopus".to_string(),
@@ -781,8 +788,14 @@ mod tests {
             timestamp: chrono::Utc::now(),
             parents: parents.clone(),
         };
-        assert_eq!(commit.parents[0], "1111111111111111111111111111111111111111");
-        assert_eq!(commit.parents[1], "2222222222222222222222222222222222222222");
+        assert_eq!(
+            commit.parents[0],
+            "1111111111111111111111111111111111111111"
+        );
+        assert_eq!(
+            commit.parents[1],
+            "2222222222222222222222222222222222222222"
+        );
     }
 
     #[test]
@@ -813,7 +826,10 @@ mod tests {
             timestamp: epoch,
             parents: vec![],
         };
-        assert_eq!(commit.timestamp, chrono::DateTime::from_timestamp(0, 0).unwrap());
+        assert_eq!(
+            commit.timestamp,
+            chrono::DateTime::from_timestamp(0, 0).unwrap()
+        );
     }
 
     #[test]
@@ -1644,7 +1660,10 @@ mod tests {
         let debug = format!("{b:?}");
         assert!(debug.contains("Branch"), "Debug should contain type name");
         assert!(debug.contains("main"), "Debug should contain name");
-        assert!(debug.contains("origin/main"), "Debug should contain tracking");
+        assert!(
+            debug.contains("origin/main"),
+            "Debug should contain tracking"
+        );
     }
 
     #[test]
@@ -1657,7 +1676,10 @@ mod tests {
         let debug = format!("{b:?}");
         assert!(debug.contains("Branch"));
         assert!(debug.contains("local"));
-        assert!(debug.contains("None"), "Debug should show None for tracking");
+        assert!(
+            debug.contains("None"),
+            "Debug should show None for tracking"
+        );
     }
 
     // ── Field-by-field equality (no PartialEq derive) ───────────────────────
@@ -1821,9 +1843,21 @@ mod tests {
     #[test]
     fn multiple_branches_exactly_one_current() {
         let branches = [
-            Branch { name: "main".into(), is_current: true, tracking: Some("origin/main".into()) },
-            Branch { name: "develop".into(), is_current: false, tracking: Some("origin/develop".into()) },
-            Branch { name: "feature/x".into(), is_current: false, tracking: None },
+            Branch {
+                name: "main".into(),
+                is_current: true,
+                tracking: Some("origin/main".into()),
+            },
+            Branch {
+                name: "develop".into(),
+                is_current: false,
+                tracking: Some("origin/develop".into()),
+            },
+            Branch {
+                name: "feature/x".into(),
+                is_current: false,
+                tracking: None,
+            },
         ];
         let current_count = branches.iter().filter(|b| b.is_current).count();
         assert_eq!(current_count, 1, "exactly one branch should be current");
@@ -1834,11 +1868,22 @@ mod tests {
     #[test]
     fn no_branch_current_detached_head() {
         let branches = [
-            Branch { name: "main".into(), is_current: false, tracking: Some("origin/main".into()) },
-            Branch { name: "develop".into(), is_current: false, tracking: Some("origin/develop".into()) },
+            Branch {
+                name: "main".into(),
+                is_current: false,
+                tracking: Some("origin/main".into()),
+            },
+            Branch {
+                name: "develop".into(),
+                is_current: false,
+                tracking: Some("origin/develop".into()),
+            },
         ];
         let current_count = branches.iter().filter(|b| b.is_current).count();
-        assert_eq!(current_count, 0, "no branch should be current (detached HEAD)");
+        assert_eq!(
+            current_count, 0,
+            "no branch should be current (detached HEAD)"
+        );
     }
 
     // ── Serde roundtrip ──────────────────────────────────────────────────────
@@ -1892,7 +1937,10 @@ mod tests {
             tracking: None,
         };
         let json = serde_json::to_string(&b).expect("serialize");
-        assert!(json.contains("\"tracking\":null"), "None should serialize to null");
+        assert!(
+            json.contains("\"tracking\":null"),
+            "None should serialize to null"
+        );
     }
 
     #[test]
@@ -1922,7 +1970,10 @@ mod tests {
         // Branch uses plain derive(Deserialize) without defaults, so this may fail.
         // This test documents the behavior.
         if let Ok(b) = result {
-            assert!(b.tracking.is_none(), "missing tracking should be None if accepted");
+            assert!(
+                b.tracking.is_none(),
+                "missing tracking should be None if accepted"
+            );
         }
         // If it fails, that's also valid behavior — the test documents it.
     }

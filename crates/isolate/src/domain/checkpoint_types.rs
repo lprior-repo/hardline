@@ -145,10 +145,7 @@ mod tests {
             CheckpointState::Committed,
             CheckpointState::NeedsRestore,
         ] {
-            assert_eq!(
-                CheckpointState::from_db(state.as_db()).unwrap(),
-                state
-            );
+            assert_eq!(CheckpointState::from_db(state.as_db()).unwrap(), state);
         }
     }
 

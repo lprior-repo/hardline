@@ -7,8 +7,8 @@
 //! - classify_command: all known risky commands, all safe commands, unknown, case sensitivity
 //! - Proptests
 
-use scp_isolate::{CheckpointRecord, CheckpointState, OperationRisk};
 use scp_isolate::classify_command;
+use scp_isolate::{CheckpointRecord, CheckpointState, OperationRisk};
 
 // === OperationRisk ===
 
@@ -80,22 +80,40 @@ fn default_is_pending() {
 
 #[test]
 fn from_db_valid_inputs() {
-    assert_eq!(CheckpointState::from_db("pending").unwrap(), CheckpointState::Pending);
-    assert_eq!(CheckpointState::from_db("committed").unwrap(), CheckpointState::Committed);
-    assert_eq!(CheckpointState::from_db("needs_restore").unwrap(), CheckpointState::NeedsRestore);
+    assert_eq!(
+        CheckpointState::from_db("pending").unwrap(),
+        CheckpointState::Pending
+    );
+    assert_eq!(
+        CheckpointState::from_db("committed").unwrap(),
+        CheckpointState::Committed
+    );
+    assert_eq!(
+        CheckpointState::from_db("needs_restore").unwrap(),
+        CheckpointState::NeedsRestore
+    );
 }
 
 #[test]
 fn from_db_invalid_inputs() {
-    let invalid = ["", "PENDING", "invalid", "created", "ready", "active", "done"];
+    let invalid = [
+        "", "PENDING", "invalid", "created", "ready", "active", "done",
+    ];
     for input in &invalid {
-        assert!(CheckpointState::from_db(input).is_err(), "'{input}' should be invalid");
+        assert!(
+            CheckpointState::from_db(input).is_err(),
+            "'{input}' should be invalid"
+        );
     }
 }
 
 #[test]
 fn as_db_roundtrip() {
-    for state in [CheckpointState::Pending, CheckpointState::Committed, CheckpointState::NeedsRestore] {
+    for state in [
+        CheckpointState::Pending,
+        CheckpointState::Committed,
+        CheckpointState::NeedsRestore,
+    ] {
         let db_str = state.as_db();
         let parsed = CheckpointState::from_db(db_str).unwrap();
         assert_eq!(state, parsed, "roundtrip failed for {state:?}");
@@ -122,7 +140,11 @@ fn checkpoint_state_clone() {
 
 #[test]
 fn checkpoint_state_serde_roundtrip() {
-    for state in [CheckpointState::Pending, CheckpointState::Committed, CheckpointState::NeedsRestore] {
+    for state in [
+        CheckpointState::Pending,
+        CheckpointState::Committed,
+        CheckpointState::NeedsRestore,
+    ] {
         let json = serde_json::to_string(&state).unwrap();
         let parsed: CheckpointState = serde_json::from_str(&json).unwrap();
         assert_eq!(state, parsed);
@@ -131,7 +153,11 @@ fn checkpoint_state_serde_roundtrip() {
 
 #[test]
 fn checkpoint_state_debug() {
-    for state in [CheckpointState::Pending, CheckpointState::Committed, CheckpointState::NeedsRestore] {
+    for state in [
+        CheckpointState::Pending,
+        CheckpointState::Committed,
+        CheckpointState::NeedsRestore,
+    ] {
         let debug = format!("{state:?}");
         assert!(!debug.is_empty());
     }
@@ -206,7 +232,9 @@ fn risky_commands() {
 
 #[test]
 fn safe_commands() {
-    let safe = ["list", "status", "context", "focus", "help", "version", "show", "init", "switch", "done"];
+    let safe = [
+        "list", "status", "context", "focus", "help", "version", "show", "init", "switch", "done",
+    ];
     for cmd in &safe {
         assert_eq!(
             classify_command(cmd),

@@ -12,7 +12,9 @@ pub mod types;
 
 pub use processor::{JobProcessor, JobProcessorConfig, QueueError, QueueResult};
 pub use repository::{sort_jobs_by_priority, InMemoryJobRepository, JobRepository};
-pub use types::{Job, JobOutcome, JobPayload, JobPriority, JobResult, JobState, JobTransitionError};
+pub use types::{
+    Job, JobOutcome, JobPayload, JobPriority, JobResult, JobState, JobTransitionError,
+};
 
 #[cfg(test)]
 mod tests {
@@ -532,7 +534,10 @@ mod tests {
 
         sort_jobs_by_priority(&mut jobs);
 
-        assert_eq!(jobs.iter().map(|j| j.priority.value()).collect::<Vec<_>>(), vec![0, 1, 2, 3, 4]);
+        assert_eq!(
+            jobs.iter().map(|j| j.priority.value()).collect::<Vec<_>>(),
+            vec![0, 1, 2, 3, 4]
+        );
     }
 
     #[test]

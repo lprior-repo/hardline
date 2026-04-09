@@ -574,11 +574,13 @@ mod tests {
                 })
             }
             // Locked fires on Active → Locked
-            (WorkspaceState::Active, WorkspaceState::Locked) => Some(WorkspaceEvent::WorkspaceLocked {
-                workspace_id: workspace_id.into(),
-                holder: "test-agent".into(),
-                timestamp: Utc::now(),
-            }),
+            (WorkspaceState::Active, WorkspaceState::Locked) => {
+                Some(WorkspaceEvent::WorkspaceLocked {
+                    workspace_id: workspace_id.into(),
+                    holder: "test-agent".into(),
+                    timestamp: Utc::now(),
+                })
+            }
             // Unlocked fires on Locked → Active
             (WorkspaceState::Locked, WorkspaceState::Active) => {
                 Some(WorkspaceEvent::WorkspaceUnlocked {
@@ -887,9 +889,15 @@ mod tests {
         }
 
         // Verify we got the right event types in order
-        assert!(matches!(events[0], WorkspaceEvent::WorkspaceActivated { .. }));
+        assert!(matches!(
+            events[0],
+            WorkspaceEvent::WorkspaceActivated { .. }
+        ));
         assert!(matches!(events[1], WorkspaceEvent::WorkspaceLocked { .. }));
-        assert!(matches!(events[2], WorkspaceEvent::WorkspaceUnlocked { .. }));
+        assert!(matches!(
+            events[2],
+            WorkspaceEvent::WorkspaceUnlocked { .. }
+        ));
         assert!(matches!(events[3], WorkspaceEvent::WorkspaceDeleted { .. }));
     }
 
@@ -1204,16 +1212,56 @@ mod tests {
         use crate::domain::state::WorkspaceStateMachine;
 
         let valid_transitions: Vec<(WorkspaceState, WorkspaceState, &str)> = vec![
-            (WorkspaceState::Initializing, WorkspaceState::Active, "WorkspaceActivated"),
-            (WorkspaceState::Active, WorkspaceState::Locked, "WorkspaceLocked"),
-            (WorkspaceState::Locked, WorkspaceState::Active, "WorkspaceUnlocked"),
-            (WorkspaceState::Active, WorkspaceState::Corrupted, "WorkspaceCorrupted"),
-            (WorkspaceState::Locked, WorkspaceState::Corrupted, "WorkspaceCorrupted"),
-            (WorkspaceState::Initializing, WorkspaceState::Deleted, "WorkspaceDeleted"),
-            (WorkspaceState::Active, WorkspaceState::Deleted, "WorkspaceDeleted"),
-            (WorkspaceState::Locked, WorkspaceState::Deleted, "WorkspaceDeleted"),
-            (WorkspaceState::Corrupted, WorkspaceState::Deleted, "WorkspaceDeleted"),
-            (WorkspaceState::Deleted, WorkspaceState::Deleted, "WorkspaceDeleted"),
+            (
+                WorkspaceState::Initializing,
+                WorkspaceState::Active,
+                "WorkspaceActivated",
+            ),
+            (
+                WorkspaceState::Active,
+                WorkspaceState::Locked,
+                "WorkspaceLocked",
+            ),
+            (
+                WorkspaceState::Locked,
+                WorkspaceState::Active,
+                "WorkspaceUnlocked",
+            ),
+            (
+                WorkspaceState::Active,
+                WorkspaceState::Corrupted,
+                "WorkspaceCorrupted",
+            ),
+            (
+                WorkspaceState::Locked,
+                WorkspaceState::Corrupted,
+                "WorkspaceCorrupted",
+            ),
+            (
+                WorkspaceState::Initializing,
+                WorkspaceState::Deleted,
+                "WorkspaceDeleted",
+            ),
+            (
+                WorkspaceState::Active,
+                WorkspaceState::Deleted,
+                "WorkspaceDeleted",
+            ),
+            (
+                WorkspaceState::Locked,
+                WorkspaceState::Deleted,
+                "WorkspaceDeleted",
+            ),
+            (
+                WorkspaceState::Corrupted,
+                WorkspaceState::Deleted,
+                "WorkspaceDeleted",
+            ),
+            (
+                WorkspaceState::Deleted,
+                WorkspaceState::Deleted,
+                "WorkspaceDeleted",
+            ),
         ];
 
         for (from, to, expected_name) in &valid_transitions {
@@ -1224,10 +1272,7 @@ mod tests {
             );
 
             let event = expected_event_for_transition(*from, *to, "ws-table");
-            assert!(
-                event.is_some(),
-                "{from:?} → {to:?} should produce an event"
-            );
+            assert!(event.is_some(), "{from:?} → {to:?} should produce an event");
 
             let debug_str = format!("{:?}", event.unwrap());
             assert!(
@@ -1278,8 +1323,8 @@ mod tests {
 
     #[test]
     fn entity_create_produces_workspace_created_event_data() {
-        use crate::{WorkspaceName, WorkspacePath};
         use crate::domain::entities::workspace::Workspace;
+        use crate::{WorkspaceName, WorkspacePath};
 
         let ws = Workspace::create(
             WorkspaceName::new("event-test".into()).unwrap(),
@@ -1308,8 +1353,8 @@ mod tests {
 
     #[test]
     fn entity_lock_produces_workspace_locked_event_data() {
-        use crate::{WorkspaceName, WorkspacePath};
         use crate::domain::entities::workspace::Workspace;
+        use crate::{WorkspaceName, WorkspacePath};
 
         let ws = Workspace::create(
             WorkspaceName::new("lock-event".into()).unwrap(),
@@ -1340,8 +1385,8 @@ mod tests {
 
     #[test]
     fn entity_full_lifecycle_event_chain() {
-        use crate::{WorkspaceName, WorkspacePath};
         use crate::domain::entities::workspace::Workspace;
+        use crate::{WorkspaceName, WorkspacePath};
 
         // Build a workspace through its full lifecycle, collecting event data at each step
         let ws = Workspace::create(
@@ -1352,11 +1397,12 @@ mod tests {
         let ws_id = ws.id.as_str().to_string();
 
         // Step 1: Created
-        let created_event = WorkspaceEvent::workspace_created(
-            ws_id.clone(),
-            ws.name.as_str().to_string(),
-        );
-        assert!(matches!(created_event, WorkspaceEvent::WorkspaceCreated { .. }));
+        let created_event =
+            WorkspaceEvent::workspace_created(ws_id.clone(), ws.name.as_str().to_string());
+        assert!(matches!(
+            created_event,
+            WorkspaceEvent::WorkspaceCreated { .. }
+        ));
 
         // Step 2: Activated
         let active = ws.activate().unwrap();
@@ -1365,7 +1411,10 @@ mod tests {
             workspace_id: ws_id.clone(),
             timestamp: active_ts,
         };
-        assert!(matches!(activated_event, WorkspaceEvent::WorkspaceActivated { .. }));
+        assert!(matches!(
+            activated_event,
+            WorkspaceEvent::WorkspaceActivated { .. }
+        ));
 
         // Step 3: Locked
         let locked = active.lock("agent-lc".into()).unwrap();
@@ -1375,7 +1424,10 @@ mod tests {
             holder: "agent-lc".into(),
             timestamp: locked_ts,
         };
-        assert!(matches!(locked_event, WorkspaceEvent::WorkspaceLocked { .. }));
+        assert!(matches!(
+            locked_event,
+            WorkspaceEvent::WorkspaceLocked { .. }
+        ));
 
         // Step 4: Unlocked
         let unlocked = locked.unlock().unwrap();
@@ -1384,7 +1436,10 @@ mod tests {
             workspace_id: ws_id.clone(),
             timestamp: unlocked_ts,
         };
-        assert!(matches!(unlocked_event, WorkspaceEvent::WorkspaceUnlocked { .. }));
+        assert!(matches!(
+            unlocked_event,
+            WorkspaceEvent::WorkspaceUnlocked { .. }
+        ));
 
         // Step 5: Deleted
         let deleted = unlocked.delete().unwrap();
@@ -1393,7 +1448,10 @@ mod tests {
             workspace_id: ws_id.clone(),
             timestamp: deleted_ts,
         };
-        assert!(matches!(deleted_event, WorkspaceEvent::WorkspaceDeleted { .. }));
+        assert!(matches!(
+            deleted_event,
+            WorkspaceEvent::WorkspaceDeleted { .. }
+        ));
 
         // Verify chronological ordering using captured timestamps
         assert!(active_ts <= locked_ts);
@@ -1406,8 +1464,8 @@ mod tests {
     #[cfg(test)]
     mod contract_proptests {
         use super::*;
-        use crate::domain::state::WorkspaceStateMachine;
         use crate::domain::entities::WorkspaceState;
+        use crate::domain::state::WorkspaceStateMachine;
         use proptest::prelude::*;
 
         proptest! {

@@ -233,12 +233,10 @@ pub fn between(repo: &gix::Repository, base: &str, head: &str) -> GitResult<Vec<
             reason: format!("Failed to read commit object: {e}"),
         })?;
 
-        let message_raw = commit_obj
-            .message_raw()
-            .map_err(|e| GitError::InvalidRef {
-                name: info.id.to_string(),
-                reason: format!("Failed to read message: {e}"),
-            })?;
+        let message_raw = commit_obj.message_raw().map_err(|e| GitError::InvalidRef {
+            name: info.id.to_string(),
+            reason: format!("Failed to read message: {e}"),
+        })?;
         let summary = message_raw
             .as_bstr()
             .to_str_lossy()
@@ -273,9 +271,7 @@ pub fn branch_commits(
             reason: format!("Failed to walk commits: {e}"),
         })?;
 
-    let parent_oid = parent
-        .map(|p| resolve_to_oid(repo, p))
-        .transpose()?;
+    let parent_oid = parent.map(|p| resolve_to_oid(repo, p)).transpose()?;
 
     let mut commits = Vec::new();
     for item in walk.take(limit) {
@@ -296,12 +292,10 @@ pub fn branch_commits(
             reason: format!("Failed to read commit object: {e}"),
         })?;
 
-        let message_raw = commit_obj
-            .message_raw()
-            .map_err(|e| GitError::InvalidRef {
-                name: info.id.to_string(),
-                reason: format!("Failed to read message: {e}"),
-            })?;
+        let message_raw = commit_obj.message_raw().map_err(|e| GitError::InvalidRef {
+            name: info.id.to_string(),
+            reason: format!("Failed to read message: {e}"),
+        })?;
         let message = message_raw
             .as_bstr()
             .to_str_lossy()

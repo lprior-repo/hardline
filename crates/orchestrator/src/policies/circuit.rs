@@ -338,7 +338,12 @@ mod tests {
         for i in 1..10 {
             cb.record_failure();
             assert_eq!(cb.failure_count(), i, "failure count at step {}", i);
-            assert_eq!(cb.state(), CircuitBreakerState::Closed, "state at step {}", i);
+            assert_eq!(
+                cb.state(),
+                CircuitBreakerState::Closed,
+                "state at step {}",
+                i
+            );
         }
     }
 
@@ -397,7 +402,12 @@ mod tests {
                 "cycle {}: should be Closed after success",
                 cycle
             );
-            assert_eq!(cb.failure_count(), 0, "cycle {}: failure_count reset", cycle);
+            assert_eq!(
+                cb.failure_count(),
+                0,
+                "cycle {}: failure_count reset",
+                cycle
+            );
         }
     }
 
@@ -486,7 +496,10 @@ mod tests {
 
         // Phase 4: Wait and check — can_execute returns true but state stays Open
         std::thread::sleep(std::time::Duration::from_millis(2));
-        assert!(cb.can_execute(), "can_execute returns true after recovery timeout");
+        assert!(
+            cb.can_execute(),
+            "can_execute returns true after recovery timeout"
+        );
         // Note: can_execute is &self, state is still Open
 
         // Phase 5: Explicitly transition to HalfOpen

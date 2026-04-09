@@ -9,11 +9,11 @@
 mod tests {
     use std::str::FromStr;
 
-    use chrono::Utc;
     use crate::lifecycle::LifecycleState;
     use crate::session_state::{SessionState, SessionStateManager, StateTransition};
     use crate::type_session_status::{Operation, SessionStatus};
     use crate::workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition};
+    use chrono::Utc;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SessionState — exhaustive transition matrix
@@ -133,7 +133,9 @@ mod tests {
 
     #[test]
     fn manager_active_pause_resume_complete() {
-        let mgr = SessionStateManager::new("sess-2").activate("go").expect("activate");
+        let mgr = SessionStateManager::new("sess-2")
+            .activate("go")
+            .expect("activate");
         let mgr = mgr.pause("break").expect("pause");
         assert_eq!(mgr.current_state(), SessionState::Paused);
         let mgr = mgr.resume("back").expect("resume");
@@ -184,7 +186,9 @@ mod tests {
 
     #[test]
     fn manager_created_fail() {
-        let mgr = SessionStateManager::new("sess-6").fail("startup error").expect("fail");
+        let mgr = SessionStateManager::new("sess-6")
+            .fail("startup error")
+            .expect("fail");
         assert_eq!(mgr.current_state(), SessionState::Failed);
     }
 
@@ -353,7 +357,10 @@ mod tests {
                     continue;
                 }
                 let t = StateTransition::new(from, to, "invalid");
-                assert!(t.validate().is_err(), "Should be invalid: {from:?} -> {to:?}");
+                assert!(
+                    t.validate().is_err(),
+                    "Should be invalid: {from:?} -> {to:?}"
+                );
             }
         }
     }
@@ -373,29 +380,45 @@ mod tests {
     #[test]
     fn try_transition_ok_for_all_valid_session_status() {
         assert_eq!(
-            SessionStatus::Creating.try_transition(SessionStatus::Active).ok(),
+            SessionStatus::Creating
+                .try_transition(SessionStatus::Active)
+                .ok(),
             Some(SessionStatus::Active)
         );
         assert_eq!(
-            SessionStatus::Active.try_transition(SessionStatus::Paused).ok(),
+            SessionStatus::Active
+                .try_transition(SessionStatus::Paused)
+                .ok(),
             Some(SessionStatus::Paused)
         );
         assert_eq!(
-            SessionStatus::Active.try_transition(SessionStatus::Completed).ok(),
+            SessionStatus::Active
+                .try_transition(SessionStatus::Completed)
+                .ok(),
             Some(SessionStatus::Completed)
         );
         assert_eq!(
-            SessionStatus::Paused.try_transition(SessionStatus::Active).ok(),
+            SessionStatus::Paused
+                .try_transition(SessionStatus::Active)
+                .ok(),
             Some(SessionStatus::Active)
         );
     }
 
     #[test]
     fn try_transition_err_for_all_invalid_session_status() {
-        assert!(SessionStatus::Creating.try_transition(SessionStatus::Paused).is_err());
-        assert!(SessionStatus::Creating.try_transition(SessionStatus::Creating).is_err());
-        assert!(SessionStatus::Completed.try_transition(SessionStatus::Active).is_err());
-        assert!(SessionStatus::Failed.try_transition(SessionStatus::Active).is_err());
+        assert!(SessionStatus::Creating
+            .try_transition(SessionStatus::Paused)
+            .is_err());
+        assert!(SessionStatus::Creating
+            .try_transition(SessionStatus::Creating)
+            .is_err());
+        assert!(SessionStatus::Completed
+            .try_transition(SessionStatus::Active)
+            .is_err());
+        assert!(SessionStatus::Failed
+            .try_transition(SessionStatus::Active)
+            .is_err());
     }
 
     #[test]
@@ -417,7 +440,12 @@ mod tests {
     #[test]
     fn session_status_operations_guard_exhaustive() {
         // Creating: no operations
-        for op in [Operation::Status, Operation::Diff, Operation::Focus, Operation::Remove] {
+        for op in [
+            Operation::Status,
+            Operation::Diff,
+            Operation::Focus,
+            Operation::Remove,
+        ] {
             assert!(
                 !SessionStatus::Creating.allows_operation(op),
                 "Creating should not allow {op:?}"
@@ -474,7 +502,10 @@ mod tests {
     #[test]
     fn workspace_state_no_self_transitions() {
         for &state in WorkspaceState::all() {
-            assert!(!state.can_transition_to(state), "No self-transition for {state:?}");
+            assert!(
+                !state.can_transition_to(state),
+                "No self-transition for {state:?}"
+            );
         }
     }
 
@@ -513,7 +544,10 @@ mod tests {
         ];
         for &state in &non_terminals {
             assert!(!state.is_terminal());
-            assert!(!state.valid_next_states().is_empty(), "{state:?} should have transitions");
+            assert!(
+                !state.valid_next_states().is_empty(),
+                "{state:?} should have transitions"
+            );
         }
     }
 
@@ -593,11 +627,8 @@ mod tests {
 
     #[test]
     fn workspace_transition_without_agent() {
-        let t = WorkspaceStateTransition::new(
-            WorkspaceState::Working,
-            WorkspaceState::Ready,
-            "ready",
-        );
+        let t =
+            WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Ready, "ready");
         assert!(t.agent_id.is_none());
     }
 
@@ -606,7 +637,10 @@ mod tests {
         for &terminal in &[WorkspaceState::Merged, WorkspaceState::Abandoned] {
             for &target in WorkspaceState::all() {
                 let t = WorkspaceStateTransition::new(terminal, target, "try");
-                assert!(t.validate().is_err(), "Terminal {terminal:?} -> {target:?} should fail");
+                assert!(
+                    t.validate().is_err(),
+                    "Terminal {terminal:?} -> {target:?} should fail"
+                );
             }
         }
     }
@@ -622,7 +656,10 @@ mod tests {
             assert!(filter.matches(state));
             for &other in WorkspaceState::all() {
                 if other != state {
-                    assert!(!filter.matches(other), "{state:?} filter should not match {other:?}");
+                    assert!(
+                        !filter.matches(other),
+                        "{state:?} filter should not match {other:?}"
+                    );
                 }
             }
         }
@@ -641,7 +678,10 @@ mod tests {
         for &state in WorkspaceState::all() {
             let terminal = WorkspaceStateFilter::Terminal.matches(state);
             let non_terminal = WorkspaceStateFilter::NonTerminal.matches(state);
-            assert_ne!(terminal, non_terminal, "{state:?}: terminal={terminal}, non_terminal={non_terminal}");
+            assert_ne!(
+                terminal, non_terminal,
+                "{state:?}: terminal={terminal}, non_terminal={non_terminal}"
+            );
         }
     }
 
@@ -654,14 +694,24 @@ mod tests {
         for &state in WorkspaceState::all() {
             let s = state.to_string();
             let parsed: std::result::Result<WorkspaceState, _> = s.parse();
-            assert_eq!(parsed.ok(), Some(state), "Roundtrip failed for {state:?}: display={s}");
+            assert_eq!(
+                parsed.ok(),
+                Some(state),
+                "Roundtrip failed for {state:?}: display={s}"
+            );
         }
     }
 
     #[test]
     fn workspace_from_str_case_insensitive() {
-        assert_eq!("CREATED".parse::<WorkspaceState>().ok(), Some(WorkspaceState::Created));
-        assert_eq!("Working".parse::<WorkspaceState>().ok(), Some(WorkspaceState::Working));
+        assert_eq!(
+            "CREATED".parse::<WorkspaceState>().ok(),
+            Some(WorkspaceState::Created)
+        );
+        assert_eq!(
+            "Working".parse::<WorkspaceState>().ok(),
+            Some(WorkspaceState::Working)
+        );
     }
 
     #[test]
@@ -834,7 +884,8 @@ mod tests {
     #[test]
     fn workspace_transition_timestamp_is_recent() {
         let before = Utc::now();
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "test");
+        let t =
+            WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "test");
         let after = Utc::now();
         assert!(t.timestamp >= before, "Timestamp should be >= before");
         assert!(t.timestamp <= after, "Timestamp should be <= after");
@@ -956,7 +1007,10 @@ mod tests {
                 let t = WorkspaceStateTransition::new(terminal, target, "try");
                 let err = t.validate().expect_err("terminal should reject");
                 let msg = format!("{err}");
-                assert!(!msg.is_empty(), "Error for {terminal:?}->{target:?} should be descriptive");
+                assert!(
+                    !msg.is_empty(),
+                    "Error for {terminal:?}->{target:?} should be descriptive"
+                );
             }
         }
     }
@@ -1060,7 +1114,10 @@ mod tests {
             })
             .collect();
 
-        let ids: Vec<_> = results.into_iter().map(|h| h.join().expect("thread")).collect();
+        let ids: Vec<_> = results
+            .into_iter()
+            .map(|h| h.join().expect("thread"))
+            .collect();
         assert_eq!(ids.len(), 4);
         for i in 0..4 {
             assert_eq!(ids[i], format!("thread-{i}"));
@@ -1370,7 +1427,10 @@ mod tests {
 
         // No self-transitions
         for &state in SessionState::all_states() {
-            assert!(!state.can_transition_to(state), "No self-transition for {state:?}");
+            assert!(
+                !state.can_transition_to(state),
+                "No self-transition for {state:?}"
+            );
         }
 
         // All states listed in all_states are unique
@@ -1421,7 +1481,10 @@ mod tests {
 
         // No self-transitions
         for &state in WorkspaceState::all() {
-            assert!(!state.can_transition_to(state), "No self-transition for {state:?}");
+            assert!(
+                !state.can_transition_to(state),
+                "No self-transition for {state:?}"
+            );
         }
     }
 
@@ -1434,7 +1497,12 @@ mod tests {
         // allows_operation must be consistent with allowed_operations
         for &status in SessionStatus::all_states() {
             let ops = status.allowed_operations();
-            for op in [Operation::Status, Operation::Diff, Operation::Focus, Operation::Remove] {
+            for op in [
+                Operation::Status,
+                Operation::Diff,
+                Operation::Focus,
+                Operation::Remove,
+            ] {
                 assert_eq!(
                     status.allows_operation(op),
                     ops.contains(&op),
@@ -1518,10 +1586,17 @@ mod tests {
 
     #[test]
     fn workspace_state_transition_serde_without_agent_skips_field() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "start");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        );
         let json = serde_json::to_string(&t).expect("serialize");
         // agent_id is None, so skip_serializing_if should omit it
-        assert!(!json.contains("agent_id"), "Should skip null agent_id: {json}");
+        assert!(
+            !json.contains("agent_id"),
+            "Should skip null agent_id: {json}"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1628,7 +1703,10 @@ mod tests {
             .count();
 
         let expected_valid = 14;
-        assert_eq!(valid_count, expected_valid, "SessionState should have exactly {expected_valid} valid transitions");
+        assert_eq!(
+            valid_count, expected_valid,
+            "SessionState should have exactly {expected_valid} valid transitions"
+        );
 
         // All invalid transitions must produce errors
         let invalid_count = (0..7)
@@ -1659,7 +1737,10 @@ mod tests {
             })
             .count();
 
-        assert_eq!(valid_count, 10, "WorkspaceState should have exactly 10 valid transitions");
+        assert_eq!(
+            valid_count, 10,
+            "WorkspaceState should have exactly 10 valid transitions"
+        );
     }
 
     #[test]
@@ -1679,7 +1760,10 @@ mod tests {
             })
             .count();
 
-        assert_eq!(valid_count, 6, "SessionStatus should have exactly 6 valid transitions");
+        assert_eq!(
+            valid_count, 6,
+            "SessionStatus should have exactly 6 valid transitions"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1700,22 +1784,38 @@ mod tests {
         // Use chained transitions - type-state pattern requires each step to
         // return the correct typed manager. We can chain multiple restart cycles.
         let mgr = SessionStateManager::new("stress")
-            .activate("c0").expect("a0")
-            .complete("c0").expect("c0")
-            .restart("c0").expect("r0")
-            .activate("c1").expect("a1")
-            .complete("c1").expect("c1")
-            .restart("c1").expect("r1")
-            .activate("c2").expect("a2")
-            .complete("c2").expect("c2")
-            .restart("c2").expect("r2")
-            .activate("c3").expect("a3")
-            .complete("c3").expect("c3")
-            .restart("c3").expect("r3")
-            .activate("c4").expect("a4")
-            .complete("c4").expect("c4")
-            .restart("c4").expect("r4")
-            .activate("final").expect("final");
+            .activate("c0")
+            .expect("a0")
+            .complete("c0")
+            .expect("c0")
+            .restart("c0")
+            .expect("r0")
+            .activate("c1")
+            .expect("a1")
+            .complete("c1")
+            .expect("c1")
+            .restart("c1")
+            .expect("r1")
+            .activate("c2")
+            .expect("a2")
+            .complete("c2")
+            .expect("c2")
+            .restart("c2")
+            .expect("r2")
+            .activate("c3")
+            .expect("a3")
+            .complete("c3")
+            .expect("c3")
+            .restart("c3")
+            .expect("r3")
+            .activate("c4")
+            .expect("a4")
+            .complete("c4")
+            .expect("c4")
+            .restart("c4")
+            .expect("r4")
+            .activate("final")
+            .expect("final");
 
         assert_eq!(mgr.current_state(), SessionState::Active);
         // 5 cycles * 3 (activate+complete+restart) + 1 final activate = 16
@@ -1725,15 +1825,24 @@ mod tests {
     #[test]
     fn manager_stress_sync_reactivate_cycles() {
         let mgr = SessionStateManager::new("stress-sync")
-            .activate("s0").expect("a0")
-            .sync("s0").expect("s0")
-            .sync_complete("s0").expect("sc0")
-            .reactivate("s0").expect("r0")
-            .sync("s1").expect("s1")
-            .sync_complete("s1").expect("sc1")
-            .reactivate("s1").expect("r1")
-            .sync("s2").expect("s2")
-            .sync_complete("s2").expect("sc2");
+            .activate("s0")
+            .expect("a0")
+            .sync("s0")
+            .expect("s0")
+            .sync_complete("s0")
+            .expect("sc0")
+            .reactivate("s0")
+            .expect("r0")
+            .sync("s1")
+            .expect("s1")
+            .sync_complete("s1")
+            .expect("sc1")
+            .reactivate("s1")
+            .expect("r1")
+            .sync("s2")
+            .expect("s2")
+            .sync_complete("s2")
+            .expect("sc2");
 
         assert_eq!(mgr.current_state(), SessionState::Synced);
         // 3 full sync cycles: (activate+sync+sync_complete) + (reactivate+sync+sync_complete) * 2 = 9
@@ -1746,7 +1855,11 @@ mod tests {
 
     #[test]
     fn wst_valid_created_to_working() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "start");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        );
         assert!(t.validate().is_ok());
         assert_eq!(t.from, WorkspaceState::Created);
         assert_eq!(t.to, WorkspaceState::Working);
@@ -1754,55 +1867,91 @@ mod tests {
 
     #[test]
     fn wst_valid_working_to_ready() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Ready, "work complete");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "work complete",
+        );
         assert!(t.validate().is_ok());
     }
 
     #[test]
     fn wst_valid_working_to_conflict() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Conflict, "merge conflict");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Working,
+            WorkspaceState::Conflict,
+            "merge conflict",
+        );
         assert!(t.validate().is_ok());
     }
 
     #[test]
     fn wst_valid_working_to_abandoned() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Abandoned, "agent quit");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Working,
+            WorkspaceState::Abandoned,
+            "agent quit",
+        );
         assert!(t.validate().is_ok());
     }
 
     #[test]
     fn wst_valid_ready_to_working() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Working, "rework needed");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Ready,
+            WorkspaceState::Working,
+            "rework needed",
+        );
         assert!(t.validate().is_ok());
     }
 
     #[test]
     fn wst_valid_ready_to_merged() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Merged, "approved");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Ready,
+            WorkspaceState::Merged,
+            "approved",
+        );
         assert!(t.validate().is_ok());
     }
 
     #[test]
     fn wst_valid_ready_to_conflict() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Conflict, "conflict detected");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Ready,
+            WorkspaceState::Conflict,
+            "conflict detected",
+        );
         assert!(t.validate().is_ok());
     }
 
     #[test]
     fn wst_valid_ready_to_abandoned() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Abandoned, "withdrawn");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Ready,
+            WorkspaceState::Abandoned,
+            "withdrawn",
+        );
         assert!(t.validate().is_ok());
     }
 
     #[test]
     fn wst_valid_conflict_to_working() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Conflict, WorkspaceState::Working, "resolved");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Conflict,
+            WorkspaceState::Working,
+            "resolved",
+        );
         assert!(t.validate().is_ok());
     }
 
     #[test]
     fn wst_valid_conflict_to_abandoned() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Conflict, WorkspaceState::Abandoned, "abandon conflict");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Conflict,
+            WorkspaceState::Abandoned,
+            "abandon conflict",
+        );
         assert!(t.validate().is_ok());
     }
 
@@ -1829,25 +1978,41 @@ mod tests {
 
     #[test]
     fn wst_invalid_created_skips_to_ready() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Ready, "skip work");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Created,
+            WorkspaceState::Ready,
+            "skip work",
+        );
         assert!(t.validate().is_err());
     }
 
     #[test]
     fn wst_invalid_created_skips_to_merged() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Merged, "skip everything");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Created,
+            WorkspaceState::Merged,
+            "skip everything",
+        );
         assert!(t.validate().is_err());
     }
 
     #[test]
     fn wst_invalid_created_to_abandoned() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Abandoned, "never started");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Created,
+            WorkspaceState::Abandoned,
+            "never started",
+        );
         assert!(t.validate().is_err());
     }
 
     #[test]
     fn wst_invalid_created_to_conflict() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Conflict, "conflict before work");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Created,
+            WorkspaceState::Conflict,
+            "conflict before work",
+        );
         assert!(t.validate().is_err());
     }
 
@@ -1855,7 +2020,10 @@ mod tests {
     fn wst_invalid_merged_to_any() {
         for &target in WorkspaceState::all() {
             let t = WorkspaceStateTransition::new(WorkspaceState::Merged, target, "unmerge");
-            assert!(t.validate().is_err(), "Merged -> {target:?} must be rejected");
+            assert!(
+                t.validate().is_err(),
+                "Merged -> {target:?} must be rejected"
+            );
         }
     }
 
@@ -1863,7 +2031,10 @@ mod tests {
     fn wst_invalid_abandoned_to_any() {
         for &target in WorkspaceState::all() {
             let t = WorkspaceStateTransition::new(WorkspaceState::Abandoned, target, "unabandon");
-            assert!(t.validate().is_err(), "Abandoned -> {target:?} must be rejected");
+            assert!(
+                t.validate().is_err(),
+                "Abandoned -> {target:?} must be rejected"
+            );
         }
     }
 
@@ -1875,7 +2046,10 @@ mod tests {
     fn wst_guard_no_self_transition() {
         for &state in WorkspaceState::all() {
             let t = WorkspaceStateTransition::new(state, state, "self");
-            assert!(t.validate().is_err(), "Self-transition {state:?} -> {state:?} must be rejected");
+            assert!(
+                t.validate().is_err(),
+                "Self-transition {state:?} -> {state:?} must be rejected"
+            );
         }
     }
 
@@ -1975,7 +2149,8 @@ mod tests {
     #[test]
     fn wst_side_effect_timestamp_captured() {
         let before = Utc::now();
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "test");
+        let t =
+            WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "test");
         let after = Utc::now();
         assert!(t.timestamp >= before, "timestamp must be >= before");
         assert!(t.timestamp <= after, "timestamp must be <= after");
@@ -1984,20 +2159,31 @@ mod tests {
     #[test]
     fn wst_side_effect_agent_id_propagated() {
         let t = WorkspaceStateTransition::with_agent(
-            WorkspaceState::Working, WorkspaceState::Ready, "done", "polecat-shale",
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "done",
+            "polecat-shale",
         );
         assert_eq!(t.agent_id.as_deref(), Some("polecat-shale"));
     }
 
     #[test]
     fn wst_side_effect_agent_id_none_by_default() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "start");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        );
         assert!(t.agent_id.is_none());
     }
 
     #[test]
     fn wst_side_effect_reason_preserved() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Ready, "all tests pass");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "all tests pass",
+        );
         assert_eq!(t.reason, "all tests pass");
     }
 
@@ -2010,27 +2196,41 @@ mod tests {
 
     #[test]
     fn wst_side_effect_reason_unicode() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Ready, "完了 🚀");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "完了 🚀",
+        );
         assert_eq!(t.reason, "完了 🚀");
     }
 
     #[test]
     fn wst_side_effect_reason_long_string() {
         let reason = "x".repeat(10_000);
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, &reason);
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            &reason,
+        );
         assert_eq!(t.reason.len(), 10_000);
     }
 
     #[test]
     fn wst_side_effect_timestamps_ordered_in_sequence() {
-        let t1 = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "start");
-        let t2 = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Ready, "done");
+        let t1 = WorkspaceStateTransition::new(
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        );
+        let t2 =
+            WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Ready, "done");
         assert!(t1.timestamp <= t2.timestamp, "Timestamps must be ordered");
     }
 
     #[test]
     fn wst_side_effect_from_and_to_fields() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Conflict, WorkspaceState::Working, "fix");
+        let t =
+            WorkspaceStateTransition::new(WorkspaceState::Conflict, WorkspaceState::Working, "fix");
         assert_eq!(t.from, WorkspaceState::Conflict);
         assert_eq!(t.to, WorkspaceState::Working);
     }
@@ -2038,7 +2238,10 @@ mod tests {
     #[test]
     fn wst_side_effect_with_agent_empty_string() {
         let t = WorkspaceStateTransition::with_agent(
-            WorkspaceState::Created, WorkspaceState::Working, "start", "",
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+            "",
         );
         assert_eq!(t.agent_id.as_deref(), Some(""));
     }
@@ -2063,9 +2266,27 @@ mod tests {
     #[test]
     fn wst_recording_happy_path_to_merge() {
         let mut history = vec![];
-        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start work").expect("r1");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "work done").expect("r2");
-        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "merged").expect("r3");
+        record_transition(
+            &mut history,
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start work",
+        )
+        .expect("r1");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "work done",
+        )
+        .expect("r2");
+        record_transition(
+            &mut history,
+            WorkspaceState::Ready,
+            WorkspaceState::Merged,
+            "merged",
+        )
+        .expect("r3");
 
         assert_eq!(history.len(), 3);
         assert_eq!(history[0].from, WorkspaceState::Created);
@@ -2079,8 +2300,20 @@ mod tests {
     #[test]
     fn wst_recording_happy_path_to_abandon() {
         let mut history = vec![];
-        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Abandoned, "abandon").expect("r2");
+        record_transition(
+            &mut history,
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        )
+        .expect("r1");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Abandoned,
+            "abandon",
+        )
+        .expect("r2");
 
         assert_eq!(history.len(), 2);
     }
@@ -2088,11 +2321,41 @@ mod tests {
     #[test]
     fn wst_recording_conflict_resolution_path() {
         let mut history = vec![];
-        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Conflict, "conflict").expect("r2");
-        record_transition(&mut history, WorkspaceState::Conflict, WorkspaceState::Working, "resolve").expect("r3");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "done").expect("r4");
-        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "merged").expect("r5");
+        record_transition(
+            &mut history,
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        )
+        .expect("r1");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Conflict,
+            "conflict",
+        )
+        .expect("r2");
+        record_transition(
+            &mut history,
+            WorkspaceState::Conflict,
+            WorkspaceState::Working,
+            "resolve",
+        )
+        .expect("r3");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "done",
+        )
+        .expect("r4");
+        record_transition(
+            &mut history,
+            WorkspaceState::Ready,
+            WorkspaceState::Merged,
+            "merged",
+        )
+        .expect("r5");
 
         assert_eq!(history.len(), 5);
         // Verify chain is contiguous: each to == next from
@@ -2104,11 +2367,41 @@ mod tests {
     #[test]
     fn wst_recording_ready_rework_cycle() {
         let mut history = vec![];
-        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "v1").expect("r2");
-        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Working, "feedback").expect("r3");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "v2").expect("r4");
-        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "approved").expect("r5");
+        record_transition(
+            &mut history,
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        )
+        .expect("r1");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "v1",
+        )
+        .expect("r2");
+        record_transition(
+            &mut history,
+            WorkspaceState::Ready,
+            WorkspaceState::Working,
+            "feedback",
+        )
+        .expect("r3");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "v2",
+        )
+        .expect("r4");
+        record_transition(
+            &mut history,
+            WorkspaceState::Ready,
+            WorkspaceState::Merged,
+            "approved",
+        )
+        .expect("r5");
 
         assert_eq!(history.len(), 5);
         // Verify the rework loop
@@ -2120,9 +2413,27 @@ mod tests {
     #[test]
     fn wst_recording_conflict_abandon_path() {
         let mut history = vec![];
-        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Conflict, "conflict").expect("r2");
-        record_transition(&mut history, WorkspaceState::Conflict, WorkspaceState::Abandoned, "give up").expect("r3");
+        record_transition(
+            &mut history,
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        )
+        .expect("r1");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Conflict,
+            "conflict",
+        )
+        .expect("r2");
+        record_transition(
+            &mut history,
+            WorkspaceState::Conflict,
+            WorkspaceState::Abandoned,
+            "give up",
+        )
+        .expect("r3");
 
         assert_eq!(history.len(), 3);
     }
@@ -2130,13 +2441,49 @@ mod tests {
     #[test]
     fn wst_recording_ready_conflict_resolution_path() {
         let mut history = vec![];
-        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "done").expect("r2");
+        record_transition(
+            &mut history,
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        )
+        .expect("r1");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "done",
+        )
+        .expect("r2");
         // Conflict detected AFTER marking ready
-        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Conflict, "late conflict").expect("r3");
-        record_transition(&mut history, WorkspaceState::Conflict, WorkspaceState::Working, "fix").expect("r4");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "fixed").expect("r5");
-        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "merged").expect("r6");
+        record_transition(
+            &mut history,
+            WorkspaceState::Ready,
+            WorkspaceState::Conflict,
+            "late conflict",
+        )
+        .expect("r3");
+        record_transition(
+            &mut history,
+            WorkspaceState::Conflict,
+            WorkspaceState::Working,
+            "fix",
+        )
+        .expect("r4");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "fixed",
+        )
+        .expect("r5");
+        record_transition(
+            &mut history,
+            WorkspaceState::Ready,
+            WorkspaceState::Merged,
+            "merged",
+        )
+        .expect("r6");
 
         assert_eq!(history.len(), 6);
     }
@@ -2145,20 +2492,51 @@ mod tests {
     fn wst_recording_invalid_transition_rejected() {
         let mut history = vec![];
         // Created -> Merged is invalid
-        let result = record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Merged, "skip");
+        let result = record_transition(
+            &mut history,
+            WorkspaceState::Created,
+            WorkspaceState::Merged,
+            "skip",
+        );
         assert!(result.is_err());
-        assert!(history.is_empty(), "Invalid transition must not be recorded");
+        assert!(
+            history.is_empty(),
+            "Invalid transition must not be recorded"
+        );
     }
 
     #[test]
     fn wst_recording_terminal_blocks_further_transitions() {
         let mut history = vec![];
-        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "start").expect("r1");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "done").expect("r2");
-        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "merged").expect("r3");
+        record_transition(
+            &mut history,
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        )
+        .expect("r1");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "done",
+        )
+        .expect("r2");
+        record_transition(
+            &mut history,
+            WorkspaceState::Ready,
+            WorkspaceState::Merged,
+            "merged",
+        )
+        .expect("r3");
 
         // Merged is terminal — no further transitions
-        let result = record_transition(&mut history, WorkspaceState::Merged, WorkspaceState::Working, "unmerge");
+        let result = record_transition(
+            &mut history,
+            WorkspaceState::Merged,
+            WorkspaceState::Working,
+            "unmerge",
+        );
         assert!(result.is_err());
         assert_eq!(history.len(), 3, "No new entry after terminal state");
     }
@@ -2166,8 +2544,20 @@ mod tests {
     #[test]
     fn wst_recording_history_reasons_preserved() {
         let mut history = vec![];
-        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "agent assigned").expect("r1");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "all tests green").expect("r2");
+        record_transition(
+            &mut history,
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "agent assigned",
+        )
+        .expect("r1");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "all tests green",
+        )
+        .expect("r2");
 
         assert_eq!(history[0].reason, "agent assigned");
         assert_eq!(history[1].reason, "all tests green");
@@ -2176,9 +2566,27 @@ mod tests {
     #[test]
     fn wst_recording_history_timestamps_monotonic() {
         let mut history = vec![];
-        record_transition(&mut history, WorkspaceState::Created, WorkspaceState::Working, "r1").expect("r1");
-        record_transition(&mut history, WorkspaceState::Working, WorkspaceState::Ready, "r2").expect("r2");
-        record_transition(&mut history, WorkspaceState::Ready, WorkspaceState::Merged, "r3").expect("r3");
+        record_transition(
+            &mut history,
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "r1",
+        )
+        .expect("r1");
+        record_transition(
+            &mut history,
+            WorkspaceState::Working,
+            WorkspaceState::Ready,
+            "r2",
+        )
+        .expect("r2");
+        record_transition(
+            &mut history,
+            WorkspaceState::Ready,
+            WorkspaceState::Merged,
+            "r3",
+        )
+        .expect("r3");
 
         for window in history.windows(2) {
             assert!(
@@ -2195,14 +2603,22 @@ mod tests {
     #[test]
     fn wst_rollback_ready_to_working() {
         // Ready -> Working is the "rollback" — work needs rework
-        let t = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Working, "rework: review feedback");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Ready,
+            WorkspaceState::Working,
+            "rework: review feedback",
+        );
         assert!(t.validate().is_ok());
     }
 
     #[test]
     fn wst_rollback_conflict_to_working() {
         // Conflict -> Working is the "resolution rollback"
-        let t = WorkspaceStateTransition::new(WorkspaceState::Conflict, WorkspaceState::Working, "conflict resolved");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Conflict,
+            WorkspaceState::Working,
+            "conflict resolved",
+        );
         assert!(t.validate().is_ok());
     }
 
@@ -2212,16 +2628,19 @@ mod tests {
         let transitions: Vec<(WorkspaceState, WorkspaceState)> = vec![
             (WorkspaceState::Created, WorkspaceState::Working),
             (WorkspaceState::Working, WorkspaceState::Ready),
-            (WorkspaceState::Ready, WorkspaceState::Working),     // rollback 1
+            (WorkspaceState::Ready, WorkspaceState::Working), // rollback 1
             (WorkspaceState::Working, WorkspaceState::Ready),
-            (WorkspaceState::Ready, WorkspaceState::Working),     // rollback 2
+            (WorkspaceState::Ready, WorkspaceState::Working), // rollback 2
             (WorkspaceState::Working, WorkspaceState::Ready),
             (WorkspaceState::Ready, WorkspaceState::Merged),
         ];
 
         for (from, to) in &transitions {
             let t = WorkspaceStateTransition::new(*from, *to, "step");
-            assert!(t.validate().is_ok(), "Rollback cycle {from:?} -> {to:?} must be valid");
+            assert!(
+                t.validate().is_ok(),
+                "Rollback cycle {from:?} -> {to:?} must be valid"
+            );
         }
         assert_eq!(transitions.len(), 7);
     }
@@ -2232,27 +2651,38 @@ mod tests {
         let transitions: Vec<(WorkspaceState, WorkspaceState)> = vec![
             (WorkspaceState::Created, WorkspaceState::Working),
             (WorkspaceState::Working, WorkspaceState::Conflict),
-            (WorkspaceState::Conflict, WorkspaceState::Working),  // resolve 1
+            (WorkspaceState::Conflict, WorkspaceState::Working), // resolve 1
             (WorkspaceState::Working, WorkspaceState::Conflict),
-            (WorkspaceState::Conflict, WorkspaceState::Working),  // resolve 2
+            (WorkspaceState::Conflict, WorkspaceState::Working), // resolve 2
             (WorkspaceState::Working, WorkspaceState::Ready),
             (WorkspaceState::Ready, WorkspaceState::Merged),
         ];
 
         for (from, to) in &transitions {
             let t = WorkspaceStateTransition::new(*from, *to, "step");
-            assert!(t.validate().is_ok(), "Conflict cycle {from:?} -> {to:?} must be valid");
+            assert!(
+                t.validate().is_ok(),
+                "Conflict cycle {from:?} -> {to:?} must be valid"
+            );
         }
     }
 
     #[test]
     fn wst_rollback_ready_to_abandon_not_undoable() {
         // Ready -> Abandoned is valid but Abandoned is terminal
-        let t1 = WorkspaceStateTransition::new(WorkspaceState::Ready, WorkspaceState::Abandoned, "withdrawn");
+        let t1 = WorkspaceStateTransition::new(
+            WorkspaceState::Ready,
+            WorkspaceState::Abandoned,
+            "withdrawn",
+        );
         assert!(t1.validate().is_ok());
 
         // Cannot undo the abandonment
-        let t2 = WorkspaceStateTransition::new(WorkspaceState::Abandoned, WorkspaceState::Working, "un-abandon");
+        let t2 = WorkspaceStateTransition::new(
+            WorkspaceState::Abandoned,
+            WorkspaceState::Working,
+            "un-abandon",
+        );
         assert!(t2.validate().is_err());
     }
 
@@ -2265,7 +2695,10 @@ mod tests {
                     continue;
                 }
                 let t = WorkspaceStateTransition::new(terminal, any, "undo");
-                assert!(t.validate().is_err(), "Terminal {terminal:?} cannot rollback to {any:?}");
+                assert!(
+                    t.validate().is_err(),
+                    "Terminal {terminal:?} cannot rollback to {any:?}"
+                );
             }
         }
     }
@@ -2274,7 +2707,10 @@ mod tests {
     fn wst_rollback_created_cannot_be_rolled_back_from() {
         // Created is the initial state — there's no "previous" state to roll back to
         assert!(WorkspaceState::Created.valid_next_states().len() == 1);
-        assert_eq!(WorkspaceState::Created.valid_next_states()[0], WorkspaceState::Working);
+        assert_eq!(
+            WorkspaceState::Created.valid_next_states()[0],
+            WorkspaceState::Working
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2283,7 +2719,8 @@ mod tests {
 
     #[test]
     fn wst_error_message_contains_from_and_to() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Merged, "skip");
+        let t =
+            WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Merged, "skip");
         let err = t.validate().expect_err("should fail");
         let msg = format!("{err}");
         // Error message should reference both states
@@ -2292,7 +2729,11 @@ mod tests {
 
     #[test]
     fn wst_error_message_for_terminal_source() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Merged, WorkspaceState::Working, "unmerge");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Merged,
+            WorkspaceState::Working,
+            "unmerge",
+        );
         let err = t.validate().expect_err("should fail");
         let msg = format!("{err}");
         assert!(!msg.is_empty());
@@ -2300,7 +2741,8 @@ mod tests {
 
     #[test]
     fn wst_error_message_for_self_transition() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Working, "self");
+        let t =
+            WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Working, "self");
         let err = t.validate().expect_err("should fail");
         let msg = format!("{err}");
         assert!(!msg.is_empty());
@@ -2331,25 +2773,44 @@ mod tests {
             let back: WorkspaceStateTransition = serde_json::from_str(&json).expect("deserialize");
             assert_eq!(t.from, back.from, "from mismatch for {from:?} -> {to:?}");
             assert_eq!(t.to, back.to, "to mismatch for {from:?} -> {to:?}");
-            assert_eq!(t.reason, back.reason, "reason mismatch for {from:?} -> {to:?}");
-            assert_eq!(t.agent_id, back.agent_id, "agent_id mismatch for {from:?} -> {to:?}");
+            assert_eq!(
+                t.reason, back.reason,
+                "reason mismatch for {from:?} -> {to:?}"
+            );
+            assert_eq!(
+                t.agent_id, back.agent_id,
+                "agent_id mismatch for {from:?} -> {to:?}"
+            );
         }
     }
 
     #[test]
     fn wst_serde_agent_id_omitted_when_none() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "start");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        );
         let json = serde_json::to_string(&t).expect("serialize");
-        assert!(!json.contains("agent_id"), "agent_id must be omitted when None: {json}");
+        assert!(
+            !json.contains("agent_id"),
+            "agent_id must be omitted when None: {json}"
+        );
     }
 
     #[test]
     fn wst_serde_agent_id_present_when_some() {
         let t = WorkspaceStateTransition::with_agent(
-            WorkspaceState::Created, WorkspaceState::Working, "start", "agent-x",
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+            "agent-x",
         );
         let json = serde_json::to_string(&t).expect("serialize");
-        assert!(json.contains("agent_id"), "agent_id must appear when Some: {json}");
+        assert!(
+            json.contains("agent_id"),
+            "agent_id must appear when Some: {json}"
+        );
         assert!(json.contains("agent-x"), "agent_id value must be in JSON");
     }
 

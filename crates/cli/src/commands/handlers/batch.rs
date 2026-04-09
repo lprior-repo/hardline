@@ -1459,9 +1459,18 @@ mod tests {
     #[test]
     fn test_batch_results_preserve_command_order() {
         let commands = vec![
-            BatchCommand { name: "git".to_string(), args: vec!["status".to_string()] },
-            BatchCommand { name: "jj".to_string(), args: vec!["log".to_string()] },
-            BatchCommand { name: "scp".to_string(), args: vec!["workspace".to_string(), "list".to_string()] },
+            BatchCommand {
+                name: "git".to_string(),
+                args: vec!["status".to_string()],
+            },
+            BatchCommand {
+                name: "jj".to_string(),
+                args: vec!["log".to_string()],
+            },
+            BatchCommand {
+                name: "scp".to_string(),
+                args: vec!["workspace".to_string(), "list".to_string()],
+            },
         ];
         let results: Vec<CommandResult> = commands
             .iter()
@@ -1485,21 +1494,30 @@ mod tests {
     fn test_batch_order_preserved_in_committed_result() {
         let results = vec![
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["add".to_string(), ".".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["add".to_string(), ".".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: String::new(),
                 stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["commit".to_string(), "-m".to_string(), "msg".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["commit".to_string(), "-m".to_string(), "msg".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: String::new(),
                 stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["push".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["push".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: String::new(),
@@ -1510,7 +1528,11 @@ mod tests {
             checkpoint_id: "cp-order-1".to_string(),
             results: results.clone(),
         };
-        if let BatchResult::Committed { results: r, checkpoint_id } = &batch {
+        if let BatchResult::Committed {
+            results: r,
+            checkpoint_id,
+        } = &batch
+        {
             assert_eq!(r.len(), 3);
             assert_eq!(r[0].command.args[0], "add");
             assert_eq!(r[1].command.args[0], "commit");
@@ -1525,14 +1547,20 @@ mod tests {
     fn test_batch_rolledback_preserves_order_of_executed_commands() {
         let partial = vec![
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["add".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["add".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: "staged".to_string(),
                 stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["commit".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["commit".to_string()],
+                },
                 success: false,
                 exit_code: 1,
                 stdout: String::new(),
@@ -1544,7 +1572,12 @@ mod tests {
             error: "nothing to commit".to_string(),
             partial_results: partial.clone(),
         };
-        if let BatchResult::RolledBack { failed_at, partial_results, .. } = &batch {
+        if let BatchResult::RolledBack {
+            failed_at,
+            partial_results,
+            ..
+        } = &batch
+        {
             assert_eq!(*failed_at, 1);
             assert_eq!(partial_results.len(), 2);
             assert!(partial_results[0].success);
@@ -1560,21 +1593,30 @@ mod tests {
     fn test_partial_failure_reports_correct_failed_index() {
         let partial = vec![
             CommandResult {
-                command: BatchCommand { name: "jj".to_string(), args: vec!["status".to_string()] },
+                command: BatchCommand {
+                    name: "jj".to_string(),
+                    args: vec!["status".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: "clean".to_string(),
                 stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "jj".to_string(), args: vec!["status".to_string()] },
+                command: BatchCommand {
+                    name: "jj".to_string(),
+                    args: vec!["status".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: "clean".to_string(),
                 stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["push".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["push".to_string()],
+                },
                 success: false,
                 exit_code: 128,
                 stdout: String::new(),
@@ -1586,7 +1628,12 @@ mod tests {
             error: "Command 'git' failed with exit code 128".to_string(),
             partial_results: partial.clone(),
         };
-        if let BatchResult::RolledBack { failed_at, error, partial_results } = result {
+        if let BatchResult::RolledBack {
+            failed_at,
+            error,
+            partial_results,
+        } = result
+        {
             assert_eq!(failed_at, 2);
             assert!(error.contains("128"));
             assert!(error.contains("git"));
@@ -1602,23 +1649,30 @@ mod tests {
 
     #[test]
     fn test_partial_failure_includes_stderr_from_failed_command() {
-        let partial = vec![
-            CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["commit".to_string()] },
-                success: false,
-                exit_code: 1,
-                stdout: String::new(),
-                stderr: "error: pathspec 'nonexistent' did not match any files".to_string(),
+        let partial = vec![CommandResult {
+            command: BatchCommand {
+                name: "git".to_string(),
+                args: vec!["commit".to_string()],
             },
-        ];
+            success: false,
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: "error: pathspec 'nonexistent' did not match any files".to_string(),
+        }];
         let result = BatchResult::RolledBack {
             failed_at: 0,
             error: "Command 'git' failed with exit code 1".to_string(),
             partial_results: partial.clone(),
         };
-        if let BatchResult::RolledBack { partial_results, .. } = result {
+        if let BatchResult::RolledBack {
+            partial_results, ..
+        } = result
+        {
             assert_eq!(partial_results.len(), 1);
-            assert_eq!(partial_results[0].stderr, "error: pathspec 'nonexistent' did not match any files");
+            assert_eq!(
+                partial_results[0].stderr,
+                "error: pathspec 'nonexistent' did not match any files"
+            );
         } else {
             panic!("expected RolledBack");
         }
@@ -1628,14 +1682,20 @@ mod tests {
     fn test_partial_failure_first_command_succeeds_second_fails() {
         let partial = vec![
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["add".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["add".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: String::new(),
                 stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["commit".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["commit".to_string()],
+                },
                 success: false,
                 exit_code: 1,
                 stdout: String::new(),
@@ -1647,7 +1707,12 @@ mod tests {
             error: "commit aborted".to_string(),
             partial_results: partial,
         };
-        if let BatchResult::RolledBack { failed_at, partial_results, .. } = result {
+        if let BatchResult::RolledBack {
+            failed_at,
+            partial_results,
+            ..
+        } = result
+        {
             assert_eq!(failed_at, 1);
             assert_eq!(partial_results.len(), 2);
         } else {
@@ -1661,14 +1726,20 @@ mod tests {
     fn test_atomicity_committed_means_all_succeeded() {
         let results = vec![
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["status".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["status".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: "clean".to_string(),
                 stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "jj".to_string(), args: vec!["diff".to_string()] },
+                command: BatchCommand {
+                    name: "jj".to_string(),
+                    args: vec!["diff".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: String::new(),
@@ -1681,7 +1752,10 @@ mod tests {
         };
         if let BatchResult::Committed { results: r, .. } = &batch {
             for cmd_result in r {
-                assert!(cmd_result.success, "Committed batch must have all commands succeed");
+                assert!(
+                    cmd_result.success,
+                    "Committed batch must have all commands succeed"
+                );
                 assert_eq!(cmd_result.exit_code, 0);
             }
         } else {
@@ -1693,14 +1767,20 @@ mod tests {
     fn test_atomicity_rolledback_means_at_least_one_failed() {
         let partial = vec![
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["add".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["add".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: String::new(),
                 stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["commit".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["commit".to_string()],
+                },
                 success: false,
                 exit_code: 1,
                 stdout: String::new(),
@@ -1712,10 +1792,18 @@ mod tests {
             error: "commit failed".to_string(),
             partial_results: partial.clone(),
         };
-        if let BatchResult::RolledBack { failed_at, partial_results, .. } = &batch {
+        if let BatchResult::RolledBack {
+            failed_at,
+            partial_results,
+            ..
+        } = &batch
+        {
             assert!(*failed_at < partial_results.len());
             let failed_cmd = &partial_results[*failed_at];
-            assert!(!failed_cmd.success, "RolledBack batch must have a failed command at failed_at index");
+            assert!(
+                !failed_cmd.success,
+                "RolledBack batch must have a failed command at failed_at index"
+            );
         } else {
             panic!("expected RolledBack");
         }
@@ -1726,17 +1814,23 @@ mod tests {
         let batch = BatchResult::RolledBack {
             failed_at: 0,
             error: "first command failed".to_string(),
-            partial_results: vec![
-                CommandResult {
-                    command: BatchCommand { name: "git".to_string(), args: vec!["clone".to_string()] },
-                    success: false,
-                    exit_code: 128,
-                    stdout: String::new(),
-                    stderr: "repository not found".to_string(),
+            partial_results: vec![CommandResult {
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["clone".to_string()],
                 },
-            ],
+                success: false,
+                exit_code: 128,
+                stdout: String::new(),
+                stderr: "repository not found".to_string(),
+            }],
         };
-        if let BatchResult::RolledBack { failed_at, partial_results, .. } = &batch {
+        if let BatchResult::RolledBack {
+            failed_at,
+            partial_results,
+            ..
+        } = &batch
+        {
             assert_eq!(*failed_at, 0);
             assert_eq!(partial_results.len(), 1);
             assert!(!partial_results[0].success);
@@ -1756,7 +1850,11 @@ mod tests {
                 success: i < 4,
                 exit_code: if i < 4 { 0 } else { 1 },
                 stdout: String::new(),
-                stderr: if i == 4 { "failed".to_string() } else { String::new() },
+                stderr: if i == 4 {
+                    "failed".to_string()
+                } else {
+                    String::new()
+                },
             })
             .collect();
         let batch = BatchResult::RolledBack {
@@ -1764,13 +1862,21 @@ mod tests {
             error: "last command failed".to_string(),
             partial_results: partial,
         };
-        if let BatchResult::RolledBack { failed_at, partial_results, .. } = &batch {
+        if let BatchResult::RolledBack {
+            failed_at,
+            partial_results,
+            ..
+        } = &batch
+        {
             assert_eq!(*failed_at, 4);
             assert_eq!(partial_results.len(), 5);
             for (i, r) in partial_results.iter().enumerate().take(4) {
                 assert!(r.success, "command {i} should have succeeded");
             }
-            assert!(!partial_results[4].success, "last command should have failed");
+            assert!(
+                !partial_results[4].success,
+                "last command should have failed"
+            );
         } else {
             panic!("expected RolledBack");
         }
@@ -1782,21 +1888,30 @@ mod tests {
     fn test_rollback_preserves_partial_results_for_debugging() {
         let partial = vec![
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["reset".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["reset".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: "HEAD is now at abc123".to_string(),
                 stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["clean".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["clean".to_string()],
+                },
                 success: true,
                 exit_code: 0,
                 stdout: String::new(),
                 stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["push".to_string()] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["push".to_string()],
+                },
                 success: false,
                 exit_code: 1,
                 stdout: String::new(),
@@ -1808,12 +1923,22 @@ mod tests {
             error: "push rejected".to_string(),
             partial_results: partial.clone(),
         };
-        if let BatchResult::RolledBack { partial_results, .. } = &batch {
-            assert_eq!(partial_results.len(), 3, "all executed commands should be preserved");
+        if let BatchResult::RolledBack {
+            partial_results, ..
+        } = &batch
+        {
+            assert_eq!(
+                partial_results.len(),
+                3,
+                "all executed commands should be preserved"
+            );
             for (i, r) in partial_results.iter().enumerate() {
                 assert_eq!(r.command.name, "git", "command {i} should be git");
                 if i < 2 {
-                    assert!(r.success, "command {i} should have succeeded before failure");
+                    assert!(
+                        r.success,
+                        "command {i} should have succeeded before failure"
+                    );
                 }
             }
         } else {
@@ -1827,7 +1952,11 @@ mod tests {
             checkpoint_id: "cp-rollback-42".to_string(),
             underlying: "disk full".to_string(),
         };
-        if let BatchExecutionError::RollbackFailed { checkpoint_id, underlying } = &err {
+        if let BatchExecutionError::RollbackFailed {
+            checkpoint_id,
+            underlying,
+        } = &err
+        {
             assert_eq!(checkpoint_id, "cp-rollback-42");
             assert_eq!(underlying, "disk full");
         } else {
@@ -1841,7 +1970,11 @@ mod tests {
             checkpoint_id: "cp-commit-99".to_string(),
             underlying: "io error".to_string(),
         };
-        if let BatchExecutionError::CommitFailed { checkpoint_id, underlying } = &err {
+        if let BatchExecutionError::CommitFailed {
+            checkpoint_id,
+            underlying,
+        } = &err
+        {
             assert_eq!(checkpoint_id, "cp-commit-99");
             assert_eq!(underlying, "io error");
         } else {
@@ -1861,7 +1994,13 @@ mod tests {
             exit_code: 2,
             stderr: "concurrent modification".to_string(),
         };
-        if let BatchExecutionError::CommandFailed { index, command, exit_code, stderr } = &err {
+        if let BatchExecutionError::CommandFailed {
+            index,
+            command,
+            exit_code,
+            stderr,
+        } = &err
+        {
             assert_eq!(*index, 3);
             assert_eq!(*command, cmd);
             assert_eq!(*exit_code, 2);
@@ -1885,7 +2024,10 @@ mod tests {
     #[test]
     fn test_batch_cannot_contain_shell_batch_invocation() {
         let result = BatchCommand::parse("sh -c 'scp batch run'");
-        assert!(result.is_err(), "shell wrapper around batch should be rejected by whitelist");
+        assert!(
+            result.is_err(),
+            "shell wrapper around batch should be rejected by whitelist"
+        );
     }
 
     #[test]
@@ -1897,9 +2039,18 @@ mod tests {
     #[test]
     fn test_validate_batch_allows_mixed_allowed_commands() {
         let commands = vec![
-            BatchCommand { name: "git".to_string(), args: vec!["status".to_string()] },
-            BatchCommand { name: "jj".to_string(), args: vec!["log".to_string()] },
-            BatchCommand { name: "scp".to_string(), args: vec!["workspace".to_string(), "list".to_string()] },
+            BatchCommand {
+                name: "git".to_string(),
+                args: vec!["status".to_string()],
+            },
+            BatchCommand {
+                name: "jj".to_string(),
+                args: vec!["log".to_string()],
+            },
+            BatchCommand {
+                name: "scp".to_string(),
+                args: vec!["workspace".to_string(), "list".to_string()],
+            },
         ];
         assert!(validate_batch(&commands).is_ok());
     }
@@ -1920,26 +2071,38 @@ mod tests {
     #[test]
     fn test_command_result_captures_stdout_for_progress() {
         let result = CommandResult {
-            command: BatchCommand { name: "git".to_string(), args: vec!["status".to_string()] },
+            command: BatchCommand {
+                name: "git".to_string(),
+                args: vec!["status".to_string()],
+            },
             success: true,
             exit_code: 0,
             stdout: "On branch main\nnothing to commit, working tree clean".to_string(),
             stderr: String::new(),
         };
-        assert!(!result.stdout.is_empty(), "stdout should capture command output for progress display");
+        assert!(
+            !result.stdout.is_empty(),
+            "stdout should capture command output for progress display"
+        );
         assert!(result.stdout.contains("main"));
     }
 
     #[test]
     fn test_command_result_captures_stderr_for_diagnostics() {
         let result = CommandResult {
-            command: BatchCommand { name: "jj".to_string(), args: vec!["rebase".to_string()] },
+            command: BatchCommand {
+                name: "jj".to_string(),
+                args: vec!["rebase".to_string()],
+            },
             success: false,
             exit_code: 1,
             stdout: String::new(),
             stderr: "Error: concurrent modification detected\n".to_string(),
         };
-        assert!(!result.stderr.is_empty(), "stderr should capture error output for diagnostics");
+        assert!(
+            !result.stderr.is_empty(),
+            "stderr should capture error output for diagnostics"
+        );
         assert!(result.stderr.contains("concurrent"));
     }
 
@@ -1949,19 +2112,34 @@ mod tests {
     fn test_aggregate_committed_results_success_count() {
         let results = vec![
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["add".to_string()] },
-                success: true, exit_code: 0,
-                stdout: String::new(), stderr: String::new(),
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["add".to_string()],
+                },
+                success: true,
+                exit_code: 0,
+                stdout: String::new(),
+                stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["commit".to_string()] },
-                success: true, exit_code: 0,
-                stdout: "1 file changed".to_string(), stderr: String::new(),
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["commit".to_string()],
+                },
+                success: true,
+                exit_code: 0,
+                stdout: "1 file changed".to_string(),
+                stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["push".to_string()] },
-                success: true, exit_code: 0,
-                stdout: String::new(), stderr: String::new(),
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["push".to_string()],
+                },
+                success: true,
+                exit_code: 0,
+                stdout: String::new(),
+                stderr: String::new(),
             },
         ];
         let batch = BatchResult::Committed {
@@ -1982,19 +2160,34 @@ mod tests {
     fn test_aggregate_rolledback_results_mixed_counts() {
         let partial = vec![
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["add".to_string()] },
-                success: true, exit_code: 0,
-                stdout: String::new(), stderr: String::new(),
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["add".to_string()],
+                },
+                success: true,
+                exit_code: 0,
+                stdout: String::new(),
+                stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["commit".to_string()] },
-                success: true, exit_code: 0,
-                stdout: String::new(), stderr: String::new(),
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["commit".to_string()],
+                },
+                success: true,
+                exit_code: 0,
+                stdout: String::new(),
+                stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["push".to_string()] },
-                success: false, exit_code: 128,
-                stdout: String::new(), stderr: "rejected".to_string(),
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["push".to_string()],
+                },
+                success: false,
+                exit_code: 128,
+                stdout: String::new(),
+                stderr: "rejected".to_string(),
             },
         ];
         let batch = BatchResult::RolledBack {
@@ -2002,7 +2195,12 @@ mod tests {
             error: "push rejected".to_string(),
             partial_results: partial.clone(),
         };
-        if let BatchResult::RolledBack { failed_at, partial_results, .. } = &batch {
+        if let BatchResult::RolledBack {
+            failed_at,
+            partial_results,
+            ..
+        } = &batch
+        {
             let success_count = partial_results.iter().filter(|r| r.success).count();
             let failure_count = partial_results.iter().filter(|r| !r.success).count();
             assert_eq!(success_count, 2);
@@ -2017,14 +2215,24 @@ mod tests {
     fn test_aggregate_exit_codes_across_results() {
         let results = vec![
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["status".to_string()] },
-                success: true, exit_code: 0,
-                stdout: String::new(), stderr: String::new(),
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["status".to_string()],
+                },
+                success: true,
+                exit_code: 0,
+                stdout: String::new(),
+                stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "jj".to_string(), args: vec!["status".to_string()] },
-                success: true, exit_code: 0,
-                stdout: "clean".to_string(), stderr: String::new(),
+                command: BatchCommand {
+                    name: "jj".to_string(),
+                    args: vec!["status".to_string()],
+                },
+                success: true,
+                exit_code: 0,
+                stdout: "clean".to_string(),
+                stderr: String::new(),
             },
         ];
         let batch = BatchResult::Committed {
@@ -2043,14 +2251,24 @@ mod tests {
     fn test_aggregate_stdout_concatenation_for_report() {
         let results = vec![
             CommandResult {
-                command: BatchCommand { name: "git".to_string(), args: vec!["status".to_string()] },
-                success: true, exit_code: 0,
-                stdout: "On branch main\n".to_string(), stderr: String::new(),
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec!["status".to_string()],
+                },
+                success: true,
+                exit_code: 0,
+                stdout: "On branch main\n".to_string(),
+                stderr: String::new(),
             },
             CommandResult {
-                command: BatchCommand { name: "jj".to_string(), args: vec!["log".to_string()] },
-                success: true, exit_code: 0,
-                stdout: "@  abc123 commit msg\n".to_string(), stderr: String::new(),
+                command: BatchCommand {
+                    name: "jj".to_string(),
+                    args: vec!["log".to_string()],
+                },
+                success: true,
+                exit_code: 0,
+                stdout: "@  abc123 commit msg\n".to_string(),
+                stderr: String::new(),
             },
         ];
         let batch = BatchResult::Committed {
@@ -2071,7 +2289,10 @@ mod tests {
     #[tokio::test]
     async fn test_run_batch_with_default_workspace() {
         let result = run_batch(None, vec!["git status".to_string()]).await;
-        assert!(result.is_err(), "run_batch should fail because get_database_pool returns Err");
+        assert!(
+            result.is_err(),
+            "run_batch should fail because get_database_pool returns Err"
+        );
     }
 
     #[tokio::test]
@@ -2086,22 +2307,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_run_batch_rejects_disallowed_command_in_list() {
-        let result = run_batch(None, vec![
-            "git status".to_string(),
-            "rm -rf /".to_string(),
-        ])
-        .await;
-        assert!(result.is_err(), "batch with disallowed command should be rejected");
+        let result = run_batch(None, vec!["git status".to_string(), "rm -rf /".to_string()]).await;
+        assert!(
+            result.is_err(),
+            "batch with disallowed command should be rejected"
+        );
     }
 
     #[tokio::test]
     async fn test_run_batch_rejects_empty_command_in_list() {
-        let result = run_batch(None, vec![
-            "git status".to_string(),
-            "".to_string(),
-        ])
-        .await;
-        assert!(result.is_err(), "empty command string in batch should be rejected");
+        let result = run_batch(None, vec!["git status".to_string(), "".to_string()]).await;
+        assert!(
+            result.is_err(),
+            "empty command string in batch should be rejected"
+        );
     }
 
     #[tokio::test]
@@ -2112,13 +2331,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_run_batch_all_allowed_commands_parsed() {
-        let result = run_batch(None, vec![
-            "git status".to_string(),
-            "jj log".to_string(),
-            "scp workspace list".to_string(),
-        ])
+        let result = run_batch(
+            None,
+            vec![
+                "git status".to_string(),
+                "jj log".to_string(),
+                "scp workspace list".to_string(),
+            ],
+        )
         .await;
-        assert!(result.is_err(), "should fail at execute_batch (no db pool), not at parse");
+        assert!(
+            result.is_err(),
+            "should fail at execute_batch (no db pool), not at parse"
+        );
     }
 
     // --- find_workspace_path ---
@@ -2151,7 +2376,11 @@ mod tests {
     fn test_validate_batch_single_allowed_command() {
         let commands = vec![BatchCommand {
             name: "scp".to_string(),
-            args: vec!["workspace".to_string(), "create".to_string(), "test".to_string()],
+            args: vec![
+                "workspace".to_string(),
+                "create".to_string(),
+                "test".to_string(),
+            ],
         }];
         assert!(validate_batch(&commands).is_ok());
     }
@@ -2159,7 +2388,10 @@ mod tests {
     #[test]
     fn test_validate_batch_error_message_mentions_size() {
         let commands: Vec<BatchCommand> = (0..=MAX_BATCH_SIZE)
-            .map(|i| BatchCommand { name: "git".to_string(), args: vec![format!("a{i}")] })
+            .map(|i| BatchCommand {
+                name: "git".to_string(),
+                args: vec![format!("a{i}")],
+            })
             .collect();
         let err = validate_batch(&commands).unwrap_err();
         let msg = err.to_string();
@@ -2173,7 +2405,10 @@ mod tests {
     fn test_validate_batch_empty_error_message() {
         let err = validate_batch(&[]).unwrap_err();
         let msg = err.to_string().to_lowercase();
-        assert!(msg.contains("empty"), "empty batch error should mention 'empty': {msg}");
+        assert!(
+            msg.contains("empty"),
+            "empty batch error should mention 'empty': {msg}"
+        );
     }
 
     // --- BatchCommand parse with all allowed commands ---
@@ -2193,7 +2428,10 @@ mod tests {
         assert!(result.is_ok());
         let cmd = result.unwrap();
         assert_eq!(cmd.name, "jj");
-        assert_eq!(cmd.args, vec!["new", "--message", "create new working copy"]);
+        assert_eq!(
+            cmd.args,
+            vec!["new", "--message", "create new working copy"]
+        );
     }
 
     #[test]
@@ -2217,7 +2455,10 @@ mod tests {
 
     #[test]
     fn test_batch_execution_error_size_exceeded_fields() {
-        let err = BatchExecutionError::SizeExceeded { max: 100, actual: 200 };
+        let err = BatchExecutionError::SizeExceeded {
+            max: 100,
+            actual: 200,
+        };
         if let BatchExecutionError::SizeExceeded { max, actual } = &err {
             assert_eq!(*max, 100);
             assert_eq!(*actual, 200);
@@ -2234,7 +2475,10 @@ mod tests {
             BatchExecutionError::WorkspaceNotReady("test".to_string()),
             BatchExecutionError::CommandFailed {
                 index: 0,
-                command: BatchCommand { name: "git".to_string(), args: vec![] },
+                command: BatchCommand {
+                    name: "git".to_string(),
+                    args: vec![],
+                },
                 exit_code: 1,
                 stderr: "err".to_string(),
             },
@@ -2261,7 +2505,10 @@ mod tests {
             results: vec![],
         };
         match &result {
-            BatchResult::Committed { checkpoint_id, results } => {
+            BatchResult::Committed {
+                checkpoint_id,
+                results,
+            } => {
                 assert_eq!(checkpoint_id, "cp-uuid-12345-abcd");
                 assert!(results.is_empty());
             }
@@ -2278,7 +2525,9 @@ mod tests {
             partial_results: vec![],
         };
         match &result {
-            BatchResult::RolledBack { error, failed_at, .. } => {
+            BatchResult::RolledBack {
+                error, failed_at, ..
+            } => {
                 assert_eq!(*failed_at, 5);
                 assert_eq!(error, error_msg);
             }

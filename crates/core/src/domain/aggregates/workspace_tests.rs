@@ -64,8 +64,7 @@ mod tests {
 
     /// Build a workspace in the given state via reconstruct.
     fn ws_in_state(state: WorkspaceState) -> Workspace {
-        Workspace::reconstruct(name("state-ws"), PathBuf::from("/tmp"), state)
-            .expect("reconstruct")
+        Workspace::reconstruct(name("state-ws"), PathBuf::from("/tmp"), state).expect("reconstruct")
     }
 
     // ========================================================================
@@ -89,7 +88,13 @@ mod tests {
 
     #[test]
     fn create_with_various_valid_names() {
-        for n in &["a", "my-workspace", "ws_01", "workspace.v2", &"x".repeat(255)] {
+        for n in &[
+            "a",
+            "my-workspace",
+            "ws_01",
+            "workspace.v2",
+            &"x".repeat(255),
+        ] {
             let ws = Workspace::create(name(n), PathBuf::from("/tmp")).expect("valid");
             assert_eq!(ws.name.as_str(), *n);
         }
@@ -141,20 +146,19 @@ mod tests {
 
     #[test]
     fn reconstruct_preserves_name() {
-        let ws =
-            Workspace::reconstruct(name("my-name"), PathBuf::from("/tmp"), WorkspaceState::Active)
-                .expect("ok");
+        let ws = Workspace::reconstruct(
+            name("my-name"),
+            PathBuf::from("/tmp"),
+            WorkspaceState::Active,
+        )
+        .expect("ok");
         assert_eq!(ws.name.as_str(), "my-name");
     }
 
     #[test]
     fn reconstruct_preserves_path() {
-        let ws = Workspace::reconstruct(
-            name("p"),
-            PathBuf::from("/tmp"),
-            WorkspaceState::Cleaning,
-        )
-        .expect("ok");
+        let ws = Workspace::reconstruct(name("p"), PathBuf::from("/tmp"), WorkspaceState::Cleaning)
+            .expect("ok");
         assert_eq!(ws.path, PathBuf::from("/tmp"));
     }
 
@@ -211,10 +215,26 @@ mod tests {
             invoke: fn(&Workspace) -> Result<Workspace, WorkspaceError>,
         }
         let methods = [
-            MethodCall { label: "mark_ready", invoke: Workspace::mark_ready as fn(&Workspace) -> Result<Workspace, WorkspaceError> },
-            MethodCall { label: "mark_active", invoke: Workspace::mark_active as fn(&Workspace) -> Result<Workspace, WorkspaceError> },
-            MethodCall { label: "start_cleaning", invoke: Workspace::start_cleaning as fn(&Workspace) -> Result<Workspace, WorkspaceError> },
-            MethodCall { label: "mark_removed", invoke: Workspace::mark_removed as fn(&Workspace) -> Result<Workspace, WorkspaceError> },
+            MethodCall {
+                label: "mark_ready",
+                invoke: Workspace::mark_ready
+                    as fn(&Workspace) -> Result<Workspace, WorkspaceError>,
+            },
+            MethodCall {
+                label: "mark_active",
+                invoke: Workspace::mark_active
+                    as fn(&Workspace) -> Result<Workspace, WorkspaceError>,
+            },
+            MethodCall {
+                label: "start_cleaning",
+                invoke: Workspace::start_cleaning
+                    as fn(&Workspace) -> Result<Workspace, WorkspaceError>,
+            },
+            MethodCall {
+                label: "mark_removed",
+                invoke: Workspace::mark_removed
+                    as fn(&Workspace) -> Result<Workspace, WorkspaceError>,
+            },
         ];
 
         // Map method label to target state
@@ -506,18 +526,17 @@ mod tests {
 
     #[test]
     fn validate_ready_ok_for_ready_and_active() {
-        assert!(ws_in_state(WorkspaceState::Ready)
-            .validate_ready()
-            .is_ok());
-        assert!(ws_in_state(WorkspaceState::Active)
-            .validate_ready()
-            .is_ok());
+        assert!(ws_in_state(WorkspaceState::Ready).validate_ready().is_ok());
+        assert!(ws_in_state(WorkspaceState::Active).validate_ready().is_ok());
     }
 
     #[test]
     fn validate_ready_err_for_others() {
-        for state in [WorkspaceState::Creating, WorkspaceState::Cleaning, WorkspaceState::Removed]
-        {
+        for state in [
+            WorkspaceState::Creating,
+            WorkspaceState::Cleaning,
+            WorkspaceState::Removed,
+        ] {
             let ws = ws_in_state(state);
             let err = ws.validate_ready().unwrap_err();
             assert!(
@@ -586,8 +605,11 @@ mod tests {
 
     #[test]
     fn validate_can_use_err_for_others() {
-        for state in [WorkspaceState::Creating, WorkspaceState::Cleaning, WorkspaceState::Removed]
-        {
+        for state in [
+            WorkspaceState::Creating,
+            WorkspaceState::Cleaning,
+            WorkspaceState::Removed,
+        ] {
             let ws = ws_in_state(state);
             let err = ws.validate_can_use().unwrap_err();
             assert!(
@@ -788,10 +810,7 @@ mod tests {
     #[test]
     fn error_equality() {
         // WorkspaceError derives PartialEq
-        assert_eq!(
-            WorkspaceError::Removed,
-            WorkspaceError::Removed
-        );
+        assert_eq!(WorkspaceError::Removed, WorkspaceError::Removed);
         assert_eq!(
             WorkspaceError::PathNotFound(PathBuf::from("/a")),
             WorkspaceError::PathNotFound(PathBuf::from("/a"))

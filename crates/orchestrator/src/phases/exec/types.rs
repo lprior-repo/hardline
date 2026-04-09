@@ -105,7 +105,10 @@ mod tests {
     #[test]
     fn test_phase_error_display_validation_failed() {
         let err = PhaseError::ValidationFailed("scenario failed".to_string());
-        assert_eq!(format!("{err}"), "Scenario validation failed: scenario failed");
+        assert_eq!(
+            format!("{err}"),
+            "Scenario validation failed: scenario failed"
+        );
     }
 
     #[test]
@@ -129,7 +132,10 @@ mod tests {
     #[test]
     fn test_phase_error_display_parallel_execution_failed() {
         let err = PhaseError::ParallelExecutionFailed("dependency error".to_string());
-        assert_eq!(format!("{err}"), "Parallel execution failed: dependency error");
+        assert_eq!(
+            format!("{err}"),
+            "Parallel execution failed: dependency error"
+        );
     }
 
     #[test]

@@ -103,10 +103,8 @@ fn base_headers(token: &str, auth_style: AuthStyle) -> Result<reqwest::header::H
 
     match auth_style {
         AuthStyle::AuthorizationToken => {
-            let value =
-                HeaderValue::from_str(&format!("token {token}")).map_err(|e| {
-                    StackError::ForgeError(format!("Invalid auth header: {e}"))
-                })?;
+            let value = HeaderValue::from_str(&format!("token {token}"))
+                .map_err(|e| StackError::ForgeError(format!("Invalid auth header: {e}")))?;
             headers.insert(AUTHORIZATION, value);
         }
         AuthStyle::PrivateToken => {
@@ -264,8 +262,9 @@ pub fn mergeable_bool(mergeable_state: &str) -> Option<bool> {
 /// Resolve a forge token from environment variables.
 pub fn forge_token(forge: ForgeType) -> Option<String> {
     match forge {
-        ForgeType::GitHub => read_env_token("STAX_GITHUB_TOKEN")
-            .or_else(|| read_env_token("GITHUB_TOKEN")),
+        ForgeType::GitHub => {
+            read_env_token("STAX_GITHUB_TOKEN").or_else(|| read_env_token("GITHUB_TOKEN"))
+        }
         ForgeType::GitLab => read_env_token("STAX_GITLAB_TOKEN")
             .or_else(|| read_env_token("GITLAB_TOKEN"))
             .or_else(|| read_env_token("STAX_FORGE_TOKEN")),

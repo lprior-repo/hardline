@@ -444,7 +444,10 @@ mod tests {
                 "self-transition for {state:?} should be invalid"
             );
             let result = state.transition_to(state);
-            assert!(result.is_err(), "self-transition for {state:?} should error");
+            assert!(
+                result.is_err(),
+                "self-transition for {state:?} should error"
+            );
         }
     }
 
@@ -538,7 +541,9 @@ mod tests {
 
     #[test]
     fn test_transition_error_contains_state_names() {
-        let err = AgentState::Error.transition_to(AgentState::Active).unwrap_err();
+        let err = AgentState::Error
+            .transition_to(AgentState::Active)
+            .unwrap_err();
         let msg = format!("{err}");
         assert!(
             msg.contains("Invalid transition"),
@@ -620,7 +625,9 @@ mod tests {
 
     #[test]
     fn test_offline_cannot_go_directly_to_active() {
-        assert!(AgentState::Offline.transition_to(AgentState::Active).is_err());
+        assert!(AgentState::Offline
+            .transition_to(AgentState::Active)
+            .is_err());
     }
 
     // =========================================================================

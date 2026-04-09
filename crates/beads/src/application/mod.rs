@@ -622,7 +622,7 @@ mod tests {
         assert_eq!(list.len(), 2);
     }
 
-  // ── find_by_state ────────────────────────────────────────────────────────
+    // ── find_by_state ────────────────────────────────────────────────────────
 
     #[tokio::test]
     async fn find_by_state_filters() {
@@ -661,18 +661,9 @@ mod tests {
     #[tokio::test]
     async fn find_by_assignee_filters_by_assignee() {
         let service = make_service();
-        service
-            .create_bead("fa-3", "Alice 1", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("fa-4", "Alice 2", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("fa-5", "Bob 1", None)
-            .await
-            .unwrap();
+        service.create_bead("fa-3", "Alice 1", None).await.unwrap();
+        service.create_bead("fa-4", "Alice 2", None).await.unwrap();
+        service.create_bead("fa-5", "Bob 1", None).await.unwrap();
         service
             .assign_bead(&BeadId::new("fa-3").unwrap(), Some("alice".into()))
             .await
@@ -696,10 +687,7 @@ mod tests {
     #[tokio::test]
     async fn find_by_assignee_returns_empty_for_nonexistent_assignee() {
         let service = make_service();
-        service
-            .create_bead("fa-6", "Charlie", None)
-            .await
-            .unwrap();
+        service.create_bead("fa-6", "Charlie", None).await.unwrap();
         service
             .assign_bead(&BeadId::new("fa-6").unwrap(), Some("charlie".into()))
             .await
@@ -741,16 +729,10 @@ mod tests {
             .await
             .unwrap();
 
-        let open_alice = service
-            .find_by_assignee(Some("alice"))
-            .await
-            .unwrap();
+        let open_alice = service.find_by_assignee(Some("alice")).await.unwrap();
         assert_eq!(open_alice.len(), 2);
 
-        let in_progress = service
-            .find_by_state(BeadState::InProgress)
-            .await
-            .unwrap();
+        let in_progress = service.find_by_state(BeadState::InProgress).await.unwrap();
         assert_eq!(in_progress.len(), 1);
     }
 
@@ -804,14 +786,8 @@ mod tests {
     async fn find_by_priority_filters_by_priority() {
         let service = make_service();
 
-        service
-            .create_bead("fp-3", "P0 Bead", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("fp-4", "P1 Bead", None)
-            .await
-            .unwrap();
+        service.create_bead("fp-3", "P0 Bead", None).await.unwrap();
+        service.create_bead("fp-4", "P1 Bead", None).await.unwrap();
         service
             .create_bead("fp-5", "P0 Bead 2", None)
             .await
@@ -840,10 +816,7 @@ mod tests {
     #[tokio::test]
     async fn find_by_priority_returns_empty_for_nonexistent_priority() {
         let service = make_service();
-        service
-            .create_bead("fp-6", "P1 Bead", None)
-            .await
-            .unwrap();
+        service.create_bead("fp-6", "P1 Bead", None).await.unwrap();
         service
             .set_priority(&BeadId::new("fp-6").unwrap(), Priority::P1)
             .await
@@ -864,10 +837,7 @@ mod tests {
     async fn find_by_priority_combined_with_state() {
         let service = make_service();
 
-        service
-            .create_bead("fpp-1", "P0 Open", None)
-            .await
-            .unwrap();
+        service.create_bead("fpp-1", "P0 Open", None).await.unwrap();
         service
             .create_bead("fpp-2", "P0 InProgress", None)
             .await
@@ -899,20 +869,14 @@ mod tests {
             .await
             .unwrap();
 
-        let p0_in_progress = service
-            .find_by_priority(Some(Priority::P0))
-            .await
-            .unwrap();
+        let p0_in_progress = service.find_by_priority(Some(Priority::P0)).await.unwrap();
         assert_eq!(p0_in_progress.len(), 2);
 
-        let in_progress = service
-            .find_by_state(BeadState::InProgress)
-            .await
-            .unwrap();
+        let in_progress = service.find_by_state(BeadState::InProgress).await.unwrap();
         assert_eq!(in_progress.len(), 2);
     }
 
- #[tokio::test]
+    #[tokio::test]
     async fn find_by_priority_all_priority_levels() {
         let service = make_service();
 
@@ -993,10 +957,7 @@ mod tests {
             .unwrap();
 
         // Query: Alice, InProgress
-        let alice_in_progress = service
-            .find_by_assignee(Some("alice"))
-            .await
-            .unwrap();
+        let alice_in_progress = service.find_by_assignee(Some("alice")).await.unwrap();
         assert_eq!(alice_in_progress.len(), 2);
 
         // Filter by state from the assignee result
@@ -1012,10 +973,7 @@ mod tests {
     async fn combined_state_and_priority() {
         let service = make_service();
 
-        service
-            .create_bead("csp-1", "P0 Open", None)
-            .await
-            .unwrap();
+        service.create_bead("csp-1", "P0 Open", None).await.unwrap();
         service
             .create_bead("csp-2", "P0 InProgress", None)
             .await
@@ -1091,14 +1049,8 @@ mod tests {
             .create_bead("cap-2", "Alice P1", None)
             .await
             .unwrap();
-        service
-            .create_bead("cap-3", "Bob P0", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("cap-4", "Bob P2", None)
-            .await
-            .unwrap();
+        service.create_bead("cap-3", "Bob P0", None).await.unwrap();
+        service.create_bead("cap-4", "Bob P2", None).await.unwrap();
 
         service
             .assign_bead(&BeadId::new("cap-1").unwrap(), Some("alice".into()))
@@ -1232,18 +1184,9 @@ mod tests {
     async fn find_by_assignee_ordering_preserves_insertion() {
         let service = make_service();
 
-        service
-            .create_bead("oaa-1", "First", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("oaa-2", "Second", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("oaa-3", "Third", None)
-            .await
-            .unwrap();
+        service.create_bead("oaa-1", "First", None).await.unwrap();
+        service.create_bead("oaa-2", "Second", None).await.unwrap();
+        service.create_bead("oaa-3", "Third", None).await.unwrap();
 
         service
             .assign_bead(&BeadId::new("oaa-1").unwrap(), Some("alice".into()))
@@ -1269,18 +1212,9 @@ mod tests {
     async fn find_by_priority_ordering_preserves_insertion() {
         let service = make_service();
 
-        service
-            .create_bead("oap-1", "First", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("oap-2", "Second", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("oap-3", "Third", None)
-            .await
-            .unwrap();
+        service.create_bead("oap-1", "First", None).await.unwrap();
+        service.create_bead("oap-2", "Second", None).await.unwrap();
+        service.create_bead("oap-3", "Third", None).await.unwrap();
 
         service
             .set_priority(&BeadId::new("oap-1").unwrap(), Priority::P1)
@@ -1306,18 +1240,9 @@ mod tests {
     async fn find_by_state_ordering_preserves_insertion() {
         let service = make_service();
 
-        service
-            .create_bead("oas-1", "First", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("oas-2", "Second", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("oas-3", "Third", None)
-            .await
-            .unwrap();
+        service.create_bead("oas-1", "First", None).await.unwrap();
+        service.create_bead("oas-2", "Second", None).await.unwrap();
+        service.create_bead("oas-3", "Third", None).await.unwrap();
 
         service
             .update_bead_state(&BeadId::new("oas-1").unwrap(), BeadState::InProgress)
@@ -1343,26 +1268,14 @@ mod tests {
     async fn find_by_assignee_ordering_with_mixed_assignees() {
         let service = make_service();
 
-        service
-            .create_bead("oama-1", "Alice", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("oama-2", "Bob", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("oama-3", "Alice", None)
-            .await
-            .unwrap();
+        service.create_bead("oama-1", "Alice", None).await.unwrap();
+        service.create_bead("oama-2", "Bob", None).await.unwrap();
+        service.create_bead("oama-3", "Alice", None).await.unwrap();
         service
             .create_bead("oama-4", "Charlie", None)
             .await
             .unwrap();
-        service
-            .create_bead("oama-5", "Alice", None)
-            .await
-            .unwrap();
+        service.create_bead("oama-5", "Alice", None).await.unwrap();
 
         service
             .assign_bead(&BeadId::new("oama-1").unwrap(), Some("alice".into()))
@@ -1396,26 +1309,11 @@ mod tests {
     async fn find_by_priority_ordering_with_mixed_priorities() {
         let service = make_service();
 
-        service
-            .create_bead("omap-1", "P0", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("omap-2", "P1", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("omap-3", "P0", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("omap-4", "P2", None)
-            .await
-            .unwrap();
-        service
-            .create_bead("omap-5", "P0", None)
-            .await
-            .unwrap();
+        service.create_bead("omap-1", "P0", None).await.unwrap();
+        service.create_bead("omap-2", "P1", None).await.unwrap();
+        service.create_bead("omap-3", "P0", None).await.unwrap();
+        service.create_bead("omap-4", "P2", None).await.unwrap();
+        service.create_bead("omap-5", "P0", None).await.unwrap();
 
         service
             .set_priority(&BeadId::new("omap-1").unwrap(), Priority::P0)
@@ -1468,10 +1366,7 @@ mod tests {
     async fn find_by_priority_empty_result() {
         let service = make_service();
 
-        service
-            .create_bead("fep-1", "P0 Bead", None)
-            .await
-            .unwrap();
+        service.create_bead("fep-1", "P0 Bead", None).await.unwrap();
         service
             .set_priority(&BeadId::new("fep-1").unwrap(), Priority::P0)
             .await
@@ -2265,10 +2160,7 @@ mod tests {
     async fn setup_bead(id: &str) -> (BeadService<InMemoryBeadRepository>, BeadId) {
         let service = make_service();
         let bead_id = BeadId::new(id).unwrap();
-        service
-            .create_bead(id, "Event Test", None)
-            .await
-            .unwrap();
+        service.create_bead(id, "Event Test", None).await.unwrap();
         (service, bead_id)
     }
 
@@ -2295,10 +2187,7 @@ mod tests {
                     "{context}: new_state mismatch — expected {expected_new:?}, got {new_state:?}"
                 );
                 let now = Utc::now();
-                assert!(
-                    *changed_at <= now,
-                    "{context}: changed_at is in the future"
-                );
+                assert!(*changed_at <= now, "{context}: changed_at is in the future");
                 assert!(
                     *changed_at >= now - chrono::Duration::seconds(10),
                     "{context}: changed_at is too old"
@@ -2317,44 +2206,75 @@ mod tests {
             .update_bead_state(&id, BeadState::InProgress)
             .await
             .unwrap();
-        assert_state_changed_event(&event, BeadState::Open, BeadState::InProgress, "Open→InProgress");
+        assert_state_changed_event(
+            &event,
+            BeadState::Open,
+            BeadState::InProgress,
+            "Open→InProgress",
+        );
     }
 
     #[tokio::test]
     async fn event_in_progress_to_blocked() {
         let (svc, id) = setup_bead("ev-ipb").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
         let (_, event) = svc
             .update_bead_state(&id, BeadState::Blocked)
             .await
             .unwrap();
-        assert_state_changed_event(&event, BeadState::InProgress, BeadState::Blocked, "InProgress→Blocked");
+        assert_state_changed_event(
+            &event,
+            BeadState::InProgress,
+            BeadState::Blocked,
+            "InProgress→Blocked",
+        );
     }
 
     #[tokio::test]
     async fn event_in_progress_to_deferred() {
         let (svc, id) = setup_bead("ev-ipd").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
         let (_, event) = svc
             .update_bead_state(&id, BeadState::Deferred)
             .await
             .unwrap();
-        assert_state_changed_event(&event, BeadState::InProgress, BeadState::Deferred, "InProgress→Deferred");
+        assert_state_changed_event(
+            &event,
+            BeadState::InProgress,
+            BeadState::Deferred,
+            "InProgress→Deferred",
+        );
     }
 
     #[tokio::test]
     async fn event_in_progress_to_closed() {
         let (svc, id) = setup_bead("ev-ipc").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
         let (_, event) = svc
-            .update_bead_state(&id, BeadState::Closed { closed_at: Utc::now() })
+            .update_bead_state(
+                &id,
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
+            )
             .await
             .unwrap();
         assert!(
             matches!(event, BeadEvent::StateChanged { ref new_state, .. } if new_state.is_closed()),
             "InProgress→Closed: expected StateChanged with Closed new_state"
         );
-        if let BeadEvent::StateChanged { old_state, new_state, .. } = &event {
+        if let BeadEvent::StateChanged {
+            old_state,
+            new_state,
+            ..
+        } = &event
+        {
             assert_eq!(*old_state, BeadState::InProgress);
             assert!(new_state.is_closed());
         }
@@ -2363,37 +2283,69 @@ mod tests {
     #[tokio::test]
     async fn event_blocked_to_in_progress() {
         let (svc, id) = setup_bead("ev-bip").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-        svc.update_bead_state(&id, BeadState::Blocked).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
+        svc.update_bead_state(&id, BeadState::Blocked)
+            .await
+            .unwrap();
         let (_, event) = svc
             .update_bead_state(&id, BeadState::InProgress)
             .await
             .unwrap();
-        assert_state_changed_event(&event, BeadState::Blocked, BeadState::InProgress, "Blocked→InProgress");
+        assert_state_changed_event(
+            &event,
+            BeadState::Blocked,
+            BeadState::InProgress,
+            "Blocked→InProgress",
+        );
     }
 
     #[tokio::test]
     async fn event_blocked_to_deferred() {
         let (svc, id) = setup_bead("ev-bd").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-        svc.update_bead_state(&id, BeadState::Blocked).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
+        svc.update_bead_state(&id, BeadState::Blocked)
+            .await
+            .unwrap();
         let (_, event) = svc
             .update_bead_state(&id, BeadState::Deferred)
             .await
             .unwrap();
-        assert_state_changed_event(&event, BeadState::Blocked, BeadState::Deferred, "Blocked→Deferred");
+        assert_state_changed_event(
+            &event,
+            BeadState::Blocked,
+            BeadState::Deferred,
+            "Blocked→Deferred",
+        );
     }
 
     #[tokio::test]
     async fn event_blocked_to_closed() {
         let (svc, id) = setup_bead("ev-bc").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-        svc.update_bead_state(&id, BeadState::Blocked).await.unwrap();
-        let (_, event) = svc
-            .update_bead_state(&id, BeadState::Closed { closed_at: Utc::now() })
+        svc.update_bead_state(&id, BeadState::InProgress)
             .await
             .unwrap();
-        if let BeadEvent::StateChanged { old_state, new_state, .. } = &event {
+        svc.update_bead_state(&id, BeadState::Blocked)
+            .await
+            .unwrap();
+        let (_, event) = svc
+            .update_bead_state(
+                &id,
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
+            )
+            .await
+            .unwrap();
+        if let BeadEvent::StateChanged {
+            old_state,
+            new_state,
+            ..
+        } = &event
+        {
             assert_eq!(*old_state, BeadState::Blocked);
             assert!(new_state.is_closed());
         } else {
@@ -2404,25 +2356,48 @@ mod tests {
     #[tokio::test]
     async fn event_deferred_to_in_progress() {
         let (svc, id) = setup_bead("ev-dip").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-        svc.update_bead_state(&id, BeadState::Deferred).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
+        svc.update_bead_state(&id, BeadState::Deferred)
+            .await
+            .unwrap();
         let (_, event) = svc
             .update_bead_state(&id, BeadState::InProgress)
             .await
             .unwrap();
-        assert_state_changed_event(&event, BeadState::Deferred, BeadState::InProgress, "Deferred→InProgress");
+        assert_state_changed_event(
+            &event,
+            BeadState::Deferred,
+            BeadState::InProgress,
+            "Deferred→InProgress",
+        );
     }
 
     #[tokio::test]
     async fn event_deferred_to_closed() {
         let (svc, id) = setup_bead("ev-dc").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-        svc.update_bead_state(&id, BeadState::Deferred).await.unwrap();
-        let (_, event) = svc
-            .update_bead_state(&id, BeadState::Closed { closed_at: Utc::now() })
+        svc.update_bead_state(&id, BeadState::InProgress)
             .await
             .unwrap();
-        if let BeadEvent::StateChanged { old_state, new_state, .. } = &event {
+        svc.update_bead_state(&id, BeadState::Deferred)
+            .await
+            .unwrap();
+        let (_, event) = svc
+            .update_bead_state(
+                &id,
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
+            )
+            .await
+            .unwrap();
+        if let BeadEvent::StateChanged {
+            old_state,
+            new_state,
+            ..
+        } = &event
+        {
             assert_eq!(*old_state, BeadState::Deferred);
             assert!(new_state.is_closed());
         } else {
@@ -2435,46 +2410,68 @@ mod tests {
     #[tokio::test]
     async fn event_open_to_open_same_state() {
         let (svc, id) = setup_bead("ev-oo").await;
-        let (_, event) = svc
-            .update_bead_state(&id, BeadState::Open)
-            .await
-            .unwrap();
+        let (_, event) = svc.update_bead_state(&id, BeadState::Open).await.unwrap();
         assert_state_changed_event(&event, BeadState::Open, BeadState::Open, "Open→Open");
     }
 
     #[tokio::test]
     async fn event_in_progress_to_in_progress_same_state() {
         let (svc, id) = setup_bead("ev-ipip").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
         let (_, event) = svc
             .update_bead_state(&id, BeadState::InProgress)
             .await
             .unwrap();
-        assert_state_changed_event(&event, BeadState::InProgress, BeadState::InProgress, "InProgress→InProgress");
+        assert_state_changed_event(
+            &event,
+            BeadState::InProgress,
+            BeadState::InProgress,
+            "InProgress→InProgress",
+        );
     }
 
     #[tokio::test]
     async fn event_blocked_to_blocked_same_state() {
         let (svc, id) = setup_bead("ev-bb").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-        svc.update_bead_state(&id, BeadState::Blocked).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
+        svc.update_bead_state(&id, BeadState::Blocked)
+            .await
+            .unwrap();
         let (_, event) = svc
             .update_bead_state(&id, BeadState::Blocked)
             .await
             .unwrap();
-        assert_state_changed_event(&event, BeadState::Blocked, BeadState::Blocked, "Blocked→Blocked");
+        assert_state_changed_event(
+            &event,
+            BeadState::Blocked,
+            BeadState::Blocked,
+            "Blocked→Blocked",
+        );
     }
 
     #[tokio::test]
     async fn event_deferred_to_deferred_same_state() {
         let (svc, id) = setup_bead("ev-dd").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-        svc.update_bead_state(&id, BeadState::Deferred).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
+        svc.update_bead_state(&id, BeadState::Deferred)
+            .await
+            .unwrap();
         let (_, event) = svc
             .update_bead_state(&id, BeadState::Deferred)
             .await
             .unwrap();
-        assert_state_changed_event(&event, BeadState::Deferred, BeadState::Deferred, "Deferred→Deferred");
+        assert_state_changed_event(
+            &event,
+            BeadState::Deferred,
+            BeadState::Deferred,
+            "Deferred→Deferred",
+        );
     }
 
     // ── Group 3: Events emitted in transition order ─────────────────────────────
@@ -2522,7 +2519,12 @@ mod tests {
 
         // InProgress → Closed
         let (_, evt6) = svc
-            .update_bead_state(&id, BeadState::Closed { closed_at: Utc::now() })
+            .update_bead_state(
+                &id,
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
+            )
             .await
             .unwrap();
 
@@ -2567,25 +2569,51 @@ mod tests {
         let id = BeadId::new("order-2").unwrap();
 
         // Open → InProgress
-        let (_, e1) = svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
+        let (_, e1) = svc
+            .update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
         assert_state_changed_event(&e1, BeadState::Open, BeadState::InProgress, "step 1");
 
         // InProgress → Blocked
-        let (_, e2) = svc.update_bead_state(&id, BeadState::Blocked).await.unwrap();
+        let (_, e2) = svc
+            .update_bead_state(&id, BeadState::Blocked)
+            .await
+            .unwrap();
         assert_state_changed_event(&e2, BeadState::InProgress, BeadState::Blocked, "step 2");
 
         // Blocked → Deferred
-        let (_, e3) = svc.update_bead_state(&id, BeadState::Deferred).await.unwrap();
+        let (_, e3) = svc
+            .update_bead_state(&id, BeadState::Deferred)
+            .await
+            .unwrap();
         assert_state_changed_event(&e3, BeadState::Blocked, BeadState::Deferred, "step 3");
 
         // Deferred → Closed
-        let (_, e4) = svc.update_bead_state(&id, BeadState::Closed { closed_at: Utc::now() }).await.unwrap();
-        if let BeadEvent::StateChanged { old_state, new_state, changed_at, .. } = &e4 {
+        let (_, e4) = svc
+            .update_bead_state(
+                &id,
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
+            )
+            .await
+            .unwrap();
+        if let BeadEvent::StateChanged {
+            old_state,
+            new_state,
+            changed_at,
+            ..
+        } = &e4
+        {
             assert_eq!(*old_state, BeadState::Deferred);
             assert!(new_state.is_closed());
             // Verify changed_at >= all previous events
             if let BeadEvent::StateChanged { changed_at: t3, .. } = &e3 {
-                assert!(*changed_at >= *t3, "Closed event should be >= Deferred event");
+                assert!(
+                    *changed_at >= *t3,
+                    "Closed event should be >= Deferred event"
+                );
             }
         } else {
             panic!("step 4: expected StateChanged, got {e4:?}");
@@ -2604,7 +2632,10 @@ mod tests {
         assert_eq!(created.id(), &bead_id);
 
         // StateChanged: Open → InProgress
-        let (_, e) = svc.update_bead_state(&bead_id, BeadState::InProgress).await.unwrap();
+        let (_, e) = svc
+            .update_bead_state(&bead_id, BeadState::InProgress)
+            .await
+            .unwrap();
         assert_eq!(e.id(), &bead_id);
 
         // PrioritySet
@@ -2612,27 +2643,50 @@ mod tests {
         assert_eq!(e.id(), &bead_id);
 
         // AssigneeSet
-        let (_, e) = svc.assign_bead(&bead_id, Some("tester".into())).await.unwrap();
+        let (_, e) = svc
+            .assign_bead(&bead_id, Some("tester".into()))
+            .await
+            .unwrap();
         assert_eq!(e.id(), &bead_id);
 
         // StateChanged: InProgress → Blocked
-        let (_, e) = svc.update_bead_state(&bead_id, BeadState::Blocked).await.unwrap();
+        let (_, e) = svc
+            .update_bead_state(&bead_id, BeadState::Blocked)
+            .await
+            .unwrap();
         assert_eq!(e.id(), &bead_id);
 
         // StateChanged: Blocked → InProgress
-        let (_, e) = svc.update_bead_state(&bead_id, BeadState::InProgress).await.unwrap();
+        let (_, e) = svc
+            .update_bead_state(&bead_id, BeadState::InProgress)
+            .await
+            .unwrap();
         assert_eq!(e.id(), &bead_id);
 
         // StateChanged: InProgress → Deferred
-        let (_, e) = svc.update_bead_state(&bead_id, BeadState::Deferred).await.unwrap();
+        let (_, e) = svc
+            .update_bead_state(&bead_id, BeadState::Deferred)
+            .await
+            .unwrap();
         assert_eq!(e.id(), &bead_id);
 
         // StateChanged: Deferred → InProgress
-        let (_, e) = svc.update_bead_state(&bead_id, BeadState::InProgress).await.unwrap();
+        let (_, e) = svc
+            .update_bead_state(&bead_id, BeadState::InProgress)
+            .await
+            .unwrap();
         assert_eq!(e.id(), &bead_id);
 
         // StateChanged: InProgress → Closed
-        let (_, e) = svc.update_bead_state(&bead_id, BeadState::Closed { closed_at: Utc::now() }).await.unwrap();
+        let (_, e) = svc
+            .update_bead_state(
+                &bead_id,
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
+            )
+            .await
+            .unwrap();
         assert_eq!(e.id(), &bead_id);
 
         // Deleted
@@ -2645,15 +2699,26 @@ mod tests {
     #[tokio::test]
     async fn closed_to_all_states_returns_error_no_event() {
         let (svc, id) = setup_bead("ev-closed").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-        svc.update_bead_state(&id, BeadState::Closed { closed_at: Utc::now() }).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
+        svc.update_bead_state(
+            &id,
+            BeadState::Closed {
+                closed_at: Utc::now(),
+            },
+        )
+        .await
+        .unwrap();
 
         let targets = vec![
             BeadState::Open,
             BeadState::InProgress,
             BeadState::Blocked,
             BeadState::Deferred,
-            BeadState::Closed { closed_at: Utc::now() },
+            BeadState::Closed {
+                closed_at: Utc::now(),
+            },
         ];
 
         for target in targets {
@@ -2672,7 +2737,9 @@ mod tests {
         let targets = vec![
             BeadState::Blocked,
             BeadState::Deferred,
-            BeadState::Closed { closed_at: Utc::now() },
+            BeadState::Closed {
+                closed_at: Utc::now(),
+            },
         ];
 
         for target in targets {
@@ -2680,14 +2747,20 @@ mod tests {
             assert!(result.is_err(), "Open→{target:?} should fail");
             // Verify bead is still Open
             let bead = svc.get_bead(&id).await.unwrap();
-            assert_eq!(bead.state(), BeadState::Open, "bead should remain Open after failed transition to {target:?}");
+            assert_eq!(
+                bead.state(),
+                BeadState::Open,
+                "bead should remain Open after failed transition to {target:?}"
+            );
         }
     }
 
     #[tokio::test]
     async fn invalid_transitions_from_in_progress() {
         let (svc, id) = setup_bead("ev-inv-ip").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
 
         // InProgress cannot go back to Open
         let result = svc.update_bead_state(&id, BeadState::Open).await;
@@ -2699,8 +2772,12 @@ mod tests {
     #[tokio::test]
     async fn invalid_transitions_from_blocked() {
         let (svc, id) = setup_bead("ev-inv-b").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-        svc.update_bead_state(&id, BeadState::Blocked).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
+        svc.update_bead_state(&id, BeadState::Blocked)
+            .await
+            .unwrap();
 
         // Blocked cannot go to Open
         let result = svc.update_bead_state(&id, BeadState::Open).await;
@@ -2710,12 +2787,24 @@ mod tests {
     #[tokio::test]
     async fn invalid_transitions_from_deferred() {
         let (svc, id) = setup_bead("ev-inv-d").await;
-        svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-        svc.update_bead_state(&id, BeadState::Deferred).await.unwrap();
+        svc.update_bead_state(&id, BeadState::InProgress)
+            .await
+            .unwrap();
+        svc.update_bead_state(&id, BeadState::Deferred)
+            .await
+            .unwrap();
 
         // Deferred cannot go to Open or Blocked
-        assert!(svc.update_bead_state(&id, BeadState::Open).await.is_err(), "Deferred→Open should fail");
-        assert!(svc.update_bead_state(&id, BeadState::Blocked).await.is_err(), "Deferred→Blocked should fail");
+        assert!(
+            svc.update_bead_state(&id, BeadState::Open).await.is_err(),
+            "Deferred→Open should fail"
+        );
+        assert!(
+            svc.update_bead_state(&id, BeadState::Blocked)
+                .await
+                .is_err(),
+            "Deferred→Blocked should fail"
+        );
     }
 
     // ── Group 7: All valid transitions via exhaustive matrix ────────────────────
@@ -2731,50 +2820,95 @@ mod tests {
             (BeadState::Open, BeadState::InProgress, true),
             (BeadState::Open, BeadState::Blocked, false),
             (BeadState::Open, BeadState::Deferred, false),
-            (BeadState::Open, BeadState::Closed { closed_at: Utc::now() }, false),
+            (
+                BeadState::Open,
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
+                false,
+            ),
             // From InProgress
             (BeadState::InProgress, BeadState::Open, false),
             (BeadState::InProgress, BeadState::InProgress, true),
             (BeadState::InProgress, BeadState::Blocked, true),
             (BeadState::InProgress, BeadState::Deferred, true),
-            (BeadState::InProgress, BeadState::Closed { closed_at: Utc::now() }, true),
+            (
+                BeadState::InProgress,
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
+                true,
+            ),
             // From Blocked
             (BeadState::Blocked, BeadState::Open, false),
             (BeadState::Blocked, BeadState::InProgress, true),
             (BeadState::Blocked, BeadState::Blocked, true),
             (BeadState::Blocked, BeadState::Deferred, true),
-            (BeadState::Blocked, BeadState::Closed { closed_at: Utc::now() }, true),
+            (
+                BeadState::Blocked,
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
+                true,
+            ),
             // From Deferred
             (BeadState::Deferred, BeadState::Open, false),
             (BeadState::Deferred, BeadState::InProgress, true),
             (BeadState::Deferred, BeadState::Blocked, false),
             (BeadState::Deferred, BeadState::Deferred, true),
-            (BeadState::Deferred, BeadState::Closed { closed_at: Utc::now() }, true),
+            (
+                BeadState::Deferred,
+                BeadState::Closed {
+                    closed_at: Utc::now(),
+                },
+                true,
+            ),
         ];
 
         for (idx, (from, to, should_succeed)) in transitions.into_iter().enumerate() {
             let svc = make_service();
             let bead_id = format!("mat-{idx}");
             let id = BeadId::new(&bead_id).unwrap();
-            svc.create_bead(bead_id.as_str(), "Matrix", None).await.unwrap();
+            svc.create_bead(bead_id.as_str(), "Matrix", None)
+                .await
+                .unwrap();
 
             // Navigate to the `from` state
             match from {
                 BeadState::Open => { /* already open */ }
                 BeadState::InProgress => {
-                    svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
+                    svc.update_bead_state(&id, BeadState::InProgress)
+                        .await
+                        .unwrap();
                 }
                 BeadState::Blocked => {
-                    svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-                    svc.update_bead_state(&id, BeadState::Blocked).await.unwrap();
+                    svc.update_bead_state(&id, BeadState::InProgress)
+                        .await
+                        .unwrap();
+                    svc.update_bead_state(&id, BeadState::Blocked)
+                        .await
+                        .unwrap();
                 }
                 BeadState::Deferred => {
-                    svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-                    svc.update_bead_state(&id, BeadState::Deferred).await.unwrap();
+                    svc.update_bead_state(&id, BeadState::InProgress)
+                        .await
+                        .unwrap();
+                    svc.update_bead_state(&id, BeadState::Deferred)
+                        .await
+                        .unwrap();
                 }
                 BeadState::Closed { .. } => {
-                    svc.update_bead_state(&id, BeadState::InProgress).await.unwrap();
-                    svc.update_bead_state(&id, BeadState::Closed { closed_at: Utc::now() }).await.unwrap();
+                    svc.update_bead_state(&id, BeadState::InProgress)
+                        .await
+                        .unwrap();
+                    svc.update_bead_state(
+                        &id,
+                        BeadState::Closed {
+                            closed_at: Utc::now(),
+                        },
+                    )
+                    .await
+                    .unwrap();
                 }
             }
 
@@ -2785,7 +2919,11 @@ mod tests {
                 });
                 // Verify the event is StateChanged with correct old/new
                 match &event {
-                    BeadEvent::StateChanged { old_state, new_state, .. } => {
+                    BeadEvent::StateChanged {
+                        old_state,
+                        new_state,
+                        ..
+                    } => {
                         // old_state should match `from` (accounting for Closed)
                         if !from.is_closed() {
                             assert_eq!(
@@ -2810,12 +2948,22 @@ mod tests {
                 }
                 // Verify bead state matches target
                 if to.is_closed() {
-                    assert!(bead.state().is_closed(), "matrix[{idx}]: bead state should be Closed");
+                    assert!(
+                        bead.state().is_closed(),
+                        "matrix[{idx}]: bead state should be Closed"
+                    );
                 } else {
-                    assert_eq!(bead.state(), to, "matrix[{idx}]: bead state should match target");
+                    assert_eq!(
+                        bead.state(),
+                        to,
+                        "matrix[{idx}]: bead state should match target"
+                    );
                 }
             } else {
-                assert!(result.is_err(), "matrix[{idx}]: {from:?}→{to:?} should fail");
+                assert!(
+                    result.is_err(),
+                    "matrix[{idx}]: {from:?}→{to:?} should fail"
+                );
             }
         }
     }
@@ -2835,7 +2983,9 @@ mod tests {
             BeadState::InProgress,
             BeadState::Deferred,
             BeadState::InProgress,
-            BeadState::Closed { closed_at: Utc::now() },
+            BeadState::Closed {
+                closed_at: Utc::now(),
+            },
         ];
 
         for (i, target) in steps.iter().enumerate() {

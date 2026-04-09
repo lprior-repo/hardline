@@ -1074,7 +1074,7 @@ mod tests {
 
     mod state_machine_transition_tests {
         use super::*;
-        use crate::domain::events::{SessionEvent, serialize_event};
+        use crate::domain::events::{serialize_event, SessionEvent};
 
         /// Path 1: Created → Active → Completed
         /// Verifies state correctness and event correspondence at each step.
@@ -1174,7 +1174,13 @@ mod tests {
             // Path 3: Active→Paused→Active
             let s = Session::<Created>::create(name).expect("created");
             let id3 = s.id.as_str().to_string();
-            let resumed = s.activate().expect("a").pause().expect("p").resume().expect("r");
+            let resumed = s
+                .activate()
+                .expect("a")
+                .pause()
+                .expect("p")
+                .resume()
+                .expect("r");
             assert_eq!(resumed.id.as_str(), id3);
             assert_eq!(resumed.name.as_str(), "identity-check");
 
@@ -1850,390 +1856,449 @@ mod tests {
                 }
             }
 
-    // Session State Machine — Invalid Transition Tests (ha-v5x)
-    // ==================================================================
+            // Session State Machine — Invalid Transition Tests (ha-v5x)
+            // ==================================================================
 
-    mod invalid_transition_tests {
-        use super::*;
+            mod invalid_transition_tests {
+                use super::*;
 
-        /// The typestate pattern prevents invalid transitions at compile time.
-        /// Each state type only exposes its valid transition methods.
-        /// See tests/compile_fail/session_*.rs for compile-fail proofs.
-        ///
-        /// Valid transition matrix:
-        ///   Created  → Active, Failed
-        ///   Active   → Syncing, Paused, Completed, Failed
-        ///   Syncing  → Synced, Failed
-        ///   Synced   → Active, Completed, Paused
-        ///   Paused   → Active, Failed
-        ///   Completed→ Created (restart)
-        ///   Failed   → Created (retry)
+                /// The typestate pattern prevents invalid transitions at compile time.
+                /// Each state type only exposes its valid transition methods.
+                /// See tests/compile_fail/session_*.rs for compile-fail proofs.
+                ///
+                /// Valid transition matrix:
+                ///   Created  → Active, Failed
+                ///   Active   → Syncing, Paused, Completed, Failed
+                ///   Syncing  → Synced, Failed
+                ///   Synced   → Active, Completed, Paused
+                ///   Paused   → Active, Failed
+                ///   Completed→ Created (restart)
+                ///   Failed   → Created (retry)
 
-        // -- Created: only activate() and fail() are available --
+                // -- Created: only activate() and fail() are available --
 
-        #[test]
-        fn created_can_transition_to_active() {
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let active = session.activate().expect("Created→Active");
-            assert_eq!(active.state(), SessionState::Active);
-        }
-
-        #[test]
-        fn created_can_transition_to_failed() {
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let failed = session.fail().expect("Created→Failed");
-            assert_eq!(failed.state(), SessionState::Failed);
-            assert!(failed.state().is_terminal());
-        }
-
-        #[test]
-        fn created_cannot_complete_must_activate_first() {
-            // compile_fail: session_created_cannot_complete.rs
-            // Created→Completed is blocked; must go Created→Active→Completed
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let completed = session.activate().expect("activate").complete().expect("complete");
-            assert_eq!(completed.state(), SessionState::Completed);
-        }
-
-        #[test]
-        fn created_cannot_sync_must_activate_first() {
-            // compile_fail: session_created_cannot_sync.rs
-            // Created→Syncing is blocked; must go Created→Active→Syncing
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let syncing = session.activate().expect("activate").sync().expect("sync");
-            assert_eq!(syncing.state(), SessionState::Syncing);
-        }
-
-        // -- Completed: only restart() is available --
-
-        #[test]
-        fn completed_can_transition_to_created_via_restart() {
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let completed = session.activate().expect("activate").complete().expect("complete");
-            let restarted = completed.restart().expect("Completed→Created");
-            assert_eq!(restarted.state(), SessionState::Created);
-        }
-
-        #[test]
-        fn completed_cannot_activate_must_restart_first() {
-            // compile_fail: session_completed_cannot_activate.rs
-            // Completed→Active is blocked; must go Completed→Created→Active
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let completed = session.activate().expect("activate").complete().expect("complete");
-            let restarted = completed.restart().expect("restart");
-            let reactivated = restarted.activate().expect("activate");
-            assert_eq!(reactivated.state(), SessionState::Active);
-        }
-
-        #[test]
-        fn completed_cannot_fail_terminal_state() {
-            // compile_fail: session_completed_cannot_fail.rs
-            // Completed is terminal; only exit is restart()
-        }
-
-        #[test]
-        fn completed_is_terminal_and_has_only_restart() {
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let completed = session.activate().expect("activate").complete().expect("complete");
-            assert!(completed.state().is_terminal());
-            let restarted = completed.restart().expect("restart");
-            assert!(!restarted.state().is_terminal());
-        }
-
-        // -- Failed: only retry() is available --
-
-        #[test]
-        fn failed_can_transition_to_created_via_retry() {
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let failed = session.fail().expect("fail");
-            let retried = failed.retry().expect("Failed→Created");
-            assert_eq!(retried.state(), SessionState::Created);
-        }
-
-        #[test]
-        fn failed_cannot_pause_must_retry_first() {
-            // compile_fail: session_failed_cannot_pause.rs
-            // Failed→Paused is blocked; must go Failed→Created→Active→Paused
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let failed = session.fail().expect("fail");
-            let retried = failed.retry().expect("retry");
-            let activated = retried.activate().expect("activate");
-            let paused = activated.pause().expect("pause");
-            assert_eq!(paused.state(), SessionState::Paused);
-        }
-
-        #[test]
-        fn failed_cannot_sync_must_retry_first() {
-            // compile_fail: session_failed_cannot_sync.rs
-            // Failed→Syncing is blocked; must go Failed→Created→Active→Syncing
-        }
-
-        #[test]
-        fn failed_is_terminal_and_has_only_retry() {
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let failed = session.fail().expect("fail");
-            assert!(failed.state().is_terminal());
-            let retried = failed.retry().expect("retry");
-            assert!(!retried.state().is_terminal());
-        }
-
-        // -- Paused: only resume() and fail() are available --
-
-        #[test]
-        fn paused_can_transition_to_active_via_resume() {
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let paused = session.activate().expect("activate").pause().expect("pause");
-            let resumed = paused.resume().expect("Paused→Active");
-            assert_eq!(resumed.state(), SessionState::Active);
-        }
-
-        #[test]
-        fn paused_can_transition_to_failed() {
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let paused = session.activate().expect("activate").pause().expect("pause");
-            let failed = paused.fail().expect("Paused→Failed");
-            assert_eq!(failed.state(), SessionState::Failed);
-        }
-
-        #[test]
-        fn paused_cannot_complete_must_resume_first() {
-            // compile_fail: session_paused_cannot_complete.rs
-            // Paused→Completed is blocked; must go Paused→Active→Completed
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let paused = session.activate().expect("activate").pause().expect("pause");
-            let resumed = paused.resume().expect("resume");
-            let completed = resumed.complete().expect("complete");
-            assert_eq!(completed.state(), SessionState::Completed);
-        }
-
-        // -- Syncing: only sync_complete() and fail() are available --
-
-        #[test]
-        fn syncing_can_transition_to_synced() {
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let syncing = session.activate().expect("activate").sync().expect("sync");
-            let synced = syncing.sync_complete().expect("Syncing→Synced");
-            assert_eq!(synced.state(), SessionState::Synced);
-        }
-
-        #[test]
-        fn syncing_can_transition_to_failed() {
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let syncing = session.activate().expect("activate").sync().expect("sync");
-            let failed = syncing.fail().expect("Syncing→Failed");
-            assert_eq!(failed.state(), SessionState::Failed);
-        }
-
-        #[test]
-        fn syncing_cannot_complete_must_finish_sync_first() {
-            // compile_fail: session_syncing_cannot_complete.rs
-            // Syncing→Completed is blocked; must go Syncing→Synced→Completed
-            let name = SessionName::parse("test").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let syncing = session.activate().expect("activate").sync().expect("sync");
-            let synced = syncing.sync_complete().expect("sync_complete");
-            let completed = synced.complete().expect("complete");
-            assert_eq!(completed.state(), SessionState::Completed);
-        }
-
-        // -- Full valid transition matrix verification --
-
-        #[test]
-        fn valid_transition_matrix_created() {
-            let name = SessionName::parse("matrix").expect("valid");
-            // Created → Active ✓
-            let s = Session::<Created>::create(name.clone()).expect("c");
-            assert_eq!(s.activate().expect("→Active").state(), SessionState::Active);
-            // Created → Failed ✓
-            let s = Session::<Created>::create(name).expect("c");
-            assert_eq!(s.fail().expect("→Failed").state(), SessionState::Failed);
-        }
-
-        #[test]
-        fn valid_transition_matrix_active() {
-            let name = SessionName::parse("matrix").expect("valid");
-            // Active → Syncing ✓
-            let s = Session::<Created>::create(name.clone()).expect("c");
-            let a = s.activate().expect("a");
-            assert_eq!(a.sync().expect("→Syncing").state(), SessionState::Syncing);
-            // Active → Paused ✓
-            let s = Session::<Created>::create(name.clone()).expect("c");
-            let a = s.activate().expect("a");
-            assert_eq!(a.pause().expect("→Paused").state(), SessionState::Paused);
-            // Active → Completed ✓
-            let s = Session::<Created>::create(name.clone()).expect("c");
-            let a = s.activate().expect("a");
-            assert_eq!(a.complete().expect("→Completed").state(), SessionState::Completed);
-            // Active → Failed ✓
-            let s = Session::<Created>::create(name).expect("c");
-            let a = s.activate().expect("a");
-            assert_eq!(a.fail().expect("→Failed").state(), SessionState::Failed);
-        }
-
-        #[test]
-        fn valid_transition_matrix_syncing() {
-            let name = SessionName::parse("matrix").expect("valid");
-            // Syncing → Synced ✓
-            let s = Session::<Created>::create(name.clone()).expect("c");
-            let sy = s.activate().expect("a").sync().expect("sy");
-            assert_eq!(sy.sync_complete().expect("→Synced").state(), SessionState::Synced);
-            // Syncing → Failed ✓
-            let s = Session::<Created>::create(name).expect("c");
-            let sy = s.activate().expect("a").sync().expect("sy");
-            assert_eq!(sy.fail().expect("→Failed").state(), SessionState::Failed);
-        }
-
-        #[test]
-        fn valid_transition_matrix_synced() {
-            let name = SessionName::parse("matrix").expect("valid");
-            // Synced → Active ✓
-            let s = Session::<Created>::create(name.clone()).expect("c");
-            let sd = s.activate().expect("a").sync().expect("sy").sync_complete().expect("sd");
-            assert_eq!(sd.reactivate().expect("→Active").state(), SessionState::Active);
-            // Synced → Completed ✓
-            let s = Session::<Created>::create(name.clone()).expect("c");
-            let sd = s.activate().expect("a").sync().expect("sy").sync_complete().expect("sd");
-            assert_eq!(sd.complete().expect("→Completed").state(), SessionState::Completed);
-            // Synced → Paused ✓
-            let s = Session::<Created>::create(name).expect("c");
-            let sd = s.activate().expect("a").sync().expect("sy").sync_complete().expect("sd");
-            assert_eq!(sd.pause().expect("→Paused").state(), SessionState::Paused);
-        }
-
-        #[test]
-        fn valid_transition_matrix_paused() {
-            let name = SessionName::parse("matrix").expect("valid");
-            // Paused → Active ✓
-            let s = Session::<Created>::create(name.clone()).expect("c");
-            let p = s.activate().expect("a").pause().expect("p");
-            assert_eq!(p.resume().expect("→Active").state(), SessionState::Active);
-            // Paused → Failed ✓
-            let s = Session::<Created>::create(name).expect("c");
-            let p = s.activate().expect("a").pause().expect("p");
-            assert_eq!(p.fail().expect("→Failed").state(), SessionState::Failed);
-        }
-
-        #[test]
-        fn valid_transition_matrix_terminal_states() {
-            let name = SessionName::parse("matrix").expect("valid");
-            // Completed → Created ✓ (restart)
-            let s = Session::<Created>::create(name.clone()).expect("c");
-            let co = s.activate().expect("a").complete().expect("co");
-            assert_eq!(co.restart().expect("→Created").state(), SessionState::Created);
-            // Failed → Created ✓ (retry)
-            let s = Session::<Created>::create(name).expect("c");
-            let f = s.fail().expect("f");
-            assert_eq!(f.retry().expect("→Created").state(), SessionState::Created);
-        }
-
-        // -- Branch transition rejection (runtime validation) --
-
-        #[test]
-        fn branch_transition_detached_to_detached_rejected_state_unchanged() {
-            let name = SessionName::parse("branch-reject").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            // Detached → Detached is invalid
-            let result = session.transition_branch(BranchState::Detached);
-            assert!(result.is_err());
-            match result {
-                Err(SessionError::InvalidBranchTransition { from, to }) => {
-                    assert!(from.contains("Detached"));
-                    assert!(to.contains("Detached"));
+                #[test]
+                fn created_can_transition_to_active() {
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let active = session.activate().expect("Created→Active");
+                    assert_eq!(active.state(), SessionState::Active);
                 }
-                Err(e) => panic!("Expected InvalidBranchTransition, got {:?}", e),
-                Ok(_) => panic!("Expected error, got Ok"),
+
+                #[test]
+                fn created_can_transition_to_failed() {
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let failed = session.fail().expect("Created→Failed");
+                    assert_eq!(failed.state(), SessionState::Failed);
+                    assert!(failed.state().is_terminal());
+                }
+
+                #[test]
+                fn created_cannot_complete_must_activate_first() {
+                    // compile_fail: session_created_cannot_complete.rs
+                    // Created→Completed is blocked; must go Created→Active→Completed
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let completed = session
+                        .activate()
+                        .expect("activate")
+                        .complete()
+                        .expect("complete");
+                    assert_eq!(completed.state(), SessionState::Completed);
+                }
+
+                #[test]
+                fn created_cannot_sync_must_activate_first() {
+                    // compile_fail: session_created_cannot_sync.rs
+                    // Created→Syncing is blocked; must go Created→Active→Syncing
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let syncing = session.activate().expect("activate").sync().expect("sync");
+                    assert_eq!(syncing.state(), SessionState::Syncing);
+                }
+
+                // -- Completed: only restart() is available --
+
+                #[test]
+                fn completed_can_transition_to_created_via_restart() {
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let completed = session
+                        .activate()
+                        .expect("activate")
+                        .complete()
+                        .expect("complete");
+                    let restarted = completed.restart().expect("Completed→Created");
+                    assert_eq!(restarted.state(), SessionState::Created);
+                }
+
+                #[test]
+                fn completed_cannot_activate_must_restart_first() {
+                    // compile_fail: session_completed_cannot_activate.rs
+                    // Completed→Active is blocked; must go Completed→Created→Active
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let completed = session
+                        .activate()
+                        .expect("activate")
+                        .complete()
+                        .expect("complete");
+                    let restarted = completed.restart().expect("restart");
+                    let reactivated = restarted.activate().expect("activate");
+                    assert_eq!(reactivated.state(), SessionState::Active);
+                }
+
+                #[test]
+                fn completed_cannot_fail_terminal_state() {
+                    // compile_fail: session_completed_cannot_fail.rs
+                    // Completed is terminal; only exit is restart()
+                }
+
+                #[test]
+                fn completed_is_terminal_and_has_only_restart() {
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let completed = session
+                        .activate()
+                        .expect("activate")
+                        .complete()
+                        .expect("complete");
+                    assert!(completed.state().is_terminal());
+                    let restarted = completed.restart().expect("restart");
+                    assert!(!restarted.state().is_terminal());
+                }
+
+                // -- Failed: only retry() is available --
+
+                #[test]
+                fn failed_can_transition_to_created_via_retry() {
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let failed = session.fail().expect("fail");
+                    let retried = failed.retry().expect("Failed→Created");
+                    assert_eq!(retried.state(), SessionState::Created);
+                }
+
+                #[test]
+                fn failed_cannot_pause_must_retry_first() {
+                    // compile_fail: session_failed_cannot_pause.rs
+                    // Failed→Paused is blocked; must go Failed→Created→Active→Paused
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let failed = session.fail().expect("fail");
+                    let retried = failed.retry().expect("retry");
+                    let activated = retried.activate().expect("activate");
+                    let paused = activated.pause().expect("pause");
+                    assert_eq!(paused.state(), SessionState::Paused);
+                }
+
+                #[test]
+                fn failed_cannot_sync_must_retry_first() {
+                    // compile_fail: session_failed_cannot_sync.rs
+                    // Failed→Syncing is blocked; must go Failed→Created→Active→Syncing
+                }
+
+                #[test]
+                fn failed_is_terminal_and_has_only_retry() {
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let failed = session.fail().expect("fail");
+                    assert!(failed.state().is_terminal());
+                    let retried = failed.retry().expect("retry");
+                    assert!(!retried.state().is_terminal());
+                }
+
+                // -- Paused: only resume() and fail() are available --
+
+                #[test]
+                fn paused_can_transition_to_active_via_resume() {
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let paused = session
+                        .activate()
+                        .expect("activate")
+                        .pause()
+                        .expect("pause");
+                    let resumed = paused.resume().expect("Paused→Active");
+                    assert_eq!(resumed.state(), SessionState::Active);
+                }
+
+                #[test]
+                fn paused_can_transition_to_failed() {
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let paused = session
+                        .activate()
+                        .expect("activate")
+                        .pause()
+                        .expect("pause");
+                    let failed = paused.fail().expect("Paused→Failed");
+                    assert_eq!(failed.state(), SessionState::Failed);
+                }
+
+                #[test]
+                fn paused_cannot_complete_must_resume_first() {
+                    // compile_fail: session_paused_cannot_complete.rs
+                    // Paused→Completed is blocked; must go Paused→Active→Completed
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let paused = session
+                        .activate()
+                        .expect("activate")
+                        .pause()
+                        .expect("pause");
+                    let resumed = paused.resume().expect("resume");
+                    let completed = resumed.complete().expect("complete");
+                    assert_eq!(completed.state(), SessionState::Completed);
+                }
+
+                // -- Syncing: only sync_complete() and fail() are available --
+
+                #[test]
+                fn syncing_can_transition_to_synced() {
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let syncing = session.activate().expect("activate").sync().expect("sync");
+                    let synced = syncing.sync_complete().expect("Syncing→Synced");
+                    assert_eq!(synced.state(), SessionState::Synced);
+                }
+
+                #[test]
+                fn syncing_can_transition_to_failed() {
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let syncing = session.activate().expect("activate").sync().expect("sync");
+                    let failed = syncing.fail().expect("Syncing→Failed");
+                    assert_eq!(failed.state(), SessionState::Failed);
+                }
+
+                #[test]
+                fn syncing_cannot_complete_must_finish_sync_first() {
+                    // compile_fail: session_syncing_cannot_complete.rs
+                    // Syncing→Completed is blocked; must go Syncing→Synced→Completed
+                    let name = SessionName::parse("test").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let syncing = session.activate().expect("activate").sync().expect("sync");
+                    let synced = syncing.sync_complete().expect("sync_complete");
+                    let completed = synced.complete().expect("complete");
+                    assert_eq!(completed.state(), SessionState::Completed);
+                }
+
+                // -- Full valid transition matrix verification --
+
+                #[test]
+                fn valid_transition_matrix_created() {
+                    let name = SessionName::parse("matrix").expect("valid");
+                    // Created → Active ✓
+                    let s = Session::<Created>::create(name.clone()).expect("c");
+                    assert_eq!(s.activate().expect("→Active").state(), SessionState::Active);
+                    // Created → Failed ✓
+                    let s = Session::<Created>::create(name).expect("c");
+                    assert_eq!(s.fail().expect("→Failed").state(), SessionState::Failed);
+                }
+
+                #[test]
+                fn valid_transition_matrix_active() {
+                    let name = SessionName::parse("matrix").expect("valid");
+                    // Active → Syncing ✓
+                    let s = Session::<Created>::create(name.clone()).expect("c");
+                    let a = s.activate().expect("a");
+                    assert_eq!(a.sync().expect("→Syncing").state(), SessionState::Syncing);
+                    // Active → Paused ✓
+                    let s = Session::<Created>::create(name.clone()).expect("c");
+                    let a = s.activate().expect("a");
+                    assert_eq!(a.pause().expect("→Paused").state(), SessionState::Paused);
+                    // Active → Completed ✓
+                    let s = Session::<Created>::create(name.clone()).expect("c");
+                    let a = s.activate().expect("a");
+                    assert_eq!(
+                        a.complete().expect("→Completed").state(),
+                        SessionState::Completed
+                    );
+                    // Active → Failed ✓
+                    let s = Session::<Created>::create(name).expect("c");
+                    let a = s.activate().expect("a");
+                    assert_eq!(a.fail().expect("→Failed").state(), SessionState::Failed);
+                }
+
+                #[test]
+                fn valid_transition_matrix_syncing() {
+                    let name = SessionName::parse("matrix").expect("valid");
+                    // Syncing → Synced ✓
+                    let s = Session::<Created>::create(name.clone()).expect("c");
+                    let sy = s.activate().expect("a").sync().expect("sy");
+                    assert_eq!(
+                        sy.sync_complete().expect("→Synced").state(),
+                        SessionState::Synced
+                    );
+                    // Syncing → Failed ✓
+                    let s = Session::<Created>::create(name).expect("c");
+                    let sy = s.activate().expect("a").sync().expect("sy");
+                    assert_eq!(sy.fail().expect("→Failed").state(), SessionState::Failed);
+                }
+
+                #[test]
+                fn valid_transition_matrix_synced() {
+                    let name = SessionName::parse("matrix").expect("valid");
+                    // Synced → Active ✓
+                    let s = Session::<Created>::create(name.clone()).expect("c");
+                    let sd = s
+                        .activate()
+                        .expect("a")
+                        .sync()
+                        .expect("sy")
+                        .sync_complete()
+                        .expect("sd");
+                    assert_eq!(
+                        sd.reactivate().expect("→Active").state(),
+                        SessionState::Active
+                    );
+                    // Synced → Completed ✓
+                    let s = Session::<Created>::create(name.clone()).expect("c");
+                    let sd = s
+                        .activate()
+                        .expect("a")
+                        .sync()
+                        .expect("sy")
+                        .sync_complete()
+                        .expect("sd");
+                    assert_eq!(
+                        sd.complete().expect("→Completed").state(),
+                        SessionState::Completed
+                    );
+                    // Synced → Paused ✓
+                    let s = Session::<Created>::create(name).expect("c");
+                    let sd = s
+                        .activate()
+                        .expect("a")
+                        .sync()
+                        .expect("sy")
+                        .sync_complete()
+                        .expect("sd");
+                    assert_eq!(sd.pause().expect("→Paused").state(), SessionState::Paused);
+                }
+
+                #[test]
+                fn valid_transition_matrix_paused() {
+                    let name = SessionName::parse("matrix").expect("valid");
+                    // Paused → Active ✓
+                    let s = Session::<Created>::create(name.clone()).expect("c");
+                    let p = s.activate().expect("a").pause().expect("p");
+                    assert_eq!(p.resume().expect("→Active").state(), SessionState::Active);
+                    // Paused → Failed ✓
+                    let s = Session::<Created>::create(name).expect("c");
+                    let p = s.activate().expect("a").pause().expect("p");
+                    assert_eq!(p.fail().expect("→Failed").state(), SessionState::Failed);
+                }
+
+                #[test]
+                fn valid_transition_matrix_terminal_states() {
+                    let name = SessionName::parse("matrix").expect("valid");
+                    // Completed → Created ✓ (restart)
+                    let s = Session::<Created>::create(name.clone()).expect("c");
+                    let co = s.activate().expect("a").complete().expect("co");
+                    assert_eq!(
+                        co.restart().expect("→Created").state(),
+                        SessionState::Created
+                    );
+                    // Failed → Created ✓ (retry)
+                    let s = Session::<Created>::create(name).expect("c");
+                    let f = s.fail().expect("f");
+                    assert_eq!(f.retry().expect("→Created").state(), SessionState::Created);
+                }
+
+                // -- Branch transition rejection (runtime validation) --
+
+                #[test]
+                fn branch_transition_detached_to_detached_rejected_state_unchanged() {
+                    let name = SessionName::parse("branch-reject").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    // Detached → Detached is invalid
+                    let result = session.transition_branch(BranchState::Detached);
+                    assert!(result.is_err());
+                    match result {
+                        Err(SessionError::InvalidBranchTransition { from, to }) => {
+                            assert!(from.contains("Detached"));
+                            assert!(to.contains("Detached"));
+                        }
+                        Err(e) => panic!("Expected InvalidBranchTransition, got {:?}", e),
+                        Ok(_) => panic!("Expected error, got Ok"),
+                    }
+
+                    // Original session state is still accessible (transition_branch takes &self)
+                    let session = Session::<Created>::create(
+                        SessionName::parse("branch-reject-2").expect("valid"),
+                    )
+                    .expect("created");
+                    let on_branch = session
+                        .transition_branch(BranchState::OnBranch { name: "dev".into() })
+                        .expect("valid");
+                    assert_eq!(on_branch.branch.branch_name(), Some("dev"));
+
+                    // State type is still Created — no state corruption
+                    assert_eq!(on_branch.state(), SessionState::Created);
+                }
+
+                #[test]
+                fn branch_transition_preserves_identity_on_success() {
+                    let name = SessionName::parse("branch-id").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let id_before = session.id.as_str().to_string();
+
+                    let branched = session
+                        .transition_branch(BranchState::OnBranch {
+                            name: "main".into(),
+                        })
+                        .expect("valid");
+
+                    assert_eq!(branched.id.as_str(), id_before);
+                    assert_eq!(branched.state(), SessionState::Created);
+                }
+
+                // -- Identity preserved across multi-step valid transitions --
+
+                #[test]
+                fn identity_preserved_created_active_completed_restart_cycle() {
+                    let name = SessionName::parse("cycle-1").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let id = session.id.as_str().to_string();
+
+                    let active = session.activate().expect("activate");
+                    let completed = active.complete().expect("complete");
+                    let restarted = completed.restart().expect("restart");
+
+                    assert_eq!(restarted.id.as_str(), id);
+                    assert_eq!(restarted.state(), SessionState::Created);
+                }
+
+                #[test]
+                fn identity_preserved_created_active_syncing_synced_reactivate() {
+                    let name = SessionName::parse("cycle-2").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let id = session.id.as_str().to_string();
+
+                    let syncing = session.activate().expect("a").sync().expect("sy");
+                    let synced = syncing.sync_complete().expect("sd");
+                    let reactivated = synced.reactivate().expect("reactivate");
+
+                    assert_eq!(reactivated.id.as_str(), id);
+                    assert_eq!(reactivated.state(), SessionState::Active);
+                }
+
+                #[test]
+                fn identity_preserved_failed_retry_cycle() {
+                    let name = SessionName::parse("cycle-3").expect("valid");
+                    let session = Session::<Created>::create(name).expect("created");
+                    let id = session.id.as_str().to_string();
+
+                    let failed = session.fail().expect("fail");
+                    let retried = failed.retry().expect("retry");
+
+                    assert_eq!(retried.id.as_str(), id);
+                    assert_eq!(retried.state(), SessionState::Created);
+                }
             }
-
-            // Original session state is still accessible (transition_branch takes &self)
-            let session = Session::<Created>::create(
-                SessionName::parse("branch-reject-2").expect("valid"),
-            )
-            .expect("created");
-            let on_branch = session
-                .transition_branch(BranchState::OnBranch {
-                    name: "dev".into(),
-                })
-                .expect("valid");
-            assert_eq!(on_branch.branch.branch_name(), Some("dev"));
-
-            // State type is still Created — no state corruption
-            assert_eq!(on_branch.state(), SessionState::Created);
         }
-
-        #[test]
-        fn branch_transition_preserves_identity_on_success() {
-            let name = SessionName::parse("branch-id").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let id_before = session.id.as_str().to_string();
-
-            let branched = session
-                .transition_branch(BranchState::OnBranch {
-                    name: "main".into(),
-                })
-                .expect("valid");
-
-            assert_eq!(branched.id.as_str(), id_before);
-            assert_eq!(branched.state(), SessionState::Created);
-        }
-
-        // -- Identity preserved across multi-step valid transitions --
-
-        #[test]
-        fn identity_preserved_created_active_completed_restart_cycle() {
-            let name = SessionName::parse("cycle-1").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let id = session.id.as_str().to_string();
-
-            let active = session.activate().expect("activate");
-            let completed = active.complete().expect("complete");
-            let restarted = completed.restart().expect("restart");
-
-            assert_eq!(restarted.id.as_str(), id);
-            assert_eq!(restarted.state(), SessionState::Created);
-        }
-
-        #[test]
-        fn identity_preserved_created_active_syncing_synced_reactivate() {
-            let name = SessionName::parse("cycle-2").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let id = session.id.as_str().to_string();
-
-            let syncing = session.activate().expect("a").sync().expect("sy");
-            let synced = syncing.sync_complete().expect("sd");
-            let reactivated = synced.reactivate().expect("reactivate");
-
-            assert_eq!(reactivated.id.as_str(), id);
-            assert_eq!(reactivated.state(), SessionState::Active);
-        }
-
-        #[test]
-        fn identity_preserved_failed_retry_cycle() {
-            let name = SessionName::parse("cycle-3").expect("valid");
-            let session = Session::<Created>::create(name).expect("created");
-            let id = session.id.as_str().to_string();
-
-            let failed = session.fail().expect("fail");
-            let retried = failed.retry().expect("retry");
-
-            assert_eq!(retried.id.as_str(), id);
-            assert_eq!(retried.state(), SessionState::Created);
-        }
-    }
-    }
     }
 }

@@ -64,10 +64,9 @@ fn workspace_name_rejects_colon() {
 #[test]
 fn workspace_name_rejects_special_chars() {
     let invalid = vec![
-        "a.b", "a/b", "a\\b", "a b", "a!b", "a@b", "a#b", "a$b", "a%b",
-        "a^b", "a&b", "a*b", "a+b", "a=b", "a[b", "a]b", "a{b", "a}b",
-        "a|b", "a<b", "a>b", "a,b", "a?b", "a;b", "a'b", "a\"b", "a`b",
-        "a~b", "a(b", "a)b",
+        "a.b", "a/b", "a\\b", "a b", "a!b", "a@b", "a#b", "a$b", "a%b", "a^b", "a&b", "a*b", "a+b",
+        "a=b", "a[b", "a]b", "a{b", "a}b", "a|b", "a<b", "a>b", "a,b", "a?b", "a;b", "a'b", "a\"b",
+        "a`b", "a~b", "a(b", "a)b",
     ];
     for case in invalid {
         assert!(
@@ -80,7 +79,9 @@ fn workspace_name_rejects_special_chars() {
 
 #[test]
 fn workspace_name_accepts_valid_patterns() {
-    let valid = vec!["a", "A", "0", "name-1", "name_2", "a-b_c", "ALL-CAPS", "123-only"];
+    let valid = vec![
+        "a", "A", "0", "name-1", "name_2", "a-b_c", "ALL-CAPS", "123-only",
+    ];
     for case in valid {
         assert!(
             WorkspaceName::new(case.into()).is_ok(),

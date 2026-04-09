@@ -449,11 +449,7 @@ mod tests {
         let valid: std::collections::HashSet<_> = VALID_TRANSITIONS.iter().copied().collect();
         SessionState::all_states()
             .iter()
-            .flat_map(|&from| {
-                SessionState::all_states()
-                    .iter()
-                    .map(move |&to| (from, to))
-            })
+            .flat_map(|&from| SessionState::all_states().iter().map(move |&to| (from, to)))
             .filter(|pair| !valid.contains(pair))
             .collect()
     }

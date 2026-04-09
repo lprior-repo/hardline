@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::{
-    build_http_client, delete_empty, encode_query_value, forge_token, get_json, patch_json,
-    post_json, stack_comment_body, aggregate_ci_overall, mergeable_bool,
-    AuthStyle, CheckRunInfo, ForgeType, MergeMethod, RemoteInfo, STACK_COMMENT_MARKER,
+    aggregate_ci_overall, build_http_client, delete_empty, encode_query_value, forge_token,
+    get_json, mergeable_bool, patch_json, post_json, stack_comment_body, AuthStyle, CheckRunInfo,
+    ForgeType, MergeMethod, RemoteInfo, STACK_COMMENT_MARKER,
 };
-use crate::domain::state::PrState;
 use crate::domain::stack::PrInfo;
+use crate::domain::state::PrState;
 use crate::error::{Result, StackError};
 
 /// HTTP client for the Gitea forge API.
@@ -130,17 +130,20 @@ fn normalize_gitea_state_str(state: &str, merged: Option<bool>) -> String {
 }
 
 fn normalize_gitea_state(pr: &GiteaPull) -> String {
-    normalize_gitea_state_str(
-        pr.state.as_deref().unwrap_or("open"),
-        pr.merged,
-    )
+    normalize_gitea_state_str(pr.state.as_deref().unwrap_or("open"), pr.merged)
 }
 
 fn gitea_state_to_pr_state(pr: &GiteaPull) -> PrState {
     if pr.merged.unwrap_or(false) {
         return PrState::Merged;
     }
-    match pr.state.as_deref().unwrap_or("open").to_lowercase().as_str() {
+    match pr
+        .state
+        .as_deref()
+        .unwrap_or("open")
+        .to_lowercase()
+        .as_str()
+    {
         "closed" => PrState::Closed,
         "open" if pr.draft.unwrap_or(false) => PrState::Draft,
         "open" => PrState::Open,
@@ -154,7 +157,10 @@ fn pr_to_info(pr: &GiteaPull) -> PrInfo {
         pr.html_url.clone().unwrap_or_default(),
         pr.title.clone().unwrap_or_default(),
         pr.body.clone().unwrap_or_default(),
-        pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
+        pr.user
+            .as_ref()
+            .map(|u| u.login.clone())
+            .unwrap_or_default(),
         pr.draft.unwrap_or(false),
     )
     .with_state(gitea_state_to_pr_state(pr))
@@ -506,13 +512,14 @@ impl GiteaClient {
                 number: pr.number,
                 title: pr.title.as_ref().unwrap_or(&String::new()).clone(),
                 url: pr.html_url.as_ref().unwrap_or(&String::new()).clone(),
-                author: pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
+                author: pr
+                    .user
+                    .as_ref()
+                    .map(|u| u.login.clone())
+                    .unwrap_or_default(),
                 head_branch: pr.head.ref_name.clone(),
                 base_branch: pr.base.ref_name.clone(),
-                state: normalize_gitea_state_str(
-                    pr.state.as_deref().unwrap_or("open"),
-                    pr.merged,
-                ),
+                state: normalize_gitea_state_str(pr.state.as_deref().unwrap_or("open"), pr.merged),
                 is_draft: pr.draft.unwrap_or(false),
                 created_at: pr.created_at.unwrap_or_default(),
             })
@@ -543,7 +550,10 @@ impl GiteaClient {
         username: &str,
     ) -> Result<Vec<PrActivity>> {
         let since = Utc::now() - chrono::Duration::hours(hours);
-        let url = format!("{}?state=closed&sort=recentupdate&limit=30", self.repo_url("pulls"));
+        let url = format!(
+            "{}?state=closed&sort=recentupdate&limit=30",
+            self.repo_url("pulls")
+        );
         let prs: Vec<GiteaPull> = get_json(&self.client, &url).await?;
         Ok(prs
             .iter()

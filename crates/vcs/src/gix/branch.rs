@@ -202,12 +202,10 @@ pub fn create_at(repo: &gix::Repository, name: &str, base_branch: &str) -> GitRe
 
 /// Create a new branch at a specific commit SHA.
 pub fn create_at_commit(repo: &gix::Repository, name: &str, commit_sha: &str) -> GitResult<()> {
-    let oid: gix::ObjectId = commit_sha
-        .parse()
-        .map_err(|e| GitError::InvalidRef {
-            name: commit_sha.to_string(),
-            reason: format!("Invalid commit SHA: {e}"),
-        })?;
+    let oid: gix::ObjectId = commit_sha.parse().map_err(|e| GitError::InvalidRef {
+        name: commit_sha.to_string(),
+        reason: format!("Invalid commit SHA: {e}"),
+    })?;
 
     // Verify the commit exists
     oid.attach(repo)

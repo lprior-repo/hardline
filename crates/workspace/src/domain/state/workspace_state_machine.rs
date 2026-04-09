@@ -550,20 +550,52 @@ mod tests {
 
     #[test]
     fn table_driven_valid_transitions_return_ok_and_update_state() {
-        use crate::{WorkspaceName, WorkspacePath};
         use crate::domain::entities::workspace::Workspace;
+        use crate::{WorkspaceName, WorkspacePath};
 
         // Table: (label, setup_fn that produces a workspace at the 'from' state, expected_to)
         // We test the actual entity transitions, not just the boolean state machine.
         let cases: Vec<(&str, WorkspaceState, WorkspaceState)> = vec![
-            ("Init→Active", WorkspaceState::Initializing, WorkspaceState::Active),
-            ("Active→Locked", WorkspaceState::Active, WorkspaceState::Locked),
-            ("Locked→Active", WorkspaceState::Locked, WorkspaceState::Active),
-            ("Active→Deleted", WorkspaceState::Active, WorkspaceState::Deleted),
-            ("Active→Corrupted", WorkspaceState::Active, WorkspaceState::Corrupted),
-            ("Locked→Corrupted", WorkspaceState::Locked, WorkspaceState::Corrupted),
-            ("Locked→Deleted", WorkspaceState::Locked, WorkspaceState::Deleted),
-            ("Corrupted→Deleted", WorkspaceState::Corrupted, WorkspaceState::Deleted),
+            (
+                "Init→Active",
+                WorkspaceState::Initializing,
+                WorkspaceState::Active,
+            ),
+            (
+                "Active→Locked",
+                WorkspaceState::Active,
+                WorkspaceState::Locked,
+            ),
+            (
+                "Locked→Active",
+                WorkspaceState::Locked,
+                WorkspaceState::Active,
+            ),
+            (
+                "Active→Deleted",
+                WorkspaceState::Active,
+                WorkspaceState::Deleted,
+            ),
+            (
+                "Active→Corrupted",
+                WorkspaceState::Active,
+                WorkspaceState::Corrupted,
+            ),
+            (
+                "Locked→Corrupted",
+                WorkspaceState::Locked,
+                WorkspaceState::Corrupted,
+            ),
+            (
+                "Locked→Deleted",
+                WorkspaceState::Locked,
+                WorkspaceState::Deleted,
+            ),
+            (
+                "Corrupted→Deleted",
+                WorkspaceState::Corrupted,
+                WorkspaceState::Deleted,
+            ),
         ];
 
         for (label, from, expected_to) in cases {
@@ -579,7 +611,8 @@ mod tests {
                     let ws = Workspace::create(
                         WorkspaceName::new("t".into()).unwrap(),
                         WorkspacePath::new("/t".into()).unwrap(),
-                    ).unwrap();
+                    )
+                    .unwrap();
                     assert_eq!(ws.state, WorkspaceState::Initializing, "{label}: before");
                     let active = ws.activate().unwrap();
                     assert_eq!(active.state, WorkspaceState::Active, "{label}: after");
@@ -588,7 +621,10 @@ mod tests {
                     let ws = Workspace::create(
                         WorkspaceName::new("t".into()).unwrap(),
                         WorkspacePath::new("/t".into()).unwrap(),
-                    ).unwrap().activate().unwrap();
+                    )
+                    .unwrap()
+                    .activate()
+                    .unwrap();
                     assert_eq!(ws.state, WorkspaceState::Active, "{label}: before");
                     let locked = ws.lock("test-agent".into()).unwrap();
                     assert_eq!(locked.state, WorkspaceState::Locked, "{label}: after");
@@ -598,7 +634,12 @@ mod tests {
                     let ws = Workspace::create(
                         WorkspaceName::new("t".into()).unwrap(),
                         WorkspacePath::new("/t".into()).unwrap(),
-                    ).unwrap().activate().unwrap().lock("test-agent".into()).unwrap();
+                    )
+                    .unwrap()
+                    .activate()
+                    .unwrap()
+                    .lock("test-agent".into())
+                    .unwrap();
                     assert_eq!(ws.state, WorkspaceState::Locked, "{label}: before");
                     let active = ws.unlock().unwrap();
                     assert_eq!(active.state, WorkspaceState::Active, "{label}: after");
@@ -608,7 +649,10 @@ mod tests {
                     let ws = Workspace::create(
                         WorkspaceName::new("t".into()).unwrap(),
                         WorkspacePath::new("/t".into()).unwrap(),
-                    ).unwrap().activate().unwrap();
+                    )
+                    .unwrap()
+                    .activate()
+                    .unwrap();
                     assert_eq!(ws.state, WorkspaceState::Active, "{label}: before");
                     let deleted = ws.delete().unwrap();
                     assert_eq!(deleted.state, WorkspaceState::Deleted, "{label}: after");
@@ -618,7 +662,10 @@ mod tests {
                     let ws = Workspace::create(
                         WorkspaceName::new("t".into()).unwrap(),
                         WorkspacePath::new("/t".into()).unwrap(),
-                    ).unwrap().activate().unwrap();
+                    )
+                    .unwrap()
+                    .activate()
+                    .unwrap();
                     assert_eq!(ws.state, WorkspaceState::Active, "{label}: before");
                     let corrupted = ws.mark_corrupted().unwrap();
                     assert_eq!(corrupted.state, WorkspaceState::Corrupted, "{label}: after");
@@ -629,7 +676,12 @@ mod tests {
                     let ws = Workspace::create(
                         WorkspaceName::new("t".into()).unwrap(),
                         WorkspacePath::new("/t".into()).unwrap(),
-                    ).unwrap().activate().unwrap().lock("test-agent".into()).unwrap();
+                    )
+                    .unwrap()
+                    .activate()
+                    .unwrap()
+                    .lock("test-agent".into())
+                    .unwrap();
                     assert_eq!(ws.state, WorkspaceState::Locked, "{label}: before");
                     let corrupted = ws.mark_corrupted().unwrap();
                     assert_eq!(corrupted.state, WorkspaceState::Corrupted, "{label}: after");
@@ -639,7 +691,12 @@ mod tests {
                     let ws = Workspace::create(
                         WorkspaceName::new("t".into()).unwrap(),
                         WorkspacePath::new("/t".into()).unwrap(),
-                    ).unwrap().activate().unwrap().lock("test-agent".into()).unwrap();
+                    )
+                    .unwrap()
+                    .activate()
+                    .unwrap()
+                    .lock("test-agent".into())
+                    .unwrap();
                     assert_eq!(ws.state, WorkspaceState::Locked, "{label}: before");
                     let deleted = ws.delete().unwrap();
                     assert_eq!(deleted.state, WorkspaceState::Deleted, "{label}: after");
@@ -649,7 +706,12 @@ mod tests {
                     let ws = Workspace::create(
                         WorkspaceName::new("t".into()).unwrap(),
                         WorkspacePath::new("/t".into()).unwrap(),
-                    ).unwrap().activate().unwrap().mark_corrupted().unwrap();
+                    )
+                    .unwrap()
+                    .activate()
+                    .unwrap()
+                    .mark_corrupted()
+                    .unwrap();
                     assert_eq!(ws.state, WorkspaceState::Corrupted, "{label}: before");
                     let deleted = ws.delete().unwrap();
                     assert_eq!(deleted.state, WorkspaceState::Deleted, "{label}: after");
@@ -672,11 +734,19 @@ mod tests {
         .unwrap();
         let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
         let locked = WorkspaceService::lock_workspace(initialized, "stuck-agent".into()).unwrap();
-        assert_eq!(locked.state, WorkspaceState::Locked, "before recover: Locked");
+        assert_eq!(
+            locked.state,
+            WorkspaceState::Locked,
+            "before recover: Locked"
+        );
         assert_eq!(locked.lock_holder(), Some("stuck-agent"));
 
         let recovered = WorkspaceService::recover_workspace(locked).unwrap();
-        assert_eq!(recovered.state, WorkspaceState::Active, "after recover: Active");
+        assert_eq!(
+            recovered.state,
+            WorkspaceState::Active,
+            "after recover: Active"
+        );
         assert!(recovered.lock_holder().is_none(), "lock holder cleared");
         assert!(recovered.is_active());
     }

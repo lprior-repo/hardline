@@ -277,7 +277,10 @@ mod tests {
         let err = AgentId::parse(&long).unwrap_err();
         assert!(matches!(
             err,
-            IdentifierError::TooLong { max: 128, actual: 129 }
+            IdentifierError::TooLong {
+                max: 128,
+                actual: 129
+            }
         ));
     }
 

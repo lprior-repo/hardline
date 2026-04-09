@@ -498,10 +498,7 @@ mod advanced_bead_tests {
         use super::*;
 
         /// Helper: attempt a transition, return (success, resulting_state)
-        fn attempt_transition(
-            from: BeadState,
-            to: BeadState,
-        ) -> (bool, Option<BeadState>) {
+        fn attempt_transition(from: BeadState, to: BeadState) -> (bool, Option<BeadState>) {
             let mut bead = make_bead("bd-matrix", "Matrix Test");
             // Navigate to `from` state
             if from != BeadState::Open {
@@ -944,8 +941,7 @@ mod advanced_bead_tests {
         #[test]
         fn blocked_bead_can_transition_to_in_progress() {
             let blocker = BeadId::new("bd-blocker").expect("valid");
-            let bead = make_bead("bd-bi-1", "Blocked IP")
-                .add_blocker(blocker);
+            let bead = make_bead("bd-bi-1", "Blocked IP").add_blocker(blocker);
             assert!(bead.is_blocked());
 
             // Can still transition to InProgress even with blockers
@@ -980,8 +976,7 @@ mod advanced_bead_tests {
         #[test]
         fn blockers_survive_state_transitions() {
             let blocker = BeadId::new("bd-surv").expect("valid");
-            let bead = make_bead("bd-bi-3", "Survivor")
-                .add_blocker(blocker);
+            let bead = make_bead("bd-bi-3", "Survivor").add_blocker(blocker);
 
             let ip = bead.transition(BeadState::InProgress).expect("-> IP");
             assert!(ip.is_blocked());
@@ -989,7 +984,9 @@ mod advanced_bead_tests {
             let blocked = ip.transition(BeadState::Blocked).expect("-> Blocked");
             assert!(blocked.is_blocked());
 
-            let deferred = blocked.transition(BeadState::Deferred).expect("-> Deferred");
+            let deferred = blocked
+                .transition(BeadState::Deferred)
+                .expect("-> Deferred");
             assert!(deferred.is_blocked());
         }
 
@@ -997,8 +994,7 @@ mod advanced_bead_tests {
         #[test]
         fn dependencies_survive_state_transitions() {
             let dep = BeadId::new("bd-dep-s").expect("valid");
-            let bead = make_bead("bd-bi-4", "Dep Survivor")
-                .add_dependency(dep);
+            let bead = make_bead("bd-bi-4", "Dep Survivor").add_dependency(dep);
 
             let ip = bead.transition(BeadState::InProgress).expect("-> IP");
             assert_eq!(ip.depends_on().len(), 1);
@@ -1029,8 +1025,7 @@ mod advanced_bead_tests {
         #[test]
         fn closed_with_blockers_cannot_transition() {
             let blocker = BeadId::new("bd-cblk").expect("valid");
-            let bead = make_bead("bd-bi-6", "Closed Blocked")
-                .add_blocker(blocker);
+            let bead = make_bead("bd-bi-6", "Closed Blocked").add_blocker(blocker);
             let closed = bead.transition(BeadState::Closed).expect("-> Closed");
 
             assert!(closed.is_blocked());

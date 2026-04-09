@@ -286,11 +286,7 @@ pub fn generate_stack_links_markdown(
 }
 
 /// Backward-compatible alias.
-pub fn generate_stack_comment(
-    prs: &[StackPrInfo],
-    current_pr_number: u64,
-    trunk: &str,
-) -> String {
+pub fn generate_stack_comment(prs: &[StackPrInfo], current_pr_number: u64, trunk: &str) -> String {
     generate_stack_links_markdown(prs, current_pr_number, trunk)
 }
 

@@ -110,7 +110,11 @@ pub fn add_files(repo: &gix::Repository, paths: &[String]) -> GitResult<()> {
 /// Get diff between two refs using three-dot syntax (merge-base diff).
 ///
 /// Returns diff lines.
-pub fn diff_against_parent(repo: &gix::Repository, branch: &str, parent: &str) -> GitResult<Vec<String>> {
+pub fn diff_against_parent(
+    repo: &gix::Repository,
+    branch: &str,
+    parent: &str,
+) -> GitResult<Vec<String>> {
     let workdir = repo.workdir().ok_or_else(|| GitError::InvalidRef {
         name: "workdir".to_string(),
         reason: "Bare repository has no workdir".to_string(),
@@ -172,7 +176,11 @@ pub fn diff_stat(
 }
 
 /// Get files modified between two refs.
-pub fn files_modified(repo: &gix::Repository, branch: &str, parent: &str) -> GitResult<Vec<String>> {
+pub fn files_modified(
+    repo: &gix::Repository,
+    branch: &str,
+    parent: &str,
+) -> GitResult<Vec<String>> {
     let workdir = repo.workdir().ok_or_else(|| GitError::InvalidRef {
         name: "workdir".to_string(),
         reason: "Bare repository has no workdir".to_string(),

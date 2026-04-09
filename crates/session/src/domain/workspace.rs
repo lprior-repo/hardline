@@ -844,7 +844,11 @@ mod tests {
                 let ws = Workspace::create(name.clone(), path.clone()).expect("created");
                 ids.insert(ws.id().clone());
             }
-            assert_eq!(ids.len(), 50, "each Workspace::create should produce a unique ID");
+            assert_eq!(
+                ids.len(),
+                50,
+                "each Workspace::create should produce a unique ID"
+            );
         }
 
         #[test]
@@ -1093,9 +1097,9 @@ mod tests {
 
     mod session_workspace_integration_tests {
         use super::*;
-        use crate::domain::entities::session::{BranchState, Session};
-        use crate::domain::entities::session::{Active, Created, Syncing};
         use crate::domain::entities::session::SessionId;
+        use crate::domain::entities::session::{Active, Created, Syncing};
+        use crate::domain::entities::session::{BranchState, Session};
         use crate::domain::value_objects::{BeadId, SessionName, WorkspaceId as VoWorkspaceId};
 
         /// Verify Session can reference a Workspace via WorkspaceId from value_objects
@@ -1146,10 +1150,7 @@ mod tests {
             );
 
             let active: Session<Active> = session.activate().expect("activate");
-            assert_eq!(
-                active.workspace().map(|w| w.as_str()),
-                Some("ws-lifecycle")
-            );
+            assert_eq!(active.workspace().map(|w| w.as_str()), Some("ws-lifecycle"));
 
             let syncing: Session<Syncing> = active.sync().expect("sync");
             assert_eq!(
@@ -1217,7 +1218,10 @@ mod tests {
 
             let completed = synced.complete().expect("complete");
             assert!(completed.workspace().is_some());
-            assert_eq!(completed.workspace().unwrap().as_str(), workspace.id().as_str());
+            assert_eq!(
+                completed.workspace().unwrap().as_str(),
+                workspace.id().as_str()
+            );
             assert!(completed.state().is_terminal());
 
             // Meanwhile, workspace lifecycle: Created → Working → Ready → Merged

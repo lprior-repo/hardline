@@ -474,8 +474,11 @@ fn test_add_branch_after_remove_reuse_name() {
 #[test]
 fn test_add_branch_special_characters_in_name() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("feature/v2-rc1"), vec![BranchId::new("trunk")])
-        .unwrap();
+    dag.add_branch(
+        BranchId::new("feature/v2-rc1"),
+        vec![BranchId::new("trunk")],
+    )
+    .unwrap();
     dag.add_branch(BranchId::new("bugfix#123"), vec![BranchId::new("trunk")])
         .unwrap();
     dag.add_branch(BranchId::new("user@branch"), vec![BranchId::new("trunk")])
@@ -486,7 +489,8 @@ fn test_add_branch_special_characters_in_name() {
 #[test]
 fn test_add_branch_empty_string_name() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new(""), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new(""), vec![BranchId::new("trunk")])
+        .unwrap();
     assert!(dag.contains(&BranchId::new("")));
     assert!(!dag.is_trunk(&BranchId::new("")));
 }
@@ -494,8 +498,10 @@ fn test_add_branch_empty_string_name() {
 #[test]
 fn test_add_branch_unicode_names() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("特性"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("🚀-branch"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("特性"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("🚀-branch"), vec![BranchId::new("trunk")])
+        .unwrap();
     assert_eq!(dag.len(), 3);
 }
 
@@ -509,7 +515,8 @@ fn test_add_branch_cannot_add_trunk_again() {
 #[test]
 fn test_add_branch_parent_must_exist_all_checked() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
     let result = dag.add_branch(
         BranchId::new("b"),
         vec![BranchId::new("a"), BranchId::new("nonexistent")],
@@ -521,13 +528,22 @@ fn test_add_branch_parent_must_exist_all_checked() {
 #[test]
 fn test_add_many_branches_maintains_consistency() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a")]).unwrap();
-    dag.add_branch(BranchId::new("d"), vec![BranchId::new("a"), BranchId::new("b")])
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
         .unwrap();
-    dag.add_branch(BranchId::new("e"), vec![BranchId::new("c"), BranchId::new("d")])
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
         .unwrap();
+    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a")])
+        .unwrap();
+    dag.add_branch(
+        BranchId::new("d"),
+        vec![BranchId::new("a"), BranchId::new("b")],
+    )
+    .unwrap();
+    dag.add_branch(
+        BranchId::new("e"),
+        vec![BranchId::new("c"), BranchId::new("d")],
+    )
+    .unwrap();
 
     // trunk + a, b, c, d, e = 6 total
     assert_eq!(dag.len(), 6);
@@ -575,23 +591,27 @@ fn test_topological_sort_wide_graph() {
 #[test]
 fn test_topological_sort_complex_dag() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a")]).unwrap();
-    dag.add_branch(BranchId::new("d"), vec![BranchId::new("b"), BranchId::new("a")])
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
         .unwrap();
-    dag.add_branch(BranchId::new("e"), vec![BranchId::new("c"), BranchId::new("d")])
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
         .unwrap();
+    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a")])
+        .unwrap();
+    dag.add_branch(
+        BranchId::new("d"),
+        vec![BranchId::new("b"), BranchId::new("a")],
+    )
+    .unwrap();
+    dag.add_branch(
+        BranchId::new("e"),
+        vec![BranchId::new("c"), BranchId::new("d")],
+    )
+    .unwrap();
 
     let order = dag.topological_sort().unwrap();
     assert_eq!(order.len(), 6);
 
-    let pos = |id: &str| {
-        order
-            .iter()
-            .position(|b| b == &BranchId::new(id))
-            .unwrap()
-    };
+    let pos = |id: &str| order.iter().position(|b| b == &BranchId::new(id)).unwrap();
 
     assert!(pos("trunk") < pos("a"));
     assert!(pos("trunk") < pos("b"));
@@ -605,9 +625,12 @@ fn test_topological_sort_complex_dag() {
 #[test]
 fn test_topological_sort_no_duplicates() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("b")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
+    dag.add_branch(BranchId::new("c"), vec![BranchId::new("b")])
+        .unwrap();
 
     let order = dag.topological_sort().unwrap();
     let mut seen = std::collections::HashSet::new();
@@ -621,7 +644,8 @@ fn test_topological_sort_contains_all_branches() {
     let mut dag = BranchDag::new();
     let branches = ["x", "y", "z", "w", "v"];
     for name in &branches {
-        dag.add_branch(BranchId::new(*name), vec![BranchId::new("trunk")]).unwrap();
+        dag.add_branch(BranchId::new(*name), vec![BranchId::new("trunk")])
+            .unwrap();
     }
     let order = dag.topological_sort().unwrap();
 
@@ -634,19 +658,20 @@ fn test_topological_sort_contains_all_branches() {
 #[test]
 fn test_topological_sort_parent_always_before_child() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a")]).unwrap();
-    dag.add_branch(BranchId::new("d"), vec![BranchId::new("a"), BranchId::new("b")])
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
         .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a")])
+        .unwrap();
+    dag.add_branch(
+        BranchId::new("d"),
+        vec![BranchId::new("a"), BranchId::new("b")],
+    )
+    .unwrap();
 
     let order = dag.topological_sort().unwrap();
-    let pos = |id: &str| {
-        order
-            .iter()
-            .position(|b| b == &BranchId::new(id))
-            .unwrap()
-    };
+    let pos = |id: &str| order.iter().position(|b| b == &BranchId::new(id)).unwrap();
 
     assert!(pos("trunk") < pos("a"));
     assert!(pos("trunk") < pos("b"));
@@ -697,7 +722,8 @@ fn test_cycle_detection_in_layered_graph() {
         vec![BranchId::new("L1a"), BranchId::new("L1b")],
     )
     .unwrap();
-    dag.add_branch(BranchId::new("L2b"), vec![BranchId::new("L1b")]).unwrap();
+    dag.add_branch(BranchId::new("L2b"), vec![BranchId::new("L1b")])
+        .unwrap();
     dag.add_branch(
         BranchId::new("L3"),
         vec![BranchId::new("L2a"), BranchId::new("L2b")],
@@ -707,11 +733,7 @@ fn test_cycle_detection_in_layered_graph() {
     let topo = dag.topological_sort().unwrap();
     assert_eq!(topo.len(), 6);
 
-    let pos = |id: &str| {
-        topo.iter()
-            .position(|b| b == &BranchId::new(id))
-            .unwrap()
-    };
+    let pos = |id: &str| topo.iter().position(|b| b == &BranchId::new(id)).unwrap();
     assert!(pos("trunk") < pos("L1a"));
     assert!(pos("trunk") < pos("L1b"));
     assert!(pos("L1a") < pos("L2a"));
@@ -724,23 +746,29 @@ fn test_cycle_detection_in_layered_graph() {
 #[test]
 fn test_cycle_transitive_through_merge() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
+        .unwrap();
     dag.add_branch(
         BranchId::new("merge"),
         vec![BranchId::new("a"), BranchId::new("b")],
     )
     .unwrap();
-    dag.add_branch(BranchId::new("post-merge"), vec![BranchId::new("merge")]).unwrap();
+    dag.add_branch(BranchId::new("post-merge"), vec![BranchId::new("merge")])
+        .unwrap();
     assert_eq!(dag.len(), 5);
 }
 
 #[test]
 fn test_cycle_would_create_through_ancestor() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("b")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
+    dag.add_branch(BranchId::new("c"), vec![BranchId::new("b")])
+        .unwrap();
 
     let topo = dag.topological_sort();
     assert!(topo.is_ok());
@@ -790,8 +818,10 @@ fn test_ancestors_deep_chain_all_found() {
 #[test]
 fn test_ancestors_branch_not_in_its_own_ancestors() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
 
     let ancestors_of_b = dag.ancestors(&BranchId::new("b")).unwrap();
     assert!(
@@ -805,9 +835,15 @@ fn test_ancestors_branch_not_in_its_own_ancestors() {
 #[test]
 fn test_ancestors_shared_grandparent() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a"), BranchId::new("b")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(
+        BranchId::new("c"),
+        vec![BranchId::new("a"), BranchId::new("b")],
+    )
+    .unwrap();
 
     let ancestors_c = dag.ancestors(&BranchId::new("c")).unwrap();
     assert_eq!(ancestors_c.len(), 3);
@@ -816,10 +852,17 @@ fn test_ancestors_shared_grandparent() {
 #[test]
 fn test_descendants_diamond_from_trunk() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a")]).unwrap();
-    dag.add_branch(BranchId::new("d"), vec![BranchId::new("b"), BranchId::new("c")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
+    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a")])
+        .unwrap();
+    dag.add_branch(
+        BranchId::new("d"),
+        vec![BranchId::new("b"), BranchId::new("c")],
+    )
+    .unwrap();
 
     let desc_trunk = dag.descendants(&BranchId::new("trunk")).unwrap();
     assert_eq!(desc_trunk.len(), 4);
@@ -839,8 +882,10 @@ fn test_descendants_diamond_from_trunk() {
 #[test]
 fn test_descendants_leaf_has_none() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
+        .unwrap();
 
     assert!(dag.descendants(&BranchId::new("a")).unwrap().is_empty());
     assert!(dag.descendants(&BranchId::new("b")).unwrap().is_empty());
@@ -849,9 +894,12 @@ fn test_descendants_leaf_has_none() {
 #[test]
 fn test_ancestors_and_descendants_inverse_relationship() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("b")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
+    dag.add_branch(BranchId::new("c"), vec![BranchId::new("b")])
+        .unwrap();
 
     let ancestors_c = dag.ancestors(&BranchId::new("c")).unwrap();
     for ancestor in &ancestors_c {
@@ -890,7 +938,10 @@ fn test_ancestors_deduplication_in_diamond() {
         .iter()
         .filter(|id| **id == BranchId::new("trunk"))
         .count();
-    assert_eq!(trunk_count, 1, "trunk should appear exactly once in ancestors");
+    assert_eq!(
+        trunk_count, 1,
+        "trunk should appear exactly once in ancestors"
+    );
 }
 
 #[test]
@@ -918,9 +969,12 @@ fn test_path_to_root_diamond_takes_first_parent() {
 #[test]
 fn test_remove_middle_branch_blocked_by_descendants() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("b")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
+    dag.add_branch(BranchId::new("c"), vec![BranchId::new("b")])
+        .unwrap();
 
     let result = dag.remove_branch(BranchId::new("b"));
     assert!(matches!(result, Err(DagError::HasDescendants(_, _))));
@@ -934,8 +988,10 @@ fn test_remove_middle_branch_blocked_by_descendants() {
 #[test]
 fn test_remove_branch_cleans_up_children_map() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
 
     dag.remove_branch(BranchId::new("b")).unwrap();
     let desc_a = dag.descendants(&BranchId::new("a")).unwrap();
@@ -949,7 +1005,8 @@ fn test_remove_branch_cleans_up_children_map() {
 #[test]
 fn test_remove_trunk_with_children_blocked() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
     let result = dag.remove_branch(BranchId::new("trunk"));
     assert!(matches!(result, Err(DagError::HasDescendants(_, _))));
 }
@@ -957,9 +1014,12 @@ fn test_remove_trunk_with_children_blocked() {
 #[test]
 fn test_topological_sort_after_removal() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("b")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
+    dag.add_branch(BranchId::new("c"), vec![BranchId::new("b")])
+        .unwrap();
 
     dag.remove_branch(BranchId::new("c")).unwrap();
     let topo = dag.topological_sort().unwrap();
@@ -975,14 +1035,16 @@ fn test_topological_sort_after_removal() {
 #[test]
 fn test_clone_produces_independent_copy() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
 
     let cloned = dag.clone();
     assert_eq!(cloned.len(), dag.len());
     assert!(cloned.contains(&BranchId::new("a")));
     assert!(cloned.contains(&BranchId::new("trunk")));
 
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
+        .unwrap();
     assert_eq!(dag.len(), 3);
     assert_eq!(cloned.len(), 2);
     assert!(!cloned.contains(&BranchId::new("b")));
@@ -1006,8 +1068,7 @@ fn test_empty_dag_after_trunk_removal() {
 
 /// Helper: check if `candidate` is an ancestor of `id`
 fn is_ancestor(dag: &BranchDag, id: &BranchId, candidate: &BranchId) -> bool {
-    dag.ancestors(id)
-        .is_ok_and(|ancs| ancs.contains(candidate))
+    dag.ancestors(id).is_ok_and(|ancs| ancs.contains(candidate))
 }
 
 /// Helper: check if `candidate` is a descendant of `id`
@@ -1386,25 +1447,45 @@ fn test_is_ancestor_true_for_direct_parent() {
     let mut dag = BranchDag::new();
     dag.add_branch(BranchId::new("child"), vec![BranchId::new("trunk")])
         .unwrap();
-    assert!(is_ancestor(&dag, &BranchId::new("child"), &BranchId::new("trunk")));
+    assert!(is_ancestor(
+        &dag,
+        &BranchId::new("child"),
+        &BranchId::new("trunk")
+    ));
 }
 
 #[test]
 fn test_is_ancestor_true_for_transitive() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
-    assert!(is_ancestor(&dag, &BranchId::new("b"), &BranchId::new("trunk")));
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
+    assert!(is_ancestor(
+        &dag,
+        &BranchId::new("b"),
+        &BranchId::new("trunk")
+    ));
     assert!(is_ancestor(&dag, &BranchId::new("b"), &BranchId::new("a")));
 }
 
 #[test]
 fn test_is_ancestor_false_for_unrelated() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")]).unwrap();
-    assert!(!is_ancestor(&dag, &BranchId::new("left"), &BranchId::new("right")));
-    assert!(!is_ancestor(&dag, &BranchId::new("right"), &BranchId::new("left")));
+    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")])
+        .unwrap();
+    assert!(!is_ancestor(
+        &dag,
+        &BranchId::new("left"),
+        &BranchId::new("right")
+    ));
+    assert!(!is_ancestor(
+        &dag,
+        &BranchId::new("right"),
+        &BranchId::new("left")
+    ));
 }
 
 #[test]
@@ -1412,7 +1493,11 @@ fn test_is_descendant_true_for_direct_child() {
     let mut dag = BranchDag::new();
     dag.add_branch(BranchId::new("child"), vec![BranchId::new("trunk")])
         .unwrap();
-    assert!(is_descendant(&dag, &BranchId::new("trunk"), &BranchId::new("child")));
+    assert!(is_descendant(
+        &dag,
+        &BranchId::new("trunk"),
+        &BranchId::new("child")
+    ));
 }
 
 #[test]
@@ -1420,23 +1505,46 @@ fn test_is_descendant_false_for_leaf() {
     let mut dag = BranchDag::new();
     dag.add_branch(BranchId::new("leaf"), vec![BranchId::new("trunk")])
         .unwrap();
-    assert!(!is_descendant(&dag, &BranchId::new("leaf"), &BranchId::new("trunk")));
+    assert!(!is_descendant(
+        &dag,
+        &BranchId::new("leaf"),
+        &BranchId::new("trunk")
+    ));
 }
 
 #[test]
 fn test_is_ancestor_diamond_reaches_all_parents() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")])
+        .unwrap();
     dag.add_branch(
         BranchId::new("merge"),
         vec![BranchId::new("left"), BranchId::new("right")],
-    ).unwrap();
+    )
+    .unwrap();
 
-    assert!(is_ancestor(&dag, &BranchId::new("merge"), &BranchId::new("left")));
-    assert!(is_ancestor(&dag, &BranchId::new("merge"), &BranchId::new("right")));
-    assert!(is_ancestor(&dag, &BranchId::new("merge"), &BranchId::new("trunk")));
-    assert!(!is_ancestor(&dag, &BranchId::new("merge"), &BranchId::new("merge")));
+    assert!(is_ancestor(
+        &dag,
+        &BranchId::new("merge"),
+        &BranchId::new("left")
+    ));
+    assert!(is_ancestor(
+        &dag,
+        &BranchId::new("merge"),
+        &BranchId::new("right")
+    ));
+    assert!(is_ancestor(
+        &dag,
+        &BranchId::new("merge"),
+        &BranchId::new("trunk")
+    ));
+    assert!(!is_ancestor(
+        &dag,
+        &BranchId::new("merge"),
+        &BranchId::new("merge")
+    ));
 }
 
 // ── Edge count (total parent relationships) ─────────────────────────────────
@@ -1444,7 +1552,8 @@ fn test_is_ancestor_diamond_reaches_all_parents() {
 #[test]
 fn test_edge_count_single_branch() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
     // 1 edge: trunk -> a
     let total_edges: usize = dag.parents.values().map(|p| p.len()).sum();
     assert_eq!(total_edges, 1);
@@ -1453,12 +1562,15 @@ fn test_edge_count_single_branch() {
 #[test]
 fn test_edge_count_diamond() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")])
+        .unwrap();
     dag.add_branch(
         BranchId::new("merge"),
         vec![BranchId::new("left"), BranchId::new("right")],
-    ).unwrap();
+    )
+    .unwrap();
     // left: 1 parent, right: 1 parent, merge: 2 parents = 4 edges
     let total_edges: usize = dag.parents.values().map(|p| p.len()).sum();
     assert_eq!(total_edges, 4);
@@ -1467,8 +1579,10 @@ fn test_edge_count_diamond() {
 #[test]
 fn test_edge_count_after_remove() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
     dag.remove_branch(BranchId::new("b")).unwrap();
     // Only trunk -> a remains = 1 edge (trunk has 0)
     let total_edges: usize = dag.parents.values().map(|p| p.len()).sum();
@@ -1480,12 +1594,15 @@ fn test_edge_count_after_remove() {
 #[test]
 fn test_path_to_root_with_diamond_picks_first_parent_path() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("left"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("right"), vec![BranchId::new("trunk")])
+        .unwrap();
     dag.add_branch(
         BranchId::new("merge"),
         vec![BranchId::new("left"), BranchId::new("right")],
-    ).unwrap();
+    )
+    .unwrap();
 
     let path = dag.path_to_root(&BranchId::new("merge")).unwrap();
     assert_eq!(path[0], BranchId::new("merge"));
@@ -1499,10 +1616,17 @@ fn test_path_to_root_deep_chain_length() {
     let mut dag = BranchDag::new();
     let depth = 30;
     for i in 1..=depth {
-        let parent = if i == 1 { BranchId::new("trunk") } else { BranchId::new(format!("lvl-{}", i - 1)) };
-        dag.add_branch(BranchId::new(format!("lvl-{i}")), vec![parent]).unwrap();
+        let parent = if i == 1 {
+            BranchId::new("trunk")
+        } else {
+            BranchId::new(format!("lvl-{}", i - 1))
+        };
+        dag.add_branch(BranchId::new(format!("lvl-{i}")), vec![parent])
+            .unwrap();
     }
-    let path = dag.path_to_root(&BranchId::new(format!("lvl-{depth}"))).unwrap();
+    let path = dag
+        .path_to_root(&BranchId::new(format!("lvl-{depth}")))
+        .unwrap();
     assert_eq!(path.len(), depth + 1);
 }
 
@@ -1511,10 +1635,14 @@ fn test_path_to_root_deep_chain_length() {
 #[test]
 fn test_ancestors_count_plus_descendants_count_leaves() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a")]).unwrap();
-    dag.add_branch(BranchId::new("d"), vec![BranchId::new("b")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a")])
+        .unwrap();
+    dag.add_branch(BranchId::new("d"), vec![BranchId::new("b")])
+        .unwrap();
 
     // Leaves (c, d) have no descendants
     assert!(dag.descendants(&BranchId::new("c")).unwrap().is_empty());
@@ -1529,11 +1657,14 @@ fn test_ancestors_count_plus_descendants_count_leaves() {
 #[test]
 fn test_add_branch_single_vs_multi_parent_ancestor_set() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("p1"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("p2"), vec![BranchId::new("trunk")]).unwrap();
+    dag.add_branch(BranchId::new("p1"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("p2"), vec![BranchId::new("trunk")])
+        .unwrap();
 
     // Single parent child
-    dag.add_branch(BranchId::new("single"), vec![BranchId::new("p1")]).unwrap();
+    dag.add_branch(BranchId::new("single"), vec![BranchId::new("p1")])
+        .unwrap();
     let single_anc = dag.ancestors(&BranchId::new("single")).unwrap();
     assert!(single_anc.contains(&BranchId::new("p1")));
     assert!(single_anc.contains(&BranchId::new("trunk")));
@@ -1543,7 +1674,8 @@ fn test_add_branch_single_vs_multi_parent_ancestor_set() {
     dag.add_branch(
         BranchId::new("multi"),
         vec![BranchId::new("p1"), BranchId::new("p2")],
-    ).unwrap();
+    )
+    .unwrap();
     let multi_anc = dag.ancestors(&BranchId::new("multi")).unwrap();
     assert!(multi_anc.contains(&BranchId::new("p1")));
     assert!(multi_anc.contains(&BranchId::new("p2")));

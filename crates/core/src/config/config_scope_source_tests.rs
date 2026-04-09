@@ -81,8 +81,7 @@ fn config_scope_serde_roundtrip_toml_value() {
     // ConfigScope derives Serialize/Deserialize; verify via JSON as TOML enum proxy
     for scope in [ConfigScope::Global, ConfigScope::Project, ConfigScope::Env] {
         let json = serde_json::to_value(&scope).expect("should convert to value");
-        let de: ConfigScope =
-            serde_json::from_value(json).expect("should convert from value");
+        let de: ConfigScope = serde_json::from_value(json).expect("should convert from value");
         assert_eq!(scope, de, "Value roundtrip failed for {scope:?}");
     }
 }
@@ -136,7 +135,10 @@ fn precedence_transitivity() {
     let env_p = scope_priority(ConfigScope::Env) as u32;
     let proj_p = scope_priority(ConfigScope::Project) as u32;
     let glob_p = scope_priority(ConfigScope::Global) as u32;
-    assert!(env_p > proj_p && proj_p > glob_p, "Strict total order required");
+    assert!(
+        env_p > proj_p && proj_p > glob_p,
+        "Strict total order required"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -181,9 +183,21 @@ fn config_source_all_scopes() {
 fn config_source_priority_matches_scope_convention() {
     // Convention: Global=1, Project=2, Env=3
     let sources = vec![
-        ConfigSource { path: PathBuf::from("env"), scope: ConfigScope::Env, priority: 3 },
-        ConfigSource { path: PathBuf::from("proj"), scope: ConfigScope::Project, priority: 2 },
-        ConfigSource { path: PathBuf::from("glob"), scope: ConfigScope::Global, priority: 1 },
+        ConfigSource {
+            path: PathBuf::from("env"),
+            scope: ConfigScope::Env,
+            priority: 3,
+        },
+        ConfigSource {
+            path: PathBuf::from("proj"),
+            scope: ConfigScope::Project,
+            priority: 2,
+        },
+        ConfigSource {
+            path: PathBuf::from("glob"),
+            scope: ConfigScope::Global,
+            priority: 1,
+        },
     ];
     // Verify the convention holds
     assert_eq!(sources[0].priority, scope_priority(ConfigScope::Env));
@@ -294,7 +308,10 @@ fn config_value_new_without_source() {
     assert_eq!(val.key, "vcs.type");
     assert_eq!(val.value, "git");
     assert_eq!(val.scope, ConfigScope::Global);
-    assert!(val.source.as_os_str().is_empty(), "New without source should have empty path");
+    assert!(
+        val.source.as_os_str().is_empty(),
+        "New without source should have empty path"
+    );
 }
 
 #[test]
@@ -313,7 +330,12 @@ fn config_value_with_source() {
 
 #[test]
 fn config_value_source_attribution_global() {
-    let val = ConfigValue::with_source("k", "v", ConfigScope::Global, "/home/.config/scp/config.toml");
+    let val = ConfigValue::with_source(
+        "k",
+        "v",
+        ConfigScope::Global,
+        "/home/.config/scp/config.toml",
+    );
     assert_eq!(val.scope, ConfigScope::Global);
     assert_eq!(val.source, PathBuf::from("/home/.config/scp/config.toml"));
 }
@@ -322,12 +344,20 @@ fn config_value_source_attribution_global() {
 fn config_value_source_attribution_env() {
     let val = ConfigValue::new("k", "v", ConfigScope::Env);
     assert_eq!(val.scope, ConfigScope::Env);
-    assert!(val.source.as_os_str().is_empty(), "Env values typically have no file source");
+    assert!(
+        val.source.as_os_str().is_empty(),
+        "Env values typically have no file source"
+    );
 }
 
 #[test]
 fn config_value_serde_roundtrip() {
-    let val = ConfigValue::with_source("queue.default", "main", ConfigScope::Project, ".scp/config.toml");
+    let val = ConfigValue::with_source(
+        "queue.default",
+        "main",
+        ConfigScope::Project,
+        ".scp/config.toml",
+    );
     let json = serde_json::to_string(&val).expect("should serialize");
     let de: ConfigValue = serde_json::from_str(&json).expect("should deserialize");
     assert_eq!(val.key, de.key);
@@ -364,8 +394,11 @@ fn merge_project_overrides_global() {
 
     let manager = ConfigManager::with_paths(global_path, Some(project_path));
     let config = manager.load().expect("should load");
-    assert_eq!(config.get("editor"), Some(&"nano".to_string()),
-        "Project value should override global");
+    assert_eq!(
+        config.get("editor"),
+        Some(&"nano".to_string()),
+        "Project value should override global"
+    );
 }
 
 #[test]
@@ -394,7 +427,8 @@ fn merge_global_only_keys_preserved_when_project_has_different_keys() {
     std::fs::create_dir_all(&project_dir).expect("mkdir");
     let project_path = project_dir.join("config.toml");
 
-    std::fs::write(&global_path, "editor = \"vim\"\nqueue.default = \"main\"").expect("write global");
+    std::fs::write(&global_path, "editor = \"vim\"\nqueue.default = \"main\"")
+        .expect("write global");
     std::fs::write(&project_path, "logging.level = \"debug\"").expect("write project");
 
     let manager = ConfigManager::with_paths(global_path, Some(project_path));
@@ -414,7 +448,10 @@ fn merge_empty_config_returns_defaults() {
     let missing = dir.path().join("nonexistent.toml");
     let manager = ConfigManager::with_paths(missing, None);
     let config = manager.load().expect("should load");
-    assert!(config.values.is_empty(), "Empty config should have no values");
+    assert!(
+        config.values.is_empty(),
+        "Empty config should have no values"
+    );
 }
 
 #[test]
@@ -430,8 +467,11 @@ fn merge_empty_project_config_falls_back_to_global() {
 
     let manager = ConfigManager::with_paths(global_path, Some(project_path));
     let config = manager.load().expect("should load");
-    assert_eq!(config.get("editor"), Some(&"vim".to_string()),
-        "Global value should be used when project config is empty");
+    assert_eq!(
+        config.get("editor"),
+        Some(&"vim".to_string()),
+        "Global value should be used when project config is empty"
+    );
 }
 
 #[test]
@@ -473,8 +513,12 @@ fn load_sources_includes_global_when_file_exists() {
     let config = manager.load().expect("should load");
 
     let sources = config.sources();
-    assert!(sources.iter().any(|s| s.scope == ConfigScope::Global && s.path == global_path),
-        "Should track global source");
+    assert!(
+        sources
+            .iter()
+            .any(|s| s.scope == ConfigScope::Global && s.path == global_path),
+        "Should track global source"
+    );
 }
 
 #[test]
@@ -492,8 +536,12 @@ fn load_sources_includes_project_when_file_exists() {
     let config = manager.load().expect("should load");
 
     let sources = config.sources();
-    assert!(sources.iter().any(|s| s.scope == ConfigScope::Project && s.path == project_path),
-        "Should track project source");
+    assert!(
+        sources
+            .iter()
+            .any(|s| s.scope == ConfigScope::Project && s.path == project_path),
+        "Should track project source"
+    );
 }
 
 #[test]
@@ -505,8 +553,10 @@ fn load_sources_always_includes_env() {
     let config = manager.load().expect("should load");
 
     let sources = config.sources();
-    assert!(sources.iter().any(|s| s.scope == ConfigScope::Env),
-        "Env source should always be tracked");
+    assert!(
+        sources.iter().any(|s| s.scope == ConfigScope::Env),
+        "Env source should always be tracked"
+    );
 }
 
 #[test]
@@ -526,9 +576,12 @@ fn load_sources_sorted_by_priority() {
     let sources = config.sources();
     // Should be sorted descending by priority
     for i in 1..sources.len() {
-        assert!(sources[i - 1].priority >= sources[i].priority,
+        assert!(
+            sources[i - 1].priority >= sources[i].priority,
             "Sources should be sorted by priority descending, but [{:?}] < [{:?}]",
-            sources[i - 1], sources[i]);
+            sources[i - 1],
+            sources[i]
+        );
     }
 }
 
@@ -555,7 +608,10 @@ fn save_rejects_project_without_path() {
     let config = Config::new();
 
     let result = manager.save(&config, ConfigScope::Project);
-    assert!(result.is_err(), "Should reject saving to Project scope without project path");
+    assert!(
+        result.is_err(),
+        "Should reject saving to Project scope without project path"
+    );
 }
 
 #[test]
@@ -566,7 +622,9 @@ fn save_to_global_creates_file() {
     let mut config = Config::new();
     config.set("editor", "vim");
 
-    manager.save(&config, ConfigScope::Global).expect("should save");
+    manager
+        .save(&config, ConfigScope::Global)
+        .expect("should save");
 
     assert!(global_path.exists(), "File should be created");
     let contents = std::fs::read_to_string(&global_path).expect("should read");
@@ -583,7 +641,9 @@ fn save_to_project_creates_file() {
     let mut config = Config::new();
     config.set("logging.level", "debug");
 
-    manager.save(&config, ConfigScope::Project).expect("should save");
+    manager
+        .save(&config, ConfigScope::Project)
+        .expect("should save");
 
     assert!(project_path.exists(), "File should be created");
     let contents = std::fs::read_to_string(&project_path).expect("should read");

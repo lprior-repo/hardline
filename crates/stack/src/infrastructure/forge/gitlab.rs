@@ -7,8 +7,8 @@ use super::{
     get_json, mergeable_bool, post_json, put_json, stack_comment_body, AuthStyle, CheckRunInfo,
     ForgeType, MergeMethod, RemoteInfo, STACK_COMMENT_MARKER,
 };
-use crate::domain::state::PrState;
 use crate::domain::stack::PrInfo;
+use crate::domain::state::PrState;
 use crate::error::{Result, StackError};
 
 /// HTTP client for the GitLab forge API.
@@ -477,9 +477,7 @@ impl GitLabClient {
     pub async fn fetch_checks(&self, sha: &str) -> Result<(Option<String>, Vec<CheckRunInfo>)> {
         let statuses: Vec<GitLabCommitStatus> = get_json(
             &self.client,
-            &self.project_url(&format!(
-                "/repository/commits/{sha}/statuses?per_page=100"
-            )),
+            &self.project_url(&format!("/repository/commits/{sha}/statuses?per_page=100")),
         )
         .await?;
 
@@ -634,8 +632,7 @@ impl GitLabClient {
 
         let mut reviews = Vec::new();
         for mr in mrs {
-            let approvals_url =
-                self.project_url(&format!("/merge_requests/{}/approvals", mr.iid));
+            let approvals_url = self.project_url(&format!("/merge_requests/{}/approvals", mr.iid));
             let approvals: GitLabApprovals = match get_json(&self.client, &approvals_url).await {
                 Ok(a) => a,
                 Err(_) => continue,
@@ -840,9 +837,18 @@ mod tests {
 
     #[test]
     fn test_normalize_gitlab_check_status() {
-        assert_eq!(normalize_gitlab_check_status(Some("running")), "in_progress");
-        assert_eq!(normalize_gitlab_check_status(Some("pending")), "in_progress");
-        assert_eq!(normalize_gitlab_check_status(Some("created")), "in_progress");
+        assert_eq!(
+            normalize_gitlab_check_status(Some("running")),
+            "in_progress"
+        );
+        assert_eq!(
+            normalize_gitlab_check_status(Some("pending")),
+            "in_progress"
+        );
+        assert_eq!(
+            normalize_gitlab_check_status(Some("created")),
+            "in_progress"
+        );
         assert_eq!(normalize_gitlab_check_status(Some("success")), "completed");
         assert_eq!(normalize_gitlab_check_status(Some("failed")), "completed");
         assert_eq!(normalize_gitlab_check_status(None), "completed");

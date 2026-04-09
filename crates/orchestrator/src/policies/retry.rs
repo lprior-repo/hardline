@@ -218,13 +218,13 @@ mod tests {
     fn test_backoff_formula_exact_values() {
         // Formula: min(base_delay_ms * 2^attempt, max_delay_ms)
         let policy = RetryPolicy::new(10, 100, 10_000).expect("ok");
-        assert_eq!(policy.calculate_delay(0), 100);    // 100 * 2^0 = 100
-        assert_eq!(policy.calculate_delay(1), 200);    // 100 * 2^1 = 200
-        assert_eq!(policy.calculate_delay(2), 400);    // 100 * 2^2 = 400
-        assert_eq!(policy.calculate_delay(3), 800);    // 100 * 2^3 = 800
-        assert_eq!(policy.calculate_delay(4), 1600);   // 100 * 2^4 = 1600
-        assert_eq!(policy.calculate_delay(5), 3200);   // 100 * 2^5 = 3200
-        assert_eq!(policy.calculate_delay(6), 6400);   // 100 * 2^6 = 6400
+        assert_eq!(policy.calculate_delay(0), 100); // 100 * 2^0 = 100
+        assert_eq!(policy.calculate_delay(1), 200); // 100 * 2^1 = 200
+        assert_eq!(policy.calculate_delay(2), 400); // 100 * 2^2 = 400
+        assert_eq!(policy.calculate_delay(3), 800); // 100 * 2^3 = 800
+        assert_eq!(policy.calculate_delay(4), 1600); // 100 * 2^4 = 1600
+        assert_eq!(policy.calculate_delay(5), 3200); // 100 * 2^5 = 3200
+        assert_eq!(policy.calculate_delay(6), 6400); // 100 * 2^6 = 6400
     }
 
     #[test]
@@ -243,7 +243,10 @@ mod tests {
         let mut prev = 0u64;
         for attempt in 0..20 {
             let delay = policy.calculate_delay(attempt);
-            assert!(delay >= prev, "Non-monotonic at attempt {attempt}: {delay} < {prev}");
+            assert!(
+                delay >= prev,
+                "Non-monotonic at attempt {attempt}: {delay} < {prev}"
+            );
             prev = delay;
         }
     }
@@ -254,8 +257,14 @@ mod tests {
         let mut prev = 0u64;
         for attempt in 0..30 {
             let delay = policy.calculate_delay(attempt);
-            assert!(delay >= prev, "Non-monotonic at attempt {attempt}: {delay} < {prev}");
-            assert!(delay <= 300, "Exceeded max at attempt {attempt}: {delay} > 300");
+            assert!(
+                delay >= prev,
+                "Non-monotonic at attempt {attempt}: {delay} < {prev}"
+            );
+            assert!(
+                delay <= 300,
+                "Exceeded max at attempt {attempt}: {delay} > 300"
+            );
             prev = delay;
         }
     }
@@ -272,9 +281,9 @@ mod tests {
     #[test]
     fn test_backoff_base_one_grows_as_powers_of_two() {
         let policy = RetryPolicy::new(30, 1, 1_000_000).expect("ok");
-        assert_eq!(policy.calculate_delay(0), 1);      // 2^0
-        assert_eq!(policy.calculate_delay(1), 2);      // 2^1
-        assert_eq!(policy.calculate_delay(10), 1024);   // 2^10
+        assert_eq!(policy.calculate_delay(0), 1); // 2^0
+        assert_eq!(policy.calculate_delay(1), 2); // 2^1
+        assert_eq!(policy.calculate_delay(10), 1024); // 2^10
         assert_eq!(policy.calculate_delay(19), 524_288); // 2^19
     }
 

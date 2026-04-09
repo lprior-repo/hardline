@@ -645,7 +645,11 @@ mod tests {
             let session = Session::<Created>::create(name.clone()).expect("created");
             let session_id = session.id.as_str().to_string();
 
-            let completed = session.activate().expect("activate").complete().expect("complete");
+            let completed = session
+                .activate()
+                .expect("activate")
+                .complete()
+                .expect("complete");
 
             let event = SessionCompletedEvent::new(completed.id.as_str().to_string(), name);
 
@@ -686,11 +690,14 @@ mod tests {
             let first_created =
                 SessionCreatedEvent::new(session.id.as_str().to_string(), name.clone());
 
-            let completed = session.activate().expect("activate").complete().expect("complete");
+            let completed = session
+                .activate()
+                .expect("activate")
+                .complete()
+                .expect("complete");
             let restarted = completed.restart().expect("restart");
 
-            let second_created =
-                SessionCreatedEvent::new(restarted.id.as_str().to_string(), name);
+            let second_created = SessionCreatedEvent::new(restarted.id.as_str().to_string(), name);
 
             // Same session identity across restart
             assert_eq!(first_created.session_id, second_created.session_id);
@@ -719,8 +726,7 @@ mod tests {
             let failed = session.fail().expect("fail");
             let retried = failed.retry().expect("retry");
 
-            let second_created =
-                SessionCreatedEvent::new(retried.id.as_str().to_string(), name);
+            let second_created = SessionCreatedEvent::new(retried.id.as_str().to_string(), name);
 
             assert_eq!(first_created.session_id, second_created.session_id);
             assert!(

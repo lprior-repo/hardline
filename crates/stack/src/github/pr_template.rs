@@ -36,7 +36,9 @@ pub fn discover_pr_templates(workdir: &Path) -> Result<Vec<PrTemplate>> {
     let template_dir = workdir.join(".github/PULL_REQUEST_TEMPLATE");
     if template_dir.is_dir() {
         let mut entries: Vec<_> = fs::read_dir(&template_dir)
-            .map_err(|e| StackError::GitHubError(format!("Failed to read PR template directory: {e}")))?
+            .map_err(|e| {
+                StackError::GitHubError(format!("Failed to read PR template directory: {e}"))
+            })?
             .filter_map(|entry| entry.ok())
             .filter(|entry| {
                 entry
@@ -245,7 +247,11 @@ mod tests {
     #[test]
     fn test_discover_docs_variant() {
         let dir = TempDir::new().expect("tempdir");
-        write_file(dir.path(), "docs/PULL_REQUEST_TEMPLATE.md", "# Docs template");
+        write_file(
+            dir.path(),
+            "docs/PULL_REQUEST_TEMPLATE.md",
+            "# Docs template",
+        );
 
         let templates = discover_pr_templates(dir.path()).expect("discover");
         assert_eq!(templates.len(), 1);

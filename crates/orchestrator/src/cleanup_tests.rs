@@ -410,13 +410,19 @@ fn test_resource_id_serde_roundtrip() {
 
 #[test]
 fn test_cleanup_context_serde_roundtrip() {
-    let mut ctx = CleanupContext::new(PipelineId("test".to_string()), crate::cleanup::PhaseType::UniverseSetup);
+    let mut ctx = CleanupContext::new(
+        PipelineId("test".to_string()),
+        crate::cleanup::PhaseType::UniverseSetup,
+    );
     ctx.add_resource(ResourceId::new("r1"));
     ctx.set_rollback_data(vec![1, 2, 3]);
     let json = serde_json::to_string(&ctx).expect("serialize");
     let deserialized: CleanupContext = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(ctx.failed_phase, deserialized.failed_phase);
-    assert_eq!(ctx.created_resources.len(), deserialized.created_resources.len());
+    assert_eq!(
+        ctx.created_resources.len(),
+        deserialized.created_resources.len()
+    );
     assert_eq!(ctx.rollback_data, deserialized.rollback_data);
 }
 
@@ -440,21 +446,36 @@ fn test_cleanup_result_serde_roundtrip() {
     let json = serde_json::to_string(&result).expect("serialize");
     let deserialized: CleanupResult = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(result.success_flag(), deserialized.success_flag());
-    assert_eq!(result.cleaned_resources.len(), deserialized.cleaned_resources.len());
+    assert_eq!(
+        result.cleaned_resources.len(),
+        deserialized.cleaned_resources.len()
+    );
 }
 
 // --- PhaseType from_state for all states ---
 
 #[test]
 fn test_phase_type_from_state_exhaustive() {
-    use crate::state::PipelineState;
     use crate::cleanup::PhaseType;
+    use crate::state::PipelineState;
 
     assert_eq!(PhaseType::from_state(PipelineState::Pending), None);
-    assert_eq!(PhaseType::from_state(PipelineState::SpecReview), Some(PhaseType::SpecReview));
-    assert_eq!(PhaseType::from_state(PipelineState::UniverseSetup), Some(PhaseType::UniverseSetup));
-    assert_eq!(PhaseType::from_state(PipelineState::AgentDevelopment), Some(PhaseType::AgentDevelopment));
-    assert_eq!(PhaseType::from_state(PipelineState::Validation), Some(PhaseType::Validation));
+    assert_eq!(
+        PhaseType::from_state(PipelineState::SpecReview),
+        Some(PhaseType::SpecReview)
+    );
+    assert_eq!(
+        PhaseType::from_state(PipelineState::UniverseSetup),
+        Some(PhaseType::UniverseSetup)
+    );
+    assert_eq!(
+        PhaseType::from_state(PipelineState::AgentDevelopment),
+        Some(PhaseType::AgentDevelopment)
+    );
+    assert_eq!(
+        PhaseType::from_state(PipelineState::Validation),
+        Some(PhaseType::Validation)
+    );
     assert_eq!(PhaseType::from_state(PipelineState::Accepted), None);
     assert_eq!(PhaseType::from_state(PipelineState::Escalated), None);
     assert_eq!(PhaseType::from_state(PipelineState::Failed), None);
@@ -538,8 +559,13 @@ fn test_cleanup_manager_register_replaces_existing_handler() {
     manager.register_handler(Box::new(HandlerV1));
     manager.register_handler(Box::new(HandlerV2)); // Should replace V1
 
-    let handler = manager.get_handler(crate::cleanup::PhaseType::SpecReview).expect("handler");
-    let result = handler.cleanup(&CleanupContext::new(PipelineId("test".to_string()), crate::cleanup::PhaseType::SpecReview));
+    let handler = manager
+        .get_handler(crate::cleanup::PhaseType::SpecReview)
+        .expect("handler");
+    let result = handler.cleanup(&CleanupContext::new(
+        PipelineId("test".to_string()),
+        crate::cleanup::PhaseType::SpecReview,
+    ));
     assert_eq!(result.cleaned_resources.len(), 1);
     assert_eq!(result.cleaned_resources[0].0, "v2-cleaned");
 }
@@ -550,7 +576,10 @@ fn test_cleanup_manager_register_replaces_existing_handler() {
 fn test_cleanup_manager_cleanup_unknown_phase_succeeds() {
     // The CleanupManager handles unknown phases gracefully (returns success)
     let manager = CleanupManager::new();
-    let ctx = CleanupContext::new(PipelineId("test".to_string()), crate::cleanup::PhaseType::Validation);
+    let ctx = CleanupContext::new(
+        PipelineId("test".to_string()),
+        crate::cleanup::PhaseType::Validation,
+    );
     let result = manager.cleanup(&ctx);
     // Validation uses NoopCleanupHandler by default
     assert!(result.success_flag());
@@ -582,7 +611,10 @@ fn test_resource_id_in_hashset() {
 #[test]
 fn test_universe_setup_cleanup_handler_with_resources() {
     let handler = crate::cleanup::UniverseSetupCleanupHandler;
-    let mut ctx = CleanupContext::new(PipelineId("test".to_string()), crate::cleanup::PhaseType::UniverseSetup);
+    let mut ctx = CleanupContext::new(
+        PipelineId("test".to_string()),
+        crate::cleanup::PhaseType::UniverseSetup,
+    );
     ctx.add_resource(ResourceId::new("dir-1"));
     ctx.add_resource(ResourceId::new("dir-2"));
     ctx.add_resource(ResourceId::new("dir-3"));
@@ -595,7 +627,10 @@ fn test_universe_setup_cleanup_handler_with_resources() {
 #[test]
 fn test_universe_setup_cleanup_handler_no_resources() {
     let handler = crate::cleanup::UniverseSetupCleanupHandler;
-    let ctx = CleanupContext::new(PipelineId("test".to_string()), crate::cleanup::PhaseType::UniverseSetup);
+    let ctx = CleanupContext::new(
+        PipelineId("test".to_string()),
+        crate::cleanup::PhaseType::UniverseSetup,
+    );
 
     let result = handler.cleanup(&ctx);
     assert!(result.success_flag());
@@ -605,7 +640,10 @@ fn test_universe_setup_cleanup_handler_no_resources() {
 #[test]
 fn test_universe_setup_rollback_with_data() {
     let handler = crate::cleanup::UniverseSetupCleanupHandler;
-    let mut ctx = CleanupContext::new(PipelineId("test".to_string()), crate::cleanup::PhaseType::UniverseSetup);
+    let mut ctx = CleanupContext::new(
+        PipelineId("test".to_string()),
+        crate::cleanup::PhaseType::UniverseSetup,
+    );
     ctx.set_rollback_data(vec![1, 2, 3]);
 
     let result = handler.rollback(&ctx);
@@ -616,7 +654,10 @@ fn test_universe_setup_rollback_with_data() {
 #[test]
 fn test_universe_setup_rollback_without_data() {
     let handler = crate::cleanup::UniverseSetupCleanupHandler;
-    let ctx = CleanupContext::new(PipelineId("test".to_string()), crate::cleanup::PhaseType::UniverseSetup);
+    let ctx = CleanupContext::new(
+        PipelineId("test".to_string()),
+        crate::cleanup::PhaseType::UniverseSetup,
+    );
 
     let result = handler.rollback(&ctx);
     assert!(result.success_flag());

@@ -791,7 +791,10 @@ mod tests {
             let result = BeadTitle::new("");
             let err = result.unwrap_err();
             let msg = err.to_string();
-            assert!(msg.contains("empty"), "error message should mention 'empty': {msg}");
+            assert!(
+                msg.contains("empty"),
+                "error message should mention 'empty': {msg}"
+            );
         }
 
         #[test]
@@ -800,7 +803,10 @@ mod tests {
             let result = BeadTitle::new(&s);
             let err = result.unwrap_err();
             let msg = err.to_string();
-            assert!(msg.contains("200"), "error message should mention max length 200: {msg}");
+            assert!(
+                msg.contains("200"),
+                "error message should mention max length 200: {msg}"
+            );
         }
 
         #[test]
@@ -1078,8 +1084,7 @@ mod tests {
 
         #[test]
         fn serde_roundtrip_at_max_length() {
-            let desc =
-                BeadDescription::new("x".repeat(BeadDescription::MAX_LENGTH)).unwrap();
+            let desc = BeadDescription::new("x".repeat(BeadDescription::MAX_LENGTH)).unwrap();
             let json = serde_json::to_string(&desc).unwrap();
             let parsed: BeadDescription = serde_json::from_str(&json).unwrap();
             assert_eq!(desc, parsed);

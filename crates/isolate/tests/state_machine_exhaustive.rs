@@ -9,8 +9,8 @@
 //! - No-panic guarantee on all transitions
 //! - Proptest: arbitrary state pairs
 
-use scp_isolate::{WorkspaceState, WorkspaceStateMachine};
 use scp_isolate::IsolateError;
+use scp_isolate::{WorkspaceState, WorkspaceStateMachine};
 
 // === Exhaustive transition matrix ===
 
@@ -60,10 +60,7 @@ fn table_driven_all_invalid_transitions_fail() {
         for &to in &ALL_STATES {
             if !is_valid_transition(from, to) {
                 let result = WorkspaceStateMachine::transition(from, to);
-                assert!(
-                    result.is_err(),
-                    "transition {from:?} -> {to:?} should fail"
-                );
+                assert!(result.is_err(), "transition {from:?} -> {to:?} should fail");
             }
         }
     }
@@ -113,10 +110,7 @@ fn table_driven_no_panic_on_any_transition() {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let _ = WorkspaceStateMachine::transition(from, to);
             }));
-            assert!(
-                result.is_ok(),
-                "PANIC on transition {from:?} -> {to:?}"
-            );
+            assert!(result.is_ok(), "PANIC on transition {from:?} -> {to:?}");
         }
     }
 }
@@ -225,80 +219,122 @@ fn valid_next_states_for_terminal_returns_empty() {
 
 #[test]
 fn terminal_states_cannot_transition_to_themselves() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Merged, WorkspaceState::Merged).is_err());
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Abandoned, WorkspaceState::Abandoned).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Merged, WorkspaceState::Merged).is_err()
+    );
+    assert!(WorkspaceStateMachine::transition(
+        WorkspaceState::Abandoned,
+        WorkspaceState::Abandoned
+    )
+    .is_err());
 }
 
 // === Invalid transitions from each state ===
 
 #[test]
 fn created_cannot_skip_to_ready() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Ready).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Ready).is_err()
+    );
 }
 
 #[test]
 fn created_cannot_skip_to_merged() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Merged).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Merged).is_err()
+    );
 }
 
 #[test]
 fn created_cannot_skip_to_abandoned() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Abandoned).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Abandoned)
+            .is_err()
+    );
 }
 
 #[test]
 fn created_cannot_skip_to_conflict() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Conflict).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Conflict)
+            .is_err()
+    );
 }
 
 #[test]
 fn created_cannot_stay_created() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Created).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Created)
+            .is_err()
+    );
 }
 
 #[test]
 fn working_cannot_go_to_created() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Created).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Created)
+            .is_err()
+    );
 }
 
 #[test]
 fn working_cannot_go_to_merged() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Merged).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Merged).is_err()
+    );
 }
 
 #[test]
 fn working_cannot_stay_working() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Working).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Working)
+            .is_err()
+    );
 }
 
 #[test]
 fn ready_cannot_go_to_created() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Created).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Created).is_err()
+    );
 }
 
 #[test]
 fn ready_cannot_stay_ready() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Ready).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Ready).is_err()
+    );
 }
 
 #[test]
 fn conflict_cannot_go_to_created() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Created).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Created)
+            .is_err()
+    );
 }
 
 #[test]
 fn conflict_cannot_go_to_ready() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Ready).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Ready).is_err()
+    );
 }
 
 #[test]
 fn conflict_cannot_go_to_merged() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Merged).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Merged)
+            .is_err()
+    );
 }
 
 #[test]
 fn conflict_cannot_stay_conflict() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Conflict).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Conflict, WorkspaceState::Conflict)
+            .is_err()
+    );
 }
 
 // === Helper consistency ===
@@ -442,7 +478,15 @@ fn from_str_case_insensitive() {
 
 #[test]
 fn from_str_invalid_returns_error() {
-    let invalid = ["", "unknown", "pending", "active", "deleted", "corrupted", "locked"];
+    let invalid = [
+        "",
+        "unknown",
+        "pending",
+        "active",
+        "deleted",
+        "corrupted",
+        "locked",
+    ];
     for s in &invalid {
         let result: Result<WorkspaceState, _> = s.parse();
         assert!(result.is_err(), "'{s}' should not parse as WorkspaceState");

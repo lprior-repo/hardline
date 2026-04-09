@@ -26,7 +26,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use scp_vcs::application::ops::Transaction;
-use scp_vcs::domain::entities::ops::{OpKind, PlanSummary, OpReceipt};
+use scp_vcs::domain::entities::ops::{OpKind, OpReceipt, PlanSummary};
 use scp_vcs::infrastructure::ops;
 
 use crate::domain::metadata::BranchMetadata;
@@ -96,9 +96,7 @@ pub struct StackGraph {
 impl StackGraph {
     /// Load the stack from git metadata.
     pub fn load<M: MetadataStore>(store: &M) -> Result<Self> {
-        let trunk = store
-            .read_trunk()?
-            .unwrap_or_else(|| "main".to_string());
+        let trunk = store.read_trunk()?.unwrap_or_else(|| "main".to_string());
 
         let tracked_branches = store.list_branches()?;
         let mut branches: HashMap<String, StackNode> = HashMap::new();
@@ -455,10 +453,7 @@ impl<M: MetadataStore> TransactionalStackOps<M> {
         tx.set_plan_summary(PlanSummary {
             branches_to_rebase: planned.len(),
             branches_to_push: planned.len(),
-            description: vec![format!(
-                "Sync-restacking {} branches",
-                planned.len()
-            )],
+            description: vec![format!("Sync-restacking {} branches", planned.len())],
         });
 
         tx.snapshot()
@@ -599,11 +594,7 @@ impl<M: MetadataStore> TransactionalStackOps<M> {
     ///
     /// Uses `OpKind::Detach` operation kind.
     pub fn detach(&self, branch: &str) -> Result<()> {
-        let oid = self
-            .metadata_store
-            .branch_revision(branch)
-            .ok()
-            .flatten();
+        let oid = self.metadata_store.branch_revision(branch).ok().flatten();
 
         let mut tx = Transaction::begin(
             OpKind::Detach,
@@ -637,8 +628,7 @@ impl<M: MetadataStore> TransactionalStackOps<M> {
 
     /// List all operation receipts (newest first).
     pub fn list_op_receipts(&self) -> Result<Vec<String>> {
-        ops::list_op_ids(&self.config.git_dir)
-            .map_err(|e| StackError::GitError(e.to_string()))
+        ops::list_op_ids(&self.config.git_dir).map_err(|e| StackError::GitError(e.to_string()))
     }
 
     /// Load a specific operation receipt.
@@ -704,10 +694,8 @@ mod tests {
             parent_rev: &str,
             current_rev: &str,
         ) -> Self {
-            self.metadata.insert(
-                name.to_string(),
-                BranchMetadata::new(parent, parent_rev),
-            );
+            self.metadata
+                .insert(name.to_string(), BranchMetadata::new(parent, parent_rev));
             self.revisions
                 .insert(name.to_string(), current_rev.to_string());
             self
@@ -832,7 +820,10 @@ mod tests {
             .current_dir(workdir)
             .output()
             .expect("git rev-parse");
-        String::from_utf8(output.stdout).expect("utf8").trim().to_string()
+        String::from_utf8(output.stdout)
+            .expect("utf8")
+            .trim()
+            .to_string()
     }
 
     fn test_config_from(temp: &TempDir, git_dir: PathBuf) -> TransactionConfig {
@@ -983,11 +974,8 @@ mod tests {
         let config = test_config_from(&temp, git_dir);
 
         let ops = TransactionalStackOps::new(store, config);
-        ops.reorder(&[
-            "feature-a".to_string(),
-            "feature-a-1".to_string(),
-        ])
-        .expect("reorder should succeed");
+        ops.reorder(&["feature-a".to_string(), "feature-a-1".to_string()])
+            .expect("reorder should succeed");
 
         let receipt = ops.load_latest_receipt().expect("load").expect("some");
         assert!(matches!(receipt.kind, OpKind::Reorder));

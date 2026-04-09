@@ -924,7 +924,10 @@ mod tests {
             .unwrap();
             let cfg = ws.config().expect("workspace must have default config");
             assert_eq!(cfg.vcs_type, VcsType::Git, "default vcs_type should be Git");
-            assert_eq!(cfg.default_branch, "main", "default branch should be 'main'");
+            assert_eq!(
+                cfg.default_branch, "main",
+                "default branch should be 'main'"
+            );
             assert!(cfg.auto_sync, "auto_sync should default to true");
         }
 
@@ -1033,8 +1036,14 @@ mod tests {
             };
             let json = serde_json::to_string(&cfg).unwrap();
             assert!(json.contains("\"vcs_type\""), "JSON must contain vcs_type");
-            assert!(json.contains("\"default_branch\""), "JSON must contain default_branch");
-            assert!(json.contains("\"auto_sync\""), "JSON must contain auto_sync");
+            assert!(
+                json.contains("\"default_branch\""),
+                "JSON must contain default_branch"
+            );
+            assert!(
+                json.contains("\"auto_sync\""),
+                "JSON must contain auto_sync"
+            );
         }
 
         #[test]
@@ -1045,7 +1054,10 @@ mod tests {
                 auto_sync: true,
             };
             let json = serde_json::to_string(&cfg).unwrap();
-            assert!(json.contains("\"Git\""), "VcsType::Git should serialize as \"Git\"");
+            assert!(
+                json.contains("\"Git\""),
+                "VcsType::Git should serialize as \"Git\""
+            );
         }
 
         #[test]
@@ -1211,9 +1223,7 @@ mod tests {
                 auto_sync: true,
             };
             // VcsType only has Git variant, but struct update syntax still works
-            let updated = WorkspaceConfig {
-                ..original.clone()
-            };
+            let updated = WorkspaceConfig { ..original.clone() };
             assert_eq!(updated.vcs_type, original.vcs_type);
             assert_eq!(updated.default_branch, original.default_branch);
             assert_eq!(updated.auto_sync, original.auto_sync);
@@ -1285,21 +1295,30 @@ mod tests {
         fn config_missing_vcs_type_fails() {
             let json = r#"{"default_branch":"main","auto_sync":true}"#;
             let result = serde_json::from_str::<WorkspaceConfig>(json);
-            assert!(result.is_err(), "missing vcs_type must fail deserialization");
+            assert!(
+                result.is_err(),
+                "missing vcs_type must fail deserialization"
+            );
         }
 
         #[test]
         fn config_missing_default_branch_fails() {
             let json = r#"{"vcs_type":"Git","auto_sync":true}"#;
             let result = serde_json::from_str::<WorkspaceConfig>(json);
-            assert!(result.is_err(), "missing default_branch must fail deserialization");
+            assert!(
+                result.is_err(),
+                "missing default_branch must fail deserialization"
+            );
         }
 
         #[test]
         fn config_missing_auto_sync_fails() {
             let json = r#"{"vcs_type":"Git","default_branch":"main"}"#;
             let result = serde_json::from_str::<WorkspaceConfig>(json);
-            assert!(result.is_err(), "missing auto_sync must fail deserialization");
+            assert!(
+                result.is_err(),
+                "missing auto_sync must fail deserialization"
+            );
         }
 
         #[test]
@@ -1313,7 +1332,8 @@ mod tests {
 
         #[test]
         fn config_extra_fields_ignored() {
-            let json = r#"{"vcs_type":"Git","default_branch":"main","auto_sync":true,"extra":"value"}"#;
+            let json =
+                r#"{"vcs_type":"Git","default_branch":"main","auto_sync":true,"extra":"value"}"#;
             let result = serde_json::from_str::<WorkspaceConfig>(json);
             assert!(result.is_ok(), "extra fields should be silently ignored");
             let cfg = result.unwrap();
@@ -1333,7 +1353,8 @@ mod tests {
 
         #[test]
         fn config_extra_nested_field_ignored() {
-            let json = r#"{"vcs_type":"Git","default_branch":"main","auto_sync":true,"nested":{"a":1}}"#;
+            let json =
+                r#"{"vcs_type":"Git","default_branch":"main","auto_sync":true,"nested":{"a":1}}"#;
             let cfg: WorkspaceConfig = serde_json::from_str(json).unwrap();
             assert_eq!(cfg.default_branch, "main");
         }
@@ -1344,14 +1365,20 @@ mod tests {
         fn config_wrong_type_vcs_type_fails() {
             let json = r#"{"vcs_type":123,"default_branch":"main","auto_sync":true}"#;
             let result = serde_json::from_str::<WorkspaceConfig>(json);
-            assert!(result.is_err(), "vcs_type must be a string enum, not a number");
+            assert!(
+                result.is_err(),
+                "vcs_type must be a string enum, not a number"
+            );
         }
 
         #[test]
         fn config_wrong_type_default_branch_fails() {
             let json = r#"{"vcs_type":"Git","default_branch":123,"auto_sync":true}"#;
             let result = serde_json::from_str::<WorkspaceConfig>(json);
-            assert!(result.is_err(), "default_branch must be a string, not a number");
+            assert!(
+                result.is_err(),
+                "default_branch must be a string, not a number"
+            );
         }
 
         #[test]
@@ -1422,9 +1449,15 @@ mod tests {
                 auto_sync: true,
             };
             let debug = format!("{cfg:?}");
-            assert!(debug.contains("WorkspaceConfig"), "debug should contain type name");
+            assert!(
+                debug.contains("WorkspaceConfig"),
+                "debug should contain type name"
+            );
             assert!(debug.contains("vcs_type"), "debug should show vcs_type");
-            assert!(debug.contains("default_branch"), "debug should show default_branch");
+            assert!(
+                debug.contains("default_branch"),
+                "debug should show default_branch"
+            );
             assert!(debug.contains("auto_sync"), "debug should show auto_sync");
         }
 
@@ -1556,7 +1589,10 @@ mod tests {
         fn config_deserialize_from_value_object() {
             let mut map = serde_json::Map::new();
             map.insert("vcs_type".into(), serde_json::Value::String("Git".into()));
-            map.insert("default_branch".into(), serde_json::Value::String("feature/x".into()));
+            map.insert(
+                "default_branch".into(),
+                serde_json::Value::String("feature/x".into()),
+            );
             map.insert("auto_sync".into(), serde_json::Value::Bool(false));
             let value = serde_json::Value::Object(map);
             let cfg: WorkspaceConfig = serde_json::from_value(value).unwrap();

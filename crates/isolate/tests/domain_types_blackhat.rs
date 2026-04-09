@@ -19,7 +19,10 @@ use scp_isolate::{BeadId, BeadWorkspaceMapping, WorkspaceId, WorkspaceState};
 #[test]
 fn workspace_id_generate_starts_with_iso() {
     let id = WorkspaceId::generate();
-    assert!(id.as_str().starts_with("iso-"), "generated ID should start with 'iso-'");
+    assert!(
+        id.as_str().starts_with("iso-"),
+        "generated ID should start with 'iso-'"
+    );
 }
 
 #[test]

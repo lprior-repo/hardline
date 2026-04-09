@@ -142,7 +142,8 @@ mod tests {
 
         fn with_trunk(mut self, trunk: &str) -> Self {
             self.trunk = Some(trunk.to_string());
-            self.revisions.insert(trunk.to_string(), "trunk-rev".to_string());
+            self.revisions
+                .insert(trunk.to_string(), "trunk-rev".to_string());
             self
         }
 
@@ -153,11 +154,10 @@ mod tests {
             parent_rev: &str,
             current_rev: &str,
         ) -> Self {
-            self.metadata.insert(
-                name.to_string(),
-                BranchMetadata::new(parent, parent_rev),
-            );
-            self.revisions.insert(name.to_string(), current_rev.to_string());
+            self.metadata
+                .insert(name.to_string(), BranchMetadata::new(parent, parent_rev));
+            self.revisions
+                .insert(name.to_string(), current_rev.to_string());
             self
         }
 
@@ -174,7 +174,8 @@ mod tests {
                 name.to_string(),
                 BranchMetadata::new(parent, parent_rev).with_pr(pr_number, pr_state, None),
             );
-            self.revisions.insert(name.to_string(), current_rev.to_string());
+            self.revisions
+                .insert(name.to_string(), current_rev.to_string());
             self
         }
     }

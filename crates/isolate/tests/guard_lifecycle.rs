@@ -11,9 +11,7 @@
 //! - Multiple independent guards
 //! - Proptests
 
-use scp_isolate::{
-    BeadId, IsolateError, WorkspaceGuard, WorkspaceId, WorkspaceState,
-};
+use scp_isolate::{BeadId, IsolateError, WorkspaceGuard, WorkspaceId, WorkspaceState};
 
 fn fresh_workspace_id() -> WorkspaceId {
     WorkspaceId::generate()
@@ -95,11 +93,7 @@ fn acquire_rejects_all_non_created_states() {
         WorkspaceState::Conflict,
     ];
     for &state in &non_created {
-        let result = WorkspaceGuard::acquire(
-            fresh_workspace_id(),
-            fresh_bead_id("all"),
-            state,
-        );
+        let result = WorkspaceGuard::acquire(fresh_workspace_id(), fresh_bead_id("all"), state);
         assert!(result.is_err(), "acquire should fail for {state:?}");
     }
 }
@@ -113,8 +107,14 @@ fn acquire_error_is_operation_failed() {
     );
     match result.err() {
         Some(IsolateError::OperationFailed(msg)) => {
-            assert!(msg.contains("Created"), "error should mention Created: {msg}");
-            assert!(msg.contains("working"), "error should mention actual state: {msg}");
+            assert!(
+                msg.contains("Created"),
+                "error should mention Created: {msg}"
+            );
+            assert!(
+                msg.contains("working"),
+                "error should mention actual state: {msg}"
+            );
         }
         other => panic!("expected OperationFailed, got {other:?}"),
     }
@@ -148,8 +148,7 @@ fn acquire_is_not_resolved() {
 fn acquire_exposes_workspace_id() {
     let ws_id = fresh_workspace_id();
     let bead_id = fresh_bead_id("ws");
-    let guard =
-        WorkspaceGuard::acquire(ws_id.clone(), bead_id, WorkspaceState::Created).unwrap();
+    let guard = WorkspaceGuard::acquire(ws_id.clone(), bead_id, WorkspaceState::Created).unwrap();
     assert_eq!(guard.workspace_id(), Some(&ws_id));
 }
 
@@ -220,9 +219,12 @@ fn commit_preserves_workspace_id() {
 #[test]
 fn commit_preserves_bead_id() {
     let bead_id = fresh_bead_id("cbead");
-    let guard =
-        WorkspaceGuard::acquire(fresh_workspace_id(), bead_id.clone(), WorkspaceState::Created)
-            .unwrap();
+    let guard = WorkspaceGuard::acquire(
+        fresh_workspace_id(),
+        bead_id.clone(),
+        WorkspaceState::Created,
+    )
+    .unwrap();
     let committed = guard.commit().unwrap();
     assert_eq!(committed.bead_id(), &bead_id);
 }
@@ -267,9 +269,12 @@ fn abandon_preserves_workspace_id() {
 #[test]
 fn abandon_preserves_bead_id() {
     let bead_id = fresh_bead_id("abead");
-    let guard =
-        WorkspaceGuard::acquire(fresh_workspace_id(), bead_id.clone(), WorkspaceState::Created)
-            .unwrap();
+    let guard = WorkspaceGuard::acquire(
+        fresh_workspace_id(),
+        bead_id.clone(),
+        WorkspaceState::Created,
+    )
+    .unwrap();
     let committed = guard.abandon().unwrap();
     assert_eq!(committed.bead_id(), &bead_id);
 }
@@ -379,7 +384,8 @@ fn multiple_independent_guards() {
 fn same_bead_different_guards_fails_or_succeeds_independently() {
     // Two guards with different workspace IDs but same bead ID — both should work
     let bead = fresh_bead_id("shared");
-    let g1 = WorkspaceGuard::acquire(fresh_workspace_id(), bead.clone(), WorkspaceState::Created).unwrap();
+    let g1 = WorkspaceGuard::acquire(fresh_workspace_id(), bead.clone(), WorkspaceState::Created)
+        .unwrap();
     let g2 = WorkspaceGuard::acquire(fresh_workspace_id(), bead, WorkspaceState::Created).unwrap();
 
     let c1 = g1.commit().unwrap();

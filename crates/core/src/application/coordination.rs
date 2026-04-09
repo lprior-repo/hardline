@@ -3,8 +3,8 @@
 //! Orchestrates distributed lock operations through the LockRepository trait.
 //! Follows the DDD application layer pattern: thin orchestration over domain types.
 
-use crate::domain::repository::{Lock, LockAudit, LockRepository};
 use crate::domain::repository::RepositoryResult;
+use crate::domain::repository::{Lock, LockAudit, LockRepository};
 
 /// Application service for coordination operations.
 ///
@@ -82,7 +82,8 @@ impl<R: LockRepository> CoordinationService<R> {
 }
 
 /// Create a coordination service backed by an in-memory repository.
-pub fn create_coordination_service() -> CoordinationService<crate::domain::repository::InMemoryLockRepository> {
+pub fn create_coordination_service(
+) -> CoordinationService<crate::domain::repository::InMemoryLockRepository> {
     CoordinationService::new(crate::domain::repository::InMemoryLockRepository::new())
 }
 
@@ -98,7 +99,9 @@ mod tests {
     #[test]
     fn given_service_when_acquire_lock_then_success() {
         let service = create_service();
-        let lock = service.acquire_lock("session-1", "agent-a", 300).expect("acquire");
+        let lock = service
+            .acquire_lock("session-1", "agent-a", 300)
+            .expect("acquire");
         assert_eq!(lock.session, "session-1");
         assert_eq!(lock.agent_id, "agent-a");
     }
@@ -106,7 +109,9 @@ mod tests {
     #[test]
     fn given_locked_when_acquire_by_another_then_conflict() {
         let service = create_service();
-        service.acquire_lock("session-1", "agent-a", 300).expect("first");
+        service
+            .acquire_lock("session-1", "agent-a", 300)
+            .expect("first");
         let result = service.acquire_lock("session-1", "agent-b", 300);
         assert!(result.is_err());
     }
@@ -114,17 +119,27 @@ mod tests {
     #[test]
     fn given_lock_when_release_then_reacquire() {
         let service = create_service();
-        service.acquire_lock("session-1", "agent-a", 300).expect("acquire");
-        service.release_lock("session-1", "agent-a").expect("release");
-        let lock = service.acquire_lock("session-1", "agent-b", 300).expect("reacquire");
+        service
+            .acquire_lock("session-1", "agent-a", 300)
+            .expect("acquire");
+        service
+            .release_lock("session-1", "agent-a")
+            .expect("release");
+        let lock = service
+            .acquire_lock("session-1", "agent-b", 300)
+            .expect("reacquire");
         assert_eq!(lock.agent_id, "agent-b");
     }
 
     #[test]
     fn given_lock_when_heartbeat_then_extended() {
         let service = create_service();
-        let original = service.acquire_lock("session-1", "agent-a", 300).expect("acquire");
-        let extended = service.heartbeat("session-1", "agent-a").expect("heartbeat");
+        let original = service
+            .acquire_lock("session-1", "agent-a", 300)
+            .expect("acquire");
+        let extended = service
+            .heartbeat("session-1", "agent-a")
+            .expect("heartbeat");
         assert!(extended.expires_at >= original.expires_at);
     }
 
@@ -140,14 +155,21 @@ mod tests {
     #[test]
     fn given_no_lock_when_get_state_then_none() {
         let service = create_service();
-        assert!(service.get_lock_state("session-1").expect("state").is_none());
+        assert!(service
+            .get_lock_state("session-1")
+            .expect("state")
+            .is_none());
     }
 
     #[test]
     fn given_operations_when_audit_log_then_entries() {
         let service = create_service();
-        service.acquire_lock("session-1", "agent-a", 300).expect("acquire");
-        service.release_lock("session-1", "agent-a").expect("release");
+        service
+            .acquire_lock("session-1", "agent-a", 300)
+            .expect("acquire");
+        service
+            .release_lock("session-1", "agent-a")
+            .expect("release");
         let log = service.get_audit_log("session-1").expect("audit");
         assert_eq!(log.len(), 2);
         assert_eq!(log[0].operation, LockOperation::Acquire);

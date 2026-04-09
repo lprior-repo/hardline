@@ -385,29 +385,29 @@ mod tests {
     fn test_backoff_formula_base_times_factor_to_attempt_power() {
         // Formula: base_delay * factor^attempt
         let policy = RetryPolicy::new(10, 100, 2.0, None, vec![]).expect("ok");
-        assert_eq!(policy.calculate_delay(0), 100);   // 100 * 2^0
-        assert_eq!(policy.calculate_delay(1), 200);   // 100 * 2^1
-        assert_eq!(policy.calculate_delay(2), 400);   // 100 * 2^2
-        assert_eq!(policy.calculate_delay(3), 800);   // 100 * 2^3
-        assert_eq!(policy.calculate_delay(4), 1600);  // 100 * 2^4
+        assert_eq!(policy.calculate_delay(0), 100); // 100 * 2^0
+        assert_eq!(policy.calculate_delay(1), 200); // 100 * 2^1
+        assert_eq!(policy.calculate_delay(2), 400); // 100 * 2^2
+        assert_eq!(policy.calculate_delay(3), 800); // 100 * 2^3
+        assert_eq!(policy.calculate_delay(4), 1600); // 100 * 2^4
     }
 
     #[test]
     fn test_backoff_with_factor_1_5() {
         let policy = RetryPolicy::new(10, 100, 1.5, None, vec![]).expect("ok");
-        assert_eq!(policy.calculate_delay(0), 100);  // 100 * 1.5^0
-        assert_eq!(policy.calculate_delay(1), 150);  // 100 * 1.5^1
-        assert_eq!(policy.calculate_delay(2), 225);  // 100 * 1.5^2
-        assert_eq!(policy.calculate_delay(3), 337);  // 100 * 1.5^3 ≈ 337.5, truncated
+        assert_eq!(policy.calculate_delay(0), 100); // 100 * 1.5^0
+        assert_eq!(policy.calculate_delay(1), 150); // 100 * 1.5^1
+        assert_eq!(policy.calculate_delay(2), 225); // 100 * 1.5^2
+        assert_eq!(policy.calculate_delay(3), 337); // 100 * 1.5^3 ≈ 337.5, truncated
     }
 
     #[test]
     fn test_backoff_with_factor_3() {
         let policy = RetryPolicy::new(10, 10, 3.0, None, vec![]).expect("ok");
-        assert_eq!(policy.calculate_delay(0), 10);   // 10 * 3^0
-        assert_eq!(policy.calculate_delay(1), 30);   // 10 * 3^1
-        assert_eq!(policy.calculate_delay(2), 90);   // 10 * 3^2
-        assert_eq!(policy.calculate_delay(3), 270);  // 10 * 3^3
+        assert_eq!(policy.calculate_delay(0), 10); // 10 * 3^0
+        assert_eq!(policy.calculate_delay(1), 30); // 10 * 3^1
+        assert_eq!(policy.calculate_delay(2), 90); // 10 * 3^2
+        assert_eq!(policy.calculate_delay(3), 270); // 10 * 3^3
     }
 
     #[test]
@@ -430,8 +430,14 @@ mod tests {
         let mut prev = 0u64;
         for attempt in 0..50 {
             let delay = policy.calculate_delay(attempt);
-            assert!(delay >= prev, "Non-monotonic at attempt {attempt}: {delay} < {prev}");
-            assert!(delay <= 10000, "Exceeded max at attempt {attempt}: {delay} > 10000");
+            assert!(
+                delay >= prev,
+                "Non-monotonic at attempt {attempt}: {delay} < {prev}"
+            );
+            assert!(
+                delay <= 10000,
+                "Exceeded max at attempt {attempt}: {delay} > 10000"
+            );
             prev = delay;
         }
     }
@@ -471,7 +477,11 @@ mod tests {
         ];
         for (base, factor, max) in cases {
             let policy = RetryPolicy::new(5, base, factor, max, vec![]).expect("ok");
-            assert_eq!(policy.calculate_delay(0), base, "base={base}, factor={factor}");
+            assert_eq!(
+                policy.calculate_delay(0),
+                base,
+                "base={base}, factor={factor}"
+            );
         }
     }
 
@@ -611,7 +621,10 @@ mod tests {
     #[test]
     fn test_is_retryable_any_pattern_matches() {
         let policy = RetryPolicy::new(
-            3, 100, 2.0, None,
+            3,
+            100,
+            2.0,
+            None,
             vec!["timeout".into(), "refused".into(), "reset".into()],
         )
         .expect("ok");
@@ -885,10 +898,10 @@ mod tests {
     #[test]
     fn test_backoff_with_factor_10() {
         let policy = RetryPolicy::new(5, 1, 10.0, None, vec![]).expect("should create");
-        assert_eq!(policy.calculate_delay(0), 1);     // 1 * 10^0 = 1
-        assert_eq!(policy.calculate_delay(1), 10);    // 1 * 10^1 = 10
-        assert_eq!(policy.calculate_delay(2), 100);   // 1 * 10^2 = 100
-        assert_eq!(policy.calculate_delay(3), 1000);  // 1 * 10^3 = 1000
+        assert_eq!(policy.calculate_delay(0), 1); // 1 * 10^0 = 1
+        assert_eq!(policy.calculate_delay(1), 10); // 1 * 10^1 = 10
+        assert_eq!(policy.calculate_delay(2), 100); // 1 * 10^2 = 100
+        assert_eq!(policy.calculate_delay(3), 1000); // 1 * 10^3 = 1000
     }
 
     #[test]
@@ -948,7 +961,8 @@ mod tests {
 
     #[test]
     fn test_retry_policy_clone_equality() {
-        let policy = RetryPolicy::new(3, 100, 2.0, Some(1000), vec!["io".into()]).expect("should create");
+        let policy =
+            RetryPolicy::new(3, 100, 2.0, Some(1000), vec!["io".into()]).expect("should create");
         let cloned = policy.clone();
         assert_eq!(policy, cloned);
     }

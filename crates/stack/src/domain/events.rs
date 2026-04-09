@@ -136,14 +136,12 @@ pub fn try_transition(
             resolved_branches: branches,
             timestamp,
         }),
-        (from, StackState::Failed) if from != StackState::Failed => {
-            Ok(StackEvent::StackFailed {
-                stack_id,
-                previous_state: from,
-                branches,
-                timestamp,
-            })
-        }
+        (from, StackState::Failed) if from != StackState::Failed => Ok(StackEvent::StackFailed {
+            stack_id,
+            previous_state: from,
+            branches,
+            timestamp,
+        }),
         _ => Err(InvalidTransition { from, to }),
     }
 }
@@ -235,24 +233,39 @@ mod tests {
 
     #[test]
     fn draft_to_published_emits_stack_published() {
-        let event = try_transition(sid(1), StackState::Draft, StackState::Published, branches(&["f"]))
-            .expect("should succeed");
+        let event = try_transition(
+            sid(1),
+            StackState::Draft,
+            StackState::Published,
+            branches(&["f"]),
+        )
+        .expect("should succeed");
         assert!(matches!(event, StackEvent::StackPublished { .. }));
         assert_eq!(event.kind(), "StackPublished");
     }
 
     #[test]
     fn published_to_merging_emits_stack_merging() {
-        let event = try_transition(sid(2), StackState::Published, StackState::Merging, branches(&["f"]))
-            .expect("should succeed");
+        let event = try_transition(
+            sid(2),
+            StackState::Published,
+            StackState::Merging,
+            branches(&["f"]),
+        )
+        .expect("should succeed");
         assert!(matches!(event, StackEvent::StackMerging { .. }));
         assert_eq!(event.kind(), "StackMerging");
     }
 
     #[test]
     fn merging_to_merged_emits_stack_merged() {
-        let event = try_transition(sid(3), StackState::Merging, StackState::Merged, branches(&["f"]))
-            .expect("should succeed");
+        let event = try_transition(
+            sid(3),
+            StackState::Merging,
+            StackState::Merged,
+            branches(&["f"]),
+        )
+        .expect("should succeed");
         assert!(matches!(event, StackEvent::StackMerged { .. }));
         assert_eq!(event.kind(), "StackMerged");
     }
@@ -293,8 +306,8 @@ mod tests {
             StackState::Merged,
         ];
         for from in non_failed {
-            let event =
-                try_transition(sid(10), from, StackState::Failed, Vec::new()).expect("should succeed");
+            let event = try_transition(sid(10), from, StackState::Failed, Vec::new())
+                .expect("should succeed");
             assert!(
                 matches!(event, StackEvent::StackFailed { .. }),
                 "from {from:?} → Failed should emit StackFailed"
@@ -308,12 +321,42 @@ mod tests {
     #[test]
     fn event_carries_correct_stack_id() {
         let cases: Vec<StackEvent> = vec![
-            try_transition(sid(100), StackState::Draft, StackState::Published, Vec::new()).expect("a"),
-            try_transition(sid(200), StackState::Published, StackState::Merging, Vec::new()).expect("b"),
-            try_transition(sid(300), StackState::Merging, StackState::Merged, Vec::new()).expect("c"),
+            try_transition(
+                sid(100),
+                StackState::Draft,
+                StackState::Published,
+                Vec::new(),
+            )
+            .expect("a"),
+            try_transition(
+                sid(200),
+                StackState::Published,
+                StackState::Merging,
+                Vec::new(),
+            )
+            .expect("b"),
+            try_transition(
+                sid(300),
+                StackState::Merging,
+                StackState::Merged,
+                Vec::new(),
+            )
+            .expect("c"),
             try_transition(sid(400), StackState::Draft, StackState::Failed, Vec::new()).expect("d"),
-            try_transition(sid(500), StackState::Merging, StackState::Conflict, Vec::new()).expect("e"),
-            try_transition(sid(600), StackState::Conflict, StackState::Published, Vec::new()).expect("f"),
+            try_transition(
+                sid(500),
+                StackState::Merging,
+                StackState::Conflict,
+                Vec::new(),
+            )
+            .expect("e"),
+            try_transition(
+                sid(600),
+                StackState::Conflict,
+                StackState::Published,
+                Vec::new(),
+            )
+            .expect("f"),
         ];
         let expected: Vec<StackId> = [100, 200, 300, 400, 500, 600].map(sid).to_vec();
         for (event, want) in cases.iter().zip(expected.iter()) {
@@ -451,8 +494,7 @@ mod tests {
             StackState::Merged,
         ];
         for from in froms {
-            let event =
-                try_transition(sid(1), from, StackState::Failed, Vec::new()).expect("ok");
+            let event = try_transition(sid(1), from, StackState::Failed, Vec::new()).expect("ok");
             match event {
                 StackEvent::StackFailed { previous_state, .. } => {
                     assert_eq!(previous_state, from);
@@ -482,8 +524,10 @@ mod tests {
         let id = sid(1);
         let br = branches(&["feat"]);
 
-        let e1 = try_transition(id, StackState::Draft, StackState::Published, br.clone()).expect("1");
-        let e2 = try_transition(id, StackState::Published, StackState::Merging, br.clone()).expect("2");
+        let e1 =
+            try_transition(id, StackState::Draft, StackState::Published, br.clone()).expect("1");
+        let e2 =
+            try_transition(id, StackState::Published, StackState::Merging, br.clone()).expect("2");
         let e3 = try_transition(id, StackState::Merging, StackState::Merged, br).expect("3");
 
         assert_eq!(e1.kind(), "StackPublished");
@@ -500,9 +544,12 @@ mod tests {
         let id = sid(2);
         let br = branches(&["feat"]);
 
-        let e1 = try_transition(id, StackState::Draft, StackState::Published, br.clone()).expect("1");
-        let e2 = try_transition(id, StackState::Published, StackState::Merging, br.clone()).expect("2");
-        let e3 = try_transition(id, StackState::Merging, StackState::Conflict, br.clone()).expect("3");
+        let e1 =
+            try_transition(id, StackState::Draft, StackState::Published, br.clone()).expect("1");
+        let e2 =
+            try_transition(id, StackState::Published, StackState::Merging, br.clone()).expect("2");
+        let e3 =
+            try_transition(id, StackState::Merging, StackState::Conflict, br.clone()).expect("3");
         let e4 = try_transition(id, StackState::Conflict, StackState::Published, br).expect("4");
 
         assert_eq!(e1.kind(), "StackPublished");
@@ -525,7 +572,8 @@ mod tests {
         assert_eq!(e1.kind(), "StackFailed");
 
         // Fail at published
-        let e2 = try_transition(id, StackState::Published, StackState::Failed, br.clone()).expect("2");
+        let e2 =
+            try_transition(id, StackState::Published, StackState::Failed, br.clone()).expect("2");
         assert_eq!(e2.kind(), "StackFailed");
 
         // Fail at merging
@@ -654,7 +702,11 @@ mod tests {
             );
             seen.push(d);
         }
-        assert_eq!(seen.len(), 6, "should have exactly 6 distinct discriminants");
+        assert_eq!(
+            seen.len(),
+            6,
+            "should have exactly 6 distinct discriminants"
+        );
     }
 
     // -- event kind -------------------------------------------------------
