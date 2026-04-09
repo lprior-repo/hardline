@@ -13,7 +13,10 @@ pub mod github;
 pub mod infrastructure;
 
 pub use domain::entities::{PrInfo, PrState, Stack, StackBranch};
-pub use domain::value_objects::BranchName;
+pub use domain::value_objects::{
+    all_checks_complete, check_sort_key, dedup_check_runs, format_duration, BranchCiStatus,
+    BranchName, CheckRunInfo,
+};
 pub use engine::restack::{
     build_all_restack_plans, build_restack_plan, calculate_depth, infer_scope, scope_branches,
     RestackPlan, RestackScope, RestackStep,

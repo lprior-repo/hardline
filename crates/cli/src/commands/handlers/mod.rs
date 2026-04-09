@@ -13,6 +13,7 @@ pub mod bookmark;
 pub mod branch;
 pub mod can_i;
 pub mod checkpoint;
+pub mod ci;
 pub mod clean;
 pub mod completions;
 pub mod config_ports;

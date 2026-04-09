@@ -268,9 +268,9 @@ struct ReviewNode {
 
 /// Async GitHub API client backed by octocrab.
 pub struct GitHubClient {
-    octocrab: Octocrab,
-    owner: String,
-    repo: String,
+    pub(crate) octocrab: Octocrab,
+    pub(crate) owner: String,
+    pub(crate) repo: String,
     api_call_tracker: Arc<ApiCallTracker>,
 }
 

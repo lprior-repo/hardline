@@ -721,5 +721,41 @@ pub fn run_command(cli: Cli) -> Result<()> {
             };
             commands::handlers::examples::run_examples(&options)
         }
+
+        Commands::Ci { command } => {
+            use crate::cli::args::CiCommands;
+            match command {
+                CiCommands::Check {
+                    all,
+                    stack,
+                    json,
+                    verbose,
+                } => {
+                    let options = commands::handlers::ci::CiCheckOptions {
+                        all,
+                        stack,
+                        json,
+                        verbose,
+                    };
+                    commands::handlers::ci::run_ci_check(&options)
+                }
+                CiCommands::Watch {
+                    all,
+                    stack,
+                    json,
+                    verbose,
+                    interval,
+                } => {
+                    let options = commands::handlers::ci::CiWatchOptions {
+                        all,
+                        stack,
+                        json,
+                        verbose,
+                        interval,
+                    };
+                    commands::handlers::ci::run_ci_watch(&options)
+                }
+            }
+        }
     }
 }

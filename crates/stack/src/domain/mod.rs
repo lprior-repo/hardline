@@ -8,4 +8,7 @@ pub mod value_objects;
 pub use entities::{PrInfo, PrState, Stack, StackBranch};
 pub use metadata::{BranchMetadata, MetadataPrInfo};
 pub use state::{BranchState, PrState as StackPrState, StackState};
-pub use value_objects::BranchName;
+pub use value_objects::{
+    all_checks_complete, check_sort_key, dedup_check_runs, format_duration, BranchCiStatus,
+    BranchName, CheckRunInfo,
+};

@@ -208,6 +208,58 @@ pub enum Commands {
         #[arg(long)]
         use_case: Option<String>,
     },
+
+    /// CI status monitoring (from Stax)
+    Ci {
+        #[command(subcommand)]
+        command: CiCommands,
+    },
+}
+
+/// CI subcommands
+#[derive(Subcommand)]
+pub enum CiCommands {
+    /// Check CI status for branches
+    Check {
+        /// Show all tracked branches
+        #[arg(short, long)]
+        all: bool,
+
+        /// Show current stack branches
+        #[arg(short, long)]
+        stack: bool,
+
+        /// Output as JSON
+        #[arg(short, long)]
+        json: bool,
+
+        /// Compact display mode
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Watch CI status until all checks complete
+    Watch {
+        /// Show all tracked branches
+        #[arg(short, long)]
+        all: bool,
+
+        /// Show current stack branches
+        #[arg(short, long)]
+        stack: bool,
+
+        /// Output as JSON
+        #[arg(short, long)]
+        json: bool,
+
+        /// Compact display mode
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// Poll interval in seconds
+        #[arg(short, long, default_value = "30")]
+        interval: u64,
+    },
 }
 
 #[cfg(test)]
@@ -468,5 +520,50 @@ mod tests {
     fn parse_switch_requires_name() {
         let result = Cli::try_parse_from(["scp", "switch"]);
         assert!(result.is_err());
+    }
+
+    // -- CI command --
+    #[test]
+    fn parse_ci_check() {
+        let cli = Cli::parse_from(["scp", "ci", "check"]);
+        match cli.command {
+            Commands::Ci { command } => {
+                assert!(matches!(command, CiCommands::Check { all: false, .. }));
+            }
+            other => panic!("Expected Ci, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn parse_ci_check_with_flags() {
+        let cli = Cli::parse_from(["scp", "ci", "check", "--all", "--json"]);
+        match cli.command {
+            Commands::Ci { command } => {
+                assert!(matches!(command, CiCommands::Check { all: true, json: true, .. }));
+            }
+            other => panic!("Expected Ci, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn parse_ci_watch() {
+        let cli = Cli::parse_from(["scp", "ci", "watch"]);
+        match cli.command {
+            Commands::Ci { command } => {
+                assert!(matches!(command, CiCommands::Watch { interval: 30, .. }));
+            }
+            other => panic!("Expected Ci, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn parse_ci_watch_with_interval() {
+        let cli = Cli::parse_from(["scp", "ci", "watch", "--interval", "60"]);
+        match cli.command {
+            Commands::Ci { command } => {
+                assert!(matches!(command, CiCommands::Watch { interval: 60, .. }));
+            }
+            other => panic!("Expected Ci, got {:?}", std::mem::discriminant(&other)),
+        }
     }
 }
