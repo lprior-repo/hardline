@@ -2801,4 +2801,647 @@ mod tests {
             assert_eq!(ws.name.as_str(), "ワークスペース");
         }
     }
+
+    // =============================================================================
+    // unlock_workspace exhaustive tests (ha-5y3)
+    // =============================================================================
+
+    mod unlock_workspace_exhaustive {
+        use super::*;
+
+        fn make_active(name: &str) -> Workspace {
+            WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .and_then(WorkspaceService::initialize_workspace)
+            .unwrap()
+        }
+
+        fn make_locked(name: &str, holder: &str) -> Workspace {
+            WorkspaceService::lock_workspace(make_active(name), holder.into()).unwrap()
+        }
+
+        fn make_initializing(name: &str) -> Workspace {
+            WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .unwrap()
+        }
+
+        fn make_corrupted(name: &str) -> Workspace {
+            let ws = make_active(name);
+            Workspace {
+                state: WorkspaceState::Corrupted,
+                ..ws
+            }
+        }
+
+        fn make_deleted(name: &str) -> Workspace {
+            let ws = make_active(name);
+            Workspace {
+                state: WorkspaceState::Deleted,
+                ..ws
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // HAPPY PATH: Locked → Active
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn unlock_happy_path_transitions_locked_to_active() {
+            let locked = make_locked("unlock-happy", "agent-1");
+            let result = WorkspaceService::unlock_workspace(locked);
+            assert!(result.is_ok());
+            let unlocked = result.unwrap();
+            assert_eq!(unlocked.state, WorkspaceState::Active);
+            assert!(unlocked.is_active());
+        }
+
+        #[test]
+        fn unlock_happy_path_clears_lock_holder() {
+            let locked = make_locked("unlock-clear-holder", "agent-42");
+            assert_eq!(locked.lock_holder(), Some("agent-42"));
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert!(unlocked.lock_holder().is_none());
+        }
+
+        #[test]
+        fn unlock_happy_path_preserves_workspace_id() {
+            let locked = make_locked("unlock-id", "agent");
+            let id_before = locked.id.as_str().to_string();
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert_eq!(unlocked.id.as_str(), id_before);
+        }
+
+        #[test]
+        fn unlock_happy_path_preserves_workspace_name() {
+            let locked = make_locked("unlock-name", "agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert_eq!(unlocked.name.as_str(), "unlock-name");
+        }
+
+        #[test]
+        fn unlock_happy_path_preserves_workspace_path() {
+            let locked = make_locked("unlock-path", "agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert_eq!(unlocked.path.as_str(), Some("/tmp/unlock-path"));
+        }
+
+        #[test]
+        fn unlock_happy_path_preserves_config() {
+            let locked = make_locked("unlock-cfg", "agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            let config = unlocked.config().expect("should have config");
+            assert_eq!(config.default_branch, "main");
+            assert!(config.auto_sync);
+        }
+
+        #[test]
+        fn unlock_happy_path_preserves_created_at() {
+            let locked = make_locked("unlock-created-ts", "agent");
+            let created_at = locked.created_at();
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert_eq!(unlocked.created_at(), created_at);
+        }
+
+        #[test]
+        fn unlock_happy_path_not_locked_after_unlock() {
+            let locked = make_locked("unlock-notlocked", "agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert!(!unlocked.is_locked());
+        }
+
+        #[test]
+        fn unlock_happy_path_not_terminal_after_unlock() {
+            let locked = make_locked("unlock-notterm", "agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert!(!unlocked.is_terminal());
+        }
+
+        #[test]
+        fn unlock_happy_path_is_active() {
+            let locked = make_locked("unlock-isactive", "agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert!(unlocked.is_active());
+        }
+
+        #[test]
+        fn unlock_happy_path_with_different_holder_names() {
+            let holders = vec!["agent-1", "x", "a-very-long-agent-name-with-lots-of-chars"];
+            for holder in holders {
+                let locked = make_locked("unlock-holders", holder);
+                let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+                assert!(unlocked.lock_holder().is_none());
+                assert!(unlocked.is_active());
+            }
+        }
+
+        #[test]
+        fn unlock_after_lock_with_empty_holder() {
+            let active = make_active("unlock-empty-holder");
+            let locked = WorkspaceService::lock_workspace(active, "".into()).unwrap();
+            assert_eq!(locked.lock_holder(), Some(""));
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert!(unlocked.lock_holder().is_none());
+            assert!(unlocked.is_active());
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // NOT LOCKED: workspace in non-Locked state returns error
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn unlock_fails_when_active() {
+            let active = make_active("unlock-active-err");
+            let result = WorkspaceService::unlock_workspace(active);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn unlock_active_error_is_invalid_state_transition() {
+            let active = make_active("unlock-active-type");
+            let result = WorkspaceService::unlock_workspace(active);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Active");
+                    assert_eq!(to, "Active");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn unlock_fails_when_initializing() {
+            let initializing = make_initializing("unlock-init-err");
+            let result = WorkspaceService::unlock_workspace(initializing);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn unlock_initializing_error_is_invalid_state_transition() {
+            let initializing = make_initializing("unlock-init-type");
+            let result = WorkspaceService::unlock_workspace(initializing);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Initializing");
+                    assert_eq!(to, "Active");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn unlock_fails_when_corrupted() {
+            let corrupted = make_corrupted("unlock-corrupt-err");
+            let result = WorkspaceService::unlock_workspace(corrupted);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn unlock_corrupted_error_is_invalid_state_transition() {
+            let corrupted = make_corrupted("unlock-corrupt-type");
+            let result = WorkspaceService::unlock_workspace(corrupted);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Corrupted");
+                    assert_eq!(to, "Active");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn unlock_fails_when_deleted() {
+            let deleted = make_deleted("unlock-del-err");
+            let result = WorkspaceService::unlock_workspace(deleted);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn unlock_deleted_error_is_invalid_state_transition() {
+            let deleted = make_deleted("unlock-del-type");
+            let result = WorkspaceService::unlock_workspace(deleted);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Deleted");
+                    assert_eq!(to, "Active");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn unlock_manually_constructed_active_with_lock_holder_fails() {
+            let ws = Workspace {
+                id: WorkspaceId::parse("manual-active".into()).unwrap(),
+                name: WorkspaceName::new("manual-active".into()).unwrap(),
+                path: WorkspacePath::new("/tmp/manual".into()).unwrap(),
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+                lock_holder: Some("ghost-holder".into()),
+                config: None,
+                state: WorkspaceState::Active,
+                _state: std::marker::PhantomData,
+            };
+            let result = WorkspaceService::unlock_workspace(ws);
+            assert!(result.is_err());
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // TABLE-DRIVEN: only Locked state is accepted
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn table_driven_only_locked_succeeds() {
+            let cases: Vec<(&str, WorkspaceState, bool)> = vec![
+                ("Initializing", WorkspaceState::Initializing, false),
+                ("Active", WorkspaceState::Active, false),
+                ("Locked", WorkspaceState::Locked, true),
+                ("Corrupted", WorkspaceState::Corrupted, false),
+                ("Deleted", WorkspaceState::Deleted, false),
+            ];
+
+            for (label, state, expect_ok) in cases {
+                let ws = WorkspaceService::create_workspace(
+                    WorkspaceName::new(format!("tbl-unlock-{}", label).into()).unwrap(),
+                    WorkspacePath::new(format!("/tmp/tbl-unlock-{}", label)).unwrap(),
+                )
+                .unwrap();
+                let ws_with_state = Workspace { state, ..ws };
+                let result = WorkspaceService::unlock_workspace(ws_with_state);
+                assert_eq!(
+                    result.is_ok(),
+                    expect_ok,
+                    "state={:?} ({}): expected ok={}, got ok={}",
+                    state,
+                    label,
+                    expect_ok,
+                    result.is_ok()
+                );
+                if expect_ok {
+                    assert_eq!(result.unwrap().state, WorkspaceState::Active);
+                }
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // WRONG HOLDER: unlock by different identity
+        //
+        // NOTE: The current WorkspaceService::unlock_workspace does NOT validate
+        // the lock holder identity. It always clears the lock regardless of who
+        // holds it. These tests document the CURRENT behavior. If holder validation
+        // is added in the future, these tests should be updated to expect errors.
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn unlock_by_different_holder_succeeds_current_behavior() {
+            let locked = make_locked("wrong-holder-ok", "agent-owner");
+            assert_eq!(locked.lock_holder(), Some("agent-owner"));
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert!(unlocked.is_active());
+            assert!(unlocked.lock_holder().is_none());
+        }
+
+        #[test]
+        fn unlock_clears_holder_regardless_of_who_calls() {
+            let locked = make_locked("holder-indifferent", "agent-A");
+            assert_eq!(locked.lock_holder(), Some("agent-A"));
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert!(unlocked.lock_holder().is_none());
+        }
+
+        #[test]
+        fn unlock_by_different_holder_preserves_workspace_id() {
+            let locked = make_locked("holder-preserve-id", "original-agent");
+            let id_before = locked.id.as_str().to_string();
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert_eq!(unlocked.id.as_str(), id_before);
+        }
+
+        #[test]
+        fn unlock_by_different_holder_preserves_workspace_name() {
+            let locked = make_locked("holder-preserve-name", "original-agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert_eq!(unlocked.name.as_str(), "holder-preserve-name");
+        }
+
+        #[test]
+        fn unlock_by_different_holder_preserves_config() {
+            let locked = make_locked("holder-preserve-cfg", "original-agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            let config = unlocked.config().expect("should have config");
+            assert_eq!(config.default_branch, "main");
+            assert!(config.auto_sync);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // STATE CORRUPTION: Locked→Corrupted then unlock fails
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn unlock_fails_after_manual_corruption_from_locked() {
+            let locked = make_locked("corrupt-then-unlock", "agent-1");
+            let corrupted = Workspace {
+                state: WorkspaceState::Corrupted,
+                ..locked
+            };
+            let result = WorkspaceService::unlock_workspace(corrupted);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn unlock_after_corruption_returns_invalid_state_transition() {
+            let locked = make_locked("corrupt-unlock-err", "agent-1");
+            let corrupted = Workspace {
+                state: WorkspaceState::Corrupted,
+                ..locked
+            };
+            match WorkspaceService::unlock_workspace(corrupted).err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Corrupted");
+                    assert_eq!(to, "Active");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn unlock_fails_after_manual_deletion_from_locked() {
+            let locked = make_locked("deleted-then-unlock", "agent-1");
+            let deleted = Workspace {
+                state: WorkspaceState::Deleted,
+                ..locked
+            };
+            let result = WorkspaceService::unlock_workspace(deleted);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn unlock_after_deletion_returns_invalid_state_transition() {
+            let locked = make_locked("del-unlock-err", "agent-1");
+            let deleted = Workspace {
+                state: WorkspaceState::Deleted,
+                ..locked
+            };
+            match WorkspaceService::unlock_workspace(deleted).err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Deleted");
+                    assert_eq!(to, "Active");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // MANUALLY CONSTRUCTED: workspace not found (no matching entity)
+        //
+        // WorkspaceService::unlock_workspace operates on a Workspace value, not a
+        // repository. There is no "not found" case at this level. We test that
+        // manually constructed workspaces with Locked state still unlock correctly.
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn unlock_manually_constructed_locked_workspace() {
+            let ws = Workspace {
+                id: WorkspaceId::parse("manual-ws-123".into()).unwrap(),
+                name: WorkspaceName::new("manual-unlock".into()).unwrap(),
+                path: WorkspacePath::new("/tmp/manual-unlock".into()).unwrap(),
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+                lock_holder: Some("manual-agent".into()),
+                config: None,
+                state: WorkspaceState::Locked,
+                _state: std::marker::PhantomData,
+            };
+            let unlocked = WorkspaceService::unlock_workspace(ws).unwrap();
+            assert!(unlocked.is_active());
+            assert!(unlocked.lock_holder().is_none());
+            assert_eq!(unlocked.id.as_str(), "manual-ws-123");
+            assert_eq!(unlocked.name.as_str(), "manual-unlock");
+        }
+
+        #[test]
+        fn unlock_manually_constructed_locked_no_config() {
+            let ws = Workspace {
+                id: WorkspaceId::parse("no-cfg-id".into()).unwrap(),
+                name: WorkspaceName::new("no-cfg".into()).unwrap(),
+                path: WorkspacePath::new("/tmp/no-cfg".into()).unwrap(),
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+                lock_holder: Some("holder".into()),
+                config: None,
+                state: WorkspaceState::Locked,
+                _state: std::marker::PhantomData,
+            };
+            let unlocked = WorkspaceService::unlock_workspace(ws).unwrap();
+            assert!(unlocked.config().is_none());
+            assert!(unlocked.is_active());
+        }
+
+        #[test]
+        fn unlock_manually_constructed_locked_no_holder() {
+            let ws = Workspace {
+                id: WorkspaceId::parse("no-holder-id".into()).unwrap(),
+                name: WorkspaceName::new("no-holder".into()).unwrap(),
+                path: WorkspacePath::new("/tmp/no-holder".into()).unwrap(),
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+                lock_holder: None,
+                config: None,
+                state: WorkspaceState::Locked,
+                _state: std::marker::PhantomData,
+            };
+            let unlocked = WorkspaceService::unlock_workspace(ws).unwrap();
+            assert!(unlocked.lock_holder().is_none());
+            assert!(unlocked.is_active());
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // LIFECYCLE: lock → unlock → lock → unlock (idempotency & cycling)
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn unlock_then_relock_with_different_holder() {
+            let locked1 = make_locked("cycle-1", "agent-A");
+            let unlocked1 = WorkspaceService::unlock_workspace(locked1).unwrap();
+            assert!(unlocked1.is_active());
+
+            let locked2 = WorkspaceService::lock_workspace(unlocked1, "agent-B".into());
+            assert!(locked2.is_ok());
+            let locked2 = locked2.unwrap();
+            assert_eq!(locked2.lock_holder(), Some("agent-B"));
+
+            let unlocked2 = WorkspaceService::unlock_workspace(locked2).unwrap();
+            assert!(unlocked2.is_active());
+            assert!(unlocked2.lock_holder().is_none());
+        }
+
+        #[test]
+        fn unlock_then_delete_succeeds() {
+            let locked = make_locked("unlock-del", "agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            let deleted = WorkspaceService::delete_workspace(unlocked).unwrap();
+            assert_eq!(deleted.state, WorkspaceState::Deleted);
+            assert!(deleted.is_terminal());
+        }
+
+        #[test]
+        fn unlock_multiple_cycles_preserves_identity() {
+            let active = make_active("multi-cycle");
+            let id = active.id.as_str().to_string();
+            let name = active.name.as_str().to_string();
+
+            let mut current = active;
+            for i in 0..5 {
+                let locked =
+                    WorkspaceService::lock_workspace(current, format!("agent-{}", i)).unwrap();
+                current = WorkspaceService::unlock_workspace(locked).unwrap();
+                assert_eq!(current.id.as_str(), id);
+                assert_eq!(current.name.as_str(), name);
+                assert!(current.is_active());
+            }
+        }
+
+        #[test]
+        fn double_unlock_fails() {
+            let locked = make_locked("double-unlock", "agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert!(unlocked.is_active());
+            let second = WorkspaceService::unlock_workspace(unlocked);
+            assert!(
+                second.is_err(),
+                "unlocking an already-unlocked workspace must fail"
+            );
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // ERROR MESSAGE FORMAT
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn unlock_error_message_contains_from_and_to_states() {
+            let active = make_active("err-msg-unlock");
+            let result = WorkspaceService::unlock_workspace(active);
+            let err = result.err().expect("should be error");
+            let msg = format!("{err}");
+            assert!(
+                msg.contains("Active"),
+                "error message should contain 'Active': {msg}"
+            );
+            assert!(
+                msg.contains("Invalid state transition"),
+                "error message should contain 'Invalid state transition': {msg}"
+            );
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // CROSS-METHOD: unlock result is visible to query methods
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn unlocked_workspace_appears_in_active_list() {
+            let locked = make_locked("query-active", "agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            let all = vec![unlocked];
+            let active_list = WorkspaceService::get_active_workspaces(&all);
+            assert_eq!(active_list.len(), 1);
+            assert_eq!(active_list[0].name.as_str(), "query-active");
+        }
+
+        #[test]
+        fn unlocked_workspace_not_in_locked_list() {
+            let locked = make_locked("query-locked", "agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            let all = vec![unlocked];
+            let locked_list = WorkspaceService::get_locked_workspaces(&all);
+            assert!(locked_list.is_empty());
+        }
+
+        #[test]
+        fn unlocked_workspace_findable_by_id() {
+            let locked = make_locked("find-unlocked", "agent");
+            let id = locked.id.clone();
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            let all = vec![unlocked];
+            let found = WorkspaceService::find_workspace(&all, &id);
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().name.as_str(), "find-unlocked");
+            assert!(found.unwrap().lock_holder().is_none());
+        }
+
+        #[test]
+        fn unlocked_workspace_findable_by_name() {
+            let locked = make_locked("name-unlocked", "agent");
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            let all = vec![unlocked];
+            let found = WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("name-unlocked".into()).unwrap(),
+            );
+            assert!(found.is_some());
+            assert!(found.unwrap().lock_holder().is_none());
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // MULTIPLE WORKSPACES: independent unlock operations
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn unlock_multiple_independent_workspaces() {
+            let mut unlocked_all = Vec::new();
+            for i in 0..5 {
+                let locked = make_locked(&format!("multi-{}", i), &format!("agent-{}", i));
+                let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+                assert!(unlocked.is_active());
+                assert!(unlocked.lock_holder().is_none());
+                unlocked_all.push(unlocked);
+            }
+            let ids: std::collections::HashSet<&str> =
+                unlocked_all.iter().map(|w| w.id.as_str()).collect();
+            assert_eq!(ids.len(), 5);
+        }
+
+        #[test]
+        fn unlock_does_not_affect_other_locked_workspaces() {
+            let locked1 = make_locked("stay-locked", "agent-A");
+            let locked2 = make_locked("get-unlocked", "agent-B");
+
+            let _unlocked2 = WorkspaceService::unlock_workspace(locked2).unwrap();
+            assert!(locked1.is_locked());
+            assert_eq!(locked1.lock_holder(), Some("agent-A"));
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // RECOVER VS UNLOCK: both clear lock but via different paths
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn unlock_and_recover_both_clear_holder() {
+            let locked_for_unlock = make_locked("via-unlock", "agent-1");
+            let locked_for_recover = make_locked("via-recover", "agent-1");
+
+            let unlocked = WorkspaceService::unlock_workspace(locked_for_unlock).unwrap();
+            let recovered = WorkspaceService::recover_workspace(locked_for_recover).unwrap();
+
+            assert!(unlocked.lock_holder().is_none());
+            assert!(recovered.lock_holder().is_none());
+            assert!(unlocked.is_active());
+            assert!(recovered.is_active());
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // TIMESTAMP: unlock preserves created_at
+        // ══════════════════════════════════════════════════════════════════════════
+
+        #[test]
+        fn unlock_preserves_created_at() {
+            let locked = make_locked("unlock-ts", "agent");
+            let created_at = locked.created_at();
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert_eq!(unlocked.created_at(), created_at);
+        }
+    }
 }
