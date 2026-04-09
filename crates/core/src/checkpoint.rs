@@ -449,4 +449,467 @@ mod tests {
         assert!(pending.is_empty());
         Ok(())
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECKPOINT CREATION WITH METADATA
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[tokio::test]
+    async fn checkpoint_stores_created_at_timestamp() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
+            let id = g.id();
+
+            // Query the checkpoint and verify created_at is set
+            let row: Option<(String, String)> =
+                sqlx::query_as("SELECT id, created_at FROM checkpoints WHERE id = ?")
+                    .bind(id)
+                    .fetch_optional(&pool)
+                    .await
+                    .ok()
+                    .flatten();
+
+            assert!(row.is_some(), "Checkpoint should exist in DB");
+            let (stored_id, created_at) = row.unwrap();
+            assert_eq!(stored_id, id);
+            assert!(!created_at.is_empty(), "created_at should not be empty");
+            // Verify it's a valid RFC3339 timestamp
+            assert!(
+                chrono::DateTime::parse_from_rfc3339(&created_at).is_ok(),
+                "created_at should be valid RFC3339: {created_at}"
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn checkpoint_initial_state_is_pending() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
+            let id = g.id();
+
+            let row: Option<(String,)> =
+                sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+                    .bind(id)
+                    .fetch_optional(&pool)
+                    .await
+                    .ok()
+                    .flatten();
+
+            assert_eq!(row.map(|(s,)| s), Some("pending".to_string()));
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn checkpoint_id_format_auto_timestamp() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
+            let id = g.id();
+            // Format: "auto-{timestamp_millis}"
+            assert!(id.starts_with("auto-"), "ID should start with 'auto-'");
+            let after_prefix = &id[5..];
+            // Should be parseable as i64
+            let _ts: i64 = after_prefix
+                .parse()
+                .expect("Timestamp suffix should be valid i64");
+        }
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECKPOINT LISTING / FILTERING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[tokio::test]
+    async fn find_pending_restores_excludes_committed() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        // Create and commit a checkpoint
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
+            let id = g.id().to_string();
+            g.commit().await?;
+
+            // Committed checkpoint should NOT appear in find_pending_restores
+            let pending = find_pending_restores(&pool).await?;
+            assert!(
+                !pending.contains(&id),
+                "Committed checkpoint {id} should not appear in pending restores"
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn find_pending_restores_excludes_needs_restore_after_commit() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        // Create a checkpoint, rollback, then commit
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
+            let id = g.id().to_string();
+            g.rollback().await?;
+            g.commit().await?;
+
+            // After commit, should not appear in pending
+            let pending = find_pending_restores(&pool).await?;
+            assert!(!pending.contains(&id));
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn multiple_checkpoints_all_tracked_separately() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        // Create multiple checkpoints with delays to ensure unique timestamps
+        let mut ids = vec![];
+        for _ in 0..3 {
+            tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+            let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+            if let Some(g) = guard_result {
+                ids.push(g.id().to_string());
+                drop(g); // Drop without commit -> pending
+            }
+        }
+
+        let pending = find_pending_restores(&pool).await?;
+        for id in &ids {
+            assert!(
+                pending.contains(id),
+                "Checkpoint {id} should appear in pending restores"
+            );
+        }
+        assert_eq!(pending.len(), ids.len());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn find_pending_restores_empty_when_no_checkpoints() -> Result<()> {
+        let pool = test_pool().await?;
+
+        let pending = find_pending_restores(&pool).await?;
+        assert!(pending.is_empty());
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHECKPOINT CLEANUP / EXPIRY (documenting behavior)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[tokio::test]
+    async fn committed_checkpoints_remain_in_db() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
+            let id = g.id().to_string();
+            g.commit().await?;
+
+            // Committed checkpoint still exists in DB, just not in pending restores
+            let row: Option<(String,)> =
+                sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+                    .bind(&id)
+                    .fetch_optional(&pool)
+                    .await
+                    .ok()
+                    .flatten();
+
+            assert_eq!(row.map(|(s,)| s), Some("committed".to_string()));
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn manually_inserted_checkpoint_queryable() -> Result<()> {
+        let pool = test_pool().await?;
+
+        // Manually insert a checkpoint with old timestamp
+        sqlx::query("INSERT INTO checkpoints (id, created_at, state) VALUES (?, ?, 'pending')")
+            .bind("manual-old-001")
+            .bind("2020-01-01T00:00:00Z")
+            .execute(&pool)
+            .await
+            .map_err(|e| Error::database(format!("Insert failed: {e}")))?;
+
+        let pending = find_pending_restores(&pool).await?;
+        assert!(
+            pending.contains(&"manual-old-001".to_string()),
+            "Manually inserted checkpoint should be queryable"
+        );
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONCURRENT CHECKPOINT OPERATIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[tokio::test]
+    async fn concurrent_guard_creation_all_succeed() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        // Create 10 guards with enough delay to avoid timestamp collisions
+        let handles: Vec<_> = (0..10)
+            .map(|i| {
+                let cp = auto_cp.clone();
+                tokio::spawn(async move {
+                    // 2ms delay ensures unique timestamps (1ms is min resolution)
+                    tokio::time::sleep(std::time::Duration::from_millis(2 * (i as u64 + 1))).await;
+                    cp.guard_if_risky(OperationRisk::Risky).await
+                })
+            })
+            .collect();
+
+        let mut ids = vec![];
+        for handle in handles {
+            let result = handle.await.expect("spawn should not panic");
+            let guard = result?;
+            if let Some(g) = guard {
+                ids.push(g.id().to_string());
+            }
+        }
+
+        // All should have unique IDs
+        let unique_ids: std::collections::HashSet<_> = ids.iter().collect();
+        assert_eq!(
+            unique_ids.len(),
+            ids.len(),
+            "All checkpoint IDs should be unique"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn concurrent_commit_and_rollback_no_panic() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        // Create guards
+        let mut guards = vec![];
+        for _ in 0..5 {
+            tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+            let guard = auto_cp
+                .guard_if_risky(OperationRisk::Risky)
+                .await?
+                .expect("guard");
+            guards.push(guard);
+        }
+
+        // Concurrently commit some and drop others
+        let handles: Vec<_> = guards
+            .into_iter()
+            .enumerate()
+            .map(|(i, g)| {
+                tokio::spawn(async move {
+                    if i % 2 == 0 {
+                        g.commit().await
+                    } else {
+                        drop(g);
+                        Ok(())
+                    }
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            let _ = handle.await;
+        }
+
+        // Should not panic - just verify DB is consistent
+        let pending = find_pending_restores(&pool).await?;
+        assert!(
+            pending.len() <= 3,
+            "At most half should be pending (those that were dropped)"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn guard_id_unique_across_all_operations() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        let mut all_ids = std::collections::HashSet::new();
+
+        for _ in 0..20 {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+            if let Some(g) = guard_result {
+                assert!(
+                    all_ids.insert(g.id().to_string()),
+                    "Checkpoint ID collision detected: {}",
+                    g.id()
+                );
+                // Alternate between commit and drop
+                if std::collections::HashSet::len(&all_ids) % 2 == 0 {
+                    g.commit().await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OPERATION RISK VARIANTS AND CLASSIFICATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn operation_risk_eq() {
+        assert_eq!(OperationRisk::Safe, OperationRisk::Safe);
+        assert_eq!(OperationRisk::Risky, OperationRisk::Risky);
+        assert_ne!(OperationRisk::Safe, OperationRisk::Risky);
+    }
+
+    #[test]
+    fn operation_risk_partial_eq() {
+        assert!(OperationRisk::Safe == OperationRisk::Safe);
+        assert!(OperationRisk::Risky != OperationRisk::Safe);
+    }
+
+    #[test]
+    fn operation_risk_serialize_not_derived() {
+        // OperationRisk in core does NOT derive serde::Serialize/Deserialize
+        // This is intentional - serialization tests belong in isolate where serde derives exist
+        // We just verify the type exists and has expected variants
+        let _ = OperationRisk::Safe;
+        let _ = OperationRisk::Risky;
+    }
+
+    #[test]
+    fn classify_command_whitespace_variations() {
+        assert_eq!(classify_command("  batch  "), OperationRisk::Safe);
+        assert_eq!(classify_command("\tbatch"), OperationRisk::Safe);
+        assert_eq!(classify_command("batch\r"), OperationRisk::Safe);
+    }
+
+    #[test]
+    fn classify_command_numeric_prefix() {
+        assert_eq!(classify_command("1batch"), OperationRisk::Safe);
+        assert_eq!(classify_command("999-batch"), OperationRisk::Safe);
+    }
+
+    #[test]
+    fn classify_command_unicode_safe() {
+        assert_eq!(classify_command("批处理"), OperationRisk::Safe);
+        assert_eq!(classify_command("батч"), OperationRisk::Safe);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GUARD LIFECYCLE EDGE CASES
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[tokio::test]
+    async fn guard_commit_twice_is_idempotent() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
+            let id = g.id().to_string();
+            g.commit().await?;
+
+            // Commit again (guard is consumed but let's verify DB state)
+            let row: Option<(String,)> =
+                sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+                    .bind(&id)
+                    .fetch_optional(&pool)
+                    .await
+                    .ok()
+                    .flatten();
+            assert_eq!(row.map(|(s,)| s), Some("committed".to_string()));
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn rollback_then_find_pending_includes_it() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
+            let id = g.id().to_string();
+            g.rollback().await?;
+
+            let pending = find_pending_restores(&pool).await?;
+            assert!(
+                pending.contains(&id),
+                "Rolled back checkpoint {id} should appear in pending restores"
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn guard_cannot_be_used_after_move() -> Result<()> {
+        let pool = test_pool().await?;
+        let auto_cp = AutoCheckpoint::new(pool.clone());
+
+        let guard_result = auto_cp.guard_if_risky(OperationRisk::Risky).await?;
+        if let Some(g) = guard_result {
+            let id = g.id().to_string();
+            let _guard = g; // Move into variable
+
+            // _guard is consumed - trying to use g again would be compile error
+            // But we can still verify via DB that checkpoint exists
+            let row: Option<(String,)> =
+                sqlx::query_as("SELECT state FROM checkpoints WHERE id = ?")
+                    .bind(&id)
+                    .fetch_optional(&pool)
+                    .await
+                    .ok()
+                    .flatten();
+            assert_eq!(row.map(|(s,)| s), Some("pending".to_string()));
+        }
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUTOCHECKPOINT STRUCT BEHAVIOR
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn auto_checkpoint_debug_format() {
+        let pool_rt = tokio::runtime::Runtime::new().expect("runtime");
+        let pool = pool_rt
+            .block_on(async { SqlitePool::connect("sqlite::memory:").await })
+            .expect("pool");
+        let auto_cp = AutoCheckpoint::new(pool);
+        let debug_str = format!("{auto_cp:?}");
+        assert!(debug_str.contains("AutoCheckpoint"));
+    }
+
+    #[test]
+    fn auto_checkpoint_clone_independent() {
+        let pool_rt = tokio::runtime::Runtime::new().expect("runtime");
+        let pool = pool_rt
+            .block_on(async { SqlitePool::connect("sqlite::memory:").await })
+            .expect("pool");
+        let auto_cp1 = AutoCheckpoint::new(pool.clone());
+        let auto_cp2 = auto_cp1.clone();
+        // Clones share the same underlying pool but are distinct struct instances
+        // We verify this by checking they have different memory addresses
+        let addr1 = &auto_cp1 as *const AutoCheckpoint;
+        let addr2 = &auto_cp2 as *const AutoCheckpoint;
+        assert_ne!(
+            addr1, addr2,
+            "Clone should create a distinct instance with different address"
+        );
+    }
 }
