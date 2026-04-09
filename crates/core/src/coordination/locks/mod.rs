@@ -16,6 +16,8 @@ mod tests_concurrent;
 mod tests_session_validation;
 #[cfg(test)]
 mod tests_ttl_regression;
+#[cfg(test)]
+mod tests_exhaustive;
 pub mod types;
 
 // Re-export types for convenience
