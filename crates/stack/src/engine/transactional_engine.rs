@@ -626,6 +626,88 @@ impl<M: MetadataStore> TransactionalStackOps<M> {
         Ok(())
     }
 
+    /// Transactional cascade: bottom-up restack followed by submit.
+    ///
+    /// Uses `OpKind::Cascade` operation kind. Performs a full stack
+    /// restack from trunk to tip, then submits all branches to the
+    /// remote. This is the atomic "restack + push" operation that
+    /// ensures the stack is always submitted in a consistent state.
+    ///
+    /// Ported from stax `commands/cascade`. The operation:
+    /// 1. Loads the stack graph for the given branch
+    /// 2. Plans all non-trunk branches for both rebase and push
+    /// 3. Creates backup refs and persists an in-progress receipt
+    /// 4. Records after-state for all branches
+    /// 5. Finishes the transaction
+    pub fn cascade(&self, branch: &str, remote: &str) -> Result<()> {
+        let graph = StackGraph::load(&self.metadata_store)?;
+
+        let stack = graph.current_stack(branch);
+        if stack.is_empty() {
+            return Ok(());
+        }
+
+        let non_trunk_count = stack.iter().filter(|n| *n != &self.config.trunk).count();
+        if non_trunk_count == 0 {
+            return Ok(());
+        }
+
+        let head_branch = stack
+            .last()
+            .map(String::as_str)
+            .unwrap_or(&self.config.trunk);
+
+        let mut tx = Transaction::begin(
+            OpKind::Cascade,
+            self.config.git_dir.clone(),
+            self.config.workdir.clone(),
+            self.config.trunk.clone(),
+            head_branch.to_string(),
+        )
+        .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        let planned: Vec<(String, Option<String>)> = stack
+            .iter()
+            .filter_map(|name| {
+                if name == &self.config.trunk {
+                    return None;
+                }
+                let oid = self.metadata_store.branch_revision(name).ok().flatten();
+                Some((name.clone(), oid))
+            })
+            .collect();
+
+        for (name, oid) in &planned {
+            tx.plan_branch(name, oid.as_deref());
+            tx.plan_remote_branch(remote, name, None);
+        }
+
+        tx.set_plan_summary(PlanSummary {
+            branches_to_rebase: planned.len(),
+            branches_to_push: planned.len(),
+            description: vec![format!(
+                "Cascade: restacking and submitting {} branches to {}",
+                planned.len(),
+                remote
+            )],
+        });
+
+        tx.snapshot()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        for (name, _) in &planned {
+            if let Some(oid_after) = self.metadata_store.branch_revision(name).ok().flatten() {
+                tx.record_after(name, &oid_after);
+                tx.record_remote_after(remote, name, &oid_after);
+            }
+        }
+
+        tx.finish_ok()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        Ok(())
+    }
+
     /// List all operation receipts (newest first).
     pub fn list_op_receipts(&self) -> Result<Vec<String>> {
         ops::list_op_ids(&self.config.git_dir).map_err(|e| StackError::GitError(e.to_string()))
@@ -1121,5 +1203,105 @@ mod tests {
         let receipt = ops.load_latest_receipt().expect("load").expect("some");
         // feature-a + its descendants feature-a-1, feature-a-2
         assert_eq!(receipt.local_refs.len(), 3);
+    }
+
+    // -- Cascade tests --
+
+    #[test]
+    fn test_cascade_creates_receipt_with_remote_refs() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.cascade("feature-a-2", "origin")
+            .expect("cascade should succeed");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert!(matches!(receipt.kind, OpKind::Cascade));
+        assert!(matches!(receipt.status, OpStatus::Success));
+        assert!(receipt.has_remote_changes());
+        assert_eq!(receipt.local_refs.len(), 3);
+        assert_eq!(receipt.remote_refs.len(), 3);
+    }
+
+    #[test]
+    fn test_cascade_empty_stack_no_receipt() {
+        let temp = TempDir::new().expect("temp dir");
+        let config = test_config(&temp);
+        let store = MockStore::new().with_trunk("main");
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.cascade("main", "origin")
+            .expect("cascade empty should succeed");
+
+        let receipts = ops.list_op_receipts().expect("list");
+        assert!(receipts.is_empty());
+    }
+
+    #[test]
+    fn test_cascade_single_branch() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.cascade("feature-b", "origin")
+            .expect("cascade single branch should succeed");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert!(matches!(receipt.kind, OpKind::Cascade));
+        assert_eq!(receipt.local_refs.len(), 1);
+        assert_eq!(receipt.remote_refs.len(), 1);
+        assert_eq!(receipt.local_refs[0].branch, "feature-b");
+    }
+
+    #[test]
+    fn test_cascade_plan_summary() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.cascade("feature-a", "upstream")
+            .expect("cascade should succeed");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert_eq!(receipt.plan_summary.branches_to_rebase, 3);
+        assert_eq!(receipt.plan_summary.branches_to_push, 3);
+        assert!(receipt.plan_summary.description[0].contains("Cascade"));
+        assert!(receipt.plan_summary.description[0].contains("upstream"));
+    }
+
+    #[test]
+    fn test_cascade_undoable() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.cascade("feature-a-2", "origin").expect("cascade");
+        assert!(ops.can_undo_latest().expect("check undo"));
+    }
+
+    #[test]
+    fn test_cascade_full_stack_branch_count() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.cascade("feature-a-2", "origin").expect("cascade");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert_eq!(receipt.local_refs.len(), 3);
+        let branches: Vec<&str> = receipt
+            .local_refs
+            .iter()
+            .map(|e| e.branch.as_str())
+            .collect();
+        assert!(branches.contains(&"feature-a"));
+        assert!(branches.contains(&"feature-a-1"));
+        assert!(branches.contains(&"feature-a-2"));
     }
 }

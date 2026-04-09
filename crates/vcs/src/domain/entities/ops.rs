@@ -28,6 +28,7 @@ pub enum OpKind {
     MergeWhenReady,
     Detach,
     Fix,
+    Cascade,
 }
 
 impl OpKind {
@@ -43,6 +44,7 @@ impl OpKind {
             Self::MergeWhenReady => "merge-when-ready",
             Self::Detach => "detach",
             Self::Fix => "stack fix",
+            Self::Cascade => "cascade",
         }
     }
 }
@@ -279,6 +281,7 @@ mod tests {
         assert_eq!(OpKind::MergeWhenReady.display_name(), "merge-when-ready");
         assert_eq!(OpKind::Detach.display_name(), "detach");
         assert_eq!(OpKind::Fix.display_name(), "stack fix");
+        assert_eq!(OpKind::Cascade.display_name(), "cascade");
     }
 
     // -- OpStatus serialization --
@@ -322,6 +325,7 @@ mod tests {
             OpKind::MergeWhenReady,
             OpKind::Detach,
             OpKind::Fix,
+            OpKind::Cascade,
         ] {
             let json = serde_json::to_string(&kind).expect("serialize");
             let loaded: OpKind = serde_json::from_str(&json).expect("deserialize");

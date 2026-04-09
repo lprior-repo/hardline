@@ -277,6 +277,114 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         Ok(stack)
     }
 
+    /// Cascade: bottom-up restack and submit of all branches in a stack.
+    ///
+    /// Ported from stax `commands/cascade`. Performs:
+    /// 1. Restack all branches from base to tip (bottom-up rebase)
+    /// 2. Force-push each branch to the remote
+    /// 3. Create PRs for branches that don't have one
+    ///
+    /// Wrapped in a VCS `Transaction` with `OpKind::Cascade` for crash
+    /// recovery. Backup refs are created before any changes.
+    pub fn cascade(&self, stack_id: StackId) -> Result<Stack, StackError> {
+        let mut stack = self
+            .stack_repo
+            .find_by_id(&stack_id)?
+            .ok_or_else(|| StackError::NotFound(stack_id.to_string()))?;
+
+        let git_dir = self.vcs.git_dir()?;
+        let workdir = self.vcs.workdir()?;
+        let head_branch = self.vcs.current_branch()?;
+
+        let mut tx = Transaction::begin(
+            OpKind::Cascade,
+            git_dir,
+            workdir,
+            stack.base_branch.as_str().to_string(),
+            head_branch.as_str().to_string(),
+        )
+        .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        let branch_oids: Vec<(String, Option<String>)> = stack
+            .branches
+            .iter()
+            .map(|b| {
+                let oid = self.vcs.resolve_branch_oid(&b.branch_name).ok().flatten();
+                (b.branch_name.as_str().to_string(), oid)
+            })
+            .collect();
+
+        tx.plan_branches(&branch_oids);
+        tx.snapshot()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        self.github.fetch(&stack.base_branch)?;
+
+        let cascade_result = self.execute_cascade_rebase(&mut stack);
+
+        if let Err(ref e) = cascade_result {
+            let _ = tx.finish_err(&e.to_string(), Some("cascade_rebase"), None);
+            return cascade_result;
+        }
+
+        for branch in &mut stack.branches {
+            self.github.force_push(&branch.branch_name).map_err(|e| {
+                let _ = tx.finish_err(
+                    &e.to_string(),
+                    Some("force_push"),
+                    Some(branch.branch_name.as_str()),
+                );
+                e
+            })?;
+
+            if branch.pr_info.is_none() {
+                let pr_info = self
+                    .github
+                    .create_pull_request(branch, &stack.base_branch)?;
+                branch.pr_info = Some(pr_info);
+                branch.state = BranchState::Draft;
+            }
+        }
+
+        tx.record_all_after(|branch| {
+            self.vcs
+                .resolve_branch_oid(&BranchName::new(branch))
+                .ok()
+                .flatten()
+        });
+
+        stack.state = StackState::Published;
+        stack.updated_at = Utc::now();
+        self.stack_repo.save(&stack)?;
+
+        tx.finish_ok()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        Ok(stack)
+    }
+
+    fn execute_cascade_rebase(&self, stack: &mut Stack) -> Result<(), StackError> {
+        for i in 0..stack.branches.len() {
+            let parent = if i == 0 {
+                stack.base_branch.clone()
+            } else {
+                stack.branches[i - 1].branch_name.clone()
+            };
+
+            let branch_name = stack.branches[i].branch_name.clone();
+            self.vcs.rebase(&branch_name, &parent).map_err(|e| {
+                StackError::GitError(format!(
+                    "cascade rebase failed for {} onto {}: {}",
+                    branch_name.as_str(),
+                    parent.as_str(),
+                    e
+                ))
+            })?;
+        }
+
+        Ok(())
+    }
+
     pub fn add_branch_to_stack(
         &self,
         stack_id: StackId,
@@ -646,6 +754,22 @@ mod tests {
         ) -> Result<Option<BranchName>, StackError> {
             Ok(None)
         }
+
+        fn resolve_branch_oid(&self, _branch: &BranchName) -> Result<Option<String>, StackError> {
+            Ok(Some("abc123".to_string()))
+        }
+
+        fn git_dir(&self) -> Result<std::path::PathBuf, StackError> {
+            Ok(std::path::PathBuf::from("/tmp/.git"))
+        }
+
+        fn workdir(&self) -> Result<std::path::PathBuf, StackError> {
+            Ok(std::path::PathBuf::from("/tmp"))
+        }
+
+        fn current_branch(&self) -> Result<BranchName, StackError> {
+            Ok(BranchName::new("feature-a"))
+        }
     }
 
     #[test]
@@ -755,6 +879,159 @@ mod tests {
 
         let result = service.close_stack(StackId::from_u64(999));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cascade_not_found() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.cascade(StackId::from_u64(999));
+        assert!(result.is_err());
+        let err = result.err().expect("should be error");
+        assert!(matches!(err, StackError::NotFound(_)));
+    }
+
+    #[test]
+    fn test_cascade_success() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo.clone(), github, vcs);
+
+        let base = BranchName::new("main");
+        let mut stack = crate::domain::stack::Stack::new(
+            StackId::from_u64(1),
+            crate::domain::stack::StackName::new("cascade-test"),
+            base,
+        );
+        stack.add_branch(StackBranch::new(
+            BranchName::new("feature-a"),
+            0,
+            CommitHash::new("abc123"),
+            Some(BranchName::new("main")),
+        ));
+        stack.add_branch(StackBranch::new(
+            BranchName::new("feature-b"),
+            1,
+            CommitHash::new("def456"),
+            Some(BranchName::new("feature-a")),
+        ));
+        repo.save(&stack).expect("save stack");
+
+        let result = service.cascade(StackId::from_u64(1));
+        assert!(result.is_ok(), "cascade should succeed");
+
+        let updated = result.expect("stack");
+        assert_eq!(updated.state, StackState::Published);
+        assert_eq!(updated.branches.len(), 2);
+        for branch in &updated.branches {
+            assert!(
+                branch.pr_info.is_some(),
+                "branch {} should have PR after cascade",
+                branch.branch_name.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn test_cascade_preserves_existing_prs() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo.clone(), github, vcs);
+
+        let base = BranchName::new("main");
+        let mut stack = crate::domain::stack::Stack::new(
+            StackId::from_u64(2),
+            crate::domain::stack::StackName::new("cascade-existing-pr"),
+            base,
+        );
+        let existing_pr = DomainPrInfo::new(
+            99,
+            "https://github.com/test/99".to_string(),
+            "Existing PR".to_string(),
+            "Desc".to_string(),
+            "author".to_string(),
+            false,
+        );
+        let mut branch = StackBranch::new(
+            BranchName::new("feature-a"),
+            0,
+            CommitHash::new("abc"),
+            Some(BranchName::new("main")),
+        );
+        branch.pr_info = Some(existing_pr);
+        stack.add_branch(branch);
+        repo.save(&stack).expect("save stack");
+
+        let result = service.cascade(StackId::from_u64(2));
+        assert!(result.is_ok());
+
+        let updated = result.expect("stack");
+        let pr = updated.branches[0]
+            .pr_info
+            .as_ref()
+            .expect("should have pr");
+        assert_eq!(pr.pr_number, 99, "existing PR should be preserved");
+    }
+
+    #[test]
+    fn test_cascade_state_transitions() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo.clone(), github, vcs);
+
+        let base = BranchName::new("main");
+        let mut stack = crate::domain::stack::Stack::new(
+            StackId::from_u64(3),
+            crate::domain::stack::StackName::new("cascade-states"),
+            base,
+        );
+        stack.add_branch(StackBranch::new(
+            BranchName::new("feat-x"),
+            0,
+            CommitHash::new("aaa"),
+            Some(BranchName::new("main")),
+        ));
+        repo.save(&stack).expect("save");
+
+        assert_eq!(stack.state, StackState::Draft);
+
+        let result = service.cascade(StackId::from_u64(3));
+        let updated = result.expect("cascade ok");
+        assert_eq!(updated.state, StackState::Published);
+    }
+
+    #[test]
+    fn test_cascade_single_branch() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo.clone(), github, vcs);
+
+        let base = BranchName::new("main");
+        let mut stack = crate::domain::stack::Stack::new(
+            StackId::from_u64(4),
+            crate::domain::stack::StackName::new("cascade-single"),
+            base,
+        );
+        stack.add_branch(StackBranch::new(
+            BranchName::new("solo"),
+            0,
+            CommitHash::new("zzz"),
+            Some(BranchName::new("main")),
+        ));
+        repo.save(&stack).expect("save");
+
+        let result = service.cascade(StackId::from_u64(4));
+        assert!(result.is_ok());
+        let updated = result.expect("stack");
+        assert_eq!(updated.branches.len(), 1);
+        assert!(updated.branches[0].pr_info.is_some());
     }
 
     #[test]
