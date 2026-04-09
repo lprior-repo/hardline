@@ -5,9 +5,9 @@ use crate::domain::stack::{PrInfo, Stack, StackBranch, StackId};
 use crate::domain::state::{BranchState, StackState};
 use crate::domain::value_objects::BranchName;
 use crate::error::{Result, StackError};
-use scp_vcs::domain::types::CommitHash;
-use scp_vcs::domain::entities::ops::OpKind;
 use scp_vcs::application::ops::Transaction;
+use scp_vcs::domain::entities::ops::OpKind;
+use scp_vcs::domain::types::CommitHash;
 
 pub struct StackService<R, G, V> {
     stack_repo: R,
@@ -78,11 +78,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
             .branches
             .iter()
             .map(|b| {
-                let oid = self
-                    .vcs
-                    .resolve_branch_oid(&b.branch_name)
-                    .ok()
-                    .flatten();
+                let oid = self.vcs.resolve_branch_oid(&b.branch_name).ok().flatten();
                 (b.branch_name.as_str().to_string(), oid)
             })
             .collect();
@@ -172,16 +168,14 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
                 stack.branches[i - 1].branch_name.clone()
             };
 
-            self.vcs
-                .rebase(&branch.branch_name, &parent)
-                .map_err(|e| {
-                    let _ = tx.finish_err(
-                        &e.to_string(),
-                        Some("rebase"),
-                        Some(branch.branch_name.as_str()),
-                    );
-                    e
-                })?;
+            self.vcs.rebase(&branch.branch_name, &parent).map_err(|e| {
+                let _ = tx.finish_err(
+                    &e.to_string(),
+                    Some("rebase"),
+                    Some(branch.branch_name.as_str()),
+                );
+                e
+            })?;
 
             self.github.force_push(&branch.branch_name).map_err(|e| {
                 let _ = tx.finish_err(
@@ -747,10 +741,8 @@ mod tests {
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
-        let result = service.remove_branch_from_stack(
-            StackId::from_u64(999),
-            &BranchName::new("some-branch"),
-        );
+        let result = service
+            .remove_branch_from_stack(StackId::from_u64(999), &BranchName::new("some-branch"));
         assert!(result.is_err());
     }
 
@@ -843,6 +835,573 @@ mod tests {
         let result = repo.list_by_state(StackState::Draft);
         assert!(result.expect("ok").is_empty());
     }
+
+    // ==================== create_stack exhaustive tests ====================
+
+    #[test]
+    fn test_create_stack_happy_path_single_branch() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let base = BranchName::new("main");
+        let head = BranchName::new("feature-a");
+
+        let result = service.create_stack(base.clone(), head.clone(), "test-stack".to_string());
+        assert!(
+            result.is_ok(),
+            "create_stack should succeed with valid inputs"
+        );
+
+        let stack = result.expect("should have stack");
+        assert_eq!(stack.name.as_str(), "test-stack");
+        assert_eq!(stack.base_branch.as_str(), "main");
+        assert_eq!(stack.state, StackState::Draft);
+        assert_eq!(stack.branches.len(), 1);
+        assert_eq!(stack.branches[0].branch_name.as_str(), "feature-a");
+    }
+
+    #[test]
+    fn test_create_stack_happy_path_multiple_branches() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let base = BranchName::new("main");
+        let head = BranchName::new("feature-b");
+
+        let result = service.create_stack(base, head, "multi-branch-stack".to_string());
+        assert!(result.is_ok());
+
+        let stack = result.expect("should have stack");
+        assert_eq!(stack.branches.len(), 1);
+        assert_eq!(stack.branches[0].branch_name.as_str(), "feature-b");
+    }
+
+    #[test]
+    fn test_create_stack_initial_state_is_draft() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature-x"),
+            "draft-stack".to_string(),
+        );
+
+        let stack = result.expect("stack");
+        assert_eq!(stack.state, StackState::Draft);
+        assert!(!stack.is_published());
+        assert!(!stack.is_merged());
+    }
+
+    #[test]
+    fn test_create_stack_empty_main_branch_name() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new(""),
+            BranchName::new("feature-a"),
+            "stack".to_string(),
+        );
+
+        // Empty branch name should be rejected
+        assert!(
+            result.is_err(),
+            "create_stack should reject empty main branch name"
+        );
+        let err = result.err().expect("error");
+        assert!(matches!(err, StackError::InvalidBranchName(_)));
+    }
+
+    #[test]
+    fn test_create_stack_empty_head_branch_name() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new(""),
+            "stack".to_string(),
+        );
+
+        assert!(
+            result.is_err(),
+            "create_stack should reject empty head branch name"
+        );
+        let err = result.err().expect("error");
+        assert!(matches!(err, StackError::InvalidBranchName(_)));
+    }
+
+    #[test]
+    fn test_create_stack_invalid_branch_name_special_chars() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature@#$%"),
+            "stack".to_string(),
+        );
+
+        assert!(result.is_err());
+        let err = result.err().expect("error");
+        assert!(matches!(err, StackError::InvalidBranchName(_)));
+    }
+
+    #[test]
+    fn test_create_stack_invalid_branch_name_starts_with_dot() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new(".feature"),
+            "stack".to_string(),
+        );
+
+        assert!(result.is_err());
+        let err = result.err().expect("error");
+        assert!(matches!(err, StackError::InvalidBranchName(_)));
+    }
+
+    #[test]
+    fn test_create_stack_invalid_branch_name_ends_with_dot() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature."),
+            "stack".to_string(),
+        );
+
+        assert!(result.is_err());
+        let err = result.err().expect("error");
+        assert!(matches!(err, StackError::InvalidBranchName(_)));
+    }
+
+    #[test]
+    fn test_create_stack_invalid_branch_name_contains_spaces() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature branch"),
+            "stack".to_string(),
+        );
+
+        assert!(result.is_err());
+        let err = result.err().expect("error");
+        assert!(matches!(err, StackError::InvalidBranchName(_)));
+    }
+
+    #[test]
+    fn test_create_stack_invalid_branch_name_contains_null() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature\x00branch"),
+            "stack".to_string(),
+        );
+
+        assert!(result.is_err());
+        let err = result.err().expect("error");
+        assert!(matches!(err, StackError::InvalidBranchName(_)));
+    }
+
+    #[test]
+    fn test_create_stack_duplicate_stack_creation_same_main_branch() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let base = BranchName::new("main");
+        let head = BranchName::new("feature-a");
+
+        // First creation should succeed
+        let result1 = service.create_stack(base.clone(), head.clone(), "stack-1".to_string());
+        assert!(result1.is_ok());
+
+        // Second creation with same main branch should succeed (different stack)
+        let result2 = service.create_stack(base.clone(), head.clone(), "stack-2".to_string());
+        assert!(result2.is_ok(), "Should allow multiple stacks on same main");
+
+        let all_stacks = repo.list_all().expect("list");
+        assert_eq!(all_stacks.len(), 2);
+    }
+
+    #[test]
+    fn test_create_stack_id_uniqueness() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let mut ids = Vec::new();
+
+        for i in 0..10u32 {
+            let result = service.create_stack(
+                BranchName::new("main"),
+                BranchName::new(&format!("feature-{}", i)),
+                format!("stack-{}", i),
+            );
+            assert!(result.is_ok());
+            let stack = result.expect("stack");
+            ids.push(stack.id);
+        }
+
+        // All IDs should be unique
+        let mut unique_ids: std::collections::HashSet<_> = ids.iter().collect();
+        assert_eq!(
+            unique_ids.len(),
+            ids.len(),
+            "All stack IDs should be unique"
+        );
+    }
+
+    #[test]
+    fn test_create_stack_no_prs_in_draft_state() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature-a"),
+            "no-pr-stack".to_string(),
+        );
+
+        let stack = result.expect("stack");
+        assert_eq!(stack.state, StackState::Draft);
+        for branch in &stack.branches {
+            assert!(branch.pr_info.is_none(), "Draft stack should have no PRs");
+        }
+    }
+
+    #[test]
+    fn test_create_stack_main_branch_recorded_correctly() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let test_cases = vec!["main", "master", "develop", "trunk", "release/v1.0"];
+
+        for main_branch in test_cases {
+            let result = service.create_stack(
+                BranchName::new(main_branch),
+                BranchName::new("feature-a"),
+                format!("stack-{}", main_branch),
+            );
+
+            let stack = result.expect(&format!("stack for {}", main_branch));
+            assert_eq!(
+                stack.base_branch.as_str(),
+                main_branch,
+                "Main branch should be recorded correctly"
+            );
+        }
+    }
+
+    #[test]
+    fn test_create_stack_head_branch_in_branches_list() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let head = BranchName::new("my-feature");
+        let result = service.create_stack(
+            BranchName::new("main"),
+            head.clone(),
+            "test-stack".to_string(),
+        );
+
+        let stack = result.expect("stack");
+        assert!(
+            stack.branches.iter().any(|b| b.branch_name == head),
+            "Head branch should be in branches list"
+        );
+    }
+
+    #[test]
+    fn test_create_stack_branch_has_correct_parent() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature-a"),
+            "test-stack".to_string(),
+        );
+
+        let stack = result.expect("stack");
+        assert_eq!(stack.branches.len(), 1);
+        let branch = &stack.branches[0];
+        assert_eq!(
+            branch.parent_branch, None,
+            "First branch should have no parent"
+        );
+    }
+
+    #[test]
+    fn test_create_stack_branch_position_is_zero() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature-a"),
+            "test-stack".to_string(),
+        );
+
+        let stack = result.expect("stack");
+        assert_eq!(stack.branches[0].position, 0);
+    }
+
+    #[test]
+    fn test_create_stack_branch_has_commit_hash() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature-a"),
+            "test-stack".to_string(),
+        );
+
+        let stack = result.expect("stack");
+        assert!(!stack.branches[0].last_commit.as_str().is_empty());
+    }
+
+    #[test]
+    fn test_create_stack_with_unicode_branch_name() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature/日本語"),
+            "unicode-stack".to_string(),
+        );
+
+        assert!(result.is_ok());
+        let stack = result.expect("stack");
+        assert_eq!(stack.branches[0].branch_name.as_str(), "feature/日本語");
+    }
+
+    #[test]
+    fn test_create_stack_with_very_long_branch_name() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let long_name = format!("feature/{}", "a".repeat(100));
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new(&long_name),
+            "long-stack".to_string(),
+        );
+
+        assert!(result.is_ok());
+        let stack = result.expect("stack");
+        assert_eq!(stack.branches[0].branch_name.as_str(), long_name);
+    }
+
+    #[test]
+    fn test_create_stack_branch_name_with_slashes() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature/team/project/component"),
+            "nested-stack".to_string(),
+        );
+
+        assert!(result.is_ok());
+        let stack = result.expect("stack");
+        assert_eq!(
+            stack.branches[0].branch_name.as_str(),
+            "feature/team/project/component"
+        );
+    }
+
+    #[test]
+    fn test_create_stack_branch_name_with_hyphens() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature/my-awesome-new-feature"),
+            "hyphen-stack".to_string(),
+        );
+
+        assert!(result.is_ok());
+        let stack = result.expect("stack");
+        assert_eq!(
+            stack.branches[0].branch_name.as_str(),
+            "feature/my-awesome-new-feature"
+        );
+    }
+
+    #[test]
+    fn test_create_stack_branch_name_with_underscores() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature/my_awesome_feature"),
+            "underscore-stack".to_string(),
+        );
+
+        assert!(result.is_ok());
+        let stack = result.expect("stack");
+        assert_eq!(
+            stack.branches[0].branch_name.as_str(),
+            "feature/my_awesome_feature"
+        );
+    }
+
+    #[test]
+    fn test_create_stack_branch_state_is_open() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature-a"),
+            "test-stack".to_string(),
+        );
+
+        let stack = result.expect("stack");
+        assert_eq!(stack.branches[0].state, BranchState::Open);
+    }
+
+    #[test]
+    fn test_create_stack_created_at_is_set() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature-a"),
+            "test-stack".to_string(),
+        );
+
+        let stack = result.expect("stack");
+        // created_at should be a valid future timestamp (not 1970)
+        let year = stack.created_at.year();
+        assert!(year >= 2020, "created_at should be recent");
+    }
+
+    #[test]
+    fn test_create_stack_updated_at_is_set() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature-a"),
+            "test-stack".to_string(),
+        );
+
+        let stack = result.expect("stack");
+        let year = stack.updated_at.year();
+        assert!(year >= 2020, "updated_at should be recent");
+    }
+
+    #[test]
+    fn test_create_stack_stored_in_repository() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        let result = service.create_stack(
+            BranchName::new("main"),
+            BranchName::new("feature-a"),
+            "test-stack".to_string(),
+        );
+
+        let created_id = result.expect("stack").id;
+        let stored = repo
+            .find_by_id(&created_id)
+            .expect("find")
+            .expect("should exist");
+
+        assert_eq!(stored.id, created_id);
+        assert_eq!(stored.name.as_str(), "test-stack");
+        assert_eq!(stored.base_branch.as_str(), "main");
+    }
+
+    #[test]
+    fn test_create_stack_multiple_consecutive_creations() {
+        let repo = Arc::new(MockRepo::new());
+        let github = Arc::new(MockGitHub);
+        let vcs = Arc::new(MockVcs);
+        let service = StackService::new(repo, github, vcs);
+
+        for i in 0..100u32 {
+            let result = service.create_stack(
+                BranchName::new("main"),
+                BranchName::new(&format!("feature-{}", i)),
+                format!("stack-{}", i),
+            );
+            assert!(result.is_ok(), "creation {} should succeed", i);
+        }
+
+        let all = repo.list_all().expect("list");
+        assert_eq!(all.len(), 100);
+    }
 }
 
 #[cfg(test)]
@@ -873,28 +1432,32 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_branch_order_valid() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-            make_branch("b", 1, Some("a")),
-            make_branch("c", 2, Some("b")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![
+                make_branch("a", 0, None),
+                make_branch("b", 1, Some("a")),
+                make_branch("c", 2, Some("b")),
+            ],
+            StackState::Draft,
+        );
         assert!(assert_branch_order(&stack).is_ok());
     }
 
     #[test]
     fn test_assert_branch_order_invalid_position() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, Some("b")),
-            make_branch("b", 0, Some("a")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![
+                make_branch("a", 0, Some("b")),
+                make_branch("b", 0, Some("a")),
+            ],
+            StackState::Draft,
+        );
         assert!(assert_branch_order(&stack).is_err());
     }
 
     #[test]
     fn test_assert_branch_order_single() {
-        let stack = make_stack(vec![
-            make_branch("solo", 0, None),
-        ], StackState::Draft);
+        let stack = make_stack(vec![make_branch("solo", 0, None)], StackState::Draft);
         assert!(assert_branch_order(&stack).is_ok());
     }
 
@@ -906,27 +1469,31 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_branch_order_parent_mismatch() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-            make_branch("b", 1, Some("wrong-parent")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![
+                make_branch("a", 0, None),
+                make_branch("b", 1, Some("wrong-parent")),
+            ],
+            StackState::Draft,
+        );
         assert!(assert_branch_order(&stack).is_err());
     }
 
     #[test]
     fn test_assert_base_not_in_stack_valid() {
-        let stack = make_stack(vec![
-            make_branch("feat-a", 0, None),
-            make_branch("feat-b", 1, Some("feat-a")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![
+                make_branch("feat-a", 0, None),
+                make_branch("feat-b", 1, Some("feat-a")),
+            ],
+            StackState::Draft,
+        );
         assert!(assert_base_not_in_stack(&stack).is_ok());
     }
 
     #[test]
     fn test_assert_base_not_in_stack_invalid() {
-        let stack = make_stack(vec![
-            make_branch("main", 0, None),
-        ], StackState::Draft);
+        let stack = make_stack(vec![make_branch("main", 0, None)], StackState::Draft);
         assert!(assert_base_not_in_stack(&stack).is_err());
     }
 
@@ -938,19 +1505,19 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_unique_branch_names_valid() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-            make_branch("b", 1, Some("a")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![make_branch("a", 0, None), make_branch("b", 1, Some("a"))],
+            StackState::Draft,
+        );
         assert!(assert_unique_branch_names(&stack).is_ok());
     }
 
     #[test]
     fn test_assert_unique_branch_names_duplicate() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-            make_branch("a", 1, Some("a")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![make_branch("a", 0, None), make_branch("a", 1, Some("a"))],
+            StackState::Draft,
+        );
         assert!(assert_unique_branch_names(&stack).is_err());
     }
 
@@ -962,9 +1529,7 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_draft_stack_no_prs_valid() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-        ], StackState::Draft);
+        let stack = make_stack(vec![make_branch("a", 0, None)], StackState::Draft);
         assert!(assert_draft_stack_no_prs(&stack).is_ok());
     }
 
@@ -972,8 +1537,12 @@ mod assertion_tests {
     fn test_assert_draft_stack_no_prs_invalid() {
         let mut branch = make_branch("a", 0, None);
         branch.pr_info = Some(PrInfo::new(
-            1, "url".to_string(), "t".to_string(),
-            "d".to_string(), "a".to_string(), false,
+            1,
+            "url".to_string(),
+            "t".to_string(),
+            "d".to_string(),
+            "a".to_string(),
+            false,
         ));
         let stack = make_stack(vec![branch], StackState::Draft);
         assert!(assert_draft_stack_no_prs(&stack).is_err());
@@ -983,8 +1552,12 @@ mod assertion_tests {
     fn test_assert_draft_stack_no_prs_non_draft_ok() {
         let mut branch = make_branch("a", 0, None);
         branch.pr_info = Some(PrInfo::new(
-            1, "url".to_string(), "t".to_string(),
-            "d".to_string(), "a".to_string(), false,
+            1,
+            "url".to_string(),
+            "t".to_string(),
+            "d".to_string(),
+            "a".to_string(),
+            false,
         ));
         let stack = make_stack(vec![branch], StackState::Published);
         // Should be ok because it's not a draft
@@ -995,10 +1568,22 @@ mod assertion_tests {
     fn test_assert_published_stack_has_prs_valid() {
         let mut branches = Vec::new();
         for i in 0..3u32 {
-            let mut branch = make_branch(&format!("b{i}"), i, if i == 0 { None } else { Some(&format!("b{}", i - 1)) });
+            let mut branch = make_branch(
+                &format!("b{i}"),
+                i,
+                if i == 0 {
+                    None
+                } else {
+                    Some(&format!("b{}", i - 1))
+                },
+            );
             branch.pr_info = Some(PrInfo::new(
-                i + 1, "url".to_string(), "t".to_string(),
-                "d".to_string(), "a".to_string(), false,
+                i + 1,
+                "url".to_string(),
+                "t".to_string(),
+                "d".to_string(),
+                "a".to_string(),
+                false,
             ));
             branches.push(branch);
         }
@@ -1008,18 +1593,14 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_published_stack_has_prs_invalid_missing() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-        ], StackState::Published);
+        let stack = make_stack(vec![make_branch("a", 0, None)], StackState::Published);
         assert!(assert_published_stack_has_prs(&stack).is_err());
     }
 
     #[test]
     fn test_assert_published_stack_has_prs_non_published_ok() {
         // Not published, so assertion should pass regardless
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-        ], StackState::Draft);
+        let stack = make_stack(vec![make_branch("a", 0, None)], StackState::Draft);
         assert!(assert_published_stack_has_prs(&stack).is_ok());
     }
 
@@ -1027,7 +1608,15 @@ mod assertion_tests {
     fn test_assert_merged_stack_all_merged_valid() {
         let mut branches = Vec::new();
         for i in 0..3u32 {
-            let mut branch = make_branch(&format!("b{i}"), i, if i == 0 { None } else { Some(&format!("b{}", i - 1)) });
+            let mut branch = make_branch(
+                &format!("b{i}"),
+                i,
+                if i == 0 {
+                    None
+                } else {
+                    Some(&format!("b{}", i - 1))
+                },
+            );
             branch.state = crate::domain::state::BranchState::Merged;
             branches.push(branch);
         }
@@ -1037,17 +1626,13 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_merged_stack_all_merged_invalid() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-        ], StackState::Merged);
+        let stack = make_stack(vec![make_branch("a", 0, None)], StackState::Merged);
         assert!(assert_merged_stack_all_merged(&stack).is_err());
     }
 
     #[test]
     fn test_assert_merged_stack_all_merged_non_merged_ok() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-        ], StackState::Draft);
+        let stack = make_stack(vec![make_branch("a", 0, None)], StackState::Draft);
         // Not merged, so assertion should pass
         assert!(assert_merged_stack_all_merged(&stack).is_ok());
     }
