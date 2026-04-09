@@ -15,6 +15,12 @@ impl WorkspaceService {
     pub fn initialize_workspace(
         workspace: Workspace,
     ) -> std::result::Result<Workspace, WorkspaceError> {
+        if workspace.state != WorkspaceState::Initializing {
+            return Err(WorkspaceError::InvalidStateTransition {
+                from: format!("{:?}", workspace.state),
+                to: "Active".into(),
+            });
+        }
         workspace.activate().map(|w| Workspace {
             id: w.id,
             name: w.name,
@@ -1492,6 +1498,427 @@ mod tests {
                 &WorkspaceName::new("nonexistent".into()).unwrap()
             )
             .is_none());
+        }
+    }
+
+    // --- Exhaustive initialize_workspace tests (ha-o0o) ---
+
+    mod initialize_workspace_exhaustive {
+        use super::*;
+
+        fn make_active_ws(name: &str) -> Workspace {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .unwrap();
+            WorkspaceService::initialize_workspace(ws).unwrap()
+        }
+
+        fn make_corrupted_ws(name: &str) -> Workspace {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .unwrap();
+            let active = WorkspaceService::initialize_workspace(ws).unwrap();
+            Workspace {
+                state: WorkspaceState::Corrupted,
+                ..active
+            }
+        }
+
+        fn make_locked_ws(name: &str, holder: &str) -> Workspace {
+            let active = make_active_ws(name);
+            WorkspaceService::lock_workspace(active, holder.into()).unwrap()
+        }
+
+        fn make_deleted_ws(name: &str) -> Workspace {
+            let active = make_active_ws(name);
+            WorkspaceService::delete_workspace(active).unwrap()
+        }
+
+        // === Happy path: Initializing → Active ===
+
+        #[test]
+        fn init_happy_path_transitions_to_active() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("happy".into()).unwrap(),
+                WorkspacePath::new("/tmp/happy".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(ws.state, WorkspaceState::Initializing);
+
+            let result = WorkspaceService::initialize_workspace(ws);
+            assert!(result.is_ok());
+            let initialized = result.unwrap();
+            assert_eq!(initialized.state, WorkspaceState::Active);
+            assert!(initialized.is_active());
+        }
+
+        #[test]
+        fn init_happy_path_preserves_id() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("happy-id".into()).unwrap(),
+                WorkspacePath::new("/tmp/happy-id".into()).unwrap(),
+            )
+            .unwrap();
+            let id = ws.id.as_str().to_string();
+            let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
+            assert_eq!(initialized.id.as_str(), id);
+        }
+
+        #[test]
+        fn init_happy_path_preserves_name() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("happy-name".into()).unwrap(),
+                WorkspacePath::new("/tmp/happy-name".into()).unwrap(),
+            )
+            .unwrap();
+            let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
+            assert_eq!(initialized.name.as_str(), "happy-name");
+        }
+
+        #[test]
+        fn init_happy_path_preserves_path() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("happy-path".into()).unwrap(),
+                WorkspacePath::new("/tmp/happy-path".into()).unwrap(),
+            )
+            .unwrap();
+            let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
+            assert!(initialized
+                .path
+                .as_str()
+                .unwrap()
+                .contains("/tmp/happy-path"));
+        }
+
+        #[test]
+        fn init_happy_path_preserves_config() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("happy-cfg".into()).unwrap(),
+                WorkspacePath::new("/tmp/happy-cfg".into()).unwrap(),
+            )
+            .unwrap();
+            let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
+            let config = initialized.config().expect("should have config");
+            assert_eq!(config.default_branch, "main");
+            assert!(config.auto_sync);
+            use crate::domain::entities::workspace::VcsType;
+            assert_eq!(config.vcs_type, VcsType::Git);
+        }
+
+        #[test]
+        fn init_happy_path_preserves_created_at() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("happy-ts".into()).unwrap(),
+                WorkspacePath::new("/tmp/happy-ts".into()).unwrap(),
+            )
+            .unwrap();
+            let created_at = ws.created_at();
+            let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
+            assert_eq!(initialized.created_at(), created_at);
+        }
+
+        #[test]
+        fn init_happy_path_updates_updated_at() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("happy-uts".into()).unwrap(),
+                WorkspacePath::new("/tmp/happy-uts".into()).unwrap(),
+            )
+            .unwrap();
+            let created_at = ws.created_at();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
+            assert!(initialized.updated_at() >= created_at);
+        }
+
+        #[test]
+        fn init_happy_path_no_lock_holder() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("happy-lock".into()).unwrap(),
+                WorkspacePath::new("/tmp/happy-lock".into()).unwrap(),
+            )
+            .unwrap();
+            let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
+            assert!(initialized.lock_holder().is_none());
+        }
+
+        #[test]
+        fn init_happy_path_not_locked() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("happy-nl".into()).unwrap(),
+                WorkspacePath::new("/tmp/happy-nl".into()).unwrap(),
+            )
+            .unwrap();
+            let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
+            assert!(!initialized.is_locked());
+        }
+
+        #[test]
+        fn init_happy_path_not_terminal() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("happy-nt".into()).unwrap(),
+                WorkspacePath::new("/tmp/happy-nt".into()).unwrap(),
+            )
+            .unwrap();
+            let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
+            assert!(!initialized.is_terminal());
+        }
+
+        #[test]
+        fn init_happy_path_different_names_all_succeed() {
+            let names = vec![
+                "alpha".to_string(),
+                "beta-1".to_string(),
+                "gamma_2".to_string(),
+                "Delta3".to_string(),
+                "x".repeat(50),
+            ];
+            for name in &names {
+                let ws = WorkspaceService::create_workspace(
+                    WorkspaceName::new(name.clone()).unwrap(),
+                    WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+                )
+                .unwrap();
+                let result = WorkspaceService::initialize_workspace(ws);
+                assert!(result.is_ok(), "should succeed for name '{}'", name);
+                assert_eq!(result.unwrap().state, WorkspaceState::Active);
+            }
+        }
+
+        // === Already initialized: Active state returns error ===
+
+        #[test]
+        fn init_rejects_active_workspace() {
+            let active = make_active_ws("already-active");
+            let result = WorkspaceService::initialize_workspace(active);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn init_rejects_active_error_is_invalid_state_transition() {
+            let active = make_active_ws("active-err");
+            let result = WorkspaceService::initialize_workspace(active);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Active");
+                    assert_eq!(to, "Active");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn init_rejects_active_preserves_workspace_identity() {
+            let active = make_active_ws("active-id");
+            let id_before = active.id.as_str().to_string();
+            let name_before = active.name.as_str().to_string();
+            let result = WorkspaceService::initialize_workspace(active);
+            assert!(result.is_err());
+            let _ = (id_before, name_before);
+        }
+
+        // === Corrupted state: cannot be initialized ===
+
+        #[test]
+        fn init_rejects_corrupted_workspace() {
+            let corrupted = make_corrupted_ws("corrupt-init");
+            let result = WorkspaceService::initialize_workspace(corrupted);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn init_corrupted_error_is_invalid_state_transition() {
+            let corrupted = make_corrupted_ws("corrupt-err");
+            let result = WorkspaceService::initialize_workspace(corrupted);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Corrupted");
+                    assert_eq!(to, "Active");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn init_corrupted_must_use_recover() {
+            let corrupted = make_corrupted_ws("corrupt-recover");
+            let result = WorkspaceService::initialize_workspace(corrupted.clone());
+            assert!(
+                result.is_err(),
+                "Corrupted workspace must not be initializable — use recover_workspace instead"
+            );
+        }
+
+        // === Locked state: cannot be initialized ===
+
+        #[test]
+        fn init_rejects_locked_workspace() {
+            let locked = make_locked_ws("locked-init", "agent-1");
+            let result = WorkspaceService::initialize_workspace(locked);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn init_locked_error_is_invalid_state_transition() {
+            let locked = make_locked_ws("locked-err", "agent-2");
+            let result = WorkspaceService::initialize_workspace(locked);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Locked");
+                    assert_eq!(to, "Active");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        // === Deleted state: cannot be initialized ===
+
+        #[test]
+        fn init_rejects_deleted_workspace() {
+            let deleted = make_deleted_ws("deleted-init");
+            let result = WorkspaceService::initialize_workspace(deleted);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn init_deleted_error_is_invalid_state_transition() {
+            let deleted = make_deleted_ws("deleted-err");
+            let result = WorkspaceService::initialize_workspace(deleted);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Deleted");
+                    assert_eq!(to, "Active");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        // === Table-driven: only Initializing is accepted ===
+
+        #[test]
+        fn table_driven_only_initializing_succeeds() {
+            let cases: Vec<(&str, WorkspaceState, bool)> = vec![
+                ("Initializing", WorkspaceState::Initializing, true),
+                ("Active", WorkspaceState::Active, false),
+                ("Locked", WorkspaceState::Locked, false),
+                ("Corrupted", WorkspaceState::Corrupted, false),
+                ("Deleted", WorkspaceState::Deleted, false),
+            ];
+
+            for (label, state, expect_ok) in cases {
+                let ws = WorkspaceService::create_workspace(
+                    WorkspaceName::new(format!("tbl-{}", label).into()).unwrap(),
+                    WorkspacePath::new(format!("/tmp/tbl-{}", label)).unwrap(),
+                )
+                .unwrap();
+                let ws_with_state = Workspace { state, ..ws };
+                let result = WorkspaceService::initialize_workspace(ws_with_state);
+                assert_eq!(
+                    result.is_ok(),
+                    expect_ok,
+                    "state={:?} ({}): expected ok={}, got ok={}",
+                    state,
+                    label,
+                    expect_ok,
+                    result.is_ok()
+                );
+                if expect_ok {
+                    assert_eq!(result.unwrap().state, WorkspaceState::Active);
+                }
+            }
+        }
+
+        // === Error message format ===
+
+        #[test]
+        fn init_error_message_contains_from_and_to_states() {
+            let active = make_active_ws("err-msg");
+            let result = WorkspaceService::initialize_workspace(active);
+            let err = result.err().expect("should be error");
+            let msg = format!("{err}");
+            assert!(
+                msg.contains("Active"),
+                "error message should contain 'Active': {msg}"
+            );
+            assert!(
+                msg.contains("Invalid state transition"),
+                "error message should contain 'Invalid state transition': {msg}"
+            );
+        }
+
+        // === Idempotency: double init fails ===
+
+        #[test]
+        fn init_double_initialize_fails() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("double".into()).unwrap(),
+                WorkspacePath::new("/tmp/double".into()).unwrap(),
+            )
+            .unwrap();
+            let first = WorkspaceService::initialize_workspace(ws).unwrap();
+            assert!(first.is_active());
+
+            let second = WorkspaceService::initialize_workspace(first);
+            assert!(second.is_err(), "second initialize should fail");
+        }
+
+        // === Lifecycle: init then delete works ===
+
+        #[test]
+        fn init_then_delete_succeeds() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("init-del".into()).unwrap(),
+                WorkspacePath::new("/tmp/init-del".into()).unwrap(),
+            )
+            .unwrap();
+            let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
+            let deleted = WorkspaceService::delete_workspace(initialized).unwrap();
+            assert_eq!(deleted.state, WorkspaceState::Deleted);
+        }
+
+        // === Lifecycle: init → lock → unlock → delete ===
+
+        #[test]
+        fn init_full_lifecycle() {
+            let ws = WorkspaceService::create_workspace(
+                WorkspaceName::new("lifecycle".into()).unwrap(),
+                WorkspacePath::new("/tmp/lifecycle".into()).unwrap(),
+            )
+            .unwrap();
+            let active = WorkspaceService::initialize_workspace(ws).unwrap();
+            assert!(active.is_active());
+
+            let locked = WorkspaceService::lock_workspace(active, "agent-1".into()).unwrap();
+            assert!(locked.is_locked());
+
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            assert!(unlocked.is_active());
+
+            let deleted = WorkspaceService::delete_workspace(unlocked).unwrap();
+            assert!(deleted.is_terminal());
+        }
+
+        // === Multiple independent initializations ===
+
+        #[test]
+        fn init_multiple_workspaces_independently() {
+            let mut initialized = Vec::new();
+            for i in 0..10 {
+                let ws = WorkspaceService::create_workspace(
+                    WorkspaceName::new(format!("batch-{}", i)).unwrap(),
+                    WorkspacePath::new(format!("/tmp/batch-{}", i)).unwrap(),
+                )
+                .unwrap();
+                let init = WorkspaceService::initialize_workspace(ws).unwrap();
+                assert_eq!(init.state, WorkspaceState::Active);
+                initialized.push(init);
+            }
+            let ids: std::collections::HashSet<&str> =
+                initialized.iter().map(|w| w.id.as_str()).collect();
+            assert_eq!(ids.len(), 10, "all workspace IDs must be unique");
         }
     }
 
