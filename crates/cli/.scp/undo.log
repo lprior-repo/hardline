@@ -44,3 +44,7 @@ sh_failed"}
 {"session_name":"undo-test-ws","commit_id":"","pre_merge_commit_id":"pre-merge-sha123","timestamp":1775707974,"pushed_to_remote":true,"status":"completed"}
 {"session_name":"feature-x","commit_id":"","pre_merge_commit_id":"commit-sha-abc","timestamp":1775707974,"pushed_to_remote":true,"status":"completed"}
 {"session_name":"dirty-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775707974,"pushed_to_remote":true,"status":"completed"}
+{"session_name":"undo-test-ws","commit_id":"","pre_merge_commit_id":"pre-merge-sha123","timestamp":1775733805,"pushed_to_remote":true,"status":"completed"}
+{"session_name":"dirty-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775733805,"pushed_to_remote":true,"status":"completed"}
+{"session_name":"feature-y","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775733805,"pushed_to_remote":true,"status":"completed"}
+{"session_name":"clean-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775733805,"pushed_to_remote":true,"status":"completed"}
