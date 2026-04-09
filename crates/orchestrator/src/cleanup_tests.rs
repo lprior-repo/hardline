@@ -662,3 +662,130 @@ fn test_universe_setup_rollback_without_data() {
     let result = handler.rollback(&ctx);
     assert!(result.success_flag());
 }
+
+// --- Full cleanup lifecycle integration ---
+
+#[test]
+fn test_cleanup_lifecycle_full_integration() {
+    let manager = CleanupManager::new();
+    let mut ctx = CleanupContext::new(PipelineId::new(), PhaseType::UniverseSetup);
+
+    ctx.add_resource(ResourceId::new("resource-1"));
+    ctx.add_resource(ResourceId::new("resource-2"));
+    ctx.add_resource(ResourceId::new("resource-3"));
+
+    let result = manager.cleanup(&ctx);
+    assert!(result.success_flag());
+    assert_eq!(result.cleaned_resources.len(), 3);
+    assert_eq!(result.cleaned_resources[0].0, "resource-1");
+    assert_eq!(result.cleaned_resources[1].0, "resource-2");
+    assert_eq!(result.cleaned_resources[2].0, "resource-3");
+}
+
+#[test]
+fn test_cleanup_lifecycle_rollback_with_error_aggregation() {
+    let manager = CleanupManager::new();
+    let mut ctx = CleanupContext::new(PipelineId::new(), PhaseType::UniverseSetup);
+    ctx.set_rollback_data(vec![0xDE, 0xAD, 0xBE, 0xEF]);
+
+    let result = manager.rollback(&ctx);
+    assert!(!result.success_flag());
+    let errors = result.errors();
+    assert!(!errors.is_empty());
+    assert!(errors[0].contains("not implemented"));
+}
+
+#[test]
+fn test_cleanup_manager_orchestration_multiple_phases() {
+    let manager = CleanupManager::new();
+
+    let universe_ctx = {
+        let mut ctx = CleanupContext::new(PipelineId::new(), PhaseType::UniverseSetup);
+        ctx.add_resource(ResourceId::new("universe-res"));
+        ctx
+    };
+
+    let agent_ctx = {
+        let mut ctx = CleanupContext::new(PipelineId::new(), PhaseType::AgentDevelopment);
+        ctx.add_resource(ResourceId::new("agent-res-1"));
+        ctx.add_resource(ResourceId::new("agent-res-2"));
+        ctx
+    };
+
+    let universe_result = manager.cleanup(&universe_ctx);
+    assert!(universe_result.success_flag());
+    assert_eq!(universe_result.cleaned_resources.len(), 1);
+
+    let agent_result = manager.cleanup(&agent_ctx);
+    assert!(agent_result.success_flag());
+    assert_eq!(agent_result.cleaned_resources.len(), 2);
+
+    let spec_result = manager.cleanup(&CleanupContext::new(
+        PipelineId::new(),
+        PhaseType::SpecReview,
+    ));
+    assert!(spec_result.success_flag());
+    assert!(spec_result.cleaned_resources.is_empty());
+}
+
+#[test]
+fn test_cleanup_ordering_preserved_through_handler() {
+    let manager = CleanupManager::new();
+    let mut ctx = CleanupContext::new(PipelineId::new(), PhaseType::AgentDevelopment);
+
+    let resource_names = ["alpha", "beta", "gamma", "delta"];
+    for name in resource_names {
+        ctx.add_resource(ResourceId::new(name));
+    }
+
+    let result = manager.cleanup(&ctx);
+    assert!(result.success_flag());
+
+    let cleaned: Vec<&str> = result
+        .cleaned_resources
+        .iter()
+        .map(|r| r.0.as_str())
+        .collect();
+    assert_eq!(cleaned, resource_names);
+}
+
+#[test]
+fn test_cleanup_error_aggregation_across_operations() {
+    let result = CleanupResult::success()
+        .with_resource(ResourceId::new("r1"))
+        .with_error("error-alpha".to_string())
+        .with_resource(ResourceId::new("r2"))
+        .with_error("error-beta".to_string())
+        .with_resource(ResourceId::new("r3"));
+
+    assert!(!result.success_flag());
+    assert_eq!(result.cleaned_resources.len(), 3);
+    assert_eq!(result.errors().len(), 2);
+    assert_eq!(result.errors()[0], "error-alpha");
+    assert_eq!(result.errors()[1], "error-beta");
+}
+
+#[test]
+fn test_cleanup_context_clone_preserves_ordering() {
+    let mut ctx = CleanupContext::new(PipelineId::new(), PhaseType::UniverseSetup);
+    ctx.add_resource(ResourceId::new("first"));
+    ctx.add_resource(ResourceId::new("second"));
+    ctx.set_rollback_data(vec![1, 2, 3]);
+
+    let cloned = ctx.clone();
+    assert_eq!(cloned.failed_phase, ctx.failed_phase);
+    assert_eq!(cloned.pipeline_id.0, ctx.pipeline_id.0);
+    assert_eq!(cloned.created_resources.len(), 2);
+    assert_eq!(cloned.created_resources[0].0, "first");
+    assert_eq!(cloned.created_resources[1].0, "second");
+    assert_eq!(cloned.rollback_data, vec![1, 2, 3]);
+}
+
+#[test]
+fn test_cleanup_manager_default_is_initialized_with_handlers() {
+    let manager = CleanupManager::default();
+    assert!(manager.get_handler(PhaseType::SpecReview).is_some());
+    assert!(manager.get_handler(PhaseType::UniverseSetup).is_some());
+    assert!(manager.get_handler(PhaseType::AgentDevelopment).is_some());
+    assert!(manager.get_handler(PhaseType::Validation).is_some());
+}
