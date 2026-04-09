@@ -42,3 +42,4 @@ pub mod wait;
 pub mod whatif;
 pub mod whoami;
 pub mod work;
+pub mod workspace_nav;
