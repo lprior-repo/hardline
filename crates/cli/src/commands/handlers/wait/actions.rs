@@ -68,9 +68,7 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
         WaitCondition::Healthy => check_healthy(),
         WaitCondition::SessionExists(name) => check_session_exists(name),
         WaitCondition::SessionUnlocked(name) => check_session_unlocked(name),
-        WaitCondition::SessionStatus { name, status } => {
-            check_session_status(name, status)
-        }
+        WaitCondition::SessionStatus { name, status } => check_session_status(name, status),
     }
 }
 
@@ -371,10 +369,13 @@ mod tests {
     #[test]
     fn qa_session_exists_always_returns_false_when_stub() {
         // Session checks are stubs — always return (false, not_found)
-        let names = ["test", "", "a-very-long-session-name-with-special-chars-!@#"];
+        let names = [
+            "test",
+            "",
+            "a-very-long-session-name-with-special-chars-!@#",
+        ];
         for name in &names {
-            let (met, state) =
-                check_session_exists(name).unwrap_or_else(|_| panic!("name={name}"));
+            let (met, state) = check_session_exists(name).unwrap_or_else(|_| panic!("name={name}"));
             assert!(!met, "session_exists should be false for '{name}' (stub)");
             assert!(
                 state.as_ref().unwrap().contains(name),
@@ -392,8 +393,7 @@ mod tests {
 
     #[test]
     fn qa_session_status_stub_ignores_status_param() {
-        let (met, state) =
-            check_session_status("sess", "active").expect("should not error");
+        let (met, state) = check_session_status("sess", "active").expect("should not error");
         assert!(!met);
         // Stub returns not_found regardless of status parameter
         assert_eq!(state, Some("not_found:sess".to_string()));
@@ -413,7 +413,10 @@ mod tests {
         assert!(!output.condition_met);
         assert!(output.timed_out);
         // Should have polled at least once before timing out
-        assert!(elapsed >= Duration::from_millis(100), "should block for at least ~timeout, got {elapsed:?}");
+        assert!(
+            elapsed >= Duration::from_millis(100),
+            "should block for at least ~timeout, got {elapsed:?}"
+        );
     }
 
     // --- Blocking primitives: healthy ---
@@ -442,7 +445,10 @@ mod tests {
         assert!(output.condition_met);
         assert!(!output.timed_out);
         // Should resolve on first poll (no sleep needed)
-        assert!(elapsed < Duration::from_secs(1), "healthy should resolve immediately, took {elapsed:?}");
+        assert!(
+            elapsed < Duration::from_secs(1),
+            "healthy should resolve immediately, took {elapsed:?}"
+        );
     }
 
     // --- Timeout handling ---
@@ -522,7 +528,10 @@ mod tests {
             timeout: Duration::from_secs(10),
             poll_interval: Duration::from_nanos(1),
         };
-        assert!(validate_options(&options).is_ok(), "nanos > 0 should be accepted");
+        assert!(
+            validate_options(&options).is_ok(),
+            "nanos > 0 should be accepted"
+        );
     }
 
     // --- Output format ---
@@ -569,7 +578,10 @@ mod tests {
             WaitCondition::Healthy,
             WaitCondition::SessionExists("a".to_string()),
             WaitCondition::SessionUnlocked("b".to_string()),
-            WaitCondition::SessionStatus { name: "c".to_string(), status: "done".to_string() },
+            WaitCondition::SessionStatus {
+                name: "c".to_string(),
+                status: "done".to_string(),
+            },
         ];
         for cond in &conditions {
             let result = check_condition(cond);
@@ -660,9 +672,8 @@ mod tests {
                 timeout: Duration::from_millis(50),
                 poll_interval: Duration::from_millis(10),
             };
-            let output = run_wait(&options).unwrap_or_else(|e| {
-                panic!("name {:?} caused error: {}", name, e)
-            });
+            let output = run_wait(&options)
+                .unwrap_or_else(|e| panic!("name {:?} caused error: {}", name, e));
             assert!(!output.condition_met, "evil name {:?} met condition", name);
             assert!(output.timed_out, "evil name {:?} didn't time out", name);
         }
@@ -699,10 +710,13 @@ mod tests {
                 timeout: Duration::from_millis(50),
                 poll_interval: Duration::from_millis(10),
             };
-            let output = run_wait(&options).unwrap_or_else(|e| {
-                panic!("status {:?} caused error: {}", status, e)
-            });
-            assert!(!output.condition_met, "evil status {:?} met condition", status);
+            let output = run_wait(&options)
+                .unwrap_or_else(|e| panic!("status {:?} caused error: {}", status, e));
+            assert!(
+                !output.condition_met,
+                "evil status {:?} met condition",
+                status
+            );
         }
     }
 
@@ -727,7 +741,10 @@ mod tests {
         })
         .expect("should not error");
         if timeout.timed_out {
-            assert!(!timeout.condition_met, "timed_out and condition_met both true!");
+            assert!(
+                !timeout.condition_met,
+                "timed_out and condition_met both true!"
+            );
         }
     }
 
@@ -774,7 +791,8 @@ mod tests {
     fn adversarial_check_unlocked_consistent_with_exists() {
         let name = "test-session";
         let (exists_met, exists_state) = check_session_exists(name).expect("should not error");
-        let (unlocked_met, unlocked_state) = check_session_unlocked(name).expect("should not error");
+        let (unlocked_met, unlocked_state) =
+            check_session_unlocked(name).expect("should not error");
         assert_eq!(exists_met, unlocked_met);
         assert_eq!(exists_state, unlocked_state);
     }
@@ -796,7 +814,10 @@ mod tests {
             },
         ];
         for cond in &conditions {
-            assert!(check_condition(cond).is_ok(), "check_condition({cond:?}) should not error");
+            assert!(
+                check_condition(cond).is_ok(),
+                "check_condition({cond:?}) should not error"
+            );
         }
     }
 
@@ -918,11 +939,17 @@ mod tests {
         for (label, cond) in [
             ("healthy", WaitCondition::Healthy),
             ("exists", WaitCondition::SessionExists("test".to_string())),
-            ("unlocked", WaitCondition::SessionUnlocked("test".to_string())),
-            ("status", WaitCondition::SessionStatus {
-                name: "test".to_string(),
-                status: "active".to_string(),
-            }),
+            (
+                "unlocked",
+                WaitCondition::SessionUnlocked("test".to_string()),
+            ),
+            (
+                "status",
+                WaitCondition::SessionStatus {
+                    name: "test".to_string(),
+                    status: "active".to_string(),
+                },
+            ),
         ] {
             let output = WaitOutput {
                 condition_met: true,
@@ -1057,9 +1084,19 @@ mod tests {
     #[test]
     fn build_output_elapsed_ms_near_zero() {
         let start = Instant::now();
-        let output = build_output(true, &WaitCondition::Healthy, start, false, Some("ok".into()));
+        let output = build_output(
+            true,
+            &WaitCondition::Healthy,
+            start,
+            false,
+            Some("ok".into()),
+        );
         // elapsed_ms should be 0 or very small
-        assert!(output.elapsed_ms < 100, "elapsed should be near zero, got {}", output.elapsed_ms);
+        assert!(
+            output.elapsed_ms < 100,
+            "elapsed should be near zero, got {}",
+            output.elapsed_ms
+        );
     }
 
     // ========================================================================
@@ -1072,7 +1109,10 @@ mod tests {
         let conditions = vec![
             WaitCondition::SessionExists("a".to_string()),
             WaitCondition::SessionUnlocked("b".to_string()),
-            WaitCondition::SessionStatus { name: "c".to_string(), status: "done".to_string() },
+            WaitCondition::SessionStatus {
+                name: "c".to_string(),
+                status: "done".to_string(),
+            },
         ];
         for cond in conditions {
             let options = WaitOptions {
@@ -1118,7 +1158,10 @@ mod tests {
         };
         let json_str = serde_json::to_string(&output).expect("serialize");
         let val: serde_json::Value = serde_json::from_str(&json_str).expect("parse");
-        assert!(val["condition_met"].is_boolean(), "condition_met should be boolean");
+        assert!(
+            val["condition_met"].is_boolean(),
+            "condition_met should be boolean"
+        );
         assert!(val["condition"].is_string(), "condition should be string");
         assert!(val["elapsed_ms"].is_number(), "elapsed_ms should be number");
         assert!(val["timed_out"].is_boolean(), "timed_out should be boolean");

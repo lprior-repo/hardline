@@ -235,7 +235,9 @@ mod tests {
             name: "feature-auth".to_string(),
             push: false,
         };
-        assert!(matches!(sub, BookmarkSubcommand::Create { name, push } if name == "feature-auth" && !push));
+        assert!(
+            matches!(sub, BookmarkSubcommand::Create { name, push } if name == "feature-auth" && !push)
+        );
     }
 
     #[test]
@@ -273,7 +275,13 @@ mod tests {
             name: "main".to_string(),
             remote: Some("origin".to_string()),
         };
-        assert!(matches!(sub, BookmarkSubcommand::Track { remote: Some(_), .. }));
+        assert!(matches!(
+            sub,
+            BookmarkSubcommand::Track {
+                remote: Some(_),
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -282,7 +290,10 @@ mod tests {
             name: "main".to_string(),
             remote: None,
         };
-        assert!(matches!(sub, BookmarkSubcommand::Track { remote: None, .. }));
+        assert!(matches!(
+            sub,
+            BookmarkSubcommand::Track { remote: None, .. }
+        ));
     }
 
     // -- validate_bookmark_name --
@@ -421,8 +432,7 @@ bugfix: kmnopqr6 2d4e5f6c fix: Critical bug\n";
             remote: true,
         };
         let json = serde_json::to_string(&info).expect("serialize");
-        let deserialized: BookmarkInfo =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: BookmarkInfo = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized, info);
     }
 
@@ -462,8 +472,7 @@ bugfix: kmnopqr6 2d4e5f6c fix: Critical bug\n";
             count: 1,
         };
         let json = serde_json::to_string(&output).expect("serialize");
-        let deserialized: BookmarkListOutput =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: BookmarkListOutput = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.count, 1);
         assert_eq!(deserialized.bookmarks[0].name, "main");
     }
@@ -478,8 +487,7 @@ bugfix: kmnopqr6 2d4e5f6c fix: Critical bug\n";
             pushed: true,
         };
         let json = serde_json::to_string(&output).expect("serialize");
-        let deserialized: BookmarkCreateOutput =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: BookmarkCreateOutput = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.name, "feature");
         assert!(deserialized.pushed);
     }
@@ -492,8 +500,7 @@ bugfix: kmnopqr6 2d4e5f6c fix: Critical bug\n";
             name: "old-feature".to_string(),
         };
         let json = serde_json::to_string(&output).expect("serialize");
-        let deserialized: BookmarkDeleteOutput =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: BookmarkDeleteOutput = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.name, "old-feature");
     }
 
@@ -506,8 +513,7 @@ bugfix: kmnopqr6 2d4e5f6c fix: Critical bug\n";
             remote: "origin".to_string(),
         };
         let json = serde_json::to_string(&output).expect("serialize");
-        let deserialized: BookmarkTrackOutput =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: BookmarkTrackOutput = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.remote, "origin");
     }
 
@@ -570,7 +576,10 @@ bugfix: kmnopqr6 2d4e5f6c fix: Critical bug\n";
         let opts = BookmarkOptions {
             subcommand: BookmarkSubcommand::List { show_all: true },
         };
-        assert!(matches!(opts.subcommand, BookmarkSubcommand::List { show_all: true }));
+        assert!(matches!(
+            opts.subcommand,
+            BookmarkSubcommand::List { show_all: true }
+        ));
     }
 
     // -- parse_branch_list --

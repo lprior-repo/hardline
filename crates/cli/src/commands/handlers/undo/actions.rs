@@ -60,10 +60,7 @@ fn format_dry_run_output(entry: &UndoEntry) -> Result<UndoOutput> {
         entry.session_name
     ));
     Output::info(&format!("  Commit to undo: {}", entry.commit_id));
-    Output::info(&format!(
-        "  Would reset to: {}",
-        entry.pre_merge_commit_id
-    ));
+    Output::info(&format!("  Would reset to: {}", entry.pre_merge_commit_id));
 
     Ok(UndoOutput {
         session_name: entry.session_name.clone(),
@@ -82,10 +79,7 @@ fn format_undo_output(entry: &UndoEntry) -> Result<UndoOutput> {
     Output::info(&format!("  Reset to commit: {}", entry.pre_merge_commit_id));
     Output::info("NEXT: Verify changes and re-commit if needed:");
     Output::info("  git status");
-    Output::info(&format!(
-        "  git commit -m 'Revert: {}'",
-        entry.session_name
-    ));
+    Output::info(&format!("  git commit -m 'Revert: {}'", entry.session_name));
 
     Ok(UndoOutput {
         session_name: entry.session_name.clone(),
@@ -124,10 +118,7 @@ fn run_list() -> Result<UndoOutput> {
 }
 
 /// Build display entries from raw undo entries and the current time.
-fn build_history_entries(
-    history: &[UndoEntry],
-    now_seconds: u64,
-) -> Vec<UndoHistoryEntry> {
+fn build_history_entries(history: &[UndoEntry], now_seconds: u64) -> Vec<UndoHistoryEntry> {
     history
         .iter()
         .map(|entry| history_entry_from_undo(entry, now_seconds))
@@ -158,11 +149,10 @@ fn history_entry_from_undo(entry: &UndoEntry, now_seconds: u64) -> UndoHistoryEn
 
 /// Format a unix timestamp as a human-readable UTC string.
 fn format_timestamp(timestamp: u64) -> String {
-    chrono::DateTime::from_timestamp(i64::try_from(timestamp).map_or(0, |t| t), 0)
-        .map_or_else(
-            || timestamp.to_string(),
-            |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-        )
+    chrono::DateTime::from_timestamp(i64::try_from(timestamp).map_or(0, |t| t), 0).map_or_else(
+        || timestamp.to_string(),
+        |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+    )
 }
 
 /// Print history output in human-readable format.
@@ -288,21 +278,17 @@ fn mark_entry_undone(entry: &UndoEntry) -> UndoEntry {
 ///
 /// Reverses most-recent-first order back to chronological, marks
 /// the matching entry as undone.
-fn serialize_updated_history(
-    history: &[UndoEntry],
-    target: &UndoEntry,
-) -> Result<String> {
+fn serialize_updated_history(history: &[UndoEntry], target: &UndoEntry) -> Result<String> {
     let lines: std::result::Result<Vec<_>, _> = history
         .iter()
         .rev()
         .map(|e| {
-            let updated = if e.session_name == target.session_name
-                && e.commit_id == target.commit_id
-            {
-                mark_entry_undone(e)
-            } else {
-                e.clone()
-            };
+            let updated =
+                if e.session_name == target.session_name && e.commit_id == target.commit_id {
+                    mark_entry_undone(e)
+                } else {
+                    e.clone()
+                };
             serde_json::to_string(&updated)
         })
         .collect();
@@ -614,10 +600,7 @@ mod tests {
     #[test]
     fn parse_log_lines_partial_malform_fails() {
         let e1 = make_entry("ws-1", "c1", "c0", 1000, false, UndoStatus::Completed);
-        let content = format!(
-            "{}\n{{bad json}}\n",
-            serde_json::to_string(&e1).unwrap(),
-        );
+        let content = format!("{}\n{{bad json}}\n", serde_json::to_string(&e1).unwrap(),);
         let result = parse_log_lines(&content);
         assert!(result.is_err());
     }
@@ -685,9 +668,14 @@ mod tests {
 
     #[test]
     fn serialize_history_single_entry_marks_undone() {
-        let history = vec![
-            make_entry("ws-1", "c1", "c0", 1000, false, UndoStatus::Completed),
-        ];
+        let history = vec![make_entry(
+            "ws-1",
+            "c1",
+            "c0",
+            1000,
+            false,
+            UndoStatus::Completed,
+        )];
         let target = &history[0];
         let result = serialize_updated_history(&history, target).expect("serialize");
         assert!(result.contains("\"status\":\"undone\""));
@@ -710,9 +698,14 @@ mod tests {
 
     #[test]
     fn serialize_history_output_has_trailing_newline() {
-        let history = vec![
-            make_entry("ws-1", "c1", "c0", 1000, false, UndoStatus::Completed),
-        ];
+        let history = vec![make_entry(
+            "ws-1",
+            "c1",
+            "c0",
+            1000,
+            false,
+            UndoStatus::Completed,
+        )];
         let target = &history[0];
         let result = serialize_updated_history(&history, target).expect("serialize");
         assert!(result.ends_with('\n'));
@@ -771,15 +764,20 @@ mod tests {
         ];
         let entries = build_history_entries(&history, 2_000);
         assert!(!entries[0].can_undo); // pushed
-        assert!(entries[1].can_undo);  // eligible
+        assert!(entries[1].can_undo); // eligible
         assert!(!entries[2].can_undo); // undone
     }
 
     #[test]
     fn build_history_expired_entry() {
-        let history = vec![
-            make_entry("ws-old", "c1", "c0", 1_000, false, UndoStatus::Completed),
-        ];
+        let history = vec![make_entry(
+            "ws-old",
+            "c1",
+            "c0",
+            1_000,
+            false,
+            UndoStatus::Completed,
+        )];
         let now = 1_000 + WORKSPACE_RETENTION_SECONDS + 1;
         let entries = build_history_entries(&history, now);
         assert!(!entries[0].can_undo);
@@ -854,7 +852,7 @@ mod tests {
         let history = vec![
             make_entry("ws-3", "c3", "c2", 3_000, true, UndoStatus::Completed), // pushed
             make_entry("ws-2", "c2", "c1", 2_000, false, UndoStatus::Completed), // eligible
-            make_entry("ws-1", "c1", "c0", 1_000, false, UndoStatus::Undone),    // undone
+            make_entry("ws-1", "c1", "c0", 1_000, false, UndoStatus::Undone),   // undone
         ];
         let now = 4_000u64;
         let found = history
@@ -890,9 +888,14 @@ mod tests {
 
     #[test]
     fn find_eligible_only_expired_returns_none() {
-        let history = vec![
-            make_entry("ws-1", "c1", "c0", 1_000, false, UndoStatus::Completed),
-        ];
+        let history = vec![make_entry(
+            "ws-1",
+            "c1",
+            "c0",
+            1_000,
+            false,
+            UndoStatus::Completed,
+        )];
         let now = 1_000 + WORKSPACE_RETENTION_SECONDS + 1;
         let found = history
             .iter()
@@ -975,22 +978,36 @@ mod tests {
         history[0] = mark_entry_undone(&history[0]);
         assert_eq!(history[0].status, UndoStatus::Undone);
         let now = 4_000u64;
-        let found = history.iter().find(|e| compute_undo_eligibility(e, now).is_eligible()).unwrap();
+        let found = history
+            .iter()
+            .find(|e| compute_undo_eligibility(e, now).is_eligible())
+            .unwrap();
         assert_eq!(found.session_name, "ws-2");
 
         // Undo ws-2.
-        let idx = history.iter().position(|e| e.session_name == "ws-2").unwrap();
+        let idx = history
+            .iter()
+            .position(|e| e.session_name == "ws-2")
+            .unwrap();
         history[idx] = mark_entry_undone(&history[idx]);
 
-        let found = history.iter().find(|e| compute_undo_eligibility(e, now).is_eligible()).unwrap();
+        let found = history
+            .iter()
+            .find(|e| compute_undo_eligibility(e, now).is_eligible())
+            .unwrap();
         assert_eq!(found.session_name, "ws-1");
 
         // Undo ws-1.
-        let idx = history.iter().position(|e| e.session_name == "ws-1").unwrap();
+        let idx = history
+            .iter()
+            .position(|e| e.session_name == "ws-1")
+            .unwrap();
         history[idx] = mark_entry_undone(&history[idx]);
 
         // All undone — no eligible left.
-        let found = history.iter().find(|e| compute_undo_eligibility(e, now).is_eligible());
+        let found = history
+            .iter()
+            .find(|e| compute_undo_eligibility(e, now).is_eligible());
         assert!(found.is_none());
     }
 

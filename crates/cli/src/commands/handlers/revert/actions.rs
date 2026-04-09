@@ -47,10 +47,7 @@ pub fn run_revert(options: &RevertOptions) -> Result<RevertOutput> {
             options.session_name
         ));
         Output::info(&format!("  Commit to revert: {}", entry.commit_id));
-        Output::info(&format!(
-            "  Would reset to: {}",
-            entry.pre_merge_commit_id
-        ));
+        Output::info(&format!("  Would reset to: {}", entry.pre_merge_commit_id));
 
         return Ok(RevertOutput {
             session_name: options.session_name.clone(),
@@ -113,7 +110,10 @@ fn read_undo_history() -> Result<Vec<UndoEntry>> {
         .filter(|(_, line)| !line.trim().is_empty())
         .map(|(idx, line)| {
             serde_json::from_str::<UndoEntry>(line).map_err(|e| {
-                Error::io_error(format!("Failed to parse undo log entry at line {}: {e}", idx + 1))
+                Error::io_error(format!(
+                    "Failed to parse undo log entry at line {}: {e}",
+                    idx + 1
+                ))
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -210,7 +210,8 @@ mod tests {
         }
 
         fn with_response(mut self, key: &str, response: &str) -> Self {
-            self.responses.insert(key.to_string(), Ok(response.to_string()));
+            self.responses
+                .insert(key.to_string(), Ok(response.to_string()));
             self
         }
 

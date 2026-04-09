@@ -72,8 +72,7 @@ mod config_adversarial {
             .arg("config")
             .arg("get")
             .arg("injection_test");
-        cmd2
-            .assert()
+        cmd2.assert()
             .success()
             .stdout(predicates::str::contains("$(rm -rf /)"));
     }
@@ -99,8 +98,7 @@ mod config_adversarial {
             .arg("config")
             .arg("get")
             .arg("bt_inject");
-        cmd2
-            .assert()
+        cmd2.assert()
             .success()
             .stdout(predicates::str::contains("`whoami`"));
     }
@@ -126,8 +124,7 @@ mod config_adversarial {
             .arg("config")
             .arg("get")
             .arg("../../etc/passwd");
-        cmd2
-            .assert()
+        cmd2.assert()
             .success()
             .stdout(predicates::str::contains("pwned"));
     }
@@ -238,8 +235,7 @@ mod config_adversarial {
             .arg("config")
             .arg("get")
             .arg("equation");
-        cmd2
-            .assert()
+        cmd2.assert()
             .success()
             .stdout(predicates::str::contains("a == b"));
     }
@@ -271,10 +267,7 @@ mod init_adversarial {
     fn init_empty_vcs_type_rejected() {
         let tmp = TempDir::new().expect("tempdir");
         let mut cmd = Command::cargo_bin("scp-cli").unwrap();
-        cmd.current_dir(tmp.path())
-            .arg("init")
-            .arg("--vcs")
-            .arg("");
+        cmd.current_dir(tmp.path()).arg("init").arg("--vcs").arg("");
         cmd.assert()
             .failure()
             .stderr(predicates::str::contains("Unknown VCS type"));
@@ -293,8 +286,7 @@ mod init_adversarial {
         // Second init — should not fail, should say already initialized
         let mut cmd2 = Command::cargo_bin("scp-cli").unwrap();
         cmd2.current_dir(tmp.path()).arg("init");
-        cmd2
-            .assert()
+        cmd2.assert()
             .success()
             .stdout(predicates::str::contains("Already initialized"));
     }
@@ -800,11 +792,7 @@ mod lock_adversarial {
             .success();
 
         // Table should still exist — list should work
-        scp_cmd(db_path)
-            .arg("lock")
-            .arg("list")
-            .assert()
-            .success();
+        scp_cmd(db_path).arg("lock").arg("list").assert().success();
     }
 
     /// Rapid acquire-release cycle should not leak state.
@@ -889,7 +877,8 @@ mod doctor_adversarial {
             .env("HOME", tmp.path())
             .arg("doctor");
         // Should not panic, should run all checks
-        cmd.assert().stdout(predicates::str::contains("Checking VCS"));
+        cmd.assert()
+            .stdout(predicates::str::contains("Checking VCS"));
     }
 
     /// Doctor with a corrupted .git directory (file instead of directory).
@@ -950,8 +939,7 @@ mod doctor_adversarial {
             .env("HOME", tmp.path())
             .arg("doctor")
             .arg("--full");
-        cmd.assert()
-            .stdout(predicates::str::contains("lock file"));
+        cmd.assert().stdout(predicates::str::contains("lock file"));
     }
 
     /// Doctor on unreadable directory should fail gracefully, not panic.
@@ -1003,8 +991,7 @@ mod cross_command_adversarial {
         cmd2.current_dir(tmp.path())
             .env("HOME", tmp.path())
             .arg("doctor");
-        cmd2
-            .assert()
+        cmd2.assert()
             .stdout(predicates::str::contains("VCS initialized"));
     }
 
@@ -1027,8 +1014,7 @@ mod cross_command_adversarial {
 
         // Init should not be affected by locks (different subsystem)
         let mut cmd = Command::cargo_bin("scp-cli").unwrap();
-        cmd.current_dir(tmp.path())
-            .arg("init");
+        cmd.current_dir(tmp.path()).arg("init");
         let _ = cmd.assert().try_success();
 
         // Lock should still be held

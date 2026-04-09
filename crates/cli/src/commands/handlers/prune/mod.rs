@@ -23,4 +23,4 @@ pub mod actions;
 pub mod data;
 
 pub use actions::run_prune;
-pub use data::{PruneMode, PruneOptions, PruneOutput, PrunableItem};
+pub use data::{PrunableItem, PruneMode, PruneOptions, PruneOutput};

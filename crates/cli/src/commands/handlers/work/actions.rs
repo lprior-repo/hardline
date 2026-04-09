@@ -94,10 +94,7 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
 
 /// Print the dry-run summary to stdout.
 fn print_dry_run_summary(options: &WorkOptions, output: &WorkOutput) -> Result<()> {
-    Output::info(&format!(
-        "[DRY RUN] Would create session '{}'",
-        output.name
-    ));
+    Output::info(&format!("[DRY RUN] Would create session '{}'", output.name));
     Output::info(&format!("  Workspace: {}", output.workspace_path));
 
     if let Some(ref bead) = options.bead_id {
@@ -109,7 +106,11 @@ fn print_dry_run_summary(options: &WorkOptions, output: &WorkOutput) -> Result<(
 
 /// Output the result to stdout.
 fn output_result(output: &WorkOutput) -> Result<()> {
-    let status = if output.created { "Created" } else { "Using existing" };
+    let status = if output.created {
+        "Created"
+    } else {
+        "Using existing"
+    };
     Output::info(&format!("{status} session '{}'", output.name));
     Output::info(&format!("  Workspace: {}", output.workspace_path));
 

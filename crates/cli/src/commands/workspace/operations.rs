@@ -527,10 +527,7 @@ mod tests {
 
     #[test]
     fn rq_abort_conflicted_working_copy_rejected() {
-        let backend = MockBackend::new(
-            vec![ws("feature", true)],
-            VcsStatus::Conflicted,
-        );
+        let backend = MockBackend::new(vec![ws("feature", true)], VcsStatus::Conflicted);
         let result = require_clean_working_copy(&backend);
         assert!(result.is_err(), "Conflicted working copy must be rejected");
     }
@@ -581,10 +578,8 @@ mod tests {
 
     #[test]
     fn rq_abort_nonexistent_workspace_rejected() {
-        let backend = MockBackend::new(
-            vec![ws("alpha", true), ws("beta", false)],
-            VcsStatus::Clean,
-        );
+        let backend =
+            MockBackend::new(vec![ws("alpha", true), ws("beta", false)], VcsStatus::Clean);
         let exists = workspace_exists(&backend, "nonexistent").expect("ok");
         assert!(!exists, "Non-existent workspace must return false");
     }
@@ -598,10 +593,7 @@ mod tests {
 
     #[test]
     fn rq_abort_workspace_exists_case_sensitive() {
-        let backend = MockBackend::new(
-            vec![ws("Feature", true)],
-            VcsStatus::Clean,
-        );
+        let backend = MockBackend::new(vec![ws("Feature", true)], VcsStatus::Clean);
         assert!(!workspace_exists(&backend, "feature").expect("ok"));
         assert!(workspace_exists(&backend, "Feature").expect("ok"));
     }
@@ -615,17 +607,21 @@ mod tests {
             VcsStatus::Clean,
         );
         let result = resolve_workspace_name(&backend, None);
-        assert!(result.is_err(), "No name provided and no current workspace must fail");
+        assert!(
+            result.is_err(),
+            "No name provided and no current workspace must fail"
+        );
     }
 
     #[test]
     fn rq_abort_explicit_name_overrides_current() {
-        let backend = MockBackend::new(
-            vec![ws("alpha", true), ws("beta", false)],
-            VcsStatus::Clean,
-        );
+        let backend =
+            MockBackend::new(vec![ws("alpha", true), ws("beta", false)], VcsStatus::Clean);
         let result = resolve_workspace_name(&backend, Some("beta")).expect("ok");
-        assert_eq!(result, "beta", "Explicit name should take precedence over current");
+        assert_eq!(
+            result, "beta",
+            "Explicit name should take precedence over current"
+        );
     }
 
     // --- Check ordering: abort must check dirty → main → exists in order ---
@@ -635,10 +631,7 @@ mod tests {
         // If we were to call the full abort flow with a dirty "main" workspace,
         // the dirty check should fail FIRST (before the main check).
         // We verify this by checking that status() is called first.
-        let backend = MockBackend::new(
-            vec![ws("main", true)],
-            VcsStatus::Dirty,
-        );
+        let backend = MockBackend::new(vec![ws("main", true)], VcsStatus::Dirty);
         // Simulate the abort flow step-by-step
         let step1 = require_clean_working_copy(&backend);
         assert!(step1.is_err(), "Step 1: dirty check must fail");
@@ -649,10 +642,7 @@ mod tests {
     #[test]
     fn rq_abort_check_order_main_before_exists() {
         // After passing clean check, main check should fail before exists check
-        let backend = MockBackend::new(
-            vec![ws("main", true)],
-            VcsStatus::Clean,
-        );
+        let backend = MockBackend::new(vec![ws("main", true)], VcsStatus::Clean);
         let _clean = require_clean_working_copy(&backend).expect("clean");
         let step2 = ensure_not_main_workspace("main");
         assert!(step2.is_err(), "Step 2: main check must fail");
@@ -686,10 +676,7 @@ mod tests {
 
     #[test]
     fn rq_abort_full_flow_dirty_rejected() {
-        let backend = MockBackend::new(
-            vec![ws("feature", false)],
-            VcsStatus::Dirty,
-        );
+        let backend = MockBackend::new(vec![ws("feature", false)], VcsStatus::Dirty);
         let result = require_clean_working_copy(&backend);
         assert!(result.is_err());
     }
@@ -707,10 +694,7 @@ mod tests {
 
     #[test]
     fn rq_abort_full_flow_nonexistent_rejected() {
-        let backend = MockBackend::new(
-            vec![ws("alpha", true)],
-            VcsStatus::Clean,
-        );
+        let backend = MockBackend::new(vec![ws("alpha", true)], VcsStatus::Clean);
         require_clean_working_copy(&backend).expect("clean");
         let name = resolve_workspace_name(&backend, Some("ghost")).expect("name");
         ensure_not_main_workspace(&name).expect("not main");
@@ -726,7 +710,10 @@ mod tests {
         );
         require_clean_working_copy(&backend).expect("clean");
         let result = resolve_workspace_name(&backend, None);
-        assert!(result.is_err(), "Must fail when no name and no current workspace");
+        assert!(
+            result.is_err(),
+            "Must fail when no name and no current workspace"
+        );
     }
 }
 

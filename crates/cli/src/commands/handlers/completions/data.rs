@@ -223,8 +223,7 @@ mod tests {
             install_instructions: "test instructions".to_string(),
         };
         let json = serde_json::to_string(&output).expect("serialize");
-        let deserialized: CompletionsOutput =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: CompletionsOutput = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.shell, Shell::Bash);
         assert_eq!(deserialized.script, "test script");
     }

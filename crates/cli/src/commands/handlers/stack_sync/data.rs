@@ -173,11 +173,17 @@ pub enum SyncError {
     #[error("Failed to delete branch '{branch}': {reason}")]
     BranchDeleteFailed { branch: BranchName, reason: String },
     #[error("Branch '{branch}' is checked out in worktree '{worktree}'")]
-    BranchInWorktree { branch: BranchName, worktree: String },
+    BranchInWorktree {
+        branch: BranchName,
+        worktree: String,
+    },
 
     // Restack failures
     #[error("Rebase conflict on '{branch}' against '{parent}'")]
-    RebaseConflict { branch: BranchName, parent: BranchName },
+    RebaseConflict {
+        branch: BranchName,
+        parent: BranchName,
+    },
     #[error("Rebase failed on '{branch}': {reason}")]
     RebaseFailed { branch: BranchName, reason: String },
 

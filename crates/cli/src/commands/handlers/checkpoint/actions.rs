@@ -90,7 +90,11 @@ fn run_list() -> Result<CheckpointOutput> {
 /// Output a checkpoint result to the user.
 fn output_checkpoint(output: &CheckpointOutput) {
     match output {
-        CheckpointOutput::Created { checkpoint_id, metadata_only, description } => {
+        CheckpointOutput::Created {
+            checkpoint_id,
+            metadata_only,
+            description,
+        } => {
             output_created(checkpoint_id, metadata_only, description);
         }
         CheckpointOutput::Restored { checkpoint_id } => {

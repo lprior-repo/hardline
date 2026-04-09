@@ -1287,7 +1287,12 @@ mod tests {
             error: "first command failed".to_string(),
             partial_results: vec![],
         };
-        if let BatchResult::RolledBack { failed_at, partial_results, .. } = result {
+        if let BatchResult::RolledBack {
+            failed_at,
+            partial_results,
+            ..
+        } = result
+        {
             assert_eq!(failed_at, 0);
             assert!(partial_results.is_empty());
         } else {
@@ -1314,7 +1319,10 @@ mod tests {
     fn adversarial_workspace_dirty_error_informative() {
         let err = check_workspace_ready(VcsStatus::Dirty).unwrap_err();
         let msg = err.to_string().to_lowercase();
-        assert!(msg.contains("dirty") || msg.contains("uncommitted"), "got: {msg}");
+        assert!(
+            msg.contains("dirty") || msg.contains("uncommitted"),
+            "got: {msg}"
+        );
     }
 
     #[test]
@@ -1328,7 +1336,10 @@ mod tests {
     fn adversarial_workspace_detached_error_informative() {
         let err = check_workspace_ready(VcsStatus::Detached).unwrap_err();
         let msg = err.to_string().to_lowercase();
-        assert!(msg.contains("detached") || msg.contains("head"), "got: {msg}");
+        assert!(
+            msg.contains("detached") || msg.contains("head"),
+            "got: {msg}"
+        );
     }
 
     // --- Parsing edge cases ---
@@ -1369,15 +1380,18 @@ mod tests {
     fn adversarial_allowed_no_shells() {
         let shells = ["sh", "bash", "zsh", "fish", "dash", "ksh", "csh", "tcsh"];
         for shell in &shells {
-            assert!(!ALLOWED_COMMANDS.contains(shell), "{shell} must not be allowed");
+            assert!(
+                !ALLOWED_COMMANDS.contains(shell),
+                "{shell} must not be allowed"
+            );
         }
     }
 
     #[test]
     fn adversarial_allowed_no_dangerous_commands() {
         let dangerous = [
-            "rm", "chmod", "chown", "sudo", "su", "kill", "dd", "mkfs",
-            "curl", "wget", "nc", "ncat", "telnet", "ssh",
+            "rm", "chmod", "chown", "sudo", "su", "kill", "dd", "mkfs", "curl", "wget", "nc",
+            "ncat", "telnet", "ssh",
         ];
         for cmd in &dangerous {
             assert!(!ALLOWED_COMMANDS.contains(cmd), "{cmd} must not be allowed");
@@ -1394,7 +1408,10 @@ mod tests {
     #[test]
     fn adversarial_command_result_negative_exit_code() {
         let result = CommandResult {
-            command: BatchCommand { name: "git".to_string(), args: vec![] },
+            command: BatchCommand {
+                name: "git".to_string(),
+                args: vec![],
+            },
             success: false,
             exit_code: -1,
             stdout: String::new(),
@@ -1408,7 +1425,10 @@ mod tests {
     fn adversarial_command_result_large_output() {
         let large = "x".repeat(1_000_000);
         let result = CommandResult {
-            command: BatchCommand { name: "git".to_string(), args: vec![] },
+            command: BatchCommand {
+                name: "git".to_string(),
+                args: vec![],
+            },
             success: true,
             exit_code: 0,
             stdout: large.clone(),

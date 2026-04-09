@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use scp_stack::{BranchName, PrState, Stack, StackBranch};
 
 use super::data::{
-    DriftReport, MergedDetectionMethod, MergedDetectionInput, RestackOutcome, RestackStatus,
+    DriftReport, MergedDetectionInput, MergedDetectionMethod, RestackOutcome, RestackStatus,
     StackSyncOptions,
 };
 
@@ -20,10 +20,7 @@ use super::data::{
 /// # Errors
 ///
 /// Returns a string describing why preconditions are not met.
-pub fn validate_sync_preconditions(
-    stack: &Stack,
-    is_clean: bool,
-) -> Result<(), String> {
+pub fn validate_sync_preconditions(stack: &Stack, is_clean: bool) -> Result<(), String> {
     if !is_clean {
         return Err("Workspace has uncommitted changes. Stash or commit first.".to_string());
     }
@@ -98,8 +95,7 @@ pub fn detect_merged_branches(
             let has_pr = input.pr_states.contains_key(branch);
             if has_pr && !input.remote_branches.contains(branch) {
                 seen.insert(branch.clone());
-                merged
-                    .push((branch.clone(), MergedDetectionMethod::RemoteBranchDeleted));
+                merged.push((branch.clone(), MergedDetectionMethod::RemoteBranchDeleted));
             }
         }
     }
@@ -270,9 +266,7 @@ mod tests {
         stack
     }
 
-    fn make_stack_with_restack(
-        branches: Vec<(&str, Option<&str>, bool)>,
-    ) -> Stack {
+    fn make_stack_with_restack(branches: Vec<(&str, Option<&str>, bool)>) -> Stack {
         let main = bn("main");
         let mut stack = Stack::new(main);
         for (name, parent, needs_restack) in branches {

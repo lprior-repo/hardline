@@ -288,10 +288,7 @@ fn session_name_accepts_long_valid_name() {
 fn session_name_rejects_empty() {
     let result = validate_session_name("");
     assert!(result.is_err());
-    assert_eq!(
-        result.unwrap_err(),
-        "Session name cannot be empty"
-    );
+    assert_eq!(result.unwrap_err(), "Session name cannot be empty");
 }
 
 #[test]
@@ -782,7 +779,10 @@ mod red_queen_adversarial {
         // This documents current behavior
         let result = run_rename(&opts("old", "main"));
         // "main" is valid format — the handler does not block reserved names
-        assert!(result.is_ok(), "main passes format validation (reserved check is caller's responsibility)");
+        assert!(
+            result.is_ok(),
+            "main passes format validation (reserved check is caller's responsibility)"
+        );
     }
 
     #[test]

@@ -136,7 +136,10 @@ mod tests {
             name: "build-task".to_string(),
             status: "completed".to_string(),
         };
-        assert_eq!(format_condition(&cond), "session-status:build-task=completed");
+        assert_eq!(
+            format_condition(&cond),
+            "session-status:build-task=completed"
+        );
     }
 
     // ========================================================================
@@ -530,7 +533,10 @@ mod tests {
             WaitCondition::SessionExists("a".to_string()),
             WaitCondition::SessionUnlocked("b".to_string()),
             WaitCondition::Healthy,
-            WaitCondition::SessionStatus { name: "c".to_string(), status: "d".to_string() },
+            WaitCondition::SessionStatus {
+                name: "c".to_string(),
+                status: "d".to_string(),
+            },
         ];
         for cond in &conditions {
             let debug = format!("{cond:?}");
@@ -548,7 +554,10 @@ mod tests {
             WaitCondition::SessionExists("clone-me".to_string()),
             WaitCondition::SessionUnlocked("locked".to_string()),
             WaitCondition::Healthy,
-            WaitCondition::SessionStatus { name: "n".to_string(), status: "s".to_string() },
+            WaitCondition::SessionStatus {
+                name: "n".to_string(),
+                status: "s".to_string(),
+            },
         ];
         for cond in &conditions {
             let cloned = cond.clone();
@@ -574,7 +583,10 @@ mod tests {
         for input in &adversarial {
             // Should parse (pure function doesn't execute shell commands)
             let result = parse_condition(input);
-            assert!(result.is_some(), "should parse adversarial input: {input:?}");
+            assert!(
+                result.is_some(),
+                "should parse adversarial input: {input:?}"
+            );
         }
     }
 

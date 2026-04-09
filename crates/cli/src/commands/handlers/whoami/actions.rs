@@ -97,7 +97,13 @@ mod tests {
     /// — when present, `body` runs and the process exits.  When absent
     /// (parent process), the binary is re-launched with the marker, the
     /// specified env overrides, and a narrow test filter.
-    fn isolated(marker: &str, test_name: &str, env_set: &[(&str, &str)], env_remove: &[&str], body: impl FnOnce()) {
+    fn isolated(
+        marker: &str,
+        test_name: &str,
+        env_set: &[(&str, &str)],
+        env_remove: &[&str],
+        body: impl FnOnce(),
+    ) {
         if std::env::var(marker).is_ok() {
             body();
             std::process::exit(0);
@@ -276,7 +282,10 @@ mod tests {
         isolated(
             "__TEST_WHOMAI_BEAD_FALLBACK",
             "commands::handlers::whoami::actions::tests::build_identity_bead_fallback_isolate",
-            &[("SCP_AGENT_ID", "agent-1"), ("ISOLATE_BEAD_ID", "isolate-bead-99")],
+            &[
+                ("SCP_AGENT_ID", "agent-1"),
+                ("ISOLATE_BEAD_ID", "isolate-bead-99"),
+            ],
             &["SCP_BEAD_ID"],
             || {
                 let output = build_identity();
@@ -442,10 +451,7 @@ mod tests {
         isolated(
             "__TEST_WHOMAI_WS_ROOT",
             "commands::handlers::whoami::actions::tests::build_identity_workspace_root_path",
-            &[
-                ("SCP_AGENT_ID", "agent-1"),
-                ("SCP_WORKSPACE", "/"),
-            ],
+            &[("SCP_AGENT_ID", "agent-1"), ("SCP_WORKSPACE", "/")],
             &["SCP_SESSION", "ISOLATE_SESSION"],
             || {
                 let output = build_identity();
@@ -505,7 +511,10 @@ mod tests {
                 let output = build_identity();
                 assert!(output.registered);
                 assert_eq!(output.simple, "ポールキャット-ジャスパー");
-                assert_eq!(output.agent_id, Some("ポールキャット-ジャスパー".to_string()));
+                assert_eq!(
+                    output.agent_id,
+                    Some("ポールキャット-ジャスパー".to_string())
+                );
             },
         );
     }
@@ -580,7 +589,12 @@ mod tests {
                 ("ISOLATE_SESSION", "iso-session"),
                 ("ISOLATE_WORKSPACE", "/home/user/workspaces/iso-ws"),
             ],
-            &["SCP_AGENT_ID", "SCP_BEAD_ID", "SCP_SESSION", "SCP_WORKSPACE"],
+            &[
+                "SCP_AGENT_ID",
+                "SCP_BEAD_ID",
+                "SCP_SESSION",
+                "SCP_WORKSPACE",
+            ],
             || {
                 let output = build_identity();
                 assert!(output.registered);
@@ -603,7 +617,13 @@ mod tests {
                 ("ISOLATE_BEAD_ID", "iso-bead"),
                 ("ISOLATE_SESSION", "iso-session"),
             ],
-            &["SCP_BEAD_ID", "SCP_SESSION", "SCP_WORKSPACE", "ISOLATE_WORKSPACE", "ISOLATE_AGENT_ID"],
+            &[
+                "SCP_BEAD_ID",
+                "SCP_SESSION",
+                "SCP_WORKSPACE",
+                "ISOLATE_WORKSPACE",
+                "ISOLATE_AGENT_ID",
+            ],
             || {
                 let output = build_identity();
                 assert_eq!(output.agent_id, Some("scp-agent".to_string()));

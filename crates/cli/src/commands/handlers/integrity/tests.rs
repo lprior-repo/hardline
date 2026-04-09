@@ -57,7 +57,10 @@ fn subcommand_repair_force_false() {
 
 #[test]
 fn subcommand_backup_list_is_unit() {
-    assert!(matches!(IntegritySubcommand::BackupList, IntegritySubcommand::BackupList));
+    assert!(matches!(
+        IntegritySubcommand::BackupList,
+        IntegritySubcommand::BackupList
+    ));
 }
 
 #[test]
@@ -98,7 +101,10 @@ fn options_with_validate() {
             workspace: "alpha".to_string(),
         },
     };
-    assert!(matches!(opts.subcommand, IntegritySubcommand::Validate { .. }));
+    assert!(matches!(
+        opts.subcommand,
+        IntegritySubcommand::Validate { .. }
+    ));
 }
 
 #[test]
@@ -109,7 +115,10 @@ fn options_with_repair() {
             force: false,
         },
     };
-    assert!(matches!(opts.subcommand, IntegritySubcommand::Repair { .. }));
+    assert!(matches!(
+        opts.subcommand,
+        IntegritySubcommand::Repair { .. }
+    ));
 }
 
 #[test]
@@ -128,7 +137,10 @@ fn options_with_backup_restore() {
             force: false,
         },
     };
-    assert!(matches!(opts.subcommand, IntegritySubcommand::BackupRestore { .. }));
+    assert!(matches!(
+        opts.subcommand,
+        IntegritySubcommand::BackupRestore { .. }
+    ));
 }
 
 #[test]
@@ -140,8 +152,14 @@ fn options_clone_is_independent() {
     };
     let cloned = opts.clone();
     // Both should have the same variant
-    assert!(matches!(opts.subcommand, IntegritySubcommand::Validate { .. }));
-    assert!(matches!(cloned.subcommand, IntegritySubcommand::Validate { .. }));
+    assert!(matches!(
+        opts.subcommand,
+        IntegritySubcommand::Validate { .. }
+    ));
+    assert!(matches!(
+        cloned.subcommand,
+        IntegritySubcommand::Validate { .. }
+    ));
 }
 
 // ============================================================================
@@ -160,28 +178,43 @@ fn json_format_is_json() {
 
 #[test]
 fn format_from_str_json() {
-    assert_eq!(IntegrityOutputFormat::from("json"), IntegrityOutputFormat::Json);
+    assert_eq!(
+        IntegrityOutputFormat::from("json"),
+        IntegrityOutputFormat::Json
+    );
 }
 
 #[test]
 fn format_from_str_human() {
-    assert_eq!(IntegrityOutputFormat::from("human"), IntegrityOutputFormat::Human);
+    assert_eq!(
+        IntegrityOutputFormat::from("human"),
+        IntegrityOutputFormat::Human
+    );
 }
 
 #[test]
 fn format_from_str_default_is_human() {
-    assert_eq!(IntegrityOutputFormat::from("anything"), IntegrityOutputFormat::Human);
+    assert_eq!(
+        IntegrityOutputFormat::from("anything"),
+        IntegrityOutputFormat::Human
+    );
 }
 
 #[test]
 fn format_from_str_empty_is_human() {
-    assert_eq!(IntegrityOutputFormat::from(""), IntegrityOutputFormat::Human);
+    assert_eq!(
+        IntegrityOutputFormat::from(""),
+        IntegrityOutputFormat::Human
+    );
 }
 
 #[test]
 fn format_from_str_uppercase_json_is_human() {
     // Case-sensitive: "JSON" is not "json"
-    assert_eq!(IntegrityOutputFormat::from("JSON"), IntegrityOutputFormat::Human);
+    assert_eq!(
+        IntegrityOutputFormat::from("JSON"),
+        IntegrityOutputFormat::Human
+    );
 }
 
 #[test]
@@ -197,8 +230,14 @@ fn format_inequality() {
 
 #[test]
 fn format_clone_matches() {
-    assert_eq!(IntegrityOutputFormat::Json.clone(), IntegrityOutputFormat::Json);
-    assert_eq!(IntegrityOutputFormat::Human.clone(), IntegrityOutputFormat::Human);
+    assert_eq!(
+        IntegrityOutputFormat::Json.clone(),
+        IntegrityOutputFormat::Json
+    );
+    assert_eq!(
+        IntegrityOutputFormat::Human.clone(),
+        IntegrityOutputFormat::Human
+    );
 }
 
 #[test]
@@ -220,7 +259,11 @@ fn sample_validation_result() -> scp_core::workspace_integrity::ValidationResult
 fn sample_validation_result_with_issues() -> scp_core::workspace_integrity::ValidationResult {
     use scp_core::workspace_integrity::{CorruptionType, IntegrityIssue, ValidationResult};
     let issue = IntegrityIssue::new(CorruptionType::StaleLocks, "Stale lock files detected");
-    ValidationResult::invalid("broken-ws", std::path::PathBuf::from("/tmp/broken"), vec![issue])
+    ValidationResult::invalid(
+        "broken-ws",
+        std::path::PathBuf::from("/tmp/broken"),
+        vec![issue],
+    )
 }
 
 #[test]
@@ -515,17 +558,26 @@ fn restore_response_empty_fields_roundtrip() {
 
 #[test]
 fn format_from_str_toml_is_human() {
-    assert_eq!(IntegrityOutputFormat::from("toml"), IntegrityOutputFormat::Human);
+    assert_eq!(
+        IntegrityOutputFormat::from("toml"),
+        IntegrityOutputFormat::Human
+    );
 }
 
 #[test]
 fn format_from_str_yaml_is_human() {
-    assert_eq!(IntegrityOutputFormat::from("yaml"), IntegrityOutputFormat::Human);
+    assert_eq!(
+        IntegrityOutputFormat::from("yaml"),
+        IntegrityOutputFormat::Human
+    );
 }
 
 #[test]
 fn format_from_str_xml_is_human() {
-    assert_eq!(IntegrityOutputFormat::from("xml"), IntegrityOutputFormat::Human);
+    assert_eq!(
+        IntegrityOutputFormat::from("xml"),
+        IntegrityOutputFormat::Human
+    );
 }
 
 #[test]
@@ -725,17 +777,16 @@ mod red_queen_adversarial {
             };
             let json = serde_json::to_string(&vr).expect("serialize");
             let back: ValidationResponse = serde_json::from_str(&json).expect("deserialize");
-            assert_eq!(back.workspace, *payload, "workspace must roundtrip for injection payload");
+            assert_eq!(
+                back.workspace, *payload,
+                "workspace must roundtrip for injection payload"
+            );
         }
     }
 
     #[test]
     fn repair_response_with_injection_survives_roundtrip() {
-        let payloads = [
-            "'; DROP TABLE--; ",
-            "<script>alert(1)</script>",
-            "\x00null",
-        ];
+        let payloads = ["'; DROP TABLE--; ", "<script>alert(1)</script>", "\x00null"];
         for payload in &payloads {
             let r = RepairResponse {
                 workspace: payload.to_string(),
@@ -793,7 +844,9 @@ mod red_queen_adversarial {
     #[test]
     fn output_format_never_panics_on_any_input() {
         let long_input = "a".repeat(1000);
-        let inputs = ["", "json", "JSON", "human", "HUMAN", "yaml", "\x00", "\n", "🔥"];
+        let inputs = [
+            "", "json", "JSON", "human", "HUMAN", "yaml", "\x00", "\n", "🔥",
+        ];
         for input in &inputs {
             let _ = IntegrityOutputFormat::from(*input);
         }

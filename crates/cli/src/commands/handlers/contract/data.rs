@@ -92,7 +92,10 @@ pub fn known_contracts() -> Vec<CommandContract> {
                 default: false,
             }],
             output_schema: "WorkspaceInfo".to_string(),
-            side_effects: vec!["Creates git worktree".to_string(), "Registers workspace".to_string()],
+            side_effects: vec![
+                "Creates git worktree".to_string(),
+                "Registers workspace".to_string(),
+            ],
             related_commands: vec!["switch".to_string(), "done".to_string()],
             examples: vec!["scp workspace spawn feature-auth".to_string()],
             reversible: true,
@@ -131,8 +134,15 @@ pub fn known_contracts() -> Vec<CommandContract> {
                 },
             ],
             output_schema: "DoneOutput".to_string(),
-            side_effects: vec!["Merges branch into main".to_string(), "Removes worktree".to_string()],
-            related_commands: vec!["spawn".to_string(), "abort".to_string(), "revert".to_string()],
+            side_effects: vec![
+                "Merges branch into main".to_string(),
+                "Removes worktree".to_string(),
+            ],
+            related_commands: vec![
+                "spawn".to_string(),
+                "abort".to_string(),
+                "revert".to_string(),
+            ],
             examples: vec!["scp workspace done feature-auth -m 'Add auth'".to_string()],
             reversible: true,
             undo_command: Some("revert".to_string()),
@@ -384,8 +394,7 @@ mod tests {
     #[test]
     fn command_contract_schema_has_required_top_level_fields() {
         let contract = sample_contract();
-        let json: serde_json::Value =
-            serde_json::to_value(&contract).expect("to_value");
+        let json: serde_json::Value = serde_json::to_value(&contract).expect("to_value");
         assert!(json.get("name").is_some());
         assert!(json.get("description").is_some());
         assert!(json.get("required_args").is_some());
@@ -421,8 +430,7 @@ mod tests {
     #[test]
     fn contract_arrays_are_arrays_in_json() {
         let contract = sample_contract();
-        let json: serde_json::Value =
-            serde_json::to_value(&contract).expect("to_value");
+        let json: serde_json::Value = serde_json::to_value(&contract).expect("to_value");
         assert!(json["required_args"].is_array());
         assert!(json["optional_args"].is_array());
         assert!(json["flags"].is_array());
@@ -513,8 +521,16 @@ mod tests {
     fn known_contracts_have_required_fields() {
         for contract in &known_contracts() {
             assert!(!contract.name.is_empty(), "contract has empty name");
-            assert!(!contract.description.is_empty(), "contract {} has empty description", contract.name);
-            assert!(!contract.output_schema.is_empty(), "contract {} has empty output_schema", contract.name);
+            assert!(
+                !contract.description.is_empty(),
+                "contract {} has empty description",
+                contract.name
+            );
+            assert!(
+                !contract.output_schema.is_empty(),
+                "contract {} has empty output_schema",
+                contract.name
+            );
         }
     }
 
@@ -522,7 +538,10 @@ mod tests {
     fn known_contracts_spawn_has_required_arg() {
         let contracts = known_contracts();
         let spawn = contracts.iter().find(|c| c.name == "spawn").expect("spawn");
-        assert!(!spawn.required_args.is_empty(), "spawn needs at least one required arg");
+        assert!(
+            !spawn.required_args.is_empty(),
+            "spawn needs at least one required arg"
+        );
         assert!(spawn.required_args.iter().any(|a| a.name == "name"));
     }
 
@@ -559,7 +578,10 @@ mod tests {
     fn known_contracts_done_has_multiple_flags() {
         let contracts = known_contracts();
         let done = contracts.iter().find(|c| c.name == "done").expect("done");
-        assert!(done.flags.len() >= 3, "done should have --message, --squash, --dry-run");
+        assert!(
+            done.flags.len() >= 3,
+            "done should have --message, --squash, --dry-run"
+        );
     }
 
     #[test]
@@ -573,7 +595,10 @@ mod tests {
     #[test]
     fn known_contracts_revert_not_reversible() {
         let contracts = known_contracts();
-        let revert = contracts.iter().find(|c| c.name == "revert").expect("revert");
+        let revert = contracts
+            .iter()
+            .find(|c| c.name == "revert")
+            .expect("revert");
         assert!(!revert.reversible);
         assert!(revert.undo_command.is_none());
     }
@@ -581,7 +606,10 @@ mod tests {
     #[test]
     fn known_contracts_revert_has_required_arg() {
         let contracts = known_contracts();
-        let revert = contracts.iter().find(|c| c.name == "revert").expect("revert");
+        let revert = contracts
+            .iter()
+            .find(|c| c.name == "revert")
+            .expect("revert");
         assert!(!revert.required_args.is_empty());
         assert!(revert.required_args.iter().any(|a| a.name == "name"));
     }
@@ -589,7 +617,10 @@ mod tests {
     #[test]
     fn known_contracts_revert_has_dry_run_flag() {
         let contracts = known_contracts();
-        let revert = contracts.iter().find(|c| c.name == "revert").expect("revert");
+        let revert = contracts
+            .iter()
+            .find(|c| c.name == "revert")
+            .expect("revert");
         assert!(revert.flags.iter().any(|f| f.name == "--dry-run"));
     }
 
@@ -714,26 +745,36 @@ mod tests {
         let contract = CommandContract {
             name: "complex".to_string(),
             description: "Complex command".to_string(),
-            required_args: (0..10).map(|i| ArgContract {
-                name: format!("arg{i}"),
-                arg_type: "string".to_string(),
-                required: true,
-                description: format!("Arg {i}"),
-                example: None,
-            }).collect(),
-            optional_args: (0..5).map(|i| ArgContract {
-                name: format!("opt{i}"),
-                arg_type: "string".to_string(),
-                required: false,
-                description: format!("Opt {i}"),
-                example: None,
-            }).collect(),
-            flags: (0..8).map(|i| FlagContract {
-                name: format!("--flag{i}"),
-                short: if i % 2 == 0 { Some(format!("-{i}")) } else { None },
-                description: format!("Flag {i}"),
-                default: i % 3 == 0,
-            }).collect(),
+            required_args: (0..10)
+                .map(|i| ArgContract {
+                    name: format!("arg{i}"),
+                    arg_type: "string".to_string(),
+                    required: true,
+                    description: format!("Arg {i}"),
+                    example: None,
+                })
+                .collect(),
+            optional_args: (0..5)
+                .map(|i| ArgContract {
+                    name: format!("opt{i}"),
+                    arg_type: "string".to_string(),
+                    required: false,
+                    description: format!("Opt {i}"),
+                    example: None,
+                })
+                .collect(),
+            flags: (0..8)
+                .map(|i| FlagContract {
+                    name: format!("--flag{i}"),
+                    short: if i % 2 == 0 {
+                        Some(format!("-{i}"))
+                    } else {
+                        None
+                    },
+                    description: format!("Flag {i}"),
+                    default: i % 3 == 0,
+                })
+                .collect(),
             output_schema: "ComplexOutput".to_string(),
             side_effects: vec!["effect1".to_string(), "effect2".to_string()],
             related_commands: vec!["simple".to_string()],

@@ -158,7 +158,10 @@ mod tests {
 
     #[test]
     fn query_type_from_str() {
-        assert_eq!(QueryType::from_str("session-exists"), Some(QueryType::SessionExists));
+        assert_eq!(
+            QueryType::from_str("session-exists"),
+            Some(QueryType::SessionExists)
+        );
         assert_eq!(QueryType::from_str("sessions"), Some(QueryType::Sessions));
         assert_eq!(QueryType::from_str("blockers"), Some(QueryType::Blockers));
         assert_eq!(QueryType::from_str("help"), Some(QueryType::Help));
@@ -175,11 +178,26 @@ mod tests {
 
     #[test]
     fn session_status_roundtrip() {
-        assert_eq!(SessionStatus::from_str_lossy("active"), SessionStatus::Active);
-        assert_eq!(SessionStatus::from_str_lossy("paused"), SessionStatus::Paused);
-        assert_eq!(SessionStatus::from_str_lossy("completed"), SessionStatus::Completed);
-        assert_eq!(SessionStatus::from_str_lossy("aborted"), SessionStatus::Aborted);
-        assert_eq!(SessionStatus::from_str_lossy("unknown"), SessionStatus::Active);
+        assert_eq!(
+            SessionStatus::from_str_lossy("active"),
+            SessionStatus::Active
+        );
+        assert_eq!(
+            SessionStatus::from_str_lossy("paused"),
+            SessionStatus::Paused
+        );
+        assert_eq!(
+            SessionStatus::from_str_lossy("completed"),
+            SessionStatus::Completed
+        );
+        assert_eq!(
+            SessionStatus::from_str_lossy("aborted"),
+            SessionStatus::Aborted
+        );
+        assert_eq!(
+            SessionStatus::from_str_lossy("unknown"),
+            SessionStatus::Active
+        );
     }
 
     #[test]

@@ -149,9 +149,7 @@ pub enum Eligibility {
     /// The entry can be undone.
     Eligible,
     /// The entry cannot be undone, with a reason.
-    Ineligible {
-        reason: String,
-    },
+    Ineligible { reason: String },
 }
 
 impl Eligibility {
@@ -168,7 +166,9 @@ pub const WORKSPACE_RETENTION_SECONDS: u64 = 24 * 3600;
 /// Create an `Ineligible` variant with a reason.
 #[must_use]
 fn ineligible(reason: &str) -> Eligibility {
-    Eligibility::Ineligible { reason: reason.to_string() }
+    Eligibility::Ineligible {
+        reason: reason.to_string(),
+    }
 }
 
 /// Compute whether an undo entry is eligible for undo given the current time.
@@ -233,8 +233,7 @@ mod tests {
         };
 
         let json = serde_json::to_string(&output).expect("serialize");
-        let deserialized: UndoOutput =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: UndoOutput = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.session_name, "feature-x");
         assert_eq!(deserialized.commit_id, "abc123");
     }
@@ -302,8 +301,7 @@ mod tests {
             status: UndoStatus::Completed,
         };
         let json = serde_json::to_string(&entry).expect("serialize");
-        let deserialized: UndoEntry =
-            serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: UndoEntry = serde_json::from_str(&json).expect("deserialize roundtrip");
         assert!(!deserialized.pushed_to_remote);
         assert_eq!(deserialized.session_name, "ws-1");
         assert_eq!(deserialized.status, UndoStatus::Completed);
@@ -319,7 +317,9 @@ mod tests {
 
     #[test]
     fn eligibility_ineligible_is_not_eligible() {
-        let e = Eligibility::Ineligible { reason: "test".to_string() };
+        let e = Eligibility::Ineligible {
+            reason: "test".to_string(),
+        };
         assert!(!e.is_eligible());
     }
 
@@ -328,7 +328,9 @@ mod tests {
         assert_eq!(Eligibility::Eligible, Eligibility::Eligible);
         assert_ne!(
             Eligibility::Eligible,
-            Eligibility::Ineligible { reason: "x".to_string() }
+            Eligibility::Ineligible {
+                reason: "x".to_string()
+            }
         );
     }
 
@@ -407,7 +409,9 @@ mod tests {
         };
         let eligibility = compute_undo_eligibility(&entry, 2_000);
         assert!(!eligibility.is_eligible());
-        assert!(matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("pushed")));
+        assert!(
+            matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("pushed"))
+        );
     }
 
     #[test]
@@ -422,7 +426,9 @@ mod tests {
         };
         let eligibility = compute_undo_eligibility(&entry, 2_000);
         assert!(!eligibility.is_eligible());
-        assert!(matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("undone")));
+        assert!(
+            matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("undone"))
+        );
     }
 
     #[test]
@@ -437,7 +443,9 @@ mod tests {
         };
         let eligibility = compute_undo_eligibility(&entry, 2_000);
         assert!(!eligibility.is_eligible());
-        assert!(matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("reverted")));
+        assert!(
+            matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("reverted"))
+        );
     }
 
     #[test]
@@ -453,7 +461,9 @@ mod tests {
         let now = 1_000 + WORKSPACE_RETENTION_SECONDS + 1;
         let eligibility = compute_undo_eligibility(&entry, now);
         assert!(!eligibility.is_eligible());
-        assert!(matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("Expired")));
+        assert!(
+            matches!(eligibility, Eligibility::Ineligible { ref reason } if reason.contains("Expired"))
+        );
     }
 
     #[test]

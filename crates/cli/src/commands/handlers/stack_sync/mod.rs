@@ -13,7 +13,9 @@ pub mod calc;
 pub mod data;
 
 pub use actions::run_stack_sync;
-pub use calc::{compute_drift, detect_merged_branches, plan_restack_order, resolve_effective_parent};
+pub use calc::{
+    compute_drift, detect_merged_branches, plan_restack_order, resolve_effective_parent,
+};
 pub use data::{
     DriftReport, MergedBranch, MergedDetectionMethod, RestackOutcome, RestackStatus,
     StackSyncOptions, StackSyncResult, SyncError,

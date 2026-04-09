@@ -131,7 +131,10 @@ mod tests {
     fn event_type_display_is_snake_case() {
         assert_eq!(EventType::SessionCreated.to_string(), "session_created");
         assert_eq!(EventType::AgentHeartbeat.to_string(), "agent_heartbeat");
-        assert_eq!(EventType::BeadStatusChanged.to_string(), "bead_status_changed");
+        assert_eq!(
+            EventType::BeadStatusChanged.to_string(),
+            "bead_status_changed"
+        );
     }
 
     #[test]
@@ -214,9 +217,18 @@ mod tests {
 
     #[test]
     fn event_type_matches_category_prefix() {
-        assert!(event_type_matches(Some("session"), &EventType::SessionCreated));
-        assert!(event_type_matches(Some("session"), &EventType::SessionRemoved));
-        assert!(event_type_matches(Some("agent"), &EventType::AgentHeartbeat));
+        assert!(event_type_matches(
+            Some("session"),
+            &EventType::SessionCreated
+        ));
+        assert!(event_type_matches(
+            Some("session"),
+            &EventType::SessionRemoved
+        ));
+        assert!(event_type_matches(
+            Some("agent"),
+            &EventType::AgentHeartbeat
+        ));
         assert!(event_type_matches(Some("lock"), &EventType::LockAcquired));
         assert!(event_type_matches(
             Some("checkpoint"),

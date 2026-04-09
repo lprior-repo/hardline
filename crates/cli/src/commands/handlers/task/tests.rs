@@ -799,7 +799,10 @@ mod red_queen_task_subcommands {
         // Agent-1 claims first
         let claimed = transition_to_claimed(task, "agent-1");
         assert!(matches!(claimed.state, TaskState::InProgress));
-        assert_eq!(claimed.assignee.as_ref().map(|a| a.as_str()), Some("agent-1"));
+        assert_eq!(
+            claimed.assignee.as_ref().map(|a| a.as_str()),
+            Some("agent-1")
+        );
 
         // Agent-2 attempts to claim the already-claimed task
         let result = validate_not_claimed_by_other(&claimed, "agent-2");
@@ -839,7 +842,10 @@ mod red_queen_task_subcommands {
         // After agent-1's lock drops, agent-2 can acquire
         drop(guard1);
         let guard2_retry = acquire_task_lock(&lock, task_id, "agent-2");
-        assert!(guard2_retry.is_ok(), "Agent-2 should succeed after lock release");
+        assert!(
+            guard2_retry.is_ok(),
+            "Agent-2 should succeed after lock release"
+        );
     }
 
     /// Rapid claim-yield-reclaim cycle produces consistent state.
@@ -851,7 +857,10 @@ mod red_queen_task_subcommands {
             let agent = format!("agent-{i}");
             task = transition_to_claimed(task, &agent);
             assert!(matches!(task.state, TaskState::InProgress));
-            assert_eq!(task.assignee.as_ref().map(|a| a.as_str()), Some(agent.as_str()));
+            assert_eq!(
+                task.assignee.as_ref().map(|a| a.as_str()),
+                Some(agent.as_str())
+            );
 
             task = transition_to_yielded(task);
             assert!(matches!(task.state, TaskState::Open));
@@ -1110,7 +1119,10 @@ mod red_queen_task_subcommands {
     #[test]
     fn title_with_emoji_and_unicode() {
         let title = Title::new("Fix bug \u{1F41B} in \u{6587}\u{5B57}\u{5316}\u{3051}");
-        assert_eq!(title.as_str(), "Fix bug \u{1F41B} in \u{6587}\u{5B57}\u{5316}\u{3051}");
+        assert_eq!(
+            title.as_str(),
+            "Fix bug \u{1F41B} in \u{6587}\u{5B57}\u{5316}\u{3051}"
+        );
     }
 
     #[test]
@@ -1152,7 +1164,10 @@ mod red_queen_task_subcommands {
         );
         let json = serde_json::to_string(&task).expect("serialize");
         let restored: Task = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(restored.title.as_str(), "\u{1F41B} bug: '; DROP -- <script>");
+        assert_eq!(
+            restored.title.as_str(),
+            "\u{1F41B} bug: '; DROP -- <script>"
+        );
     }
 
     // ─── EXTREMELY LONG DESCRIPTIONS ────────────────────────────────────
@@ -1221,7 +1236,10 @@ mod red_queen_task_subcommands {
 
         let json = serde_json::to_string(&task).expect("serialize 100KB desc");
         let restored: Task = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(restored.description.as_deref().map(|d| d.len()), Some(100_000));
+        assert_eq!(
+            restored.description.as_deref().map(|d| d.len()),
+            Some(100_000)
+        );
     }
 
     // ─── SQL INJECTION / SEARCH ADVERSARIAL ─────────────────────────────
@@ -1303,7 +1321,10 @@ mod red_queen_task_subcommands {
     /// TaskId rejects all-underscore (valid but edge-case).
     #[test]
     fn taskid_accepts_all_underscore() {
-        assert!(TaskId::new("___").is_ok(), "All underscores is valid per regex");
+        assert!(
+            TaskId::new("___").is_ok(),
+            "All underscores is valid per regex"
+        );
     }
 
     /// TaskId rejects dot-containing IDs.
@@ -1486,7 +1507,10 @@ mod red_queen_execution {
         // Agent-2 claims (expiry allows re-claim)
         let reclaimed = transition_to_claimed(yielded, agent2);
         assert!(matches!(reclaimed.state, TaskState::InProgress));
-        assert_eq!(reclaimed.assignee.as_ref().map(|a| a.as_str()), Some(agent2));
+        assert_eq!(
+            reclaimed.assignee.as_ref().map(|a| a.as_str()),
+            Some(agent2)
+        );
     }
 
     /// Full lifecycle: Open -> Claim -> Start -> Done survives serialization.
@@ -1527,13 +1551,14 @@ mod red_queen_execution {
 
         // Spawn thread that tries to acquire the same lock
         let lock_clone = Arc::clone(&lock);
-        let handle = thread::spawn(move || {
-            acquire_task_lock(&*lock_clone, task_id, "agent-2")
-        });
+        let handle = thread::spawn(move || acquire_task_lock(&*lock_clone, task_id, "agent-2"));
 
         // Second acquisition should fail (lock is held)
         let result = handle.join().expect("thread panicked");
-        assert!(result.is_err(), "Second agent should be blocked while lock held");
+        assert!(
+            result.is_err(),
+            "Second agent should be blocked while lock held"
+        );
     }
 
     /// Lock acquisition for different task IDs succeeds concurrently.
@@ -1674,7 +1699,10 @@ mod red_queen_execution {
         let mut task = open_task("blocked-noclaim");
         task.state = TaskState::Blocked;
         let result = validate_not_claimed_by_other(&task, "agent-1");
-        assert!(result.is_ok(), "Blocked task without assignee should be claimable");
+        assert!(
+            result.is_ok(),
+            "Blocked task without assignee should be claimable"
+        );
     }
 
     /// validate_claimed_by_user fails for Blocked task (no assignee).
@@ -1683,7 +1711,10 @@ mod red_queen_execution {
         let mut task = open_task("blocked-noowner");
         task.state = TaskState::Blocked;
         let result = validate_claimed_by_user(&task, "agent-1");
-        assert!(result.is_err(), "Cannot yield blocked task with no assignee");
+        assert!(
+            result.is_err(),
+            "Cannot yield blocked task with no assignee"
+        );
     }
 
     // ─── TASK WITH ALL FIELDS POPULATED ──────────────────────────────
@@ -1715,7 +1746,10 @@ mod red_queen_execution {
             done.description.as_deref(),
             Some("A description with 'quotes' and \"double quotes\"")
         );
-        assert_eq!(done.priority.as_ref().map(|p| p.as_str()), Some("P0-critical"));
+        assert_eq!(
+            done.priority.as_ref().map(|p| p.as_str()),
+            Some("P0-critical")
+        );
 
         // Serialization roundtrip
         let json = serde_json::to_string(&done).expect("serialize");
@@ -1959,9 +1993,15 @@ mod exhaustive_task_handler {
         let mut task = open_task("prio-lifecycle");
         task.priority = Some(Priority::new("P1-high"));
         let claimed = transition_to_claimed(task, "agent-1");
-        assert_eq!(claimed.priority.as_ref().map(|p| p.as_str()), Some("P1-high"));
+        assert_eq!(
+            claimed.priority.as_ref().map(|p| p.as_str()),
+            Some("P1-high")
+        );
         let started = transition_to_started(claimed);
-        assert_eq!(started.priority.as_ref().map(|p| p.as_str()), Some("P1-high"));
+        assert_eq!(
+            started.priority.as_ref().map(|p| p.as_str()),
+            Some("P1-high")
+        );
         let done = transition_to_done(started);
         assert_eq!(done.priority.as_ref().map(|p| p.as_str()), Some("P1-high"));
     }
@@ -1972,7 +2012,10 @@ mod exhaustive_task_handler {
         task.priority = Some(Priority::new("P2-medium"));
         let claimed = transition_to_claimed(task, "agent-1");
         let yielded = transition_to_yielded(claimed);
-        assert_eq!(yielded.priority.as_ref().map(|p| p.as_str()), Some("P2-medium"));
+        assert_eq!(
+            yielded.priority.as_ref().map(|p| p.as_str()),
+            Some("P2-medium")
+        );
     }
 
     #[test]
@@ -1990,7 +2033,10 @@ mod exhaustive_task_handler {
         task.priority = Some(Priority::new("P3-low"));
         let json = serde_json::to_string(&task).expect("serialize");
         let restored: Task = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(restored.priority.as_ref().map(|p| p.as_str()), Some("P3-low"));
+        assert_eq!(
+            restored.priority.as_ref().map(|p| p.as_str()),
+            Some("P3-low")
+        );
     }
 
     // ─── ASSIGNMENT THROUGH FULL LIFECYCLE ──────────────────────────────
@@ -2001,7 +2047,10 @@ mod exhaustive_task_handler {
         assert!(task.assignee.is_none());
 
         let claimed = transition_to_claimed(task, "worker-1");
-        assert_eq!(claimed.assignee.as_ref().map(|a| a.as_str()), Some("worker-1"));
+        assert_eq!(
+            claimed.assignee.as_ref().map(|a| a.as_str()),
+            Some("worker-1")
+        );
 
         let yielded = transition_to_yielded(claimed);
         assert!(yielded.assignee.is_none());
@@ -2011,10 +2060,16 @@ mod exhaustive_task_handler {
     fn claim_overwrites_previous_assignee() {
         let task = open_task("assign-overwrite");
         let claimed1 = transition_to_claimed(task, "agent-A");
-        assert_eq!(claimed1.assignee.as_ref().map(|a| a.as_str()), Some("agent-A"));
+        assert_eq!(
+            claimed1.assignee.as_ref().map(|a| a.as_str()),
+            Some("agent-A")
+        );
 
         let claimed2 = transition_to_claimed(claimed1, "agent-B");
-        assert_eq!(claimed2.assignee.as_ref().map(|a| a.as_str()), Some("agent-B"));
+        assert_eq!(
+            claimed2.assignee.as_ref().map(|a| a.as_str()),
+            Some("agent-B")
+        );
     }
 
     #[test]
@@ -2022,7 +2077,10 @@ mod exhaustive_task_handler {
         let task = open_task("assign-done");
         let claimed = transition_to_claimed(task, "final-agent");
         let done = transition_to_done(claimed);
-        assert_eq!(done.assignee.as_ref().map(|a| a.as_str()), Some("final-agent"));
+        assert_eq!(
+            done.assignee.as_ref().map(|a| a.as_str()),
+            Some("final-agent")
+        );
     }
 
     #[test]
@@ -2030,7 +2088,10 @@ mod exhaustive_task_handler {
         let task = open_task("assign-start");
         let claimed = transition_to_claimed(task, "starter-agent");
         let started = transition_to_started(claimed);
-        assert_eq!(started.assignee.as_ref().map(|a| a.as_str()), Some("starter-agent"));
+        assert_eq!(
+            started.assignee.as_ref().map(|a| a.as_str()),
+            Some("starter-agent")
+        );
     }
 
     // ─── STATE TRANSITION INVARIANTS ────────────────────────────────────
@@ -2119,7 +2180,10 @@ mod exhaustive_task_handler {
         let task = transition_to_claimed(open_task("claim-ip"), "agent-1");
         let reclaimed = transition_to_claimed(task, "agent-2");
         assert!(matches!(reclaimed.state, TaskState::InProgress));
-        assert_eq!(reclaimed.assignee.as_ref().map(|a| a.as_str()), Some("agent-2"));
+        assert_eq!(
+            reclaimed.assignee.as_ref().map(|a| a.as_str()),
+            Some("agent-2")
+        );
     }
 
     #[test]
@@ -2425,20 +2489,38 @@ mod exhaustive_task_handler {
         // Claim
         let claimed = transition_to_claimed(task, "worker-1");
         assert!(matches!(claimed.state, TaskState::InProgress));
-        assert_eq!(claimed.assignee.as_ref().map(|a| a.as_str()), Some("worker-1"));
+        assert_eq!(
+            claimed.assignee.as_ref().map(|a| a.as_str()),
+            Some("worker-1")
+        );
         assert_eq!(claimed.title.as_str(), "Complete task");
-        assert_eq!(claimed.description.as_deref(), Some("Detailed description with 'quotes'"));
-        assert_eq!(claimed.priority.as_ref().map(|p| p.as_str()), Some("P0-critical"));
+        assert_eq!(
+            claimed.description.as_deref(),
+            Some("Detailed description with 'quotes'")
+        );
+        assert_eq!(
+            claimed.priority.as_ref().map(|p| p.as_str()),
+            Some("P0-critical")
+        );
         assert_eq!(claimed.created_at, original_created);
         assert_eq!(claimed.id.as_str(), "lifecycle-full");
 
         // Start
         let started = transition_to_started(claimed);
         assert!(matches!(started.state, TaskState::InProgress));
-        assert_eq!(started.assignee.as_ref().map(|a| a.as_str()), Some("worker-1"));
+        assert_eq!(
+            started.assignee.as_ref().map(|a| a.as_str()),
+            Some("worker-1")
+        );
         assert_eq!(started.title.as_str(), "Complete task");
-        assert_eq!(started.description.as_deref(), Some("Detailed description with 'quotes'"));
-        assert_eq!(started.priority.as_ref().map(|p| p.as_str()), Some("P0-critical"));
+        assert_eq!(
+            started.description.as_deref(),
+            Some("Detailed description with 'quotes'")
+        );
+        assert_eq!(
+            started.priority.as_ref().map(|p| p.as_str()),
+            Some("P0-critical")
+        );
         assert_eq!(started.created_at, original_created);
 
         // Done
@@ -2446,8 +2528,14 @@ mod exhaustive_task_handler {
         assert!(matches!(done.state, TaskState::Closed { .. }));
         assert_eq!(done.assignee.as_ref().map(|a| a.as_str()), Some("worker-1"));
         assert_eq!(done.title.as_str(), "Complete task");
-        assert_eq!(done.description.as_deref(), Some("Detailed description with 'quotes'"));
-        assert_eq!(done.priority.as_ref().map(|p| p.as_str()), Some("P0-critical"));
+        assert_eq!(
+            done.description.as_deref(),
+            Some("Detailed description with 'quotes'")
+        );
+        assert_eq!(
+            done.priority.as_ref().map(|p| p.as_str()),
+            Some("P0-critical")
+        );
         assert_eq!(done.created_at, original_created);
         assert_eq!(done.id.as_str(), "lifecycle-full");
 
@@ -2456,9 +2544,18 @@ mod exhaustive_task_handler {
         let restored: Task = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(restored.id.as_str(), "lifecycle-full");
         assert_eq!(restored.title.as_str(), "Complete task");
-        assert_eq!(restored.description.as_deref(), Some("Detailed description with 'quotes'"));
-        assert_eq!(restored.priority.as_ref().map(|p| p.as_str()), Some("P0-critical"));
-        assert_eq!(restored.assignee.as_ref().map(|a| a.as_str()), Some("worker-1"));
+        assert_eq!(
+            restored.description.as_deref(),
+            Some("Detailed description with 'quotes'")
+        );
+        assert_eq!(
+            restored.priority.as_ref().map(|p| p.as_str()),
+            Some("P0-critical")
+        );
+        assert_eq!(
+            restored.assignee.as_ref().map(|a| a.as_str()),
+            Some("worker-1")
+        );
         assert!(matches!(restored.state, TaskState::Closed { .. }));
     }
 
@@ -2467,12 +2564,24 @@ mod exhaustive_task_handler {
         let mut task = open_task("prio-handoff");
         task.priority = Some(Priority::new("urgent"));
         let claimed1 = transition_to_claimed(task, "agent-1");
-        assert_eq!(claimed1.priority.as_ref().map(|p| p.as_str()), Some("urgent"));
+        assert_eq!(
+            claimed1.priority.as_ref().map(|p| p.as_str()),
+            Some("urgent")
+        );
         let yielded = transition_to_yielded(claimed1);
-        assert_eq!(yielded.priority.as_ref().map(|p| p.as_str()), Some("urgent"));
+        assert_eq!(
+            yielded.priority.as_ref().map(|p| p.as_str()),
+            Some("urgent")
+        );
         let claimed2 = transition_to_claimed(yielded, "agent-2");
-        assert_eq!(claimed2.priority.as_ref().map(|p| p.as_str()), Some("urgent"));
-        assert_eq!(claimed2.assignee.as_ref().map(|a| a.as_str()), Some("agent-2"));
+        assert_eq!(
+            claimed2.priority.as_ref().map(|p| p.as_str()),
+            Some("urgent")
+        );
+        assert_eq!(
+            claimed2.assignee.as_ref().map(|a| a.as_str()),
+            Some("agent-2")
+        );
     }
 
     // ─── TRUNCATE DESCRIPTION BOUNDARY CASES ────────────────────────────

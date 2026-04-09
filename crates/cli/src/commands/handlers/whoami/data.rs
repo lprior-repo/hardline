@@ -350,8 +350,7 @@ mod tests {
             current_bead: Some("bead-1".to_string()),
             simple: "agent-1".to_string(),
         };
-        let val: serde_json::Value =
-            serde_json::to_value(&output).expect("to value");
+        let val: serde_json::Value = serde_json::to_value(&output).expect("to value");
         assert!(val["registered"].is_boolean());
         assert!(val["agent_id"].is_string());
         assert!(val["current_session"].is_string());
@@ -368,8 +367,7 @@ mod tests {
             current_bead: None,
             simple: "unregistered".to_string(),
         };
-        let val: serde_json::Value =
-            serde_json::to_value(&output).expect("to value");
+        let val: serde_json::Value = serde_json::to_value(&output).expect("to value");
         // skip_serializing_if means None fields are absent
         assert!(val.get("agent_id").is_none());
         assert!(val.get("current_session").is_none());
@@ -388,8 +386,7 @@ mod tests {
             current_bead: Some("bead-1".to_string()),
             simple: "agent-1".to_string(),
         };
-        let val: serde_json::Value =
-            serde_json::to_value(&output).expect("to value");
+        let val: serde_json::Value = serde_json::to_value(&output).expect("to value");
         assert_eq!(val["registered"], true);
         assert_eq!(val["agent_id"], "agent-1");
         assert_eq!(val["current_session"], "sess-1");

@@ -229,7 +229,13 @@ fn schema_required_fields(def: &SchemaDefinition) -> Vec<&str> {
     if def.schema_type == "error" {
         vec!["$schema", "_schema_version", "success", "error"]
     } else {
-        vec!["$schema", "_schema_version", "schema_type", "success", "data"]
+        vec![
+            "$schema",
+            "_schema_version",
+            "schema_type",
+            "success",
+            "data",
+        ]
     }
 }
 
@@ -238,16 +244,31 @@ fn schema_properties(def: &SchemaDefinition, is_error: bool) -> serde_json::Valu
     let data_field = build_data_field(def);
 
     let mut props = serde_json::Map::from_iter([
-        ("$schema".to_string(), serde_json::json!({ "type": "string" })),
-        ("_schema_version".to_string(), serde_json::json!({ "type": "string", "const": "1.0" })),
+        (
+            "$schema".to_string(),
+            serde_json::json!({ "type": "string" }),
+        ),
+        (
+            "_schema_version".to_string(),
+            serde_json::json!({ "type": "string", "const": "1.0" }),
+        ),
     ]);
 
     if is_error {
-        props.insert("success".to_string(), serde_json::json!({ "type": "boolean", "const": false }));
+        props.insert(
+            "success".to_string(),
+            serde_json::json!({ "type": "boolean", "const": false }),
+        );
         props.insert("error".to_string(), data_field);
     } else {
-        props.insert("schema_type".to_string(), serde_json::json!({ "type": "string", "const": def.schema_type }));
-        props.insert("success".to_string(), serde_json::json!({ "type": "boolean" }));
+        props.insert(
+            "schema_type".to_string(),
+            serde_json::json!({ "type": "string", "const": def.schema_type }),
+        );
+        props.insert(
+            "success".to_string(),
+            serde_json::json!({ "type": "boolean" }),
+        );
         props.insert("data".to_string(), data_field);
     }
 
@@ -478,12 +499,18 @@ mod tests {
 
     #[test]
     fn run_schema_revert_response() {
-        assert!(run_schema(&schema_opts(SchemaMode::Single("revert-response".to_string()))).is_ok());
+        assert!(run_schema(&schema_opts(SchemaMode::Single(
+            "revert-response".to_string()
+        )))
+        .is_ok());
     }
 
     #[test]
     fn run_schema_done_response() {
-        assert!(run_schema(&schema_opts(SchemaMode::Single("done-response".to_string()))).is_ok());
+        assert!(run_schema(&schema_opts(SchemaMode::Single(
+            "done-response".to_string()
+        )))
+        .is_ok());
     }
 
     #[test]
@@ -603,8 +630,7 @@ mod tests {
         for def in SCHEMA_REGISTRY.iter() {
             let schema = build_schema(def);
             assert_eq!(
-                schema["$schema"],
-                "https://json-schema.org/draft/2020-12/schema",
+                schema["$schema"], "https://json-schema.org/draft/2020-12/schema",
                 "schema '{}' must use JSON Schema Draft 2020-12",
                 def.name
             );
@@ -616,11 +642,7 @@ mod tests {
         for def in SCHEMA_REGISTRY.iter() {
             let schema = build_schema(def);
             let id = schema.get("$id").and_then(|v| v.as_str());
-            assert!(
-                id.is_some(),
-                "schema '{}' must have $id",
-                def.name
-            );
+            assert!(id.is_some(), "schema '{}' must have $id", def.name);
             let id = id.expect("just checked");
             let expected = format!("scp://{}/v1", def.name);
             assert_eq!(
@@ -636,11 +658,7 @@ mod tests {
         for def in SCHEMA_REGISTRY.iter() {
             let schema = build_schema(def);
             let title = schema.get("title").and_then(|v| v.as_str());
-            assert!(
-                title.is_some(),
-                "schema '{}' must have title",
-                def.name
-            );
+            assert!(title.is_some(), "schema '{}' must have title", def.name);
             assert!(
                 !title.expect("just checked").is_empty(),
                 "schema '{}' title must not be empty",
@@ -669,9 +687,7 @@ mod tests {
                 .get("required")
                 .and_then(|r| r.as_array())
                 .expect("must have required array");
-            let has_dollar_schema = required
-                .iter()
-                .any(|v| v.as_str() == Some("$schema"));
+            let has_dollar_schema = required.iter().any(|v| v.as_str() == Some("$schema"));
             assert!(
                 has_dollar_schema,
                 "schema '{}' required must include '$schema'",
@@ -707,9 +723,7 @@ mod tests {
                 .get("required")
                 .and_then(|r| r.as_array())
                 .expect("must have required");
-            let has_success = required
-                .iter()
-                .any(|v| v.as_str() == Some("success"));
+            let has_success = required.iter().any(|v| v.as_str() == Some("success"));
             assert!(
                 has_success,
                 "schema '{}' required must include 'success'",
@@ -725,9 +739,7 @@ mod tests {
                 continue;
             }
             let schema = build_schema(def);
-            let props = schema
-                .get("properties")
-                .expect("must have properties");
+            let props = schema.get("properties").expect("must have properties");
             assert!(
                 props.get("data").is_some(),
                 "non-error schema '{}' must have 'data' property",
@@ -845,16 +857,28 @@ mod tests {
         let data_props = &schema["properties"]["data"]["properties"];
         assert!(data_props.get("name").is_some(), "must have name");
         assert!(data_props.get("status").is_some(), "must have status");
-        assert!(data_props.get("workspace_path").is_some(), "must have workspace_path");
+        assert!(
+            data_props.get("workspace_path").is_some(),
+            "must have workspace_path"
+        );
         // status enum
         let status = &data_props["status"];
         let enum_vals = status.get("enum").and_then(|e| e.as_array());
         assert!(enum_vals.is_some(), "status must have enum");
         let enums = enum_vals.expect("just checked");
         let values: Vec<&str> = enums.iter().filter_map(|v| v.as_str()).collect();
-        assert!(values.contains(&"active"), "status enum must include 'active'");
-        assert!(values.contains(&"creating"), "status enum must include 'creating'");
-        assert!(values.contains(&"failed"), "status enum must include 'failed'");
+        assert!(
+            values.contains(&"active"),
+            "status enum must include 'active'"
+        );
+        assert!(
+            values.contains(&"creating"),
+            "status enum must include 'creating'"
+        );
+        assert!(
+            values.contains(&"failed"),
+            "status enum must include 'failed'"
+        );
     }
 
     #[test]
@@ -872,7 +896,10 @@ mod tests {
     fn list_response_schema_is_array_type() {
         let schema = resolve_schema("list-response").expect("exists");
         let data_field = &schema["properties"]["data"];
-        assert_eq!(data_field["type"], "array", "list-response data must be array");
+        assert_eq!(
+            data_field["type"], "array",
+            "list-response data must be array"
+        );
         let items = data_field.get("items").expect("must have items");
         assert!(items.get("properties").is_some());
     }
@@ -910,7 +937,9 @@ mod tests {
         // location is a nested object
         let loc = &data_props["location"];
         assert_eq!(loc["type"], "object");
-        let loc_props = loc.get("properties").expect("location must have properties");
+        let loc_props = loc
+            .get("properties")
+            .expect("location must have properties");
         assert!(loc_props.get("type").is_some());
         assert!(loc_props.get("name").is_some());
         assert!(loc_props.get("path").is_some());
@@ -963,10 +992,7 @@ mod tests {
             error_props.get("message").is_some(),
             "error must have message"
         );
-        assert!(
-            error_props.get("code").is_some(),
-            "error must have code"
-        );
+        assert!(error_props.get("code").is_some(), "error must have code");
         assert!(
             error_props.get("exit_code").is_some(),
             "error must have exit_code"
@@ -975,10 +1001,7 @@ mod tests {
             error_props.get("fix_commands").is_some(),
             "error must have fix_commands for AI agents"
         );
-        assert!(
-            error_props.get("hints").is_some(),
-            "error must have hints"
-        );
+        assert!(error_props.get("hints").is_some(), "error must have hints");
         // fix_commands is array of strings
         assert_eq!(error_props["fix_commands"]["type"], "array");
         // message is required in error data
@@ -1006,9 +1029,7 @@ mod tests {
             } else {
                 &schema["properties"]["data"]
             };
-            let required = data_field
-                .get("required")
-                .and_then(|r| r.as_array());
+            let required = data_field.get("required").and_then(|r| r.as_array());
             let properties = data_field.get("properties");
 
             if let (Some(req_arr), Some(props)) = (required, properties) {
@@ -1034,9 +1055,7 @@ mod tests {
                 .get("required")
                 .and_then(|r| r.as_array())
                 .expect("must have required");
-            let properties = schema
-                .get("properties")
-                .expect("must have properties");
+            let properties = schema.get("properties").expect("must have properties");
 
             for field in required {
                 if let Some(field_name) = field.as_str() {
@@ -1058,10 +1077,8 @@ mod tests {
     #[test]
     fn registry_and_data_schemas_bidirectional_match() {
         let data_schemas = available_schemas();
-        let registry_names: Vec<&str> =
-            SCHEMA_REGISTRY.iter().map(|r| r.name).collect();
-        let data_names: Vec<&str> =
-            data_schemas.iter().map(|s| s.name.as_str()).collect();
+        let registry_names: Vec<&str> = SCHEMA_REGISTRY.iter().map(|r| r.name).collect();
+        let data_names: Vec<&str> = data_schemas.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(registry_names.len(), data_names.len());
         for name in &registry_names {
             assert!(
@@ -1234,7 +1251,9 @@ mod tests {
 
     #[test]
     fn run_schema_unknown_single_error_message_contains_name() {
-        let result = run_schema(&schema_opts(SchemaMode::Single("missing-schema".to_string())));
+        let result = run_schema(&schema_opts(SchemaMode::Single(
+            "missing-schema".to_string(),
+        )));
         let err = result.expect_err("should fail");
         let msg = err.to_string();
         assert!(

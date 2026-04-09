@@ -93,9 +93,7 @@ pub fn validate_session_name(name: &str) -> ArgValidation {
             value: name.to_string(),
             valid: false,
             error: Some("Session name contains invalid characters".to_string()),
-            suggestion: Some(
-                "Use only letters, numbers, hyphens, and underscores".to_string(),
-            ),
+            suggestion: Some("Use only letters, numbers, hyphens, and underscores".to_string()),
         };
     }
 
@@ -163,7 +161,10 @@ mod tests {
     #[test]
     fn validate_session_name_valid_variants() {
         for name in &["my-session-123", "feature_auth", "testSession", "abc"] {
-            assert!(validate_session_name(name).valid, "Expected '{name}' to be valid");
+            assert!(
+                validate_session_name(name).valid,
+                "Expected '{name}' to be valid"
+            );
         }
     }
 

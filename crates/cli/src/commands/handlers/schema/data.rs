@@ -138,8 +138,14 @@ mod tests {
             names.contains(&"remove-response"),
             "must include remove-response"
         );
-        assert!(names.contains(&"list-response"), "must include list-response");
-        assert!(names.contains(&"error-response"), "must include error-response");
+        assert!(
+            names.contains(&"list-response"),
+            "must include list-response"
+        );
+        assert!(
+            names.contains(&"error-response"),
+            "must include error-response"
+        );
     }
 
     #[test]
@@ -456,10 +462,7 @@ mod tests {
         let serialized = serde_json::to_string(&output).expect("serialize");
         let deserialized: AllSchemasOutput =
             serde_json::from_str(&serialized).expect("deserialize");
-        assert_eq!(
-            deserialized.schemas["deep"]["nested"]["value"],
-            42
-        );
+        assert_eq!(deserialized.schemas["deep"]["nested"]["value"], 42);
     }
 
     #[test]
@@ -481,7 +484,10 @@ mod tests {
     fn available_schemas_all_names_are_lowercase_kebab() {
         for schema in available_schemas() {
             assert!(
-                schema.name.chars().all(|c| c.is_ascii_lowercase() || c == '-'),
+                schema
+                    .name
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c == '-'),
                 "name '{}' should be lowercase kebab-case",
                 schema.name
             );

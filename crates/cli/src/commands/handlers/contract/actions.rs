@@ -21,9 +21,7 @@ pub fn run_contract(options: &ContractOptions) -> Result<()> {
                 .iter()
                 .find(|c| c.name == *command_name)
                 .ok_or_else(|| {
-                    Error::not_found(format!(
-                        "No contract found for command '{command_name}'"
-                    ))
+                    Error::not_found(format!("No contract found for command '{command_name}'"))
                 })?;
 
             Output::info(&format!("Contract for '{}':", contract.name));
@@ -54,7 +52,10 @@ pub fn run_contract(options: &ContractOptions) -> Result<()> {
             }
 
             if !contract.side_effects.is_empty() {
-                Output::info(&format!("  Side effects: {}", contract.side_effects.join(", ")));
+                Output::info(&format!(
+                    "  Side effects: {}",
+                    contract.side_effects.join(", ")
+                ));
             }
 
             if !contract.examples.is_empty() {
@@ -67,10 +68,7 @@ pub fn run_contract(options: &ContractOptions) -> Result<()> {
         None => {
             Output::info(&format!("Available contracts ({}):", contracts.len()));
             for contract in &contracts {
-                Output::info(&format!(
-                    "  {} - {}",
-                    contract.name, contract.description
-                ));
+                Output::info(&format!("  {} - {}", contract.name, contract.description));
             }
         }
     }

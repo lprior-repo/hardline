@@ -111,7 +111,10 @@ fn session_name_rejects_starts_with_digit() {
         r.error.as_deref(),
         Some("Session name must start with a letter")
     );
-    assert_eq!(r.suggestion.as_deref(), Some("Try 'x1abc' or 'session-1abc'"));
+    assert_eq!(
+        r.suggestion.as_deref(),
+        Some("Try 'x1abc' or 'session-1abc'")
+    );
 }
 
 #[test]
@@ -196,14 +199,21 @@ fn session_name_rejects_newline() {
 #[test]
 fn session_name_suggestion_for_digit_start() {
     let r = validate_session_name("123invalid");
-    assert_eq!(r.suggestion.as_deref(), Some("Try 'x123invalid' or 'session-123invalid'"));
+    assert_eq!(
+        r.suggestion.as_deref(),
+        Some("Try 'x123invalid' or 'session-123invalid'")
+    );
 }
 
 #[test]
 fn session_name_suggestion_for_invalid_chars() {
     let r = validate_session_name("feature!auth");
     assert!(r.suggestion.is_some());
-    assert!(r.suggestion.as_deref().unwrap().contains("letters, numbers, hyphens"));
+    assert!(r
+        .suggestion
+        .as_deref()
+        .unwrap()
+        .contains("letters, numbers, hyphens"));
 }
 
 // ============================================================================
@@ -693,15 +703,13 @@ fn output_roundtrip_preserves_all_fields() {
     let output = ValidateOutput {
         valid: false,
         command: "spawn".to_string(),
-        args: vec![
-            ArgValidation {
-                name: "name".to_string(),
-                value: "bad!".to_string(),
-                valid: false,
-                error: Some("invalid chars".to_string()),
-                suggestion: Some("use alphanum".to_string()),
-            },
-        ],
+        args: vec![ArgValidation {
+            name: "name".to_string(),
+            value: "bad!".to_string(),
+            valid: false,
+            error: Some("invalid chars".to_string()),
+            suggestion: Some("use alphanum".to_string()),
+        }],
         errors: vec!["E1".to_string(), "E2".to_string()],
         warnings: vec!["W1".to_string()],
         suggestions: vec!["S1".to_string()],

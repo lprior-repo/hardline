@@ -160,5 +160,4 @@ mod tests {
         assert_eq!(deserialized.stale_count, 0);
         assert!(deserialized.stale_sessions.is_empty());
     }
-
 }

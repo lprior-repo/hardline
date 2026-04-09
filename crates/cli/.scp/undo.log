@@ -34,3 +34,5 @@ ed"}
 {"session_name":"session-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775691782,"pushed_to_remote":true,"status":"completed"}
 sh_failed"}
 "}
+{"session_name":"push-fail-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775694105,"pushed_to_remote":false,"status":"merged_push_failed"}
+{"session_name":"feature-x","commit_id":"","pre_merge_commit_id":"commit-sha-abc","timestamp":1775694335,"pushed_to_remote":true,"status":"completed"}

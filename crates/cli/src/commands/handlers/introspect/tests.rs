@@ -49,7 +49,12 @@ fn assert_not_found(result: scp_core::Result<impl std::fmt::Debug>, expected_sub
 /// Helper: assert the error code is NOT_FOUND.
 fn assert_not_found_code(result: scp_core::Result<impl std::fmt::Debug>) {
     let err = result.expect_err("expected error");
-    assert_eq!(err.code(), "NOT_FOUND", "Expected NOT_FOUND code, got: {}", err.code());
+    assert_eq!(
+        err.code(),
+        "NOT_FOUND",
+        "Expected NOT_FOUND code, got: {}",
+        err.code()
+    );
 }
 
 /// Build a minimal CommandInfo for serialization tests.
@@ -144,7 +149,10 @@ fn target_inequality_specific_different_value() {
 
 #[test]
 fn target_inequality_all_vs_specific() {
-    assert_ne!(IntrospectTarget::All, IntrospectTarget::Specific("add".to_string()));
+    assert_ne!(
+        IntrospectTarget::All,
+        IntrospectTarget::Specific("add".to_string())
+    );
 }
 
 #[test]
@@ -210,15 +218,31 @@ fn registry_names_are_unique() {
     let cmds = known_commands();
     let names: Vec<String> = cmds.into_iter().map(|c| c.name).collect();
     let unique: std::collections::HashSet<String> = names.iter().cloned().collect();
-    assert_eq!(names.len(), unique.len(), "duplicate command names in registry");
+    assert_eq!(
+        names.len(),
+        unique.len(),
+        "duplicate command names in registry"
+    );
 }
 
 #[test]
 fn registry_contains_all_core_commands() {
     let cmds = known_commands();
     let names: Vec<&str> = cmds.iter().map(|c| c.name.as_str()).collect();
-    for expected in &["init", "add", "remove", "list", "status", "done",
-                       "sync", "diff", "introspect", "doctor", "query", "revert"] {
+    for expected in &[
+        "init",
+        "add",
+        "remove",
+        "list",
+        "status",
+        "done",
+        "sync",
+        "diff",
+        "introspect",
+        "doctor",
+        "query",
+        "revert",
+    ] {
         assert!(names.contains(expected), "missing command: {expected}");
     }
 }
@@ -233,7 +257,11 @@ fn every_command_has_nonempty_name() {
 #[test]
 fn every_command_has_nonempty_description() {
     for cmd in known_commands() {
-        assert!(!cmd.description.is_empty(), "{}: empty description", cmd.name);
+        assert!(
+            !cmd.description.is_empty(),
+            "{}: empty description",
+            cmd.name
+        );
     }
 }
 
@@ -248,9 +276,21 @@ fn every_command_has_at_least_one_example() {
 fn every_error_condition_has_all_fields() {
     for cmd in known_commands() {
         for ec in &cmd.error_conditions {
-            assert!(!ec.code.is_empty(), "{}: error condition with empty code", cmd.name);
-            assert!(!ec.description.is_empty(), "{}: error condition with empty description", cmd.name);
-            assert!(!ec.resolution.is_empty(), "{}: error condition with empty resolution", cmd.name);
+            assert!(
+                !ec.code.is_empty(),
+                "{}: error condition with empty code",
+                cmd.name
+            );
+            assert!(
+                !ec.description.is_empty(),
+                "{}: error condition with empty description",
+                cmd.name
+            );
+            assert!(
+                !ec.resolution.is_empty(),
+                "{}: error condition with empty resolution",
+                cmd.name
+            );
         }
     }
 }
@@ -259,9 +299,21 @@ fn every_error_condition_has_all_fields() {
 fn every_argument_has_name_and_type() {
     for cmd in known_commands() {
         for arg in &cmd.arguments {
-            assert!(!arg.name.is_empty(), "{}: argument with empty name", cmd.name);
-            assert!(!arg.arg_type.is_empty(), "{}: argument with empty type", cmd.name);
-            assert!(!arg.description.is_empty(), "{}: argument with empty description", cmd.name);
+            assert!(
+                !arg.name.is_empty(),
+                "{}: argument with empty name",
+                cmd.name
+            );
+            assert!(
+                !arg.arg_type.is_empty(),
+                "{}: argument with empty type",
+                cmd.name
+            );
+            assert!(
+                !arg.description.is_empty(),
+                "{}: argument with empty description",
+                cmd.name
+            );
         }
     }
 }
@@ -270,9 +322,21 @@ fn every_argument_has_name_and_type() {
 fn every_flag_has_long_and_description() {
     for cmd in known_commands() {
         for flag in &cmd.flags {
-            assert!(!flag.long.is_empty(), "{}: flag with empty long name", cmd.name);
-            assert!(!flag.description.is_empty(), "{}: flag with empty description", cmd.name);
-            assert!(!flag.flag_type.is_empty(), "{}: flag with empty type", cmd.name);
+            assert!(
+                !flag.long.is_empty(),
+                "{}: flag with empty long name",
+                cmd.name
+            );
+            assert!(
+                !flag.description.is_empty(),
+                "{}: flag with empty description",
+                cmd.name
+            );
+            assert!(
+                !flag.flag_type.is_empty(),
+                "{}: flag with empty type",
+                cmd.name
+            );
         }
     }
 }
@@ -306,7 +370,10 @@ fn add_has_aliases() {
 #[test]
 fn add_has_required_name_argument() {
     let cmd = resolve_command("add").expect("add must exist");
-    let name_arg = cmd.arguments.iter().find(|a| a.name == "name")
+    let name_arg = cmd
+        .arguments
+        .iter()
+        .find(|a| a.name == "name")
         .unwrap_or_else(|| panic!("add must have 'name' argument"));
     assert!(name_arg.required, "add name argument must be required");
 }
@@ -321,7 +388,10 @@ fn remove_has_aliases() {
 #[test]
 fn remove_has_force_flag_with_short() {
     let cmd = resolve_command("remove").expect("remove must exist");
-    let force = cmd.flags.iter().find(|f| f.long == "force")
+    let force = cmd
+        .flags
+        .iter()
+        .find(|f| f.long == "force")
         .unwrap_or_else(|| panic!("remove must have --force flag"));
     assert_eq!(force.short.as_deref(), Some("f"));
 }
@@ -329,7 +399,10 @@ fn remove_has_force_flag_with_short() {
 #[test]
 fn list_has_all_flag() {
     let cmd = resolve_command("list").expect("list must exist");
-    assert!(cmd.flags.iter().any(|f| f.long == "all"), "list must have --all flag");
+    assert!(
+        cmd.flags.iter().any(|f| f.long == "all"),
+        "list must have --all flag"
+    );
 }
 
 #[test]
@@ -347,13 +420,19 @@ fn list_has_ls_alias() {
 #[test]
 fn done_has_squash_flag() {
     let cmd = resolve_command("done").expect("done must exist");
-    assert!(cmd.flags.iter().any(|f| f.long == "squash"), "done must have --squash");
+    assert!(
+        cmd.flags.iter().any(|f| f.long == "squash"),
+        "done must have --squash"
+    );
 }
 
 #[test]
 fn done_has_dry_run_flag() {
     let cmd = resolve_command("done").expect("done must exist");
-    assert!(cmd.flags.iter().any(|f| f.long == "dry-run"), "done must have --dry-run");
+    assert!(
+        cmd.flags.iter().any(|f| f.long == "dry-run"),
+        "done must have --dry-run"
+    );
 }
 
 #[test]
@@ -365,14 +444,19 @@ fn done_has_side_effects() {
 #[test]
 fn sync_has_conflict_error_condition() {
     let cmd = resolve_command("sync").expect("sync must exist");
-    assert!(cmd.error_conditions.iter().any(|ec| ec.code == "CONFLICTS"),
-        "sync must document CONFLICTS error");
+    assert!(
+        cmd.error_conditions.iter().any(|ec| ec.code == "CONFLICTS"),
+        "sync must document CONFLICTS error"
+    );
 }
 
 #[test]
 fn diff_has_stat_flag() {
     let cmd = resolve_command("diff").expect("diff must exist");
-    assert!(cmd.flags.iter().any(|f| f.long == "stat"), "diff must have --stat");
+    assert!(
+        cmd.flags.iter().any(|f| f.long == "stat"),
+        "diff must have --stat"
+    );
 }
 
 #[test]
@@ -391,13 +475,19 @@ fn doctor_has_check_alias() {
 #[test]
 fn doctor_has_fix_flag() {
     let cmd = resolve_command("doctor").expect("doctor must exist");
-    assert!(cmd.flags.iter().any(|f| f.long == "fix"), "doctor must have --fix");
+    assert!(
+        cmd.flags.iter().any(|f| f.long == "fix"),
+        "doctor must have --fix"
+    );
 }
 
 #[test]
 fn query_has_required_query_type_argument() {
     let cmd = resolve_command("query").expect("query must exist");
-    let qt = cmd.arguments.iter().find(|a| a.name == "query_type")
+    let qt = cmd
+        .arguments
+        .iter()
+        .find(|a| a.name == "query_type")
         .unwrap_or_else(|| panic!("query must have 'query_type' argument"));
     assert!(qt.required, "query_type must be required");
 }
@@ -405,13 +495,19 @@ fn query_has_required_query_type_argument() {
 #[test]
 fn revert_has_dry_run_flag() {
     let cmd = resolve_command("revert").expect("revert must exist");
-    assert!(cmd.flags.iter().any(|f| f.long == "dry-run"), "revert must have --dry-run");
+    assert!(
+        cmd.flags.iter().any(|f| f.long == "dry-run"),
+        "revert must have --dry-run"
+    );
 }
 
 #[test]
 fn revert_has_session_not_found_error() {
     let cmd = resolve_command("revert").expect("revert must exist");
-    assert!(cmd.error_conditions.iter().any(|ec| ec.code == "SESSION_NOT_FOUND"));
+    assert!(cmd
+        .error_conditions
+        .iter()
+        .any(|ec| ec.code == "SESSION_NOT_FOUND"));
 }
 
 #[test]
@@ -431,7 +527,11 @@ fn status_argument_is_optional() {
 fn resolve_finds_every_known_command() {
     for cmd in known_commands() {
         let found = resolve_command(&cmd.name);
-        assert!(found.is_some(), "resolve_command({}) should find it", cmd.name);
+        assert!(
+            found.is_some(),
+            "resolve_command({}) should find it",
+            cmd.name
+        );
         assert_eq!(found.unwrap().name, cmd.name);
     }
 }
@@ -450,7 +550,10 @@ fn resolve_returns_none_for_whitespace() {
 
 #[test]
 fn resolve_is_case_sensitive() {
-    assert!(resolve_command("Add").is_none(), "command names are case-sensitive");
+    assert!(
+        resolve_command("Add").is_none(),
+        "command names are case-sensitive"
+    );
     assert!(resolve_command("ADD").is_none());
     assert!(resolve_command("Init").is_none());
 }
@@ -458,9 +561,18 @@ fn resolve_is_case_sensitive() {
 #[test]
 fn resolve_does_not_match_aliases() {
     // Aliases are metadata; resolve_command only matches primary names
-    assert!(resolve_command("rm").is_none(), "alias 'rm' should not resolve");
-    assert!(resolve_command("ls").is_none(), "alias 'ls' should not resolve");
-    assert!(resolve_command("a").is_none(), "alias 'a' should not resolve");
+    assert!(
+        resolve_command("rm").is_none(),
+        "alias 'rm' should not resolve"
+    );
+    assert!(
+        resolve_command("ls").is_none(),
+        "alias 'ls' should not resolve"
+    );
+    assert!(
+        resolve_command("a").is_none(),
+        "alias 'a' should not resolve"
+    );
 }
 
 #[test]
@@ -582,7 +694,10 @@ fn unknown_command_error_suggests_introspect() {
     let result = run_introspect(&specific("xyz"));
     let err = result.expect_err("expected error");
     let msg = err.to_string();
-    assert!(msg.contains("scp introspect"), "error should suggest running introspect: {msg}");
+    assert!(
+        msg.contains("scp introspect"),
+        "error should suggest running introspect: {msg}"
+    );
 }
 
 #[test]
@@ -761,7 +876,10 @@ fn every_known_command_serializes_and_deserializes() {
         let back: CommandInfo = serde_json::from_str(&json)
             .unwrap_or_else(|e| panic!("{}: deserialize failed: {e}", cmd.name));
         assert_eq!(back.name, cmd.name, "name mismatch after roundtrip");
-        assert_eq!(back.description, cmd.description, "description mismatch after roundtrip");
+        assert_eq!(
+            back.description, cmd.description,
+            "description mismatch after roundtrip"
+        );
         assert_eq!(back.requires_init, cmd.requires_init);
         assert_eq!(back.requires_git, cmd.requires_git);
     }
@@ -775,9 +893,21 @@ fn every_known_command_produces_valid_json_object() {
         assert!(val.is_object(), "{}: root must be object", cmd.name);
         let obj = val.as_object().unwrap();
         assert!(obj.contains_key("name"), "{}: missing 'name'", cmd.name);
-        assert!(obj.contains_key("description"), "{}: missing 'description'", cmd.name);
-        assert!(obj.contains_key("requires_init"), "{}: missing 'requires_init'", cmd.name);
-        assert!(obj.contains_key("requires_git"), "{}: missing 'requires_git'", cmd.name);
+        assert!(
+            obj.contains_key("description"),
+            "{}: missing 'description'",
+            cmd.name
+        );
+        assert!(
+            obj.contains_key("requires_init"),
+            "{}: missing 'requires_init'",
+            cmd.name
+        );
+        assert!(
+            obj.contains_key("requires_git"),
+            "{}: missing 'requires_git'",
+            cmd.name
+        );
     }
 }
 
@@ -791,9 +921,12 @@ fn bool_flags_have_bool_defaults() {
         for flag in &cmd.flags {
             if flag.flag_type == "bool" {
                 if let Some(ref default) = flag.default {
-                    assert!(default.is_boolean(),
+                    assert!(
+                        default.is_boolean(),
                         "{} --{}: bool flag default must be JSON boolean, got: {default}",
-                        cmd.name, flag.long);
+                        cmd.name,
+                        flag.long
+                    );
                 }
             }
         }
@@ -806,9 +939,12 @@ fn string_flags_have_string_or_no_defaults() {
         for flag in &cmd.flags {
             if flag.flag_type == "string" {
                 if let Some(ref default) = flag.default {
-                    assert!(default.is_string(),
+                    assert!(
+                        default.is_string(),
                         "{} --{}: string flag default must be JSON string, got: {default}",
-                        cmd.name, flag.long);
+                        cmd.name,
+                        flag.long
+                    );
                 }
             }
         }
@@ -885,8 +1021,12 @@ fn resolve_matches_known_commands_output() {
     // Every command in known_commands() must be resolvable and produce
     // the same name via resolve_command
     for cmd in known_commands() {
-        let resolved = resolve_command(&cmd.name)
-            .unwrap_or_else(|| panic!("{}: in known_commands but resolve_command returns None", cmd.name));
+        let resolved = resolve_command(&cmd.name).unwrap_or_else(|| {
+            panic!(
+                "{}: in known_commands but resolve_command returns None",
+                cmd.name
+            )
+        });
         assert_eq!(resolved.name, cmd.name);
         assert_eq!(resolved.description, cmd.description);
     }
@@ -897,7 +1037,11 @@ fn run_introspect_success_for_all_known_commands() {
     // Verify every command in the registry can be introspected individually
     for cmd in known_commands() {
         let result = run_introspect(&specific(&cmd.name));
-        assert!(result.is_ok(), "{}: run_introspect should succeed", cmd.name);
+        assert!(
+            result.is_ok(),
+            "{}: run_introspect should succeed",
+            cmd.name
+        );
     }
 }
 

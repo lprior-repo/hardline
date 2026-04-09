@@ -170,10 +170,7 @@ mod tests {
     fn global_config_path_returns_consistent_results() {
         let path1 = global_config_path().expect("first call must succeed");
         let path2 = global_config_path().expect("second call must succeed");
-        assert_eq!(
-            path1, path2,
-            "Repeated calls must return identical paths"
-        );
+        assert_eq!(path1, path2, "Repeated calls must return identical paths");
     }
 
     // =========================================================================
@@ -413,7 +410,10 @@ mod tests {
 
         let paths = resolve_all_paths().expect("must resolve");
         assert!(
-            paths.global_config.to_string_lossy().ends_with("config.toml"),
+            paths
+                .global_config
+                .to_string_lossy()
+                .ends_with("config.toml"),
             "Global config must end with config.toml"
         );
     }
@@ -426,7 +426,10 @@ mod tests {
 
         let paths = resolve_all_paths().expect("must resolve");
         assert!(
-            paths.project_config.to_string_lossy().ends_with("config.toml"),
+            paths
+                .project_config
+                .to_string_lossy()
+                .ends_with("config.toml"),
             "Project config must end with config.toml"
         );
     }
@@ -485,7 +488,10 @@ mod tests {
             state_db: PathBuf::from("/project/.scp/state.db"),
         };
         assert_eq!(paths.global_config, PathBuf::from("/global/config.toml"));
-        assert_eq!(paths.project_config, PathBuf::from("/project/.scp/config.toml"));
+        assert_eq!(
+            paths.project_config,
+            PathBuf::from("/project/.scp/config.toml")
+        );
         assert_eq!(paths.state_db, PathBuf::from("/project/.scp/state.db"));
     }
 
@@ -530,12 +536,21 @@ mod tests {
             state_db_exists: true,
         };
         let json = serde_json::to_string_pretty(&info).expect("serialization must succeed");
-        assert!(json.contains("global_config_path"), "Must have global_config_path");
-        assert!(json.contains("project_config_path"), "Must have project_config_path");
+        assert!(
+            json.contains("global_config_path"),
+            "Must have global_config_path"
+        );
+        assert!(
+            json.contains("project_config_path"),
+            "Must have project_config_path"
+        );
         assert!(json.contains("state_db_path"), "Must have state_db_path");
         assert!(json.contains("global_exists"), "Must have global_exists");
         assert!(json.contains("project_exists"), "Must have project_exists");
-        assert!(json.contains("state_db_exists"), "Must have state_db_exists");
+        assert!(
+            json.contains("state_db_exists"),
+            "Must have state_db_exists"
+        );
     }
 
     #[test]
@@ -549,8 +564,7 @@ mod tests {
             state_db_exists: true,
         };
         let json = serde_json::to_string(&info).expect("serialize");
-        let restored: ConfigPortInfo =
-            serde_json::from_str(&json).expect("deserialize");
+        let restored: ConfigPortInfo = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(restored.global_config_path, info.global_config_path);
         assert_eq!(restored.project_config_path, info.project_config_path);
         assert_eq!(restored.state_db_path, info.state_db_path);
@@ -569,8 +583,7 @@ mod tests {
             project_exists: false,
             state_db_exists: true,
         };
-        let json: serde_json::Value =
-            serde_json::to_value(&info).expect("must serialize to value");
+        let json: serde_json::Value = serde_json::to_value(&info).expect("must serialize to value");
         assert_eq!(json["global_exists"], serde_json::Value::Bool(true));
         assert_eq!(json["project_exists"], serde_json::Value::Bool(false));
         assert_eq!(json["state_db_exists"], serde_json::Value::Bool(true));
@@ -666,8 +679,8 @@ mod tests {
         std::env::remove_var("SCP_STATE_DB");
         std::env::remove_var("SCP_DATABASE_PATH");
 
-        let path = resolve_state_db_path(std::path::Path::new("/"))
-            .expect("root path must resolve");
+        let path =
+            resolve_state_db_path(std::path::Path::new("/")).expect("root path must resolve");
         assert_eq!(path, PathBuf::from("/.scp/state.db"));
     }
 
@@ -718,7 +731,10 @@ mod tests {
             // On macOS, under ~/Library/Application Support/
             // Just verify it's a real absolute path
             assert!(path.is_absolute());
-            assert!(path.components().count() >= 2, "Must have at least 2 components");
+            assert!(
+                path.components().count() >= 2,
+                "Must have at least 2 components"
+            );
         }
     }
 
@@ -795,8 +811,7 @@ mod tests {
                 state_db_exists: false,
             };
 
-            let json: serde_json::Value =
-                serde_json::to_value(&info).expect("serialize");
+            let json: serde_json::Value = serde_json::to_value(&info).expect("serialize");
             assert_eq!(json["global_exists"], false);
             assert_eq!(json["project_exists"], false);
             assert_eq!(json["state_db_exists"], false);
@@ -814,8 +829,7 @@ mod tests {
             };
 
             let json = serde_json::to_string(&info).expect("serialize");
-            let restored: ConfigPortInfo =
-                serde_json::from_str(&json).expect("deserialize");
+            let restored: ConfigPortInfo = serde_json::from_str(&json).expect("deserialize");
             assert_eq!(restored.global_config_path, "/a/b/c.toml");
             assert_eq!(restored.project_config_path, "/d/e/f.toml");
             assert_eq!(restored.state_db_path, "/g/h/i.db");
@@ -930,8 +944,7 @@ mod tests {
             };
 
             let json = serde_json::to_string(&info).expect("must serialize");
-            let restored: ConfigPortInfo =
-                serde_json::from_str(&json).expect("must deserialize");
+            let restored: ConfigPortInfo = serde_json::from_str(&json).expect("must deserialize");
             assert_eq!(restored.global_config_path, "'; DROP TABLE configs; --");
             assert_eq!(
                 restored.project_config_path,
@@ -952,8 +965,7 @@ mod tests {
             };
 
             let json = serde_json::to_string(&info).expect("serialize");
-            let restored: ConfigPortInfo =
-                serde_json::from_str(&json).expect("deserialize");
+            let restored: ConfigPortInfo = serde_json::from_str(&json).expect("deserialize");
             assert_eq!(restored.global_config_path, info.global_config_path);
             assert_eq!(restored.project_config_path, info.project_config_path);
             assert_eq!(restored.state_db_path, info.state_db_path);
@@ -1006,8 +1018,7 @@ mod tests {
                 project_exists: true,
                 state_db_exists: true,
             };
-            let json: serde_json::Value =
-                serde_json::to_value(&info).expect("serialize");
+            let json: serde_json::Value = serde_json::to_value(&info).expect("serialize");
             assert_eq!(json["global_exists"], true);
             assert_eq!(json["project_exists"], true);
             assert_eq!(json["state_db_exists"], true);

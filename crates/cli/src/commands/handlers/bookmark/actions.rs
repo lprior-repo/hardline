@@ -76,9 +76,7 @@ fn run_delete(name: &str) -> Result<BookmarkOutput> {
 
     let existing = list_branches(false)?;
     if !existing.iter().any(|b| b.name == name) {
-        return Err(Error::not_found(format!(
-            "Bookmark '{name}' not found"
-        )));
+        return Err(Error::not_found(format!("Bookmark '{name}' not found")));
     }
 
     delete_bookmark(name)?;
@@ -185,7 +183,11 @@ fn set_upstream(name: &str, remote_name: &str) -> Result<()> {
             name,
         ])
         .output()
-        .map_err(|e| Error::io_error(format!("Failed to execute git branch --set-upstream-to: {e}")))?;
+        .map_err(|e| {
+            Error::io_error(format!(
+                "Failed to execute git branch --set-upstream-to: {e}"
+            ))
+        })?;
 
     if !output.status.success() {
         return handle_upstream_error(&output.stderr, remote_name, name);
@@ -198,11 +200,7 @@ fn set_upstream(name: &str, remote_name: &str) -> Result<()> {
 ///
 /// Intentionally uses string matching on stderr to classify errors.
 /// This is fragile but unavoidable without a Git library.
-fn handle_upstream_error(
-    stderr: &[u8],
-    remote_name: &str,
-    name: &str,
-) -> Result<()> {
+fn handle_upstream_error(stderr: &[u8], remote_name: &str, name: &str) -> Result<()> {
     let stderr = String::from_utf8_lossy(stderr);
     if stderr.contains("does not exist") || stderr.contains("No upstream") {
         return Err(Error::not_found(format!(
@@ -238,9 +236,7 @@ fn get_current_revision() -> Result<String> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::io_error(format!(
-            "git rev-parse failed: {stderr}"
-        )));
+        return Err(Error::io_error(format!("git rev-parse failed: {stderr}")));
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -263,9 +259,7 @@ fn list_branches(show_all: bool) -> Result<Vec<BookmarkInfo>> {
         if stderr.contains("not a git repository") {
             return Ok(vec![]);
         }
-        return Err(Error::io_error(format!(
-            "git branch list failed: {stderr}"
-        )));
+        return Err(Error::io_error(format!("git branch list failed: {stderr}")));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);

@@ -40,7 +40,10 @@ fn minimal_session(name: &str, status: SessionStatus) -> SessionInfo {
 
 #[test]
 fn from_str_session_exists() {
-    assert_eq!(QueryType::from_str("session-exists"), Some(QueryType::SessionExists));
+    assert_eq!(
+        QueryType::from_str("session-exists"),
+        Some(QueryType::SessionExists)
+    );
 }
 
 #[test]
@@ -50,7 +53,10 @@ fn from_str_sessions() {
 
 #[test]
 fn from_str_session_info() {
-    assert_eq!(QueryType::from_str("session-info"), Some(QueryType::SessionInfo));
+    assert_eq!(
+        QueryType::from_str("session-info"),
+        Some(QueryType::SessionInfo)
+    );
 }
 
 #[test]
@@ -60,7 +66,10 @@ fn from_str_blockers() {
 
 #[test]
 fn from_str_session_count() {
-    assert_eq!(QueryType::from_str("session-count"), Some(QueryType::SessionCount));
+    assert_eq!(
+        QueryType::from_str("session-count"),
+        Some(QueryType::SessionCount)
+    );
 }
 
 #[test]
@@ -96,7 +105,10 @@ fn all_names_returns_six_entries() {
 #[test]
 fn all_names_matches_from_str_roundtrip() {
     for name in QueryType::all_names() {
-        assert!(QueryType::from_str(name).is_some(), "all_names entry {name:?} should parse");
+        assert!(
+            QueryType::from_str(name).is_some(),
+            "all_names entry {name:?} should parse"
+        );
     }
 }
 
@@ -117,18 +129,36 @@ fn all_names_contains_expected() {
 
 #[test]
 fn status_from_str_lossy_all_variants() {
-    assert_eq!(SessionStatus::from_str_lossy("active"), SessionStatus::Active);
-    assert_eq!(SessionStatus::from_str_lossy("paused"), SessionStatus::Paused);
-    assert_eq!(SessionStatus::from_str_lossy("completed"), SessionStatus::Completed);
-    assert_eq!(SessionStatus::from_str_lossy("aborted"), SessionStatus::Aborted);
+    assert_eq!(
+        SessionStatus::from_str_lossy("active"),
+        SessionStatus::Active
+    );
+    assert_eq!(
+        SessionStatus::from_str_lossy("paused"),
+        SessionStatus::Paused
+    );
+    assert_eq!(
+        SessionStatus::from_str_lossy("completed"),
+        SessionStatus::Completed
+    );
+    assert_eq!(
+        SessionStatus::from_str_lossy("aborted"),
+        SessionStatus::Aborted
+    );
 }
 
 #[test]
 fn status_from_str_lossy_unknown_defaults_active() {
     assert_eq!(SessionStatus::from_str_lossy(""), SessionStatus::Active);
-    assert_eq!(SessionStatus::from_str_lossy("Active"), SessionStatus::Active); // case-sensitive
+    assert_eq!(
+        SessionStatus::from_str_lossy("Active"),
+        SessionStatus::Active
+    ); // case-sensitive
     assert_eq!(SessionStatus::from_str_lossy("DONE"), SessionStatus::Active);
-    assert_eq!(SessionStatus::from_str_lossy("pending"), SessionStatus::Active);
+    assert_eq!(
+        SessionStatus::from_str_lossy("pending"),
+        SessionStatus::Active
+    );
 }
 
 #[test]
@@ -216,7 +246,10 @@ fn session_info_all_statuses_serialize() {
     ] {
         let info = minimal_session("t", status);
         let json = serde_json::to_string(&info).expect("serialize");
-        assert!(json.contains(expected), "status {status:?} should serialize as {expected}");
+        assert!(
+            json.contains(expected),
+            "status {status:?} should serialize as {expected}"
+        );
     }
 }
 

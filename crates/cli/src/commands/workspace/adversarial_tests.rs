@@ -310,10 +310,7 @@ fn adversarial_find_next_duplicate_names() {
 
 #[test]
 fn adversarial_sorted_names_preserves_duplicates() {
-    let workspaces = vec![
-        make_workspace("dup", false),
-        make_workspace("dup", false),
-    ];
+    let workspaces = vec![make_workspace("dup", false), make_workspace("dup", false)];
     let names = sorted_workspace_names(&workspaces);
     assert_eq!(names.len(), 2, "duplicates should be preserved");
 }
@@ -345,7 +342,10 @@ fn adversarial_validate_error_mentions_empty() {
 fn adversarial_validate_error_mentions_letter_requirement() {
     let err = validate_workspace_name("123").unwrap();
     let msg = err.to_string().to_lowercase();
-    assert!(msg.contains("letter"), "error should mention 'letter', got: {msg}");
+    assert!(
+        msg.contains("letter"),
+        "error should mention 'letter', got: {msg}"
+    );
 }
 
 #[test]

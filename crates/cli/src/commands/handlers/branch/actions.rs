@@ -19,7 +19,10 @@ pub fn run_branch_create(options: &BranchCreateOptions) -> Result<BranchCreateOu
     validate_branch_name(&options.name).map_err(Error::validation_error)?;
 
     if options.dry_run {
-        Output::info(&format!("[dry-run] Would create branch: '{}'", options.name));
+        Output::info(&format!(
+            "[dry-run] Would create branch: '{}'",
+            options.name
+        ));
         return Ok(BranchCreateOutput {
             success: true,
             branch_name: options.name.clone(),
@@ -58,7 +61,10 @@ pub fn run_branch_delete(options: &BranchDeleteOptions) -> Result<()> {
     }
 
     if options.dry_run {
-        Output::info(&format!("[dry-run] Would delete branch: '{}'", options.name));
+        Output::info(&format!(
+            "[dry-run] Would delete branch: '{}'",
+            options.name
+        ));
         return Ok(());
     }
 
@@ -141,4 +147,3 @@ pub fn run_branch_rename(options: &BranchRenameOptions) -> Result<()> {
         Err(Error::vcs_conflict("branch rename", stderr))
     }
 }
-
