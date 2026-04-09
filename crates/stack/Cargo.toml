@@ -21,3 +21,4 @@ chrono.workspace = true
 insta.workspace = true
 proptest.workspace = true
 tempfile.workspace = true
+mockito = "1.6"
