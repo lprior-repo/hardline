@@ -106,7 +106,10 @@ impl JobRepository for InMemoryJobRepository {
             .map_err(|e| QueueError::Repository(format!("Failed to acquire write lock: {}", e)))?;
 
         if jobs.iter().any(|j| j.id == job.id) {
-            return Err(QueueError::JobNotFound(format!("Job already exists: {}", job.id)));
+            return Err(QueueError::JobNotFound(format!(
+                "Job already exists: {}",
+                job.id
+            )));
         }
 
         jobs.push(job);
@@ -134,13 +137,13 @@ impl JobRepository for InMemoryJobRepository {
         let result: Vec<Job> = jobs
             .iter()
             .filter(|j| {
-                match (state, &j.state) {
-                    (JobState::Pending, JobState::Pending) => true,
-                    (JobState::Running { .. }, JobState::Running { .. }) => true,
-                    (JobState::Completed { .. }, JobState::Completed { .. }) => true,
-                    (JobState::Failed { .. }, JobState::Failed { .. }) => true,
-                    _ => false,
-                }
+                matches!(
+                    (state, &j.state),
+                    (JobState::Pending, JobState::Pending)
+                        | (JobState::Running { .. }, JobState::Running { .. })
+                        | (JobState::Completed { .. }, JobState::Completed { .. })
+                        | (JobState::Failed { .. }, JobState::Failed { .. })
+                )
             })
             .cloned()
             .collect();
@@ -369,9 +372,15 @@ mod tests {
     async fn test_delete_preserves_remaining_jobs() {
         let repo = InMemoryJobRepository::new();
 
-        repo.create_job(create_test_job("1", JobPriority::P0)).await.expect("create");
-        repo.create_job(create_test_job("2", JobPriority::P1)).await.expect("create");
-        repo.create_job(create_test_job("3", JobPriority::P2)).await.expect("create");
+        repo.create_job(create_test_job("1", JobPriority::P0))
+            .await
+            .expect("create");
+        repo.create_job(create_test_job("2", JobPriority::P1))
+            .await
+            .expect("create");
+        repo.create_job(create_test_job("3", JobPriority::P2))
+            .await
+            .expect("create");
 
         repo.delete_job("2").await.expect("delete");
 
@@ -653,11 +662,7 @@ mod tests {
         let repo = InMemoryJobRepository::new();
         repo.add_job(create_test_job("1", JobPriority::P0));
 
-        let result = timeout(
-            Duration::from_secs(5),
-            repo.get_job("1"),
-        )
-        .await;
+        let result = timeout(Duration::from_secs(5), repo.get_job("1")).await;
 
         assert!(result.is_ok());
         let job_opt = result.unwrap();
@@ -701,9 +706,8 @@ mod tests {
         for i in 0..10 {
             let id = format!("job-{i}");
             let repo_clone = Arc::clone(&repo);
-            let handle = tokio::spawn(async move {
-                repo_clone.delete_job(&id).await.expect("delete")
-            });
+            let handle =
+                tokio::spawn(async move { repo_clone.delete_job(&id).await.expect("delete") });
             handles.push(handle);
         }
 
@@ -762,21 +766,19 @@ mod tests {
 
         let now = Utc::now();
         repo.add_job(create_test_job("1", JobPriority::P0));
-        repo.update_job_state(
-            "1",
-            JobState::Completed {
-                finished_at: now,
-            },
-        )
-        .await
-        .expect("update");
+        repo.update_job_state("1", JobState::Completed { finished_at: now })
+            .await
+            .expect("update");
 
         // Different timestamp should not match
         let different_timestamp = JobState::Completed {
             finished_at: now + chrono::Duration::seconds(1),
         };
 
-        let result = repo.find_jobs_by_state(&different_timestamp).await.expect("find");
+        let result = repo
+            .find_jobs_by_state(&different_timestamp)
+            .await
+            .expect("find");
         assert_eq!(result.len(), 1); // Still matches by variant, not exact timestamp
     }
 

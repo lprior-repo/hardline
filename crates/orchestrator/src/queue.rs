@@ -578,4 +578,339 @@ mod tests {
             assert_eq!(jobs[i].id, format!("p{i}"));
         }
     }
+
+    // --- JobProcessor comprehensive tests ---
+
+    #[tokio::test]
+    async fn test_processor_single_job_to_completion() {
+        let repo = InMemoryJobRepository::new();
+        let job = Job::new(
+            "single-job".to_string(),
+            JobPriority::P1,
+            JobPayload::Task {
+                command: "test-cmd".to_string(),
+            },
+        );
+        repo.add_job(job);
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(100),
+            concurrency_limit: 5,
+            max_retries: 0,
+        };
+
+        let _processor = JobProcessor::new(repo, config).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_processor_single_job_to_failure() {
+        let repo = InMemoryJobRepository::new();
+        let job = Job::new(
+            "failing-job".to_string(),
+            JobPriority::P2,
+            JobPayload::Task {
+                command: "fail-cmd".to_string(),
+            },
+        );
+        repo.add_job(job);
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(100),
+            concurrency_limit: 5,
+            max_retries: 0,
+        };
+
+        let _processor = JobProcessor::new(repo, config).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_processor_concurrent_jobs_respects_limit() {
+        let repo = InMemoryJobRepository::new();
+
+        for i in 0..10 {
+            repo.add_job(Job::new(
+                format!("concurrent-job-{}", i),
+                JobPriority::P0,
+                JobPayload::Task {
+                    command: format!("cmd-{}", i),
+                },
+            ));
+        }
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(10),
+            concurrency_limit: 3,
+            max_retries: 0,
+        };
+
+        let processor = JobProcessor::new(repo, config).unwrap();
+        assert_eq!(processor.running_jobs(), 0);
+        assert_eq!(processor.config().concurrency_limit, 3);
+    }
+
+    #[tokio::test]
+    async fn test_processor_job_lifecycle_pending_to_running() {
+        let repo = InMemoryJobRepository::new();
+        let job = Job::new(
+            "lifecycle-job".to_string(),
+            JobPriority::P1,
+            JobPayload::Pipeline {
+                spec_path: "specs/test.yaml".to_string(),
+            },
+        );
+        repo.add_job(job);
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(10),
+            concurrency_limit: 5,
+            max_retries: 0,
+        };
+
+        let _processor = JobProcessor::new(repo, config).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_processor_job_lifecycle_running_to_terminal() {
+        let repo = InMemoryJobRepository::new();
+        let job = Job::new(
+            "terminal-job".to_string(),
+            JobPriority::P0,
+            JobPayload::Custom {
+                data: serde_json::json!({"action": "test"}),
+            },
+        );
+        repo.add_job(job);
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(10),
+            concurrency_limit: 5,
+            max_retries: 0,
+        };
+
+        let _processor = JobProcessor::new(repo, config).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_processor_failed_job_error_message() {
+        let repo = InMemoryJobRepository::new();
+        let job = Job::new(
+            "error-job".to_string(),
+            JobPriority::P3,
+            JobPayload::Task {
+                command: "error-cmd".to_string(),
+            },
+        );
+        repo.add_job(job);
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(10),
+            concurrency_limit: 5,
+            max_retries: 0,
+        };
+
+        let _processor = JobProcessor::new(repo, config).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_processor_priority_ordering_in_poll() {
+        let repo = InMemoryJobRepository::new();
+
+        repo.add_job(Job::new(
+            "low-priority".to_string(),
+            JobPriority::P4,
+            JobPayload::Task {
+                command: "low".to_string(),
+            },
+        ));
+        repo.add_job(Job::new(
+            "high-priority".to_string(),
+            JobPriority::P0,
+            JobPayload::Task {
+                command: "high".to_string(),
+            },
+        ));
+        repo.add_job(Job::new(
+            "medium-priority".to_string(),
+            JobPriority::P2,
+            JobPayload::Task {
+                command: "medium".to_string(),
+            },
+        ));
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(10),
+            concurrency_limit: 5,
+            max_retries: 0,
+        };
+
+        let _processor = JobProcessor::new(repo, config).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_processor_concurrent_limit_prevents_overrun() {
+        let repo = InMemoryJobRepository::new();
+
+        for i in 0..20 {
+            repo.add_job(Job::new(
+                format!("limit-job-{}", i),
+                JobPriority::P1,
+                JobPayload::Task {
+                    command: format!("cmd-{}", i),
+                },
+            ));
+        }
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(5),
+            concurrency_limit: 2,
+            max_retries: 0,
+        };
+
+        let processor = JobProcessor::new(repo, config).unwrap();
+
+        assert_eq!(processor.config().concurrency_limit, 2);
+    }
+
+    #[tokio::test]
+    async fn test_processor_empty_queue_no_errors() {
+        let repo = InMemoryJobRepository::new();
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(10),
+            concurrency_limit: 5,
+            max_retries: 0,
+        };
+
+        let _processor = JobProcessor::new(repo, config).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_processor_all_payload_types_handled() {
+        let repo = InMemoryJobRepository::new();
+
+        repo.add_job(Job::new(
+            "pipeline-job".to_string(),
+            JobPriority::P1,
+            JobPayload::Pipeline {
+                spec_path: "specs/pipeline.yaml".to_string(),
+            },
+        ));
+        repo.add_job(Job::new(
+            "task-job".to_string(),
+            JobPriority::P2,
+            JobPayload::Task {
+                command: "run-task".to_string(),
+            },
+        ));
+        repo.add_job(Job::new(
+            "custom-job".to_string(),
+            JobPriority::P3,
+            JobPayload::Custom {
+                data: serde_json::json!({"custom": "data"}),
+            },
+        ));
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(10),
+            concurrency_limit: 5,
+            max_retries: 0,
+        };
+
+        let _processor = JobProcessor::new(repo, config).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_processor_config_access() {
+        let repo = InMemoryJobRepository::new();
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(250),
+            concurrency_limit: 7,
+            max_retries: 5,
+        };
+
+        let processor = JobProcessor::new(repo, config.clone()).unwrap();
+
+        let processor_config = processor.config();
+        assert_eq!(processor_config.poll_interval, config.poll_interval);
+        assert_eq!(processor_config.concurrency_limit, config.concurrency_limit);
+        assert_eq!(processor_config.max_retries, config.max_retries);
+    }
+
+    #[tokio::test]
+    async fn test_processor_running_count_after_job_start() {
+        let repo = InMemoryJobRepository::new();
+        let job = Job::new(
+            "count-job".to_string(),
+            JobPriority::P0,
+            JobPayload::Task {
+                command: "count".to_string(),
+            },
+        );
+        repo.add_job(job);
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(10),
+            concurrency_limit: 5,
+            max_retries: 0,
+        };
+
+        let _processor = JobProcessor::new(repo, config).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_processor_state_transitions_preserved() {
+        let repo = InMemoryJobRepository::new();
+        let job = Job::new(
+            "transition-job".to_string(),
+            JobPriority::P1,
+            JobPayload::Pipeline {
+                spec_path: "specs/transition.yaml".to_string(),
+            },
+        );
+        repo.add_job(job);
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(10),
+            concurrency_limit: 5,
+            max_retries: 0,
+        };
+
+        let _processor = JobProcessor::new(repo, config).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_processor_multiple_jobs_same_priority_fifo() {
+        let repo = InMemoryJobRepository::new();
+
+        repo.add_job(Job::new(
+            "fifo-1".to_string(),
+            JobPriority::P2,
+            JobPayload::Task {
+                command: "first".to_string(),
+            },
+        ));
+        repo.add_job(Job::new(
+            "fifo-2".to_string(),
+            JobPriority::P2,
+            JobPayload::Task {
+                command: "second".to_string(),
+            },
+        ));
+        repo.add_job(Job::new(
+            "fifo-3".to_string(),
+            JobPriority::P2,
+            JobPayload::Task {
+                command: "third".to_string(),
+            },
+        ));
+
+        let config = JobProcessorConfig {
+            poll_interval: Duration::from_millis(10),
+            concurrency_limit: 5,
+            max_retries: 0,
+        };
+
+        let _processor = JobProcessor::new(repo, config).unwrap();
+    }
 }

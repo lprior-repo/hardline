@@ -64,7 +64,7 @@ impl JobProcessorConfig {
 }
 
 pub struct JobProcessor<R: JobRepository> {
-    repository: R,
+    pub(crate) repository: R,
     config: JobProcessorConfig,
     semaphore: Semaphore,
     running_count: std::sync::atomic::AtomicUsize,
