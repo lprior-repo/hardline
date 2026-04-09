@@ -157,8 +157,6 @@ fn release_init_lock(file: &std::fs::File) {
 mod tests {
     use super::*;
 
-    // ---- Constants ----
-
     #[test]
     fn lock_file_name() {
         assert_eq!(INIT_LOCK_FILE, ".scp-init.lock");
@@ -181,21 +179,17 @@ mod tests {
         assert!(INIT_LOCK_BASE_BACKOFF_MS <= 1000);
     }
 
-    // ---- acquire_init_lock ----
-
     #[test]
     fn acquire_lock_creates_lock_file() {
         let temp = tempfile::tempdir().expect("create tempdir");
         let result = acquire_init_lock(temp.path());
         assert!(result.is_ok(), "Should acquire lock in temp dir");
-        // Lock file should exist
         assert!(temp.path().join(INIT_LOCK_FILE).exists());
     }
 
     #[test]
     fn acquire_lock_fails_on_symlink() {
         let temp = tempfile::tempdir().expect("create tempdir");
-        // Create a symlink to a non-existent file
         let symlink_target = temp.path().join("target");
         let symlink = temp.path().join(INIT_LOCK_FILE);
         #[cfg(unix)]

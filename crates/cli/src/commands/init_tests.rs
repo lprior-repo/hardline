@@ -12,6 +12,7 @@ use crate::commands::lock::{
 use proptest::prelude::*;
 use proptest::prop_assert;
 use serial_test::serial;
+use std::os::unix::fs::PermissionsExt;
 use tempfile::{NamedTempFile, TempDir};
 
 fn get_temp_db() -> NamedTempFile {
@@ -741,4 +742,567 @@ fn test_acquire_init_lock_succeeds_when_no_symlink() {
     if let Ok(file) = &result {
         let _ = file.unlock();
     }
+}
+
+// ============================================================================
+// Integration tests: init handler full workflow
+// ============================================================================
+
+fn safe_restore_dir() -> std::path::PathBuf {
+    std::env::var("CARGO_MANIFEST_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(std::path::PathBuf::from))
+                .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+        })
+}
+
+fn restore_cwd(original: &Option<std::path::PathBuf>) {
+    if let Some(dir) = original {
+        let _ = std::env::set_current_dir(dir);
+    }
+    if std::env::current_dir().is_err() {
+        std::env::set_current_dir(safe_restore_dir()).ok();
+    }
+}
+
+// ============================================================================
+// run — git init in empty directory
+// ============================================================================
+
+#[test]
+#[serial]
+fn integration_run_git_init_creates_git_repository() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    let result = crate::commands::init::run("git");
+    assert!(result.is_ok(), "git init should succeed in empty directory");
+
+    let git_dir = tmp.path().join(".git");
+    assert!(git_dir.exists(), ".git directory should exist after init");
+    assert!(git_dir.is_dir(), ".git should be a directory");
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_run_git_init_creates_valid_gix_repo() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    crate::commands::init::run("git").expect("init");
+
+    let repo = scp_vcs::gix::repository::open(tmp.path());
+    assert!(
+        repo.is_ok(),
+        "gix should be able to open the initialized repository"
+    );
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_run_git_init_head_is_valid() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    crate::commands::init::run("git").expect("init");
+
+    let repo = scp_vcs::gix::repository::open(tmp.path()).expect("open repo");
+    let head = repo.head().expect("head");
+    let head_name = head.name().as_bstr().to_string();
+
+    assert!(
+        head_name == "HEAD" || head_name == "refs/heads/main" || head_name == "refs/heads/master",
+        "HEAD should be valid (HEAD, main, or master), got: {head_name}"
+    );
+
+    restore_cwd(&original);
+}
+
+// ============================================================================
+// run — detect existing project (idempotent re-init)
+// ============================================================================
+
+#[test]
+#[serial]
+fn integration_run_git_init_twice_is_idempotent() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    let r1 = crate::commands::init::run("git");
+    assert!(r1.is_ok(), "First init should succeed");
+
+    let r2 = crate::commands::init::run("git");
+    assert!(r2.is_ok(), "Second init (re-init) should succeed");
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_reinit_preserves_existing_git_integrity() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    crate::commands::init::run("git").expect("first init");
+
+    let repo_before = scp_vcs::gix::repository::open(tmp.path()).expect("open before");
+    let head_before = repo_before.head().expect("head before");
+    let name_before = head_before.name().as_bstr().to_string();
+
+    crate::commands::init::run("git").expect("second init");
+
+    let repo_after = scp_vcs::gix::repository::open(tmp.path()).expect("open after");
+    let head_after = repo_after.head().expect("head after");
+    let name_after = head_after.name().as_bstr().to_string();
+
+    assert_eq!(
+        name_before, name_after,
+        "HEAD ref should be unchanged after re-init"
+    );
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_reinit_does_not_reinitialize() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    crate::commands::init::run("git").expect("first init");
+    let git_dir = tmp.path().join(".git");
+    assert!(git_dir.exists(), "Setup: .git should exist");
+
+    crate::commands::init::run("git").expect("second init");
+    assert!(git_dir.exists(), ".git should still exist after re-init");
+
+    restore_cwd(&original);
+}
+
+// ============================================================================
+// run — init in non-empty directory
+// ============================================================================
+
+#[test]
+#[serial]
+fn integration_init_in_nonempty_directory_succeeds() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    std::fs::write(tmp.path().join("README.md"), "# Hello").expect("write file");
+    std::fs::create_dir(tmp.path().join("src")).expect("create dir");
+    std::fs::write(tmp.path().join("src/main.rs"), "fn main() {}").expect("write file");
+
+    let result = crate::commands::init::run("git");
+    assert!(
+        result.is_ok(),
+        "git init should succeed in non-empty directory"
+    );
+
+    assert!(tmp.path().join(".git").exists());
+    assert!(tmp.path().join("README.md").exists());
+    assert!(tmp.path().join("src/main.rs").exists());
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_init_preserves_existing_file_contents() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    let content = "original content that must survive init";
+    std::fs::write(tmp.path().join("data.txt"), content).expect("write file");
+
+    crate::commands::init::run("git").expect("init");
+
+    let after = std::fs::read_to_string(tmp.path().join("data.txt")).expect("read file");
+    assert_eq!(
+        after, content,
+        "Existing file content must not be modified by init"
+    );
+
+    restore_cwd(&original);
+}
+
+// ============================================================================
+// run — init in readonly directory (IO error path)
+// ============================================================================
+
+#[test]
+#[serial]
+fn integration_init_in_readonly_directory_fails() {
+    let original = std::env::current_dir().ok();
+    let parent = TempDir::new().expect("parent temp dir");
+    let readonly = parent.path().join("readonly");
+    std::fs::create_dir(&readonly).expect("create dir");
+    let _ = std::fs::set_permissions(&readonly, std::fs::Permissions::from_mode(0o555));
+    std::env::set_current_dir(&readonly).expect("chdir");
+
+    let result = crate::commands::init::run("git");
+    assert!(
+        result.is_err(),
+        "git init should fail in read-only directory"
+    );
+
+    let _ = std::fs::set_permissions(&readonly, std::fs::Permissions::from_mode(0o755));
+    restore_cwd(&original);
+}
+
+// ============================================================================
+// run — VCS type validation (specific types)
+// ============================================================================
+
+#[test]
+#[serial]
+fn integration_run_mercurial_returns_config_error() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    let result = crate::commands::init::run("mercurial");
+    assert!(result.is_err());
+    let msg = format!("{}", result.unwrap_err());
+    assert!(msg.contains("Unknown VCS type"));
+    assert!(msg.contains("mercurial"));
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_run_hg_returns_config_error() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    let result = crate::commands::init::run("hg");
+    assert!(result.is_err());
+    let msg = format!("{}", result.unwrap_err());
+    assert!(msg.contains("Unknown VCS type"));
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_run_svn_returns_config_error() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    let result = crate::commands::init::run("svn");
+    assert!(result.is_err());
+    let msg = format!("{}", result.unwrap_err());
+    assert!(msg.contains("Unknown VCS type"));
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_run_p4_returns_config_error_includes_type() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    let result = crate::commands::init::run("p4");
+    let msg = format!("{}", result.unwrap_err());
+    assert!(
+        msg.contains("p4"),
+        "Error should include the rejected VCS type"
+    );
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_run_darcs_returns_config_error() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    let result = crate::commands::init::run("darcs");
+    let msg = format!("{}", result.unwrap_err());
+    assert!(msg.contains("Unknown VCS type"));
+    assert!(msg.contains("darcs"));
+
+    restore_cwd(&original);
+}
+
+// ============================================================================
+// run — VCS type case sensitivity
+// ============================================================================
+
+#[test]
+#[serial]
+fn integration_run_git_uppercase_returns_error() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    let result = crate::commands::init::run("GIT");
+    assert!(result.is_err(), "Uppercase 'GIT' should not match 'git'");
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_run_git_mixed_case_returns_error() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    let result = crate::commands::init::run("Git");
+    assert!(result.is_err(), "Mixed case 'Git' should not match 'git'");
+
+    restore_cwd(&original);
+}
+
+// ============================================================================
+// run — path edge cases
+// ============================================================================
+
+#[test]
+#[serial]
+fn integration_init_in_path_with_spaces() {
+    let original = std::env::current_dir().ok();
+    let parent = TempDir::new().expect("parent dir");
+    let spaced = parent.path().join("path with spaces");
+    std::fs::create_dir(&spaced).expect("create spaced dir");
+    std::env::set_current_dir(&spaced).expect("chdir");
+
+    let result = crate::commands::init::run("git");
+    assert!(
+        result.is_ok(),
+        "git init should succeed in path with spaces"
+    );
+    assert!(spaced.join(".git").exists());
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_init_in_deeply_nested_directory() {
+    let original = std::env::current_dir().ok();
+    let parent = TempDir::new().expect("parent dir");
+    let nested = parent
+        .path()
+        .join("a")
+        .join("b")
+        .join("c")
+        .join("d")
+        .join("e");
+    std::fs::create_dir_all(&nested).expect("create nested dirs");
+    std::env::set_current_dir(&nested).expect("chdir");
+
+    let result = crate::commands::init::run("git");
+    assert!(
+        result.is_ok(),
+        "git init should succeed in deeply nested directory"
+    );
+    assert!(nested.join(".git").exists());
+
+    restore_cwd(&original);
+}
+
+#[test]
+#[serial]
+fn integration_init_in_separate_dirs_creates_separate_repos() {
+    let original = std::env::current_dir().ok();
+    let parent = TempDir::new().expect("parent dir");
+    let dir_a = parent.path().join("project-a");
+    let dir_b = parent.path().join("project-b");
+    std::fs::create_dir_all(&dir_a).expect("create dir a");
+    std::fs::create_dir_all(&dir_b).expect("create dir b");
+
+    std::env::set_current_dir(&dir_a).expect("chdir a");
+    assert!(crate::commands::init::run("git").is_ok());
+
+    std::env::set_current_dir(&dir_b).expect("chdir b");
+    assert!(crate::commands::init::run("git").is_ok());
+
+    assert!(dir_a.join(".git").exists());
+    assert!(dir_b.join(".git").exists());
+
+    restore_cwd(&original);
+}
+
+// ============================================================================
+// run — subdirectory of existing git repo
+// ============================================================================
+
+#[test]
+#[serial]
+fn integration_init_inside_git_subdir_detects_parent() {
+    let original = std::env::current_dir().ok();
+    let tmp = TempDir::new().expect("temp dir");
+    std::env::set_current_dir(tmp.path()).expect("chdir");
+
+    crate::commands::init::run("git").expect("init root");
+
+    let subdir = tmp.path().join("subproject");
+    std::fs::create_dir(&subdir).expect("create subdir");
+    std::env::set_current_dir(&subdir).expect("chdir to subdir");
+
+    let result = crate::commands::init::run("git");
+    assert!(
+        result.is_ok(),
+        "init in subdir of existing git repo should succeed (detects parent)"
+    );
+
+    restore_cwd(&original);
+}
+
+// ============================================================================
+// acquire_init_lock — PID and file behavior
+// ============================================================================
+
+#[test]
+fn lock_writes_current_pid_to_file() {
+    let tmp = TempDir::new().expect("temp dir");
+    let result = crate::commands::init::acquire_init_lock(tmp.path());
+    assert!(result.is_ok());
+
+    let contents =
+        std::fs::read_to_string(tmp.path().join(".scp-init.lock")).expect("read lock file");
+    assert_eq!(contents, std::process::id().to_string());
+}
+
+#[test]
+fn lock_creates_regular_file_not_directory() {
+    let tmp = TempDir::new().expect("temp dir");
+    crate::commands::init::acquire_init_lock(tmp.path()).expect("acquire");
+
+    let meta = std::fs::metadata(tmp.path().join(".scp-init.lock")).expect("lock file metadata");
+    assert!(
+        !meta.is_dir(),
+        "Lock file should be a regular file, not a directory"
+    );
+}
+
+#[test]
+fn lock_in_readonly_directory_fails() {
+    let tmp = TempDir::new().expect("temp dir");
+    let readonly = tmp.path().join("readonly");
+    std::fs::create_dir(&readonly).expect("create dir");
+    let _ = std::fs::set_permissions(&readonly, std::fs::Permissions::from_mode(0o555));
+
+    let result = crate::commands::init::acquire_init_lock(&readonly);
+    assert!(
+        result.is_err(),
+        "Should fail to acquire lock in read-only directory"
+    );
+
+    let _ = std::fs::set_permissions(&readonly, std::fs::Permissions::from_mode(0o755));
+}
+
+#[test]
+fn lock_double_acquire_in_same_process_succeeds() {
+    let tmp = TempDir::new().expect("temp dir");
+
+    let r1 = crate::commands::init::acquire_init_lock(tmp.path());
+    assert!(r1.is_ok(), "First acquire should succeed");
+
+    let r2 = crate::commands::init::acquire_init_lock(tmp.path());
+    assert!(
+        r2.is_ok(),
+        "Second acquire from same process should succeed"
+    );
+}
+
+// ============================================================================
+// Lock symlink security — target integrity
+// ============================================================================
+
+#[test]
+#[cfg(unix)]
+fn lock_symlink_target_not_corrupted() {
+    let tmp = TempDir::new().expect("temp dir");
+    let important = tmp.path().join("important-data.txt");
+    std::fs::write(&important, "critical content").expect("write target");
+
+    let lock_path = tmp.path().join(".scp-init.lock");
+    std::os::unix::fs::symlink(&important, &lock_path).expect("create symlink");
+
+    let result = crate::commands::init::acquire_init_lock(tmp.path());
+    assert!(result.is_err(), "Should refuse symlink");
+
+    let contents = std::fs::read_to_string(&important).expect("read target");
+    assert_eq!(
+        contents, "critical content",
+        "Target file must not be modified"
+    );
+}
+
+#[test]
+#[cfg(unix)]
+fn lock_broken_symlink_fails() {
+    let tmp = TempDir::new().expect("temp dir");
+    let nonexistent = tmp.path().join("does-not-exist");
+    let lock_path = tmp.path().join(".scp-init.lock");
+    std::os::unix::fs::symlink(&nonexistent, &lock_path).expect("create broken symlink");
+
+    let result = crate::commands::init::acquire_init_lock(tmp.path());
+    assert!(result.is_err(), "Should refuse broken symlink lock file");
+}
+
+// ============================================================================
+// Lock file cleanup after init
+// ============================================================================
+
+#[test]
+fn lock_file_removed_after_successful_git_init() {
+    let tmp = TempDir::new().expect("temp dir");
+
+    scp_vcs::gix::repository::init(tmp.path())
+        .map_err(|e| {
+            scp_core::Error::vcs_init_failed("git", tmp.path().display().to_string(), e.to_string())
+        })
+        .expect("init repo");
+
+    let lock_path = tmp.path().join(".scp-init.lock");
+    assert!(
+        !lock_path.exists(),
+        "Lock file should be cleaned up after successful init"
+    );
+}
+
+// ============================================================================
+// Constants — reasonable bounds
+// ============================================================================
+
+#[test]
+fn constant_retries_exceed_half_timeout() {
+    const INIT_LOCK_FILE: &str = ".scp-init.lock";
+    const INIT_LOCK_TIMEOUT_MS: u64 = 5000;
+    const INIT_LOCK_MAX_RETRIES: usize = 10;
+    const INIT_LOCK_BASE_BACKOFF_MS: u64 = 50;
+
+    let total_backoff: u64 = (0..INIT_LOCK_MAX_RETRIES.min(6))
+        .map(|i| INIT_LOCK_BASE_BACKOFF_MS * (1 << i))
+        .sum();
+    assert!(
+        total_backoff >= INIT_LOCK_TIMEOUT_MS / 2,
+        "Total backoff ({total_backoff}ms) should be significant vs timeout ({INIT_LOCK_TIMEOUT_MS}ms)"
+    );
 }
