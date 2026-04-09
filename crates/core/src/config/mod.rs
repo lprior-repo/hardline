@@ -26,6 +26,9 @@ mod config_scope_source_tests;
 #[cfg(test)]
 mod config_value_tests;
 
+#[cfg(test)]
+mod config_manager_tests;
+
 // Re-exports
 pub use command_types::{
     clear_port, config_get, config_list, config_set, get_nested_value, parse_cli_value,
