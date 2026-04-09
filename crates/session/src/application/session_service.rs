@@ -469,4 +469,261 @@ mod tests {
             assert!(matches!(created.branch, BranchState::Detached));
         }
     }
+
+    // =========================================================================
+    // Create Session Lifecycle Tests (ha-ovm)
+    // =========================================================================
+
+    mod create_session_lifecycle {
+        use super::*;
+        use crate::domain::entities::session::{BranchState, SessionState};
+        use chrono::Utc;
+
+        fn make_name(s: &str) -> SessionName {
+            SessionName::parse(s).expect("valid session name")
+        }
+
+        // --- Valid Creation Through Service ---
+
+        #[test]
+        fn service_create_session_returns_ok_with_valid_name() {
+            let result = SessionService::create_session(make_name("valid-create"));
+            assert!(result.is_ok());
+        }
+
+        #[test]
+        fn service_create_session_has_created_state() {
+            let session =
+                SessionService::create_session(make_name("state-check")).expect("created");
+            assert_eq!(session.state(), SessionState::Created);
+        }
+
+        #[test]
+        fn service_create_session_generates_session_prefixed_id() {
+            let session = SessionService::create_session(make_name("id-prefix")).expect("created");
+            assert!(session.id.as_str().starts_with("session-"));
+        }
+
+        #[test]
+        fn service_create_session_preserves_name() {
+            let session =
+                SessionService::create_session(make_name("name-preserve")).expect("created");
+            assert_eq!(session.name.as_str(), "name-preserve");
+        }
+
+        #[test]
+        fn service_create_session_no_workspace() {
+            let session =
+                SessionService::create_session(make_name("no-ws")).expect("created");
+            assert!(session.workspace().is_none());
+        }
+
+        #[test]
+        fn service_create_session_no_bead() {
+            let session =
+                SessionService::create_session(make_name("no-bead")).expect("created");
+            assert!(session.bead().is_none());
+        }
+
+        #[test]
+        fn service_create_session_no_assigned_agent() {
+            let session =
+                SessionService::create_session(make_name("no-agent")).expect("created");
+            assert!(session.assigned_agent().is_none());
+        }
+
+        #[test]
+        fn service_create_session_branch_is_detached() {
+            let session =
+                SessionService::create_session(make_name("branch-init")).expect("created");
+            assert!(matches!(session.branch, BranchState::Detached));
+        }
+
+        #[test]
+        fn service_create_session_no_last_synced() {
+            let session =
+                SessionService::create_session(make_name("no-sync")).expect("created");
+            assert!(session.last_synced.is_none());
+        }
+
+        #[test]
+        fn service_create_session_has_created_at_near_now() {
+            let before = Utc::now();
+            let session =
+                SessionService::create_session(make_name("timestamp")).expect("created");
+            let after = Utc::now();
+            assert!(session.created_at >= before);
+            assert!(session.created_at <= after);
+        }
+
+        #[test]
+        fn service_create_session_state_is_not_terminal() {
+            let session =
+                SessionService::create_session(make_name("non-terminal")).expect("created");
+            assert!(!session.state().is_terminal());
+        }
+
+        #[test]
+        fn service_create_session_with_min_length_name() {
+            let session = SessionService::create_session(make_name("a")).expect("created");
+            assert_eq!(session.name.as_str(), "a");
+        }
+
+        #[test]
+        fn service_create_session_with_max_length_name() {
+            let max_name = "a".repeat(SessionName::MAX_LENGTH);
+            let session =
+                SessionService::create_session(make_name(&max_name)).expect("created");
+            assert_eq!(session.name.as_str().len(), SessionName::MAX_LENGTH);
+        }
+
+        #[test]
+        fn service_create_session_propagates_name_validation() {
+            // Invalid names should fail at SessionName::parse before reaching the service
+            assert!(SessionName::parse("").is_err());
+            assert!(SessionName::parse("123bad").is_err());
+            assert!(SessionName::parse("has space").is_err());
+        }
+
+        #[test]
+        fn service_create_session_accepts_valid_names() {
+            for name in &["a", "test", "my-session", "session_name", "aBc123"] {
+                let result = SessionService::create_session(make_name(name));
+                assert!(result.is_ok(), "Name '{}' should be valid", name);
+            }
+        }
+
+        // --- Duplicate Name Handling ---
+
+        #[test]
+        fn service_create_duplicate_name_succeeds_with_different_ids() {
+            let s1 =
+                SessionService::create_session(make_name("same-name")).expect("s1 created");
+            let s2 =
+                SessionService::create_session(make_name("same-name")).expect("s2 created");
+            assert_eq!(s1.name.as_str(), s2.name.as_str());
+            assert_ne!(s1.id.as_str(), s2.id.as_str());
+        }
+
+        #[test]
+        fn service_create_duplicate_name_produces_distinct_sessions() {
+            let s1 = SessionService::create_session(make_name("dup")).expect("s1");
+            let s2 = SessionService::create_session(make_name("dup")).expect("s2");
+            assert_ne!(s1.id, s2.id);
+            assert_eq!(s1.state(), SessionState::Created);
+            assert_eq!(s2.state(), SessionState::Created);
+        }
+
+        #[test]
+        fn service_create_batch_same_name_all_unique_ids() {
+            let mut ids = std::collections::HashSet::new();
+            for _ in 0..10 {
+                let session =
+                    SessionService::create_session(make_name("batch")).expect("created");
+                ids.insert(session.id);
+            }
+            assert_eq!(ids.len(), 10);
+        }
+
+        #[test]
+        fn service_create_different_names_also_different_ids() {
+            let s1 = SessionService::create_session(make_name("alpha")).expect("s1");
+            let s2 = SessionService::create_session(make_name("beta")).expect("s2");
+            assert_ne!(s1.name.as_str(), s2.name.as_str());
+            assert_ne!(s1.id, s2.id);
+        }
+
+        // --- Full Create Lifecycle Through Service ---
+
+        #[test]
+        fn service_lifecycle_create_to_activate() {
+            let created = SessionService::create_session(make_name("lc-activate"))
+                .expect("created");
+            assert_eq!(created.state(), SessionState::Created);
+
+            let active = SessionService::activate_session(created).expect("activated");
+            assert_eq!(active.state(), SessionState::Active);
+        }
+
+        #[test]
+        fn service_lifecycle_create_activate_complete() {
+            let created = SessionService::create_session(make_name("lc-complete"))
+                .expect("created");
+            let active = SessionService::activate_session(created).expect("activated");
+            let completed = SessionService::complete_session(active).expect("completed");
+            assert!(completed.state().is_terminal());
+            assert_eq!(completed.state(), SessionState::Completed);
+        }
+
+        #[test]
+        fn service_lifecycle_create_activate_fail() {
+            let created = SessionService::create_session(make_name("lc-fail"))
+                .expect("created");
+            let active = SessionService::activate_session(created).expect("activated");
+            let failed = SessionService::fail_session(active).expect("failed");
+            assert!(failed.state().is_terminal());
+            assert_eq!(failed.state(), SessionState::Failed);
+        }
+
+        #[test]
+        fn service_lifecycle_create_entity_fail_from_created() {
+            // SessionService::fail_session requires Session<Active>, but
+            // the entity allows direct Created→Failed. Verify the created
+            // session is compatible with entity-level fail.
+            let created = SessionService::create_session(make_name("entity-fail"))
+                .expect("created");
+            let failed = created.fail().expect("entity fail from created");
+            assert_eq!(failed.state(), SessionState::Failed);
+        }
+
+        #[test]
+        fn service_lifecycle_create_activate_sync_complete() {
+            let created = SessionService::create_session(make_name("lc-sync"))
+                .expect("created");
+            let active = SessionService::activate_session(created).expect("activated");
+            let syncing = active.sync().expect("syncing");
+            assert_eq!(syncing.state(), SessionState::Syncing);
+            let synced = syncing.sync_complete().expect("synced");
+            assert_eq!(synced.state(), SessionState::Synced);
+            let completed = synced.complete().expect("completed");
+            assert_eq!(completed.state(), SessionState::Completed);
+        }
+
+        #[test]
+        fn service_lifecycle_create_pause_resume_complete() {
+            let created = SessionService::create_session(make_name("lc-pause"))
+                .expect("created");
+            let active = SessionService::activate_session(created).expect("activated");
+            let paused = active.pause().expect("paused");
+            assert_eq!(paused.state(), SessionState::Paused);
+            let resumed = paused.resume().expect("resumed");
+            assert_eq!(resumed.state(), SessionState::Active);
+            let completed = SessionService::complete_session(resumed).expect("completed");
+            assert!(completed.state().is_terminal());
+        }
+
+        #[test]
+        fn service_lifecycle_identity_preserved_through_full_path() {
+            let created = SessionService::create_session(make_name("lc-identity"))
+                .expect("created");
+            let id = created.id.as_str().to_string();
+            let name = created.name.as_str().to_string();
+
+            let active = SessionService::activate_session(created).expect("activated");
+            assert_eq!(active.id.as_str(), id);
+            assert_eq!(active.name.as_str(), name);
+
+            let syncing = active.sync().expect("syncing");
+            assert_eq!(syncing.id.as_str(), id);
+            assert_eq!(syncing.name.as_str(), name);
+
+            let synced = syncing.sync_complete().expect("synced");
+            assert_eq!(synced.id.as_str(), id);
+            assert_eq!(synced.name.as_str(), name);
+
+            let completed = synced.complete().expect("completed");
+            assert_eq!(completed.id.as_str(), id);
+            assert_eq!(completed.name.as_str(), name);
+        }
+    }
 }

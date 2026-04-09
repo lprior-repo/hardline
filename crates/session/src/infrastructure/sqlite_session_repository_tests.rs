@@ -499,3 +499,175 @@ async fn test_concurrent_find_by_agent_and_save() {
     assert!(r_find.is_ok());
     assert!(r_save.is_ok());
 }
+
+// =========================================================================
+// Service + Repository Integration: Create Session Lifecycle (ha-ovm)
+// =========================================================================
+
+#[tokio::test]
+async fn test_service_create_session_saved_and_found_by_id() {
+    let repo = test_repository().await;
+    let name = SessionName::parse("repo-create").expect("valid");
+    let session =
+        crate::application::session_service::SessionService::create_session(name)
+            .expect("created");
+
+    repo.save(&session).await.expect("save failed");
+    let found = repo
+        .find_by_id(session.id.as_str())
+        .await
+        .expect("find failed");
+
+    assert!(found.is_some());
+    let found = found.unwrap();
+    assert_eq!(found.id, session.id);
+    assert_eq!(found.name.as_str(), "repo-create");
+}
+
+#[tokio::test]
+async fn test_service_create_session_saved_and_found_by_name() {
+    let repo = test_repository().await;
+    let name = SessionName::parse("repo-by-name").expect("valid");
+    let session =
+        crate::application::session_service::SessionService::create_session(name)
+            .expect("created");
+
+    repo.save(&session).await.expect("save failed");
+    let found = repo
+        .find_by_name(&session.name)
+        .await
+        .expect("find failed");
+
+    assert!(found.is_some());
+    assert_eq!(found.unwrap().id, session.id);
+}
+
+#[tokio::test]
+async fn test_service_create_duplicate_names_both_saved_to_repo() {
+    let repo = test_repository().await;
+    let name = SessionName::parse("dup-name").expect("valid");
+
+    let s1 =
+        crate::application::session_service::SessionService::create_session(name.clone())
+            .expect("s1");
+    let s2 =
+        crate::application::session_service::SessionService::create_session(name)
+            .expect("s2");
+
+    repo.save(&s1).await.expect("save s1");
+    repo.save(&s2).await.expect("save s2");
+
+    let found1 = repo
+        .find_by_id(s1.id.as_str())
+        .await
+        .expect("find s1")
+        .expect("s1 exists");
+    let found2 = repo
+        .find_by_id(s2.id.as_str())
+        .await
+        .expect("find s2")
+        .expect("s2 exists");
+
+    assert_ne!(found1.id, found2.id);
+    assert_eq!(found1.name.as_str(), "dup-name");
+    assert_eq!(found2.name.as_str(), "dup-name");
+
+    let all = repo.list().await.expect("list");
+    assert_eq!(all.len(), 2);
+}
+
+#[tokio::test]
+async fn test_service_create_full_lifecycle_repo_roundtrip() {
+    let repo = test_repository().await;
+    let name = SessionName::parse("lifecycle-repo").expect("valid");
+
+    // Create through service
+    let created =
+        crate::application::session_service::SessionService::create_session(name)
+            .expect("created");
+    let id = created.id.as_str().to_string();
+    repo.save(&created).await.expect("save created");
+
+    // Activate through service
+    let active =
+        crate::application::session_service::SessionService::activate_session(created)
+            .expect("activated");
+    repo.save(&active).await.expect("save active");
+
+    // Verify retrievable after activation
+    let found = repo
+        .find_by_id(&id)
+        .await
+        .expect("find")
+        .expect("exists");
+    assert_eq!(found.name.as_str(), "lifecycle-repo");
+
+    // Complete through service
+    let completed =
+        crate::application::session_service::SessionService::complete_session(active)
+            .expect("completed");
+    repo.save(&completed)
+        .await
+        .expect("save completed");
+
+    // Verify identity preserved through full lifecycle
+    let found = repo
+        .find_by_id(&id)
+        .await
+        .expect("find")
+        .expect("exists");
+    assert_eq!(found.id.as_str(), id);
+    assert_eq!(found.name.as_str(), "lifecycle-repo");
+}
+
+#[tokio::test]
+async fn test_service_create_multiple_sessions_repo_lists_all() {
+    let repo = test_repository().await;
+
+    for i in 0..5 {
+        let name = SessionName::parse(&format!("batch-{}", i)).expect("valid");
+        let session =
+            crate::application::session_service::SessionService::create_session(name)
+                .expect("created");
+        repo.save(&session).await.expect("save failed");
+    }
+
+    let all = repo.list().await.expect("list");
+    assert_eq!(all.len(), 5);
+}
+
+#[tokio::test]
+async fn test_service_create_session_not_found_before_save() {
+    let repo = test_repository().await;
+    let name = SessionName::parse("unsaved").expect("valid");
+    let session =
+        crate::application::session_service::SessionService::create_session(name)
+            .expect("created");
+
+    // Not saved yet — should not be found
+    let found = repo
+        .find_by_id(session.id.as_str())
+        .await
+        .expect("find failed");
+    assert!(found.is_none());
+}
+
+#[tokio::test]
+async fn test_service_create_session_delete_from_repo() {
+    let repo = test_repository().await;
+    let name = SessionName::parse("to-delete").expect("valid");
+    let session =
+        crate::application::session_service::SessionService::create_session(name)
+            .expect("created");
+
+    repo.save(&session).await.expect("save failed");
+    repo.delete(session.id.as_str())
+        .await
+        .expect("delete failed");
+
+    let found = repo
+        .find_by_id(session.id.as_str())
+        .await
+        .expect("find failed");
+    assert!(found.is_none());
+}
