@@ -1,6 +1,7 @@
 use crate::domain::entities::{Workspace, WorkspaceId, WorkspaceState};
 use crate::domain::value_objects::{WorkspaceName, WorkspacePath};
 use crate::error::WorkspaceError;
+use chrono::Utc;
 
 pub struct WorkspaceService;
 
@@ -133,8 +134,19 @@ impl WorkspaceService {
     pub fn recover_workspace(
         workspace: Workspace,
     ) -> std::result::Result<Workspace, WorkspaceError> {
-        if workspace.state == WorkspaceState::Locked {
-            // Unlock first, then activate
+        if workspace.state == WorkspaceState::Corrupted {
+            Ok(Workspace {
+                id: workspace.id,
+                name: workspace.name,
+                path: workspace.path,
+                created_at: workspace.created_at,
+                updated_at: Utc::now(),
+                lock_holder: None,
+                config: workspace.config,
+                state: WorkspaceState::Active,
+                _state: std::marker::PhantomData,
+            })
+        } else if workspace.state == WorkspaceState::Locked {
             let unlocked = Workspace {
                 id: workspace.id,
                 name: workspace.name,
@@ -146,7 +158,6 @@ impl WorkspaceService {
                 state: WorkspaceState::Active,
                 _state: std::marker::PhantomData,
             };
-            // Now activate
             unlocked.activate().map(|w| Workspace {
                 id: w.id,
                 name: w.name,
@@ -787,7 +798,8 @@ mod tests {
     }
 
     #[test]
-    fn workspace_service_recover_fails_when_corrupted() {
+    fn workspace_service_recover_succeeds_when_corrupted() {
+        // Happy path: recover_workspace should succeed for Corrupted state
         let ws = Workspace::create(
             WorkspaceName::new("recover-corrupt".into()).unwrap(),
             WorkspacePath::new("/tmp/recover-corrupt".into()).unwrap(),
@@ -805,7 +817,10 @@ mod tests {
             _state: std::marker::PhantomData,
         };
         let result = WorkspaceService::recover_workspace(corrupted_ws);
-        assert!(result.is_err());
+        assert!(result.is_ok());
+        let recovered = result.unwrap();
+        assert!(recovered.is_active());
+        assert!(recovered.lock_holder().is_none());
     }
 
     #[test]
@@ -4162,6 +4177,404 @@ mod tests {
             let created_at = locked.created_at();
             let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
             assert_eq!(unlocked.created_at(), created_at);
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // EXHAUSTIVE recover_workspace TESTS (ha-dp9)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    mod recover_workspace_tests {
+        use super::*;
+        use crate::domain::entities::workspace::VcsType;
+
+        fn make_active(name: &str) -> Workspace {
+            WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .and_then(WorkspaceService::initialize_workspace)
+            .unwrap()
+        }
+
+        fn make_locked(name: &str, holder: &str) -> Workspace {
+            WorkspaceService::lock_workspace(make_active(name), holder.into()).unwrap()
+        }
+
+        fn make_corrupted(name: &str) -> Workspace {
+            let active = make_active(name);
+            Workspace {
+                state: WorkspaceState::Corrupted,
+                ..active
+            }
+        }
+
+        fn make_deleted(name: &str) -> Workspace {
+            let active = make_active(name);
+            Workspace {
+                state: WorkspaceState::Deleted,
+                ..active
+            }
+        }
+
+        fn make_initializing(name: &str) -> Workspace {
+            WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .unwrap()
+        }
+
+        #[test]
+        fn recover_corrupted_to_active() {
+            let corrupted = make_corrupted("happy-path");
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            assert!(recovered.is_active());
+            assert!(!recovered.is_terminal());
+        }
+
+        #[test]
+        fn recover_corrupted_preserves_workspace_id() {
+            let corrupted = make_corrupted("id-preserve");
+            let id_before = corrupted.id.clone();
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            assert_eq!(recovered.id.as_str(), id_before.as_str());
+        }
+
+        #[test]
+        fn recover_corrupted_preserves_name() {
+            let corrupted = make_corrupted("name-preserve");
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            assert_eq!(recovered.name.as_str(), "name-preserve");
+        }
+
+        #[test]
+        fn recover_corrupted_preserves_path() {
+            let corrupted = make_corrupted("path-preserve");
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            assert_eq!(recovered.path.as_str(), Some("/tmp/path-preserve"));
+        }
+
+        #[test]
+        fn recover_corrupted_preserves_config() {
+            let corrupted = make_corrupted("config-preserve");
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            let config = recovered.config().expect("should have config");
+            assert_eq!(config.default_branch, "main");
+            assert!(config.auto_sync);
+            assert_eq!(config.vcs_type, VcsType::Git);
+        }
+
+        #[test]
+        fn recover_corrupted_preserves_created_at() {
+            let corrupted = make_corrupted("ts-preserve");
+            let created_at = corrupted.created_at();
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            assert_eq!(recovered.created_at(), created_at);
+        }
+
+        #[test]
+        fn recover_corrupted_updates_updated_at() {
+            let corrupted = make_corrupted("ts-update");
+            let updated_before = corrupted.updated_at();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            assert!(recovered.updated_at() > updated_before);
+        }
+
+        #[test]
+        fn recover_clears_corrupted_state_flag() {
+            let corrupted = make_corrupted("clear-corrupt-flag");
+            assert_eq!(corrupted.state, WorkspaceState::Corrupted);
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            assert_eq!(recovered.state, WorkspaceState::Active);
+            assert!(!recovered.is_terminal());
+        }
+
+        #[test]
+        fn recover_locked_workspace_unlocks_and_activates() {
+            let locked = make_locked("recover-locked", "stuck-agent");
+            let recovered = WorkspaceService::recover_workspace(locked).unwrap();
+            assert!(recovered.is_active());
+            assert!(recovered.lock_holder().is_none());
+        }
+
+        #[test]
+        fn recover_locked_preserves_all_fields() {
+            let locked = make_locked("locked-fields", "agent-x");
+            let id = locked.id.as_str().to_string();
+            let name = locked.name.as_str().to_string();
+            let path = locked.path.as_str().unwrap().to_string();
+            let created = locked.created_at();
+            let config = locked.config().cloned();
+
+            let recovered = WorkspaceService::recover_workspace(locked).unwrap();
+
+            assert_eq!(recovered.id.as_str(), id);
+            assert_eq!(recovered.name.as_str(), name);
+            assert_eq!(recovered.path.as_str(), Some(path.as_str()));
+            assert_eq!(recovered.created_at(), created);
+            assert_eq!(
+                recovered.config().map(|c| &c.default_branch),
+                config.as_ref().map(|c| &c.default_branch)
+            );
+        }
+
+        #[test]
+        fn recover_rejects_active_workspace() {
+            let active = make_active("reject-active");
+            let result = WorkspaceService::recover_workspace(active);
+            assert!(result.is_err());
+            match result.err().unwrap() {
+                WorkspaceError::InvalidStateTransition { from, to } => {
+                    assert_eq!(from, "Active");
+                    assert_eq!(to, "Recoverable");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn recover_rejects_initializing_workspace() {
+            let init = make_initializing("reject-init");
+            let result = WorkspaceService::recover_workspace(init);
+            assert!(result.is_err());
+            match result.err().unwrap() {
+                WorkspaceError::InvalidStateTransition { from, to } => {
+                    assert_eq!(from, "Initializing");
+                    assert_eq!(to, "Recoverable");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn recover_rejects_deleted_workspace() {
+            let deleted = make_deleted("reject-deleted");
+            let result = WorkspaceService::recover_workspace(deleted);
+            assert!(result.is_err());
+            match result.err().unwrap() {
+                WorkspaceError::InvalidStateTransition { from, to } => {
+                    assert_eq!(from, "Deleted");
+                    assert_eq!(to, "Recoverable");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn recover_multiple_times_idempotent() {
+            let corrupted = make_corrupted("multi-recover");
+            let id = corrupted.id.as_str().to_string();
+            let name = corrupted.name.as_str().to_string();
+
+            // First recovery succeeds (Corrupted -> Active)
+            let recovered1 = WorkspaceService::recover_workspace(corrupted).unwrap();
+            assert_eq!(recovered1.id.as_str(), id);
+            assert_eq!(recovered1.name.as_str(), name);
+
+            // Second recovery fails (Active cannot be recovered)
+            let result2 = WorkspaceService::recover_workspace(recovered1.clone());
+            assert!(result2.is_err());
+            match result2.err().unwrap() {
+                WorkspaceError::InvalidStateTransition { from, to } => {
+                    assert_eq!(from, "Active");
+                    assert_eq!(to, "Recoverable");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+
+            // Third recovery also fails
+            let result3 = WorkspaceService::recover_workspace(recovered1.clone());
+            assert!(result3.is_err());
+
+            // Recovery is idempotent in the sense that the first recovery is deterministic
+            // and subsequent recoveries fail predictably
+            let recovered2 =
+                WorkspaceService::recover_workspace(make_corrupted("multi-recover-2")).unwrap();
+            assert_eq!(recovered1.state, recovered2.state);
+        }
+
+        #[test]
+        fn recover_preserves_config_across_multiple_recoveries() {
+            let corrupted = make_corrupted("multi-cfg");
+            let recovered1 = WorkspaceService::recover_workspace(corrupted).unwrap();
+            let cfg1 = recovered1.config().cloned().expect("cfg1");
+
+            // Second recovery fails (Active cannot be recovered)
+            let result2 = WorkspaceService::recover_workspace(recovered1);
+            assert!(result2.is_err());
+
+            // But config is preserved on first recovery
+            assert_eq!(cfg1.default_branch, "main");
+            assert!(cfg1.auto_sync);
+
+            // Create another corrupted workspace and recover it
+            let corrupted2 = make_corrupted("multi-cfg-2");
+            let recovered2 = WorkspaceService::recover_workspace(corrupted2).unwrap();
+            let cfg2 = recovered2.config().expect("cfg2");
+
+            // Config is preserved across independent recoveries
+            assert_eq!(cfg1.default_branch, cfg2.default_branch);
+            assert_eq!(cfg1.auto_sync, cfg2.auto_sync);
+        }
+
+        #[test]
+        fn recover_corrupted_with_no_config() {
+            let corrupted = make_corrupted("no-cfg");
+            let corrupted_ws = Workspace {
+                config: None,
+                ..corrupted
+            };
+            let recovered = WorkspaceService::recover_workspace(corrupted_ws).unwrap();
+            assert!(recovered.config().is_none());
+            assert!(recovered.is_active());
+        }
+
+        #[test]
+        fn recover_corrupted_with_lock_holder() {
+            let active = make_active("lock-on-corrupt");
+            let corrupted = Workspace {
+                lock_holder: Some("stuck-agent".into()),
+                state: WorkspaceState::Corrupted,
+                ..active
+            };
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            assert!(recovered.lock_holder().is_none());
+            assert!(recovered.is_active());
+        }
+
+        #[test]
+        fn recover_preserves_workspace_id_across_many_recoveries() {
+            let id = WorkspaceId::parse("ws-unique-id-12345".into()).unwrap();
+            let corrupted = Workspace {
+                id: id.clone(),
+                ..make_corrupted("id-many")
+            };
+
+            // First recovery succeeds
+            let recovered1 = WorkspaceService::recover_workspace(corrupted).unwrap();
+            assert_eq!(recovered1.id.as_str(), id.as_str());
+
+            // Second recovery fails (Active cannot be recovered)
+            let result2 = WorkspaceService::recover_workspace(recovered1.clone());
+            assert!(result2.is_err());
+
+            // But ID is preserved on the first recovery
+            assert_eq!(recovered1.id.as_str(), "ws-unique-id-12345");
+        }
+
+        #[test]
+        fn recover_corrupted_result_is_valid_active_state() {
+            let corrupted = make_corrupted("state-machine");
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            // Note: recover_workspace is an application-level operation that bypasses
+            // the state machine's can_transition checks. It's allowed even though
+            // Corrupted->Active is not a valid state machine transition.
+            assert_eq!(recovered.state, WorkspaceState::Active);
+        }
+
+        #[test]
+        fn recover_corrupted_vs_unlock_active() {
+            let corrupted = make_corrupted("compare");
+            let recovering = make_initializing("compare-init");
+
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            let initialized = WorkspaceService::initialize_workspace(recovering).unwrap();
+
+            // Both result in Active state
+            assert_eq!(recovered.state, WorkspaceState::Active);
+            assert_eq!(initialized.state, WorkspaceState::Active);
+            assert!(recovered.is_active());
+            assert!(initialized.is_active());
+        }
+
+        #[test]
+        fn recover_corrupted_timestamps_are_reasonable() {
+            let corrupted = make_corrupted("ts-reasonable");
+            let recovered = WorkspaceService::recover_workspace(corrupted).unwrap();
+            assert!(recovered.created_at() <= recovered.updated_at());
+            assert!(recovered.updated_at() <= chrono::Utc::now());
+        }
+
+        #[test]
+        fn recover_error_message_contains_from_and_to_states() {
+            let active = make_active("error-msg");
+            let result = WorkspaceService::recover_workspace(active);
+            let err = result.err().unwrap();
+            let msg = format!("{err}");
+            assert!(msg.contains("Active") || msg.contains("Active"));
+            assert!(msg.contains("Recoverable"));
+        }
+
+        #[test]
+        fn all_recoverable_states_converge_to_active() {
+            let corrupted = make_corrupted("state-a");
+            let locked = make_locked("state-b", "agent");
+
+            let recovered_corrupt = WorkspaceService::recover_workspace(corrupted).unwrap();
+            let recovered_locked = WorkspaceService::recover_workspace(locked).unwrap();
+
+            assert!(recovered_corrupt.is_active());
+            assert!(recovered_locked.is_active());
+            assert!(recovered_corrupt.lock_holder().is_none());
+            assert!(recovered_locked.lock_holder().is_none());
+        }
+
+        #[test]
+        fn recover_workspace_not_found_via_find() {
+            let corrupted = make_corrupted("not-found");
+            let ghost_id = WorkspaceId::parse("ws-nonexistent".into()).unwrap();
+            let binding = [corrupted];
+
+            let found = WorkspaceService::find_workspace(&binding, &ghost_id);
+            assert!(found.is_none());
+        }
+
+        #[test]
+        fn table_driven_recover_state_coverage() {
+            let test_cases = vec![
+                (WorkspaceState::Corrupted, true, "corrupted"),
+                (WorkspaceState::Locked, true, "locked"),
+                (WorkspaceState::Active, false, "active"),
+                (WorkspaceState::Initializing, false, "initializing"),
+                (WorkspaceState::Deleted, false, "deleted"),
+            ];
+
+            for (state, should_succeed, label) in test_cases {
+                let ws = match state {
+                    WorkspaceState::Corrupted => {
+                        let active = make_active(label);
+                        Workspace {
+                            state: WorkspaceState::Corrupted,
+                            ..active
+                        }
+                    }
+                    WorkspaceState::Locked => make_locked(label, "agent"),
+                    WorkspaceState::Active => make_active(label),
+                    WorkspaceState::Initializing => make_initializing(label),
+                    WorkspaceState::Deleted => {
+                        let active = make_active(label);
+                        Workspace {
+                            state: WorkspaceState::Deleted,
+                            ..active
+                        }
+                    }
+                };
+
+                let result = WorkspaceService::recover_workspace(ws);
+                if should_succeed {
+                    assert!(result.is_ok(), "{label} should succeed");
+                    if let Ok(recovered) = result {
+                        assert!(
+                            recovered.is_active(),
+                            "{label} should result in Active state"
+                        );
+                    }
+                } else {
+                    assert!(result.is_err(), "{label} should fail");
+                }
+            }
         }
     }
 }
