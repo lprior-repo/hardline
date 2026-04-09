@@ -955,6 +955,546 @@ mod tests {
         assert!(deleted.is_terminal());
     }
 
+    // --- Exhaustive query method tests (ha-49p) ---
+
+    mod query_exhaustive {
+        use super::*;
+
+        fn make_active(name: &str) -> Workspace {
+            WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .and_then(WorkspaceService::initialize_workspace)
+            .unwrap()
+        }
+
+        fn make_locked(name: &str, holder: &str) -> Workspace {
+            WorkspaceService::lock_workspace(make_active(name), holder.into()).unwrap()
+        }
+
+        fn make_corrupted(name: &str) -> Workspace {
+            let ws = make_active(name);
+            Workspace {
+                state: WorkspaceState::Corrupted,
+                ..ws
+            }
+        }
+
+        fn make_deleted(name: &str) -> Workspace {
+            let ws = make_active(name);
+            Workspace {
+                state: WorkspaceState::Deleted,
+                ..ws
+            }
+        }
+
+        fn make_initializing(name: &str) -> Workspace {
+            WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .unwrap()
+        }
+
+        // ── get_active_workspaces ──
+
+        #[test]
+        fn get_active_single_active() {
+            let ws = make_active("solo-active");
+            let all = [ws];
+            let result = WorkspaceService::get_active_workspaces(&all);
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0].name.as_str(), "solo-active");
+        }
+
+        #[test]
+        fn get_active_excludes_initializing() {
+            let ws = make_initializing("init-ws");
+            let all = [ws];
+            let result = WorkspaceService::get_active_workspaces(&all);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn get_active_excludes_locked() {
+            let ws = make_locked("locked-ws", "agent-1");
+            let all = [ws];
+            let result = WorkspaceService::get_active_workspaces(&all);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn get_active_excludes_corrupted() {
+            let ws = make_corrupted("corrupt-ws");
+            let all = [ws];
+            let result = WorkspaceService::get_active_workspaces(&all);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn get_active_excludes_deleted() {
+            let ws = make_deleted("deleted-ws");
+            let all = [ws];
+            let result = WorkspaceService::get_active_workspaces(&all);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn get_active_mixed_states_returns_only_active() {
+            let all: Vec<Workspace> = vec![
+                make_active("active-1"),
+                make_initializing("init-1"),
+                make_locked("locked-1", "a"),
+                make_corrupted("corrupt-1"),
+                make_deleted("deleted-1"),
+                make_active("active-2"),
+            ];
+            let result = WorkspaceService::get_active_workspaces(&all);
+            assert_eq!(result.len(), 2);
+            let names: Vec<&str> = result.iter().map(|w| w.name.as_str()).collect();
+            assert!(names.contains(&"active-1"));
+            assert!(names.contains(&"active-2"));
+        }
+
+        #[test]
+        fn get_active_many_actives() {
+            let all: Vec<Workspace> = (0..20)
+                .map(|i| make_active(&format!("active-{}", i)))
+                .collect();
+            let result = WorkspaceService::get_active_workspaces(&all);
+            assert_eq!(result.len(), 20);
+        }
+
+        #[test]
+        fn get_active_empty_slice() {
+            let result = WorkspaceService::get_active_workspaces(&[]);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn get_active_does_not_mutate_input() {
+            let all: Vec<Workspace> = vec![make_active("a1"), make_locked("l1", "agent")];
+            let pre_len = all.len();
+            let _ = WorkspaceService::get_active_workspaces(&all);
+            assert_eq!(all.len(), pre_len);
+            assert_eq!(all[0].name.as_str(), "a1");
+            assert_eq!(all[1].name.as_str(), "l1");
+        }
+
+        #[test]
+        fn get_active_consistent_across_calls() {
+            let all: Vec<Workspace> = vec![make_active("c1"), make_initializing("c2")];
+            let first = WorkspaceService::get_active_workspaces(&all);
+            let second = WorkspaceService::get_active_workspaces(&all);
+            assert_eq!(first.len(), second.len());
+            assert_eq!(first[0].id.as_str(), second[0].id.as_str());
+        }
+
+        #[test]
+        fn get_active_preserves_order() {
+            let all: Vec<Workspace> = vec![
+                make_active("first"),
+                make_active("second"),
+                make_active("third"),
+            ];
+            let result = WorkspaceService::get_active_workspaces(&all);
+            assert_eq!(result[0].name.as_str(), "first");
+            assert_eq!(result[1].name.as_str(), "second");
+            assert_eq!(result[2].name.as_str(), "third");
+        }
+
+        // ── get_locked_workspaces ──
+
+        #[test]
+        fn get_locked_single_locked() {
+            let ws = make_locked("solo-locked", "holder");
+            let all = [ws];
+            let result = WorkspaceService::get_locked_workspaces(&all);
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0].name.as_str(), "solo-locked");
+            assert_eq!(result[0].lock_holder(), Some("holder"));
+        }
+
+        #[test]
+        fn get_locked_excludes_active() {
+            let ws = make_active("active-ws");
+            let all = [ws];
+            let result = WorkspaceService::get_locked_workspaces(&all);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn get_locked_excludes_initializing() {
+            let ws = make_initializing("init-ws");
+            let all = [ws];
+            let result = WorkspaceService::get_locked_workspaces(&all);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn get_locked_excludes_corrupted() {
+            let ws = make_corrupted("corrupt-ws");
+            let all = [ws];
+            let result = WorkspaceService::get_locked_workspaces(&all);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn get_locked_excludes_deleted() {
+            let ws = make_deleted("deleted-ws");
+            let all = [ws];
+            let result = WorkspaceService::get_locked_workspaces(&all);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn get_locked_mixed_states_returns_only_locked() {
+            let all: Vec<Workspace> = vec![
+                make_locked("locked-1", "a"),
+                make_active("active-1"),
+                make_initializing("init-1"),
+                make_corrupted("corrupt-1"),
+                make_deleted("deleted-1"),
+                make_locked("locked-2", "b"),
+            ];
+            let result = WorkspaceService::get_locked_workspaces(&all);
+            assert_eq!(result.len(), 2);
+            let names: Vec<&str> = result.iter().map(|w| w.name.as_str()).collect();
+            assert!(names.contains(&"locked-1"));
+            assert!(names.contains(&"locked-2"));
+        }
+
+        #[test]
+        fn get_locked_many_locked() {
+            let all: Vec<Workspace> = (0..20)
+                .map(|i| make_locked(&format!("locked-{}", i), &format!("agent-{}", i)))
+                .collect();
+            let result = WorkspaceService::get_locked_workspaces(&all);
+            assert_eq!(result.len(), 20);
+        }
+
+        #[test]
+        fn get_locked_empty_slice() {
+            let result = WorkspaceService::get_locked_workspaces(&[]);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn get_locked_does_not_mutate_input() {
+            let all: Vec<Workspace> = vec![make_locked("l1", "agent"), make_active("a1")];
+            let pre_len = all.len();
+            let _ = WorkspaceService::get_locked_workspaces(&all);
+            assert_eq!(all.len(), pre_len);
+            assert_eq!(all[0].name.as_str(), "l1");
+            assert_eq!(all[1].name.as_str(), "a1");
+        }
+
+        #[test]
+        fn get_locked_consistent_across_calls() {
+            let all: Vec<Workspace> = vec![make_locked("c1", "a"), make_active("c2")];
+            let first = WorkspaceService::get_locked_workspaces(&all);
+            let second = WorkspaceService::get_locked_workspaces(&all);
+            assert_eq!(first.len(), second.len());
+            assert_eq!(first[0].id.as_str(), second[0].id.as_str());
+        }
+
+        #[test]
+        fn get_locked_preserves_order() {
+            let all: Vec<Workspace> = vec![
+                make_locked("first", "a"),
+                make_locked("second", "b"),
+                make_locked("third", "c"),
+            ];
+            let result = WorkspaceService::get_locked_workspaces(&all);
+            assert_eq!(result[0].name.as_str(), "first");
+            assert_eq!(result[1].name.as_str(), "second");
+            assert_eq!(result[2].name.as_str(), "third");
+        }
+
+        // ── find_workspace ──
+
+        #[test]
+        fn find_workspace_found() {
+            let ws = make_active("find-me");
+            let all = vec![ws.clone()];
+            let found = WorkspaceService::find_workspace(&all, &ws.id);
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().id.as_str(), ws.id.as_str());
+        }
+
+        #[test]
+        fn find_workspace_not_found() {
+            let ws = make_active("find-me");
+            let all = vec![ws];
+            let ghost_id = WorkspaceId::parse("ws-nonexistent".into()).unwrap();
+            let found = WorkspaceService::find_workspace(&all, &ghost_id);
+            assert!(found.is_none());
+        }
+
+        #[test]
+        fn find_workspace_empty_slice() {
+            let ghost_id = WorkspaceId::parse("ws-ghost".into()).unwrap();
+            let found = WorkspaceService::find_workspace(&[], &ghost_id);
+            assert!(found.is_none());
+        }
+
+        #[test]
+        fn find_workspace_among_many() {
+            let ws0 = make_active("ws-0");
+            let ws1 = make_active("ws-1");
+            let ws2 = make_active("ws-2");
+            let target_id = ws1.id.clone();
+            let all = vec![ws0, ws1, ws2];
+            let found = WorkspaceService::find_workspace(&all, &target_id);
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().name.as_str(), "ws-1");
+        }
+
+        #[test]
+        fn find_workspace_returns_correct_reference() {
+            let ws = make_active("ref-test");
+            let all = vec![ws.clone()];
+            let found = WorkspaceService::find_workspace(&all, &ws.id).unwrap();
+            assert!(std::ptr::eq(found, &all[0]));
+        }
+
+        #[test]
+        fn find_workspace_does_not_mutate_input() {
+            let ws = make_active("no-mut");
+            let all = vec![ws.clone()];
+            let id = ws.id.clone();
+            let _ = WorkspaceService::find_workspace(&all, &id);
+            assert_eq!(all.len(), 1);
+            assert_eq!(all[0].name.as_str(), "no-mut");
+        }
+
+        #[test]
+        fn find_workspace_consistent_across_calls() {
+            let ws = make_active("consistent");
+            let all = vec![ws.clone()];
+            let first = WorkspaceService::find_workspace(&all, &ws.id);
+            let second = WorkspaceService::find_workspace(&all, &ws.id);
+            assert_eq!(first.is_some(), second.is_some());
+            assert_eq!(first.unwrap().id.as_str(), second.unwrap().id.as_str());
+        }
+
+        #[test]
+        fn find_workspace_finds_in_mixed_states() {
+            let active = make_active("active-find");
+            let locked = make_locked("locked-find", "a");
+            let target_id = locked.id.clone();
+            let all = vec![active, locked];
+            let found = WorkspaceService::find_workspace(&all, &target_id);
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().name.as_str(), "locked-find");
+        }
+
+        // ── find_by_name ──
+
+        #[test]
+        fn find_by_name_found() {
+            let ws = make_active("unique-name");
+            let all = vec![ws.clone()];
+            let found = WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("unique-name".into()).unwrap(),
+            );
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().id.as_str(), ws.id.as_str());
+        }
+
+        #[test]
+        fn find_by_name_not_found() {
+            let ws = make_active("existing");
+            let all = vec![ws];
+            let found = WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("nonexistent".into()).unwrap(),
+            );
+            assert!(found.is_none());
+        }
+
+        #[test]
+        fn find_by_name_empty_slice() {
+            let found = WorkspaceService::find_by_name(
+                &[],
+                &WorkspaceName::new("anything".into()).unwrap(),
+            );
+            assert!(found.is_none());
+        }
+
+        #[test]
+        fn find_by_name_returns_first_match_when_duplicates() {
+            let ws1 = WorkspaceService::create_workspace(
+                WorkspaceName::new("dup-name".into()).unwrap(),
+                WorkspacePath::new("/tmp/dup-1".into()).unwrap(),
+            )
+            .unwrap();
+            let ws2 = WorkspaceService::create_workspace(
+                WorkspaceName::new("dup-name".into()).unwrap(),
+                WorkspacePath::new("/tmp/dup-2".into()).unwrap(),
+            )
+            .unwrap();
+            let first_id = ws1.id.as_str().to_string();
+            let all = vec![ws1, ws2];
+            let found = WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("dup-name".into()).unwrap(),
+            );
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().id.as_str(), first_id);
+        }
+
+        #[test]
+        fn find_by_name_case_sensitive() {
+            let ws = make_active("case-test");
+            let all = vec![ws];
+            assert!(WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("case-test".into()).unwrap(),
+            )
+            .is_some());
+            assert!(WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("Case-Test".into()).unwrap(),
+            )
+            .is_none());
+            assert!(WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("CASE-TEST".into()).unwrap(),
+            )
+            .is_none());
+        }
+
+        #[test]
+        fn find_by_name_among_many() {
+            let all: Vec<Workspace> = (0..10).map(|i| make_active(&format!("ws-{}", i))).collect();
+            let found =
+                WorkspaceService::find_by_name(&all, &WorkspaceName::new("ws-7".into()).unwrap());
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().name.as_str(), "ws-7");
+        }
+
+        #[test]
+        fn find_by_name_returns_correct_reference() {
+            let ws = make_active("ref-name");
+            let all = vec![ws.clone()];
+            let found = WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("ref-name".into()).unwrap(),
+            )
+            .unwrap();
+            assert!(std::ptr::eq(found, &all[0]));
+        }
+
+        #[test]
+        fn find_by_name_does_not_mutate_input() {
+            let ws = make_active("no-mut-name");
+            let all = vec![ws];
+            let name = WorkspaceName::new("no-mut-name".into()).unwrap();
+            let _ = WorkspaceService::find_by_name(&all, &name);
+            assert_eq!(all.len(), 1);
+            assert_eq!(all[0].name.as_str(), "no-mut-name");
+        }
+
+        #[test]
+        fn find_by_name_consistent_across_calls() {
+            let ws = make_active("idem-name");
+            let all = vec![ws.clone()];
+            let name = WorkspaceName::new("idem-name".into()).unwrap();
+            let first = WorkspaceService::find_by_name(&all, &name);
+            let second = WorkspaceService::find_by_name(&all, &name);
+            assert_eq!(first.is_some(), second.is_some());
+            assert_eq!(first.unwrap().id.as_str(), second.unwrap().id.as_str());
+        }
+
+        #[test]
+        fn find_by_name_finds_in_mixed_states() {
+            let active = make_active("active-name");
+            let locked = make_locked("locked-name", "a");
+            let all = vec![active, locked];
+            let found = WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("locked-name".into()).unwrap(),
+            );
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().name.as_str(), "locked-name");
+        }
+
+        #[test]
+        fn find_by_name_duplicate_names_returns_first_occurrence() {
+            let ws1 = make_active("dup");
+            let first_id = ws1.id.as_str().to_string();
+            let ws2 = make_active("dup");
+            let ws3 = make_active("dup");
+            let all = vec![ws1, ws2, ws3];
+            let found =
+                WorkspaceService::find_by_name(&all, &WorkspaceName::new("dup".into()).unwrap());
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().id.as_str(), first_id);
+        }
+
+        // ── Cross-method consistency ──
+
+        #[test]
+        fn get_active_and_get_locked_are_disjoint() {
+            let all: Vec<Workspace> = vec![
+                make_active("a1"),
+                make_locked("l1", "h1"),
+                make_active("a2"),
+                make_locked("l2", "h2"),
+            ];
+            let actives = WorkspaceService::get_active_workspaces(&all);
+            let locked = WorkspaceService::get_locked_workspaces(&all);
+            let active_ids: std::collections::HashSet<&str> =
+                actives.iter().map(|w| w.id.as_str()).collect();
+            let locked_ids: std::collections::HashSet<&str> =
+                locked.iter().map(|w| w.id.as_str()).collect();
+            assert!(active_ids.is_disjoint(&locked_ids));
+        }
+
+        #[test]
+        fn find_by_id_and_find_by_name_return_same_workspace() {
+            let ws = make_active("consistent-ws");
+            let all = vec![ws.clone()];
+            let by_id = WorkspaceService::find_workspace(&all, &ws.id).unwrap();
+            let by_name = WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("consistent-ws".into()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(by_id.id.as_str(), by_name.id.as_str());
+            assert!(std::ptr::eq(by_id, by_name));
+        }
+
+        #[test]
+        fn all_queries_on_large_mixed_set() {
+            let mut all: Vec<Workspace> = Vec::new();
+            for i in 0..5 {
+                all.push(make_active(&format!("active-{}", i)));
+                all.push(make_locked(&format!("locked-{}", i), &format!("h{}", i)));
+                all.push(make_initializing(&format!("init-{}", i)));
+                all.push(make_corrupted(&format!("corrupt-{}", i)));
+                all.push(make_deleted(&format!("deleted-{}", i)));
+            }
+            assert_eq!(all.len(), 25);
+            assert_eq!(WorkspaceService::get_active_workspaces(&all).len(), 5);
+            assert_eq!(WorkspaceService::get_locked_workspaces(&all).len(), 5);
+            assert!(WorkspaceService::find_workspace(&all, &all[0].id).is_some());
+            assert!(WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("active-0".into()).unwrap()
+            )
+            .is_some());
+            assert!(WorkspaceService::find_by_name(
+                &all,
+                &WorkspaceName::new("nonexistent".into()).unwrap()
+            )
+            .is_none());
+        }
+    }
+
     // --- Proptests ---
 
     #[cfg(test)]
