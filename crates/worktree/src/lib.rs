@@ -20,6 +20,10 @@ pub use application::{
         CreateWorktreeCommand, InitializeWorktreeCommand, ListWorktreesQuery,
         RemoveWorktreeCommand, ResumeWorktreeCommand, SuspendWorktreeCommand,
     },
+    hooks::{
+        HookContext, HookOutcome, NoOpWorktreeHooks, ShellWorktreeHooks, WorktreeHookEvent,
+        WorktreeHooks,
+    },
     services::WorktreeService,
 };
 

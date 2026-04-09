@@ -10,18 +10,29 @@ use crate::application::{
         CreateWorktreeCommand, InitializeWorktreeCommand, ListWorktreesQuery,
         RemoveWorktreeCommand, ResumeWorktreeCommand, SuspendWorktreeCommand,
     },
+    hooks::{HookContext, NoOpWorktreeHooks, WorktreeHookEvent, WorktreeHooks},
     repositories::WorktreeRepository,
 };
 use crate::domain::Worktree;
 use crate::domain::{WorktreeDomainError, WorktreeId, WorktreeState};
 
-pub struct WorktreeService<R: WorktreeRepository> {
+pub struct WorktreeService<R: WorktreeRepository, H: WorktreeHooks = NoOpWorktreeHooks> {
     repository: R,
+    hooks: H,
 }
 
-impl<R: WorktreeRepository> WorktreeService<R> {
+impl<R: WorktreeRepository> WorktreeService<R, NoOpWorktreeHooks> {
     pub fn new(repository: R) -> Self {
-        Self { repository }
+        Self {
+            repository,
+            hooks: NoOpWorktreeHooks,
+        }
+    }
+}
+
+impl<R: WorktreeRepository, H: WorktreeHooks> WorktreeService<R, H> {
+    pub fn with_hooks(repository: R, hooks: H) -> Self {
+        Self { repository, hooks }
     }
 
     pub async fn create_worktree(
@@ -34,6 +45,25 @@ impl<R: WorktreeRepository> WorktreeService<R> {
             ));
         }
 
+        // Pre-create hook
+        let pre_ctx = HookContext {
+            event: WorktreeHookEvent::PreCreate,
+            worktree_id: None,
+            worktree_name: Some(cmd.name.as_str().to_string()),
+            worktree_path: Some(cmd.path.as_ref().to_path_buf()),
+            parent_path: Some(cmd.parent_path.as_ref().to_path_buf()),
+            worktree_type: Some(cmd.worktree_type.to_string()),
+            branch: cmd.branch.as_ref().map(|b| b.as_str().to_string()),
+        };
+        let pre_results = self.hooks.run(WorktreeHookEvent::PreCreate, &pre_ctx)?;
+        if let Some(failed) = pre_results.iter().find(|r| !r.success) {
+            return Err(WorktreeDomainError::HookFailed {
+                event: failed.event.to_string(),
+                hook_name: "pre-create".to_string(),
+                detail: failed.error.clone().unwrap_or_default(),
+            });
+        }
+
         let worktree = Worktree::new(
             cmd.name,
             cmd.path,
@@ -44,6 +74,20 @@ impl<R: WorktreeRepository> WorktreeService<R> {
 
         let worktree_clone = worktree.clone();
         self.repository.save(worktree).await?;
+
+        // Post-create hook (non-fatal)
+        let post_ctx = HookContext {
+            event: WorktreeHookEvent::PostCreate,
+            worktree_id: Some(worktree_clone.id().clone()),
+            worktree_name: Some(worktree_clone.name().as_str().to_string()),
+            worktree_path: Some(worktree_clone.path().as_ref().to_path_buf()),
+            parent_path: Some(worktree_clone.parent_path().as_ref().to_path_buf()),
+            worktree_type: Some(worktree_clone.worktree_type().to_string()),
+            branch: worktree_clone.branch().map(|b| b.as_str().to_string()),
+        };
+        // Post-hooks are informational — ignore failures.
+        let _ = self.hooks.run(WorktreeHookEvent::PostCreate, &post_ctx);
+
         Ok(worktree_clone)
     }
 
@@ -138,6 +182,31 @@ impl<R: WorktreeRepository> WorktreeService<R> {
             .await?
             .ok_or_else(|| WorktreeDomainError::NotFound(cmd.worktree_id.clone()))?;
 
+        // Pre-remove hook
+        let pre_ctx = HookContext {
+            event: WorktreeHookEvent::PreRemove,
+            worktree_id: Some(cmd.worktree_id.clone()),
+            worktree_name: Some(worktree.name().as_str().to_string()),
+            worktree_path: Some(worktree.path().as_ref().to_path_buf()),
+            parent_path: Some(worktree.parent_path().as_ref().to_path_buf()),
+            worktree_type: Some(worktree.worktree_type().to_string()),
+            branch: worktree.branch().map(|b| b.as_str().to_string()),
+        };
+        let pre_results = self.hooks.run(WorktreeHookEvent::PreRemove, &pre_ctx)?;
+        if let Some(failed) = pre_results.iter().find(|r| !r.success) {
+            return Err(WorktreeDomainError::HookFailed {
+                event: failed.event.to_string(),
+                hook_name: "pre-remove".to_string(),
+                detail: failed.error.clone().unwrap_or_default(),
+            });
+        }
+
+        let worktree_name = worktree.name().as_str().to_string();
+        let worktree_path = worktree.path().as_ref().to_path_buf();
+        let parent_path = worktree.parent_path().as_ref().to_path_buf();
+        let worktree_type = worktree.worktree_type().to_string();
+        let branch = worktree.branch().map(|b| b.as_str().to_string());
+
         // Transition to active first, then mark for removal
         let worktree = worktree.activate();
         let worktree = worktree.mark_for_removal();
@@ -148,7 +217,21 @@ impl<R: WorktreeRepository> WorktreeService<R> {
         let worktree = worktree.complete_removal();
         self.repository.save(worktree).await?;
 
-        self.repository.delete(&cmd.worktree_id).await
+        self.repository.delete(&cmd.worktree_id).await?;
+
+        // Post-remove hook (non-fatal)
+        let post_ctx = HookContext {
+            event: WorktreeHookEvent::PostRemove,
+            worktree_id: Some(cmd.worktree_id),
+            worktree_name: Some(worktree_name),
+            worktree_path: Some(worktree_path),
+            parent_path: Some(parent_path),
+            worktree_type: Some(worktree_type),
+            branch,
+        };
+        let _ = self.hooks.run(WorktreeHookEvent::PostRemove, &post_ctx);
+
+        Ok(())
     }
 
     pub async fn find_by_id(
@@ -210,6 +293,7 @@ impl<R: WorktreeRepository> WorktreeService<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::application::hooks::HookOutcome;
     use crate::application::repositories::WorktreeRepository;
     use crate::domain::{AbsolutePath, BranchName, WorktreeName, WorktreeState, WorktreeTypeEnum};
 
@@ -261,6 +345,66 @@ mod tests {
         }
     }
 
+    // -- Recording hook for testing --
+
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Debug, Clone, Default)]
+    struct HookCall {
+        event: WorktreeHookEvent,
+        worktree_name: Option<String>,
+    }
+
+    #[derive(Debug, Default)]
+    struct RecordingHook {
+        calls: Arc<Mutex<Vec<HookCall>>>,
+        fail_on_pre_create: bool,
+    }
+
+    impl RecordingHook {
+        fn new() -> Self {
+            Self::default()
+        }
+
+        fn failing_on_pre_create() -> Self {
+            Self {
+                calls: Arc::new(Mutex::new(Vec::new())),
+                fail_on_pre_create: true,
+            }
+        }
+
+        fn calls(&self) -> Vec<HookCall> {
+            self.calls.lock().map(|c| c.clone()).unwrap_or_default()
+        }
+    }
+
+    impl WorktreeHooks for RecordingHook {
+        fn run(
+            &self,
+            event: WorktreeHookEvent,
+            ctx: &HookContext,
+        ) -> Result<Vec<HookOutcome>, WorktreeDomainError> {
+            self.calls.lock().map(|mut calls| {
+                calls.push(HookCall {
+                    event,
+                    worktree_name: ctx.worktree_name.clone(),
+                });
+            }).map_err(|_| WorktreeDomainError::GitError("lock poisoned".to_string()))?;
+
+            if self.fail_on_pre_create && matches!(event, WorktreeHookEvent::PreCreate) {
+                return Ok(vec![HookOutcome::failure(
+                    event,
+                    "pre-create rejected".to_string(),
+                    1,
+                )]);
+            }
+
+            Ok(vec![HookOutcome::success(event, "ok".to_string(), 0)])
+        }
+    }
+
+    // -- Existing tests (unchanged) --
+
     #[tokio::test]
     async fn worktree_service_create_saves_worktree_to_repository() {
         let repo = InMemoryRepository::default();
@@ -299,5 +443,118 @@ mod tests {
         let result = service.initialize_worktree(init_cmd).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap().state(), WorktreeState::Active);
+    }
+
+    // -- Hook integration tests --
+
+    #[tokio::test]
+    async fn create_worktree_runs_pre_and_post_hooks() {
+        let hook = RecordingHook::new();
+        let calls = hook.calls.clone();
+        let repo = InMemoryRepository::default();
+        let mut service = WorktreeService::with_hooks(repo, hook);
+
+        let cmd = CreateWorktreeCommand::new(
+            WorktreeName::new("hooked-wt").unwrap(),
+            AbsolutePath::new("/tmp/hooked").unwrap(),
+            AbsolutePath::new("/home/user/repo").unwrap(),
+            WorktreeTypeEnum::Development,
+            None,
+        );
+
+        let result = service.create_worktree(cmd).await;
+        assert!(result.is_ok());
+
+        let recorded = calls.lock().map(|c| c.clone()).unwrap_or_default();
+        assert_eq!(recorded.len(), 2);
+        assert_eq!(recorded[0].event, WorktreeHookEvent::PreCreate);
+        assert_eq!(recorded[0].worktree_name, Some("hooked-wt".to_string()));
+        assert_eq!(recorded[1].event, WorktreeHookEvent::PostCreate);
+    }
+
+    #[tokio::test]
+    async fn create_worktree_pre_hook_failure_aborts_creation() {
+        let hook = RecordingHook::failing_on_pre_create();
+        let repo = InMemoryRepository::default();
+        let mut service = WorktreeService::with_hooks(repo, hook);
+
+        let cmd = CreateWorktreeCommand::new(
+            WorktreeName::new("should-not-create").unwrap(),
+            AbsolutePath::new("/tmp/fail").unwrap(),
+            AbsolutePath::new("/home/user/repo").unwrap(),
+            WorktreeTypeEnum::Development,
+            None,
+        );
+
+        let result = service.create_worktree(cmd).await;
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        assert!(
+            matches!(err, WorktreeDomainError::HookFailed { .. }),
+            "expected HookFailed, got {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn remove_worktree_runs_pre_and_post_hooks() {
+        let hook = RecordingHook::new();
+        let calls = hook.calls.clone();
+        let repo = InMemoryRepository::default();
+        let mut service = WorktreeService::with_hooks(repo, hook);
+
+        // Create a worktree first
+        let cmd = CreateWorktreeCommand::new(
+            WorktreeName::new("to-remove").unwrap(),
+            AbsolutePath::new("/tmp/remove").unwrap(),
+            AbsolutePath::new("/home/user/repo").unwrap(),
+            WorktreeTypeEnum::Development,
+            None,
+        );
+        let wt = service.create_worktree(cmd).await.unwrap();
+
+        // Clear hook calls from create
+        calls.lock().map(|mut c| c.clear()).ok();
+
+        // Remove it
+        let remove_cmd = RemoveWorktreeCommand::new(wt.id().clone());
+        let result = service.remove_worktree(remove_cmd).await;
+        assert!(result.is_ok());
+
+        let recorded = calls.lock().map(|c| c.clone()).unwrap_or_default();
+        assert_eq!(recorded.len(), 2);
+        assert_eq!(recorded[0].event, WorktreeHookEvent::PreRemove);
+        assert_eq!(recorded[0].worktree_name, Some("to-remove".to_string()));
+        assert_eq!(recorded[1].event, WorktreeHookEvent::PostRemove);
+    }
+
+    #[tokio::test]
+    async fn no_op_hooks_do_not_interfere_with_operations() {
+        let repo = InMemoryRepository::default();
+        let mut service = WorktreeService::new(repo);
+
+        let cmd = CreateWorktreeCommand::new(
+            WorktreeName::new("noop-wt").unwrap(),
+            AbsolutePath::new("/tmp/noop").unwrap(),
+            AbsolutePath::new("/home/user/repo").unwrap(),
+            WorktreeTypeEnum::Development,
+            Some(BranchName::new("feature").unwrap()),
+        );
+
+        let result = service.create_worktree(cmd).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().name().as_str(), "noop-wt");
+    }
+
+    #[tokio::test]
+    async fn hook_failed_error_displays_event_and_detail() {
+        let err = WorktreeDomainError::HookFailed {
+            event: "pre-create".to_string(),
+            hook_name: "validate-setup".to_string(),
+            detail: "workspace config missing".to_string(),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("pre-create"));
+        assert!(msg.contains("validate-setup"));
+        assert!(msg.contains("workspace config missing"));
     }
 }

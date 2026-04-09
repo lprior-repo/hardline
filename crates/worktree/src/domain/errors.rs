@@ -55,6 +55,14 @@ pub enum WorktreeDomainError {
     /// Worktree is already initialized
     #[error("Worktree '{0}' is already initialized")]
     AlreadyInitialized(super::WorktreeName),
+
+    /// A pre-operation hook failed, aborting the operation
+    #[error("Hook '{hook_name}' failed for event '{event}': {detail}")]
+    HookFailed {
+        event: String,
+        hook_name: String,
+        detail: String,
+    },
 }
 
 #[cfg(test)]
@@ -182,5 +190,10 @@ mod tests {
         let _ = WorktreeDomainError::GitError(String::new());
         let _ = WorktreeDomainError::NotInitialized(make_name("wt"));
         let _ = WorktreeDomainError::AlreadyInitialized(make_name("wt"));
+        let _ = WorktreeDomainError::HookFailed {
+            event: "pre-create".to_string(),
+            hook_name: "test".to_string(),
+            detail: "detail".to_string(),
+        };
     }
 }
