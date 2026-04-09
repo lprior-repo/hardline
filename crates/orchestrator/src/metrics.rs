@@ -1478,6 +1478,329 @@ mod tests {
     }
 
     // ========================================================================
+    // ha-dy5: Concurrent recording + snapshot consistency
+    // ========================================================================
+
+    use std::sync::Arc;
+    use std::thread;
+
+    #[test]
+    fn test_concurrent_recording_with_threads() {
+        let metrics = Arc::new(std::sync::Mutex::new(Metrics::new()));
+        let mut handles = vec![];
+
+        for tid in 0u8..4 {
+            let m = Arc::clone(&metrics);
+            let handle = thread::spawn(move || {
+                let pipeline_id = format!("pipe-{}", tid);
+                for phase_idx in 0u8..10 {
+                    m.lock().unwrap().record_phase(PhaseMetrics {
+                        pipeline_id: pipeline_id.clone(),
+                        phase: format!("phase_{}", phase_idx),
+                        started_at: Utc::now(),
+                        duration_secs: (phase_idx as f64) + 1.0,
+                        success: phase_idx % 2 == 0,
+                    });
+                }
+                m.lock().unwrap().mark_complete(
+                    &pipeline_id,
+                    if tid % 2 == 0 { "accepted" } else { "failed" },
+                );
+            });
+            handles.push(handle);
+        }
+
+        for h in handles {
+            h.join().expect("thread join");
+        }
+
+        let m = metrics.lock().unwrap();
+        assert_eq!(m.pipeline_metrics.len(), 4);
+        assert_eq!(m.get_phase_metrics().count(), 40);
+
+        let agg = m.aggregated();
+        assert_eq!(agg.total_pipelines, 4);
+        assert_eq!(agg.successful_pipelines, 2);
+        assert_eq!(agg.failed_pipelines, 2);
+    }
+
+    #[test]
+    fn test_concurrent_recording_same_pipeline_from_multiple_threads() {
+        let metrics = Arc::new(std::sync::Mutex::new(Metrics::new()));
+        let mut handles = vec![];
+
+        let pipeline_id = "shared-pipe";
+
+        for tid in 0u8..8 {
+            let m = Arc::clone(&metrics);
+            let handle = thread::spawn(move || {
+                for i in 0u8..5 {
+                    m.lock().unwrap().record_phase(PhaseMetrics {
+                        pipeline_id: pipeline_id.to_string(),
+                        phase: format!("phase_{}_{}", tid, i),
+                        started_at: Utc::now(),
+                        duration_secs: 1.0,
+                        success: true,
+                    });
+                }
+            });
+            handles.push(handle);
+        }
+
+        for h in handles {
+            h.join().expect("thread join");
+        }
+
+        let m = metrics.lock().unwrap();
+        let pipeline = m
+            .get_pipeline_metrics(pipeline_id)
+            .expect("pipeline exists");
+        assert_eq!(pipeline.phase_metrics.len(), 40);
+    }
+
+    #[test]
+    fn test_snapshot_consistency_aggregated_idempotent() {
+        let mut metrics = Metrics::new();
+        for i in 0u8..5 {
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: format!("pipe-{}", i),
+                phase: "test".to_string(),
+                started_at: Utc::now(),
+                duration_secs: f64::from(i + 1),
+                success: true,
+            });
+            metrics.mark_complete(&format!("pipe-{}", i), "accepted");
+        }
+
+        let snap1 = metrics.aggregated();
+        let snap2 = metrics.aggregated();
+        let snap3 = metrics.aggregated();
+
+        assert_eq!(snap1.total_pipelines, snap2.total_pipelines);
+        assert_eq!(snap2.total_pipelines, snap3.total_pipelines);
+        assert_eq!(snap1.successful_pipelines, snap2.successful_pipelines);
+        assert_eq!(snap2.successful_pipelines, snap3.successful_pipelines);
+        assert!((snap1.average_duration_secs - snap2.average_duration_secs).abs() < f64::EPSILON);
+        assert!((snap2.average_duration_secs - snap3.average_duration_secs).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_snapshot_consistency_success_rate_idempotent() {
+        let mut metrics = Metrics::new();
+        for (id, state) in [
+            ("p1", "accepted"),
+            ("p2", "accepted"),
+            ("p3", "failed"),
+            ("p4", "failed"),
+        ] {
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: id.to_string(),
+                phase: "test".to_string(),
+                started_at: Utc::now(),
+                duration_secs: 1.0,
+                success: true,
+            });
+            metrics.mark_complete(id, state);
+        }
+
+        let r1 = metrics.success_rate();
+        let r2 = metrics.success_rate();
+        let r3 = metrics.success_rate();
+
+        assert!((r1 - r2).abs() < f64::EPSILON);
+        assert!((r2 - r3).abs() < f64::EPSILON);
+        assert!((r1 - 50.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_snapshot_consistency_scenario_pass_rate_idempotent() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".to_string(),
+            phase: "val".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+        metrics.record_scenarios(
+            "p1",
+            vec![
+                ScenarioResult {
+                    name: "s1".into(),
+                    passed: true,
+                    duration_secs: 0.5,
+                    error: None,
+                },
+                ScenarioResult {
+                    name: "s2".into(),
+                    passed: true,
+                    duration_secs: 0.5,
+                    error: None,
+                },
+                ScenarioResult {
+                    name: "s3".into(),
+                    passed: false,
+                    duration_secs: 0.5,
+                    error: Some("err".into()),
+                },
+                ScenarioResult {
+                    name: "s4".into(),
+                    passed: false,
+                    duration_secs: 0.5,
+                    error: Some("err".into()),
+                },
+            ],
+        );
+
+        let r1 = metrics.scenario_pass_rate();
+        let r2 = metrics.scenario_pass_rate();
+        assert!((r1 - r2).abs() < f64::EPSILON);
+        assert!((r1 - 50.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_snapshot_consistency_slowest_phases_idempotent() {
+        let mut metrics = Metrics::new();
+        for (i, dur) in [(0u8, 2.0f64), (1, 5.0), (2, 1.0), (3, 8.0), (4, 3.0)] {
+            metrics.record_phase(PhaseMetrics {
+                pipeline_id: "pipe".to_string(),
+                phase: format!("phase_{}", i),
+                started_at: Utc::now(),
+                duration_secs: dur,
+                success: true,
+            });
+        }
+
+        let s1 = metrics.slowest_phases(3);
+        let s2 = metrics.slowest_phases(3);
+        assert_eq!(s1.len(), s2.len());
+        for (a, b) in s1.iter().zip(s2.iter()) {
+            assert_eq!(a.0, b.0);
+            assert!((a.1 - b.1).abs() < f64::EPSILON);
+        }
+    }
+
+    #[test]
+    fn test_reset_then_record_new_pipeline() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "old-pipe".to_string(),
+            phase: "old-phase".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 99.0,
+            success: true,
+        });
+        metrics.mark_complete("old-pipe", "accepted");
+
+        metrics.clear();
+
+        assert_eq!(metrics.get_phase_metrics().count(), 0);
+        assert!(metrics.get_pipeline_metrics("old-pipe").is_none());
+        assert!((metrics.success_rate()).abs() < f64::EPSILON);
+
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "new-pipe".to_string(),
+            phase: "new-phase".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.5,
+            success: true,
+        });
+        metrics.mark_complete("new-pipe", "accepted");
+
+        let agg = metrics.aggregated();
+        assert_eq!(agg.total_pipelines, 1);
+        assert_eq!(agg.successful_pipelines, 1);
+        assert_eq!(agg.failed_pipelines, 0);
+        assert!((agg.average_duration_secs - 1.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_aggregated_snapshot_unchanged_after_record_scenarios() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".to_string(),
+            phase: "test".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 2.0,
+            success: true,
+        });
+        metrics.mark_complete("p1", "accepted");
+
+        let snap_before = metrics.aggregated();
+
+        metrics.record_scenarios(
+            "p1",
+            vec![ScenarioResult {
+                name: "s1".into(),
+                passed: true,
+                duration_secs: 0.5,
+                error: None,
+            }],
+        );
+
+        let snap_after = metrics.aggregated();
+        assert_eq!(snap_before.total_pipelines, snap_after.total_pipelines);
+        assert_eq!(
+            snap_before.successful_pipelines,
+            snap_after.successful_pipelines
+        );
+    }
+
+    #[test]
+    fn test_export_snapshot_unchanged_after_subsequent_record() {
+        let mut metrics = Metrics::new();
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".to_string(),
+            phase: "setup".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 1.0,
+            success: true,
+        });
+
+        let exported_before = metrics.export().expect("export before");
+        let parsed_before: serde_json::Value =
+            serde_json::from_str(&exported_before).expect("parse");
+
+        metrics.record_phase(PhaseMetrics {
+            pipeline_id: "p1".to_string(),
+            phase: "review".to_string(),
+            started_at: Utc::now(),
+            duration_secs: 2.0,
+            success: true,
+        });
+
+        let exported_after = metrics.export().expect("export after");
+        let parsed_after: serde_json::Value = serde_json::from_str(&exported_after).expect("parse");
+
+        let before_count = parsed_before
+            .as_object()
+            .expect("object")
+            .get("p1")
+            .expect("p1")
+            .as_object()
+            .expect("obj")
+            .get("phase_metrics")
+            .expect("phases")
+            .as_array()
+            .expect("array")
+            .len();
+        let after_count = parsed_after
+            .as_object()
+            .expect("object")
+            .get("p1")
+            .expect("p1")
+            .as_object()
+            .expect("obj")
+            .get("phase_metrics")
+            .expect("phases")
+            .as_array()
+            .expect("array")
+            .len();
+        assert_eq!(before_count, 1);
+        assert_eq!(after_count, 2);
+    }
+
+    // ========================================================================
     // ha-ah8: Exhaustive ScenarioResult tests — construction, serde, display,
     //         aggregation from multiple phases
     // ========================================================================
@@ -1600,8 +1923,7 @@ mod tests {
             duration_secs: 3.14,
             error: None,
         };
-        let val: serde_json::Value =
-            serde_json::to_value(&r).expect("to_value");
+        let val: serde_json::Value = serde_json::to_value(&r).expect("to_value");
         assert_eq!(val["name"], "struct_test");
         assert_eq!(val["passed"], true);
         assert_eq!(val["duration_secs"], 3.14);
@@ -1616,8 +1938,7 @@ mod tests {
             duration_secs: 0.1,
             error: Some("boom".into()),
         };
-        let val: serde_json::Value =
-            serde_json::to_value(&r).expect("to_value");
+        let val: serde_json::Value = serde_json::to_value(&r).expect("to_value");
         assert_eq!(val["error"], "boom");
     }
 
@@ -1898,28 +2219,24 @@ mod tests {
         // First batch: all pass
         metrics.record_scenarios(
             "p1",
-            vec![
-                ScenarioResult {
-                    name: "s1".into(),
-                    passed: true,
-                    duration_secs: 1.0,
-                    error: None,
-                },
-            ],
+            vec![ScenarioResult {
+                name: "s1".into(),
+                passed: true,
+                duration_secs: 1.0,
+                error: None,
+            }],
         );
         assert!((metrics.scenario_pass_rate() - 100.0).abs() < 0.01);
 
         // Overwrite: all fail
         metrics.record_scenarios(
             "p1",
-            vec![
-                ScenarioResult {
-                    name: "s1".into(),
-                    passed: false,
-                    duration_secs: 1.0,
-                    error: Some("replaced".into()),
-                },
-            ],
+            vec![ScenarioResult {
+                name: "s1".into(),
+                passed: false,
+                duration_secs: 1.0,
+                error: Some("replaced".into()),
+            }],
         );
         assert!((metrics.scenario_pass_rate() - 0.0).abs() < 0.01);
     }
