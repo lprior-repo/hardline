@@ -80,6 +80,29 @@ pub enum WorkspaceCommands {
         limit: Option<usize>,
     },
 
+    /// Show stack-aware commit log (branch history with lineage)
+    StackLog {
+        /// Number of commits per branch (default: 50)
+        #[arg(short, long)]
+        limit: Option<usize>,
+
+        /// Output format: tree, linear, json
+        #[arg(short, long, default_value = "tree")]
+        format: String,
+
+        /// Omit commit messages (show only branch structure)
+        #[arg(long)]
+        no_messages: bool,
+
+        /// Show ahead/behind counts
+        #[arg(long)]
+        ahead_behind: bool,
+
+        /// Filter to a specific branch and its lineage
+        #[arg(short, long)]
+        branch: Option<String>,
+    },
+
     /// Show diff of changes
     Diff {
         /// File path to diff
@@ -690,6 +713,73 @@ mod tests {
         match parse(&["log", "10"]) {
             WorkspaceCommands::Log { limit } => assert_eq!(limit, Some(10)),
             other => panic!("Expected Log, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    // -- StackLog (optional limit, format, flags) --
+    #[test]
+    fn stack_log_defaults() {
+        match parse(&["stack-log"]) {
+            WorkspaceCommands::StackLog {
+                limit,
+                format,
+                no_messages,
+                ahead_behind,
+                branch,
+            } => {
+                assert_eq!(limit, None);
+                assert_eq!(format, "tree");
+                assert!(!no_messages);
+                assert!(!ahead_behind);
+                assert!(branch.is_none());
+            }
+            other => panic!("Expected StackLog, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn stack_log_with_limit() {
+        match parse(&["stack-log", "-l", "20"]) {
+            WorkspaceCommands::StackLog { limit, .. } => assert_eq!(limit, Some(20)),
+            other => panic!("Expected StackLog, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn stack_log_json_format() {
+        match parse(&["stack-log", "-f", "json"]) {
+            WorkspaceCommands::StackLog { format, .. } => assert_eq!(format, "json"),
+            other => panic!("Expected StackLog, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn stack_log_with_branch_filter() {
+        match parse(&["stack-log", "-b", "feature-a"]) {
+            WorkspaceCommands::StackLog { branch, .. } => {
+                assert_eq!(branch, Some("feature-a".to_string()));
+            }
+            other => panic!("Expected StackLog, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn stack_log_all_flags() {
+        match parse(&["stack-log", "-l", "5", "-f", "linear", "--no-messages", "--ahead-behind", "-b", "feat"]) {
+            WorkspaceCommands::StackLog {
+                limit,
+                format,
+                no_messages,
+                ahead_behind,
+                branch,
+            } => {
+                assert_eq!(limit, Some(5));
+                assert_eq!(format, "linear");
+                assert!(no_messages);
+                assert!(ahead_behind);
+                assert_eq!(branch, Some("feat".to_string()));
+            }
+            other => panic!("Expected StackLog, got {:?}", std::mem::discriminant(&other)),
         }
     }
 

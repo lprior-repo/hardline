@@ -98,6 +98,26 @@ pub fn run_command(cli: Cli) -> Result<()> {
             crate::cli::workspace_args::WorkspaceCommands::Log { limit } => {
                 commands::workspace::log(limit)
             }
+            crate::cli::workspace_args::WorkspaceCommands::StackLog {
+                limit,
+                format,
+                no_messages,
+                ahead_behind,
+                branch,
+            } => {
+                let options = commands::handlers::stack_log::StackLogOptions {
+                    limit,
+                    format,
+                    include_messages: !no_messages,
+                    show_ahead_behind: ahead_behind,
+                    branch_filter: branch.map(scp_stack::BranchName::new),
+                };
+                let cwd = std::env::current_dir()?;
+                let stack =
+                    commands::handlers::stack_log::load_stack_from_git(&cwd)?;
+                commands::handlers::stack_log::run_stack_log(&cwd, &stack, &options)?;
+                Ok(())
+            }
             crate::cli::workspace_args::WorkspaceCommands::Diff { path } => {
                 commands::workspace::diff(path.as_deref())
             }

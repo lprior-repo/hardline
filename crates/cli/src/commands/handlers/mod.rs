@@ -34,6 +34,7 @@ pub mod revert;
 pub mod schema;
 pub mod session;
 pub mod stack_diff;
+pub mod stack_log;
 pub mod stack_merge_remote;
 pub mod stack_range_diff;
 pub mod stack_sync;
