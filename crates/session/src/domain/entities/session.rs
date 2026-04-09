@@ -7,13 +7,11 @@
 #![allow(clippy::type_complexity)]
 #![forbid(unsafe_code)]
 
-use std::marker::PhantomData;
-
+use crate::domain::value_objects::{AgentId, BeadId, SessionName, WorkspaceId};
+use crate::error::SessionError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-use crate::domain::value_objects::{BeadId, SessionName, WorkspaceId};
-use crate::error::SessionError;
+use std::marker::PhantomData;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -179,6 +177,7 @@ pub struct Session<S = Created> {
     pub name: SessionName,
     pub workspace: Option<WorkspaceId>,
     pub bead: Option<BeadId>,
+    pub assigned_agent: Option<AgentId>,
     pub branch: BranchState,
     pub last_synced: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
@@ -192,6 +191,7 @@ impl Session<Created> {
             name,
             workspace: None,
             bead: None,
+            assigned_agent: None,
             branch: BranchState::Detached,
             last_synced: None,
             created_at: Utc::now(),
@@ -206,6 +206,7 @@ impl Session<Created> {
         name: SessionName,
         workspace: Option<WorkspaceId>,
         bead: Option<BeadId>,
+        assigned_agent: Option<AgentId>,
         branch: BranchState,
         last_synced: Option<DateTime<Utc>>,
         created_at: DateTime<Utc>,
@@ -215,6 +216,7 @@ impl Session<Created> {
             name,
             workspace,
             bead,
+            assigned_agent,
             branch,
             last_synced,
             created_at,
@@ -253,6 +255,11 @@ impl<S: StateInfo> Session<S> {
     }
 
     #[must_use]
+    pub fn assigned_agent(&self) -> Option<&AgentId> {
+        self.assigned_agent.as_ref()
+    }
+
+    #[must_use]
     pub fn branch(&self) -> &BranchState {
         &self.branch
     }
@@ -268,6 +275,7 @@ impl<S: StateInfo> Session<S> {
             name: self.name,
             workspace: self.workspace,
             bead: self.bead,
+            assigned_agent: self.assigned_agent,
             branch: self.branch,
             last_synced: self.last_synced,
             created_at: self.created_at,
@@ -288,6 +296,7 @@ impl<S: StateInfo> Session<S> {
             name: self.name.clone(),
             workspace: self.workspace.clone(),
             bead: self.bead.clone(),
+            assigned_agent: self.assigned_agent.clone(),
             branch: new_branch,
             last_synced: self.last_synced,
             created_at: self.created_at,
@@ -306,6 +315,7 @@ impl<S: StateInfo> Session<S> {
             name: self.name.clone(),
             workspace: self.workspace.clone(),
             bead: self.bead.clone(),
+            assigned_agent: self.assigned_agent.clone(),
             branch: self.branch.clone(),
             last_synced: Some(timestamp),
             created_at: self.created_at,
@@ -373,6 +383,7 @@ impl Session<Completed> {
             name: self.name,
             workspace: self.workspace,
             bead: self.bead,
+            assigned_agent: self.assigned_agent,
             branch: self.branch,
             last_synced: self.last_synced,
             created_at: self.created_at,
@@ -388,6 +399,7 @@ impl Session<Failed> {
             name: self.name,
             workspace: self.workspace,
             bead: self.bead,
+            assigned_agent: self.assigned_agent,
             branch: self.branch,
             last_synced: self.last_synced,
             created_at: self.created_at,
@@ -740,6 +752,7 @@ mod tests {
                 name.clone(),
                 Some(ws.clone()),
                 Some(bd.clone()),
+                None,
                 branch.clone(),
                 None,
                 created_at,
@@ -1382,6 +1395,7 @@ mod tests {
                 name.clone(),
                 Some(ws.clone()),
                 Some(bd.clone()),
+                None,
                 branch.clone(),
                 Some(ts),
                 chrono::Utc::now(),
@@ -1399,6 +1413,7 @@ mod tests {
             let session = Session::from_parts(
                 SessionId::parse("minimal").expect("valid"),
                 SessionName::parse("minimal-name").expect("valid"),
+                None,
                 None,
                 None,
                 BranchState::Detached,

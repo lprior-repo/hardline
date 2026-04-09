@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::domain::entities::session::Created;
+use crate::domain::entities::session::{Created, StateInfo};
 use crate::domain::entities::{BranchState, Session, SessionId, SessionState};
-use crate::domain::value_objects::{BeadId, SessionName, WorkspaceId};
+use crate::domain::value_objects::{AgentId, BeadId, SessionName, WorkspaceId};
 use crate::error::{Result, SessionError, SessionError::*};
 use crate::infrastructure::repository::SessionRepository;
 use scp_core::infrastructure::database::{DatabaseService, SqliteDatabaseService};
@@ -14,6 +14,7 @@ pub struct SessionRow {
     pub name: String,
     pub workspace: Option<String>,
     pub bead: Option<String>,
+    pub assigned_agent: Option<String>,
     pub branch_state: String,
     pub branch_name: Option<String>,
     pub session_state: String,
@@ -35,6 +36,11 @@ impl TryFrom<SessionRow> for Session<Created> {
         let bead = row
             .bead
             .map(BeadId::parse)
+            .transpose()
+            .map_err(|e| InvalidIdentifier(e.to_string()))?;
+        let assigned_agent = row
+            .assigned_agent
+            .map(AgentId::new)
             .transpose()
             .map_err(|e| InvalidIdentifier(e.to_string()))?;
         let branch_name = row.branch_name.clone();
@@ -69,6 +75,7 @@ impl TryFrom<SessionRow> for Session<Created> {
             name,
             workspace,
             bead,
+            assigned_agent,
             branch,
             last_synced,
             created_at,
@@ -76,8 +83,8 @@ impl TryFrom<SessionRow> for Session<Created> {
     }
 }
 
-impl From<&Session> for SessionRow {
-    fn from(session: &Session) -> Self {
+impl<S: StateInfo> From<&Session<S>> for SessionRow {
+    fn from(session: &Session<S>) -> Self {
         let (branch_state, branch_name) = match &session.branch {
             BranchState::Detached => ("Detached".to_string(), None),
             BranchState::OnBranch { name } => ("OnBranch".to_string(), Some(name.clone())),
@@ -87,6 +94,7 @@ impl From<&Session> for SessionRow {
             name: session.name.as_str().to_string(),
             workspace: session.workspace.as_ref().map(|w| w.as_str().to_string()),
             bead: session.bead.as_ref().map(|b| b.as_str().to_string()),
+            assigned_agent: session.assigned_agent.as_ref().map(|a| a.as_str().to_string()),
             branch_state,
             branch_name,
             session_state: format!("{:?}", session.state()),
@@ -127,6 +135,7 @@ impl SqliteSessionRepository {
                     name TEXT NOT NULL,
                     workspace TEXT,
                     bead TEXT,
+                    assigned_agent TEXT,
                     branch_state TEXT NOT NULL,
                     branch_name TEXT,
                     session_state TEXT NOT NULL,
@@ -143,6 +152,16 @@ impl SqliteSessionRepository {
             .await
             .map_err(|e| DatabaseError(e.to_string()))?;
 
+        self.db
+            .execute("CREATE INDEX IF NOT EXISTS idx_sessions_state ON sessions(session_state)")
+            .await
+            .map_err(|e| DatabaseError(e.to_string()))?;
+
+        self.db
+            .execute("CREATE INDEX IF NOT EXISTS idx_sessions_agent ON sessions(assigned_agent)")
+            .await
+            .map_err(|e| DatabaseError(e.to_string()))?;
+
         Ok(())
     }
 }
@@ -153,20 +172,22 @@ fn escape_sql_string(s: &str) -> String {
 
 #[async_trait]
 impl SessionRepository for SqliteSessionRepository {
-    async fn save(&self, session: &Session) -> Result<()> {
+    async fn save<S: StateInfo + std::marker::Sync>(&self, session: &Session<S>) -> Result<()> {
         let row = SessionRow::from(session);
         let workspace = row.workspace.as_deref().map(escape_sql_string);
         let bead = row.bead.as_deref().map(escape_sql_string);
+        let assigned_agent = row.assigned_agent.as_deref().map(escape_sql_string);
         let branch_name = row.branch_name.as_deref().map(escape_sql_string);
         let last_synced = row.last_synced.as_deref().map(escape_sql_string);
 
         let query = format!(
-            r#"INSERT INTO sessions (id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at)
-VALUES ('{}', '{}', {}, {}, '{}', {}, '{}', {}, '{}')
+            r#"INSERT INTO sessions (id, name, workspace, bead, assigned_agent, branch_state, branch_name, session_state, last_synced, created_at)
+VALUES ('{}', '{}', {}, {}, {}, '{}', {}, '{}', {}, '{}')
 ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     workspace = excluded.workspace,
     bead = excluded.bead,
+    assigned_agent = excluded.assigned_agent,
     branch_state = excluded.branch_state,
     branch_name = excluded.branch_name,
     session_state = excluded.session_state,
@@ -178,6 +199,9 @@ ON CONFLICT(id) DO UPDATE SET
                 .map(|w| format!("'{}'", w))
                 .unwrap_or_else(|| "NULL".to_string()),
             bead.map(|b| format!("'{}'", b))
+                .unwrap_or_else(|| "NULL".to_string()),
+            assigned_agent
+                .map(|a| format!("'{}'", a))
                 .unwrap_or_else(|| "NULL".to_string()),
             escape_sql_string(&row.branch_state),
             branch_name
@@ -207,7 +231,7 @@ ON CONFLICT(id) DO UPDATE SET
         let results = self
             .db
             .query(&format!(
-                "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at
+                "SELECT id, name, workspace, bead, assigned_agent, branch_state, branch_name, session_state, last_synced, created_at
                  FROM sessions WHERE id = '{}'",
                 escaped_id
             ))
@@ -228,7 +252,7 @@ ON CONFLICT(id) DO UPDATE SET
         let results = self
             .db
             .query(&format!(
-                "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at
+                "SELECT id, name, workspace, bead, assigned_agent, branch_state, branch_name, session_state, last_synced, created_at
                  FROM sessions WHERE name = '{}'",
                 escaped_name
             ))
@@ -248,7 +272,7 @@ ON CONFLICT(id) DO UPDATE SET
         let results = self
             .db
             .query(
-                "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at
+                "SELECT id, name, workspace, bead, assigned_agent, branch_state, branch_name, session_state, last_synced, created_at
                  FROM sessions ORDER BY created_at DESC",
             )
             .await
@@ -289,13 +313,109 @@ ON CONFLICT(id) DO UPDATE SET
             .map_err(|e| DatabaseError(format!("Failed to delete session: {}", e)))?;
         Ok(())
     }
+
+    async fn find_by_state(&self, state: SessionState) -> Result<Vec<Session>> {
+        let state_str = format!("{:?}", state);
+        let results = self
+            .db
+            .query(&format!(
+                "SELECT id, name, workspace, bead, assigned_agent, branch_state, branch_name, session_state, last_synced, created_at
+                 FROM sessions WHERE session_state = '{}'
+                 ORDER BY created_at DESC",
+                escape_sql_string(&state_str)
+            ))
+            .await
+            .map_err(|e| DatabaseError(format!("Failed to find sessions by state: {}", e)))?;
+
+        let mut sessions = Vec::new();
+        for result in results {
+            let row = SessionRow {
+                id: result[0].clone(),
+                name: result[1].clone(),
+                workspace: result[2]
+                    .is_empty()
+                    .then_some(result[2].clone())
+                    .filter(|s| !s.is_empty()),
+                bead: result[3]
+                    .is_empty()
+                    .then_some(result[3].clone())
+                    .filter(|s| !s.is_empty()),
+                assigned_agent: result[4]
+                    .is_empty()
+                    .then_some(result[4].clone())
+                    .filter(|s| !s.is_empty()),
+                branch_state: result[5].clone(),
+                branch_name: result[6]
+                    .is_empty()
+                    .then_some(result[6].clone())
+                    .filter(|s| !s.is_empty()),
+                session_state: result[7].clone(),
+                last_synced: result[8]
+                    .is_empty()
+                    .then_some(result[8].clone())
+                    .filter(|s| !s.is_empty()),
+                created_at: result[9].clone(),
+            };
+            let session = Session::try_from(row)?;
+            sessions.push(session);
+        }
+        Ok(sessions)
+    }
+
+    async fn find_by_agent(&self, agent: &AgentId) -> Result<Vec<Session>> {
+        let agent_str = agent.as_str();
+        let results = self
+            .db
+            .query(&format!(
+                "SELECT id, name, workspace, bead, assigned_agent, branch_state, branch_name, session_state, last_synced, created_at
+                 FROM sessions WHERE assigned_agent = '{}'
+                 ORDER BY created_at DESC",
+                escape_sql_string(agent_str)
+            ))
+            .await
+            .map_err(|e| DatabaseError(format!("Failed to find sessions by agent: {}", e)))?;
+
+        let mut sessions = Vec::new();
+        for result in results {
+            let row = SessionRow {
+                id: result[0].clone(),
+                name: result[1].clone(),
+                workspace: result[2]
+                    .is_empty()
+                    .then_some(result[2].clone())
+                    .filter(|s| !s.is_empty()),
+                bead: result[3]
+                    .is_empty()
+                    .then_some(result[3].clone())
+                    .filter(|s| !s.is_empty()),
+                assigned_agent: result[4]
+                    .is_empty()
+                    .then_some(result[4].clone())
+                    .filter(|s| !s.is_empty()),
+                branch_state: result[5].clone(),
+                branch_name: result[6]
+                    .is_empty()
+                    .then_some(result[6].clone())
+                    .filter(|s| !s.is_empty()),
+                session_state: result[7].clone(),
+                last_synced: result[8]
+                    .is_empty()
+                    .then_some(result[8].clone())
+                    .filter(|s| !s.is_empty()),
+                created_at: result[9].clone(),
+            };
+            let session = Session::try_from(row)?;
+            sessions.push(session);
+        }
+        Ok(sessions)
+    }
 }
 
 impl SqliteSessionRepository {
     fn row_to_session_row(&self, result: Vec<Vec<String>>) -> Result<SessionRow> {
-        if result.len() != 1 || result[0].len() != 9 {
+        if result.len() != 1 || result[0].len() != 10 {
             return Err(RepositoryError(format!(
-                "Expected single row with 9 columns, got {} rows with {} columns",
+                "Expected single row with 10 columns, got {} rows with {} columns",
                 result.len(),
                 if result.is_empty() {
                     0
@@ -309,25 +429,14 @@ impl SqliteSessionRepository {
         Ok(SessionRow {
             id: cols[0].clone(),
             name: cols[1].clone(),
-            workspace: cols[2]
-                .is_empty()
-                .then_some(cols[2].clone())
-                .filter(|s| !s.is_empty()),
-            bead: cols[3]
-                .is_empty()
-                .then_some(cols[3].clone())
-                .filter(|s| !s.is_empty()),
-            branch_state: cols[4].clone(),
-            branch_name: cols[5]
-                .is_empty()
-                .then_some(cols[5].clone())
-                .filter(|s| !s.is_empty()),
-            session_state: cols[6].clone(),
-            last_synced: cols[7]
-                .is_empty()
-                .then_some(cols[7].clone())
-                .filter(|s| !s.is_empty()),
-            created_at: cols[8].clone(),
+            workspace: if cols[2].is_empty() { None } else { Some(cols[2].clone()) },
+            bead: if cols[3].is_empty() { None } else { Some(cols[3].clone()) },
+            assigned_agent: if cols[4].is_empty() { None } else { Some(cols[4].clone()) },
+            branch_state: cols[5].clone(),
+            branch_name: if cols[6].is_empty() { None } else { Some(cols[6].clone()) },
+            session_state: cols[7].clone(),
+            last_synced: if cols[8].is_empty() { None } else { Some(cols[8].clone()) },
+            created_at: cols[9].clone(),
         })
     }
 }
@@ -468,6 +577,7 @@ mod tests {
                 name: "test-session".to_string(),
                 workspace: Some("ws-test".to_string()),
                 bead: Some("bd-abc123".to_string()),
+                assigned_agent: None,
                 branch_state: "Detached".to_string(),
                 branch_name: None,
                 session_state: "Created".to_string(),
