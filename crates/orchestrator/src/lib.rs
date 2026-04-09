@@ -21,6 +21,8 @@ pub mod parallel;
 #[cfg(test)]
 mod parallel_tests;
 pub mod persistence;
+#[cfg(test)]
+mod persistence_tests;
 pub mod phases;
 pub mod policies;
 pub mod queue;
