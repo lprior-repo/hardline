@@ -12,9 +12,11 @@ pub mod branch;
 pub mod change_id;
 pub mod commit;
 pub mod repository;
+pub mod worktree;
 
 pub use backend_type::BackendType;
 pub use branch::BranchName;
 pub use change_id::ChangeId;
 pub use commit::CommitId;
 pub use repository::RepositoryPath;
+pub use worktree::WorktreeInfo;

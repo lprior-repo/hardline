@@ -41,6 +41,9 @@ pub enum GitError {
     GixStatus(#[from] gix::status::Error),
     #[error("Gitoxide status iter error: {0}")]
     GixStatusIter(#[from] gix::status::into_iter::Error),
+
+    #[error("Failed to parse git output: {0}")]
+    ParseError(String),
 }
 
 /// Result type for GitError operations
@@ -105,6 +108,7 @@ impl From<GitError> for VcsError {
             GitError::GixInit(gix_err) => VcsError::Unimplemented(gix_err.to_string()),
             GitError::GixStatus(err) => VcsError::Unimplemented(err.to_string()),
             GitError::GixStatusIter(err) => VcsError::Unimplemented(err.to_string()),
+            GitError::ParseError(msg) => VcsError::ParseError(msg),
         }
     }
 }

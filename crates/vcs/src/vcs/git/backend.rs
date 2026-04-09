@@ -11,6 +11,7 @@
 
 use crate::vcs::{
     BackendType, BranchName, CommitId, RepoStatus, RepositoryPath, VcsBackend, VcsError,
+    WorktreeInfo,
 };
 
 use super::helpers;
@@ -174,5 +175,36 @@ impl VcsBackend for GitBackend {
     /// Returns `VcsError` if the rebase fails.
     fn sync(&self, branch: &BranchName, parent: &BranchName) -> Result<(), VcsError> {
         GitBackend::sync(self, branch, parent)
+    }
+
+    fn list_worktrees(&self) -> Result<Vec<WorktreeInfo>, VcsError> {
+        let repo = helpers::lock_repo(&self.repo)?;
+        let worktrees = crate::gix::worktree::list(&repo).map_err(VcsError::from)?;
+        Ok(worktrees
+            .into_iter()
+            .map(|wt| WorktreeInfo::new(wt.path, wt.is_main, wt.branch, wt.head))
+            .collect())
+    }
+
+    fn create_worktree(
+        &self,
+        path: &RepositoryPath,
+        branch: &BranchName,
+    ) -> Result<WorktreeInfo, VcsError> {
+        let repo = helpers::lock_repo(&self.repo)?;
+        crate::gix::worktree::add(&repo, &path.as_path().to_path_buf(), Some(branch.as_str()))
+            .map_err(VcsError::from)?;
+        Ok(WorktreeInfo::new(
+            path.as_path().to_path_buf(),
+            false,
+            Some(branch.as_str().to_string()),
+            None,
+        ))
+    }
+
+    fn remove_worktree(&self, path: &RepositoryPath, force: bool) -> Result<(), VcsError> {
+        let repo = helpers::lock_repo(&self.repo)?;
+        crate::gix::worktree::remove(&repo, &path.as_path().to_path_buf(), force)
+            .map_err(VcsError::from)
     }
 }

@@ -4,7 +4,7 @@
 
 use super::change::RepoStatus;
 use super::errors::VcsError;
-use super::types::{BranchName, CommitId, RepositoryPath};
+use super::types::{BranchName, CommitId, RepositoryPath, WorktreeInfo};
 use super::BackendType;
 
 // ============================================================================
@@ -72,4 +72,34 @@ pub trait VcsBackend: Send + Sync {
     /// # Errors
     /// Returns `VcsError` if the rebase fails.
     fn sync(&self, branch: &BranchName, parent: &BranchName) -> Result<(), VcsError>;
+
+    /// List all worktrees in the repository
+    ///
+    /// # Errors
+    /// Returns `VcsError` if worktrees cannot be listed.
+    fn list_worktrees(&self) -> Result<Vec<WorktreeInfo>, VcsError>;
+
+    /// Create a new worktree
+    ///
+    /// # Preconditions
+    /// - Path must not already exist
+    /// - Branch must exist in repository
+    ///
+    /// # Errors
+    /// Returns `VcsError` if creation fails.
+    fn create_worktree(
+        &self,
+        path: &RepositoryPath,
+        branch: &BranchName,
+    ) -> Result<WorktreeInfo, VcsError>;
+
+    /// Remove a worktree
+    ///
+    /// # Preconditions
+    /// - Worktree must exist (not the main worktree)
+    /// - Worktree working directory must be clean (unless force=true)
+    ///
+    /// # Errors
+    /// Returns `VcsError` if removal fails.
+    fn remove_worktree(&self, path: &RepositoryPath, force: bool) -> Result<(), VcsError>;
 }
