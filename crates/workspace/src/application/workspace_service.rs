@@ -2390,6 +2390,726 @@ mod tests {
     }
 
     // =============================================================================
+    // delete_workspace exhaustive tests (ha-b47)
+    // =============================================================================
+
+    mod delete_workspace_exhaustive {
+        use super::*;
+
+        fn make_active(name: &str) -> Workspace {
+            WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .and_then(WorkspaceService::initialize_workspace)
+            .unwrap()
+        }
+
+        fn make_initializing(name: &str) -> Workspace {
+            WorkspaceService::create_workspace(
+                WorkspaceName::new(name.into()).unwrap(),
+                WorkspacePath::new(format!("/tmp/{}", name)).unwrap(),
+            )
+            .unwrap()
+        }
+
+        fn make_locked(name: &str, holder: &str) -> Workspace {
+            WorkspaceService::lock_workspace(make_active(name), holder.into()).unwrap()
+        }
+
+        fn make_corrupted(name: &str) -> Workspace {
+            let ws = make_active(name);
+            Workspace {
+                state: WorkspaceState::Corrupted,
+                ..ws
+            }
+        }
+
+        fn make_deleted(name: &str) -> Workspace {
+            let ws = make_active(name);
+            Workspace {
+                state: WorkspaceState::Deleted,
+                ..ws
+            }
+        }
+
+        // ── Happy path: Active → Deleted ──
+
+        #[test]
+        fn delete_active_transitions_to_deleted() {
+            let active = make_active("del-happy");
+            let result = WorkspaceService::delete_workspace(active);
+            assert!(result.is_ok());
+            let deleted = result.unwrap();
+            assert_eq!(deleted.state, WorkspaceState::Deleted);
+        }
+
+        #[test]
+        fn delete_active_result_is_terminal() {
+            let active = make_active("del-terminal");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            assert!(deleted.is_terminal());
+        }
+
+        #[test]
+        fn delete_active_not_active() {
+            let active = make_active("del-not-active");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            assert!(!deleted.is_active());
+        }
+
+        #[test]
+        fn delete_active_not_locked() {
+            let active = make_active("del-not-locked");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            assert!(!deleted.is_locked());
+        }
+
+        // ── Happy path: Initializing → Deleted ──
+
+        #[test]
+        fn delete_initializing_transitions_to_deleted() {
+            let init = make_initializing("del-init-happy");
+            let result = WorkspaceService::delete_workspace(init);
+            assert!(result.is_ok());
+            let deleted = result.unwrap();
+            assert_eq!(deleted.state, WorkspaceState::Deleted);
+        }
+
+        #[test]
+        fn delete_initializing_result_is_terminal() {
+            let init = make_initializing("del-init-term");
+            let deleted = WorkspaceService::delete_workspace(init).unwrap();
+            assert!(deleted.is_terminal());
+        }
+
+        // ── Field preservation: Active → Deleted ──
+
+        #[test]
+        fn delete_active_preserves_id() {
+            let active = make_active("del-id");
+            let id_before = active.id.as_str().to_string();
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            assert_eq!(deleted.id.as_str(), id_before);
+        }
+
+        #[test]
+        fn delete_active_preserves_name() {
+            let active = make_active("del-name");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            assert_eq!(deleted.name.as_str(), "del-name");
+        }
+
+        #[test]
+        fn delete_active_preserves_path() {
+            let active = make_active("del-path");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            assert!(deleted.path.as_str().unwrap().contains("del-path"));
+        }
+
+        #[test]
+        fn delete_active_preserves_created_at() {
+            let active = make_active("del-cat");
+            let created_at = active.created_at();
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            assert_eq!(deleted.created_at(), created_at);
+        }
+
+        #[test]
+        fn delete_active_preserves_config() {
+            let active = make_active("del-cfg");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            let config = deleted.config().expect("should have config");
+            assert_eq!(config.default_branch, "main");
+            assert!(config.auto_sync);
+        }
+
+        #[test]
+        fn delete_active_preserves_lock_holder_none() {
+            let active = make_active("del-lh");
+            assert!(active.lock_holder().is_none());
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            assert!(deleted.lock_holder().is_none());
+        }
+
+        // ── Field preservation: Initializing → Deleted ──
+
+        #[test]
+        fn delete_initializing_preserves_id() {
+            let init = make_initializing("del-init-id");
+            let id_before = init.id.as_str().to_string();
+            let deleted = WorkspaceService::delete_workspace(init).unwrap();
+            assert_eq!(deleted.id.as_str(), id_before);
+        }
+
+        #[test]
+        fn delete_initializing_preserves_name() {
+            let init = make_initializing("del-init-name");
+            let deleted = WorkspaceService::delete_workspace(init).unwrap();
+            assert_eq!(deleted.name.as_str(), "del-init-name");
+        }
+
+        #[test]
+        fn delete_initializing_preserves_path() {
+            let init = make_initializing("del-init-path");
+            let deleted = WorkspaceService::delete_workspace(init).unwrap();
+            assert!(deleted.path.as_str().unwrap().contains("del-init-path"));
+        }
+
+        #[test]
+        fn delete_initializing_preserves_created_at() {
+            let init = make_initializing("del-init-cat");
+            let created_at = init.created_at();
+            let deleted = WorkspaceService::delete_workspace(init).unwrap();
+            assert_eq!(deleted.created_at(), created_at);
+        }
+
+        #[test]
+        fn delete_initializing_preserves_config() {
+            let init = make_initializing("del-init-cfg");
+            let deleted = WorkspaceService::delete_workspace(init).unwrap();
+            let config = deleted.config().expect("should have config");
+            assert_eq!(config.default_branch, "main");
+            assert!(config.auto_sync);
+        }
+
+        // ── Locked workspace rejection ──
+
+        #[test]
+        fn delete_locked_returns_err() {
+            let locked = make_locked("del-locked-err", "agent-1");
+            let result = WorkspaceService::delete_workspace(locked);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn delete_locked_returns_workspace_locked_error() {
+            let locked = make_locked("del-locked-var", "agent-x");
+            let result = WorkspaceService::delete_workspace(locked);
+            match result.err() {
+                Some(WorkspaceError::WorkspaceLocked(id, holder)) => {
+                    assert!(!id.is_empty());
+                    assert_eq!(holder, "agent-x");
+                }
+                other => panic!("expected WorkspaceLocked, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn delete_locked_error_not_invalid_state_transition() {
+            let locked = make_locked("del-locked-nist", "agent");
+            let result = WorkspaceService::delete_workspace(locked);
+            match result.err() {
+                Some(WorkspaceError::WorkspaceLocked(_, _)) => {}
+                other => panic!("expected WorkspaceLocked, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn delete_locked_with_empty_holder() {
+            let locked = make_locked("del-locked-empty", "");
+            let result = WorkspaceService::delete_workspace(locked);
+            assert!(result.is_err());
+            match result.err() {
+                Some(WorkspaceError::WorkspaceLocked(_, holder)) => {
+                    assert_eq!(holder, "");
+                }
+                other => panic!("expected WorkspaceLocked, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn delete_locked_with_long_holder() {
+            let long_holder = "a".repeat(500);
+            let expected = long_holder.clone();
+            let locked = make_locked("del-locked-long", &long_holder);
+            let result = WorkspaceService::delete_workspace(locked);
+            match result.err() {
+                Some(WorkspaceError::WorkspaceLocked(_, holder)) => {
+                    assert_eq!(holder, expected);
+                }
+                other => panic!("expected WorkspaceLocked, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn delete_locked_with_special_chars_holder() {
+            let holder = "agent-🎉/子@#$%";
+            let locked = make_locked("del-locked-spec", holder);
+            let result = WorkspaceService::delete_workspace(locked);
+            match result.err() {
+                Some(WorkspaceError::WorkspaceLocked(_, h)) => {
+                    assert_eq!(h, holder);
+                }
+                other => panic!("expected WorkspaceLocked, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn delete_locked_error_message_contains_locked() {
+            let locked = make_locked("del-locked-msg", "agent-msg");
+            let err = WorkspaceService::delete_workspace(locked).err().unwrap();
+            let msg = format!("{err}");
+            assert!(
+                msg.contains("locked"),
+                "error message should contain 'locked': {msg}"
+            );
+        }
+
+        // ── Corrupted workspace rejection ──
+
+        #[test]
+        fn delete_corrupted_returns_err() {
+            let corrupted = make_corrupted("del-corrupt-err");
+            let result = WorkspaceService::delete_workspace(corrupted);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn delete_corrupted_returns_invalid_state_transition() {
+            let corrupted = make_corrupted("del-corrupt-var");
+            let result = WorkspaceService::delete_workspace(corrupted);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Corrupted");
+                    assert_eq!(to, "Deleted");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn delete_corrupted_error_message_format() {
+            let corrupted = make_corrupted("del-corrupt-msg");
+            let err = WorkspaceService::delete_workspace(corrupted).err().unwrap();
+            let msg = format!("{err}");
+            assert!(
+                msg.contains("Corrupted"),
+                "error should mention Corrupted: {msg}"
+            );
+            assert!(
+                msg.contains("Deleted"),
+                "error should mention Deleted: {msg}"
+            );
+        }
+
+        // ── Already deleted rejection ──
+
+        #[test]
+        fn delete_already_deleted_returns_err() {
+            let deleted = make_deleted("del-already");
+            let result = WorkspaceService::delete_workspace(deleted);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn delete_already_deleted_returns_invalid_state_transition() {
+            let deleted = make_deleted("del-already-var");
+            let result = WorkspaceService::delete_workspace(deleted);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Deleted");
+                    assert_eq!(to, "Deleted");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn delete_already_deleted_is_not_idempotent() {
+            let active = make_active("del-not-idem");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            assert_eq!(deleted.state, WorkspaceState::Deleted);
+            let second = WorkspaceService::delete_workspace(deleted);
+            assert!(
+                second.is_err(),
+                "second delete should fail, not be idempotent"
+            );
+        }
+
+        #[test]
+        fn delete_already_deleted_error_message() {
+            let deleted = make_deleted("del-already-msg");
+            let err = WorkspaceService::delete_workspace(deleted).err().unwrap();
+            let msg = format!("{err}");
+            assert!(
+                msg.contains("Invalid state transition"),
+                "error should mention transition: {msg}"
+            );
+        }
+
+        // ── Recover deleted workspace is NOT supported ──
+
+        #[test]
+        fn recover_deleted_workspace_returns_err() {
+            let deleted = make_deleted("del-recover");
+            let result = WorkspaceService::recover_workspace(deleted);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn recover_deleted_workspace_returns_invalid_state_transition() {
+            let deleted = make_deleted("del-recover-var");
+            let result = WorkspaceService::recover_workspace(deleted);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Deleted");
+                    assert_eq!(to, "Recoverable");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        // ── Table-driven: state matrix for delete_workspace ──
+
+        #[test]
+        fn table_driven_delete_from_each_state() {
+            let cases: Vec<(&str, WorkspaceState, bool)> = vec![
+                ("Initializing", WorkspaceState::Initializing, true),
+                ("Active", WorkspaceState::Active, true),
+                ("Locked", WorkspaceState::Locked, false),
+                ("Corrupted", WorkspaceState::Corrupted, false),
+                ("Deleted", WorkspaceState::Deleted, false),
+            ];
+
+            for (label, state, expect_ok) in cases {
+                let ws = make_active(&format!("tbl-{}", label));
+                let ws_with_state = Workspace { state, ..ws };
+                let result = WorkspaceService::delete_workspace(ws_with_state);
+                assert_eq!(
+                    result.is_ok(),
+                    expect_ok,
+                    "state={:?} ({}): expected ok={}, got ok={}",
+                    state,
+                    label,
+                    expect_ok,
+                    result.is_ok()
+                );
+                if expect_ok {
+                    assert_eq!(result.unwrap().state, WorkspaceState::Deleted);
+                }
+            }
+        }
+
+        #[test]
+        fn table_driven_delete_error_variants_by_state() {
+            let locked = make_locked("tbl-locked", "agent");
+            let result = WorkspaceService::delete_workspace(locked);
+            match result.err() {
+                Some(WorkspaceError::WorkspaceLocked(_, _)) => {}
+                other => panic!("Locked: expected WorkspaceLocked, got {other:?}"),
+            }
+
+            let corrupted = make_corrupted("tbl-corrupt");
+            let result = WorkspaceService::delete_workspace(corrupted);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Corrupted");
+                    assert_eq!(to, "Deleted");
+                }
+                other => panic!("Corrupted: expected InvalidStateTransition, got {other:?}"),
+            }
+
+            let deleted = make_deleted("tbl-deleted");
+            let result = WorkspaceService::delete_workspace(deleted);
+            match result.err() {
+                Some(WorkspaceError::InvalidStateTransition { from, to }) => {
+                    assert_eq!(from, "Deleted");
+                    assert_eq!(to, "Deleted");
+                }
+                other => panic!("Deleted: expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        // ── Service-level vs entity-level divergence ──
+
+        #[test]
+        fn delete_locked_blocked_by_service_but_entity_allows() {
+            let locked = make_locked("svc-vs-entity", "agent");
+            let svc_result = WorkspaceService::delete_workspace(locked.clone());
+            assert!(svc_result.is_err(), "service should block Locked deletion");
+        }
+
+        #[test]
+        fn delete_corrupted_blocked_by_service_but_state_machine_allows() {
+            let corrupted = make_corrupted("svc-vs-sm");
+            let svc_result = WorkspaceService::delete_workspace(corrupted);
+            assert!(
+                svc_result.is_err(),
+                "service should block Corrupted deletion even though state machine allows _->Deleted"
+            );
+        }
+
+        // ── Lifecycle: delete after various paths ──
+
+        #[test]
+        fn delete_after_create_directly() {
+            let ws = make_initializing("lc-direct");
+            let deleted = WorkspaceService::delete_workspace(ws).unwrap();
+            assert_eq!(deleted.state, WorkspaceState::Deleted);
+        }
+
+        #[test]
+        fn delete_after_initialize() {
+            let active = make_active("lc-init");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            assert_eq!(deleted.state, WorkspaceState::Deleted);
+        }
+
+        #[test]
+        fn delete_after_lock_unlock_cycle() {
+            let active = make_active("lc-cycle");
+            let locked = WorkspaceService::lock_workspace(active, "agent".into()).unwrap();
+            let unlocked = WorkspaceService::unlock_workspace(locked).unwrap();
+            let deleted = WorkspaceService::delete_workspace(unlocked).unwrap();
+            assert_eq!(deleted.state, WorkspaceState::Deleted);
+            assert!(deleted.is_terminal());
+        }
+
+        #[test]
+        fn delete_after_recover() {
+            let active = make_active("lc-recover");
+            let locked = WorkspaceService::lock_workspace(active, "agent".into()).unwrap();
+            let recovered = WorkspaceService::recover_workspace(locked).unwrap();
+            assert!(recovered.is_active());
+            let deleted = WorkspaceService::delete_workspace(recovered).unwrap();
+            assert!(deleted.is_terminal());
+        }
+
+        #[test]
+        fn delete_after_multiple_lock_unlock_cycles() {
+            let mut ws = make_active("lc-multi");
+            for i in 0..5 {
+                let locked = WorkspaceService::lock_workspace(ws, format!("agent-{}", i)).unwrap();
+                ws = WorkspaceService::unlock_workspace(locked).unwrap();
+            }
+            let deleted = WorkspaceService::delete_workspace(ws).unwrap();
+            assert_eq!(deleted.state, WorkspaceState::Deleted);
+        }
+
+        // ── Deleted workspace is excluded from query methods ──
+
+        #[test]
+        fn deleted_workspace_not_in_active_list() {
+            let active = make_active("q-active");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            let all = vec![deleted];
+            let active_list = WorkspaceService::get_active_workspaces(&all);
+            assert!(active_list.is_empty());
+        }
+
+        #[test]
+        fn deleted_workspace_not_in_locked_list() {
+            let active = make_active("q-locked");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            let all = vec![deleted];
+            let locked_list = WorkspaceService::get_locked_workspaces(&all);
+            assert!(locked_list.is_empty());
+        }
+
+        #[test]
+        fn deleted_workspace_still_findable_by_id() {
+            let active = make_active("q-find");
+            let id = active.id.as_str().to_string();
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            let all = vec![deleted];
+            let found = WorkspaceService::find_workspace(&all, &WorkspaceId::parse(id).unwrap());
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().state, WorkspaceState::Deleted);
+        }
+
+        #[test]
+        fn deleted_workspace_still_findable_by_name() {
+            let active = make_active("q-name");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            let all = vec![deleted];
+            let found =
+                WorkspaceService::find_by_name(&all, &WorkspaceName::new("q-name".into()).unwrap());
+            assert!(found.is_some());
+            assert_eq!(found.unwrap().state, WorkspaceState::Deleted);
+        }
+
+        #[test]
+        fn mixed_active_and_deleted_only_actives_returned() {
+            let active = make_active("q-mix-active");
+            let deleted_source = make_active("q-mix-del");
+            let deleted = WorkspaceService::delete_workspace(deleted_source).unwrap();
+            let all = vec![active.clone(), deleted];
+            let actives = WorkspaceService::get_active_workspaces(&all);
+            assert_eq!(actives.len(), 1);
+            assert_eq!(actives[0].name.as_str(), "q-mix-active");
+        }
+
+        // ── Multiple independent deletions ──
+
+        #[test]
+        fn delete_multiple_workspaces_independently() {
+            let mut deleted = Vec::new();
+            for i in 0..10 {
+                let active = make_active(&format!("batch-{}", i));
+                let del = WorkspaceService::delete_workspace(active).unwrap();
+                assert_eq!(del.state, WorkspaceState::Deleted);
+                deleted.push(del);
+            }
+            let ids: std::collections::HashSet<&str> =
+                deleted.iter().map(|w| w.id.as_str()).collect();
+            assert_eq!(
+                ids.len(),
+                10,
+                "all workspace IDs must be unique after deletion"
+            );
+        }
+
+        #[test]
+        fn delete_many_and_verify_all_terminal() {
+            let all: Vec<Workspace> = (0..20)
+                .map(|i| {
+                    let active = make_active(&format!("term-{}", i));
+                    WorkspaceService::delete_workspace(active).unwrap()
+                })
+                .collect();
+            for ws in &all {
+                assert!(
+                    ws.is_terminal(),
+                    "workspace {} should be terminal",
+                    ws.name.as_str()
+                );
+                assert_eq!(ws.state, WorkspaceState::Deleted);
+            }
+        }
+
+        // ── No panic on any state ──
+
+        #[test]
+        fn delete_no_panic_on_locked() {
+            let locked = make_locked("no-panic-locked", "agent");
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let _ = WorkspaceService::delete_workspace(locked);
+            }));
+            assert!(
+                result.is_ok(),
+                "delete_workspace on Locked should not panic"
+            );
+        }
+
+        #[test]
+        fn delete_no_panic_on_corrupted() {
+            let corrupted = make_corrupted("no-panic-corrupt");
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let _ = WorkspaceService::delete_workspace(corrupted);
+            }));
+            assert!(
+                result.is_ok(),
+                "delete_workspace on Corrupted should not panic"
+            );
+        }
+
+        #[test]
+        fn delete_no_panic_on_already_deleted() {
+            let deleted = make_deleted("no-panic-deleted");
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let _ = WorkspaceService::delete_workspace(deleted);
+            }));
+            assert!(
+                result.is_ok(),
+                "delete_workspace on Deleted should not panic"
+            );
+        }
+
+        // ── Consistency across calls ──
+
+        #[test]
+        fn delete_active_deterministic_state() {
+            let active = make_active("det-1");
+            let deleted = WorkspaceService::delete_workspace(active).unwrap();
+            assert_eq!(deleted.state, WorkspaceState::Deleted);
+
+            let active2 = make_active("det-2");
+            let deleted2 = WorkspaceService::delete_workspace(active2).unwrap();
+            assert_eq!(deleted2.state, WorkspaceState::Deleted);
+        }
+
+        // ── Proptests for delete_workspace ──
+
+        #[cfg(test)]
+        mod proptests {
+            use super::*;
+            use proptest::prelude::*;
+            use proptest::prop_assert;
+
+            proptest! {
+                #[test]
+                fn delete_active_always_produces_deleted(name in "[a-zA-Z0-9_-]{1,50}") {
+                    let active = make_active(&name);
+                    let result = WorkspaceService::delete_workspace(active);
+                    prop_assert!(result.is_ok());
+                    prop_assert_eq!(result.unwrap().state, WorkspaceState::Deleted);
+                }
+
+                #[test]
+                fn delete_initializing_always_produces_deleted(name in "[a-zA-Z0-9_-]{1,50}") {
+                    let init = make_initializing(&name);
+                    let result = WorkspaceService::delete_workspace(init);
+                    prop_assert!(result.is_ok());
+                    prop_assert_eq!(result.unwrap().state, WorkspaceState::Deleted);
+                }
+
+                #[test]
+                fn delete_locked_always_fails(name in "[a-zA-Z0-9_-]{1,50}", holder in "[a-zA-Z0-9_-]{1,20}") {
+                    let locked = make_locked(&name, &holder);
+                    let result = WorkspaceService::delete_workspace(locked);
+                    prop_assert!(result.is_err());
+                }
+
+                #[test]
+                fn delete_preserves_id_after_active_delete(name in "[a-zA-Z0-9_-]{1,50}") {
+                    let active = make_active(&name);
+                    let id_before = active.id.as_str().to_string();
+                    let deleted = WorkspaceService::delete_workspace(active).unwrap();
+                    prop_assert_eq!(deleted.id.as_str(), id_before);
+                }
+
+                #[test]
+                fn delete_preserves_name_after_active_delete(name in "[a-zA-Z0-9_-]{1,50}") {
+                    let active = make_active(&name);
+                    let deleted = WorkspaceService::delete_workspace(active).unwrap();
+                    prop_assert_eq!(deleted.name.as_str(), name);
+                }
+
+                #[test]
+                fn delete_preserves_created_after_active_delete(name in "[a-zA-Z0-9_-]{1,50}") {
+                    let active = make_active(&name);
+                    let created_at = active.created_at();
+                    let deleted = WorkspaceService::delete_workspace(active).unwrap();
+                    prop_assert_eq!(deleted.created_at(), created_at);
+                }
+
+                #[test]
+                fn delete_batch_produces_unique_ids(names in proptest::collection::vec("[a-zA-Z0-9_-]{1,20}", 5..20)) {
+                    let mut ids = std::collections::HashSet::new();
+                    for name in &names {
+                        let active = make_active(name);
+                        let deleted = WorkspaceService::delete_workspace(active).unwrap();
+                        ids.insert(deleted.id.as_str().to_string());
+                    }
+                    prop_assert_eq!(ids.len(), names.len());
+                }
+
+                #[test]
+                fn delete_then_find_by_id_roundtrip(name in "[a-zA-Z0-9_-]{1,50}") {
+                    let active = make_active(&name);
+                    let id = active.id.clone();
+                    let deleted = WorkspaceService::delete_workspace(active).unwrap();
+                    let all = vec![deleted];
+                    let found = WorkspaceService::find_workspace(&all, &id);
+                    prop_assert!(found.is_some());
+                    prop_assert_eq!(found.unwrap().state, WorkspaceState::Deleted);
+                }
+            }
+        }
+    }
+
+    // =============================================================================
     // create_workspace exhaustive tests (ha-5ka)
     // =============================================================================
 
