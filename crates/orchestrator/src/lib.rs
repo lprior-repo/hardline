@@ -15,6 +15,7 @@
 pub mod cleanup;
 #[cfg(test)]
 mod cleanup_tests;
+pub mod exactly_once;
 pub mod metrics;
 pub mod parallel;
 #[cfg(test)]
@@ -28,6 +29,14 @@ pub mod state;
 pub use cleanup::{
     CleanupContext, CleanupError, CleanupHandler, CleanupManager, CleanupResult, PhaseType,
     ResourceId,
+};
+pub use exactly_once::{
+    dedup::{DedupDecision, OperationDeduplicator},
+    journal::{InMemoryJournal, Journal, JournalError},
+    store::{InMemoryReceiptStore, ReceiptStore, ReceiptStoreError},
+    types::{IdempotencyKey, IdempotencyKeyError, JournalTransitionError},
+    ExactlyOnceError, ExactlyOnceExecutor, ExactlyOnceJournalEntry, ExactlyOnceKey,
+    ExactlyOnceOperationStatus, ExactlyOnceReceipt, ExecutionResult, InMemoryExactlyOnceExecutor,
 };
 pub use metrics::{Metrics, PhaseMetrics, ScenarioResult};
 pub use persistence::StateStore;
