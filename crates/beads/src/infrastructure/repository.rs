@@ -715,4 +715,286 @@ mod tests {
             );
         }
     }
+
+    // ── Contract Tests ──────────────────────────────────────────────────────────
+    // Contract tests verify the BeadRepository trait contract is satisfied.
+    // These tests define the expected behavior that all implementors must satisfy.
+
+    /// Contract test: insert must succeed for new beads
+    #[tokio::test]
+    async fn contract_insert_success() {
+        let repo = make_repo();
+        let bead = make_bead("contract-insert");
+        let result = repo.insert(&bead).await;
+        assert!(
+            result.is_ok(),
+            "Contract: insert must succeed for new beads"
+        );
+    }
+
+    /// Contract test: insert must fail for duplicate IDs
+    #[tokio::test]
+    async fn contract_insert_duplicate_fails() {
+        let repo = make_repo();
+        let bead = make_bead("contract-dup");
+        repo.insert(&bead).await.unwrap();
+        let result = repo.insert(&bead).await;
+        assert!(
+            result.is_err(),
+            "Contract: insert must fail for duplicate IDs"
+        );
+        match result.unwrap_err() {
+            BeadError::AlreadyExists(_) => {}
+            other => panic!("Contract: expected AlreadyExists, got {other:?}"),
+        }
+    }
+
+    /// Contract test: find must return None for non-existent beads
+    #[tokio::test]
+    async fn contract_find_missing() {
+        let repo = make_repo();
+        let result = repo.find(&BeadId::new("contract-missing").unwrap()).await;
+        assert!(
+            result.is_ok(),
+            "Contract: find must return Ok"
+        );
+        assert!(
+            result.unwrap().is_none(),
+            "Contract: find must return None for non-existent beads"
+        );
+    }
+
+    /// Contract test: find must return Some for existing beads
+    #[tokio::test]
+    async fn contract_find_existing() {
+        let repo = make_repo();
+        let bead = make_bead("contract-find");
+        repo.insert(&bead).await.unwrap();
+        let result = repo.find(&BeadId::new("contract-find").unwrap()).await;
+        assert!(
+            result.is_ok(),
+            "Contract: find must return Ok"
+        );
+        assert!(
+            result.unwrap().is_some(),
+            "Contract: find must return Some for existing beads"
+        );
+    }
+
+    /// Contract test: update must succeed for existing beads
+    #[tokio::test]
+    async fn contract_update_success() {
+        let repo = make_repo();
+        let bead = make_bead("contract-update");
+        repo.insert(&bead).await.unwrap();
+        let updated = bead.with_priority(Priority::P1);
+        let result = repo.update(&updated).await;
+        assert!(
+            result.is_ok(),
+            "Contract: update must succeed for existing beads"
+        );
+    }
+
+    /// Contract test: update must fail for non-existent beads
+    #[tokio::test]
+    async fn contract_update_missing_fails() {
+        let repo = make_repo();
+        let bead = make_bead("contract-update-missing");
+        let result = repo.update(&bead).await;
+        assert!(
+            result.is_err(),
+            "Contract: update must fail for non-existent beads"
+        );
+        match result.unwrap_err() {
+            BeadError::NotFound(_) => {}
+            other => panic!("Contract: expected NotFound, got {other:?}"),
+        }
+    }
+
+    /// Contract test: delete must succeed for existing beads
+    #[tokio::test]
+    async fn contract_delete_success() {
+        let repo = make_repo();
+        let bead = make_bead("contract-delete");
+        repo.insert(&bead).await.unwrap();
+        let result = repo.delete(&BeadId::new("contract-delete").unwrap()).await;
+        assert!(
+            result.is_ok(),
+            "Contract: delete must succeed for existing beads"
+        );
+    }
+
+    /// Contract test: delete must fail for non-existent beads
+    #[tokio::test]
+    async fn contract_delete_missing_fails() {
+        let repo = make_repo();
+        let result = repo.delete(&BeadId::new("contract-delete-missing").unwrap()).await;
+        assert!(
+            result.is_err(),
+            "Contract: delete must fail for non-existent beads"
+        );
+        match result.unwrap_err() {
+            BeadError::NotFound(_) => {}
+            other => panic!("Contract: expected NotFound, got {other:?}"),
+        }
+    }
+
+    /// Contract test: find_all must return empty vector when no beads exist
+    #[tokio::test]
+    async fn contract_find_all_empty() {
+        let repo = make_repo();
+        let result = repo.find_all().await;
+        assert!(
+            result.is_ok(),
+            "Contract: find_all must return Ok"
+        );
+        assert!(
+            result.unwrap().is_empty(),
+            "Contract: find_all must return empty vector when no beads exist"
+        );
+    }
+
+    /// Contract test: find_all must return all inserted beads
+    #[tokio::test]
+    async fn contract_find_all_returns_all() {
+        let repo = make_repo();
+        repo.insert(&make_bead("fa-1")).await.unwrap();
+        repo.insert(&make_bead("fa-2")).await.unwrap();
+        repo.insert(&make_bead("fa-3")).await.unwrap();
+        let result = repo.find_all().await;
+        assert!(
+            result.is_ok(),
+            "Contract: find_all must return Ok"
+        );
+        let beads = result.unwrap();
+        assert_eq!(
+            beads.len(), 3,
+            "Contract: find_all must return all inserted beads"
+        );
+    }
+
+    /// Contract test: find_by_state must return empty when no match
+    #[tokio::test]
+    async fn contract_find_by_state_empty() {
+        let repo = make_repo();
+        let result = repo.find_by_state(BeadState::InProgress).await;
+        assert!(
+            result.is_ok(),
+            "Contract: find_by_state must return Ok"
+        );
+        assert!(
+            result.unwrap().is_empty(),
+            "Contract: find_by_state must return empty when no match"
+        );
+    }
+
+    /// Contract test: find_by_state must filter correctly
+    #[tokio::test]
+    async fn contract_find_by_state_filter() {
+        let repo = make_repo();
+        repo.insert(&make_bead("fbs-a")).await.unwrap();
+        repo.insert(&make_bead("fbs-b")).await.unwrap();
+        let result = repo.find_by_state(BeadState::Open).await;
+        assert!(
+            result.is_ok(),
+            "Contract: find_by_state must return Ok"
+        );
+        let beads = result.unwrap();
+        assert_eq!(
+            beads.len(), 2,
+            "Contract: find_by_state must return matching beads"
+        );
+    }
+
+    /// Contract test: exists must return false for non-existent beads
+    #[tokio::test]
+    async fn contract_exists_missing() {
+        let repo = make_repo();
+        let result = repo.exists(&BeadId::new("contract-exists-missing").unwrap()).await;
+        assert!(
+            !result,
+            "Contract: exists must return false for non-existent beads"
+        );
+    }
+
+    /// Contract test: exists must return true for existing beads
+    #[tokio::test]
+    async fn contract_exists_existing() {
+        let repo = make_repo();
+        repo.insert(&make_bead("contract-exists")).await.unwrap();
+        let result = repo.exists(&BeadId::new("contract-exists").unwrap()).await;
+        assert!(
+            result,
+            "Contract: exists must return true for existing beads"
+        );
+    }
+
+    /// Contract test: CRUD lifecycle - insert, find, update, delete
+    #[tokio::test]
+    async fn contract_crud_lifecycle() {
+        let repo = make_repo();
+        
+        // Insert (Create)
+        let bead = make_bead("contract-lifecycle");
+        repo.insert(&bead).await.unwrap();
+        assert!(
+            repo.exists(&BeadId::new("contract-lifecycle").unwrap()).await,
+            "Contract: insert must persist bead"
+        );
+        
+        // Find (Read)
+        let found = repo.find(&BeadId::new("contract-lifecycle").unwrap()).await.unwrap().unwrap();
+        assert_eq!(
+            found.id().as_str(), "contract-lifecycle",
+            "Contract: find must return inserted bead"
+        );
+        
+        // Update
+        let updated = found.with_priority(Priority::P1);
+        repo.update(&updated).await.unwrap();
+        let reloaded = repo.find(&BeadId::new("contract-lifecycle").unwrap()).await.unwrap().unwrap();
+        assert_eq!(
+            reloaded.priority(), Some(&Priority::P1),
+            "Contract: update must persist changes"
+        );
+        
+        // Delete
+        repo.delete(&BeadId::new("contract-lifecycle").unwrap()).await.unwrap();
+        assert!(
+            !repo.exists(&BeadId::new("contract-lifecycle").unwrap()).await,
+            "Contract: delete must remove bead"
+        );
+        assert!(
+            repo.find(&BeadId::new("contract-lifecycle").unwrap()).await.unwrap().is_none(),
+            "Contract: find must return None after delete"
+        );
+    }
+
+    /// Contract test: error propagation - verify error types are correct
+    #[tokio::test]
+    async fn contract_error_propagation() {
+        let repo = make_repo();
+        
+        // Insert duplicate error
+        let bead1 = make_bead("contract-err-1");
+        let bead2 = make_bead("contract-err-1");
+        repo.insert(&bead1).await.unwrap();
+        match repo.insert(&bead2).await {
+            Err(BeadError::AlreadyExists(id)) => assert_eq!(id, "contract-err-1"),
+            other => panic!("Contract: expected AlreadyExists, got {other:?}"),
+        }
+        
+        // Update missing error - use a new bead with non-existent ID
+        let missing_bead = make_bead("contract-err-missing");
+        match repo.update(&missing_bead).await {
+            Err(BeadError::NotFound(id)) => assert_eq!(id, "contract-err-missing"),
+            other => panic!("Contract: expected NotFound, got {other:?}"),
+        }
+        
+        // Delete missing error
+        match repo.delete(&BeadId::new("contract-err-2").unwrap()).await {
+            Err(BeadError::NotFound(id)) => assert_eq!(id, "contract-err-2"),
+            other => panic!("Contract: expected NotFound, got {other:?}"),
+        }
+    }
 }
