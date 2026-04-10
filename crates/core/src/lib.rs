@@ -51,6 +51,7 @@ pub mod functional;
 pub mod hints;
 pub mod hooks;
 pub mod infrastructure;
+pub mod json;
 pub mod introspection;
 pub mod lifecycle;
 pub mod lock;
@@ -113,6 +114,12 @@ pub use error::{Error, Result};
 pub use events::{EmittedEvent, Event, EventEmitter};
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
 pub use hooks::{Hook, HookConfig, HookEnv, HookEvent, HookManager, HookResult, HookRunner};
+pub use json::{
+    classify_exit_code, error_with_available_sessions, map_error_to_parts, output_json_parse_error,
+    output_json_success, semantic_exit_code, ErrorCode, ErrorDetail, HateoasLink, JsonError,
+    JsonSerializable, JsonSuccess, RelatedResources, ResponseMeta, SchemaEnvelope,
+    SchemaEnvelopeArray,
+};
 pub use lifecycle::LifecycleState;
 pub use lock::{LockGuard, LockType, MemLockManager};
 pub use moon_gates::{GateError, GateResult, GatesOutcome, GatesStatus, MoonGate};
