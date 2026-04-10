@@ -2,7 +2,7 @@
 //!
 //! Provides worktree management via gix with porcelain parsing fallback.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::error::{GitError, GitResult};
@@ -25,7 +25,10 @@ fn parse_porcelain_worktree_list(output: &str) -> GitResult<Vec<Worktree>> {
             if let Some(wt) = current_worktree.take() {
                 worktrees.push(wt.build());
             }
-            let path = line.strip_prefix("worktree ").unwrap().trim();
+            let path = line
+                .strip_prefix("worktree ")
+                .map(|s| s.trim())
+                .ok_or_else(|| GitError::ParseError("worktree line missing path".to_string()))?;
             current_worktree = Some(WorktreeBuilder {
                 path: PathBuf::from(path),
                 branch: None,
@@ -35,9 +38,17 @@ fn parse_porcelain_worktree_list(output: &str) -> GitResult<Vec<Worktree>> {
             is_first = false;
         } else if let Some(ref mut wt) = current_worktree {
             if line.starts_with("HEAD ") {
-                wt.head = Some(line.strip_prefix("HEAD ").unwrap().trim().to_string());
+                wt.head = Some(
+                    line.strip_prefix("HEAD ")
+                        .map(|s| s.trim())
+                        .ok_or_else(|| GitError::ParseError("HEAD line missing value".to_string()))?
+                        .to_string(),
+                );
             } else if line.starts_with("branch ") {
-                let branch_ref = line.strip_prefix("branch ").unwrap().trim();
+                let branch_ref = line
+                    .strip_prefix("branch ")
+                    .map(|s| s.trim())
+                    .ok_or_else(|| GitError::ParseError("branch line missing value".to_string()))?;
                 wt.branch = branch_ref.strip_prefix("refs/heads/").map(String::from);
             } else if line == "detached" {
                 wt.branch = None;
@@ -76,7 +87,7 @@ impl WorktreeBuilder {
     }
 }
 
-pub fn add(repo: &gix::Repository, path: &PathBuf, branch: Option<&str>) -> GitResult<()> {
+pub fn add(repo: &gix::Repository, path: &Path, branch: Option<&str>) -> GitResult<()> {
     let parent = repo.workdir().ok_or_else(|| GitError::InvalidRef {
         name: "worktree".to_string(),
         reason: "repository has no working directory".to_string(),
@@ -138,7 +149,7 @@ pub fn list(repo: &gix::Repository) -> GitResult<Vec<Worktree>> {
     parse_porcelain_worktree_list(&stdout)
 }
 
-pub fn remove(repo: &gix::Repository, path: &PathBuf, force: bool) -> GitResult<()> {
+pub fn remove(repo: &gix::Repository, path: &Path, force: bool) -> GitResult<()> {
     let path_str = path.to_string_lossy();
     let workdir = repo.workdir().ok_or_else(|| GitError::InvalidRef {
         name: "worktree".to_string(),

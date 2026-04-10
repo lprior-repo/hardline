@@ -86,7 +86,7 @@ impl BeadRepository for InMemoryBeadRepository {
             .filter(|b| b.state() == state)
             .cloned()
             .collect();
-        filtered.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        filtered.sort_by_key(|a| a.created_at);
         Ok(filtered)
     }
 
@@ -97,7 +97,7 @@ impl BeadRepository for InMemoryBeadRepository {
             .filter(|b| b.assignee() == assignee)
             .cloned()
             .collect();
-        filtered.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        filtered.sort_by_key(|a| a.created_at);
         Ok(filtered)
     }
 
@@ -108,7 +108,7 @@ impl BeadRepository for InMemoryBeadRepository {
             .filter(|b| b.priority() == priority.as_ref())
             .cloned()
             .collect();
-        filtered.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        filtered.sort_by_key(|a| a.created_at);
         Ok(filtered)
     }
 
