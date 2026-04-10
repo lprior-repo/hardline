@@ -19,13 +19,14 @@ use axum::{
     routing::{any, delete, get, head, options, patch, post, put},
     Router,
 };
+use serde::Deserialize;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tower_http::trace::TraceLayer;
 
 use crate::{
     definition::{Endpoint, HttpMethod, TwinDefinition},
-    state::{InMemoryTwinState, RequestRecord, TwinState},
+    state::{InMemoryTwinState, RecordFilter, RequestRecord, TwinState},
 };
 
 // ---------------------------------------------------------------------------
@@ -167,7 +168,7 @@ async fn twin_handler(
         request_body_str,
         endpoint.response.status,
         endpoint.response.headers.clone(),
-        None,
+        Some(endpoint.response.body.to_string()),
     );
 
     {
@@ -231,6 +232,55 @@ async fn inspect_requests(State(state): State<AppState>) -> Result<impl IntoResp
     Ok((StatusCode::OK, body))
 }
 
+/// Query parameters for filtering request records.
+#[derive(Debug, Deserialize, Default)]
+pub struct QueryParams {
+    pub method: Option<String>,
+    pub path: Option<String>,
+    pub status: Option<u16>,
+}
+
+async fn inspect_requests_filtered(
+    State(state): State<AppState>,
+    axum::extract::Query(params): axum::extract::Query<QueryParams>,
+) -> Result<impl IntoResponse, ServerError> {
+    let method_echo = params.method.clone();
+    let path_echo = params.path.clone();
+    let status_echo = params.status;
+
+    let mut filter = RecordFilter::new();
+    if let Some(method) = params.method {
+        filter = filter.method(method);
+    }
+    if let Some(path) = params.path {
+        filter = filter.path(path);
+    }
+    if let Some(status) = params.status {
+        filter = filter.status(status);
+    }
+
+    let records;
+    {
+        let state_guard = state.state.read().await;
+        records = state_guard.filter_records(&filter);
+    }
+    let records_vec: Vec<_> = records.into_iter().collect();
+
+    let response = serde_json::json!({
+        "requests": records_vec,
+        "filter": {
+            "method": method_echo,
+            "path": path_echo,
+            "status": status_echo,
+        }
+    });
+
+    let body = serde_json::to_string(&response)
+        .map_err(|e| ServerError::SerializationError(e.to_string()))?;
+
+    Ok((StatusCode::OK, body))
+}
+
 async fn clear_state(State(state): State<AppState>) -> impl IntoResponse {
     let new_state = {
         let state_guard = state.state.read().await;
@@ -247,6 +297,7 @@ pub fn build_router(definition: TwinDefinition) -> Router {
     let base_router = Router::new()
         .route("/_inspect/state", get(inspect_state))
         .route("/_inspect/requests", get(inspect_requests))
+        .route("/_inspect/requests/search", get(inspect_requests_filtered))
         .route("/_inspect/clear", post(clear_state));
 
     let routes: Vec<_> = app_state

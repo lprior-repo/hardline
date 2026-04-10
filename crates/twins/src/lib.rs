@@ -22,4 +22,4 @@ pub mod server;
 pub mod state;
 
 pub use definition::{Endpoint, EndpointResponse, TwinDefinition};
-pub use state::{InMemoryTwinState, RequestRecord, TwinState};
+pub use state::{InMemoryTwinState, RecordFilter, RequestRecord, TwinState};
