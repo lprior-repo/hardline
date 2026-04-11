@@ -124,6 +124,17 @@ pub struct Paused;
 pub struct Completed;
 pub struct Failed;
 
+pub struct SessionData {
+    pub id: SessionId,
+    pub name: SessionName,
+    pub workspace: Option<WorkspaceId>,
+    pub bead: Option<BeadId>,
+    pub assigned_agent: Option<AgentId>,
+    pub branch: BranchState,
+    pub last_synced: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
 /// Typestate marker trait to get `SessionState` from the marker type
 pub trait StateInfo {
     fn state() -> SessionState;
@@ -199,27 +210,17 @@ impl Session<Created> {
         })
     }
 
-    /// Create a Session from parsed components (used by repository)
     #[must_use]
-    pub fn from_parts(
-        id: SessionId,
-        name: SessionName,
-        workspace: Option<WorkspaceId>,
-        bead: Option<BeadId>,
-        assigned_agent: Option<AgentId>,
-        branch: BranchState,
-        last_synced: Option<DateTime<Utc>>,
-        created_at: DateTime<Utc>,
-    ) -> Self {
+    pub fn from_parts(data: SessionData) -> Self {
         Self {
-            id,
-            name,
-            workspace,
-            bead,
-            assigned_agent,
-            branch,
-            last_synced,
-            created_at,
+            id: data.id,
+            name: data.name,
+            workspace: data.workspace,
+            bead: data.bead,
+            assigned_agent: data.assigned_agent,
+            branch: data.branch,
+            last_synced: data.last_synced,
+            created_at: data.created_at,
             _state: PhantomData,
         }
     }
@@ -747,16 +748,16 @@ mod tests {
             let branch = BranchState::OnBranch { name: "dev".into() };
             let created_at = chrono::Utc::now();
 
-            let session = Session::from_parts(
-                id.clone(),
-                name.clone(),
-                Some(ws.clone()),
-                Some(bd.clone()),
-                None,
-                branch.clone(),
-                None,
+            let session = Session::from_parts(SessionData {
+                id: id.clone(),
+                name: name.clone(),
+                workspace: Some(ws.clone()),
+                bead: Some(bd.clone()),
+                assigned_agent: None,
+                branch: branch.clone(),
+                last_synced: None,
                 created_at,
-            );
+            });
 
             assert_eq!(session.id.as_str(), "preset-id");
             assert_eq!(session.name.as_str(), "preset-name");
@@ -1390,16 +1391,16 @@ mod tests {
             let branch = BranchState::OnBranch { name: "dev".into() };
             let ts = chrono::Utc::now();
 
-            let session = Session::from_parts(
-                id.clone(),
-                name.clone(),
-                Some(ws.clone()),
-                Some(bd.clone()),
-                None,
-                branch.clone(),
-                Some(ts),
-                chrono::Utc::now(),
-            );
+            let session = Session::from_parts(SessionData {
+                id: id.clone(),
+                name: name.clone(),
+                workspace: Some(ws.clone()),
+                bead: Some(bd.clone()),
+                assigned_agent: None,
+                branch: branch.clone(),
+                last_synced: Some(ts),
+                created_at: chrono::Utc::now(),
+            });
 
             assert_eq!(session.id.as_str(), "preset-id");
             assert_eq!(session.name.as_str(), "preset-name");
@@ -1410,16 +1411,16 @@ mod tests {
 
         #[test]
         fn session_from_parts_with_no_optional_fields() {
-            let session = Session::from_parts(
-                SessionId::parse("minimal").expect("valid"),
-                SessionName::parse("minimal-name").expect("valid"),
-                None,
-                None,
-                None,
-                BranchState::Detached,
-                None,
-                chrono::Utc::now(),
-            );
+            let session = Session::from_parts(SessionData {
+                id: SessionId::parse("minimal").expect("valid"),
+                name: SessionName::parse("minimal-name").expect("valid"),
+                workspace: None,
+                bead: None,
+                assigned_agent: None,
+                branch: BranchState::Detached,
+                last_synced: None,
+                created_at: chrono::Utc::now(),
+            });
 
             assert!(session.workspace().is_none());
             assert!(session.bead().is_none());

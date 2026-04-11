@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
 use crate::domain::entities::session::{Created, StateInfo};
-use crate::domain::entities::{BranchState, Session, SessionId, SessionState};
+use crate::domain::entities::{BranchState, Session, SessionData, SessionId, SessionState};
 use crate::domain::value_objects::{AgentId, BeadId, SessionName, WorkspaceId};
 use crate::error::{Result, SessionError, SessionError::*};
 use crate::infrastructure::repository::SessionRepository;
@@ -70,7 +70,7 @@ impl TryFrom<SessionRow> for Session<Created> {
             .map_err(|e| SerializationError(format!("Invalid created_at timestamp: {}", e)))?
             .with_timezone(&Utc);
 
-        Ok(Session::from_parts(
+        Ok(Session::from_parts(SessionData {
             id,
             name,
             workspace,
@@ -79,7 +79,7 @@ impl TryFrom<SessionRow> for Session<Created> {
             branch,
             last_synced,
             created_at,
-        ))
+        }))
     }
 }
 

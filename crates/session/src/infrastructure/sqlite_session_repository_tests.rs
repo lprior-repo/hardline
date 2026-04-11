@@ -132,16 +132,18 @@ async fn test_save_same_id_twice_updates() {
     let name1 = SessionName::parse("session-123").unwrap();
     let session1 = crate::domain::entities::Session::create(name1).unwrap();
 
-    use crate::domain::entities::{BranchState, SessionState};
+    use crate::domain::entities::SessionState;
     let session2 = crate::domain::entities::Session::from_parts(
-        session1.id.clone(),
-        SessionName::parse("updated-session").unwrap(),
-        None,
-        None,
-        None,
-        BranchState::Detached,
-        None,
-        session1.created_at,
+        crate::domain::entities::SessionData {
+            id: session1.id.clone(),
+            name: SessionName::parse("updated-session").unwrap(),
+            workspace: None,
+            bead: None,
+            assigned_agent: None,
+            branch: crate::domain::entities::BranchState::Detached,
+            last_synced: None,
+            created_at: session1.created_at,
+        },
     );
 
     repo.save(&session1).await.expect("first save failed");
@@ -255,36 +257,42 @@ async fn test_find_by_agent_returns_matching_sessions() {
     let _s3 = crate::domain::entities::Session::create(SessionName::parse("session-3").unwrap()).unwrap();
 
     let s1_with_agent = crate::domain::entities::Session::from_parts(
-        s1.id,
-        s1.name,
-        None,
-        None,
-        Some(agent.clone()),
-        s1.branch.clone(),
-        None,
-        s1.created_at,
+        crate::domain::entities::SessionData {
+            id: s1.id,
+            name: s1.name,
+            workspace: None,
+            bead: None,
+            assigned_agent: Some(agent.clone()),
+            branch: s1.branch.clone(),
+            last_synced: None,
+            created_at: s1.created_at,
+        },
     );
 
     let s2_with_agent = crate::domain::entities::Session::from_parts(
-        s2.id.clone(),
-        s2.name.clone(),
-        None,
-        None,
-        Some(agent.clone()),
-        s2.branch.clone(),
-        None,
-        s2.created_at,
+        crate::domain::entities::SessionData {
+            id: s2.id.clone(),
+            name: s2.name.clone(),
+            workspace: None,
+            bead: None,
+            assigned_agent: Some(agent.clone()),
+            branch: s2.branch.clone(),
+            last_synced: None,
+            created_at: s2.created_at,
+        },
     );
 
     let s2_no_agent = crate::domain::entities::Session::from_parts(
-        s2.id,
-        s2.name,
-        None,
-        None,
-        None,
-        s2.branch,
-        None,
-        s2.created_at,
+        crate::domain::entities::SessionData {
+            id: s2.id,
+            name: s2.name,
+            workspace: None,
+            bead: None,
+            assigned_agent: None,
+            branch: s2.branch,
+            last_synced: None,
+            created_at: s2.created_at,
+        },
     );
 
     repo.save(&s1_with_agent).await.expect("save failed");
@@ -318,14 +326,16 @@ async fn test_find_by_agent_with_none_agent() {
     // s1 has no agent, s2 has agent
     repo.save(&s1).await.expect("save failed");
     let s2_with_agent = crate::domain::entities::Session::from_parts(
-        s2.id,
-        s2.name,
-        None,
-        None,
-        Some(agent.clone()),
-        s2.branch.clone(),
-        None,
-        s2.created_at,
+        crate::domain::entities::SessionData {
+            id: s2.id,
+            name: s2.name,
+            workspace: None,
+            bead: None,
+            assigned_agent: Some(agent.clone()),
+            branch: s2.branch.clone(),
+            last_synced: None,
+            created_at: s2.created_at,
+        },
     );
     repo.save(&s2_with_agent).await.expect("save failed");
 
@@ -350,14 +360,16 @@ async fn test_session_preserves_assigned_agent_through_lifecycle() {
 
     let session = crate::domain::entities::Session::create(SessionName::parse("lifecycle-test").unwrap()).unwrap();
     let session_with_agent = crate::domain::entities::Session::from_parts(
-        session.id,
-        session.name,
-        None,
-        None,
-        Some(agent.clone()),
-        session.branch.clone(),
-        None,
-        session.created_at,
+        crate::domain::entities::SessionData {
+            id: session.id,
+            name: session.name,
+            workspace: None,
+            bead: None,
+            assigned_agent: Some(agent.clone()),
+            branch: session.branch.clone(),
+            last_synced: None,
+            created_at: session.created_at,
+        },
     );
 
     repo.save(&session_with_agent).await.expect("save failed");
@@ -477,14 +489,16 @@ async fn test_concurrent_find_by_agent_and_save() {
     let s2 = crate::domain::entities::Session::create(SessionName::parse("s2").unwrap()).unwrap();
     
     let s1_with_agent = crate::domain::entities::Session::from_parts(
-        s1.id,
-        s1.name,
-        None,
-        None,
-        Some(agent.clone()),
-        s1.branch.clone(),
-        None,
-        s1.created_at,
+        crate::domain::entities::SessionData {
+            id: s1.id,
+            name: s1.name,
+            workspace: None,
+            bead: None,
+            assigned_agent: Some(agent.clone()),
+            branch: s1.branch.clone(),
+            last_synced: None,
+            created_at: s1.created_at,
+        },
     );
     
     repo.save(&s1_with_agent).await.expect("save failed");

@@ -1099,7 +1099,7 @@ mod tests {
         use super::*;
         use crate::domain::entities::session::SessionId;
         use crate::domain::entities::session::{Active, Created, Syncing};
-        use crate::domain::entities::session::{BranchState, Session};
+        use crate::domain::entities::session::{BranchState, Session, SessionData};
         use crate::domain::value_objects::{BeadId, SessionName, WorkspaceId as VoWorkspaceId};
 
         /// Verify Session can reference a Workspace via WorkspaceId from value_objects
@@ -1109,18 +1109,18 @@ mod tests {
             let ws_id = VoWorkspaceId::parse("ws-int-test").expect("valid");
             let bead_id = BeadId::parse("bd-abc123").expect("valid");
 
-            let session = Session::from_parts(
-                SessionId::parse("s-1").expect("valid"),
+            let session = Session::from_parts(SessionData {
+                id: SessionId::parse("s-1").expect("valid"),
                 name,
-                Some(ws_id.clone()),
-                Some(bead_id),
-                None,
-                BranchState::OnBranch {
+                workspace: Some(ws_id.clone()),
+                bead: Some(bead_id),
+                assigned_agent: None,
+                branch: BranchState::OnBranch {
                     name: "feature".into(),
                 },
-                None,
-                chrono::Utc::now(),
-            );
+                last_synced: None,
+                created_at: chrono::Utc::now(),
+            });
 
             assert!(session.workspace().is_some());
             assert_eq!(session.workspace().unwrap().as_str(), "ws-int-test");
@@ -1133,18 +1133,18 @@ mod tests {
             let ws_id = VoWorkspaceId::parse("ws-lifecycle").expect("valid");
             let bead_id = BeadId::parse("bd-feed").expect("valid");
 
-            let session = Session::from_parts(
-                SessionId::parse("s-lc").expect("valid"),
+            let session = Session::from_parts(SessionData {
+                id: SessionId::parse("s-lc").expect("valid"),
                 name,
-                Some(ws_id),
-                Some(bead_id),
-                None,
-                BranchState::OnBranch {
+                workspace: Some(ws_id),
+                bead: Some(bead_id),
+                assigned_agent: None,
+                branch: BranchState::OnBranch {
                     name: "main".into(),
                 },
-                None,
-                chrono::Utc::now(),
-            );
+                last_synced: None,
+                created_at: chrono::Utc::now(),
+            });
 
             assert_eq!(
                 session.workspace().map(|w| w.as_str()),
@@ -1198,16 +1198,16 @@ mod tests {
             let session_name = SessionName::parse("full-lifecycle").expect("valid");
             let bead_id = BeadId::parse("bd-deadbeef").expect("valid");
 
-            let session = Session::from_parts(
-                SessionId::parse("s-full").expect("valid"),
-                session_name,
-                Some(ws_id),
-                Some(bead_id),
-                None,
-                BranchState::Detached,
-                None,
-                chrono::Utc::now(),
-            );
+            let session = Session::from_parts(SessionData {
+                id: SessionId::parse("s-full").expect("valid"),
+                name: session_name,
+                workspace: Some(ws_id),
+                bead: Some(bead_id),
+                assigned_agent: None,
+                branch: BranchState::Detached,
+                last_synced: None,
+                created_at: chrono::Utc::now(),
+            });
 
             // Full lifecycle: Created → Active → Syncing → Synced → Completed
             let active = session.activate().expect("activate");
@@ -1240,28 +1240,28 @@ mod tests {
             let ws_id = VoWorkspaceId::parse("ws-shared").expect("valid");
 
             let s1_name = SessionName::parse("session-a").expect("valid");
-            let s1 = Session::from_parts(
-                SessionId::parse("s-a").expect("valid"),
-                s1_name,
-                Some(ws_id.clone()),
-                None,
-                None,
-                BranchState::Detached,
-                None,
-                chrono::Utc::now(),
-            );
+            let s1 = Session::from_parts(SessionData {
+                id: SessionId::parse("s-a").expect("valid"),
+                name: s1_name,
+                workspace: Some(ws_id.clone()),
+                bead: None,
+                assigned_agent: None,
+                branch: BranchState::Detached,
+                last_synced: None,
+                created_at: chrono::Utc::now(),
+            });
 
             let s2_name = SessionName::parse("session-b").expect("valid");
-            let s2 = Session::from_parts(
-                SessionId::parse("s-b").expect("valid"),
-                s2_name,
-                Some(ws_id),
-                None,
-                None,
-                BranchState::Detached,
-                None,
-                chrono::Utc::now(),
-            );
+            let s2 = Session::from_parts(SessionData {
+                id: SessionId::parse("s-b").expect("valid"),
+                name: s2_name,
+                workspace: Some(ws_id),
+                bead: None,
+                assigned_agent: None,
+                branch: BranchState::Detached,
+                last_synced: None,
+                created_at: chrono::Utc::now(),
+            });
 
             assert_eq!(
                 s1.workspace().map(|w| w.as_str()),
