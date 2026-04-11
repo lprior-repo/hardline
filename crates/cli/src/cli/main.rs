@@ -139,6 +139,30 @@ pub fn run_command(cli: Cli) -> Result<()> {
                 }
                 Ok(())
             }
+            crate::cli::workspace_args::WorkspaceCommands::StackNavigate { direction } => {
+                use commands::handlers::stack_navigate::NavigateDirection;
+                let nav_direction = match direction.as_str() {
+                    "up" => NavigateDirection::Up,
+                    "down" => NavigateDirection::Down,
+                    "top" => NavigateDirection::Top,
+                    "bottom" => NavigateDirection::Bottom,
+                    "prev" => NavigateDirection::Prev,
+                    other => {
+                        return Err(scp_core::Error::validation_error(format!(
+                            "Unknown navigate direction: '{other}'. Use: up, down, top, bottom, prev"
+                        )));
+                    }
+                };
+                let options = commands::handlers::stack_navigate::StackNavigateOptions {
+                    direction: nav_direction,
+                };
+                let cwd = std::env::current_dir()?;
+                let stack = commands::handlers::stack_log::load_stack_from_git(&cwd)
+                    .map_err(|e| scp_core::Error::io_error(e.to_string()))?;
+                commands::handlers::stack_navigate::run_stack_navigate(&cwd, &stack, &options)
+                    .map_err(|e| scp_core::Error::io_error(e.to_string()))?;
+                Ok(())
+            }
             crate::cli::workspace_args::WorkspaceCommands::Diff { path } => {
                 commands::workspace::diff(path.as_deref())
             }

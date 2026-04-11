@@ -117,6 +117,12 @@ pub enum WorkspaceCommands {
         dry_run: bool,
     },
 
+    /// Navigate between stacked branches (up/down/top/bottom/prev)
+    StackNavigate {
+        /// Navigation direction: up, down, top, bottom, prev
+        direction: String,
+    },
+
     /// Show diff of changes
     Diff {
         /// File path to diff
@@ -994,6 +1000,78 @@ mod tests {
     #[test]
     fn branch_rename_requires_names() {
         let result = WorkspaceParser::try_parse_from(["scp", "branch-rename"]);
+        assert!(result.is_err());
+    }
+
+    // -- StackNavigate (required direction) --
+    #[test]
+    fn stack_navigate_up() {
+        match parse(&["stack-navigate", "up"]) {
+            WorkspaceCommands::StackNavigate { direction } => {
+                assert_eq!(direction, "up");
+            }
+            other => panic!(
+                "Expected StackNavigate, got {:?}",
+                std::mem::discriminant(&other)
+            ),
+        }
+    }
+
+    #[test]
+    fn stack_navigate_down() {
+        match parse(&["stack-navigate", "down"]) {
+            WorkspaceCommands::StackNavigate { direction } => {
+                assert_eq!(direction, "down");
+            }
+            other => panic!(
+                "Expected StackNavigate, got {:?}",
+                std::mem::discriminant(&other)
+            ),
+        }
+    }
+
+    #[test]
+    fn stack_navigate_top() {
+        match parse(&["stack-navigate", "top"]) {
+            WorkspaceCommands::StackNavigate { direction } => {
+                assert_eq!(direction, "top");
+            }
+            other => panic!(
+                "Expected StackNavigate, got {:?}",
+                std::mem::discriminant(&other)
+            ),
+        }
+    }
+
+    #[test]
+    fn stack_navigate_bottom() {
+        match parse(&["stack-navigate", "bottom"]) {
+            WorkspaceCommands::StackNavigate { direction } => {
+                assert_eq!(direction, "bottom");
+            }
+            other => panic!(
+                "Expected StackNavigate, got {:?}",
+                std::mem::discriminant(&other)
+            ),
+        }
+    }
+
+    #[test]
+    fn stack_navigate_prev() {
+        match parse(&["stack-navigate", "prev"]) {
+            WorkspaceCommands::StackNavigate { direction } => {
+                assert_eq!(direction, "prev");
+            }
+            other => panic!(
+                "Expected StackNavigate, got {:?}",
+                std::mem::discriminant(&other)
+            ),
+        }
+    }
+
+    #[test]
+    fn stack_navigate_requires_direction() {
+        let result = WorkspaceParser::try_parse_from(["scp", "stack-navigate"]);
         assert!(result.is_err());
     }
 }

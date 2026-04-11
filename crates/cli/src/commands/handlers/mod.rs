@@ -38,6 +38,7 @@ pub mod stack_detach;
 pub mod stack_diff;
 pub mod stack_log;
 pub mod stack_merge_remote;
+pub mod stack_navigate;
 pub mod stack_range_diff;
 pub mod stack_split;
 pub mod stack_sync;
