@@ -626,6 +626,195 @@ impl<M: MetadataStore> TransactionalStackOps<M> {
         Ok(())
     }
 
+    /// Transactional split: track a branch split operation.
+    ///
+    /// Uses `OpKind::Split` operation kind. Records the state before
+    /// and after splitting a branch into multiple branches. The split
+    /// point is the original branch; the resulting branches are tracked
+    /// in the receipt for crash recovery and undo.
+    ///
+    /// Ported from stax `commands/split`. The operation:
+    /// 1. Records before-state of the source branch
+    /// 2. Tracks all new branches created by the split
+    /// 3. Records after-state for all affected branches
+    pub fn split(&self, source: &str, targets: &[String]) -> Result<()> {
+        let source_oid = self.metadata_store.branch_revision(source).ok().flatten();
+
+        let head_branch = targets
+            .last()
+            .map(String::as_str)
+            .unwrap_or(source);
+
+        let mut tx = Transaction::begin(
+            OpKind::Split,
+            self.config.git_dir.clone(),
+            self.config.workdir.clone(),
+            self.config.trunk.clone(),
+            head_branch.to_string(),
+        )
+        .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        // Plan the source branch (which may be deleted or modified)
+        tx.plan_branch(source, source_oid.as_deref());
+
+        // Plan all target branches (new branches from the split)
+        for name in targets {
+            let oid = self.metadata_store.branch_revision(name).ok().flatten();
+            tx.plan_branch(name, oid.as_deref());
+        }
+
+        tx.set_plan_summary(PlanSummary {
+            branches_to_rebase: targets.len(),
+            branches_to_push: 0,
+            description: vec![format!(
+                "Splitting {} into {} branches",
+                source,
+                targets.len()
+            )],
+        });
+
+        tx.snapshot()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        // Record after-state for all tracked branches
+        if let Some(oid_after) = self.metadata_store.branch_revision(source).ok().flatten() {
+            tx.record_after(source, &oid_after);
+        }
+        for name in targets {
+            if let Some(oid_after) = self.metadata_store.branch_revision(name).ok().flatten() {
+                tx.record_after(name, &oid_after);
+            }
+        }
+
+        tx.finish_ok()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Transactional fix: track a commit fix/amend operation on a branch.
+    ///
+    /// Uses `OpKind::Fix` operation kind. Records the state before and
+    /// after amending a commit in the stack. All descendant branches that
+    /// need restacking as a result are also tracked.
+    ///
+    /// Ported from stax `commands/fix`. The operation:
+    /// 1. Records before-state of the target branch and its descendants
+    /// 2. Creates backup refs for crash recovery
+    /// 3. Records after-state for all affected branches
+    pub fn fix(&self, branch: &str) -> Result<()> {
+        let graph = StackGraph::load(&self.metadata_store)?;
+
+        let stack = graph.current_stack(branch);
+        if stack.is_empty() {
+            return Ok(());
+        }
+
+        let head_branch = stack
+            .last()
+            .map(String::as_str)
+            .unwrap_or(&self.config.trunk);
+
+        let mut tx = Transaction::begin(
+            OpKind::Fix,
+            self.config.git_dir.clone(),
+            self.config.workdir.clone(),
+            self.config.trunk.clone(),
+            head_branch.to_string(),
+        )
+        .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        let planned: Vec<(String, Option<String>)> = stack
+            .iter()
+            .filter_map(|name| {
+                if name == &self.config.trunk {
+                    return None;
+                }
+                let oid = self.metadata_store.branch_revision(name).ok().flatten();
+                Some((name.clone(), oid))
+            })
+            .collect();
+
+        if planned.is_empty() {
+            return Ok(());
+        }
+
+        for (name, oid) in &planned {
+            tx.plan_branch(name, oid.as_deref());
+        }
+
+        tx.set_plan_summary(PlanSummary {
+            branches_to_rebase: planned.len(),
+            branches_to_push: planned.len(),
+            description: vec![format!(
+                "Fixing {} and restacking {} branches",
+                branch,
+                planned.len()
+            )],
+        });
+
+        tx.snapshot()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        for (name, _) in &planned {
+            if let Some(oid_after) = self.metadata_store.branch_revision(name).ok().flatten() {
+                tx.record_after(name, &oid_after);
+            }
+        }
+
+        tx.finish_ok()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Transactional merge-when-ready: track a merge operation on a branch.
+    ///
+    /// Uses `OpKind::MergeWhenReady` operation kind. Records the state
+    /// before and after merging a branch. Both local and remote ref
+    /// changes are tracked for crash recovery.
+    ///
+    /// Ported from stax `commands/merge-when-ready`. The operation:
+    /// 1. Records before-state of the branch (local + remote)
+    /// 2. Creates backup refs for crash recovery
+    /// 3. Records after-state for all affected refs
+    pub fn merge_when_ready(&self, branch: &str, remote: &str) -> Result<()> {
+        let oid = self.metadata_store.branch_revision(branch).ok().flatten();
+
+        let mut tx = Transaction::begin(
+            OpKind::MergeWhenReady,
+            self.config.git_dir.clone(),
+            self.config.workdir.clone(),
+            self.config.trunk.clone(),
+            branch.to_string(),
+        )
+        .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        tx.plan_branch(branch, oid.as_deref());
+        tx.plan_remote_branch(remote, branch, None);
+
+        tx.set_plan_summary(PlanSummary {
+            branches_to_rebase: 0,
+            branches_to_push: 1,
+            description: vec![format!(
+                "Merge-when-ready for branch {branch} via {remote}"
+            )],
+        });
+
+        tx.snapshot()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        if let Some(oid_after) = self.metadata_store.branch_revision(branch).ok().flatten() {
+            tx.record_after(branch, &oid_after);
+            tx.record_remote_after(remote, branch, &oid_after);
+        }
+
+        tx.finish_ok()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        Ok(())
+    }
+
     /// Transactional cascade: bottom-up restack followed by submit.
     ///
     /// Uses `OpKind::Cascade` operation kind. Performs a full stack
@@ -1203,6 +1392,229 @@ mod tests {
         let receipt = ops.load_latest_receipt().expect("load").expect("some");
         // feature-a + its descendants feature-a-1, feature-a-2
         assert_eq!(receipt.local_refs.len(), 3);
+    }
+
+    // -- Split tests --
+
+    #[test]
+    fn test_split_creates_receipt() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.split(
+            "feature-a",
+            &["feature-a-part1".to_string(), "feature-a-part2".to_string()],
+        )
+        .expect("split should succeed");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert!(matches!(receipt.kind, OpKind::Split));
+        assert!(matches!(receipt.status, OpStatus::Success));
+        // Source + 2 targets = 3 refs
+        assert_eq!(receipt.local_refs.len(), 3);
+    }
+
+    #[test]
+    fn test_split_single_target() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.split("feature-a", &["feature-a-new".to_string()])
+            .expect("split single should succeed");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert!(matches!(receipt.kind, OpKind::Split));
+        // Source + 1 target = 2 refs
+        assert_eq!(receipt.local_refs.len(), 2);
+        assert!(receipt.local_refs.iter().any(|r| r.branch == "feature-a"));
+        assert!(receipt.local_refs.iter().any(|r| r.branch == "feature-a-new"));
+    }
+
+    #[test]
+    fn test_split_plan_summary() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.split(
+            "feature-a",
+            &["feature-x".to_string(), "feature-y".to_string()],
+        )
+        .expect("split");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert_eq!(receipt.plan_summary.branches_to_rebase, 2);
+        assert!(receipt.plan_summary.description[0].contains("Splitting"));
+    }
+
+    #[test]
+    fn test_split_undoable() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.split("feature-a", &["feature-a-part1".to_string()])
+            .expect("split");
+
+        assert!(ops.can_undo_latest().expect("check undo"));
+    }
+
+    // -- Fix tests --
+
+    #[test]
+    fn test_fix_creates_receipt() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.fix("feature-a").expect("fix should succeed");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert!(matches!(receipt.kind, OpKind::Fix));
+        assert!(matches!(receipt.status, OpStatus::Success));
+        // feature-a + descendants: feature-a-1, feature-a-2 = 3 refs
+        assert_eq!(receipt.local_refs.len(), 3);
+    }
+
+    #[test]
+    fn test_fix_leaf_branch() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.fix("feature-b").expect("fix leaf should succeed");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert!(matches!(receipt.kind, OpKind::Fix));
+        // feature-b has no descendants, so just 1 ref
+        assert_eq!(receipt.local_refs.len(), 1);
+        assert_eq!(receipt.local_refs[0].branch, "feature-b");
+    }
+
+    #[test]
+    fn test_fix_deep_branch() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.fix("feature-a-1").expect("fix deep should succeed");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        // feature-a-1 + feature-a-2 (descendants) = 2 refs
+        // Plus ancestors: feature-a, main. But current_stack goes root→tip.
+        // Full stack: main, feature-a, feature-a-1, feature-a-2
+        // Non-trunk: feature-a, feature-a-1, feature-a-2 = 3
+        assert_eq!(receipt.local_refs.len(), 3);
+    }
+
+    #[test]
+    fn test_fix_plan_summary() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.fix("feature-a").expect("fix");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert_eq!(receipt.plan_summary.branches_to_rebase, 3);
+        assert!(receipt.plan_summary.description[0].contains("Fixing"));
+    }
+
+    #[test]
+    fn test_fix_undoable() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.fix("feature-a").expect("fix");
+        assert!(ops.can_undo_latest().expect("check undo"));
+    }
+
+    #[test]
+    fn test_fix_empty_stack_no_receipt() {
+        let temp = TempDir::new().expect("temp dir");
+        let config = test_config(&temp);
+        let store = MockStore::new().with_trunk("main");
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.fix("main").expect("fix empty should succeed");
+
+        let receipts = ops.list_op_receipts().expect("list");
+        assert!(receipts.is_empty());
+    }
+
+    // -- MergeWhenReady tests --
+
+    #[test]
+    fn test_merge_when_ready_creates_receipt() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.merge_when_ready("feature-a", "origin")
+            .expect("merge when ready should succeed");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert!(matches!(receipt.kind, OpKind::MergeWhenReady));
+        assert!(matches!(receipt.status, OpStatus::Success));
+        assert_eq!(receipt.local_refs.len(), 1);
+        assert!(receipt.has_remote_changes());
+        assert_eq!(receipt.remote_refs.len(), 1);
+    }
+
+    #[test]
+    fn test_merge_when_ready_remote_tracking() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.merge_when_ready("feature-a-2", "upstream")
+            .expect("mwr should succeed");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert_eq!(receipt.remote_refs[0].remote, "upstream");
+        assert_eq!(receipt.remote_refs[0].branch, "feature-a-2");
+    }
+
+    #[test]
+    fn test_merge_when_ready_plan_summary() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.merge_when_ready("feature-b", "origin")
+            .expect("mwr should succeed");
+
+        let receipt = ops.load_latest_receipt().expect("load").expect("some");
+        assert_eq!(receipt.plan_summary.branches_to_push, 1);
+        assert!(receipt.plan_summary.description[0].contains("Merge-when-ready"));
+        assert!(receipt.plan_summary.description[0].contains("origin"));
+    }
+
+    #[test]
+    fn test_merge_when_ready_undoable() {
+        let temp = TempDir::new().expect("temp dir");
+        let (store, git_dir) = setup_git_repo(&temp);
+        let config = test_config_from(&temp, git_dir);
+
+        let ops = TransactionalStackOps::new(store, config);
+        ops.merge_when_ready("feature-a", "origin")
+            .expect("mwr");
+        assert!(ops.can_undo_latest().expect("check undo"));
     }
 
     // -- Cascade tests --
