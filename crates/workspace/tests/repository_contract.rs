@@ -20,6 +20,7 @@
 
 use scp_workspace::domain::entities::{Workspace, WorkspaceId, WorkspaceState};
 use scp_workspace::domain::value_objects::{WorkspaceName, WorkspacePath};
+use scp_workspace::error::WorkspaceError;
 use scp_workspace::infrastructure::workspace_repository::WorkspaceRepository;
 
 // ---------------------------------------------------------------------------
@@ -86,8 +87,17 @@ pub fn run_contract_tests(factory: impl Fn() -> Box<dyn WorkspaceRepository> + '
     list_count_decreases_after_delete(&factory);
     list_after_all_deletes_is_empty(&factory);
     get_is_idempotent(&factory);
+    get_by_name_is_idempotent(&factory);
     list_returns_independent_snapshot(&factory);
+    list_active_empty_repo_returns_empty(&factory);
+    list_active_excludes_locked(&factory);
+    list_active_excludes_corrupted(&factory);
+    list_active_excludes_deleted(&factory);
+    get_by_name_is_case_sensitive(&factory);
+    delete_nonexistent_error_is_workspace_not_found(&factory);
     trait_is_object_safe(&factory);
+    concurrent_saves_dont_corrupt(&factory);
+    concurrent_reads_during_write(&factory);
 }
 
 // ---------------------------------------------------------------------------
@@ -356,6 +366,208 @@ fn list_returns_independent_snapshot(f: &RepoFactory) {
         1,
         "mutating a returned list must not affect the repo"
     );
+}
+
+fn get_by_name_is_idempotent(f: &RepoFactory) {
+    let repo = f();
+    repo.save(make_workspace("name-idem")).unwrap();
+
+    let first = repo
+        .get_by_name("name-idem")
+        .expect("get_by_name should not error");
+    let second = repo
+        .get_by_name("name-idem")
+        .expect("get_by_name should not error");
+    assert_eq!(
+        first.unwrap().id.as_str(),
+        second.unwrap().id.as_str(),
+        "repeated get_by_name calls must return the same entity"
+    );
+}
+
+fn list_active_empty_repo_returns_empty(f: &RepoFactory) {
+    let repo = f();
+    let actives = repo
+        .list_active()
+        .expect("list_active on empty repo should not error");
+    assert!(
+        actives.is_empty(),
+        "list_active on empty repo must return empty list"
+    );
+}
+
+fn list_active_excludes_locked(f: &RepoFactory) {
+    let repo = f();
+    let base = make_active_workspace("locked-one");
+    let locked = Workspace {
+        state: WorkspaceState::Locked,
+        lock_holder: Some("agent".into()),
+        ..base
+    };
+    repo.save(locked).unwrap();
+
+    let actives = repo.list_active().expect("list_active should not error");
+    assert!(
+        actives.is_empty(),
+        "list_active must exclude Locked workspaces"
+    );
+}
+
+fn list_active_excludes_corrupted(f: &RepoFactory) {
+    let repo = f();
+    let base = make_active_workspace("corrupted-one");
+    let corrupted = Workspace {
+        state: WorkspaceState::Corrupted,
+        ..base
+    };
+    repo.save(corrupted).unwrap();
+
+    let actives = repo.list_active().expect("list_active should not error");
+    assert!(
+        actives.is_empty(),
+        "list_active must exclude Corrupted workspaces"
+    );
+}
+
+fn list_active_excludes_deleted(f: &RepoFactory) {
+    let repo = f();
+    let base = make_active_workspace("deleted-one");
+    let deleted = Workspace {
+        state: WorkspaceState::Deleted,
+        ..base
+    };
+    repo.save(deleted).unwrap();
+
+    let actives = repo.list_active().expect("list_active should not error");
+    assert!(
+        actives.is_empty(),
+        "list_active must exclude Deleted workspaces"
+    );
+}
+
+fn get_by_name_is_case_sensitive(f: &RepoFactory) {
+    let repo = f();
+    repo.save(make_workspace("case-test")).unwrap();
+
+    assert!(
+        repo.get_by_name("case-test")
+            .expect("get_by_name should not error")
+            .is_some(),
+        "exact case match must find workspace"
+    );
+    assert!(
+        repo.get_by_name("Case-Test")
+            .expect("get_by_name should not error")
+            .is_none(),
+        "different case must not find workspace"
+    );
+    assert!(
+        repo.get_by_name("CASE-TEST")
+            .expect("get_by_name should not error")
+            .is_none(),
+        "all-caps must not find workspace"
+    );
+}
+
+fn delete_nonexistent_error_is_workspace_not_found(f: &RepoFactory) {
+    let repo = f();
+    let id = WorkspaceId::parse("phantom".into()).unwrap();
+    let err = repo.delete(&id).unwrap_err();
+    match err {
+        WorkspaceError::WorkspaceNotFound(msg) => {
+            assert!(msg.contains("phantom"));
+        }
+        other => panic!("expected WorkspaceNotFound, got {other:?}"),
+    }
+}
+
+fn concurrent_saves_dont_corrupt(f: &RepoFactory) {
+    use std::sync::Arc;
+    use std::thread;
+
+    struct SharedRepo {
+        inner: Box<dyn WorkspaceRepository>,
+    }
+    unsafe impl Send for SharedRepo {}
+    unsafe impl Sync for SharedRepo {}
+    impl SharedRepo {
+        fn new(inner: Box<dyn WorkspaceRepository>) -> Self {
+            Self { inner }
+        }
+    }
+
+    let repo = Arc::new(std::sync::Mutex::new(SharedRepo::new(f())));
+    let mut handles = Vec::new();
+
+    for i in 0..10 {
+        let r = Arc::clone(&repo);
+        handles.push(thread::spawn(move || {
+            let ws = make_workspace(&format!("concurrent-{i}"));
+            r.lock().unwrap().inner.save(ws).unwrap();
+        }));
+    }
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    let list = repo
+        .lock()
+        .unwrap()
+        .inner
+        .list()
+        .expect("list should not error");
+    assert_eq!(list.len(), 10, "all concurrent saves must be persisted");
+}
+
+fn concurrent_reads_during_write(f: &RepoFactory) {
+    use std::sync::Arc;
+    use std::thread;
+
+    struct SharedRepo {
+        inner: Box<dyn WorkspaceRepository>,
+    }
+    unsafe impl Send for SharedRepo {}
+    unsafe impl Sync for SharedRepo {}
+    impl SharedRepo {
+        fn new(inner: Box<dyn WorkspaceRepository>) -> Self {
+            Self { inner }
+        }
+    }
+
+    let repo = Arc::new(std::sync::Mutex::new(SharedRepo::new(f())));
+    let saved = repo
+        .lock()
+        .unwrap()
+        .inner
+        .save(make_workspace("concurrent-read"))
+        .unwrap();
+    let id = saved.id;
+
+    let r1 = Arc::clone(&repo);
+    let r2 = Arc::clone(&repo);
+
+    let reader = thread::spawn(move || {
+        for _ in 0..100 {
+            let found = r1
+                .lock()
+                .unwrap()
+                .inner
+                .get(&id)
+                .expect("get should not error");
+            assert!(found.is_some());
+        }
+    });
+
+    let writer = thread::spawn(move || {
+        for i in 0..100 {
+            let ws = make_workspace(&format!("writer-{i}"));
+            r2.lock().unwrap().inner.save(ws).unwrap();
+        }
+    });
+
+    reader.join().unwrap();
+    writer.join().unwrap();
 }
 
 /// Verify the trait is object-safe (can be used as `dyn WorkspaceRepository`).
