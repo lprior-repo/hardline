@@ -43,7 +43,8 @@ fn parse_priority_ord(priority: &str) -> u8 {
     match priority.to_lowercase().as_str() {
         "critical" => 0,
         "high" => 1,
-        _ => 2,
+        "normal" => 2,
+        _ => 3,
     }
 }
 
