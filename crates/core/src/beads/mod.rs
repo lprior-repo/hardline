@@ -43,6 +43,8 @@ mod invariant_tests;
 #[cfg(test)]
 mod query_tests;
 #[cfg(test)]
+mod invalid_transition_tests;
+#[cfg(test)]
 mod state_transition_tests;
 
 // Re-export public API
