@@ -1,10 +1,11 @@
-//! Action layer for stack merge-remote — I/O operations via GitHubClient.
+//! Action layer for stack merge-remote — I/O operations via ForgeClient.
 //!
-//! Uses the forge client for all remote operations. No local git checkout needed.
+//! Uses the unified forge client for all remote operations. Supports GitHub,
+//! Gitea, and GitLab. No local git checkout needed.
 
-use scp_stack::infrastructure::forge::github::GitHubClient;
-use scp_stack::infrastructure::forge::{ForgeType, MergeMethod, RemoteInfo};
 use scp_stack::domain::state::PrState as ForgePrState;
+use scp_stack::infrastructure::forge::ForgeClient;
+use scp_stack::infrastructure::forge::{MergeMethod, RemoteInfo};
 use scp_stack::{BranchName, Stack};
 
 use super::calc::{
@@ -17,8 +18,9 @@ use super::data::{
 
 /// Run the full stack merge-remote operation.
 ///
-/// Merges PRs via the GitHub API without requiring a local checkout.
-/// Dependent PR branches are updated via GitHub's "Update branch" endpoint.
+/// Merges PRs via the forge API without requiring a local checkout.
+/// Dependent PR branches are updated via the forge's update-branch
+/// mechanism (GitHub only; Gitea/GitLab recalculate on retarget).
 ///
 /// # Errors
 ///
@@ -26,7 +28,7 @@ use super::data::{
 pub fn run_merge_remote(
     stack: &Stack,
     current_branch: &BranchName,
-    client: &GitHubClient,
+    client: &ForgeClient,
     remote_info: &RemoteInfo,
     options: &MergeRemoteOptions,
 ) -> Result<MergeRemoteOutput, MergeRemoteError> {
@@ -40,14 +42,9 @@ pub fn run_merge_remote(
         return Err(MergeRemoteError::NotTracked(current_branch.clone()));
     }
 
-    // 1. Validate forge type
-    if remote_info.forge != ForgeType::GitHub {
-        return Err(MergeRemoteError::ForgeNotSupported {
-            found: remote_info.forge.to_string(),
-        });
-    }
+    let _ = remote_info;
 
-    // 2. Calculate merge scope
+    // 1. Calculate merge scope
     let scope = calculate_merge_scope(stack, current_branch, options.all);
 
     if scope.to_merge.is_empty() {
@@ -63,7 +60,7 @@ pub fn run_merge_remote(
         let rt = tokio::runtime::Runtime::new()
             .map_err(|e| MergeRemoteError::ForgeClientError(e.to_string()))?;
         for branch in &missing {
-            match rt.block_on(client.find_pr(branch.as_str())) {
+            match rt.block_on(client.find_pr_by_branch(branch.as_str())) {
                 Ok(Some(pr_info)) if pr_info.state == ForgePrState::Open => {
                     ready.push(PrBranchInfo {
                         branch: branch.clone(),
@@ -146,7 +143,7 @@ pub fn run_merge_remote(
         }
 
         // Merge the PR
-        rt.block_on(client.merge_pr(branch_info.pr_number, options.method, None, None))
+        rt.block_on(client.merge_pr(branch_info.pr_number, options.method))
             .map_err(|e| MergeRemoteError::MergeFailed {
                 pr_number: branch_info.pr_number,
                 reason: e.to_string(),
@@ -157,7 +154,7 @@ pub fn run_merge_remote(
             pr_number: branch_info.pr_number,
         });
 
-        // Update next branch via GitHub's "Update branch" endpoint
+        // Update next branch via forge's update-branch mechanism
         if let Some(next) = next_branch {
             rt.block_on(client.update_pr_branch(next.pr_number))
                 .map_err(|e| MergeRemoteError::UpdateBranchFailed {
@@ -177,11 +174,12 @@ pub fn run_merge_remote(
 
             retarget_pr(&rt, client, pr_num, scope.trunk.as_str())?;
 
-            rt.block_on(client.update_pr_branch(pr_num))
-                .map_err(|e| MergeRemoteError::UpdateBranchFailed {
+            rt.block_on(client.update_pr_branch(pr_num)).map_err(|e| {
+                MergeRemoteError::UpdateBranchFailed {
                     pr_number: pr_num,
                     reason: e.to_string(),
-                })?;
+                }
+            })?;
 
             output.retargeted_remaining.push(remaining.branch.clone());
         }
@@ -200,12 +198,16 @@ pub fn run_merge_remote(
 /// Retarget a PR's base branch to a new target.
 fn retarget_pr(
     rt: &tokio::runtime::Runtime,
-    client: &GitHubClient,
+    client: &ForgeClient,
     pr_number: u64,
     target: &str,
 ) -> Result<(), MergeRemoteError> {
-    let _result = rt.block_on(client.update_pr(pr_number, None, None, Some(target)));
-    Ok(())
+    rt.block_on(client.retarget_pr(pr_number, target))
+        .map_err(|e| MergeRemoteError::RetargetFailed {
+            pr_number,
+            target: target.to_string(),
+            reason: e.to_string(),
+        })
 }
 
 /// Wait for a PR to become ready (CI passing, approved).
@@ -216,19 +218,19 @@ fn retarget_pr(
 /// - The timeout elapses
 fn wait_for_pr_ready(
     rt: &tokio::runtime::Runtime,
-    client: &GitHubClient,
+    client: &ForgeClient,
     pr_number: u64,
     options: &MergeRemoteOptions,
 ) -> Result<WaitOutcome, MergeRemoteError> {
     let start = std::time::Instant::now();
 
     loop {
-        let pr_info = rt
-            .block_on(client.get_pr(pr_number))
-            .map_err(|e| MergeRemoteError::WaitFailed {
-                pr_number,
-                reason: e.to_string(),
-            })?;
+        let pr_info =
+            rt.block_on(client.get_pr(pr_number))
+                .map_err(|e| MergeRemoteError::WaitFailed {
+                    pr_number,
+                    reason: e.to_string(),
+                })?;
 
         // Already merged
         if matches!(pr_info.state, ForgePrState::Merged) {

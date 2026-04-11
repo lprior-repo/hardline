@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use scp_stack::{BranchName, PrInfo};
 use scp_stack::infrastructure::forge::MergeMethod;
+use scp_stack::{BranchName, PrInfo};
 
 // ============================================================================
 // Input Types
@@ -161,7 +161,7 @@ pub enum MergeRemoteError {
     NoPr { branch: BranchName },
 
     // Forge restrictions
-    #[error("Remote merge is only supported for GitHub remotes (found {found})")]
+    #[error("Remote merge not supported for forge '{found}'")]
     ForgeNotSupported { found: String },
 
     // API failures
@@ -280,7 +280,6 @@ mod tests {
             found: "GitLab".to_string(),
         };
         assert!(err.to_string().contains("GitLab"));
-        assert!(err.to_string().contains("GitHub"));
     }
 
     #[test]

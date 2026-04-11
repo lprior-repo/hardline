@@ -299,6 +299,107 @@ pub fn encode_query_value(value: &str) -> String {
     encoded
 }
 
+use crate::domain::stack::PrInfo;
+
+/// Unified forge client dispatching to the appropriate backend.
+///
+/// Wraps GitHub, Gitea, and GitLab clients behind a common interface
+/// for operations needed by merge-remote and other stack commands.
+#[derive(Clone)]
+pub enum ForgeClient {
+    GitHub(github::GitHubClient),
+    Gitea(gitea::GiteaClient),
+    GitLab(gitlab::GitLabClient),
+}
+
+impl ForgeClient {
+    /// Construct a forge client from remote info, reading the token from environment.
+    pub fn new(remote: &RemoteInfo) -> Result<Self> {
+        match remote.forge {
+            ForgeType::GitHub => github::GitHubClient::new(remote).map(Self::GitHub),
+            ForgeType::Gitea => gitea::GiteaClient::new(remote).map(Self::Gitea),
+            ForgeType::GitLab => gitlab::GitLabClient::new(remote).map(Self::GitLab),
+        }
+    }
+
+    /// Construct a forge client with an explicit token (for testing).
+    pub fn with_token(remote: &RemoteInfo, token: &str) -> Result<Self> {
+        match remote.forge {
+            ForgeType::GitHub => github::GitHubClient::with_token(remote, token).map(Self::GitHub),
+            ForgeType::Gitea => gitea::GiteaClient::with_token(remote, token).map(Self::Gitea),
+            ForgeType::GitLab => gitlab::GitLabClient::with_token(remote, token).map(Self::GitLab),
+        }
+    }
+
+    /// Return the forge type for this client.
+    pub fn forge_type(&self) -> ForgeType {
+        match self {
+            Self::GitHub(_) => ForgeType::GitHub,
+            Self::Gitea(_) => ForgeType::Gitea,
+            Self::GitLab(_) => ForgeType::GitLab,
+        }
+    }
+
+    /// Find an open PR/MR by source branch name.
+    pub async fn find_pr_by_branch(&self, branch: &str) -> Result<Option<PrInfo>> {
+        match self {
+            Self::GitHub(c) => c.find_pr(branch).await,
+            Self::Gitea(c) => c.find_open_pr_by_head(branch).await,
+            Self::GitLab(c) => c.find_open_mr_by_head(branch).await,
+        }
+    }
+
+    /// Check if a PR/MR has been merged.
+    pub async fn is_pr_merged(&self, pr_number: u64) -> Result<bool> {
+        match self {
+            Self::GitHub(c) => c.is_pr_merged(pr_number).await,
+            Self::Gitea(c) => c.is_pr_merged(pr_number).await,
+            Self::GitLab(c) => c.is_mr_merged(pr_number).await,
+        }
+    }
+
+    /// Get PR/MR details by number.
+    pub async fn get_pr(&self, pr_number: u64) -> Result<PrInfo> {
+        match self {
+            Self::GitHub(c) => c.get_pr(pr_number).await,
+            Self::Gitea(c) => c.get_pr(pr_number).await,
+            Self::GitLab(c) => c.get_mr(pr_number).await,
+        }
+    }
+
+    /// Merge a PR/MR with the given strategy.
+    pub async fn merge_pr(&self, pr_number: u64, method: MergeMethod) -> Result<()> {
+        match self {
+            Self::GitHub(c) => c.merge_pr(pr_number, method, None, None).await,
+            Self::Gitea(c) => c.merge_pr(pr_number, method, None, None).await,
+            Self::GitLab(c) => c.merge_mr(pr_number, method, None, None).await,
+        }
+    }
+
+    /// Retarget a PR/MR's base branch to a new target.
+    pub async fn retarget_pr(&self, pr_number: u64, target: &str) -> Result<()> {
+        match self {
+            Self::GitHub(c) => {
+                let _ = c.update_pr(pr_number, None, None, Some(target)).await?;
+                Ok(())
+            }
+            Self::Gitea(c) => c.update_pr_base(pr_number, target).await,
+            Self::GitLab(c) => c.update_mr_target(pr_number, target).await,
+        }
+    }
+
+    /// Update a PR's branch with the latest from its base (GitHub-specific).
+    ///
+    /// For Gitea and GitLab, this is a no-op since those forges recalculate
+    /// mergeability when the base branch changes.
+    pub async fn update_pr_branch(&self, pr_number: u64) -> Result<()> {
+        match self {
+            Self::GitHub(c) => c.update_pr_branch(pr_number).await,
+            Self::Gitea(_) | Self::GitLab(_) => Ok(()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -444,6 +545,76 @@ mod tests {
         assert_eq!(info.forge, ForgeType::Gitea);
         assert_eq!(info.owner, "org");
         assert_eq!(info.repo, "repo");
+    }
+
+    fn github_remote() -> RemoteInfo {
+        RemoteInfo {
+            forge: ForgeType::GitHub,
+            owner: "org".to_string(),
+            repo: "repo".to_string(),
+            api_base_url: "https://api.github.com".to_string(),
+        }
+    }
+
+    fn gitea_remote() -> RemoteInfo {
+        RemoteInfo {
+            forge: ForgeType::Gitea,
+            owner: "org".to_string(),
+            repo: "repo".to_string(),
+            api_base_url: "https://gitea.example.com/api/v1".to_string(),
+        }
+    }
+
+    fn gitlab_remote() -> RemoteInfo {
+        RemoteInfo {
+            forge: ForgeType::GitLab,
+            owner: "group".to_string(),
+            repo: "repo".to_string(),
+            api_base_url: "https://gitlab.example.com/api/v4".to_string(),
+        }
+    }
+
+    #[test]
+    fn test_forge_client_with_token_github() {
+        let client = ForgeClient::with_token(&github_remote(), "test-token");
+        assert!(client.is_ok());
+        assert_eq!(client.expect("client").forge_type(), ForgeType::GitHub);
+    }
+
+    #[test]
+    fn test_forge_client_with_token_gitea() {
+        let client = ForgeClient::with_token(&gitea_remote(), "test-token");
+        assert!(client.is_ok());
+        assert_eq!(client.expect("client").forge_type(), ForgeType::Gitea);
+    }
+
+    #[test]
+    fn test_forge_client_with_token_gitlab() {
+        let client = ForgeClient::with_token(&gitlab_remote(), "test-token");
+        assert!(client.is_ok());
+        assert_eq!(client.expect("client").forge_type(), ForgeType::GitLab);
+    }
+
+    #[test]
+    fn test_forge_client_new_requires_env_token() {
+        let client = ForgeClient::new(&github_remote());
+        assert!(client.is_err());
+    }
+
+    #[test]
+    fn test_forge_client_update_pr_branch_noop_for_gitea() {
+        let rt = tokio::runtime::Runtime::new().expect("runtime");
+        let client = ForgeClient::with_token(&gitea_remote(), "token").expect("client");
+        let result = rt.block_on(client.update_pr_branch(1));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_forge_client_update_pr_branch_noop_for_gitlab() {
+        let rt = tokio::runtime::Runtime::new().expect("runtime");
+        let client = ForgeClient::with_token(&gitlab_remote(), "token").expect("client");
+        let result = rt.block_on(client.update_pr_branch(1));
+        assert!(result.is_ok());
     }
 }
 
