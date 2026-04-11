@@ -20,6 +20,7 @@
 pub mod events;
 pub mod pipeline;
 pub mod records;
+pub mod saga;
 pub mod states;
 
 // Tests
@@ -38,6 +39,7 @@ pub use pipeline::{
 pub use records::{
     CompensationAction, JournalEntry, OperationRecord, RecoveryReport, RecoveryTask, StepRecord,
 };
+pub use saga::{SagaDefinition, SagaExecutor, SagaJournal, SagaResult, SagaStep, StepExecutor};
 pub use states::{
     CompensationState, JournalState, OperationState, OperationStatus, PipelineState, StepStatus,
 };
