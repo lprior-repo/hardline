@@ -1341,7 +1341,7 @@ proptest! {
         let mut dag = BranchDag::new();
         let id = BranchId::new(&name);
         let parent = BranchId::new(&bad_parent);
-        if bad_parent != "trunk" && name != "trunk" {
+        if bad_parent != "trunk" && name != "trunk" && name != bad_parent {
             let result = dag.add_branch(id, vec![parent]);
             prop_assert!(matches!(result, Err(DagError::InvalidParent(_))));
         }
