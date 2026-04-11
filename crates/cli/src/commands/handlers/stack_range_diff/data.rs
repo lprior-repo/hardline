@@ -15,7 +15,7 @@ use scp_stack::BranchName;
 // ============================================================================
 
 /// Options for the stack range-diff command (parsed from CLI or API).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RangeDiffOptions {
     /// Base commit (or branch) for range A.
     pub base_a: String,
@@ -31,20 +31,6 @@ pub struct RangeDiffOptions {
     pub creation_factor: Option<u8>,
     /// Compare against the other side's diff, not the common ancestor.
     pub dual: bool,
-}
-
-impl Default for RangeDiffOptions {
-    fn default() -> Self {
-        Self {
-            base_a: String::new(),
-            tip_a: String::new(),
-            base_b: String::new(),
-            tip_b: String::new(),
-            format: RangeDiffFormat::default(),
-            creation_factor: None,
-            dual: false,
-        }
-    }
 }
 
 /// Output format for range-diff.
@@ -125,10 +111,7 @@ pub struct RangeSpec {
 pub enum RangeDiffError {
     /// One or more refs could not be resolved.
     #[error("Invalid ref: {ref_name} — {reason}")]
-    InvalidRef {
-        ref_name: String,
-        reason: String,
-    },
+    InvalidRef { ref_name: String, reason: String },
     /// git range-diff command failed.
     #[error("git range-diff failed: {stderr}")]
     CommandFailed { stderr: String },

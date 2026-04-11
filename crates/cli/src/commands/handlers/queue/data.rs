@@ -26,13 +26,13 @@ impl QueueOutputFormat {
 
     /// Check if this is JSON format
     #[must_use]
-    pub fn is_json(&self) -> bool {
+    pub fn is_json(self) -> bool {
         matches!(self, QueueOutputFormat::Json)
     }
 
     /// Check if this is table format
     #[must_use]
-    pub fn is_table(&self) -> bool {
+    pub fn is_table(self) -> bool {
         matches!(self, QueueOutputFormat::Table)
     }
 }

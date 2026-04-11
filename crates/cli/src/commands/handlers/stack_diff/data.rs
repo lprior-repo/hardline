@@ -11,7 +11,7 @@ use scp_stack::BranchName;
 // ============================================================================
 
 /// Options for the stack diff command (parsed from CLI or API).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct StackDiffOptions {
     /// Only diff branches within this range (start..end branch names).
     /// None means diff the entire stack.
@@ -20,16 +20,6 @@ pub struct StackDiffOptions {
     pub stat_only: bool,
     /// Show color in diff output.
     pub color: bool,
-}
-
-impl Default for StackDiffOptions {
-    fn default() -> Self {
-        Self {
-            range: None,
-            stat_only: false,
-            color: false,
-        }
-    }
 }
 
 /// A range of branches within the stack to diff.

@@ -12,9 +12,7 @@ use super::calc::{
     collect_needs_restack, compute_depths, count_total_commits, filter_to_lineage, format_linear,
     format_tree,
 };
-use super::data::{
-    LogError, StackLogBranchEntry, StackLogCommit, StackLogOptions, StackLogOutput,
-};
+use super::data::{LogError, StackLogBranchEntry, StackLogCommit, StackLogOptions, StackLogOutput};
 
 /// Run the stack log command.
 ///
@@ -151,11 +149,7 @@ fn get_branch_commits(
 }
 
 /// Get ahead/behind counts between two refs.
-fn get_ahead_behind(
-    workdir: &Path,
-    base: &str,
-    head: &str,
-) -> Result<(usize, usize), LogError> {
+fn get_ahead_behind(workdir: &Path, base: &str, head: &str) -> Result<(usize, usize), LogError> {
     let output = Command::new("git")
         .args([
             "rev-list",
@@ -172,7 +166,7 @@ fn get_ahead_behind(
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let parts: Vec<&str> = stdout.trim().split_whitespace().collect();
+    let parts: Vec<&str> = stdout.split_whitespace().collect();
     if parts.len() == 2 {
         let behind: usize = parts[0].parse().unwrap_or(0);
         let ahead: usize = parts[1].parse().unwrap_or(0);
@@ -282,7 +276,12 @@ fn read_branch_parent(workdir: &Path, branch_name: &str) -> Option<String> {
     if output.status.success() {
         let parent = String::from_utf8_lossy(&output.stdout).trim().to_string();
         // Strip refs/heads/ prefix if present
-        Some(parent.strip_prefix("refs/heads/").unwrap_or(&parent).to_string())
+        Some(
+            parent
+                .strip_prefix("refs/heads/")
+                .unwrap_or(&parent)
+                .to_string(),
+        )
     } else {
         // Try reading as a blob ref
         let blob_ref = format!("refs/stack/{branch_name}");

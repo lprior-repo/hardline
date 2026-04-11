@@ -232,7 +232,7 @@ fn display_branch_compact(status: &BranchCiStatus, is_current: bool) {
 
     if !passed.is_empty() {
         let mut sorted_passed = passed.clone();
-        sorted_passed.sort_by(|a, b| b.elapsed_secs.cmp(&a.elapsed_secs));
+        sorted_passed.sort_by_key(|b| std::cmp::Reverse(b.elapsed_secs));
 
         let show_n = 3.min(sorted_passed.len());
         let snippets: Vec<String> = sorted_passed[..show_n]

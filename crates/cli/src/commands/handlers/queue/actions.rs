@@ -63,13 +63,13 @@ pub fn run_list(opts: &QueueOptions) -> Result<()> {
                 })
                 .collect();
             let table = build_queue_table_human(&display_items);
-            println!("{}", table);
+            println!("{table}");
         }
         QueueOutputFormat::Json => {
             let json = serde_json::to_string_pretty(&sorted).map_err(|e| {
-                scp_core::Error::io_error(format!("JSON serialization failed: {}", e))
+                scp_core::Error::io_error(format!("JSON serialization failed: {e}"))
             })?;
-            println!("{}", json);
+            println!("{json}");
         }
     }
 
@@ -88,7 +88,7 @@ pub fn run_enqueue(opts: &QueueOptions) -> Result<()> {
         }
 
         queue.enqueue(item)?;
-        println!("✓ Added '{}' to queue", branch);
+        println!("✓ Added '{branch}' to queue");
     } else {
         return Err(scp_core::Error::internal(
             "invalid subcommand for enqueue".to_string(),
@@ -122,7 +122,7 @@ pub fn run_status(_opts: &QueueOptions) -> Result<()> {
     let status = build_queue_status(total, pending_items.len(), next_item);
 
     let output = format_queue_status(&status);
-    println!("{}", output);
+    println!("{output}");
 
     Ok(())
 }
@@ -132,7 +132,7 @@ pub fn run_clear(_opts: &QueueOptions) -> Result<()> {
     let queue = get_queue();
 
     let removed = queue.clear_completed()?;
-    println!("✓ Cleared {} completed/failed items", removed);
+    println!("✓ Cleared {removed} completed/failed items");
 
     Ok(())
 }
@@ -165,7 +165,7 @@ pub fn run_detail(opts: &QueueOptions) -> Result<()> {
         );
 
         let output = format_item_detail(&detail);
-        println!("{}", output);
+        println!("{output}");
     } else {
         return Err(scp_core::Error::internal(
             "invalid subcommand for detail".to_string(),
@@ -186,7 +186,7 @@ fn priority_to_string(priority: Priority) -> String {
     }
 }
 
-/// Convert QueueStatus to string
+/// Convert `QueueStatus` to string
 #[must_use]
 fn status_to_string(status: scp_core::queue::QueueStatus) -> String {
     match status {
@@ -198,12 +198,12 @@ fn status_to_string(status: scp_core::queue::QueueStatus) -> String {
     }
 }
 
-/// Convert QueueSource to string
+/// Convert `QueueSource` to string
 #[must_use]
 fn source_to_string(source: &scp_core::queue::QueueSource) -> String {
     match source {
         scp_core::queue::QueueSource::Direct => "Direct".to_string(),
-        scp_core::queue::QueueSource::Workspace(name) => format!("Workspace({})", name),
+        scp_core::queue::QueueSource::Workspace(name) => format!("Workspace({name})"),
     }
 }
 

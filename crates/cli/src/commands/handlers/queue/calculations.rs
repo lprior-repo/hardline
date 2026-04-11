@@ -43,9 +43,7 @@ fn parse_priority_ord(priority: &str) -> u8 {
     match priority.to_lowercase().as_str() {
         "critical" => 0,
         "high" => 1,
-        "normal" => 2,
-        "low" => 3,
-        _ => 2, // Default to normal
+        _ => 2,
     }
 }
 
@@ -128,7 +126,7 @@ pub fn format_queue_status(status: &QueueStatusDisplay) -> String {
     lines.push(format!("  Pending: {}", status.pending_items));
 
     if let Some(ref next) = status.next_item {
-        lines.push(format!("  Next: {}", next));
+        lines.push(format!("  Next: {next}"));
     }
 
     lines.join("\n")
@@ -138,7 +136,7 @@ pub fn format_queue_status(status: &QueueStatusDisplay) -> String {
 #[must_use]
 pub fn format_item_detail(detail: &QueueItemDetail) -> String {
     let mut lines = Vec::new();
-    lines.push(format!("Item Detail:"));
+    lines.push("Item Detail:".to_string());
     lines.push(format!("  ID: {}", detail.id));
     lines.push(format!("  Branch: {}", detail.branch));
     lines.push(format!("  Priority: {}", detail.priority));
@@ -147,7 +145,7 @@ pub fn format_item_detail(detail: &QueueItemDetail) -> String {
     lines.push(format!("  Attempt Count: {}", detail.attempt_count));
 
     if let Some(ref error) = detail.last_error {
-        lines.push(format!("  Last Error: {}", error));
+        lines.push(format!("  Last Error: {error}"));
     } else {
         lines.push("  Last Error: None".to_string());
     }
