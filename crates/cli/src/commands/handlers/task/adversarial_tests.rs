@@ -35,7 +35,7 @@ use crate::commands::task_types::{Assignee, Priority, Task, TaskId, TaskState, T
 // ============================================================================
 
 fn test_store() -> Arc<TaskStore> {
-    Arc::new(TaskStore::load())
+    Arc::new(TaskStore::in_memory())
 }
 
 fn make_task(id: &str, title: &str) -> Task {

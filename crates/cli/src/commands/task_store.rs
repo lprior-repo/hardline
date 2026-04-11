@@ -64,7 +64,19 @@ impl TaskStore {
         }
     }
 
+    #[cfg(test)]
+    pub fn in_memory() -> Self {
+        Self {
+            tasks: RwLock::new(HashMap::new()),
+            tasks_file: PathBuf::new(),
+        }
+    }
+
     pub fn save(&self) -> CoreResult<()> {
+        if self.tasks_file.as_os_str().is_empty() {
+            return Ok(());
+        }
+
         let tasks: Vec<Task> = self
             .tasks
             .read()
