@@ -30,6 +30,7 @@ fn test_cli_end_to_end() {
 }
 
 // Re-export all test modules
+pub mod clean_integration;
 pub mod cli;
 pub mod lock_integration;
 pub mod red_queen_adversarial;

@@ -362,4 +362,273 @@ HEAD def456
         let stale = detect_stale_worktrees(&entries);
         assert!(stale.is_empty());
     }
+
+    #[test]
+    fn detect_stale_finds_non_main_with_nonexistent_path() {
+        let entries = vec![WorktreeEntry {
+            name: "feature-x".to_string(),
+            path: "/tmp/absolutely-does-not-exist-xyz".to_string(),
+            is_main: false,
+        }];
+        let stale = detect_stale_worktrees(&entries);
+        assert_eq!(stale, vec!["feature-x".to_string()]);
+    }
+
+    #[test]
+    fn detect_stale_skips_non_main_with_existing_path() {
+        let entries = vec![WorktreeEntry {
+            name: "active-ws".to_string(),
+            path: "/tmp".to_string(), // /tmp always exists
+            is_main: false,
+        }];
+        let stale = detect_stale_worktrees(&entries);
+        assert!(stale.is_empty());
+    }
+
+    #[test]
+    fn detect_stale_mixed_entries() {
+        let entries = vec![
+            WorktreeEntry {
+                name: "main".to_string(),
+                path: "/nonexistent/main".to_string(),
+                is_main: true,
+            },
+            WorktreeEntry {
+                name: "active".to_string(),
+                path: "/tmp".to_string(),
+                is_main: false,
+            },
+            WorktreeEntry {
+                name: "stale-1".to_string(),
+                path: "/nonexistent/stale1".to_string(),
+                is_main: false,
+            },
+        ];
+        let stale = detect_stale_worktrees(&entries);
+        assert_eq!(stale, vec!["stale-1".to_string()]);
+    }
+
+    #[test]
+    fn detect_stale_empty_entries() {
+        let stale = detect_stale_worktrees(&[]);
+        assert!(stale.is_empty());
+    }
+
+    #[test]
+    fn detect_stale_multiple_stale() {
+        let entries = vec![
+            WorktreeEntry {
+                name: "gone-1".to_string(),
+                path: "/nonexistent/gone1".to_string(),
+                is_main: false,
+            },
+            WorktreeEntry {
+                name: "gone-2".to_string(),
+                path: "/nonexistent/gone2".to_string(),
+                is_main: false,
+            },
+        ];
+        let stale = detect_stale_worktrees(&entries);
+        assert_eq!(stale.len(), 2);
+        assert!(stale.contains(&"gone-1".to_string()));
+        assert!(stale.contains(&"gone-2".to_string()));
+    }
+
+    // ---- PartialEntry ----
+
+    #[test]
+    fn partial_entry_new_has_no_fields() {
+        let p = PartialEntry::new();
+        assert!(p.path.is_none());
+        assert!(p.branch.is_none());
+        assert!(!p.is_main);
+    }
+
+    #[test]
+    fn partial_entry_into_entry_without_path_returns_none() {
+        let p = PartialEntry::new();
+        assert!(p.into_entry().is_none());
+    }
+
+    #[test]
+    fn partial_entry_into_entry_with_path_uses_branch_name() {
+        let p = PartialEntry {
+            path: Some("/some/path".to_string()),
+            branch: Some("feature-branch".to_string()),
+            is_main: false,
+        };
+        let entry = p.into_entry().expect("should produce entry");
+        assert_eq!(entry.name, "feature-branch");
+        assert_eq!(entry.path, "/some/path");
+        assert!(!entry.is_main);
+    }
+
+    #[test]
+    fn partial_entry_into_entry_without_branch_uses_path_as_name() {
+        let p = PartialEntry {
+            path: Some("/some/path".to_string()),
+            branch: None,
+            is_main: false,
+        };
+        let entry = p.into_entry().expect("should produce entry");
+        assert_eq!(entry.name, "/some/path");
+    }
+
+    // ---- apply_porcelain_line ----
+
+    #[test]
+    fn apply_porcelain_line_worktree_starts_new_entry() {
+        let entries = vec![];
+        let partial = PartialEntry::new();
+        let (entries, partial) =
+            apply_porcelain_line(entries, partial, "worktree /home/user/repo");
+        assert!(entries.is_empty());
+        assert_eq!(partial.path, Some("/home/user/repo".to_string()));
+    }
+
+    #[test]
+    fn apply_porcelain_line_branch_updates_partial() {
+        let entries = vec![];
+        let partial = PartialEntry {
+            path: Some("/repo".to_string()),
+            branch: None,
+            is_main: false,
+        };
+        let (entries, new_partial) =
+            apply_porcelain_line(entries, partial, "branch refs/heads/feature");
+        assert!(entries.is_empty());
+        assert_eq!(new_partial.branch, Some("feature".to_string()));
+        assert!(!new_partial.is_main);
+    }
+
+    #[test]
+    fn apply_porcelain_line_branch_main_sets_is_main() {
+        let entries = vec![];
+        let partial = PartialEntry {
+            path: Some("/repo".to_string()),
+            branch: None,
+            is_main: false,
+        };
+        let (_, partial) =
+            apply_porcelain_line(entries, partial, "branch refs/heads/main");
+        assert!(partial.is_main);
+    }
+
+    #[test]
+    fn apply_porcelain_line_unknown_line_passes_through() {
+        let entries = vec![];
+        let partial = PartialEntry {
+            path: Some("/repo".to_string()),
+            branch: None,
+            is_main: false,
+        };
+        let (e, p) = apply_porcelain_line(entries, partial, "HEAD abc123def");
+        assert!(e.is_empty());
+        assert_eq!(p.path, Some("/repo".to_string()));
+    }
+
+    #[test]
+    fn apply_porcelain_line_worktree_flushes_previous() {
+        let partial = PartialEntry {
+            path: Some("/first".to_string()),
+            branch: Some("first-branch".to_string()),
+            is_main: false,
+        };
+        let (entries, new_partial) =
+            apply_porcelain_line(vec![], partial, "worktree /second");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "first-branch");
+        assert_eq!(new_partial.path, Some("/second".to_string()));
+    }
+
+    // ---- parse_worktree_porcelain edge cases ----
+
+    #[test]
+    fn parse_porcelain_with_blank_lines_between_entries() {
+        let input = "\
+worktree /repo
+HEAD abc
+branch refs/heads/main
+
+worktree /repo-ws
+HEAD def
+branch refs/heads/ws
+
+";
+        let entries = parse_worktree_porcelain(input);
+        assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn parse_porcelain_single_worktree_no_trailing_newline() {
+        let input = "worktree /repo\nHEAD abc\nbranch refs/heads/main";
+        let entries = parse_worktree_porcelain(input);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "main");
+    }
+
+    #[test]
+    fn parse_porcelain_three_worktrees() {
+        let input = "\
+worktree /main-repo
+HEAD aaaa
+branch refs/heads/main
+
+worktree /repo-ws1
+HEAD bbbb
+branch refs/heads/ws1
+
+worktree /repo-ws2
+HEAD cccc
+branch refs/heads/ws2
+";
+        let entries = parse_worktree_porcelain(input);
+        assert_eq!(entries.len(), 3);
+        assert!(entries[0].is_main);
+        assert!(!entries[1].is_main);
+        assert!(!entries[2].is_main);
+    }
+
+    // ---- count_non_empty_lines edge cases ----
+
+    #[test]
+    fn count_non_empty_lines_only_whitespace() {
+        assert_eq!(count_non_empty_lines("   \n\t\n  \n"), 0);
+    }
+
+    #[test]
+    fn count_non_empty_lines_trailing_newline() {
+        assert_eq!(count_non_empty_lines("line\n"), 1);
+    }
+
+    #[test]
+    fn count_non_empty_lines_no_trailing_newline() {
+        assert_eq!(count_non_empty_lines("line"), 1);
+    }
+
+    // ---- flush_partial / finalize_entries ----
+
+    #[test]
+    fn flush_partial_empty_returns_empty() {
+        let entries = flush_partial(vec![], PartialEntry::new());
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn finalize_entries_empty_returns_empty() {
+        let entries = finalize_entries(vec![], PartialEntry::new());
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn finalize_entries_flushes_last_partial() {
+        let partial = PartialEntry {
+            path: Some("/last".to_string()),
+            branch: Some("last-branch".to_string()),
+            is_main: false,
+        };
+        let entries = finalize_entries(vec![], partial);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "last-branch");
+    }
 }
