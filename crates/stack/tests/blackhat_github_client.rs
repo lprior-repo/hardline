@@ -13,8 +13,13 @@ const TEST_OWNER: &str = "test-owner";
 const TEST_REPO: &str = "test-repo";
 
 fn create_mock_client(server_url: &str) -> GitHubClient {
-    GitHubClient::new(TEST_OWNER, TEST_REPO, "test-token".to_string(), Some(server_url.to_string()))
-        .expect("client creation")
+    GitHubClient::new(
+        TEST_OWNER,
+        TEST_REPO,
+        "test-token".to_string(),
+        Some(server_url.to_string()),
+    )
+    .expect("client creation")
 }
 
 #[tokio::test]
@@ -23,7 +28,14 @@ async fn combined_status_state_success() {
     let commit_sha = "abc123def456";
 
     let check_runs_mock = server
-        .mock("GET", format!("/repos/test-owner/test-repo/commits/{}/check-runs", commit_sha).as_str())
+        .mock(
+            "GET",
+            format!(
+                "/repos/test-owner/test-repo/commits/{}/check-runs",
+                commit_sha
+            )
+            .as_str(),
+        )
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(
@@ -53,7 +65,11 @@ async fn combined_status_state_success() {
     let result = client.combined_status_state(commit_sha).await;
 
     check_runs_mock.assert_async().await;
-    assert!(result.is_ok(), "combined_status_state failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "combined_status_state failed: {:?}",
+        result.err()
+    );
     assert_eq!(result.unwrap(), Some("success".to_string()));
 }
 
@@ -63,7 +79,14 @@ async fn combined_status_state_failure() {
     let commit_sha = "abc123def456";
 
     let check_runs_mock = server
-        .mock("GET", format!("/repos/test-owner/test-repo/commits/{}/check-runs", commit_sha).as_str())
+        .mock(
+            "GET",
+            format!(
+                "/repos/test-owner/test-repo/commits/{}/check-runs",
+                commit_sha
+            )
+            .as_str(),
+        )
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(
@@ -93,7 +116,11 @@ async fn combined_status_state_failure() {
     let result = client.combined_status_state(commit_sha).await;
 
     check_runs_mock.assert_async().await;
-    assert!(result.is_ok(), "combined_status_state failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "combined_status_state failed: {:?}",
+        result.err()
+    );
     assert_eq!(result.unwrap(), Some("failure".to_string()));
 }
 
@@ -103,7 +130,14 @@ async fn combined_status_state_pending() {
     let commit_sha = "abc123def456";
 
     let check_runs_mock = server
-        .mock("GET", format!("/repos/test-owner/test-repo/commits/{}/check-runs", commit_sha).as_str())
+        .mock(
+            "GET",
+            format!(
+                "/repos/test-owner/test-repo/commits/{}/check-runs",
+                commit_sha
+            )
+            .as_str(),
+        )
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(
@@ -127,7 +161,11 @@ async fn combined_status_state_pending() {
     let result = client.combined_status_state(commit_sha).await;
 
     check_runs_mock.assert_async().await;
-    assert!(result.is_ok(), "combined_status_state failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "combined_status_state failed: {:?}",
+        result.err()
+    );
     assert_eq!(result.unwrap(), Some("pending".to_string()));
 }
 
@@ -137,7 +175,14 @@ async fn get_check_runs_status_empty() {
     let commit_sha = "abc123def456";
 
     let check_runs_mock = server
-        .mock("GET", format!("/repos/test-owner/test-repo/commits/{}/check-runs", commit_sha).as_str())
+        .mock(
+            "GET",
+            format!(
+                "/repos/test-owner/test-repo/commits/{}/check-runs",
+                commit_sha
+            )
+            .as_str(),
+        )
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(
@@ -154,7 +199,11 @@ async fn get_check_runs_status_empty() {
     let result = client.get_check_runs_status(commit_sha).await;
 
     check_runs_mock.assert_async().await;
-    assert!(result.is_ok(), "get_check_runs_status failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "get_check_runs_status failed: {:?}",
+        result.err()
+    );
     assert_eq!(result.unwrap(), None);
 }
 
@@ -264,7 +313,11 @@ async fn find_open_pr_by_head_returns_none_when_not_found() {
         .await;
 
     mock.assert_async().await;
-    assert!(result.is_ok(), "find_open_pr_by_head failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "find_open_pr_by_head failed: {:?}",
+        result.err()
+    );
     assert!(result.unwrap().is_none());
 }
 
@@ -289,7 +342,12 @@ async fn merge_pr_squash_method() {
 
     let client = create_mock_client(&server.url());
     let result = client
-        .merge_pr(42, MergeMethod::Squash, Some("Merge PR".to_string()), Some("Merged via stack".to_string()))
+        .merge_pr(
+            42,
+            MergeMethod::Squash,
+            Some("Merge PR".to_string()),
+            Some("Merged via stack".to_string()),
+        )
         .await;
 
     mock.assert_async().await;
@@ -367,7 +425,11 @@ async fn request_reviewers_empty_list_does_nothing() {
     let client = create_mock_client(&server.url());
 
     let result = client.request_reviewers(42, &[]).await;
-    assert!(result.is_ok(), "request_reviewers with empty list failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "request_reviewers with empty list failed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]
@@ -424,7 +486,11 @@ async fn list_issue_comments_returns_comments() {
     let result = client.list_issue_comments(42).await;
 
     mock.assert_async().await;
-    assert!(result.is_ok(), "list_issue_comments failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "list_issue_comments failed: {:?}",
+        result.err()
+    );
     let comments = result.unwrap();
     assert_eq!(comments.len(), 2);
     assert_eq!(comments[0].body, "First comment");
@@ -462,7 +528,11 @@ async fn list_review_comments_returns_comments() {
     let result = client.list_review_comments(42).await;
 
     mock.assert_async().await;
-    assert!(result.is_ok(), "list_review_comments failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "list_review_comments failed: {:?}",
+        result.err()
+    );
     let comments = result.unwrap();
     assert_eq!(comments.len(), 1);
     assert_eq!(comments[0].body, "Code review comment");
@@ -491,7 +561,11 @@ async fn update_pr_branch_handles_no_update_needed() {
     let result = client.update_pr_branch(42).await;
 
     mock.assert_async().await;
-    assert!(result.is_ok(), "update_pr_branch failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "update_pr_branch failed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]
@@ -502,10 +576,7 @@ async fn update_pr_branch_success() {
         .mock("PUT", "/repos/test-owner/test-repo/pulls/42/update-branch")
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(
-            serde_json::json!({})
-            .to_string(),
-        )
+        .with_body(serde_json::json!({}).to_string())
         .create_async()
         .await;
 
@@ -513,7 +584,11 @@ async fn update_pr_branch_success() {
     let result = client.update_pr_branch(42).await;
 
     mock.assert_async().await;
-    assert!(result.is_ok(), "update_pr_branch failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "update_pr_branch failed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]
@@ -532,7 +607,11 @@ async fn delete_stack_comment_handles_missing_comment() {
     let result = client.delete_stack_comment(42).await;
 
     list_mock.assert_async().await;
-    assert!(result.is_ok(), "delete_stack_comment failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "delete_stack_comment failed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]
@@ -582,7 +661,11 @@ async fn list_open_pull_requests_returns_prs() {
     let result = client.list_open_pull_requests(10).await;
 
     mock.assert_async().await;
-    assert!(result.is_ok(), "list_open_pull_requests failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "list_open_pull_requests failed: {:?}",
+        result.err()
+    );
     let prs = result.unwrap();
     assert_eq!(prs.len(), 1);
     assert_eq!(prs[0].number, 1);
@@ -624,7 +707,11 @@ async fn list_open_issues_returns_issues() {
     let result = client.list_open_issues(10).await;
 
     mock.assert_async().await;
-    assert!(result.is_ok(), "list_open_issues failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "list_open_issues failed: {:?}",
+        result.err()
+    );
     let issues = result.unwrap();
     assert_eq!(issues.len(), 1);
     assert_eq!(issues[0].number, 1);

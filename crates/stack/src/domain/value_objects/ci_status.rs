@@ -107,9 +107,9 @@ pub fn format_duration(secs: u64) -> String {
 
 /// Check if all CI checks are complete (not pending).
 pub fn all_checks_complete(statuses: &[BranchCiStatus]) -> bool {
-    statuses.iter().all(|s| {
-        s.check_runs.is_empty() || s.overall_status.as_deref() != Some("pending")
-    })
+    statuses
+        .iter()
+        .all(|s| s.check_runs.is_empty() || s.overall_status.as_deref() != Some("pending"))
 }
 
 #[cfg(test)]

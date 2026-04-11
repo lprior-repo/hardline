@@ -2,7 +2,10 @@ mod ci_status;
 
 use serde::{Deserialize, Serialize};
 
-pub use ci_status::{all_checks_complete, check_sort_key, dedup_check_runs, format_duration, BranchCiStatus, CheckRunInfo};
+pub use ci_status::{
+    all_checks_complete, check_sort_key, dedup_check_runs, format_duration, BranchCiStatus,
+    CheckRunInfo,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct BranchName(String);

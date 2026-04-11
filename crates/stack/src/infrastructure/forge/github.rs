@@ -8,8 +8,8 @@ use serde_json::Value;
 
 use super::{
     aggregate_ci_overall, build_http_client, delete_empty, encode_query_value, forge_token,
-    stack_comment_body, AuthStyle, CheckRunInfo,
-    ForgeType, MergeMethod, RemoteInfo, STACK_COMMENT_MARKER,
+    stack_comment_body, AuthStyle, CheckRunInfo, ForgeType, MergeMethod, RemoteInfo,
+    STACK_COMMENT_MARKER,
 };
 use crate::domain::stack::PrInfo;
 use crate::domain::state::PrState;
@@ -49,8 +49,7 @@ impl RateLimiter {
             if let Ok(mut reset_at) = self.reset_at.lock() {
                 let now = Utc::now().timestamp() as u64;
                 if reset_epoch > now {
-                    *reset_at = Instant::now()
-                        + Duration::from_secs(reset_epoch - now);
+                    *reset_at = Instant::now() + Duration::from_secs(reset_epoch - now);
                 }
             }
         }
@@ -281,9 +280,7 @@ fn pr_to_info(pr: &GitHubPullRequest) -> PrInfo {
 
 fn github_check_status(status: &str) -> String {
     match status {
-        "queued" | "in_progress" | "waiting" | "requested" | "pending" => {
-            "in_progress".to_string()
-        }
+        "queued" | "in_progress" | "waiting" | "requested" | "pending" => "in_progress".to_string(),
         _ => "completed".to_string(),
     }
 }
@@ -342,7 +339,10 @@ impl GitHubClient {
     }
 
     fn repo_url(&self, suffix: &str) -> String {
-        format!("{}/repos/{}/{}{}", self.api_base_url, self.owner, self.repo, suffix)
+        format!(
+            "{}/repos/{}/{}{}",
+            self.api_base_url, self.owner, self.repo, suffix
+        )
     }
 
     async fn request_with_retry<R, F, Fut>(&self, request_fn: F) -> Result<R>
@@ -357,9 +357,8 @@ impl GitHubClient {
                 Ok(result) => return Ok(result),
                 Err(e) if attempts < RETRY_MAX_ATTEMPTS && is_retryable_error(&e) => {
                     attempts += 1;
-                    let delay = Duration::from_millis(
-                        RETRY_BASE_DELAY_MS * 2u64.pow(attempts as u32 - 1),
-                    );
+                    let delay =
+                        Duration::from_millis(RETRY_BASE_DELAY_MS * 2u64.pow(attempts as u32 - 1));
                     tokio::time::sleep(delay).await;
                 }
                 Err(e) => return Err(e),
@@ -452,7 +451,11 @@ impl GitHubClient {
         self.rate_limiter.update_from_headers(remaining, reset);
     }
 
-    pub async fn find_open_pr_by_head(&self, head_owner: &str, branch: &str) -> Result<Option<PrInfo>> {
+    pub async fn find_open_pr_by_head(
+        &self,
+        head_owner: &str,
+        branch: &str,
+    ) -> Result<Option<PrInfo>> {
         let url = format!(
             "{}?state=open&head={}:{}&per_page=100",
             self.repo_url("/pulls"),
@@ -464,7 +467,12 @@ impl GitHubClient {
             .into_iter()
             .find(|pr| {
                 pr.head.ref_name == branch
-                    && pr.head.label.as_ref().map(|l| l.starts_with(head_owner)).unwrap_or(true)
+                    && pr
+                        .head
+                        .label
+                        .as_ref()
+                        .map(|l| l.starts_with(head_owner))
+                        .unwrap_or(true)
             })
             .map(|pr| pr_to_info(&pr)))
     }
@@ -473,10 +481,7 @@ impl GitHubClient {
         if let Some(pr) = self.find_open_pr_by_head(&self.owner, branch).await? {
             return Ok(Some(pr));
         }
-        Ok(self.list_open_prs_by_head()
-            .await?
-            .get(branch)
-            .cloned())
+        Ok(self.list_open_prs_by_head().await?.get(branch).cloned())
     }
 
     pub async fn list_open_prs_by_head(&self) -> Result<std::collections::HashMap<String, PrInfo>> {
@@ -513,7 +518,9 @@ impl GitHubClient {
     }
 
     pub async fn get_pr(&self, pr_number: u64) -> Result<PrInfo> {
-        let pr: GitHubPullRequest = self.get_with_retry(&self.repo_url(&format!("/pulls/{pr_number}"))).await?;
+        let pr: GitHubPullRequest = self
+            .get_with_retry(&self.repo_url(&format!("/pulls/{pr_number}")))
+            .await?;
         Ok(pr_to_info(&pr))
     }
 
@@ -524,11 +531,7 @@ impl GitHubClient {
         body: Option<&str>,
         base: Option<&str>,
     ) -> Result<PrInfo> {
-        let request = UpdatePullRequest {
-            title,
-            body,
-            base,
-        };
+        let request = UpdatePullRequest { title, body, base };
         let pr: GitHubPullRequest = self
             .patch_with_retry(&self.repo_url(&format!("/pulls/{pr_number}")), &request)
             .await?;
@@ -548,7 +551,9 @@ impl GitHubClient {
     }
 
     pub async fn get_pr_body(&self, pr_number: u64) -> Result<String> {
-        let pr: GitHubPullRequest = self.get_with_retry(&self.repo_url(&format!("/pulls/{pr_number}"))).await?;
+        let pr: GitHubPullRequest = self
+            .get_with_retry(&self.repo_url(&format!("/pulls/{pr_number}")))
+            .await?;
         Ok(pr.body.unwrap_or_default())
     }
 
@@ -570,20 +575,27 @@ impl GitHubClient {
             commit_message,
         };
         let _: Value = self
-            .put_with_retry(&self.repo_url(&format!("/pulls/{pr_number}/merge")), &request)
+            .put_with_retry(
+                &self.repo_url(&format!("/pulls/{pr_number}/merge")),
+                &request,
+            )
             .await?;
         Ok(())
     }
 
     pub async fn is_pr_merged(&self, pr_number: u64) -> Result<bool> {
-        let pr: GitHubPullRequest = self.get_with_retry(&self.repo_url(&format!("/pulls/{pr_number}"))).await?;
+        let pr: GitHubPullRequest = self
+            .get_with_retry(&self.repo_url(&format!("/pulls/{pr_number}")))
+            .await?;
         Ok(pr.merged.unwrap_or(false))
     }
 
     pub async fn update_stack_comment(&self, pr_number: u64, stack_comment: &str) -> Result<()> {
         if let Some(comment_id) = self.find_stack_comment_id(pr_number).await? {
             let full_comment = stack_comment_body(stack_comment);
-            let request = CreateCommentRequest { body: &full_comment };
+            let request = CreateCommentRequest {
+                body: &full_comment,
+            };
             let _: GitHubComment = self
                 .patch_with_retry(
                     &self.repo_url(&format!("/issues/comments/{comment_id}")),
@@ -598,9 +610,14 @@ impl GitHubClient {
 
     pub async fn create_stack_comment(&self, pr_number: u64, stack_comment: &str) -> Result<()> {
         let full_comment = stack_comment_body(stack_comment);
-        let request = CreateCommentRequest { body: &full_comment };
+        let request = CreateCommentRequest {
+            body: &full_comment,
+        };
         let _: GitHubComment = self
-            .post_with_retry(&self.repo_url(&format!("/issues/{pr_number}/comments")), &request)
+            .post_with_retry(
+                &self.repo_url(&format!("/issues/{pr_number}/comments")),
+                &request,
+            )
             .await?;
         Ok(())
     }
@@ -621,7 +638,12 @@ impl GitHubClient {
         let comments: Vec<GitHubIssueComment> = self.get_with_retry(&url).await?;
         Ok(comments
             .into_iter()
-            .find(|c| c.body.as_ref().map(|b| b.contains(STACK_COMMENT_MARKER)).unwrap_or(false))
+            .find(|c| {
+                c.body
+                    .as_ref()
+                    .map(|b| b.contains(STACK_COMMENT_MARKER))
+                    .unwrap_or(false)
+            })
             .map(|c| c.id))
     }
 
@@ -675,10 +697,7 @@ impl GitHubClient {
                     if let Some(c) = run.conclusion.as_deref() {
                         match c {
                             "success" | "skipped" | "neutral" => {}
-                            "failure"
-                            | "timed_out"
-                            | "cancelled"
-                            | "action_required" => {
+                            "failure" | "timed_out" | "cancelled" | "action_required" => {
                                 has_failure = true;
                                 all_success = false;
                             }
@@ -726,7 +745,12 @@ impl GitHubClient {
         let overall = aggregate_ci_overall(
             response.check_runs.iter().map(|r| r.status.as_str()),
             |s| matches!(s, "failure" | "timed_out" | "cancelled"),
-            |s| matches!(s, "queued" | "in_progress" | "waiting" | "requested" | "pending"),
+            |s| {
+                matches!(
+                    s,
+                    "queued" | "in_progress" | "waiting" | "requested" | "pending"
+                )
+            },
         );
         Ok((overall, checks))
     }
@@ -753,9 +777,7 @@ impl GitHubClient {
 
     pub async fn update_pr_branch(&self, pr_number: u64) -> Result<()> {
         let url = self.repo_url(&format!("/pulls/{pr_number}/update-branch"));
-        let result: Result<Value> = self
-            .put_with_retry(&url, &serde_json::json!({}))
-            .await;
+        let result: Result<Value> = self.put_with_retry(&url, &serde_json::json!({})).await;
         match result {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -784,7 +806,9 @@ fn is_retryable_error(err: &StackError) -> bool {
     }
 }
 
-async fn parse_json_response<T: for<'de> Deserialize<'de>>(response: reqwest::Response) -> Result<T> {
+async fn parse_json_response<T: for<'de> Deserialize<'de>>(
+    response: reqwest::Response,
+) -> Result<T> {
     if response.status().is_success() {
         response
             .json::<T>()
@@ -793,7 +817,9 @@ async fn parse_json_response<T: for<'de> Deserialize<'de>>(response: reqwest::Re
     } else {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        Err(StackError::ForgeError(format!("Forge API error: {status} {body}")))
+        Err(StackError::ForgeError(format!(
+            "Forge API error: {status} {body}"
+        )))
     }
 }
 

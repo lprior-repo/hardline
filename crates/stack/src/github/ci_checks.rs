@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
 use super::client::GitHubClient;
-use crate::domain::value_objects::{BranchCiStatus, CheckRunInfo, dedup_check_runs};
+use crate::domain::value_objects::{dedup_check_runs, BranchCiStatus, CheckRunInfo};
 use crate::error::{Result, StackError};
 
 // ── API response types ─────────────────────────────────────────────────
@@ -79,8 +79,10 @@ impl GitHubClient {
         &self,
         commit_sha: &str,
     ) -> Result<(Option<String>, Vec<CheckRunInfo>)> {
-        let (check_runs_overall, mut all_checks) = self.fetch_check_runs_detailed(commit_sha).await?;
-        let (statuses_overall, status_checks) = self.fetch_commit_statuses_detailed(commit_sha).await?;
+        let (check_runs_overall, mut all_checks) =
+            self.fetch_check_runs_detailed(commit_sha).await?;
+        let (statuses_overall, status_checks) =
+            self.fetch_commit_statuses_detailed(commit_sha).await?;
 
         all_checks.extend(status_checks);
         all_checks = dedup_check_runs(all_checks);
@@ -124,7 +126,8 @@ impl GitHubClient {
         let mut check_runs: Vec<CheckRunInfo> = Vec::new();
 
         for r in response.check_runs {
-            let (elapsed_secs, completed_at_str) = compute_elapsed(&r.started_at, &r.completed_at, &now);
+            let (elapsed_secs, completed_at_str) =
+                compute_elapsed(&r.started_at, &r.completed_at, &now);
 
             let completion_percent = if r.status == "in_progress" {
                 elapsed_secs.and_then(|e| {
@@ -182,7 +185,11 @@ impl GitHubClient {
             let (status_str, conclusion, elapsed_secs) = match status.state.as_str() {
                 "success" => {
                     let elapsed = compute_status_elapsed(&status.created_at, &status.updated_at);
-                    ("completed".to_string(), Some("success".to_string()), elapsed)
+                    (
+                        "completed".to_string(),
+                        Some("success".to_string()),
+                        elapsed,
+                    )
                 }
                 "failure" | "error" => ("completed".to_string(), Some("failure".to_string()), None),
                 "pending" => ("in_progress".to_string(), None, None),
@@ -246,10 +253,7 @@ fn compute_elapsed(
     }
 }
 
-fn compute_status_elapsed(
-    created_at: &Option<String>,
-    updated_at: &Option<String>,
-) -> Option<u64> {
+fn compute_status_elapsed(created_at: &Option<String>, updated_at: &Option<String>) -> Option<u64> {
     match (created_at.as_ref(), updated_at.as_ref()) {
         (Some(created), Some(updated)) => {
             let created_time = created.parse::<DateTime<Utc>>();
@@ -347,7 +351,10 @@ mod tests {
             average_secs: None,
             completion_percent: None,
         }];
-        assert_eq!(compute_overall_from_checks(&checks), Some("success".to_string()));
+        assert_eq!(
+            compute_overall_from_checks(&checks),
+            Some("success".to_string())
+        );
     }
 
     #[test]
@@ -363,7 +370,10 @@ mod tests {
             average_secs: None,
             completion_percent: None,
         }];
-        assert_eq!(compute_overall_from_checks(&checks), Some("failure".to_string()));
+        assert_eq!(
+            compute_overall_from_checks(&checks),
+            Some("failure".to_string())
+        );
     }
 
     #[test]
@@ -379,7 +389,10 @@ mod tests {
             average_secs: None,
             completion_percent: None,
         }];
-        assert_eq!(compute_overall_from_checks(&checks), Some("pending".to_string()));
+        assert_eq!(
+            compute_overall_from_checks(&checks),
+            Some("pending".to_string())
+        );
     }
 
     #[test]
