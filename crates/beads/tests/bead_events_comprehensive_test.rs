@@ -8,7 +8,7 @@
 
 use chrono::Utc;
 use scp_beads::domain::events::BeadEvent;
-use scp_beads::domain::value_objects::{BeadId, BeadState, Priority};
+use scp_beads::domain::value_objects::{BeadId, BeadState, BeadTitle, Priority};
 use scp_beads::infrastructure::repository::InMemoryBeadRepository;
 use scp_beads::BeadService;
 
@@ -1141,4 +1141,316 @@ async fn closed_transitions_require_intermediate_state() {
         },
     ).await;
     assert!(result.is_ok(), "InProgress -> Closed should succeed");
+}
+
+// ============================================================================
+// Group 8: Event Coverage - All 8 Variants
+// ============================================================================
+
+#[tokio::test]
+async fn all_event_variants_exist_in_enum() {
+    use scp_beads::domain::events::BeadEvent;
+
+    let id = BeadId::new("evt-cover").unwrap();
+    let now = Utc::now();
+
+    let _created = BeadEvent::Created {
+        id: id.clone(),
+        title: BeadTitle::new("Test").unwrap(),
+        created_at: now,
+    };
+
+    let _title_changed = BeadEvent::TitleChanged {
+        id: id.clone(),
+        old_title: BeadTitle::new("Old").unwrap(),
+        new_title: BeadTitle::new("New").unwrap(),
+        changed_at: now,
+    };
+
+    let _state_changed = BeadEvent::StateChanged {
+        id: id.clone(),
+        old_state: BeadState::Open,
+        new_state: BeadState::InProgress,
+        changed_at: now,
+    };
+
+    let _priority_set = BeadEvent::PrioritySet {
+        id: id.clone(),
+        priority: Priority::P1,
+        changed_at: now,
+    };
+
+    let _assignee_set = BeadEvent::AssigneeSet {
+        id: id.clone(),
+        assignee: Some("alice".into()),
+        changed_at: now,
+    };
+
+    let _dependency_added = BeadEvent::DependencyAdded {
+        id: id.clone(),
+        depends_on: BeadId::new("dep-1").unwrap(),
+        changed_at: now,
+    };
+
+    let _blocker_added = BeadEvent::BlockerAdded {
+        id: id.clone(),
+        blocked_by: BeadId::new("blk-1").unwrap(),
+        changed_at: now,
+    };
+
+    let _labeled = BeadEvent::Labeled {
+        id: id.clone(),
+        label: "urgent".into(),
+        changed_at: now,
+    };
+
+    let _deleted = BeadEvent::Deleted {
+        id,
+        deleted_at: now,
+    };
+}
+
+#[tokio::test]
+async fn events_fired_by_current_service_methods() {
+    let svc = make_service();
+
+    // Created - fires on create_bead
+    let (_, event1) = svc.create_bead("evt-fire", "Test", None).await.unwrap();
+    assert!(matches!(event1, BeadEvent::Created { .. }));
+
+    // StateChanged - fires on update_bead_state
+    let (_, event2) = svc
+        .update_bead_state(&BeadId::new("evt-fire").unwrap(), BeadState::InProgress)
+        .await
+        .unwrap();
+    assert!(matches!(event2, BeadEvent::StateChanged { .. }));
+
+    // PrioritySet - fires on set_priority
+    let (_, event3) = svc
+        .set_priority(&BeadId::new("evt-fire").unwrap(), Priority::P0)
+        .await
+        .unwrap();
+    assert!(matches!(event3, BeadEvent::PrioritySet { .. }));
+
+    // AssigneeSet - fires on assign_bead
+    let (_, event4) = svc
+        .assign_bead(&BeadId::new("evt-fire").unwrap(), Some("bob".into()))
+        .await
+        .unwrap();
+    assert!(matches!(event4, BeadEvent::AssigneeSet { .. }));
+
+    // DependencyAdded - fires on add_dependency
+    svc.create_bead("dep-target", "Target", None).await.unwrap();
+    let (_, event5) = svc
+        .add_dependency(
+            &BeadId::new("evt-fire").unwrap(),
+            BeadId::new("dep-target").unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(matches!(event5, BeadEvent::DependencyAdded { .. }));
+
+    // Deleted - fires on delete_bead
+    let event6 = svc.delete_bead(&BeadId::new("evt-fire").unwrap()).await.unwrap();
+    assert!(matches!(event6, BeadEvent::Deleted { .. }));
+}
+
+#[tokio::test]
+async fn title_changed_event_not_fired_by_service() {
+    let svc = make_service();
+    svc.create_bead("no-title-change", "Original", None).await.unwrap();
+
+    // There is no update_title method, so TitleChanged event cannot be fired
+    // This test documents the gap in event coverage
+    let result = svc.get_bead(&BeadId::new("no-title-change").unwrap()).await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn labeled_event_not_fired_by_service() {
+    let svc = make_service();
+    svc.create_bead("no-label", "Test", None).await.unwrap();
+
+    // There is no set_label or add_label method, so Labeled event cannot be fired
+    // This test documents the gap in event coverage
+    let bead = svc.get_bead(&BeadId::new("no-label").unwrap()).await.unwrap();
+    assert!(bead.labels().0.is_empty());
+}
+
+#[tokio::test]
+async fn blocker_added_event_not_fired_by_service() {
+    let svc = make_service();
+    svc.create_bead("no-blocker", "Test", None).await.unwrap();
+    svc.create_bead("blocker-target", "Blocker", None).await.unwrap();
+
+    // There is no add_blocker method on BeadService, so BlockerAdded event cannot be fired
+    // This test documents the gap in event coverage
+    let result = svc
+        .add_dependency(
+            &BeadId::new("no-blocker").unwrap(),
+            BeadId::new("blocker-target").unwrap(),
+        )
+        .await;
+    assert!(result.is_ok());
+}
+
+// ============================================================================
+// Group 9: Event Payload Validation
+// ============================================================================
+
+#[tokio::test]
+async fn created_event_payload_complete() {
+    let svc = make_service();
+    let before = Utc::now();
+    let id = BeadId::new("payload-complete").unwrap();
+
+    let (bead, event) = svc
+        .create_bead("payload-complete", "Complete Title", Some("A description".into()))
+        .await
+        .unwrap();
+
+    match event {
+        BeadEvent::Created {
+            id: event_id,
+            title,
+            created_at,
+        } => {
+            assert_eq!(event_id, id);
+            assert_eq!(title.as_str(), bead.title().as_str());
+            assert_eq!(title.as_str(), "Complete Title");
+            assert!(created_at >= before);
+            assert!(created_at <= Utc::now());
+        }
+        other => panic!("expected Created event, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn state_changed_event_payload_complete() {
+    let svc = make_service();
+    svc.create_bead("state-payload", "Payload", None).await.unwrap();
+    let id = BeadId::new("state-payload").unwrap();
+
+    let (bead, event) = svc
+        .update_bead_state(&id, BeadState::InProgress)
+        .await
+        .unwrap();
+
+    match event {
+        BeadEvent::StateChanged {
+            id: event_id,
+            old_state,
+            new_state,
+            changed_at,
+        } => {
+            assert_eq!(event_id, id);
+            assert_eq!(old_state, BeadState::Open);
+            assert_eq!(new_state, bead.state());
+            assert!(changed_at <= Utc::now());
+        }
+        other => panic!("expected StateChanged event, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn priority_set_event_payload_complete() {
+    let svc = make_service();
+    svc.create_bead("prio-payload", "Payload", None).await.unwrap();
+    let id = BeadId::new("prio-payload").unwrap();
+
+    let (bead, event) = svc
+        .set_priority(&id, Priority::P2)
+        .await
+        .unwrap();
+
+    match event {
+        BeadEvent::PrioritySet {
+            id: event_id,
+            priority,
+            changed_at,
+        } => {
+            assert_eq!(event_id, id);
+            assert_eq!(priority, *bead.priority().unwrap());
+            assert_eq!(priority, Priority::P2);
+            assert!(changed_at <= Utc::now());
+        }
+        other => panic!("expected PrioritySet event, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn assignee_set_event_payload_complete() {
+    let svc = make_service();
+    svc.create_bead("assign-payload", "Payload", None).await.unwrap();
+    let id = BeadId::new("assign-payload").unwrap();
+
+    let (bead, event) = svc
+        .assign_bead(&id, Some("test-user".into()))
+        .await
+        .unwrap();
+
+    match event {
+        BeadEvent::AssigneeSet {
+            id: event_id,
+            assignee,
+            changed_at,
+        } => {
+            assert_eq!(event_id, id);
+            assert_eq!(assignee, bead.assignee().map(String::from));
+            assert_eq!(assignee.as_deref(), Some("test-user"));
+            assert!(changed_at <= Utc::now());
+        }
+        other => panic!("expected AssigneeSet event, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn dependency_added_event_payload_complete() {
+    let svc = make_service();
+    svc.create_bead("dep-payload-1", "Payload 1", None).await.unwrap();
+    svc.create_bead("dep-payload-2", "Payload 2", None).await.unwrap();
+    let id = BeadId::new("dep-payload-1").unwrap();
+    let dep_id = BeadId::new("dep-payload-2").unwrap();
+
+    let (bead, event) = svc
+        .add_dependency(&id, dep_id.clone())
+        .await
+        .unwrap();
+
+    match event {
+        BeadEvent::DependencyAdded {
+            id: event_id,
+            depends_on,
+            changed_at,
+        } => {
+            assert_eq!(event_id, id);
+            assert_eq!(depends_on, dep_id);
+            assert_eq!(bead.depends_on().len(), 1);
+            assert_eq!(bead.depends_on()[0], dep_id);
+            assert!(changed_at <= Utc::now());
+        }
+        other => panic!("expected DependencyAdded event, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn deleted_event_payload_complete() {
+    let svc = make_service();
+    svc.create_bead("delete-payload", "Payload", None).await.unwrap();
+    let id = BeadId::new("delete-payload").unwrap();
+    let before = Utc::now();
+
+    let event = svc.delete_bead(&id).await.unwrap();
+
+    match event {
+        BeadEvent::Deleted {
+            id: event_id,
+            deleted_at,
+        } => {
+            assert_eq!(event_id, id);
+            assert!(deleted_at >= before);
+            assert!(deleted_at <= Utc::now());
+        }
+        other => panic!("expected Deleted event, got {other:?}"),
+    }
 }
