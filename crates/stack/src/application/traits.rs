@@ -38,7 +38,11 @@ pub trait MetadataStore: Send + Sync {
     fn branch_revision(&self, branch: &str) -> Result<Option<String>>;
 }
 
-pub trait GitHubClientTrait: Send + Sync {
+/// Forge-agnostic trait for pull/merge request operations.
+///
+/// Implemented by GitHub, Gitea, and GitLab forge adapters to provide
+/// a unified interface for stack operations (publish, restack, merge, cascade).
+pub trait ForgeClientTrait: Send + Sync {
     fn create_pull_request(
         &self,
         branch: &StackBranch,

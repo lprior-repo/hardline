@@ -4,4 +4,4 @@ pub mod traits;
 
 pub use service::StackService;
 pub use stack_ops::{StackGraph, StackNode};
-pub use traits::{GitHubClientTrait, MetadataStore, StackRepository, VcsClientTrait};
+pub use traits::{ForgeClientTrait, MetadataStore, StackRepository, VcsClientTrait};

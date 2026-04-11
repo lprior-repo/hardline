@@ -1,4 +1,4 @@
-use crate::application::traits::GitHubClientTrait;
+use crate::application::traits::ForgeClientTrait;
 use crate::domain::stack::{PrInfo, StackBranch};
 use crate::domain::value_objects::BranchName;
 use crate::error::{Result, StackError};
@@ -32,7 +32,7 @@ impl GitHubClientImpl {
     }
 }
 
-impl GitHubClientTrait for GitHubClientImpl {
+impl ForgeClientTrait for GitHubClientImpl {
     fn create_pull_request(
         &self,
         branch: &StackBranch,

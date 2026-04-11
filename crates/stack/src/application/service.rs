@@ -1,6 +1,6 @@
 use chrono::Utc;
 
-use crate::application::traits::{GitHubClientTrait, StackRepository, VcsClientTrait};
+use crate::application::traits::{ForgeClientTrait, StackRepository, VcsClientTrait};
 use crate::domain::stack::{PrInfo, Stack, StackBranch, StackId};
 use crate::domain::state::{BranchState, StackState};
 use crate::domain::value_objects::BranchName;
@@ -9,23 +9,23 @@ use scp_vcs::application::ops::Transaction;
 use scp_vcs::domain::entities::ops::OpKind;
 use scp_vcs::domain::types::CommitHash;
 
-pub struct StackService<R, G, V> {
+pub struct StackService<R, F, V> {
     stack_repo: R,
-    github: G,
+    forge: F,
     vcs: V,
 }
 
-impl<R, G, V> StackService<R, G, V> {
-    pub fn new(stack_repo: R, github: G, vcs: V) -> Self {
+impl<R, F, V> StackService<R, F, V> {
+    pub fn new(stack_repo: R, forge: F, vcs: V) -> Self {
         Self {
             stack_repo,
-            github,
+            forge,
             vcs,
         }
     }
 }
 
-impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R, G, V> {
+impl<R: StackRepository, F: ForgeClientTrait, V: VcsClientTrait> StackService<R, F, V> {
     pub fn create_stack(
         &self,
         base_branch: BranchName,
@@ -159,7 +159,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         tx.snapshot()
             .map_err(|e| StackError::GitError(e.to_string()))?;
 
-        self.github.fetch(&stack.base_branch)?;
+        self.forge.fetch(&stack.base_branch)?;
 
         for (i, branch) in stack.branches.iter_mut().enumerate() {
             let parent = if i == 0 {
@@ -177,7 +177,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
                 e
             })?;
 
-            self.github.force_push(&branch.branch_name).map_err(|e| {
+            self.forge.force_push(&branch.branch_name).map_err(|e| {
                 let _ = tx.finish_err(
                     &e.to_string(),
                     Some("force_push"),
@@ -245,7 +245,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
 
         for branch in &mut stack.branches {
             if let Some(pr_info) = &branch.pr_info {
-                self.github
+                self.forge
                     .merge_pull_request(pr_info.pr_number)
                     .map_err(|e| {
                         let _ = tx.finish_err(
@@ -318,7 +318,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         tx.snapshot()
             .map_err(|e| StackError::GitError(e.to_string()))?;
 
-        self.github.fetch(&stack.base_branch)?;
+        self.forge.fetch(&stack.base_branch)?;
 
         let cascade_result = self.execute_cascade_rebase(&mut stack);
 
@@ -328,7 +328,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         }
 
         for branch in &mut stack.branches {
-            self.github.force_push(&branch.branch_name).map_err(|e| {
+            self.forge.force_push(&branch.branch_name).map_err(|e| {
                 let _ = tx.finish_err(
                     &e.to_string(),
                     Some("force_push"),
@@ -397,7 +397,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
             .ok_or(StackError::NotFound(stack_id.to_string()))?;
 
         let position = stack.branches.len() as u32;
-        let last_commit = self.github.get_commit_hash(&branch_name)?;
+        let last_commit = self.forge.get_commit_hash(&branch_name)?;
 
         let new_branch = StackBranch {
             branch_name: branch_name.clone(),
@@ -452,7 +452,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         for branch in &mut stack.branches {
             if let Some(pr_info) = &branch.pr_info {
                 branch.state = BranchState::Closed;
-                let _ = self.github.update_pull_request(
+                let _ = self.forge.update_pull_request(
                     pr_info.pr_number,
                     None,
                     Some("Stack closed".to_string()),
@@ -675,9 +675,9 @@ mod tests {
         }
     }
 
-    struct MockGitHub;
+    struct MockForge;
 
-    impl GitHubClientTrait for MockGitHub {
+    impl ForgeClientTrait for MockForge {
         fn create_pull_request(
             &self,
             _branch: &StackBranch,
@@ -775,7 +775,7 @@ mod tests {
     #[test]
     fn test_create_stack() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -789,7 +789,7 @@ mod tests {
     #[test]
     fn test_create_stack_same_head_as_base() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -803,7 +803,7 @@ mod tests {
     #[test]
     fn test_service_new() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let _service = StackService::new(repo, github, vcs);
     }
@@ -811,7 +811,7 @@ mod tests {
     #[test]
     fn test_publish_stack_not_found() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -824,7 +824,7 @@ mod tests {
     #[test]
     fn test_restack_not_found() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -835,7 +835,7 @@ mod tests {
     #[test]
     fn test_merge_stack_not_found() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -846,7 +846,7 @@ mod tests {
     #[test]
     fn test_add_branch_to_stack_not_found() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -861,7 +861,7 @@ mod tests {
     #[test]
     fn test_remove_branch_from_stack_not_found() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -873,7 +873,7 @@ mod tests {
     #[test]
     fn test_close_stack_not_found() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -884,7 +884,7 @@ mod tests {
     #[test]
     fn test_cascade_not_found() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -897,7 +897,7 @@ mod tests {
     #[test]
     fn test_cascade_success() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo.clone(), github, vcs);
 
@@ -939,7 +939,7 @@ mod tests {
     #[test]
     fn test_cascade_preserves_existing_prs() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo.clone(), github, vcs);
 
@@ -981,7 +981,7 @@ mod tests {
     #[test]
     fn test_cascade_state_transitions() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo.clone(), github, vcs);
 
@@ -1009,7 +1009,7 @@ mod tests {
     #[test]
     fn test_cascade_single_branch() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo.clone(), github, vcs);
 
@@ -1118,7 +1118,7 @@ mod tests {
     #[test]
     fn test_create_stack_happy_path_single_branch() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1142,7 +1142,7 @@ mod tests {
     #[test]
     fn test_create_stack_happy_path_multiple_branches() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1160,7 +1160,7 @@ mod tests {
     #[test]
     fn test_create_stack_initial_state_is_draft() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1179,7 +1179,7 @@ mod tests {
     #[test]
     fn test_create_stack_empty_main_branch_name() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1201,7 +1201,7 @@ mod tests {
     #[test]
     fn test_create_stack_empty_head_branch_name() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1222,7 +1222,7 @@ mod tests {
     #[test]
     fn test_create_stack_invalid_branch_name_special_chars() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1240,7 +1240,7 @@ mod tests {
     #[test]
     fn test_create_stack_invalid_branch_name_starts_with_dot() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1258,7 +1258,7 @@ mod tests {
     #[test]
     fn test_create_stack_invalid_branch_name_ends_with_dot() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1276,7 +1276,7 @@ mod tests {
     #[test]
     fn test_create_stack_invalid_branch_name_contains_spaces() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1294,7 +1294,7 @@ mod tests {
     #[test]
     fn test_create_stack_invalid_branch_name_contains_null() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1312,7 +1312,7 @@ mod tests {
     #[test]
     fn test_create_stack_duplicate_stack_creation_same_main_branch() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1334,7 +1334,7 @@ mod tests {
     #[test]
     fn test_create_stack_id_uniqueness() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1363,7 +1363,7 @@ mod tests {
     #[test]
     fn test_create_stack_no_prs_in_draft_state() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1383,7 +1383,7 @@ mod tests {
     #[test]
     fn test_create_stack_main_branch_recorded_correctly() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1408,7 +1408,7 @@ mod tests {
     #[test]
     fn test_create_stack_head_branch_in_branches_list() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1429,7 +1429,7 @@ mod tests {
     #[test]
     fn test_create_stack_branch_has_correct_parent() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1451,7 +1451,7 @@ mod tests {
     #[test]
     fn test_create_stack_branch_position_is_zero() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1468,7 +1468,7 @@ mod tests {
     #[test]
     fn test_create_stack_branch_has_commit_hash() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1485,7 +1485,7 @@ mod tests {
     #[test]
     fn test_create_stack_with_unicode_branch_name() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1503,7 +1503,7 @@ mod tests {
     #[test]
     fn test_create_stack_with_very_long_branch_name() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1522,7 +1522,7 @@ mod tests {
     #[test]
     fn test_create_stack_branch_name_with_slashes() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1543,7 +1543,7 @@ mod tests {
     #[test]
     fn test_create_stack_branch_name_with_hyphens() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1564,7 +1564,7 @@ mod tests {
     #[test]
     fn test_create_stack_branch_name_with_underscores() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1585,7 +1585,7 @@ mod tests {
     #[test]
     fn test_create_stack_branch_state_is_open() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1602,7 +1602,7 @@ mod tests {
     #[test]
     fn test_create_stack_created_at_is_set() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1621,7 +1621,7 @@ mod tests {
     #[test]
     fn test_create_stack_updated_at_is_set() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1639,7 +1639,7 @@ mod tests {
     #[test]
     fn test_create_stack_stored_in_repository() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
@@ -1663,7 +1663,7 @@ mod tests {
     #[test]
     fn test_create_stack_multiple_consecutive_creations() {
         let repo = Arc::new(MockRepo::new());
-        let github = Arc::new(MockGitHub);
+        let github = Arc::new(MockForge);
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
