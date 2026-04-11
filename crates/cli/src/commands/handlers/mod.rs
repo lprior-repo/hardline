@@ -41,6 +41,7 @@ pub mod stack_merge_remote;
 pub mod stack_range_diff;
 pub mod stack_split;
 pub mod stack_sync;
+pub mod stack_undo;
 pub mod sync;
 pub mod task;
 pub mod undo;

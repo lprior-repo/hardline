@@ -103,6 +103,20 @@ pub enum WorkspaceCommands {
         branch: Option<String>,
     },
 
+    /// Undo the last stack operation (restack, submit, etc.)
+    StackUndo {
+        /// Preview without executing
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Redo the last undone stack operation
+    StackRedo {
+        /// Preview without executing
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Show diff of changes
     Diff {
         /// File path to diff
@@ -733,7 +747,10 @@ mod tests {
                 assert!(!ahead_behind);
                 assert!(branch.is_none());
             }
-            other => panic!("Expected StackLog, got {:?}", std::mem::discriminant(&other)),
+            other => panic!(
+                "Expected StackLog, got {:?}",
+                std::mem::discriminant(&other)
+            ),
         }
     }
 
@@ -741,7 +758,10 @@ mod tests {
     fn stack_log_with_limit() {
         match parse(&["stack-log", "-l", "20"]) {
             WorkspaceCommands::StackLog { limit, .. } => assert_eq!(limit, Some(20)),
-            other => panic!("Expected StackLog, got {:?}", std::mem::discriminant(&other)),
+            other => panic!(
+                "Expected StackLog, got {:?}",
+                std::mem::discriminant(&other)
+            ),
         }
     }
 
@@ -749,7 +769,10 @@ mod tests {
     fn stack_log_json_format() {
         match parse(&["stack-log", "-f", "json"]) {
             WorkspaceCommands::StackLog { format, .. } => assert_eq!(format, "json"),
-            other => panic!("Expected StackLog, got {:?}", std::mem::discriminant(&other)),
+            other => panic!(
+                "Expected StackLog, got {:?}",
+                std::mem::discriminant(&other)
+            ),
         }
     }
 
@@ -759,13 +782,26 @@ mod tests {
             WorkspaceCommands::StackLog { branch, .. } => {
                 assert_eq!(branch, Some("feature-a".to_string()));
             }
-            other => panic!("Expected StackLog, got {:?}", std::mem::discriminant(&other)),
+            other => panic!(
+                "Expected StackLog, got {:?}",
+                std::mem::discriminant(&other)
+            ),
         }
     }
 
     #[test]
     fn stack_log_all_flags() {
-        match parse(&["stack-log", "-l", "5", "-f", "linear", "--no-messages", "--ahead-behind", "-b", "feat"]) {
+        match parse(&[
+            "stack-log",
+            "-l",
+            "5",
+            "-f",
+            "linear",
+            "--no-messages",
+            "--ahead-behind",
+            "-b",
+            "feat",
+        ]) {
             WorkspaceCommands::StackLog {
                 limit,
                 format,
@@ -779,7 +815,10 @@ mod tests {
                 assert!(ahead_behind);
                 assert_eq!(branch, Some("feat".to_string()));
             }
-            other => panic!("Expected StackLog, got {:?}", std::mem::discriminant(&other)),
+            other => panic!(
+                "Expected StackLog, got {:?}",
+                std::mem::discriminant(&other)
+            ),
         }
     }
 

@@ -113,9 +113,30 @@ pub fn run_command(cli: Cli) -> Result<()> {
                     branch_filter: branch.map(scp_stack::BranchName::new),
                 };
                 let cwd = std::env::current_dir()?;
-                let stack =
-                    commands::handlers::stack_log::load_stack_from_git(&cwd)?;
+                let stack = commands::handlers::stack_log::load_stack_from_git(&cwd)?;
                 commands::handlers::stack_log::run_stack_log(&cwd, &stack, &options)?;
+                Ok(())
+            }
+            crate::cli::workspace_args::WorkspaceCommands::StackUndo { dry_run } => {
+                let cwd = std::env::current_dir()?;
+                let git_dir = cwd.join(".git");
+                let options = commands::handlers::stack_undo::StackUndoOptions { dry_run };
+                let output =
+                    commands::handlers::stack_undo::run_stack_undo(&cwd, &git_dir, &options)?;
+                if output.dry_run {
+                    scp_core::output::Output::info("(dry-run — no changes made)");
+                }
+                Ok(())
+            }
+            crate::cli::workspace_args::WorkspaceCommands::StackRedo { dry_run } => {
+                let cwd = std::env::current_dir()?;
+                let git_dir = cwd.join(".git");
+                let options = commands::handlers::stack_undo::StackUndoOptions { dry_run };
+                let output =
+                    commands::handlers::stack_undo::run_stack_redo(&cwd, &git_dir, &options)?;
+                if output.dry_run {
+                    scp_core::output::Output::info("(dry-run — no changes made)");
+                }
                 Ok(())
             }
             crate::cli::workspace_args::WorkspaceCommands::Diff { path } => {

@@ -103,6 +103,51 @@ pub fn load_latest_receipt(git_dir: &Path) -> Result<Option<OpReceipt>> {
     }
 }
 
+/// Restore a single branch ref to a target OID via git update-ref.
+///
+/// Sets `refs/heads/<branch>` to `oid`. Used by undo to restore
+/// branches to their pre-operation state.
+pub fn restore_branch_ref(workdir: &Path, branch: &str, oid: &str) -> Result<()> {
+    let ref_name = format!("refs/heads/{branch}");
+    let status = std::process::Command::new("git")
+        .args(["update-ref", &ref_name, oid])
+        .current_dir(workdir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map_err(VcsError::Io)?;
+
+    if !status.success() {
+        return Err(VcsError::Unimplemented(format!(
+            "Failed to restore ref {ref_name} -> {oid}"
+        )));
+    }
+
+    Ok(())
+}
+
+/// Delete a backup ref by name.
+///
+/// Removes the backup ref created during transaction snapshot.
+/// Called after a successful undo to clean up.
+pub fn delete_backup_ref(workdir: &Path, ref_name: &str) -> Result<()> {
+    let status = std::process::Command::new("git")
+        .args(["update-ref", "-d", ref_name])
+        .current_dir(workdir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map_err(VcsError::Io)?;
+
+    if !status.success() {
+        return Err(VcsError::Unimplemented(format!(
+            "Failed to delete backup ref {ref_name}"
+        )));
+    }
+
+    Ok(())
+}
+
 // -- Private helpers (pure functions, no I/O) --
 
 fn format_utc_timestamp() -> String {

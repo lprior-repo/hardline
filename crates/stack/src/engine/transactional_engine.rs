@@ -640,10 +640,7 @@ impl<M: MetadataStore> TransactionalStackOps<M> {
     pub fn split(&self, source: &str, targets: &[String]) -> Result<()> {
         let source_oid = self.metadata_store.branch_revision(source).ok().flatten();
 
-        let head_branch = targets
-            .last()
-            .map(String::as_str)
-            .unwrap_or(source);
+        let head_branch = targets.last().map(String::as_str).unwrap_or(source);
 
         let mut tx = Transaction::begin(
             OpKind::Split,
@@ -796,9 +793,7 @@ impl<M: MetadataStore> TransactionalStackOps<M> {
         tx.set_plan_summary(PlanSummary {
             branches_to_rebase: 0,
             branches_to_push: 1,
-            description: vec![format!(
-                "Merge-when-ready for branch {branch} via {remote}"
-            )],
+            description: vec![format!("Merge-when-ready for branch {branch} via {remote}")],
         });
 
         tx.snapshot()
@@ -924,6 +919,76 @@ impl<M: MetadataStore> TransactionalStackOps<M> {
     pub fn can_redo_latest(&self) -> Result<bool> {
         let receipt = self.load_latest_receipt()?;
         Ok(receipt.map(|r| r.can_redo()).unwrap_or(false))
+    }
+
+    /// Undo the latest stack operation.
+    ///
+    /// Restores all branch refs to their pre-operation OIDs using
+    /// `git update-ref`, then marks the receipt as undone.
+    /// Backup refs are deleted after successful restore.
+    pub fn undo_latest(&self) -> Result<()> {
+        let receipt = self
+            .load_latest_receipt()?
+            .ok_or_else(|| StackError::InvalidOperation("No operations to undo".to_string()))?;
+
+        if !receipt.can_undo() {
+            return Err(StackError::InvalidOperation(format!(
+                "Cannot undo operation {} (status: {:?})",
+                receipt.op_id, receipt.status
+            )));
+        }
+
+        for entry in &receipt.local_refs {
+            if let Some(oid_before) = &entry.oid_before {
+                ops::restore_branch_ref(&self.config.workdir, &entry.branch, oid_before)
+                    .map_err(|e| StackError::GitError(e.to_string()))?;
+            }
+        }
+
+        for entry in &receipt.local_refs {
+            let backup_ref = ops::backup_ref_name(&receipt.op_id, &entry.branch);
+            let _ = ops::delete_backup_ref(&self.config.workdir, &backup_ref);
+        }
+
+        let mut receipt = receipt;
+        let finished_at = chrono::Utc::now().to_rfc3339();
+        receipt.mark_undone(finished_at);
+        ops::save_receipt(&self.config.git_dir, &receipt)
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Redo the latest undone stack operation.
+    ///
+    /// Restores all branch refs to their post-operation OIDs,
+    /// then marks the receipt as success again.
+    pub fn redo_latest(&self) -> Result<()> {
+        let receipt = self
+            .load_latest_receipt()?
+            .ok_or_else(|| StackError::InvalidOperation("No operations to redo".to_string()))?;
+
+        if !receipt.can_redo() {
+            return Err(StackError::InvalidOperation(format!(
+                "Cannot redo operation {} (status: {:?})",
+                receipt.op_id, receipt.status
+            )));
+        }
+
+        for entry in &receipt.local_refs {
+            if let Some(oid_after) = &entry.oid_after {
+                ops::restore_branch_ref(&self.config.workdir, &entry.branch, oid_after)
+                    .map_err(|e| StackError::GitError(e.to_string()))?;
+            }
+        }
+
+        let mut receipt = receipt;
+        let finished_at = chrono::Utc::now().to_rfc3339();
+        receipt.mark_success(finished_at);
+        ops::save_receipt(&self.config.git_dir, &receipt)
+            .map_err(|e| StackError::GitError(e.to_string()))?;
+
+        Ok(())
     }
 }
 
@@ -1431,7 +1496,10 @@ mod tests {
         // Source + 1 target = 2 refs
         assert_eq!(receipt.local_refs.len(), 2);
         assert!(receipt.local_refs.iter().any(|r| r.branch == "feature-a"));
-        assert!(receipt.local_refs.iter().any(|r| r.branch == "feature-a-new"));
+        assert!(receipt
+            .local_refs
+            .iter()
+            .any(|r| r.branch == "feature-a-new"));
     }
 
     #[test]
@@ -1612,8 +1680,7 @@ mod tests {
         let config = test_config_from(&temp, git_dir);
 
         let ops = TransactionalStackOps::new(store, config);
-        ops.merge_when_ready("feature-a", "origin")
-            .expect("mwr");
+        ops.merge_when_ready("feature-a", "origin").expect("mwr");
         assert!(ops.can_undo_latest().expect("check undo"));
     }
 

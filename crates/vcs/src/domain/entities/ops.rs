@@ -13,6 +13,7 @@ pub enum OpStatus {
     InProgress,
     Success,
     Failed,
+    Undone,
 }
 
 /// Kind of operation.
@@ -227,12 +228,20 @@ impl OpReceipt {
 
     /// Check if this receipt can be undone.
     pub fn can_undo(&self) -> bool {
-        self.local_refs.iter().any(|r| r.oid_before.is_some())
+        matches!(self.status, OpStatus::Success)
+            && self.local_refs.iter().any(|r| r.oid_before.is_some())
     }
 
     /// Check if this receipt can be redone.
     pub fn can_redo(&self) -> bool {
-        self.local_refs.iter().any(|r| r.oid_after.is_some())
+        matches!(self.status, OpStatus::Undone)
+            && self.local_refs.iter().any(|r| r.oid_after.is_some())
+    }
+
+    /// Mark operation as undone.
+    pub fn mark_undone(&mut self, finished_at: String) {
+        self.status = OpStatus::Undone;
+        self.finished_at = Some(finished_at);
     }
 
     /// Check if this receipt has remote changes.
@@ -288,7 +297,12 @@ mod tests {
 
     #[test]
     fn op_status_serde_roundtrip() {
-        for status in [OpStatus::InProgress, OpStatus::Success, OpStatus::Failed] {
+        for status in [
+            OpStatus::InProgress,
+            OpStatus::Success,
+            OpStatus::Failed,
+            OpStatus::Undone,
+        ] {
             let json = serde_json::to_string(&status).expect("serialize");
             let loaded: OpStatus = serde_json::from_str(&json).expect("deserialize");
             assert_eq!(status, loaded);
@@ -308,6 +322,10 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&OpStatus::Failed).expect("s"),
             "\"failed\""
+        );
+        assert_eq!(
+            serde_json::to_string(&OpStatus::Undone).expect("s"),
+            "\"undone\""
         );
     }
 
@@ -458,9 +476,17 @@ mod tests {
     }
 
     #[test]
-    fn can_undo_with_before_oid() {
+    fn can_undo_in_progress_cannot() {
         let mut receipt = new_receipt(OpKind::Restack);
         receipt.add_local_ref("feature", Some("abc123"));
+        assert!(!receipt.can_undo());
+    }
+
+    #[test]
+    fn can_undo_with_before_oid_and_success() {
+        let mut receipt = new_receipt(OpKind::Restack);
+        receipt.add_local_ref("feature", Some("abc123"));
+        receipt.mark_success(now_iso());
         assert!(receipt.can_undo());
     }
 
@@ -468,6 +494,15 @@ mod tests {
     fn can_undo_new_branch_cannot() {
         let mut receipt = new_receipt(OpKind::Restack);
         receipt.add_local_ref("new-branch", None);
+        receipt.mark_success(now_iso());
+        assert!(!receipt.can_undo());
+    }
+
+    #[test]
+    fn can_undo_failed_cannot() {
+        let mut receipt = new_receipt(OpKind::Restack);
+        receipt.add_local_ref("feature", Some("abc123"));
+        receipt.mark_failed("err", None, None, now_iso());
         assert!(!receipt.can_undo());
     }
 
@@ -479,11 +514,32 @@ mod tests {
     }
 
     #[test]
-    fn can_redo_with_after_oid() {
+    fn can_redo_with_after_oid_but_not_undone() {
         let mut receipt = new_receipt(OpKind::Restack);
         receipt.add_local_ref("feature", Some("abc123"));
         receipt.update_local_ref_after("feature", "def456");
+        receipt.mark_success(now_iso());
+        assert!(!receipt.can_redo());
+    }
+
+    #[test]
+    fn can_redo_after_undo() {
+        let mut receipt = new_receipt(OpKind::Restack);
+        receipt.add_local_ref("feature", Some("abc123"));
+        receipt.update_local_ref_after("feature", "def456");
+        receipt.mark_success(now_iso());
+        receipt.mark_undone(now_iso());
         assert!(receipt.can_redo());
+    }
+
+    #[test]
+    fn mark_undone_sets_status() {
+        let mut receipt = new_receipt(OpKind::Restack);
+        receipt.add_local_ref("feature", Some("abc123"));
+        receipt.mark_success(now_iso());
+        receipt.mark_undone(now_iso());
+        assert!(matches!(receipt.status, OpStatus::Undone));
+        assert!(receipt.finished_at.is_some());
     }
 
     #[test]

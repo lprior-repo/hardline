@@ -28,6 +28,9 @@ pub enum StackError {
 
     #[error("Transaction error: {0}")]
     TransactionError(String),
+
+    #[error("Invalid operation: {0}")]
+    InvalidOperation(String),
 }
 
 impl From<scp_vcs::VcsError> for StackError {
@@ -116,12 +119,14 @@ mod tests {
             StackError::GitError("a".to_string()),
             StackError::GitHubError("a".to_string()),
             StackError::ForgeError("a".to_string()),
+            StackError::TransactionError("a".to_string()),
+            StackError::InvalidOperation("a".to_string()),
         ];
         let mut display_strings: Vec<String> = variants.iter().map(|v| format!("{v}")).collect();
         display_strings.dedup();
         assert_eq!(
             display_strings.len(),
-            8,
+            10,
             "All error variants should have distinct display messages"
         );
     }
