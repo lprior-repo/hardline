@@ -31,6 +31,7 @@ pub mod checkpoint;
 pub mod dag;
 pub mod domain;
 pub mod error;
+pub mod hints;
 
 pub use checkpoint::{find_pending_restores, AutoCheckpoint, CheckpointGuard};
 pub use dag::{BranchDag, BranchId, DagError};
@@ -40,3 +41,7 @@ pub use domain::{
     WorkspaceGuard, WorkspaceId, WorkspaceState, WorkspaceStateMachine,
 };
 pub use error::{IsolateError, Result};
+pub use hints::{
+    generate_hints, hints_for_error, next_actions_for_command, suggest_next_actions, ActionRisk,
+    CommandContext, Hint, HintType, NextAction, SystemState, WorkspaceInfo,
+};
