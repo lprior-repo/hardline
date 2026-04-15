@@ -1,7 +1,5 @@
-pub mod stack_tree {
-    #[derive(Debug, Clone, Copy)]
-    pub struct StackTree;
-}
+pub mod stack_tree;
+pub use stack_tree::StackTreeWidget;
 
 pub mod diff {
     #[derive(Debug, Clone, Copy)]
@@ -30,12 +28,12 @@ pub use worktree::WorktreeItem;
 mod tests {
     use super::{
         agents::AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
-        stack_tree::StackTree,
+        StackTreeWidget,
     };
 
     #[test]
     fn widget_structs_are_constructible() {
-        let _stack = StackTree;
+        let _stack = StackTreeWidget::new(Vec::new());
         let _diff = DiffView;
         let _details = DetailsView;
         let _reorder = ReorderPreview;
@@ -43,18 +41,9 @@ mod tests {
     }
 
     #[test]
-    fn widget_structs_are_zero_sized() {
-        assert_eq!(std::mem::size_of::<StackTree>(), 0);
-        assert_eq!(std::mem::size_of::<DiffView>(), 0);
-        assert_eq!(std::mem::size_of::<DetailsView>(), 0);
-        assert_eq!(std::mem::size_of::<ReorderPreview>(), 0);
-        assert_eq!(std::mem::size_of::<AgentsView>(), 0);
-    }
-
-    #[test]
     fn widget_structs_are_send() {
         fn assert_send<T: Send>() {}
-        assert_send::<StackTree>();
+        assert_send::<StackTreeWidget>();
         assert_send::<DiffView>();
         assert_send::<DetailsView>();
         assert_send::<ReorderPreview>();
@@ -64,7 +53,7 @@ mod tests {
     #[test]
     fn widget_structs_are_sync() {
         fn assert_sync<T: Sync>() {}
-        assert_sync::<StackTree>();
+        assert_sync::<StackTreeWidget>();
         assert_sync::<DiffView>();
         assert_sync::<DetailsView>();
         assert_sync::<ReorderPreview>();
@@ -73,8 +62,7 @@ mod tests {
 
     #[test]
     fn widget_module_names_are_accessible() {
-        // Verify the module hierarchy is properly organized
-        let _ = std::any::type_name::<StackTree>();
+        let _ = std::any::type_name::<StackTreeWidget>();
         let _ = std::any::type_name::<DiffView>();
         let _ = std::any::type_name::<DetailsView>();
         let _ = std::any::type_name::<ReorderPreview>();
@@ -82,19 +70,9 @@ mod tests {
     }
 
     #[test]
-    fn widget_structs_are_copy() {
-        fn assert_copy<T: Copy>() {}
-        assert_copy::<StackTree>();
-        assert_copy::<DiffView>();
-        assert_copy::<DetailsView>();
-        assert_copy::<ReorderPreview>();
-        assert_copy::<AgentsView>();
-    }
-
-    #[test]
     fn widget_structs_are_clone() {
         fn assert_clone<T: Clone>() {}
-        assert_clone::<StackTree>();
+        assert_clone::<StackTreeWidget>();
         assert_clone::<DiffView>();
         assert_clone::<DetailsView>();
         assert_clone::<ReorderPreview>();
@@ -103,7 +81,7 @@ mod tests {
 
     #[test]
     fn widget_structs_debug_format() {
-        let _ = format!("{:?}", StackTree);
+        let _ = format!("{:?}", StackTreeWidget::new(Vec::new()));
         let _ = format!("{:?}", DiffView);
         let _ = format!("{:?}", DetailsView);
         let _ = format!("{:?}", ReorderPreview);
@@ -111,17 +89,8 @@ mod tests {
     }
 
     #[test]
-    fn widget_structs_alignment_is_one() {
-        assert_eq!(std::mem::align_of::<StackTree>(), 1);
-        assert_eq!(std::mem::align_of::<DiffView>(), 1);
-        assert_eq!(std::mem::align_of::<DetailsView>(), 1);
-        assert_eq!(std::mem::align_of::<ReorderPreview>(), 1);
-        assert_eq!(std::mem::align_of::<AgentsView>(), 1);
-    }
-
-    #[test]
     fn widget_structs_in_option() {
-        let _s: Option<StackTree> = Some(StackTree);
+        let _s: Option<StackTreeWidget> = Some(StackTreeWidget::new(Vec::new()));
         let _d: Option<DiffView> = None;
         let _dt: Option<DetailsView> = Some(DetailsView);
         let _r: Option<ReorderPreview> = None;
@@ -131,15 +100,17 @@ mod tests {
     #[test]
     fn widget_structs_in_vec() {
         let _widgets: Vec<&str> = vec![];
-        // Each widget can be constructed many times
-        let _s = vec![StackTree, StackTree, StackTree];
+        let _s = vec![
+            StackTreeWidget::new(Vec::new()),
+            StackTreeWidget::new(Vec::new()),
+        ];
         let _d = vec![DiffView; 5];
         assert_eq!(_d.len(), 5);
     }
 
     #[test]
     fn widget_structs_in_box() {
-        let _s = Box::new(StackTree);
+        let _s = Box::new(StackTreeWidget::new(Vec::new()));
         let _d = Box::new(DiffView);
         let _dt = Box::new(DetailsView);
         let _r = Box::new(ReorderPreview);
@@ -148,12 +119,12 @@ mod tests {
 
     #[test]
     fn widget_type_names_contain_expected_names() {
-        let s = std::any::type_name::<StackTree>();
+        let s = std::any::type_name::<StackTreeWidget>();
         let d = std::any::type_name::<DiffView>();
         let dt = std::any::type_name::<DetailsView>();
         let r = std::any::type_name::<ReorderPreview>();
         let a = std::any::type_name::<AgentsView>();
-        assert!(s.contains("StackTree"), "got: {s}");
+        assert!(s.contains("StackTreeWidget"), "got: {s}");
         assert!(d.contains("DiffView"), "got: {d}");
         assert!(dt.contains("DetailsView"), "got: {dt}");
         assert!(r.contains("ReorderPreview"), "got: {r}");
@@ -163,13 +134,12 @@ mod tests {
     #[test]
     fn widget_structs_have_distinct_type_names() {
         let names = vec![
-            std::any::type_name::<StackTree>(),
+            std::any::type_name::<StackTreeWidget>(),
             std::any::type_name::<DiffView>(),
             std::any::type_name::<DetailsView>(),
             std::any::type_name::<ReorderPreview>(),
             std::any::type_name::<AgentsView>(),
         ];
-        // All type names should be unique
         for i in 0..names.len() {
             for j in (i + 1)..names.len() {
                 assert_ne!(
@@ -182,12 +152,25 @@ mod tests {
 
     #[test]
     fn widget_structs_in_tuple() {
-        let _tuple: (StackTree, DiffView, DetailsView, ReorderPreview, AgentsView) =
-            (StackTree, DiffView, DetailsView, ReorderPreview, AgentsView);
+        let _tuple: (
+            StackTreeWidget,
+            DiffView,
+            DetailsView,
+            ReorderPreview,
+            AgentsView,
+        ) = (
+            StackTreeWidget::new(Vec::new()),
+            DiffView,
+            DetailsView,
+            ReorderPreview,
+            AgentsView,
+        );
     }
 
     #[test]
-    fn widget_structs_in_array() {
-        let _arr: [StackTree; 3] = [StackTree, StackTree, StackTree];
+    fn stack_tree_widget_new_and_with_selection() {
+        let widget = StackTreeWidget::new(Vec::new());
+        let selected = widget.with_selection(Some(0));
+        assert_eq!(selected.selected_index, Some(0));
     }
 }
