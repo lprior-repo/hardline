@@ -18,6 +18,7 @@
 //! - [`PipelineState`] - Orchestrator pipeline state machine
 
 pub mod events;
+pub mod executor;
 pub mod pipeline;
 pub mod records;
 pub mod states;
@@ -31,6 +32,10 @@ pub use events::{
     CompensationCompletedEvent, CompensationFailedEvent, CompensationStartedEvent,
     OperationCompletedEvent, OperationFailedEvent, OperationStartedEvent, StepCompletedEvent,
     StepFailedEvent, StepStartedEvent, WorkflowEvent,
+};
+pub use executor::{
+    DurableExecutionError, DurableExecutor, DurableResult, DurableTimer, RecoveryScanner,
+    StepOutput,
 };
 pub use pipeline::{
     IterationLimitError, Pipeline, PipelineConfig, PipelineId, PipelineTransitionError,
