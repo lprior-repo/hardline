@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::views::WorktreeView;
+use scp_stack::domain::StackBranch;
 
 #[derive(Debug, PartialEq)]
 pub enum FocusedPane {
@@ -38,6 +39,7 @@ pub struct TuiApp {
     pub needs_refresh: bool,
     pub should_quit: bool,
     pub worktree_view: WorktreeView,
+    pub stack_branches: Vec<StackBranch>,
 }
 
 impl TuiApp {
@@ -48,6 +50,7 @@ impl TuiApp {
             needs_refresh: true,
             should_quit: false,
             worktree_view: WorktreeView::default(),
+            stack_branches: Vec::new(),
         })
     }
 
