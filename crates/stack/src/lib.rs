@@ -12,5 +12,5 @@ pub mod error;
 pub mod github;
 
 pub use domain::entities::{PrInfo, PrState, Stack, StackBranch};
-pub use domain::value_objects::BranchName;
+pub use domain::value_objects::{BranchName, CiCheckHistory, CiRunRecord, CiStatus};
 pub use error::{Result, StackError};
