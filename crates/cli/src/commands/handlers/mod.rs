@@ -32,6 +32,7 @@ pub mod revert;
 pub mod schema;
 pub mod session;
 pub mod stack_auth;
+pub mod stack_status;
 pub mod stack_sync;
 pub mod sync;
 pub mod task;
