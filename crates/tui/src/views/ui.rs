@@ -2,11 +2,12 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Paragraph},
     Frame,
 };
 
 use crate::app::{FocusedPane, TuiApp};
+use crate::widgets::StackTreeWidget;
 
 pub fn render(f: &mut Frame, app: &mut TuiApp) {
     let area = f.area();
@@ -61,39 +62,14 @@ pub fn render(f: &mut Frame, app: &mut TuiApp) {
 }
 
 fn render_stack_tree(f: &mut Frame, app: &mut TuiApp, area: Rect) {
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title("Stack Tree")
-        .title_style(if app.focused_pane == FocusedPane::Stack {
-            Style::default().fg(Color::Yellow)
-        } else {
-            Style::default()
-        });
+    let _title_style = if app.focused_pane == FocusedPane::Stack {
+        Style::default().fg(Color::Yellow)
+    } else {
+        Style::default()
+    };
 
-    let stack_items = vec![
-        ListItem::new(Line::from(vec![
-            Span::raw("● "),
-            Span::styled("main", Style::default().fg(Color::Green)),
-        ])),
-        ListItem::new(Line::from(vec![
-            Span::raw("├─ "),
-            Span::styled("feature/auth", Style::default().fg(Color::Blue)),
-        ])),
-        ListItem::new(Line::from(vec![
-            Span::raw("│  "),
-            Span::styled("└─ ", Style::default().fg(Color::Blue)),
-            Span::styled("fix/bug-123", Style::default().fg(Color::Yellow)),
-        ])),
-        ListItem::new(Line::from(vec![
-            Span::raw("│     "),
-            Span::styled("└─ ", Style::default().fg(Color::Yellow)),
-            Span::styled("wip/temp", Style::default().fg(Color::Red)),
-        ])),
-    ];
-
-    let list = List::new(stack_items).block(block).style(Style::default());
-
-    f.render_widget(list, area);
+    let widget = StackTreeWidget::new(app.stack_branches.clone());
+    f.render_widget(widget, area);
 }
 
 fn render_diff_view(f: &mut Frame, _app: &mut TuiApp, area: Rect) {
