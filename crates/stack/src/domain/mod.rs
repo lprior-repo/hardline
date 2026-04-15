@@ -5,4 +5,4 @@ pub mod value_objects;
 
 pub use entities::{PrInfo, PrState, Stack, StackBranch};
 pub use state::{BranchState, PrState as StackPrState, StackState};
-pub use value_objects::BranchName;
+pub use value_objects::{BranchName, CiCheckHistory, CiRunRecord, CiStatus};

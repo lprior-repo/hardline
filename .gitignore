@@ -12,3 +12,6 @@ target/
 # Worktrees
 .worktrees/
 worktrees/
+
+# CI History cache
+.ci_history/
