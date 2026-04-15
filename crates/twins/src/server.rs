@@ -19,6 +19,7 @@ use axum::{
     routing::{any, delete, get, head, options, patch, post, put},
     Router,
 };
+use im::Vector;
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tower_http::trace::TraceLayer;
@@ -98,17 +99,34 @@ impl IntoResponse for ServerError {
 }
 
 #[derive(Clone)]
-pub struct AppState {
+pub struct AppState<T = InMemoryTwinState>
+where
+    T: TwinState + Send + Sync,
+{
     pub definition: TwinDefinition,
-    pub state: Arc<RwLock<InMemoryTwinState>>,
+    pub state: Arc<RwLock<T>>,
 }
 
-impl AppState {
+impl<T> AppState<T>
+where
+    T: TwinState + Send + Sync,
+{
     #[must_use]
-    pub fn new(definition: TwinDefinition) -> Self {
+    pub fn new(definition: TwinDefinition) -> Self
+    where
+        T: Default,
+    {
         Self {
             definition,
-            state: Arc::new(RwLock::new(InMemoryTwinState::new())),
+            state: Arc::new(RwLock::new(T::default())),
+        }
+    }
+
+    #[must_use]
+    pub fn with_state(definition: TwinDefinition, state: T) -> Self {
+        Self {
+            definition,
+            state: Arc::new(RwLock::new(state)),
         }
     }
 
@@ -130,14 +148,52 @@ impl AppState {
             .iter()
             .find(|e| e.method == http_method && e.path == path)
     }
+
+    pub async fn add_record(&self, record: RequestRecord)
+    where
+        T: Clone,
+    {
+        let new_state = {
+            let state_guard = self.state.read().await;
+            state_guard.add_record(record)
+        };
+        *self.state.write().await = new_state;
+    }
+
+    pub async fn get_records(&self) -> Vector<RequestRecord>
+    where
+        T: Clone,
+    {
+        let state_guard = self.state.read().await;
+        state_guard.get_records()
+    }
+
+    pub async fn record_count(&self) -> usize {
+        let state_guard = self.state.read().await;
+        state_guard.record_count()
+    }
+
+    pub async fn clear_state(&self)
+    where
+        T: Clone,
+    {
+        let new_state = {
+            let state_guard = self.state.read().await;
+            state_guard.clear()
+        };
+        *self.state.write().await = new_state;
+    }
 }
 
-async fn twin_handler(
-    State(state): State<AppState>,
+async fn twin_handler<T>(
+    State(state): State<AppState<T>>,
     method: Method,
     headers: HeaderMap,
     request: Request<Body>,
-) -> Result<Response, ServerError> {
+) -> Result<Response, ServerError>
+where
+    T: TwinState + Clone + Send + Sync,
+{
     let path = request.uri().path().to_string();
 
     let Some(endpoint) = state.find_endpoint(&method, &path) else {
@@ -170,10 +226,7 @@ async fn twin_handler(
         None,
     );
 
-    {
-        let new_state = state.state.read().await.add_record(record);
-        *state.state.write().await = new_state;
-    }
+    state.add_record(record).await;
 
     let response_body = serialize_response_body(&endpoint.response.body)?;
 
@@ -191,14 +244,12 @@ async fn not_found_handler(method: Method, Path(path): Path<String>) -> impl Int
     )
 }
 
-async fn inspect_state(State(state): State<AppState>) -> Result<impl IntoResponse, ServerError> {
-    let records;
-    let count;
-    {
-        let state_guard = state.state.read().await;
-        records = state_guard.get_records();
-        count = state_guard.record_count();
-    }
+async fn inspect_state<T>(State(state): State<AppState<T>>) -> Result<impl IntoResponse, ServerError>
+where
+    T: TwinState + Clone + Send + Sync,
+{
+    let records = state.get_records().await;
+    let count = state.record_count().await;
 
     let response = serde_json::json!({
         "twin": state.definition.name,
@@ -213,12 +264,11 @@ async fn inspect_state(State(state): State<AppState>) -> Result<impl IntoRespons
     Ok((StatusCode::OK, body))
 }
 
-async fn inspect_requests(State(state): State<AppState>) -> Result<impl IntoResponse, ServerError> {
-    let records;
-    {
-        let state_guard = state.state.read().await;
-        records = state_guard.get_records();
-    }
+async fn inspect_requests<T>(State(state): State<AppState<T>>) -> Result<impl IntoResponse, ServerError>
+where
+    T: TwinState + Clone + Send + Sync,
+{
+    let records = state.get_records().await;
     let records_vec: Vec<_> = records.into_iter().collect();
 
     let response = serde_json::json!({
@@ -231,18 +281,17 @@ async fn inspect_requests(State(state): State<AppState>) -> Result<impl IntoResp
     Ok((StatusCode::OK, body))
 }
 
-async fn clear_state(State(state): State<AppState>) -> impl IntoResponse {
-    let new_state = {
-        let state_guard = state.state.read().await;
-        state_guard.clear()
-    };
-    *state.state.write().await = new_state;
+async fn clear_state<T>(State(state): State<AppState<T>>) -> impl IntoResponse
+where
+    T: TwinState + Clone + Send + Sync,
+{
+    state.clear_state().await;
 
     (StatusCode::OK, r#"{"status":"cleared"}"#)
 }
 
 pub fn build_router(definition: TwinDefinition) -> Router {
-    let app_state = AppState::new(definition);
+    let app_state: AppState<InMemoryTwinState> = AppState::new(definition);
 
     let base_router = Router::new()
         .route("/_inspect/state", get(inspect_state))
@@ -338,7 +387,7 @@ endpoints:
             definition.err()
         );
         let definition = definition.unwrap();
-        let state = AppState::new(definition);
+        let state: AppState<InMemoryTwinState> = AppState::new(definition);
 
         let endpoint = state.find_endpoint(&Method::GET, "/api/test");
         assert!(endpoint.is_some());
