@@ -1,32 +1,37 @@
 pub mod widgets {
     pub mod stack_tree {
+        #[derive(Debug, Clone, Copy)]
         pub struct StackTree;
     }
 
     pub mod diff {
+        #[derive(Debug, Clone, Copy)]
         pub struct DiffView;
     }
 
     pub mod details {
+        #[derive(Debug, Clone, Copy)]
         pub struct DetailsView;
     }
 
     pub mod reorder_preview {
+        #[derive(Debug, Clone, Copy)]
         pub struct ReorderPreview;
     }
 
     pub mod agents {
+        #[derive(Debug, Clone, Copy)]
         pub struct AgentsView;
     }
 }
 
+pub mod worktree;
+pub use worktree::WorktreeItem;
+
 #[cfg(test)]
 mod tests {
     use super::widgets::{
-        agents::AgentsView,
-        details::DetailsView,
-        diff::DiffView,
-        reorder_preview::ReorderPreview,
+        agents::AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
         stack_tree::StackTree,
     };
 
@@ -127,7 +132,7 @@ mod tests {
 
     #[test]
     fn widget_structs_in_vec() {
-        let widgets: Vec<&str> = vec![];
+        let _widgets: Vec<&str> = vec![];
         // Each widget can be constructed many times
         let _s = vec![StackTree, StackTree, StackTree];
         let _d = vec![DiffView; 5];
@@ -169,7 +174,10 @@ mod tests {
         // All type names should be unique
         for i in 0..names.len() {
             for j in (i + 1)..names.len() {
-                assert_ne!(names[i], names[j], "type names at {i} and {j} should differ");
+                assert_ne!(
+                    names[i], names[j],
+                    "type names at {i} and {j} should differ"
+                );
             }
         }
     }

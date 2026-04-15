@@ -1,9 +1,11 @@
 use crate::error::Result;
+use crate::views::WorktreeView;
 
 #[derive(Debug)]
 pub enum FocusedPane {
     Stack,
     Diff,
+    Worktrees,
 }
 
 #[derive(Debug)]
@@ -35,6 +37,7 @@ pub struct TuiApp {
     pub mode: Mode,
     pub needs_refresh: bool,
     pub should_quit: bool,
+    pub worktree_view: WorktreeView,
 }
 
 impl TuiApp {
@@ -44,6 +47,7 @@ impl TuiApp {
             mode: Mode::Normal,
             needs_refresh: true,
             should_quit: false,
+            worktree_view: WorktreeView::default(),
         })
     }
 

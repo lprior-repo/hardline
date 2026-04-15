@@ -8,6 +8,7 @@ license.workspace = true
 scp-core = { path = "../core" }
 scp-stack = { path = "../stack" }
 scp-snapshot = { path = "../snapshot" }
+worktree = { path = "../worktree" }
 ratatui = "0.28"
 crossterm = "0.28"
 tokio.workspace = true
