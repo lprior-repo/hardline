@@ -127,7 +127,7 @@ pub use types::{
     SessionStatus, ValidatedMetadata,
 };
 pub use vcs::{
-    create_backend, detect_vcs, Branch, Commit, GitBackend, VcsBackend, VcsStatus, VcsType,
+    create_backend, detect_vcs, Branch, Commit, GitBackend, GitRepo, VcsBackend, VcsStatus, VcsType,
     Workspace,
 };
 pub use watcher::{BeadsStatus, FileWatcher, WatchEvent};
