@@ -273,6 +273,118 @@ impl SessionConfig {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// VcsConfig
+// ═══════════════════════════════════════════════════════════════════════════
+
+use super::types::{AuthSourceType, ForgeType};
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BranchTemplate {
+    pub name: String,
+    pub pattern: String,
+    pub description: Option<String>,
+}
+
+impl Default for BranchTemplate {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            pattern: String::new(),
+            description: None,
+        }
+    }
+}
+
+impl BranchTemplate {
+    pub fn new(name: impl Into<String>, pattern: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            pattern: pattern.into(),
+            description: None,
+        }
+    }
+
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct VcsConfig {
+    pub forge: ForgeType,
+    pub default_branch: String,
+    pub branch_templates: Vec<BranchTemplate>,
+}
+
+impl Default for VcsConfig {
+    fn default() -> Self {
+        Self {
+            forge: ForgeType::default(),
+            default_branch: "main".to_string(),
+            branch_templates: Vec::new(),
+        }
+    }
+}
+
+impl VcsConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_forge(mut self, forge: ForgeType) -> Self {
+        self.forge = forge;
+        self
+    }
+
+    pub fn with_default_branch(mut self, branch: impl Into<String>) -> Self {
+        self.default_branch = branch.into();
+        self
+    }
+
+    pub fn add_template(mut self, template: BranchTemplate) -> Self {
+        self.branch_templates.push(template);
+        self
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AuthConfig
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AuthConfig {
+    pub preferred_source: AuthSourceType,
+    pub allow_github_token_env: bool,
+    pub allow_stax_token_env: bool,
+    pub allow_credentials_file: bool,
+    pub allow_gh_cli: bool,
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            preferred_source: AuthSourceType::default(),
+            allow_github_token_env: false,
+            allow_stax_token_env: true,
+            allow_credentials_file: true,
+            allow_gh_cli: true,
+        }
+    }
+}
+
+impl AuthConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_preferred_source(mut self, source: AuthSourceType) -> Self {
+        self.preferred_source = source;
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

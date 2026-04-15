@@ -40,6 +40,8 @@ pub const KNOWN_CONFIG_KEYS: &[&str] = &[
     "agent.command",
     "vcs.type",
     "vcs.default_branch",
+    "vcs.forge",
+    "vcs.branch_templates",
     "workspace.directory",
     "workspace.auto_rebase",
     "workspace.auto_push",
@@ -48,6 +50,11 @@ pub const KNOWN_CONFIG_KEYS: &[&str] = &[
     "editor",
     "remote.push",
     "remote.fetch",
+    "auth.preferred_source",
+    "auth.allow_github_token_env",
+    "auth.allow_stax_token_env",
+    "auth.allow_credentials_file",
+    "auth.allow_gh_cli",
 ];
 
 /// Known section prefixes that are valid for section display.
@@ -62,6 +69,7 @@ pub const KNOWN_SECTION_PREFIXES: &[&str] = &[
     "queue",
     "logging",
     "remote",
+    "auth",
 ];
 
 /// Maximum allowed length for a config key.
