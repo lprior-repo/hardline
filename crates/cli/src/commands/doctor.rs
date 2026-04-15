@@ -1,138 +1,290 @@
 //! Doctor command - health checks and diagnostics
+//!
+//! Data->Calc->Actions architecture:
+//! - Data: Uses introspection::doctor::DoctorCheck types
+//! - Calc: Pure check functions that return structured results
+//! - Actions: Console output and orchestration
 
-use scp_core::{vcs, Error, Result};
+use scp_core::{
+    config::ConfigManager,
+    introspection::doctor::{CheckStatus, DoctorCheck},
+    vcs::{self, VcsStatus},
+    Error, Result,
+};
 
-fn check_vcs_available() -> Result<bool> {
-    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
-    let is_git = cwd.join(".git").exists();
-    Ok(is_git)
+fn get_project_dirs() -> Result<directories::ProjectDirs> {
+    directories::ProjectDirs::from("com", "scp", "scp")
+        .ok_or_else(|| Error::config_not_found("No config dir"))
 }
 
-fn check_dependency(name: &str) -> Result<bool> {
-    std::process::Command::new(name)
+fn get_current_dir() -> Result<std::path::PathBuf> {
+    std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))
+}
+
+fn vcs_exists(cwd: &std::path::Path) -> bool {
+    cwd.join(".git").exists()
+}
+
+fn check_vcs_available() -> Result<DoctorCheck> {
+    let cwd = get_current_dir()?;
+    let exists = vcs_exists(&cwd);
+    let status = if exists {
+        CheckStatus::Pass
+    } else {
+        CheckStatus::Fail
+    };
+    Ok(DoctorCheck {
+        name: "VCS initialized".to_string(),
+        status,
+        message: if exists {
+            "Git repository found".to_string()
+        } else {
+            "No VCS found".to_string()
+        },
+        suggestion: if exists {
+            None
+        } else {
+            Some("Run 'scp init --vcs git'".to_string())
+        },
+        auto_fixable: false,
+        details: None,
+    })
+}
+
+fn check_git_dependency() -> Result<DoctorCheck> {
+    let output = std::process::Command::new("git")
         .arg("--version")
         .output()
-        .map(|o| o.status.success())
-        .map_err(|e| Error::io_error(e.to_string()))
+        .map_err(|e| Error::io_error(e.to_string()))?;
+    let found = output.status.success();
+    let status = if found {
+        CheckStatus::Pass
+    } else {
+        CheckStatus::Fail
+    };
+    Ok(DoctorCheck {
+        name: "Git CLI".to_string(),
+        status,
+        message: if found {
+            "git found".to_string()
+        } else {
+            "No git CLI found".to_string()
+        },
+        suggestion: if found {
+            None
+        } else {
+            Some("Install git".to_string())
+        },
+        auto_fixable: false,
+        details: None,
+    })
 }
 
-fn check_config_exists() -> Result<bool> {
-    let dir = directories::ProjectDirs::from("com", "scp", "scp")
-        .ok_or_else(|| Error::config_not_found("No config dir"))?;
+fn check_config_exists() -> Result<DoctorCheck> {
+    let dir = get_project_dirs()?;
     let config_file = dir.config_dir().join("config.toml");
-    Ok(config_file.exists())
+    let exists = config_file.exists();
+    let status = if exists {
+        CheckStatus::Pass
+    } else {
+        CheckStatus::Warn
+    };
+    Ok(DoctorCheck {
+        name: "Configuration".to_string(),
+        status,
+        message: if exists {
+            "Config file found".to_string()
+        } else {
+            "No config found (will use defaults)".to_string()
+        },
+        suggestion: None,
+        auto_fixable: false,
+        details: None,
+    })
 }
 
-fn check_workspaces_count() -> Result<usize> {
-    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
+fn check_config_valid() -> Result<DoctorCheck> {
+    let dir = get_project_dirs()?;
+    let config_file = dir.config_dir().join("config.toml");
+    if !config_file.exists() {
+        return Ok(DoctorCheck {
+            name: "Config validation".to_string(),
+            status: CheckStatus::Warn,
+            message: "No config file to validate".to_string(),
+            suggestion: Some("Run 'scp config list' to see current settings".to_string()),
+            auto_fixable: false,
+            details: None,
+        });
+    }
+    let manager = ConfigManager::new()?;
+    match manager.load() {
+        Ok(_) => Ok(DoctorCheck {
+            name: "Config validation".to_string(),
+            status: CheckStatus::Pass,
+            message: "Config is valid".to_string(),
+            suggestion: None,
+            auto_fixable: false,
+            details: None,
+        }),
+        Err(e) => Ok(DoctorCheck {
+            name: "Config validation".to_string(),
+            status: CheckStatus::Fail,
+            message: format!("Config error: {}", e),
+            suggestion: Some("Run 'scp config list' to check configuration".to_string()),
+            auto_fixable: false,
+            details: None,
+        }),
+    }
+}
+
+fn check_workspaces() -> Result<DoctorCheck> {
+    let cwd = get_current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
     let workspaces = backend.list_workspaces()?;
-    Ok(workspaces.len())
+    let count = workspaces.len();
+    let status = if count > 0 {
+        CheckStatus::Pass
+    } else {
+        CheckStatus::Warn
+    };
+    Ok(DoctorCheck {
+        name: "Workspaces".to_string(),
+        status,
+        message: if count > 0 {
+            format!("{} workspace(s) found", count)
+        } else {
+            "No workspaces found".to_string()
+        },
+        suggestion: if count == 0 {
+            Some("Run 'scp workspace spawn <name>'".to_string())
+        } else {
+            None
+        },
+        auto_fixable: false,
+        details: None,
+    })
+}
+
+#[cfg(unix)]
+fn gather_disk_usage(path: &std::path::Path) -> Option<String> {
+    let output = std::process::Command::new("df")
+        .arg("-h")
+        .arg(path)
+        .output()
+        .ok()?;
+    Some(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[cfg(not(unix))]
+fn gather_disk_usage(_path: &std::path::Path) -> Option<String> {
+    None
+}
+
+fn check_lock_files(path: &std::path::Path) -> Vec<String> {
+    let lock_patterns = [".git"];
+    lock_patterns
+        .iter()
+        .filter_map(|pattern| {
+            let lock_path = path.join(pattern).join("lock");
+            if lock_path.exists() {
+                Some(format!("{:?}", lock_path))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn check_vcs_status(path: &std::path::Path) -> Option<VcsStatus> {
+    vcs::create_backend(path).ok()?.status().ok()
+}
+
+fn print_check(check: &DoctorCheck, index: usize, total: usize) {
+    let status_symbol = match check.status {
+        CheckStatus::Pass => "✓",
+        CheckStatus::Warn => "⚠",
+        CheckStatus::Fail => "✗",
+    };
+    println!("[{}{}] {}...", index, total, check.name);
+    println!("  {} {}", status_symbol, check.message);
+    if let Some(ref suggestion) = check.suggestion {
+        println!("    {}", suggestion);
+    }
+}
+
+fn print_diagnostic_line(line: &str) {
+    println!("  {}", line);
+}
+
+fn all_critical_passed(checks: &[&DoctorCheck]) -> bool {
+    checks
+        .iter()
+        .filter(|c| c.name == "VCS initialized" || c.name == "Git CLI")
+        .all(|c| c.status == CheckStatus::Pass)
 }
 
 /// Run health checks
 pub fn run(full: bool) -> Result<()> {
     println!("Running SCP diagnostics...\n");
 
-    let check_vcs_result = check_vcs_available();
-    let check_dep_git = check_dependency("git");
-    let check_config_result = check_config_exists();
-    let check_workspaces_result = check_workspaces_count();
+    let vcs_check = check_vcs_available()?;
+    let git_check = check_git_dependency()?;
+    let config_exists_check = check_config_exists()?;
+    let config_valid_check = check_config_valid()?;
+    let workspaces_check = check_workspaces()?;
 
-    let vcs_passed = check_vcs_result.as_ref().copied().unwrap_or(false);
-    let dep_git_found = check_dep_git.as_ref().copied().unwrap_or(false);
-    let _config_result = check_config_result.as_ref().copied().unwrap_or(false);
-    let _workspaces_count = check_workspaces_result.as_ref().copied().unwrap_or(0);
+    let all_checks = vec![
+        &vcs_check,
+        &git_check,
+        &config_exists_check,
+        &config_valid_check,
+        &workspaces_check,
+    ];
 
-    println!("[1/5] Checking VCS...");
-    if vcs_passed {
-        println!("  ✓ VCS initialized");
-    } else {
-        println!("  ✗ No VCS found");
-        println!("    Run 'scp init --vcs git'");
+    let check_count = all_checks.len();
+    for (i, check) in all_checks.iter().enumerate() {
+        print_check(check, i + 1, check_count);
     }
-
-    println!("\n[2/5] Checking dependencies...");
-    if dep_git_found {
-        println!("  ✓ git found");
-    } else {
-        println!("  ✗ No VCS CLI found (git)");
-    }
-
-    println!("\n[3/5] Checking configuration...");
-    match check_config_result {
-        Ok(true) => println!("  ✓ Config valid"),
-        Ok(false) => {
-            println!("  ⚠ No config found (will use defaults)");
-        }
-        Err(e) => {
-            println!("  ✗ Config error: {}", e);
-        }
-    }
-
-    println!("\n[4/5] Checking workspaces...");
-    match check_workspaces_result {
-        Ok(count) => {
-            if count > 0 {
-                println!("  ✓ {} workspace(s) found", count);
-            } else {
-                println!("  ℹ No workspaces (run 'scp workspace spawn <name>')");
-            }
-        }
-        Err(e) => {
-            println!("  ✗ Error: {}", e);
-        }
-    }
-
-    let all_passed = vcs_passed && dep_git_found;
 
     if full {
-        println!("\n[5/5] Running full diagnostics...");
+        println!("\n[{}] Running full diagnostics...", check_count + 1);
 
-        if let Ok(path) = std::env::current_dir() {
-            #[cfg(unix)]
-            {
-                use std::process::Command;
-                if let Ok(output) = Command::new("df").arg("-h").arg(path).output() {
-                    let output = String::from_utf8_lossy(&output.stdout);
-                    for line in output.lines().skip(1) {
-                        println!("  Disk: {}", line);
-                    }
-                }
+        let cwd = get_current_dir()?;
+
+        if let Some(disk) = gather_disk_usage(&cwd) {
+            println!("\nDisk usage:");
+            disk.lines().skip(1).for_each(print_diagnostic_line);
+        }
+
+        let lock_files = check_lock_files(&cwd);
+        if !lock_files.is_empty() {
+            println!("\nLock files found:");
+            for lock in lock_files {
+                print_diagnostic_line(&format!("⚠ Found lock file: {}", lock));
             }
         }
 
-        if let Ok(path) = std::env::current_dir() {
-            let lock_patterns = [".git"];
-            for pattern in lock_patterns {
-                let lock_path = path.join(pattern).join("lock");
-                if lock_path.exists() {
-                    println!("  ⚠ Found lock file: {:?}", lock_path);
+        if let Some(status) = check_vcs_status(&cwd) {
+            match status {
+                VcsStatus::Conflicted => {
+                    println!("\n  ✗ Working copy has conflicts!");
                 }
-            }
-        }
-
-        if let Ok(path) = std::env::current_dir() {
-            if let Ok(be) = vcs::create_backend(&path) {
-                if let Ok(status) = be.status() {
-                    match status {
-                        scp_core::vcs::VcsStatus::Conflicted => {
-                            println!("  ✗ Working copy has conflicts!");
-                        }
-                        scp_core::vcs::VcsStatus::Dirty => {
-                            println!("  ⚠ Working copy has uncommitted changes");
-                        }
-                        _ => {}
-                    }
+                VcsStatus::Dirty => {
+                    println!("\n  ⚠ Working copy has uncommitted changes");
                 }
+                _ => {}
             }
         }
     } else {
-        println!("\n[5/5] Skipping full diagnostics (use --full)");
+        println!(
+            "\n[{}] Skipping full diagnostics (use --full)",
+            check_count + 1
+        );
     }
 
     println!("\n{}", "=".repeat(50));
-    if all_passed {
+
+    if all_critical_passed(&all_checks) {
         println!("✓ All checks passed");
         Ok(())
     } else {
