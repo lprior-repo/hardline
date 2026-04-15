@@ -1,11 +1,10 @@
 use chrono::Utc;
 
 use crate::application::traits::{GitHubClientTrait, StackRepository, VcsClientTrait};
-use crate::domain::stack::{PrInfo, Stack, StackBranch, StackId};
+use crate::domain::stack::{Stack, StackBranch, StackId};
 use crate::domain::state::{BranchState, StackState};
 use crate::domain::value_objects::BranchName;
 use crate::error::{Result, StackError};
-use scp_vcs::domain::types::CommitHash;
 
 pub struct StackService<R, G, V> {
     stack_repo: R,
@@ -29,12 +28,12 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         base_branch: BranchName,
         head_branch: BranchName,
         name: String,
-    ) -> Result<Stack, StackError> {
+    ) -> Result<Stack> {
         let branches = self.build_stack_tree(&base_branch, &head_branch)?;
 
         let stack = Stack {
             id: StackId::new(),
-            name,
+            name: crate::domain::stack::StackName::new(name),
             base_branch,
             branches,
             state: StackState::Draft,
@@ -47,13 +46,13 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         Ok(stack)
     }
 
-    pub fn publish_stack(&self, stack_id: StackId) -> Result<Stack, StackError> {
+    pub fn publish_stack(&self, stack_id: StackId) -> Result<Stack> {
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
             .ok_or(StackError::NotFound(stack_id.to_string()))?;
 
-        for branch in &stack.branches {
+        for branch in &mut stack.branches {
             let pr_info = self
                 .github
                 .create_pull_request(branch, &stack.base_branch)?;
@@ -67,7 +66,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         Ok(stack)
     }
 
-    pub fn restack(&self, stack_id: StackId) -> Result<Stack, StackError> {
+    pub fn restack(&self, stack_id: StackId) -> Result<Stack> {
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
@@ -75,11 +74,17 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
 
         self.github.fetch(&stack.base_branch)?;
 
+        let branch_names: Vec<_> = stack
+            .branches
+            .iter()
+            .map(|b| b.branch_name.clone())
+            .collect();
+
         for (i, branch) in stack.branches.iter_mut().enumerate() {
             let parent = if i == 0 {
                 stack.base_branch.clone()
             } else {
-                stack.branches[i - 1].branch_name.clone()
+                branch_names[i - 1].clone()
             };
 
             self.vcs.rebase(&branch.branch_name, &parent)?;
@@ -92,7 +97,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         Ok(stack)
     }
 
-    pub fn merge_stack(&self, stack_id: StackId) -> Result<Stack, StackError> {
+    pub fn merge_stack(&self, stack_id: StackId) -> Result<Stack> {
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
@@ -121,7 +126,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         stack_id: StackId,
         branch_name: BranchName,
         parent_branch: Option<BranchName>,
-    ) -> Result<Stack, StackError> {
+    ) -> Result<Stack> {
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
@@ -150,7 +155,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         &self,
         stack_id: StackId,
         branch_name: &BranchName,
-    ) -> Result<Stack, StackError> {
+    ) -> Result<Stack> {
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
@@ -174,7 +179,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         Ok(stack)
     }
 
-    pub fn close_stack(&self, stack_id: StackId) -> Result<Stack, StackError> {
+    pub fn close_stack(&self, stack_id: StackId) -> Result<Stack> {
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
@@ -198,11 +203,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         Ok(stack)
     }
 
-    fn build_stack_tree(
-        &self,
-        base: &BranchName,
-        head: &BranchName,
-    ) -> Result<Vec<StackBranch>, StackError> {
+    fn build_stack_tree(&self, base: &BranchName, head: &BranchName) -> Result<Vec<StackBranch>> {
         let mut branches = Vec::new();
         let mut current = head.clone();
 
@@ -217,7 +218,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
                 Some(
                     branches
                         .last()
-                        .map(|b| b.branch_name.clone())
+                        .map(|b: &StackBranch| b.branch_name.clone())
                         .unwrap_or_else(|| base.clone()),
                 )
             };
@@ -250,7 +251,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
     }
 }
 
-pub fn assert_branch_order(stack: &Stack) -> Result<(), StackError> {
+pub fn assert_branch_order(stack: &Stack) -> Result<()> {
     for window in stack.branches.windows(2) {
         let lower = &window[0];
         let higher = &window[1];
@@ -272,7 +273,7 @@ pub fn assert_branch_order(stack: &Stack) -> Result<(), StackError> {
     Ok(())
 }
 
-pub fn assert_base_not_in_stack(stack: &Stack) -> Result<(), StackError> {
+pub fn assert_base_not_in_stack(stack: &Stack) -> Result<()> {
     if stack
         .branches
         .iter()
@@ -286,7 +287,7 @@ pub fn assert_base_not_in_stack(stack: &Stack) -> Result<(), StackError> {
     Ok(())
 }
 
-pub fn assert_unique_branch_names(stack: &Stack) -> Result<(), StackError> {
+pub fn assert_unique_branch_names(stack: &Stack) -> Result<()> {
     use std::collections::HashSet;
     let mut names = HashSet::new();
     for branch in &stack.branches {
@@ -300,7 +301,7 @@ pub fn assert_unique_branch_names(stack: &Stack) -> Result<(), StackError> {
     Ok(())
 }
 
-pub fn assert_draft_stack_no_prs(stack: &Stack) -> Result<(), StackError> {
+pub fn assert_draft_stack_no_prs(stack: &Stack) -> Result<()> {
     if stack.state == StackState::Draft {
         for branch in &stack.branches {
             if branch.pr_info.is_some() {
@@ -313,7 +314,7 @@ pub fn assert_draft_stack_no_prs(stack: &Stack) -> Result<(), StackError> {
     Ok(())
 }
 
-pub fn assert_published_stack_has_prs(stack: &Stack) -> Result<(), StackError> {
+pub fn assert_published_stack_has_prs(stack: &Stack) -> Result<()> {
     if stack.state == StackState::Published {
         for branch in &stack.branches {
             if branch.pr_info.is_none() {
@@ -326,7 +327,7 @@ pub fn assert_published_stack_has_prs(stack: &Stack) -> Result<(), StackError> {
     Ok(())
 }
 
-pub fn assert_merged_stack_all_merged(stack: &Stack) -> Result<(), StackError> {
+pub fn assert_merged_stack_all_merged(stack: &Stack) -> Result<()> {
     if stack.state == StackState::Merged {
         for branch in &stack.branches {
             if branch.state != BranchState::Merged {
@@ -343,8 +344,7 @@ pub fn assert_merged_stack_all_merged(stack: &Stack) -> Result<(), StackError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::stack::PrInfo as DomainPrInfo;
-    use crate::domain::state::PrState;
+    use crate::domain::stack::{CommitHash, PrInfo as DomainPrInfo};
     use std::sync::Arc;
 
     struct MockRepo {
@@ -359,8 +359,38 @@ mod tests {
         }
     }
 
+    impl StackRepository for Arc<MockRepo> {
+        fn save(&self, stack: &Stack) -> Result<()> {
+            self.as_ref().save(stack)
+        }
+
+        fn find_by_id(&self, id: &StackId) -> Result<Option<Stack>> {
+            self.as_ref().find_by_id(id)
+        }
+
+        fn find_by_branch(&self, branch: &BranchName) -> Result<Option<Stack>> {
+            self.as_ref().find_by_branch(branch)
+        }
+
+        fn find_by_pr(&self, pr_number: u32) -> Result<Option<Stack>> {
+            self.as_ref().find_by_pr(pr_number)
+        }
+
+        fn list_all(&self) -> Result<Vec<Stack>> {
+            self.as_ref().list_all()
+        }
+
+        fn list_by_state(&self, state: StackState) -> Result<Vec<Stack>> {
+            self.as_ref().list_by_state(state)
+        }
+
+        fn delete(&self, id: &StackId) -> Result<()> {
+            self.as_ref().delete(id)
+        }
+    }
+
     impl StackRepository for MockRepo {
-        fn save(&self, stack: &Stack) -> Result<(), StackError> {
+        fn save(&self, stack: &Stack) -> Result<()> {
             let mut stacks = self
                 .stacks
                 .lock()
@@ -373,7 +403,7 @@ mod tests {
             Ok(())
         }
 
-        fn find_by_id(&self, id: &StackId) -> Result<Option<Stack>, StackError> {
+        fn find_by_id(&self, id: &StackId) -> Result<Option<Stack>> {
             let stacks = self
                 .stacks
                 .lock()
@@ -381,15 +411,15 @@ mod tests {
             Ok(stacks.iter().find(|s| s.id == *id).cloned())
         }
 
-        fn find_by_branch(&self, _branch: &BranchName) -> Result<Option<Stack>, StackError> {
+        fn find_by_branch(&self, _branch: &BranchName) -> Result<Option<Stack>> {
             Ok(None)
         }
 
-        fn find_by_pr(&self, _pr_number: u32) -> Result<Option<Stack>, StackError> {
+        fn find_by_pr(&self, _pr_number: u32) -> Result<Option<Stack>> {
             Ok(None)
         }
 
-        fn list_all(&self) -> Result<Vec<Stack>, StackError> {
+        fn list_all(&self) -> Result<Vec<Stack>> {
             let stacks = self
                 .stacks
                 .lock()
@@ -397,11 +427,11 @@ mod tests {
             Ok(stacks.clone())
         }
 
-        fn list_by_state(&self, _state: StackState) -> Result<Vec<Stack>, StackError> {
+        fn list_by_state(&self, _state: StackState) -> Result<Vec<Stack>> {
             Ok(Vec::new())
         }
 
-        fn delete(&self, _id: &StackId) -> Result<(), StackError> {
+        fn delete(&self, _id: &StackId) -> Result<()> {
             Ok(())
         }
     }
@@ -413,7 +443,7 @@ mod tests {
             &self,
             _branch: &StackBranch,
             _base_branch: &BranchName,
-        ) -> Result<DomainPrInfo, StackError> {
+        ) -> Result<DomainPrInfo> {
             Ok(DomainPrInfo::new(
                 1,
                 "https://github.com/test/1".to_string(),
@@ -429,7 +459,7 @@ mod tests {
             _pr_number: u32,
             _title: Option<String>,
             _body: Option<String>,
-        ) -> Result<DomainPrInfo, StackError> {
+        ) -> Result<DomainPrInfo> {
             Ok(DomainPrInfo::new(
                 1,
                 "https://github.com/test/1".to_string(),
@@ -440,7 +470,7 @@ mod tests {
             ))
         }
 
-        fn get_pull_request(&self, _pr_number: u32) -> Result<DomainPrInfo, StackError> {
+        fn get_pull_request(&self, _pr_number: u32) -> Result<DomainPrInfo> {
             Ok(DomainPrInfo::new(
                 1,
                 "https://github.com/test/1".to_string(),
@@ -451,39 +481,158 @@ mod tests {
             ))
         }
 
-        fn merge_pull_request(&self, _pr_number: u32) -> Result<(), StackError> {
+        fn find_pr(&self, _branch_name: &str) -> Result<Option<DomainPrInfo>> {
+            Ok(Some(DomainPrInfo::new(
+                1,
+                "https://github.com/test/1".to_string(),
+                "Test PR".to_string(),
+                "Description".to_string(),
+                "author".to_string(),
+                false,
+            )))
+        }
+
+        fn is_pr_merged(&self, _pr_number: u32) -> Result<bool> {
+            Ok(false)
+        }
+
+        fn get_pr_merge_status(
+            &self,
+            _pr_number: u32,
+        ) -> Result<crate::application::traits::PrMergeStatus> {
+            Ok(crate::application::traits::PrMergeStatus::ready())
+        }
+
+        fn merge_pull_request(&self, _pr_number: u32) -> Result<()> {
             Ok(())
         }
 
-        fn force_push(&self, _branch: &BranchName) -> Result<(), StackError> {
+        fn merge_pr(
+            &self,
+            _pr_number: u32,
+            _merge_method: crate::application::traits::MergeMethod,
+            _title: Option<String>,
+            _body: Option<String>,
+        ) -> Result<()> {
             Ok(())
         }
 
-        fn fetch(&self, _branch: &BranchName) -> Result<(), StackError> {
+        fn update_pr_base(&self, _pr_number: u32, _base_branch: &BranchName) -> Result<()> {
             Ok(())
         }
 
-        fn get_commit_hash(&self, _branch: &BranchName) -> Result<CommitHash, StackError> {
+        fn force_push(&self, _branch: &BranchName) -> Result<()> {
+            Ok(())
+        }
+
+        fn fetch(&self, _branch: &BranchName) -> Result<()> {
+            Ok(())
+        }
+
+        fn get_commit_hash(&self, _branch: &BranchName) -> Result<CommitHash> {
             Ok(CommitHash::new("abc123"))
+        }
+    }
+
+    impl GitHubClientTrait for Arc<MockGitHub> {
+        fn create_pull_request(
+            &self,
+            branch: &StackBranch,
+            base_branch: &BranchName,
+        ) -> Result<DomainPrInfo> {
+            self.as_ref().create_pull_request(branch, base_branch)
+        }
+
+        fn update_pull_request(
+            &self,
+            pr_number: u32,
+            title: Option<String>,
+            body: Option<String>,
+        ) -> Result<DomainPrInfo> {
+            self.as_ref().update_pull_request(pr_number, title, body)
+        }
+
+        fn get_pull_request(&self, pr_number: u32) -> Result<DomainPrInfo> {
+            self.as_ref().get_pull_request(pr_number)
+        }
+
+        fn find_pr(&self, branch_name: &str) -> Result<Option<DomainPrInfo>> {
+            self.as_ref().find_pr(branch_name)
+        }
+
+        fn is_pr_merged(&self, pr_number: u32) -> Result<bool> {
+            self.as_ref().is_pr_merged(pr_number)
+        }
+
+        fn get_pr_merge_status(
+            &self,
+            pr_number: u32,
+        ) -> Result<crate::application::traits::PrMergeStatus> {
+            self.as_ref().get_pr_merge_status(pr_number)
+        }
+
+        fn merge_pull_request(&self, pr_number: u32) -> Result<()> {
+            self.as_ref().merge_pull_request(pr_number)
+        }
+
+        fn merge_pr(
+            &self,
+            pr_number: u32,
+            merge_method: crate::application::traits::MergeMethod,
+            title: Option<String>,
+            body: Option<String>,
+        ) -> Result<()> {
+            self.as_ref().merge_pr(pr_number, merge_method, title, body)
+        }
+
+        fn update_pr_base(&self, pr_number: u32, base_branch: &BranchName) -> Result<()> {
+            self.as_ref().update_pr_base(pr_number, base_branch)
+        }
+
+        fn force_push(&self, branch: &BranchName) -> Result<()> {
+            self.as_ref().force_push(branch)
+        }
+
+        fn fetch(&self, branch: &BranchName) -> Result<()> {
+            self.as_ref().fetch(branch)
+        }
+
+        fn get_commit_hash(&self, branch: &BranchName) -> Result<CommitHash> {
+            self.as_ref().get_commit_hash(branch)
         }
     }
 
     struct MockVcs;
 
     impl VcsClientTrait for MockVcs {
-        fn rebase(&self, _branch: &BranchName, _onto: &BranchName) -> Result<(), StackError> {
+        fn rebase(&self, _branch: &BranchName, _onto: &BranchName) -> Result<()> {
             Ok(())
         }
 
-        fn get_current_commit(&self, _branch: &BranchName) -> Result<CommitHash, StackError> {
+        fn get_current_commit(&self, _branch: &BranchName) -> Result<CommitHash> {
             Ok(CommitHash::new("abc123"))
         }
 
-        fn get_parent_commit(
-            &self,
-            _branch: &BranchName,
-        ) -> Result<Option<BranchName>, StackError> {
-            Ok(None)
+        fn get_parent_commit(&self, branch: &BranchName) -> Result<Option<BranchName>> {
+            if branch.as_str() == "main" {
+                Ok(None)
+            } else {
+                Ok(Some(BranchName::new("main")))
+            }
+        }
+    }
+
+    impl VcsClientTrait for Arc<MockVcs> {
+        fn rebase(&self, branch: &BranchName, onto: &BranchName) -> Result<()> {
+            self.as_ref().rebase(branch, onto)
+        }
+
+        fn get_current_commit(&self, branch: &BranchName) -> Result<CommitHash> {
+            self.as_ref().get_current_commit(branch)
+        }
+
+        fn get_parent_commit(&self, branch: &BranchName) -> Result<Option<BranchName>> {
+            self.as_ref().get_parent_commit(branch)
         }
     }
 
@@ -498,6 +647,9 @@ mod tests {
         let head = BranchName::new("feature-a");
 
         let result = service.create_stack(base, head, "test-stack".to_string());
+        if let Err(e) = &result {
+            eprintln!("test_create_stack error: {:?}", e);
+        }
         assert!(result.is_ok());
     }
 
@@ -580,10 +732,8 @@ mod tests {
         let vcs = Arc::new(MockVcs);
         let service = StackService::new(repo, github, vcs);
 
-        let result = service.remove_branch_from_stack(
-            StackId::from_u64(999),
-            &BranchName::new("some-branch"),
-        );
+        let result = service
+            .remove_branch_from_stack(StackId::from_u64(999), &BranchName::new("some-branch"));
         assert!(result.is_err());
     }
 
@@ -706,28 +856,32 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_branch_order_valid() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-            make_branch("b", 1, Some("a")),
-            make_branch("c", 2, Some("b")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![
+                make_branch("a", 0, None),
+                make_branch("b", 1, Some("a")),
+                make_branch("c", 2, Some("b")),
+            ],
+            StackState::Draft,
+        );
         assert!(assert_branch_order(&stack).is_ok());
     }
 
     #[test]
     fn test_assert_branch_order_invalid_position() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, Some("b")),
-            make_branch("b", 0, Some("a")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![
+                make_branch("a", 0, Some("b")),
+                make_branch("b", 0, Some("a")),
+            ],
+            StackState::Draft,
+        );
         assert!(assert_branch_order(&stack).is_err());
     }
 
     #[test]
     fn test_assert_branch_order_single() {
-        let stack = make_stack(vec![
-            make_branch("solo", 0, None),
-        ], StackState::Draft);
+        let stack = make_stack(vec![make_branch("solo", 0, None)], StackState::Draft);
         assert!(assert_branch_order(&stack).is_ok());
     }
 
@@ -739,27 +893,31 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_branch_order_parent_mismatch() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-            make_branch("b", 1, Some("wrong-parent")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![
+                make_branch("a", 0, None),
+                make_branch("b", 1, Some("wrong-parent")),
+            ],
+            StackState::Draft,
+        );
         assert!(assert_branch_order(&stack).is_err());
     }
 
     #[test]
     fn test_assert_base_not_in_stack_valid() {
-        let stack = make_stack(vec![
-            make_branch("feat-a", 0, None),
-            make_branch("feat-b", 1, Some("feat-a")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![
+                make_branch("feat-a", 0, None),
+                make_branch("feat-b", 1, Some("feat-a")),
+            ],
+            StackState::Draft,
+        );
         assert!(assert_base_not_in_stack(&stack).is_ok());
     }
 
     #[test]
     fn test_assert_base_not_in_stack_invalid() {
-        let stack = make_stack(vec![
-            make_branch("main", 0, None),
-        ], StackState::Draft);
+        let stack = make_stack(vec![make_branch("main", 0, None)], StackState::Draft);
         assert!(assert_base_not_in_stack(&stack).is_err());
     }
 
@@ -771,19 +929,19 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_unique_branch_names_valid() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-            make_branch("b", 1, Some("a")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![make_branch("a", 0, None), make_branch("b", 1, Some("a"))],
+            StackState::Draft,
+        );
         assert!(assert_unique_branch_names(&stack).is_ok());
     }
 
     #[test]
     fn test_assert_unique_branch_names_duplicate() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-            make_branch("a", 1, Some("a")),
-        ], StackState::Draft);
+        let stack = make_stack(
+            vec![make_branch("a", 0, None), make_branch("a", 1, Some("a"))],
+            StackState::Draft,
+        );
         assert!(assert_unique_branch_names(&stack).is_err());
     }
 
@@ -795,9 +953,7 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_draft_stack_no_prs_valid() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-        ], StackState::Draft);
+        let stack = make_stack(vec![make_branch("a", 0, None)], StackState::Draft);
         assert!(assert_draft_stack_no_prs(&stack).is_ok());
     }
 
@@ -805,8 +961,12 @@ mod assertion_tests {
     fn test_assert_draft_stack_no_prs_invalid() {
         let mut branch = make_branch("a", 0, None);
         branch.pr_info = Some(PrInfo::new(
-            1, "url".to_string(), "t".to_string(),
-            "d".to_string(), "a".to_string(), false,
+            1,
+            "url".to_string(),
+            "t".to_string(),
+            "d".to_string(),
+            "a".to_string(),
+            false,
         ));
         let stack = make_stack(vec![branch], StackState::Draft);
         assert!(assert_draft_stack_no_prs(&stack).is_err());
@@ -816,8 +976,12 @@ mod assertion_tests {
     fn test_assert_draft_stack_no_prs_non_draft_ok() {
         let mut branch = make_branch("a", 0, None);
         branch.pr_info = Some(PrInfo::new(
-            1, "url".to_string(), "t".to_string(),
-            "d".to_string(), "a".to_string(), false,
+            1,
+            "url".to_string(),
+            "t".to_string(),
+            "d".to_string(),
+            "a".to_string(),
+            false,
         ));
         let stack = make_stack(vec![branch], StackState::Published);
         // Should be ok because it's not a draft
@@ -828,10 +992,19 @@ mod assertion_tests {
     fn test_assert_published_stack_has_prs_valid() {
         let mut branches = Vec::new();
         for i in 0..3u32 {
-            let mut branch = make_branch(&format!("b{i}"), i, if i == 0 { None } else { Some(&format!("b{}", i - 1)) });
+            let parent: Option<String> = if i == 0 {
+                None
+            } else {
+                Some(format!("b{}", i - 1))
+            };
+            let mut branch = make_branch(&format!("b{i}"), i, parent.as_deref());
             branch.pr_info = Some(PrInfo::new(
-                i + 1, "url".to_string(), "t".to_string(),
-                "d".to_string(), "a".to_string(), false,
+                i + 1,
+                "url".to_string(),
+                "t".to_string(),
+                "d".to_string(),
+                "a".to_string(),
+                false,
             ));
             branches.push(branch);
         }
@@ -841,18 +1014,14 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_published_stack_has_prs_invalid_missing() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-        ], StackState::Published);
+        let stack = make_stack(vec![make_branch("a", 0, None)], StackState::Published);
         assert!(assert_published_stack_has_prs(&stack).is_err());
     }
 
     #[test]
     fn test_assert_published_stack_has_prs_non_published_ok() {
         // Not published, so assertion should pass regardless
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-        ], StackState::Draft);
+        let stack = make_stack(vec![make_branch("a", 0, None)], StackState::Draft);
         assert!(assert_published_stack_has_prs(&stack).is_ok());
     }
 
@@ -860,7 +1029,12 @@ mod assertion_tests {
     fn test_assert_merged_stack_all_merged_valid() {
         let mut branches = Vec::new();
         for i in 0..3u32 {
-            let mut branch = make_branch(&format!("b{i}"), i, if i == 0 { None } else { Some(&format!("b{}", i - 1)) });
+            let parent: Option<String> = if i == 0 {
+                None
+            } else {
+                Some(format!("b{}", i - 1))
+            };
+            let mut branch = make_branch(&format!("b{i}"), i, parent.as_deref());
             branch.state = crate::domain::state::BranchState::Merged;
             branches.push(branch);
         }
@@ -870,17 +1044,13 @@ mod assertion_tests {
 
     #[test]
     fn test_assert_merged_stack_all_merged_invalid() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-        ], StackState::Merged);
+        let stack = make_stack(vec![make_branch("a", 0, None)], StackState::Merged);
         assert!(assert_merged_stack_all_merged(&stack).is_err());
     }
 
     #[test]
     fn test_assert_merged_stack_all_merged_non_merged_ok() {
-        let stack = make_stack(vec![
-            make_branch("a", 0, None),
-        ], StackState::Draft);
+        let stack = make_stack(vec![make_branch("a", 0, None)], StackState::Draft);
         // Not merged, so assertion should pass
         assert!(assert_merged_stack_all_merged(&stack).is_ok());
     }

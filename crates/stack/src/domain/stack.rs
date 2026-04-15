@@ -216,6 +216,28 @@ impl Stack {
     pub fn branches_ordered(&self) -> &[StackBranch] {
         &self.branches
     }
+
+    pub fn descendants(&self, branch: &BranchName) -> Vec<BranchName> {
+        self.branches
+            .iter()
+            .filter(|b| {
+                if b.branch_name == *branch {
+                    return false;
+                }
+                let mut current = b.parent_branch.as_ref();
+                while let Some(parent) = current {
+                    if parent == branch {
+                        return true;
+                    }
+                    current = self
+                        .branch_named(parent)
+                        .and_then(|p| p.parent_branch.as_ref());
+                }
+                false
+            })
+            .map(|b| b.branch_name.clone())
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
