@@ -1,3 +1,6 @@
+pub mod ci_history;
+
+pub use ci_history::{CiCheckHistory, CiRunRecord, CiStatus};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
