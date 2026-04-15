@@ -2,7 +2,8 @@
     dead_code,
     clippy::missing_errors_doc,
     clippy::type_complexity,
-    clippy::result_large_err
+    clippy::result_large_err,
+    clippy::module_inception
 )]
 #![deny(warnings)]
 #![deny(clippy::unwrap_used)]
