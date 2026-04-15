@@ -1,46 +1,196 @@
-#![allow(clippy::module_inception)]
-pub mod input {
-    #[derive(Debug, Clone, Copy)]
-    pub struct InputHandler;
+use crossterm::event::{KeyCode, KeyEvent};
 
-    impl Default for InputHandler {
-        fn default() -> Self {
-            Self::new()
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HunkAction {
+    Stage,
+    Unstage,
+    Discard,
+    NavigateNext,
+    NavigatePrev,
+    ScrollUp,
+    ScrollDown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum InputResult {
+    Handled(HunkAction),
+    Unhandled,
+    Quit,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct InputHandler {
+    pub current_hunk: usize,
+    pub total_hunks: usize,
+}
+
+impl Default for InputHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl InputHandler {
+    pub fn new() -> Self {
+        Self {
+            current_hunk: 0,
+            total_hunks: 0,
         }
     }
 
-    impl InputHandler {
-        pub fn new() -> Self {
-            Self
+    pub fn handle_key_event(&mut self, key: KeyEvent) -> InputResult {
+        match key.code {
+            KeyCode::Char(' ') | KeyCode::Char('s') => InputResult::Handled(HunkAction::Stage),
+            KeyCode::Char('u') => InputResult::Handled(HunkAction::Unstage),
+            KeyCode::Char('d') | KeyCode::Char('D') => InputResult::Handled(HunkAction::Discard),
+            KeyCode::Char('j') | KeyCode::Down => {
+                self.navigate_next();
+                InputResult::Handled(HunkAction::NavigateNext)
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                self.navigate_prev();
+                InputResult::Handled(HunkAction::NavigatePrev)
+            }
+            KeyCode::Char('b') | KeyCode::PageUp => InputResult::Handled(HunkAction::ScrollUp),
+            KeyCode::Char('f') | KeyCode::PageDown => InputResult::Handled(HunkAction::ScrollDown),
+            KeyCode::Char('q') | KeyCode::Esc => InputResult::Quit,
+            _ => InputResult::Unhandled,
+        }
+    }
+
+    fn navigate_next(&mut self) {
+        if self.total_hunks > 0 {
+            self.current_hunk = (self.current_hunk + 1) % self.total_hunks;
+        }
+    }
+
+    fn navigate_prev(&mut self) {
+        if self.total_hunks > 0 {
+            self.current_hunk = if self.current_hunk == 0 {
+                self.total_hunks - 1
+            } else {
+                self.current_hunk - 1
+            };
+        }
+    }
+
+    pub fn set_hunk_count(&mut self, count: usize) {
+        self.total_hunks = count;
+        if self.current_hunk >= count && count > 0 {
+            self.current_hunk = count - 1;
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::input::InputHandler;
+    use super::{HunkAction, InputHandler, InputResult};
 
     #[test]
     fn input_handler_new_creates_instance() {
-        let _handler = InputHandler::new();
+        let handler = InputHandler::new();
+        assert_eq!(handler.current_hunk, 0);
+        assert_eq!(handler.total_hunks, 0);
     }
 
     #[test]
     fn input_handler_default_creates_instance() {
-        let _handler = InputHandler::default();
+        let handler = InputHandler::default();
+        assert_eq!(handler.current_hunk, 0);
     }
 
     #[test]
-    fn input_handler_new_equals_default() {
-        let _new = InputHandler::new();
-        let _default = InputHandler::default();
-        // Both should produce equivalent instances
-        // (unit struct, so they are trivially equal)
+    fn input_handler_quit() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Char('q'), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Quit);
     }
 
     #[test]
-    fn input_handler_is_zero_sized() {
-        assert_eq!(std::mem::size_of::<InputHandler>(), 0);
+    fn input_handler_navigate_next() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(3);
+        handler.current_hunk = 0;
+        handler.navigate_next();
+        assert_eq!(handler.current_hunk, 1);
+    }
+
+    #[test]
+    fn input_handler_navigate_prev() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(3);
+        handler.current_hunk = 1;
+        handler.navigate_prev();
+        assert_eq!(handler.current_hunk, 0);
+    }
+
+    #[test]
+    fn input_handler_navigate_prev_wraps() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(3);
+        handler.current_hunk = 0;
+        handler.navigate_prev();
+        assert_eq!(handler.current_hunk, 2);
+    }
+
+    #[test]
+    fn input_handler_navigate_next_wraps() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(3);
+        handler.current_hunk = 2;
+        handler.navigate_next();
+        assert_eq!(handler.current_hunk, 0);
+    }
+
+    #[test]
+    fn input_handler_set_hunk_count_adjusts_current() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(5);
+        handler.current_hunk = 4;
+        handler.set_hunk_count(2);
+        assert_eq!(handler.current_hunk, 1);
+    }
+
+    #[test]
+    fn input_handler_set_hunk_count_zero_does_not_crash() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(5);
+        handler.current_hunk = 2;
+        handler.set_hunk_count(0);
+        assert_eq!(handler.current_hunk, 2);
+    }
+
+    #[test]
+    fn input_handler_partial_eq() {
+        let a = InputHandler::new();
+        let b = InputHandler::new();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn hunk_action_partial_eq() {
+        assert_eq!(HunkAction::Stage, HunkAction::Stage);
+        assert_eq!(HunkAction::Unstage, HunkAction::Unstage);
+        assert_ne!(HunkAction::Stage, HunkAction::Unstage);
+    }
+
+    #[test]
+    fn input_result_partial_eq() {
+        assert_eq!(InputResult::Quit, InputResult::Quit);
+        assert_eq!(
+            InputResult::Handled(HunkAction::Stage),
+            InputResult::Handled(HunkAction::Stage)
+        );
+        assert_ne!(InputResult::Quit, InputResult::Unhandled);
+    }
+
+    #[test]
+    fn input_handler_debug_format() {
+        let handler = InputHandler::new();
+        let debug = format!("{handler:?}");
+        assert!(!debug.is_empty());
+        assert!(debug.contains("InputHandler"));
     }
 
     #[test]
@@ -56,107 +206,9 @@ mod tests {
     }
 
     #[test]
-    fn input_handler_multiple_instances() {
-        let _a = InputHandler::new();
-        let _b = InputHandler::new();
-        let _c = InputHandler::default();
-    }
-
-    #[test]
-    fn input_handler_alignment_is_one() {
-        assert_eq!(std::mem::align_of::<InputHandler>(), 1);
-    }
-
-    #[test]
-    fn input_handler_type_name_contains_module() {
-        let name = std::any::type_name::<InputHandler>();
-        assert!(name.contains("InputHandler"), "type name: {name}");
-    }
-
-    #[test]
-    fn input_handler_debug_format() {
-        let handler = InputHandler::new();
-        let debug = format!("{handler:?}");
-        assert!(!debug.is_empty());
-    }
-
-    #[test]
-    fn input_handler_in_vec() {
-        let handlers: Vec<InputHandler> = vec![
-            InputHandler::new(),
-            InputHandler::default(),
-            InputHandler::new(),
-        ];
-        assert_eq!(handlers.len(), 3);
-    }
-
-    #[test]
-    fn input_handler_in_box() {
-        let boxed: Box<InputHandler> = Box::new(InputHandler::new());
-        let _ = *boxed;
-    }
-
-    #[test]
-    fn input_handler_in_option() {
-        let some = Some(InputHandler::new());
-        assert!(some.is_some());
-        let none: Option<InputHandler> = None;
-        assert!(none.is_none());
-    }
-
-    #[test]
-    fn input_handler_clone_via_debug() {
-        // Unit structs are implicitly Copy/Clone
-        let a = InputHandler::new();
-        let _b = a;
-        // a is still usable because unit struct is Copy
-        let _c = a;
-    }
-
-    #[test]
-    fn input_handler_copy() {
-        fn assert_copy<T: Copy>() {}
-        assert_copy::<InputHandler>();
-    }
-
-    #[test]
     fn input_handler_clone() {
-        fn assert_clone<T: Clone>() {}
-        assert_clone::<InputHandler>();
-    }
-
-    #[test]
-    fn input_handler_scope_cleanup_no_panic() {
-        // Verify no panic on scope exit (drop)
-        {
-            let _handler = InputHandler::new();
-        }
-    }
-
-    // ── Proptests ──
-
-    use proptest::proptest;
-
-    proptest! {
-        #[test]
-        fn prop_input_handler_new_never_panics(
-            _dummy in proptest::bool::ANY,
-        ) {
-            let _handler = InputHandler::new();
-        }
-
-        #[test]
-        fn prop_input_handler_default_never_panics(
-            _dummy in proptest::bool::ANY,
-        ) {
-            let _handler = InputHandler::default();
-        }
-
-        #[test]
-        fn prop_input_handler_always_zero_sized(
-            _dummy in proptest::bool::ANY,
-        ) {
-            assert_eq!(std::mem::size_of::<InputHandler>(), 0);
-        }
+        let handler = InputHandler::new();
+        let cloned = handler.clone();
+        assert_eq!(handler.current_hunk, cloned.current_hunk);
     }
 }

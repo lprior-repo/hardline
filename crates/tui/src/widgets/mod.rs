@@ -1,28 +1,26 @@
-pub mod widgets {
-    pub mod stack_tree {
-        #[derive(Debug, Clone, Copy)]
-        pub struct StackTree;
-    }
+pub mod stack_tree {
+    #[derive(Debug, Clone, Copy)]
+    pub struct StackTree;
+}
 
-    pub mod diff {
-        #[derive(Debug, Clone, Copy)]
-        pub struct DiffView;
-    }
+pub mod diff {
+    #[derive(Debug, Clone, Copy)]
+    pub struct DiffView;
+}
 
-    pub mod details {
-        #[derive(Debug, Clone, Copy)]
-        pub struct DetailsView;
-    }
+pub mod details {
+    #[derive(Debug, Clone, Copy)]
+    pub struct DetailsView;
+}
 
-    pub mod reorder_preview {
-        #[derive(Debug, Clone, Copy)]
-        pub struct ReorderPreview;
-    }
+pub mod reorder_preview {
+    #[derive(Debug, Clone, Copy)]
+    pub struct ReorderPreview;
+}
 
-    pub mod agents {
-        #[derive(Debug, Clone, Copy)]
-        pub struct AgentsView;
-    }
+pub mod agents {
+    #[derive(Debug, Clone, Copy)]
+    pub struct AgentsView;
 }
 
 pub mod worktree;
@@ -30,7 +28,7 @@ pub use worktree::WorktreeItem;
 
 #[cfg(test)]
 mod tests {
-    use super::widgets::{
+    use super::{
         agents::AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
         stack_tree::StackTree,
     };

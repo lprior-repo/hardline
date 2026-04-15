@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::views::WorktreeView;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FocusedPane {
     Stack,
     Diff,
