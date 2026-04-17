@@ -82,3 +82,100 @@ pub fn push(tag: Option<&str>, remote: &str, _force: bool) -> Result<()> {
     Output::success(&format!("Pushed tag {} to {}", t, remote));
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn list_accepts_none_params() {
+        let _fn: fn(Option<&str>, Option<&str>) -> Result<()> = list;
+    }
+
+    #[test]
+    fn create_accepts_all_params() {
+        let _fn: fn(&str, Option<&str>, Option<&str>, bool) -> Result<()> = create;
+    }
+
+    #[test]
+    fn delete_rejects_remote_delete() {
+        // Remote tag delete is explicitly not implemented
+        let dir = tempfile::tempdir().unwrap();
+        let original = std::env::current_dir().unwrap();
+
+        // We need a git repo for this — but remote delete is checked before repo open
+        // So even in a non-VCS dir, the error should come from vcs_not_initialized
+        std::env::set_current_dir(dir.path()).unwrap();
+        let result = delete("v1.0", true);
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn push_rejects_none_tag() {
+        // Push all tags is explicitly not implemented
+        let dir = tempfile::tempdir().unwrap();
+        let original = std::env::current_dir().unwrap();
+
+        std::env::set_current_dir(dir.path()).unwrap();
+        let result = push(None, "origin", false);
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn list_in_non_vcs_dir_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let result = list(None, None);
+
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn create_in_non_vcs_dir_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let result = create("v1.0", None, None, false);
+
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn delete_in_non_vcs_dir_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let result = delete("v1.0", false);
+
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn push_in_non_vcs_dir_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let result = push(Some("v1.0"), "origin", false);
+
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn error_constructors_used_in_tag() {
+        let _ = Error::io_error("test");
+        let _ = Error::vcs_not_initialized();
+        let _ = Error::vcs_conflict("repo", "msg");
+        let _ = Error::vcs_push_failed("test");
+    }
+}

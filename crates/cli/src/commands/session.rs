@@ -164,3 +164,79 @@ pub fn remove(name: &str, _force: bool, merge: bool) -> Result<()> {
     Output::success(&format!("Removed session '{}'", name));
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn focus_rejects_empty_name() {
+        let result = focus("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn focus_returns_invalid_identifier_for_empty() {
+        let result = focus("");
+        let err = result.unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("empty"), "error should mention empty: {}", msg);
+    }
+
+    #[test]
+    fn remove_rejects_empty_name() {
+        let result = remove("", false, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn remove_main_session_rejected() {
+        let result = remove("main", false, false);
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.to_lowercase().contains("main"),
+            "error should mention main: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn list_function_exists_and_returns_result() {
+        let _fn_list: fn() -> Result<()> = list;
+    }
+
+    #[test]
+    fn status_function_exists_and_returns_result() {
+        let _fn_status: fn() -> Result<()> = status;
+    }
+
+    #[test]
+    fn submit_function_accepts_all_params() {
+        let _fn_submit: fn(Option<&str>, bool, Option<&str>) -> Result<()> = submit;
+    }
+
+    #[test]
+    fn remove_accepts_force_and_merge_flags() {
+        let _fn_remove: fn(&str, bool, bool) -> Result<()> = remove;
+    }
+
+    #[test]
+    fn vcs_status_variants_used_in_session() {
+        use scp_core::vcs::VcsStatus;
+        // Used in status() function
+        let _ = VcsStatus::Clean;
+        let _ = VcsStatus::Dirty;
+        let _ = VcsStatus::Conflicted;
+        let _ = VcsStatus::Detached;
+    }
+
+    #[test]
+    fn error_constructors_used_in_session() {
+        let _ = Error::invalid_identifier("test");
+        let _ = Error::workspace_not_found("test");
+        let _ = Error::invalid_state("test");
+        let _ = Error::working_copy_dirty();
+        let _ = Error::vcs_conflict("repo", "msg");
+    }
+}

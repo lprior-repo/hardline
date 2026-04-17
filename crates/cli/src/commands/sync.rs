@@ -63,3 +63,72 @@ pub fn push(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fetch_accepts_all_none_params() {
+        let _fn: fn(Option<&str>, bool, bool, bool) -> Result<()> = fetch;
+    }
+
+    #[test]
+    fn pull_has_no_params() {
+        let _fn: fn() -> Result<()> = pull;
+    }
+
+    #[test]
+    fn push_accepts_all_params() {
+        let _fn: fn(&str, Option<&str>, bool, bool, bool, bool, bool) -> Result<()> = push;
+    }
+
+    #[test]
+    fn fetch_in_non_vcs_dir_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let result = fetch(None, false, false, false);
+
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn pull_in_non_vcs_dir_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let result = pull();
+
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn push_in_non_vcs_dir_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let result = push("origin", None, false, false, false, false, false);
+
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn vcs_type_git_exists() {
+        let _ = scp_core::vcs::VcsType::Git;
+    }
+
+    #[test]
+    fn error_constructors_used_in_sync() {
+        let _ = Error::io_error("test");
+        let _ = Error::vcs_not_initialized();
+        let _ = Error::vcs_pull_failed("test");
+        let _ = Error::vcs_push_failed("test");
+    }
+}

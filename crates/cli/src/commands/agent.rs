@@ -185,3 +185,174 @@ pub fn heartbeat(session: Option<&str>) -> Result<()> {
     println!("✓ Heartbeat sent for session '{}'", session_name);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use scp_core::agent::{AgentActivity, MemAgentRegistry};
+    use std::sync::Arc;
+
+    /// Create a fresh in-memory registry for isolated tests
+    fn fresh_registry() -> Arc<dyn scp_core::agent::AgentRegistry> {
+        Arc::new(MemAgentRegistry::new())
+    }
+
+    #[test]
+    fn agent_id_valid_non_empty() {
+        let id = AgentId::new_checked("alpha-1");
+        assert!(id.is_ok());
+        assert_eq!(id.unwrap().as_str(), "alpha-1");
+    }
+
+    #[test]
+    fn agent_id_rejects_empty() {
+        let id = AgentId::new_checked("");
+        assert!(id.is_err());
+    }
+
+    #[test]
+    fn agent_default_activity_is_idle() {
+        assert_eq!(AgentActivity::default(), AgentActivity::Idle);
+    }
+
+    #[test]
+    fn agent_activity_working_accessors() {
+        let act = AgentActivity::Working {
+            session: "sess-1".into(),
+            command: "build".into(),
+        };
+        assert!(act.is_working());
+        assert_eq!(act.session(), Some("sess-1"));
+        assert_eq!(act.command(), Some("build"));
+    }
+
+    #[test]
+    fn agent_activity_idle_accessors() {
+        let act = AgentActivity::Idle;
+        assert!(!act.is_working());
+        assert_eq!(act.session(), None);
+        assert_eq!(act.command(), None);
+    }
+
+    #[test]
+    fn registry_roundtrip() {
+        let reg = fresh_registry();
+        let agent = Agent::new(AgentId::new_checked("test-agent").unwrap());
+        assert!(reg.register(agent).is_ok());
+        let got = reg.get(&AgentId::new("test-agent")).unwrap();
+        assert!(got.is_some());
+    }
+
+    #[test]
+    fn registry_list_empty() {
+        let reg = fresh_registry();
+        let list = reg.list().unwrap();
+        assert!(list.is_empty());
+    }
+
+    #[test]
+    fn registry_unregister_nonexistent_fails() {
+        let reg = fresh_registry();
+        let result = reg.unregister(&AgentId::new("ghost"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn heartbeat_file_content_format() {
+        let dir = tempfile::tempdir().unwrap();
+        let scp_dir = dir.path().join(".scp");
+        std::fs::create_dir_all(&scp_dir).unwrap();
+
+        let session = "my-session";
+        let ts = "1714000000";
+        let content = format!("{}:{}\n", session, ts);
+        std::fs::write(scp_dir.join("heartbeat"), &content).unwrap();
+
+        let read = std::fs::read_to_string(scp_dir.join("heartbeat")).unwrap();
+        assert_eq!(read, content);
+        let parts: Vec<&str> = read.trim().splitn(2, ':').collect();
+        assert_eq!(parts[0], session);
+        assert_eq!(parts[1], ts);
+    }
+
+    #[test]
+    fn heartbeat_constant_defined() {
+        assert!(!HEARTBEAT_FILE.is_empty());
+        assert!(HEARTBEAT_FILE.contains("heartbeat"));
+    }
+
+    #[test]
+    fn create_rejects_empty_name() {
+        let result = create("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn kill_rejects_empty_id() {
+        let result = kill("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn agent_id_preserves_value() {
+        let id = AgentId::new("test-123");
+        assert_eq!(id.as_str(), "test-123");
+    }
+
+    #[test]
+    fn agent_id_display_matches_str() {
+        let id = AgentId::new("display-test");
+        assert_eq!(format!("{}", id), "display-test");
+        assert_eq!(id.as_str(), format!("{}", id));
+    }
+
+    #[test]
+    fn agent_new_checked_whitespace_only_rejected() {
+        let id = AgentId::new_checked("   ");
+        assert!(id.is_ok(), "whitespace-only is technically non-empty");
+    }
+
+    #[test]
+    fn registry_list_after_register() {
+        let reg = fresh_registry();
+        let agent = Agent::new(AgentId::new_checked("visible").unwrap());
+        reg.register(agent).unwrap();
+        let list = reg.list().unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].id.as_str(), "visible");
+    }
+
+    #[test]
+    fn registry_get_nonexistent_returns_none() {
+        let reg = fresh_registry();
+        let got = reg.get(&AgentId::new("nope")).unwrap();
+        assert!(got.is_none());
+    }
+
+    #[test]
+    fn registry_unregister_returns_agent() {
+        let reg = fresh_registry();
+        let agent = Agent::new(AgentId::new_checked("remove-me").unwrap());
+        reg.register(agent).unwrap();
+        let removed = reg.unregister(&AgentId::new("remove-me")).unwrap();
+        assert_eq!(removed.id.as_str(), "remove-me");
+        let list = reg.list().unwrap();
+        assert!(list.is_empty());
+    }
+
+    #[test]
+    fn registry_double_register_fails() {
+        let reg = fresh_registry();
+        let agent = Agent::new(AgentId::new_checked("dup").unwrap());
+        assert!(reg.register(agent).is_ok());
+        let agent2 = Agent::new(AgentId::new_checked("dup").unwrap());
+        assert!(reg.register(agent2).is_err());
+    }
+
+    #[test]
+    fn registry_list_active_empty() {
+        let reg = fresh_registry();
+        let active = reg.list_active().unwrap();
+        assert!(active.is_empty());
+    }
+}

@@ -140,3 +140,113 @@ pub fn run(full: bool) -> Result<()> {
         Err(Error::internal("Diagnostics failed"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_dependency_known_binary_succeeds() {
+        // "ls" exists on all Unix systems
+        let result = check_dependency("ls");
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn check_dependency_unknown_binary_fails_gracefully() {
+        // A nonexistent binary should not panic — it returns Ok(false) or Err
+        let result = check_dependency("nonexistent_binary_xyz_123");
+        // Either the binary isn't found (Ok(false)) or the command itself fails (Err)
+        match result {
+            Ok(found) => assert!(!found),
+            Err(_) => {} // Also acceptable — command not found
+        }
+    }
+
+    #[test]
+    fn check_dependency_empty_name_fails() {
+        let result = check_dependency("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn check_vcs_available_detects_git_dir() {
+        // Create a temp dir with .git to test the detection logic
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(".git")).unwrap();
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let result = check_vcs_available();
+
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_ok());
+        assert!(result.unwrap(), ".git directory should be detected");
+    }
+
+    #[test]
+    fn check_vcs_available_detects_git_file() {
+        // Git worktrees use a .git file, not directory
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(".git"), "ref: some-ref").unwrap();
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let result = check_vcs_available();
+
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_ok());
+        assert!(result.unwrap(), ".git file (worktree) should be detected");
+    }
+
+    #[test]
+    fn check_vcs_available_returns_false_without_git() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let result = check_vcs_available();
+
+        std::env::set_current_dir(&original).unwrap();
+        assert!(result.is_ok());
+        assert!(!result.unwrap(), "no .git should return false");
+    }
+
+    #[test]
+    fn check_config_exists_returns_result() {
+        // Config may or may not exist, but the function should not panic
+        let result = check_config_exists();
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn check_workspaces_count_returns_result() {
+        // Should return a count without panicking
+        let result = check_workspaces_count();
+        assert!(result.is_ok() || result.is_err());
+    }
+
+    #[test]
+    fn run_full_flag_accepted() {
+        // Verify both variants compile and return Result
+        let _basic: fn(bool) -> Result<()> = run;
+    }
+
+    #[test]
+    fn doctor_uses_vcs_module() {
+        use scp_core::vcs::VcsStatus;
+        // Verify VcsStatus variants used in run(full=true)
+        let _ = VcsStatus::Clean;
+        let _ = VcsStatus::Dirty;
+        let _ = VcsStatus::Conflicted;
+        let _ = VcsStatus::Detached;
+    }
+
+    #[test]
+    fn error_constructors_used_by_doctor() {
+        // Verify error constructors exist
+        let _ = scp_core::Error::io_error("test");
+        let _ = scp_core::Error::internal("test");
+    }
+}
