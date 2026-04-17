@@ -6,10 +6,12 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
+pub mod application;
 pub mod domain;
 pub mod error;
 pub mod storage;
 
+pub use application::{CleanupReport, SnapshotService};
 pub use domain::receipt::{
     LocalRefEntry, OpError, OpKind, OpReceipt, OpStatus, PlanSummary, RemoteRefEntry,
 };

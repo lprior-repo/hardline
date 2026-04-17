@@ -4,6 +4,7 @@ use crate::storage::storage::SnapshotStore;
 use std::sync::Arc;
 
 /// Report returned after cleaning up expired snapshots.
+#[derive(Debug)]
 pub struct CleanupReport {
     pub deleted: usize,
     pub failed: usize,
