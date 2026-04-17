@@ -2,7 +2,7 @@
 //!
 //! Provides abstraction over job persistence with:
 //! - JobRepository trait for async operations
-//! - InMemoryJobRepository for testing
+//! - InMemoryJobRepository for testing (recovers from lock poison)
 
 use std::sync;
 
@@ -32,10 +32,7 @@ impl InMemoryJobRepository {
     }
 
     pub fn add_job(&self, job: Job) -> QueueResult<()> {
-        let mut jobs = self
-            .jobs
-            .write()
-            .map_err(|e| QueueError::Repository(format!("Failed to acquire write lock: {}", e)))?;
+        let mut jobs = self.jobs.write().unwrap_or_else(|e| e.into_inner());
         jobs.push(job);
         Ok(())
     }
@@ -50,10 +47,7 @@ impl Default for InMemoryJobRepository {
 #[async_trait]
 impl JobRepository for InMemoryJobRepository {
     async fn poll_pending_jobs(&self, limit: usize) -> QueueResult<Vec<Job>> {
-        let jobs = self
-            .jobs
-            .read()
-            .map_err(|e| QueueError::Repository(format!("Failed to acquire read lock: {}", e)))?;
+        let jobs = self.jobs.read().unwrap_or_else(|e| e.into_inner());
 
         let mut pending: Vec<&Job> = jobs.iter().filter(|j| j.state.is_pending()).collect();
 
@@ -65,10 +59,7 @@ impl JobRepository for InMemoryJobRepository {
     }
 
     async fn update_job_state(&self, job_id: &str, new_state: JobState) -> QueueResult<()> {
-        let mut jobs = self
-            .jobs
-            .write()
-            .map_err(|e| QueueError::Repository(format!("Failed to acquire write lock: {}", e)))?;
+        let mut jobs = self.jobs.write().unwrap_or_else(|e| e.into_inner());
 
         if let Some(job) = jobs.iter_mut().find(|j| j.id == job_id) {
             job.state = new_state;
@@ -80,10 +71,7 @@ impl JobRepository for InMemoryJobRepository {
     }
 
     async fn get_job(&self, job_id: &str) -> QueueResult<Option<Job>> {
-        let jobs = self
-            .jobs
-            .read()
-            .map_err(|e| QueueError::Repository(format!("Failed to acquire read lock: {}", e)))?;
+        let jobs = self.jobs.read().unwrap_or_else(|e| e.into_inner());
 
         Ok(jobs.iter().find(|j| j.id == job_id).cloned())
     }
