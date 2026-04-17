@@ -13,15 +13,7 @@ use worktree::WorktreeState;
 #[derive(Debug)]
 pub struct WorktreeView {
     items: Vec<WorktreeItem>,
-<<<<<<< HEAD
-<<<<<<< HEAD
-    pub(crate) selected_index: usize,
-=======
     selected_index: usize,
->>>>>>> polecat/beta
-=======
-    selected_index: usize,
->>>>>>> polecat/theta
 }
 
 impl WorktreeView {
@@ -220,65 +212,6 @@ mod tests {
         let view = WorktreeView::default();
         assert!(view.items.is_empty());
     }
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-    // ── Adversarial ──
-
-    #[test]
-    fn adv_worktree_single_item_navigation() {
-        let items = vec![WorktreeView::test_item("only", WorktreeState::Active)];
-        let mut view = WorktreeView::new(items);
-        for _ in 0..100 {
-            view.select_next();
-            assert_eq!(view.selected_index, 0);
-            view.select_previous();
-            assert_eq!(view.selected_index, 0);
-        }
-    }
-
-    #[test]
-    fn adv_worktree_large_list_navigation() {
-        let items: Vec<WorktreeItem> = (0..1000)
-            .map(|i| WorktreeView::test_item(&format!("wt-{i}"), WorktreeState::Active))
-            .collect();
-        let mut view = WorktreeView::new(items);
-        assert_eq!(view.selected_index, 0);
-        view.select_next();
-        assert_eq!(view.selected_index, 1);
-        view.select_previous();
-        assert_eq!(view.selected_index, 0);
-        // Navigate to last
-        view.selected_index = 999;
-        view.select_next();
-        assert_eq!(view.selected_index, 0); // wraps
-        view.select_previous();
-        assert_eq!(view.selected_index, 999); // wraps back
-    }
-
-    #[test]
-    fn adv_worktree_empty_view_operations() {
-        let mut view = WorktreeView::new(Vec::new());
-        assert!(view.selected_item().is_none());
-        view.select_next();
-        view.select_previous();
-        assert!(view.selected_item().is_none());
-        assert_eq!(view.selected_index, 0);
-    }
-
-    #[test]
-    fn adv_worktree_with_items_builder_resets() {
-        let items1 = vec![WorktreeView::test_item("a", WorktreeState::Active)];
-        let items2 = vec![WorktreeView::test_item("b", WorktreeState::Suspended)];
-        let mut view = WorktreeView::new(items1);
-        view.selected_index = 0;
-        view = view.with_items(items2);
-        assert_eq!(view.selected_index, 0);
-        assert_eq!(view.selected_item().unwrap().name, "b");
-    }
-=======
->>>>>>> polecat/beta
-=======
 
     // ── Adversarial: Send + Sync ──
 
@@ -411,5 +344,4 @@ mod tests {
         let debug = format!("{:?}", view);
         assert!(debug.contains("WorktreeView"));
     }
->>>>>>> polecat/theta
 }

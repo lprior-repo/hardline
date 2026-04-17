@@ -100,8 +100,6 @@ mod tests {
         let item2 = item1.clone();
         assert_eq!(item1, item2);
     }
-<<<<<<< HEAD
-=======
 
     // ── Adversarial: Send + Sync ──
 
@@ -147,5 +145,4 @@ mod tests {
         let item = WorktreeItem::test_create("wt", Some("main"), WorktreeState::Suspended);
         assert_eq!(item.state_label(), "Suspended");
     }
->>>>>>> polecat/theta
 }

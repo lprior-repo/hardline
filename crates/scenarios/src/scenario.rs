@@ -239,43 +239,6 @@ steps:
         }
     }
 
-<<<<<<< HEAD
-    // === RED QUEEN — Gen 1: Parsing adversarial tests ===
-
-    #[test]
-    fn test_invalid_yaml_returns_parse_error() {
-        let result = Scenario::from_yaml("not valid yaml: [");
-        assert!(result.is_err());
-        let err = result.expect_err("should be err");
-        assert!(matches!(err, ScenarioError::ParseError(_)));
-    }
-
-    #[test]
-    fn test_empty_yaml_returns_parse_error() {
-        let result = Scenario::from_yaml("");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_missing_required_fields_returns_parse_error() {
-        let yaml = r#"
-name: "test"
-"#;
-        let result = Scenario::from_yaml(yaml);
-        // Missing 'description' and 'steps' — serde default should handle or fail
-        // Either way, it should not panic
-        let _ = result;
-    }
-
-    #[test]
-    fn test_empty_steps_list_parses() {
-        let yaml = r#"
-name: "empty"
-description: "no steps"
-steps: []
-"#;
-        let scenario = Scenario::from_yaml(yaml).expect("empty steps should parse");
-=======
     #[test]
     fn test_from_yaml_bytes() {
         let yaml = br#"
@@ -285,100 +248,10 @@ steps: []
 "#;
         let scenario = Scenario::from_yaml_bytes(yaml).expect("Failed to parse bytes");
         assert_eq!(scenario.name, "Bytes test");
->>>>>>> polecat/iota-push
         assert!(scenario.steps.is_empty());
     }
 
     #[test]
-<<<<<<< HEAD
-    fn test_all_http_methods_parse() {
-        let methods = [
-            ("GET", HttpMethod::Get),
-            ("POST", HttpMethod::Post),
-            ("PUT", HttpMethod::Put),
-            ("PATCH", HttpMethod::Patch),
-            ("DELETE", HttpMethod::Delete),
-        ];
-        for (label, expected) in methods {
-            let yaml = format!(
-                r#"
-name: "method test"
-description: "test {label}"
-steps:
-  - type: http
-    url: "http://localhost:3001/test"
-    method: {label}
-"#
-            );
-            let scenario = Scenario::from_yaml(&yaml)
-                .unwrap_or_else(|e| panic!("{label} should parse: {e}"));
-            if let Step::Http(http) = &scenario.steps[0] {
-                assert_eq!(http.method, expected, "method mismatch for {label}");
-            }
-        }
-    }
-
-    #[test]
-    fn test_all_assertion_types_parse() {
-        let assertions = [
-            "equals", "not_equals", "exists", "not_exists", "contains", "not_contains",
-        ];
-        for assertion in assertions {
-            let yaml = format!(
-                r#"
-name: "assertion test"
-description: "test {assertion}"
-steps:
-  - type: assert
-    assertion: {assertion}
-"#
-            );
-            let _scenario = Scenario::from_yaml(&yaml)
-                .unwrap_or_else(|e| panic!("{assertion} should parse: {e}"));
-        }
-    }
-
-    #[test]
-    fn test_from_yaml_bytes_equivalent_to_from_yaml() {
-        let yaml = VALID_SCENARIO;
-        let from_str = Scenario::from_yaml(yaml).expect("from_yaml");
-        let from_bytes = Scenario::from_yaml_bytes(yaml.as_bytes()).expect("from_yaml_bytes");
-        assert_eq!(from_str, from_bytes);
-    }
-
-    #[test]
-    fn test_scenario_roundtrip_serialize_deserialize() {
-        let original = Scenario::from_yaml(VALID_SCENARIO).expect("parse");
-        let json = serde_json::to_string(&original).expect("serialize");
-        let deserialized: Scenario = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(original, deserialized);
-    }
-
-    #[test]
-    fn test_scenario_error_display() {
-        let err = ScenarioError::ParseError("bad yaml".to_string());
-        let msg = err.to_string();
-        assert!(msg.contains("bad yaml"));
-
-        let err = ScenarioError::VariableNotFound("x".to_string());
-        let msg = err.to_string();
-        assert!(msg.contains("x"));
-    }
-
-    #[test]
-    fn test_http_step_default_headers_and_body() {
-        let yaml = r#"
-name: "defaults"
-description: "test defaults"
-steps:
-  - type: http
-    url: "http://localhost:3001/test"
-"#;
-        let scenario = Scenario::from_yaml(yaml).expect("parse");
-        if let Step::Http(http) = &scenario.steps[0] {
-            assert!(http.headers.is_empty());
-            assert!(http.body.is_none());
-=======
     fn test_from_yaml_invalid_yaml() {
         let result = Scenario::from_yaml("not valid yaml: [");
         assert!(result.is_err());
@@ -495,7 +368,6 @@ steps:
                 Scenario::from_yaml(&yaml).is_ok(),
                 "Failed to parse scenario with {method_yaml}"
             );
->>>>>>> polecat/iota-push
         }
     }
 }

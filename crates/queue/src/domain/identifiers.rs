@@ -43,12 +43,6 @@ impl QueueEntryId {
         }
     }
 
-    /// Generate a new unique queue entry ID with "queue-" prefix.
-    #[must_use]
-    pub fn generate() -> Self {
-        Self(format!("queue-{}", uuid::Uuid::new_v4()))
-    }
-
     /// Parse a queue entry ID string, rejecting empty values.
     ///
     /// Unlike `new`, this does not trim whitespace — it preserves the raw value.

@@ -1,11 +1,8 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
-<<<<<<< HEAD
-=======
 use crate::app::{ConfirmAction, FocusedPane, InputAction, Mode};
 
 /// Actions that mutate hunk-level state in the diff view.
->>>>>>> polecat/theta
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HunkAction {
     Stage,
@@ -17,11 +14,6 @@ pub enum HunkAction {
     ScrollDown,
 }
 
-<<<<<<< HEAD
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum InputResult {
-    Handled(HunkAction),
-=======
 /// Mode transitions that InputHandler can request.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ModeAction {
@@ -44,7 +36,6 @@ pub enum InputResult {
     ModeTransition(ModeAction),
     /// Enter key pressed in Confirm/Input context — caller should confirm.
     Confirm,
->>>>>>> polecat/theta
     Unhandled,
     Quit,
 }
@@ -69,10 +60,6 @@ impl InputHandler {
         }
     }
 
-<<<<<<< HEAD
-    pub fn handle_key_event(&mut self, key: KeyEvent) -> InputResult {
-        match key.code {
-=======
     /// Dispatch a key event, respecting the current app mode.
     ///
     /// In non-Normal modes, only Escape and Enter are handled (plus mode-
@@ -93,7 +80,6 @@ impl InputHandler {
             KeyCode::Char('?') => InputResult::ModeTransition(ModeAction::EnterHelp),
             KeyCode::Char('i') => InputResult::ModeTransition(ModeAction::EnterInput(InputAction::Rename)),
             KeyCode::Char('R') => InputResult::ModeTransition(ModeAction::EnterReorder),
->>>>>>> polecat/theta
             KeyCode::Char(' ') | KeyCode::Char('s') => InputResult::Handled(HunkAction::Stage),
             KeyCode::Char('u') => InputResult::Handled(HunkAction::Unstage),
             KeyCode::Char('d') | KeyCode::Char('D') => InputResult::Handled(HunkAction::Discard),
@@ -107,17 +93,12 @@ impl InputHandler {
             }
             KeyCode::Char('b') | KeyCode::PageUp => InputResult::Handled(HunkAction::ScrollUp),
             KeyCode::Char('f') | KeyCode::PageDown => InputResult::Handled(HunkAction::ScrollDown),
-<<<<<<< HEAD
-=======
             KeyCode::Enter => InputResult::Confirm,
->>>>>>> polecat/theta
             KeyCode::Char('q') | KeyCode::Esc => InputResult::Quit,
             _ => InputResult::Unhandled,
         }
     }
 
-<<<<<<< HEAD
-=======
     /// Restricted keymap for non-Normal modes: Escape returns to Normal,
     /// Enter confirms, everything else is unhandled (caller handles text input).
     fn handle_non_normal(&self, key: KeyEvent, _mode: &Mode) -> InputResult {
@@ -128,7 +109,6 @@ impl InputHandler {
         }
     }
 
->>>>>>> polecat/theta
     fn navigate_next(&mut self) {
         if self.total_hunks > 0 {
             self.current_hunk = (self.current_hunk + 1) % self.total_hunks;
@@ -149,8 +129,6 @@ impl InputHandler {
         self.total_hunks = count;
         if self.current_hunk >= count && count > 0 {
             self.current_hunk = count - 1;
-<<<<<<< HEAD
-=======
         }
     }
 }
@@ -162,16 +140,12 @@ impl FocusedPane {
             FocusedPane::Stack => FocusedPane::Diff,
             FocusedPane::Diff => FocusedPane::Worktrees,
             FocusedPane::Worktrees => FocusedPane::Stack,
->>>>>>> polecat/theta
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-<<<<<<< HEAD
-    use super::{HunkAction, InputHandler, InputResult};
-=======
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use proptest::proptest;
 
@@ -191,7 +165,6 @@ mod tests {
     }
 
     // ── Constructor & defaults ──
->>>>>>> polecat/theta
 
     #[test]
     fn input_handler_new_creates_instance() {
@@ -204,38 +177,6 @@ mod tests {
     fn input_handler_default_creates_instance() {
         let handler = InputHandler::default();
         assert_eq!(handler.current_hunk, 0);
-<<<<<<< HEAD
-    }
-
-    #[test]
-    fn input_handler_quit() {
-        use crossterm::event::{KeyCode, KeyEvent};
-        let key = KeyEvent::new(KeyCode::Char('q'), crossterm::event::KeyModifiers::empty());
-        let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(key), InputResult::Quit);
-    }
-
-    #[test]
-    fn input_handler_navigate_next() {
-        let mut handler = InputHandler::new();
-        handler.set_hunk_count(3);
-        handler.current_hunk = 0;
-        handler.navigate_next();
-        assert_eq!(handler.current_hunk, 1);
-    }
-
-    #[test]
-    fn input_handler_navigate_prev() {
-        let mut handler = InputHandler::new();
-        handler.set_hunk_count(3);
-        handler.current_hunk = 1;
-        handler.navigate_prev();
-        assert_eq!(handler.current_hunk, 0);
-    }
-
-    #[test]
-    fn input_handler_navigate_prev_wraps() {
-=======
     }
 
     // ── Hunk navigation (unchanged behavior) ──
@@ -260,7 +201,6 @@ mod tests {
 
     #[test]
     fn navigate_prev_wraps() {
->>>>>>> polecat/theta
         let mut handler = InputHandler::new();
         handler.set_hunk_count(3);
         handler.current_hunk = 0;
@@ -269,11 +209,7 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
-    fn input_handler_navigate_next_wraps() {
-=======
     fn navigate_next_wraps() {
->>>>>>> polecat/theta
         let mut handler = InputHandler::new();
         handler.set_hunk_count(3);
         handler.current_hunk = 2;
@@ -282,9 +218,6 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
-    fn input_handler_set_hunk_count_adjusts_current() {
-=======
     fn single_hunk_navigation_stays_at_zero() {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(1);
@@ -309,7 +242,6 @@ mod tests {
 
     #[test]
     fn set_hunk_count_adjusts_current() {
->>>>>>> polecat/theta
         let mut handler = InputHandler::new();
         handler.set_hunk_count(5);
         handler.current_hunk = 4;
@@ -318,11 +250,7 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
-    fn input_handler_set_hunk_count_zero_does_not_crash() {
-=======
     fn set_hunk_count_zero_does_not_crash() {
->>>>>>> polecat/theta
         let mut handler = InputHandler::new();
         handler.set_hunk_count(5);
         handler.current_hunk = 2;
@@ -330,11 +258,8 @@ mod tests {
         assert_eq!(handler.current_hunk, 2);
     }
 
-<<<<<<< HEAD
-=======
     // ── Trait implementations ──
 
->>>>>>> polecat/theta
     #[test]
     fn input_handler_partial_eq() {
         let a = InputHandler::new();
@@ -345,21 +270,14 @@ mod tests {
     #[test]
     fn hunk_action_partial_eq() {
         assert_eq!(HunkAction::Stage, HunkAction::Stage);
-<<<<<<< HEAD
-        assert_eq!(HunkAction::Unstage, HunkAction::Unstage);
-=======
->>>>>>> polecat/theta
         assert_ne!(HunkAction::Stage, HunkAction::Unstage);
     }
 
     #[test]
     fn input_result_partial_eq() {
         assert_eq!(InputResult::Quit, InputResult::Quit);
-<<<<<<< HEAD
-=======
         assert_eq!(InputResult::SwitchPane, InputResult::SwitchPane);
         assert_eq!(InputResult::Confirm, InputResult::Confirm);
->>>>>>> polecat/theta
         assert_eq!(
             InputResult::Handled(HunkAction::Stage),
             InputResult::Handled(HunkAction::Stage)
@@ -368,8 +286,6 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
-=======
     fn mode_action_partial_eq() {
         assert_eq!(ModeAction::EnterSearch, ModeAction::EnterSearch);
         assert_eq!(ModeAction::EnterHelp, ModeAction::EnterHelp);
@@ -378,7 +294,6 @@ mod tests {
     }
 
     #[test]
->>>>>>> polecat/theta
     fn input_handler_debug_format() {
         let handler = InputHandler::new();
         let debug = format!("{handler:?}");
@@ -403,43 +318,6 @@ mod tests {
         let handler = InputHandler::new();
         let cloned = handler.clone();
         assert_eq!(handler.current_hunk, cloned.current_hunk);
-<<<<<<< HEAD
-<<<<<<< HEAD
-    }
-
-    // ── Adversarial ──
-
-    #[test]
-    fn adv_navigate_with_zero_hunks() {
-        let mut handler = InputHandler::new();
-        // total_hunks = 0, navigation should be no-op
-        handler.navigate_next();
-        assert_eq!(handler.current_hunk, 0);
-        handler.navigate_prev();
-        assert_eq!(handler.current_hunk, 0);
-    }
-
-    #[test]
-    fn adv_set_hunk_count_one() {
-        let mut handler = InputHandler::new();
-        handler.set_hunk_count(5);
-        handler.current_hunk = 3;
-        handler.set_hunk_count(1);
-        assert_eq!(handler.total_hunks, 1);
-        assert_eq!(handler.current_hunk, 0); // clamped to count-1
-    }
-
-    #[test]
-    fn adv_set_hunk_count_to_zero_then_navigate() {
-        let mut handler = InputHandler::new();
-        handler.set_hunk_count(5);
-        handler.current_hunk = 3;
-        handler.set_hunk_count(0);
-        // current_hunk stays at 3, but navigation should be no-op
-        handler.navigate_next();
-        assert_eq!(handler.current_hunk, 3);
-        handler.navigate_prev();
-=======
     }
 
     // ── Normal mode: hunk keybindings (preserved) ──
@@ -460,64 +338,10 @@ mod tests {
         handler.current_hunk = 2;
         let result = handler.handle_key_event(key(KeyCode::Down), &normal());
         assert_eq!(result, InputResult::Handled(HunkAction::NavigateNext));
->>>>>>> polecat/theta
         assert_eq!(handler.current_hunk, 3);
     }
 
     #[test]
-<<<<<<< HEAD
-    fn adv_set_hunk_count_max() {
-        let mut handler = InputHandler::new();
-        handler.set_hunk_count(usize::MAX);
-        handler.current_hunk = usize::MAX - 1;
-        handler.navigate_next();
-        // Should wrap to 0
-        assert_eq!(handler.current_hunk, 0);
-    }
-
-    #[test]
-    fn adv_key_event_modifier_ignorance() {
-        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-        let mut handler = InputHandler::new();
-        handler.set_hunk_count(3);
-
-        // The handler matches on KeyCode only, ignoring KeyModifiers.
-        // So Ctrl+q, Ctrl+Esc, Ctrl+PageUp, Ctrl+PageDown are all still handled.
-        let ctrl_key = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL);
-        assert_eq!(handler.handle_key_event(ctrl_key), InputResult::Quit);
-
-        let ctrl_esc = KeyEvent::new(KeyCode::Esc, KeyModifiers::CONTROL);
-        assert_eq!(handler.handle_key_event(ctrl_esc), InputResult::Quit);
-
-        let ctrl_page_up = KeyEvent::new(KeyCode::PageUp, KeyModifiers::CONTROL);
-        assert_eq!(handler.handle_key_event(ctrl_page_up), InputResult::Handled(HunkAction::ScrollUp));
-
-        let ctrl_page_down = KeyEvent::new(KeyCode::PageDown, KeyModifiers::CONTROL);
-        assert_eq!(handler.handle_key_event(ctrl_page_down), InputResult::Handled(HunkAction::ScrollDown));
-
-        // Truly unhandled: Ctrl+Enter, Ctrl+Backspace, Ctrl+Tab, Ctrl+F-keys, etc.
-        let truly_unhandled = vec![
-            KeyCode::Enter, KeyCode::Backspace, KeyCode::Tab,
-            KeyCode::Insert, KeyCode::Delete, KeyCode::Home,
-            KeyCode::End, KeyCode::F(1), KeyCode::F(12), KeyCode::Null,
-        ];
-        for code in truly_unhandled {
-            let key = KeyEvent::new(code, KeyModifiers::CONTROL);
-            let result = handler.handle_key_event(key);
-            assert_eq!(result, InputResult::Unhandled, "Ctrl+{code:?} should be Unhandled");
-        }
-    }
-
-    #[test]
-    fn adv_navigation_stress_single_hunk() {
-        let mut handler = InputHandler::new();
-        handler.set_hunk_count(1);
-        for _ in 0..1000 {
-            handler.navigate_next();
-            assert_eq!(handler.current_hunk, 0);
-            handler.navigate_prev();
-            assert_eq!(handler.current_hunk, 0);
-=======
     fn normal_k_navigates_prev() {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(5);
@@ -950,21 +774,8 @@ mod tests {
             let mut handler = InputHandler::new();
             handler.set_hunk_count(5);
             let _result = handler.handle_key_event(k, &normal());
->>>>>>> polecat/theta
         }
-    }
 
-<<<<<<< HEAD
-    #[test]
-    fn adv_navigation_stress_two_hunks() {
-        let mut handler = InputHandler::new();
-        handler.set_hunk_count(2);
-        for _ in 0..100 {
-            handler.navigate_next();
-            assert!(handler.current_hunk < 2);
-            handler.navigate_prev();
-            assert!(handler.current_hunk < 2);
-=======
         #[test]
         fn prop_handle_key_event_never_panics_search(
             code_byte in 0u8..=127u8,
@@ -973,23 +784,8 @@ mod tests {
             let k = KeyEvent::new(code, KeyModifiers::empty());
             let mut handler = InputHandler::new();
             let _result = handler.handle_key_event(k, &Mode::Search);
->>>>>>> polecat/theta
         }
-    }
 
-<<<<<<< HEAD
-    #[test]
-    fn adv_navigation_stress_large_count() {
-        let mut handler = InputHandler::new();
-        handler.set_hunk_count(10_000);
-        handler.current_hunk = 9_999;
-        handler.navigate_next();
-        assert_eq!(handler.current_hunk, 0); // wraps
-        handler.navigate_prev();
-        assert_eq!(handler.current_hunk, 9_999); // wraps back
-=======
->>>>>>> polecat/beta
-=======
         #[test]
         fn prop_set_hunk_count_arbitrary_usize(
             count in 0usize..1000usize,
@@ -1018,6 +814,5 @@ mod tests {
                 let _result = handler.handle_key_event(k, mode);
             }
         }
->>>>>>> polecat/theta
     }
 }

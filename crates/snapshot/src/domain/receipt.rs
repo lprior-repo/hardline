@@ -2,13 +2,6 @@
 //!
 //! Receipts are stored as JSON files under `.git/stax/ops/<op-id>.json`
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-use crate::error::{Result, SnapshotError};
-=======
->>>>>>> polecat/beta
-=======
->>>>>>> polecat/theta
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -153,44 +146,6 @@ impl OpReceipt {
         });
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    pub fn update_local_ref_after(&mut self, branch: &str, oid_after: &str) -> Result<()> {
-        let entry = self
-            .local_refs
-            .iter_mut()
-            .find(|e| e.branch == branch)
-            .ok_or_else(|| {
-                SnapshotError::InvalidSnapshot(format!(
-                    "No local ref entry for branch '{}' in receipt '{}'",
-                    branch, self.op_id
-                ))
-            })?;
-        entry.oid_after = Some(oid_after.to_string());
-        Ok(())
-    }
-
-    pub fn update_remote_ref_after(
-        &mut self,
-        remote: &str,
-        branch: &str,
-        oid_after: &str,
-    ) -> Result<()> {
-        let entry = self
-            .remote_refs
-            .iter_mut()
-            .find(|e| e.remote == remote && e.branch == branch)
-            .ok_or_else(|| {
-                SnapshotError::InvalidSnapshot(format!(
-                    "No remote ref entry for '{}/{}' in receipt '{}'",
-                    remote, branch, self.op_id
-                ))
-            })?;
-        entry.oid_after = Some(oid_after.to_string());
-        Ok(())
-=======
-=======
->>>>>>> polecat/theta
     pub fn update_local_ref_after(&mut self, branch: &str, oid_after: &str) {
         if let Some(entry) = self.local_refs.iter_mut().find(|e| e.branch == branch) {
             entry.oid_after = Some(oid_after.to_string());
@@ -205,10 +160,6 @@ impl OpReceipt {
         {
             entry.oid_after = Some(oid_after.to_string());
         }
-<<<<<<< HEAD
->>>>>>> polecat/beta
-=======
->>>>>>> polecat/theta
     }
 
     pub fn mark_success(&mut self) {
@@ -231,98 +182,3 @@ impl OpReceipt {
         });
     }
 }
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn update_local_ref_after_errors_when_branch_missing() {
-        let mut receipt = OpReceipt::new(
-            "test-op".to_string(),
-            OpKind::Restack,
-            "/tmp".to_string(),
-            "main".to_string(),
-            "main".to_string(),
-        );
-        let result = receipt.update_local_ref_after("nonexistent", "abc123");
-        assert!(result.is_err());
-        let msg = format!("{}", result.unwrap_err());
-        assert!(msg.contains("nonexistent"));
-        assert!(msg.contains("test-op"));
-    }
-
-    #[test]
-    fn update_local_ref_after_succeeds_when_branch_exists() {
-        let mut receipt = OpReceipt::new(
-            "test-op".to_string(),
-            OpKind::Restack,
-            "/tmp".to_string(),
-            "main".to_string(),
-            "main".to_string(),
-        );
-        receipt.add_local_ref("feature", Some("abc123"));
-        assert!(receipt.update_local_ref_after("feature", "def456").is_ok());
-        assert_eq!(
-            receipt.local_refs[0].oid_after,
-            Some("def456".to_string())
-        );
-    }
-
-    #[test]
-    fn update_remote_ref_after_errors_when_ref_missing() {
-        let mut receipt = OpReceipt::new(
-            "test-op".to_string(),
-            OpKind::Submit,
-            "/tmp".to_string(),
-            "main".to_string(),
-            "main".to_string(),
-        );
-        let result = receipt.update_remote_ref_after("origin", "nonexistent", "abc123");
-        assert!(result.is_err());
-        let msg = format!("{}", result.unwrap_err());
-        assert!(msg.contains("origin/nonexistent"));
-        assert!(msg.contains("test-op"));
-    }
-
-    #[test]
-    fn update_remote_ref_after_errors_on_wrong_remote() {
-        let mut receipt = OpReceipt::new(
-            "test-op".to_string(),
-            OpKind::Submit,
-            "/tmp".to_string(),
-            "main".to_string(),
-            "main".to_string(),
-        );
-        receipt.add_remote_ref("upstream", "feature", Some("abc123"));
-        let result = receipt.update_remote_ref_after("origin", "feature", "def456");
-        assert!(result.is_err());
-        let msg = format!("{}", result.unwrap_err());
-        assert!(msg.contains("origin/feature"));
-    }
-
-    #[test]
-    fn update_remote_ref_after_succeeds_when_ref_exists() {
-        let mut receipt = OpReceipt::new(
-            "test-op".to_string(),
-            OpKind::Submit,
-            "/tmp".to_string(),
-            "main".to_string(),
-            "main".to_string(),
-        );
-        receipt.add_remote_ref("origin", "feature", Some("abc123"));
-        assert!(receipt
-            .update_remote_ref_after("origin", "feature", "def456")
-            .is_ok());
-        assert_eq!(
-            receipt.remote_refs[0].oid_after,
-            Some("def456".to_string())
-        );
-    }
-}
-=======
->>>>>>> polecat/beta
-=======
->>>>>>> polecat/theta

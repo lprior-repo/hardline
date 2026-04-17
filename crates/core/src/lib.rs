@@ -88,11 +88,7 @@ mod error_tests;
 #[cfg(test)]
 mod json_tests;
 #[cfg(test)]
-<<<<<<< HEAD
-mod red_queen_tests;
-=======
 mod lifecycle_tests;
->>>>>>> polecat/onyx-mnn3rb73
 #[cfg(test)]
 mod session_state_tests;
 #[cfg(test)]

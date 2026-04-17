@@ -4,10 +4,6 @@
 #![warn(clippy::pedantic)]
 
 use crate::domain::entities::{QueueEntry, QueueEntryId};
-<<<<<<< HEAD
-use crate::domain::queue::status::QueueStatus;
-=======
->>>>>>> polecat/kappa
 use crate::domain::ports::QueueRepository;
 use crate::domain::queue::status::QueueStatus;
 use crate::domain::value_objects::Priority;
@@ -96,11 +92,7 @@ impl<R: QueueRepository> QueueService<R> {
         let all = self.repository.list_all()?;
         Ok(all
             .into_iter()
-<<<<<<< HEAD
-            .filter(|e| QueueStateMachine::is_active(e.status()))
-=======
             .filter(|e| QueueStatus::is_active(e.status))
->>>>>>> polecat/kappa
             .collect())
     }
 

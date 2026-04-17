@@ -37,13 +37,7 @@ impl super::config::ConflictResolutionConfig {
     /// # Examples
     ///
     /// ```rust
-<<<<<<< HEAD
-    /// use scp_core::config::config::{ConflictResolutionConfig};
-    /// use scp_core::config::partial::PartialConflictResolutionConfig;
-    /// use scp_core::config::types::ConflictMode;
-=======
     /// use scp_core::config::{ConflictMode, ConflictResolutionConfig, PartialConflictResolutionConfig};
->>>>>>> polecat/beta
     ///
     /// let mut config = ConflictResolutionConfig::default();
     /// let original_autonomy = config.autonomy;

@@ -34,111 +34,11 @@ pub enum SnapshotError {
     #[error("Snapshot restore failed: {0}")]
     RestoreFailed(String),
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    #[error("Serialization error: {message}")]
-    SerializationError {
-        #[source]
-        source: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
-        message: String,
-    },
-
-    #[error("Deserialization error: {message}")]
-    DeserializationError {
-        #[source]
-        source: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
-        message: String,
-    },
-}
-
-impl SnapshotError {
-    /// Leaf constructor — no source error.
-    pub fn storage(msg: impl Into<String>) -> Self {
-        Self::StorageError {
-            source: None,
-            message: msg.into(),
-        }
-    }
-
-    /// Leaf constructor — no source error.
-    pub fn git(msg: impl Into<String>) -> Self {
-        Self::GitError {
-            source: None,
-            message: msg.into(),
-        }
-    }
-
-    /// Leaf constructor — no source error.
-    pub fn serialization(msg: impl Into<String>) -> Self {
-        Self::SerializationError {
-            source: None,
-            message: msg.into(),
-        }
-    }
-
-    /// Leaf constructor — no source error.
-    pub fn deserialization(msg: impl Into<String>) -> Self {
-        Self::DeserializationError {
-            source: None,
-            message: msg.into(),
-        }
-    }
-
-    /// Wrapping constructor — preserves the source error for `std::error::Error::source()`.
-    pub fn storage_with_source(
-        source: impl std::error::Error + Send + Sync + 'static,
-        msg: impl Into<String>,
-    ) -> Self {
-        Self::StorageError {
-            source: Some(Box::new(source)),
-            message: msg.into(),
-        }
-    }
-
-    /// Wrapping constructor — preserves the source error for `std::error::Error::source()`.
-    pub fn git_with_source(
-        source: impl std::error::Error + Send + Sync + 'static,
-        msg: impl Into<String>,
-    ) -> Self {
-        Self::GitError {
-            source: Some(Box::new(source)),
-            message: msg.into(),
-        }
-    }
-
-    /// Wrapping constructor — preserves the source error for `std::error::Error::source()`.
-    pub fn serialization_with_source(
-        source: impl std::error::Error + Send + Sync + 'static,
-        msg: impl Into<String>,
-    ) -> Self {
-        Self::SerializationError {
-            source: Some(Box::new(source)),
-            message: msg.into(),
-        }
-    }
-
-    /// Wrapping constructor — preserves the source error for `std::error::Error::source()`.
-    pub fn deserialization_with_source(
-        source: impl std::error::Error + Send + Sync + 'static,
-        msg: impl Into<String>,
-    ) -> Self {
-        Self::DeserializationError {
-            source: Some(Box::new(source)),
-            message: msg.into(),
-        }
-    }
-=======
-=======
->>>>>>> polecat/theta
     #[error("Serialization error: {0}")]
     SerializationError(String),
 
     #[error("Deserialization error: {0}")]
     DeserializationError(String),
-<<<<<<< HEAD
->>>>>>> polecat/beta
-=======
->>>>>>> polecat/theta
 }
 
 #[derive(Error, Debug)]

@@ -32,13 +32,6 @@ pub mod revert;
 pub mod schema;
 pub mod session;
 pub mod stack_auth;
-<<<<<<< HEAD
-<<<<<<< HEAD
-pub mod stack_status;
-=======
->>>>>>> polecat/beta
-=======
->>>>>>> polecat/theta
 pub mod stack_sync;
 pub mod sync;
 pub mod task;

@@ -414,95 +414,6 @@ mod tests {
         assert!(sanitizer.blocks_scenario_access());
     }
 
-<<<<<<< HEAD
-    // === RED QUEEN — Gen 1: Sanitizer information barrier tests ===
-
-    #[test]
-    fn test_level1_never_exposes_scenario_name() {
-        let sanitizer = Sanitizer::new(FeedbackLevel::Level1);
-        let result = create_test_result();
-        let output = sanitizer.sanitize_result(&result);
-        assert!(!output.contains("Test Scenario"), "Level1 leaked scenario name");
-        assert!(!output.contains("test-123"), "Level1 leaked value");
-        assert!(!output.contains("wrong-value"), "Level1 leaked value");
-    }
-
-    #[test]
-    fn test_level2_never_exposes_actual_values() {
-        let sanitizer = Sanitizer::new(FeedbackLevel::Level2);
-        let result = create_test_result();
-        let output = sanitizer.sanitize_result(&result);
-        assert!(!output.contains("test-123"), "Level2 leaked expected value");
-        assert!(!output.contains("wrong-value"), "Level2 leaked actual value");
-        assert!(!output.contains("Test Scenario"), "Level2 leaked scenario name");
-    }
-
-    #[test]
-    fn test_level3_never_exposes_values() {
-        let sanitizer = Sanitizer::new(FeedbackLevel::Level3);
-        let result = create_test_result();
-        let output = sanitizer.sanitize_result(&result);
-        assert!(!output.contains("test-123"), "Level3 leaked value");
-        assert!(!output.contains("wrong-value"), "Level3 leaked value");
-        // Level3 should contain step info
-        assert!(output.contains("Step"), "Level3 should expose step index");
-    }
-
-    #[test]
-    fn test_level4_never_exposes_values() {
-        let sanitizer = Sanitizer::new(FeedbackLevel::Level4);
-        let result = create_test_result();
-        let output = sanitizer.sanitize_result(&result);
-        assert!(!output.contains("test-123"), "Level4 leaked value");
-        assert!(!output.contains("wrong-value"), "Level4 leaked value");
-        // Level4 should contain assertion location
-        assert!(output.contains("Assertion at step"), "Level4 should expose assertion location");
-    }
-
-    #[test]
-    fn test_level3_sanitized_stack_trace_has_no_alphanumeric() {
-        // The sanitize_value function replaces alphanumeric with *
-        // Level3 uses sanitize_value on error messages
-        let error = "Assertion failed: expected 'test-123' but got 'wrong-value'";
-        let sanitized = Sanitizer::sanitize_value(error);
-        // After sanitization, no alphanumeric characters should remain
-        // Only structural chars: space, ', -, :, (, ), etc.
-        for c in sanitized.chars() {
-            assert!(
-                !c.is_alphanumeric(),
-                "sanitize_value leaked alphanumeric char '{c}' in: {sanitized}"
-            );
-        }
-    }
-
-    #[test]
-    fn test_extract_error_type_serialization() {
-        assert_eq!(
-            Sanitizer::extract_error_type("Serialization error: bad json format"),
-            "parse error"
-        );
-    }
-
-    #[test]
-    fn test_extract_error_type_extraction() {
-        assert_eq!(
-            Sanitizer::extract_error_type("Extraction failed: path not found"),
-            "extraction error"
-        );
-    }
-
-    #[test]
-    fn test_extract_error_type_unknown() {
-        assert_eq!(
-            Sanitizer::extract_error_type("Something completely unexpected"),
-            "execution error"
-        );
-    }
-
-    #[test]
-    fn test_level2_passing_shows_no_error_type() {
-        let sanitizer = Sanitizer::new(FeedbackLevel::Level2);
-=======
     #[test]
     fn test_level3_redacts_values_in_stack_trace() {
         let sanitizer = Sanitizer::new(FeedbackLevel::Level3);
@@ -522,21 +433,11 @@ mod tests {
     #[test]
     fn test_level3_passing_scenario() {
         let sanitizer = Sanitizer::new(FeedbackLevel::Level3);
->>>>>>> polecat/iota-push
         let result = ScenarioResult {
             scenario_name: "Test".to_string(),
             passed: true,
             step_results: vec![],
         };
-<<<<<<< HEAD
-        let output = sanitizer.sanitize_result(&result);
-        assert_eq!(output, "PASS");
-        assert!(!output.contains("error"), "PASS output should not contain 'error'");
-    }
-
-    #[test]
-    fn test_level2_no_error_in_step_result() {
-=======
         assert_eq!(sanitizer.sanitize_result(&result), "PASS");
     }
 
@@ -603,7 +504,6 @@ mod tests {
 
     #[test]
     fn test_level2_unknown_error_type() {
->>>>>>> polecat/iota-push
         let sanitizer = Sanitizer::new(FeedbackLevel::Level2);
         let result = ScenarioResult {
             scenario_name: "Test".to_string(),
@@ -612,121 +512,10 @@ mod tests {
                 step_index: 0,
                 step_type: "http".to_string(),
                 passed: false,
-<<<<<<< HEAD
-                error: None,
-            }],
-        };
-        let output = sanitizer.sanitize_result(&result);
-        assert!(output.contains("FAIL"));
-        // No error message → should classify as "unknown error"
-        assert!(output.contains("unknown error"));
-    }
-
-    #[test]
-    fn test_level5_shows_all_step_errors() {
-        let sanitizer = Sanitizer::new(FeedbackLevel::Level5);
-        let result = ScenarioResult {
-            scenario_name: "Multi-fail".to_string(),
-            passed: false,
-            step_results: vec![
-                StepResult {
-                    step_index: 0,
-                    step_type: "http".to_string(),
-                    passed: false,
-                    error: Some("Connection refused".to_string()),
-                },
-                StepResult {
-                    step_index: 1,
-                    step_type: "assert".to_string(),
-                    passed: false,
-                    error: Some("Expected X got Y".to_string()),
-                },
-            ],
-        };
-        let output = sanitizer.sanitize_result(&result);
-        assert!(output.contains("Connection refused"), "Level5 should show all error details");
-        assert!(output.contains("Expected X got Y"));
-    }
-
-    #[test]
-    fn test_feedback_level_query_methods() {
-        assert!(!FeedbackLevel::Level1.exposes_error_type());
-        assert!(FeedbackLevel::Level2.exposes_error_type());
-        assert!(!FeedbackLevel::Level2.exposes_stack_trace());
-        assert!(FeedbackLevel::Level3.exposes_stack_trace());
-        assert!(!FeedbackLevel::Level3.exposes_assertion_locations());
-        assert!(FeedbackLevel::Level4.exposes_assertion_locations());
-        assert!(FeedbackLevel::Level5.exposes_full_details());
-        assert!(!FeedbackLevel::Level4.exposes_full_details());
-    }
-
-    #[test]
-    fn test_feedback_level_from_level_zero_and_negative() {
-        assert_eq!(FeedbackLevel::from_level(0), None);
-        assert_eq!(FeedbackLevel::from_level(255), None);
-    }
-
-    #[test]
-    fn test_sanitizer_default_level() {
-        let sanitizer = Sanitizer::default();
-        assert_eq!(sanitizer.level(), FeedbackLevel::Level5);
-    }
-
-    #[test]
-    fn test_sanitizer_set_level() {
-        let mut sanitizer = Sanitizer::new(FeedbackLevel::Level1);
-        assert_eq!(sanitizer.level(), FeedbackLevel::Level1);
-        sanitizer.set_level(FeedbackLevel::Level3);
-        assert_eq!(sanitizer.level(), FeedbackLevel::Level3);
-    }
-
-    #[test]
-    fn test_all_levels_passing_produce_pass() {
-        for level in [
-            FeedbackLevel::Level1,
-            FeedbackLevel::Level2,
-            FeedbackLevel::Level3,
-            FeedbackLevel::Level4,
-        ] {
-            let sanitizer = Sanitizer::new(level);
-            let result = ScenarioResult {
-                scenario_name: "Pass".to_string(),
-                passed: true,
-                step_results: vec![StepResult {
-                    step_index: 0,
-                    step_type: "http".to_string(),
-                    passed: true,
-                    error: None,
-                }],
-            };
-            let output = sanitizer.sanitize_result(&result);
-            assert_eq!(output, "PASS", "Level {} should output PASS", level.level());
-        }
-    }
-
-    #[test]
-    fn test_level5_passing_includes_scenario_name() {
-        // Level5 is the only level that exposes scenario name even on PASS
-        let sanitizer = Sanitizer::new(FeedbackLevel::Level5);
-        let result = ScenarioResult {
-            scenario_name: "Pass".to_string(),
-            passed: true,
-            step_results: vec![StepResult {
-                step_index: 0,
-                step_type: "http".to_string(),
-                passed: true,
-                error: None,
-            }],
-        };
-        let output = sanitizer.sanitize_result(&result);
-        assert!(output.contains("Scenario: Pass"), "Level5 PASS should include scenario name");
-        assert!(output.contains("PASS"));
-=======
                 error: Some("something completely unexpected happened".to_string()),
             }],
         };
         let output = sanitizer.sanitize_result(&result);
         assert!(output.contains("execution error"));
->>>>>>> polecat/iota-push
     }
 }

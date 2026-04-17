@@ -7,13 +7,6 @@ use ratatui::{
 };
 
 use crate::app::{FocusedPane, TuiApp};
-<<<<<<< HEAD
-<<<<<<< HEAD
-use crate::widgets::diff::DiffLine;
-=======
->>>>>>> polecat/beta
-=======
->>>>>>> polecat/theta
 use crate::widgets::StackTreeWidget;
 
 pub fn render(f: &mut Frame, app: &mut TuiApp) {
@@ -79,105 +72,24 @@ fn render_stack_tree(f: &mut Frame, app: &mut TuiApp, area: Rect) {
     f.render_widget(widget, area);
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> polecat/theta
 fn render_diff_view(f: &mut Frame, app: &mut TuiApp, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title("Diff Viewer")
         .title_style(if app.focused_pane == FocusedPane::Diff {
-<<<<<<< HEAD
-=======
-fn render_diff_view(f: &mut Frame, _app: &mut TuiApp, area: Rect) {
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title("Diff Viewer")
-        .title_style(if _app.focused_pane == FocusedPane::Diff {
->>>>>>> polecat/beta
-=======
->>>>>>> polecat/theta
             Style::default().fg(Color::Yellow)
         } else {
             Style::default()
         });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    let diff_content = if app.diff_lines.is_empty() {
-=======
     let diff_content: Vec<Line<'static>> = if app.diff_lines.is_empty() {
->>>>>>> polecat/theta
         vec![Line::from(Span::styled(
             "No diff available",
             Style::default().fg(Color::DarkGray),
         ))]
     } else {
-<<<<<<< HEAD
-        app.diff_lines
-            .iter()
-            .map(|line| match line {
-                DiffLine::Header(text) => {
-                    Line::from(Span::styled(text.clone(), Style::default().fg(Color::Cyan)))
-                }
-                DiffLine::HunkHeader(text) => {
-                    Line::from(Span::styled(text.clone(), Style::default().fg(Color::Magenta)))
-                }
-                DiffLine::Addition(text) => {
-                    Line::from(Span::styled(text.clone(), Style::default().fg(Color::LightGreen)))
-                }
-                DiffLine::Deletion(text) => {
-                    Line::from(Span::styled(text.clone(), Style::default().fg(Color::LightRed)))
-                }
-                DiffLine::Context(text) => Line::from(Span::raw(text.clone())),
-            })
-            .collect()
-    };
-=======
-    let diff_content = vec![
-        Line::from(vec![Span::styled(
-            "diff --git a/src/lib.rs b/src/lib.rs",
-            Style::default().fg(Color::Cyan),
-        )]),
-        Line::from(vec![Span::raw("index 1234567..89abcdef 100644")]),
-        Line::from(vec![Span::raw("--- a/src/lib.rs")]),
-        Line::from(vec![Span::raw("+++ b/src/lib.rs")]),
-        Line::from(vec![Span::styled(
-            "@@ -1,5 +1,6 @@",
-            Style::default().fg(Color::Magenta),
-        )]),
-        Line::from(vec![Span::raw(" use crate::app;")]),
-        Line::from(vec![Span::raw(" use crate::error;")]),
-        Line::from(vec![Span::styled(
-            "+use crate::views;",
-            Style::default().fg(Color::LightGreen),
-        )]),
-        Line::from(vec![Span::raw(" ")]),
-        Line::from(vec![Span::styled(
-            "-fn old_function() {",
-            Style::default().fg(Color::LightRed),
-        )]),
-        Line::from(vec![Span::styled(
-            "+fn new_function() {",
-            Style::default().fg(Color::LightGreen),
-        )]),
-        Line::from(vec![Span::raw("     // TODO: implement")]),
-        Line::from(vec![Span::styled(
-            "@@ -10,3 +11,4 @@",
-            Style::default().fg(Color::Magenta),
-        )]),
-        Line::from(vec![Span::styled(
-            "+    unimplemented!();",
-            Style::default().fg(Color::LightGreen),
-        )]),
-        Line::from(vec![Span::raw(" }")]),
-    ];
->>>>>>> polecat/beta
-=======
         app.diff_lines.iter().map(|l| l.to_styled_line()).collect()
     };
->>>>>>> polecat/theta
 
     let diff_para = Paragraph::new(diff_content).block(block).scroll((0, 0));
 

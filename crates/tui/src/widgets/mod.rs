@@ -1,29 +1,7 @@
 pub mod stack_tree;
-<<<<<<< HEAD
-<<<<<<< HEAD
-pub use stack_tree::{StackTreeWidget, TreeNode};
-
-pub mod diff {
-    /// A single line of diff output, with semantic tagging for styling.
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub enum DiffLine {
-        Header(String),
-        HunkHeader(String),
-        Addition(String),
-        Deletion(String),
-        Context(String),
-    }
-
-=======
 pub use stack_tree::StackTreeWidget;
 
 pub mod diff {
->>>>>>> polecat/beta
-=======
-pub use stack_tree::StackTreeWidget;
-
-pub mod diff {
->>>>>>> polecat/theta
     #[derive(Debug, Clone, Copy)]
     pub struct DiffView;
 }
@@ -38,21 +16,10 @@ pub mod reorder_preview {
     pub struct ReorderPreview;
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-pub mod agents;
-pub use agents::{AgentEntry, AgentsView};
-=======
-=======
->>>>>>> polecat/theta
 pub mod agents {
     #[derive(Debug, Clone, Copy)]
     pub struct AgentsView;
 }
-<<<<<<< HEAD
->>>>>>> polecat/beta
-=======
->>>>>>> polecat/theta
 
 pub mod worktree;
 pub use worktree::WorktreeItem;
@@ -60,15 +27,7 @@ pub use worktree::WorktreeItem;
 #[cfg(test)]
 mod tests {
     use super::{
-<<<<<<< HEAD
-<<<<<<< HEAD
-        AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
-=======
         agents::AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
->>>>>>> polecat/beta
-=======
-        agents::AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
->>>>>>> polecat/theta
         StackTreeWidget,
     };
 
@@ -78,14 +37,7 @@ mod tests {
         let _diff = DiffView;
         let _details = DetailsView;
         let _reorder = ReorderPreview;
-<<<<<<< HEAD
-        let _agents = AgentsView::new(Vec::new());
-=======
         let _agents = AgentsView;
-<<<<<<< HEAD
->>>>>>> polecat/beta
-=======
->>>>>>> polecat/theta
     }
 
     #[test]
@@ -133,14 +85,7 @@ mod tests {
         let _ = format!("{:?}", DiffView);
         let _ = format!("{:?}", DetailsView);
         let _ = format!("{:?}", ReorderPreview);
-<<<<<<< HEAD
-        let _ = format!("{:?}", AgentsView::new(Vec::new()));
-=======
         let _ = format!("{:?}", AgentsView);
-<<<<<<< HEAD
->>>>>>> polecat/beta
-=======
->>>>>>> polecat/theta
     }
 
     #[test]
@@ -149,7 +94,7 @@ mod tests {
         let _d: Option<DiffView> = None;
         let _dt: Option<DetailsView> = Some(DetailsView);
         let _r: Option<ReorderPreview> = None;
-        let _a: Option<AgentsView> = Some(AgentsView::new(Vec::new()));
+        let _a: Option<AgentsView> = Some(AgentsView);
     }
 
     #[test]
@@ -169,7 +114,7 @@ mod tests {
         let _d = Box::new(DiffView);
         let _dt = Box::new(DetailsView);
         let _r = Box::new(ReorderPreview);
-        let _a = Box::new(AgentsView::new(Vec::new()));
+        let _a = Box::new(AgentsView);
     }
 
     #[test]
@@ -218,15 +163,7 @@ mod tests {
             DiffView,
             DetailsView,
             ReorderPreview,
-<<<<<<< HEAD
-<<<<<<< HEAD
-            AgentsView::new(Vec::new()),
-=======
             AgentsView,
->>>>>>> polecat/beta
-=======
-            AgentsView,
->>>>>>> polecat/theta
         );
     }
 
