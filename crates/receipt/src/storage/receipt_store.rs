@@ -4,7 +4,7 @@
 //! to/from JSON files in the `.git/stax/ops/` directory.
 
 use crate::domain::receipt::OpReceipt;
-use crate::error::{Result, SnapshotError};
+use crate::error::{ReceiptError, Result};
 use std::path::{Path, PathBuf};
 
 pub struct ReceiptStore;
@@ -31,6 +31,7 @@ impl ReceiptStore {
     pub fn save(&self, git_dir: &Path, receipt: &OpReceipt) -> Result<()> {
         let ops_path = Self::ops_dir(git_dir);
         std::fs::create_dir_all(&ops_path).map_err(|e| {
+<<<<<<< HEAD:crates/snapshot/src/storage/receipt_store.rs
             SnapshotError::storage_with_source(
                 e,
                 format!("Failed to create ops directory {}", ops_path.display()),
@@ -58,6 +59,24 @@ impl ReceiptStore {
                 e,
                 format!("Failed to persist receipt {}", path.display()),
             )
+=======
+            ReceiptError::StorageError(format!(
+                "Failed to create ops directory {}: {}",
+                ops_path.display(),
+                e
+            ))
+        })?;
+        let path = Self::receipt_path(git_dir, &receipt.op_id);
+        let json = serde_json::to_string_pretty(receipt).map_err(|e| {
+            ReceiptError::SerializationError(format!("Failed to serialize receipt: {}", e))
+        })?;
+        std::fs::write(&path, json).map_err(|e| {
+            ReceiptError::StorageError(format!(
+                "Failed to write receipt {}: {}",
+                path.display(),
+                e
+            ))
+>>>>>>> polecat/gamma:crates/receipt/src/storage/receipt_store.rs
         })?;
         Ok(())
     }
@@ -65,6 +84,7 @@ impl ReceiptStore {
     pub fn load(&self, git_dir: &Path, op_id: &str) -> Result<OpReceipt> {
         let path = Self::receipt_path(git_dir, op_id);
         let json = std::fs::read_to_string(&path).map_err(|e| {
+<<<<<<< HEAD:crates/snapshot/src/storage/receipt_store.rs
             SnapshotError::storage_with_source(
                 e,
                 format!("Failed to read receipt {}", path.display()),
@@ -75,6 +95,16 @@ impl ReceiptStore {
                 e,
                 format!("Failed to parse receipt {}", path.display()),
             )
+=======
+            ReceiptError::StorageError(format!("Failed to read receipt {}: {}", path.display(), e))
+        })?;
+        serde_json::from_str(&json).map_err(|e| {
+            ReceiptError::DeserializationError(format!(
+                "Failed to parse receipt {}: {}",
+                path.display(),
+                e
+            ))
+>>>>>>> polecat/gamma:crates/receipt/src/storage/receipt_store.rs
         })
     }
 
@@ -85,7 +115,11 @@ impl ReceiptStore {
         }
         let mut ops: Vec<String> = std::fs::read_dir(&dir)
             .map_err(|e| {
+<<<<<<< HEAD:crates/snapshot/src/storage/receipt_store.rs
                 SnapshotError::storage_with_source(e, "Failed to read ops directory")
+=======
+                ReceiptError::StorageError(format!("Failed to read ops directory: {}", e))
+>>>>>>> polecat/gamma:crates/receipt/src/storage/receipt_store.rs
             })?
             .filter_map(|entry| entry.ok())
             .filter_map(|entry| {

@@ -21,6 +21,7 @@ use crate::error::QueueError;
 pub use crate::domain::identifiers::QueueEntryId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+<<<<<<< HEAD
 =======
 pub use crate::domain::queue::status::QueueStatus;
 
@@ -54,6 +55,8 @@ impl Default for QueueEntryId {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 >>>>>>> polecat/kappa
+=======
+>>>>>>> polecat/gamma
 pub struct Pending;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Claimed;

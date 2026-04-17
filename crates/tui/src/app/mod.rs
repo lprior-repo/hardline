@@ -34,7 +34,11 @@ pub enum FocusedPane {
     Worktrees,
 }
 
+<<<<<<< HEAD
 #[derive(Debug, Clone)]
+=======
+#[derive(Debug, Clone, PartialEq)]
+>>>>>>> polecat/gamma
 pub enum Mode {
     Normal,
     Search,
@@ -44,7 +48,11 @@ pub enum Mode {
     Reorder,
 }
 
+<<<<<<< HEAD
 #[derive(Debug, Clone)]
+=======
+#[derive(Debug, Clone, PartialEq)]
+>>>>>>> polecat/gamma
 pub enum ConfirmAction {
     Delete(String),
     Restack(String),
@@ -52,7 +60,11 @@ pub enum ConfirmAction {
     ApplyReorder,
 }
 
+<<<<<<< HEAD
 #[derive(Debug, Clone, Copy)]
+=======
+#[derive(Debug, Clone, Copy, PartialEq)]
+>>>>>>> polecat/gamma
 pub enum InputAction {
     Rename,
     NewBranch,

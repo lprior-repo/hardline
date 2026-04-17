@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use ratatui::{
     style::{Color, Style},
     text::{Line, Span},
@@ -14,7 +16,7 @@ pub struct TreeNode {
 }
 
 impl TreeNode {
-    fn prefix_symbols(&self) -> Vec<Span<'static>> {
+    pub(crate) fn prefix_symbols(&self) -> Vec<Span<'static>> {
         let mut spans = Vec::new();
         for is_last in &self.ancestor_is_last {
             if *is_last {
@@ -53,12 +55,13 @@ impl StackTreeWidget {
         self
     }
 
-    fn build_tree_nodes(&self) -> Vec<TreeNode> {
+    pub(crate) fn build_tree_nodes(&self) -> Vec<TreeNode> {
         if self.branches.is_empty() {
             return Vec::new();
         }
         let mut nodes = Vec::new();
-        self.collect_root_nodes(&mut nodes, 0, &[]);
+        let mut visited = HashSet::new();
+        self.collect_root_nodes(&mut nodes, 0, &[], &mut visited);
         nodes
     }
 
@@ -67,15 +70,20 @@ impl StackTreeWidget {
         nodes: &mut Vec<TreeNode>,
         depth: usize,
         ancestor_is_last: &[bool],
+        visited: &mut HashSet<usize>,
     ) {
-        let roots: Vec<&StackBranch> = self
+        let roots: Vec<(usize, &StackBranch)> = self
             .branches
             .iter()
-            .filter(|b| b.parent.is_none())
+            .enumerate()
+            .filter(|(_, b)| b.parent.is_none())
             .collect();
 
         let total = roots.len();
-        for (idx, root) in roots.iter().enumerate() {
+        for (idx, (branch_idx, root)) in roots.iter().enumerate() {
+            if !visited.insert(*branch_idx) {
+                continue;
+            }
             let is_last = idx == total - 1;
             let mut new_ancestor = ancestor_is_last.to_vec();
             new_ancestor.push(is_last);
@@ -87,17 +95,19 @@ impl StackTreeWidget {
                 ancestor_is_last: new_ancestor.clone(),
             });
 
-            self.collect_children_of(root, nodes, depth + 1, &new_ancestor);
+            self.collect_children_of(*branch_idx, nodes, depth + 1, &new_ancestor, visited);
         }
     }
 
     fn collect_children_of(
         &self,
-        parent: &StackBranch,
+        parent_idx: usize,
         nodes: &mut Vec<TreeNode>,
         depth: usize,
         ancestor_is_last: &[bool],
+        visited: &mut HashSet<usize>,
     ) {
+<<<<<<< HEAD
         self.collect_children_of_inner(parent, nodes, depth, ancestor_is_last, &mut std::collections::HashSet::new());
     }
 
@@ -114,13 +124,21 @@ impl StackTreeWidget {
         }
 
         let children: Vec<&StackBranch> = self
+=======
+        let parent_name = &self.branches[parent_idx].name;
+        let children: Vec<(usize, &StackBranch)> = self
+>>>>>>> polecat/gamma
             .branches
             .iter()
-            .filter(|b| b.parent.as_ref() == Some(&parent.name))
+            .enumerate()
+            .filter(|(idx, b)| *idx != parent_idx && b.parent.as_ref() == Some(parent_name))
             .collect();
 
         let total = children.len();
-        for (idx, child) in children.iter().enumerate() {
+        for (idx, (branch_idx, child)) in children.iter().enumerate() {
+            if !visited.insert(*branch_idx) {
+                continue;
+            }
             let is_last = idx == total - 1;
             let mut new_ancestor = ancestor_is_last.to_vec();
             new_ancestor.push(is_last);
@@ -132,11 +150,15 @@ impl StackTreeWidget {
                 ancestor_is_last: new_ancestor.clone(),
             });
 
+<<<<<<< HEAD
             self.collect_children_of_inner(child, nodes, depth + 1, &new_ancestor, visited);
+=======
+            self.collect_children_of(*branch_idx, nodes, depth + 1, &new_ancestor, visited);
+>>>>>>> polecat/gamma
         }
     }
 
-    fn branch_indicator(branch: &StackBranch) -> (&'static str, Color) {
+    pub(crate) fn branch_indicator(branch: &StackBranch) -> (&'static str, Color) {
         if branch.needs_restack {
             ("⚑", Color::Red)
         } else if branch.pr_info.is_some() {
@@ -146,7 +168,7 @@ impl StackTreeWidget {
         }
     }
 
-    fn pr_state_symbol(state: &PrState) -> &'static str {
+    pub(crate) fn pr_state_symbol(state: &PrState) -> &'static str {
         match state {
             PrState::Open => "○",
             PrState::Merged => "◆",
@@ -154,11 +176,11 @@ impl StackTreeWidget {
         }
     }
 
-    fn format_branch_name(branch: &StackBranch) -> String {
+    pub(crate) fn format_branch_name(branch: &StackBranch) -> String {
         branch.name.to_string()
     }
 
-    fn format_pr_info(pr_info: &PrInfo) -> String {
+    pub(crate) fn format_pr_info(pr_info: &PrInfo) -> String {
         format!(
             " (#{} {})",
             pr_info.number,

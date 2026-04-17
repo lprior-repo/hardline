@@ -13,6 +13,9 @@
 pub mod app;
 pub mod error;
 pub mod input;
+pub mod red_queen_gen1;
+pub mod red_queen_gen2;
+pub mod red_queen_gen3;
 pub mod views;
 pub mod widgets;
 
