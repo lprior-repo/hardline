@@ -154,7 +154,7 @@ mod tests {
             "feature/foo".to_string(),
         );
         receipt.add_local_ref("feature/foo", Some("abc123"));
-        receipt.update_local_ref_after("feature/foo", "def456");
+        receipt.update_local_ref_after("feature/foo", "def456").unwrap();
         receipt.mark_success();
 
         store.save(&git_dir, &receipt).unwrap();
