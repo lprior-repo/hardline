@@ -312,7 +312,7 @@ endpoints:
       body: {}
 ";
     let def = TwinDefinition::from_yaml(yaml).expect("C16 FAIL: parse");
-    let state = AppState::new(def);
+    let state: AppState<InMemoryTwinState> = AppState::new(def);
 
     assert!(state.find_endpoint(&axum::http::Method::GET, "/api/test").is_some(), "C16 FAIL: should find GET /api/test");
     assert!(state.find_endpoint(&axum::http::Method::POST, "/api/test").is_some(), "C16 FAIL: should find POST /api/test");
