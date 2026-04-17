@@ -9,16 +9,11 @@
 //!   CommitInfo, UndoEntry, DonePhase (inert, serializable)
 //! - **Executor** (`executor.rs`): JjExecutor trait, RealJjExecutor, conflict detection
 //!   (dependency injection for Git commands)
-//! - **Actions** (`actions.rs`): run_done, execute_done_workflow (I/O operations)
-//!
-//! # Features (ported from hardline)
-//!
-//! - Conflict detection before merging
-//! - Dry-run preview mode
-//! - Undo history logging
-//! - Squash support (future)
-//! - Bead status update (future)
-//! - Session state update (future)
+//! - **VCS Ops** (`vcs_ops.rs`): workspace resolution, file/commit introspection,
+//!   undo history, WorkspaceGitExecutor wrapper
+//! - **Conflict** (`conflict.rs`): conflict-detection-only mode
+//! - **Merge** (`merge.rs`): dry-run preview and the full done workflow
+//! - **Actions** (`actions.rs`): `run_done` entry point (orchestrator)
 //!
 //! # CLI Usage
 //!
@@ -31,8 +26,14 @@
 //! ```
 
 pub mod actions;
+pub mod conflict;
 pub mod data;
 pub mod executor;
+pub mod merge;
+pub mod vcs_ops;
+
+#[cfg(test)]
+pub(crate) mod test_support;
 
 // Re-export public API
 pub use actions::run_done;
