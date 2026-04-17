@@ -33,6 +33,16 @@ pub enum InputAction {
     NewBranch,
 }
 
+/// Represents a single line of diff output for rendering.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DiffLine {
+    Header(String),
+    Hunk(String),
+    Context(String),
+    Add(String),
+    Remove(String),
+}
+
 pub struct TuiApp {
     pub focused_pane: FocusedPane,
     pub mode: Mode,
@@ -40,6 +50,7 @@ pub struct TuiApp {
     pub should_quit: bool,
     pub worktree_view: WorktreeView,
     pub stack_branches: Vec<StackBranch>,
+    pub diff_lines: Vec<DiffLine>,
 }
 
 impl TuiApp {
@@ -51,6 +62,7 @@ impl TuiApp {
             should_quit: false,
             worktree_view: WorktreeView::default(),
             stack_branches: Vec::new(),
+            diff_lines: Vec::new(),
         })
     }
 
@@ -710,6 +722,95 @@ mod tests {
     // ── Proptests ──
 
     use proptest::proptest;
+
+    // ── DiffLine ──
+
+    #[test]
+    fn diff_line_variants_constructible() {
+        let _h = DiffLine::Header("diff --git a/b".into());
+        let _k = DiffLine::Hunk("@@ -1,3 +1,4 @@".into());
+        let _c = DiffLine::Context(" unchanged".into());
+        let _a = DiffLine::Add("+new line".into());
+        let _r = DiffLine::Remove("-old line".into());
+    }
+
+    #[test]
+    fn diff_line_equality() {
+        assert_eq!(
+            DiffLine::Add("x".into()),
+            DiffLine::Add("x".into())
+        );
+        assert_ne!(
+            DiffLine::Add("x".into()),
+            DiffLine::Remove("x".into())
+        );
+    }
+
+    #[test]
+    fn diff_line_clone_independent() {
+        let original = DiffLine::Header("test".into());
+        let cloned = original.clone();
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn diff_line_is_send_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<DiffLine>();
+    }
+
+    #[test]
+    fn diff_line_debug_format() {
+        let header = format!("{:?}", DiffLine::Header("h".into()));
+        let hunk = format!("{:?}", DiffLine::Hunk("@@".into()));
+        let context = format!("{:?}", DiffLine::Context("c".into()));
+        let add = format!("{:?}", DiffLine::Add("+a".into()));
+        let remove = format!("{:?}", DiffLine::Remove("-r".into()));
+        assert!(header.contains("Header"));
+        assert!(hunk.contains("Hunk"));
+        assert!(context.contains("Context"));
+        assert!(add.contains("Add"));
+        assert!(remove.contains("Remove"));
+    }
+
+    #[test]
+    fn diff_lines_empty_by_default() {
+        let app = TuiApp::new().expect("ok");
+        assert!(app.diff_lines.is_empty());
+    }
+
+    #[test]
+    fn diff_lines_can_be_set() {
+        let mut app = TuiApp::new().expect("ok");
+        app.diff_lines.push(DiffLine::Header("diff --git a/b b/c".into()));
+        app.diff_lines.push(DiffLine::Add("+hello".into()));
+        assert_eq!(app.diff_lines.len(), 2);
+    }
+
+    #[test]
+    fn diff_lines_with_various_content() {
+        let mut app = TuiApp::new().expect("ok");
+        app.diff_lines = vec![
+            DiffLine::Header("diff --git a/foo b/foo".into()),
+            DiffLine::Context(" line".into()),
+            DiffLine::Remove("-old".into()),
+            DiffLine::Add("+new".into()),
+            DiffLine::Hunk("@@ -1,2 +1,3 @@".into()),
+        ];
+        assert_eq!(app.diff_lines.len(), 5);
+        assert!(matches!(app.diff_lines[0], DiffLine::Header(_)));
+        assert!(matches!(app.diff_lines[2], DiffLine::Remove(_)));
+        assert!(matches!(app.diff_lines[3], DiffLine::Add(_)));
+    }
+
+    #[test]
+    fn diff_lines_clearable() {
+        let mut app = TuiApp::new().expect("ok");
+        app.diff_lines.push(DiffLine::Add("x".into()));
+        assert!(!app.diff_lines.is_empty());
+        app.diff_lines.clear();
+        assert!(app.diff_lines.is_empty());
+    }
 
     proptest! {
         #[test]
