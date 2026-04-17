@@ -1,4 +1,14 @@
+use std::io::{self, Stdout};
+
+use crossterm::{
+    event::{self, Event, KeyCode},
+    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
+    ExecutableCommand,
+};
+use ratatui::{backend::CrosstermBackend, Terminal};
+
 use crate::error::Result;
+use crate::input::InputHandler;
 use crate::views::WorktreeView;
 use crate::widgets::diff::DiffLine;
 use scp_stack::domain::StackBranch;
@@ -69,9 +79,86 @@ impl TuiApp {
     pub fn set_status(&mut self, _message: String) {}
 }
 
+fn install_panic_hook() {
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = io::stdout().execute(LeaveAlternateScreen);
+        let _ = terminal::disable_raw_mode();
+        original_hook(info);
+    }));
+}
+
+fn init_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
+    terminal::enable_raw_mode().map_err(|e| crate::error::TuiError::TerminalError(e.to_string()))?;
+    io::stdout()
+        .execute(EnterAlternateScreen)
+        .map_err(|e| crate::error::TuiError::TerminalError(e.to_string()))?;
+    let backend = CrosstermBackend::new(io::stdout());
+    Terminal::new(backend).map_err(|e| crate::error::TuiError::TerminalError(e.to_string()))
+}
+
+fn restore_terminal(
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+) -> std::result::Result<(), std::io::Error> {
+    terminal.show_cursor()?;
+    io::stdout().execute(LeaveAlternateScreen)?;
+    terminal::disable_raw_mode()
+}
+
 pub fn run() -> Result<()> {
+    install_panic_hook();
+
+    let mut terminal = init_terminal()?;
     let mut app = TuiApp::new()?;
+    let mut input_handler = InputHandler::new();
     app.needs_refresh = true;
+
+    let result = run_loop(&mut terminal, &mut app, &mut input_handler);
+
+    let _ = restore_terminal(&mut terminal);
+
+    result
+}
+
+fn run_loop(
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+    app: &mut TuiApp,
+    input_handler: &mut InputHandler,
+) -> Result<()> {
+    loop {
+        terminal
+            .draw(|f| crate::views::render(f, app))
+            .map_err(|e| crate::error::TuiError::TerminalError(e.to_string()))?;
+
+        if event::poll(std::time::Duration::from_millis(250))
+            .map_err(|e| crate::error::TuiError::TerminalError(e.to_string()))?
+        {
+            if let Event::Key(key) = event::read()
+                .map_err(|e| crate::error::TuiError::TerminalError(e.to_string()))?
+            {
+                if key.code == KeyCode::Char('q') || key.code == KeyCode::Esc {
+                    app.should_quit = true;
+                    break;
+                }
+
+                if key.code == KeyCode::Tab {
+                    app.focused_pane = match app.focused_pane {
+                        FocusedPane::Stack => FocusedPane::Diff,
+                        FocusedPane::Diff => FocusedPane::Worktrees,
+                        FocusedPane::Worktrees => FocusedPane::Stack,
+                    };
+                    continue;
+                }
+
+                let _ = input_handler.handle_key_event(key);
+            }
+        }
+
+        if app.should_quit {
+            break;
+        }
+    }
+
     Ok(())
 }
 
@@ -163,8 +250,9 @@ mod tests {
     // ── run ──
 
     #[test]
-    fn run_returns_ok() {
-        assert!(run().is_ok());
+    fn run_returns_terminal_error_without_tty() {
+        let result = run();
+        assert!(result.is_err(), "run() should fail without a terminal");
     }
 
     // ── FocusedPane discriminants ──
