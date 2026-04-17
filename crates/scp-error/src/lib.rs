@@ -10,12 +10,12 @@
 //! This crate provides the unified error types used across the SCP workspace.
 //! All other crates should depend on this crate for error handling.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Error, Debug, Serialize)]
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum Error {
     // ========================================================================
