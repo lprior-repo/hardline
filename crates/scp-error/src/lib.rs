@@ -255,6 +255,12 @@ pub enum Error {
     InvariantViolation(String),
 }
 
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Self::IoError(e.to_string())
+    }
+}
+
 impl Error {
     #[must_use]
     pub fn suggestion(&self) -> Option<String> {
@@ -1462,5 +1468,35 @@ mod tests {
         let err = Error::QueueEmpty;
         let debug = format!("{err:?}");
         assert!(debug.contains("QueueEmpty"));
+    }
+
+    // =========================================================================
+    // CLAIM 13: From<std::io::Error> conversion
+    // =========================================================================
+
+    #[test]
+    fn from_io_error_converts_to_io_error_variant() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let err: Error = io_err.into();
+        assert!(matches!(err, Error::IoError(_)));
+        assert_eq!(err.to_string(), "IO error: file not found");
+    }
+
+    #[test]
+    fn from_io_error_preserves_message() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+        let err = Error::from(io_err);
+        assert_eq!(err.to_string(), "IO error: access denied");
+    }
+
+    #[test]
+    fn from_io_error_works_with_map_err() {
+        fn fallible() -> Result<()> {
+            std::fs::read_to_string("/nonexistent/path")?;
+            Ok(())
+        }
+        let err = fallible().unwrap_err();
+        assert!(matches!(err, Error::IoError(_)));
+        assert!(err.to_string().contains("IO error:"));
     }
 }
