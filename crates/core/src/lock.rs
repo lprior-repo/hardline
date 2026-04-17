@@ -179,16 +179,15 @@ impl LockManager for MemLockManager {
             }
         }
 
-        // Acquire
+        // Acquire — share the same backing store as acquire()
         let lock_info = LockInfo {
             holder: holder.to_string(),
             acquired_at: Utc::now(),
             lock_type: lock.clone(),
         };
 
-        let locks_ref = Arc::new(RwLock::new(HashMap::new()));
         {
-            let mut locks = locks_ref.write().map_err(|e| {
+            let mut locks = self.locks.write().map_err(|e| {
                 crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
                     e.to_string(),
                 ))
@@ -196,13 +195,11 @@ impl LockManager for MemLockManager {
             locks.insert(lock.clone(), lock_info);
         }
 
-        // Note: In a real impl, we'd need proper reference sharing
-        // This is simplified for illustration
         Ok(Some(LockGuard {
             lock_type: lock,
             holder: holder.to_string(),
             acquired_at: Utc::now(),
-            locks: locks_ref,
+            locks: self.locks.clone(),
         }))
     }
 
