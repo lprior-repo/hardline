@@ -15,6 +15,9 @@ use serde::{Deserialize, Serialize};
 use crate::domain::value_objects::{Priority, QueuePosition};
 use crate::error::QueueError;
 
+// Re-export canonical QueueEntryId from identifiers
+pub use crate::domain::identifiers::QueueEntryId;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
@@ -39,35 +42,7 @@ impl QueueStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct QueueEntryId(String);
-
-impl QueueEntryId {
-    #[must_use]
-    pub fn generate() -> Self {
-        Self(format!("queue-{}", uuid::Uuid::new_v4()))
-    }
-
-    pub fn parse(id: String) -> Result<Self, QueueError> {
-        if id.is_empty() {
-            return Err(QueueError::InvalidQueueEntryId("empty id".into()));
-        }
-        Ok(Self(id))
-    }
-
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl Default for QueueEntryId {
-    fn default() -> Self {
-        Self::generate()
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Pending;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Claimed;
@@ -843,15 +818,15 @@ mod tests {
     }
 
     #[test]
-    fn queue_entry_id_parse_valid() {
-        let id = QueueEntryId::parse("my-id".into());
+    fn queue_entry_id_new_valid() {
+        let id = QueueEntryId::new("my-id");
         assert!(id.is_ok());
         assert_eq!(id.unwrap().as_str(), "my-id");
     }
 
     #[test]
-    fn queue_entry_id_parse_empty_rejected() {
-        let result = QueueEntryId::parse("".into());
+    fn queue_entry_id_new_empty_rejected() {
+        let result = QueueEntryId::new("");
         assert!(result.is_err());
     }
 
