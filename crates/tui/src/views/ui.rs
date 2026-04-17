@@ -6,12 +6,8 @@ use ratatui::{
     Frame,
 };
 
-<<<<<<< HEAD
 use crate::app::{FocusedPane, TuiApp};
 use crate::widgets::diff::DiffLine;
-=======
-use crate::app::{DiffLine, FocusedPane, TuiApp};
->>>>>>> polecat/epsilon
 use crate::widgets::StackTreeWidget;
 
 pub fn render(f: &mut Frame, app: &mut TuiApp) {
@@ -87,17 +83,12 @@ fn render_diff_view(f: &mut Frame, app: &mut TuiApp, area: Rect) {
             Style::default()
         });
 
-<<<<<<< HEAD
     let diff_content = if app.diff_lines.is_empty() {
-=======
-    let diff_content = if _app.diff_lines.is_empty() {
->>>>>>> polecat/epsilon
         vec![Line::from(Span::styled(
             "No diff available",
             Style::default().fg(Color::DarkGray),
         ))]
     } else {
-<<<<<<< HEAD
         app.diff_lines
             .iter()
             .map(|line| match line {
@@ -114,25 +105,6 @@ fn render_diff_view(f: &mut Frame, app: &mut TuiApp, area: Rect) {
                     Line::from(Span::styled(text.clone(), Style::default().fg(Color::LightRed)))
                 }
                 DiffLine::Context(text) => Line::from(Span::raw(text.clone())),
-=======
-        _app
-            .diff_lines
-            .iter()
-            .map(|line| match line {
-                DiffLine::Header(s) => {
-                    Line::from(Span::styled(s.clone(), Style::default().fg(Color::Cyan)))
-                }
-                DiffLine::Hunk(s) => {
-                    Line::from(Span::styled(s.clone(), Style::default().fg(Color::Magenta)))
-                }
-                DiffLine::Context(s) => Line::from(Span::raw(s.clone())),
-                DiffLine::Add(s) => {
-                    Line::from(Span::styled(s.clone(), Style::default().fg(Color::LightGreen)))
-                }
-                DiffLine::Remove(s) => {
-                    Line::from(Span::styled(s.clone(), Style::default().fg(Color::LightRed)))
-                }
->>>>>>> polecat/epsilon
             })
             .collect()
     };

@@ -4,20 +4,20 @@
 
 use crate::domain::entities::{QueueEntry, QueueEntryId};
 use crate::domain::queue::status::QueueStatus;
-use crate::domain::validation::ValidationError;
+use crate::error::QueueError;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 /// Port (trait) for queue repository - defines the contract for queue persistence.
 /// This belongs in the domain layer for dependency inversion.
 pub trait QueueRepository: Send + Sync {
-    fn enqueue(&self, entry: QueueEntry) -> Result<QueueEntry, ValidationError>;
-    fn dequeue(&self) -> Result<Option<QueueEntry>, ValidationError>;
-    fn get(&self, id: &QueueEntryId) -> Result<Option<QueueEntry>, ValidationError>;
-    fn update(&self, entry: QueueEntry) -> Result<QueueEntry, ValidationError>;
-    fn list_pending(&self) -> Result<Vec<QueueEntry>, ValidationError>;
-    fn list_all(&self) -> Result<Vec<QueueEntry>, ValidationError>;
-    fn remove(&self, id: &QueueEntryId) -> Result<(), ValidationError>;
+    fn enqueue(&self, entry: QueueEntry) -> Result<QueueEntry, QueueError>;
+    fn dequeue(&self) -> Result<Option<QueueEntry>, QueueError>;
+    fn get(&self, id: &QueueEntryId) -> Result<Option<QueueEntry>, QueueError>;
+    fn update(&self, entry: QueueEntry) -> Result<QueueEntry, QueueError>;
+    fn list_pending(&self) -> Result<Vec<QueueEntry>, QueueError>;
+    fn list_all(&self) -> Result<Vec<QueueEntry>, QueueError>;
+    fn remove(&self, id: &QueueEntryId) -> Result<(), QueueError>;
 }
 
 /// In-memory queue repository implementation using Mutex for interior mutability.
@@ -68,22 +68,22 @@ impl Clone for InMemoryQueueRepository {
 }
 
 impl QueueRepository for InMemoryQueueRepository {
-    fn enqueue(&self, entry: QueueEntry) -> Result<QueueEntry, ValidationError> {
+    fn enqueue(&self, entry: QueueEntry) -> Result<QueueEntry, QueueError> {
         let mut entries = self
             .entries
             .lock()
-            .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
+            .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
         entries.push_back(entry.clone());
         Ok(entry)
     }
 
-    fn dequeue(&self) -> Result<Option<QueueEntry>, ValidationError> {
+    fn dequeue(&self) -> Result<Option<QueueEntry>, QueueError> {
         let mut entries = self
             .entries
             .lock()
-            .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
+            .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
         if let Some(entry) = entries.pop_front() {
-            if entry.status == QueueStatus::Pending {
+            if entry.status() == QueueStatus::Pending {
                 Ok(Some(entry))
             } else {
                 Ok(None)
@@ -93,57 +93,57 @@ impl QueueRepository for InMemoryQueueRepository {
         }
     }
 
-    fn get(&self, id: &QueueEntryId) -> Result<Option<QueueEntry>, ValidationError> {
+    fn get(&self, id: &QueueEntryId) -> Result<Option<QueueEntry>, QueueError> {
         let entries = self
             .entries
             .lock()
-            .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
-        Ok(entries.iter().find(|e| &e.id == id).cloned())
+            .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
+        Ok(entries.iter().find(|e| e.id() == id).cloned())
     }
 
-    fn update(&self, entry: QueueEntry) -> Result<QueueEntry, ValidationError> {
+    fn update(&self, entry: QueueEntry) -> Result<QueueEntry, QueueError> {
         let mut entries = self
             .entries
             .lock()
-            .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
-        if let Some(pos) = entries.iter().position(|e| e.id == entry.id) {
+            .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
+        if let Some(pos) = entries.iter().position(|e| e.id() == entry.id()) {
             entries[pos] = entry.clone();
             Ok(entry)
         } else {
-            Err(ValidationError::EmptyValue("entry not found".into()))
+            Err(QueueError::QueueEntryNotFound("entry not found".into()))
         }
     }
 
-    fn list_pending(&self) -> Result<Vec<QueueEntry>, ValidationError> {
+    fn list_pending(&self) -> Result<Vec<QueueEntry>, QueueError> {
         let entries = self
             .entries
             .lock()
-            .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
+            .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
         Ok(entries
             .iter()
-            .filter(|e| e.status == QueueStatus::Pending)
+            .filter(|e| e.status() == QueueStatus::Pending)
             .cloned()
             .collect())
     }
 
-    fn list_all(&self) -> Result<Vec<QueueEntry>, ValidationError> {
+    fn list_all(&self) -> Result<Vec<QueueEntry>, QueueError> {
         let entries = self
             .entries
             .lock()
-            .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
+            .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
         Ok(entries.iter().cloned().collect())
     }
 
-    fn remove(&self, id: &QueueEntryId) -> Result<(), ValidationError> {
+    fn remove(&self, id: &QueueEntryId) -> Result<(), QueueError> {
         let mut entries = self
             .entries
             .lock()
-            .map_err(|e| ValidationError::EmptyValue(e.to_string()))?;
-        if let Some(pos) = entries.iter().position(|e| &e.id == id) {
+            .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
+        if let Some(pos) = entries.iter().position(|e| e.id() == id) {
             entries.remove(pos);
             Ok(())
         } else {
-            Err(ValidationError::EmptyValue("entry not found".into()))
+            Err(QueueError::QueueEntryNotFound("entry not found".into()))
         }
     }
 }

@@ -44,21 +44,10 @@ pub enum InputAction {
     NewBranch,
 }
 
-<<<<<<< HEAD
 /// Provides stack branch data to the TUI. Implementations bridge
 /// to VCS or stack infrastructure without coupling the TUI to concrete backends.
 pub trait BranchProvider: Send + Sync {
     fn load_branches(&self) -> std::result::Result<Vec<StackBranch>, String>;
-=======
-/// Represents a single line of diff output for rendering.
-#[derive(Debug, Clone, PartialEq)]
-pub enum DiffLine {
-    Header(String),
-    Hunk(String),
-    Context(String),
-    Add(String),
-    Remove(String),
->>>>>>> polecat/epsilon
 }
 
 pub struct TuiApp {
@@ -70,10 +59,7 @@ pub struct TuiApp {
     pub worktree_view: WorktreeView,
     pub stack_branches: Vec<StackBranch>,
     pub diff_lines: Vec<DiffLine>,
-<<<<<<< HEAD
     branch_provider: Box<dyn BranchProvider>,
-=======
->>>>>>> polecat/epsilon
 }
 
 impl TuiApp {
@@ -87,10 +73,7 @@ impl TuiApp {
             worktree_view: WorktreeView::default(),
             stack_branches: Vec::new(),
             diff_lines: Vec::new(),
-<<<<<<< HEAD
             branch_provider,
-=======
->>>>>>> polecat/epsilon
         })
     }
 

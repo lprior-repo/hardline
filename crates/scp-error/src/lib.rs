@@ -1810,7 +1810,6 @@ mod tests {
     }
 
     // =========================================================================
-<<<<<<< HEAD
     // CLAIM 13: code() returns SCREAMING_SNAKE_CASE for every variant
     // =========================================================================
 
@@ -2255,7 +2254,8 @@ mod tests {
                 "Code '{code}' has invalid underscores for: {variant}"
             );
         }
-=======
+    }
+
     // CLAIM 13: From<std::io::Error> conversion
     // =========================================================================
 
@@ -2283,6 +2283,5 @@ mod tests {
         let err = fallible().unwrap_err();
         assert!(matches!(err, Error::IoError(_)));
         assert!(err.to_string().contains("IO error:"));
->>>>>>> polecat/epsilon
     }
 }
