@@ -10,7 +10,6 @@
 pub mod entry;
 pub mod queue_impl;
 pub mod status;
-pub mod validation;
 
 #[cfg(test)]
 mod tests;
