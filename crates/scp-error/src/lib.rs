@@ -365,6 +365,7 @@ impl Error {
     #[must_use]
     pub const fn exit_code(&self) -> i32 {
         match self {
+            // Workspace/Session: 10-18 (matches core error_workspace)
             Self::WorkspaceNotFound(_) => 10,
             Self::WorkspaceExists(_) => 11,
             Self::WorkspaceLocked(_, _) => 12,
@@ -374,61 +375,73 @@ impl Error {
             Self::SessionLocked(_, _) => 16,
             Self::NotLockHolder(_, _) => 17,
             Self::SessionInvalidState(_, _, _) => 18,
+            // Bead primary: 19, 27-29 (no core equivalent, placed in gaps)
             Self::BeadNotFound(_) => 19,
-            Self::BeadAlreadyExists(_) => 20,
-            Self::QueueEmpty => 30,
-            Self::QueueItemNotFound(_) => 31,
-            Self::QueueLocked(_) => 32,
-            Self::QueueProcessing => 33,
-            Self::QueueInvalidPosition(_) => 34,
-            Self::QueueFull(_) => 35,
-            Self::VcsNotInitialized => 40,
-            Self::VcsConflict(_, _) => 41,
-            Self::VcsPushFailed(_) => 42,
-            Self::VcsPullFailed(_) => 43,
-            Self::VcsRebaseFailed(_) => 44,
-            Self::BranchNotFound(_) => 45,
-            Self::BranchExists(_) => 46,
-            Self::CommitNotFound(_) => 47,
-            Self::WorkingCopyDirty => 48,
-            Self::ConfigNotFound(_) => 60,
-            Self::ConfigInvalid(_) => 61,
-            Self::ConfigPermission(_) => 62,
-            Self::InvalidConfig(_) => 63,
-            Self::InvalidRepoUrl(_) => 64,
-            Self::AgentNotFound(_) => 70,
-            Self::AgentExists(_) => 71,
-            Self::AgentTimeout(_) => 72,
-            Self::InvalidState(_) => 80,
-            Self::NotFound(_) => 81,
-            Self::InvalidOperation(_) => 82,
-            Self::ValidationError(_) => 90,
-            Self::ValidationFieldError { .. } => 91,
-            Self::InvalidIdentifier(_) => 92,
-            Self::IoError(_) => 100,
-            Self::JsonParseError(_) => 102,
-            Self::YamlParseError(_) => 103,
-            Self::Database(_) => 104,
-            Self::Serialization(_) => 105,
-            Self::LockTimeout { .. } => 110,
-            Self::CloneFailed(_) => 111,
-            Self::RecordFailed(_) => 112,
-            Self::Persistence(_) => 113,
-            Self::StateTransition(_) => 114,
-            Self::ScenarioError(_) => 120,
-            Self::RunnerError(_) => 121,
-            Self::DefinitionError(_) => 122,
-            Self::ServerError(_) => 123,
-            Self::SyncError(_) => 124,
-            Self::Internal(_) => 130,
-            Self::Unimplemented(_) => 131,
-            Self::InvariantViolation(_) => 132,
-            Self::InvalidBeadId(_) => 133,
-            Self::InvalidBeadTitle(_) => 134,
-            Self::BeadInvalidStateTransition { .. } => 135,
-            Self::BeadDependencyCycle(_) => 136,
-            Self::BeadBlockedBy(_) => 137,
-            Self::BeadInvalidDependency(_) => 138,
+            Self::BeadAlreadyExists(_) => 26,
+            Self::InvalidBeadId(_) => 27,
+            Self::InvalidBeadTitle(_) => 28,
+            Self::BeadInvalidStateTransition { .. } => 29,
+            // Queue: 20-25 (matches core error_queue)
+            Self::QueueEmpty => 20,
+            Self::QueueItemNotFound(_) => 21,
+            Self::QueueLocked(_) => 22,
+            Self::QueueProcessing => 23,
+            Self::QueueInvalidPosition(_) => 24,
+            Self::QueueFull(_) => 25,
+            // VCS: 30-38 (matches core error_vcs)
+            Self::VcsNotInitialized => 30,
+            Self::VcsConflict(_, _) => 31,
+            Self::VcsPushFailed(_) => 32,
+            Self::VcsPullFailed(_) => 33,
+            Self::VcsRebaseFailed(_) => 34,
+            Self::BranchNotFound(_) => 35,
+            Self::BranchExists(_) => 36,
+            Self::CommitNotFound(_) => 37,
+            Self::WorkingCopyDirty => 38,
+            // Config: 40-42 (matches core error_config)
+            Self::ConfigNotFound(_) => 40,
+            Self::ConfigInvalid(_) => 41,
+            Self::ConfigPermission(_) => 42,
+            // Agent: 50-52 (matches core error_agent)
+            Self::AgentNotFound(_) => 50,
+            Self::AgentExists(_) => 51,
+            Self::AgentTimeout(_) => 52,
+            // Bead extended: 66-68 (no core equivalent)
+            Self::BeadDependencyCycle(_) => 66,
+            Self::BeadBlockedBy(_) => 67,
+            Self::BeadInvalidDependency(_) => 68,
+            // IO/Storage: 60-63, 69 (matches core error_io, 69 for Serialization)
+            Self::IoError(_) => 60,
+            Self::JsonParseError(_) => 61,
+            Self::YamlParseError(_) => 62,
+            Self::Database(_) => 63,
+            Self::Serialization(_) => 69,
+            // State: 70-71 (matches core error_state)
+            Self::InvalidState(_) => 70,
+            Self::NotFound(_) => 71,
+            // Orchestration: 72-74 (no core equivalent)
+            Self::LockTimeout { .. } => 72,
+            Self::Persistence(_) => 73,
+            Self::StateTransition(_) => 74,
+            // Scenario/Execution: 75-79 (no core equivalent)
+            Self::ScenarioError(_) => 75,
+            Self::RunnerError(_) => 76,
+            Self::DefinitionError(_) => 77,
+            Self::ServerError(_) => 78,
+            Self::SyncError(_) => 79,
+            // Validation: 80-82 (matches core error_state validation variants)
+            Self::ValidationError(_) => 80,
+            Self::ValidationFieldError { .. } => 81,
+            Self::InvalidIdentifier(_) => 82,
+            // Internal: 90-91, 93-97 (matches core error_internal + extensions)
+            Self::Internal(_) => 90,
+            Self::Unimplemented(_) => 91,
+            Self::CloneFailed(_) => 93,
+            Self::RecordFailed(_) => 94,
+            Self::InvalidConfig(_) => 92,
+            Self::InvalidRepoUrl(_) => 95,
+            Self::InvalidOperation(_) => 96,
+            Self::InvariantViolation(_) => 97,
         }
     }
 }
@@ -1141,75 +1154,75 @@ mod tests {
     #[test]
     fn exit_codes_bead() {
         assert_eq!(Error::BeadNotFound("x".into()).exit_code(), 19);
-        assert_eq!(Error::BeadAlreadyExists("x".into()).exit_code(), 20);
+        assert_eq!(Error::BeadAlreadyExists("x".into()).exit_code(), 26);
     }
 
     #[test]
     fn exit_codes_bead_extended() {
-        assert_eq!(Error::InvalidBeadId("x".into()).exit_code(), 133);
-        assert_eq!(Error::InvalidBeadTitle("x".into()).exit_code(), 134);
+        assert_eq!(Error::InvalidBeadId("x".into()).exit_code(), 27);
+        assert_eq!(Error::InvalidBeadTitle("x".into()).exit_code(), 28);
         assert_eq!(
             Error::BeadInvalidStateTransition {
                 from: "a".into(),
                 to: "b".into()
             }
             .exit_code(),
-            135
+            29
         );
-        assert_eq!(Error::BeadDependencyCycle("x".into()).exit_code(), 136);
-        assert_eq!(Error::BeadBlockedBy("x".into()).exit_code(), 137);
-        assert_eq!(Error::BeadInvalidDependency("x".into()).exit_code(), 138);
+        assert_eq!(Error::BeadDependencyCycle("x".into()).exit_code(), 66);
+        assert_eq!(Error::BeadBlockedBy("x".into()).exit_code(), 67);
+        assert_eq!(Error::BeadInvalidDependency("x".into()).exit_code(), 68);
     }
 
     #[test]
     fn exit_codes_queue() {
-        assert_eq!(Error::QueueEmpty.exit_code(), 30);
-        assert_eq!(Error::QueueItemNotFound("x".into()).exit_code(), 31);
-        assert_eq!(Error::QueueLocked("x".into()).exit_code(), 32);
-        assert_eq!(Error::QueueProcessing.exit_code(), 33);
-        assert_eq!(Error::QueueInvalidPosition(0).exit_code(), 34);
-        assert_eq!(Error::QueueFull(10).exit_code(), 35);
+        assert_eq!(Error::QueueEmpty.exit_code(), 20);
+        assert_eq!(Error::QueueItemNotFound("x".into()).exit_code(), 21);
+        assert_eq!(Error::QueueLocked("x".into()).exit_code(), 22);
+        assert_eq!(Error::QueueProcessing.exit_code(), 23);
+        assert_eq!(Error::QueueInvalidPosition(0).exit_code(), 24);
+        assert_eq!(Error::QueueFull(10).exit_code(), 25);
     }
 
     #[test]
     fn exit_codes_vcs() {
-        assert_eq!(Error::VcsNotInitialized.exit_code(), 40);
-        assert_eq!(Error::VcsConflict("a".into(), "b".into()).exit_code(), 41);
-        assert_eq!(Error::VcsPushFailed("x".into()).exit_code(), 42);
-        assert_eq!(Error::VcsPullFailed("x".into()).exit_code(), 43);
-        assert_eq!(Error::VcsRebaseFailed("x".into()).exit_code(), 44);
-        assert_eq!(Error::BranchNotFound("x".into()).exit_code(), 45);
-        assert_eq!(Error::BranchExists("x".into()).exit_code(), 46);
-        assert_eq!(Error::CommitNotFound("x".into()).exit_code(), 47);
-        assert_eq!(Error::WorkingCopyDirty.exit_code(), 48);
+        assert_eq!(Error::VcsNotInitialized.exit_code(), 30);
+        assert_eq!(Error::VcsConflict("a".into(), "b".into()).exit_code(), 31);
+        assert_eq!(Error::VcsPushFailed("x".into()).exit_code(), 32);
+        assert_eq!(Error::VcsPullFailed("x".into()).exit_code(), 33);
+        assert_eq!(Error::VcsRebaseFailed("x".into()).exit_code(), 34);
+        assert_eq!(Error::BranchNotFound("x".into()).exit_code(), 35);
+        assert_eq!(Error::BranchExists("x".into()).exit_code(), 36);
+        assert_eq!(Error::CommitNotFound("x".into()).exit_code(), 37);
+        assert_eq!(Error::WorkingCopyDirty.exit_code(), 38);
     }
 
     #[test]
     fn exit_codes_config() {
-        assert_eq!(Error::ConfigNotFound("x".into()).exit_code(), 60);
-        assert_eq!(Error::ConfigInvalid("x".into()).exit_code(), 61);
-        assert_eq!(Error::ConfigPermission("x".into()).exit_code(), 62);
-        assert_eq!(Error::InvalidConfig("x".into()).exit_code(), 63);
-        assert_eq!(Error::InvalidRepoUrl("x".into()).exit_code(), 64);
+        assert_eq!(Error::ConfigNotFound("x".into()).exit_code(), 40);
+        assert_eq!(Error::ConfigInvalid("x".into()).exit_code(), 41);
+        assert_eq!(Error::ConfigPermission("x".into()).exit_code(), 42);
+        assert_eq!(Error::InvalidConfig("x".into()).exit_code(), 92);
+        assert_eq!(Error::InvalidRepoUrl("x".into()).exit_code(), 95);
     }
 
     #[test]
     fn exit_codes_agent() {
-        assert_eq!(Error::AgentNotFound("x".into()).exit_code(), 70);
-        assert_eq!(Error::AgentExists("x".into()).exit_code(), 71);
-        assert_eq!(Error::AgentTimeout("x".into()).exit_code(), 72);
+        assert_eq!(Error::AgentNotFound("x".into()).exit_code(), 50);
+        assert_eq!(Error::AgentExists("x".into()).exit_code(), 51);
+        assert_eq!(Error::AgentTimeout("x".into()).exit_code(), 52);
     }
 
     #[test]
     fn exit_codes_state_conflict() {
-        assert_eq!(Error::InvalidState("x".into()).exit_code(), 80);
-        assert_eq!(Error::NotFound("x".into()).exit_code(), 81);
-        assert_eq!(Error::InvalidOperation("x".into()).exit_code(), 82);
+        assert_eq!(Error::InvalidState("x".into()).exit_code(), 70);
+        assert_eq!(Error::NotFound("x".into()).exit_code(), 71);
+        assert_eq!(Error::InvalidOperation("x".into()).exit_code(), 96);
     }
 
     #[test]
     fn exit_codes_validation() {
-        assert_eq!(Error::ValidationError("x".into()).exit_code(), 90);
+        assert_eq!(Error::ValidationError("x".into()).exit_code(), 80);
         assert_eq!(
             Error::ValidationFieldError {
                 message: "x".into(),
@@ -1217,18 +1230,18 @@ mod tests {
                 value: None,
             }
             .exit_code(),
-            91
+            81
         );
-        assert_eq!(Error::InvalidIdentifier("x".into()).exit_code(), 92);
+        assert_eq!(Error::InvalidIdentifier("x".into()).exit_code(), 82);
     }
 
     #[test]
     fn exit_codes_io_storage() {
-        assert_eq!(Error::IoError("x".into()).exit_code(), 100);
-        assert_eq!(Error::JsonParseError("x".into()).exit_code(), 102);
-        assert_eq!(Error::YamlParseError("x".into()).exit_code(), 103);
-        assert_eq!(Error::Database("x".into()).exit_code(), 104);
-        assert_eq!(Error::Serialization("x".into()).exit_code(), 105);
+        assert_eq!(Error::IoError("x".into()).exit_code(), 60);
+        assert_eq!(Error::JsonParseError("x".into()).exit_code(), 61);
+        assert_eq!(Error::YamlParseError("x".into()).exit_code(), 62);
+        assert_eq!(Error::Database("x".into()).exit_code(), 63);
+        assert_eq!(Error::Serialization("x".into()).exit_code(), 69);
     }
 
     #[test]
@@ -1240,28 +1253,28 @@ mod tests {
                 retries: 0,
             }
             .exit_code(),
-            110
+            72
         );
-        assert_eq!(Error::CloneFailed("x".into()).exit_code(), 111);
-        assert_eq!(Error::RecordFailed("x".into()).exit_code(), 112);
-        assert_eq!(Error::Persistence("x".into()).exit_code(), 113);
-        assert_eq!(Error::StateTransition("x".into()).exit_code(), 114);
+        assert_eq!(Error::CloneFailed("x".into()).exit_code(), 93);
+        assert_eq!(Error::RecordFailed("x".into()).exit_code(), 94);
+        assert_eq!(Error::Persistence("x".into()).exit_code(), 73);
+        assert_eq!(Error::StateTransition("x".into()).exit_code(), 74);
     }
 
     #[test]
     fn exit_codes_scenario_execution() {
-        assert_eq!(Error::ScenarioError("x".into()).exit_code(), 120);
-        assert_eq!(Error::RunnerError("x".into()).exit_code(), 121);
-        assert_eq!(Error::DefinitionError("x".into()).exit_code(), 122);
-        assert_eq!(Error::ServerError("x".into()).exit_code(), 123);
-        assert_eq!(Error::SyncError("x".into()).exit_code(), 124);
+        assert_eq!(Error::ScenarioError("x".into()).exit_code(), 75);
+        assert_eq!(Error::RunnerError("x".into()).exit_code(), 76);
+        assert_eq!(Error::DefinitionError("x".into()).exit_code(), 77);
+        assert_eq!(Error::ServerError("x".into()).exit_code(), 78);
+        assert_eq!(Error::SyncError("x".into()).exit_code(), 79);
     }
 
     #[test]
     fn exit_codes_internal() {
-        assert_eq!(Error::Internal("x".into()).exit_code(), 130);
-        assert_eq!(Error::Unimplemented("x".into()).exit_code(), 131);
-        assert_eq!(Error::InvariantViolation("x".into()).exit_code(), 132);
+        assert_eq!(Error::Internal("x".into()).exit_code(), 90);
+        assert_eq!(Error::Unimplemented("x".into()).exit_code(), 91);
+        assert_eq!(Error::InvariantViolation("x".into()).exit_code(), 97);
     }
 
     // =========================================================================
@@ -1523,7 +1536,7 @@ mod tests {
             timeout_ms: 0,
             retries: 0,
         };
-        assert_eq!(err.exit_code(), 110);
+        assert_eq!(err.exit_code(), 72);
         assert!(err.to_string().contains("0ms"));
         assert!(err.to_string().contains("0 retries"));
     }
