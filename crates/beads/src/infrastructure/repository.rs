@@ -1,3 +1,5 @@
+//! In-memory repository implementation for bead persistence.
+
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -6,23 +8,39 @@ use crate::domain::entities::bead::Bead;
 use crate::domain::value_objects::{BeadId, BeadState};
 use crate::error::{BeadError, Result};
 
+/// Async repository trait for bead persistence.
+///
+/// This is the async counterpart to the sync domain repository trait,
+/// used by [`BeadService`](crate::BeadService) for infrastructure operations.
 #[async_trait]
 pub trait BeadRepository: Send + Sync {
+    /// Insert a new bead. Fails with [`BeadError::AlreadyExists`] if the ID exists.
     async fn insert(&self, bead: &Bead) -> Result<()>;
+    /// Update an existing bead. Fails with [`BeadError::NotFound`] if the ID doesn't exist.
     async fn update(&self, bead: &Bead) -> Result<()>;
+    /// Delete a bead by ID. Fails with [`BeadError::NotFound`] if not found.
     async fn delete(&self, id: &BeadId) -> Result<()>;
+    /// Find a bead by ID, returning `None` if not found.
     async fn find(&self, id: &BeadId) -> Result<Option<Bead>>;
+    /// Return all beads.
     async fn find_all(&self) -> Result<Vec<Bead>>;
+    /// Return all beads matching the given state.
     async fn find_by_state(&self, state: BeadState) -> Result<Vec<Bead>>;
+    /// Check whether a bead with the given ID exists.
     async fn exists(&self, id: &BeadId) -> bool;
 }
 
+/// Thread-safe in-memory bead store, backed by `tokio::sync::RwLock`.
+///
+/// Suitable for testing and transient use. Each instance has its own
+/// isolated data — cloning a repository shares the underlying store.
 #[derive(Clone)]
 pub struct InMemoryBeadRepository {
     beads: Arc<tokio::sync::RwLock<HashMap<String, Bead>>>,
 }
 
 impl InMemoryBeadRepository {
+    /// Create a new empty in-memory repository.
     pub fn new() -> Self {
         Self {
             beads: Arc::new(tokio::sync::RwLock::new(HashMap::new())),

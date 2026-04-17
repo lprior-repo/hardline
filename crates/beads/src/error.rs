@@ -1,38 +1,61 @@
+//! Error types for bead operations.
+
 use thiserror::Error;
 
+/// Errors that can occur during bead operations.
+///
+/// Each variant maps to a specific failure mode in the domain:
+/// validation failures, state machine violations, dependency graph
+/// integrity errors, and infrastructure problems.
 #[derive(Error, Debug)]
 pub enum BeadError {
+    /// The requested bead does not exist.
     #[error("Bead not found: {0}")]
     NotFound(String),
 
+    /// A bead with the given ID already exists (duplicate create).
     #[error("Bead already exists: {0}")]
     AlreadyExists(String),
 
+    /// The bead ID failed validation (empty, too long, or invalid characters).
     #[error("Invalid bead ID: {0}")]
     InvalidId(String),
 
+    /// The bead title failed validation (empty or too long).
     #[error("Invalid title: {0}")]
     InvalidTitle(String),
 
+    /// The requested state transition violates the FSM rules.
     #[error("Invalid state transition: {from} -> {to}")]
-    InvalidStateTransition { from: String, to: String },
+    InvalidStateTransition {
+        /// Current state name.
+        from: String,
+        /// Target state name.
+        to: String,
+    },
 
+    /// Adding the dependency would create a cycle in the dependency graph.
     #[error("Dependency cycle detected: {0}")]
     DependencyCycle(String),
 
+    /// The bead cannot proceed because it is blocked by other beads.
     #[error("Bead is blocked by: {0:?}")]
     BlockedBy(Vec<String>),
 
+    /// The dependency target bead does not exist or is invalid.
     #[error("Invalid dependency: {0}")]
     InvalidDependency(String),
 
+    /// An underlying storage/database operation failed.
     #[error("Database error: {0}")]
     Database(String),
 
+    /// Serialization or deserialization of bead data failed.
     #[error("Serialization error: {0}")]
     Serialization(String),
 }
 
+/// Result alias for bead operations.
 pub type Result<T> = std::result::Result<T, BeadError>;
 
 #[cfg(test)]

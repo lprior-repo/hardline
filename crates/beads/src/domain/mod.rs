@@ -1,3 +1,5 @@
+//! Domain layer: entities, value objects, events, and repository contracts.
+
 pub mod entities;
 pub mod events;
 pub mod repository;

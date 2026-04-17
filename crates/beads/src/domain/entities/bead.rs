@@ -25,37 +25,80 @@ impl Default for BeadState {
     }
 }
 
+// ── Typestate markers ─────────────────────────────────────────────────────────
+
+/// Typestate marker: bead is open (initial state).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Open;
+/// Typestate marker: bead is in progress.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InProgress;
+/// Typestate marker: bead is blocked.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Blocked;
+/// Typestate marker: bead is deferred.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Deferred;
+/// Typestate marker: bead is closed (terminal).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Closed;
 
+// ── Bead aggregate root ───────────────────────────────────────────────────────
+
+/// A bead (work item / issue) with compile-time typestate enforcement.
+///
+/// The `S` type parameter tracks the lifecycle state. Use the typestate methods
+/// ([`start`](Bead::start), [`block`](Bead::<InProgress>::block), [`close`](Bead::<InProgress>::close), etc.)
+/// to transition between states. Invalid transitions are prevented at compile time.
+///
+/// For dynamic transitions (e.g., when the state is loaded from storage), use
+/// [`transition_to`](Bead::transition_to) which returns `Option<Bead>`.
+///
+/// # Example
+///
+/// ```ignore
+/// let bead = Bead::create(id, title, desc);
+/// let in_progress = bead.start();
+/// let closed = in_progress.close();
+/// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Bead<S = Open> {
+    /// Unique identifier.
     pub id: BeadId,
+    /// Human-readable title.
     pub title: BeadTitle,
+    /// Optional long-form description.
     pub description: Option<BeadDescription>,
+    /// Optional priority level.
     pub priority: Option<Priority>,
+    /// Optional bead classification.
     pub bead_type: Option<BeadType>,
+    /// Tags/labels attached to this bead.
     pub labels: Labels,
+    /// Optional assignee.
     pub assignee: Option<String>,
+    /// Optional parent bead (for sub-task relationships).
     pub parent: Option<BeadId>,
+    /// Beads this bead depends on.
     pub depends_on: Vec<BeadId>,
+    /// Beads that block this bead.
     pub blocked_by: Vec<BeadId>,
+    /// Timestamp when the bead was created.
     pub created_at: DateTime<Utc>,
+    /// Timestamp of the last update.
     pub updated_at: DateTime<Utc>,
+    /// Runtime state for persistence (not part of the typestate).
     #[serde(default)]
     bead_state: BeadState,
+    /// Zero-sized typestate marker.
     _state: PhantomData<S>,
 }
 
 impl Bead<Open> {
+    /// Create a new bead in the `Open` state.
+    ///
+    /// Sets `created_at` and `updated_at` to the current time.
+    /// All optional fields default to `None` / empty.
     #[must_use]
     pub fn create(id: BeadId, title: BeadTitle, description: Option<BeadDescription>) -> Self {
         let now = Utc::now();
@@ -77,6 +120,7 @@ impl Bead<Open> {
         }
     }
 
+    /// Transition from `Open` to `InProgress`.
     #[must_use]
     pub fn start(self) -> Bead<InProgress> {
         self.transition_impl(BeadState::InProgress)
@@ -84,61 +128,73 @@ impl Bead<Open> {
 }
 
 impl<S> Bead<S> {
+    /// Returns a reference to the bead's ID.
     #[must_use]
     pub fn id(&self) -> &BeadId {
         &self.id
     }
 
+    /// Returns a reference to the bead's title.
     #[must_use]
     pub fn title(&self) -> &BeadTitle {
         &self.title
     }
 
+    /// Returns a reference to the bead's description, if set.
     #[must_use]
     pub fn description(&self) -> Option<&BeadDescription> {
         self.description.as_ref()
     }
 
+    /// Returns a reference to the bead's priority, if set.
     #[must_use]
     pub fn priority(&self) -> Option<&Priority> {
         self.priority.as_ref()
     }
 
+    /// Returns a reference to the bead's type, if set.
     #[must_use]
     pub fn bead_type(&self) -> Option<&BeadType> {
         self.bead_type.as_ref()
     }
 
+    /// Returns a reference to the bead's labels.
     #[must_use]
     pub fn labels(&self) -> &Labels {
         &self.labels
     }
 
+    /// Returns the bead's assignee, if assigned.
     #[must_use]
     pub fn assignee(&self) -> Option<&str> {
         self.assignee.as_deref()
     }
 
+    /// Returns the parent bead ID, if this is a sub-task.
     #[must_use]
     pub fn parent(&self) -> Option<&BeadId> {
         self.parent.as_ref()
     }
 
+    /// Returns the list of beads this bead depends on.
     #[must_use]
     pub fn depends_on(&self) -> &[BeadId] {
         &self.depends_on
     }
 
+    /// Returns the list of beads blocking this bead.
     #[must_use]
     pub fn blocked_by(&self) -> &[BeadId] {
         &self.blocked_by
     }
 
+    /// Returns the creation timestamp.
     #[must_use]
     pub fn created_at(&self) -> DateTime<Utc> {
         self.created_at
     }
 
+    /// Returns the last-update timestamp.
     #[must_use]
     pub fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at
@@ -163,52 +219,61 @@ impl<S> Bead<S> {
         }
     }
 
+    /// Set the priority (builder pattern).
     #[must_use]
     pub fn with_priority(mut self, priority: Priority) -> Self {
         self.priority = Some(priority);
         self
     }
 
+    /// Set the bead type (builder pattern).
     #[must_use]
     pub fn with_type(mut self, bead_type: BeadType) -> Self {
         self.bead_type = Some(bead_type);
         self
     }
 
+    /// Set the assignee (builder pattern).
     pub fn with_assignee(mut self, assignee: impl Into<String>) -> Self {
         self.assignee = Some(assignee.into());
         self
     }
 
+    /// Set the parent bead (builder pattern).
     #[must_use]
     pub fn with_parent(mut self, parent: BeadId) -> Self {
         self.parent = Some(parent);
         self
     }
 
+    /// Add a dependency (builder pattern).
     #[must_use]
     pub fn add_dependency(mut self, depends_on: BeadId) -> Self {
         self.depends_on.push(depends_on);
         self
     }
 
+    /// Add a blocker (builder pattern).
     #[must_use]
     pub fn add_blocker(mut self, blocked_by: BeadId) -> Self {
         self.blocked_by.push(blocked_by);
         self
     }
 
+    /// Set the labels (builder pattern).
     #[must_use]
     pub fn with_labels(mut self, labels: Labels) -> Self {
         self.labels = labels;
         self
     }
 
+    /// Returns `true` if the bead has any blockers.
     #[must_use]
     pub fn is_blocked(&self) -> bool {
         !self.blocked_by.is_empty()
     }
 
+    /// Returns `true` if the bead is in the `Closed` terminal state.
     #[must_use]
     pub fn is_terminal(&self) -> bool {
         matches!(self.bead_state, BeadState::Closed { .. })
@@ -401,16 +466,19 @@ impl<S> Bead<S> {
 }
 
 impl Bead<InProgress> {
+    /// Transition from `InProgress` to `Blocked`.
     #[must_use]
     pub fn block(self) -> Bead<Blocked> {
         self.transition_impl(BeadState::Blocked)
     }
 
+    /// Transition from `InProgress` to `Deferred`.
     #[must_use]
     pub fn defer(self) -> Bead<Deferred> {
         self.transition_impl(BeadState::Deferred)
     }
 
+    /// Transition from `InProgress` to `Closed` (terminal).
     #[must_use]
     pub fn close(self) -> Bead<Closed> {
         self.transition_impl(BeadState::Closed {
@@ -420,16 +488,19 @@ impl Bead<InProgress> {
 }
 
 impl Bead<Blocked> {
+    /// Transition from `Blocked` back to `InProgress`.
     #[must_use]
     pub fn unblock(self) -> Bead<InProgress> {
         self.transition_impl(BeadState::InProgress)
     }
 
+    /// Transition from `Blocked` to `Deferred`.
     #[must_use]
     pub fn defer(self) -> Bead<Deferred> {
         self.transition_impl(BeadState::Deferred)
     }
 
+    /// Transition from `Blocked` to `Closed` (terminal).
     #[must_use]
     pub fn close(self) -> Bead<Closed> {
         self.transition_impl(BeadState::Closed {
@@ -439,11 +510,13 @@ impl Bead<Blocked> {
 }
 
 impl Bead<Deferred> {
+    /// Transition from `Deferred` back to `InProgress`.
     #[must_use]
     pub fn resume(self) -> Bead<InProgress> {
         self.transition_impl(BeadState::InProgress)
     }
 
+    /// Transition from `Deferred` to `Closed` (terminal).
     #[must_use]
     pub fn close(self) -> Bead<Closed> {
         self.transition_impl(BeadState::Closed {

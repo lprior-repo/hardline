@@ -1,3 +1,5 @@
+//! Application service layer — orchestrates domain operations via [`BeadService`].
+
 use chrono::Utc;
 
 use crate::domain::entities::bead::Bead;
@@ -6,15 +8,36 @@ use crate::domain::value_objects::{BeadId, BeadState, BeadTitle, Priority};
 use crate::error::{BeadError, Result};
 use crate::infrastructure::repository::BeadRepository;
 
+/// Primary application service for bead (issue) management.
+///
+/// `BeadService` enforces domain invariants (state machine rules, dependency
+/// cycle detection, idempotency) and emits [`BeadEvent`]s for every mutation.
+///
+/// # Generic Parameter
+///
+/// `R` is the repository backend implementing [`BeadRepository`].
+/// Use [`InMemoryBeadRepository`](crate::InMemoryBeadRepository) for testing
+/// or transient use cases.
 pub struct BeadService<R: BeadRepository> {
     repository: R,
 }
 
 impl<R: BeadRepository> BeadService<R> {
+    /// Create a new service backed by the given repository.
     pub fn new(repository: R) -> Self {
         Self { repository }
     }
 
+    /// Create a new bead with the given ID, title, and optional description.
+    ///
+    /// Validates inputs, checks for duplicate IDs, persists the bead, and
+    /// returns both the created [`Bead`] and a [`BeadEvent::Created`] event.
+    ///
+    /// # Errors
+    ///
+    /// - `BeadError::InvalidId` if the ID fails validation.
+    /// - `BeadError::InvalidTitle` if the title fails validation.
+    /// - `BeadError::AlreadyExists` if a bead with the ID already exists.
     pub async fn create_bead(
         &self,
         id: impl TryInto<BeadId>,
@@ -49,6 +72,11 @@ impl<R: BeadRepository> BeadService<R> {
         Ok((bead, event))
     }
 
+    /// Retrieve a bead by ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BeadError::NotFound` if no bead with the given ID exists.
     pub async fn get_bead(&self, id: &BeadId) -> Result<Bead> {
         self.repository
             .find(id)
@@ -56,6 +84,14 @@ impl<R: BeadRepository> BeadService<R> {
             .ok_or_else(|| BeadError::NotFound(id.to_string()))
     }
 
+    /// Transition a bead to a new state, enforcing FSM rules.
+    ///
+    /// Returns the updated bead and a [`BeadEvent::StateChanged`] event.
+    ///
+    /// # Errors
+    ///
+    /// - `BeadError::NotFound` if the bead doesn't exist.
+    /// - `BeadError::InvalidStateTransition` if the transition violates FSM rules.
     pub async fn update_bead_state(
         &self,
         id: &BeadId,
@@ -91,6 +127,13 @@ impl<R: BeadRepository> BeadService<R> {
         Ok((updated, event))
     }
 
+    /// Set or change the priority of a bead.
+    ///
+    /// Returns the updated bead and a [`BeadEvent::PrioritySet`] event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BeadError::NotFound` if the bead doesn't exist.
     pub async fn set_priority(&self, id: &BeadId, priority: Priority) -> Result<(Bead, BeadEvent)> {
         let bead = self.get_bead(id).await?;
         let updated = bead.with_priority(priority);
@@ -105,6 +148,14 @@ impl<R: BeadRepository> BeadService<R> {
         Ok((updated, event))
     }
 
+    /// Assign or unassign a bead.
+    ///
+    /// Pass `Some(name)` to assign, `None` to unassign. Returns the updated
+    /// bead and a [`BeadEvent::AssigneeSet`] event.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BeadError::NotFound` if the bead doesn't exist.
     pub async fn assign_bead(
         &self,
         id: &BeadId,
@@ -126,6 +177,18 @@ impl<R: BeadRepository> BeadService<R> {
         Ok((updated, event))
     }
 
+    /// Add a dependency from one bead to another.
+    ///
+    /// Enforces: target must exist, no self-dependencies, no transitive cycles.
+    /// Adding the same dependency twice is idempotent (no duplicate entries).
+    ///
+    /// Returns the updated bead and a [`BeadEvent::DependencyAdded`] event.
+    ///
+    /// # Errors
+    ///
+    /// - `BeadError::NotFound` if the source bead doesn't exist.
+    /// - `BeadError::InvalidDependency` if the target bead doesn't exist.
+    /// - `BeadError::DependencyCycle` if adding would create a cycle.
     pub async fn add_dependency(
         &self,
         id: &BeadId,
@@ -202,14 +265,23 @@ impl<R: BeadRepository> BeadService<R> {
         Ok(false)
     }
 
+    /// List all beads in the repository.
     pub async fn list_beads(&self) -> Result<Vec<Bead>> {
         self.repository.find_all().await
     }
 
+    /// Find all beads in the given state.
     pub async fn find_by_state(&self, state: BeadState) -> Result<Vec<Bead>> {
         self.repository.find_by_state(state).await
     }
 
+    /// Delete a bead by ID.
+    ///
+    /// Returns a [`BeadEvent::Deleted`] event on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BeadError::NotFound` if the bead doesn't exist.
     pub async fn delete_bead(&self, id: &BeadId) -> Result<BeadEvent> {
         let _bead = self.get_bead(id).await?;
         self.repository.delete(id).await?;

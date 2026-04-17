@@ -1,67 +1,114 @@
+//! Domain events emitted by [`BeadService`](crate::BeadService) operations.
+//!
+//! Each event represents a discrete state change on a bead and carries
+//! a timestamp for auditability.
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::value_objects::{BeadId, BeadState, BeadTitle, Priority};
 
+/// Immutable record of a state change on a bead.
+///
+/// Events are produced as return values from [`BeadService`](crate::BeadService)
+/// methods and can be used for event sourcing, audit logs, or notifications.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BeadEvent {
+    /// A new bead was created.
     Created {
+        /// ID of the created bead.
         id: BeadId,
+        /// Title at creation time.
         title: BeadTitle,
+        /// Timestamp of creation.
         created_at: DateTime<Utc>,
     },
 
+    /// A bead's title was changed.
     TitleChanged {
+        /// ID of the bead.
         id: BeadId,
+        /// Previous title.
         old_title: BeadTitle,
+        /// New title.
         new_title: BeadTitle,
+        /// Timestamp of the change.
         changed_at: DateTime<Utc>,
     },
 
+    /// A bead's state was transitioned.
     StateChanged {
+        /// ID of the bead.
         id: BeadId,
+        /// State before the transition.
         old_state: BeadState,
+        /// State after the transition.
         new_state: BeadState,
+        /// Timestamp of the transition.
         changed_at: DateTime<Utc>,
     },
 
+    /// A bead's priority was set or changed.
     PrioritySet {
+        /// ID of the bead.
         id: BeadId,
+        /// The new priority.
         priority: Priority,
+        /// Timestamp of the change.
         changed_at: DateTime<Utc>,
     },
 
+    /// A bead was assigned or unassigned.
     AssigneeSet {
+        /// ID of the bead.
         id: BeadId,
+        /// The new assignee (`None` = unassigned).
         assignee: Option<String>,
+        /// Timestamp of the change.
         changed_at: DateTime<Utc>,
     },
 
+    /// A dependency was added to a bead.
     DependencyAdded {
+        /// ID of the bead gaining the dependency.
         id: BeadId,
+        /// The bead it now depends on.
         depends_on: BeadId,
+        /// Timestamp of the change.
         changed_at: DateTime<Utc>,
     },
 
+    /// A blocker was added to a bead.
     BlockerAdded {
+        /// ID of the bead that was blocked.
         id: BeadId,
+        /// The bead blocking it.
         blocked_by: BeadId,
+        /// Timestamp of the change.
         changed_at: DateTime<Utc>,
     },
 
+    /// A label was applied to a bead.
     Labeled {
+        /// ID of the bead.
         id: BeadId,
+        /// The label that was applied.
         label: String,
+        /// Timestamp of the change.
         changed_at: DateTime<Utc>,
     },
 
+    /// A bead was deleted.
     Deleted {
+        /// ID of the deleted bead.
         id: BeadId,
+        /// Timestamp of deletion.
         deleted_at: DateTime<Utc>,
     },
 }
 
 impl BeadEvent {
+    /// Returns the ID of the bead this event relates to.
     #[must_use]
     pub fn id(&self) -> &BeadId {
         match self {

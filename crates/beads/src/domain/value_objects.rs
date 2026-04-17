@@ -1,15 +1,32 @@
+//! Value objects for the bead domain.
+//!
+//! Immutable, self-validating types that represent domain concepts:
+//! [`BeadId`], [`BeadTitle`], [`BeadDescription`], [`BeadState`],
+//! [`Priority`], [`BeadType`], and [`Labels`].
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
 use crate::error::{BeadError, Result};
 
+/// Unique identifier for a bead.
+///
+/// Validates that the ID is non-empty, at most [`MAX_LENGTH`](BeadId::MAX_LENGTH)
+/// characters, and contains only alphanumeric characters, hyphens, and underscores.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BeadId(String);
 
 impl BeadId {
+    /// Maximum allowed length for a bead ID (100 characters).
     pub const MAX_LENGTH: usize = 100;
 
+    /// Create a new `BeadId`, validating the input.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BeadError::InvalidId` if the ID is empty, exceeds
+    /// [`MAX_LENGTH`](BeadId::MAX_LENGTH), or contains invalid characters.
     pub fn new(id: impl Into<String>) -> Result<Self> {
         let id = id.into();
         if id.is_empty() {
@@ -32,11 +49,13 @@ impl BeadId {
         Ok(Self(id))
     }
 
+    /// Borrow the ID as a string slice.
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Consume and return the underlying `String`.
     #[must_use]
     pub fn into_inner(self) -> String {
         self.0
@@ -65,12 +84,24 @@ impl TryFrom<&str> for BeadId {
     }
 }
 
+/// Human-readable title for a bead.
+///
+/// Validates that the title is non-empty (after trimming) and at most
+/// [`MAX_LENGTH`](BeadTitle::MAX_LENGTH) characters. Leading/trailing
+/// whitespace is automatically stripped.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BeadTitle(String);
 
 impl BeadTitle {
+    /// Maximum allowed length for a bead title (200 characters).
     pub const MAX_LENGTH: usize = 200;
 
+    /// Create a new `BeadTitle`, trimming whitespace and validating.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BeadError::InvalidTitle` if the trimmed title is empty
+    /// or exceeds [`MAX_LENGTH`](BeadTitle::MAX_LENGTH).
     pub fn new(title: impl Into<String>) -> Result<Self> {
         let title = title.into();
         let trimmed = title.trim();
@@ -86,11 +117,13 @@ impl BeadTitle {
         Ok(Self(trimmed.to_string()))
     }
 
+    /// Borrow the title as a string slice.
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Consume and return the underlying `String`.
     #[must_use]
     pub fn into_inner(self) -> String {
         self.0
@@ -119,12 +152,23 @@ impl TryFrom<&str> for BeadTitle {
     }
 }
 
+/// Optional long-form description for a bead.
+///
+/// Unlike [`BeadTitle`], descriptions may be empty and are **not** trimmed.
+/// Maximum length is [`MAX_LENGTH`](BeadDescription::MAX_LENGTH) characters.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BeadDescription(String);
 
 impl BeadDescription {
+    /// Maximum allowed length for a description (10,000 characters).
     pub const MAX_LENGTH: usize = 10_000;
 
+    /// Create a new `BeadDescription`, validating length.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BeadError::InvalidTitle` if the description exceeds
+    /// [`MAX_LENGTH`](BeadDescription::MAX_LENGTH).
     pub fn new(description: impl Into<String>) -> Result<Self> {
         let description = description.into();
         if description.len() > Self::MAX_LENGTH {
@@ -136,16 +180,19 @@ impl BeadDescription {
         Ok(Self(description))
     }
 
+    /// Borrow the description as a string slice.
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// Returns `true` if the description is empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Consume and return the underlying `String`.
     #[must_use]
     pub fn into_inner(self) -> String {
         self.0
@@ -166,33 +213,60 @@ impl TryFrom<String> for BeadDescription {
     }
 }
 
+/// Lifecycle state of a bead, enforcing a finite state machine.
+///
+/// # State Transitions
+///
+/// ```text
+///   Open ──→ InProgress ──→ Blocked
+///              │    ↑          │  ↑
+///              │    │          │  │
+///              ↓    │          ↓  │
+///           Deferred ──→ Closed ←┘
+/// ```
+///
+/// - `Closed` is the **terminal** state — no transitions out.
+/// - Transitions to the same state are allowed (no-op).
+/// - `Open` can only transition to `InProgress`.
 #[derive(Debug, Clone, PartialEq, Eq, EnumString, Display, Serialize, Deserialize, Hash)]
 #[strum(serialize_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum BeadState {
+    /// Bead has been created but work has not started.
     Open,
+    /// Work is actively in progress.
     InProgress,
+    /// Bead is blocked by an external dependency or blocker.
     Blocked,
+    /// Work has been temporarily suspended.
     Deferred,
-    Closed { closed_at: DateTime<Utc> },
+    /// Bead is closed (terminal state). Contains the timestamp of closure.
+    Closed {
+        /// Timestamp when the bead was closed.
+        closed_at: DateTime<Utc>,
+    },
 }
 
 impl BeadState {
+    /// Returns `true` if the bead is in an actively worked state (`Open` or `InProgress`).
     #[must_use]
     pub fn is_active(&self) -> bool {
         matches!(self, Self::Open | Self::InProgress)
     }
 
+    /// Returns `true` if the bead is in the `Blocked` state.
     #[must_use]
     pub fn is_blocked(&self) -> bool {
         matches!(self, Self::Blocked)
     }
 
+    /// Returns `true` if the bead is in the `Closed` terminal state.
     #[must_use]
     pub fn is_closed(&self) -> bool {
         matches!(self, Self::Closed { .. })
     }
 
+    /// Returns the closure timestamp if the bead is `Closed`, otherwise `None`.
     #[must_use]
     pub fn closed_at(&self) -> Option<DateTime<Utc>> {
         match self {
@@ -201,6 +275,14 @@ impl BeadState {
         }
     }
 
+    /// Attempt a state transition, returning the new state or an error.
+    ///
+    /// Transitioning to `Closed` automatically sets `closed_at` to the current time.
+    /// Transitions to the same state succeed as a no-op.
+    ///
+    /// # Errors
+    ///
+    /// Returns `BeadError::InvalidStateTransition` if the transition violates FSM rules.
     pub fn transition_to(&self, new_state: Self) -> Result<Self> {
         let is_valid = match (self, &new_state) {
             // Closed is terminal
@@ -241,17 +323,27 @@ impl BeadState {
     }
 }
 
+/// Priority level for a bead, ordered from P0 (highest) to P4 (lowest).
+///
+/// Implements `Ord` so priorities can be sorted. Lower numeric values
+/// represent higher priority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum Priority {
+    /// Critical — must be addressed immediately.
     P0,
+    /// High priority.
     P1,
+    /// Normal priority.
     P2,
+    /// Low priority.
     P3,
+    /// Minimal priority — nice to have.
     P4,
 }
 
 impl Priority {
+    /// Returns the numeric value of this priority (0–4).
     #[must_use]
     pub fn value(&self) -> u8 {
         match self {
@@ -263,6 +355,8 @@ impl Priority {
         }
     }
 
+    /// Convert a numeric value to a `Priority`. Values above 4 map to `P4`.
+    #[must_use]
     pub fn from_value(value: u8) -> Self {
         match value {
             0 => Self::P0,
@@ -280,36 +374,53 @@ impl std::fmt::Display for Priority {
     }
 }
 
+/// Classification of a bead's nature.
 #[derive(Debug, Clone, PartialEq, Eq, EnumString, Display, Serialize, Deserialize, Hash)]
 #[strum(serialize_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum BeadType {
+    /// A defect or bug report.
     Bug,
+    /// A new feature or enhancement.
     Feature,
+    /// A general task or work item.
     Task,
+    /// A large body of work that can be broken into sub-tasks.
     Epic,
+    /// A maintenance or housekeeping item.
     Chore,
 }
 
+/// An ordered collection of labels (tags) attached to a bead.
+///
+/// Labels are case-sensitive strings. Use the builder pattern to construct:
+///
+/// ```ignore
+/// let labels = Labels::new().with("urgent").with("backend");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Labels(pub Vec<String>);
 
 impl Labels {
+    /// Create an empty label collection.
     #[must_use]
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
+    /// Add a label and return the modified collection (builder pattern).
     pub fn with(mut self, label: impl Into<String>) -> Self {
         self.0.push(label.into());
         self
     }
 
+    /// Returns `true` if the collection contains the given label (case-sensitive).
     #[must_use]
     pub fn contains(&self, label: &str) -> bool {
         self.0.iter().any(|l| l == label)
     }
 
+    /// Borrow the labels as a string slice.
     #[must_use]
     pub fn as_slice(&self) -> &[String] {
         &self.0
