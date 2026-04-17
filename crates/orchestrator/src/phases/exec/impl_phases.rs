@@ -87,7 +87,7 @@ impl PipelineExecutor {
 
         pipeline
             .transition_to(PipelineState::AgentDevelopment)
-            .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
+            .map_err(PhaseError::from)?;
 
         Ok(PhaseResult {
             success: true,
@@ -110,7 +110,7 @@ impl PipelineExecutor {
 
         pipeline
             .transition_to(PipelineState::AgentDevelopment)
-            .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
+            .map_err(PhaseError::from)?;
 
         let duration = Utc::now().signed_duration_since(start);
         self.metrics.record_phase(PhaseMetrics {
@@ -123,11 +123,11 @@ impl PipelineExecutor {
 
         pipeline
             .increment_iteration()
-            .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
+            .map_err(PhaseError::from)?;
 
         pipeline
             .transition_to(PipelineState::Validation)
-            .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
+            .map_err(PhaseError::from)?;
 
         Ok(PhaseResult {
             success: true,

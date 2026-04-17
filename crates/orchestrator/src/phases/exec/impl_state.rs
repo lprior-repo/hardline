@@ -15,7 +15,7 @@ impl PipelineExecutor {
         let pipeline = self
             .store
             .get(pipeline_id)
-            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+            .map_err(PhaseError::from)?;
 
         if pipeline.state.is_terminal() {
             info!("Pipeline {} already in terminal state", pipeline_id.0);

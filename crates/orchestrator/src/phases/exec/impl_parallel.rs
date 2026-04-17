@@ -6,7 +6,8 @@ use tracing::debug;
 
 use crate::cleanup::PhaseType;
 use crate::parallel::{DependencyGraph, ParallelExecutor, PhaseGroup};
-use crate::state::{Pipeline, PipelineState};
+use crate::parallel::ParallelError;
+use crate::state::{Pipeline, PipelineState, TransitionError};
 
 use super::executor::PipelineExecutor;
 use super::types::{PhaseError, PhaseResult};
@@ -18,7 +19,9 @@ impl PipelineExecutor {
     ) -> Result<Vec<PhaseResult>, PhaseError> {
         if pipeline.state.is_terminal() {
             return Err(PhaseError::InvalidStateTransition(
-                "Cannot execute parallel phases in terminal state".to_string(),
+                TransitionError::AlreadyTerminal {
+                    current: pipeline.state,
+                },
             ));
         }
 
@@ -55,7 +58,7 @@ impl PipelineExecutor {
 
         let phases = &group.phases;
         let graph = ParallelExecutor::build_dependency_graph(phases)
-            .map_err(|e| PhaseError::ParallelExecutionFailed(e.to_string()))?;
+            .map_err(PhaseError::from)?;
 
         self.execute_with_dependency_graph(pipeline, graph)
     }
@@ -99,7 +102,9 @@ impl PipelineExecutor {
             if ready.is_empty() {
                 if graph.has_failures() {
                     return Err(PhaseError::ParallelExecutionFailed(
-                        "No phases ready but graph incomplete with failures".to_string(),
+                        ParallelError::ExecutionFailed(
+                            "No phases ready but graph incomplete with failures".to_string(),
+                        ),
                     ));
                 }
                 break;
@@ -128,7 +133,9 @@ impl PipelineExecutor {
     pub fn validate_pipeline_parallel(&self, pipeline: &Pipeline) -> Result<(), PhaseError> {
         if pipeline.state.is_terminal() {
             return Err(PhaseError::InvalidStateTransition(
-                "Pipeline is in terminal state".to_string(),
+                TransitionError::AlreadyTerminal {
+                    current: pipeline.state,
+                },
             ));
         }
 
@@ -137,7 +144,7 @@ impl PipelineExecutor {
         for group in phase_groups {
             if group.phases.len() > 1 {
                 ParallelExecutor::build_dependency_graph(&group.phases)
-                    .map_err(|e| PhaseError::ParallelExecutionFailed(e.to_string()))?;
+                    .map_err(PhaseError::from)?;
             }
         }
 

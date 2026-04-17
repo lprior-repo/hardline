@@ -277,11 +277,14 @@ impl ScenarioRunner {
 
     /// Convert a JSON Value to String representation
     fn value_to_string(value: &Value) -> String {
-        value
-            .as_str()
-            .map(String::from)
-            .or_else(|| serde_json::to_string(value).ok())
-            .map_or(String::new(), |s| s)
+        match value {
+            Value::Null => String::new(),
+            other => other
+                .as_str()
+                .map(String::from)
+                .or_else(|| serde_json::to_string(other).ok())
+                .map_or(String::new(), |s| s),
+        }
     }
 
     /// Simple `JSONPath` extraction
@@ -991,15 +994,7 @@ mod tests {
     #[test]
     fn test_value_to_string_null() {
         let val = serde_json::Value::Null;
-        // BUG: serde_json::to_string(Null) produces "null", which is non-empty.
-        // value_to_string should return "" for Null, but as_str() returns None
-        // and to_string produces "null" — map_or(String::new) only fires if
-        // to_string also fails (which it doesn't).
-        assert_eq!(
-            ScenarioRunner::value_to_string(&val),
-            "null",
-            "BUG: value_to_string(Null) returns 'null' instead of ''"
-        );
+        assert_eq!(ScenarioRunner::value_to_string(&val), "");
     }
 
     #[test]

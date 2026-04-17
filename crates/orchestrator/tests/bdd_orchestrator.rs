@@ -452,9 +452,11 @@ mod executor {
 
         let result = exec.run_pipeline(&id);
         match result {
-            Ok(Decision::Escalate) | Err(PhaseError::DevelopmentFailed(_)) => {}
-            Ok(other) => panic!("Expected Escalate or DevelopmentFailed, got {:?}", other),
-            Err(e) => panic!("Expected Escalate or DevelopmentFailed, got {:?}", e),
+            Ok(Decision::Escalate)
+            | Err(PhaseError::DevelopmentFailed(_))
+            | Err(PhaseError::IterationError(_)) => {}
+            Ok(other) => panic!("Expected Escalate, DevelopmentFailed, or IterationError, got {:?}", other),
+            Err(e) => panic!("Expected Escalate, DevelopmentFailed, or IterationError, got {:?}", e),
         }
     }
 
