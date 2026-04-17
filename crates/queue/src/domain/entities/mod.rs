@@ -1,4 +1,7 @@
 pub mod queue_entry;
 
 pub use queue_entry::{QueueEntry, QueueEntryId};
+<<<<<<< HEAD
 pub use crate::domain::queue::status::QueueStatus;
+=======
+>>>>>>> polecat/epsilon

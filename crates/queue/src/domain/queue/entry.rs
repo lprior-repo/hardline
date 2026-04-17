@@ -5,8 +5,8 @@ use chrono::{DateTime, Utc};
 use crate::domain::identifiers::{QueueEntryId, SessionName};
 use crate::domain::validation::ValidationResult;
 
-use super::status::QueueStatus;
-use super::validation::validate_range;
+use super::status::{QueueStatus, MAX_PRIORITY};
+use crate::domain::validation::validate_range;
 
 /// A queue entry representing a session waiting to be merged.
 ///
@@ -41,7 +41,7 @@ impl QueueEntry {
         let id = QueueEntryId::new(id)?;
         let session = SessionName::new(session)?;
 
-        validate_range(priority, 0, super::status::MAX_PRIORITY, "priority")?;
+        validate_range(priority, 0, MAX_PRIORITY, "priority")?;
 
         Ok(Self {
             id,
@@ -61,7 +61,7 @@ impl QueueEntry {
         session: SessionName,
         priority: u32,
     ) -> ValidationResult<Self> {
-        validate_range(priority, 0, super::status::MAX_PRIORITY, "priority")?;
+        validate_range(priority, 0, MAX_PRIORITY, "priority")?;
 
         Ok(Self {
             id,
@@ -82,7 +82,7 @@ impl QueueEntry {
         priority: u32,
         enqueued_at: DateTime<Utc>,
     ) -> ValidationResult<Self> {
-        validate_range(priority, 0, super::status::MAX_PRIORITY, "priority")?;
+        validate_range(priority, 0, MAX_PRIORITY, "priority")?;
 
         Ok(Self {
             id,
@@ -104,7 +104,7 @@ impl QueueEntry {
         enqueued_at: DateTime<Utc>,
         status: QueueStatus,
     ) -> ValidationResult<Self> {
-        validate_range(priority, 0, super::status::MAX_PRIORITY, "priority")?;
+        validate_range(priority, 0, MAX_PRIORITY, "priority")?;
 
         Ok(Self {
             id,
@@ -130,7 +130,7 @@ impl QueueEntry {
     /// # Errors
     /// Returns `ValidationError` if the priority is out of range.
     pub fn with_priority(self, priority: u32) -> ValidationResult<Self> {
-        validate_range(priority, 0, super::status::MAX_PRIORITY, "priority")?;
+        validate_range(priority, 0, MAX_PRIORITY, "priority")?;
         Ok(QueueEntry { priority, ..self })
     }
 }

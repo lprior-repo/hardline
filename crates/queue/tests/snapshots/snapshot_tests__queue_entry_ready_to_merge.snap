@@ -2,4 +2,4 @@
 source: crates/queue/tests/snapshot_tests.rs
 expression: json
 ---
-{"id":"qe-mno345","session":"hotfix-security","priority":0,"enqueued_at":"2024-01-15T10:30:00Z","status":"ReadyToMerge"}
+{"id":"qe-mno345","session":"hotfix-security","priority":0,"enqueued_at":"2024-01-15T10:30:00Z","status":"ready_to_merge"}

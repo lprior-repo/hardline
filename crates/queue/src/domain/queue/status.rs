@@ -9,7 +9,12 @@ pub const MAX_PRIORITY: u32 = 100;
 ///
 /// Represents the state machine for a queue entry through its lifecycle.
 /// All state transitions are validated via `transition_to`.
+<<<<<<< HEAD
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
+=======
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+>>>>>>> polecat/epsilon
 pub enum QueueStatus {
     /// Waiting to be processed
     #[default]
@@ -297,9 +302,9 @@ mod tests {
     }
 
     #[test]
-    fn queue_status_serde_uses_pascal_case() {
+    fn queue_status_serde_uses_snake_case() {
         let json = serde_json::to_string(&QueueStatus::ReadyToMerge).unwrap();
-        assert_eq!(json, "\"ReadyToMerge\"");
+        assert_eq!(json, "\"ready_to_merge\"");
     }
 
     #[test]

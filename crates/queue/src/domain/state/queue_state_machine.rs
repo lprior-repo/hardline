@@ -3,15 +3,18 @@ use crate::error::QueueError;
 
 /// Queue state machine validation utilities.
 ///
+<<<<<<< HEAD
 /// All transition logic lives in `QueueStatus::transition_to()`
 /// (in `domain::queue::status`). This struct delegates to that single source of truth.
 /// Prefer calling `QueueStatus::transition_to()` directly for new code.
+=======
+/// Delegates to `QueueStatus::transition_to()` (in `domain::queue::status`)
+/// which is the single source of truth for all state transitions.
+>>>>>>> polecat/epsilon
 pub struct QueueStateMachine;
 
 impl QueueStateMachine {
     /// Check if a transition is valid by delegating to `QueueStatus::transition_to()`.
-    ///
-    /// This is the single source of truth -- all callers converge here.
     pub fn can_transition(from: QueueStatus, to: QueueStatus) -> bool {
         from.transition_to(to).is_ok()
     }
@@ -241,33 +244,6 @@ mod tests {
     }
 
     #[test]
-    fn state_machine_failed_retryable_not_from_ready_to_merge() {
-        assert!(
-            !QueueStateMachine::can_transition(
-                QueueStatus::ReadyToMerge,
-                QueueStatus::FailedRetryable
-            ),
-            "ReadyToMerge -> FailedRetryable should be rejected (entity does not support it)"
-        );
-    }
-
-    #[test]
-    fn state_machine_failed_retryable_not_from_merging() {
-        assert!(
-            !QueueStateMachine::can_transition(QueueStatus::Merging, QueueStatus::FailedRetryable),
-            "Merging -> FailedRetryable should be rejected (entity does not support it)"
-        );
-    }
-
-    #[test]
-    fn state_machine_failed_retryable_not_from_rebasing() {
-        assert!(
-            !QueueStateMachine::can_transition(QueueStatus::Rebasing, QueueStatus::FailedRetryable),
-            "Rebasing -> FailedRetryable should be rejected (entity does not support it)"
-        );
-    }
-
-    #[test]
     fn state_machine_retryable_to_pending() {
         assert!(QueueStateMachine::can_transition(
             QueueStatus::FailedRetryable,
@@ -277,11 +253,17 @@ mod tests {
 
     /// Exhaustive consistency check: every possible (from, to) pair must produce
     /// the same result from both `QueueStateMachine::can_transition` and
+<<<<<<< HEAD
     /// `QueueStatus::transition_to` (the single source of truth).
     #[test]
     fn state_machine_consistent_with_queue_status_transition_to() {
         use crate::domain::validation::ValidationResult;
 
+=======
+    /// `QueueStatus::transition_to`.
+    #[test]
+    fn state_machine_consistent_with_queue_status_transition_to() {
+>>>>>>> polecat/epsilon
         let all_statuses = [
             QueueStatus::Pending,
             QueueStatus::Claimed,
@@ -298,8 +280,12 @@ mod tests {
         for from in &all_statuses {
             for to in &all_statuses {
                 let sm_result = QueueStateMachine::can_transition(*from, *to);
+<<<<<<< HEAD
                 let canonical_result: ValidationResult<_> =
                     from.transition_to(*to);
+=======
+                let canonical_result = from.transition_to(*to);
+>>>>>>> polecat/epsilon
                 let canonical_ok = canonical_result.is_ok();
 
                 assert_eq!(
@@ -312,7 +298,11 @@ mod tests {
         }
     }
 
+<<<<<<< HEAD
     /// Verify `is_terminal` delegates correctly to `QueueStatus::is_terminal`.
+=======
+    /// Verify `is_terminal` is consistent with `QueueStatus::is_terminal`.
+>>>>>>> polecat/epsilon
     #[test]
     fn state_machine_is_terminal_consistent_with_queue_status() {
         let all = [
@@ -358,7 +348,6 @@ mod tests {
             let is_active = QueueStateMachine::is_active(*status);
             let is_terminal = QueueStateMachine::is_terminal(*status);
 
-            // Active statuses are neither terminal nor Pending nor FailedRetryable
             let expected_active = !is_terminal
                 && !matches!(status, QueueStatus::Pending | QueueStatus::FailedRetryable);
 

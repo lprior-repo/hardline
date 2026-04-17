@@ -11,7 +11,6 @@
 pub mod entry;
 pub mod queue;
 pub mod status;
-pub mod validation;
 
 #[cfg(test)]
 mod tests;

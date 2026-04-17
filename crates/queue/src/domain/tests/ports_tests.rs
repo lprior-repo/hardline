@@ -2,6 +2,10 @@
 //! These tests verify the in-memory repository implementation.
 
 use crate::domain::entities::{queue_entry::Pending, QueueEntry, QueueEntryId};
+<<<<<<< HEAD
+=======
+use crate::domain::queue::status::QueueStatus;
+>>>>>>> polecat/epsilon
 use crate::domain::ports::{InMemoryQueueRepository, QueueRepository};
 use crate::domain::queue::status::QueueStatus;
 use crate::domain::value_objects::Priority;

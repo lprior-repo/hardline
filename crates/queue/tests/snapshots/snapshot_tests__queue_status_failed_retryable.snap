@@ -2,4 +2,4 @@
 source: crates/queue/tests/snapshot_tests.rs
 expression: json
 ---
-"FailedRetryable"
+"failed_retryable"
