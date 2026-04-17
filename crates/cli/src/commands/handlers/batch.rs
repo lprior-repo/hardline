@@ -216,10 +216,13 @@ pub async fn execute_batch(
 
         match result {
             Ok(cmd_result) => {
+                let failed = !cmd_result.success;
                 results.push(cmd_result);
-                if !results.last().map(|r| r.success).unwrap_or(false) {
+                if failed {
                     // Command failed - need to rollback
-                    let failed_result = results.last().unwrap();
+                    let failed_result = results.last().ok_or_else(|| {
+                        Error::internal("batch result missing after push — invariant violation")
+                    })?;
 
                     // First, try to rollback the checkpoint
                     if let Err(rollback_err) = rollback_with_error(&guard, &checkpoint_id).await {

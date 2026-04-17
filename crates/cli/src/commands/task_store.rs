@@ -1,4 +1,4 @@
-use scp_core::{error::Error, error_task::TaskErrorKind, Result as CoreResult};
+use scp_core::{error::Error, error_task::TaskErrorKind, output::Output, Result as CoreResult};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -33,7 +33,7 @@ impl TaskStore {
         let tasks_file = match get_tasks_file() {
             Ok(path) => path,
             Err(e) => {
-                eprintln!("Warning: Failed to get tasks file path: {e}. Using default.");
+                Output::warn(&format!("Failed to get tasks file path: {e}. Using default."));
                 return Self {
                     tasks: RwLock::new(HashMap::new()),
                     tasks_file: PathBuf::new(),
@@ -51,12 +51,12 @@ impl TaskStore {
                         map
                     }
                     Err(e) => {
-                        eprintln!("Warning: Failed to parse tasks file: {e}. Starting fresh.");
+                        Output::warn(&format!("Failed to parse tasks file: {e}. Starting fresh."));
                         HashMap::new()
                     }
                 },
                 Err(e) => {
-                    eprintln!("Warning: Failed to read tasks file: {e}. Starting fresh.");
+                    Output::warn(&format!("Failed to read tasks file: {e}. Starting fresh."));
                     HashMap::new()
                 }
             }
