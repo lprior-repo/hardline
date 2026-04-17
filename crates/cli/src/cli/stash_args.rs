@@ -40,7 +40,7 @@ pub enum StashCommands {
         stash: String,
 
         /// Force drop without confirmation
-        #[arg(short, long)]
+        #[arg(long)]
         force: bool,
     },
 
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn drop_with_force() {
-        match parse(&["drop", "stash@{0}", "-f"]) {
+        match parse(&["drop", "stash@{0}", "--force"]) {
             StashCommands::Drop { force, .. } => assert!(force),
             other => panic!("Expected Drop, got {:?}", std::mem::discriminant(&other)),
         }

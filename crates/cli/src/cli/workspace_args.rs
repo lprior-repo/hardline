@@ -194,7 +194,7 @@ pub enum WorkspaceCommands {
         dry_run: bool,
 
         /// Verbose output
-        #[arg(short, long)]
+        #[arg(long)]
         verbose: bool,
     },
 
@@ -333,10 +333,9 @@ pub enum WorkspaceCommands {
         force: bool,
 
         /// Verbose output
-        #[arg(short, long)]
+        #[arg(long)]
         verbose: bool,
     },
-
     /// Manage bookmarks (Git branches)
     Bookmark {
         #[command(subcommand)]

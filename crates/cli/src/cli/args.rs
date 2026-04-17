@@ -148,7 +148,7 @@ pub enum Commands {
         set_upstream: bool,
 
         /// Force push
-        #[arg(short, long)]
+        #[arg(long)]
         force: bool,
 
         /// Force push with lease
@@ -167,7 +167,7 @@ pub enum Commands {
     /// Health check
     Doctor {
         /// Run full diagnostics
-        #[arg(short, long)]
+        #[arg(long)]
         full: bool,
     },
 
@@ -307,12 +307,23 @@ mod tests {
     }
 
     // -- Doctor command --
-    // NOTE: Doctor::full uses #[arg(short, long)] which creates a '-f' conflict with
-    // the global `format` flag. This is a pre-existing clap short-flag collision bug.
-    // Testing Doctor is skipped because clap's debug_asserts panic during Parser construction.
-    //
-    // TODO: fix the short-flag conflict by removing `short` from either Doctor::full
-    //       or the global format flag, then re-enable these tests.
+    #[test]
+    fn parse_doctor_defaults() {
+        let cli = Cli::parse_from(["scp", "doctor"]);
+        match cli.command {
+            Commands::Doctor { full } => assert!(!full),
+            other => panic!("Expected Doctor, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn parse_doctor_full() {
+        let cli = Cli::parse_from(["scp", "doctor", "--full"]);
+        match cli.command {
+            Commands::Doctor { full } => assert!(full),
+            other => panic!("Expected Doctor, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
 
     // -- Fetch command --
     #[test]
@@ -361,13 +372,66 @@ mod tests {
     }
 
     // -- Push command --
-    // NOTE: Push::force has #[arg(short, long)] creating a '-f' conflict with the
-    // global `format` flag. This is a pre-existing clap short-flag collision bug.
-    // Testing Push via the full Cli is skipped because clap's debug_asserts panic
-    // during Parser construction.
-    //
-    // TODO: fix the short-flag conflict by removing `short` from either Push::force
-    //       or the global format flag, then re-enable Push tests here.
+    #[test]
+    fn parse_push_defaults() {
+        let cli = Cli::parse_from(["scp", "push"]);
+        match cli.command {
+            Commands::Push {
+                remote,
+                branch,
+                set_upstream,
+                force,
+                force_with_lease,
+                tags,
+                delete,
+            } => {
+                assert_eq!(remote, "origin");
+                assert_eq!(branch, None);
+                assert!(!set_upstream);
+                assert!(!force);
+                assert!(!force_with_lease);
+                assert!(!tags);
+                assert!(!delete);
+            }
+            other => panic!("Expected Push, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn parse_push_with_force() {
+        let cli = Cli::parse_from(["scp", "push", "--force"]);
+        match cli.command {
+            Commands::Push { force, .. } => assert!(force),
+            other => panic!("Expected Push, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn parse_push_with_all_flags() {
+        let cli = Cli::parse_from([
+            "scp", "push", "-r", "upstream", "-b", "feature", "-s", "--force", "--force-with-lease", "-t", "-d",
+        ]);
+        match cli.command {
+            Commands::Push {
+                remote,
+                branch,
+                set_upstream,
+                force,
+                force_with_lease,
+                tags,
+                delete,
+            } => {
+                assert_eq!(remote, "upstream");
+                assert_eq!(branch, Some("feature".to_string()));
+                assert!(set_upstream);
+                assert!(force);
+                assert!(force_with_lease);
+                assert!(tags);
+                assert!(delete);
+            }
+            other => panic!("Expected Push, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
 
     // -- Pull command --
     #[test]
