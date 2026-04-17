@@ -146,6 +146,25 @@ impl<R: BeadRepository> BeadService<R> {
             ));
         }
 
+        // Idempotency: skip if dependency already exists
+        if bead.depends_on().contains(&depends_on) {
+            let event = BeadEvent::DependencyAdded {
+                id: id.clone(),
+                depends_on: depends_on.clone(),
+                changed_at: Utc::now(),
+            };
+            return Ok((bead, event));
+        }
+
+        // Transitive cycle detection: adding `id -> depends_on` would create a cycle
+        // if there is already a path from `depends_on` back to `id`.
+        if self.would_create_cycle(&depends_on, id).await? {
+            return Err(BeadError::DependencyCycle(format!(
+                "Adding dependency {} -> {} would create a cycle",
+                id, depends_on
+            )));
+        }
+
         let updated = bead.add_dependency(depends_on.clone());
         self.repository.update(&updated).await?;
 
@@ -156,6 +175,31 @@ impl<R: BeadRepository> BeadService<R> {
         };
 
         Ok((updated, event))
+    }
+
+    /// Check if adding an edge from `from` to `target` would create a cycle
+    /// by walking the dependency graph from `from` to see if `target` is reachable.
+    async fn would_create_cycle(&self, from: &BeadId, target: &BeadId) -> Result<bool> {
+        let all_beads = self.repository.find_all().await?;
+        let mut visited = std::collections::HashSet::new();
+        let mut stack = vec![from.clone()];
+
+        while let Some(current) = stack.pop() {
+            if current == *target {
+                return Ok(true);
+            }
+            if !visited.insert(current.clone()) {
+                continue;
+            }
+            // Find the bead and follow its dependencies
+            if let Some(bead) = all_beads.iter().find(|b| b.id() == &current) {
+                for dep in bead.depends_on() {
+                    stack.push(dep.clone());
+                }
+            }
+        }
+
+        Ok(false)
     }
 
     pub async fn list_beads(&self) -> Result<Vec<Bead>> {
@@ -593,6 +637,29 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(updated.depends_on().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn add_dependency_idempotent_same_dep_twice() {
+        let service = make_service();
+        service.create_bead("idem-1", "A", None).await.unwrap();
+        service.create_bead("idem-2", "B", None).await.unwrap();
+        service
+            .add_dependency(
+                &BeadId::new("idem-1").unwrap(),
+                BeadId::new("idem-2").unwrap(),
+            )
+            .await
+            .unwrap();
+        // Adding the same dep again should succeed without duplicating
+        let (updated, _) = service
+            .add_dependency(
+                &BeadId::new("idem-1").unwrap(),
+                BeadId::new("idem-2").unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(updated.depends_on().len(), 1);
     }
 
     // ── list_beads ───────────────────────────────────────────────────────────
@@ -1397,8 +1464,7 @@ mod tests {
             .await
             .unwrap();
 
-        // C depends on A - THIS SHOULD FAIL but currently doesn't!
-        // This is a VULNERABILITY: transitive cycle not detected
+        // C depends on A - should fail (transitive cycle A->B->C->A)
         let result = service
             .add_dependency(
                 &BeadId::new("cycle-c").unwrap(),
@@ -1406,15 +1472,10 @@ mod tests {
             )
             .await;
 
-        // BUG: This currently succeeds when it should fail
-        // Uncomment when cycle detection is fixed:
-        // assert!(result.is_err(), "Transitive cycle A->B->C->A should be rejected");
-        if result.is_ok() {
-            // VULNERABILITY detected - transitive cycle not caught
-            let _ = eprintln!(
-                "WARNING: VULNERABILITY - Transitive cycle A->B->C->A was not detected!"
-            );
-        }
+        assert!(
+            result.is_err(),
+            "Transitive cycle A->B->C->A should be rejected"
+        );
     }
 
     #[tokio::test]
@@ -1438,7 +1499,7 @@ mod tests {
                 .unwrap();
         }
 
-        // Close the loop: 9 -> 0
+        // Close the loop: 9 -> 0 — should fail
         let result = service
             .add_dependency(
                 &BeadId::new("chain-9").unwrap(),
@@ -1446,11 +1507,10 @@ mod tests {
             )
             .await;
 
-        // BUG: This should be rejected
-        if result.is_ok() {
-            // VULNERABILITY detected
-            let _ = eprintln!("WARNING: VULNERABILITY - Long cycle 0->1->...->9->0 not detected!");
-        }
+        assert!(
+            result.is_err(),
+            "Long cycle 0->1->...->9->0 should be rejected"
+        );
     }
 
     #[tokio::test]
