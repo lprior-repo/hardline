@@ -36,9 +36,9 @@ impl super::config::ConflictResolutionConfig {
     /// # Examples
     ///
     /// ```rust
-    /// use isolate_core::config::conflict_resolution::{
-    ///     ConflictMode, ConflictResolutionConfig, PartialConflictResolutionConfig,
-    /// };
+    /// use scp_core::config::config::{ConflictResolutionConfig};
+    /// use scp_core::config::partial::PartialConflictResolutionConfig;
+    /// use scp_core::config::types::ConflictMode;
     ///
     /// let mut config = ConflictResolutionConfig::default();
     /// let original_autonomy = config.autonomy;

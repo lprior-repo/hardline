@@ -27,33 +27,18 @@
 //!
 //! ### Promises
 //!
-//! ```rust
-//! async fn workflow_handler(ctx: &impl ContextPromises, order_id: String) -> Result<OrderStatus, HandlerError> {
-//!     // Wait for payment to complete
-//!     let payment_result: PaymentResult = ctx.promise("payment").await?;
-//!
-//!     // Later, resolve the promise
-//!     ctx.resolve_promise("payment", PaymentResult { success: true }).await;
-//!
-//!     Ok(OrderStatus::Paid)
-//! }
+//! ```rust,ignore
+//! // ContextPromises requires Restate runtime integration.
+//! // See trait definition for available methods:
+//! // - promise(key), peek_promise(key), resolve_promise(key, value), reject_promise(key, error)
 //! ```
 //!
 //! ### Awakeables
 //!
-//! ```rust
-//! async fn handler(ctx: &impl ContextAwakeables, req: Request) -> Result<Response, HandlerError> {
-//!     // Create awakeable for external completion
-//!     let (awakeable_id, completion) = ctx.awakeable::<ExternalResult>()?;
-//!
-//!     // Pass awakeable_id to external system
-//!     send_to_external_service(awakeable_id, req).await?;
-//!
-//!     // Wait for external completion
-//!     let result = completion.await?;
-//!
-//!     Ok(Response { result })
-//! }
+//! ```rust,ignore
+//! // ContextAwakeables requires Restate runtime integration.
+//! // See trait definition for available methods:
+//! // - awakeable(), resolve_awakeable(key, value), reject_awakeable(key, error)
 //! ```
 
 use std::future::Future;

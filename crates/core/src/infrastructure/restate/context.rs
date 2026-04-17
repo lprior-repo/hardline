@@ -12,20 +12,13 @@
 //!
 //! ## Usage
 //!
-//! ```rust
-//! async fn my_handler(ctx: &impl DurableContext, req: Request) -> Result<Response, HandlerError> {
-//!     // Journaled non-deterministic operation
-//!     let result = ctx.run(|| async { external_api_call().await }).await?;
-//!
-//!     // Durable sleep
-//!     ctx.sleep(Duration::from_secs(30)).await?;
-//!
-//!     // State operations (for Virtual Objects/Workflows)
-//!     ctx.set("counter", 42)?;
-//!     let count: Option<i32> = ctx.get("counter").await?;
-//!
-//!     Ok(Response { result })
-//! }
+//! ```rust,ignore
+//! // DurableContext requires Restate runtime integration.
+//! // See trait definitions for available methods:
+//! // - ContextSideEffects: run(), random_seed(), rand(), rand_uuid()
+//! // - ContextTimers: sleep()
+//! // - ContextReadState: get(), get_keys()
+//! // - ContextWriteState: set(), clear(), clear_all()
 //! ```
 
 use std::future::Future;

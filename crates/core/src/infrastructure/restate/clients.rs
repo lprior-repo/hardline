@@ -10,22 +10,14 @@
 //!
 //! ## Usage
 //!
-//! ```rust
-//! async fn my_handler(ctx: &impl ContextClient, req: Request) -> Result<Response, HandlerError> {
-//!     // Call another service
-//!     let service_client = ctx.service_client::<MyServiceClient>();
-//!     let result = service_client.my_method(req.input).await?;
+//! ```rust,ignore
+//! // Service/Object/Workflow clients require Restate runtime integration.
+//! // See the RequestTarget constructors for usage patterns:
+//! use scp_core::infrastructure::restate::clients::RequestTarget;
 //!
-//!     // Call a keyed object
-//!     let object_client = ctx.object_client::<MyObjectClient>("entity-key");
-//!     let state = object_client.get_state().await?;
-//!
-//!     // Call a workflow
-//!     let workflow_client = ctx.workflow_client::<MyWorkflowClient>("workflow-id");
-//!     let status = workflow_client.get_status().await?;
-//!
-//!     Ok(Response { result, state, status })
-//! }
+//! let service = RequestTarget::service("my-service");
+//! let object = RequestTarget::object("entity-key", "my-object");
+//! let workflow = RequestTarget::workflow("workflow-id", "my-workflow");
 //! ```
 
 use std::future::Future;

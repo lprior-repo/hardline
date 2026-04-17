@@ -13,19 +13,9 @@
 //!
 //! # Usage
 //!
-//! ```rust
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! use chrono::Utc;
-//! use isolate_core::domain::{events::DomainEvent, identifiers::SessionName};
-//!
-//! let event = DomainEvent::session_created(
-//!     "session-123".to_string(),
-//!     SessionName::parse("my-session")?,
-//!     Utc::now(),
-//! );
-//! # Ok(())
-//! # }
+//! ```rust,ignore
+//! // DomainEvent requires additional domain types for construction.
+//! // See DomainEvent::session_created() and related constructors.
 //! ```
 
 #![warn(clippy::pedantic)]

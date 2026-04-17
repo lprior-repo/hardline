@@ -10,14 +10,13 @@
 //! ## Usage
 //!
 //! ```rust
+//! use scp_core::infrastructure::restate::errors::{HandlerError, TerminalError};
+//!
 //! // Return TerminalError to stop retries
-//! Err(TerminalError::new("Business logic failure").into())
+//! let _: HandlerError = TerminalError::new("Business logic failure").into();
 //!
 //! // Return TerminalError with code
-//! Err(TerminalError::new_with_code(404, "Not found").into())
-//!
-//! // Return regular error - will retry automatically
-//! Err(some_std_error.into())
+//! let _: HandlerError = TerminalError::new_with_code(404, "Not found").into();
 //! ```
 
 use std::error::Error as StdError;
@@ -35,6 +34,8 @@ use thiserror::Error;
 /// ## Example
 ///
 /// ```rust
+/// use scp_core::infrastructure::restate::errors::{HandlerError, TerminalError};
+///
 /// fn validate_input(input: &str) -> Result<(), HandlerError> {
 ///     if input.is_empty() {
 ///         return Err(TerminalError::new("Input cannot be empty").into());

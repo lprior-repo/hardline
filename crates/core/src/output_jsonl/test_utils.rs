@@ -52,9 +52,8 @@ impl OutputEmitter for StdoutEmitter {
 /// # Example
 ///
 /// ```
-/// use isolate_core::output::{
-///     domain_types::Message, OutputEmitter, OutputLine, Summary, SummaryType, VecEmitter,
-/// };
+/// use scp_core::output_jsonl::{Message, OutputLine, Summary, SummaryType};
+/// use scp_core::output_jsonl::test_utils::{OutputEmitter, VecEmitter};
 ///
 /// let emitter = VecEmitter::new();
 /// let message = Message::new("test").unwrap();

@@ -16,7 +16,7 @@
 //!
 //! # async fn example() -> scp_core::Result<()> {
 //! let config = WatchConfig {
-//!     enabled: crate::config::types::ValidatedBool::new(true),
+//!     enabled: scp_core::config::types::ValidatedBool::new(true),
 //!     debounce_ms: 100,
 //!     paths: vec![".beads/beads.db".to_string()],
 //! };
