@@ -1,14 +1,14 @@
 use crate::error::Result;
 use crate::views::WorktreeView;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FocusedPane {
     Stack,
     Diff,
     Worktrees,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Mode {
     Normal,
     Search,
@@ -18,7 +18,7 @@ pub enum Mode {
     Reorder,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ConfirmAction {
     Delete(String),
     Restack(String),
@@ -26,7 +26,7 @@ pub enum ConfirmAction {
     ApplyReorder,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum InputAction {
     Rename,
     NewBranch,
@@ -791,6 +791,95 @@ mod tests {
             if let Mode::Confirm(ConfirmAction::Restack(n)) = mode {
                 assert_eq!(n, name);
             }
+        }
+    }
+
+    // ── Adversarial: wrong state ──
+
+    #[test]
+    fn adv_refresh_before_constructed() {
+        // Multiple constructions should not share state
+        let app1 = TuiApp::new().expect("ok");
+        let _ = TuiApp::new().expect("ok");
+        let _ = TuiApp::new().expect("ok");
+        // First app should still have needs_refresh = true
+        assert!(app1.needs_refresh);
+    }
+
+    #[test]
+    fn adv_refresh_idempotent_under_stress() {
+        let mut app = TuiApp::new().expect("ok");
+        for _ in 0..1000 {
+            app.refresh_branches().expect("ok");
+            assert!(!app.needs_refresh);
+        }
+    }
+
+    #[test]
+    fn adv_mode_switch_stress() {
+        let mut app = TuiApp::new().expect("ok");
+        let modes = vec![
+            Mode::Normal, Mode::Search, Mode::Help, Mode::Reorder,
+            Mode::Confirm(ConfirmAction::Delete("x".into())),
+            Mode::Confirm(ConfirmAction::Restack("y".into())),
+            Mode::Confirm(ConfirmAction::RestackAll),
+            Mode::Confirm(ConfirmAction::ApplyReorder),
+            Mode::Input(InputAction::Rename),
+            Mode::Input(InputAction::NewBranch),
+        ];
+        for _ in 0..100 {
+            for mode in &modes {
+                app.mode = mode.clone();
+            }
+        }
+        app.mode = Mode::Normal;
+        assert!(matches!(app.mode, Mode::Normal));
+    }
+
+    #[test]
+    fn adv_pane_switch_stress() {
+        let mut app = TuiApp::new().expect("ok");
+        let panes = [FocusedPane::Stack, FocusedPane::Diff, FocusedPane::Worktrees];
+        for _ in 0..1000 {
+            for pane in &panes {
+                app.focused_pane = *pane;
+            }
+        }
+    }
+
+    #[test]
+    fn adv_confirm_delete_with_path_traversal() {
+        let traversal = "../../etc/passwd".to_string();
+        let mode = Mode::Confirm(ConfirmAction::Delete(traversal.clone()));
+        match mode {
+            Mode::Confirm(ConfirmAction::Delete(name)) => assert_eq!(name, traversal),
+            _ => panic!("expected Delete"),
+        }
+    }
+
+    #[test]
+    fn adv_confirm_delete_with_null_bytes() {
+        let name = "branch\0malicious".to_string();
+        let mode = Mode::Confirm(ConfirmAction::Delete(name.clone()));
+        match mode {
+            Mode::Confirm(ConfirmAction::Delete(n)) => assert_eq!(n, name),
+            _ => panic!("expected Delete"),
+        }
+    }
+
+    #[test]
+    fn adv_set_status_with_special_chars() {
+        let mut app = TuiApp::new().expect("ok");
+        app.set_status("\x00\x01\x02\x7f\x7e\x7d".to_string());
+        app.set_status("他她它\x00".to_string());
+        app.set_status("\r\n\t\0".to_string());
+        // Must not panic — set_status is a no-op stub
+    }
+
+    #[test]
+    fn adv_run_multiple_times() {
+        for _ in 0..100 {
+            assert!(run().is_ok());
         }
     }
 }

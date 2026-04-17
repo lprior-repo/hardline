@@ -211,4 +211,117 @@ mod tests {
         let cloned = handler.clone();
         assert_eq!(handler.current_hunk, cloned.current_hunk);
     }
+
+    // ── Adversarial ──
+
+    #[test]
+    fn adv_navigate_with_zero_hunks() {
+        let mut handler = InputHandler::new();
+        // total_hunks = 0, navigation should be no-op
+        handler.navigate_next();
+        assert_eq!(handler.current_hunk, 0);
+        handler.navigate_prev();
+        assert_eq!(handler.current_hunk, 0);
+    }
+
+    #[test]
+    fn adv_set_hunk_count_one() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(5);
+        handler.current_hunk = 3;
+        handler.set_hunk_count(1);
+        assert_eq!(handler.total_hunks, 1);
+        assert_eq!(handler.current_hunk, 0); // clamped to count-1
+    }
+
+    #[test]
+    fn adv_set_hunk_count_to_zero_then_navigate() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(5);
+        handler.current_hunk = 3;
+        handler.set_hunk_count(0);
+        // current_hunk stays at 3, but navigation should be no-op
+        handler.navigate_next();
+        assert_eq!(handler.current_hunk, 3);
+        handler.navigate_prev();
+        assert_eq!(handler.current_hunk, 3);
+    }
+
+    #[test]
+    fn adv_set_hunk_count_max() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(usize::MAX);
+        handler.current_hunk = usize::MAX - 1;
+        handler.navigate_next();
+        // Should wrap to 0
+        assert_eq!(handler.current_hunk, 0);
+    }
+
+    #[test]
+    fn adv_key_event_modifier_ignorance() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(3);
+
+        // The handler matches on KeyCode only, ignoring KeyModifiers.
+        // So Ctrl+q, Ctrl+Esc, Ctrl+PageUp, Ctrl+PageDown are all still handled.
+        let ctrl_key = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL);
+        assert_eq!(handler.handle_key_event(ctrl_key), InputResult::Quit);
+
+        let ctrl_esc = KeyEvent::new(KeyCode::Esc, KeyModifiers::CONTROL);
+        assert_eq!(handler.handle_key_event(ctrl_esc), InputResult::Quit);
+
+        let ctrl_page_up = KeyEvent::new(KeyCode::PageUp, KeyModifiers::CONTROL);
+        assert_eq!(handler.handle_key_event(ctrl_page_up), InputResult::Handled(HunkAction::ScrollUp));
+
+        let ctrl_page_down = KeyEvent::new(KeyCode::PageDown, KeyModifiers::CONTROL);
+        assert_eq!(handler.handle_key_event(ctrl_page_down), InputResult::Handled(HunkAction::ScrollDown));
+
+        // Truly unhandled: Ctrl+Enter, Ctrl+Backspace, Ctrl+Tab, Ctrl+F-keys, etc.
+        let truly_unhandled = vec![
+            KeyCode::Enter, KeyCode::Backspace, KeyCode::Tab,
+            KeyCode::Insert, KeyCode::Delete, KeyCode::Home,
+            KeyCode::End, KeyCode::F(1), KeyCode::F(12), KeyCode::Null,
+        ];
+        for code in truly_unhandled {
+            let key = KeyEvent::new(code, KeyModifiers::CONTROL);
+            let result = handler.handle_key_event(key);
+            assert_eq!(result, InputResult::Unhandled, "Ctrl+{code:?} should be Unhandled");
+        }
+    }
+
+    #[test]
+    fn adv_navigation_stress_single_hunk() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(1);
+        for _ in 0..1000 {
+            handler.navigate_next();
+            assert_eq!(handler.current_hunk, 0);
+            handler.navigate_prev();
+            assert_eq!(handler.current_hunk, 0);
+        }
+    }
+
+    #[test]
+    fn adv_navigation_stress_two_hunks() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(2);
+        for _ in 0..100 {
+            handler.navigate_next();
+            assert!(handler.current_hunk < 2);
+            handler.navigate_prev();
+            assert!(handler.current_hunk < 2);
+        }
+    }
+
+    #[test]
+    fn adv_navigation_stress_large_count() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(10_000);
+        handler.current_hunk = 9_999;
+        handler.navigate_next();
+        assert_eq!(handler.current_hunk, 0); // wraps
+        handler.navigate_prev();
+        assert_eq!(handler.current_hunk, 9_999); // wraps back
+    }
 }
