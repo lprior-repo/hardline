@@ -1,5 +1,5 @@
 use crate::domain::snapshot::{Snapshot, SnapshotId};
-use crate::error::{Result, SnapshotError};
+use crate::error::Result;
 use crate::storage::storage::SnapshotStore;
 use std::sync::Arc;
 
@@ -28,31 +28,23 @@ impl SnapshotService {
         description: Option<String>,
     ) -> Result<Snapshot> {
         let snapshot = Snapshot::create(branch_name, commit_hash, description);
-        self.store.save(snapshot.clone()).map_err(|e| {
-            SnapshotError::storage_with_source(e, "Failed to save snapshot")
-        })?;
+        self.store.save(snapshot.clone())?;
         Ok(snapshot)
     }
 
     /// Load a snapshot by its ID.
     pub fn get_snapshot(&self, id: &SnapshotId) -> Result<Snapshot> {
-        self.store.load(id).map_err(|e| {
-            SnapshotError::storage_with_source(e, format!("Failed to load snapshot {id}"))
-        })
+        self.store.load(id)
     }
 
     /// List all snapshots.
     pub fn list_snapshots(&self) -> Result<Vec<Snapshot>> {
-        self.store.list().map_err(|e| {
-            SnapshotError::storage_with_source(e, "Failed to list snapshots")
-        })
+        self.store.list()
     }
 
     /// Delete a snapshot by its ID.
     pub fn delete_snapshot(&self, id: &SnapshotId) -> Result<()> {
-        self.store.delete(id).map_err(|e| {
-            SnapshotError::storage_with_source(e, format!("Failed to delete snapshot {id}"))
-        })
+        self.store.delete(id)
     }
 
     /// Delete all snapshots, returning a report of successes and failures.
@@ -60,9 +52,7 @@ impl SnapshotService {
     /// This is a placeholder for a future expiry-based cleanup. Currently all
     /// snapshots are considered "expired" since there is no TTL tracking.
     pub fn cleanup_expired(&self) -> Result<CleanupReport> {
-        let snapshots = self.list_snapshots().map_err(|e| {
-            SnapshotError::storage_with_source(e, "Failed to list snapshots for cleanup")
-        })?;
+        let snapshots = self.store.list()?;
 
         let mut deleted = 0usize;
         let mut failed = 0usize;
@@ -171,17 +161,10 @@ mod tests {
 
     #[test]
     fn create_snapshot_err_is_storage_error() {
-        // When storage save fails, the service wraps it as StorageError
-        // But since the current store always returns Err for save,
-        // create_snapshot actually fails. Wait - let me check:
-        // The store.save returns Err(NotFound("not yet implemented")),
-        // and the service maps it to StorageError. So create_snapshot
-        // should fail when save fails.
+        // When storage save fails, the service propagates the SnapshotError directly.
+        // The store returns SnapshotError::StorageError, which flows through via ?.
         let service = make_service();
         let result = service.create_snapshot("main".to_string(), "abc".to_string(), None);
-        // Actually, looking at the code again:
-        // self.store.save(snapshot.clone()).map_err(|e| SnapshotError::StorageError(...))?;
-        // If save returns Err, then ? propagates it. So create_snapshot returns Err.
         assert!(result.is_err(), "save always fails in unimplemented storage");
     }
 
@@ -195,13 +178,12 @@ mod tests {
     }
 
     #[test]
-    fn get_snapshot_err_contains_id() {
+    fn get_snapshot_err_is_storage_error_variant() {
         let service = make_service();
         let id = SnapshotId::generate();
         let result = service.get_snapshot(&id);
         let err = result.expect_err("should be Err");
-        let msg = err.to_string();
-        assert!(msg.contains(id.as_str()));
+        assert!(matches!(err, SnapshotError::StorageError { .. }));
     }
 
     #[test]
@@ -222,13 +204,13 @@ mod tests {
     }
 
     #[test]
-    fn delete_snapshot_err_contains_storage_error() {
+    fn delete_snapshot_err_contains_storage_message() {
         let service = make_service();
         let id = SnapshotId::generate();
         let result = service.delete_snapshot(&id);
         let err = result.expect_err("should be Err");
         let msg = err.to_string();
-        assert!(msg.contains("Failed to delete snapshot"));
+        assert!(msg.contains("Storage error"));
     }
 
     #[test]
