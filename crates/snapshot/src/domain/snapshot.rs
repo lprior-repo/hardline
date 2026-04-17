@@ -1,5 +1,7 @@
+use crate::error::{Result, SnapshotError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
@@ -22,16 +24,50 @@ impl Snapshot {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SnapshotId(String);
 
 impl SnapshotId {
+    /// Generate a new unique snapshot ID with the `snap-` prefix.
     pub fn generate() -> Self {
         Self(format!("snap-{}", uuid::Uuid::new_v4()))
     }
 
+    /// Parse a string into a SnapshotId, validating the `snap-` prefix.
+    pub fn parse(s: impl Into<String>) -> Result<Self> {
+        let s = s.into();
+        if s.starts_with("snap-") && s.len() > 5 {
+            Ok(Self(s))
+        } else {
+            Err(SnapshotError::InvalidSnapshot(format!(
+                "SnapshotId must start with 'snap-' and be non-empty, got: {s}"
+            )))
+        }
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl TryFrom<String> for SnapshotId {
+    type Error = SnapshotError;
+
+    fn try_from(s: String) -> Result<Self> {
+        Self::parse(s)
+    }
+}
+
+impl Serialize for SnapshotId {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SnapshotId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        SnapshotId::try_from(s).map_err(serde::de::Error::custom)
     }
 }
 
@@ -91,9 +127,8 @@ mod tests {
 
     #[test]
     fn snapshot_id_equality() {
-        let inner = "snap-test-123".to_string();
-        let id1 = SnapshotId(inner.clone());
-        let id2 = SnapshotId(inner);
+        let id1 = SnapshotId::parse("snap-test-123").expect("valid");
+        let id2 = SnapshotId::parse("snap-test-123").expect("valid");
         assert_eq!(id1, id2);
     }
 
@@ -108,51 +143,62 @@ mod tests {
 
     #[test]
     fn snapshot_id_inequality() {
-        let id1 = SnapshotId("snap-aaa".to_string());
-        let id2 = SnapshotId("snap-bbb".to_string());
+        let id1 = SnapshotId::parse("snap-aaa").expect("valid");
+        let id2 = SnapshotId::parse("snap-bbb").expect("valid");
         assert_ne!(id1, id2);
     }
 
     #[test]
     fn snapshot_id_different_hash_values_for_different_ids() {
         use std::collections::HashSet;
-        let id1 = SnapshotId("snap-111".to_string());
-        let id2 = SnapshotId("snap-222".to_string());
+        let id1 = SnapshotId::parse("snap-111").expect("valid");
+        let id2 = SnapshotId::parse("snap-222").expect("valid");
         let set: HashSet<_> = [id1, id2].into_iter().collect();
         assert_eq!(set.len(), 2);
     }
 
     #[test]
     fn snapshot_id_as_str_does_not_expose_mutable_reference() {
-        let id = SnapshotId("snap-const-test".to_string());
+        let id = SnapshotId::parse("snap-const-test").expect("valid");
         let s = id.as_str();
         assert_eq!(s, "snap-const-test");
     }
 
     #[test]
     fn snapshot_id_debug_contains_inner_value() {
-        let id = SnapshotId("snap-debug-test".to_string());
+        let id = SnapshotId::parse("snap-debug-test").expect("valid");
         let debug_str = format!("{id:?}");
         assert!(debug_str.contains("snap-debug-test"));
     }
 
     #[test]
     fn snapshot_id_from_known_string() {
-        let id = SnapshotId("snap-known".to_string());
+        let id = SnapshotId::parse("snap-known").expect("valid");
         assert_eq!(id.as_str(), "snap-known");
     }
 
     #[test]
-    fn snapshot_id_empty_inner_string() {
-        let id = SnapshotId(String::new());
-        assert_eq!(id.as_str(), "");
-        assert_eq!(format!("{id}"), "");
+    fn snapshot_id_parse_rejects_empty_string() {
+        let result = SnapshotId::parse("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn snapshot_id_parse_rejects_missing_prefix() {
+        let result = SnapshotId::parse("not-a-snap-id");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn snapshot_id_parse_rejects_prefix_only() {
+        let result = SnapshotId::parse("snap-");
+        assert!(result.is_err());
     }
 
     #[test]
     fn snapshot_id_with_special_characters() {
-        let id = SnapshotId("snap-テスト-🎉-path/to/file".to_string());
-        assert_eq!(id.as_str(), "snap-テスト-🎉-path/to/file");
+        let id = SnapshotId::parse("snap-テスト-path").expect("valid");
+        assert_eq!(id.as_str(), "snap-テスト-path");
     }
 
     // --- Snapshot tests ---
@@ -437,7 +483,7 @@ mod tests {
 
     #[test]
     fn snapshot_id_serialize_from_known_string() {
-        let id = SnapshotId("snap-manual-123".to_string());
+        let id = SnapshotId::parse("snap-manual-123").expect("valid");
         let json = serde_json::to_string(&id).expect("serialize should succeed");
         assert_eq!(json, "\"snap-manual-123\"");
     }
@@ -452,6 +498,20 @@ mod tests {
     #[test]
     fn snapshot_id_deserialize_fails_from_non_string() {
         let json = "12345";
+        let result: std::result::Result<SnapshotId, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn snapshot_id_deserialize_fails_from_invalid_prefix() {
+        let json = "\"not-a-snapshot\"";
+        let result: std::result::Result<SnapshotId, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn snapshot_id_deserialize_fails_from_empty_string() {
+        let json = "\"\"";
         let result: std::result::Result<SnapshotId, _> = serde_json::from_str(json);
         assert!(result.is_err());
     }
@@ -506,8 +566,9 @@ mod tests {
         }
 
         #[test]
-        fn snapshot_id_roundtrip_via_json(inner in ".{0,100}") {
-            let id = SnapshotId(inner);
+        fn snapshot_id_roundtrip_via_json(inner in "[a-zA-Z0-9_-]{1,100}") {
+            let full = format!("snap-{inner}");
+            let id = SnapshotId::parse(&full).expect("valid");
             let json = serde_json::to_string(&id).expect("serialize");
             let deserialized: SnapshotId = serde_json::from_str(&json).expect("deserialize");
             prop_assert_eq!(deserialized, id);
