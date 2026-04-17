@@ -4,7 +4,11 @@
 
 use crate::domain::entities::{QueueEntry, QueueEntryId};
 use crate::domain::queue::status::QueueStatus;
+<<<<<<< HEAD
 use crate::error::QueueError;
+=======
+use crate::domain::validation::ValidationError;
+>>>>>>> polecat/kappa
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 

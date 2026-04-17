@@ -1,1 +1,7 @@
+<<<<<<< HEAD
 {"session_name":"changes-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1776441626,"pushed_to_remote":true,"status":"completed"}
+=======
+{"session_name":"push-fail-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1775397431,"pushed_to_remote":false,"status":"completed"}
+eted"}
+{"session_name":"feature-y","commit_id":"","pre_merge_commit_id":"sha","timestamp":1776399582,"pushed_to_remote":true,"status":"completed"}
+>>>>>>> polecat/kappa

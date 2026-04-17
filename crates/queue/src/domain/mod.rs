@@ -7,7 +7,6 @@ pub mod job_status;
 pub mod payload;
 pub mod ports;
 pub mod queue;
-pub mod state;
 pub mod validation;
 pub mod value_objects;
 

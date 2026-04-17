@@ -59,6 +59,21 @@ impl QueueStatus {
         matches!(self, Self::Merged | Self::FailedTerminal | Self::Cancelled)
     }
 
+    /// Check if this is an active (in-progress) state.
+    ///
+    /// Active statuses are neither terminal nor Pending nor FailedRetryable.
+    #[must_use]
+    pub const fn is_active(self) -> bool {
+        matches!(
+            self,
+            Self::Claimed
+                | Self::Rebasing
+                | Self::Testing
+                | Self::ReadyToMerge
+                | Self::Merging
+        )
+    }
+
     /// Check if this is a failed state.
     #[must_use]
     pub const fn is_failed(self) -> bool {
@@ -274,6 +289,25 @@ mod tests {
         set.insert(QueueStatus::Pending);
         set.insert(QueueStatus::Pending);
         assert_eq!(set.len(), 1);
+    }
+
+    #[test]
+    fn queue_status_default_is_pending() {
+        assert_eq!(QueueStatus::default(), QueueStatus::Pending);
+    }
+
+    #[test]
+    fn queue_status_is_active_comprehensive() {
+        assert!(QueueStatus::Claimed.is_active());
+        assert!(QueueStatus::Rebasing.is_active());
+        assert!(QueueStatus::Testing.is_active());
+        assert!(QueueStatus::ReadyToMerge.is_active());
+        assert!(QueueStatus::Merging.is_active());
+        assert!(!QueueStatus::Pending.is_active());
+        assert!(!QueueStatus::Merged.is_active());
+        assert!(!QueueStatus::FailedRetryable.is_active());
+        assert!(!QueueStatus::FailedTerminal.is_active());
+        assert!(!QueueStatus::Cancelled.is_active());
     }
 
     #[test]

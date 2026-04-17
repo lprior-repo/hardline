@@ -8,7 +8,6 @@
 pub mod application;
 pub mod domain;
 pub mod infrastructure;
-pub mod migrations;
 
 pub use domain::{InMemoryQueueRepository, QueueRepository};
 pub use domain::{Queue, QueueEntry, QueueStatus, MAX_PRIORITY};

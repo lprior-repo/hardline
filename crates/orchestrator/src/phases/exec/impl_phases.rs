@@ -76,6 +76,15 @@ impl PipelineExecutor {
         let start = Utc::now();
         info!("Setting up universe for pipeline: {}", pipeline.id.0);
 
+<<<<<<< HEAD
+=======
+        if pipeline.state != PipelineState::UniverseSetup {
+            pipeline
+                .transition_to(PipelineState::UniverseSetup)
+                .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
+        }
+
+>>>>>>> polecat/kappa
         let duration = Utc::now().signed_duration_since(start);
         self.metrics.record_phase(PhaseMetrics {
             pipeline_id: pipeline.id.0.clone(),
@@ -108,9 +117,17 @@ impl PipelineExecutor {
             pipeline.id.0
         );
 
+<<<<<<< HEAD
         pipeline
             .transition_to(PipelineState::AgentDevelopment)
             .map_err(PhaseError::from)?;
+=======
+        if pipeline.state != PipelineState::AgentDevelopment {
+            pipeline
+                .transition_to(PipelineState::AgentDevelopment)
+                .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
+        }
+>>>>>>> polecat/kappa
 
         let duration = Utc::now().signed_duration_since(start);
         self.metrics.record_phase(PhaseMetrics {
@@ -147,6 +164,15 @@ impl PipelineExecutor {
         let start = Utc::now();
         info!("Running validation for pipeline: {}", pipeline.id.0);
 
+<<<<<<< HEAD
+=======
+        if pipeline.state != PipelineState::Validation {
+            pipeline
+                .transition_to(PipelineState::Validation)
+                .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
+        }
+
+>>>>>>> polecat/kappa
         let scenario_results = self.run_scenarios(pipeline);
 
         let duration = Utc::now().signed_duration_since(start);

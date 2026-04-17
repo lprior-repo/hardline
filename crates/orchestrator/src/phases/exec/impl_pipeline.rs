@@ -122,8 +122,15 @@ impl PipelineExecutor {
             Decision::Retry if pipeline.can_iterate() => {
                 pipeline
                     .increment_iteration()
+<<<<<<< HEAD
                     .map_err(PhaseError::from)?;
                 self.store.update(pipeline.clone())?;
+=======
+                    .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
+                self.store
+                    .update(pipeline.clone())
+                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+>>>>>>> polecat/kappa
                 info!(
                     "Retrying agent development, iteration {}",
                     pipeline.iteration
