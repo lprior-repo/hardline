@@ -202,12 +202,42 @@ impl BeadState {
     }
 
     pub fn transition_to(&self, new_state: Self) -> Result<Self> {
-        if matches!(new_state, Self::Closed { .. }) && !matches!(self, Self::Closed { .. }) {
-            return Ok(Self::Closed {
-                closed_at: Utc::now(),
+        let is_valid = match (self, &new_state) {
+            // Closed is terminal
+            (Self::Closed { .. }, _) => false,
+            // Open → InProgress
+            (Self::Open, Self::InProgress) => true,
+            // InProgress → Blocked, Deferred, Closed
+            (Self::InProgress, Self::Blocked) => true,
+            (Self::InProgress, Self::Deferred) => true,
+            (Self::InProgress, Self::Closed { .. }) => true,
+            // Blocked → InProgress, Deferred, Closed
+            (Self::Blocked, Self::InProgress) => true,
+            (Self::Blocked, Self::Deferred) => true,
+            (Self::Blocked, Self::Closed { .. }) => true,
+            // Deferred → InProgress, Closed
+            (Self::Deferred, Self::InProgress) => true,
+            (Self::Deferred, Self::Closed { .. }) => true,
+            // Same state is a no-op
+            (current, _) => {
+                // Same state is a no-op — handled by the equality check below
+                std::ptr::eq(current, &new_state) || *current == new_state
+            }
+        };
+
+        if !is_valid {
+            return Err(BeadError::InvalidStateTransition {
+                from: format!("{self}"),
+                to: format!("{new_state}"),
             });
         }
-        Ok(new_state)
+
+        match new_state {
+            Self::Closed { .. } => Ok(Self::Closed {
+                closed_at: Utc::now(),
+            }),
+            other => Ok(other),
+        }
     }
 }
 
@@ -781,12 +811,18 @@ mod tests {
         }
 
         #[test]
-        fn transition_to_closed_from_open_succeeds() {
+        fn transition_to_closed_from_open_rejected() {
             let result = BeadState::Open.transition_to(BeadState::Closed {
                 closed_at: Utc::now(),
             });
-            assert!(result.is_ok());
-            assert!(result.unwrap().is_closed());
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                BeadError::InvalidStateTransition { from, to } => {
+                    assert_eq!(from, "open");
+                    assert_eq!(to, "closed");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
         }
 
         #[test]
@@ -927,9 +963,46 @@ mod tests {
         }
 
         #[test]
-        fn transition_to_non_closed_preserves_state() {
+        fn transition_open_to_blocked_rejected() {
             let result = BeadState::Open.transition_to(BeadState::Blocked);
-            // Open -> Blocked is handled by the general Ok(new_state) path
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                BeadError::InvalidStateTransition { from, to } => {
+                    assert_eq!(from, "open");
+                    assert_eq!(to, "blocked");
+                }
+                other => panic!("expected InvalidStateTransition, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn transition_in_progress_to_open_rejected() {
+            let result = BeadState::InProgress.transition_to(BeadState::Open);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn transition_blocked_to_open_rejected() {
+            let result = BeadState::Blocked.transition_to(BeadState::Open);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn transition_deferred_to_blocked_rejected() {
+            let result = BeadState::Deferred.transition_to(BeadState::Blocked);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn transition_deferred_to_deferred_succeeds() {
+            let result = BeadState::Deferred.transition_to(BeadState::Deferred);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap(), BeadState::Deferred);
+        }
+
+        #[test]
+        fn transition_blocked_to_blocked_succeeds() {
+            let result = BeadState::Blocked.transition_to(BeadState::Blocked);
             assert!(result.is_ok());
             assert_eq!(result.unwrap(), BeadState::Blocked);
         }
@@ -964,14 +1037,17 @@ mod tests {
         }
 
         #[test]
-        fn transition_from_closed_to_closed_returns_current_time() {
+        fn transition_from_closed_to_any_rejected() {
             let past = Utc::now() - chrono::Duration::days(1);
-            let result = BeadState::Closed { closed_at: past }.transition_to(BeadState::Closed {
-                closed_at: Utc::now() + chrono::Duration::days(365),
-            });
-            assert!(result.is_ok());
-            // Closed -> Closed: doesn't match the special pattern, goes to Ok(new_state)
-            // which would be the passed-in Closed state
+            let closed = BeadState::Closed { closed_at: past };
+            assert!(closed.transition_to(BeadState::Open).is_err());
+            assert!(closed.transition_to(BeadState::InProgress).is_err());
+            assert!(closed.transition_to(BeadState::Blocked).is_err());
+            assert!(closed.transition_to(BeadState::Deferred).is_err());
+            assert!(closed.transition_to(BeadState::Closed {
+                closed_at: Utc::now(),
+            })
+            .is_err());
         }
     }
 
