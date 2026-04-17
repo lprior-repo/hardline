@@ -383,4 +383,209 @@ mod tests {
         let debug = format!("{:?}", widget);
         assert!(debug.contains("StackTreeWidget"));
     }
+
+    // ── Adversarial: render with actual buffer ──
+
+    #[test]
+    fn render_single_branch_produces_output() {
+        use ratatui::{buffer::Buffer, layout::Rect};
+        let branches = vec![create_test_branch("main", None)];
+        let widget = StackTreeWidget::new(branches);
+        let area = Rect::new(0, 0, 40, 10);
+        let mut buf = Buffer::empty(area);
+        widget.render(area, &mut buf);
+        // Buffer should have non-zero content after rendering
+        let has_content = buf.content.iter().any(|cell| cell.symbol().is_empty() == false);
+        assert!(has_content, "buffer should have rendered content");
+    }
+
+    #[test]
+    fn render_empty_branches_no_panic() {
+        use ratatui::{buffer::Buffer, layout::Rect};
+        let widget = StackTreeWidget::new(Vec::new());
+        let area = Rect::new(0, 0, 40, 10);
+        let mut buf = Buffer::empty(area);
+        widget.render(area, &mut buf);
+        // Should not panic — just renders empty
+    }
+
+    #[test]
+    fn render_zero_area_no_panic() {
+        use ratatui::{buffer::Buffer, layout::Rect};
+        let branches = vec![create_test_branch("main", None)];
+        let widget = StackTreeWidget::new(branches);
+        let area = Rect::new(0, 0, 0, 0);
+        let mut buf = Buffer::empty(area);
+        widget.render(area, &mut buf);
+    }
+
+    #[test]
+    fn render_tiny_area_no_panic() {
+        use ratatui::{buffer::Buffer, layout::Rect};
+        let branches = vec![create_test_branch("main", None)];
+        let widget = StackTreeWidget::new(branches);
+        let area = Rect::new(0, 0, 1, 1);
+        let mut buf = Buffer::empty(area);
+        widget.render(area, &mut buf);
+    }
+
+    // ── Adversarial: orphaned branches (all have parents, none match) ──
+
+    #[test]
+    fn orphaned_branches_produce_no_nodes() {
+        let branches = vec![
+            create_test_branch("orphan-a", Some("nonexistent-parent")),
+            create_test_branch("orphan-b", Some("also-nonexistent")),
+        ];
+        let widget = StackTreeWidget::new(branches);
+        let nodes = widget.build_tree_nodes();
+        assert!(nodes.is_empty());
+    }
+
+    // ── Adversarial: multiple roots ──
+
+    #[test]
+    fn multiple_root_branches() {
+        let branches = vec![
+            create_test_branch("root-a", None),
+            create_test_branch("root-b", None),
+            create_test_branch("child-of-a", Some("root-a")),
+        ];
+        let widget = StackTreeWidget::new(branches);
+        let nodes = widget.build_tree_nodes();
+        assert_eq!(nodes.len(), 3);
+        // Tree builder does DFS: root-a, then its children, then root-b
+        assert_eq!(nodes[0].depth, 0); // root-a
+        assert_eq!(nodes[1].depth, 1); // child-of-a (under root-a)
+        assert_eq!(nodes[2].depth, 0); // root-b
+    }
+
+    // ── Adversarial: branch_indicator priority (needs_restack > pr_info) ──
+
+    #[test]
+    fn branch_indicator_restack_takes_priority_over_pr() {
+        let mut branch = create_test_branch("wip", None);
+        branch.needs_restack = true;
+        branch.pr_info = Some(create_test_pr_info(42, PrState::Open));
+        let (indicator, color) = StackTreeWidget::branch_indicator(&branch);
+        assert_eq!(indicator, "⚑");
+        assert_eq!(color, Color::Red);
+    }
+
+    // ── Adversarial: deep nesting ──
+
+    #[test]
+    fn deep_nesting_chain() {
+        let mut branches = vec![create_test_branch("root", None)];
+        for i in 0..50 {
+            let parent = if i == 0 { "root" } else { &format!("branch-{}", i) };
+            branches.push(create_test_branch(&format!("branch-{}", i + 1), Some(parent)));
+        }
+        let widget = StackTreeWidget::new(branches);
+        let nodes = widget.build_tree_nodes();
+        assert_eq!(nodes.len(), 51);
+        assert_eq!(nodes[0].depth, 0);
+        assert_eq!(nodes[50].depth, 50);
+    }
+
+    // ── Adversarial: dangling selection index ──
+
+    #[test]
+    fn render_with_out_of_bounds_selection() {
+        use ratatui::{buffer::Buffer, layout::Rect};
+        let branches = vec![create_test_branch("main", None)];
+        let widget = StackTreeWidget::new(branches).with_selection(Some(999));
+        let area = Rect::new(0, 0, 40, 10);
+        let mut buf = Buffer::empty(area);
+        // Should not panic — no node matches index 999
+        widget.render(area, &mut buf);
+    }
+
+    // ── Adversarial: selection highlighting on branch with PR ──
+
+    #[test]
+    fn render_selected_branch_with_pr_info() {
+        use ratatui::{buffer::Buffer, layout::Rect};
+        let mut branch = create_test_branch("feature", None);
+        branch.pr_info = Some(create_test_pr_info(1, PrState::Open));
+        let widget = StackTreeWidget::new(vec![branch]).with_selection(Some(0));
+        let area = Rect::new(0, 0, 80, 10);
+        let mut buf = Buffer::empty(area);
+        // Should not panic — selection highlights last span (PR info)
+        widget.render(area, &mut buf);
+    }
+
+    // ── Adversarial: very long branch name ──
+
+    #[test]
+    fn render_very_long_branch_name() {
+        use ratatui::{buffer::Buffer, layout::Rect};
+        let long_name = "a".repeat(10_000);
+        let branches = vec![create_test_branch(&long_name, None)];
+        let widget = StackTreeWidget::new(branches);
+        let area = Rect::new(0, 0, 80, 10);
+        let mut buf = Buffer::empty(area);
+        widget.render(area, &mut buf);
+    }
+
+    // ── Adversarial: unicode branch name ──
+
+    #[test]
+    fn render_unicode_branch_name() {
+        use ratatui::{buffer::Buffer, layout::Rect};
+        let branches = vec![create_test_branch("feature/日本語-branch", None)];
+        let widget = StackTreeWidget::new(branches);
+        let area = Rect::new(0, 0, 80, 10);
+        let mut buf = Buffer::empty(area);
+        widget.render(area, &mut buf);
+    }
+
+    // ── Proptests ──
+
+    use proptest::proptest;
+
+    proptest! {
+        #[test]
+        fn prop_build_tree_nodes_never_panics(
+            num_branches in 0usize..20usize,
+        ) {
+            let branches: Vec<StackBranch> = (0..num_branches)
+                .map(|i| {
+                    let parent = if i == 0 { None } else { Some(format!("branch-{}", i - 1)) };
+                    StackBranch {
+                        name: BranchName::new(format!("branch-{}", i)),
+                        parent: parent.map(BranchName::new),
+                        children: Vec::new(),
+                        needs_restack: false,
+                        pr_info: None,
+                    }
+                })
+                .collect();
+            let widget = StackTreeWidget::new(branches);
+            let _nodes = widget.build_tree_nodes();
+        }
+
+        #[test]
+        fn prop_render_never_panics(
+            num_branches in 0usize..10usize,
+        ) {
+            use ratatui::{buffer::Buffer, layout::Rect};
+            let branches: Vec<StackBranch> = (0..num_branches)
+                .map(|i| {
+                    let parent = if i == 0 { None } else { Some(format!("branch-{}", i - 1)) };
+                    StackBranch {
+                        name: BranchName::new(format!("branch-{}", i)),
+                        parent: parent.map(BranchName::new),
+                        children: Vec::new(),
+                        needs_restack: false,
+                        pr_info: None,
+                    }
+                })
+                .collect();
+            let widget = StackTreeWidget::new(branches);
+            let area = Rect::new(0, 0, 80, 24);
+            let mut buf = Buffer::empty(area);
+            widget.render(area, &mut buf);
+        }
+    }
 }

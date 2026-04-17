@@ -100,4 +100,49 @@ mod tests {
         let item2 = item1.clone();
         assert_eq!(item1, item2);
     }
+
+    // ── Adversarial: Send + Sync ──
+
+    #[test]
+    fn worktree_item_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<WorktreeItem>();
+    }
+
+    #[test]
+    fn worktree_item_is_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<WorktreeItem>();
+    }
+
+    // ── Adversarial: empty string branch ──
+
+    #[test]
+    fn branch_label_with_empty_string_branch() {
+        let mut item = WorktreeItem::test_create("wt", Some("main"), WorktreeState::Active);
+        item.branch = Some(String::new());
+        assert_eq!(item.branch_label(), "");
+    }
+
+    #[test]
+    fn branch_label_with_none_branch() {
+        let mut item = WorktreeItem::test_create("wt", Some("main"), WorktreeState::Active);
+        item.branch = None;
+        assert_eq!(item.branch_label(), "(no branch)");
+    }
+
+    // ── Adversarial: is_active field ──
+
+    #[test]
+    fn worktree_item_with_active_flag() {
+        let mut item = WorktreeItem::test_create("wt", Some("main"), WorktreeState::Active);
+        item.is_active = true;
+        assert!(item.is_active);
+    }
+
+    #[test]
+    fn worktree_item_with_suspended_state() {
+        let item = WorktreeItem::test_create("wt", Some("main"), WorktreeState::Suspended);
+        assert_eq!(item.state_label(), "Suspended");
+    }
 }

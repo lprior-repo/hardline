@@ -211,4 +211,246 @@ mod tests {
         let cloned = handler.clone();
         assert_eq!(handler.current_hunk, cloned.current_hunk);
     }
+
+    // ── Adversarial: handle_key_event through public API ──
+
+    #[test]
+    fn handle_key_event_j_navigates_next() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Char('j'), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(5);
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::NavigateNext));
+        assert_eq!(handler.current_hunk, 1);
+    }
+
+    #[test]
+    fn handle_key_event_down_navigates_next() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Down, crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(5);
+        handler.current_hunk = 2;
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::NavigateNext));
+        assert_eq!(handler.current_hunk, 3);
+    }
+
+    #[test]
+    fn handle_key_event_k_navigates_prev() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Char('k'), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(5);
+        handler.current_hunk = 2;
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::NavigatePrev));
+        assert_eq!(handler.current_hunk, 1);
+    }
+
+    #[test]
+    fn handle_key_event_space_stages() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Char(' '), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::Stage));
+    }
+
+    #[test]
+    fn handle_key_event_s_stages() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Char('s'), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::Stage));
+    }
+
+    #[test]
+    fn handle_key_event_uppercase_s_is_unhandled() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Char('S'), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Unhandled);
+    }
+
+    #[test]
+    fn handle_key_event_d_discards() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Char('d'), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::Discard));
+    }
+
+    #[test]
+    fn handle_key_event_uppercase_d_discards() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Char('D'), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::Discard));
+    }
+
+    #[test]
+    fn handle_key_event_u_unstages() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Char('u'), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::Unstage));
+    }
+
+    #[test]
+    fn handle_key_event_esc_quits() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Esc, crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Quit);
+    }
+
+    // ── Adversarial: unhandled keys ──
+
+    #[test]
+    fn handle_key_event_enter_unhandled() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Enter, crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Unhandled);
+    }
+
+    #[test]
+    fn handle_key_event_tab_unhandled() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Tab, crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Unhandled);
+    }
+
+    #[test]
+    fn handle_key_event_backspace_unhandled() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Backspace, crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Unhandled);
+    }
+
+    #[test]
+    fn handle_key_event_delete_unhandled() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Delete, crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Unhandled);
+    }
+
+    #[test]
+    fn handle_key_event_f1_unhandled() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::F(1), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Unhandled);
+    }
+
+    #[test]
+    fn handle_key_event_null_unhandled() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Null, crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Unhandled);
+    }
+
+    // ── Adversarial: modifier keys ignored ──
+
+    #[test]
+    fn handle_key_event_ctrl_j_still_navigates() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let key = KeyEvent::new(KeyCode::Char('j'), KeyModifiers::CONTROL);
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(5);
+        // Current behavior: modifiers are ignored, 'j' still maps to NavigateNext
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::NavigateNext));
+    }
+
+    // ── Adversarial: single hunk navigation ──
+
+    #[test]
+    fn single_hunk_navigation_stays_at_zero() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(1);
+        for _ in 0..100 {
+            handler.navigate_next();
+        }
+        assert_eq!(handler.current_hunk, 0);
+        for _ in 0..100 {
+            handler.navigate_prev();
+        }
+        assert_eq!(handler.current_hunk, 0);
+    }
+
+    // ── Adversarial: zero hunk navigation ──
+
+    #[test]
+    fn zero_hunk_navigation_is_noop() {
+        let mut handler = InputHandler::new();
+        handler.set_hunk_count(0);
+        handler.navigate_next();
+        handler.navigate_prev();
+        assert_eq!(handler.current_hunk, 0);
+    }
+
+    // ── Adversarial: page up/down ──
+
+    #[test]
+    fn handle_key_event_pageup_scrolls_up() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::PageUp, crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::ScrollUp));
+    }
+
+    #[test]
+    fn handle_key_event_pagedown_scrolls_down() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::PageDown, crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::ScrollDown));
+    }
+
+    #[test]
+    fn handle_key_event_b_scrolls_up() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Char('b'), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::ScrollUp));
+    }
+
+    #[test]
+    fn handle_key_event_f_scrolls_down() {
+        use crossterm::event::{KeyCode, KeyEvent};
+        let key = KeyEvent::new(KeyCode::Char('f'), crossterm::event::KeyModifiers::empty());
+        let mut handler = InputHandler::new();
+        assert_eq!(handler.handle_key_event(key), InputResult::Handled(HunkAction::ScrollDown));
+    }
+
+    // ── Proptests ──
+
+    use proptest::proptest;
+
+    proptest! {
+        #[test]
+        fn prop_handle_key_event_never_panics(
+            code_byte in 0u8..=127u8,
+        ) {
+            use crossterm::event::{KeyCode, KeyEvent};
+            let code = KeyCode::Char(code_byte as char);
+            let key = KeyEvent::new(code, crossterm::event::KeyModifiers::empty());
+            let mut handler = InputHandler::new();
+            handler.set_hunk_count(5);
+            let _result = handler.handle_key_event(key);
+        }
+
+        #[test]
+        fn prop_set_hunk_count_arbitrary_usize(
+            count in 0usize..1000usize,
+        ) {
+            let mut handler = InputHandler::new();
+            handler.set_hunk_count(count);
+            // Should never panic, even with count = 0
+            handler.navigate_next();
+            handler.navigate_prev();
+        }
+    }
 }

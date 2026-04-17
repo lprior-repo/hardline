@@ -2,7 +2,7 @@ use crate::error::Result;
 use crate::views::WorktreeView;
 use scp_stack::domain::StackBranch;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum FocusedPane {
     Stack,
     Diff,
@@ -794,6 +794,99 @@ mod tests {
             if let Mode::Confirm(ConfirmAction::Restack(n)) = mode {
                 assert_eq!(n, name);
             }
+        }
+    }
+
+    // ── Adversarial: Send + Sync for TuiApp ──
+
+    #[test]
+    fn tui_app_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<TuiApp>();
+    }
+
+    #[test]
+    fn tui_app_is_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<TuiApp>();
+    }
+
+    // ── Adversarial: state machine after quit ──
+
+    #[test]
+    fn methods_work_after_quit_flag_set() {
+        let mut app = TuiApp::new().expect("ok");
+        app.should_quit = true;
+        assert!(app.refresh_branches().is_ok());
+        app.set_status("still works".to_string());
+        assert!(app.selected_branch().is_none());
+    }
+
+    #[test]
+    fn methods_work_in_confirm_apply_reorder_mode() {
+        let mut app = TuiApp::new().expect("ok");
+        app.mode = Mode::Confirm(ConfirmAction::ApplyReorder);
+        assert!(app.refresh_branches().is_ok());
+        app.set_status("test".to_string());
+        assert!(app.selected_branch().is_none());
+    }
+
+    // ── Adversarial: Worktrees pane ──
+
+    #[test]
+    fn worktrees_pane_is_settable() {
+        let mut app = TuiApp::new().expect("ok");
+        app.focused_pane = FocusedPane::Worktrees;
+        assert!(matches!(app.focused_pane, FocusedPane::Worktrees));
+    }
+
+    // ── Adversarial: Mode × FocusedPane cross-product ──
+
+    #[test]
+    fn mode_pane_cross_product_no_panic() {
+        let modes: Vec<fn() -> Mode> = vec![
+            || Mode::Normal,
+            || Mode::Search,
+            || Mode::Help,
+            || Mode::Confirm(ConfirmAction::Delete("x".into())),
+            || Mode::Confirm(ConfirmAction::Restack("x".into())),
+            || Mode::Confirm(ConfirmAction::RestackAll),
+            || Mode::Confirm(ConfirmAction::ApplyReorder),
+            || Mode::Input(InputAction::Rename),
+            || Mode::Input(InputAction::NewBranch),
+            || Mode::Reorder,
+        ];
+        let panes = [FocusedPane::Stack, FocusedPane::Diff, FocusedPane::Worktrees];
+        for make_mode in modes {
+            for pane in panes {
+                let mut app = TuiApp::new().expect("ok");
+                app.mode = make_mode();
+                app.focused_pane = pane;
+                let _ = app.refresh_branches();
+                app.set_status("cross-product test".to_string());
+                let _ = app.selected_branch();
+            }
+        }
+    }
+
+    // ── Adversarial: empty string in ConfirmAction::Restack ──
+
+    #[test]
+    fn confirm_restack_preserves_empty_name() {
+        let mode = Mode::Confirm(ConfirmAction::Restack(String::new()));
+        match mode {
+            Mode::Confirm(ConfirmAction::Restack(name)) => assert!(name.is_empty()),
+            _ => panic!("expected Confirm::Restack"),
+        }
+    }
+
+    #[test]
+    fn confirm_restack_preserves_long_name() {
+        let long_name = "a".repeat(1000);
+        let mode = Mode::Confirm(ConfirmAction::Restack(long_name.clone()));
+        match mode {
+            Mode::Confirm(ConfirmAction::Restack(name)) => assert_eq!(name.len(), 1000),
+            _ => panic!("expected Confirm::Restack"),
         }
     }
 }
