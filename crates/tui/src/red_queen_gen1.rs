@@ -132,6 +132,7 @@ mod state_transitions {
 mod input_navigation {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use crate::input::{HunkAction, InputHandler, InputResult};
+    use crate::app::Mode;
 
     fn make_key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::empty())
@@ -142,7 +143,7 @@ mod input_navigation {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(1);
         assert_eq!(handler.current_hunk, 0);
-        handler.handle_key_event(make_key(KeyCode::Down));
+        handler.handle_key_event(make_key(KeyCode::Down), &Mode::Normal);
         assert_eq!(handler.current_hunk, 0, "single hunk: navigate_next should stay at 0");
     }
 
@@ -150,7 +151,7 @@ mod input_navigation {
     fn navigate_prev_single_hunk_stays_same() {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(1);
-        handler.handle_key_event(make_key(KeyCode::Up));
+        handler.handle_key_event(make_key(KeyCode::Up), &Mode::Normal);
         assert_eq!(handler.current_hunk, 0, "single hunk: navigate_prev should stay at 0");
     }
 
@@ -158,9 +159,9 @@ mod input_navigation {
     fn navigate_next_with_two_hunks() {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(2);
-        handler.handle_key_event(make_key(KeyCode::Down));
+        handler.handle_key_event(make_key(KeyCode::Down), &Mode::Normal);
         assert_eq!(handler.current_hunk, 1);
-        handler.handle_key_event(make_key(KeyCode::Down));
+        handler.handle_key_event(make_key(KeyCode::Down), &Mode::Normal);
         assert_eq!(handler.current_hunk, 0, "should wrap to 0");
     }
 
@@ -168,9 +169,9 @@ mod input_navigation {
     fn navigate_prev_with_two_hunks() {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(2);
-        handler.handle_key_event(make_key(KeyCode::Up));
+        handler.handle_key_event(make_key(KeyCode::Up), &Mode::Normal);
         assert_eq!(handler.current_hunk, 1, "should wrap to last");
-        handler.handle_key_event(make_key(KeyCode::Up));
+        handler.handle_key_event(make_key(KeyCode::Up), &Mode::Normal);
         assert_eq!(handler.current_hunk, 0);
     }
 
@@ -196,8 +197,8 @@ mod input_navigation {
     fn navigate_on_zero_hunks_is_noop() {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(0);
-        handler.handle_key_event(make_key(KeyCode::Down));
-        handler.handle_key_event(make_key(KeyCode::Up));
+        handler.handle_key_event(make_key(KeyCode::Down), &Mode::Normal);
+        handler.handle_key_event(make_key(KeyCode::Up), &Mode::Normal);
         assert_eq!(handler.current_hunk, 0);
     }
 
@@ -206,7 +207,7 @@ mod input_navigation {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(1000);
         for _ in 0..1000 {
-            handler.handle_key_event(make_key(KeyCode::Down));
+            handler.handle_key_event(make_key(KeyCode::Down), &Mode::Normal);
         }
         assert_eq!(handler.current_hunk, 0, "1000 next on 1000 hunks should wrap to 0");
     }
@@ -215,28 +216,28 @@ mod input_navigation {
     fn large_hunk_count_prev_navigation() {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(1000);
-        handler.handle_key_event(make_key(KeyCode::Up));
+        handler.handle_key_event(make_key(KeyCode::Up), &Mode::Normal);
         assert_eq!(handler.current_hunk, 999, "prev from 0 on 1000 hunks should be 999");
     }
 
     #[test]
     fn stage_key_space_and_s_both_work() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char(' '))), InputResult::Handled(HunkAction::Stage));
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('s'))), InputResult::Handled(HunkAction::Stage));
+        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char(' ')), &Mode::Normal), InputResult::Handled(HunkAction::Stage));
+        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('s')), &Mode::Normal), InputResult::Handled(HunkAction::Stage));
     }
 
     #[test]
     fn discard_upper_and_lower_d() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('d'))), InputResult::Handled(HunkAction::Discard));
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('D'))), InputResult::Handled(HunkAction::Discard));
+        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('d')), &Mode::Normal), InputResult::Handled(HunkAction::Discard));
+        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('D')), &Mode::Normal), InputResult::Handled(HunkAction::Discard));
     }
 
     #[test]
     fn esc_is_quit() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Esc)), InputResult::Quit);
+        assert_eq!(handler.handle_key_event(make_key(KeyCode::Esc), &Mode::Normal), InputResult::Quit);
     }
 
     #[test]
@@ -249,7 +250,7 @@ mod input_navigation {
             KeyCode::Char('x'), KeyCode::Char('Z'),
         ];
         for code in unhandled {
-            assert_eq!(handler.handle_key_event(make_key(code)), InputResult::Unhandled,
+            assert_eq!(handler.handle_key_event(make_key(code), &Mode::Normal), InputResult::Unhandled,
                 "KeyCode::{code:?} should be unhandled");
         }
     }
@@ -257,34 +258,34 @@ mod input_navigation {
     #[test]
     fn page_up_is_scroll_up() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::PageUp)), InputResult::Handled(HunkAction::ScrollUp));
+        assert_eq!(handler.handle_key_event(make_key(KeyCode::PageUp), &Mode::Normal), InputResult::Handled(HunkAction::ScrollUp));
     }
 
     #[test]
     fn page_down_is_scroll_down() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::PageDown)), InputResult::Handled(HunkAction::ScrollDown));
+        assert_eq!(handler.handle_key_event(make_key(KeyCode::PageDown), &Mode::Normal), InputResult::Handled(HunkAction::ScrollDown));
     }
 
     #[test]
     fn scroll_keys() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('b'))), InputResult::Handled(HunkAction::ScrollUp));
+        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('b')), &Mode::Normal), InputResult::Handled(HunkAction::ScrollUp));
         let mut handler2 = InputHandler::new();
-        assert_eq!(handler2.handle_key_event(make_key(KeyCode::Char('f'))), InputResult::Handled(HunkAction::ScrollDown));
+        assert_eq!(handler2.handle_key_event(make_key(KeyCode::Char('f')), &Mode::Normal), InputResult::Handled(HunkAction::ScrollDown));
     }
 
     #[test]
     fn unstage_key_u() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('u'))), InputResult::Handled(HunkAction::Unstage));
+        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('u')), &Mode::Normal), InputResult::Handled(HunkAction::Unstage));
     }
 
     #[test]
     fn modifier_keys_dont_change_outcome() {
         let mut handler = InputHandler::new();
         let ctrl_q = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL);
-        assert_eq!(handler.handle_key_event(ctrl_q), InputResult::Quit);
+        assert_eq!(handler.handle_key_event(ctrl_q, &Mode::Normal), InputResult::Quit);
     }
 
     #[test]
@@ -292,8 +293,8 @@ mod input_navigation {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(5);
         let original = handler.total_hunks;
-        handler.handle_key_event(make_key(KeyCode::Down));
-        handler.handle_key_event(make_key(KeyCode::Up));
+        handler.handle_key_event(make_key(KeyCode::Down), &Mode::Normal);
+        handler.handle_key_event(make_key(KeyCode::Up), &Mode::Normal);
         assert_eq!(handler.total_hunks, original);
     }
 
@@ -301,10 +302,10 @@ mod input_navigation {
     fn alternating_next_prev_returns_to_start() {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(3);
-        handler.handle_key_event(make_key(KeyCode::Down));
-        handler.handle_key_event(make_key(KeyCode::Down));
-        handler.handle_key_event(make_key(KeyCode::Up));
-        handler.handle_key_event(make_key(KeyCode::Up));
+        handler.handle_key_event(make_key(KeyCode::Down), &Mode::Normal);
+        handler.handle_key_event(make_key(KeyCode::Down), &Mode::Normal);
+        handler.handle_key_event(make_key(KeyCode::Up), &Mode::Normal);
+        handler.handle_key_event(make_key(KeyCode::Up), &Mode::Normal);
         assert_eq!(handler.current_hunk, 0);
     }
 
@@ -314,7 +315,7 @@ mod input_navigation {
         handler.set_hunk_count(5);
         handler.current_hunk = 3;
         let mut clone = handler.clone();
-        clone.handle_key_event(make_key(KeyCode::Down));
+        clone.handle_key_event(make_key(KeyCode::Down), &Mode::Normal);
         assert_eq!(handler.current_hunk, 3, "original should be unchanged");
         assert_eq!(clone.current_hunk, 4, "clone should be advanced");
     }
@@ -622,7 +623,7 @@ mod invariant_preservation {
     #[test]
     fn refresh_preserves_diff_lines() {
         let mut app = test_app();
-        app.diff_lines = vec![crate::widgets::diff::DiffLine::Header("h".into())];
+        app.diff_lines = vec![crate::app::DiffLine::new("h", crate::app::DiffLineKind::Header)];
         app.refresh_branches().expect("ok");
         assert_eq!(app.diff_lines.len(), 1);
     }
@@ -658,46 +659,45 @@ mod invariant_preservation {
 
 #[cfg(test)]
 mod diff_line_adversarial {
-    use crate::widgets::diff::DiffLine;
+    use crate::app::{DiffLine, DiffLineKind};
 
     #[test]
-    fn different_variants_are_never_equal() {
-        let h = DiffLine::Header("x".into());
-        let hh = DiffLine::HunkHeader("x".into());
-        let a = DiffLine::Addition("x".into());
-        let d = DiffLine::Deletion("x".into());
-        let c = DiffLine::Context("x".into());
+    fn different_kinds_are_never_equal() {
+        let h = DiffLine::new("x", DiffLineKind::Header);
+        let hh = DiffLine::new("x", DiffLineKind::Hunk);
+        let a = DiffLine::new("x", DiffLineKind::Add);
+        let d = DiffLine::new("x", DiffLineKind::Remove);
+        let c = DiffLine::new("x", DiffLineKind::Context);
         let all = vec![&h, &hh, &a, &d, &c];
         for i in 0..all.len() {
             for j in (i+1)..all.len() {
-                assert_ne!(all[i], all[j]);
+                assert_ne!(all[i].kind, all[j].kind);
             }
         }
     }
 
     #[test]
-    fn same_variant_different_content_neq() {
-        assert_ne!(DiffLine::Header("a".into()), DiffLine::Header("b".into()));
-        assert_ne!(DiffLine::Addition("+a".into()), DiffLine::Addition("+b".into()));
+    fn same_kind_different_content_neq() {
+        let a = DiffLine::new("a", DiffLineKind::Header);
+        let b = DiffLine::new("b", DiffLineKind::Header);
+        assert_ne!(a.content, b.content);
     }
 
     #[test]
     fn clone_produces_equal_copy() {
-        for line in &[
-            DiffLine::Header("h".into()),
-            DiffLine::HunkHeader("hh".into()),
-            DiffLine::Addition("+".into()),
-            DiffLine::Deletion("-".into()),
-            DiffLine::Context(" ".into()),
-        ] {
-            assert_eq!(*line, line.clone());
+        for kind in &[DiffLineKind::Header, DiffLineKind::Hunk, DiffLineKind::Add, DiffLineKind::Remove, DiffLineKind::Context] {
+            let line = DiffLine::new("test", *kind);
+            let cloned = line.clone();
+            assert_eq!(line.content, cloned.content);
+            assert_eq!(line.kind, cloned.kind);
         }
     }
 
     #[test]
     fn large_content_roundtrip() {
         let big = "x".repeat(100_000);
-        assert_eq!(DiffLine::Context(big.clone()), DiffLine::Context(big));
+        let line = DiffLine::new(big.clone(), DiffLineKind::Context);
+        assert_eq!(line.content, big);
     }
 }
 

@@ -14,7 +14,7 @@ pub struct TreeNode {
 }
 
 impl TreeNode {
-    fn prefix_symbols(&self) -> Vec<Span<'static>> {
+    pub(crate) fn prefix_symbols(&self) -> Vec<Span<'static>> {
         let mut spans = Vec::new();
         for is_last in &self.ancestor_is_last {
             if *is_last {
@@ -53,7 +53,7 @@ impl StackTreeWidget {
         self
     }
 
-    fn build_tree_nodes(&self) -> Vec<TreeNode> {
+    pub(crate) fn build_tree_nodes(&self) -> Vec<TreeNode> {
         if self.branches.is_empty() {
             return Vec::new();
         }
@@ -121,7 +121,7 @@ impl StackTreeWidget {
         }
     }
 
-    fn branch_indicator(branch: &StackBranch) -> (&'static str, Color) {
+    pub(crate) fn branch_indicator(branch: &StackBranch) -> (&'static str, Color) {
         if branch.needs_restack {
             ("⚑", Color::Red)
         } else if branch.pr_info.is_some() {
@@ -131,7 +131,7 @@ impl StackTreeWidget {
         }
     }
 
-    fn pr_state_symbol(state: &PrState) -> &'static str {
+    pub(crate) fn pr_state_symbol(state: &PrState) -> &'static str {
         match state {
             PrState::Open => "○",
             PrState::Merged => "◆",
@@ -139,11 +139,11 @@ impl StackTreeWidget {
         }
     }
 
-    fn format_branch_name(branch: &StackBranch) -> String {
+    pub(crate) fn format_branch_name(branch: &StackBranch) -> String {
         branch.name.to_string()
     }
 
-    fn format_pr_info(pr_info: &PrInfo) -> String {
+    pub(crate) fn format_pr_info(pr_info: &PrInfo) -> String {
         format!(
             " (#{} {})",
             pr_info.number,

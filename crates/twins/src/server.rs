@@ -721,7 +721,7 @@ endpoints:
     #[tokio::test]
     async fn test_app_state_find_endpoint_unknown_method_returns_none() {
         let definition = TwinDefinition::from_yaml(TEST_YAML).expect("parse");
-        let state = AppState::new(definition);
+        let state: AppState<InMemoryTwinState> = AppState::new(definition);
         // CONNECT is not in the HttpMethod enum
         let result = state.find_endpoint(&Method::CONNECT, "/api/test");
         assert!(result.is_none());

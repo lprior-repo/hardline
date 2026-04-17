@@ -1,5 +1,6 @@
 pub mod stack_tree;
 pub use stack_tree::StackTreeWidget;
+pub use stack_tree::TreeNode;
 
 pub mod diff {
     #[derive(Debug, Clone, Copy)]

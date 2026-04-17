@@ -102,7 +102,7 @@ mod tests {
             "feature".to_string(),
         );
         receipt.add_local_ref("feature", Some("abc123"));
-        receipt.update_local_ref_after("feature", "def456").unwrap();
+        receipt.update_local_ref_after("feature", "def456");
         assert!(can_redo(&receipt));
     }
 
@@ -156,7 +156,7 @@ mod tests {
         );
         receipt.add_local_ref("feature-a", Some("abc123"));
         receipt.add_local_ref("feature-b", Some("abc123"));
-        receipt.update_local_ref_after("feature-a", "abc123").unwrap();
+        receipt.update_local_ref_after("feature-a", "abc123");
         assert_eq!(modified_branch_count(&receipt), 1);
     }
 }

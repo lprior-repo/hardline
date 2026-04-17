@@ -41,6 +41,32 @@ pub enum SnapshotError {
     DeserializationError(String),
 }
 
+impl SnapshotError {
+    /// Create a StorageError with message only (no source)
+    pub fn storage(message: impl Into<String>) -> Self {
+        SnapshotError::StorageError {
+            source: None,
+            message: message.into(),
+        }
+    }
+
+    /// Create a StorageError with both source error and message
+    pub fn storage_with_source(source: impl std::error::Error + Send + Sync + 'static, message: impl Into<String>) -> Self {
+        SnapshotError::StorageError {
+            source: Some(Box::new(source)),
+            message: message.into(),
+        }
+    }
+
+    /// Create a GitError with message only (no source)
+    pub fn git(message: impl Into<String>) -> Self {
+        SnapshotError::GitError {
+            source: None,
+            message: message.into(),
+        }
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum SnapshotRepoError {
     #[error("Failed to save snapshot: {0}")]

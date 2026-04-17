@@ -134,13 +134,14 @@ mod stack_tree_escalated {
 mod key_mapping_complete {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use crate::input::{HunkAction, InputHandler, InputResult};
+    use crate::app::Mode;
 
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::empty())
     }
 
     fn assert_handled(handler: &mut InputHandler, code: KeyCode, expected: HunkAction) {
-        assert_eq!(handler.handle_key_event(key(code)), InputResult::Handled(expected),
+        assert_eq!(handler.handle_key_event(key(code), &Mode::Normal), InputResult::Handled(expected),
             "KeyCode::{code:?} should map to {expected:?}");
     }
 
@@ -163,24 +164,24 @@ mod key_mapping_complete {
         assert_handled(&mut handler, KeyCode::Char('f'), HunkAction::ScrollDown);
         assert_handled(&mut handler, KeyCode::PageDown, HunkAction::ScrollDown);
 
-        assert_eq!(handler.handle_key_event(key(KeyCode::Char('q'))), InputResult::Quit);
+        assert_eq!(handler.handle_key_event(key(KeyCode::Char('q')), &Mode::Normal), InputResult::Quit);
         let mut h2 = InputHandler::new();
-        assert_eq!(h2.handle_key_event(key(KeyCode::Esc)), InputResult::Quit);
+        assert_eq!(h2.handle_key_event(key(KeyCode::Esc), &Mode::Normal), InputResult::Quit);
     }
 
     #[test]
     fn char_q_vs_char_c() {
         let mut h = InputHandler::new();
-        assert_eq!(h.handle_key_event(key(KeyCode::Char('q'))), InputResult::Quit);
+        assert_eq!(h.handle_key_event(key(KeyCode::Char('q')), &Mode::Normal), InputResult::Quit);
         let mut h2 = InputHandler::new();
-        assert_eq!(h2.handle_key_event(key(KeyCode::Char('c'))), InputResult::Unhandled);
+        assert_eq!(h2.handle_key_event(key(KeyCode::Char('c')), &Mode::Normal), InputResult::Unhandled);
     }
 
     #[test]
     fn number_keys_unhandled() {
         let mut handler = InputHandler::new();
         for n in '0'..='9' {
-            assert_eq!(handler.handle_key_event(key(KeyCode::Char(n))), InputResult::Unhandled);
+            assert_eq!(handler.handle_key_event(key(KeyCode::Char(n)), &Mode::Normal), InputResult::Unhandled);
         }
     }
 
@@ -188,15 +189,15 @@ mod key_mapping_complete {
     fn function_keys_unhandled() {
         let mut handler = InputHandler::new();
         for f in 1..=12 {
-            assert_eq!(handler.handle_key_event(key(KeyCode::F(f))), InputResult::Unhandled);
+            assert_eq!(handler.handle_key_event(key(KeyCode::F(f)), &Mode::Normal), InputResult::Unhandled);
         }
     }
 
     #[test]
     fn arrow_left_right_unhandled() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(key(KeyCode::Left)), InputResult::Unhandled);
-        assert_eq!(handler.handle_key_event(key(KeyCode::Right)), InputResult::Unhandled);
+        assert_eq!(handler.handle_key_event(key(KeyCode::Left), &Mode::Normal), InputResult::Unhandled);
+        assert_eq!(handler.handle_key_event(key(KeyCode::Right), &Mode::Normal), InputResult::Unhandled);
     }
 }
 

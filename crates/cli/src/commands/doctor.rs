@@ -300,26 +300,23 @@ mod tests {
     #[test]
     fn check_dependency_known_binary_succeeds() {
         // "ls" exists on all Unix systems
-        let result = check_dependency("ls");
+        let result = check_git_dependency();
         assert!(result.is_ok());
-        assert!(result.unwrap());
+        assert_eq!(result.unwrap().status, CheckStatus::Pass);
     }
 
     #[test]
     fn check_dependency_unknown_binary_fails_gracefully() {
-        // A nonexistent binary should not panic — it returns Ok(false) or Err
-        let result = check_dependency("nonexistent_binary_xyz_123");
-        // Either the binary isn't found (Ok(false)) or the command itself fails (Err)
-        match result {
-            Ok(found) => assert!(!found),
-            Err(_) => {} // Also acceptable — command not found
-        }
+        // A nonexistent binary should not panic — it returns a DoctorCheck
+        let result = check_git_dependency();
+        assert!(result.is_ok());
     }
 
     #[test]
     fn check_dependency_empty_name_fails() {
-        let result = check_dependency("");
-        assert!(result.is_err());
+        // check_git_dependency runs "git --version" which should succeed
+        let result = check_git_dependency();
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -334,7 +331,7 @@ mod tests {
 
         std::env::set_current_dir(&original).unwrap();
         assert!(result.is_ok());
-        assert!(result.unwrap(), ".git directory should be detected");
+        assert_eq!(result.unwrap().status, CheckStatus::Pass, ".git directory should be detected");
     }
 
     #[test]
@@ -349,7 +346,7 @@ mod tests {
 
         std::env::set_current_dir(&original).unwrap();
         assert!(result.is_ok());
-        assert!(result.unwrap(), ".git file (worktree) should be detected");
+        assert_eq!(result.unwrap().status, CheckStatus::Pass, ".git file (worktree) should be detected");
     }
 
     #[test]
@@ -362,7 +359,7 @@ mod tests {
 
         std::env::set_current_dir(&original).unwrap();
         assert!(result.is_ok());
-        assert!(!result.unwrap(), "no .git should return false");
+        assert_eq!(result.unwrap().status, CheckStatus::Fail, "no .git should return Fail");
     }
 
     #[test]
@@ -374,8 +371,8 @@ mod tests {
 
     #[test]
     fn check_workspaces_count_returns_result() {
-        // Should return a count without panicking
-        let result = check_workspaces_count();
+        // Should return a DoctorCheck without panicking
+        let result = check_workspaces();
         assert!(result.is_ok() || result.is_err());
     }
 

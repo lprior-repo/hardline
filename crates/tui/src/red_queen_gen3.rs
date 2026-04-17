@@ -356,7 +356,7 @@ mod worktree_fragility {
 
 #[cfg(test)]
 mod diff_line_semantics {
-    use crate::widgets::diff::DiffLine;
+    use crate::app::{DiffLine, DiffLineKind};
 
     #[test]
     fn diff_line_is_send() {
@@ -372,82 +372,83 @@ mod diff_line_semantics {
 
     #[test]
     fn diff_line_clone_is_deep() {
-        let line = DiffLine::Addition("+hello".into());
+        let line = DiffLine::new("+hello", DiffLineKind::Add);
         let cloned = line.clone();
-        assert_eq!(line, cloned);
+        assert_eq!(line.content, cloned.content);
+        assert_eq!(line.kind, cloned.kind);
     }
 
     #[test]
     fn empty_content_all_variants() {
         let variants = vec![
-            DiffLine::Header(String::new()),
-            DiffLine::HunkHeader(String::new()),
-            DiffLine::Addition(String::new()),
-            DiffLine::Deletion(String::new()),
-            DiffLine::Context(String::new()),
+            DiffLine::new("", DiffLineKind::Header),
+            DiffLine::new("", DiffLineKind::Hunk),
+            DiffLine::new("", DiffLineKind::Add),
+            DiffLine::new("", DiffLineKind::Remove),
+            DiffLine::new("", DiffLineKind::Context),
         ];
         for v in variants {
             let cloned = v.clone();
-            assert_eq!(v, cloned, "empty content should clone correctly");
+            assert_eq!(v.content, cloned.content, "empty content should clone correctly");
         }
     }
 
     #[test]
     fn diff_line_with_special_characters() {
         let special = "\t\r\n\x00\x1b\x07";
-        let line = DiffLine::Context(special.to_string());
-        assert_eq!(line.clone(), line);
+        let line = DiffLine::new(special, DiffLineKind::Context);
+        assert_eq!(line.clone().content, line.content);
     }
 
     #[test]
     fn diff_line_with_null_bytes() {
-        let line = DiffLine::Addition("add\0null".to_string());
-        assert_eq!(line.clone(), line);
+        let line = DiffLine::new("add\0null", DiffLineKind::Add);
+        assert_eq!(line.clone().content, line.content);
     }
 
     #[test]
     fn diff_line_eq_reflexivity_all_variants() {
         let lines = vec![
-            DiffLine::Header("h".into()),
-            DiffLine::HunkHeader("hh".into()),
-            DiffLine::Addition("+".into()),
-            DiffLine::Deletion("-".into()),
-            DiffLine::Context(" ".into()),
+            DiffLine::new("h", DiffLineKind::Header),
+            DiffLine::new("hh", DiffLineKind::Hunk),
+            DiffLine::new("+", DiffLineKind::Add),
+            DiffLine::new("-", DiffLineKind::Remove),
+            DiffLine::new(" ", DiffLineKind::Context),
         ];
         for line in lines {
-            assert_eq!(line, line);
+            assert_eq!(line.content, line.content);
         }
     }
 
     #[test]
     fn diff_line_eq_symmetry() {
-        let a = DiffLine::Header("x".into());
-        let b = DiffLine::Header("x".into());
-        assert_eq!(a, b);
-        assert_eq!(b, a);
+        let a = DiffLine::new("x", DiffLineKind::Header);
+        let b = DiffLine::new("x", DiffLineKind::Header);
+        assert_eq!(a.content, b.content);
+        assert_eq!(a.kind, b.kind);
     }
 
     #[test]
     fn diff_line_eq_transitivity() {
-        let a = DiffLine::Context("c".into());
-        let b = DiffLine::Context("c".into());
-        let c = DiffLine::Context("c".into());
-        assert_eq!(a, b);
-        assert_eq!(b, c);
-        assert_eq!(a, c);
+        let a = DiffLine::new("c", DiffLineKind::Context);
+        let b = DiffLine::new("c", DiffLineKind::Context);
+        let c = DiffLine::new("c", DiffLineKind::Context);
+        assert_eq!(a.content, b.content);
+        assert_eq!(b.content, c.content);
+        assert_eq!(a.content, c.content);
     }
 
     #[test]
     fn diff_line_debug_format_contains_variant_name() {
-        let h = format!("{:?}", DiffLine::Header("x".into()));
-        let hh = format!("{:?}", DiffLine::HunkHeader("x".into()));
-        let a = format!("{:?}", DiffLine::Addition("x".into()));
-        let d = format!("{:?}", DiffLine::Deletion("x".into()));
-        let c = format!("{:?}", DiffLine::Context("x".into()));
+        let h = format!("{:?}", DiffLine::new("x", DiffLineKind::Header));
+        let hh = format!("{:?}", DiffLine::new("x", DiffLineKind::Hunk));
+        let a = format!("{:?}", DiffLine::new("x", DiffLineKind::Add));
+        let d = format!("{:?}", DiffLine::new("x", DiffLineKind::Remove));
+        let c = format!("{:?}", DiffLine::new("x", DiffLineKind::Context));
         assert!(h.contains("Header"));
-        assert!(hh.contains("HunkHeader"));
-        assert!(a.contains("Addition"));
-        assert!(d.contains("Deletion"));
+        assert!(hh.contains("Hunk"));
+        assert!(a.contains("Add"));
+        assert!(d.contains("Remove"));
         assert!(c.contains("Context"));
     }
 }
@@ -456,6 +457,7 @@ mod diff_line_semantics {
 mod input_handler_modifiers {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use crate::input::{HunkAction, InputHandler, InputResult};
+    use crate::app::Mode;
 
     fn key_with(code: KeyCode, mods: KeyModifiers) -> KeyEvent {
         KeyEvent::new(code, mods)
@@ -464,28 +466,28 @@ mod input_handler_modifiers {
     #[test]
     fn ctrl_q_is_still_quit() {
         let mut handler = InputHandler::new();
-        let result = handler.handle_key_event(key_with(KeyCode::Char('q'), KeyModifiers::CONTROL));
+        let result = handler.handle_key_event(key_with(KeyCode::Char('q'), KeyModifiers::CONTROL), &Mode::Normal);
         assert_eq!(result, InputResult::Quit);
     }
 
     #[test]
     fn shift_q_is_still_quit() {
         let mut handler = InputHandler::new();
-        let result = handler.handle_key_event(key_with(KeyCode::Char('q'), KeyModifiers::SHIFT));
+        let result = handler.handle_key_event(key_with(KeyCode::Char('q'), KeyModifiers::SHIFT), &Mode::Normal);
         assert_eq!(result, InputResult::Quit, "Shift+Q (uppercase) should also quit");
     }
 
     #[test]
     fn ctrl_s_is_still_stage() {
         let mut handler = InputHandler::new();
-        let result = handler.handle_key_event(key_with(KeyCode::Char('s'), KeyModifiers::CONTROL));
+        let result = handler.handle_key_event(key_with(KeyCode::Char('s'), KeyModifiers::CONTROL), &Mode::Normal);
         assert_eq!(result, InputResult::Handled(HunkAction::Stage));
     }
 
     #[test]
     fn alt_d_is_still_discard() {
         let mut handler = InputHandler::new();
-        let result = handler.handle_key_event(key_with(KeyCode::Char('d'), KeyModifiers::ALT));
+        let result = handler.handle_key_event(key_with(KeyCode::Char('d'), KeyModifiers::ALT), &Mode::Normal);
         assert_eq!(result, InputResult::Handled(HunkAction::Discard));
     }
 
@@ -493,7 +495,7 @@ mod input_handler_modifiers {
     fn ctrl_shift_combined_on_j() {
         let mut handler = InputHandler::new();
         let result = handler.handle_key_event(
-            key_with(KeyCode::Char('j'), KeyModifiers::CONTROL | KeyModifiers::SHIFT)
+            key_with(KeyCode::Char('j'), KeyModifiers::CONTROL | KeyModifiers::SHIFT), &Mode::Normal
         );
         // KeyCode::Char('j') regardless of modifiers maps to NavigateNext
         assert_eq!(result, InputResult::Handled(HunkAction::NavigateNext));
@@ -502,7 +504,7 @@ mod input_handler_modifiers {
     #[test]
     fn esc_with_any_modifier_is_quit() {
         let mut handler = InputHandler::new();
-        let result = handler.handle_key_event(key_with(KeyCode::Esc, KeyModifiers::SHIFT));
+        let result = handler.handle_key_event(key_with(KeyCode::Esc, KeyModifiers::SHIFT), &Mode::Normal);
         assert_eq!(result, InputResult::Quit);
     }
 
@@ -510,7 +512,7 @@ mod input_handler_modifiers {
     fn all_modifiers_combined_on_mapped_key() {
         let mut handler = InputHandler::new();
         let result = handler.handle_key_event(
-            key_with(KeyCode::Char('u'), KeyModifiers::CONTROL | KeyModifiers::SHIFT | KeyModifiers::ALT)
+            key_with(KeyCode::Char('u'), KeyModifiers::CONTROL | KeyModifiers::SHIFT | KeyModifiers::ALT), &Mode::Normal
         );
         assert_eq!(result, InputResult::Handled(HunkAction::Unstage));
     }
@@ -521,11 +523,11 @@ mod input_handler_modifiers {
         handler.set_hunk_count(3);
 
         let ctrl_down = key_with(KeyCode::Down, KeyModifiers::CONTROL);
-        handler.handle_key_event(ctrl_down);
+        handler.handle_key_event(ctrl_down, &Mode::Normal);
         assert_eq!(handler.current_hunk, 1);
 
         let shift_up = key_with(KeyCode::Up, KeyModifiers::SHIFT);
-        handler.handle_key_event(shift_up);
+        handler.handle_key_event(shift_up, &Mode::Normal);
         assert_eq!(handler.current_hunk, 0);
     }
 }
@@ -896,21 +898,23 @@ mod mode_clone_equality_deep {
 #[cfg(test)]
 mod proptest_gen3 {
     use proptest::proptest;
-    use crate::app::{ConfirmAction, InputAction, Mode};
-    use crate::widgets::diff::DiffLine;
+    use crate::app::{ConfirmAction, DiffLine, DiffLineKind, InputAction, Mode};
 
     proptest! {
         #[test]
         fn prop_diff_line_clone_roundtrip(text in ".{0,500}") {
-            let lines = vec![
-                DiffLine::Header(text.clone()),
-                DiffLine::HunkHeader(text.clone()),
-                DiffLine::Addition(text.clone()),
-                DiffLine::Deletion(text.clone()),
-                DiffLine::Context(text),
+            let kinds = [
+                DiffLineKind::Header,
+                DiffLineKind::Hunk,
+                DiffLineKind::Add,
+                DiffLineKind::Remove,
+                DiffLineKind::Context,
             ];
-            for line in lines {
-                assert_eq!(line, line.clone());
+            for kind in kinds {
+                let line = DiffLine::new(text.clone(), kind);
+                let cloned = line.clone();
+                assert_eq!(line.content, cloned.content);
+                assert_eq!(line.kind, cloned.kind);
             }
         }
 

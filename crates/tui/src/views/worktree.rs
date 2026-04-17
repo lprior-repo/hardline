@@ -13,7 +13,7 @@ use worktree::WorktreeState;
 #[derive(Debug)]
 pub struct WorktreeView {
     items: Vec<WorktreeItem>,
-    selected_index: usize,
+    pub selected_index: usize,
 }
 
 impl WorktreeView {

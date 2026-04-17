@@ -62,7 +62,7 @@ pub enum FocusedPane {
     Worktrees,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Mode {
     Normal,
     Search,
@@ -94,6 +94,7 @@ pub struct TuiApp {
     pub worktree_view: WorktreeView,
     pub stack_branches: Vec<StackBranch>,
     pub diff_lines: Vec<DiffLine>,
+    pub status_message: String,
     branch_provider: Option<Box<dyn BranchProvider>>,
 }
 
@@ -107,6 +108,7 @@ impl TuiApp {
             worktree_view: WorktreeView::default(),
             stack_branches: Vec::new(),
             diff_lines: Vec::new(),
+            status_message: String::new(),
             branch_provider: Some(branch_provider),
         })
     }
@@ -120,6 +122,7 @@ impl TuiApp {
             worktree_view: WorktreeView::default(),
             stack_branches: Vec::new(),
             diff_lines: Vec::new(),
+            status_message: String::new(),
             branch_provider: None,
         })
     }
@@ -133,7 +136,9 @@ impl TuiApp {
         None
     }
 
-    pub fn set_status(&mut self, _message: String) {}
+    pub fn set_status(&mut self, message: String) {
+        self.status_message = message;
+    }
 
     pub fn set_diff(&mut self, lines: Vec<DiffLine>) {
         self.diff_lines = lines;

@@ -120,11 +120,7 @@ mod tests {
     /// Helper: create an executor backed by a temp dir
     fn create_executor() -> (PipelineExecutor, TempDir) {
         let temp = TempDir::new().expect("temp dir");
-        let exec = PipelineExecutor::new(
-            temp.path().to_path_buf(),
-            temp.path().join("scenarios"),
-            None,
-        )
+        let exec = PipelineExecutor::new(temp.path().to_path_buf())
         .expect("executor");
         (exec, temp)
     }
@@ -231,7 +227,7 @@ mod tests {
         assert!(result.is_err());
         match result.unwrap_err() {
             PhaseError::PersistenceFailed(msg) => {
-                assert!(msg.contains("nonexistent"));
+                assert!(msg.to_string().contains("nonexistent"));
             }
             other => panic!("expected PersistenceFailed, got: {other}"),
         }

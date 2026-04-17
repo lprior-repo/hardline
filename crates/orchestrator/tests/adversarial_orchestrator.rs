@@ -361,7 +361,7 @@ mod pipeline_executor_adversarial {
         let state_dir = temp_dir.path().to_path_buf();
         let scenarios_path = temp_dir.path().join("scenarios");
         let executor =
-            PipelineExecutor::new(state_dir, scenarios_path, None).expect("create executor");
+            PipelineExecutor::new(state_dir).expect("create executor");
         (executor, temp_dir)
     }
 
@@ -882,19 +882,19 @@ mod policies_adversarial {
     // --- RetryPolicy (new version) ---
     #[test]
     fn adv_c5_retry_zero_retries() {
-        let policy = NewRetryPolicy::new(0, 100, 2.0, None, vec![]).unwrap();
+        let policy = RetryPolicy::new(0, 100, 2.0, None, vec![]).unwrap();
         assert_eq!(policy.max_retries(), 0);
     }
 
     #[test]
     fn adv_c5_retry_factor_just_above_one() {
-        let policy = NewRetryPolicy::new(3, 100, 1.000001, None, vec![]).unwrap();
+        let policy = RetryPolicy::new(3, 100, 1.000001, None, vec![]).unwrap();
         assert_eq!(policy.factor(), 1.000001);
     }
 
     #[test]
     fn adv_c5_retry_factor_very_large() {
-        let policy = NewRetryPolicy::new(3, 1, 1e10, None, vec![]).unwrap();
+        let policy = RetryPolicy::new(3, 1, 1e10, None, vec![]).unwrap();
         // delay at attempt 0 = 1 * 1e10^0 = 1
         assert_eq!(policy.calculate_delay(0), 1);
         // delay at attempt 1 = 1 * 1e10 = 10000000000, clamped to u64::MAX only if > u64::MAX
@@ -904,7 +904,7 @@ mod policies_adversarial {
 
     #[test]
     fn adv_c5_retry_empty_error_patterns() {
-        let policy = NewRetryPolicy::new(3, 100, 2.0, None, vec![]).unwrap();
+        let policy = RetryPolicy::new(3, 100, 2.0, None, vec![]).unwrap();
         assert!(!policy.is_retryable("any error"));
         assert!(!policy.is_retryable(""));
     }
@@ -912,7 +912,7 @@ mod policies_adversarial {
     #[test]
     fn adv_c5_retry_match_substring() {
         let policy =
-            NewRetryPolicy::new(3, 100, 2.0, None, vec!["timeout".into()]).unwrap();
+            RetryPolicy::new(3, 100, 2.0, None, vec!["timeout".into()]).unwrap();
         assert!(policy.is_retryable("connection timeout after 30s"));
         assert!(policy.is_retryable("timeout"));
         assert!(!policy.is_retryable("time out")); // Space breaks it
@@ -920,7 +920,7 @@ mod policies_adversarial {
 
     #[test]
     fn adv_c5_retry_max_delay_equals_base() {
-        let policy = NewRetryPolicy::new(3, 100, 2.0, Some(100), vec![]).unwrap();
+        let policy = RetryPolicy::new(3, 100, 2.0, Some(100), vec![]).unwrap();
         for attempt in 0..20 {
             assert!(policy.calculate_delay(attempt) <= 100);
         }
@@ -929,37 +929,37 @@ mod policies_adversarial {
     // --- CircuitBreaker (new version) ---
     #[test]
     fn adv_c5_circuit_breaker_single_threshold() {
-        let mut cb = NewCircuitBreaker::new(1, 1, 1).unwrap();
+        let mut cb = CircuitBreaker::new(1, 1, 1).unwrap();
         cb.record_failure();
-        assert_eq!(cb.state(), CircuitState::Open);
+        assert_eq!(cb.state(), CircuitBreakerState::Open);
         assert!(!cb.is_execution_allowed());
     }
 
     #[test]
     fn adv_c5_circuit_breaker_very_high_threshold() {
-        let mut cb = NewCircuitBreaker::new(u32::MAX, 1, 1).unwrap();
+        let mut cb = CircuitBreaker::new(u32::MAX, 1, 1).unwrap();
         for _ in 0..100 {
             cb.record_failure();
         }
-        assert_eq!(cb.state(), CircuitState::Closed);
+        assert_eq!(cb.state(), CircuitBreakerState::Closed);
         assert!(cb.is_execution_allowed());
     }
 
     #[test]
     fn adv_c5_circuit_breaker_one_ms_open_duration() {
-        let mut cb = NewCircuitBreaker::new(1, 1, 1).unwrap();
+        let mut cb = CircuitBreaker::new(1, 1, 1).unwrap();
         cb.record_failure();
-        assert_eq!(cb.state(), CircuitState::Open);
+        assert_eq!(cb.state(), CircuitBreakerState::Open);
 
         // At exactly 1ms, should transition
         let transitioned = cb.check_and_transition(1);
         assert!(transitioned);
-        assert_eq!(cb.state(), CircuitState::HalfOpen);
+        assert_eq!(cb.state(), CircuitBreakerState::HalfOpen);
     }
 
     #[test]
     fn adv_c5_circuit_breaker_zero_ms_elapsed() {
-        let mut cb = NewCircuitBreaker::new(1, 1, 1000).unwrap();
+        let mut cb = CircuitBreaker::new(1, 1, 1000).unwrap();
         cb.record_failure();
         let transitioned = cb.check_and_transition(0);
         assert!(!transitioned);
@@ -967,7 +967,7 @@ mod policies_adversarial {
 
     #[test]
     fn adv_c5_circuit_breaker_success_count_resets_on_close() {
-        let mut cb = NewCircuitBreaker::new(1, 3, 1000).unwrap();
+        let mut cb = CircuitBreaker::new(1, 3, 1000).unwrap();
         cb.record_failure();
         cb.check_and_transition(1001); // -> HalfOpen
         cb.record_success(); // success_count = 1
@@ -979,7 +979,7 @@ mod policies_adversarial {
 
     #[test]
     fn adv_c5_circuit_breaker_half_open_failure_resets_success() {
-        let mut cb = NewCircuitBreaker::new(1, 5, 1000).unwrap();
+        let mut cb = CircuitBreaker::new(1, 5, 1000).unwrap();
         cb.record_failure();
         cb.check_and_transition(1001);
         cb.record_success(); // 1
@@ -987,13 +987,13 @@ mod policies_adversarial {
         cb.record_success(); // 3
         cb.record_failure(); // -> Open, reset
         assert_eq!(cb.success_count(), 0);
-        assert_eq!(cb.state(), CircuitState::Open);
+        assert_eq!(cb.state(), CircuitBreakerState::Open);
     }
 
     // --- CircuitBreaker (old version in circuit.rs) ---
     #[test]
     fn adv_c5_old_circuit_breaker_recovery_timeout_boundary() {
-        let mut cb = CircuitBreaker::new(1, 1).unwrap();
+        let mut cb = CircuitBreaker::new(1, 1, 1).unwrap();
         cb.record_failure();
         assert!(!cb.can_execute());
         // Wait 2ms for 1ms recovery
@@ -1728,7 +1728,7 @@ mod integration_adversarial {
         let scenarios_path = temp_dir.path().join("scenarios");
 
         let mut executor =
-            phases::PipelineExecutor::new(state_dir, scenarios_path, None).expect("executor");
+            phases::PipelineExecutor::new(state_dir).expect("executor");
 
         // Create and run pipeline
         let pipeline = executor
@@ -1789,7 +1789,7 @@ mod integration_adversarial {
         let scenarios_path = temp_dir.path().join("scenarios");
 
         let mut executor =
-            phases::PipelineExecutor::new(state_dir, scenarios_path, None).expect("executor");
+            phases::PipelineExecutor::new(state_dir).expect("executor");
 
         let pipeline = executor
             .create_pipeline("specs/metrics.yaml".to_string())
