@@ -46,7 +46,8 @@ impl PolicyConfig {
     ) -> Result<Self, ConfigError> {
         Ok(Self {
             timeout: PhaseTimeout::new(timeout_ms)?,
-            retry: RetryPolicy::new(max_retries, base_delay_ms, max_delay_ms)?,
+            retry: RetryPolicy::new(max_retries, base_delay_ms, 2.0, Some(max_delay_ms), vec![])
+                .map_err(|_| ConfigError::InvalidBaseDelay { delay_ms: base_delay_ms })?,
             circuit_breaker: CircuitBreaker::new(failure_threshold, recovery_timeout_ms)?,
             deadline: None,
         })
