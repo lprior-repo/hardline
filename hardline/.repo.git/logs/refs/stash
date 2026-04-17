@@ -1,4 +1,0 @@
-0000000000000000000000000000000000000000 44728013fa633ba0f59f7cdaeac13ff32d37638a Lewis <priorlewis43@gmail.com> 1775409449 -0500	WIP on temp: 951abd4 feat: port checkpoint system to isolate crate with Data->Calc->Actions layering
-44728013fa633ba0f59f7cdaeac13ff32d37638a bcca50a600a3db0fad2e7ad6cf469a6ad4e8a692 Lewis <priorlewis43@gmail.com> 1775417784 -0500	WIP on temp: edfe978 feat: port isolate: Session aggregate and state machine to isolate crate
-bcca50a600a3db0fad2e7ad6cf469a6ad4e8a692 4ba47617a6736d7f5f14b59219dbffadee1d0d7b Lewis <priorlewis43@gmail.com> 1775435220 -0500	WIP on main-check: c5122de feat: port isolate: Session aggregate and state machine to isolate crate
-4ba47617a6736d7f5f14b59219dbffadee1d0d7b 5080acb1e18c6586dfef50d5ed44968db1ce2caf Lewis <priorlewis43@gmail.com> 1775437200 -0500	WIP on temp: c51da92 fix: auto-save uncommitted implementation work (gt-pvx safety net)
