@@ -11,7 +11,6 @@ repository.workspace = true
 default = []
 
 [dependencies]
-scp-core = { path = "../core" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
