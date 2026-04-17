@@ -26,10 +26,8 @@ pub mod reorder_preview {
     pub struct ReorderPreview;
 }
 
-pub mod agents {
-    #[derive(Debug, Clone, Copy)]
-    pub struct AgentsView;
-}
+pub mod agents;
+pub use agents::{AgentEntry, AgentsView};
 
 pub mod worktree;
 pub use worktree::WorktreeItem;
@@ -37,7 +35,7 @@ pub use worktree::WorktreeItem;
 #[cfg(test)]
 mod tests {
     use super::{
-        agents::AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
+        AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
         StackTreeWidget,
     };
 
@@ -47,7 +45,7 @@ mod tests {
         let _diff = DiffView;
         let _details = DetailsView;
         let _reorder = ReorderPreview;
-        let _agents = AgentsView;
+        let _agents = AgentsView::new(Vec::new());
     }
 
     #[test]
@@ -95,7 +93,7 @@ mod tests {
         let _ = format!("{:?}", DiffView);
         let _ = format!("{:?}", DetailsView);
         let _ = format!("{:?}", ReorderPreview);
-        let _ = format!("{:?}", AgentsView);
+        let _ = format!("{:?}", AgentsView::new(Vec::new()));
     }
 
     #[test]
@@ -104,7 +102,7 @@ mod tests {
         let _d: Option<DiffView> = None;
         let _dt: Option<DetailsView> = Some(DetailsView);
         let _r: Option<ReorderPreview> = None;
-        let _a: Option<AgentsView> = Some(AgentsView);
+        let _a: Option<AgentsView> = Some(AgentsView::new(Vec::new()));
     }
 
     #[test]
@@ -124,7 +122,7 @@ mod tests {
         let _d = Box::new(DiffView);
         let _dt = Box::new(DetailsView);
         let _r = Box::new(ReorderPreview);
-        let _a = Box::new(AgentsView);
+        let _a = Box::new(AgentsView::new(Vec::new()));
     }
 
     #[test]
@@ -173,7 +171,7 @@ mod tests {
             DiffView,
             DetailsView,
             ReorderPreview,
-            AgentsView,
+            AgentsView::new(Vec::new()),
         );
     }
 
