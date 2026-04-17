@@ -1,4 +1,5 @@
 pub mod stack_tree;
+<<<<<<< HEAD
 pub use stack_tree::{StackTreeWidget, TreeNode};
 
 pub mod diff {
@@ -12,6 +13,11 @@ pub mod diff {
         Context(String),
     }
 
+=======
+pub use stack_tree::StackTreeWidget;
+
+pub mod diff {
+>>>>>>> polecat/beta
     #[derive(Debug, Clone, Copy)]
     pub struct DiffView;
 }
@@ -26,8 +32,15 @@ pub mod reorder_preview {
     pub struct ReorderPreview;
 }
 
+<<<<<<< HEAD
 pub mod agents;
 pub use agents::{AgentEntry, AgentsView};
+=======
+pub mod agents {
+    #[derive(Debug, Clone, Copy)]
+    pub struct AgentsView;
+}
+>>>>>>> polecat/beta
 
 pub mod worktree;
 pub use worktree::WorktreeItem;
@@ -35,7 +48,11 @@ pub use worktree::WorktreeItem;
 #[cfg(test)]
 mod tests {
     use super::{
+<<<<<<< HEAD
         AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
+=======
+        agents::AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
+>>>>>>> polecat/beta
         StackTreeWidget,
     };
 
@@ -45,7 +62,11 @@ mod tests {
         let _diff = DiffView;
         let _details = DetailsView;
         let _reorder = ReorderPreview;
+<<<<<<< HEAD
         let _agents = AgentsView::new(Vec::new());
+=======
+        let _agents = AgentsView;
+>>>>>>> polecat/beta
     }
 
     #[test]
@@ -93,7 +114,11 @@ mod tests {
         let _ = format!("{:?}", DiffView);
         let _ = format!("{:?}", DetailsView);
         let _ = format!("{:?}", ReorderPreview);
+<<<<<<< HEAD
         let _ = format!("{:?}", AgentsView::new(Vec::new()));
+=======
+        let _ = format!("{:?}", AgentsView);
+>>>>>>> polecat/beta
     }
 
     #[test]
@@ -171,7 +196,11 @@ mod tests {
             DiffView,
             DetailsView,
             ReorderPreview,
+<<<<<<< HEAD
             AgentsView::new(Vec::new()),
+=======
+            AgentsView,
+>>>>>>> polecat/beta
         );
     }
 

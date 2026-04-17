@@ -210,6 +210,7 @@ mod tests {
         let handler = InputHandler::new();
         let cloned = handler.clone();
         assert_eq!(handler.current_hunk, cloned.current_hunk);
+<<<<<<< HEAD
     }
 
     // ── Adversarial ──
@@ -323,5 +324,7 @@ mod tests {
         assert_eq!(handler.current_hunk, 0); // wraps
         handler.navigate_prev();
         assert_eq!(handler.current_hunk, 9_999); // wraps back
+=======
+>>>>>>> polecat/beta
     }
 }

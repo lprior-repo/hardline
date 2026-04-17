@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::types::{ConflictMode, ValidatedBool};
+use super::types::{AuthSourceType, ConflictMode, ForgeType, ValidatedBool};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PARTIAL CONFIG STRUCTURES (explicit-key merge semantics)
@@ -23,6 +23,7 @@ pub struct PartialConflictResolutionConfig {
     pub log_resolutions: Option<ValidatedBool>,
 }
 
+use super::config::BranchTemplate;
 use crate::Result;
 
 impl super::config::ConflictResolutionConfig {
@@ -36,9 +37,13 @@ impl super::config::ConflictResolutionConfig {
     /// # Examples
     ///
     /// ```rust
+<<<<<<< HEAD
     /// use scp_core::config::config::{ConflictResolutionConfig};
     /// use scp_core::config::partial::PartialConflictResolutionConfig;
     /// use scp_core::config::types::ConflictMode;
+=======
+    /// use scp_core::config::{ConflictMode, ConflictResolutionConfig, PartialConflictResolutionConfig};
+>>>>>>> polecat/beta
     ///
     /// let mut config = ConflictResolutionConfig::default();
     /// let original_autonomy = config.autonomy;
@@ -151,6 +156,66 @@ impl super::config::HooksConfig {
         }
         if let Some(post_merge) = partial.post_merge {
             self.post_merge = post_merge;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialVcsConfig {
+    #[serde(default)]
+    pub forge: Option<ForgeType>,
+    #[serde(default)]
+    pub default_branch: Option<String>,
+    #[serde(default)]
+    pub branch_templates: Option<Vec<BranchTemplate>>,
+}
+
+impl super::config::VcsConfig {
+    pub fn merge_partial(&mut self, partial: PartialVcsConfig) -> Result<()> {
+        if let Some(forge) = partial.forge {
+            self.forge = forge;
+        }
+        if let Some(default_branch) = partial.default_branch {
+            self.default_branch = default_branch;
+        }
+        if let Some(branch_templates) = partial.branch_templates {
+            self.branch_templates = branch_templates;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialAuthConfig {
+    #[serde(default)]
+    pub preferred_source: Option<AuthSourceType>,
+    #[serde(default)]
+    pub allow_github_token_env: Option<bool>,
+    #[serde(default)]
+    pub allow_stax_token_env: Option<bool>,
+    #[serde(default)]
+    pub allow_credentials_file: Option<bool>,
+    #[serde(default)]
+    pub allow_gh_cli: Option<bool>,
+}
+
+impl super::config::AuthConfig {
+    pub fn merge_partial(&mut self, partial: PartialAuthConfig) -> Result<()> {
+        if let Some(preferred_source) = partial.preferred_source {
+            self.preferred_source = preferred_source;
+        }
+        if let Some(allow_github_token_env) = partial.allow_github_token_env {
+            self.allow_github_token_env = allow_github_token_env;
+        }
+        if let Some(allow_stax_token_env) = partial.allow_stax_token_env {
+            self.allow_stax_token_env = allow_stax_token_env;
+        }
+        if let Some(allow_credentials_file) = partial.allow_credentials_file {
+            self.allow_credentials_file = allow_credentials_file;
+        }
+        if let Some(allow_gh_cli) = partial.allow_gh_cli {
+            self.allow_gh_cli = allow_gh_cli;
         }
         Ok(())
     }

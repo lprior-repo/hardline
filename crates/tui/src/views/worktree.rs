@@ -13,7 +13,11 @@ use worktree::WorktreeState;
 #[derive(Debug)]
 pub struct WorktreeView {
     items: Vec<WorktreeItem>,
+<<<<<<< HEAD
     pub(crate) selected_index: usize,
+=======
+    selected_index: usize,
+>>>>>>> polecat/beta
 }
 
 impl WorktreeView {
@@ -212,6 +216,7 @@ mod tests {
         let view = WorktreeView::default();
         assert!(view.items.is_empty());
     }
+<<<<<<< HEAD
 
     // ── Adversarial ──
 
@@ -266,4 +271,6 @@ mod tests {
         assert_eq!(view.selected_index, 0);
         assert_eq!(view.selected_item().unwrap().name, "b");
     }
+=======
+>>>>>>> polecat/beta
 }

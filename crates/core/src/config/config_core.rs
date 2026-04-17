@@ -48,6 +48,7 @@ pub const VALID_CONFIG_KEYS: &[&str] = &[
     "logging",
     "remote",
     "editor",
+    "auth",
     // Watch section
     "watch.enabled",
     "watch.debounce_ms",
@@ -70,6 +71,8 @@ pub const VALID_CONFIG_KEYS: &[&str] = &[
     // VCS section
     "vcs.type",
     "vcs.default_branch",
+    "vcs.forge",
+    "vcs.branch_templates",
     // Workspace section
     "workspace.directory",
     "workspace.auto_rebase",
@@ -81,6 +84,12 @@ pub const VALID_CONFIG_KEYS: &[&str] = &[
     // Remote section
     "remote.push",
     "remote.fetch",
+    // Auth section
+    "auth.preferred_source",
+    "auth.allow_github_token_env",
+    "auth.allow_stax_token_env",
+    "auth.allow_credentials_file",
+    "auth.allow_gh_cli",
 ];
 
 /// Environment variable prefix for SCP config overrides.
@@ -119,12 +128,16 @@ pub fn validate_key(key: &str) -> Result<()> {
         msg.push_str("  session.auto_commit, session.commit_prefix, session.max_sessions\n");
         msg.push_str("  hooks.post_create, hooks.pre_remove, hooks.post_merge\n");
         msg.push_str("  agent.command\n");
-        msg.push_str("  vcs.type, vcs.default_branch\n");
+        msg.push_str("  vcs.type, vcs.default_branch, vcs.forge, vcs.branch_templates\n");
         msg.push_str("  workspace.directory, workspace.auto_rebase, workspace.auto_push\n");
         msg.push_str("  queue.default\n");
         msg.push_str("  logging.level\n");
         msg.push_str("  remote.push, remote.fetch\n");
         msg.push_str("  editor\n");
+        msg.push_str("  auth.preferred_source, auth.allow_github_token_env,\n");
+        msg.push_str(
+            "  auth.allow_stax_token_env, auth.allow_credentials_file, auth.allow_gh_cli\n",
+        );
         msg.push_str("\nUse 'scp config list' to see current configuration.");
         Err(ConfigErrorKind::ConfigParseError(msg).into())
     }
@@ -241,6 +254,8 @@ pub struct Config {
     pub session: super::config::SessionConfig,
     pub hooks: super::config::HooksConfig,
     pub agent: super::config::AgentConfig,
+    pub vcs: super::config::VcsConfig,
+    pub auth: super::config::AuthConfig,
     #[serde(skip)]
     sources: Vec<ConfigSource>,
 }
@@ -253,6 +268,8 @@ impl Config {
             session: super::config::SessionConfig::default(),
             hooks: super::config::HooksConfig::default(),
             agent: super::config::AgentConfig::default(),
+            vcs: super::config::VcsConfig::default(),
+            auth: super::config::AuthConfig::default(),
             sources: Vec::new(),
         }
     }

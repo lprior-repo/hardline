@@ -11,6 +11,7 @@ pub mod domain;
 pub mod error;
 pub mod storage;
 
+<<<<<<< HEAD
 pub use application::{CleanupReport, SnapshotService};
 pub use domain::snapshot::{Snapshot, SnapshotId};
 pub use error::{Result, SnapshotError};
@@ -26,3 +27,12 @@ pub use scp_receipt::{
     can_redo, can_undo, has_remote_changes, modified_branch_count, LocalRefEntry, OpError,
     OpKind, OpReceipt, OpStatus, PlanSummary, ReceiptError, ReceiptStore, RemoteRefEntry,
 };
+=======
+pub use domain::receipt::{
+    LocalRefEntry, OpError, OpKind, OpReceipt, OpStatus, PlanSummary, RemoteRefEntry,
+};
+pub use domain::receipt_calc::{can_redo, can_undo, has_remote_changes, modified_branch_count};
+pub use domain::snapshot::{Snapshot, SnapshotId};
+pub use error::{Result, SnapshotError};
+pub use storage::ReceiptStore;
+>>>>>>> polecat/beta

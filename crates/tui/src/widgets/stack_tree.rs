@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 use std::collections::HashSet;
 
+=======
+>>>>>>> polecat/beta
 use ratatui::{
     style::{Color, Style},
     text::{Line, Span},
@@ -16,7 +19,11 @@ pub struct TreeNode {
 }
 
 impl TreeNode {
+<<<<<<< HEAD
     pub(crate) fn prefix_symbols(&self) -> Vec<Span<'static>> {
+=======
+    fn prefix_symbols(&self) -> Vec<Span<'static>> {
+>>>>>>> polecat/beta
         let mut spans = Vec::new();
         for is_last in &self.ancestor_is_last {
             if *is_last {
@@ -55,13 +62,21 @@ impl StackTreeWidget {
         self
     }
 
+<<<<<<< HEAD
     pub(crate) fn build_tree_nodes(&self) -> Vec<TreeNode> {
+=======
+    fn build_tree_nodes(&self) -> Vec<TreeNode> {
+>>>>>>> polecat/beta
         if self.branches.is_empty() {
             return Vec::new();
         }
         let mut nodes = Vec::new();
+<<<<<<< HEAD
         let mut visited = HashSet::new();
         self.collect_root_nodes(&mut nodes, 0, &[], &mut visited);
+=======
+        self.collect_root_nodes(&mut nodes, 0, &[]);
+>>>>>>> polecat/beta
         nodes
     }
 
@@ -70,6 +85,7 @@ impl StackTreeWidget {
         nodes: &mut Vec<TreeNode>,
         depth: usize,
         ancestor_is_last: &[bool],
+<<<<<<< HEAD
         visited: &mut HashSet<usize>,
     ) {
         let roots: Vec<(usize, &StackBranch)> = self
@@ -84,6 +100,17 @@ impl StackTreeWidget {
             if !visited.insert(*branch_idx) {
                 continue;
             }
+=======
+    ) {
+        let roots: Vec<&StackBranch> = self
+            .branches
+            .iter()
+            .filter(|b| b.parent.is_none())
+            .collect();
+
+        let total = roots.len();
+        for (idx, root) in roots.iter().enumerate() {
+>>>>>>> polecat/beta
             let is_last = idx == total - 1;
             let mut new_ancestor = ancestor_is_last.to_vec();
             new_ancestor.push(is_last);
@@ -95,12 +122,17 @@ impl StackTreeWidget {
                 ancestor_is_last: new_ancestor.clone(),
             });
 
+<<<<<<< HEAD
             self.collect_children_of(*branch_idx, nodes, depth + 1, &new_ancestor, visited);
+=======
+            self.collect_children_of(root, nodes, depth + 1, &new_ancestor);
+>>>>>>> polecat/beta
         }
     }
 
     fn collect_children_of(
         &self,
+<<<<<<< HEAD
         parent_idx: usize,
         nodes: &mut Vec<TreeNode>,
         depth: usize,
@@ -113,10 +145,13 @@ impl StackTreeWidget {
 
     fn collect_children_of_inner(
         &self,
+=======
+>>>>>>> polecat/beta
         parent: &StackBranch,
         nodes: &mut Vec<TreeNode>,
         depth: usize,
         ancestor_is_last: &[bool],
+<<<<<<< HEAD
         visited: &mut std::collections::HashSet<String>,
     ) {
         if !visited.insert(parent.name.to_string()) {
@@ -139,6 +174,17 @@ impl StackTreeWidget {
             if !visited.insert(*branch_idx) {
                 continue;
             }
+=======
+    ) {
+        let children: Vec<&StackBranch> = self
+            .branches
+            .iter()
+            .filter(|b| b.parent.as_ref() == Some(&parent.name))
+            .collect();
+
+        let total = children.len();
+        for (idx, child) in children.iter().enumerate() {
+>>>>>>> polecat/beta
             let is_last = idx == total - 1;
             let mut new_ancestor = ancestor_is_last.to_vec();
             new_ancestor.push(is_last);
@@ -151,6 +197,7 @@ impl StackTreeWidget {
             });
 
 <<<<<<< HEAD
+<<<<<<< HEAD
             self.collect_children_of_inner(child, nodes, depth + 1, &new_ancestor, visited);
 =======
             self.collect_children_of(*branch_idx, nodes, depth + 1, &new_ancestor, visited);
@@ -159,6 +206,13 @@ impl StackTreeWidget {
     }
 
     pub(crate) fn branch_indicator(branch: &StackBranch) -> (&'static str, Color) {
+=======
+            self.collect_children_of(child, nodes, depth + 1, &new_ancestor);
+        }
+    }
+
+    fn branch_indicator(branch: &StackBranch) -> (&'static str, Color) {
+>>>>>>> polecat/beta
         if branch.needs_restack {
             ("⚑", Color::Red)
         } else if branch.pr_info.is_some() {
@@ -168,7 +222,11 @@ impl StackTreeWidget {
         }
     }
 
+<<<<<<< HEAD
     pub(crate) fn pr_state_symbol(state: &PrState) -> &'static str {
+=======
+    fn pr_state_symbol(state: &PrState) -> &'static str {
+>>>>>>> polecat/beta
         match state {
             PrState::Open => "○",
             PrState::Merged => "◆",
@@ -176,11 +234,19 @@ impl StackTreeWidget {
         }
     }
 
+<<<<<<< HEAD
     pub(crate) fn format_branch_name(branch: &StackBranch) -> String {
         branch.name.to_string()
     }
 
     pub(crate) fn format_pr_info(pr_info: &PrInfo) -> String {
+=======
+    fn format_branch_name(branch: &StackBranch) -> String {
+        branch.name.to_string()
+    }
+
+    fn format_pr_info(pr_info: &PrInfo) -> String {
+>>>>>>> polecat/beta
         format!(
             " (#{} {})",
             pr_info.number,
@@ -420,6 +486,7 @@ mod tests {
         let debug = format!("{:?}", widget);
         assert!(debug.contains("StackTreeWidget"));
     }
+<<<<<<< HEAD
 
     #[test]
     fn stack_tree_widget_cycle_detection() {
@@ -874,4 +941,6 @@ mod tests {
             );
         }
     }
+=======
+>>>>>>> polecat/beta
 }

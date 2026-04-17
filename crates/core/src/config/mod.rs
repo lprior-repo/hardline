@@ -26,7 +26,7 @@ pub use command_types::{
     set_nested_value, set_port, ConfigGetResult, ConfigKey, ConfigReadPort, ConfigSetResult,
     FileConfigReadPort, KNOWN_CONFIG_KEYS, KNOWN_SECTION_PREFIXES,
 };
-pub use config::{AgentConfig, ConflictResolutionConfig, HooksConfig, SessionConfig};
+pub use config::{AgentConfig, AuthConfig, BranchTemplate, ConflictResolutionConfig, HooksConfig, SessionConfig, VcsConfig};
 pub use config_core::{
     config_dir, get_repo_name, global_config, keys, substitute_placeholders, validate_key, Config,
     ConfigManager, ConfigScope, ConfigSource, ConfigValue, WatchConfig, ENV_PREFIX,
@@ -34,6 +34,7 @@ pub use config_core::{
 };
 pub use config_watcher::{validate_config_file, HotReloadConfigManager, MAX_CONFIG_FILE_SIZE};
 pub use partial::{
-    PartialAgentConfig, PartialConflictResolutionConfig, PartialHooksConfig, PartialSessionConfig,
+    PartialAgentConfig, PartialAuthConfig, PartialConflictResolutionConfig, PartialHooksConfig,
+    PartialSessionConfig, PartialVcsConfig,
 };
-pub use types::ConflictMode;
+pub use types::{AuthSourceType, ConflictMode, ForgeType};

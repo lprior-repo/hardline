@@ -15,6 +15,7 @@ const SHELL_METACHARACTERS: &str = "$`|&<>\n\r\x00";
 /// Unique queue entry identifier
 ///
 /// Wrapper around a String that ensures non-empty values.
+/// Supports UUID-based generation with "queue-" prefix.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct QueueEntryId(String);
 
@@ -29,11 +30,34 @@ impl QueueEntryId {
 
     /// Create a new queue entry ID with validation.
     ///
+    /// Trims whitespace and rejects empty/whitespace-only strings.
+    ///
     /// # Errors
     /// Returns `ValidationError::EmptyValue` if the ID is empty.
     pub fn new(id: impl Into<String>) -> ValidationResult<Self> {
         let id = id.into();
         if id.trim().is_empty() {
+            Err(ValidationError::EmptyValue("QueueEntryId".to_string()))
+        } else {
+            Ok(Self(id))
+        }
+    }
+
+    /// Generate a new unique queue entry ID with "queue-" prefix.
+    #[must_use]
+    pub fn generate() -> Self {
+        Self(format!("queue-{}", uuid::Uuid::new_v4()))
+    }
+
+    /// Parse a queue entry ID string, rejecting empty values.
+    ///
+    /// Unlike `new`, this does not trim whitespace — it preserves the raw value.
+    ///
+    /// # Errors
+    /// Returns `ValidationError::EmptyValue` if the ID is empty.
+    pub fn parse(id: impl Into<String>) -> ValidationResult<Self> {
+        let id = id.into();
+        if id.is_empty() {
             Err(ValidationError::EmptyValue("QueueEntryId".to_string()))
         } else {
             Ok(Self(id))

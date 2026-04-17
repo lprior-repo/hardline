@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 use std::io::{self, Stdout};
 
 use crossterm::{
@@ -28,6 +29,13 @@ use crate::widgets::diff::DiffLine;
 use scp_stack::domain::StackBranch;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+=======
+use crate::error::Result;
+use crate::views::WorktreeView;
+use scp_stack::domain::StackBranch;
+
+#[derive(Debug, PartialEq)]
+>>>>>>> polecat/beta
 pub enum FocusedPane {
     Stack,
     Diff,
@@ -81,11 +89,16 @@ pub struct TuiApp {
     pub mode: Mode,
     pub needs_refresh: bool,
     pub should_quit: bool,
+<<<<<<< HEAD
     pub status_message: String,
     pub worktree_view: WorktreeView,
     pub stack_branches: Vec<StackBranch>,
     pub diff_lines: Vec<DiffLine>,
     branch_provider: Box<dyn BranchProvider>,
+=======
+    pub worktree_view: WorktreeView,
+    pub stack_branches: Vec<StackBranch>,
+>>>>>>> polecat/beta
 }
 
 impl TuiApp {
@@ -95,11 +108,16 @@ impl TuiApp {
             mode: Mode::Normal,
             needs_refresh: true,
             should_quit: false,
+<<<<<<< HEAD
             status_message: String::new(),
             worktree_view: WorktreeView::default(),
             stack_branches: Vec::new(),
             diff_lines: Vec::new(),
             branch_provider,
+=======
+            worktree_view: WorktreeView::default(),
+            stack_branches: Vec::new(),
+>>>>>>> polecat/beta
         })
     }
 

@@ -2,12 +2,99 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-//! Conflict resolution types
+//! Configuration types for VCS, Auth, and Conflict Resolution
 
 use crate::error_config::ConfigErrorKind;
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ForgeType {
+    Github,
+    Gitlab,
+    Gitea,
+}
+
+impl ForgeType {
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Self::Github => "github",
+            Self::Gitlab => "gitlab",
+            Self::Gitea => "gitea",
+        }
+    }
+}
+
+impl Default for ForgeType {
+    fn default() -> Self {
+        Self::Github
+    }
+}
+
+impl FromStr for ForgeType {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "github" => Ok(Self::Github),
+            "gitlab" => Ok(Self::Gitlab),
+            "gitea" => Ok(Self::Gitea),
+            _ => Err(ConfigErrorKind::Invalid(format!("Invalid forge type: {s}")).into()),
+        }
+    }
+}
+
+impl std::fmt::Display for ForgeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.display_name())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthSourceType {
+    StaxGithubTokenEnv,
+    CredentialsFile,
+    GhCli,
+    GithubTokenEnv,
+}
+
+impl AuthSourceType {
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Self::StaxGithubTokenEnv => "STAX_GITHUB_TOKEN",
+            Self::CredentialsFile => "credentials_file",
+            Self::GhCli => "gh_cli",
+            Self::GithubTokenEnv => "GITHUB_TOKEN",
+        }
+    }
+}
+
+impl Default for AuthSourceType {
+    fn default() -> Self {
+        Self::GhCli
+    }
+}
+
+impl FromStr for AuthSourceType {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "stax_github_token_env" | "stax" => Ok(Self::StaxGithubTokenEnv),
+            "credentials_file" | "credentials" => Ok(Self::CredentialsFile),
+            "gh_cli" | "gh" => Ok(Self::GhCli),
+            "github_token_env" | "github_token" => Ok(Self::GithubTokenEnv),
+            _ => Err(ConfigErrorKind::Invalid(format!("Invalid auth source: {s}")).into()),
+        }
+    }
+}
+
+impl std::fmt::Display for AuthSourceType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.display_name())
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

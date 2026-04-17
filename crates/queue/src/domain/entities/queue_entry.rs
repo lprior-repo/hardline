@@ -12,7 +12,11 @@ use std::marker::PhantomData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+<<<<<<< HEAD
 use crate::domain::queue::status::QueueStatus;
+=======
+use crate::domain::identifiers::QueueEntryId;
+>>>>>>> polecat/beta
 use crate::domain::value_objects::{Priority, QueuePosition};
 use crate::error::QueueError;
 
@@ -24,34 +28,6 @@ pub use crate::domain::identifiers::QueueEntryId;
 <<<<<<< HEAD
 =======
 pub use crate::domain::queue::status::QueueStatus;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct QueueEntryId(String);
-
-impl QueueEntryId {
-    #[must_use]
-    pub fn generate() -> Self {
-        Self(format!("queue-{}", uuid::Uuid::new_v4()))
-    }
-
-    pub fn parse(id: String) -> Result<Self, QueueError> {
-        if id.is_empty() {
-            return Err(QueueError::InvalidQueueEntryId("empty id".into()));
-        }
-        Ok(Self(id))
-    }
-
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl Default for QueueEntryId {
-    fn default() -> Self {
-        Self::generate()
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 >>>>>>> polecat/kappa
@@ -894,15 +870,25 @@ mod tests {
     }
 
     #[test]
+<<<<<<< HEAD
     fn queue_entry_id_new_valid() {
         let id = QueueEntryId::new("my-id");
+=======
+    fn queue_entry_id_parse_valid() {
+        let id = QueueEntryId::parse(String::from("my-id"));
+>>>>>>> polecat/beta
         assert!(id.is_ok());
         assert_eq!(id.unwrap().as_str(), "my-id");
     }
 
     #[test]
+<<<<<<< HEAD
     fn queue_entry_id_new_empty_rejected() {
         let result = QueueEntryId::new("");
+=======
+    fn queue_entry_id_parse_empty_rejected() {
+        let result = QueueEntryId::parse(String::from(""));
+>>>>>>> polecat/beta
         assert!(result.is_err());
     }
 
