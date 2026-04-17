@@ -54,7 +54,7 @@ fn has_invalid_branch_syntax(name: &str) -> bool {
         return true;
     }
 
-    if name.starts_with('/') || name.ends_with('/') || name.ends_with('.') {
+    if name.starts_with('/') || name.starts_with('-') || name.ends_with('/') || name.ends_with('.') {
         return true;
     }
 
@@ -259,6 +259,21 @@ mod tests {
     }
 
     #[test]
+    fn branch_name_single_hyphen_rejects() {
+        assert!(matches!(BranchName::new("-"), Err(VcsError::InvalidBranchName(_))));
+    }
+
+    #[test]
+    fn branch_name_leading_hyphen_rejects() {
+        assert!(matches!(BranchName::new("-foo"), Err(VcsError::InvalidBranchName(_))));
+    }
+
+    #[test]
+    fn branch_name_leading_double_hyphen_rejects() {
+        assert!(matches!(BranchName::new("--verbose"), Err(VcsError::InvalidBranchName(_))));
+    }
+
+    #[test]
     fn branch_name_lock_extension_rejects() {
         assert!(matches!(BranchName::new("test.LOCK"), Err(VcsError::InvalidBranchName(_))));
     }
@@ -361,6 +376,9 @@ mod tests {
     #[test]
     fn has_invalid_branch_syntax_invalid_cases() {
         assert!(has_invalid_branch_syntax("@"));
+        assert!(has_invalid_branch_syntax("-"));
+        assert!(has_invalid_branch_syntax("-foo"));
+        assert!(has_invalid_branch_syntax("--verbose"));
         assert!(has_invalid_branch_syntax("/main"));
         assert!(has_invalid_branch_syntax("main/"));
         assert!(has_invalid_branch_syntax("main."));

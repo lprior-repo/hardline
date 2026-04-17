@@ -93,7 +93,29 @@ impl Change {
 
 /// Check if a string is effectively empty (helper for Change validation)
 fn is_effectively_empty_for_change(s: &str) -> bool {
-    s.trim().is_empty()
+    if s.trim().is_empty() {
+        return true;
+    }
+    s.chars().all(|c| c.is_whitespace() || is_invisible_char(c))
+}
+
+fn is_invisible_char(c: char) -> bool {
+    matches!(
+        c,
+        '\u{FEFF}'
+            | '\u{200B}'
+            | '\u{200C}'
+            | '\u{200D}'
+            | '\u{2060}'
+            | '\u{00AD}'
+            | '\u{034F}'
+            | '\u{061C}'
+            | '\u{180E}'
+            | '\u{200E}'
+            | '\u{200F}'
+            | '\u{115F}'
+            | '\u{1160}'
+    )
 }
 
 // ============================================================================
@@ -185,6 +207,21 @@ mod tests {
     fn change_new_whitespace_author_rejects() {
         let id = ChangeId::from_git_sha("abc123def456").expect("valid sha");
         let result = Change::new(id, "Message", "   ", Utc::now());
+        assert_eq!(result, Err(ChangeError::EmptyAuthor));
+    }
+
+    #[test]
+    fn change_new_invisible_char_message_rejects() {
+        let id = ChangeId::from_git_sha("abc123def456").expect("valid sha");
+        // Zero-width space only — not caught by trim()
+        let result = Change::new(id, "\u{200B}", "Author", Utc::now());
+        assert_eq!(result, Err(ChangeError::EmptyMessage));
+    }
+
+    #[test]
+    fn change_new_invisible_char_author_rejects() {
+        let id = ChangeId::from_git_sha("abc123def456").expect("valid sha");
+        let result = Change::new(id, "Message", "\u{FEFF}", Utc::now());
         assert_eq!(result, Err(ChangeError::EmptyAuthor));
     }
 

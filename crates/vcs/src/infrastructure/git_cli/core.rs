@@ -138,6 +138,11 @@ impl GitCliBackend {
 
         if let Some(ref mut stdin) = child.stdin {
             stdin.write_all(input.as_bytes()).map_err(VcsError::Io)?;
+        } else {
+            return Err(VcsError::Io(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "failed to open stdin for git command",
+            )));
         }
 
         let output = child.wait_with_output().map_err(VcsError::Io)?;
@@ -157,7 +162,7 @@ impl GitCliBackend {
     pub(crate) fn parse_timestamp(timestamp: i64) -> DateTime<Utc> {
         Utc.timestamp_opt(timestamp, 0)
             .single()
-            .unwrap_or_else(Utc::now)
+            .unwrap_or(DateTime::<Utc>::MIN_UTC)
     }
 }
 
@@ -268,13 +273,20 @@ mod tests {
     fn parse_timestamp_negative() {
         // Negative timestamps represent times before Unix epoch
         let ts = GitCliBackend::parse_timestamp(-1);
-        // Should still produce a valid DateTime (fallback to Utc::now)
-        assert!(ts.timestamp() <= 0 || ts.timestamp() > 0);
+        assert_eq!(ts.timestamp(), -1);
     }
 
     #[test]
     fn parse_timestamp_far_future() {
         let ts = GitCliBackend::parse_timestamp(999_999_999_999);
-        assert!(ts.timestamp() > 0);
+        // Far-future timestamps are valid for chrono (year 33658)
+        assert_eq!(ts.timestamp(), 999_999_999_999);
+    }
+
+    #[test]
+    fn parse_timestamp_out_of_range_falls_back_to_min() {
+        // i64::MAX is out of range for chrono — falls back to MIN_UTC
+        let ts = GitCliBackend::parse_timestamp(i64::MAX);
+        assert_eq!(ts, DateTime::<Utc>::MIN_UTC);
     }
 }
