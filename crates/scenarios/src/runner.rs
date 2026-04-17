@@ -302,7 +302,13 @@ impl ScenarioRunner {
         let (key, index) = Self::parse_path_segment(part)?;
 
         match value {
-            Value::Object(map) => map.get(key).cloned(),
+            Value::Object(map) => {
+                let inner = map.get(key)?;
+                match (index, inner) {
+                    (Some(idx), Value::Array(arr)) => arr.get(idx).cloned(),
+                    _ => Some(inner.clone()),
+                }
+            }
             Value::Array(arr) => {
                 let idx = index.map_or(0, |i| i);
                 arr.get(idx).cloned()
@@ -468,6 +474,28 @@ mod tests {
 
         let result = ScenarioRunner::extract_json_path(&value, "nested.deep");
         assert_eq!(result, Some(serde_json::json!("value")));
+    }
+
+    #[test]
+    fn test_json_path_nested_array_with_object() {
+        let value = serde_json::json!({
+            "users": [
+                {"name": "Alice", "role": "admin"},
+                {"name": "Bob", "role": "user"}
+            ]
+        });
+
+        let result = ScenarioRunner::extract_json_path(&value, "$.users[0].name");
+        assert_eq!(result, Some(serde_json::json!("Alice")));
+
+        let result = ScenarioRunner::extract_json_path(&value, "$.users[1].role");
+        assert_eq!(result, Some(serde_json::json!("user")));
+
+        let result = ScenarioRunner::extract_json_path(&value, "$.users[0]");
+        assert_eq!(
+            result,
+            Some(serde_json::json!({"name": "Alice", "role": "admin"}))
+        );
     }
 
     #[tokio::test]
