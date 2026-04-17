@@ -67,14 +67,12 @@ pub fn dequeue() -> Result<()> {
     }
 }
 
-/// Process next item in queue
-pub fn process(checks: bool) -> Result<()> {
-    let queue = get_queue();
-
-    // Acquire lock
-    let lock = Arc::new(MemLockManager::new()) as Arc<dyn LockManager>;
-    let _guard = lock.acquire(LockType::Queue("default".into()), "scp")?;
-
+/// Process next item in queue using a provided VCS backend (testable core).
+pub fn process_with_backend(
+    queue: &dyn scp_core::queue::QueueManager,
+    backend: &dyn scp_core::vcs::VcsBackend,
+    checks: bool,
+) -> Result<()> {
     let mut item = match queue.dequeue()? {
         Some(i) => i,
         None => return Err(scp_core::Error::queue_empty()),
@@ -82,39 +80,31 @@ pub fn process(checks: bool) -> Result<()> {
 
     println!("Processing '{}'...", item.branch);
 
-    let cwd = std::env::current_dir()?;
-    let backend = vcs::create_backend(&cwd)?;
-
-    // Mark as processing
-    item.start_processing();
-    queue.update(item.clone())?;
-
     // Pre-flight checks
     if checks {
         println!("  Running pre-flight checks...");
 
-        // Check working copy is clean
         match backend.status()? {
             VcsStatus::Clean => println!("    ✓ Working copy clean"),
             VcsStatus::Dirty => {
                 let msg = "working copy has uncommitted changes".to_string();
                 println!("    ✗ {}", msg);
                 item.fail(msg.clone());
-                queue.update(item.clone())?;
+                queue.enqueue(item)?;
                 return Err(scp_core::Error::working_copy_dirty());
             }
             VcsStatus::Conflicted => {
                 let msg = "working copy has merge conflicts".to_string();
                 println!("    ✗ {}", msg);
                 item.fail(msg.clone());
-                queue.update(item.clone())?;
+                queue.enqueue(item)?;
                 return Err(scp_core::Error::vcs_conflict("working copy", "pre-flight"));
             }
             VcsStatus::Detached => {
                 let msg = "detached HEAD — cannot process queue".to_string();
                 println!("    ✗ {}", msg);
                 item.fail(msg.clone());
-                queue.update(item.clone())?;
+                queue.enqueue(item)?;
                 return Err(scp_core::Error::invalid_state(msg));
             }
         }
@@ -123,11 +113,12 @@ pub fn process(checks: bool) -> Result<()> {
         let branches = backend.list_branches()?;
         let branch_exists = branches.iter().any(|b| b.name == item.branch);
         if !branch_exists {
-            let msg = format!("branch '{}' not found", item.branch);
+            let branch_name = item.branch.clone();
+            let msg = format!("branch '{}' not found", branch_name);
             println!("    ✗ {}", msg);
             item.fail(msg.clone());
-            queue.update(item.clone())?;
-            return Err(scp_core::Error::branch_not_found(item.branch.clone()));
+            queue.enqueue(item)?;
+            return Err(scp_core::Error::branch_not_found(branch_name));
         }
         println!("    ✓ Branch '{}' exists", item.branch);
     }
@@ -137,10 +128,9 @@ pub fn process(checks: bool) -> Result<()> {
     if let Err(e) = backend.merge(&item.branch) {
         let msg = format!("merge failed: {}", e);
         println!("  ✗ {}", msg);
-        // Abort the merge to restore clean state
         let _ = backend.merge("--abort");
         item.fail(msg.clone());
-        queue.update(item.clone())?;
+        queue.enqueue(item)?;
         return Err(e);
     }
     println!("  ✓ Merge successful");
@@ -151,17 +141,27 @@ pub fn process(checks: bool) -> Result<()> {
         let msg = format!("push failed: {}", e);
         println!("  ✗ {}", msg);
         item.fail(msg.clone());
-        queue.update(item.clone())?;
+        queue.enqueue(item)?;
         return Err(e);
     }
     println!("  ✓ Push successful");
 
-    // Mark complete
-    item.complete();
-    queue.update(item.clone())?;
-
     println!("✓ Processed '{}'", item.branch);
     Ok(())
+}
+
+/// Process next item in queue
+pub fn process(checks: bool) -> Result<()> {
+    let queue = get_queue();
+
+    // Acquire lock
+    let lock = Arc::new(MemLockManager::new()) as Arc<dyn LockManager>;
+    let _guard = lock.acquire(LockType::Queue("default".into()), "scp")?;
+
+    let cwd = std::env::current_dir()?;
+    let backend = vcs::create_backend(&cwd)?;
+
+    process_with_backend(queue.as_ref(), backend.as_ref(), checks)
 }
 
 /// Insert item at position
@@ -224,6 +224,306 @@ pub fn parse_priority(priority: &str) -> Priority {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use scp_core::vcs::{Branch, Commit, CommitId, RepoStatus, VcsStatus, Workspace};
+
+    // ── Mock VCS backend for testing ──────────────────────────────────────
+
+    struct MockVcsBackend {
+        status_result: VcsStatus,
+        branches: Vec<Branch>,
+        merge_should_fail: bool,
+        push_should_fail: bool,
+        merge_calls: std::sync::Mutex<Vec<String>>,
+    }
+
+    impl MockVcsBackend {
+        fn clean_with_branch(branch: &str) -> Self {
+            Self {
+                status_result: VcsStatus::Clean,
+                branches: vec![Branch {
+                    name: branch.to_string(),
+                    is_current: false,
+                    tracking: None,
+                }],
+                merge_should_fail: false,
+                push_should_fail: false,
+                merge_calls: std::sync::Mutex::new(vec![]),
+            }
+        }
+
+        fn merge_calls(&self) -> Vec<String> {
+            self.merge_calls.lock().unwrap().clone()
+        }
+    }
+
+    impl scp_core::vcs::VcsBackend for MockVcsBackend {
+        fn current_branch(&self) -> scp_core::Result<String> {
+            Ok("main".to_string())
+        }
+        fn list_branches(&self) -> scp_core::Result<Vec<Branch>> {
+            Ok(self.branches.clone())
+        }
+        fn create_branch(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
+        fn switch_branch(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
+        fn push(&self) -> scp_core::Result<()> {
+            if self.push_should_fail {
+                Err(scp_core::Error::invalid_state("push rejected"))
+            } else {
+                Ok(())
+            }
+        }
+        fn pull(&self) -> scp_core::Result<()> { Ok(()) }
+        fn rebase(&self, _onto: &str) -> scp_core::Result<()> { Ok(()) }
+        fn merge(&self, branch: &str) -> scp_core::Result<()> {
+            self.merge_calls.lock().unwrap().push(branch.to_string());
+            if self.merge_should_fail {
+                Err(scp_core::Error::vcs_conflict(
+                    branch.to_string(),
+                    "conflict in src/main.rs".to_string(),
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        fn log(&self, _limit: usize) -> scp_core::Result<Vec<Commit>> { Ok(vec![]) }
+        fn status(&self) -> scp_core::Result<VcsStatus> { Ok(self.status_result.clone()) }
+        fn is_initialized(&self) -> scp_core::Result<bool> { Ok(true) }
+        fn repo_exists(&self, _path: &str) -> bool { true }
+        fn checkout(&self, _target: &str) -> scp_core::Result<()> { Ok(()) }
+        fn commit(&self, _message: &str) -> scp_core::Result<CommitId> {
+            Ok(CommitId::from_unchecked("abc123"))
+        }
+        fn diff(&self, _from: &CommitId, _to: &CommitId) -> scp_core::Result<String> {
+            Ok(String::new())
+        }
+        fn repo_status(&self) -> scp_core::Result<RepoStatus> { Ok(RepoStatus::clean()) }
+        fn create_workspace(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
+        fn switch_workspace(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
+        fn list_workspaces(&self) -> scp_core::Result<Vec<Workspace>> { Ok(vec![]) }
+        fn delete_workspace(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
+        fn fork_workspace(&self, _src: &str, _tgt: &str) -> scp_core::Result<()> { Ok(()) }
+        fn merge_workspace(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
+        fn abort_workspace(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
+    }
+
+    fn make_queue() -> Arc<dyn scp_core::queue::QueueManager> {
+        let lock = Arc::new(MemLockManager::new()) as Arc<dyn LockManager>;
+        Arc::new(MemQueue::new(lock))
+    }
+
+    fn enqueue_branch(queue: &dyn scp_core::queue::QueueManager, branch: &str) {
+        queue
+            .enqueue(scp_core::queue::QueueItem::direct(branch))
+            .unwrap();
+    }
+
+    // ── process_with_backend: happy path ──────────────────────────────────
+
+    #[test]
+    fn process_succeeds_with_checks_clean_and_branch_exists() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "feature-x");
+        let backend = MockVcsBackend::clean_with_branch("feature-x");
+
+        let result = process_with_backend(queue.as_ref(), &backend, true);
+        assert!(result.is_ok(), "process should succeed: {:?}", result.err());
+    }
+
+    #[test]
+    fn process_succeeds_without_checks() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "feature-y");
+        let backend = MockVcsBackend::clean_with_branch("feature-y");
+
+        let result = process_with_backend(queue.as_ref(), &backend, false);
+        assert!(result.is_ok(), "process without checks should succeed");
+    }
+
+    #[test]
+    fn process_calls_merge_then_push() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "merge-push-test");
+        let backend = MockVcsBackend::clean_with_branch("merge-push-test");
+
+        process_with_backend(queue.as_ref(), &backend, false).unwrap();
+
+        let calls = backend.merge_calls();
+        assert_eq!(calls, vec!["merge-push-test"]);
+    }
+
+    #[test]
+    fn process_marks_item_completed_on_success() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "complete-test");
+        let backend = MockVcsBackend::clean_with_branch("complete-test");
+
+        process_with_backend(queue.as_ref(), &backend, false).unwrap();
+
+        // Queue should be empty (item dequeued, completed, updated)
+        let pending = queue.list_pending().unwrap();
+        assert!(pending.is_empty(), "no pending items after success");
+    }
+
+    #[test]
+    fn process_empty_queue_returns_error() {
+        let queue = make_queue();
+        let backend = MockVcsBackend::clean_with_branch("any");
+
+        let result = process_with_backend(queue.as_ref(), &backend, false);
+        assert!(result.is_err());
+    }
+
+    // ── Pre-flight check: dirty working copy ──────────────────────────────
+
+    #[test]
+    fn process_checks_fails_on_dirty_working_copy() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "dirty-test");
+        let mut backend = MockVcsBackend::clean_with_branch("dirty-test");
+        backend.status_result = VcsStatus::Dirty;
+
+        let result = process_with_backend(queue.as_ref(), &backend, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn process_checks_fails_on_conflicted_working_copy() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "conflict-test");
+        let mut backend = MockVcsBackend::clean_with_branch("conflict-test");
+        backend.status_result = VcsStatus::Conflicted;
+
+        let result = process_with_backend(queue.as_ref(), &backend, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn process_checks_fails_on_detached_head() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "detached-test");
+        let mut backend = MockVcsBackend::clean_with_branch("detached-test");
+        backend.status_result = VcsStatus::Detached;
+
+        let result = process_with_backend(queue.as_ref(), &backend, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn process_checks_fails_when_branch_not_found() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "missing-branch");
+        // Backend has no branches
+        let backend = MockVcsBackend {
+            status_result: VcsStatus::Clean,
+            branches: vec![],
+            merge_should_fail: false,
+            push_should_fail: false,
+            merge_calls: std::sync::Mutex::new(vec![]),
+        };
+
+        let result = process_with_backend(queue.as_ref(), &backend, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn process_checks_does_not_merge_when_branch_missing() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "no-merge-branch");
+        let backend = MockVcsBackend {
+            status_result: VcsStatus::Clean,
+            branches: vec![],
+            merge_should_fail: false,
+            push_should_fail: false,
+            merge_calls: std::sync::Mutex::new(vec![]),
+        };
+
+        let _ = process_with_backend(queue.as_ref(), &backend, true);
+
+        // Merge should never have been called
+        assert!(backend.merge_calls().is_empty());
+    }
+
+    // ── Merge failure: rollback ───────────────────────────────────────────
+
+    #[test]
+    fn process_merge_failure_marks_item_failed() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "merge-fail");
+        let mut backend = MockVcsBackend::clean_with_branch("merge-fail");
+        backend.merge_should_fail = true;
+
+        let result = process_with_backend(queue.as_ref(), &backend, false);
+        assert!(result.is_err());
+
+        // Item should be in queue as failed
+        let all = queue.list().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].status, scp_core::queue::QueueStatus::Failed);
+        assert!(all[0].last_error.is_some());
+    }
+
+    #[test]
+    fn process_merge_failure_attempts_abort() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "abort-test");
+        let mut backend = MockVcsBackend::clean_with_branch("abort-test");
+        backend.merge_should_fail = true;
+
+        let _ = process_with_backend(queue.as_ref(), &backend, false);
+
+        let calls = backend.merge_calls();
+        // First call: merge branch, second call: merge --abort
+        assert_eq!(calls, vec!["abort-test", "--abort"]);
+    }
+
+    // ── Push failure ──────────────────────────────────────────────────────
+
+    #[test]
+    fn process_push_failure_marks_item_failed() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "push-fail");
+        let mut backend = MockVcsBackend::clean_with_branch("push-fail");
+        backend.push_should_fail = true;
+
+        let result = process_with_backend(queue.as_ref(), &backend, false);
+        assert!(result.is_err());
+
+        let all = queue.list().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].status, scp_core::queue::QueueStatus::Failed);
+        assert!(all[0].last_error.as_ref().unwrap().contains("push failed"));
+    }
+
+    #[test]
+    fn process_push_failure_does_not_abort_merge() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "push-no-abort");
+        let mut backend = MockVcsBackend::clean_with_branch("push-no-abort");
+        backend.push_should_fail = true;
+
+        let _ = process_with_backend(queue.as_ref(), &backend, false);
+
+        let calls = backend.merge_calls();
+        // Only one merge call (the actual merge), no --abort
+        assert_eq!(calls, vec!["push-no-abort"]);
+    }
+
+    // ── Dirty check failure does not attempt merge ────────────────────────
+
+    #[test]
+    fn process_dirty_check_does_not_attempt_merge_or_push() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "dirty-no-merge");
+        let mut backend = MockVcsBackend::clean_with_branch("dirty-no-merge");
+        backend.status_result = VcsStatus::Dirty;
+
+        let _ = process_with_backend(queue.as_ref(), &backend, true);
+
+        // No merge calls at all — pre-flight stopped us
+        assert!(backend.merge_calls().is_empty());
+    }
+
+    // ── parse_priority tests ──────────────────────────────────────────────
 
     #[test]
     fn parse_priority_low() {
