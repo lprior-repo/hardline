@@ -14,6 +14,9 @@ pub enum BeadError {
     #[error("Invalid title: {0}")]
     InvalidTitle(String),
 
+    #[error("Invalid description: {0}")]
+    InvalidDescription(String),
+
     #[error("Invalid state transition: {from} -> {to}")]
     InvalidStateTransition { from: String, to: String },
 
@@ -150,6 +153,7 @@ mod tests {
         let _ = BeadError::AlreadyExists(String::new());
         let _ = BeadError::InvalidId(String::new());
         let _ = BeadError::InvalidTitle(String::new());
+        let _ = BeadError::InvalidDescription(String::new());
         let _ = BeadError::InvalidStateTransition {
             from: String::new(),
             to: String::new(),
