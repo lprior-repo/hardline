@@ -31,7 +31,8 @@ impl GitHubClientImpl {
     }
 
     fn block_on<F: std::future::Future>(&self, f: F) -> F::Output {
-        let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
+        #[allow(clippy::expect_used)]
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
         rt.block_on(f)
     }
 }
@@ -118,7 +119,7 @@ impl GitHubClientTrait for GitHubClientImpl {
                 self.client
                     .pulls(&self.owner, &self.repo)
                     .list()
-                    .head(&format!("{}:{}", self.owner, branch_name))
+                    .head(format!("{}:{}", self.owner, branch_name))
                     .send(),
             )
             .map_err(|e| StackError::GitHubError(e.to_string()))?;
@@ -128,7 +129,9 @@ impl GitHubClientTrait for GitHubClientImpl {
         }
 
         Ok(Some(pr_from_octocrab(
-            pulls.items.into_iter().next().expect("item"),
+            pulls.items.into_iter().next().ok_or_else(|| {
+                StackError::GitHubError("Expected at least one PR result".to_string())
+            })?,
         )))
     }
 
