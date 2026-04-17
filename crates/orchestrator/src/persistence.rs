@@ -119,6 +119,36 @@ impl StateStore {
         Ok(())
     }
 
+    /// Mutate a pipeline in-place and persist to disk in a single operation.
+    /// Eliminates the need for get_mut → clone → update pattern.
+    /// If the closure returns an error, the mutation is not persisted.
+    pub fn mutate_and_persist<E>(
+        &mut self,
+        id: &PipelineId,
+        f: impl FnOnce(&mut Pipeline) -> Result<(), E>,
+    ) -> Result<Result<(), E>, StoreError> {
+        if !self.cache.contains_key(&id.0) {
+            return Err(StoreError::NotFound(id.0.clone()));
+        }
+
+        let pipeline = self
+            .cache
+            .get_mut(&id.0)
+            .ok_or_else(|| StoreError::NotFound(id.0.clone()))?;
+        if let Err(e) = f(pipeline) {
+            return Ok(Err(e));
+        }
+
+        // mutable borrow ends, re-borrow immutably for save
+        let pipeline = self
+            .cache
+            .get(&id.0)
+            .ok_or_else(|| StoreError::NotFound(id.0.clone()))?;
+        self.save_single(pipeline)?;
+        self.dirty = true;
+        Ok(Ok(()))
+    }
+
     pub fn delete(&mut self, id: &PipelineId) -> Result<(), StoreError> {
         let path = self.state_file_path(id);
         if path.exists() {
