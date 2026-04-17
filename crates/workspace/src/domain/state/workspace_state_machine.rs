@@ -452,6 +452,281 @@ mod tests {
         }
     }
 
+    // --- Table-driven tests for all valid and invalid transitions ---
+
+    /// Struct representing a transition test case: given a from-state, apply a transition
+    /// and verify the to-state (or expect failure).
+    struct TransitionCase {
+        label: &'static str,
+        from: WorkspaceState,
+        to: WorkspaceState,
+        expect_valid: bool,
+    }
+
+    /// Exhaustive table of ALL state machine transitions.
+    /// Every (from, to) pair from the 5-state enum is covered.
+    fn all_transition_cases() -> Vec<TransitionCase> {
+        let states = [
+            WorkspaceState::Initializing,
+            WorkspaceState::Active,
+            WorkspaceState::Locked,
+            WorkspaceState::Corrupted,
+            WorkspaceState::Deleted,
+        ];
+        // Valid transitions from the can_transition matches:
+        // Init→Active, Active→Locked, Locked→Active, Active→Corrupted,
+        // Locked→Corrupted, _→Deleted
+        let valid_set: Vec<(WorkspaceState, WorkspaceState)> = vec![
+            (WorkspaceState::Initializing, WorkspaceState::Active),
+            (WorkspaceState::Initializing, WorkspaceState::Deleted),
+            (WorkspaceState::Active, WorkspaceState::Locked),
+            (WorkspaceState::Active, WorkspaceState::Corrupted),
+            (WorkspaceState::Active, WorkspaceState::Deleted),
+            (WorkspaceState::Locked, WorkspaceState::Active),
+            (WorkspaceState::Locked, WorkspaceState::Corrupted),
+            (WorkspaceState::Locked, WorkspaceState::Deleted),
+            (WorkspaceState::Corrupted, WorkspaceState::Deleted),
+            (WorkspaceState::Deleted, WorkspaceState::Deleted),
+        ];
+        let mut cases = Vec::new();
+        for &from in &states {
+            for &to in &states {
+                let expect_valid = valid_set.iter().any(|&(v, t)| v == from && t == to);
+                cases.push(TransitionCase {
+                    label: Box::leak(format!("{from:?}→{to:?}").into_boxed_str()),
+                    from,
+                    to,
+                    expect_valid,
+                });
+            }
+        }
+        cases
+    }
+
+    #[test]
+    fn table_driven_all_transitions_can_transition() {
+        for case in all_transition_cases() {
+            let result = WorkspaceStateMachine::can_transition(case.from, case.to);
+            assert_eq!(
+                result, case.expect_valid,
+                "can_transition({}): expected {}, got {}",
+                case.label, case.expect_valid, result
+            );
+        }
+    }
+
+    #[test]
+    fn table_driven_all_transitions_validate_transition() {
+        for case in all_transition_cases() {
+            let result = WorkspaceStateMachine::validate_transition(case.from, case.to);
+            if case.expect_valid {
+                assert!(
+                    result.is_ok(),
+                    "validate_transition({}): expected Ok, got {:?}",
+                    case.label,
+                    result
+                );
+            } else {
+                assert!(
+                    result.is_err(),
+                    "validate_transition({}): expected Err, got {:?}",
+                    case.label,
+                    result
+                );
+                // Verify error contains from/to state names
+                let err = result.err().unwrap();
+                let msg = format!("{err}");
+                assert!(
+                    msg.contains(&format!("{:?}", case.from)),
+                    "error message should contain from state: {msg}"
+                );
+                assert!(
+                    msg.contains(&format!("{:?}", case.to)),
+                    "error message should contain to state: {msg}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn table_driven_valid_transitions_return_ok_and_update_state() {
+        use crate::{WorkspaceName, WorkspacePath};
+        use crate::domain::entities::workspace::Workspace;
+
+        // Table: (label, setup_fn that produces a workspace at the 'from' state, expected_to)
+        // We test the actual entity transitions, not just the boolean state machine.
+        let cases: Vec<(&str, WorkspaceState, WorkspaceState)> = vec![
+            ("Init→Active", WorkspaceState::Initializing, WorkspaceState::Active),
+            ("Active→Locked", WorkspaceState::Active, WorkspaceState::Locked),
+            ("Locked→Active", WorkspaceState::Locked, WorkspaceState::Active),
+            ("Active→Deleted", WorkspaceState::Active, WorkspaceState::Deleted),
+            ("Active→Corrupted", WorkspaceState::Active, WorkspaceState::Corrupted),
+            ("Locked→Corrupted", WorkspaceState::Locked, WorkspaceState::Corrupted),
+            ("Locked→Deleted", WorkspaceState::Locked, WorkspaceState::Deleted),
+            ("Corrupted→Deleted", WorkspaceState::Corrupted, WorkspaceState::Deleted),
+        ];
+
+        for (label, from, expected_to) in cases {
+            // Verify the state machine agrees this is valid
+            assert!(
+                WorkspaceStateMachine::can_transition(from, expected_to),
+                "{label}: state machine should allow {from:?}→{expected_to:?}"
+            );
+
+            // Build a workspace at the 'from' state and perform the transition
+            match (from, expected_to) {
+                (WorkspaceState::Initializing, WorkspaceState::Active) => {
+                    let ws = Workspace::create(
+                        WorkspaceName::new("t".into()).unwrap(),
+                        WorkspacePath::new("/t".into()).unwrap(),
+                    ).unwrap();
+                    assert_eq!(ws.state, WorkspaceState::Initializing, "{label}: before");
+                    let active = ws.activate().unwrap();
+                    assert_eq!(active.state, WorkspaceState::Active, "{label}: after");
+                }
+                (WorkspaceState::Active, WorkspaceState::Locked) => {
+                    let ws = Workspace::create(
+                        WorkspaceName::new("t".into()).unwrap(),
+                        WorkspacePath::new("/t".into()).unwrap(),
+                    ).unwrap().activate().unwrap();
+                    assert_eq!(ws.state, WorkspaceState::Active, "{label}: before");
+                    let locked = ws.lock("test-agent".into()).unwrap();
+                    assert_eq!(locked.state, WorkspaceState::Locked, "{label}: after");
+                    assert_eq!(locked.lock_holder(), Some("test-agent"));
+                }
+                (WorkspaceState::Locked, WorkspaceState::Active) => {
+                    let ws = Workspace::create(
+                        WorkspaceName::new("t".into()).unwrap(),
+                        WorkspacePath::new("/t".into()).unwrap(),
+                    ).unwrap().activate().unwrap().lock("test-agent".into()).unwrap();
+                    assert_eq!(ws.state, WorkspaceState::Locked, "{label}: before");
+                    let active = ws.unlock().unwrap();
+                    assert_eq!(active.state, WorkspaceState::Active, "{label}: after");
+                    assert!(active.lock_holder().is_none());
+                }
+                (WorkspaceState::Active, WorkspaceState::Deleted) => {
+                    let ws = Workspace::create(
+                        WorkspaceName::new("t".into()).unwrap(),
+                        WorkspacePath::new("/t".into()).unwrap(),
+                    ).unwrap().activate().unwrap();
+                    assert_eq!(ws.state, WorkspaceState::Active, "{label}: before");
+                    let deleted = ws.delete().unwrap();
+                    assert_eq!(deleted.state, WorkspaceState::Deleted, "{label}: after");
+                    assert!(deleted.is_terminal());
+                }
+                (WorkspaceState::Active, WorkspaceState::Corrupted) => {
+                    let ws = Workspace::create(
+                        WorkspaceName::new("t".into()).unwrap(),
+                        WorkspacePath::new("/t".into()).unwrap(),
+                    ).unwrap().activate().unwrap();
+                    assert_eq!(ws.state, WorkspaceState::Active, "{label}: before");
+                    let corrupted = ws.mark_corrupted().unwrap();
+                    assert_eq!(corrupted.state, WorkspaceState::Corrupted, "{label}: after");
+                    assert!(corrupted.is_terminal());
+                    assert!(corrupted.lock_holder().is_none());
+                }
+                (WorkspaceState::Locked, WorkspaceState::Corrupted) => {
+                    let ws = Workspace::create(
+                        WorkspaceName::new("t".into()).unwrap(),
+                        WorkspacePath::new("/t".into()).unwrap(),
+                    ).unwrap().activate().unwrap().lock("test-agent".into()).unwrap();
+                    assert_eq!(ws.state, WorkspaceState::Locked, "{label}: before");
+                    let corrupted = ws.mark_corrupted().unwrap();
+                    assert_eq!(corrupted.state, WorkspaceState::Corrupted, "{label}: after");
+                    assert!(corrupted.is_terminal());
+                }
+                (WorkspaceState::Locked, WorkspaceState::Deleted) => {
+                    let ws = Workspace::create(
+                        WorkspaceName::new("t".into()).unwrap(),
+                        WorkspacePath::new("/t".into()).unwrap(),
+                    ).unwrap().activate().unwrap().lock("test-agent".into()).unwrap();
+                    assert_eq!(ws.state, WorkspaceState::Locked, "{label}: before");
+                    let deleted = ws.delete().unwrap();
+                    assert_eq!(deleted.state, WorkspaceState::Deleted, "{label}: after");
+                    assert!(deleted.is_terminal());
+                }
+                (WorkspaceState::Corrupted, WorkspaceState::Deleted) => {
+                    let ws = Workspace::create(
+                        WorkspaceName::new("t".into()).unwrap(),
+                        WorkspacePath::new("/t".into()).unwrap(),
+                    ).unwrap().activate().unwrap().mark_corrupted().unwrap();
+                    assert_eq!(ws.state, WorkspaceState::Corrupted, "{label}: before");
+                    let deleted = ws.delete().unwrap();
+                    assert_eq!(deleted.state, WorkspaceState::Deleted, "{label}: after");
+                }
+                _ => panic!("unhandled case: {label}"),
+            }
+        }
+    }
+
+    #[test]
+    fn table_driven_recover_locked_to_active_via_service() {
+        use crate::application::workspace_service::WorkspaceService;
+        use crate::{WorkspaceName, WorkspacePath};
+
+        // The "recover" operation in the domain: Locked→Active via WorkspaceService
+        let ws = WorkspaceService::create_workspace(
+            WorkspaceName::new("recover-test".into()).unwrap(),
+            WorkspacePath::new("/tmp/recover-test".into()).unwrap(),
+        )
+        .unwrap();
+        let initialized = WorkspaceService::initialize_workspace(ws).unwrap();
+        let locked = WorkspaceService::lock_workspace(initialized, "stuck-agent".into()).unwrap();
+        assert_eq!(locked.state, WorkspaceState::Locked, "before recover: Locked");
+        assert_eq!(locked.lock_holder(), Some("stuck-agent"));
+
+        let recovered = WorkspaceService::recover_workspace(locked).unwrap();
+        assert_eq!(recovered.state, WorkspaceState::Active, "after recover: Active");
+        assert!(recovered.lock_holder().is_none(), "lock holder cleared");
+        assert!(recovered.is_active());
+    }
+
+    #[test]
+    fn table_driven_no_panic_on_invalid_transitions() {
+        // Verify no panic occurs when attempting invalid transitions via validate_transition
+        for case in all_transition_cases() {
+            if !case.expect_valid {
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let _ = WorkspaceStateMachine::validate_transition(case.from, case.to);
+                }));
+                assert!(
+                    result.is_ok(),
+                    "PANIC on invalid transition {}: should return Err, not panic",
+                    case.label
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn table_driven_terminal_state_properties() {
+        // Verify terminal state invariants hold for all states
+        let cases = vec![
+            (WorkspaceState::Initializing, false, true, false),
+            (WorkspaceState::Active, false, true, true),
+            (WorkspaceState::Locked, false, true, false),
+            (WorkspaceState::Corrupted, true, false, false),
+            (WorkspaceState::Deleted, true, false, false),
+        ];
+        for (state, expect_terminal, expect_deletable, expect_lockable) in cases {
+            assert_eq!(
+                WorkspaceStateMachine::is_terminal(state),
+                expect_terminal,
+                "is_terminal({state:?})"
+            );
+            assert_eq!(
+                WorkspaceStateMachine::is_deletable(state),
+                expect_deletable,
+                "is_deletable({state:?})"
+            );
+            assert_eq!(
+                WorkspaceStateMachine::is_lockable(state),
+                expect_lockable,
+                "is_lockable({state:?})"
+            );
+        }
+    }
+
     // --- Proptests ---
 
     #[cfg(test)]

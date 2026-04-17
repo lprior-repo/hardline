@@ -722,6 +722,263 @@ mod tests {
             let b = BeadTitle::new("beta").unwrap();
             assert_ne!(a, b);
         }
+
+        // ── ha-jrwc: Exhaustive validation, length limits, whitespace, trimming ──
+
+        #[test]
+        fn single_char_is_min_boundary() {
+            let title = BeadTitle::new("X").unwrap();
+            assert_eq!(title.as_str(), "X");
+            assert_eq!(title.as_str().len(), 1);
+        }
+
+        #[test]
+        fn max_length_minus_one_accepted() {
+            let s = "a".repeat(BeadTitle::MAX_LENGTH - 1);
+            let title = BeadTitle::new(&s).unwrap();
+            assert_eq!(title.as_str().len(), BeadTitle::MAX_LENGTH - 1);
+        }
+
+        #[test]
+        fn exactly_max_length_accepted() {
+            let s = "a".repeat(BeadTitle::MAX_LENGTH);
+            let title = BeadTitle::new(&s).unwrap();
+            assert_eq!(title.as_str().len(), BeadTitle::MAX_LENGTH);
+        }
+
+        #[test]
+        fn max_length_plus_one_rejected() {
+            let s = "a".repeat(BeadTitle::MAX_LENGTH + 1);
+            let result = BeadTitle::new(&s);
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                BeadError::InvalidTitle(msg) => {
+                    assert!(msg.contains("maximum length"));
+                }
+                other => panic!("expected InvalidTitle, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn empty_string_rejected() {
+            let result = BeadTitle::new("");
+            assert!(result.is_err());
+            match result.unwrap_err() {
+                BeadError::InvalidTitle(msg) => assert!(msg.contains("empty")),
+                other => panic!("expected InvalidTitle, got {other:?}"),
+            }
+        }
+
+        #[test]
+        fn spaces_only_rejected() {
+            let result = BeadTitle::new("   ");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn tabs_only_rejected() {
+            let result = BeadTitle::new("\t\t");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn newlines_only_rejected() {
+            let result = BeadTitle::new("\n\n");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn mixed_whitespace_only_rejected() {
+            let result = BeadTitle::new(" \t\n\r ");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn leading_whitespace_trimmed() {
+            let title = BeadTitle::new("   hello").unwrap();
+            assert_eq!(title.as_str(), "hello");
+        }
+
+        #[test]
+        fn trailing_whitespace_trimmed() {
+            let title = BeadTitle::new("hello   ").unwrap();
+            assert_eq!(title.as_str(), "hello");
+        }
+
+        #[test]
+        fn both_sides_trimmed() {
+            let title = BeadTitle::new("  hello world  ").unwrap();
+            assert_eq!(title.as_str(), "hello world");
+        }
+
+        #[test]
+        fn internal_whitespace_preserved() {
+            let title = BeadTitle::new("hello   world").unwrap();
+            assert_eq!(title.as_str(), "hello   world");
+        }
+
+        #[test]
+        fn internal_tab_preserved() {
+            let title = BeadTitle::new("hello\tworld").unwrap();
+            assert!(title.as_str().contains('\t'));
+        }
+
+        #[test]
+        fn internal_newline_preserved() {
+            let title = BeadTitle::new("hello\nworld").unwrap();
+            assert!(title.as_str().contains('\n'));
+        }
+
+        #[test]
+        fn title_trimmed_too_long_still_rejected() {
+            // 201 chars of content with surrounding whitespace
+            let content = "a".repeat(BeadTitle::MAX_LENGTH + 1);
+            let padded = format!("  {}  ", content);
+            let result = BeadTitle::new(&padded);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn whitespace_padded_max_length_still_ok() {
+            // 200 chars of content, padded to 204 — still ok after trim
+            let content = "a".repeat(BeadTitle::MAX_LENGTH);
+            let padded = format!("  {}  ", content);
+            let title = BeadTitle::new(&padded).unwrap();
+            assert_eq!(title.as_str().len(), BeadTitle::MAX_LENGTH);
+        }
+
+        #[test]
+        fn whitespace_padded_over_max_rejected() {
+            // 201 chars content, padded — trimmed is 201, over limit
+            let content = "a".repeat(BeadTitle::MAX_LENGTH + 1);
+            let padded = format!("  {}  ", content);
+            let result = BeadTitle::new(&padded);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn try_from_ref_str_whitespace_trimmed() {
+            let title = BeadTitle::try_from("  trimmed  ").unwrap();
+            assert_eq!(title.as_str(), "trimmed");
+        }
+
+        #[test]
+        fn try_from_ref_str_empty_fails() {
+            let result = BeadTitle::try_from("");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn try_from_ref_str_whitespace_only_fails() {
+            let result = BeadTitle::try_from("   ");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn unicode_content_accepted() {
+            let title = BeadTitle::new("日本語タイトル").unwrap();
+            assert_eq!(title.as_str(), "日本語タイトル");
+        }
+
+        #[test]
+        fn emoji_in_title_accepted() {
+            let title = BeadTitle::new("Fix 🔥 bug").unwrap();
+            assert_eq!(title.as_str(), "Fix 🔥 bug");
+        }
+
+        #[test]
+        fn unicode_multibyte_over_max_rejected() {
+            // MAX_LENGTH checks byte length (len()), not char count
+            // é is 2 bytes in UTF-8, so 101 of them = 202 bytes > MAX_LENGTH (200)
+            let s = "é".repeat(101);
+            let result = BeadTitle::new(&s);
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn unicode_multibyte_at_max_accepted() {
+            // é is 2 bytes, so 100 of them = 200 bytes = MAX_LENGTH
+            let s = "é".repeat(100);
+            let result = BeadTitle::new(&s);
+            assert!(result.is_ok());
+            assert_eq!(result.unwrap().as_str().len(), BeadTitle::MAX_LENGTH);
+        }
+
+        #[test]
+        fn clone_works() {
+            let a = BeadTitle::new("cloned").unwrap();
+            let b = a.clone();
+            assert_eq!(a, b);
+        }
+
+        #[test]
+        fn debug_format() {
+            let title = BeadTitle::new("debug me").unwrap();
+            let debug = format!("{:?}", title);
+            assert!(debug.contains("BeadTitle"));
+        }
+
+        #[test]
+        fn hash_works() {
+            use std::collections::HashSet;
+            let mut set = HashSet::new();
+            set.insert(BeadTitle::new("hash-test").unwrap());
+            assert!(set.contains(&BeadTitle::new("hash-test").unwrap()));
+            assert!(!set.contains(&BeadTitle::new("other").unwrap()));
+        }
+
+        #[test]
+        fn error_message_empty_title() {
+            let result = BeadTitle::new("");
+            let err = result.unwrap_err();
+            let msg = err.to_string();
+            assert!(msg.contains("empty"), "error message should mention 'empty': {msg}");
+        }
+
+        #[test]
+        fn error_message_over_max_length() {
+            let s = "a".repeat(BeadTitle::MAX_LENGTH + 1);
+            let result = BeadTitle::new(&s);
+            let err = result.unwrap_err();
+            let msg = err.to_string();
+            assert!(msg.contains("200"), "error message should mention max length 200: {msg}");
+        }
+
+        #[test]
+        fn max_length_constant_is_200() {
+            assert_eq!(BeadTitle::MAX_LENGTH, 200);
+        }
+
+        #[test]
+        fn carriage_return_only_rejected() {
+            let result = BeadTitle::new("\r\r");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn vertical_whitespace_mixed_rejected() {
+            let result = BeadTitle::new(" \n \t \r ");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn single_space_rejected() {
+            let result = BeadTitle::new(" ");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn title_with_special_chars_accepted() {
+            let title = BeadTitle::new("Fix: auth@prod (v2.0) [urgent] {blocking}").unwrap();
+            assert_eq!(title.as_str(), "Fix: auth@prod (v2.0) [urgent] {blocking}");
+        }
+
+        #[test]
+        fn title_trim_surrounding_preserves_inner() {
+            let title = BeadTitle::new("  hello   world  ").unwrap();
+            // "hello   world" — internal spaces preserved, outer trimmed
+            assert_eq!(title.as_str(), "hello   world");
+        }
     }
 
     // ── BeadDescription tests ────────────────────────────────────────────────
@@ -841,6 +1098,149 @@ mod tests {
         fn description_with_newlines_is_accepted() {
             let desc = BeadDescription::new("line1\nline2\nline3").unwrap();
             assert_eq!(desc.as_str().lines().count(), 3);
+        }
+
+        // ── Markdown content preservation ──────────────────────────────────
+        //
+        // BeadDescription stores raw text. Markdown syntax must pass through
+        // unchanged — no parsing, no stripping, no transformation.
+
+        #[test]
+        fn markdown_headers_preserved() {
+            let md = "# Heading 1\n## Heading 2\n### Heading 3";
+            let desc = BeadDescription::new(md).unwrap();
+            assert_eq!(desc.as_str(), md);
+        }
+
+        #[test]
+        fn markdown_bold_italic_preserved() {
+            let md = "This is **bold** and *italic* and ***both***.";
+            let desc = BeadDescription::new(md).unwrap();
+            assert_eq!(desc.as_str(), md);
+        }
+
+        #[test]
+        fn markdown_code_blocks_preserved() {
+            let md = "Inline `code` and:\n```\nfenced block\n```";
+            let desc = BeadDescription::new(md).unwrap();
+            assert!(desc.as_str().contains("`code`"));
+            assert!(desc.as_str().contains("```\nfenced block\n```"));
+        }
+
+        #[test]
+        fn markdown_links_preserved() {
+            let md = "[link text](https://example.com)";
+            let desc = BeadDescription::new(md).unwrap();
+            assert_eq!(desc.as_str(), md);
+        }
+
+        #[test]
+        fn markdown_lists_preserved() {
+            let md = "- item one\n- item two\n  - nested\n1. ordered";
+            let desc = BeadDescription::new(md).unwrap();
+            assert_eq!(desc.as_str(), md);
+        }
+
+        #[test]
+        fn markdown_mixed_content() {
+            let md = "# Title\n\nParagraph with **bold** and `code`.\n\n- list item\n- [link](url)\n\n> blockquote";
+            let desc = BeadDescription::new(md).unwrap();
+            assert_eq!(desc.as_str(), md);
+        }
+
+        // ── Empty string vs None distinction ───────────────────────────────
+        //
+        // At the value-object level, BeadDescription("") is valid and
+        // distinguishable from None (which lives at the Bead entity level).
+        // An empty-string description is a deliberate choice — "I set a
+        // description, but it's empty" vs "no description at all".
+
+        #[test]
+        fn empty_string_is_some_not_none() {
+            // Empty string creates a valid BeadDescription (Some), not None
+            let desc = BeadDescription::new("");
+            assert!(desc.is_ok());
+            let desc = desc.unwrap();
+            assert!(desc.is_empty());
+            // The value object itself proves it exists (is Some)
+            assert_eq!(desc.as_str(), "");
+        }
+
+        #[test]
+        fn none_is_not_a_bead_description() {
+            // None lives at Option<BeadDescription> level, not inside the type
+            let none_desc: Option<BeadDescription> = None;
+            let empty_desc: Option<BeadDescription> = Some(BeadDescription::new("").unwrap());
+            assert!(none_desc.is_none());
+            assert!(empty_desc.is_some());
+            // They are definitively different
+            assert_ne!(none_desc, empty_desc);
+        }
+
+        #[test]
+        fn option_some_empty_vs_option_some_content() {
+            let none_like: Option<BeadDescription> = Some(BeadDescription::new("").unwrap());
+            let some_content: Option<BeadDescription> =
+                Some(BeadDescription::new("actual content").unwrap());
+            // Both are Some, but content differs
+            assert!(none_like.is_some());
+            assert!(some_content.is_some());
+            assert_ne!(none_like, some_content);
+            assert!(none_like.as_ref().unwrap().is_empty());
+            assert!(!some_content.as_ref().unwrap().is_empty());
+        }
+
+        // ── Derive coverage ────────────────────────────────────────────────
+
+        #[test]
+        fn clone_produces_equal_value() {
+            let desc = BeadDescription::new("clonable").unwrap();
+            let cloned = desc.clone();
+            assert_eq!(desc, cloned);
+        }
+
+        #[test]
+        fn debug_output_contains_inner() {
+            let desc = BeadDescription::new("visible in debug").unwrap();
+            let debug_str = format!("{desc:?}");
+            assert!(debug_str.contains("visible in debug"));
+        }
+
+        // ── TryFrom failure path ───────────────────────────────────────────
+
+        #[test]
+        fn try_from_rejects_oversized() {
+            let long = "x".repeat(BeadDescription::MAX_LENGTH + 1);
+            let result = BeadDescription::try_from(long);
+            assert!(result.is_err());
+        }
+
+        // ── Serde edge cases ───────────────────────────────────────────────
+
+        #[test]
+        fn serde_roundtrip_at_max_length() {
+            let desc =
+                BeadDescription::new("x".repeat(BeadDescription::MAX_LENGTH)).unwrap();
+            let json = serde_json::to_string(&desc).unwrap();
+            let parsed: BeadDescription = serde_json::from_str(&json).unwrap();
+            assert_eq!(desc, parsed);
+        }
+
+        #[test]
+        fn serde_roundtrip_with_markdown() {
+            let md = "# Title\n**bold** `code`\n- item";
+            let desc = BeadDescription::new(md).unwrap();
+            let json = serde_json::to_string(&desc).unwrap();
+            let parsed: BeadDescription = serde_json::from_str(&json).unwrap();
+            assert_eq!(desc, parsed);
+            assert_eq!(parsed.as_str(), md);
+        }
+
+        #[test]
+        fn serde_deserializes_empty_string() {
+            let json = r#""""#;
+            let desc: BeadDescription = serde_json::from_str(json).unwrap();
+            assert!(desc.is_empty());
         }
     }
 
@@ -1159,6 +1559,75 @@ mod tests {
                 closed_at: Utc::now(),
             })
             .is_err());
+        }
+
+        // ── Transition chain tests (ha-dl99) ──────────────────────────────────
+
+        #[test]
+        fn chain_open_to_in_progress_to_closed() {
+            let state = BeadState::Open;
+
+            // Open → InProgress
+            let in_progress = state
+                .transition_to(BeadState::InProgress)
+                .expect("Open→InProgress should succeed");
+            assert_eq!(in_progress, BeadState::InProgress);
+            assert!(in_progress.is_active());
+            assert!(!in_progress.is_closed());
+
+            // InProgress → Closed
+            let closed = in_progress
+                .transition_to(BeadState::Closed {
+                    closed_at: Utc::now(),
+                })
+                .expect("InProgress→Closed should succeed");
+            assert!(closed.is_closed());
+            assert!(closed.closed_at().is_some());
+            assert!(!closed.is_active());
+        }
+
+        #[test]
+        fn chain_open_to_blocked_to_open() {
+            let state = BeadState::Open;
+
+            // Open → Blocked
+            let blocked = state
+                .transition_to(BeadState::Blocked)
+                .expect("Open→Blocked should succeed");
+            assert_eq!(blocked, BeadState::Blocked);
+            assert!(blocked.is_blocked());
+            assert!(!blocked.is_active());
+            assert!(!blocked.is_closed());
+
+            // Blocked → Open
+            let back_to_open = blocked
+                .transition_to(BeadState::Open)
+                .expect("Blocked→Open should succeed");
+            assert_eq!(back_to_open, BeadState::Open);
+            assert!(back_to_open.is_active());
+            assert!(!back_to_open.is_blocked());
+            assert!(!back_to_open.is_closed());
+        }
+
+        #[test]
+        fn chain_open_to_deferred_to_open() {
+            let state = BeadState::Open;
+
+            // Open → Deferred
+            let deferred = state
+                .transition_to(BeadState::Deferred)
+                .expect("Open→Deferred should succeed");
+            assert_eq!(deferred, BeadState::Deferred);
+            assert!(!deferred.is_active());
+            assert!(!deferred.is_closed());
+
+            // Deferred → Open
+            let back_to_open = deferred
+                .transition_to(BeadState::Open)
+                .expect("Deferred→Open should succeed");
+            assert_eq!(back_to_open, BeadState::Open);
+            assert!(back_to_open.is_active());
+            assert!(!back_to_open.is_closed());
         }
     }
 

@@ -203,6 +203,149 @@ mod tests {
         assert!(!is_effectively_empty("abc def"));
     }
 
+    // ── Edge case tests — ha-9en3 ────────────────────────────────────────
+
+    #[test]
+    fn commit_id_mixed_visible_and_invisible_accepted() {
+        // Has visible chars among invisible ones → accepted
+        let id = CommitId::new("abc\u{200B}def").expect("has visible chars");
+        assert_eq!(id.as_str(), "abc\u{200B}def");
+    }
+
+    #[test]
+    fn commit_id_only_tab_newline_cr_rejected() {
+        assert!(matches!(
+            CommitId::new("\t\n\r"),
+            Err(VcsError::InvalidCommitId(_))
+        ));
+    }
+
+    #[test]
+    fn commit_id_mixed_whitespace_invisible_rejected() {
+        assert!(matches!(
+            CommitId::new(" \t\n\u{200B}\u{FEFF}"),
+            Err(VcsError::InvalidCommitId(_))
+        ));
+    }
+
+    #[test]
+    fn commit_id_all_invisible_unicode_range_rejected() {
+        let invisible_chars = [
+            '\u{FEFF}',  // BOM
+            '\u{200B}',  // Zero-width space
+            '\u{200C}',  // Zero-width non-joiner
+            '\u{200D}',  // Zero-width joiner
+            '\u{2060}',  // Word joiner
+            '\u{00AD}',  // Soft hyphen
+            '\u{034F}',  // Combining grapheme joiner
+            '\u{061C}',  // Arabic letter mark
+            '\u{180E}',  // Mongolian vowel separator
+            '\u{200E}',  // LRM
+            '\u{200F}',  // RLM
+        ];
+        for ch in invisible_chars {
+            let input = ch.to_string();
+            assert!(
+                matches!(CommitId::new(&input), Err(VcsError::InvalidCommitId(_))),
+                "Should reject invisible char U+{:04X}",
+                ch as u32
+            );
+        }
+    }
+
+    #[test]
+    fn commit_id_visible_char_makes_valid() {
+        // Single visible char among invisible → valid
+        let invisible = "\u{200B}\u{FEFF}\u{200C}";
+        let input = format!("{invisible}X{invisible}");
+        let id = CommitId::new(&input).expect("has visible char X");
+        assert_eq!(id.as_str(), input);
+    }
+
+    #[test]
+    fn commit_id_various_valid_formats() {
+        let valid = [
+            "a",                  // minimal
+            "abc123",             // simple
+            "0123456789abcdef0123456789abcdef01234567", // full SHA
+            "ABC123",             // uppercase
+            "v1.0.0+build",       // semver-like
+            "a b c",              // spaces (has visible chars)
+            "  abc  ",            // leading/trailing whitespace
+        ];
+        for input in valid {
+            let id = CommitId::new(input).expect("should be valid");
+            assert_eq!(id.as_str(), input, "mismatch for: {input:?}");
+        }
+    }
+
+    #[test]
+    fn commit_id_error_contains_rejected_input() {
+        let result = CommitId::new("");
+        if let Err(VcsError::InvalidCommitId(rejected)) = result {
+            assert_eq!(rejected, "");
+        } else {
+            panic!("Expected InvalidCommitId error");
+        }
+    }
+
+    #[test]
+    fn commit_id_error_contains_whitespace_input() {
+        let result = CommitId::new("   ");
+        if let Err(VcsError::InvalidCommitId(rejected)) = result {
+            assert_eq!(rejected, "   ");
+        } else {
+            panic!("Expected InvalidCommitId error");
+        }
+    }
+
+    #[test]
+    fn commit_id_accepts_emoji() {
+        let id = CommitId::new("🎉").expect("emoji is visible");
+        assert_eq!(id.as_str(), "🎉");
+    }
+
+    #[test]
+    fn commit_id_accepts_cjk() {
+        let id = CommitId::new("日本語").expect("CJK is visible");
+        assert_eq!(id.as_str(), "日本語");
+    }
+
+    #[test]
+    fn commit_id_long_valid_string() {
+        let long = "a".repeat(10_000);
+        let id = CommitId::new(&long).expect("long but valid");
+        assert_eq!(id.as_str().len(), 10_000);
+    }
+
+    #[test]
+    fn commit_id_serde_roundtrip_with_special_chars() {
+        let id = CommitId::new("abc\tdef\u{200B}").expect("has visible chars");
+        let json = serde_json::to_string(&id).expect("serialize");
+        let decoded: CommitId = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(id, decoded);
+    }
+
+    #[test]
+    fn commit_id_ordering_and_equality() {
+        let a = CommitId::new("aaa").expect("valid");
+        let b = CommitId::new("aaa").expect("valid");
+        let c = CommitId::new("bbb").expect("valid");
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn commit_id_hash_consistency() {
+        use std::collections::HashSet;
+        let a = CommitId::new("abc").expect("valid");
+        let b = CommitId::new("abc").expect("valid");
+        let mut set = HashSet::new();
+        set.insert(a.clone());
+        assert!(set.contains(&a));
+        assert!(set.contains(&b));
+    }
+
     // -- Proptests --
 
     proptest::proptest! {
@@ -211,6 +354,36 @@ mod tests {
             let result = CommitId::new(&s);
             assert!(result.is_ok(), "Failed for: {s}");
             assert_eq!(result.expect("valid").as_str(), s);
+        }
+
+        /// CommitId::new() rejects all effectively-empty strings.
+        #[test]
+        fn proptest_commit_id_rejects_empty_or_whitespace(
+            input in proptest::string::string_regex("\\s*").unwrap(),
+        ) {
+            if input.trim().is_empty() {
+                proptest::prop_assert!(CommitId::new(input.clone()).is_err());
+            }
+        }
+
+        /// CommitId roundtrip: new -> as_str preserves input for valid strings.
+        #[test]
+        fn proptest_commit_id_roundtrip(
+            input in "[a-zA-Z0-9_+/=@.-]{1,100}",
+        ) {
+            let id = CommitId::new(&input).expect("valid");
+            proptest::prop_assert_eq!(id.as_str(), input);
+        }
+
+        /// CommitId serde roundtrip preserves value.
+        #[test]
+        fn proptest_commit_id_serde_roundtrip(
+            input in "[a-zA-Z0-9]{1,100}",
+        ) {
+            let id = CommitId::new(&input).expect("valid");
+            let json = serde_json::to_string(&id).expect("serialize");
+            let decoded: CommitId = serde_json::from_str(&json).expect("deserialize");
+            proptest::prop_assert_eq!(id, decoded);
         }
     }
 }

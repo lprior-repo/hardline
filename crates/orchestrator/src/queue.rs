@@ -12,7 +12,7 @@ pub mod types;
 
 pub use processor::{JobProcessor, JobProcessorConfig, QueueError, QueueResult};
 pub use repository::{sort_jobs_by_priority, InMemoryJobRepository, JobRepository};
-pub use types::{Job, JobOutcome, JobPayload, JobPriority, JobResult, JobState};
+pub use types::{Job, JobOutcome, JobPayload, JobPriority, JobResult, JobState, JobTransitionError};
 
 #[cfg(test)]
 mod tests {
@@ -367,6 +367,7 @@ mod tests {
         assert_eq!(jobs[0].id, "2");
     }
 
+<<<<<<< HEAD
     // --- Mock repository for error injection ---
 
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering};
@@ -781,4 +782,212 @@ mod tests {
         let result = processor.run(rx).await;
         assert!(result.is_ok());
     }
+=======
+    // --- ha-706a: Comprehensive Queue tests ---
+
+    #[tokio::test]
+    async fn test_enqueue_dequeue_full_priority_ordering() {
+        let repo = InMemoryJobRepository::new();
+
+        // Enqueue one job per priority level in reverse order
+        repo.add_job(create_test_job("p4", JobPriority::P4));
+        repo.add_job(create_test_job("p3", JobPriority::P3));
+        repo.add_job(create_test_job("p2", JobPriority::P2));
+        repo.add_job(create_test_job("p1", JobPriority::P1));
+        repo.add_job(create_test_job("p0", JobPriority::P0));
+
+        let jobs = repo.poll_pending_jobs(10).await.expect("poll");
+        assert_eq!(jobs.len(), 5);
+        // Dequeue order: P0 first, then P1, P2, P3, P4
+        assert_eq!(jobs[0].id, "p0");
+        assert_eq!(jobs[1].id, "p1");
+        assert_eq!(jobs[2].id, "p2");
+        assert_eq!(jobs[3].id, "p3");
+        assert_eq!(jobs[4].id, "p4");
+    }
+
+    #[tokio::test]
+    async fn test_fifo_ordering_same_priority() {
+        let repo = InMemoryJobRepository::new();
+
+        // Enqueue 5 P1 jobs in order
+        repo.add_job(create_test_job("first", JobPriority::P1));
+        repo.add_job(create_test_job("second", JobPriority::P1));
+        repo.add_job(create_test_job("third", JobPriority::P1));
+        repo.add_job(create_test_job("fourth", JobPriority::P1));
+        repo.add_job(create_test_job("fifth", JobPriority::P1));
+
+        let jobs = repo.poll_pending_jobs(10).await.expect("poll");
+        assert_eq!(jobs.len(), 5);
+        // FIFO: same priority preserves insertion order
+        assert_eq!(jobs[0].id, "first");
+        assert_eq!(jobs[1].id, "second");
+        assert_eq!(jobs[2].id, "third");
+        assert_eq!(jobs[3].id, "fourth");
+        assert_eq!(jobs[4].id, "fifth");
+    }
+
+    #[tokio::test]
+    async fn test_mixed_priority_with_fifo_within_groups() {
+        let repo = InMemoryJobRepository::new();
+
+        // Enqueue mixed priorities, multiple jobs per priority
+        repo.add_job(create_test_job("p1-a", JobPriority::P1));
+        repo.add_job(create_test_job("p0-a", JobPriority::P0));
+        repo.add_job(create_test_job("p1-b", JobPriority::P1));
+        repo.add_job(create_test_job("p0-b", JobPriority::P0));
+        repo.add_job(create_test_job("p2-a", JobPriority::P2));
+        repo.add_job(create_test_job("p0-c", JobPriority::P0));
+
+        let jobs = repo.poll_pending_jobs(10).await.expect("poll");
+        assert_eq!(jobs.len(), 6);
+
+        // P0 group first (FIFO within): p0-a, p0-b, p0-c
+        assert_eq!(jobs[0].id, "p0-a");
+        assert_eq!(jobs[1].id, "p0-b");
+        assert_eq!(jobs[2].id, "p0-c");
+        // P1 group next (FIFO within): p1-a, p1-b
+        assert_eq!(jobs[3].id, "p1-a");
+        assert_eq!(jobs[4].id, "p1-b");
+        // P2 group: p2-a
+        assert_eq!(jobs[5].id, "p2-a");
+    }
+
+    #[tokio::test]
+    async fn test_repeated_polls_drain_queue() {
+        let repo = InMemoryJobRepository::new();
+
+        repo.add_job(create_test_job("a", JobPriority::P2));
+        repo.add_job(create_test_job("b", JobPriority::P0));
+        repo.add_job(create_test_job("c", JobPriority::P1));
+
+        // First poll: get all 3
+        let batch1 = repo.poll_pending_jobs(10).await.expect("poll");
+        assert_eq!(batch1.len(), 3);
+        assert_eq!(batch1[0].id, "b"); // P0
+        assert_eq!(batch1[1].id, "c"); // P1
+        assert_eq!(batch1[2].id, "a"); // P2
+
+        // Note: poll_pending_jobs returns clones, jobs are still pending in repo
+        // Second poll returns same results (poll doesn't consume)
+        let batch2 = repo.poll_pending_jobs(10).await.expect("poll");
+        assert_eq!(batch2.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_interleaved_enqueue_and_state_changes() {
+        let repo = InMemoryJobRepository::new();
+
+        repo.add_job(create_test_job("j1", JobPriority::P0));
+        let jobs = repo.poll_pending_jobs(10).await.expect("poll");
+        assert_eq!(jobs.len(), 1);
+
+        // Complete j1
+        repo.update_job_state(
+            "j1",
+            JobState::Completed {
+                finished_at: chrono::Utc::now(),
+            },
+        )
+        .await
+        .expect("update");
+
+        // Add more jobs
+        repo.add_job(create_test_job("j2", JobPriority::P1));
+        repo.add_job(create_test_job("j3", JobPriority::P0));
+
+        let jobs = repo.poll_pending_jobs(10).await.expect("poll");
+        assert_eq!(jobs.len(), 2);
+        assert_eq!(jobs[0].id, "j3"); // P0 first
+        assert_eq!(jobs[1].id, "j2"); // P1 second
+    }
+
+    #[tokio::test]
+    async fn test_poll_limit_zero_returns_empty() {
+        let repo = InMemoryJobRepository::new();
+        repo.add_job(create_test_job("1", JobPriority::P0));
+
+        let jobs = repo.poll_pending_jobs(0).await.expect("poll");
+        assert!(jobs.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_poll_limit_one_returns_highest_priority() {
+        let repo = InMemoryJobRepository::new();
+        repo.add_job(create_test_job("low", JobPriority::P4));
+        repo.add_job(create_test_job("mid", JobPriority::P2));
+        repo.add_job(create_test_job("high", JobPriority::P0));
+
+        let jobs = repo.poll_pending_jobs(1).await.expect("poll");
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].id, "high");
+    }
+
+    #[tokio::test]
+    async fn test_enqueue_single_dequeue() {
+        let repo = InMemoryJobRepository::new();
+
+        // Single enqueue then dequeue
+        repo.add_job(create_test_job("solo", JobPriority::P3));
+        let jobs = repo.poll_pending_jobs(1).await.expect("poll");
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].id, "solo");
+        assert_eq!(jobs[0].priority, JobPriority::P3);
+        assert!(jobs[0].state.is_pending());
+    }
+
+    #[test]
+    fn test_sort_all_priority_levels() {
+        let mut jobs = vec![
+            create_test_job("p4", JobPriority::P4),
+            create_test_job("p2", JobPriority::P2),
+            create_test_job("p0", JobPriority::P0),
+            create_test_job("p3", JobPriority::P3),
+            create_test_job("p1", JobPriority::P1),
+        ];
+
+        sort_jobs_by_priority(&mut jobs);
+
+        assert_eq!(jobs.iter().map(|j| j.priority.value()).collect::<Vec<_>>(), vec![0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_sort_two_elements_different_priority() {
+        let mut jobs = vec![
+            create_test_job("low", JobPriority::P4),
+            create_test_job("high", JobPriority::P0),
+        ];
+        sort_jobs_by_priority(&mut jobs);
+        assert_eq!(jobs[0].id, "high");
+        assert_eq!(jobs[1].id, "low");
+    }
+
+    #[test]
+    fn test_sort_already_sorted() {
+        let mut jobs = vec![
+            create_test_job("p0", JobPriority::P0),
+            create_test_job("p1", JobPriority::P1),
+            create_test_job("p2", JobPriority::P2),
+        ];
+        sort_jobs_by_priority(&mut jobs);
+        assert_eq!(jobs[0].id, "p0");
+        assert_eq!(jobs[1].id, "p1");
+        assert_eq!(jobs[2].id, "p2");
+    }
+
+    #[test]
+    fn test_sort_reverse_sorted() {
+        let mut jobs = vec![
+            create_test_job("p4", JobPriority::P4),
+            create_test_job("p3", JobPriority::P3),
+            create_test_job("p2", JobPriority::P2),
+            create_test_job("p1", JobPriority::P1),
+            create_test_job("p0", JobPriority::P0),
+        ];
+        sort_jobs_by_priority(&mut jobs);
+        for i in 0..5 {
+            assert_eq!(jobs[i].id, format!("p{i}"));
+        }
+    }
+>>>>>>> polecat/onyx-mnn3rb73
 }

@@ -61,7 +61,7 @@ pub fn validate_workspace_name(name: &str) -> Option<Error> {
 mod tests {
     use super::*;
 
-    // ---- validate_workspace_name ----
+    // ---- validate_workspace_name: valid names ----
 
     #[test]
     fn valid_simple_name() {
@@ -99,6 +99,24 @@ mod tests {
     }
 
     #[test]
+    fn valid_all_uppercase() {
+        assert!(validate_workspace_name("ABCDEF").is_none());
+    }
+
+    #[test]
+    fn valid_trailing_digits() {
+        assert!(validate_workspace_name("branch123").is_none());
+    }
+
+    #[test]
+    fn valid_long_name() {
+        let long = "a".repeat(256);
+        assert!(validate_workspace_name(&long).is_none());
+    }
+
+    // ---- validate_workspace_name: invalid first char ----
+
+    #[test]
     fn reject_empty() {
         let result = validate_workspace_name("");
         assert!(result.is_some());
@@ -116,53 +134,81 @@ mod tests {
 
     #[test]
     fn reject_starts_with_dash() {
-        let result = validate_workspace_name("-workspace");
-        assert!(result.is_some());
+        assert!(validate_workspace_name("-workspace").is_some());
     }
 
     #[test]
     fn reject_starts_with_underscore() {
-        let result = validate_workspace_name("_workspace");
-        assert!(result.is_some());
+        assert!(validate_workspace_name("_workspace").is_some());
     }
+
+    // ---- validate_workspace_name: invalid interior chars ----
 
     #[test]
     fn reject_contains_space() {
-        let result = validate_workspace_name("my workspace");
-        assert!(result.is_some());
+        assert!(validate_workspace_name("my workspace").is_some());
     }
 
     #[test]
     fn reject_contains_at_sign() {
-        let result = validate_workspace_name("workspace@v2");
-        assert!(result.is_some());
+        assert!(validate_workspace_name("workspace@v2").is_some());
     }
 
     #[test]
     fn reject_contains_dot() {
-        let result = validate_workspace_name("feat.branch");
-        assert!(result.is_some());
+        assert!(validate_workspace_name("feat.branch").is_some());
     }
 
     #[test]
     fn reject_contains_slash() {
-        let result = validate_workspace_name("feat/branch");
-        assert!(result.is_some());
+        assert!(validate_workspace_name("feat/branch").is_some());
     }
 
     #[test]
     fn reject_special_chars() {
-        let result = validate_workspace_name("feat!branch");
-        assert!(result.is_some());
+        assert!(validate_workspace_name("feat!branch").is_some());
     }
 
     #[test]
     fn reject_contains_colon() {
-        let result = validate_workspace_name("feat:branch");
-        assert!(result.is_some());
+        assert!(validate_workspace_name("feat:branch").is_some());
     }
 
-    // ---- SyncOption ----
+    #[test]
+    fn reject_parentheses() {
+        assert!(validate_workspace_name("feat(branch)").is_some());
+    }
+
+    #[test]
+    fn reject_null_byte() {
+        assert!(validate_workspace_name("a\x00b").is_some());
+    }
+
+    #[test]
+    fn reject_newline() {
+        assert!(validate_workspace_name("a\nb").is_some());
+    }
+
+    #[test]
+    fn reject_tab() {
+        assert!(validate_workspace_name("a\tb").is_some());
+    }
+
+    // ---- validate_workspace_name: error message quality ----
+
+    #[test]
+    fn error_message_contains_input_for_bad_start() {
+        let err = validate_workspace_name("123").unwrap();
+        assert!(err.to_string().contains("123"));
+    }
+
+    #[test]
+    fn error_message_contains_input_for_bad_chars() {
+        let err = validate_workspace_name("abc def").unwrap();
+        assert!(err.to_string().contains("abc def"));
+    }
+
+    // ---- SyncOption: construction ----
 
     #[test]
     fn sync_option_from_bool_true() {
@@ -174,6 +220,8 @@ mod tests {
         assert_eq!(SyncOption::from_bool(false), SyncOption::NoSync);
     }
 
+    // ---- SyncOption: is_sync ----
+
     #[test]
     fn sync_option_is_sync_with_sync() {
         assert!(SyncOption::WithSync.is_sync());
@@ -184,10 +232,47 @@ mod tests {
         assert!(!SyncOption::NoSync.is_sync());
     }
 
+    // ---- SyncOption: equality ----
+
     #[test]
     fn sync_option_equality() {
         assert_eq!(SyncOption::NoSync, SyncOption::NoSync);
         assert_eq!(SyncOption::WithSync, SyncOption::WithSync);
         assert_ne!(SyncOption::NoSync, SyncOption::WithSync);
+    }
+
+    // ---- SyncOption: Clone & Copy ----
+
+    #[test]
+    fn sync_option_clone() {
+        let a = SyncOption::WithSync;
+        assert_eq!(a, a.clone());
+    }
+
+    #[test]
+    fn sync_option_copy() {
+        let a = SyncOption::NoSync;
+        let b = a;
+        assert_eq!(a, b);
+    }
+
+    // ---- SyncOption: Debug ----
+
+    #[test]
+    fn sync_option_debug_no_sync() {
+        assert_eq!(format!("{:?}", SyncOption::NoSync), "NoSync");
+    }
+
+    #[test]
+    fn sync_option_debug_with_sync() {
+        assert_eq!(format!("{:?}", SyncOption::WithSync), "WithSync");
+    }
+
+    // ---- SyncOption: roundtrip ----
+
+    #[test]
+    fn from_bool_is_sync_roundtrip() {
+        assert!(SyncOption::from_bool(true).is_sync());
+        assert!(!SyncOption::from_bool(false).is_sync());
     }
 }

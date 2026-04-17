@@ -1260,6 +1260,73 @@ mod tests {
         assert_eq!(result.unwrap().state(), BeadState::Deferred);
     }
 
+    // ── Transition chain tests (ha-dl99) ──────────────────────────────────
+
+    #[test]
+    fn entity_chain_open_to_in_progress_to_closed() {
+        let bead = make_bead();
+        assert_eq!(bead.state(), BeadState::Open);
+        assert!(!bead.is_terminal());
+
+        // Open → InProgress via typestate API
+        let in_progress: Bead<InProgress> = bead.start();
+        assert_eq!(in_progress.state(), BeadState::InProgress);
+        assert!(!in_progress.is_terminal());
+
+        // InProgress → Closed via typestate API
+        let closed: Bead<Closed> = in_progress.close();
+        assert!(closed.is_terminal());
+        assert!(closed.state().is_closed());
+        assert!(closed.state().closed_at().is_some());
+    }
+
+    #[test]
+    fn entity_chain_dynamic_open_to_in_progress_to_closed() {
+        let bead = make_bead();
+        assert_eq!(bead.state(), BeadState::Open);
+
+        // Open → InProgress via dynamic transition_to
+        let in_progress = bead
+            .transition_to(&BeadState::InProgress)
+            .expect("Open→InProgress should succeed");
+        assert_eq!(in_progress.state(), BeadState::InProgress);
+
+        // InProgress → Closed via dynamic transition_to
+        let closed = in_progress
+            .transition_to(&BeadState::Closed {
+                closed_at: Utc::now(),
+            })
+            .expect("InProgress→Closed should succeed");
+        assert!(closed.state().is_closed());
+        assert!(closed.state().closed_at().is_some());
+    }
+
+    #[test]
+    fn entity_open_cannot_transition_to_blocked_or_deferred() {
+        let bead = make_bead();
+        // Entity enforces Open can only go to InProgress
+        assert!(!bead.can_transition_to(&BeadState::Blocked));
+        assert!(!bead.can_transition_to(&BeadState::Deferred));
+        assert!(!bead.can_transition_to(&BeadState::Closed {
+            closed_at: Utc::now(),
+        }));
+        assert!(bead.can_transition_to(&BeadState::InProgress));
+    }
+
+    #[test]
+    fn entity_blocked_can_return_to_in_progress_not_open() {
+        let blocked = make_bead().start().block();
+        assert!(blocked.can_transition_to(&BeadState::InProgress));
+        assert!(!blocked.can_transition_to(&BeadState::Open));
+    }
+
+    #[test]
+    fn entity_deferred_can_return_to_in_progress_not_open() {
+        let deferred = make_bead().start().defer();
+        assert!(deferred.can_transition_to(&BeadState::InProgress));
+        assert!(!deferred.can_transition_to(&BeadState::Open));
+    }
+
     // ── transition_to invalid paths ─────────────────────────────────────────
 
     #[test]

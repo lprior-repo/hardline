@@ -38,6 +38,7 @@ pub use policies::{
 pub use parallel::{ParallelError, PhaseStatus};
 pub use queue::{
     InMemoryJobRepository, Job, JobOutcome, JobPayload, JobPriority, JobProcessor,
-    JobProcessorConfig, JobRepository, JobResult, JobState, QueueError, QueueResult,
+    JobProcessorConfig, JobRepository, JobResult, JobState, JobTransitionError, QueueError,
+    QueueResult,
 };
 pub use state::{IterationError, Pipeline, PipelineConfig, PipelineId, PipelineState, TransitionError};

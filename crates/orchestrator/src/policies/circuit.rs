@@ -317,4 +317,240 @@ mod tests {
             "\"half_open\""
         );
     }
+
+    // --- Exhaustive lifecycle tests (ha-g1t4) ---
+
+    #[test]
+    fn test_can_execute_always_true_in_closed_state() {
+        let mut cb = CircuitBreaker::new(5, 5000).expect("should create");
+
+        // Always true regardless of failure count
+        for _ in 0..4 {
+            cb.record_failure();
+            assert!(cb.can_execute(), "must allow execution in Closed state");
+        }
+    }
+
+    #[test]
+    fn test_failure_count_increments_correctly_without_premature_open() {
+        let mut cb = CircuitBreaker::new(10, 5000).expect("should create");
+
+        for i in 1..10 {
+            cb.record_failure();
+            assert_eq!(cb.failure_count(), i, "failure count at step {}", i);
+            assert_eq!(cb.state(), CircuitBreakerState::Closed, "state at step {}", i);
+        }
+    }
+
+    #[test]
+    fn test_record_failure_updates_last_failure_at_each_time() {
+        let mut cb = CircuitBreaker::new(10, 5000).expect("should create");
+
+        let t1 = Utc::now();
+        cb.record_failure();
+        let ts1 = cb.last_failure_at.expect("should be set after failure");
+        assert!(ts1 >= t1);
+
+        std::thread::sleep(std::time::Duration::from_millis(2));
+
+        let t2 = Utc::now();
+        cb.record_failure();
+        let ts2 = cb.last_failure_at.expect("should be set after failure");
+        assert!(ts2 >= t2);
+        assert!(ts2 > ts1, "timestamp should update on each failure");
+    }
+
+    #[test]
+    fn test_repeated_lifecycle_cycles() {
+        for cycle in 0..3 {
+            let mut cb = CircuitBreaker::new(2, 1).expect("should create");
+
+            // Closed → Open
+            cb.record_failure();
+            cb.record_failure();
+            assert_eq!(
+                cb.state(),
+                CircuitBreakerState::Open,
+                "cycle {}: should be Open",
+                cycle
+            );
+
+            // Open → HalfOpen
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            assert!(
+                cb.try_transition_to_half_open(),
+                "cycle {}: should transition to HalfOpen",
+                cycle
+            );
+            assert_eq!(
+                cb.state(),
+                CircuitBreakerState::HalfOpen,
+                "cycle {}: should be HalfOpen",
+                cycle
+            );
+
+            // HalfOpen → Closed
+            cb.record_success();
+            assert_eq!(
+                cb.state(),
+                CircuitBreakerState::Closed,
+                "cycle {}: should be Closed after success",
+                cycle
+            );
+            assert_eq!(cb.failure_count(), 0, "cycle {}: failure_count reset", cycle);
+        }
+    }
+
+    #[test]
+    fn test_halfopen_failure_reopens_immediately() {
+        let mut cb = CircuitBreaker::new(1, 1).expect("should create");
+        cb.record_failure(); // Open
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        cb.try_transition_to_half_open(); // HalfOpen
+
+        cb.record_failure(); // Immediately reopens
+        assert_eq!(cb.state(), CircuitBreakerState::Open);
+        assert!(cb.failure_count() >= 1);
+    }
+
+    #[test]
+    fn test_halfopen_success_closes_and_resets_failure_count() {
+        let mut cb = CircuitBreaker::new(3, 1).expect("should create");
+
+        // Build up failures
+        cb.record_failure();
+        cb.record_failure();
+        cb.record_failure(); // Open
+        assert_eq!(cb.state(), CircuitBreakerState::Open);
+        assert_eq!(cb.failure_count(), 3);
+
+        // Recover
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        cb.try_transition_to_half_open();
+        cb.record_success();
+
+        assert_eq!(cb.state(), CircuitBreakerState::Closed);
+        assert_eq!(cb.failure_count(), 0);
+    }
+
+    #[test]
+    fn test_success_in_closed_resets_accumulated_failures() {
+        let mut cb = CircuitBreaker::new(5, 5000).expect("should create");
+
+        cb.record_failure();
+        cb.record_failure();
+        cb.record_failure();
+        assert_eq!(cb.failure_count(), 3);
+
+        cb.record_success();
+        assert_eq!(cb.failure_count(), 0);
+        assert_eq!(cb.state(), CircuitBreakerState::Closed);
+    }
+
+    #[test]
+    fn test_can_execute_in_halfopen_returns_true() {
+        let mut cb = CircuitBreaker::new(1, 1).expect("should create");
+        cb.record_failure(); // Open
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        cb.try_transition_to_half_open();
+
+        assert_eq!(cb.state(), CircuitBreakerState::HalfOpen);
+        assert!(cb.can_execute(), "HalfOpen must allow probe requests");
+    }
+
+    #[test]
+    fn test_try_transition_to_half_open_only_works_from_open() {
+        let mut cb = CircuitBreaker::new(3, 5000).expect("should create");
+        // Closed — should not transition
+        assert!(!cb.try_transition_to_half_open());
+        assert_eq!(cb.state(), CircuitBreakerState::Closed);
+    }
+
+    #[test]
+    fn test_full_lifecycle_closed_open_halfopen_closed_via_can_execute() {
+        let mut cb = CircuitBreaker::new(2, 1).expect("should create");
+
+        // Phase 1: Closed
+        assert_eq!(cb.state(), CircuitBreakerState::Closed);
+        assert!(cb.can_execute());
+
+        // Phase 2: Accumulate failures below threshold
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitBreakerState::Closed);
+        assert!(cb.can_execute());
+
+        // Phase 3: Trip to Open
+        cb.record_failure();
+        assert_eq!(cb.state(), CircuitBreakerState::Open);
+        assert!(!cb.can_execute(), "Open must reject execution immediately");
+
+        // Phase 4: Wait and check — can_execute returns true but state stays Open
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        assert!(cb.can_execute(), "can_execute returns true after recovery timeout");
+        // Note: can_execute is &self, state is still Open
+
+        // Phase 5: Explicitly transition to HalfOpen
+        assert!(cb.try_transition_to_half_open());
+        assert_eq!(cb.state(), CircuitBreakerState::HalfOpen);
+
+        // Phase 6: Record success → Closed
+        cb.record_success();
+        assert_eq!(cb.state(), CircuitBreakerState::Closed);
+    }
+
+    // --- Proptests for circuit.rs (ha-g1t4) ---
+
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_failure_threshold_never_opens_before_threshold(
+            threshold in 1u32..20u32,
+            failures in 0u32..20u32,
+        ) {
+            let mut cb = CircuitBreaker::new(threshold, 1000).expect("should create");
+            for _ in 0..failures {
+                if cb.state() == CircuitBreakerState::Closed {
+                    cb.record_failure();
+                }
+            }
+            let should_be_open = failures >= threshold;
+            prop_assert_eq!(
+                cb.state() == CircuitBreakerState::Open,
+                should_be_open
+            );
+        }
+
+        #[test]
+        fn prop_success_resets_failure_count_in_closed(
+            num_failures in 0u32..10u32,
+        ) {
+            let mut cb = CircuitBreaker::new(100, 5000).expect("should create");
+            for _ in 0..num_failures {
+                cb.record_failure();
+            }
+            cb.record_success();
+            prop_assert_eq!(cb.failure_count(), 0);
+            prop_assert_eq!(cb.state(), CircuitBreakerState::Closed);
+        }
+
+        #[test]
+        fn prop_halfopen_failure_always_reopens(
+            threshold in 1u32..10u32,
+        ) {
+            let mut cb = CircuitBreaker::new(threshold, 1).expect("should create");
+            for _ in 0..threshold {
+                cb.record_failure();
+            }
+            prop_assert_eq!(cb.state(), CircuitBreakerState::Open);
+
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            let transitioned = cb.try_transition_to_half_open();
+            prop_assert!(transitioned);
+            prop_assert_eq!(cb.state(), CircuitBreakerState::HalfOpen);
+
+            cb.record_failure();
+            prop_assert_eq!(cb.state(), CircuitBreakerState::Open);
+        }
+    }
 }
