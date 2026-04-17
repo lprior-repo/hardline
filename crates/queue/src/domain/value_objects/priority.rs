@@ -1,8 +1,23 @@
 use crate::error::QueueError;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Priority(u8);
+
+impl PartialOrd for Priority {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Priority {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // Invert: higher numeric value = higher priority = sorts first (lower ordinal)
+        // This matches the domain convention: "lower number = higher priority"
+        // so critical(255) < high(230) < normal(200) < low(100) in sort order
+        other.0.cmp(&self.0)
+    }
+}
 
 impl Priority {
     pub fn new(value: u8) -> Self {
@@ -71,9 +86,11 @@ mod tests {
     }
 
     #[test]
-    fn priority_ord_compares_by_value() {
-        assert!(Priority::low() < Priority::normal());
-        assert!(Priority::normal() < Priority::high());
+    fn priority_ord_higher_number_sorts_first() {
+        // Domain convention: higher numeric = higher priority = sorts first
+        assert!(Priority::critical() < Priority::high());
+        assert!(Priority::high() < Priority::normal());
+        assert!(Priority::normal() < Priority::low());
     }
 
     #[test]
@@ -140,10 +157,11 @@ mod tests {
 
     #[test]
     fn priority_ordering_total() {
-        assert!(Priority::new(0) < Priority::low());
+        // Higher numeric value = higher priority = sorts first
+        assert!(Priority::new(0) > Priority::low());
         assert!(Priority::low() <= Priority::low());
-        assert!(Priority::critical() > Priority::normal());
-        assert!(Priority::critical() >= Priority::critical());
+        assert!(Priority::critical() < Priority::normal());
+        assert!(Priority::critical() <= Priority::critical());
     }
 
     #[test]
