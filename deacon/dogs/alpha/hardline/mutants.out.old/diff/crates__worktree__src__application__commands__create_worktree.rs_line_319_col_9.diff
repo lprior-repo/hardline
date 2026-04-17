@@ -1,0 +1,64 @@
+--- crates/worktree/src/application/commands/create_worktree.rs
++++ replace CreateWorktreeCommand::execute -> Result<crate::domain::entities::worktree_id::WorktreeId, CreateWorktreeError> with Ok(Default::default())
+@@ -311,60 +311,17 @@
+ }
+ 
+ impl CreateWorktreeCommand {
+     /// Execute the command to create a worktree.
+     pub fn execute(
+         self,
+     ) -> Result<crate::domain::entities::worktree_id::WorktreeId, CreateWorktreeError> {
+         // Validate worktree name
+-        let name = crate::domain::entities::worktree_name::WorktreeName::parse(&self.name)?;
+-
+-        // Validate path is absolute
+-        if !self.path.starts_with('/') {
+-            return Err(CreateWorktreeError::PathNotAbsolute {
+-                path: self.path.clone(),
+-            });
+-        }
+-
+-        // Validate branch name
+-        let source_branch =
+-            crate::domain::entities::worktree::BranchName::parse(&self.source_branch)?;
+-
+-        // Validate absolute path
+-        let path = crate::domain::entities::worktree::AbsolutePath::parse(&self.path)?;
+-
+-        // Check for duplicate name
+-        let check_duplicate = self.repository.get_by_name(&name)?;
+-        if check_duplicate.is_some() {
+-            return Err(CreateWorktreeError::WorktreeExists {
+-                name: self.name.clone(),
+-            });
+-        }
+-
+-        // Perform Git operation if adapter is available
+-        if let Some(ref adapter) = self.git_adapter {
+-            let _ = adapter
+-                .add_worktree(&self.path, &self.source_branch)
+-                .map_err(|e| CreateWorktreeError::GitError(e.to_string()))?;
+-        }
+-
+-        // Create worktree entity
+-        let worktree = crate::domain::entities::worktree::Worktree::new(
+-            name.clone(),
+-            self.worktree_type.clone(),
+-            path.clone(),
+-            source_branch.clone(),
+-            self.description.clone(),
+-        )?;
+-
+-        // Persist worktree
+-        let id = self.repository.add(&worktree)?;
+-
+-        Ok(id)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Create a command for testing purposes.
+     #[cfg(test)]
+     pub fn for_testing(
+         name: String,
+         worktree_type: WorktreeTypeEnum,
+         path: String,

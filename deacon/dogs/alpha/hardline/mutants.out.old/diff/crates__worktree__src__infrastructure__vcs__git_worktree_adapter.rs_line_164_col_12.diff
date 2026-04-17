@@ -1,0 +1,21 @@
+--- crates/worktree/src/infrastructure/vcs/git_worktree_adapter.rs
++++ delete ! in <impl GitAdapter for Git2WorktreeAdapter>::add_worktree
+@@ -156,17 +156,17 @@
+     }
+ }
+ 
+ impl GitAdapter for Git2WorktreeAdapter {
+     fn add_worktree(&self, path: &str, source_branch: &str) -> Result<String, GitAdapterError> {
+         use git2::BranchType;
+ 
+         // Validate path is absolute
+-        if !path.starts_with('/') {
++        if  /* ~ changed by cargo-mutants ~ */path.starts_with('/') {
+             return Err(GitAdapterError::PathExists {
+                 path: path.to_string(),
+             });
+         }
+ 
+         // Check if path already exists
+         let path_obj = Path::new(path);
+         if path_obj.exists() {

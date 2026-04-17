@@ -1,0 +1,25 @@
+--- crates/worktree/src/domain/entities/worktree_state.rs
++++ replace WorktreeState::activate -> Option<Self> with None
+@@ -34,21 +34,17 @@
+     pub fn is_created(&self) -> bool {
+         matches!(self, Self::Created | Self::Active)
+     }
+ 
+     /// Transition to Active state.
+     ///
+     /// Returns None if already active.
+     pub fn activate(self) -> Option<Self> {
+-        if self.is_active() {
+-            None
+-        } else {
+-            Some(Self::Active)
+-        }
++        None /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Transition to Inactive state.
+     ///
+     /// Returns None if already inactive.
+     pub fn deactivate(self) -> Option<Self> {
+         if matches!(self, Self::Inactive) {
+             None

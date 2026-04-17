@@ -1,0 +1,23 @@
+--- crates/worktree/src/infrastructure/vcs/git_worktree_adapter.rs
++++ replace <impl std::fmt::Debug for Git2WorktreeAdapter>::fmt -> std::fmt::Result with Ok(Default::default())
+@@ -114,19 +114,17 @@
+ 
+ /// Adapter that uses git2 library instead of git commands.
+ pub struct Git2WorktreeAdapter {
+     repo: std::sync::Arc<Repository>,
+ }
+ 
+ impl std::fmt::Debug for Git2WorktreeAdapter {
+     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+-        f.debug_struct("Git2WorktreeAdapter")
+-            .field("repo", &"Repository")
+-            .finish()
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl Clone for Git2WorktreeAdapter {
+     fn clone(&self) -> Self {
+         Self {
+             repo: self.repo.clone(),
+         }

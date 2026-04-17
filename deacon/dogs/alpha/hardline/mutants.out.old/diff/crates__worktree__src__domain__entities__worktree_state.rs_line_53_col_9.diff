@@ -1,0 +1,25 @@
+--- crates/worktree/src/domain/entities/worktree_state.rs
++++ replace WorktreeState::deactivate -> Option<Self> with None
+@@ -45,21 +45,17 @@
+             Some(Self::Active)
+         }
+     }
+ 
+     /// Transition to Inactive state.
+     ///
+     /// Returns None if already inactive.
+     pub fn deactivate(self) -> Option<Self> {
+-        if matches!(self, Self::Inactive) {
+-            None
+-        } else {
+-            Some(Self::Inactive)
+-        }
++        None /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Get the string representation.
+     pub fn as_str(&self) -> &'static str {
+         match self {
+             Self::Created => "created",
+             Self::Active => "active",
+             Self::Inactive => "inactive",

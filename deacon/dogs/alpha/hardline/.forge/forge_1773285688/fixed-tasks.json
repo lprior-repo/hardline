@@ -1,0 +1,975 @@
+[
+  {
+    "title": "Fix scenarios crate - remove unused imports",
+    "description": "Remove unused imports causing compilation warnings in scenarios crate",
+    "type": "bug",
+    "priority": 0,
+    "acceptance_criteria": [
+      "cargo check --package scenarios passes",
+      "No unused import warnings"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Fix scenarios crate - add missing type annotations",
+    "description": "Add missing type annotations causing type errors in scenarios crate",
+    "type": "bug",
+    "priority": 0,
+    "acceptance_criteria": [
+      "cargo check --package scenarios passes",
+      "All type errors resolved"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Fix orchestrator crate - resolve trait bounds",
+    "description": "Fix trait bound issues causing compilation errors in orchestrator crate",
+    "type": "bug",
+    "priority": 0,
+    "acceptance_criteria": [
+      "cargo check --package orchestrator passes",
+      "All trait bound errors resolved"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Fix twins crate - resolve missing implementations",
+    "description": "Add missing trait implementations causing compilation errors in twins crate",
+    "type": "bug",
+    "priority": 0,
+    "acceptance_criteria": [
+      "cargo check --package twins passes",
+      "All missing impl errors resolved"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Create SessionState enum in domain",
+    "description": "Define SessionState state machine enum (Created->Active->Syncing->Synced->Paused->Completed/Failed) in domain layer",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "SessionState enum defined with all states",
+      "State transitions defined as methods",
+      "Unit tests for state transitions pass"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Create Session aggregate in domain",
+    "description": "Define Session aggregate with id, name, workspace, bead, state, created_at fields",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "Session struct defined with all fields",
+      "Session::create() returns Session in Created state",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Create SessionState enum in domain"]
+  },
+  {
+    "title": "Create SessionRepository trait in domain",
+    "description": "Define SessionRepository trait with save, find_by_id, find_by_workspace methods",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "SessionRepository trait defined",
+      "Methods: save, find_by_id, find_by_workspace",
+      "Trait has zero infrastructure dependencies"
+    ],
+    "dependencies": ["Create Session aggregate in domain"]
+  },
+  {
+    "title": "Implement SessionRepository in infrastructure",
+    "description": "Implement SessionRepository for SQLite in infrastructure layer",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "SqliteSessionRepository implements SessionRepository",
+      "save, find_by_id, find_by_workspace work",
+      "Integration tests pass"
+    ],
+    "dependencies": ["Create SessionRepository trait in domain"]
+  },
+  {
+    "title": "Create QueueStatus enum in domain",
+    "description": "Define QueueStatus state machine (Pending->Claimed->Rebasing->Testing->ReadyToMerge->Merging->Merged->FailedRetryable->FailedTerminal->Cancelled)",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "QueueStatus enum defined with all states",
+      "Valid transitions defined",
+      "Unit tests pass"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Create QueueEntry aggregate in domain",
+    "description": "Define QueueEntry with id, session, priority, enqueued_at, status fields",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "QueueEntry struct defined",
+      "enqueue respects priority ordering",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Create QueueStatus enum in domain"]
+  },
+  {
+    "title": "Create QueueRepository trait in domain",
+    "description": "Define QueueRepository trait with enqueue, dequeue, find_by_session methods",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "QueueRepository trait defined",
+      "Methods: enqueue, dequeue, find_by_session, update_status",
+      "Zero infrastructure dependencies"
+    ],
+    "dependencies": ["Create QueueEntry aggregate in domain"]
+  },
+  {
+    "title": "Implement QueueRepository in infrastructure",
+    "description": "Implement QueueRepository for SQLite in infrastructure layer",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "SqliteQueueRepository implements QueueRepository",
+      "Priority ordering enforced",
+      "Integration tests pass"
+    ],
+    "dependencies": ["Create QueueRepository trait in domain"]
+  },
+  {
+    "title": "Create BeadState enum in domain",
+    "description": "Define BeadState enum (Open->Claimed->InProgress->Ready->Merged/Abandoned)",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "BeadState enum defined",
+      "State transitions defined",
+      "Unit tests pass"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Create Bead aggregate in domain",
+    "description": "Define Bead aggregate with id, title, description, state, claimed_by, dependencies",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "Bead struct defined with all fields",
+      "BeadId value object (bd-xxx format)",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Create BeadState enum in domain"]
+  },
+  {
+    "title": "Create BeadRepository trait in domain",
+    "description": "Define BeadRepository trait with claim, find_by_id, find_available methods",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "BeadRepository trait defined",
+      "Atomic claim method (WHERE state=Open)",
+      "Zero infrastructure dependencies"
+    ],
+    "dependencies": ["Create Bead aggregate in domain"]
+  },
+  {
+    "title": "Implement BeadRepository in infrastructure",
+    "description": "Implement BeadRepository for SQLite with atomic claims",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "SqliteBeadRepository implements BeadRepository",
+      "Atomic claim works (UPDATE WHERE state=Open)",
+      "Integration tests pass"
+    ],
+    "dependencies": ["Create BeadRepository trait in domain"]
+  },
+  {
+    "title": "Create WorkspaceState enum in domain",
+    "description": "Define WorkspaceState enum (Created->Working->Ready->Merged/Abandoned/Conflict)",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "WorkspaceState enum defined",
+      "State transitions defined",
+      "Unit tests pass"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Create Workspace aggregate in domain",
+    "description": "Define Workspace aggregate with id, path, vcs_backend, state, session fields",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "Workspace struct defined",
+      "BackendType enum (Git/JJ)",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Create WorkspaceState enum in domain"]
+  },
+  {
+    "title": "Create WorkspaceRepository trait in domain",
+    "description": "Define WorkspaceRepository trait with create, find_by_id, find_by_session methods",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "WorkspaceRepository trait defined",
+      "Zero infrastructure dependencies"
+    ],
+    "dependencies": ["Create Workspace aggregate in domain"]
+  },
+  {
+    "title": "Implement WorkspaceRepository in infrastructure",
+    "description": "Implement WorkspaceRepository for SQLite",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "SqliteWorkspaceRepository implements WorkspaceRepository",
+      "Integration tests pass"
+    ],
+    "dependencies": ["Create WorkspaceRepository trait in domain"]
+  },
+  {
+    "title": "Define VcsBackend trait in domain",
+    "description": "Define VcsBackend trait with repository, branch, commit, workspace, operation methods",
+    "type": "feature",
+    "priority": 1,
+    "acceptance_criteria": [
+      "VcsBackend trait defined",
+      "All required methods signatures",
+      "Zero implementation details"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Implement GitBackend using gix",
+    "description": "Implement VcsBackend for Git using gitoxide library",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "GitBackend implements VcsBackend",
+      "Basic operations work (init, branch, commit)",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Define VcsBackend trait in domain"]
+  },
+  {
+    "title": "Implement JJBackend using jj-lib",
+    "description": "Implement VcsBackend for JJ using jj_lib",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "JJBackend implements VcsBackend",
+      "Workspace operations work",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Define VcsBackend trait in domain"]
+  },
+  {
+    "title": "Create StackBranch aggregate in domain",
+    "description": "Define StackBranch with name, parent, pr_info, revision fields",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "StackBranch struct defined",
+      "Parent-child relationships tracked",
+      "Unit tests pass"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Create StackRepository trait in domain",
+    "description": "Define StackRepository trait for stacked branch management",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "StackRepository trait defined",
+      "Methods: push, restack, cascade"
+    ],
+    "dependencies": ["Create StackBranch aggregate in domain"]
+  },
+  {
+    "title": "Create ScpError trait in domain",
+    "description": "Define ScpError trait with code, category, fix, is_retryable methods",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "ScpError trait defined",
+      "ErrorCategory enum defined",
+      "Fix struct defined"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Implement workspace error variants (1xxx)",
+    "description": "Implement error types: WorkspaceNotFound, WorkspaceLocked, WorkspaceCorrupt",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "All 3 error types implement ScpError",
+      "Error codes in 1xxx range",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Create ScpError trait in domain"]
+  },
+  {
+    "title": "Implement session error variants (2xxx)",
+    "description": "Implement error types: SessionNotFound, SessionAlreadyActive, SessionExpired",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "All 3 error types implement ScpError",
+      "Error codes in 2xxx range",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Create ScpError trait in domain"]
+  },
+  {
+    "title": "Implement bead error variants (3xxx)",
+    "description": "Implement error types: BeadNotFound, BeadAlreadyClaimed, BeadDependencyCycle",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "All 3 error types implement ScpError",
+      "Error codes in 3xxx range",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Create ScpError trait in domain"]
+  },
+  {
+    "title": "Implement queue error variants (4xxx)",
+    "description": "Implement error types: QueueFull, QueuePriorityConflict, QueueStaleEntry",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "All 3 error types implement ScpError",
+      "Error codes in 4xxx range",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Create ScpError trait in domain"]
+  },
+  {
+    "title": "Implement VCS error variants (5xxx)",
+    "description": "Implement error types: VcsNotFound, VcsConflict, VcsDetachedHead",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "All 3 error types implement ScpError",
+      "Error codes in 5xxx range",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Create ScpError trait in domain"]
+  },
+  {
+    "title": "Implement stack error variants (6xxx)",
+    "description": "Implement error types: StackNotFound, StackOrphaned, StackCyclicDependency",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "All 3 error types implement ScpError",
+      "Error codes in 6xxx range",
+      "Unit tests pass"
+    ],
+    "dependencies": ["Create ScpError trait in domain"]
+  },
+  {
+    "title": "Add clippy lints to deny unwrap/panic",
+    "description": "Add clippy configuration to deny unwrap_used, expect_used, panic in Cargo.toml",
+    "type": "task",
+    "priority": 2,
+    "acceptance_criteria": [
+      "clippy::unwrap_used denied",
+      "clippy::expect_used denied",
+      "clippy::panic denied"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Remove unwrap from session.rs in domain",
+    "description": "Replace all .unwrap() calls in domain/session.rs with proper error handling",
+    "type": "task",
+    "priority": 2,
+    "acceptance_criteria": [
+      "Zero unwrap in session.rs",
+      "All functions return Result",
+      "clippy passes on session.rs"
+    ],
+    "dependencies": ["Add clippy lints to deny unwrap/panic"]
+  },
+  {
+    "title": "Remove unwrap from queue.rs in domain",
+    "description": "Replace all .unwrap() calls in domain/queue.rs with proper error handling",
+    "type": "task",
+    "priority": 2,
+    "acceptance_criteria": [
+      "Zero unwrap in queue.rs",
+      "All functions return Result",
+      "clippy passes on queue.rs"
+    ],
+    "dependencies": ["Add clippy lints to deny unwrap/panic"]
+  },
+  {
+    "title": "Remove unwrap from bead.rs in domain",
+    "description": "Replace all .unwrap() calls in domain/bead.rs with proper error handling",
+    "type": "task",
+    "priority": 2,
+    "acceptance_criteria": [
+      "Zero unwrap in bead.rs",
+      "All functions return Result",
+      "clippy passes on bead.rs"
+    ],
+    "dependencies": ["Add clippy lints to deny unwrap/panic"]
+  },
+  {
+    "title": "Remove unwrap from workspace.rs in domain",
+    "description": "Replace all .unwrap() calls in domain/workspace.rs with proper error handling",
+    "type": "task",
+    "priority": 2,
+    "acceptance_criteria": [
+      "Zero unwrap in workspace.rs",
+      "All functions return Result",
+      "clippy passes on workspace.rs"
+    ],
+    "dependencies": ["Add clippy lints to deny unwrap/panic"]
+  },
+  {
+    "title": "Create session CLI commands",
+    "description": "Add session create, list, status commands to CLI",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "scp session create works",
+      "scp session list works",
+      "scp session status works"
+    ],
+    "dependencies": ["Implement SessionRepository in infrastructure"]
+  },
+  {
+    "title": "Create queue CLI commands",
+    "description": "Add queue enqueue, list, process commands to CLI",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "scp queue enqueue works",
+      "scp queue list works",
+      "scp queue process works"
+    ],
+    "dependencies": ["Implement QueueRepository in infrastructure"]
+  },
+  {
+    "title": "Create bead CLI commands",
+    "description": "Add bead claim, list, status commands to CLI",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "scp bead claim works",
+      "scp bead list works",
+      "scp bead status works"
+    ],
+    "dependencies": ["Implement BeadRepository in infrastructure"]
+  },
+  {
+    "title": "Create workspace CLI commands",
+    "description": "Add workspace create, list, status commands to CLI",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "scp workspace create works",
+      "scp workspace list works",
+      "scp workspace status works"
+    ],
+    "dependencies": ["Implement WorkspaceRepository in infrastructure"]
+  },
+  {
+    "title": "Add --json flag to session commands",
+    "description": "Ensure session create, list, status commands support --json for machine output",
+    "type": "task",
+    "priority": 2,
+    "acceptance_criteria": [
+      "scp session list --json works",
+      "scp session status --json works",
+      "JSON output valid"
+    ],
+    "dependencies": ["Create session CLI commands"]
+  },
+  {
+    "title": "Add --json flag to queue commands",
+    "description": "Ensure queue enqueue, list, process commands support --json for machine output",
+    "type": "task",
+    "priority": 2,
+    "acceptance_criteria": [
+      "scp queue list --json works",
+      "scp queue process --json works",
+      "JSON output valid"
+    ],
+    "dependencies": ["Create queue CLI commands"]
+  },
+  {
+    "title": "Add --json flag to bead commands",
+    "description": "Ensure bead claim, list, status commands support --json for machine output",
+    "type": "task",
+    "priority": 2,
+    "acceptance_criteria": [
+      "scp bead list --json works",
+      "scp bead status --json works",
+      "JSON output valid"
+    ],
+    "dependencies": ["Create bead CLI commands"]
+  },
+  {
+    "title": "Add --json flag to workspace commands",
+    "description": "Ensure workspace create, list, status commands support --json for machine output",
+    "type": "task",
+    "priority": 2,
+    "acceptance_criteria": [
+      "scp workspace list --json works",
+      "scp workspace status --json works",
+      "JSON output valid"
+    ],
+    "dependencies": ["Create workspace CLI commands"]
+  },
+  {
+    "title": "Create SQLite schema for sessions",
+    "description": "Create SQL migration for sessions table",
+    "type": "task",
+    "priority": 1,
+    "acceptance_criteria": [
+      "sessions table created",
+      "All session fields persisted",
+      "Migration runs successfully"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Create SQLite schema for queue",
+    "description": "Create SQL migration for queue_entries table",
+    "type": "task",
+    "priority": 1,
+    "acceptance_criteria": [
+      "queue_entries table created",
+      "Priority index defined",
+      "Migration runs successfully"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Create SQLite schema for beads",
+    "description": "Create SQL migration for beads table",
+    "type": "task",
+    "priority": 1,
+    "acceptance_criteria": [
+      "beads table created",
+      "Unique constraint on bead_id",
+      "Migration runs successfully"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Create SQLite schema for workspaces",
+    "description": "Create SQL migration for workspaces table",
+    "type": "task",
+    "priority": 1,
+    "acceptance_criteria": [
+      "workspaces table created",
+      "Unique constraint on workspace_id",
+      "Migration runs successfully"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Create SQLite schema for operation_log",
+    "description": "Create SQL migration for operation_log table (event sourcing)",
+    "type": "task",
+    "priority": 1,
+    "acceptance_criteria": [
+      "operation_log table created",
+      "Append-only design",
+      "Migration runs successfully"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Create SQLite schema for agent_heartbeat",
+    "description": "Create SQL migration for agent_heartbeat table",
+    "type": "task",
+    "priority": 2,
+    "acceptance_criteria": [
+      "agent_heartbeat table created",
+      "Index on last_seen for stale detection",
+      "Migration runs successfully"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Set up SQLite with WAL mode",
+    "description": "Configure SQLite database with WAL mode and async tokio",
+    "type": "task",
+    "priority": 1,
+    "acceptance_criteria": [
+      "WAL mode enabled",
+      "Async connection pool works",
+      "Basic CRUD operations pass"
+    ],
+    "dependencies": ["Create SQLite schema for sessions"]
+  },
+  {
+    "title": "Create agent list JSON command",
+    "description": "Add scp agent list --json showing all agents and states",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "scp agent list --json works",
+      "Shows all active agents",
+      "JSON is valid"
+    ],
+    "dependencies": ["Create SQLite schema for agent_heartbeat"]
+  },
+  {
+    "title": "Create agent status JSON command",
+    "description": "Add scp agent status <id> --json showing specific agent details",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "scp agent status <id> --json works",
+      "Shows session, bead, workspace",
+      "Shows status (Idle/Working/Blocked/Failed)"
+    ],
+    "dependencies": ["Create agent list JSON command"]
+  },
+  {
+    "title": "Implement heartbeat sender",
+    "description": "Add code to send heartbeat every 30 seconds",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "Heartbeat sent on schedule",
+      "Last_seen updated in DB",
+      "Test passes"
+    ],
+    "dependencies": ["Create SQLite schema for agent_heartbeat"]
+  },
+  {
+    "title": "Implement stale agent detection",
+    "description": "Add logic to detect agents with no heartbeat for 5 minutes",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "Query finds stale agents",
+      "Can trigger cleanup action",
+      "Test passes"
+    ],
+    "dependencies": ["Implement heartbeat sender"]
+  },
+  {
+    "title": "Create doctor check database integrity",
+    "description": "Add scp doctor check for PRAGMA integrity_check",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "scp doctor check works",
+      "Detects DB corruption",
+      "Reports severity"
+    ],
+    "dependencies": ["Set up SQLite with WAL mode"]
+  },
+  {
+    "title": "Create doctor check stale sessions",
+    "description": "Add stale session detection to doctor command",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "Detects sessions with expired heartbeat",
+      "Can auto-cleanup or report"
+    ],
+    "dependencies": ["Implement stale agent detection"]
+  },
+  {
+    "title": "Create GitHub client trait",
+    "description": "Define GitHubClient trait for PR operations",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "GitHubClient trait defined",
+      "Methods: create_pr, update_pr, get_status"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Implement GitHub PR creation",
+    "description": "Implement creating PRs from stack branches",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "Can create PR for branch",
+      "PR linked to StackBranch",
+      "Test passes"
+    ],
+    "dependencies": ["Create GitHub client trait"]
+  },
+  {
+    "title": "Implement GitHub PR status sync",
+    "description": "Implement syncing PR status from GitHub",
+    "type": "feature",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Can fetch PR status",
+      "Updates StackBranch.pr_info",
+      "Test passes"
+    ],
+    "dependencies": ["Implement GitHub PR creation"]
+  },
+  {
+    "title": "Create snapshot domain types",
+    "description": "Define Snapshot aggregate with timestamp, branches, refs",
+    "type": "feature",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Snapshot struct defined",
+      "SnapshotRepository trait defined"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Implement snapshot creation",
+    "description": "Implement creating git ref-based snapshots",
+    "type": "feature",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Creates backup refs",
+      "Stores receipt in DB",
+      "Test passes"
+    ],
+    "dependencies": ["Create snapshot domain types"]
+  },
+  {
+    "title": "Implement snapshot restore",
+    "description": "Implement restoring from snapshot",
+    "type": "feature",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Restores from backup refs",
+      "Updates branch state",
+      "Test passes"
+    ],
+    "dependencies": ["Implement snapshot creation"]
+  },
+  {
+    "title": "Create stack restack logic",
+    "description": "Implement restack algorithm for rebasing stack branches",
+    "type": "feature",
+    "priority": 2,
+    "acceptance_criteria": [
+      "Topological order for rebasing",
+      "Parent-child preserved",
+      "Test passes"
+    ],
+    "dependencies": ["Create StackRepository trait in domain"]
+  },
+  {
+    "title": "Create stack cascade logic",
+    "description": "Implement cascade for submitting all PRs in stack",
+    "type": "feature",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Submits all PRs in order",
+      "Waits for merge before next",
+      "Test passes"
+    ],
+    "dependencies": ["Create stack restack logic"]
+  },
+  {
+    "title": "Create TUI stack tree view",
+    "description": "Create Dioxus view showing stack branch tree",
+    "type": "feature",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Stack tree renders",
+      "Shows parent-child relationships"
+    ],
+    "dependencies": ["Create stack restack logic"]
+  },
+  {
+    "title": "Add line limit check script",
+    "description": "Create scripts/check-line-limits.sh to enforce 300 line max",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Script created",
+      "Finds files over 300 lines",
+      "Can be run in CI"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Add function limit check to clippy",
+    "description": "Configure clippy to warn on functions over 40 lines",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "clippy detects long functions",
+      "Configurable threshold"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Write SessionState unit tests",
+    "description": "Add unit tests for SessionState transitions (Created->Active->Syncing->Synced->Paused->Completed/Failed)",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Every SessionState transition tested",
+      "Invalid transitions fail",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Write QueueStatus unit tests",
+    "description": "Add unit tests for QueueStatus transitions (Pending->Claimed->Rebasing->Testing->ReadyToMerge->Merging->Merged/FailedRetryable/FailedTerminal/Cancelled)",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Every QueueStatus transition tested",
+      "Invalid transitions fail",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Write BeadState unit tests",
+    "description": "Add unit tests for BeadState transitions (Open->Claimed->InProgress->Ready->Merged/Abandoned)",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Every BeadState transition tested",
+      "Invalid transitions fail",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Write WorkspaceState unit tests",
+    "description": "Add unit tests for WorkspaceState transitions (Created->Working->Ready->Merged/Abandoned/Conflict)",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Every WorkspaceState transition tested",
+      "Invalid transitions fail",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Write session error tests",
+    "description": "Add tests for session error variants (2xxx): SessionNotFound, SessionAlreadyActive, SessionExpired",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "All 3 session errors tested",
+      "Error codes correct",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Write queue error tests",
+    "description": "Add tests for queue error variants (4xxx): QueueFull, QueuePriorityConflict, QueueStaleEntry",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "All 3 queue errors tested",
+      "Error codes correct",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Write bead error tests",
+    "description": "Add tests for bead error variants (3xxx): BeadNotFound, BeadAlreadyClaimed, BeadDependencyCycle",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "All 3 bead errors tested",
+      "Error codes correct",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Write workspace error tests",
+    "description": "Add tests for workspace error variants (1xxx): WorkspaceNotFound, WorkspaceLocked, WorkspaceCorrupt",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "All 3 workspace errors tested",
+      "Error codes correct",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Write VCS error tests",
+    "description": "Add tests for VCS error variants (5xxx): VcsNotFound, VcsConflict, VcsDetachedHead",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "All 3 VCS errors tested",
+      "Error codes correct",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Write stack error tests",
+    "description": "Add tests for stack error variants (6xxx): StackNotFound, StackOrphaned, StackCyclicDependency",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "All 3 stack errors tested",
+      "Error codes correct",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": []
+  },
+  {
+    "title": "Write Session state transition tests",
+    "description": "Unit test Session state transitions (create->active->syncing->synced->paused->completed)",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "State transitions work correctly",
+      "No DB required (mock-free)",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": ["Write SessionState unit tests"]
+  },
+  {
+    "title": "Write QueueStatus transition tests",
+    "description": "Unit test QueueStatus state transitions (pending->claimed->rebasing->testing->ready_to_merge->merging->merged)",
+    "type": "task",
+    "priority": 3,
+    "acceptance_criteria": [
+      "Status transitions work correctly",
+      "No DB required (mock-free)",
+      "Tests pass in < 2 seconds"
+    ],
+    "dependencies": ["Write QueueStatus unit tests"]
+  },
+  {
+    "title": "Test 5 concurrent agent spawns",
+    "description": "Load test with 5 concurrent agents to verify basic concurrency works",
+    "type": "task",
+    "priority": 2,
+    "acceptance_criteria": [
+      "5 agents spawn successfully",
+      "No deadlocks",
+      "No data corruption",
+      "Test completes in < 30 seconds"
+    ],
+    "dependencies": ["Write Session state transition tests", "Write QueueStatus transition tests"]
+  }
+]

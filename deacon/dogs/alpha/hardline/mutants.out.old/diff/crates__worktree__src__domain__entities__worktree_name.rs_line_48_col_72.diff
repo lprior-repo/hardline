@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/entities/worktree_name.rs
++++ replace == with != in WorktreeName::parse
+@@ -40,17 +40,17 @@
+         // Cannot start or end with hyphen
+         if s.starts_with('-') || s.ends_with('-') {
+             return Err(WorktreeNameParseError::InvalidBoundary);
+         }
+ 
+         // Only allow lowercase alphanumeric and hyphens
+         if !s
+             .chars()
+-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
++            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c != /* ~ changed by cargo-mutants ~ */ '-')
+         {
+             return Err(WorktreeNameParseError::InvalidCharacters);
+         }
+ 
+         // Cannot have consecutive hyphens
+         if s.contains("--") {
+             return Err(WorktreeNameParseError::ConsecutiveHyphens);
+         }

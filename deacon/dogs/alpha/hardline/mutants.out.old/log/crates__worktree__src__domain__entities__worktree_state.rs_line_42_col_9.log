@@ -1,0 +1,706 @@
+
+*** crates/worktree/src/domain/entities/worktree_state.rs:42:9: replace WorktreeState::activate -> Option<Self> with None
+
+*** mutation diff:
+--- crates/worktree/src/domain/entities/worktree_state.rs
++++ replace WorktreeState::activate -> Option<Self> with None
+@@ -34,21 +34,17 @@
+     pub fn is_created(&self) -> bool {
+         matches!(self, Self::Created | Self::Active)
+     }
+ 
+     /// Transition to Active state.
+     ///
+     /// Returns None if already active.
+     pub fn activate(self) -> Option<Self> {
+-        if self.is_active() {
+-            None
+-        } else {
+-            Some(Self::Active)
+-        }
++        None /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Transition to Inactive state.
+     ///
+     /// Returns None if already inactive.
+     pub fn deactivate(self) -> Option<Self> {
+         if matches!(self, Self::Inactive) {
+             None
+
+
+*** /home/lewis/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo test --no-run --verbose --package=worktree@0.1.0
+       Fresh unicode-ident v1.0.24
+       Fresh find-msvc-tools v0.1.9
+       Fresh shlex v1.3.0
+       Fresh cfg-if v1.0.4
+       Fresh pkg-config v0.3.32
+       Fresh stable_deref_trait v1.2.1
+       Fresh vcpkg v0.2.15
+       Fresh smallvec v1.15.1
+       Fresh version_check v0.9.5
+       Fresh pin-project-lite v0.2.17
+       Fresh futures-core v0.3.32
+       Fresh litemap v0.8.1
+       Fresh scopeguard v1.2.0
+       Fresh writeable v0.6.2
+       Fresh autocfg v1.5.0
+       Fresh bytes v1.11.1
+       Fresh zeroize v1.8.2
+       Fresh once_cell v1.21.3
+       Fresh percent-encoding v2.3.2
+       Fresh futures-sink v0.3.32
+       Fresh utf8_iter v1.0.4
+       Fresh memchr v2.8.0
+       Fresh libc v0.2.183
+       Fresh lock_api v0.4.14
+       Fresh rustls-pki-types v1.14.0
+       Fresh form_urlencoded v1.2.2
+       Fresh equivalent v1.0.2
+       Fresh untrusted v0.9.0
+       Fresh log v0.4.29
+       Fresh allocator-api2 v0.2.21
+       Fresh slab v0.4.12
+       Fresh foldhash v0.1.5
+       Fresh itoa v1.0.17
+       Fresh futures-task v0.3.32
+       Fresh cpufeatures v0.2.17
+       Fresh futures-io v0.3.32
+       Fresh iana-time-zone v0.1.65
+       Fresh tracing-core v0.1.36
+       Fresh parking v2.2.1
+       Fresh crc-catalog v2.4.0
+       Fresh proc-macro2 v1.0.106
+       Fresh jobserver v0.1.34
+       Fresh serde_core v1.0.228
+       Fresh typenum v1.19.0
+       Fresh socket2 v0.6.3
+       Fresh mio v1.1.1
+       Fresh parking_lot_core v0.9.12
+       Fresh icu_normalizer_data v2.1.1
+       Fresh icu_properties_data v2.1.2
+       Fresh crossbeam-utils v0.8.21
+       Fresh getrandom v0.2.17
+       Fresh zmij v1.0.21
+       Fresh webpki-roots v1.0.6
+       Fresh futures-util v0.3.32
+       Fresh hashbrown v0.15.5
+       Fresh subtle v2.6.1
+       Fresh hashbrown v0.16.1
+       Fresh errno v0.3.14
+       Fresh crc v3.4.0
+       Fresh base64 v0.22.1
+       Fresh spin v0.9.8
+       Fresh ryu v1.0.23
+       Fresh futures-channel v0.3.32
+       Fresh heck v0.5.0
+       Fresh dotenvy v0.15.7
+       Fresh hex v0.4.3
+       Fresh bitflags v2.11.0
+       Fresh quote v1.0.45
+       Fresh cc v1.2.56
+       Fresh generic-array v0.14.7
+       Fresh parking_lot v0.12.5
+       Fresh num-traits v0.2.19
+       Fresh concurrent-queue v2.5.0
+       Fresh webpki-roots v0.26.11
+       Fresh hashlink v0.10.0
+       Fresh indexmap v2.13.0
+       Fresh crossbeam-queue v0.3.12
+       Fresh serde_json v1.0.149
+       Fresh signal-hook-registry v1.4.8
+       Fresh flume v0.11.1
+       Fresh futures-executor v0.3.32
+       Fresh predicates-core v1.0.10
+       Fresh openssl-probe v0.1.6
+       Fresh termtree v0.5.1
+       Fresh linux-raw-sys v0.12.1
+       Fresh anstyle v1.0.13
+       Fresh fragile v2.0.1
+       Fresh tap v1.0.1
+       Fresh fastrand v2.3.0
+       Fresh downcast v0.11.0
+       Fresh syn v2.0.117
+       Fresh block-buffer v0.10.4
+       Fresh event-listener v5.4.1
+       Fresh futures-intrusive v0.5.0
+       Fresh crypto-common v0.1.7
+       Fresh getrandom v0.4.2
+       Fresh atoi v2.0.0
+       Fresh predicates v3.1.4
+       Fresh predicates-tree v1.0.13
+       Fresh synstructure v0.13.2
+       Fresh zerovec-derive v0.11.2
+       Fresh displaydoc v0.2.5
+       Fresh serde_derive v1.0.228
+       Fresh tracing-attributes v0.1.31
+       Fresh thiserror-impl v2.0.18
+       Fresh tokio-macros v2.6.1
+       Fresh digest v0.10.7
+       Fresh uuid v1.22.0
+       Fresh mockall_derive v0.13.1
+       Fresh rustix v1.1.4
+       Fresh anyhow v1.0.102
+       Fresh zerofrom-derive v0.1.6
+       Fresh yoke-derive v0.8.1
+       Fresh serde v1.0.228
+       Fresh ring v0.17.14
+       Fresh thiserror v2.0.18
+       Fresh tracing v0.1.44
+       Fresh tokio v1.50.0
+       Fresh libsqlite3-sys v0.30.1
+       Fresh openssl-sys v0.9.112
+       Fresh sha2 v0.10.9
+       Fresh libz-sys v1.1.25
+       Fresh mockall v0.13.1
+       Fresh tempfile v3.27.0
+       Fresh zerofrom v0.1.6
+       Fresh rustls-webpki v0.103.9
+       Fresh serde_urlencoded v0.7.1
+       Fresh tokio-stream v0.1.18
+       Fresh either v1.15.0
+       Fresh chrono v0.4.44
+       Fresh libssh2-sys v0.3.1
+       Fresh yoke v0.8.1
+       Fresh rustls v0.23.37
+       Fresh libgit2-sys v0.18.3+1.9.2
+       Fresh itertools v0.14.0
+       Fresh tokio-test v0.4.5
+       Fresh zerovec v0.11.5
+       Fresh zerotrie v0.2.3
+       Fresh tinystr v0.8.2
+       Fresh potential_utf v0.1.4
+       Fresh icu_locale_core v2.1.1
+       Fresh icu_collections v2.1.1
+       Fresh icu_provider v2.1.1
+       Fresh icu_normalizer v2.1.1
+       Fresh icu_properties v2.1.2
+       Fresh idna_adapter v1.2.1
+       Fresh idna v1.1.0
+       Fresh url v2.5.8
+       Fresh sqlx-core v0.8.6
+       Fresh git2 v0.20.4
+       Fresh sqlx-sqlite v0.8.6
+       Fresh sqlx-macros-core v0.8.6
+       Fresh sqlx-macros v0.8.6
+       Fresh sqlx v0.8.6
+       Dirty worktree v0.1.0 (/tmp/cargo-mutants-hardline-SPTuYP.tmp/crates/worktree): the file `crates/worktree/src/domain/entities/worktree_state.rs` has changed (1774372242.531237063s, 425008932ns after last build at 1774372242.106228131s)
+   Compiling worktree v0.1.0 (/tmp/cargo-mutants-hardline-SPTuYP.tmp/crates/worktree)
+     Running `sccache /home/lewis/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name worktree --edition=2021 crates/worktree/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 '--allow=clippy::unwrap_used' '--allow=clippy::panic' '--allow=clippy::expect_used' --test --cfg 'feature="default"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "postgres", "sqlite"))' -C metadata=b00a49a8df68cb59 -C extra-filename=-7af007c5e7b0aa50 --out-dir /tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps --extern anyhow=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libanyhow-1c897acad9a38b79.rlib --extern chrono=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libchrono-d1d05aacc6d6abcb.rlib --extern git2=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libgit2-c9a4757d18fa2397.rlib --extern itertools=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libitertools-8b2d78cb899b6bee.rlib --extern mockall=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libmockall-6069395cd1412d8b.rlib --extern serde=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libserde-3fa003e2d4fff0d6.rlib --extern serde_json=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libserde_json-6f7a067977db5df0.rlib --extern sqlx=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libsqlx-b0fdb21c6791c305.rlib --extern tap=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libtap-dab29ae1e0a8da89.rlib --extern tempfile=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libtempfile-287c14b8cee8318f.rlib --extern thiserror=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libthiserror-1dbac2a21763c2bd.rlib --extern tokio=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libtokio-f07837e26d6f08d4.rlib --extern tokio_test=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libtokio_test-a1c199ab1a5a6e49.rlib --extern uuid=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libuuid-ff1eadd08dad0fc1.rlib -L native=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/build/libssh2-sys-19f77859d671a79a/out/build -L native=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/build/ring-87c98841eb8269e4/out -L native=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/build/libsqlite3-sys-baa3ed34ab96df63/out -L native=/usr/lib`
+     Running `sccache /home/lewis/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name worktree --edition=2021 crates/worktree/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 '--allow=clippy::unwrap_used' '--allow=clippy::panic' '--allow=clippy::expect_used' --cfg 'feature="default"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "postgres", "sqlite"))' -C metadata=6ce3f46979aca9d0 -C extra-filename=-b3141cc3f67ec94a --out-dir /tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps --extern anyhow=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libanyhow-1c897acad9a38b79.rmeta --extern chrono=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libchrono-d1d05aacc6d6abcb.rmeta --extern git2=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libgit2-c9a4757d18fa2397.rmeta --extern itertools=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libitertools-8b2d78cb899b6bee.rmeta --extern serde=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libserde-3fa003e2d4fff0d6.rmeta --extern sqlx=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libsqlx-b0fdb21c6791c305.rmeta --extern tap=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libtap-dab29ae1e0a8da89.rmeta --extern thiserror=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libthiserror-1dbac2a21763c2bd.rmeta --extern tokio=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libtokio-f07837e26d6f08d4.rmeta --extern uuid=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/libuuid-ff1eadd08dad0fc1.rmeta -L native=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/build/libssh2-sys-19f77859d671a79a/out/build -L native=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/build/ring-87c98841eb8269e4/out -L native=/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/build/libsqlite3-sys-baa3ed34ab96df63/out -L native=/usr/lib`
+warning: function `parse_worktree_type` is never used
+   --> crates/worktree/src/infrastructure/persistence/worktree_repository_sqlx.rs:344:4
+    |
+344 | fn parse_worktree_type(s: &str) -> Result<WorktreeTypeEnum, WorktreeRepositoryError> {
+    |    ^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `id1`
+   --> crates/worktree/src/application/commands/create_worktree.rs:178:13
+    |
+178 |         let id1 = command1.execute().unwrap();
+    |             ^^^ help: if this is intentional, prefix it with an underscore: `_id1`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+  --> crates/worktree/src/application/queries/get_worktree.rs:94:13
+   |
+94 |         let mut repo = InMemoryWorktreeRepository::new();
+   |             ----^^^^
+   |             |
+   |             help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:183:13
+    |
+183 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:212:13
+    |
+212 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:243:13
+    |
+243 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:271:13
+    |
+271 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:301:13
+    |
+301 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:321:13
+    |
+321 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:345:13
+    |
+345 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:378:13
+    |
+378 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: `worktree` (lib) generated 1 warning
+warning: `worktree` (lib test) generated 10 warnings (run `cargo fix --lib -p worktree --tests` to apply 10 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.37s
+  Executable `/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/worktree-7af007c5e7b0aa50`
+
+*** result: Success
+
+*** /home/lewis/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo test --verbose --package=worktree@0.1.0
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+       Fresh unicode-ident v1.0.24
+       Fresh shlex v1.3.0
+       Fresh find-msvc-tools v0.1.9
+       Fresh cfg-if v1.0.4
+       Fresh pkg-config v0.3.32
+       Fresh stable_deref_trait v1.2.1
+       Fresh vcpkg v0.2.15
+       Fresh smallvec v1.15.1
+       Fresh version_check v0.9.5
+       Fresh pin-project-lite v0.2.17
+       Fresh writeable v0.6.2
+       Fresh futures-core v0.3.32
+       Fresh litemap v0.8.1
+       Fresh scopeguard v1.2.0
+       Fresh autocfg v1.5.0
+       Fresh bytes v1.11.1
+       Fresh zeroize v1.8.2
+       Fresh percent-encoding v2.3.2
+       Fresh futures-sink v0.3.32
+       Fresh once_cell v1.21.3
+       Fresh equivalent v1.0.2
+       Fresh utf8_iter v1.0.4
+       Fresh libc v0.2.183
+       Fresh lock_api v0.4.14
+       Fresh rustls-pki-types v1.14.0
+       Fresh form_urlencoded v1.2.2
+       Fresh untrusted v0.9.0
+       Fresh memchr v2.8.0
+       Fresh log v0.4.29
+       Fresh foldhash v0.1.5
+       Fresh allocator-api2 v0.2.21
+       Fresh cpufeatures v0.2.17
+       Fresh iana-time-zone v0.1.65
+       Fresh itoa v1.0.17
+       Fresh futures-io v0.3.32
+       Fresh futures-task v0.3.32
+       Fresh slab v0.4.12
+       Fresh tracing-core v0.1.36
+       Fresh crc-catalog v2.4.0
+       Fresh proc-macro2 v1.0.106
+       Fresh jobserver v0.1.34
+       Fresh serde_core v1.0.228
+       Fresh typenum v1.19.0
+       Fresh socket2 v0.6.3
+       Fresh mio v1.1.1
+       Fresh icu_normalizer_data v2.1.1
+       Fresh parking_lot_core v0.9.12
+       Fresh icu_properties_data v2.1.2
+       Fresh getrandom v0.2.17
+       Fresh crossbeam-utils v0.8.21
+       Fresh webpki-roots v1.0.6
+       Fresh futures-util v0.3.32
+       Fresh hashbrown v0.15.5
+       Fresh hashbrown v0.16.1
+       Fresh subtle v2.6.1
+       Fresh parking v2.2.1
+       Fresh errno v0.3.14
+       Fresh crc v3.4.0
+       Fresh base64 v0.22.1
+       Fresh spin v0.9.8
+       Fresh ryu v1.0.23
+       Fresh futures-channel v0.3.32
+       Fresh heck v0.5.0
+       Fresh bitflags v2.11.0
+       Fresh quote v1.0.45
+       Fresh cc v1.2.56
+       Fresh generic-array v0.14.7
+       Fresh parking_lot v0.12.5
+       Fresh num-traits v0.2.19
+       Fresh concurrent-queue v2.5.0
+       Fresh zmij v1.0.21
+       Fresh indexmap v2.13.0
+       Fresh hashlink v0.10.0
+       Fresh crossbeam-queue v0.3.12
+       Fresh webpki-roots v0.26.11
+       Fresh signal-hook-registry v1.4.8
+       Fresh flume v0.11.1
+       Fresh futures-executor v0.3.32
+       Fresh dotenvy v0.15.7
+       Fresh hex v0.4.3
+       Fresh predicates-core v1.0.10
+       Fresh anstyle v1.0.13
+       Fresh openssl-probe v0.1.6
+       Fresh termtree v0.5.1
+       Fresh linux-raw-sys v0.12.1
+       Fresh tap v1.0.1
+       Fresh fastrand v2.3.0
+       Fresh fragile v2.0.1
+       Fresh downcast v0.11.0
+       Fresh syn v2.0.117
+       Fresh block-buffer v0.10.4
+       Fresh event-listener v5.4.1
+       Fresh futures-intrusive v0.5.0
+       Fresh serde_json v1.0.149
+       Fresh getrandom v0.4.2
+       Fresh atoi v2.0.0
+       Fresh crypto-common v0.1.7
+       Fresh predicates v3.1.4
+       Fresh predicates-tree v1.0.13
+       Fresh synstructure v0.13.2
+       Fresh zerovec-derive v0.11.2
+       Fresh displaydoc v0.2.5
+       Fresh serde_derive v1.0.228
+       Fresh tracing-attributes v0.1.31
+       Fresh thiserror-impl v2.0.18
+       Fresh tokio-macros v2.6.1
+       Fresh digest v0.10.7
+       Fresh uuid v1.22.0
+       Fresh mockall_derive v0.13.1
+       Fresh anyhow v1.0.102
+       Fresh rustix v1.1.4
+       Fresh zerofrom-derive v0.1.6
+       Fresh yoke-derive v0.8.1
+       Fresh serde v1.0.228
+       Fresh ring v0.17.14
+       Fresh tracing v0.1.44
+       Fresh thiserror v2.0.18
+       Fresh tokio v1.50.0
+       Fresh libsqlite3-sys v0.30.1
+       Fresh sha2 v0.10.9
+       Fresh openssl-sys v0.9.112
+       Fresh libz-sys v1.1.25
+       Fresh mockall v0.13.1
+       Fresh tempfile v3.27.0
+       Fresh zerofrom v0.1.6
+       Fresh rustls-webpki v0.103.9
+       Fresh serde_urlencoded v0.7.1
+       Fresh either v1.15.0
+       Fresh tokio-stream v0.1.18
+       Fresh chrono v0.4.44
+       Fresh libssh2-sys v0.3.1
+       Fresh yoke v0.8.1
+       Fresh rustls v0.23.37
+       Fresh libgit2-sys v0.18.3+1.9.2
+       Fresh itertools v0.14.0
+       Fresh tokio-test v0.4.5
+       Fresh zerovec v0.11.5
+       Fresh zerotrie v0.2.3
+       Fresh tinystr v0.8.2
+       Fresh potential_utf v0.1.4
+       Fresh icu_locale_core v2.1.1
+       Fresh icu_collections v2.1.1
+       Fresh icu_provider v2.1.1
+       Fresh icu_normalizer v2.1.1
+       Fresh icu_properties v2.1.2
+       Fresh idna_adapter v1.2.1
+       Fresh idna v1.1.0
+       Fresh url v2.5.8
+       Fresh sqlx-core v0.8.6
+       Fresh git2 v0.20.4
+       Fresh sqlx-sqlite v0.8.6
+       Fresh sqlx-macros-core v0.8.6
+       Fresh sqlx-macros v0.8.6
+       Fresh sqlx v0.8.6
+warning: function `parse_worktree_type` is never used
+   --> crates/worktree/src/infrastructure/persistence/worktree_repository_sqlx.rs:344:4
+    |
+344 | fn parse_worktree_type(s: &str) -> Result<WorktreeTypeEnum, WorktreeRepositoryError> {
+    |    ^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `id1`
+   --> crates/worktree/src/application/commands/create_worktree.rs:178:13
+    |
+178 |         let id1 = command1.execute().unwrap();
+    |             ^^^ help: if this is intentional, prefix it with an underscore: `_id1`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+  --> crates/worktree/src/application/queries/get_worktree.rs:94:13
+   |
+94 |         let mut repo = InMemoryWorktreeRepository::new();
+   |             ----^^^^
+   |             |
+   |             help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:183:13
+    |
+183 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:212:13
+    |
+212 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:243:13
+    |
+243 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:271:13
+    |
+271 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:301:13
+    |
+301 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:321:13
+    |
+321 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:345:13
+    |
+345 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: variable does not need to be mutable
+   --> crates/worktree/src/application/queries/list_worktrees.rs:378:13
+    |
+378 |         let mut repo = InMemoryWorktreeRepository::new();
+    |             ----^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: `worktree` (lib) generated 1 warning
+warning: `worktree` (lib test) generated 10 warnings (run `cargo fix --lib -p worktree --tests` to apply 10 suggestions)
+       Fresh worktree v0.1.0 (/tmp/cargo-mutants-hardline-SPTuYP.tmp/crates/worktree)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running `/tmp/cargo-mutants-hardline-SPTuYP.tmp/target/debug/deps/worktree-7af007c5e7b0aa50`
+
+running 111 tests
+test application::commands::create_worktree::tests::test_execute_duplicate_name ... ok
+test application::commands::create_worktree::tests::test_execute_invalid_name ... ok
+test application::commands::create_worktree::tests::test_execute_relative_path ... ok
+test application::commands::create_worktree::tests::test_execute_repository_not_configured ... ok
+test application::commands::create_worktree::tests::test_execute_git_failure ... ok
+test application::commands::create_worktree::tests::test_execute_with_git_adapter ... ok
+test application::commands::delete_worktree::tests::test_execute_active_worktree_force ... ok
+test application::commands::delete_worktree::tests::test_execute_active_worktree ... ok
+test application::commands::delete_worktree::tests::test_execute_valid_deletion ... ok
+test application::commands::delete_worktree::tests::test_execute_repository_not_configured ... ok
+test application::commands::delete_worktree::tests::test_execute_not_found ... ok
+test application::commands::delete_worktree::tests::test_execute_with_git_failure ... ok
+test application::commands::delete_worktree::tests::test_force_mode_deletes_active ... ok
+test application::commands::delete_worktree::tests::test_execute_with_git_failure_force ... ok
+test application::queries::get_worktree::tests::test_execute_found ... ok
+test application::queries::get_worktree::tests::test_execute_not_found ... ok
+test application::queries::get_worktree::tests::test_execute_repository_not_configured ... ok
+test application::queries::list_worktrees::tests::test_execute_empty_result ... ok
+test application::queries::list_worktrees::tests::test_execute_combined_filters ... ok
+test application::queries::list_worktrees::tests::test_execute_filter_by_name_prefix ... ok
+test application::queries::list_worktrees::tests::test_execute_filter_by_type ... ok
+test application::queries::list_worktrees::tests::test_execute_filter_by_state ... ok
+test application::queries::list_worktrees::tests::test_execute_repository_not_configured ... ok
+test application::queries::list_worktrees::tests::test_execute_list_all ... ok
+test domain::entities::worktree::tests::test_absolute_path_validation ... ok
+test application::queries::list_worktrees::tests::test_execute_with_offset ... ok
+test application::queries::list_worktrees::tests::test_execute_with_limit ... ok
+test domain::entities::worktree::tests::test_branch_name_validation ... ok
+test domain::entities::worktree::tests::test_activate_already_active ... FAILED
+test domain::entities::worktree::tests::test_activate_worktree ... FAILED
+test domain::entities::worktree::tests::test_deactivate_already_inactive ... FAILED
+test domain::entities::worktree::tests::test_new_worktree ... ok
+test domain::entities::worktree::tests::test_deactivate_worktree ... FAILED
+test domain::entities::worktree::tests::test_update_description ... ok
+test domain::entities::worktree_id::tests::test_as_uuid ... ok
+test domain::entities::worktree::tests::test_with_id ... ok
+test domain::entities::worktree_id::tests::test_default ... ok
+test domain::entities::worktree_id::tests::test_display ... ok
+test domain::entities::worktree::tests::test_serialization ... ok
+test domain::entities::worktree_id::tests::test_new_generates_valid_id ... ok
+test domain::entities::worktree_id::tests::test_parse_invalid_uuid ... ok
+test domain::entities::worktree_id::tests::test_parse_valid_uuid ... ok
+test domain::entities::worktree_id::tests::test_serialize_deserialize ... ok
+test domain::entities::worktree_name::tests::as_ref ... ok
+test domain::entities::worktree_name::tests::display ... ok
+test domain::entities::worktree_name::tests::name_consecutive_hyphens ... ok
+test domain::entities::worktree_name::tests::name_ends_with_hyphen ... ok
+test domain::entities::worktree_name::tests::name_max_length ... ok
+test domain::entities::worktree_name::tests::name_special_chars ... ok
+test domain::entities::worktree_name::tests::name_starts_with_hyphen ... ok
+test domain::entities::worktree_name::tests::name_too_long ... ok
+test domain::entities::worktree_name::tests::name_too_short ... ok
+test domain::entities::worktree_name::tests::name_uppercase ... ok
+test domain::entities::worktree_name::tests::name_valid ... ok
+test domain::entities::worktree_name::tests::name_valid_with_digits ... ok
+test domain::entities::worktree_state::tests::test_activate_active_returns_none ... ok
+test domain::entities::worktree_state::tests::test_activate_created ... FAILED
+test domain::entities::worktree_state::tests::test_activate_inactive ... FAILED
+test domain::entities::worktree_state::tests::test_active_is_active ... ok
+test domain::entities::worktree_state::tests::test_active_is_created ... ok
+test domain::entities::worktree_state::tests::test_created_is_created ... ok
+test domain::entities::worktree_state::tests::test_created_is_not_active ... ok
+test domain::entities::worktree_state::tests::test_deactivate_active ... ok
+test domain::entities::worktree_state::tests::test_deactivate_created ... ok
+test domain::entities::worktree_state::tests::test_deactivate_inactive_returns_none ... ok
+test domain::entities::worktree_state::tests::test_deserialize_invalid ... ok
+test domain::entities::worktree_state::tests::test_deserialize_valid ... ok
+test domain::entities::worktree_state::tests::test_display ... ok
+test domain::entities::worktree_state::tests::test_inactive_is_not_active ... ok
+test domain::entities::worktree_state::tests::test_inactive_is_not_created ... ok
+test domain::entities::worktree_state::tests::test_serialize ... ok
+test domain::entities::worktree_type::tests::test_agent_equality ... ok
+test domain::entities::worktree_type::tests::test_agent_from_str ... ok
+test domain::entities::worktree_type::tests::test_agent_type_name ... ok
+test domain::entities::worktree_type::tests::test_deserialize ... ok
+test domain::entities::worktree_type::tests::test_deserialize_invalid ... ok
+test domain::entities::worktree_type::tests::test_dev_equality ... ok
+test domain::entities::worktree_type::tests::test_dev_from_str ... ok
+test domain::entities::worktree_type::tests::test_dev_not_equal_agent ... ok
+test domain::entities::worktree_type::tests::test_dev_type_name ... ok
+test domain::entities::worktree_type::tests::test_display ... ok
+test domain::entities::worktree_type::tests::test_invalid_type ... ok
+test domain::entities::worktree_type::tests::test_serialize ... ok
+test domain::entities::worktree_type::tests::test_to_string ... ok
+test domain::entities::worktree_type::tests::test_worktree_type_enum_parse ... ok
+test domain::entities::worktree_type::tests::test_worktree_type_enum_parse_invalid ... ok
+test domain::repositories::worktree_repository::tests::test_add_worktree ... ok
+test domain::repositories::worktree_repository::tests::test_delete ... ok
+test domain::repositories::worktree_repository::tests::test_delete_nonexistent ... ok
+test domain::repositories::worktree_repository::tests::test_duplicate_name ... ok
+test domain::repositories::worktree_repository::tests::test_get_by_id ... ok
+test domain::repositories::worktree_repository::tests::test_get_by_name ... ok
+test domain::repositories::worktree_repository::tests::test_list_all ... ok
+test domain::repositories::worktree_repository::tests::test_list_name_prefix ... ok
+test domain::repositories::worktree_repository::tests::test_list_limit ... ok
+test domain::repositories::worktree_repository::tests::test_list_with_filter ... ok
+test domain::repositories::worktree_repository::tests::test_update_state ... ok
+test domain::repositories::worktree_repository::tests::test_list_offset ... ok
+test infrastructure::persistence::worktree_repository_sqlx::tests::test_parse_state ... ok
+test infrastructure::persistence::worktree_repository_sqlx::tests::test_parse_state_invalid ... ok
+test infrastructure::persistence::worktree_repository_sqlx::tests::test_parse_worktree_type ... ok
+test infrastructure::persistence::worktree_repository_sqlx::tests::test_parse_worktree_type_invalid ... ok
+test infrastructure::vcs::git_worktree_adapter::tests::test_adapter_builder_missing_path ... ok
+test infrastructure::vcs::git_worktree_adapter::tests::test_adapter_builder ... ok
+test infrastructure::vcs::git_worktree_adapter::tests::test_add_worktree_path_exists ... ok
+test infrastructure::vcs::git_worktree_adapter::tests::test_add_worktree_relative_path ... ok
+test infrastructure::vcs::git_worktree_adapter::tests::test_git_adapter_new_invalid_path ... ok
+test infrastructure::vcs::git_worktree_adapter::tests::test_git_adapter_new_valid_path ... ok
+test infrastructure::vcs::git_worktree_adapter::tests::test_execute_git_command ... ok
+test infrastructure::vcs::git_worktree_adapter::tests::test_remove_worktree ... ok
+test infrastructure::vcs::git_worktree_adapter::tests::test_git2_adapter_creation ... ok
+
+failures:
+
+---- domain::entities::worktree::tests::test_activate_already_active stdout ----
+
+thread 'domain::entities::worktree::tests::test_activate_already_active' (2980628) panicked at crates/worktree/src/domain/entities/worktree.rs:489:40:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- domain::entities::worktree::tests::test_activate_worktree stdout ----
+
+thread 'domain::entities::worktree::tests::test_activate_worktree' (2980629) panicked at crates/worktree/src/domain/entities/worktree.rs:480:9:
+assertion failed: activated.is_some()
+
+---- domain::entities::worktree::tests::test_deactivate_already_inactive stdout ----
+
+thread 'domain::entities::worktree::tests::test_deactivate_already_inactive' (2980631) panicked at crates/worktree/src/domain/entities/worktree.rs:509:40:
+called `Option::unwrap()` on a `None` value
+
+---- domain::entities::worktree::tests::test_deactivate_worktree stdout ----
+
+thread 'domain::entities::worktree::tests::test_deactivate_worktree' (2980632) panicked at crates/worktree/src/domain/entities/worktree.rs:497:58:
+called `Option::unwrap()` on a `None` value
+
+---- domain::entities::worktree_state::tests::test_activate_created stdout ----
+
+thread 'domain::entities::worktree_state::tests::test_activate_created' (2980657) panicked at crates/worktree/src/domain/entities/worktree_state.rs:142:9:
+assertion `left == right` failed
+  left: None
+ right: Some(Active)
+
+---- domain::entities::worktree_state::tests::test_activate_inactive stdout ----
+
+thread 'domain::entities::worktree_state::tests::test_activate_inactive' (2980658) panicked at crates/worktree/src/domain/entities/worktree_state.rs:154:9:
+assertion `left == right` failed
+  left: None
+ right: Some(Active)
+
+
+failures:
+    domain::entities::worktree::tests::test_activate_already_active
+    domain::entities::worktree::tests::test_activate_worktree
+    domain::entities::worktree::tests::test_deactivate_already_inactive
+    domain::entities::worktree::tests::test_deactivate_worktree
+    domain::entities::worktree_state::tests::test_activate_created
+    domain::entities::worktree_state::tests::test_activate_inactive
+
+test result: FAILED. 105 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p worktree --lib`
+
+*** result: Failure(101)

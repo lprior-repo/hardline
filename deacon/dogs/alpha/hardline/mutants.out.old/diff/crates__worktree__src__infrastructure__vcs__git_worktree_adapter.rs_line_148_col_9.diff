@@ -1,0 +1,23 @@
+--- crates/worktree/src/infrastructure/vcs/git_worktree_adapter.rs
++++ replace Git2WorktreeAdapter::from_repo -> Self with Default::default()
+@@ -140,19 +140,17 @@
+             Repository::open(repo_path).map_err(|e| GitAdapterError::GitError(e.to_string()))?;
+         let repo = std::sync::Arc::new(repo);
+ 
+         Ok(Self { repo })
+     }
+ 
+     /// Create from an existing git2::Repository.
+     pub fn from_repo(repo: Repository) -> Self {
+-        Self {
+-            repo: std::sync::Arc::new(repo),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Get the underlying git2 repository.
+     pub fn repo(&self) -> &Repository {
+         &self.repo
+     }
+ }
+ 

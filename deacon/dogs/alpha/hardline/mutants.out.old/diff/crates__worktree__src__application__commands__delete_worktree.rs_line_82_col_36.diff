@@ -1,0 +1,21 @@
+--- crates/worktree/src/application/commands/delete_worktree.rs
++++ delete ! in DeleteWorktreeCommand::execute
+@@ -74,17 +74,17 @@
+         let worktree =
+             self.repository
+                 .get_by_id(&self.id)?
+                 .ok_or_else(|| DeleteWorktreeError::NotFound {
+                     id: self.id.to_string(),
+                 })?;
+ 
+         // Check if worktree is active
+-        if worktree.is_active() && !self.force {
++        if worktree.is_active() &&  /* ~ changed by cargo-mutants ~ */self.force {
+             return Err(DeleteWorktreeError::WorktreeActive);
+         }
+ 
+         // Execute Git operations if adapter is available
+         if let Some(ref git_adapter) = self.git_adapter {
+             let git_result = git_adapter
+                 .remove_worktree(worktree.path_str())
+                 .map_err(|e| DeleteWorktreeError::GitError(e.to_string()));

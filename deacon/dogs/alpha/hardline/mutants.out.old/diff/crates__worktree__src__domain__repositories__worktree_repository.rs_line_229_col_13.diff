@@ -1,0 +1,24 @@
+--- crates/worktree/src/domain/repositories/worktree_repository.rs
++++ delete match arm (WorktreeRepositoryError::RepositoryError(a), WorktreeRepositoryError::RepositoryError(b),) in <impl PartialEq for WorktreeRepositoryError>::eq
+@@ -221,20 +221,17 @@
+             (
+                 WorktreeRepositoryError::NotFound { id: a },
+                 WorktreeRepositoryError::NotFound { id: b },
+             ) => a == b,
+             (
+                 WorktreeRepositoryError::DatabaseError(a),
+                 WorktreeRepositoryError::DatabaseError(b),
+             ) => a == b,
+-            (
+-                WorktreeRepositoryError::RepositoryError(a),
+-                WorktreeRepositoryError::RepositoryError(b),
+-            ) => a == b,
++             /* ~ changed by cargo-mutants ~ */
+             _ => false,
+         }
+     }
+ }
+ 
+ impl Eq for WorktreeRepositoryError {}
+ 
+ impl From<Box<dyn std::error::Error + Send + Sync>> for WorktreeRepositoryError {

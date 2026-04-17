@@ -2,7 +2,7 @@
 
 use tracing::{error, info, warn};
 
-use crate::state::{PipelineId, PipelineState};
+use crate::state::{PipelineId, PipelineState, TransitionError};
 
 use super::executor::PipelineExecutor;
 use super::types::PhaseError;
@@ -32,14 +32,12 @@ impl PipelineExecutor {
 
     pub(crate) fn finalize_acceptance(&mut self, id: &PipelineId) -> Result<(), PhaseError> {
         self.store
-            .mutate_and_persist(id, |pipeline| {
-                pipeline
-                    .transition_to(PipelineState::Accepted)
-                    .map_err(|e| format!("invalid state transition for pipeline {id}: {e}"))?;
+            .mutate_and_persist(id, |pipeline| -> Result<(), TransitionError> {
+                pipeline.transition_to(PipelineState::Accepted)?;
                 tracing::debug!(pipeline_id = %id.0, new_state = "accepted", "pipeline state transitioned");
                 Ok(())
             })
-            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .map_err(PhaseError::PersistenceFailed)?
             .map_err(PhaseError::InvalidStateTransition)?;
         info!("Pipeline {} accepted", id.0);
         Ok(())
@@ -48,15 +46,13 @@ impl PipelineExecutor {
     pub(crate) fn escalate(&mut self, id: &PipelineId, reason: &str) -> Result<(), PhaseError> {
         let reason = reason.to_string();
         self.store
-            .mutate_and_persist(id, |pipeline| {
-                pipeline
-                    .transition_to(PipelineState::Escalated)
-                    .map_err(|e| format!("invalid state transition for pipeline {id}: {e}"))?;
+            .mutate_and_persist(id, |pipeline| -> Result<(), TransitionError> {
+                pipeline.transition_to(PipelineState::Escalated)?;
                 pipeline.set_error(reason.clone());
                 tracing::debug!(pipeline_id = %id.0, new_state = "escalated", "pipeline state transitioned");
                 Ok(())
             })
-            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .map_err(PhaseError::PersistenceFailed)?
             .map_err(PhaseError::InvalidStateTransition)?;
         warn!("Pipeline {} escalated: {reason}", id.0);
         Ok(())
@@ -65,15 +61,13 @@ impl PipelineExecutor {
     pub(crate) fn fail(&mut self, id: &PipelineId, reason: &str) -> Result<(), PhaseError> {
         let reason = reason.to_string();
         self.store
-            .mutate_and_persist(id, |pipeline| {
-                pipeline
-                    .transition_to(PipelineState::Failed)
-                    .map_err(|e| format!("invalid state transition for pipeline {id}: {e}"))?;
+            .mutate_and_persist(id, |pipeline| -> Result<(), TransitionError> {
+                pipeline.transition_to(PipelineState::Failed)?;
                 pipeline.set_error(reason.clone());
                 tracing::debug!(pipeline_id = %id.0, new_state = "failed", "pipeline state transitioned");
                 Ok(())
             })
-            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .map_err(PhaseError::PersistenceFailed)?
             .map_err(PhaseError::InvalidStateTransition)?;
         error!("Pipeline {} failed: {reason}", id.0);
         Ok(())

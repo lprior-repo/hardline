@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/entities/worktree.rs
++++ replace Worktree::name_str -> &str with ""
+@@ -263,17 +263,17 @@
+ 
+     /// Check if this worktree is inactive.
+     pub fn is_inactive(&self) -> bool {
+         matches!(self.state, WorktreeState::Inactive)
+     }
+ 
+     /// Get the worktree name as a string slice.
+     pub fn name_str(&self) -> &str {
+-        self.name.as_str()
++        "" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Get the path as a string slice.
+     pub fn path_str(&self) -> &str {
+         self.path.as_str()
+     }
+ 
+     /// Get the source branch as a string slice.

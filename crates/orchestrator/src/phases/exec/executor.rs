@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use anyhow::{Context, Result as AnyhowResult};
 use tracing::info;
 
 use crate::cleanup::{CleanupContext, CleanupManager, PhaseType};

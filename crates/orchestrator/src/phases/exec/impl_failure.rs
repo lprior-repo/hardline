@@ -3,7 +3,7 @@
 use tracing::error;
 
 use crate::cleanup::PhaseType;
-use crate::state::{PipelineId, PipelineState};
+use crate::state::{PipelineId, PipelineState, TransitionError};
 
 use super::executor::PipelineExecutor;
 use super::types::{PhaseError, PhaseResult};
@@ -26,15 +26,13 @@ impl PipelineExecutor {
             .map_err(|e| PhaseError::CleanupFailed(e.to_string()))?;
 
         self.store
-            .mutate_and_persist(id, |pipeline| {
-                pipeline
-                    .transition_to(PipelineState::Failed)
-                    .map_err(|e| format!("invalid state transition for pipeline {id}: {e}"))?;
+            .mutate_and_persist(id, |pipeline| -> Result<(), TransitionError> {
+                pipeline.transition_to(PipelineState::Failed)?;
                 pipeline.set_error(message.clone());
                 tracing::debug!(pipeline_id = %id.0, new_state = "failed", "pipeline state transitioned");
                 Ok(())
             })
-            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .map_err(PhaseError::PersistenceFailed)?
             .map_err(PhaseError::InvalidStateTransition)?;
 
         Ok(PhaseResult {
@@ -98,15 +96,13 @@ impl PipelineExecutor {
         message: String,
     ) -> Result<(), PhaseError> {
         self.store
-            .mutate_and_persist(id, |pipeline| {
-                pipeline
-                    .transition_to(PipelineState::Escalated)
-                    .map_err(|e| format!("invalid state transition for pipeline {id}: {e}"))?;
+            .mutate_and_persist(id, |pipeline| -> Result<(), TransitionError> {
+                pipeline.transition_to(PipelineState::Escalated)?;
                 pipeline.set_error(message);
                 tracing::debug!(pipeline_id = %id.0, new_state = "escalated", "pipeline state transitioned");
                 Ok(())
             })
-            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .map_err(PhaseError::PersistenceFailed)?
             .map_err(PhaseError::InvalidStateTransition)?;
         Ok(())
     }

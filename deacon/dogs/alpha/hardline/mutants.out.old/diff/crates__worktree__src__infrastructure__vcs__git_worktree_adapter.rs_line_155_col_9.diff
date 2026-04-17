@@ -1,0 +1,21 @@
+--- crates/worktree/src/infrastructure/vcs/git_worktree_adapter.rs
++++ replace Git2WorktreeAdapter::repo -> &Repository with Box::leak(Box::new(Default::default()))
+@@ -147,17 +147,17 @@
+     pub fn from_repo(repo: Repository) -> Self {
+         Self {
+             repo: std::sync::Arc::new(repo),
+         }
+     }
+ 
+     /// Get the underlying git2 repository.
+     pub fn repo(&self) -> &Repository {
+-        &self.repo
++        Box::leak(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl GitAdapter for Git2WorktreeAdapter {
+     fn add_worktree(&self, path: &str, source_branch: &str) -> Result<String, GitAdapterError> {
+         use git2::BranchType;
+ 
+         // Validate path is absolute

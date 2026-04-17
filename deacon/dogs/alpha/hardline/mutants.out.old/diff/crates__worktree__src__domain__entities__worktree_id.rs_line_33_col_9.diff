@@ -1,0 +1,23 @@
+--- crates/worktree/src/domain/entities/worktree_id.rs
++++ replace WorktreeId::parse -> Result<Self, WorktreeIdParseError> with Ok(Default::default())
+@@ -25,19 +25,17 @@
+         Self(Uuid::new_v4())
+     }
+ 
+     /// Parse a WorktreeId from a string.
+     ///
+     /// # Errors
+     /// Returns `WorktreeIdParseError` if the string is not a valid UUID.
+     pub fn parse(s: &str) -> Result<Self, WorktreeIdParseError> {
+-        Uuid::parse_str(s)
+-            .map(Self)
+-            .map_err(|_| WorktreeIdParseError::InvalidUuid)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Get the inner UUID.
+     pub fn as_uuid(&self) -> Uuid {
+         self.0
+     }
+ 
+     /// Convert to a string representation.

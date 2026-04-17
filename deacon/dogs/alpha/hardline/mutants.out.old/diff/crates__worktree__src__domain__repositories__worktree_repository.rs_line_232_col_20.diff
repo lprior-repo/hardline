@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/repositories/worktree_repository.rs
++++ replace == with != in <impl PartialEq for WorktreeRepositoryError>::eq
+@@ -224,17 +224,17 @@
+             ) => a == b,
+             (
+                 WorktreeRepositoryError::DatabaseError(a),
+                 WorktreeRepositoryError::DatabaseError(b),
+             ) => a == b,
+             (
+                 WorktreeRepositoryError::RepositoryError(a),
+                 WorktreeRepositoryError::RepositoryError(b),
+-            ) => a == b,
++            ) => a != /* ~ changed by cargo-mutants ~ */ b,
+             _ => false,
+         }
+     }
+ }
+ 
+ impl Eq for WorktreeRepositoryError {}
+ 
+ impl From<Box<dyn std::error::Error + Send + Sync>> for WorktreeRepositoryError {

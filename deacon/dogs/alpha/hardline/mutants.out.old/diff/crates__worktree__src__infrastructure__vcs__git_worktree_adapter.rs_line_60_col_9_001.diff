@@ -1,0 +1,21 @@
+--- crates/worktree/src/infrastructure/vcs/git_worktree_adapter.rs
++++ replace GitWorktreeAdapter::repo_path -> &str with "xyzzy"
+@@ -52,17 +52,17 @@
+ 
+         Ok(Self {
+             repo_path: repo_path.to_string(),
+         })
+     }
+ 
+     /// Get the repository path.
+     pub fn repo_path(&self) -> &str {
+-        &self.repo_path
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Execute a Git command and return the result.
+     fn execute_git(&self, args: &[&str]) -> Result<String, GitAdapterError> {
+         let output = Command::new("git")
+             .args(args)
+             .current_dir(&self.repo_path)
+             .output()

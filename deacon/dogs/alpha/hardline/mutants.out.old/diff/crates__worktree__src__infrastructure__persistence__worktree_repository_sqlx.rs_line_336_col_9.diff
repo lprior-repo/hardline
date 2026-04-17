@@ -1,0 +1,21 @@
+--- crates/worktree/src/infrastructure/persistence/worktree_repository_sqlx.rs
++++ delete match arm "inactive" in parse_state
+@@ -328,17 +328,17 @@
+         .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))
+ }
+ 
+ /// Parse a state string into WorktreeState.
+ fn parse_state(s: &str) -> Result<WorktreeState, WorktreeRepositoryError> {
+     match s.to_lowercase().as_str() {
+         "created" => Ok(WorktreeState::Created),
+         "active" => Ok(WorktreeState::Active),
+-        "inactive" => Ok(WorktreeState::Inactive),
++         /* ~ changed by cargo-mutants ~ */
+         _ => Err(WorktreeRepositoryError::DatabaseError(String::from(
+             format!("Invalid state: {}", s),
+         ))),
+     }
+ }
+ 
+ /// Parse a worktree type string into WorktreeTypeEnum.
+ fn parse_worktree_type(s: &str) -> Result<WorktreeTypeEnum, WorktreeRepositoryError> {
