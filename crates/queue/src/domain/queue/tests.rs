@@ -613,4 +613,503 @@ proptest! {
             prop_assert!(result.is_err());
         }
     }
+
+    // --- Proptests for remaining Queue operations ---
+
+    #[test]
+    fn prop_dequeue_preserves_original_queue(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        )
+    ) {
+        let mut queue = Queue::new();
+        let mut ids = Vec::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                let entry_id = QueueEntryId::new(id.clone()).unwrap();
+                ids.push(entry_id);
+                queue = queue.enqueue(entry);
+            }
+        }
+        if let Some(remove_id) = ids.first() {
+            let original_len = queue.len();
+            let (new_queue, removed) = queue.dequeue(remove_id);
+            // Original queue unchanged
+            prop_assert_eq!(queue.len(), original_len);
+            // New queue is shorter
+            prop_assert_eq!(new_queue.len(), original_len - 1);
+            // Removed entry is the one we asked for
+            prop_assert!(removed.is_some());
+            prop_assert_eq!(&removed.unwrap().id, remove_id);
+        }
+    }
+
+    #[test]
+    fn prop_dequeue_nonexistent_preserves_queue(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        ),
+        missing_id in "[a-zA-Z0-9_-]{1,20}"
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        // Ensure missing_id isn't in the queue
+        let exists = queue.entries().iter().any(|e| e.id.as_str() == missing_id.as_str());
+        if !exists {
+            let ghost_id = QueueEntryId::new(missing_id).unwrap();
+            let (new_queue, removed) = queue.dequeue(&ghost_id);
+            prop_assert!(removed.is_none());
+            prop_assert_eq!(new_queue.len(), queue.len());
+        }
+    }
+
+    #[test]
+    fn prop_dequeue_all_yields_empty(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        )
+    ) {
+        let mut queue = Queue::new();
+        let mut ids = Vec::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                let entry_id = QueueEntryId::new(id.clone()).unwrap();
+                ids.push(entry_id);
+                queue = queue.enqueue(entry);
+            }
+        }
+        for id in &ids {
+            let (q, _) = queue.dequeue(id);
+            queue = q;
+        }
+        prop_assert!(queue.is_empty());
+        prop_assert_eq!(queue.len(), 0);
+    }
+
+    #[test]
+    fn prop_update_status_reflects_in_find(
+        id_str in "[a-zA-Z0-9_-]{1,20}",
+        session in "[a-zA-Z0-9_-]{1,20}",
+        priority in 0..=crate::domain::queue::status::MAX_PRIORITY,
+        target_status_idx in 0u8..10u8
+    ) {
+        let all_statuses = [
+            QueueStatus::Pending,
+            QueueStatus::Claimed,
+            QueueStatus::Rebasing,
+            QueueStatus::Testing,
+            QueueStatus::ReadyToMerge,
+            QueueStatus::Merging,
+            QueueStatus::Merged,
+            QueueStatus::FailedRetryable,
+            QueueStatus::FailedTerminal,
+            QueueStatus::Cancelled,
+        ];
+        let target_status = all_statuses[target_status_idx as usize];
+        if let Ok(entry) = QueueEntry::new(id_str.clone(), session, priority) {
+            let queue = Queue::new().enqueue(entry);
+            let entry_id = QueueEntryId::new(id_str).unwrap();
+            let result = queue.update_status(&entry_id, target_status);
+            if let Ok(new_queue) = result {
+                // If transition succeeded, find must reflect new status
+                let found = new_queue.find(&entry_id);
+                prop_assert!(found.is_some());
+                prop_assert_eq!(found.unwrap().status, target_status);
+                // Original queue unchanged
+                prop_assert_eq!(queue.find(&entry_id).unwrap().status, QueueStatus::Pending);
+            }
+        }
+    }
+
+    #[test]
+    fn prop_with_entry_size_invariant(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            0..20
+        ),
+        new_id in "[a-zA-Z0-9_-]{1,20}",
+        new_session in "[a-zA-Z0-9_-]{1,20}",
+        new_priority in 0..=crate::domain::queue::status::MAX_PRIORITY,
+        position in 0..20usize
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        if let Ok(new_entry) = QueueEntry::new(new_id, new_session, new_priority) {
+            let result = queue.with_entry(position, new_entry);
+            if let Ok(new_queue) = result {
+                // Position must be <= original length
+                prop_assert!(position <= queue.len());
+                prop_assert_eq!(new_queue.len(), queue.len() + 1);
+            } else {
+                // Must be OutOfBounds
+                prop_assert!(position > queue.len());
+            }
+        }
+    }
+
+    #[test]
+    fn prop_remove_at_preserves_and_shrinks(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        ),
+        position in 0..30usize
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        let original_len = queue.len();
+        let result = queue.remove_at(position);
+        if let Ok((new_queue, removed)) = result {
+            prop_assert_eq!(new_queue.len(), original_len - 1);
+            prop_assert_eq!(queue.len(), original_len, "original queue unchanged");
+            prop_assert_eq!(removed.priority, queue.entries()[position].priority);
+        }
+    }
+
+    #[test]
+    fn prop_filter_partition_complement(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        ),
+        threshold in 0..=crate::domain::queue::status::MAX_PRIORITY
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        let filtered = queue.filter(|e| e.priority <= threshold);
+        let (partition_yes, partition_no) = queue.partition(|e| e.priority <= threshold);
+        prop_assert_eq!(filtered.len(), partition_yes.len());
+        prop_assert_eq!(partition_yes.len() + partition_no.len(), queue.len());
+    }
+
+    #[test]
+    fn prop_group_by_status_conserves_count(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        )
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        let grouped = queue.group_by_status();
+        let grouped_count: usize = grouped.iter().map(|(_, entries)| entries.len()).sum();
+        prop_assert_eq!(grouped_count, queue.len());
+    }
+
+    #[test]
+    fn prop_count_active_matches_filter(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        )
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        let active_count = queue.count_active();
+        let filtered_active = queue.filter(|e| !e.status.is_terminal());
+        prop_assert_eq!(active_count, filtered_active.len());
+    }
+
+    #[test]
+    fn prop_sorted_by_key_is_ordered(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        )
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        let sorted = queue.sorted_by_key(|e| e.priority);
+        let priorities: Vec<_> = sorted.iter().map(|e| e.priority).collect();
+        for window in priorities.windows(2) {
+            prop_assert!(window[0] <= window[1]);
+        }
+    }
+
+    #[test]
+    fn prop_fold_sum_matches_manual_sum(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        )
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        let fold_sum = queue.fold(0u64, |acc, e| acc + e.priority as u64);
+        let manual_sum: u64 = queue.entries().iter().map(|e| e.priority as u64).sum();
+        prop_assert_eq!(fold_sum, manual_sum);
+    }
+
+    #[test]
+    fn prop_from_entries_sorted_is_sorted(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..50
+        )
+    ) {
+        let queue_entries: Vec<_> = entries
+            .iter()
+            .filter_map(|(id, session, priority)| QueueEntry::new(id.clone(), session.clone(), *priority).ok())
+            .collect();
+        let queue = Queue::from_entries_sorted(queue_entries);
+        let priorities: Vec<_> = queue.entries().iter().map(|e| e.priority).collect();
+        for window in priorities.windows(2) {
+            prop_assert!(window[0] <= window[1]);
+        }
+    }
+
+    #[test]
+    fn prop_find_by_session_matches_filter(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        )
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        // For each unique session, find_by_session should return same entry as filter
+        let unique_sessions: Vec<_> = queue.entries().iter().map(|e| e.session.clone()).collect();
+        for session in unique_sessions {
+            let by_find = queue.find_by_session(&session);
+            let by_filter: Vec<_> = queue.entries().iter().filter(|e| e.session == session).collect();
+            match (by_find, by_filter.as_slice()) {
+                (Some(found), [first, ..]) => prop_assert_eq!(&found.id, &first.id),
+                (None, []) => {}
+                _ => panic!("Mismatch: find returned {:?} but filter found {:?}", by_find, by_filter.len()),
+            }
+        }
+    }
+
+    #[test]
+    fn prop_next_pending_consistent_with_filter(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        )
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        let pending = queue.next_pending();
+        let filtered: Vec<_> = queue.entries().iter().filter(|e| e.status == QueueStatus::Pending).collect();
+        match (pending, filtered.as_slice()) {
+            (Some(p), [first, ..]) => prop_assert_eq!(&p.id, &first.id),
+            (None, []) => {}
+            _ => panic!("Mismatch: next_pending returned {:?} but filter found {:?}", pending.map(|e| e.id.as_str()), filtered.len()),
+        }
+    }
+
+    #[test]
+    fn prop_map_and_fold_consistency(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        )
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        // map + manual sum == fold sum
+        let mapped_sum: u64 = queue.map(|e| e.priority as u64).into_iter().sum();
+        let fold_sum = queue.fold(0u64, |acc, e| acc + e.priority as u64);
+        prop_assert_eq!(mapped_sum, fold_sum);
+    }
+
+    #[test]
+    fn prop_any_all_consistency(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..30
+        ),
+        threshold in 0..=crate::domain::queue::status::MAX_PRIORITY
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        let pred = |e: &QueueEntry| e.priority <= threshold;
+        // If all() is true, any() must also be true (for non-empty queues)
+        if !queue.is_empty() && queue.all(pred) {
+            prop_assert!(queue.any(pred));
+        }
+        // If any() is false, all() must be false
+        if !queue.any(pred) {
+            prop_assert!(!queue.all(pred));
+        }
+    }
+
+    #[test]
+    fn prop_enqueue_dequeue_roundtrip(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..20
+        )
+    ) {
+        let mut queue = Queue::new();
+        let mut ids = Vec::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                let entry_id = QueueEntryId::new(id.clone()).unwrap();
+                ids.push(entry_id);
+                queue = queue.enqueue(entry);
+            }
+        }
+        // Dequeue half, re-enqueue, check size
+        let half = ids.len() / 2;
+        for id in &ids[..half] {
+            let (q, removed) = queue.dequeue(id);
+            prop_assert!(removed.is_some());
+            queue = q;
+        }
+        prop_assert_eq!(queue.len(), ids.len() - half);
+        for (id, session, priority) in entries.iter().take(half) {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        prop_assert_eq!(queue.len(), ids.len());
+    }
+
+    #[test]
+    fn prop_with_entry_preserves_existing(
+        entries in proptest::collection::vec(
+            (
+                "[a-zA-Z0-9_-]{1,20}",
+                "[a-zA-Z0-9_-]{1,20}",
+                0..=crate::domain::queue::status::MAX_PRIORITY
+            ),
+            1..20
+        ),
+        new_id in "[a-zA-Z0-9_-]{1,20}",
+        new_session in "[a-zA-Z0-9_-]{1,20}",
+        new_priority in 0..=crate::domain::queue::status::MAX_PRIORITY,
+        position in 0..20usize
+    ) {
+        let mut queue = Queue::new();
+        for (id, session, priority) in &entries {
+            if let Ok(entry) = QueueEntry::new(id.clone(), session.clone(), *priority) {
+                queue = queue.enqueue(entry);
+            }
+        }
+        if let Ok(new_entry) = QueueEntry::new(new_id, new_session, new_priority) {
+            if position <= queue.len() {
+                let new_queue = queue.with_entry(position, new_entry).unwrap();
+                // All original entries still present
+                for orig in queue.entries() {
+                    prop_assert!(new_queue.find(&orig.id).is_some());
+                }
+            }
+        }
+    }
 }
