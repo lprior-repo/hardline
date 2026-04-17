@@ -301,20 +301,24 @@ impl ScenarioRunner {
     fn navigate_path(value: &Value, part: &str) -> Option<Value> {
         let (key, index) = Self::parse_path_segment(part)?;
 
-        match value {
-            Value::Object(map) => {
-                let inner = map.get(key)?;
-                match (index, inner) {
-                    (Some(idx), Value::Array(arr)) => arr.get(idx).cloned(),
-                    _ => Some(inner.clone()),
-                }
-            }
+        let result = match value {
+            Value::Object(map) => map.get(key).cloned(),
             Value::Array(arr) => {
                 let idx = index.map_or(0, |i| i);
                 arr.get(idx).cloned()
             }
             _ => None,
+        }?;
+
+        // When an explicit index was specified and the parent was an Object,
+        // the index was not applied yet (e.g., `items[0]` gets the array, not element 0).
+        if let Some(idx) = index {
+            if let Value::Array(arr) = &result {
+                return arr.get(idx).cloned();
+            }
         }
+
+        Some(result)
     }
 
     /// Parse a path segment to extract key and optional array index
@@ -510,6 +514,24 @@ mod tests {
             result,
             Some(serde_json::json!({"name": "Alice", "role": "admin"}))
         );
+    }
+
+    #[test]
+    fn test_json_path_array_out_of_bounds() {
+        let value = serde_json::json!({
+            "items": ["a", "b", "c"]
+        });
+
+        let result = ScenarioRunner::extract_json_path(&value, "items[0]");
+        assert_eq!(result, Some(serde_json::json!("a")));
+
+        // items[2] — last valid index
+        let result = ScenarioRunner::extract_json_path(&value, "items[2]");
+        assert_eq!(result, Some(serde_json::json!("c")));
+
+        // items[3] — out of bounds, should return None (not panic)
+        let result = ScenarioRunner::extract_json_path(&value, "items[3]");
+        assert_eq!(result, None, "out-of-bounds array index should return None");
     }
 
     #[tokio::test]

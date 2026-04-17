@@ -172,7 +172,7 @@ impl BeadDescription {
     pub fn new(description: impl Into<String>) -> Result<Self> {
         let description = description.into();
         if description.len() > Self::MAX_LENGTH {
-            return Err(BeadError::InvalidTitle(format!(
+            return Err(BeadError::InvalidDescription(format!(
                 "Description exceeds maximum length of {}",
                 Self::MAX_LENGTH
             )));

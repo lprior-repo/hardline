@@ -25,6 +25,9 @@ pub enum BeadError {
     #[error("Invalid title: {0}")]
     InvalidTitle(String),
 
+    #[error("Invalid description: {0}")]
+    InvalidDescription(String),
+
     /// The requested state transition violates the FSM rules.
     #[error("Invalid state transition: {from} -> {to}")]
     InvalidStateTransition {
@@ -173,6 +176,7 @@ mod tests {
         let _ = BeadError::AlreadyExists(String::new());
         let _ = BeadError::InvalidId(String::new());
         let _ = BeadError::InvalidTitle(String::new());
+        let _ = BeadError::InvalidDescription(String::new());
         let _ = BeadError::InvalidStateTransition {
             from: String::new(),
             to: String::new(),

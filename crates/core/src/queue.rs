@@ -983,4 +983,249 @@ mod tests {
         assert!(!deserialized.success);
         assert_eq!(deserialized.error, Some("disk full".to_string()));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RED QUEEN ADVERSARIAL TESTS — ha-qaw3
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    mod red_queen_adversarial {
+        use super::*;
+
+        // --- DIM-1: QueueItem State Machine — Unguarded Transitions ---
+
+        /// CRITICAL: A Completed item can be re-processed via start_processing.
+        /// No state guard prevents Completed -> Processing transition.
+        #[test]
+        fn completed_item_can_be_reprocessed() {
+            let mut item = QueueItem::direct("branch-1");
+            item.complete();
+            assert_eq!(item.status, QueueStatus::Completed);
+
+            // State machine allows re-processing of completed item
+            item.start_processing();
+            assert_eq!(
+                item.status,
+                QueueStatus::Processing,
+                "Completed item should NOT be re-processable without state guard"
+            );
+            assert_eq!(item.attempt_count, 1);
+        }
+
+        /// CRITICAL: A Failed item can be marked Completed without any retry.
+        #[test]
+        fn failed_item_can_be_completed_without_retry() {
+            let mut item = QueueItem::direct("branch-2");
+            item.fail("disk full");
+            assert_eq!(item.status, QueueStatus::Failed);
+
+            item.complete();
+            assert_eq!(
+                item.status,
+                QueueStatus::Completed,
+                "Failed item should NOT transition directly to Completed"
+            );
+        }
+
+        /// MAJOR: A Completed item can be retroactively marked as Failed.
+        #[test]
+        fn completed_item_can_be_failed() {
+            let mut item = QueueItem::direct("branch-3");
+            item.complete();
+            assert_eq!(item.status, QueueStatus::Completed);
+
+            item.fail("post-hoc failure");
+            assert_eq!(item.status, QueueStatus::Failed);
+            assert_eq!(item.last_error, Some("post-hoc failure".to_string()));
+        }
+
+        /// MAJOR: A Completed item can be cancelled.
+        #[test]
+        fn completed_item_can_be_cancelled() {
+            let mut item = QueueItem::direct("branch-4");
+            item.complete();
+
+            item.cancel();
+            assert_eq!(item.status, QueueStatus::Cancelled);
+        }
+
+        /// CRITICAL: start_processing increments attempt_count without bound.
+        /// Calling it on a completed item still increments.
+        #[test]
+        fn start_processing_increments_without_bound() {
+            let mut item = QueueItem::direct("branch-5");
+            item.complete();
+
+            for i in 1..=100u32 {
+                item.start_processing();
+                assert_eq!(
+                    item.attempt_count, i,
+                    "attempt_count should be {i} after {i} start_processing calls"
+                );
+            }
+            assert_eq!(item.attempt_count, 100);
+        }
+
+        /// MAJOR: Full irregular cycle: Pending -> Processing -> Failed -> Processing -> Completed
+        /// Bypasses the normal Pending -> Processing -> Completed flow.
+        #[test]
+        fn irregular_cycle_failed_to_processing_to_completed() {
+            let mut item = QueueItem::direct("branch-6");
+
+            item.start_processing();
+            assert_eq!(item.status, QueueStatus::Processing);
+            assert_eq!(item.attempt_count, 1);
+
+            item.fail("first attempt failed");
+            assert_eq!(item.status, QueueStatus::Failed);
+
+            // Re-process without queue dequeue
+            item.start_processing();
+            assert_eq!(item.status, QueueStatus::Processing);
+            assert_eq!(item.attempt_count, 2);
+
+            // Complete on second attempt
+            item.complete();
+            assert_eq!(item.status, QueueStatus::Completed);
+        }
+
+        /// MAJOR: Cancelled item can be re-processed and completed.
+        #[test]
+        fn cancelled_item_can_be_reprocessed_and_completed() {
+            let mut item = QueueItem::direct("branch-7");
+            item.start_processing();
+            item.cancel();
+
+            item.start_processing();
+            assert_eq!(item.status, QueueStatus::Processing);
+            assert_eq!(item.attempt_count, 2);
+
+            item.complete();
+            assert_eq!(item.status, QueueStatus::Completed);
+        }
+
+        /// MINOR: fail() overwrites previous last_error without accumulation.
+        #[test]
+        fn fail_overwrites_previous_error() {
+            let mut item = QueueItem::direct("branch-8");
+            item.fail("first error");
+            assert_eq!(item.last_error, Some("first error".to_string()));
+
+            item.fail("second error");
+            assert_eq!(item.last_error, Some("second error".to_string()));
+        }
+
+        // --- DIM-5: Queue Priority Edge Cases ---
+
+        /// MAJOR: Enqueue 50 items with same priority — verify FIFO order.
+        #[test]
+        fn same_priority_preserves_fifo_order() -> Result<()> {
+            let queue = make_queue();
+            let count = 50;
+
+            for i in 0..count {
+                let item = QueueItem::direct(&format!("branch-{:03}", i));
+                queue.enqueue(item)?;
+            }
+
+            for i in 0..count {
+                let item = queue.dequeue()?.expect("should have item");
+                assert_eq!(
+                    item.branch,
+                    format!("branch-{:03}", i),
+                    "FIFO order violated at position {i}"
+                );
+            }
+
+            Ok(())
+        }
+
+        /// MAJOR: Dequeue on queue with only Completed items returns None.
+        #[test]
+        fn dequeue_returns_none_when_all_completed() -> Result<()> {
+            let queue = make_queue();
+
+            let mut item = QueueItem::direct("done-1");
+            item.status = QueueStatus::Completed;
+            queue.enqueue(item)?;
+
+            let mut item2 = QueueItem::direct("done-2");
+            item2.status = QueueStatus::Completed;
+            queue.enqueue(item2)?;
+
+            assert_eq!(queue.len()?, 2);
+            let result = queue.dequeue()?;
+            assert!(result.is_none(), "Should return None when no Pending items");
+            Ok(())
+        }
+
+        /// MINOR: Mixed status queue — dequeue returns only Pending items in priority order.
+        #[test]
+        fn dequeue_skips_non_pending_in_priority_order() -> Result<()> {
+            let queue = make_queue();
+
+            // High priority but completed
+            let mut high_done = QueueItem::direct("high-done");
+            high_done.priority = Priority::High;
+            high_done.status = QueueStatus::Completed;
+            queue.enqueue(high_done)?;
+
+            // Low priority but pending
+            let mut low_pending = QueueItem::direct("low-pending");
+            low_pending.priority = Priority::Low;
+            queue.enqueue(low_pending)?;
+
+            // Normal priority but pending
+            let mut normal_pending = QueueItem::direct("normal-pending");
+            normal_pending.priority = Priority::Normal;
+            queue.enqueue(normal_pending)?;
+
+            let first = queue.dequeue()?.expect("should have item");
+            assert_eq!(first.branch, "normal-pending");
+
+            let second = queue.dequeue()?.expect("should have item");
+            assert_eq!(second.branch, "low-pending");
+
+            let third = queue.dequeue()?;
+            assert!(third.is_none());
+
+            Ok(())
+        }
+
+        // --- DIM-7: UUID Generation ---
+
+        /// MINOR: Two QueueItems created in rapid succession have different IDs.
+        #[test]
+        fn rapid_queue_items_have_unique_ids() {
+            let items: Vec<QueueItem> = (0..100)
+                .map(|i| QueueItem::direct(&format!("rapid-{}", i)))
+                .collect();
+
+            let ids: Vec<&str> = items.iter().map(|i| i.id.as_str()).collect();
+            let unique: std::collections::HashSet<&str> = ids.iter().copied().collect();
+
+            assert_eq!(
+                unique.len(),
+                ids.len(),
+                "All queue item IDs should be unique; got {} duplicates",
+                ids.len() - unique.len()
+            );
+        }
+
+        /// MINOR: UUID format is valid (8-4-4-4-12 hex pattern, 36 chars total).
+        #[test]
+        fn uuid_format_is_valid() {
+            let item = QueueItem::direct("uuid-test");
+            // Pattern: 8-4-4-4-12 hex chars separated by dashes
+            let pattern = regex::Regex::new(
+                r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            ).expect("valid regex");
+
+            assert_eq!(item.id.len(), 36, "UUID should be 36 chars, got {}", item.id.len());
+            assert!(
+                pattern.is_match(&item.id),
+                "UUID '{}' does not match expected format",
+                item.id
+            );
+        }
+    }
 }
