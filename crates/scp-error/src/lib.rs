@@ -2270,7 +2270,7 @@ mod tests {
     #[test]
     fn from_io_error_preserves_message() {
         let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
-        let err = Error::from(io_err);
+        let err: Error = Error::from(io_err);
         assert_eq!(err.to_string(), "IO error: access denied");
     }
 
