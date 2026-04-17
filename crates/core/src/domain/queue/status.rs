@@ -2,6 +2,9 @@
 //!
 //! Represents all possible states a queue entry can be in through its lifecycle.
 //! All state transitions are validated via `transition_to`.
+//!
+//! This is the **single canonical** `QueueStatus` definition. All crates must
+//! import from here — do not define duplicate enums.
 
 use crate::domain::validation::{ValidationError, ValidationResult};
 
@@ -12,9 +15,10 @@ pub const MAX_PRIORITY: u32 = 100;
 ///
 /// Represents the state machine for a queue entry through its lifecycle.
 /// All state transitions are validated via `transition_to`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
 pub enum QueueStatus {
     /// Waiting to be processed
+    #[default]
     Pending,
     /// Claimed by an agent
     Claimed,
