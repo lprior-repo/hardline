@@ -29,7 +29,7 @@ impl SnapshotService {
     ) -> Result<Snapshot> {
         let snapshot = Snapshot::create(branch_name, commit_hash, description);
         self.store.save(snapshot.clone()).map_err(|e| {
-            SnapshotError::StorageError(format!("Failed to save snapshot: {e}"))
+            SnapshotError::storage_with_source(e, "Failed to save snapshot")
         })?;
         Ok(snapshot)
     }
@@ -37,21 +37,21 @@ impl SnapshotService {
     /// Load a snapshot by its ID.
     pub fn get_snapshot(&self, id: &SnapshotId) -> Result<Snapshot> {
         self.store.load(id).map_err(|e| {
-            SnapshotError::NotFound(format!("Snapshot {id} not found: {e}"))
+            SnapshotError::storage_with_source(e, format!("Failed to load snapshot {id}"))
         })
     }
 
     /// List all snapshots.
     pub fn list_snapshots(&self) -> Result<Vec<Snapshot>> {
         self.store.list().map_err(|e| {
-            SnapshotError::StorageError(format!("Failed to list snapshots: {e}"))
+            SnapshotError::storage_with_source(e, "Failed to list snapshots")
         })
     }
 
     /// Delete a snapshot by its ID.
     pub fn delete_snapshot(&self, id: &SnapshotId) -> Result<()> {
         self.store.delete(id).map_err(|e| {
-            SnapshotError::StorageError(format!("Failed to delete snapshot {id}: {e}"))
+            SnapshotError::storage_with_source(e, format!("Failed to delete snapshot {id}"))
         })
     }
 
@@ -60,8 +60,8 @@ impl SnapshotService {
     /// This is a placeholder for a future expiry-based cleanup. Currently all
     /// snapshots are considered "expired" since there is no TTL tracking.
     pub fn cleanup_expired(&self) -> Result<CleanupReport> {
-        let snapshots = self.list_snapshots().map_err(|_| {
-            SnapshotError::StorageError("Failed to list snapshots for cleanup".to_string())
+        let snapshots = self.list_snapshots().map_err(|e| {
+            SnapshotError::storage_with_source(e, "Failed to list snapshots for cleanup")
         })?;
 
         let mut deleted = 0usize;
@@ -104,7 +104,7 @@ mod tests {
             Some("test snapshot".to_string()),
         );
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SnapshotError::StorageError(_)));
+        assert!(matches!(result.unwrap_err(), SnapshotError::StorageError { .. }));
     }
 
     #[test]
@@ -116,7 +116,7 @@ mod tests {
             None,
         );
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SnapshotError::StorageError(_)));
+        assert!(matches!(result.unwrap_err(), SnapshotError::StorageError { .. }));
     }
 
     #[test]
@@ -186,12 +186,12 @@ mod tests {
     }
 
     #[test]
-    fn get_snapshot_err_is_not_found() {
+    fn get_snapshot_err_is_storage_error() {
         let service = make_service();
         let id = SnapshotId::generate();
         let result = service.get_snapshot(&id);
         let err = result.expect_err("should be Err");
-        assert!(matches!(err, SnapshotError::NotFound(_)));
+        assert!(matches!(err, SnapshotError::StorageError { .. }));
     }
 
     #[test]
@@ -209,7 +209,7 @@ mod tests {
         let service = make_service();
         let result = service.list_snapshots();
         let err = result.expect_err("should be Err");
-        assert!(matches!(err, SnapshotError::StorageError(_)));
+        assert!(matches!(err, SnapshotError::StorageError { .. }));
     }
 
     #[test]
@@ -218,7 +218,7 @@ mod tests {
         let id = SnapshotId::generate();
         let result = service.delete_snapshot(&id);
         let err = result.expect_err("should be Err");
-        assert!(matches!(err, SnapshotError::StorageError(_)));
+        assert!(matches!(err, SnapshotError::StorageError { .. }));
     }
 
     #[test]
@@ -236,7 +236,7 @@ mod tests {
         let service = make_service();
         let result = service.cleanup_expired();
         let err = result.expect_err("should be Err");
-        assert!(matches!(err, SnapshotError::StorageError(_)));
+        assert!(matches!(err, SnapshotError::StorageError { .. }));
     }
 
     #[test]

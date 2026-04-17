@@ -8,11 +8,19 @@ pub enum SnapshotError {
     #[error("Snapshot corrupt: {0}")]
     Corrupt(String),
 
-    #[error("Storage error: {0}")]
-    StorageError(String),
+    #[error("Storage error: {message}")]
+    StorageError {
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
+        message: String,
+    },
 
-    #[error("Git error: {0}")]
-    GitError(String),
+    #[error("Git error: {message}")]
+    GitError {
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
+        message: String,
+    },
 
     #[error("Invalid snapshot: {0}")]
     InvalidSnapshot(String),
@@ -26,11 +34,97 @@ pub enum SnapshotError {
     #[error("Snapshot restore failed: {0}")]
     RestoreFailed(String),
 
-    #[error("Serialization error: {0}")]
-    SerializationError(String),
+    #[error("Serialization error: {message}")]
+    SerializationError {
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
+        message: String,
+    },
 
-    #[error("Deserialization error: {0}")]
-    DeserializationError(String),
+    #[error("Deserialization error: {message}")]
+    DeserializationError {
+        #[source]
+        source: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
+        message: String,
+    },
+}
+
+impl SnapshotError {
+    /// Leaf constructor — no source error.
+    pub fn storage(msg: impl Into<String>) -> Self {
+        Self::StorageError {
+            source: None,
+            message: msg.into(),
+        }
+    }
+
+    /// Leaf constructor — no source error.
+    pub fn git(msg: impl Into<String>) -> Self {
+        Self::GitError {
+            source: None,
+            message: msg.into(),
+        }
+    }
+
+    /// Leaf constructor — no source error.
+    pub fn serialization(msg: impl Into<String>) -> Self {
+        Self::SerializationError {
+            source: None,
+            message: msg.into(),
+        }
+    }
+
+    /// Leaf constructor — no source error.
+    pub fn deserialization(msg: impl Into<String>) -> Self {
+        Self::DeserializationError {
+            source: None,
+            message: msg.into(),
+        }
+    }
+
+    /// Wrapping constructor — preserves the source error for `std::error::Error::source()`.
+    pub fn storage_with_source(
+        source: impl std::error::Error + Send + Sync + 'static,
+        msg: impl Into<String>,
+    ) -> Self {
+        Self::StorageError {
+            source: Some(Box::new(source)),
+            message: msg.into(),
+        }
+    }
+
+    /// Wrapping constructor — preserves the source error for `std::error::Error::source()`.
+    pub fn git_with_source(
+        source: impl std::error::Error + Send + Sync + 'static,
+        msg: impl Into<String>,
+    ) -> Self {
+        Self::GitError {
+            source: Some(Box::new(source)),
+            message: msg.into(),
+        }
+    }
+
+    /// Wrapping constructor — preserves the source error for `std::error::Error::source()`.
+    pub fn serialization_with_source(
+        source: impl std::error::Error + Send + Sync + 'static,
+        msg: impl Into<String>,
+    ) -> Self {
+        Self::SerializationError {
+            source: Some(Box::new(source)),
+            message: msg.into(),
+        }
+    }
+
+    /// Wrapping constructor — preserves the source error for `std::error::Error::source()`.
+    pub fn deserialization_with_source(
+        source: impl std::error::Error + Send + Sync + 'static,
+        msg: impl Into<String>,
+    ) -> Self {
+        Self::DeserializationError {
+            source: Some(Box::new(source)),
+            message: msg.into(),
+        }
+    }
 }
 
 #[derive(Error, Debug)]
@@ -72,13 +166,13 @@ mod tests {
 
     #[test]
     fn storage_error_display() {
-        let err = SnapshotError::StorageError("disk full".to_string());
+        let err = SnapshotError::storage("disk full");
         assert_eq!(err.to_string(), "Storage error: disk full");
     }
 
     #[test]
     fn git_error_display() {
-        let err = SnapshotError::GitError("ref not found".to_string());
+        let err = SnapshotError::git("ref not found");
         assert_eq!(err.to_string(), "Git error: ref not found");
     }
 
@@ -120,8 +214,8 @@ mod tests {
         let variants: Vec<SnapshotError> = vec![
             SnapshotError::NotFound("nf".to_string()),
             SnapshotError::Corrupt("cor".to_string()),
-            SnapshotError::StorageError("se".to_string()),
-            SnapshotError::GitError("ge".to_string()),
+            SnapshotError::storage("se"),
+            SnapshotError::git("ge"),
             SnapshotError::InvalidSnapshot("is".to_string()),
             SnapshotError::CreationFailed("cf".to_string()),
             SnapshotError::SnapshotNotReady("snr".to_string()),
@@ -154,7 +248,7 @@ mod tests {
     #[test]
     fn snapshot_error_display_with_long_message() {
         let long_msg = "x".repeat(10_000);
-        let err = SnapshotError::StorageError(long_msg.clone());
+        let err = SnapshotError::storage(long_msg.clone());
         assert_eq!(err.to_string(), format!("Storage error: {long_msg}"));
     }
 
@@ -167,7 +261,7 @@ mod tests {
 
     #[test]
     fn snapshot_error_display_with_unicode() {
-        let err = SnapshotError::GitError("エラー発生".to_string());
+        let err = SnapshotError::git("エラー発生");
         assert_eq!(err.to_string(), "Git error: エラー発生");
     }
 
@@ -190,14 +284,14 @@ mod tests {
 
     #[test]
     fn snapshot_error_match_storage_error() {
-        let err = SnapshotError::StorageError("io".to_string());
-        assert!(matches!(err, SnapshotError::StorageError(_)));
+        let err = SnapshotError::storage("io");
+        assert!(matches!(err, SnapshotError::StorageError { .. }));
     }
 
     #[test]
     fn snapshot_error_match_git_error() {
-        let err = SnapshotError::GitError("merge".to_string());
-        assert!(matches!(err, SnapshotError::GitError(_)));
+        let err = SnapshotError::git("merge");
+        assert!(matches!(err, SnapshotError::GitError { .. }));
     }
 
     #[test]
@@ -227,7 +321,7 @@ mod tests {
     #[test]
     fn snapshot_error_different_variants_are_not_equal() {
         let e1 = SnapshotError::NotFound("msg".to_string());
-        let e2 = SnapshotError::StorageError("msg".to_string());
+        let e2 = SnapshotError::storage("msg");
         assert_ne!(format!("{e1:?}"), format!("{e2:?}"));
     }
 
@@ -247,9 +341,34 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_error_source_is_none() {
+    fn snapshot_error_source_is_none_for_leaf_variants() {
         let err = SnapshotError::NotFound("test".to_string());
         assert!(std::error::Error::source(&err).is_none());
+    }
+
+    #[test]
+    fn snapshot_error_source_is_none_for_leaf_storage_error() {
+        let err = SnapshotError::storage("no source");
+        assert!(std::error::Error::source(&err).is_none());
+    }
+
+    #[test]
+    fn snapshot_error_source_preserved_for_wrapping_storage_error() {
+        let inner = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
+        let err = SnapshotError::storage_with_source(inner, "context msg");
+        let source = std::error::Error::source(&err);
+        assert!(source.is_some(), "source should be preserved via #[source]");
+        let source_str = source.unwrap().to_string();
+        assert!(source_str.contains("file missing"));
+    }
+
+    #[test]
+    fn snapshot_error_source_chain_depth() {
+        let deep = std::io::Error::new(std::io::ErrorKind::Other, "deep error");
+        let mid = SnapshotError::storage_with_source(deep, "mid layer");
+        // SnapshotError wraps io::Error, which has no further source
+        let source = std::error::Error::source(&mid).unwrap();
+        assert_eq!(source.to_string(), "deep error");
     }
 
     // --- SnapshotRepoError Display tests ---
@@ -347,7 +466,7 @@ mod tests {
 
     #[test]
     fn storage_result_type_err() {
-        let val: StorageResult<()> = Err(SnapshotError::StorageError("fail".to_string()));
+        let val: StorageResult<()> = Err(SnapshotError::storage("fail"));
         assert!(val.is_err());
     }
 
@@ -423,14 +542,14 @@ mod tests {
 
         #[test]
         fn snapshot_error_storage_error_display_format(msg in ".{0,200}") {
-            let err = SnapshotError::StorageError(msg.clone());
+            let err = SnapshotError::storage(msg.clone());
             let display = err.to_string();
             prop_assert!(display.starts_with("Storage error:"));
         }
 
         #[test]
         fn snapshot_error_git_error_display_format(msg in ".{0,200}") {
-            let err = SnapshotError::GitError(msg.clone());
+            let err = SnapshotError::git(msg.clone());
             let display = err.to_string();
             prop_assert!(display.starts_with("Git error:"));
         }

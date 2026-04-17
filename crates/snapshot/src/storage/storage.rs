@@ -15,26 +15,18 @@ impl SnapshotStore {
     }
 
     pub fn save(&self, _snapshot: Snapshot) -> Result<()> {
-        Err(SnapshotError::StorageError(
-            "Storage not yet implemented".to_string(),
-        ))
+        Err(SnapshotError::storage("Storage not yet implemented"))
     }
 
     pub fn load(&self, _id: &SnapshotId) -> Result<Snapshot> {
-        Err(SnapshotError::StorageError(
-            "Storage not yet implemented".to_string(),
-        ))
+        Err(SnapshotError::storage("Storage not yet implemented"))
     }
 
     pub fn list(&self) -> Result<Vec<Snapshot>> {
-        Err(SnapshotError::StorageError(
-            "Storage not yet implemented".to_string(),
-        ))
+        Err(SnapshotError::storage("Storage not yet implemented"))
     }
 
     pub fn delete(&self, _id: &SnapshotId) -> Result<()> {
-        Err(SnapshotError::StorageError(
-            "Storage not yet implemented".to_string(),
-        ))
+        Err(SnapshotError::storage("Storage not yet implemented"))
     }
 }

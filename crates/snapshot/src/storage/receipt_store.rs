@@ -31,39 +31,33 @@ impl ReceiptStore {
     pub fn save(&self, git_dir: &Path, receipt: &OpReceipt) -> Result<()> {
         let ops_path = Self::ops_dir(git_dir);
         std::fs::create_dir_all(&ops_path).map_err(|e| {
-            SnapshotError::StorageError(format!(
-                "Failed to create ops directory {}: {}",
-                ops_path.display(),
-                e
-            ))
+            SnapshotError::storage_with_source(
+                e,
+                format!("Failed to create ops directory {}", ops_path.display()),
+            )
         })?;
         let path = Self::receipt_path(git_dir, &receipt.op_id);
         let json = serde_json::to_string_pretty(receipt).map_err(|e| {
-            SnapshotError::SerializationError(format!("Failed to serialize receipt: {}", e))
+            SnapshotError::serialization_with_source(e, "Failed to serialize receipt")
         })?;
 
         // Atomic write: write to temp file in the same directory, then rename.
         // A crash during write leaves a temp file, never a corrupt receipt.
         let mut tmp = tempfile::NamedTempFile::new_in(&ops_path).map_err(|e| {
-            SnapshotError::StorageError(format!(
-                "Failed to create temp file in {}: {}",
-                ops_path.display(),
-                e
-            ))
+            SnapshotError::storage_with_source(
+                e,
+                format!("Failed to create temp file in {}", ops_path.display()),
+            )
         })?;
         use std::io::Write;
         tmp.write_all(json.as_bytes()).map_err(|e| {
-            SnapshotError::StorageError(format!(
-                "Failed to write receipt to temp file: {}",
-                e
-            ))
+            SnapshotError::storage_with_source(e, "Failed to write receipt to temp file")
         })?;
         tmp.persist(&path).map_err(|e| {
-            SnapshotError::StorageError(format!(
-                "Failed to persist receipt {}: {}",
-                path.display(),
-                e
-            ))
+            SnapshotError::storage_with_source(
+                e,
+                format!("Failed to persist receipt {}", path.display()),
+            )
         })?;
         Ok(())
     }
@@ -71,14 +65,16 @@ impl ReceiptStore {
     pub fn load(&self, git_dir: &Path, op_id: &str) -> Result<OpReceipt> {
         let path = Self::receipt_path(git_dir, op_id);
         let json = std::fs::read_to_string(&path).map_err(|e| {
-            SnapshotError::StorageError(format!("Failed to read receipt {}: {}", path.display(), e))
+            SnapshotError::storage_with_source(
+                e,
+                format!("Failed to read receipt {}", path.display()),
+            )
         })?;
         serde_json::from_str(&json).map_err(|e| {
-            SnapshotError::DeserializationError(format!(
-                "Failed to parse receipt {}: {}",
-                path.display(),
-                e
-            ))
+            SnapshotError::deserialization_with_source(
+                e,
+                format!("Failed to parse receipt {}", path.display()),
+            )
         })
     }
 
@@ -89,7 +85,7 @@ impl ReceiptStore {
         }
         let mut ops: Vec<String> = std::fs::read_dir(&dir)
             .map_err(|e| {
-                SnapshotError::StorageError(format!("Failed to read ops directory: {}", e))
+                SnapshotError::storage_with_source(e, "Failed to read ops directory")
             })?
             .filter_map(|entry| entry.ok())
             .filter_map(|entry| {
