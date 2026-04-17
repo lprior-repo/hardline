@@ -1123,9 +1123,9 @@ mod queue {
         let repo = InMemoryJobRepository::new();
         let p0 = make_job(JobPriority::P0);
         let p0_id = p0.id.clone();
-        repo.add_job(make_job(JobPriority::P2));
-        repo.add_job(p0);
-        repo.add_job(make_job(JobPriority::P1));
+        repo.add_job(make_job(JobPriority::P2)).expect("add");
+        repo.add_job(p0).expect("add");
+        repo.add_job(make_job(JobPriority::P1)).expect("add");
 
         let jobs = rt.block_on(repo.poll_pending_jobs(1)).unwrap();
         assert_eq!(jobs.len(), 1);

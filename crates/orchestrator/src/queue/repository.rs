@@ -31,10 +31,13 @@ impl InMemoryJobRepository {
         }
     }
 
-    pub fn add_job(&self, job: Job) {
-        if let Ok(mut jobs) = self.jobs.write() {
-            jobs.push(job);
-        }
+    pub fn add_job(&self, job: Job) -> QueueResult<()> {
+        let mut jobs = self
+            .jobs
+            .write()
+            .map_err(|e| QueueError::Repository(format!("Failed to acquire write lock: {}", e)))?;
+        jobs.push(job);
+        Ok(())
     }
 }
 
