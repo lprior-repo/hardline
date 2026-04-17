@@ -254,10 +254,15 @@ impl Sanitizer {
         }
     }
 
-    /// Sanitize a value - removes potentially sensitive data
+    /// Sanitize a value - removes all potentially sensitive data.
+    ///
+    /// This performs maximal redaction: all alphanumeric characters and common
+    /// punctuation are replaced with `*`. The output is intentionally not
+    /// human-readable — it exists to preserve structure (whitespace, delimiters)
+    /// while removing any values that could leak scenario details.
     fn sanitize_value(value: &str) -> String {
-        // Remove anything that looks like a value (strings, numbers in specific patterns)
-        // Keep structural elements like "Step", "assert", "equals"
+        // Replace all alphanumeric chars, @, ., : with * to prevent
+        // any value leakage through stack traces or error messages
         let sanitized = value
             .chars()
             .map(|c| {
@@ -409,6 +414,7 @@ mod tests {
         assert!(sanitizer.blocks_scenario_access());
     }
 
+<<<<<<< HEAD
     // === RED QUEEN — Gen 1: Sanitizer information barrier tests ===
 
     #[test]
@@ -496,11 +502,33 @@ mod tests {
     #[test]
     fn test_level2_passing_shows_no_error_type() {
         let sanitizer = Sanitizer::new(FeedbackLevel::Level2);
+=======
+    #[test]
+    fn test_level3_redacts_values_in_stack_trace() {
+        let sanitizer = Sanitizer::new(FeedbackLevel::Level3);
+        let result = create_test_result();
+
+        let output = sanitizer.sanitize_result(&result);
+        assert!(output.starts_with("FAIL"));
+        assert!(output.contains("Step 2"));
+        assert!(output.contains("assert"));
+        // Values should be redacted — no 'test-123' or 'wrong-value' in output
+        assert!(!output.contains("test-123"));
+        assert!(!output.contains("wrong-value"));
+        // But structural markers should remain
+        assert!(output.contains("at <"));
+    }
+
+    #[test]
+    fn test_level3_passing_scenario() {
+        let sanitizer = Sanitizer::new(FeedbackLevel::Level3);
+>>>>>>> polecat/iota-push
         let result = ScenarioResult {
             scenario_name: "Test".to_string(),
             passed: true,
             step_results: vec![],
         };
+<<<<<<< HEAD
         let output = sanitizer.sanitize_result(&result);
         assert_eq!(output, "PASS");
         assert!(!output.contains("error"), "PASS output should not contain 'error'");
@@ -508,6 +536,74 @@ mod tests {
 
     #[test]
     fn test_level2_no_error_in_step_result() {
+=======
+        assert_eq!(sanitizer.sanitize_result(&result), "PASS");
+    }
+
+    #[test]
+    fn test_level4_shows_assertion_locations() {
+        let sanitizer = Sanitizer::new(FeedbackLevel::Level4);
+        let result = create_test_result();
+
+        let output = sanitizer.sanitize_result(&result);
+        assert!(output.starts_with("FAIL"));
+        assert!(output.contains("Step 2"));
+        assert!(output.contains("assert"));
+        assert!(output.contains("Assertion at step 2"));
+        // No values should leak
+        assert!(!output.contains("test-123"));
+    }
+
+    #[test]
+    fn test_level4_passing_scenario() {
+        let sanitizer = Sanitizer::new(FeedbackLevel::Level4);
+        let result = ScenarioResult {
+            scenario_name: "Test".to_string(),
+            passed: true,
+            step_results: vec![],
+        };
+        assert_eq!(sanitizer.sanitize_result(&result), "PASS");
+    }
+
+    #[test]
+    fn test_sanitize_value_redacts_alphanumerics() {
+        let input = "Assertion failed: expected 'test-123' at line 42";
+        let output = Sanitizer::sanitize_value(input);
+        // All alphanumerics should be replaced with *
+        assert!(!output.chars().any(|c| c.is_alphanumeric()));
+        // Non-alphanumeric chars preserved
+        assert!(output.contains('-'));
+        assert!(output.contains(' '));
+        assert!(output.contains('\''));
+    }
+
+    #[test]
+    fn test_feedback_level_exposures() {
+        assert!(!FeedbackLevel::Level1.exposes_error_type());
+        assert!(FeedbackLevel::Level2.exposes_error_type());
+        assert!(!FeedbackLevel::Level2.exposes_stack_trace());
+        assert!(FeedbackLevel::Level3.exposes_stack_trace());
+        assert!(!FeedbackLevel::Level3.exposes_assertion_locations());
+        assert!(FeedbackLevel::Level4.exposes_assertion_locations());
+        assert!(FeedbackLevel::Level5.exposes_full_details());
+    }
+
+    #[test]
+    fn test_feedback_level_number() {
+        assert_eq!(FeedbackLevel::Level1.level(), 1);
+        assert_eq!(FeedbackLevel::Level3.level(), 3);
+        assert_eq!(FeedbackLevel::Level5.level(), 5);
+    }
+
+    #[test]
+    fn test_feedback_level_from_level_edge_cases() {
+        assert_eq!(FeedbackLevel::from_level(0), None);
+        assert_eq!(FeedbackLevel::from_level(255), None);
+    }
+
+    #[test]
+    fn test_level2_unknown_error_type() {
+>>>>>>> polecat/iota-push
         let sanitizer = Sanitizer::new(FeedbackLevel::Level2);
         let result = ScenarioResult {
             scenario_name: "Test".to_string(),
@@ -516,6 +612,7 @@ mod tests {
                 step_index: 0,
                 step_type: "http".to_string(),
                 passed: false,
+<<<<<<< HEAD
                 error: None,
             }],
         };
@@ -624,5 +721,12 @@ mod tests {
         let output = sanitizer.sanitize_result(&result);
         assert!(output.contains("Scenario: Pass"), "Level5 PASS should include scenario name");
         assert!(output.contains("PASS"));
+=======
+                error: Some("something completely unexpected happened".to_string()),
+            }],
+        };
+        let output = sanitizer.sanitize_result(&result);
+        assert!(output.contains("execution error"));
+>>>>>>> polecat/iota-push
     }
 }

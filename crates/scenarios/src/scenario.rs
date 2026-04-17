@@ -107,14 +107,6 @@ pub enum AssertionType {
     NotContains,
 }
 
-/// Result of parsing a scenario
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ScenarioParseResult {
-    pub scenario: Scenario,
-    pub variables: HashMap<String, String>,
-}
-
 impl Scenario {
     /// Parse a scenario from YAML string
     ///
@@ -247,6 +239,7 @@ steps:
         }
     }
 
+<<<<<<< HEAD
     // === RED QUEEN — Gen 1: Parsing adversarial tests ===
 
     #[test]
@@ -282,10 +275,22 @@ description: "no steps"
 steps: []
 "#;
         let scenario = Scenario::from_yaml(yaml).expect("empty steps should parse");
+=======
+    #[test]
+    fn test_from_yaml_bytes() {
+        let yaml = br#"
+name: "Bytes test"
+description: "Test parsing from bytes"
+steps: []
+"#;
+        let scenario = Scenario::from_yaml_bytes(yaml).expect("Failed to parse bytes");
+        assert_eq!(scenario.name, "Bytes test");
+>>>>>>> polecat/iota-push
         assert!(scenario.steps.is_empty());
     }
 
     #[test]
+<<<<<<< HEAD
     fn test_all_http_methods_parse() {
         let methods = [
             ("GET", HttpMethod::Get),
@@ -373,6 +378,124 @@ steps:
         if let Step::Http(http) = &scenario.steps[0] {
             assert!(http.headers.is_empty());
             assert!(http.body.is_none());
+=======
+    fn test_from_yaml_invalid_yaml() {
+        let result = Scenario::from_yaml("not valid yaml: [");
+        assert!(result.is_err());
+        let err = result.err().unwrap();
+        assert!(err.to_string().contains("Failed to parse scenario YAML"));
+    }
+
+    #[test]
+    fn test_from_yaml_bytes_invalid() {
+        let result = Scenario::from_yaml_bytes(b"not valid yaml: {");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_scenario_error_parse_error_display() {
+        let err = ScenarioError::ParseError("bad yaml at line 5".to_string());
+        assert_eq!(err.to_string(), "Failed to parse scenario YAML: bad yaml at line 5");
+    }
+
+    #[test]
+    fn test_scenario_error_invalid_step_display() {
+        let err = ScenarioError::InvalidStep("missing type".to_string());
+        assert_eq!(err.to_string(), "Invalid step: missing type");
+    }
+
+    #[test]
+    fn test_scenario_error_variable_not_found_display() {
+        let err = ScenarioError::VariableNotFound("user_id".to_string());
+        assert_eq!(err.to_string(), "Variable not found: user_id");
+    }
+
+    #[test]
+    fn test_scenario_error_extraction_failed_display() {
+        let err = ScenarioError::ExtractionFailed("$.path".to_string());
+        assert_eq!(err.to_string(), "Extraction failed: $.path");
+    }
+
+    #[test]
+    fn test_scenario_error_assertion_failed_display() {
+        let err = ScenarioError::AssertionFailed("expected X got Y".to_string());
+        assert_eq!(err.to_string(), "Assertion failed: expected X got Y");
+    }
+
+    #[test]
+    fn test_scenario_error_invalid_template_display() {
+        let err = ScenarioError::InvalidTemplate("unclosed {{".to_string());
+        assert_eq!(err.to_string(), "Invalid template: unclosed {{");
+    }
+
+    #[test]
+    fn test_scenario_empty_steps() {
+        let yaml = r#"
+name: "Empty"
+description: "No steps"
+steps: []
+"#;
+        let scenario = Scenario::from_yaml(yaml).expect("Failed to parse");
+        assert_eq!(scenario.name, "Empty");
+        assert!(scenario.steps.is_empty());
+    }
+
+    #[test]
+    fn test_scenario_all_step_types() {
+        let yaml = r#"
+name: "All types"
+description: "Tests all step types"
+steps:
+  - type: http
+    url: "http://localhost:3001/test"
+    method: GET
+  - type: http
+    url: "http://localhost:3001/data"
+    method: POST
+    body:
+      key: "value"
+  - type: extract
+    from: response.body
+    path: "$.id"
+    as: "extracted_id"
+  - type: assert
+    assertion: equals
+    equals: "{{extracted_id}}"
+    expected: "123"
+"#;
+        let scenario = Scenario::from_yaml(yaml).expect("Failed to parse");
+        assert_eq!(scenario.steps.len(), 4);
+        assert!(matches!(&scenario.steps[0], Step::Http(_)));
+        assert!(matches!(&scenario.steps[1], Step::Http(_)));
+        assert!(matches!(&scenario.steps[2], Step::Extract(_)));
+        assert!(matches!(&scenario.steps[3], Step::Assert(_)));
+    }
+
+    #[test]
+    fn test_scenario_all_http_methods() {
+        for method_yaml in [
+            "method: GET",
+            "method: POST",
+            "method: PUT",
+            "method: PATCH",
+            "method: DELETE",
+        ] {
+            let yaml = format!(
+                r#"
+name: "Method test"
+description: "Test"
+steps:
+  - type: http
+    url: "http://localhost:3001/test"
+    {method_yaml}
+"#,
+                method_yaml = method_yaml
+            );
+            assert!(
+                Scenario::from_yaml(&yaml).is_ok(),
+                "Failed to parse scenario with {method_yaml}"
+            );
+>>>>>>> polecat/iota-push
         }
     }
 }
