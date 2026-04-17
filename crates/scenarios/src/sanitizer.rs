@@ -353,6 +353,20 @@ mod tests {
     }
 
     #[test]
+    fn test_level5_passing_includes_scenario_name() {
+        let sanitizer = Sanitizer::new(FeedbackLevel::Level5);
+        let result = ScenarioResult {
+            scenario_name: "My Passing Scenario".to_string(),
+            passed: true,
+            step_results: vec![],
+        };
+
+        let output = sanitizer.sanitize_result(&result);
+        assert!(output.contains("My Passing Scenario"));
+        assert!(output.contains("PASS"));
+    }
+
+    #[test]
     fn test_level5_full_details() {
         let sanitizer = Sanitizer::new(FeedbackLevel::Level5);
         let result = create_test_result();
