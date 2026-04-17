@@ -125,7 +125,9 @@ impl PipelineExecutor {
                 Ok(false)
             }
             Decision::Retry if pipeline.can_iterate() => {
-                pipeline.iteration += 1;
+                pipeline
+                    .increment_iteration()
+                    .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
                 self.store
                     .update(pipeline.clone())
                     .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
