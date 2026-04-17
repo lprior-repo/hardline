@@ -59,9 +59,9 @@ dolt:
 
 dolt.port: 3307
 
-dolt.database: "hq"
+dolt.database: "hardline"
 
 routing.mode: "explicit"
-prefix: hq
-issue-prefix: hq
+prefix: hl
+issue-prefix: hl
 dolt.idle-timeout: "0"
