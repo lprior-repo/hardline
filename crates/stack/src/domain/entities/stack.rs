@@ -21,7 +21,7 @@ pub struct PrInfo {
     pub is_draft: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PrState {
     Open,
     Merged,
