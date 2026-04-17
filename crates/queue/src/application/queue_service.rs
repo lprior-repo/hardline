@@ -4,7 +4,8 @@
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 
-use crate::domain::entities::{QueueEntry, QueueEntryId, QueueStatus};
+use crate::domain::entities::{QueueEntry, QueueEntryId};
+use crate::domain::queue::status::QueueStatus;
 use crate::domain::ports::QueueRepository;
 use crate::domain::state::QueueStateMachine;
 use crate::domain::value_objects::Priority;

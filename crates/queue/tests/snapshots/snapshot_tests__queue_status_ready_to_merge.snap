@@ -2,4 +2,4 @@
 source: crates/queue/tests/snapshot_tests.rs
 expression: json
 ---
-"ReadyToMerge"
+"ready_to_merge"

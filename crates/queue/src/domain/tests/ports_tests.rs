@@ -1,7 +1,8 @@
 //! Tests for the queue repository ports.
 //! These tests verify the in-memory repository implementation.
 
-use crate::domain::entities::{queue_entry::Pending, QueueEntry, QueueEntryId, QueueStatus};
+use crate::domain::entities::{queue_entry::Pending, QueueEntry, QueueEntryId};
+use crate::domain::queue::status::QueueStatus;
 use crate::domain::ports::{InMemoryQueueRepository, QueueRepository};
 use crate::domain::value_objects::Priority;
 

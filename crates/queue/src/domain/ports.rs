@@ -2,7 +2,8 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 
-use crate::domain::entities::{QueueEntry, QueueEntryId, QueueStatus};
+use crate::domain::entities::{QueueEntry, QueueEntryId};
+use crate::domain::queue::status::QueueStatus;
 use crate::domain::validation::ValidationError;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};

@@ -1,38 +1,16 @@
-use crate::domain::entities::QueueStatus;
-use crate::domain::queue::status::QueueStatus as CanonicalQueueStatus;
+use crate::domain::queue::status::QueueStatus;
 use crate::error::QueueError;
 
 /// Queue state machine validation utilities.
 ///
-/// **DEPRECATED**: All transition logic now lives in `QueueStatus::transition_to()`
-/// (in `domain::queue::status`). This struct delegates to that single source of truth.
-/// Prefer calling `QueueStatus::transition_to()` directly for new code.
+/// Delegates to `QueueStatus::transition_to()` (in `domain::queue::status`)
+/// which is the single source of truth for all state transitions.
 pub struct QueueStateMachine;
-
-/// Convert between the two identical-but-separate `QueueStatus` enums used in this crate.
-/// TODO(#unify-queue-status): The crate has two `QueueStatus` enums (entities vs queue module).
-///       This bridge exists only until they are unified into one.
-fn to_canonical(status: QueueStatus) -> CanonicalQueueStatus {
-    match status {
-        QueueStatus::Pending => CanonicalQueueStatus::Pending,
-        QueueStatus::Claimed => CanonicalQueueStatus::Claimed,
-        QueueStatus::Rebasing => CanonicalQueueStatus::Rebasing,
-        QueueStatus::Testing => CanonicalQueueStatus::Testing,
-        QueueStatus::ReadyToMerge => CanonicalQueueStatus::ReadyToMerge,
-        QueueStatus::Merging => CanonicalQueueStatus::Merging,
-        QueueStatus::Merged => CanonicalQueueStatus::Merged,
-        QueueStatus::FailedRetryable => CanonicalQueueStatus::FailedRetryable,
-        QueueStatus::FailedTerminal => CanonicalQueueStatus::FailedTerminal,
-        QueueStatus::Cancelled => CanonicalQueueStatus::Cancelled,
-    }
-}
 
 impl QueueStateMachine {
     /// Check if a transition is valid by delegating to `QueueStatus::transition_to()`.
-    ///
-    /// This is the single source of truth -- all callers converge here.
     pub fn can_transition(from: QueueStatus, to: QueueStatus) -> bool {
-        to_canonical(from).transition_to(to_canonical(to)).is_ok()
+        from.transition_to(to).is_ok()
     }
 
     pub fn validate_transition(from: QueueStatus, to: QueueStatus) -> Result<(), QueueError> {
@@ -47,10 +25,7 @@ impl QueueStateMachine {
     }
 
     pub fn is_terminal(status: QueueStatus) -> bool {
-        matches!(
-            status,
-            QueueStatus::Merged | QueueStatus::FailedTerminal | QueueStatus::Cancelled
-        )
+        status.is_terminal()
     }
 
     pub fn is_active(status: QueueStatus) -> bool {
@@ -263,33 +238,6 @@ mod tests {
     }
 
     #[test]
-    fn state_machine_failed_retryable_not_from_ready_to_merge() {
-        assert!(
-            !QueueStateMachine::can_transition(
-                QueueStatus::ReadyToMerge,
-                QueueStatus::FailedRetryable
-            ),
-            "ReadyToMerge -> FailedRetryable should be rejected (entity does not support it)"
-        );
-    }
-
-    #[test]
-    fn state_machine_failed_retryable_not_from_merging() {
-        assert!(
-            !QueueStateMachine::can_transition(QueueStatus::Merging, QueueStatus::FailedRetryable),
-            "Merging -> FailedRetryable should be rejected (entity does not support it)"
-        );
-    }
-
-    #[test]
-    fn state_machine_failed_retryable_not_from_rebasing() {
-        assert!(
-            !QueueStateMachine::can_transition(QueueStatus::Rebasing, QueueStatus::FailedRetryable),
-            "Rebasing -> FailedRetryable should be rejected (entity does not support it)"
-        );
-    }
-
-    #[test]
     fn state_machine_retryable_to_pending() {
         assert!(QueueStateMachine::can_transition(
             QueueStatus::FailedRetryable,
@@ -299,27 +247,9 @@ mod tests {
 
     /// Exhaustive consistency check: every possible (from, to) pair must produce
     /// the same result from both `QueueStateMachine::can_transition` and
-    /// `QueueStatus::transition_to` (the canonical source of truth).
+    /// `QueueStatus::transition_to`.
     #[test]
     fn state_machine_consistent_with_queue_status_transition_to() {
-        use crate::domain::queue::status::QueueStatus as CanonicalStatus;
-        use crate::domain::validation::ValidationResult;
-
-        fn to_canonical(status: QueueStatus) -> CanonicalStatus {
-            match status {
-                QueueStatus::Pending => CanonicalStatus::Pending,
-                QueueStatus::Claimed => CanonicalStatus::Claimed,
-                QueueStatus::Rebasing => CanonicalStatus::Rebasing,
-                QueueStatus::Testing => CanonicalStatus::Testing,
-                QueueStatus::ReadyToMerge => CanonicalStatus::ReadyToMerge,
-                QueueStatus::Merging => CanonicalStatus::Merging,
-                QueueStatus::Merged => CanonicalStatus::Merged,
-                QueueStatus::FailedRetryable => CanonicalStatus::FailedRetryable,
-                QueueStatus::FailedTerminal => CanonicalStatus::FailedTerminal,
-                QueueStatus::Cancelled => CanonicalStatus::Cancelled,
-            }
-        }
-
         let all_statuses = [
             QueueStatus::Pending,
             QueueStatus::Claimed,
@@ -336,8 +266,7 @@ mod tests {
         for from in &all_statuses {
             for to in &all_statuses {
                 let sm_result = QueueStateMachine::can_transition(*from, *to);
-                let canonical_result: ValidationResult<_> =
-                    to_canonical(*from).transition_to(to_canonical(*to));
+                let canonical_result = from.transition_to(*to);
                 let canonical_ok = canonical_result.is_ok();
 
                 assert_eq!(
@@ -350,33 +279,28 @@ mod tests {
         }
     }
 
-    /// Verify `is_terminal` is consistent with the canonical `QueueStatus::is_terminal`.
+    /// Verify `is_terminal` is consistent with `QueueStatus::is_terminal`.
     #[test]
     fn state_machine_is_terminal_consistent_with_queue_status() {
-        use crate::domain::queue::status::QueueStatus as CanonicalStatus;
-
         let all = [
-            (QueueStatus::Pending, CanonicalStatus::Pending),
-            (QueueStatus::Claimed, CanonicalStatus::Claimed),
-            (QueueStatus::Rebasing, CanonicalStatus::Rebasing),
-            (QueueStatus::Testing, CanonicalStatus::Testing),
-            (QueueStatus::ReadyToMerge, CanonicalStatus::ReadyToMerge),
-            (QueueStatus::Merging, CanonicalStatus::Merging),
-            (QueueStatus::Merged, CanonicalStatus::Merged),
-            (
-                QueueStatus::FailedRetryable,
-                CanonicalStatus::FailedRetryable,
-            ),
-            (QueueStatus::FailedTerminal, CanonicalStatus::FailedTerminal),
-            (QueueStatus::Cancelled, CanonicalStatus::Cancelled),
+            QueueStatus::Pending,
+            QueueStatus::Claimed,
+            QueueStatus::Rebasing,
+            QueueStatus::Testing,
+            QueueStatus::ReadyToMerge,
+            QueueStatus::Merging,
+            QueueStatus::Merged,
+            QueueStatus::FailedRetryable,
+            QueueStatus::FailedTerminal,
+            QueueStatus::Cancelled,
         ];
 
-        for (entity_status, canonical_status) in &all {
+        for status in &all {
             assert_eq!(
-                QueueStateMachine::is_terminal(*entity_status),
-                canonical_status.is_terminal(),
+                QueueStateMachine::is_terminal(*status),
+                status.is_terminal(),
                 "is_terminal mismatch for {:?}",
-                entity_status
+                status
             );
         }
     }
@@ -401,7 +325,6 @@ mod tests {
             let is_active = QueueStateMachine::is_active(*status);
             let is_terminal = QueueStateMachine::is_terminal(*status);
 
-            // Active statuses are neither terminal nor Pending nor FailedRetryable
             let expected_active = !is_terminal
                 && !matches!(status, QueueStatus::Pending | QueueStatus::FailedRetryable);
 

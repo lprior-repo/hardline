@@ -12,32 +12,9 @@ use std::marker::PhantomData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::domain::queue::status::QueueStatus;
 use crate::domain::value_objects::{Priority, QueuePosition};
 use crate::error::QueueError;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[derive(Default)]
-pub enum QueueStatus {
-    #[default]
-    Pending,
-    Claimed,
-    Rebasing,
-    Testing,
-    ReadyToMerge,
-    Merging,
-    Merged,
-    FailedRetryable,
-    FailedTerminal,
-    Cancelled,
-}
-
-impl QueueStatus {
-    #[must_use]
-    pub const fn is_terminal(self) -> bool {
-        matches!(self, Self::Merged | Self::FailedTerminal | Self::Cancelled)
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct QueueEntryId(String);
