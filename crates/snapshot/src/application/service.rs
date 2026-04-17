@@ -60,9 +60,7 @@ impl SnapshotService {
     /// This is a placeholder for a future expiry-based cleanup. Currently all
     /// snapshots are considered "expired" since there is no TTL tracking.
     pub fn cleanup_expired(&self) -> Result<CleanupReport> {
-        let snapshots = self.list_snapshots().map_err(|e| {
-            SnapshotError::storage_with_source(e, "Failed to list snapshots for cleanup")
-        })?;
+        let snapshots = self.list_snapshots()?;
 
         let mut deleted = 0usize;
         let mut failed = 0usize;
@@ -341,5 +339,70 @@ mod tests {
             prop_assert_eq!(report.deleted, deleted);
             prop_assert_eq!(report.failed, failed);
         }
+    }
+
+    // --- Source chain verification ---
+
+    #[test]
+    fn create_snapshot_error_preserves_source_chain() {
+        let service = make_service();
+        let err = service
+            .create_snapshot("main".to_string(), "abc".to_string(), None)
+            .expect_err("should fail");
+        // The service wraps the store error via storage_with_source,
+        // so std::error::Error::source() must return the inner error.
+        let source = std::error::Error::source(&err);
+        assert!(
+            source.is_some(),
+            "source chain must be preserved — storage_with_source should carry the inner error"
+        );
+        let source_msg = source.unwrap().to_string();
+        assert!(
+            source_msg.contains("Storage not yet implemented"),
+            "inner error message should come from the store, got: {source_msg}"
+        );
+    }
+
+    #[test]
+    fn get_snapshot_error_preserves_source_chain() {
+        let service = make_service();
+        let id = SnapshotId::generate();
+        let err = service.get_snapshot(&id).expect_err("should fail");
+        let source = std::error::Error::source(&err);
+        assert!(source.is_some(), "source chain must be preserved");
+    }
+
+    #[test]
+    fn delete_snapshot_error_preserves_source_chain() {
+        let service = make_service();
+        let id = SnapshotId::generate();
+        let err = service.delete_snapshot(&id).expect_err("should fail");
+        let source = std::error::Error::source(&err);
+        assert!(source.is_some(), "source chain must be preserved");
+    }
+
+    #[test]
+    fn list_snapshots_error_preserves_source_chain() {
+        let service = make_service();
+        let err = service.list_snapshots().expect_err("should fail");
+        let source = std::error::Error::source(&err);
+        assert!(source.is_some(), "source chain must be preserved");
+    }
+
+    #[test]
+    fn cleanup_expired_no_double_wrapping() {
+        // cleanup_expired calls list_snapshots() directly with ? (no re-wrapping),
+        // so the error should have exactly one layer of wrapping.
+        let service = make_service();
+        let err = service.cleanup_expired().expect_err("should fail");
+        // Should be a StorageError from list_snapshots (single wrap of store error).
+        assert!(matches!(err, SnapshotError::StorageError { .. }));
+        // Source should be the store's error, not another service-wrapped error.
+        let source = std::error::Error::source(&err).expect("must have source");
+        // The inner source should be a StorageError from the store (leaf, no further source).
+        assert!(
+            std::error::Error::source(source).is_none(),
+            "store error should be a leaf — no double wrapping from cleanup_expired"
+        );
     }
 }
