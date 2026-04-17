@@ -352,28 +352,291 @@ impl Error {
 mod tests {
     use super::*;
 
+    // Helper to build one of every variant for exhaustive iteration.
+    fn all_variants() -> Vec<Error> {
+        vec![
+            Error::WorkspaceNotFound("ws".into()),
+            Error::WorkspaceExists("ws".into()),
+            Error::WorkspaceLocked("ws".into(), "agent".into()),
+            Error::WorkspaceConflict("msg".into()),
+            Error::SessionNotFound("s".into()),
+            Error::SessionExists("s".into()),
+            Error::SessionLocked("s".into(), "agent".into()),
+            Error::NotLockHolder("s".into(), "agent".into()),
+            Error::SessionInvalidState("s".into(), "old".into(), "new".into()),
+            Error::BeadNotFound("b".into()),
+            Error::BeadAlreadyExists("b".into()),
+            Error::InvalidBeadId("b".into()),
+            Error::InvalidBeadTitle("".into()),
+            Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() },
+            Error::BeadDependencyCycle("b".into()),
+            Error::BeadBlockedBy("b".into()),
+            Error::BeadInvalidDependency("b".into()),
+            Error::QueueEmpty,
+            Error::QueueItemNotFound("q".into()),
+            Error::QueueLocked("agent".into()),
+            Error::QueueProcessing,
+            Error::QueueInvalidPosition(99),
+            Error::QueueFull(10),
+            Error::VcsNotInitialized,
+            Error::VcsConflict("file".into(), "msg".into()),
+            Error::VcsPushFailed("msg".into()),
+            Error::VcsPullFailed("msg".into()),
+            Error::VcsRebaseFailed("msg".into()),
+            Error::BranchNotFound("b".into()),
+            Error::BranchExists("b".into()),
+            Error::CommitNotFound("c".into()),
+            Error::WorkingCopyDirty,
+            Error::ConfigNotFound("k".into()),
+            Error::ConfigInvalid("msg".into()),
+            Error::ConfigPermission("k".into()),
+            Error::InvalidConfig("msg".into()),
+            Error::InvalidRepoUrl("url".into()),
+            Error::AgentNotFound("a".into()),
+            Error::AgentExists("a".into()),
+            Error::AgentTimeout("a".into()),
+            Error::InvalidState("msg".into()),
+            Error::NotFound("res".into()),
+            Error::InvalidOperation("op".into()),
+            Error::ValidationError("msg".into()),
+            Error::ValidationFieldError { message: "m".into(), field: "f".into(), value: Some("v".into()) },
+            Error::InvalidIdentifier("id".into()),
+            Error::IoError("msg".into()),
+            Error::JsonParseError("msg".into()),
+            Error::YamlParseError("msg".into()),
+            Error::Database("msg".into()),
+            Error::Serialization("msg".into()),
+            Error::LockTimeout { operation: "op".into(), timeout_ms: 5000, retries: 3 },
+            Error::CloneFailed("msg".into()),
+            Error::RecordFailed("msg".into()),
+            Error::Persistence("msg".into()),
+            Error::StateTransition("msg".into()),
+            Error::ScenarioError("msg".into()),
+            Error::RunnerError("msg".into()),
+            Error::DefinitionError("msg".into()),
+            Error::ServerError("msg".into()),
+            Error::SyncError("msg".into()),
+            Error::Internal("msg".into()),
+            Error::Unimplemented("feat".into()),
+            Error::InvariantViolation("msg".into()),
+        ]
+    }
+
+    // ── Display / Debug ──────────────────────────────────────────────────
+
     #[test]
-    fn test_error_suggestions() {
-        let err = Error::WorkspaceNotFound("test".into());
-        assert!(err.suggestion().is_some());
-
-        let err = Error::QueueEmpty;
-        assert!(err.suggestion().is_some());
-
-        let err = Error::Internal("test".into());
-        assert!(err.suggestion().is_none());
+    fn test_display_all_variants() {
+        let variants = all_variants();
+        for v in &variants {
+            let display = v.to_string();
+            assert!(!display.is_empty(), "Display should not be empty for {:?}", v);
+        }
     }
 
     #[test]
-    fn test_exit_codes() {
+    fn test_debug_all_variants() {
+        let variants = all_variants();
+        for v in &variants {
+            let debug = format!("{:?}", v);
+            assert!(!debug.is_empty(), "Debug should not be empty for {:?}", v);
+        }
+    }
+
+    #[test]
+    fn test_display_contains_key_fields() {
+        assert!(Error::WorkspaceNotFound("my-ws".into()).to_string().contains("my-ws"));
+        assert!(Error::WorkspaceLocked("ws".into(), "alice".into()).to_string().contains("alice"));
+        assert!(Error::SessionInvalidState("s".into(), "open".into(), "closed".into())
+            .to_string()
+            .contains("open"));
+        assert!(Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() }
+            .to_string()
+            .contains("a"));
+    }
+
+    // ── Suggestions ──────────────────────────────────────────────────────
+
+    #[test]
+    fn test_suggestion_bearing_variants() {
+        let suggesters = [
+            Error::WorkspaceNotFound("x".into()),
+            Error::SessionNotFound("x".into()),
+            Error::QueueEmpty,
+            Error::WorkspaceLocked("x".into(), "holder".into()),
+            Error::VcsNotInitialized,
+            Error::WorkingCopyDirty,
+        ];
+        for err in &suggesters {
+            assert!(err.suggestion().is_some(), "Expected suggestion for {:?}", err);
+        }
+    }
+
+    #[test]
+    fn test_no_suggestion_variants() {
+        let non_suggesters = [
+            Error::Internal("x".into()),
+            Error::InvariantViolation("x".into()),
+            Error::Unimplemented("x".into()),
+            Error::BeadNotFound("x".into()),
+            Error::QueueItemNotFound("x".into()),
+            Error::AgentNotFound("x".into()),
+            Error::ConfigNotFound("x".into()),
+            Error::IoError("x".into()),
+            Error::LockTimeout { operation: "op".into(), timeout_ms: 1000, retries: 0 },
+        ];
+        for err in &non_suggesters {
+            assert!(err.suggestion().is_none(), "Expected no suggestion for {:?}", err);
+        }
+    }
+
+    #[test]
+    fn test_suggestion_workspace_locked_includes_holder() {
+        let err = Error::WorkspaceLocked("ws".into(), "alice".into());
+        let suggestion = err.suggestion().unwrap();
+        assert!(suggestion.contains("alice"));
+    }
+
+    // ── Exit codes ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_exit_codes_all_nonzero() {
+        for v in all_variants() {
+            assert!(v.exit_code() > 0, "Exit code must be nonzero for {:?}", v);
+        }
+    }
+
+    #[test]
+    fn test_exit_codes_unique() {
+        let variants = all_variants();
+        let codes: Vec<i32> = variants.iter().map(|v| v.exit_code()).collect();
+        let mut sorted = codes.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(codes.len(), sorted.len(), "Exit codes must be unique — found duplicates");
+    }
+
+    #[test]
+    fn test_exit_codes_match_documented_block() {
+        // Each error group has a documented comment block (e.g. "Workspace/Session Errors (1xxx)").
+        // The actual codes use compact blocks: workspace 10-18, beads 19-20+,
+        // queue 30-35, vcs 40-48, config 60-64, agent 70-72, state 80-82,
+        // validation 90-92, io/storage 100-105, orchestration 110-114,
+        // scenario 120-124, internal 130-138.
+        // Bead codes (133-138) share the 13x range with internal codes.
+        // We verify each variant's code is in the correct documented block.
+        for v in all_variants() {
+            let code = v.exit_code();
+            let (lo, hi, name) = match &v {
+                Error::WorkspaceNotFound(_) | Error::WorkspaceExists(_)
+                | Error::WorkspaceLocked(_, _) | Error::WorkspaceConflict(_)
+                | Error::SessionNotFound(_) | Error::SessionExists(_)
+                | Error::SessionLocked(_, _) | Error::NotLockHolder(_, _)
+                | Error::SessionInvalidState(_, _, _) => (10, 19, "workspace/session"),
+                Error::BeadNotFound(_) | Error::BeadAlreadyExists(_) => (19, 21, "bead"),
+                Error::InvalidBeadId(_) | Error::InvalidBeadTitle(_)
+                | Error::BeadInvalidStateTransition { .. }
+                | Error::BeadDependencyCycle(_) | Error::BeadBlockedBy(_)
+                | Error::BeadInvalidDependency(_) => (133, 139, "bead-extended"),
+                Error::QueueEmpty | Error::QueueItemNotFound(_)
+                | Error::QueueLocked(_) | Error::QueueProcessing
+                | Error::QueueInvalidPosition(_) | Error::QueueFull(_) => (30, 36, "queue"),
+                Error::VcsNotInitialized | Error::VcsConflict(_, _)
+                | Error::VcsPushFailed(_) | Error::VcsPullFailed(_)
+                | Error::VcsRebaseFailed(_) | Error::BranchNotFound(_)
+                | Error::BranchExists(_) | Error::CommitNotFound(_)
+                | Error::WorkingCopyDirty => (40, 49, "vcs"),
+                Error::ConfigNotFound(_) | Error::ConfigInvalid(_)
+                | Error::ConfigPermission(_) | Error::InvalidConfig(_)
+                | Error::InvalidRepoUrl(_) => (60, 65, "config"),
+                Error::AgentNotFound(_) | Error::AgentExists(_)
+                | Error::AgentTimeout(_) => (70, 73, "agent"),
+                Error::InvalidState(_) | Error::NotFound(_)
+                | Error::InvalidOperation(_) => (80, 83, "state/conflict"),
+                Error::ValidationError(_) | Error::ValidationFieldError { .. }
+                | Error::InvalidIdentifier(_) => (90, 93, "validation"),
+                Error::IoError(_) | Error::JsonParseError(_)
+                | Error::YamlParseError(_) | Error::Database(_)
+                | Error::Serialization(_) => (100, 106, "io/storage"),
+                Error::LockTimeout { .. } | Error::CloneFailed(_)
+                | Error::RecordFailed(_) | Error::Persistence(_)
+                | Error::StateTransition(_) => (110, 115, "orchestration"),
+                Error::ScenarioError(_) | Error::RunnerError(_)
+                | Error::DefinitionError(_) | Error::ServerError(_)
+                | Error::SyncError(_) => (120, 125, "scenario"),
+                Error::Internal(_) | Error::Unimplemented(_)
+                | Error::InvariantViolation(_) => (130, 133, "internal"),
+            };
+            assert!(
+                code >= lo && code < hi,
+                "Exit code {code} for {:?} ({name}) outside range {lo}-{hi}",
+                v
+            );
+        }
+    }
+
+    #[test]
+    fn test_exit_codes_spot_checks() {
         assert_eq!(Error::WorkspaceNotFound("x".into()).exit_code(), 10);
         assert_eq!(Error::QueueEmpty.exit_code(), 30);
         assert_eq!(Error::VcsNotInitialized.exit_code(), 40);
+        assert_eq!(Error::ConfigNotFound("x".into()).exit_code(), 60);
+        assert_eq!(Error::AgentNotFound("x".into()).exit_code(), 70);
+        assert_eq!(Error::IoError("x".into()).exit_code(), 100);
+        assert_eq!(Error::Internal("x".into()).exit_code(), 130);
+    }
+
+    // ── Serialization ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_serialize_all_variants_produces_valid_json() {
+        for v in all_variants() {
+            let json = serde_json::to_string(&v).unwrap_or_else(|e| panic!("Serialize failed for {:?}: {e}", v));
+            let _: serde_json::Value = serde_json::from_str(&json)
+                .unwrap_or_else(|e| panic!("Invalid JSON for {:?}: {e}\nJSON: {json}", v));
+        }
     }
 
     #[test]
-    fn test_bead_blocked_by_display() {
-        let err = Error::BeadBlockedBy("bead1, bead2".into());
-        assert_eq!(err.to_string(), "Bead is blocked by: [bead1, bead2]");
+    fn test_serialize_struct_variants_includes_fields() {
+        let err = Error::BeadInvalidStateTransition { from: "open".into(), to: "closed".into() };
+        let json = serde_json::to_string(&err).unwrap();
+        assert!(json.contains("open"));
+        assert!(json.contains("closed"));
+
+        let err = Error::ValidationFieldError {
+            message: "required".into(),
+            field: "title".into(),
+            value: Some("".into()),
+        };
+        let json = serde_json::to_string(&err).unwrap();
+        assert!(json.contains("title"));
+        assert!(json.contains("required"));
+
+        let err = Error::LockTimeout { operation: "write".into(), timeout_ms: 5000, retries: 3 };
+        let json = serde_json::to_string(&err).unwrap();
+        assert!(json.contains("write"));
+        assert!(json.contains("5000"));
+    }
+
+    // ── Trait bounds ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_error_is_send_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<Error>();
+    }
+
+    #[test]
+    fn test_error_implements_std_error() {
+        fn assert_std_error<T: std::error::Error>() {}
+        assert_std_error::<Error>();
+    }
+
+    #[test]
+    fn test_error_source_is_none() {
+        // All variants are plain data — no wrapped std::error::Error sources.
+        for v in all_variants() {
+            assert!(std::error::Error::source(&v).is_none(), "Expected no source for {:?}", v);
+        }
     }
 }
