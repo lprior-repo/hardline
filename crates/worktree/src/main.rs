@@ -1,7 +1,7 @@
 //! Worktree CLI - Command-line interface for worktree management
 
 use std::env;
-use worktree::{AbsolutePath, BranchName, WorktreeId, WorktreeName, WorktreeTypeEnum};
+use worktree::{AbsolutePath, WorktreeId, WorktreeName, WorktreeTypeEnum};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -53,17 +53,22 @@ fn handle_create(args: &[String]) {
     let path = args[1].clone();
     let parent = args[2].clone();
 
-    let worktree_type = parse_type(args.get(3).map(|s| s.as_str()).unwrap_or("development"));
-    let branch = args
-        .get(4)
-        .and_then(|s| {
-            if s == "--branch" && args.get(5).is_some() {
-                Some(BranchName::new(&args[5]).ok())
-            } else {
-                None
-            }
-        })
-        .flatten();
+    let type_str = args.get(3).map(|s| s.as_str()).unwrap_or("development");
+    let worktree_type = parse_type(type_str);
+
+    // Warn if an unrecognized type was provided
+    if !is_known_type(type_str) {
+        eprintln!("Warning: Unknown type '{}', defaulting to Development", type_str);
+    }
+
+    let branch = parse_branch(args, 4);
+
+    if let Some(Err(ref e)) = branch {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+
+    let branch_value = branch.and_then(|r| r.ok());
 
     match WorktreeName::new(&name) {
         Ok(name) => {
@@ -76,7 +81,9 @@ fn handle_create(args: &[String]) {
                             println!("  Path: {}", path);
                             println!("  Parent: {}", parent);
                             println!("  Type: {}", worktree_type);
-                            println!("  Branch: {:?}", branch);
+                            if let Some(ref b) = branch_value {
+                                println!("  Branch: {}", b);
+                            }
 
                             // In a real implementation, this would call the service
                             println!("  Status: Created (simulated)");
@@ -118,7 +125,7 @@ fn handle_info(args: &[String]) {
             println!("  (Simulated - no database connected)");
         }
         Err(e) => {
-            eprintln!("Error: Invalid worktree ID: {}", e);
+            eprintln!("Error: {}", e);
             std::process::exit(1);
         }
     }
@@ -137,7 +144,7 @@ fn handle_remove(args: &[String]) {
             println!("  (Simulated - no database connected)");
         }
         Err(e) => {
-            eprintln!("Error: Invalid worktree ID: {}", e);
+            eprintln!("Error: {}", e);
             std::process::exit(1);
         }
     }
@@ -150,6 +157,26 @@ fn parse_type(s: &str) -> WorktreeTypeEnum {
         "debugging" | "debug" => WorktreeTypeEnum::Debugging,
         "research" => WorktreeTypeEnum::Research,
         _ => WorktreeTypeEnum::Development,
+    }
+}
+
+fn is_known_type(s: &str) -> bool {
+    matches!(
+        s.to_lowercase().as_str(),
+        "development" | "testing" | "test" | "review" | "debugging" | "debug" | "research"
+    )
+}
+
+fn parse_branch(args: &[String], start: usize) -> Option<Result<worktree::BranchName, worktree::WorktreeDomainError>> {
+    if args.get(start).map(|s| s.as_str()) == Some("--branch") {
+        match args.get(start + 1) {
+            Some(val) => Some(worktree::BranchName::new(val)),
+            None => Some(Err(worktree::WorktreeDomainError::InvalidBranch(
+                "--branch requires a value".to_string(),
+            ))),
+        }
+    } else {
+        None
     }
 }
 

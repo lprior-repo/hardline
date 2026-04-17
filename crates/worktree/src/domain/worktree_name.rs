@@ -5,18 +5,28 @@ use std::fmt::{self, Display, Formatter};
 ///
 /// Valid names must:
 /// - Not be empty
+/// - Not exceed 128 characters
 /// - Not contain '/' characters
 /// - Not start with '.'
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct WorktreeName(String);
 
 impl WorktreeName {
+    const MAX_LENGTH: usize = 128;
+
     /// Create a new worktree name with validation
     pub fn new(name: &str) -> Result<Self, super::WorktreeDomainError> {
         if name.is_empty() {
             return Err(super::WorktreeDomainError::InvalidName(
                 "Name cannot be empty".to_string(),
             ));
+        }
+
+        if name.len() > Self::MAX_LENGTH {
+            return Err(super::WorktreeDomainError::InvalidName(format!(
+                "Name exceeds maximum length of {} characters",
+                Self::MAX_LENGTH
+            )));
         }
 
         if name.contains('/') {
@@ -135,5 +145,20 @@ mod tests {
         let name = WorktreeName::new("my-worktree").unwrap();
         assert!(name.matches("my-worktree"));
         assert!(!name.matches("other-worktree"));
+    }
+
+    #[test]
+    fn worktree_name_new_exceeds_max_length_returns_error() {
+        let long_name = "a".repeat(129);
+        let result = WorktreeName::new(&long_name);
+        assert!(result.is_err());
+        assert!(format!("{}", result.unwrap_err()).contains("maximum length"));
+    }
+
+    #[test]
+    fn worktree_name_new_at_max_length_succeeds() {
+        let name = "a".repeat(128);
+        let result = WorktreeName::new(&name);
+        assert!(result.is_ok());
     }
 }

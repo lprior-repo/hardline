@@ -11,7 +11,7 @@ impl WorktreeId {
     pub fn from_string(s: &str) -> Result<Self, super::WorktreeDomainError> {
         Uuid::parse_str(s)
             .map(Self)
-            .map_err(|e| super::WorktreeDomainError::InvalidPath(format!("Invalid UUID: {}", e)))
+            .map_err(|e| super::WorktreeDomainError::InvalidId(format!("{}", e)))
     }
 
     /// Create a new random worktree ID

@@ -19,6 +19,10 @@ pub enum WorktreeDomainError {
     #[error("Invalid absolute path: {0}")]
     InvalidPath(String),
 
+    /// Invalid worktree ID format
+    #[error("Invalid worktree ID: {0}")]
+    InvalidId(String),
+
     /// Invalid branch name
     #[error("Invalid branch name: {0}")]
     InvalidBranch(String),
@@ -101,6 +105,14 @@ mod tests {
     }
 
     #[test]
+    fn invalid_id_display() {
+        let err = WorktreeDomainError::InvalidId("bad uuid".to_string());
+        let msg = format!("{err}");
+        assert!(msg.contains("bad uuid"));
+        assert!(msg.contains("Invalid worktree ID"));
+    }
+
+    #[test]
     fn invalid_branch_display() {
         let err = WorktreeDomainError::InvalidBranch("bad branch".to_string());
         let msg = format!("{err}");
@@ -171,6 +183,7 @@ mod tests {
         let _ = WorktreeDomainError::NotFound(make_id());
         let _ = WorktreeDomainError::InvalidName(String::new());
         let _ = WorktreeDomainError::InvalidPath(String::new());
+        let _ = WorktreeDomainError::InvalidId(String::new());
         let _ = WorktreeDomainError::InvalidBranch(String::new());
         let _ = WorktreeDomainError::CannotRemoveDefaultBranch;
         let _ = WorktreeDomainError::InvalidStateTransition(

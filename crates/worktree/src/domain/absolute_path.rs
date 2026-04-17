@@ -18,6 +18,16 @@ impl AbsolutePath {
             )));
         }
 
+        // Reject path traversal components
+        for component in path.components() {
+            if component == std::path::Component::ParentDir {
+                return Err(super::WorktreeDomainError::InvalidPath(format!(
+                    "Path contains '..' traversal: {}",
+                    path.display()
+                )));
+            }
+        }
+
         Ok(Self(path.to_path_buf()))
     }
 
@@ -157,5 +167,19 @@ mod tests {
     fn absolute_path_display_impl_returns_string() {
         let path = AbsolutePath::new("/home/test").unwrap();
         assert_eq!(format!("{}", path), "/home/test");
+    }
+
+    #[test]
+    fn absolute_path_new_rejects_parent_dir_traversal() {
+        let result = AbsolutePath::new("/tmp/../../../etc/shadow");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(format!("{}", err).contains("'..'"));
+    }
+
+    #[test]
+    fn absolute_path_new_rejects_embedded_parent_dir() {
+        let result = AbsolutePath::new("/home/user/../other");
+        assert!(result.is_err());
     }
 }

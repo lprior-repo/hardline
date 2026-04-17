@@ -1352,19 +1352,11 @@ mod sqlite_repository_integration {
     }
 
     #[tokio::test]
-    async fn edge_case_very_long_name() {
-        let mut repo = create_sqlite_repo().await.unwrap();
+    async fn edge_case_very_long_name_rejected() {
         let long_name = "a".repeat(255);
-        let worktree = create_test_worktree(
-            &long_name,
-            "/tmp/wt",
-            "/home/user/proj",
-            WorktreeTypeEnum::Development,
-            None,
-        );
-
-        let result = repo.save(worktree).await;
-        assert!(result.is_ok());
+        let result = WorktreeName::new(&long_name);
+        assert!(result.is_err());
+        assert!(format!("{}", result.unwrap_err()).contains("maximum length"));
     }
 
     #[tokio::test]
