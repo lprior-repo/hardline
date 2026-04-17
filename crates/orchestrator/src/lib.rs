@@ -31,8 +31,8 @@ pub use metrics::{AggregatedMetrics, Metrics, PhaseMetrics, PipelineMetrics, Sce
 pub use persistence::{StateStore, StoreError};
 pub use phases::{PhaseError, PipelineExecutor};
 pub use policies::{
-    CircuitBreaker, CircuitBreakerState, CircuitState, ConfigError, Deadline, NewCircuitBreaker,
-    NewCircuitBreakerError, OrchestratorError, PhaseTimeout, PolicyConfig,
+    CircuitBreaker, CircuitBreakerError, CircuitBreakerState, ConfigError, Deadline,
+    OrchestratorError, PhaseTimeout, PolicyConfig,
     PolicyError, RetryPolicy, RetryPolicyError, TimeoutError, TimeoutPolicy, TimeoutPolicyError,
 };
 pub use parallel::{ParallelError, PhaseStatus};

@@ -884,7 +884,7 @@ mod persistence {
 
 mod policies {
     use orchestrator::policies::{
-        CircuitBreaker, CircuitBreakerState, ConfigError, Deadline, NewCircuitBreaker,
+        CircuitBreaker, CircuitBreakerState, ConfigError, Deadline,
         PhaseTimeout, PolicyConfig, RetryPolicy, RetryPolicyError, TimeoutPolicy,
     };
 
@@ -981,14 +981,14 @@ mod policies {
     // CLAIM: CircuitBreaker rejects zero threshold and timeout
     #[test]
     fn claim_circuit_breaker_rejects_zero() {
-        assert!(CircuitBreaker::new(0, 30000).is_err());
-        assert!(CircuitBreaker::new(3, 0).is_err());
+        assert!(CircuitBreaker::new(0, 1, 30000).is_err());
+        assert!(CircuitBreaker::new(3, 1, 0).is_err());
     }
 
     // CLAIM: CircuitBreaker state transitions: Closed -> Open -> HalfOpen -> Closed
     #[test]
     fn claim_circuit_breaker_full_lifecycle() {
-        let mut cb = CircuitBreaker::new(2, 1).unwrap(); // 1ms recovery timeout
+        let mut cb = CircuitBreaker::new(2, 1, 1).unwrap(); // 1ms recovery timeout
         assert_eq!(cb.state(), CircuitBreakerState::Closed);
 
         cb.record_failure();
@@ -1007,12 +1007,12 @@ mod policies {
         assert_eq!(cb.state(), CircuitBreakerState::Closed);
     }
 
-    // CLAIM: NewCircuitBreaker rejects all zero params
+    // CLAIM: CircuitBreaker rejects all zero params
     #[test]
-    fn claim_new_circuit_breaker_rejects_zero() {
-        assert!(NewCircuitBreaker::new(0, 1, 1000).is_err());
-        assert!(NewCircuitBreaker::new(1, 0, 1000).is_err());
-        assert!(NewCircuitBreaker::new(1, 1, 0).is_err());
+    fn claim_circuit_breaker_rejects_zero_params() {
+        assert!(CircuitBreaker::new(0, 1, 1000).is_err());
+        assert!(CircuitBreaker::new(1, 0, 1000).is_err());
+        assert!(CircuitBreaker::new(1, 1, 0).is_err());
     }
 
     // CLAIM: Deadline from_now works
