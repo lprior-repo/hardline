@@ -139,6 +139,68 @@ impl QueueEntry<Pending> {
 }
 
 impl<S> QueueEntry<S> {
+    /// Erase the typestate phantom type, producing `QueueEntry` (= `QueueEntry<Pending>`).
+    ///
+    /// The repository trait operates on `QueueEntry` regardless of actual runtime status,
+    /// so this conversion is necessary when persisting typed entries back through the repo.
+    #[must_use]
+    pub fn into_erased(self) -> QueueEntry {
+        QueueEntry {
+            id: self.id,
+            session_id: self.session_id,
+            bead_id: self.bead_id,
+            priority: self.priority,
+            position: self.position,
+            status: self.status,
+            enqueued_at: self.enqueued_at,
+            updated_at: self.updated_at,
+            retry_count: self.retry_count,
+            error_message: self.error_message,
+            _state: PhantomData,
+        }
+    }
+
+    /// Complete a job successfully by fast-forwarding from the current runtime state to `Merged`.
+    ///
+    /// Valid from: `Testing`, `ReadyToMerge`, `Merging`.
+    /// Errors for: `Pending`, `Claimed`, `Rebasing` (too early), terminal states.
+    pub fn complete_success(self) -> Result<QueueEntry, QueueError> {
+        match self.status {
+            QueueStatus::Testing
+            | QueueStatus::ReadyToMerge
+            | QueueStatus::Merging => self.transition_impl(QueueStatus::Merged),
+            status => Err(QueueError::InvalidStateTransition {
+                from: format!("{status:?}"),
+                to: "Merged".to_string(),
+            }),
+        }
+    }
+
+    /// Complete a job with failure by transitioning to `FailedRetryable`.
+    ///
+    /// Only valid from `Testing` state. Increments `retry_count`.
+    pub fn complete_failure(self, error: String) -> Result<QueueEntry, QueueError> {
+        match self.status {
+            QueueStatus::Testing => Ok(QueueEntry {
+                id: self.id,
+                session_id: self.session_id,
+                bead_id: self.bead_id,
+                priority: self.priority,
+                position: self.position,
+                status: QueueStatus::FailedRetryable,
+                enqueued_at: self.enqueued_at,
+                updated_at: Utc::now(),
+                retry_count: self.retry_count + 1,
+                error_message: Some(error),
+                _state: PhantomData,
+            }),
+            status => Err(QueueError::InvalidStateTransition {
+                from: format!("{status:?}"),
+                to: "FailedRetryable".to_string(),
+            }),
+        }
+    }
+
     #[must_use]
     pub fn id(&self) -> &QueueEntryId {
         &self.id

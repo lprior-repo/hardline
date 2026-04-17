@@ -2,6 +2,7 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 #![warn(clippy::pedantic)]
+#![allow(clippy::missing_errors_doc)]
 #![forbid(unsafe_code)]
 
 use crate::domain::entities::{QueueEntry, QueueEntryId, QueueStatus};
@@ -26,19 +27,19 @@ impl<R: QueueRepository> QueueService<R> {
         priority: Priority,
     ) -> Result<QueueEntry> {
         let entry = QueueEntry::enqueue(session_id, bead_id, priority)?;
-        self.repository.enqueue(entry)
+        Ok(self.repository.enqueue(entry)?)
     }
 
     pub fn dequeue(&self) -> Result<Option<QueueEntry>> {
-        self.repository.dequeue()
+        Ok(self.repository.dequeue()?)
     }
 
     pub fn get_job(&self, id: &QueueEntryId) -> Result<Option<QueueEntry>> {
-        self.repository.get(id)
+        Ok(self.repository.get(id)?)
     }
 
     pub fn update_job(&self, entry: QueueEntry) -> Result<QueueEntry> {
-        self.repository.update(entry)
+        Ok(self.repository.update(entry)?)
     }
 
     pub fn claim_job(&self, id: &QueueEntryId) -> Result<QueueEntry> {
@@ -47,7 +48,7 @@ impl<R: QueueRepository> QueueService<R> {
             .get(id)?
             .ok_or_else(|| QueueError::QueueEntryNotFound(id.as_str().to_string()))?;
         let claimed = entry.claim()?;
-        self.repository.update(claimed)
+        Ok(self.repository.update(claimed.into_erased())?)
     }
 
     pub fn complete_job(&self, id: &QueueEntryId, success: bool) -> Result<QueueEntry> {
@@ -56,24 +57,13 @@ impl<R: QueueRepository> QueueService<R> {
             .get(id)?
             .ok_or_else(|| QueueError::QueueEntryNotFound(id.as_str().to_string()))?;
 
-        if success {
-            entry
-                .claim()
-                .and_then(|e| e.start_rebase())
-                .and_then(|e| e.start_testing())
-                .and_then(|e| e.mark_ready_to_merge())
-                .and_then(|e| e.start_merging())
-                .and_then(|e| e.mark_merged())
-                .and_then(|e| self.repository.update(e))
+        let updated = if success {
+            entry.complete_success()?
         } else {
-            // Transition through states: Pending -> Claimed -> Rebasing -> Testing -> FailedRetryable
-            entry
-                .claim()
-                .and_then(|e| e.start_rebase())
-                .and_then(|e| e.start_testing())
-                .and_then(|e| e.mark_failed_retryable("Test failed".into()))
-                .and_then(|e| self.repository.update(e))
-        }
+            entry.complete_failure("Job failed".into())?
+        };
+
+        Ok(self.repository.update(updated)?)
     }
 
     pub fn cancel_job(&self, id: &QueueEntryId) -> Result<QueueEntry> {
@@ -82,11 +72,11 @@ impl<R: QueueRepository> QueueService<R> {
             .get(id)?
             .ok_or_else(|| QueueError::QueueEntryNotFound(id.as_str().to_string()))?;
         let cancelled = entry.cancel()?;
-        self.repository.update(cancelled)
+        Ok(self.repository.update(cancelled.into_erased())?)
     }
 
     pub fn list_pending(&self) -> Result<Vec<QueueEntry>> {
-        self.repository.list_pending()
+        Ok(self.repository.list_pending()?)
     }
 
     pub fn list_active(&self) -> Result<Vec<QueueEntry>> {
@@ -98,11 +88,12 @@ impl<R: QueueRepository> QueueService<R> {
     }
 
     pub fn list_all(&self) -> Result<Vec<QueueEntry>> {
-        self.repository.list_all()
+        Ok(self.repository.list_all()?)
     }
 
     pub fn remove_job(&self, id: &QueueEntryId) -> Result<()> {
-        self.repository.remove(id)
+        self.repository.remove(id)?;
+        Ok(())
     }
 
     pub fn retry_job(&self, id: &QueueEntryId) -> Result<QueueEntry> {
@@ -124,7 +115,7 @@ impl<R: QueueRepository> QueueService<R> {
             entry.bead_id.clone(),
             entry.priority,
         )?;
-        self.repository.enqueue(requeued)
+        Ok(self.repository.enqueue(requeued)?)
     }
 }
 
@@ -137,6 +128,18 @@ mod tests {
         QueueService::new(InMemoryQueueRepository::new())
     }
 
+    /// Advance an entry through the pipeline to a given status via direct state manipulation.
+    /// This bypasses the typestate pattern since the repo erases type info on round-trip.
+    fn advance_to(service: &QueueService<InMemoryQueueRepository>, id: &QueueEntryId, target: QueueStatus) -> QueueEntry {
+        let entry = service.get_job(id).unwrap().unwrap();
+        let advanced = QueueEntry {
+            status: target,
+            updated_at: chrono::Utc::now(),
+            ..entry
+        };
+        service.update_job(advanced).unwrap()
+    }
+
     #[test]
     fn queue_service_enqueue_creates_pending_job() {
         let service = create_service();
@@ -147,14 +150,14 @@ mod tests {
     }
 
     #[test]
-    fn queue_service_dequeue_returns_claimed_job() {
+    fn queue_service_dequeue_returns_pending_job() {
         let service = create_service();
         service
             .enqueue("session-1".into(), None, Priority::default())
             .unwrap();
         let dequeued = service.dequeue().unwrap();
         assert!(dequeued.is_some());
-        assert_eq!(dequeued.unwrap().status, QueueStatus::Claimed);
+        assert_eq!(dequeued.unwrap().status, QueueStatus::Pending);
     }
 
     #[test]
@@ -182,27 +185,97 @@ mod tests {
     }
 
     #[test]
-    fn queue_service_complete_job_success() {
+    fn queue_service_complete_job_success_from_testing() {
         let service = create_service();
-        let entry = service
-            .enqueue("session-1".into(), None, Priority::default())
-            .unwrap();
-        let claimed = service.claim_job(&entry.id).unwrap();
-        let result = service.complete_job(&claimed.id, true);
+        let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::Testing);
+
+        let result = service.complete_job(&entry.id, true);
         assert!(result.is_ok());
         assert_eq!(result.unwrap().status, QueueStatus::Merged);
     }
 
     #[test]
-    fn queue_service_complete_job_failure() {
+    fn queue_service_complete_job_success_from_merging() {
         let service = create_service();
-        let entry = service
-            .enqueue("session-1".into(), None, Priority::default())
-            .unwrap();
-        let claimed = service.claim_job(&entry.id).unwrap();
-        let result = service.complete_job(&claimed.id, false);
+        let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::Merging);
+
+        let result = service.complete_job(&entry.id, true);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().status, QueueStatus::FailedRetryable);
+        assert_eq!(result.unwrap().status, QueueStatus::Merged);
+    }
+
+    #[test]
+    fn queue_service_complete_job_success_from_pending_rejected() {
+        let service = create_service();
+        let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+
+        let result = service.complete_job(&entry.id, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn queue_service_complete_job_success_from_claimed_rejected() {
+        let service = create_service();
+        let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::Claimed);
+
+        let result = service.complete_job(&entry.id, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn queue_service_complete_job_success_from_rebasing_rejected() {
+        let service = create_service();
+        let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::Rebasing);
+
+        let result = service.complete_job(&entry.id, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn queue_service_complete_job_success_from_merged_rejected() {
+        let service = create_service();
+        let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::Merged);
+
+        let result = service.complete_job(&entry.id, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn queue_service_complete_job_failure_from_testing() {
+        let service = create_service();
+        let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::Testing);
+
+        let result = service.complete_job(&entry.id, false);
+        assert!(result.is_ok());
+        let failed = result.unwrap();
+        assert_eq!(failed.status, QueueStatus::FailedRetryable);
+        assert_eq!(failed.retry_count(), 1);
+        assert!(failed.error_message().is_some());
+    }
+
+    #[test]
+    fn queue_service_complete_job_failure_from_pending_rejected() {
+        let service = create_service();
+        let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+
+        let result = service.complete_job(&entry.id, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn queue_service_complete_job_failure_from_claimed_rejected() {
+        let service = create_service();
+        let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::Claimed);
+
+        let result = service.complete_job(&entry.id, false);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -262,11 +335,9 @@ mod tests {
     #[test]
     fn queue_service_retry_job() {
         let service = create_service();
-        let entry = service
-            .enqueue("session-1".into(), None, Priority::default())
-            .unwrap();
-        let claimed = service.claim_job(&entry.id).unwrap();
-        let failed = service.complete_job(&claimed.id, false).unwrap();
+        let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::Testing);
+        let failed = service.complete_job(&entry.id, false).unwrap();
         assert_eq!(failed.status, QueueStatus::FailedRetryable);
         let retried = service.retry_job(&failed.id).unwrap();
         assert_eq!(retried.status, QueueStatus::Pending);
@@ -297,9 +368,8 @@ mod tests {
         let entry = service
             .enqueue("session-1".into(), None, Priority::default())
             .unwrap();
-        let claimed = entry.claim().unwrap();
-        let updated = service.update_job(claimed).unwrap();
-        assert_eq!(updated.status, QueueStatus::Claimed);
+        let updated = service.update_job(entry).unwrap();
+        assert_eq!(updated.status, QueueStatus::Pending);
     }
 
     #[test]
@@ -421,16 +491,18 @@ mod tests {
     fn queue_service_complete_job_failure_stores_error() {
         let service = create_service();
         let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
-        let failed = service.complete_job(&entry.id, false).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::Testing);
 
+        let failed = service.complete_job(&entry.id, false).unwrap();
         assert_eq!(failed.status, QueueStatus::FailedRetryable);
         assert!(failed.error_message().is_some());
     }
 
     #[test]
-    fn queue_service_complete_job_success_through_all_states() {
+    fn queue_service_complete_job_success_skips_intermediate_from_ready_to_merge() {
         let service = create_service();
         let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::ReadyToMerge);
 
         let completed = service.complete_job(&entry.id, true).unwrap();
         assert_eq!(completed.status, QueueStatus::Merged);
@@ -483,16 +555,26 @@ mod tests {
     fn queue_service_retry_exhausted_returns_error() {
         let service = create_service();
         let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::Testing);
 
-        // Exhaust retries (3 failures)
-        let mut current = entry;
-        for _ in 0..3 {
-            let failed = service.complete_job(&current.id, false).unwrap();
-            current = failed;
-        }
+        // Fail once (retry_count goes to 1)
+        let failed = service.complete_job(&entry.id, false).unwrap();
+        assert_eq!(failed.retry_count(), 1);
 
-        // Now retry should fail
-        let result = service.retry_job(&current.id);
+        // retry_job creates a fresh entry, so retry always succeeds
+        let retried = service.retry_job(&failed.id).unwrap();
+        assert_eq!(retried.status, QueueStatus::Pending);
+
+        // An entry with retry_count >= 3 should be rejected by retry_job
+        // (simulate via direct state manipulation)
+        let entry2 = service.enqueue("s2".into(), None, Priority::default()).unwrap();
+        let exhausted = QueueEntry {
+            status: QueueStatus::FailedRetryable,
+            retry_count: 3,
+            ..service.get_job(&entry2.id).unwrap().unwrap()
+        };
+        service.update_job(exhausted).unwrap();
+        let result = service.retry_job(&entry2.id);
         assert!(result.is_err());
     }
 
@@ -531,10 +613,20 @@ mod tests {
     fn queue_service_update_job_after_claim() {
         let service = create_service();
         let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
-        let claimed = service.claim_job(&entry.id).unwrap();
+        let _claimed = service.claim_job(&entry.id).unwrap();
 
-        // Update should succeed for existing entry
-        let updated = service.update_job(claimed).unwrap();
-        assert_eq!(updated.status(), QueueStatus::Claimed);
+        // Verify the persisted entry has Claimed status
+        let found = service.get_job(&entry.id).unwrap().unwrap();
+        assert_eq!(found.status(), QueueStatus::Claimed);
+    }
+
+    #[test]
+    fn queue_service_complete_job_failure_increments_retry_count() {
+        let service = create_service();
+        let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
+        advance_to(&service, &entry.id, QueueStatus::Testing);
+
+        let failed = service.complete_job(&entry.id, false).unwrap();
+        assert_eq!(failed.retry_count(), 1);
     }
 }

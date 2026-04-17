@@ -25,6 +25,15 @@ pub enum QueueError {
 
     #[error("Repository error: {0}")]
     RepositoryError(String),
+
+    #[error("Validation error: {0}")]
+    Validation(String),
+}
+
+impl From<crate::domain::validation::ValidationError> for QueueError {
+    fn from(err: crate::domain::validation::ValidationError) -> Self {
+        QueueError::Validation(err.to_string())
+    }
 }
 
 #[derive(Error, Debug)]
