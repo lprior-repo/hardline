@@ -128,7 +128,8 @@ impl BeadId {
     }
 
     pub fn generate() -> Self {
-        let hex = format!("{:x}", uuid::Uuid::new_v4());
+        let uuid = uuid::Uuid::new_v4();
+        let hex = uuid.simple().to_string();
         Self(format!("bd-{}", &hex[..12]))
     }
 
