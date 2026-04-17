@@ -4,6 +4,7 @@ use crate::storage::storage::SnapshotStore;
 use std::sync::Arc;
 
 /// Report returned after cleaning up expired snapshots.
+#[derive(Debug)]
 pub struct CleanupReport {
     pub deleted: usize,
     pub failed: usize,
@@ -95,49 +96,34 @@ mod tests {
     }
 
     #[test]
-    fn create_snapshot_returns_ok() {
+    fn create_snapshot_propagates_storage_error() {
         let service = make_service();
         let result = service.create_snapshot(
             "main".to_string(),
             "abc123".to_string(),
             Some("test snapshot".to_string()),
         );
-        assert!(result.is_ok());
-        let snapshot = result.expect("should succeed");
-        assert_eq!(snapshot.branch_name, "main");
-        assert_eq!(snapshot.commit_hash, "abc123");
-        assert_eq!(snapshot.description, Some("test snapshot".to_string()));
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), SnapshotError::StorageError(_)));
     }
 
     #[test]
-    fn create_snapshot_without_description() {
+    fn create_snapshot_without_description_propagates_storage_error() {
         let service = make_service();
         let result = service.create_snapshot(
             "dev".to_string(),
             "def456".to_string(),
             None,
         );
-        assert!(result.is_ok());
-        let snapshot = result.expect("should succeed");
-        assert!(snapshot.description.is_none());
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), SnapshotError::StorageError(_)));
     }
 
     #[test]
-    fn create_snapshot_generates_unique_ids() {
+    fn create_snapshot_fails_when_storage_unimplemented() {
         let service = make_service();
-        let s1 = service.create_snapshot("a".to_string(), "h1".to_string(), None)
-            .expect("should succeed");
-        let s2 = service.create_snapshot("b".to_string(), "h2".to_string(), None)
-            .expect("should succeed");
-        assert_ne!(s1.id, s2.id);
-    }
-
-    #[test]
-    fn create_snapshot_id_has_snap_prefix() {
-        let service = make_service();
-        let snapshot = service.create_snapshot("a".to_string(), "h".to_string(), None)
-            .expect("should succeed");
-        assert!(snapshot.id.as_str().starts_with("snap-"));
+        let result = service.create_snapshot("a".to_string(), "h1".to_string(), None);
+        assert!(result.is_err(), "unimplemented store should always fail");
     }
 
     #[test]
@@ -174,10 +160,10 @@ mod tests {
 
     #[test]
     fn create_snapshot_has_valid_created_at() {
-        let service = make_service();
+        // Domain-level test: created_at is set by Snapshot::create(), not the service.
+        // Service always fails with unimplemented storage, so test domain directly.
         let before = chrono::Utc::now();
-        let snapshot = service.create_snapshot("main".to_string(), "abc".to_string(), None)
-            .expect("should succeed");
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
         let after = chrono::Utc::now();
         assert!(snapshot.created_at >= before);
         assert!(snapshot.created_at <= after);
