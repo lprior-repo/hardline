@@ -39,4 +39,4 @@ pub use queue::{
     InMemoryJobRepository, Job, JobOutcome, JobPayload, JobPriority, JobProcessor,
     JobProcessorConfig, JobRepository, JobResult, JobState, QueueError, QueueResult,
 };
-pub use state::{Pipeline, PipelineId, PipelineState};
+pub use state::{IterationError, Pipeline, PipelineConfig, PipelineId, PipelineState, TransitionError};
