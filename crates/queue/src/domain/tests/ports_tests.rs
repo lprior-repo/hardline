@@ -126,7 +126,7 @@ fn in_memory_repo_dequeue_empty_queue_returns_none() {
 fn in_memory_repo_get_nonexistent_returns_none() {
     // Arrange
     let repo = InMemoryQueueRepository::new();
-    let fake_id = QueueEntryId::parse("nonexistent-id".to_string()).unwrap();
+    let fake_id = QueueEntryId::new("nonexistent-id".to_string()).unwrap();
 
     // Act
     let get_result = repo.get(&fake_id);
@@ -228,7 +228,7 @@ fn in_memory_repo_dequeue_skips_non_pending() {
 #[test]
 fn in_memory_repo_remove_nonexistent_returns_error() {
     let repo = InMemoryQueueRepository::new();
-    let fake_id = QueueEntryId::parse("nonexistent".to_string()).unwrap();
+    let fake_id = QueueEntryId::new("nonexistent".to_string()).unwrap();
     let result = repo.remove(&fake_id);
     assert!(result.is_err());
 }

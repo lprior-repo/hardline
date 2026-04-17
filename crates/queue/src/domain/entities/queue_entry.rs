@@ -12,39 +12,37 @@ use std::marker::PhantomData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::queue::status::QueueStatus;
 use crate::domain::value_objects::{Priority, QueuePosition};
 use crate::error::QueueError;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct QueueEntryId(String);
+// Re-export canonical QueueEntryId from identifiers
+pub use crate::domain::identifiers::QueueEntryId;
 
-impl QueueEntryId {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[derive(Default)]
+pub enum QueueStatus {
+    #[default]
+    Pending,
+    Claimed,
+    Rebasing,
+    Testing,
+    ReadyToMerge,
+    Merging,
+    Merged,
+    FailedRetryable,
+    FailedTerminal,
+    Cancelled,
+}
+
+impl QueueStatus {
     #[must_use]
-    pub fn generate() -> Self {
-        Self(format!("queue-{}", uuid::Uuid::new_v4()))
-    }
-
-    pub fn parse(id: String) -> Result<Self, QueueError> {
-        if id.is_empty() {
-            return Err(QueueError::InvalidQueueEntryId("empty id".into()));
-        }
-        Ok(Self(id))
-    }
-
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
+    pub const fn is_terminal(self) -> bool {
+        matches!(self, Self::Merged | Self::FailedTerminal | Self::Cancelled)
     }
 }
 
-impl Default for QueueEntryId {
-    fn default() -> Self {
-        Self::generate()
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Pending;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Claimed;
@@ -820,15 +818,15 @@ mod tests {
     }
 
     #[test]
-    fn queue_entry_id_parse_valid() {
-        let id = QueueEntryId::parse("my-id".into());
+    fn queue_entry_id_new_valid() {
+        let id = QueueEntryId::new("my-id");
         assert!(id.is_ok());
         assert_eq!(id.unwrap().as_str(), "my-id");
     }
 
     #[test]
-    fn queue_entry_id_parse_empty_rejected() {
-        let result = QueueEntryId::parse("".into());
+    fn queue_entry_id_new_empty_rejected() {
+        let result = QueueEntryId::new("");
         assert!(result.is_err());
     }
 

@@ -16,5 +16,5 @@ pub mod input;
 pub mod views;
 pub mod widgets;
 
-pub use app::TuiApp;
+pub use app::{BranchProvider, TuiApp};
 pub use error::{Result, TuiError};

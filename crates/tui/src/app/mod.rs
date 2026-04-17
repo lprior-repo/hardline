@@ -44,39 +44,65 @@ pub enum InputAction {
     NewBranch,
 }
 
+/// Provides stack branch data to the TUI. Implementations bridge
+/// to VCS or stack infrastructure without coupling the TUI to concrete backends.
+pub trait BranchProvider: Send + Sync {
+    fn load_branches(&self) -> std::result::Result<Vec<StackBranch>, String>;
+}
+
 pub struct TuiApp {
     pub focused_pane: FocusedPane,
     pub mode: Mode,
     pub needs_refresh: bool,
     pub should_quit: bool,
+    pub status_message: String,
     pub worktree_view: WorktreeView,
     pub stack_branches: Vec<StackBranch>,
     pub diff_lines: Vec<DiffLine>,
+    branch_provider: Box<dyn BranchProvider>,
 }
 
 impl TuiApp {
-    pub fn new() -> Result<Self> {
+    pub fn new(branch_provider: Box<dyn BranchProvider>) -> Result<Self> {
         Ok(Self {
             focused_pane: FocusedPane::Stack,
             mode: Mode::Normal,
             needs_refresh: true,
             should_quit: false,
+            status_message: String::new(),
             worktree_view: WorktreeView::default(),
             stack_branches: Vec::new(),
             diff_lines: Vec::new(),
+            branch_provider,
         })
     }
 
     pub fn refresh_branches(&mut self) -> Result<()> {
-        self.needs_refresh = false;
-        Ok(())
+        if !self.needs_refresh {
+            return Ok(());
+        }
+
+        match self.branch_provider.load_branches() {
+            Ok(branches) => {
+                self.stack_branches = branches;
+                self.needs_refresh = false;
+                Ok(())
+            }
+            Err(msg) => {
+                self.set_status(format!("Failed to load branches: {msg}"));
+                self.needs_refresh = false;
+                Ok(())
+            }
+        }
     }
 
     pub fn selected_branch(&self) -> Option<String> {
         None
     }
 
-    pub fn set_status(&mut self, _message: String) {}
+    pub fn set_status(&mut self, message: String) {
+        self.status_message = message;
+    }
 }
 
 fn install_panic_hook() {
@@ -105,11 +131,11 @@ fn restore_terminal(
     terminal::disable_raw_mode()
 }
 
-pub fn run() -> Result<()> {
+pub fn run(branch_provider: Box<dyn BranchProvider>) -> Result<()> {
     install_panic_hook();
 
     let mut terminal = init_terminal()?;
-    let mut app = TuiApp::new()?;
+    let mut app = TuiApp::new(branch_provider)?;
     let mut input_handler = InputHandler::new();
     app.needs_refresh = true;
 
@@ -126,6 +152,8 @@ fn run_loop(
     input_handler: &mut InputHandler,
 ) -> Result<()> {
     loop {
+        app.refresh_branches()?;
+
         terminal
             .draw(|f| crate::views::render(f, app))
             .map_err(|e| crate::error::TuiError::TerminalError(e.to_string()))?;
@@ -166,11 +194,23 @@ fn run_loop(
 mod tests {
     use super::*;
 
+    struct StubBranchProvider;
+
+    impl BranchProvider for StubBranchProvider {
+        fn load_branches(&self) -> std::result::Result<Vec<StackBranch>, String> {
+            Ok(Vec::new())
+        }
+    }
+
+    fn test_app() -> TuiApp {
+        TuiApp::new(Box::new(StubBranchProvider)).expect("TuiApp::new should succeed")
+    }
+
     // ── Constructor & default state ──
 
     #[test]
     fn tui_app_new_returns_default_state() {
-        let app = TuiApp::new().expect("TuiApp::new should succeed");
+        let app = test_app();
         assert!(!app.should_quit);
         assert!(app.needs_refresh);
         assert!(matches!(app.focused_pane, FocusedPane::Stack));
@@ -179,8 +219,8 @@ mod tests {
 
     #[test]
     fn multiple_app_instances_are_independent() {
-        let mut app1 = TuiApp::new().expect("ok");
-        let mut app2 = TuiApp::new().expect("ok");
+        let mut app1 = test_app();
+        let mut app2 = test_app();
         app1.should_quit = true;
         app2.mode = Mode::Help;
         assert!(app1.should_quit);
@@ -193,23 +233,71 @@ mod tests {
 
     #[test]
     fn refresh_branches_clears_needs_refresh() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.needs_refresh = true;
         app.refresh_branches().expect("should succeed");
         assert!(!app.needs_refresh);
     }
 
     #[test]
-    fn refresh_branches_when_already_clear_stays_clear() {
-        let mut app = TuiApp::new().expect("ok");
+    fn refresh_branches_skips_when_not_needed() {
+        struct PanickingProvider;
+        impl BranchProvider for PanickingProvider {
+            fn load_branches(&self) -> std::result::Result<Vec<StackBranch>, String> {
+                panic!("load_branches should not be called when needs_refresh is false");
+            }
+        }
+
+        let mut app = TuiApp::new(Box::new(PanickingProvider)).expect("ok");
         app.needs_refresh = false;
+        // Should return Ok without calling the provider
         app.refresh_branches().expect("should succeed");
-        assert!(!app.needs_refresh);
+    }
+
+    #[test]
+    fn refresh_branches_populates_stack_branches() {
+        use scp_stack::domain::BranchName;
+
+        struct StaticProvider;
+        impl BranchProvider for StaticProvider {
+            fn load_branches(&self) -> std::result::Result<Vec<StackBranch>, String> {
+                Ok(vec![StackBranch {
+                    name: BranchName::new("feature/a"),
+                    parent: Some(BranchName::new("main")),
+                    children: vec![BranchName::new("feature/b")],
+                    needs_restack: true,
+                    pr_info: None,
+                }])
+            }
+        }
+
+        let mut app = TuiApp::new(Box::new(StaticProvider)).expect("ok");
+        app.needs_refresh = true;
+        app.refresh_branches().expect("ok");
+        assert_eq!(app.stack_branches.len(), 1);
+        assert_eq!(app.stack_branches[0].name.as_str(), "feature/a");
+        assert!(app.stack_branches[0].needs_restack);
+    }
+
+    #[test]
+    fn refresh_branches_on_error_sets_status() {
+        struct FailingProvider;
+        impl BranchProvider for FailingProvider {
+            fn load_branches(&self) -> std::result::Result<Vec<StackBranch>, String> {
+                Err("git not found".to_string())
+            }
+        }
+
+        let mut app = TuiApp::new(Box::new(FailingProvider)).expect("ok");
+        app.needs_refresh = true;
+        app.refresh_branches().expect("should not error — errors become status");
+        assert!(app.status_message.contains("git not found"));
+        assert!(!app.needs_refresh, "should clear flag even on error");
     }
 
     #[test]
     fn refresh_does_not_affect_other_fields() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.should_quit = true;
         app.focused_pane = FocusedPane::Diff;
         app.mode = Mode::Search;
@@ -223,7 +311,7 @@ mod tests {
 
     #[test]
     fn selected_branch_returns_none_by_default() {
-        let app = TuiApp::new().expect("ok");
+        let app = test_app();
         assert!(app.selected_branch().is_none());
     }
 
@@ -231,19 +319,21 @@ mod tests {
 
     #[test]
     fn set_status_does_not_panic() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.set_status("test message".to_string());
+        assert_eq!(app.status_message, "test message");
     }
 
     #[test]
     fn set_status_with_empty_string() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.set_status(String::new());
+        assert!(app.status_message.is_empty());
     }
 
     #[test]
     fn set_status_with_long_string() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.set_status("a".repeat(10_000));
     }
 
@@ -251,7 +341,7 @@ mod tests {
 
     #[test]
     fn run_returns_terminal_error_without_tty() {
-        let result = run();
+        let result = run(Box::new(StubBranchProvider));
         assert!(result.is_err(), "run() should fail without a terminal");
     }
 
@@ -342,7 +432,7 @@ mod tests {
 
     #[test]
     fn simulate_quit_flow() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         assert!(!app.should_quit);
         app.should_quit = true;
         assert!(app.should_quit);
@@ -350,7 +440,7 @@ mod tests {
 
     #[test]
     fn simulate_pane_switching() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         assert!(matches!(app.focused_pane, FocusedPane::Stack));
         app.focused_pane = FocusedPane::Diff;
         assert!(matches!(app.focused_pane, FocusedPane::Diff));
@@ -360,7 +450,7 @@ mod tests {
 
     #[test]
     fn simulate_mode_transitions() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         // Normal -> Search
         app.mode = Mode::Search;
         assert!(matches!(app.mode, Mode::Search));
@@ -389,7 +479,7 @@ mod tests {
 
     #[test]
     fn simulate_full_lifecycle() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         // Initial refresh
         assert!(app.needs_refresh);
         app.refresh_branches().expect("ok");
@@ -412,7 +502,7 @@ mod tests {
 
     #[test]
     fn needs_refresh_can_be_rearmed() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.needs_refresh = false;
         app.refresh_branches().expect("ok");
         app.needs_refresh = true;
@@ -431,7 +521,7 @@ mod tests {
 
     #[test]
     fn tui_app_fields_are_accessible() {
-        let app = TuiApp::new().expect("ok");
+        let app = test_app();
         let _pane: &FocusedPane = &app.focused_pane;
         let _mode: &Mode = &app.mode;
         let _needs_refresh: bool = app.needs_refresh;
@@ -442,14 +532,14 @@ mod tests {
 
     #[test]
     fn tui_app_new_satisfies_result_contract() {
-        let result: Result<TuiApp> = TuiApp::new();
+        let result: Result<TuiApp> = TuiApp::new(Box::new(StubBranchProvider));
         assert!(result.is_ok());
         let _app = result.expect("ok");
     }
 
     #[test]
     fn refresh_branches_satisfies_result_contract() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         let result: Result<()> = app.refresh_branches();
         assert!(result.is_ok());
     }
@@ -658,7 +748,7 @@ mod tests {
 
     #[test]
     fn can_enter_confirm_mode_and_return() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         assert!(matches!(app.mode, Mode::Normal));
         app.mode = Mode::Confirm(ConfirmAction::Delete("x".into()));
         assert!(matches!(app.mode, Mode::Confirm(ConfirmAction::Delete(_))));
@@ -668,7 +758,7 @@ mod tests {
 
     #[test]
     fn can_enter_input_mode_and_return() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.mode = Mode::Input(InputAction::NewBranch);
         assert!(matches!(app.mode, Mode::Input(InputAction::NewBranch)));
         app.mode = Mode::Normal;
@@ -677,7 +767,7 @@ mod tests {
 
     #[test]
     fn can_enter_input_rename_mode_and_return() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.mode = Mode::Input(InputAction::Rename);
         assert!(matches!(app.mode, Mode::Input(InputAction::Rename)));
         app.mode = Mode::Normal;
@@ -686,7 +776,7 @@ mod tests {
 
     #[test]
     fn can_cycle_through_all_modes() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         let modes = vec![
             Mode::Search,
             Mode::Help,
@@ -708,7 +798,7 @@ mod tests {
 
     #[test]
     fn switching_pane_does_not_affect_mode() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.mode = Mode::Search;
         app.focused_pane = FocusedPane::Diff;
         assert!(matches!(app.focused_pane, FocusedPane::Diff));
@@ -717,7 +807,7 @@ mod tests {
 
     #[test]
     fn setting_mode_does_not_affect_pane() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.focused_pane = FocusedPane::Diff;
         app.mode = Mode::Help;
         assert!(matches!(app.focused_pane, FocusedPane::Diff));
@@ -726,7 +816,7 @@ mod tests {
 
     #[test]
     fn should_quit_is_independent_of_other_fields() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.should_quit = true;
         app.mode = Mode::Reorder;
         app.focused_pane = FocusedPane::Diff;
@@ -739,7 +829,7 @@ mod tests {
 
     #[test]
     fn needs_refresh_toggle_cycle() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         for _ in 0..100 {
             app.needs_refresh = !app.needs_refresh;
         }
@@ -749,7 +839,7 @@ mod tests {
 
     #[test]
     fn repeated_refresh_calls() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         for _ in 0..50 {
             app.refresh_branches().expect("ok");
         }
@@ -758,7 +848,7 @@ mod tests {
 
     #[test]
     fn selected_branch_always_none() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         app.mode = Mode::Reorder;
         app.focused_pane = FocusedPane::Diff;
         app.should_quit = true;
@@ -767,7 +857,7 @@ mod tests {
 
     #[test]
     fn set_status_various_strings() {
-        let mut app = TuiApp::new().expect("ok");
+        let mut app = test_app();
         let messages = vec![
             String::new(),
             "hello".into(),
@@ -782,7 +872,6 @@ mod tests {
 
     #[test]
     fn tui_app_size_is_reasonable() {
-        // TuiApp has 4 fields: FocusedPane (1 byte), Mode (variable), 2x bool (2 bytes)
         let size = std::mem::size_of::<TuiApp>();
         assert!(
             size < 512,
@@ -793,9 +882,8 @@ mod tests {
     #[test]
     fn run_does_not_modify_static_state() {
         // run() creates a local app, should not have side effects
-        let _ = run();
-        let _ = run();
-        let _ = run();
+        let provider = Box::new(StubBranchProvider);
+        let _ = run(provider);
     }
 
     // ── Proptests ──
@@ -827,7 +915,7 @@ mod tests {
         fn prop_needs_refresh_after_toggle_sequence(
             initial in proptest::bool::ANY,
         ) {
-            let mut app = TuiApp::new().expect("ok");
+            let mut app = test_app();
             app.needs_refresh = initial;
             assert_eq!(app.needs_refresh, initial);
         }
@@ -836,24 +924,25 @@ mod tests {
         fn prop_should_quit_arbitrary_bool(
             quit in proptest::bool::ANY,
         ) {
-            let mut app = TuiApp::new().expect("ok");
+            let mut app = test_app();
             app.should_quit = quit;
             assert_eq!(app.should_quit, quit);
         }
 
         #[test]
-        fn prop_set_status_arbitrary_string_does_not_panic(
+        fn prop_set_status_arbitrary_string_stored(
             msg in proptest::string::string_regex(".{0,10000}").unwrap(),
         ) {
-            let mut app = TuiApp::new().expect("ok");
-            app.set_status(msg);
+            let mut app = test_app();
+            app.set_status(msg.clone());
+            assert_eq!(app.status_message, msg);
         }
 
         #[test]
         fn prop_refresh_always_clears_flag(
             start in proptest::bool::ANY,
         ) {
-            let mut app = TuiApp::new().expect("ok");
+            let mut app = test_app();
             app.needs_refresh = start;
             app.refresh_branches().expect("ok");
             assert!(!app.needs_refresh);
@@ -863,7 +952,7 @@ mod tests {
         fn prop_selected_branch_always_none(
             _dummy in proptest::bool::ANY,
         ) {
-            let app = TuiApp::new().expect("ok");
+            let app = test_app();
             assert!(app.selected_branch().is_none());
         }
 

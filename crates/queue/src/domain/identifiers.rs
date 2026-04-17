@@ -19,6 +19,14 @@ const SHELL_METACHARACTERS: &str = "$`|&<>\n\r\x00";
 pub struct QueueEntryId(String);
 
 impl QueueEntryId {
+    /// Generate a new unique queue entry ID with a `queue-` prefix.
+    ///
+    /// Uses UUID v4 for uniqueness.
+    #[must_use]
+    pub fn generate() -> Self {
+        Self(format!("queue-{}", uuid::Uuid::new_v4()))
+    }
+
     /// Create a new queue entry ID with validation.
     ///
     /// # Errors
@@ -42,6 +50,12 @@ impl QueueEntryId {
     #[must_use]
     pub fn into_inner(self) -> String {
         self.0
+    }
+}
+
+impl Default for QueueEntryId {
+    fn default() -> Self {
+        Self::generate()
     }
 }
 
@@ -249,6 +263,28 @@ mod tests {
     fn test_queue_entry_id_into_inner() {
         let id = QueueEntryId::new("my-id").unwrap();
         assert_eq!(id.into_inner(), "my-id");
+    }
+
+    // --- QueueEntryId generate ---
+
+    #[test]
+    fn test_queue_entry_id_generate_is_unique() {
+        let a = QueueEntryId::generate();
+        let b = QueueEntryId::generate();
+        assert_ne!(a.as_str(), b.as_str());
+    }
+
+    #[test]
+    fn test_queue_entry_id_generate_has_prefix() {
+        let id = QueueEntryId::generate();
+        assert!(id.as_str().starts_with("queue-"));
+    }
+
+    #[test]
+    fn test_queue_entry_id_default_generates() {
+        let id = QueueEntryId::default();
+        assert!(!id.as_str().is_empty());
+        assert!(id.as_str().starts_with("queue-"));
     }
 
     // --- SessionName into_inner ---
