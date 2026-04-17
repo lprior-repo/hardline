@@ -3,14 +3,8 @@ use crate::error::QueueError;
 
 /// Queue state machine validation utilities.
 ///
-<<<<<<< HEAD
-/// All transition logic lives in `QueueStatus::transition_to()`
-/// (in `domain::queue::status`). This struct delegates to that single source of truth.
-/// Prefer calling `QueueStatus::transition_to()` directly for new code.
-=======
 /// Delegates to `QueueStatus::transition_to()` (in `domain::queue::status`)
 /// which is the single source of truth for all state transitions.
->>>>>>> polecat/epsilon
 pub struct QueueStateMachine;
 
 impl QueueStateMachine {
@@ -253,17 +247,9 @@ mod tests {
 
     /// Exhaustive consistency check: every possible (from, to) pair must produce
     /// the same result from both `QueueStateMachine::can_transition` and
-<<<<<<< HEAD
-    /// `QueueStatus::transition_to` (the single source of truth).
-    #[test]
-    fn state_machine_consistent_with_queue_status_transition_to() {
-        use crate::domain::validation::ValidationResult;
-
-=======
     /// `QueueStatus::transition_to`.
     #[test]
     fn state_machine_consistent_with_queue_status_transition_to() {
->>>>>>> polecat/epsilon
         let all_statuses = [
             QueueStatus::Pending,
             QueueStatus::Claimed,
@@ -280,12 +266,7 @@ mod tests {
         for from in &all_statuses {
             for to in &all_statuses {
                 let sm_result = QueueStateMachine::can_transition(*from, *to);
-<<<<<<< HEAD
-                let canonical_result: ValidationResult<_> =
-                    from.transition_to(*to);
-=======
                 let canonical_result = from.transition_to(*to);
->>>>>>> polecat/epsilon
                 let canonical_ok = canonical_result.is_ok();
 
                 assert_eq!(
@@ -298,11 +279,7 @@ mod tests {
         }
     }
 
-<<<<<<< HEAD
-    /// Verify `is_terminal` delegates correctly to `QueueStatus::is_terminal`.
-=======
     /// Verify `is_terminal` is consistent with `QueueStatus::is_terminal`.
->>>>>>> polecat/epsilon
     #[test]
     fn state_machine_is_terminal_consistent_with_queue_status() {
         let all = [

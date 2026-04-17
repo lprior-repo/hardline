@@ -16,42 +16,10 @@ use crate::domain::queue::status::QueueStatus;
 use crate::domain::value_objects::{Priority, QueuePosition};
 use crate::error::QueueError;
 
-<<<<<<< HEAD
 // Re-export canonical QueueEntryId from identifiers
 pub use crate::domain::identifiers::QueueEntryId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-=======
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct QueueEntryId(String);
-
-impl QueueEntryId {
-    #[must_use]
-    pub fn generate() -> Self {
-        Self(format!("queue-{}", uuid::Uuid::new_v4()))
-    }
-
-    pub fn parse(id: String) -> Result<Self, QueueError> {
-        if id.is_empty() {
-            return Err(QueueError::InvalidQueueEntryId("empty id".into()));
-        }
-        Ok(Self(id))
-    }
-
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl Default for QueueEntryId {
-    fn default() -> Self {
-        Self::generate()
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
->>>>>>> polecat/epsilon
 pub struct Pending;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Claimed;
