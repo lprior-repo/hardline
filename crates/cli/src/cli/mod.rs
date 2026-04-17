@@ -6,6 +6,8 @@ pub mod agent_args;
 pub mod args;
 pub mod batch_args;
 pub mod config_args;
+pub mod dispatch;
+pub mod dispatch_workspace;
 pub mod lock_args;
 pub mod main;
 pub mod queue_args;
