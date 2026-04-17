@@ -32,7 +32,7 @@ pub use persistence::StateStore;
 pub use phases::{PhaseError, PipelineExecutor};
 pub use policies::{
     CircuitBreaker, CircuitBreakerState, CircuitState, ConfigError, Deadline, NewCircuitBreaker,
-    NewCircuitBreakerError, NewRetryPolicy, OrchestratorError, PhaseTimeout, PolicyConfig,
+    NewCircuitBreakerError, OrchestratorError, PhaseTimeout, PolicyConfig,
     PolicyError, RetryPolicy, RetryPolicyError, TimeoutError, TimeoutPolicy, TimeoutPolicyError,
 };
 pub use queue::{

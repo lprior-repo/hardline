@@ -890,7 +890,7 @@ mod persistence {
 mod policies {
     use orchestrator::policies::{
         CircuitBreaker, CircuitBreakerState, ConfigError, Deadline, NewCircuitBreaker,
-        NewRetryPolicy, PhaseTimeout, PolicyConfig, RetryPolicy, TimeoutPolicy,
+        PhaseTimeout, PolicyConfig, RetryPolicy, RetryPolicyError, TimeoutPolicy,
     };
 
     // CLAIM: PhaseTimeout rejects zero
@@ -928,21 +928,21 @@ mod policies {
     // CLAIM: RetryPolicy rejects base_delay=0
     #[test]
     fn claim_retry_policy_rejects_zero_base_delay() {
-        let result = RetryPolicy::new(3, 0, 1000);
-        assert!(matches!(result, Err(ConfigError::InvalidBaseDelay { .. })));
+        let result = RetryPolicy::new(3, 0, 2.0, Some(1000), vec![]);
+        assert!(matches!(result, Err(RetryPolicyError::InvalidBaseDelay)));
     }
 
     // CLAIM: RetryPolicy rejects max_delay < base_delay
     #[test]
     fn claim_retry_policy_rejects_max_lt_base() {
-        let result = RetryPolicy::new(3, 1000, 500);
+        let result = RetryPolicy::new(3, 1000, 2.0, Some(500), vec![]);
         assert!(result.is_err());
     }
 
     // CLAIM: RetryPolicy calculate_delay uses exponential backoff
     #[test]
     fn claim_retry_policy_exponential_backoff() {
-        let rp = RetryPolicy::new(5, 100, 10000).unwrap();
+        let rp = RetryPolicy::new(5, 100, 2.0, Some(10000), vec![]).unwrap();
         assert_eq!(rp.calculate_delay(0), 100);
         assert_eq!(rp.calculate_delay(1), 200);
         assert_eq!(rp.calculate_delay(2), 400);
@@ -952,24 +952,24 @@ mod policies {
     // CLAIM: RetryPolicy caps at max_delay
     #[test]
     fn claim_retry_policy_caps_max_delay() {
-        let rp = RetryPolicy::new(10, 1000, 5000).unwrap();
+        let rp = RetryPolicy::new(10, 1000, 2.0, Some(5000), vec![]).unwrap();
         assert_eq!(rp.calculate_delay(10), 5000);
     }
 
-    // CLAIM: NewRetryPolicy rejects invalid factor
+    // CLAIM: RetryPolicy rejects invalid factor
     #[test]
-    fn claim_new_retry_policy_rejects_bad_factor() {
-        assert!(NewRetryPolicy::new(3, 100, 1.0, None, vec![]).is_err());
-        assert!(NewRetryPolicy::new(3, 100, 0.5, None, vec![]).is_err());
-        assert!(NewRetryPolicy::new(3, 100, f64::NAN, None, vec![]).is_err());
-        assert!(NewRetryPolicy::new(3, 100, f64::INFINITY, None, vec![]).is_err());
+    fn claim_retry_policy_rejects_bad_factor() {
+        assert!(RetryPolicy::new(3, 100, 1.0, None, vec![]).is_err());
+        assert!(RetryPolicy::new(3, 100, 0.5, None, vec![]).is_err());
+        assert!(RetryPolicy::new(3, 100, f64::NAN, None, vec![]).is_err());
+        assert!(RetryPolicy::new(3, 100, f64::INFINITY, None, vec![]).is_err());
     }
 
-    // CLAIM: NewRetryPolicy is_retryable works
+    // CLAIM: RetryPolicy is_retryable works
     #[test]
-    fn claim_new_retry_policy_retryable() {
+    fn claim_retry_policy_retryable() {
         let rp =
-            NewRetryPolicy::new(3, 100, 2.0, None, vec!["timeout".into(), "connection".into()])
+            RetryPolicy::new(3, 100, 2.0, None, vec!["timeout".into(), "connection".into()])
                 .unwrap();
         assert!(rp.is_retryable("request timeout occurred"));
         assert!(rp.is_retryable("connection refused"));
@@ -978,8 +978,8 @@ mod policies {
 
     // ADVERSARIAL: Empty retryable_errors -> is_retryable returns false
     #[test]
-    fn claim_new_retry_policy_empty_patterns() {
-        let rp = NewRetryPolicy::new(3, 100, 2.0, None, vec![]).unwrap();
+    fn claim_retry_policy_empty_patterns() {
+        let rp = RetryPolicy::new(3, 100, 2.0, None, vec![]).unwrap();
         assert!(!rp.is_retryable("timeout"));
     }
 
