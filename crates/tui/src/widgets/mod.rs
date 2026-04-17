@@ -1,5 +1,5 @@
 pub mod stack_tree;
-pub use stack_tree::StackTreeWidget;
+pub use stack_tree::{StackTreeWidget, TreeNode};
 
 pub mod diff {
     /// A single line of diff output, with semantic tagging for styling.
