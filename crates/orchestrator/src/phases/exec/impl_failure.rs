@@ -25,16 +25,17 @@ impl PipelineExecutor {
         self.cleanup_after_failure(&pipeline)
             .map_err(|e| PhaseError::CleanupFailed(e.to_string()))?;
 
-        let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
-            let _ = p.transition_to(PipelineState::Failed);
-            p.set_error(message.clone());
-            p.clone()
-        });
-        if let Some(pipeline) = pipeline_opt {
-            self.store
-                .update(pipeline)
-                .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
-        }
+        self.store
+            .mutate_and_persist(id, |pipeline| {
+                pipeline
+                    .transition_to(PipelineState::Failed)
+                    .map_err(|e| format!("invalid state transition for pipeline {id}: {e}"))?;
+                pipeline.set_error(message.clone());
+                tracing::debug!(pipeline_id = %id.0, new_state = "failed", "pipeline state transitioned");
+                Ok(())
+            })
+            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .map_err(PhaseError::InvalidStateTransition)?;
 
         Ok(PhaseResult {
             success: false,
@@ -96,16 +97,17 @@ impl PipelineExecutor {
         id: &PipelineId,
         message: String,
     ) -> Result<(), PhaseError> {
-        let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
-            let _ = p.transition_to(PipelineState::Escalated);
-            p.set_error(message);
-            p.clone()
-        });
-        if let Some(pipeline) = pipeline_opt {
-            self.store
-                .update(pipeline)
-                .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
-        }
+        self.store
+            .mutate_and_persist(id, |pipeline| {
+                pipeline
+                    .transition_to(PipelineState::Escalated)
+                    .map_err(|e| format!("invalid state transition for pipeline {id}: {e}"))?;
+                pipeline.set_error(message);
+                tracing::debug!(pipeline_id = %id.0, new_state = "escalated", "pipeline state transitioned");
+                Ok(())
+            })
+            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .map_err(PhaseError::InvalidStateTransition)?;
         Ok(())
     }
 }

@@ -129,8 +129,7 @@ impl PipelineExecutor {
     ) -> Result<bool, PhaseError> {
         match decision {
             Decision::Accept => {
-                self.finalize_acceptance(pipeline_id)
-                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                self.finalize_acceptance(pipeline_id)?;
                 Ok(false)
             }
             Decision::Retry if pipeline.can_iterate() => {
@@ -148,18 +147,15 @@ impl PipelineExecutor {
             }
             Decision::Retry => {
                 tracing::warn!("Max iterations reached, escalating");
-                self.escalate(pipeline_id, "Max iterations reached")
-                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                self.escalate(pipeline_id, "Max iterations reached")?;
                 Ok(false)
             }
             Decision::Escalate => {
-                self.escalate(pipeline_id, "Validation escalated")
-                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                self.escalate(pipeline_id, "Validation escalated")?;
                 Ok(false)
             }
             Decision::Fail => {
-                self.fail(pipeline_id, "Validation failed")
-                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                self.fail(pipeline_id, "Validation failed")?;
                 Ok(false)
             }
         }
