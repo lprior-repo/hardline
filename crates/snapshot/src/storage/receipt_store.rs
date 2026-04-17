@@ -41,9 +41,26 @@ impl ReceiptStore {
         let json = serde_json::to_string_pretty(receipt).map_err(|e| {
             SnapshotError::SerializationError(format!("Failed to serialize receipt: {}", e))
         })?;
-        std::fs::write(&path, json).map_err(|e| {
+
+        // Atomic write: write to temp file in the same directory, then rename.
+        // A crash during write leaves a temp file, never a corrupt receipt.
+        let mut tmp = tempfile::NamedTempFile::new_in(&ops_path).map_err(|e| {
             SnapshotError::StorageError(format!(
-                "Failed to write receipt {}: {}",
+                "Failed to create temp file in {}: {}",
+                ops_path.display(),
+                e
+            ))
+        })?;
+        use std::io::Write;
+        tmp.write_all(json.as_bytes()).map_err(|e| {
+            SnapshotError::StorageError(format!(
+                "Failed to write receipt to temp file: {}",
+                e
+            ))
+        })?;
+        tmp.persist(&path).map_err(|e| {
+            SnapshotError::StorageError(format!(
+                "Failed to persist receipt {}: {}",
                 path.display(),
                 e
             ))
