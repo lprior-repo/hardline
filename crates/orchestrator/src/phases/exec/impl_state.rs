@@ -31,40 +31,55 @@ impl PipelineExecutor {
     }
 
     pub(crate) fn finalize_acceptance(&mut self, id: &PipelineId) -> anyhow::Result<()> {
-        let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
-            let _ = p.transition_to(PipelineState::Accepted);
-            p.clone()
-        });
-        if let Some(pipeline) = pipeline_opt {
-            self.store.update(pipeline)?;
-            info!("Pipeline {} accepted", id.0);
-        }
+        let pipeline = self
+            .store
+            .get_mut(id)
+            .map_err(|e| anyhow::anyhow!("failed to get pipeline {id}: {e}"))?;
+
+        pipeline
+            .transition_to(PipelineState::Accepted)
+            .map_err(|e| anyhow::anyhow!("invalid state transition for pipeline {id}: {e}"))?;
+        tracing::debug!(pipeline_id = %id.0, new_state = "accepted", "pipeline state transitioned");
+
+        let pipeline = pipeline.clone();
+        self.store.update(pipeline)?;
+        info!("Pipeline {} accepted", id.0);
         Ok(())
     }
 
     pub(crate) fn escalate(&mut self, id: &PipelineId, reason: &str) -> anyhow::Result<()> {
-        let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
-            let _ = p.transition_to(PipelineState::Escalated);
-            p.set_error(reason.to_string());
-            p.clone()
-        });
-        if let Some(pipeline) = pipeline_opt {
-            self.store.update(pipeline)?;
-            warn!("Pipeline {} escalated: {reason}", id.0);
-        }
+        let pipeline = self
+            .store
+            .get_mut(id)
+            .map_err(|e| anyhow::anyhow!("failed to get pipeline {id}: {e}"))?;
+
+        pipeline
+            .transition_to(PipelineState::Escalated)
+            .map_err(|e| anyhow::anyhow!("invalid state transition for pipeline {id}: {e}"))?;
+        pipeline.set_error(reason.to_string());
+        tracing::debug!(pipeline_id = %id.0, new_state = "escalated", "pipeline state transitioned");
+
+        let pipeline = pipeline.clone();
+        self.store.update(pipeline)?;
+        warn!("Pipeline {} escalated: {reason}", id.0);
         Ok(())
     }
 
     pub(crate) fn fail(&mut self, id: &PipelineId, reason: &str) -> anyhow::Result<()> {
-        let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
-            let _ = p.transition_to(PipelineState::Failed);
-            p.set_error(reason.to_string());
-            p.clone()
-        });
-        if let Some(pipeline) = pipeline_opt {
-            self.store.update(pipeline)?;
-            error!("Pipeline {} failed: {reason}", id.0);
-        }
+        let pipeline = self
+            .store
+            .get_mut(id)
+            .map_err(|e| anyhow::anyhow!("failed to get pipeline {id}: {e}"))?;
+
+        pipeline
+            .transition_to(PipelineState::Failed)
+            .map_err(|e| anyhow::anyhow!("invalid state transition for pipeline {id}: {e}"))?;
+        pipeline.set_error(reason.to_string());
+        tracing::debug!(pipeline_id = %id.0, new_state = "failed", "pipeline state transitioned");
+
+        let pipeline = pipeline.clone();
+        self.store.update(pipeline)?;
+        error!("Pipeline {} failed: {reason}", id.0);
         Ok(())
     }
 }
