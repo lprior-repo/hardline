@@ -13,7 +13,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use axum::{
     body::Body,
-    extract::{Path, State},
+    extract::State,
     http::{header::HeaderName, HeaderMap, Method, Request, StatusCode},
     response::{IntoResponse, Response},
     routing::{any, delete, get, head, options, patch, post, put},
@@ -237,7 +237,8 @@ where
     )
 }
 
-async fn not_found_handler(method: Method, Path(path): Path<String>) -> impl IntoResponse {
+async fn not_found_handler(method: Method, req: Request<Body>) -> impl IntoResponse {
+    let path = req.uri().path().to_string();
     (
         StatusCode::NOT_FOUND,
         format!("No endpoint found for {method} {path}"),
@@ -302,6 +303,7 @@ pub fn build_router(definition: TwinDefinition) -> Router {
         .definition
         .endpoints
         .iter()
+        .filter(|e| !e.path.starts_with("/_inspect"))
         .map(|endpoint| (endpoint.path.clone(), endpoint.method))
         .collect();
 
