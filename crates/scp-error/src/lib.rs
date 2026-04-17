@@ -13,167 +13,225 @@
 use serde::Serialize;
 use thiserror::Error;
 
+/// Result type alias for operations that can fail with [`Error`].
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Unified error type for Source Control Plane.
+///
+/// Error codes:
+/// - 1xxx: Workspace/Session/Bead errors
+/// - 2xxx: Queue errors
+/// - 3xxx: VCS errors
+/// - 4xxx: Configuration errors
+/// - 5xxx: Agent errors
+/// - 6xxx: State/Conflict errors
+/// - 7xxx: Validation errors
+/// - 8xxx: IO/Storage/Orchestration errors
+/// - 9xxx: Internal errors
 #[derive(Error, Debug, Serialize)]
 #[non_exhaustive]
 pub enum Error {
     // ========================================================================
     // Workspace/Session Errors (1xxx)
     // ========================================================================
+    /// Workspace not found in the database.
     #[error("Workspace not found: {0}")]
     WorkspaceNotFound(String),
 
+    /// Workspace already exists (duplicate creation attempt).
     #[error("Workspace already exists: {0}")]
     WorkspaceExists(String),
 
+    /// Workspace is locked by another agent.
     #[error("Workspace '{0}' is locked by '{1}'")]
     WorkspaceLocked(String, String),
 
+    /// Workspace has an irreconcilable conflict.
     #[error("Workspace conflict: {0}")]
     WorkspaceConflict(String),
 
+    /// Session not found in the database.
     #[error("Session not found: {0}")]
     SessionNotFound(String),
 
+    /// Session already exists (duplicate creation attempt).
     #[error("Session already exists: {0}")]
     SessionExists(String),
 
+    /// Session is locked by another agent.
     #[error("Session '{0}' is locked by '{1}'")]
     SessionLocked(String, String),
 
+    /// Agent attempted an operation without holding the session lock.
     #[error("Agent '{1}' does not hold lock on session '{0}'")]
     NotLockHolder(String, String),
 
+    /// Session is in an unexpected state for the requested operation.
     #[error("Session '{0}' is {1}, expected {2}")]
     SessionInvalidState(String, String, String),
 
     // ========================================================================
     // Bead Errors (1xxx - extended)
     // ========================================================================
+    /// Bead (issue) not found in the database.
     #[error("Bead not found: {0}")]
     BeadNotFound(String),
 
+    /// Bead already exists (duplicate creation attempt).
     #[error("Bead already exists: {0}")]
     BeadAlreadyExists(String),
 
+    /// Bead ID does not match the expected format.
     #[error("Invalid bead ID: {0}")]
     InvalidBeadId(String),
 
+    /// Bead title fails validation rules.
     #[error("Invalid bead title: {0}")]
     InvalidBeadTitle(String),
 
+    /// Attempted a state transition that is not allowed by the state machine.
     #[error("Invalid bead state transition: {from} -> {to}")]
     BeadInvalidStateTransition { from: String, to: String },
 
+    /// A dependency would create a cycle in the bead dependency graph.
     #[error("Dependency cycle detected: {0}")]
     BeadDependencyCycle(String),
 
+    /// Bead cannot proceed because its dependencies are not satisfied.
     #[error("Bead is blocked by: [{0}]")]
     BeadBlockedBy(String),
 
+    /// Referenced bead dependency does not exist.
     #[error("Invalid bead dependency: {0}")]
     BeadInvalidDependency(String),
 
     // ========================================================================
     // Queue Errors (2xxx)
     // ========================================================================
+    /// Queue has no items to dequeue or peek.
     #[error("Queue is empty")]
     QueueEmpty,
 
+    /// Queue item with the given identifier not found.
     #[error("Queue item not found: {0}")]
     QueueItemNotFound(String),
 
+    /// Queue is locked by another agent for exclusive access.
     #[error("Queue is locked by '{0}'")]
     QueueLocked(String),
 
+    /// A queue operation cannot proceed because another is already in progress.
     #[error("Queue operation already in progress")]
     QueueProcessing,
 
+    /// Position index is out of range for the queue.
     #[error("Invalid queue position: {0}")]
     QueueInvalidPosition(usize),
 
+    /// Queue has reached its maximum capacity.
     #[error("Queue is full (max: {0})")]
     QueueFull(usize),
 
     // ========================================================================
     // VCS Errors (3xxx)
     // ========================================================================
+    /// No VCS repository is initialized in the current directory.
     #[error("VCS not initialized in this directory")]
     VcsNotInitialized,
 
+    /// VCS merge or rebase conflict that requires resolution.
     #[error("VCS conflict in {0}: {1}")]
     VcsConflict(String, String),
 
+    /// Git push to remote failed.
     #[error("Failed to push: {0}")]
     VcsPushFailed(String),
 
+    /// Git pull from remote failed.
     #[error("Failed to pull: {0}")]
     VcsPullFailed(String),
 
+    /// Git rebase failed.
     #[error("Failed to rebase: {0}")]
     VcsRebaseFailed(String),
 
+    /// Git branch does not exist.
     #[error("Branch not found: {0}")]
     BranchNotFound(String),
 
+    /// Git branch already exists (duplicate creation attempt).
     #[error("Branch already exists: {0}")]
     BranchExists(String),
 
+    /// Git commit does not exist.
     #[error("Commit not found: {0}")]
     CommitNotFound(String),
 
+    /// Working copy has uncommitted changes that block the operation.
     #[error("Working copy has uncommitted changes")]
     WorkingCopyDirty,
 
     // ========================================================================
     // Configuration Errors (4xxx)
     // ========================================================================
+    /// Configuration file or key not found.
     #[error("Configuration not found: {0}")]
     ConfigNotFound(String),
 
+    /// Configuration value fails validation or parsing.
     #[error("Configuration invalid: {0}")]
     ConfigInvalid(String),
 
+    /// Insufficient permissions to read or write configuration.
     #[error("Configuration permission denied: {0}")]
     ConfigPermission(String),
 
+    /// Configuration is structurally invalid.
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),
 
+    /// Repository URL is malformed or unsupported.
     #[error("Invalid repository URL: {0}")]
     InvalidRepoUrl(String),
 
     // ========================================================================
     // Agent Errors (5xxx)
     // ========================================================================
+    /// Agent with the given ID is not registered.
     #[error("Agent not found: {0}")]
     AgentNotFound(String),
 
+    /// Agent with the given ID is already registered.
     #[error("Agent already registered: {0}")]
     AgentExists(String),
 
+    /// Agent heartbeat was not received within the timeout window.
     #[error("Agent '{0}' heartbeat timeout")]
     AgentTimeout(String),
 
     // ========================================================================
     // State/Conflict Errors (6xxx)
     // ========================================================================
+    /// An operation was attempted in an invalid state.
     #[error("Invalid state: {0}")]
     InvalidState(String),
 
+    /// A requested resource was not found.
     #[error("Not found: {0}")]
     NotFound(String),
 
+    /// The requested operation is not valid for the current context.
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
 
     // ========================================================================
     // Validation Errors (7xxx)
     // ========================================================================
+    /// General input validation failure.
     #[error("Validation error: {0}")]
     ValidationError(String),
 
+    /// Validation failure on a specific field with structured context.
     #[error("Validation error on '{field}': {message}")]
     ValidationFieldError {
         message: String,
@@ -181,30 +239,37 @@ pub enum Error {
         value: Option<String>,
     },
 
+    /// An identifier does not match the required format.
     #[error("Invalid identifier: {0}")]
     InvalidIdentifier(String),
 
     // ========================================================================
     // IO/Storage Errors (8xxx)
     // ========================================================================
+    /// Filesystem I/O operation failed.
     #[error("IO error: {0}")]
     IoError(String),
 
+    /// JSON deserialization failed.
     #[error("JSON parse error: {0}")]
     JsonParseError(String),
 
+    /// YAML deserialization failed.
     #[error("YAML parse error: {0}")]
     YamlParseError(String),
 
+    /// Database operation failed.
     #[error("Database error: {0}")]
     Database(String),
 
+    /// Serialization of data to a wire or storage format failed.
     #[error("Serialization error: {0}")]
     Serialization(String),
 
     // ========================================================================
     // Orchestration/Workflow Errors (8xxx - extended)
     // ========================================================================
+    /// Failed to acquire a lock within the timeout window.
     #[error("Lock acquisition timeout for '{operation}' after {timeout_ms}ms ({retries} retries)")]
     LockTimeout {
         operation: String,
@@ -212,50 +277,65 @@ pub enum Error {
         retries: usize,
     },
 
+    /// Git clone operation failed.
     #[error("Clone failed: {0}")]
     CloneFailed(String),
 
+    /// Recording an event or operation to the database failed.
     #[error("Record failed: {0}")]
     RecordFailed(String),
 
+    /// Persisting state to disk or database failed.
     #[error("Persistence error: {0}")]
     Persistence(String),
 
+    /// State machine transition was rejected.
     #[error("State transition error: {0}")]
     StateTransition(String),
 
     // ========================================================================
     // Scenario/Execution Errors (8xxx - extended)
     // ========================================================================
+    /// Scenario definition or execution failed.
     #[error("Scenario error: {0}")]
     ScenarioError(String),
 
+    /// Test runner or execution engine failed.
     #[error("Runner error: {0}")]
     RunnerError(String),
 
+    /// Scenario or workflow definition is invalid.
     #[error("Definition error: {0}")]
     DefinitionError(String),
 
+    /// Server-side operation failed.
     #[error("Server error: {0}")]
     ServerError(String),
 
+    /// Synchronization between components failed.
     #[error("Sync error: {0}")]
     SyncError(String),
 
     // ========================================================================
     // Internal Errors (9xxx)
     // ========================================================================
+    /// An unexpected internal error occurred.
     #[error("Internal error: {0}")]
     Internal(String),
 
+    /// Feature or code path is not yet implemented.
     #[error("Not implemented: {0}")]
     Unimplemented(String),
 
+    /// A programming invariant was violated (indicates a bug).
     #[error("Invariant violation: {0}")]
     InvariantViolation(String),
 }
 
 impl Error {
+    /// Returns a human-readable suggestion for fixing the error.
+    ///
+    /// Returns `None` for errors where no actionable suggestion exists.
     #[must_use]
     pub fn suggestion(&self) -> Option<String> {
         match self {
@@ -277,6 +357,11 @@ impl Error {
         }
     }
 
+    /// Returns a numeric exit code for CLI use.
+    ///
+    /// Codes follow the error category scheme: 1xxx workspace, 2xxx queue,
+    /// 3xxx VCS, 4xxx config, 5xxx agent, 6xxx state, 7xxx validation,
+    /// 8xxx IO/orchestration, 9xxx internal. Always non-zero.
     #[must_use]
     pub const fn exit_code(&self) -> i32 {
         match self {
