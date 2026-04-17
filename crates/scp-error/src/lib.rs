@@ -256,6 +256,345 @@ pub enum Error {
 }
 
 impl Error {
+    /// Returns a SCREAMING_SNAKE_CASE machine-readable error code for this error.
+    ///
+    /// Useful for programmatic error handling, structured logging, and
+    /// machine-readable output in CLI `--json` mode.
+    #[must_use]
+    pub fn code(&self) -> &'static str {
+        match self {
+            // Workspace/Session (1xxx)
+            Self::WorkspaceNotFound(_) => "WORKSPACE_NOT_FOUND",
+            Self::WorkspaceExists(_) => "WORKSPACE_EXISTS",
+            Self::WorkspaceLocked(_, _) => "WORKSPACE_LOCKED",
+            Self::WorkspaceConflict(_) => "WORKSPACE_CONFLICT",
+            Self::SessionNotFound(_) => "SESSION_NOT_FOUND",
+            Self::SessionExists(_) => "SESSION_EXISTS",
+            Self::SessionLocked(_, _) => "SESSION_LOCKED",
+            Self::NotLockHolder(_, _) => "NOT_LOCK_HOLDER",
+            Self::SessionInvalidState(_, _, _) => "SESSION_INVALID_STATE",
+            // Bead (1xxx extended)
+            Self::BeadNotFound(_) => "BEAD_NOT_FOUND",
+            Self::BeadAlreadyExists(_) => "BEAD_ALREADY_EXISTS",
+            Self::InvalidBeadId(_) => "INVALID_BEAD_ID",
+            Self::InvalidBeadTitle(_) => "INVALID_BEAD_TITLE",
+            Self::BeadInvalidStateTransition { .. } => "BEAD_INVALID_STATE_TRANSITION",
+            Self::BeadDependencyCycle(_) => "BEAD_DEPENDENCY_CYCLE",
+            Self::BeadBlockedBy(_) => "BEAD_BLOCKED_BY",
+            Self::BeadInvalidDependency(_) => "BEAD_INVALID_DEPENDENCY",
+            // Queue (2xxx)
+            Self::QueueEmpty => "QUEUE_EMPTY",
+            Self::QueueItemNotFound(_) => "QUEUE_ITEM_NOT_FOUND",
+            Self::QueueLocked(_) => "QUEUE_LOCKED",
+            Self::QueueProcessing => "QUEUE_PROCESSING",
+            Self::QueueInvalidPosition(_) => "QUEUE_INVALID_POSITION",
+            Self::QueueFull(_) => "QUEUE_FULL",
+            // VCS (3xxx)
+            Self::VcsNotInitialized => "VCS_NOT_INITIALIZED",
+            Self::VcsConflict(_, _) => "VCS_CONFLICT",
+            Self::VcsPushFailed(_) => "VCS_PUSH_FAILED",
+            Self::VcsPullFailed(_) => "VCS_PULL_FAILED",
+            Self::VcsRebaseFailed(_) => "VCS_REBASE_FAILED",
+            Self::BranchNotFound(_) => "BRANCH_NOT_FOUND",
+            Self::BranchExists(_) => "BRANCH_EXISTS",
+            Self::CommitNotFound(_) => "COMMIT_NOT_FOUND",
+            Self::WorkingCopyDirty => "WORKING_COPY_DIRTY",
+            // Config (4xxx)
+            Self::ConfigNotFound(_) => "CONFIG_NOT_FOUND",
+            Self::ConfigInvalid(_) => "CONFIG_INVALID",
+            Self::ConfigPermission(_) => "CONFIG_PERMISSION",
+            Self::InvalidConfig(_) => "INVALID_CONFIG",
+            Self::InvalidRepoUrl(_) => "INVALID_REPO_URL",
+            // Agent (5xxx)
+            Self::AgentNotFound(_) => "AGENT_NOT_FOUND",
+            Self::AgentExists(_) => "AGENT_EXISTS",
+            Self::AgentTimeout(_) => "AGENT_TIMEOUT",
+            // State/Conflict (6xxx)
+            Self::InvalidState(_) => "INVALID_STATE",
+            Self::NotFound(_) => "NOT_FOUND",
+            Self::InvalidOperation(_) => "INVALID_OPERATION",
+            // Validation (7xxx)
+            Self::ValidationError(_) => "VALIDATION_ERROR",
+            Self::ValidationFieldError { .. } => "VALIDATION_FIELD_ERROR",
+            Self::InvalidIdentifier(_) => "INVALID_IDENTIFIER",
+            // IO/Storage (8xxx)
+            Self::IoError(_) => "IO_ERROR",
+            Self::JsonParseError(_) => "JSON_PARSE_ERROR",
+            Self::YamlParseError(_) => "YAML_PARSE_ERROR",
+            Self::Database(_) => "DATABASE_ERROR",
+            Self::Serialization(_) => "SERIALIZATION_ERROR",
+            // Orchestration/Workflow (8xxx extended)
+            Self::LockTimeout { .. } => "LOCK_TIMEOUT",
+            Self::CloneFailed(_) => "CLONE_FAILED",
+            Self::RecordFailed(_) => "RECORD_FAILED",
+            Self::Persistence(_) => "PERSISTENCE_ERROR",
+            Self::StateTransition(_) => "STATE_TRANSITION_ERROR",
+            // Scenario/Execution (8xxx extended)
+            Self::ScenarioError(_) => "SCENARIO_ERROR",
+            Self::RunnerError(_) => "RUNNER_ERROR",
+            Self::DefinitionError(_) => "DEFINITION_ERROR",
+            Self::ServerError(_) => "SERVER_ERROR",
+            Self::SyncError(_) => "SYNC_ERROR",
+            // Internal (9xxx)
+            Self::Internal(_) => "INTERNAL_ERROR",
+            Self::Unimplemented(_) => "NOT_IMPLEMENTED",
+            Self::InvariantViolation(_) => "INVARIANT_VIOLATION",
+        }
+    }
+
+    /// Returns structured context information for this error as a JSON value.
+    ///
+    /// Provides machine-readable context for AI agents and tooling to understand
+    /// the error in detail. Each variant exposes its relevant fields.
+    #[must_use]
+    pub fn context_map(&self) -> Option<serde_json::Value> {
+        match self {
+            // Workspace/Session
+            Self::WorkspaceNotFound(name) => Some(serde_json::json!({
+                "resource_type": "workspace",
+                "workspace_name": name,
+            })),
+            Self::WorkspaceExists(name) => Some(serde_json::json!({
+                "resource_type": "workspace",
+                "workspace_name": name,
+            })),
+            Self::WorkspaceLocked(name, holder) => Some(serde_json::json!({
+                "workspace_name": name,
+                "holder": holder,
+            })),
+            Self::WorkspaceConflict(msg) => Some(serde_json::json!({
+                "message": msg,
+            })),
+            Self::SessionNotFound(name) => Some(serde_json::json!({
+                "resource_type": "session",
+                "session_name": name,
+            })),
+            Self::SessionExists(name) => Some(serde_json::json!({
+                "resource_type": "session",
+                "session_name": name,
+            })),
+            Self::SessionLocked(session, holder) => Some(serde_json::json!({
+                "session": session,
+                "holder": holder,
+            })),
+            Self::NotLockHolder(session, agent_id) => Some(serde_json::json!({
+                "session": session,
+                "agent_id": agent_id,
+            })),
+            Self::SessionInvalidState(session, actual, expected) => Some(serde_json::json!({
+                "session": session,
+                "actual_state": actual,
+                "expected_state": expected,
+            })),
+            // Bead
+            Self::BeadNotFound(id) => Some(serde_json::json!({
+                "resource_type": "bead",
+                "bead_id": id,
+            })),
+            Self::BeadAlreadyExists(id) => Some(serde_json::json!({
+                "resource_type": "bead",
+                "bead_id": id,
+            })),
+            Self::InvalidBeadId(id) => Some(serde_json::json!({
+                "bead_id": id,
+            })),
+            Self::InvalidBeadTitle(title) => Some(serde_json::json!({
+                "title": title,
+            })),
+            Self::BeadInvalidStateTransition { from, to } => Some(serde_json::json!({
+                "from_state": from,
+                "to_state": to,
+            })),
+            Self::BeadDependencyCycle(path) => Some(serde_json::json!({
+                "cycle_path": path,
+            })),
+            Self::BeadBlockedBy(blockers) => Some(serde_json::json!({
+                "blockers": blockers,
+            })),
+            Self::BeadInvalidDependency(dep) => Some(serde_json::json!({
+                "dependency": dep,
+            })),
+            // Queue
+            Self::QueueEmpty => Some(serde_json::json!({
+                "error_type": "queue_empty",
+            })),
+            Self::QueueItemNotFound(item) => Some(serde_json::json!({
+                "item": item,
+            })),
+            Self::QueueLocked(holder) => Some(serde_json::json!({
+                "holder": holder,
+            })),
+            Self::QueueProcessing => Some(serde_json::json!({
+                "error_type": "queue_processing",
+            })),
+            Self::QueueInvalidPosition(pos) => Some(serde_json::json!({
+                "position": pos,
+            })),
+            Self::QueueFull(max) => Some(serde_json::json!({
+                "max_size": max,
+            })),
+            // VCS
+            Self::VcsNotInitialized => Some(serde_json::json!({
+                "error_type": "vcs_not_initialized",
+            })),
+            Self::VcsConflict(repo, msg) => Some(serde_json::json!({
+                "repo": repo,
+                "message": msg,
+            })),
+            Self::VcsPushFailed(msg) => Some(serde_json::json!({
+                "operation": "push",
+                "error": msg,
+            })),
+            Self::VcsPullFailed(msg) => Some(serde_json::json!({
+                "operation": "pull",
+                "error": msg,
+            })),
+            Self::VcsRebaseFailed(msg) => Some(serde_json::json!({
+                "operation": "rebase",
+                "error": msg,
+            })),
+            Self::BranchNotFound(branch) => Some(serde_json::json!({
+                "resource_type": "branch",
+                "branch_name": branch,
+            })),
+            Self::BranchExists(branch) => Some(serde_json::json!({
+                "resource_type": "branch",
+                "branch_name": branch,
+            })),
+            Self::CommitNotFound(commit) => Some(serde_json::json!({
+                "resource_type": "commit",
+                "commit_id": commit,
+            })),
+            Self::WorkingCopyDirty => Some(serde_json::json!({
+                "error_type": "working_copy_dirty",
+            })),
+            // Config
+            Self::ConfigNotFound(key) => Some(serde_json::json!({
+                "resource_type": "config",
+                "key": key,
+            })),
+            Self::ConfigInvalid(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::ConfigPermission(path) => Some(serde_json::json!({
+                "path": path,
+            })),
+            Self::InvalidConfig(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::InvalidRepoUrl(url) => Some(serde_json::json!({
+                "url": url,
+            })),
+            // Agent
+            Self::AgentNotFound(id) => Some(serde_json::json!({
+                "resource_type": "agent",
+                "agent_id": id,
+            })),
+            Self::AgentExists(id) => Some(serde_json::json!({
+                "resource_type": "agent",
+                "agent_id": id,
+            })),
+            Self::AgentTimeout(id) => Some(serde_json::json!({
+                "agent_id": id,
+            })),
+            // State/Conflict
+            Self::InvalidState(msg) => Some(serde_json::json!({
+                "state": msg,
+            })),
+            Self::NotFound(resource) => Some(serde_json::json!({
+                "resource": resource,
+            })),
+            Self::InvalidOperation(op) => Some(serde_json::json!({
+                "operation": op,
+            })),
+            // Validation
+            Self::ValidationError(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::ValidationFieldError {
+                message,
+                field,
+                value,
+            } => {
+                let mut map = serde_json::json!({
+                    "field": field,
+                    "message": message,
+                });
+                if let Some(v) = value {
+                    map["value"] = serde_json::json!(v);
+                }
+                Some(map)
+            }
+            Self::InvalidIdentifier(id) => Some(serde_json::json!({
+                "identifier": id,
+            })),
+            // IO/Storage
+            Self::IoError(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::JsonParseError(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::YamlParseError(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::Database(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::Serialization(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            // Orchestration/Workflow
+            Self::LockTimeout {
+                operation,
+                timeout_ms,
+                retries,
+            } => Some(serde_json::json!({
+                "operation": operation,
+                "timeout_ms": timeout_ms,
+                "retries": retries,
+            })),
+            Self::CloneFailed(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::RecordFailed(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::Persistence(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::StateTransition(msg) => Some(serde_json::json!({
+                "transition": msg,
+            })),
+            // Scenario/Execution
+            Self::ScenarioError(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::RunnerError(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::DefinitionError(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::ServerError(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::SyncError(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            // Internal
+            Self::Internal(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::Unimplemented(feature) => Some(serde_json::json!({
+                "feature": feature,
+            })),
+            Self::InvariantViolation(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+        }
+    }
+
     #[must_use]
     pub fn suggestion(&self) -> Option<String> {
         match self {
@@ -1462,5 +1801,452 @@ mod tests {
         let err = Error::QueueEmpty;
         let debug = format!("{err:?}");
         assert!(debug.contains("QueueEmpty"));
+    }
+
+    // =========================================================================
+    // CLAIM 13: code() returns SCREAMING_SNAKE_CASE for every variant
+    // =========================================================================
+
+    #[test]
+    fn code_workspace_session() {
+        assert_eq!(Error::WorkspaceNotFound("x".into()).code(), "WORKSPACE_NOT_FOUND");
+        assert_eq!(Error::WorkspaceExists("x".into()).code(), "WORKSPACE_EXISTS");
+        assert_eq!(Error::WorkspaceLocked("x".into(), "y".into()).code(), "WORKSPACE_LOCKED");
+        assert_eq!(Error::WorkspaceConflict("x".into()).code(), "WORKSPACE_CONFLICT");
+        assert_eq!(Error::SessionNotFound("x".into()).code(), "SESSION_NOT_FOUND");
+        assert_eq!(Error::SessionExists("x".into()).code(), "SESSION_EXISTS");
+        assert_eq!(Error::SessionLocked("x".into(), "y".into()).code(), "SESSION_LOCKED");
+        assert_eq!(Error::NotLockHolder("x".into(), "y".into()).code(), "NOT_LOCK_HOLDER");
+        assert_eq!(Error::SessionInvalidState("a".into(), "b".into(), "c".into()).code(), "SESSION_INVALID_STATE");
+    }
+
+    #[test]
+    fn code_bead() {
+        assert_eq!(Error::BeadNotFound("x".into()).code(), "BEAD_NOT_FOUND");
+        assert_eq!(Error::BeadAlreadyExists("x".into()).code(), "BEAD_ALREADY_EXISTS");
+        assert_eq!(Error::InvalidBeadId("x".into()).code(), "INVALID_BEAD_ID");
+        assert_eq!(Error::InvalidBeadTitle("x".into()).code(), "INVALID_BEAD_TITLE");
+        assert_eq!(Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() }.code(), "BEAD_INVALID_STATE_TRANSITION");
+        assert_eq!(Error::BeadDependencyCycle("x".into()).code(), "BEAD_DEPENDENCY_CYCLE");
+        assert_eq!(Error::BeadBlockedBy("x".into()).code(), "BEAD_BLOCKED_BY");
+        assert_eq!(Error::BeadInvalidDependency("x".into()).code(), "BEAD_INVALID_DEPENDENCY");
+    }
+
+    #[test]
+    fn code_queue() {
+        assert_eq!(Error::QueueEmpty.code(), "QUEUE_EMPTY");
+        assert_eq!(Error::QueueItemNotFound("x".into()).code(), "QUEUE_ITEM_NOT_FOUND");
+        assert_eq!(Error::QueueLocked("x".into()).code(), "QUEUE_LOCKED");
+        assert_eq!(Error::QueueProcessing.code(), "QUEUE_PROCESSING");
+        assert_eq!(Error::QueueInvalidPosition(0).code(), "QUEUE_INVALID_POSITION");
+        assert_eq!(Error::QueueFull(10).code(), "QUEUE_FULL");
+    }
+
+    #[test]
+    fn code_vcs() {
+        assert_eq!(Error::VcsNotInitialized.code(), "VCS_NOT_INITIALIZED");
+        assert_eq!(Error::VcsConflict("a".into(), "b".into()).code(), "VCS_CONFLICT");
+        assert_eq!(Error::VcsPushFailed("x".into()).code(), "VCS_PUSH_FAILED");
+        assert_eq!(Error::VcsPullFailed("x".into()).code(), "VCS_PULL_FAILED");
+        assert_eq!(Error::VcsRebaseFailed("x".into()).code(), "VCS_REBASE_FAILED");
+        assert_eq!(Error::BranchNotFound("x".into()).code(), "BRANCH_NOT_FOUND");
+        assert_eq!(Error::BranchExists("x".into()).code(), "BRANCH_EXISTS");
+        assert_eq!(Error::CommitNotFound("x".into()).code(), "COMMIT_NOT_FOUND");
+        assert_eq!(Error::WorkingCopyDirty.code(), "WORKING_COPY_DIRTY");
+    }
+
+    #[test]
+    fn code_config() {
+        assert_eq!(Error::ConfigNotFound("x".into()).code(), "CONFIG_NOT_FOUND");
+        assert_eq!(Error::ConfigInvalid("x".into()).code(), "CONFIG_INVALID");
+        assert_eq!(Error::ConfigPermission("x".into()).code(), "CONFIG_PERMISSION");
+        assert_eq!(Error::InvalidConfig("x".into()).code(), "INVALID_CONFIG");
+        assert_eq!(Error::InvalidRepoUrl("x".into()).code(), "INVALID_REPO_URL");
+    }
+
+    #[test]
+    fn code_agent() {
+        assert_eq!(Error::AgentNotFound("x".into()).code(), "AGENT_NOT_FOUND");
+        assert_eq!(Error::AgentExists("x".into()).code(), "AGENT_EXISTS");
+        assert_eq!(Error::AgentTimeout("x".into()).code(), "AGENT_TIMEOUT");
+    }
+
+    #[test]
+    fn code_state_validation() {
+        assert_eq!(Error::InvalidState("x".into()).code(), "INVALID_STATE");
+        assert_eq!(Error::NotFound("x".into()).code(), "NOT_FOUND");
+        assert_eq!(Error::InvalidOperation("x".into()).code(), "INVALID_OPERATION");
+        assert_eq!(Error::ValidationError("x".into()).code(), "VALIDATION_ERROR");
+        assert_eq!(Error::ValidationFieldError { message: "x".into(), field: "y".into(), value: None }.code(), "VALIDATION_FIELD_ERROR");
+        assert_eq!(Error::InvalidIdentifier("x".into()).code(), "INVALID_IDENTIFIER");
+    }
+
+    #[test]
+    fn code_io_orchestration() {
+        assert_eq!(Error::IoError("x".into()).code(), "IO_ERROR");
+        assert_eq!(Error::JsonParseError("x".into()).code(), "JSON_PARSE_ERROR");
+        assert_eq!(Error::YamlParseError("x".into()).code(), "YAML_PARSE_ERROR");
+        assert_eq!(Error::Database("x".into()).code(), "DATABASE_ERROR");
+        assert_eq!(Error::Serialization("x".into()).code(), "SERIALIZATION_ERROR");
+        assert_eq!(Error::LockTimeout { operation: "x".into(), timeout_ms: 0, retries: 0 }.code(), "LOCK_TIMEOUT");
+        assert_eq!(Error::CloneFailed("x".into()).code(), "CLONE_FAILED");
+        assert_eq!(Error::RecordFailed("x".into()).code(), "RECORD_FAILED");
+        assert_eq!(Error::Persistence("x".into()).code(), "PERSISTENCE_ERROR");
+        assert_eq!(Error::StateTransition("x".into()).code(), "STATE_TRANSITION_ERROR");
+    }
+
+    #[test]
+    fn code_scenario_internal() {
+        assert_eq!(Error::ScenarioError("x".into()).code(), "SCENARIO_ERROR");
+        assert_eq!(Error::RunnerError("x".into()).code(), "RUNNER_ERROR");
+        assert_eq!(Error::DefinitionError("x".into()).code(), "DEFINITION_ERROR");
+        assert_eq!(Error::ServerError("x".into()).code(), "SERVER_ERROR");
+        assert_eq!(Error::SyncError("x".into()).code(), "SYNC_ERROR");
+        assert_eq!(Error::Internal("x".into()).code(), "INTERNAL_ERROR");
+        assert_eq!(Error::Unimplemented("x".into()).code(), "NOT_IMPLEMENTED");
+        assert_eq!(Error::InvariantViolation("x".into()).code(), "INVARIANT_VIOLATION");
+    }
+
+    #[test]
+    fn code_is_static_lifetime() {
+        // code() returns &'static str, so the reference must outlive the error
+        let code = {
+            let err = Error::QueueEmpty;
+            err.code()
+        };
+        assert_eq!(code, "QUEUE_EMPTY");
+    }
+
+    // =========================================================================
+    // CLAIM 14: context_map() returns structured JSON for every variant
+    // =========================================================================
+
+    #[test]
+    fn context_map_workspace_not_found() {
+        let ctx = Error::WorkspaceNotFound("my-ws".into()).context_map().unwrap();
+        assert_eq!(ctx["resource_type"], "workspace");
+        assert_eq!(ctx["workspace_name"], "my-ws");
+    }
+
+    #[test]
+    fn context_map_workspace_locked() {
+        let ctx = Error::WorkspaceLocked("ws".into(), "agent-1".into()).context_map().unwrap();
+        assert_eq!(ctx["workspace_name"], "ws");
+        assert_eq!(ctx["holder"], "agent-1");
+    }
+
+    #[test]
+    fn context_map_session_invalid_state() {
+        let ctx = Error::SessionInvalidState("s1".into(), "closed".into(), "open".into()).context_map().unwrap();
+        assert_eq!(ctx["session"], "s1");
+        assert_eq!(ctx["actual_state"], "closed");
+        assert_eq!(ctx["expected_state"], "open");
+    }
+
+    #[test]
+    fn context_map_bead_not_found() {
+        let ctx = Error::BeadNotFound("ha-123".into()).context_map().unwrap();
+        assert_eq!(ctx["resource_type"], "bead");
+        assert_eq!(ctx["bead_id"], "ha-123");
+    }
+
+    #[test]
+    fn context_map_bead_invalid_state_transition() {
+        let ctx = Error::BeadInvalidStateTransition { from: "open".into(), to: "closed".into() }.context_map().unwrap();
+        assert_eq!(ctx["from_state"], "open");
+        assert_eq!(ctx["to_state"], "closed");
+    }
+
+    #[test]
+    fn context_map_bead_dependency_cycle() {
+        let ctx = Error::BeadDependencyCycle("ha-1 -> ha-2 -> ha-1".into()).context_map().unwrap();
+        assert_eq!(ctx["cycle_path"], "ha-1 -> ha-2 -> ha-1");
+    }
+
+    #[test]
+    fn context_map_queue_empty() {
+        let ctx = Error::QueueEmpty.context_map().unwrap();
+        assert_eq!(ctx["error_type"], "queue_empty");
+    }
+
+    #[test]
+    fn context_map_queue_full() {
+        let ctx = Error::QueueFull(50).context_map().unwrap();
+        assert_eq!(ctx["max_size"], 50);
+    }
+
+    #[test]
+    fn context_map_vcs_conflict() {
+        let ctx = Error::VcsConflict("file.rs".into(), "merge conflict".into()).context_map().unwrap();
+        assert_eq!(ctx["repo"], "file.rs");
+        assert_eq!(ctx["message"], "merge conflict");
+    }
+
+    #[test]
+    fn context_map_vcs_push_failed() {
+        let ctx = Error::VcsPushFailed("rejected".into()).context_map().unwrap();
+        assert_eq!(ctx["operation"], "push");
+        assert_eq!(ctx["error"], "rejected");
+    }
+
+    #[test]
+    fn context_map_branch_not_found() {
+        let ctx = Error::BranchNotFound("feature/x".into()).context_map().unwrap();
+        assert_eq!(ctx["resource_type"], "branch");
+        assert_eq!(ctx["branch_name"], "feature/x");
+    }
+
+    #[test]
+    fn context_map_config_not_found() {
+        let ctx = Error::ConfigNotFound("settings.toml".into()).context_map().unwrap();
+        assert_eq!(ctx["resource_type"], "config");
+        assert_eq!(ctx["key"], "settings.toml");
+    }
+
+    #[test]
+    fn context_map_agent_not_found() {
+        let ctx = Error::AgentNotFound("alpha".into()).context_map().unwrap();
+        assert_eq!(ctx["resource_type"], "agent");
+        assert_eq!(ctx["agent_id"], "alpha");
+    }
+
+    #[test]
+    fn context_map_validation_field_error_with_value() {
+        let ctx = Error::ValidationFieldError {
+            message: "must be positive".into(),
+            field: "age".into(),
+            value: Some("-5".into()),
+        }.context_map().unwrap();
+        assert_eq!(ctx["field"], "age");
+        assert_eq!(ctx["message"], "must be positive");
+        assert_eq!(ctx["value"], "-5");
+    }
+
+    #[test]
+    fn context_map_validation_field_error_without_value() {
+        let ctx = Error::ValidationFieldError {
+            message: "required".into(),
+            field: "name".into(),
+            value: None,
+        }.context_map().unwrap();
+        assert_eq!(ctx["field"], "name");
+        assert_eq!(ctx["message"], "required");
+        assert!(!ctx.as_object().unwrap().contains_key("value"));
+    }
+
+    #[test]
+    fn context_map_lock_timeout() {
+        let ctx = Error::LockTimeout {
+            operation: "acquire workspace".into(),
+            timeout_ms: 5000,
+            retries: 3,
+        }.context_map().unwrap();
+        assert_eq!(ctx["operation"], "acquire workspace");
+        assert_eq!(ctx["timeout_ms"], 5000);
+        assert_eq!(ctx["retries"], 3);
+    }
+
+    #[test]
+    fn context_map_io_error() {
+        let ctx = Error::IoError("disk full".into()).context_map().unwrap();
+        assert_eq!(ctx["error"], "disk full");
+    }
+
+    #[test]
+    fn context_map_database() {
+        let ctx = Error::Database("connection refused".into()).context_map().unwrap();
+        assert_eq!(ctx["error"], "connection refused");
+    }
+
+    #[test]
+    fn context_map_unimplemented() {
+        let ctx = Error::Unimplemented("feature X".into()).context_map().unwrap();
+        assert_eq!(ctx["feature"], "feature X");
+    }
+
+    #[test]
+    fn context_map_not_found() {
+        let ctx = Error::NotFound("resource".into()).context_map().unwrap();
+        assert_eq!(ctx["resource"], "resource");
+    }
+
+    #[test]
+    fn context_map_invalid_operation() {
+        let ctx = Error::InvalidOperation("delete on read-only".into()).context_map().unwrap();
+        assert_eq!(ctx["operation"], "delete on read-only");
+    }
+
+    #[test]
+    fn context_map_invalid_identifier() {
+        let ctx = Error::InvalidIdentifier("123bad".into()).context_map().unwrap();
+        assert_eq!(ctx["identifier"], "123bad");
+    }
+
+    #[test]
+    fn context_map_serialization() {
+        let ctx = Error::Serialization("buffer overflow".into()).context_map().unwrap();
+        assert_eq!(ctx["error"], "buffer overflow");
+    }
+
+    #[test]
+    fn context_map_state_transition() {
+        let ctx = Error::StateTransition("open -> locked invalid".into()).context_map().unwrap();
+        assert_eq!(ctx["transition"], "open -> locked invalid");
+    }
+
+    #[test]
+    fn context_map_all_variants_return_some() {
+        // Exhaustive check: every variant returns Some
+        let all_variants: Vec<Error> = vec![
+            Error::WorkspaceNotFound("x".into()),
+            Error::WorkspaceExists("x".into()),
+            Error::WorkspaceLocked("x".into(), "y".into()),
+            Error::WorkspaceConflict("x".into()),
+            Error::SessionNotFound("x".into()),
+            Error::SessionExists("x".into()),
+            Error::SessionLocked("x".into(), "y".into()),
+            Error::NotLockHolder("x".into(), "y".into()),
+            Error::SessionInvalidState("x".into(), "y".into(), "z".into()),
+            Error::BeadNotFound("x".into()),
+            Error::BeadAlreadyExists("x".into()),
+            Error::InvalidBeadId("x".into()),
+            Error::InvalidBeadTitle("x".into()),
+            Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() },
+            Error::BeadDependencyCycle("x".into()),
+            Error::BeadBlockedBy("x".into()),
+            Error::BeadInvalidDependency("x".into()),
+            Error::QueueEmpty,
+            Error::QueueItemNotFound("x".into()),
+            Error::QueueLocked("x".into()),
+            Error::QueueProcessing,
+            Error::QueueInvalidPosition(0),
+            Error::QueueFull(10),
+            Error::VcsNotInitialized,
+            Error::VcsConflict("a".into(), "b".into()),
+            Error::VcsPushFailed("x".into()),
+            Error::VcsPullFailed("x".into()),
+            Error::VcsRebaseFailed("x".into()),
+            Error::BranchNotFound("x".into()),
+            Error::BranchExists("x".into()),
+            Error::CommitNotFound("x".into()),
+            Error::WorkingCopyDirty,
+            Error::ConfigNotFound("x".into()),
+            Error::ConfigInvalid("x".into()),
+            Error::ConfigPermission("x".into()),
+            Error::InvalidConfig("x".into()),
+            Error::InvalidRepoUrl("x".into()),
+            Error::AgentNotFound("x".into()),
+            Error::AgentExists("x".into()),
+            Error::AgentTimeout("x".into()),
+            Error::InvalidState("x".into()),
+            Error::NotFound("x".into()),
+            Error::InvalidOperation("x".into()),
+            Error::ValidationError("x".into()),
+            Error::ValidationFieldError { message: "x".into(), field: "y".into(), value: None },
+            Error::InvalidIdentifier("x".into()),
+            Error::IoError("x".into()),
+            Error::JsonParseError("x".into()),
+            Error::YamlParseError("x".into()),
+            Error::Database("x".into()),
+            Error::Serialization("x".into()),
+            Error::LockTimeout { operation: "x".into(), timeout_ms: 0, retries: 0 },
+            Error::CloneFailed("x".into()),
+            Error::RecordFailed("x".into()),
+            Error::Persistence("x".into()),
+            Error::StateTransition("x".into()),
+            Error::ScenarioError("x".into()),
+            Error::RunnerError("x".into()),
+            Error::DefinitionError("x".into()),
+            Error::ServerError("x".into()),
+            Error::SyncError("x".into()),
+            Error::Internal("x".into()),
+            Error::Unimplemented("x".into()),
+            Error::InvariantViolation("x".into()),
+        ];
+        for variant in all_variants {
+            assert!(variant.context_map().is_some(), "context_map() returned None for: {variant}");
+        }
+    }
+
+    #[test]
+    fn code_all_variants_are_screaming_snake() {
+        // Verify all codes match SCREAMING_SNAKE_CASE pattern
+        let all_variants: Vec<Error> = vec![
+            Error::WorkspaceNotFound("x".into()),
+            Error::WorkspaceExists("x".into()),
+            Error::WorkspaceLocked("x".into(), "y".into()),
+            Error::WorkspaceConflict("x".into()),
+            Error::SessionNotFound("x".into()),
+            Error::SessionExists("x".into()),
+            Error::SessionLocked("x".into(), "y".into()),
+            Error::NotLockHolder("x".into(), "y".into()),
+            Error::SessionInvalidState("x".into(), "y".into(), "z".into()),
+            Error::BeadNotFound("x".into()),
+            Error::BeadAlreadyExists("x".into()),
+            Error::InvalidBeadId("x".into()),
+            Error::InvalidBeadTitle("x".into()),
+            Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() },
+            Error::BeadDependencyCycle("x".into()),
+            Error::BeadBlockedBy("x".into()),
+            Error::BeadInvalidDependency("x".into()),
+            Error::QueueEmpty,
+            Error::QueueItemNotFound("x".into()),
+            Error::QueueLocked("x".into()),
+            Error::QueueProcessing,
+            Error::QueueInvalidPosition(0),
+            Error::QueueFull(10),
+            Error::VcsNotInitialized,
+            Error::VcsConflict("a".into(), "b".into()),
+            Error::VcsPushFailed("x".into()),
+            Error::VcsPullFailed("x".into()),
+            Error::VcsRebaseFailed("x".into()),
+            Error::BranchNotFound("x".into()),
+            Error::BranchExists("x".into()),
+            Error::CommitNotFound("x".into()),
+            Error::WorkingCopyDirty,
+            Error::ConfigNotFound("x".into()),
+            Error::ConfigInvalid("x".into()),
+            Error::ConfigPermission("x".into()),
+            Error::InvalidConfig("x".into()),
+            Error::InvalidRepoUrl("x".into()),
+            Error::AgentNotFound("x".into()),
+            Error::AgentExists("x".into()),
+            Error::AgentTimeout("x".into()),
+            Error::InvalidState("x".into()),
+            Error::NotFound("x".into()),
+            Error::InvalidOperation("x".into()),
+            Error::ValidationError("x".into()),
+            Error::ValidationFieldError { message: "x".into(), field: "y".into(), value: None },
+            Error::InvalidIdentifier("x".into()),
+            Error::IoError("x".into()),
+            Error::JsonParseError("x".into()),
+            Error::YamlParseError("x".into()),
+            Error::Database("x".into()),
+            Error::Serialization("x".into()),
+            Error::LockTimeout { operation: "x".into(), timeout_ms: 0, retries: 0 },
+            Error::CloneFailed("x".into()),
+            Error::RecordFailed("x".into()),
+            Error::Persistence("x".into()),
+            Error::StateTransition("x".into()),
+            Error::ScenarioError("x".into()),
+            Error::RunnerError("x".into()),
+            Error::DefinitionError("x".into()),
+            Error::ServerError("x".into()),
+            Error::SyncError("x".into()),
+            Error::Internal("x".into()),
+            Error::Unimplemented("x".into()),
+            Error::InvariantViolation("x".into()),
+        ];
+        for variant in all_variants {
+            let code = variant.code();
+            assert!(
+                code.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
+                "Code '{code}' is not SCREAMING_SNAKE_CASE for: {variant}"
+            );
+            assert!(
+                !code.starts_with('_') && !code.ends_with('_') && !code.contains("__"),
+                "Code '{code}' has invalid underscores for: {variant}"
+            );
+        }
     }
 }
