@@ -1,4 +1,5 @@
-use crate::domain::entities::{QueueEntry, QueueEntryId, QueueStatus};
+use crate::domain::entities::{QueueEntry, QueueEntryId};
+use crate::domain::queue::status::QueueStatus;
 use crate::error::{QueueError, Result};
 use std::collections::VecDeque;
 

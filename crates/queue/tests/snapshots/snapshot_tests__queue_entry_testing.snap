@@ -2,4 +2,4 @@
 source: crates/queue/tests/snapshot_tests.rs
 expression: json
 ---
-{"id":"qe-jkl012","session":"feature-auth","priority":3,"enqueued_at":"2024-01-15T10:30:00Z","status":"Testing"}
+{"id":"qe-jkl012","session":"feature-auth","priority":3,"enqueued_at":"2024-01-15T10:30:00Z","status":"testing"}
