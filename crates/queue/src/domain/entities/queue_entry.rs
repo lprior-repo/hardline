@@ -12,6 +12,7 @@ use std::marker::PhantomData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::domain::identifiers::QueueEntryId;
 use crate::domain::value_objects::{Priority, QueuePosition};
 use crate::error::QueueError;
 
@@ -36,34 +37,6 @@ impl QueueStatus {
     #[must_use]
     pub const fn is_terminal(self) -> bool {
         matches!(self, Self::Merged | Self::FailedTerminal | Self::Cancelled)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct QueueEntryId(String);
-
-impl QueueEntryId {
-    #[must_use]
-    pub fn generate() -> Self {
-        Self(format!("queue-{}", uuid::Uuid::new_v4()))
-    }
-
-    pub fn parse(id: String) -> Result<Self, QueueError> {
-        if id.is_empty() {
-            return Err(QueueError::InvalidQueueEntryId("empty id".into()));
-        }
-        Ok(Self(id))
-    }
-
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl Default for QueueEntryId {
-    fn default() -> Self {
-        Self::generate()
     }
 }
 
@@ -844,14 +817,14 @@ mod tests {
 
     #[test]
     fn queue_entry_id_parse_valid() {
-        let id = QueueEntryId::parse("my-id".into());
+        let id = QueueEntryId::parse(String::from("my-id"));
         assert!(id.is_ok());
         assert_eq!(id.unwrap().as_str(), "my-id");
     }
 
     #[test]
     fn queue_entry_id_parse_empty_rejected() {
-        let result = QueueEntryId::parse("".into());
+        let result = QueueEntryId::parse(String::from(""));
         assert!(result.is_err());
     }
 
