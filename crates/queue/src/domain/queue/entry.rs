@@ -1,12 +1,12 @@
 //! Queue entry - Value object representing a session in the merge queue
+//!
+//! This is a value object - immutable and validated on construction.
 
 use chrono::{DateTime, Utc};
 
 use crate::domain::identifiers::{QueueEntryId, SessionName};
-use crate::domain::validation::ValidationResult;
-
-use super::status::{QueueStatus, MAX_PRIORITY};
-use crate::domain::validation::validate_range;
+use crate::domain::queue::status::{QueueStatus, MAX_PRIORITY};
+use crate::domain::validation::{validate_range, ValidationResult};
 
 /// A queue entry representing a session waiting to be merged.
 ///
@@ -23,6 +23,18 @@ pub struct QueueEntry {
     pub enqueued_at: DateTime<Utc>,
     /// Current status
     pub status: QueueStatus,
+    /// Associated bead ID (optional)
+    #[serde(default)]
+    pub bead_id: Option<String>,
+    /// When last updated
+    #[serde(default = "Utc::now")]
+    pub updated_at: DateTime<Utc>,
+    /// Number of retry attempts
+    #[serde(default)]
+    pub retry_count: u32,
+    /// Last error message (if failed)
+    #[serde(default)]
+    pub error_message: Option<String>,
 }
 
 impl QueueEntry {
@@ -43,12 +55,17 @@ impl QueueEntry {
 
         validate_range(priority, 0, MAX_PRIORITY, "priority")?;
 
+        let now = Utc::now();
         Ok(Self {
             id,
             session,
             priority,
-            enqueued_at: Utc::now(),
+            enqueued_at: now,
             status: QueueStatus::Pending,
+            bead_id: None,
+            updated_at: now,
+            retry_count: 0,
+            error_message: None,
         })
     }
 
@@ -63,12 +80,17 @@ impl QueueEntry {
     ) -> ValidationResult<Self> {
         validate_range(priority, 0, MAX_PRIORITY, "priority")?;
 
+        let now = Utc::now();
         Ok(Self {
             id,
             session,
             priority,
-            enqueued_at: Utc::now(),
+            enqueued_at: now,
             status: QueueStatus::Pending,
+            bead_id: None,
+            updated_at: now,
+            retry_count: 0,
+            error_message: None,
         })
     }
 
@@ -90,6 +112,10 @@ impl QueueEntry {
             priority,
             enqueued_at,
             status: QueueStatus::Pending,
+            bead_id: None,
+            updated_at: enqueued_at,
+            retry_count: 0,
+            error_message: None,
         })
     }
 
@@ -112,6 +138,10 @@ impl QueueEntry {
             priority,
             enqueued_at,
             status,
+            bead_id: None,
+            updated_at: enqueued_at,
+            retry_count: 0,
+            error_message: None,
         })
     }
 
@@ -122,7 +152,7 @@ impl QueueEntry {
     pub fn transition_status(self, new_status: QueueStatus) -> ValidationResult<Self> {
         self.status
             .transition_to(new_status)
-            .map(|status| QueueEntry { status, ..self })
+            .map(|status| Self { status, updated_at: Utc::now(), ..self })
     }
 
     /// Update the priority, returning a new entry.
@@ -131,7 +161,65 @@ impl QueueEntry {
     /// Returns `ValidationError` if the priority is out of range.
     pub fn with_priority(self, priority: u32) -> ValidationResult<Self> {
         validate_range(priority, 0, MAX_PRIORITY, "priority")?;
-        Ok(QueueEntry { priority, ..self })
+        Ok(Self { priority, ..self })
+    }
+
+    /// Record a failure, incrementing retry count and storing the error message.
+    ///
+    /// # Errors
+    /// Returns `ValidationError` if the transition to `FailedRetryable` is invalid.
+    pub fn with_failure(self, error: String) -> ValidationResult<Self> {
+        self.status
+            .transition_to(QueueStatus::FailedRetryable)
+            .map(|status| Self {
+                status,
+                updated_at: Utc::now(),
+                retry_count: self.retry_count + 1,
+                error_message: Some(error),
+                ..self
+            })
+    }
+
+    /// Check if this entry can be retried.
+    #[must_use]
+    pub fn can_retry(&self) -> bool {
+        self.retry_count < 3
+    }
+
+    /// Whether this entry is in a terminal state.
+    #[must_use]
+    pub fn is_terminal(&self) -> bool {
+        self.status.is_terminal()
+    }
+
+    /// Get the bead ID.
+    #[must_use]
+    pub fn bead_id(&self) -> Option<&str> {
+        self.bead_id.as_deref()
+    }
+
+    /// Set the bead ID, returning a new entry.
+    #[must_use]
+    pub fn with_bead_id(self, bead_id: String) -> Self {
+        Self { bead_id: Some(bead_id), ..self }
+    }
+
+    /// Get the retry count.
+    #[must_use]
+    pub fn retry_count(&self) -> u32 {
+        self.retry_count
+    }
+
+    /// Get the error message.
+    #[must_use]
+    pub fn error_message(&self) -> Option<&str> {
+        self.error_message.as_deref()
+    }
+
+    /// Get the session as a string reference.
+    #[must_use]
+    pub fn session_id(&self) -> &str {
+        self.session.as_str()
     }
 }
 

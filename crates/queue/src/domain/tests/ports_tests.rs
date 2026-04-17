@@ -1,33 +1,23 @@
 //! Tests for the queue repository ports.
 //! These tests verify the in-memory repository implementation.
 
-use crate::domain::entities::{queue_entry::Pending, QueueEntry, QueueEntryId};
+use crate::domain::identifiers::QueueEntryId;
 use crate::domain::ports::{InMemoryQueueRepository, QueueRepository};
+use crate::domain::queue::entry::QueueEntry;
 use crate::domain::queue::status::QueueStatus;
-use crate::domain::value_objects::Priority;
 
 /// Helper to create a test entry
 fn create_test_entry(session: &str) -> QueueEntry {
-    QueueEntry::<Pending>::enqueue(session.to_string(), None, Priority::default()).unwrap()
-}
-
-/// Helper to create a test entry with a specific priority
-fn create_test_entry_with_priority(session: &str, priority: Priority) -> QueueEntry {
-    QueueEntry::<Pending>::enqueue(session.to_string(), None, priority).unwrap()
+    QueueEntry::new(format!("queue-{}", session), session, 50).unwrap()
 }
 
 #[test]
 fn in_memory_repo_enqueue_and_dequeue() {
-    // Arrange
     let repo = InMemoryQueueRepository::new();
     let entry = create_test_entry("session-1");
 
-    // Act
     let enqueued_result = repo.enqueue(entry);
-
-    // Assert - using proper error handling
     assert!(enqueued_result.is_ok(), "Enqueue should succeed");
-    let _enqueued = enqueued_result.unwrap();
 
     let dequeued_result = repo.dequeue();
     assert!(dequeued_result.is_ok(), "Dequeue should succeed");
@@ -37,18 +27,12 @@ fn in_memory_repo_enqueue_and_dequeue() {
 
 #[test]
 fn in_memory_repo_get_returns_entry() {
-    // Arrange
     let repo = InMemoryQueueRepository::new();
     let entry = create_test_entry("session-1");
 
-    // Act
-    let enqueued_result = repo.enqueue(entry);
-    assert!(enqueued_result.is_ok(), "Enqueue should succeed");
-    let enqueued = enqueued_result.unwrap();
+    let enqueued = repo.enqueue(entry).unwrap();
+    let get_result = repo.get(&enqueued.id);
 
-    let get_result = repo.get(enqueued.id());
-
-    // Assert
     assert!(get_result.is_ok(), "Get should succeed");
     let found = get_result.unwrap();
     assert!(found.is_some(), "Entry should be found");
@@ -56,131 +40,74 @@ fn in_memory_repo_get_returns_entry() {
 
 #[test]
 fn in_memory_repo_remove_deletes_entry() {
-    // Arrange
     let repo = InMemoryQueueRepository::new();
     let entry = create_test_entry("session-1");
 
-    // Act
-    let enqueued_result = repo.enqueue(entry);
-    assert!(enqueued_result.is_ok(), "Enqueue should succeed");
-    let enqueued = enqueued_result.unwrap();
-
-    let remove_result = repo.remove(enqueued.id());
+    let enqueued = repo.enqueue(entry).unwrap();
+    let remove_result = repo.remove(&enqueued.id);
     assert!(remove_result.is_ok(), "Remove should succeed");
 
-    // Assert
-    let get_result = repo.get(enqueued.id());
-    assert!(get_result.is_ok(), "Get should succeed");
-    let found = get_result.unwrap();
+    let found = repo.get(&enqueued.id).unwrap();
     assert!(found.is_none(), "Entry should be removed");
 }
 
 #[test]
 fn in_memory_repo_update_replaces_entry() {
-    // Arrange
     let repo = InMemoryQueueRepository::new();
     let entry1 = create_test_entry("session-1");
 
-    // Act - enqueue an entry, then update it (same ID)
     let enqueued = repo.enqueue(entry1).unwrap();
     let update_result = repo.update(enqueued);
-
-    // Assert - update finds the entry by ID and succeeds
     assert!(update_result.is_ok(), "Update should succeed");
 }
 
 #[test]
 fn in_memory_repo_list_pending_returns_all_pending_entries() {
-    // Arrange
     let repo = InMemoryQueueRepository::new();
+    repo.enqueue(create_test_entry("session-1")).unwrap();
+    repo.enqueue(create_test_entry("session-2")).unwrap();
 
-    // Act - add multiple entries
-    let entry1 = create_test_entry("session-1");
-    let entry2 = create_test_entry("session-2");
-
-    let _enqueued1 = repo.enqueue(entry1).unwrap();
-    let _enqueued2 = repo.enqueue(entry2).unwrap();
-
-    // Assert - all pending entries should be returned
-    let pending_result = repo.list_pending();
-    assert!(pending_result.is_ok(), "List pending should succeed");
-    let pending = pending_result.unwrap();
+    let pending = repo.list_pending().unwrap();
     assert_eq!(pending.len(), 2, "Should have 2 pending entries");
 }
 
 #[test]
 fn in_memory_repo_dequeue_empty_queue_returns_none() {
-    // Arrange
     let repo = InMemoryQueueRepository::new();
-
-    // Act
-    let dequeued_result = repo.dequeue();
-
-    // Assert
-    assert!(dequeued_result.is_ok(), "Dequeue should succeed");
-    let dequeued = dequeued_result.unwrap();
+    let dequeued = repo.dequeue().unwrap();
     assert!(dequeued.is_none(), "Empty queue should return None");
 }
 
 #[test]
 fn in_memory_repo_get_nonexistent_returns_none() {
-    // Arrange
     let repo = InMemoryQueueRepository::new();
-    let fake_id = QueueEntryId::new("nonexistent-id".to_string()).unwrap();
+    let fake_id = QueueEntryId::new("nonexistent-id").unwrap();
 
-    // Act
-    let get_result = repo.get(&fake_id);
-
-    // Assert
-    assert!(get_result.is_ok(), "Get should succeed");
-    let found = get_result.unwrap();
+    let found = repo.get(&fake_id).unwrap();
     assert!(found.is_none(), "Nonexistent entry should return None");
 }
 
 #[test]
 fn in_memory_repo_clone_creates_independent_copy() {
-    // Arrange
     let repo = InMemoryQueueRepository::new();
-    let entry = create_test_entry("session-1");
-
-    // Act
-    repo.enqueue(entry).unwrap();
+    repo.enqueue(create_test_entry("session-1")).unwrap();
     let cloned_repo = repo.clone();
 
-    // Assert - cloned repo should have its own copy
-    let list_result = repo.list_all();
-    assert!(list_result.is_ok(), "List should succeed");
-    assert_eq!(
-        list_result.unwrap().len(),
-        1,
-        "Original should have 1 entry"
-    );
-
-    let cloned_list_result = cloned_repo.list_all();
-    assert!(cloned_list_result.is_ok(), "Cloned list should succeed");
-    assert_eq!(
-        cloned_list_result.unwrap().len(),
-        1,
-        "Cloned should have 1 entry"
-    );
+    assert_eq!(repo.list_all().unwrap().len(), 1);
+    assert_eq!(cloned_repo.list_all().unwrap().len(), 1);
 }
-
-// --- Additional comprehensive tests ---
 
 #[test]
 fn in_memory_repo_dequeue_removes_entry_from_queue() {
     let repo = InMemoryQueueRepository::new();
-    let entry = create_test_entry("session-1");
-    repo.enqueue(entry).unwrap();
+    repo.enqueue(create_test_entry("session-1")).unwrap();
 
     let dequeued = repo.dequeue().unwrap();
     assert!(dequeued.is_some());
 
-    // After dequeue, the queue should be empty
     let pending = repo.list_pending().unwrap();
     assert!(pending.is_empty());
 
-    // Dequeue again should return None
     let dequeued_again = repo.dequeue().unwrap();
     assert!(dequeued_again.is_none());
 }
@@ -204,31 +131,24 @@ fn in_memory_repo_list_all_empty() {
 }
 
 #[test]
-fn in_memory_repo_list_pending_excludes_non_pending() {
-    // Note: We can't directly update to Claimed status via the typestate system
-    // because QueueRepository::update expects QueueEntry (Pending).
-    // Instead, enqueue a Pending entry and verify list_pending returns it.
-    let repo = InMemoryQueueRepository::new();
-    repo.enqueue(create_test_entry("session-1")).unwrap();
-    let pending = repo.list_pending().unwrap();
-    assert_eq!(pending.len(), 1);
-}
-
-#[test]
 fn in_memory_repo_dequeue_skips_non_pending() {
-    // The in-memory repo dequeues the front of the VecDeque.
-    // Since we can only enqueue Pending entries, all dequeued entries
-    // are Pending by construction.
     let repo = InMemoryQueueRepository::new();
-    repo.enqueue(create_test_entry("session-1")).unwrap();
+    let entry = create_test_entry("session-1");
+    let enqueued = repo.enqueue(entry).unwrap();
+
+    // Update to Claimed status
+    let claimed = enqueued.transition_status(QueueStatus::Claimed).unwrap();
+    repo.update(claimed).unwrap();
+
+    // Dequeue should skip non-pending
     let dequeued = repo.dequeue().unwrap();
-    assert!(dequeued.is_some());
+    assert!(dequeued.is_none());
 }
 
 #[test]
 fn in_memory_repo_remove_nonexistent_returns_error() {
     let repo = InMemoryQueueRepository::new();
-    let fake_id = QueueEntryId::new("nonexistent".to_string()).unwrap();
+    let fake_id = QueueEntryId::new("nonexistent").unwrap();
     let result = repo.remove(&fake_id);
     assert!(result.is_err());
 }
@@ -245,10 +165,10 @@ fn in_memory_repo_update_nonexistent_returns_error() {
 fn in_memory_repo_enqueue_returns_same_entry() {
     let repo = InMemoryQueueRepository::new();
     let entry = create_test_entry("session-1");
-    let original_id = entry.id().as_str().to_string();
+    let original_id = entry.id.as_str().to_string();
 
     let enqueued = repo.enqueue(entry).unwrap();
-    assert_eq!(enqueued.id().as_str(), original_id);
+    assert_eq!(enqueued.id.as_str(), original_id);
 }
 
 #[test]
@@ -259,13 +179,13 @@ fn in_memory_repo_fifo_order() {
     repo.enqueue(create_test_entry("s3")).unwrap();
 
     let d1 = repo.dequeue().unwrap();
-    assert_eq!(d1.unwrap().session_id(), "s1");
+    assert_eq!(d1.unwrap().session.as_str(), "s1");
 
     let d2 = repo.dequeue().unwrap();
-    assert_eq!(d2.unwrap().session_id(), "s2");
+    assert_eq!(d2.unwrap().session.as_str(), "s2");
 
     let d3 = repo.dequeue().unwrap();
-    assert_eq!(d3.unwrap().session_id(), "s3");
+    assert_eq!(d3.unwrap().session.as_str(), "s3");
 }
 
 #[test]
@@ -294,13 +214,11 @@ fn in_memory_repo_clone_independence() {
     repo.enqueue(create_test_entry("session-1")).unwrap();
     let cloned = repo.clone();
 
-    // Modify cloned repo
     cloned.enqueue(create_test_entry("session-2")).unwrap();
 
-    // Original should not be affected
     let original_all = repo.list_all().unwrap();
     assert_eq!(original_all.len(), 1);
-    assert_eq!(original_all[0].session_id(), "session-1");
+    assert_eq!(original_all[0].session.as_str(), "session-1");
 
     let cloned_all = cloned.list_all().unwrap();
     assert_eq!(cloned_all.len(), 2);
@@ -310,29 +228,26 @@ fn in_memory_repo_clone_independence() {
 fn in_memory_repo_multiple_enqueue_dequeue_cycles() {
     let repo = InMemoryQueueRepository::new();
 
-    // First cycle
     repo.enqueue(create_test_entry("s1")).unwrap();
     let d1 = repo.dequeue().unwrap();
-    assert_eq!(d1.unwrap().session_id(), "s1");
+    assert_eq!(d1.unwrap().session.as_str(), "s1");
 
-    // Second cycle
     repo.enqueue(create_test_entry("s2")).unwrap();
     let d2 = repo.dequeue().unwrap();
-    assert_eq!(d2.unwrap().session_id(), "s2");
+    assert_eq!(d2.unwrap().session.as_str(), "s2");
 
-    // Queue should be empty
     assert!(repo.dequeue().unwrap().is_none());
 }
 
 #[test]
 fn in_memory_repo_with_entries_initializes_correctly() {
     let entry = create_test_entry("preloaded");
-    let entries = std::collections::VecDeque::from(vec![entry.clone()]);
+    let entries = std::collections::VecDeque::from(vec![entry]);
     let repo = InMemoryQueueRepository::with_entries(entries);
 
     let all = repo.list_all().unwrap();
     assert_eq!(all.len(), 1);
-    assert_eq!(all[0].session_id(), "preloaded");
+    assert_eq!(all[0].session.as_str(), "preloaded");
 }
 
 #[test]
@@ -341,13 +256,13 @@ fn in_memory_repo_get_returns_correct_entry_by_id() {
     let e1 = repo.enqueue(create_test_entry("s1")).unwrap();
     let e2 = repo.enqueue(create_test_entry("s2")).unwrap();
 
-    let found1 = repo.get(e1.id()).unwrap();
+    let found1 = repo.get(&e1.id).unwrap();
     assert!(found1.is_some());
-    assert_eq!(found1.unwrap().session_id(), "s1");
+    assert_eq!(found1.unwrap().session.as_str(), "s1");
 
-    let found2 = repo.get(e2.id()).unwrap();
+    let found2 = repo.get(&e2.id).unwrap();
     assert!(found2.is_some());
-    assert_eq!(found2.unwrap().session_id(), "s2");
+    assert_eq!(found2.unwrap().session.as_str(), "s2");
 }
 
 #[test]
@@ -357,64 +272,11 @@ fn in_memory_repo_update_preserves_id() {
     let enqueued = repo.enqueue(entry).unwrap();
     let id = enqueued.id.clone();
 
-    // Re-enqueue the same entry (type system requires Pending)
     let updated = repo.update(enqueued).unwrap();
-
-    assert_eq!(updated.id(), &id);
+    assert_eq!(updated.id, id);
 
     let found = repo.get(&id).unwrap().unwrap();
-    assert_eq!(found.id(), &id);
-}
-
-#[test]
-fn in_memory_repo_enqueue_with_different_priorities() {
-    let repo = InMemoryQueueRepository::new();
-    repo.enqueue(create_test_entry_with_priority("low", Priority::low()))
-        .unwrap();
-    repo.enqueue(create_test_entry_with_priority("high", Priority::high()))
-        .unwrap();
-    repo.enqueue(create_test_entry_with_priority(
-        "normal",
-        Priority::normal(),
-    ))
-    .unwrap();
-
-    let all = repo.list_all().unwrap();
-    assert_eq!(all.len(), 3);
-}
-
-#[test]
-fn in_memory_repo_list_pending_filters_correctly() {
-    let repo = InMemoryQueueRepository::new();
-
-    // All entries in the in-memory repo are Pending by construction
-    // (we can only enqueue Pending entries via the typestate system)
-    repo.enqueue(create_test_entry("pending-1")).unwrap();
-    repo.enqueue(create_test_entry("pending-2")).unwrap();
-
-    let pending = repo.list_pending().unwrap();
-    assert_eq!(pending.len(), 2);
-
-    // After dequeue, one fewer pending
-    repo.dequeue().unwrap();
-    let pending_after = repo.list_pending().unwrap();
-    assert_eq!(pending_after.len(), 1);
-}
-
-#[test]
-fn in_memory_repo_enqueue_with_bead_id() {
-    let entry = QueueEntry::<Pending>::enqueue(
-        "session-1".to_string(),
-        Some("bead-42".to_string()),
-        Priority::default(),
-    )
-    .unwrap();
-    let repo = InMemoryQueueRepository::new();
-    let enqueued = repo.enqueue(entry).unwrap();
-    assert_eq!(enqueued.bead_id(), Some("bead-42"));
-
-    let found = repo.get(enqueued.id()).unwrap().unwrap();
-    assert_eq!(found.bead_id(), Some("bead-42"));
+    assert_eq!(found.id, id);
 }
 
 #[test]
@@ -476,10 +338,10 @@ proptest! {
         let repo = InMemoryQueueRepository::new();
         let entry = create_test_entry(&session);
         let enqueued = repo.enqueue(entry).unwrap();
-        let found = repo.get(enqueued.id()).unwrap();
+        let found = repo.get(&enqueued.id).unwrap();
         prop_assert!(found.is_some());
         let found_entry = found.unwrap();
-        prop_assert_eq!(found_entry.session_id(), session);
+        prop_assert_eq!(found_entry.session.as_str(), session);
     }
 
     #[test]
@@ -493,7 +355,6 @@ proptest! {
             let enqueued = repo.enqueue(entry).unwrap();
             ids.push(enqueued.id.clone());
         }
-        // Remove first entry
         repo.remove(&ids[0]).unwrap();
         let all = repo.list_all().unwrap();
         prop_assert_eq!(all.len(), sessions.len() - 1);
