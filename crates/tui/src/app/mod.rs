@@ -20,7 +20,7 @@ pub enum FocusedPane {
     Worktrees,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Mode {
     Normal,
     Search,
@@ -30,7 +30,7 @@ pub enum Mode {
     Reorder,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ConfirmAction {
     Delete(String),
     Restack(String),
@@ -38,7 +38,7 @@ pub enum ConfirmAction {
     ApplyReorder,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InputAction {
     Rename,
     NewBranch,

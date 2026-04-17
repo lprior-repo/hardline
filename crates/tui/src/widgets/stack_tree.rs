@@ -53,7 +53,7 @@ impl StackTreeWidget {
         self
     }
 
-    fn build_tree_nodes(&self) -> Vec<TreeNode> {
+    pub(crate) fn build_tree_nodes(&self) -> Vec<TreeNode> {
         if self.branches.is_empty() {
             return Vec::new();
         }
@@ -121,7 +121,7 @@ impl StackTreeWidget {
         }
     }
 
-    fn branch_indicator(branch: &StackBranch) -> (&'static str, Color) {
+    pub(crate) fn branch_indicator(branch: &StackBranch) -> (&'static str, Color) {
         if branch.needs_restack {
             ("⚑", Color::Red)
         } else if branch.pr_info.is_some() {
