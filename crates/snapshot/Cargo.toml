@@ -8,13 +8,10 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-<<<<<<< HEAD
 scp-core = { path = "../core" }
 scp-receipt = { path = "../receipt" }
 scp-vcs = { path = "../vcs" }
 tokio.workspace = true
-=======
->>>>>>> polecat/beta-work
 thiserror.workspace = true
 chrono.workspace = true
 serde.workspace = true
