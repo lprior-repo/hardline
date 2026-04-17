@@ -52,11 +52,7 @@ impl SnapshotService {
     /// This is a placeholder for a future expiry-based cleanup. Currently all
     /// snapshots are considered "expired" since there is no TTL tracking.
     pub fn cleanup_expired(&self) -> Result<CleanupReport> {
-<<<<<<< HEAD
         let snapshots = self.store.list()?;
-=======
-        let snapshots = self.list_snapshots()?;
->>>>>>> polecat/theta-work
 
         let mut deleted = 0usize;
         let mut failed = 0usize;

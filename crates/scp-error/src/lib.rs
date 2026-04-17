@@ -984,8 +984,6 @@ mod tests {
             assert!(std::error::Error::source(&v).is_none(), "Expected no source for {:?}", v);
         }
     }
-<<<<<<< HEAD
-=======
 
     // =========================================================================
     // CLAIM 9: Tuple variants destructure correctly
@@ -1589,5 +1587,4 @@ mod tests {
         assert!(matches!(err, Error::IoError(_)));
         assert!(err.to_string().contains("IO error:"));
     }
->>>>>>> polecat/theta-work
 }

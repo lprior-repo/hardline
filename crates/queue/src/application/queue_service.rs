@@ -4,18 +4,11 @@
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 
-<<<<<<< HEAD
-use crate::domain::entities::{QueueEntry, QueueEntryId};
-use crate::domain::ports::QueueRepository;
-use crate::domain::queue::status::QueueStatus;
-use crate::domain::value_objects::Priority;
-=======
-use crate::domain::identifiers::QueueEntryId;
 use crate::domain::queue::entry::QueueEntry;
 use crate::domain::queue::status::QueueStatus;
+use crate::domain::identifiers::QueueEntryId;
 use crate::domain::ports::QueueRepository;
-use crate::domain::state::QueueStateMachine;
->>>>>>> polecat/theta-work
+use crate::domain::value_objects::Priority;
 use crate::error::{QueueError, Result};
 
 pub struct QueueService<R: QueueRepository> {
@@ -118,11 +111,7 @@ impl<R: QueueRepository> QueueService<R> {
         let all = self.repository.list_all()?;
         Ok(all
             .into_iter()
-<<<<<<< HEAD
             .filter(|e| QueueStatus::is_active(e.status))
-=======
-            .filter(|e| QueueStateMachine::is_active(e.status))
->>>>>>> polecat/theta-work
             .collect())
     }
 
