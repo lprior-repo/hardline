@@ -2,6 +2,16 @@ pub mod stack_tree;
 pub use stack_tree::StackTreeWidget;
 
 pub mod diff {
+    /// A single line of diff output, with semantic tagging for styling.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum DiffLine {
+        Header(String),
+        HunkHeader(String),
+        Addition(String),
+        Deletion(String),
+        Context(String),
+    }
+
     #[derive(Debug, Clone, Copy)]
     pub struct DiffView;
 }

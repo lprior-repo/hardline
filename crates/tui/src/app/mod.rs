@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::views::WorktreeView;
+use crate::widgets::diff::DiffLine;
 use scp_stack::domain::StackBranch;
 
 #[derive(Debug, PartialEq)]
@@ -40,6 +41,7 @@ pub struct TuiApp {
     pub should_quit: bool,
     pub worktree_view: WorktreeView,
     pub stack_branches: Vec<StackBranch>,
+    pub diff_lines: Vec<DiffLine>,
 }
 
 impl TuiApp {
@@ -51,6 +53,7 @@ impl TuiApp {
             should_quit: false,
             worktree_view: WorktreeView::default(),
             stack_branches: Vec::new(),
+            diff_lines: Vec::new(),
         })
     }
 
