@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/repositories/worktree_repository.rs
++++ delete ! in <impl WorktreeRepository for InMemoryWorktreeRepository>::delete
+@@ -357,17 +357,17 @@
+     }
+ 
+     fn delete(&self, id: &WorktreeId) -> Result<(), WorktreeRepositoryError> {
+         let mut worktrees = self
+             .worktrees
+             .write()
+             .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+ 
+-        if !worktrees.contains_key(id) {
++        if  /* ~ changed by cargo-mutants ~ */worktrees.contains_key(id) {
+             return Err(WorktreeRepositoryError::not_found(id.to_string().as_str()));
+         }
+ 
+         worktrees.remove(id);
+         Ok(())
+     }
+ 
+     fn update_state(

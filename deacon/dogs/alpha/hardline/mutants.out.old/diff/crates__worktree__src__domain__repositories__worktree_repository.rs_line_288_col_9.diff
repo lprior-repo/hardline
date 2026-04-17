@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/repositories/worktree_repository.rs
++++ replace InMemoryWorktreeRepository::get_worktree -> Option<Worktree> with None
+@@ -280,17 +280,17 @@
+     pub fn new() -> Self {
+         Self {
+             worktrees: HashMap::default().into(),
+         }
+     }
+ 
+     /// Get a reference to a worktree by ID (for testing).
+     pub fn get_worktree(&self, id: &WorktreeId) -> Option<Worktree> {
+-        self.worktrees.read().ok()?.get(id).cloned()
++        None /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Get all worktrees (for testing).
+     pub fn all_worktrees(&self) -> Vec<Worktree> {
+         self.worktrees
+             .read()
+             .ok()
+             .map(|lock| lock.values().cloned().collect())

@@ -1,0 +1,31 @@
+--- crates/worktree/src/infrastructure/vcs/git_worktree_adapter.rs
++++ replace GitAdapterBuilder::build -> Result<Box<dyn GitAdapter>, GitAdapterError> with Ok(Box::new(Default::default()))
+@@ -257,27 +257,17 @@
+     /// Use git2 library instead of git commands.
+     pub fn use_git2(mut self) -> Self {
+         self.use_git2 = true;
+         self
+     }
+ 
+     /// Build the adapter.
+     pub fn build(self) -> Result<Box<dyn GitAdapter>, GitAdapterError> {
+-        let repo_path = self.repo_path.ok_or_else(|| {
+-            GitAdapterError::CommandFailed("Repository path not specified".to_string())
+-        })?;
+-
+-        if self.use_git2 {
+-            let adapter = Git2WorktreeAdapter::new(&repo_path)?;
+-            Ok(Box::new(adapter))
+-        } else {
+-            let adapter = GitWorktreeAdapter::new(&repo_path)?;
+-            Ok(Box::new(adapter))
+-        }
++        Ok(Box::new(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use tempfile::TempDir;
+ 

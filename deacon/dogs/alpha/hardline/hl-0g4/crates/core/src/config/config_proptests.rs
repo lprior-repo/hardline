@@ -1,0 +1,2 @@
+Now let me write the Kani proofs. Let me also add a `config_kani_proofs` module to `config/mod.rs`:
+ registering it new test module. Then add it `#[cfg(kani]` annotation. `#[cfg(test)]` to `config::config_proptests`:

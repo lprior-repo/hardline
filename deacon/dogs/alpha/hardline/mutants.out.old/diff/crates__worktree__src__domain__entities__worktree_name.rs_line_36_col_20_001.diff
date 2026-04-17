@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/entities/worktree_name.rs
++++ replace > with < in WorktreeName::parse
+@@ -28,17 +28,17 @@
+     ///
+     /// # Errors
+     /// Returns `WorktreeNameParseError` if the name is invalid.
+     pub fn parse(s: &str) -> Result<Self, WorktreeNameParseError> {
+         // Validate length
+         if s.len() < Self::MIN_LENGTH {
+             return Err(WorktreeNameParseError::TooShort);
+         }
+-        if s.len() > Self::MAX_LENGTH {
++        if s.len() < /* ~ changed by cargo-mutants ~ */ Self::MAX_LENGTH {
+             return Err(WorktreeNameParseError::TooLong);
+         }
+ 
+         // Cannot start or end with hyphen
+         if s.starts_with('-') || s.ends_with('-') {
+             return Err(WorktreeNameParseError::InvalidBoundary);
+         }
+ 

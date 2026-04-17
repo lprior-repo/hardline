@@ -1,0 +1,48 @@
+--- crates/worktree/src/application/commands/delete_worktree.rs
++++ replace DeleteWorktreeCommand::execute -> Result<(), DeleteWorktreeError> with Ok(())
+@@ -66,44 +66,17 @@
+     ///
+     /// # Returns
+     /// `Ok(())` if successful.
+     ///
+     /// # Errors
+     /// Returns `DeleteWorktreeError` if deletion fails.
+     pub fn execute(self) -> Result<(), DeleteWorktreeError> {
+         // Check if worktree exists
+-        let worktree =
+-            self.repository
+-                .get_by_id(&self.id)?
+-                .ok_or_else(|| DeleteWorktreeError::NotFound {
+-                    id: self.id.to_string(),
+-                })?;
+-
+-        // Check if worktree is active
+-        if worktree.is_active() && !self.force {
+-            return Err(DeleteWorktreeError::WorktreeActive);
+-        }
+-
+-        // Execute Git operations if adapter is available
+-        if let Some(ref git_adapter) = self.git_adapter {
+-            let git_result = git_adapter
+-                .remove_worktree(worktree.path_str())
+-                .map_err(|e| DeleteWorktreeError::GitError(e.to_string()));
+-
+-            // If not force mode, Git failure should propagate
+-            if !self.force && git_result.is_err() {
+-                return git_result;
+-            }
+-        }
+-
+-        // Delete from repository
+-        self.repository.delete(&self.id)?;
+-
+-        Ok(())
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Create a command with in-memory repository (for testing).
+     pub fn for_testing(id: WorktreeId) -> Self {
+         Self {
+             id,
+             repository: Box::new(InMemoryWorktreeRepository::new()),
+             git_adapter: None,

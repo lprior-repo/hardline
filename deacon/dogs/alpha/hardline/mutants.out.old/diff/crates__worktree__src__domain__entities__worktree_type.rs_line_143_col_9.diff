@@ -1,0 +1,22 @@
+--- crates/worktree/src/domain/entities/worktree_type.rs
++++ replace <impl serde::Deserialize<'de> for WorktreeTypeEnum>::deserialize -> Result<Self, D::Error> with Ok(Default::default())
+@@ -135,18 +135,17 @@
+     }
+ }
+ 
+ impl<'de> serde::Deserialize<'de> for WorktreeTypeEnum {
+     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+     where
+         D: serde::Deserializer<'de>,
+     {
+-        let s = String::deserialize(deserializer)?;
+-        Self::parse(&s).map_err(serde::de::Error::custom)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     #[test]

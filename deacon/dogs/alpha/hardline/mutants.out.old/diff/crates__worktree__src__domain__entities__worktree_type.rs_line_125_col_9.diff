@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/entities/worktree_type.rs
++++ replace <impl fmt::Display for WorktreeTypeEnum>::fmt -> fmt::Result with Ok(Default::default())
+@@ -117,17 +117,17 @@
+             Self::Dev => "dev",
+             Self::Agent => "agent",
+         }
+     }
+ }
+ 
+ impl fmt::Display for WorktreeTypeEnum {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        write!(f, "{}", self.as_str())
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl serde::Serialize for WorktreeTypeEnum {
+     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+     where
+         S: serde::Serializer,
+     {

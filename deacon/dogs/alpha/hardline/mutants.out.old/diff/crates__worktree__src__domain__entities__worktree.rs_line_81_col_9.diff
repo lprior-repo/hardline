@@ -1,0 +1,35 @@
+--- crates/worktree/src/domain/entities/worktree.rs
++++ replace BranchName::parse -> Result<Self, BranchNameParseError> with Ok(Default::default())
+@@ -73,31 +73,17 @@
+ #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+ pub struct BranchName(String);
+ 
+ impl BranchName {
+     /// Parse a string into a BranchName.
+     ///
+     /// Branch names must not contain certain characters and follow git conventions.
+     pub fn parse(s: &str) -> Result<Self, BranchNameParseError> {
+-        if s.is_empty() {
+-            return Err(BranchNameParseError::Empty);
+-        }
+-
+-        // Git branch name restrictions
+-        // - Cannot start with /
+-        // - Cannot contain control characters, spaces, tilde, colon, question-mark, asterisk, etc.
+-        // - Cannot end with .lock, ., /, or space
+-        if s.starts_with('/') {
+-            return Err(BranchNameParseError::InvalidStart);
+-        }
+-
+-        // Basic validation - allow most characters for flexibility
+-        // More strict validation can be added if needed
+-        Ok(Self(s.to_string()))
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Create a BranchName without validation.
+     #[allow(dead_code)]
+     pub(crate) fn unsafe_new(s: String) -> Self {
+         Self(s)
+     }
+ 

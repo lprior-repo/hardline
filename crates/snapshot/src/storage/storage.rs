@@ -16,6 +16,7 @@ impl SnapshotStore {
 
     pub fn save(&self, _snapshot: Snapshot) -> Result<()> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         Err(SnapshotError::storage("Storage not yet implemented"))
     }
 
@@ -30,6 +31,8 @@ impl SnapshotStore {
     pub fn delete(&self, _id: &SnapshotId) -> Result<()> {
         Err(SnapshotError::storage("Storage not yet implemented"))
 =======
+=======
+>>>>>>> polecat/theta
         Err(SnapshotError::NotFound(
             "Storage not yet implemented".to_string(),
         ))
@@ -51,6 +54,9 @@ impl SnapshotStore {
         Err(SnapshotError::NotFound(
             "Storage not yet implemented".to_string(),
         ))
+<<<<<<< HEAD
 >>>>>>> polecat/beta
+=======
+>>>>>>> polecat/theta
     }
 }

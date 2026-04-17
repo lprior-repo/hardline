@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/entities/worktree_name.rs
++++ replace WorktreeName::len -> usize with 0
+@@ -69,17 +69,17 @@
+ 
+     /// Get the inner string slice.
+     pub fn as_str(&self) -> &str {
+         &self.0
+     }
+ 
+     /// Get the length of the name.
+     pub fn len(&self) -> usize {
+-        self.0.len()
++        0 /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Check if the name is empty.
+     pub fn is_empty(&self) -> bool {
+         self.0.is_empty()
+     }
+ }
+ 

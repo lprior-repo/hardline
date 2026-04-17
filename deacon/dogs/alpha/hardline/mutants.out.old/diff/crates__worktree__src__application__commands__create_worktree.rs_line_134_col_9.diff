@@ -1,0 +1,21 @@
+--- crates/worktree/src/application/commands/create_worktree.rs
++++ replace <impl From<crate::domain::repositories::worktree_repository::WorktreeRepositoryError> for CreateWorktreeError>::from -> Self with Default::default()
+@@ -126,17 +126,17 @@
+ }
+ 
+ impl From<crate::domain::repositories::worktree_repository::WorktreeRepositoryError>
+     for CreateWorktreeError
+ {
+     fn from(
+         err: crate::domain::repositories::worktree_repository::WorktreeRepositoryError,
+     ) -> Self {
+-        CreateWorktreeError::RepositoryError(err.to_string())
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Error types for Git adapter operations.
+ #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+ pub enum GitAdapterError {
+     #[error("Git command failed: {0}")]
+     CommandFailed(String),

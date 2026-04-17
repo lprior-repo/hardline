@@ -1,0 +1,21 @@
+--- crates/worktree/src/infrastructure/persistence/worktree_repository_sqlx.rs
++++ replace SqlxWorktreeRepository::pool -> &Pool<Sqlite> with Box::leak(Box::new(Pool::new()))
+@@ -76,17 +76,17 @@
+         )
+         .execute(pool)
+         .await
+         .expect("Failed to create indexes");
+     }
+ 
+     /// Get the inner pool for direct queries.
+     pub fn pool(&self) -> &Pool<Sqlite> {
+-        &self.pool
++        Box::leak(Box::new(Pool::new())) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl WorktreeRepository for SqlxWorktreeRepository {
+     fn add(&self, worktree: &Worktree) -> Result<WorktreeId, WorktreeRepositoryError> {
+         let pool = self.pool.clone();
+         let worktree = worktree.clone();
+ 

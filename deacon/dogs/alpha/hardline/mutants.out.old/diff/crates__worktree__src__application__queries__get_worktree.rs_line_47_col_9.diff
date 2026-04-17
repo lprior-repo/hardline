@@ -1,0 +1,21 @@
+--- crates/worktree/src/application/queries/get_worktree.rs
++++ replace <impl From<crate::domain::repositories::worktree_repository::WorktreeRepositoryError> for GetWorktreeError>::from -> Self with Default::default()
+@@ -39,17 +39,17 @@
+ }
+ 
+ impl From<crate::domain::repositories::worktree_repository::WorktreeRepositoryError>
+     for GetWorktreeError
+ {
+     fn from(
+         err: crate::domain::repositories::worktree_repository::WorktreeRepositoryError,
+     ) -> Self {
+-        GetWorktreeError::RepositoryError(err.to_string())
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl GetWorktreeQuery {
+     /// Execute the query to get a worktree.
+     ///
+     /// # Returns
+     /// A `GetWorktreeResult` containing the worktree if found.

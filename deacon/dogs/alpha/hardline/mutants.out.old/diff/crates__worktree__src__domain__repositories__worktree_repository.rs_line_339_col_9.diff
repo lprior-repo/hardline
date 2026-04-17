@@ -1,0 +1,29 @@
+--- crates/worktree/src/domain/repositories/worktree_repository.rs
++++ replace <impl WorktreeRepository for InMemoryWorktreeRepository>::get_by_name -> Result<Option<Worktree>, WorktreeRepositoryError> with Ok(None)
+@@ -331,25 +331,17 @@
+             .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+         Ok(worktrees.get(id).cloned())
+     }
+ 
+     fn get_by_name(
+         &self,
+         name: &WorktreeName,
+     ) -> Result<Option<Worktree>, WorktreeRepositoryError> {
+-        let worktrees = self
+-            .worktrees
+-            .read()
+-            .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+-
+-        Ok(worktrees
+-            .values()
+-            .find(|w| w.name_str() == name.as_str())
+-            .cloned())
++        Ok(None) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn list(&self, filter: ListFilter) -> Result<Vec<Worktree>, WorktreeRepositoryError> {
+         let worktrees = self
+             .worktrees
+             .read()
+             .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+ 

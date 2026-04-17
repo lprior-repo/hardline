@@ -1,0 +1,25 @@
+--- crates/worktree/src/domain/entities/worktree_type.rs
++++ replace <impl WorktreeType for Agent>::from_str -> Result<Self, WorktreeTypeParseError> with Ok(Default::default())
+@@ -64,21 +64,17 @@
+ pub struct Agent;
+ 
+ impl WorktreeType for Agent {
+     fn type_name() -> &'static str {
+         "agent"
+     }
+ 
+     fn from_str(s: &str) -> Result<Self, WorktreeTypeParseError> {
+-        if s.eq_ignore_ascii_case("agent") {
+-            Ok(Self)
+-        } else {
+-            Err(WorktreeTypeParseError::InvalidType(s.to_string()))
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn to_string(&self) -> String {
+         Self::type_name().to_string()
+     }
+ }
+ 
+ /// Error types for WorktreeType parsing.

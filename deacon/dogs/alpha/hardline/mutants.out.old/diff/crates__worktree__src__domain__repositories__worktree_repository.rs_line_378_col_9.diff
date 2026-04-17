@@ -1,0 +1,31 @@
+--- crates/worktree/src/domain/repositories/worktree_repository.rs
++++ replace <impl WorktreeRepository for InMemoryWorktreeRepository>::update_state -> Result<(), WorktreeRepositoryError> with Ok(())
+@@ -370,27 +370,17 @@
+         Ok(())
+     }
+ 
+     fn update_state(
+         &self,
+         id: &WorktreeId,
+         state: WorktreeState,
+     ) -> Result<(), WorktreeRepositoryError> {
+-        let mut worktrees = self
+-            .worktrees
+-            .write()
+-            .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+-
+-        let worktree = worktrees
+-            .get_mut(id)
+-            .ok_or_else(|| WorktreeRepositoryError::not_found(id.to_string().as_str()))?;
+-
+-        worktree.state = state;
+-        Ok(())
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use crate::{AbsolutePath, BranchName};
+     use chrono::Utc;

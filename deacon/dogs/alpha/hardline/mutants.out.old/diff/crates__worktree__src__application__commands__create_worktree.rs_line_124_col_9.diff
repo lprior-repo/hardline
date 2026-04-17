@@ -1,0 +1,21 @@
+--- crates/worktree/src/application/commands/create_worktree.rs
++++ replace <impl From<crate::domain::entities::worktree::WorktreeCreationError> for CreateWorktreeError>::from -> Self with Default::default()
+@@ -116,17 +116,17 @@
+     RepositoryError(String),
+ 
+     #[error("Worktree creation error: {0}")]
+     WorktreeCreationError(String),
+ }
+ 
+ impl From<crate::domain::entities::worktree::WorktreeCreationError> for CreateWorktreeError {
+     fn from(_err: crate::domain::entities::worktree::WorktreeCreationError) -> Self {
+-        CreateWorktreeError::WorktreeCreationError("Failed to create worktree".to_string())
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl From<crate::domain::repositories::worktree_repository::WorktreeRepositoryError>
+     for CreateWorktreeError
+ {
+     fn from(
+         err: crate::domain::repositories::worktree_repository::WorktreeRepositoryError,

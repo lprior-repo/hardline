@@ -1,5 +1,6 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 use std::io::{self, Stdout};
 
 use crossterm::{
@@ -30,12 +31,66 @@ use scp_stack::domain::StackBranch;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 =======
+=======
+use ratatui::style::{Color, Style};
+use ratatui::text::{Line, Span};
+
+>>>>>>> polecat/theta
 use crate::error::Result;
 use crate::views::WorktreeView;
 use scp_stack::domain::StackBranch;
 
+<<<<<<< HEAD
 #[derive(Debug, PartialEq)]
 >>>>>>> polecat/beta
+=======
+/// A single line of diff output with associated style.
+#[derive(Debug, Clone)]
+pub struct DiffLine {
+    /// The text content of this diff line.
+    pub content: String,
+    /// Style hint for rendering (header, add, remove, hunk, context).
+    pub kind: DiffLineKind,
+}
+
+/// Style classification for a diff line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiffLineKind {
+    /// File header (e.g., `diff --git a/... b/...`)
+    Header,
+    /// Hunk header (e.g., `@@ -1,5 +1,6 @@`)
+    Hunk,
+    /// Added line (starts with `+`)
+    Add,
+    /// Removed line (starts with `-`)
+    Remove,
+    /// Context line (starts with ` `)
+    Context,
+}
+
+impl DiffLine {
+    pub fn new(content: impl Into<String>, kind: DiffLineKind) -> Self {
+        Self {
+            content: content.into(),
+            kind,
+        }
+    }
+
+    /// Convert to a ratatui `Line` with appropriate styling.
+    pub fn to_styled_line(&self) -> Line<'static> {
+        let style = match self.kind {
+            DiffLineKind::Header => Style::default().fg(Color::Cyan),
+            DiffLineKind::Hunk => Style::default().fg(Color::Magenta),
+            DiffLineKind::Add => Style::default().fg(Color::LightGreen),
+            DiffLineKind::Remove => Style::default().fg(Color::LightRed),
+            DiffLineKind::Context => Style::default(),
+        };
+        Line::from(Span::styled(self.content.clone(), style))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+>>>>>>> polecat/theta
 pub enum FocusedPane {
     Stack,
     Diff,
@@ -57,10 +112,14 @@ pub enum Mode {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #[derive(Debug, Clone)]
 =======
 #[derive(Debug, Clone, PartialEq)]
 >>>>>>> polecat/gamma
+=======
+#[derive(Debug, Clone, PartialEq)]
+>>>>>>> polecat/theta
 pub enum ConfirmAction {
     Delete(String),
     Restack(String),
@@ -69,10 +128,14 @@ pub enum ConfirmAction {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #[derive(Debug, Clone, Copy)]
 =======
 #[derive(Debug, Clone, Copy, PartialEq)]
 >>>>>>> polecat/gamma
+=======
+#[derive(Debug, Clone, Copy, PartialEq)]
+>>>>>>> polecat/theta
 pub enum InputAction {
     Rename,
     NewBranch,
@@ -90,6 +153,7 @@ pub struct TuiApp {
     pub needs_refresh: bool,
     pub should_quit: bool,
 <<<<<<< HEAD
+<<<<<<< HEAD
     pub status_message: String,
     pub worktree_view: WorktreeView,
     pub stack_branches: Vec<StackBranch>,
@@ -99,6 +163,11 @@ pub struct TuiApp {
     pub worktree_view: WorktreeView,
     pub stack_branches: Vec<StackBranch>,
 >>>>>>> polecat/beta
+=======
+    pub worktree_view: WorktreeView,
+    pub stack_branches: Vec<StackBranch>,
+    pub diff_lines: Vec<DiffLine>,
+>>>>>>> polecat/theta
 }
 
 impl TuiApp {
@@ -109,6 +178,7 @@ impl TuiApp {
             needs_refresh: true,
             should_quit: false,
 <<<<<<< HEAD
+<<<<<<< HEAD
             status_message: String::new(),
             worktree_view: WorktreeView::default(),
             stack_branches: Vec::new(),
@@ -118,6 +188,11 @@ impl TuiApp {
             worktree_view: WorktreeView::default(),
             stack_branches: Vec::new(),
 >>>>>>> polecat/beta
+=======
+            worktree_view: WorktreeView::default(),
+            stack_branches: Vec::new(),
+            diff_lines: Vec::new(),
+>>>>>>> polecat/theta
         })
     }
 
@@ -144,6 +219,7 @@ impl TuiApp {
         None
     }
 
+<<<<<<< HEAD
     pub fn set_status(&mut self, message: String) {
         self.status_message = message;
     }
@@ -238,6 +314,12 @@ impl Drop for TerminalGuard {
     fn drop(&mut self) {
         let _ = io::stdout().execute(LeaveAlternateScreen);
         let _ = disable_raw_mode();
+=======
+    pub fn set_status(&mut self, _message: String) {}
+
+    pub fn set_diff(&mut self, lines: Vec<DiffLine>) {
+        self.diff_lines = lines;
+>>>>>>> polecat/theta
     }
 }
 
@@ -1202,6 +1284,7 @@ mod tests {
         }
     }
 
+<<<<<<< HEAD
     // ── Adversarial: wrong state ──
 
     #[test]
@@ -1251,10 +1334,81 @@ mod tests {
         for _ in 0..1000 {
             for pane in &panes {
                 app.focused_pane = *pane;
+=======
+    // ── Adversarial: Send + Sync for TuiApp ──
+
+    #[test]
+    fn tui_app_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<TuiApp>();
+    }
+
+    #[test]
+    fn tui_app_is_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<TuiApp>();
+    }
+
+    // ── Adversarial: state machine after quit ──
+
+    #[test]
+    fn methods_work_after_quit_flag_set() {
+        let mut app = TuiApp::new().expect("ok");
+        app.should_quit = true;
+        assert!(app.refresh_branches().is_ok());
+        app.set_status("still works".to_string());
+        assert!(app.selected_branch().is_none());
+    }
+
+    #[test]
+    fn methods_work_in_confirm_apply_reorder_mode() {
+        let mut app = TuiApp::new().expect("ok");
+        app.mode = Mode::Confirm(ConfirmAction::ApplyReorder);
+        assert!(app.refresh_branches().is_ok());
+        app.set_status("test".to_string());
+        assert!(app.selected_branch().is_none());
+    }
+
+    // ── Adversarial: Worktrees pane ──
+
+    #[test]
+    fn worktrees_pane_is_settable() {
+        let mut app = TuiApp::new().expect("ok");
+        app.focused_pane = FocusedPane::Worktrees;
+        assert!(matches!(app.focused_pane, FocusedPane::Worktrees));
+    }
+
+    // ── Adversarial: Mode × FocusedPane cross-product ──
+
+    #[test]
+    fn mode_pane_cross_product_no_panic() {
+        let modes: Vec<fn() -> Mode> = vec![
+            || Mode::Normal,
+            || Mode::Search,
+            || Mode::Help,
+            || Mode::Confirm(ConfirmAction::Delete("x".into())),
+            || Mode::Confirm(ConfirmAction::Restack("x".into())),
+            || Mode::Confirm(ConfirmAction::RestackAll),
+            || Mode::Confirm(ConfirmAction::ApplyReorder),
+            || Mode::Input(InputAction::Rename),
+            || Mode::Input(InputAction::NewBranch),
+            || Mode::Reorder,
+        ];
+        let panes = [FocusedPane::Stack, FocusedPane::Diff, FocusedPane::Worktrees];
+        for make_mode in modes {
+            for pane in panes {
+                let mut app = TuiApp::new().expect("ok");
+                app.mode = make_mode();
+                app.focused_pane = pane;
+                let _ = app.refresh_branches();
+                app.set_status("cross-product test".to_string());
+                let _ = app.selected_branch();
+>>>>>>> polecat/theta
             }
         }
     }
 
+<<<<<<< HEAD
     #[test]
     fn adv_confirm_delete_with_path_traversal() {
         let traversal = "../../etc/passwd".to_string();
@@ -1262,20 +1416,109 @@ mod tests {
         match mode {
             Mode::Confirm(ConfirmAction::Delete(name)) => assert_eq!(name, traversal),
             _ => panic!("expected Delete"),
+=======
+    // ── Adversarial: empty string in ConfirmAction::Restack ──
+
+    #[test]
+    fn confirm_restack_preserves_empty_name() {
+        let mode = Mode::Confirm(ConfirmAction::Restack(String::new()));
+        match mode {
+            Mode::Confirm(ConfirmAction::Restack(name)) => assert!(name.is_empty()),
+            _ => panic!("expected Confirm::Restack"),
+>>>>>>> polecat/theta
         }
     }
 
     #[test]
+<<<<<<< HEAD
     fn adv_confirm_delete_with_null_bytes() {
         let name = "branch\0malicious".to_string();
         let mode = Mode::Confirm(ConfirmAction::Delete(name.clone()));
         match mode {
             Mode::Confirm(ConfirmAction::Delete(n)) => assert_eq!(n, name),
             _ => panic!("expected Delete"),
+=======
+    fn confirm_restack_preserves_long_name() {
+        let long_name = "a".repeat(1000);
+        let mode = Mode::Confirm(ConfirmAction::Restack(long_name.clone()));
+        match mode {
+            Mode::Confirm(ConfirmAction::Restack(name)) => assert_eq!(name.len(), 1000),
+            _ => panic!("expected Confirm::Restack"),
+        }
+    }
+
+    // ── DiffLine ──
+
+    #[test]
+    fn diff_line_new_with_string() {
+        let line = DiffLine::new("hello", DiffLineKind::Context);
+        assert_eq!(line.content, "hello");
+        assert_eq!(line.kind, DiffLineKind::Context);
+    }
+
+    #[test]
+    fn diff_line_new_with_owned_string() {
+        let line = DiffLine::new(String::from("world"), DiffLineKind::Add);
+        assert_eq!(line.content, "world");
+        assert_eq!(line.kind, DiffLineKind::Add);
+    }
+
+    #[test]
+    fn diff_line_all_kinds_constructible() {
+        let _h = DiffLine::new("header", DiffLineKind::Header);
+        let _u = DiffLine::new("@@ hunk @@", DiffLineKind::Hunk);
+        let _a = DiffLine::new("+added", DiffLineKind::Add);
+        let _r = DiffLine::new("-removed", DiffLineKind::Remove);
+        let _c = DiffLine::new(" context", DiffLineKind::Context);
+    }
+
+    #[test]
+    fn diff_line_to_styled_line_produces_line() {
+        let line = DiffLine::new("+added line", DiffLineKind::Add);
+        let styled = line.to_styled_line();
+        // Should not panic — just verify it produces output
+        let _ = format!("{styled:?}");
+    }
+
+    #[test]
+    fn diff_line_to_styled_line_empty_content() {
+        let line = DiffLine::new("", DiffLineKind::Context);
+        let styled = line.to_styled_line();
+        let _ = format!("{styled:?}");
+    }
+
+    #[test]
+    fn diff_line_is_clone() {
+        let line = DiffLine::new("test", DiffLineKind::Header);
+        let cloned = line.clone();
+        assert_eq!(line.content, cloned.content);
+        assert_eq!(line.kind, cloned.kind);
+    }
+
+    #[test]
+    fn diff_line_is_send_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<DiffLine>();
+        assert_send_sync::<DiffLineKind>();
+    }
+
+    #[test]
+    fn diff_line_kind_is_debug() {
+        for kind in [
+            DiffLineKind::Header,
+            DiffLineKind::Hunk,
+            DiffLineKind::Add,
+            DiffLineKind::Remove,
+            DiffLineKind::Context,
+        ] {
+            let s = format!("{kind:?}");
+            assert!(!s.is_empty());
+>>>>>>> polecat/theta
         }
     }
 
     #[test]
+<<<<<<< HEAD
     fn adv_set_status_with_special_chars() {
         let mut app = TuiApp::new().expect("ok");
         app.set_status("\x00\x01\x02\x7f\x7e\x7d".to_string());
@@ -1321,4 +1564,109 @@ mod tests {
     fn has_interactive_terminal_returns_bool() {
         let _ = has_interactive_terminal();
     }
+=======
+    fn diff_line_kind_equality() {
+        assert_eq!(DiffLineKind::Add, DiffLineKind::Add);
+        assert_ne!(DiffLineKind::Add, DiffLineKind::Remove);
+        assert_ne!(DiffLineKind::Header, DiffLineKind::Hunk);
+    }
+
+    #[test]
+    fn diff_line_kind_all_variants_distinct() {
+        let kinds = [
+            DiffLineKind::Header,
+            DiffLineKind::Hunk,
+            DiffLineKind::Add,
+            DiffLineKind::Remove,
+            DiffLineKind::Context,
+        ];
+        for i in 0..kinds.len() {
+            for j in (i + 1)..kinds.len() {
+                assert_ne!(kinds[i], kinds[j], "kinds at {i} and {j} should differ");
+            }
+        }
+    }
+
+    // ── TuiApp::diff_lines ──
+
+    #[test]
+    fn diff_lines_empty_by_default() {
+        let app = TuiApp::new().expect("ok");
+        assert!(app.diff_lines.is_empty());
+    }
+
+    #[test]
+    fn set_diff_replaces_lines() {
+        let mut app = TuiApp::new().expect("ok");
+        let lines = vec![
+            DiffLine::new("diff --git a/f b/f", DiffLineKind::Header),
+            DiffLine::new("+new", DiffLineKind::Add),
+        ];
+        app.set_diff(lines);
+        assert_eq!(app.diff_lines.len(), 2);
+        assert_eq!(app.diff_lines[0].content, "diff --git a/f b/f");
+        assert_eq!(app.diff_lines[1].kind, DiffLineKind::Add);
+    }
+
+    #[test]
+    fn set_diff_with_empty_vec_clears() {
+        let mut app = TuiApp::new().expect("ok");
+        app.set_diff(vec![DiffLine::new("x", DiffLineKind::Context)]);
+        assert_eq!(app.diff_lines.len(), 1);
+        app.set_diff(Vec::new());
+        assert!(app.diff_lines.is_empty());
+    }
+
+    #[test]
+    fn set_diff_preserves_other_fields() {
+        let mut app = TuiApp::new().expect("ok");
+        app.should_quit = true;
+        app.focused_pane = FocusedPane::Diff;
+        app.set_diff(vec![DiffLine::new("test", DiffLineKind::Remove)]);
+        assert!(app.should_quit);
+        assert!(matches!(app.focused_pane, FocusedPane::Diff));
+    }
+
+    // ── Proptests: DiffLine ──
+
+    proptest! {
+        #[test]
+        fn prop_diff_line_roundtrip_content(
+            content in ".{0, 500}",
+            kind_idx in 0usize..5,
+        ) {
+            let kinds = [
+                DiffLineKind::Header,
+                DiffLineKind::Hunk,
+                DiffLineKind::Add,
+                DiffLineKind::Remove,
+                DiffLineKind::Context,
+            ];
+            let kind = kinds[kind_idx];
+            let line = DiffLine::new(content.clone(), kind);
+            assert_eq!(line.content, content);
+            assert_eq!(line.kind, kind);
+        }
+
+        #[test]
+        fn prop_diff_line_to_styled_never_panics(
+            content in ".{0, 1000}",
+        ) {
+            let line = DiffLine::new(content, DiffLineKind::Context);
+            let _styled = line.to_styled_line();
+        }
+
+        #[test]
+        fn prop_set_diff_arbitrary_vec_does_not_panic(
+            count in 0usize..100,
+        ) {
+            let mut app = TuiApp::new().expect("ok");
+            let lines: Vec<DiffLine> = (0..count)
+                .map(|i| DiffLine::new(format!("line {i}"), DiffLineKind::Context))
+                .collect();
+            app.set_diff(lines);
+            assert_eq!(app.diff_lines.len(), count);
+        }
+    }
+>>>>>>> polecat/theta
 }

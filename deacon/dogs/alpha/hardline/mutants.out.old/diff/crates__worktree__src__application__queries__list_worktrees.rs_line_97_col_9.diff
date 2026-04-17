@@ -1,0 +1,57 @@
+--- crates/worktree/src/application/queries/list_worktrees.rs
++++ replace ListWorktreesQuery::execute -> Result<ListWorktreesResult, ListWorktreesError> with Ok(Default::default())
+@@ -89,53 +89,17 @@
+     ///
+     /// # Returns
+     /// A `ListWorktreesResult` containing the filtered worktrees.
+     ///
+     /// # Errors
+     /// Returns `ListWorktreesError` if the query fails.
+     pub fn execute(self) -> Result<ListWorktreesResult, ListWorktreesError> {
+         // Build the filter
+-        let mut filter = ListFilter::new();
+-
+-        if let Some(worktree_type) = self.worktree_type {
+-            filter = filter.with_worktree_type(worktree_type);
+-        }
+-
+-        if let Some(state) = self.state {
+-            filter = filter.with_state(state);
+-        }
+-
+-        if let Some(name_prefix) = self.name_prefix {
+-            filter = filter.with_name_prefix(&name_prefix);
+-        }
+-
+-        if let Some(limit) = self.limit {
+-            filter = filter.with_limit(limit);
+-        }
+-
+-        if let Some(offset) = self.offset {
+-            filter = filter.with_offset(offset);
+-        }
+-
+-        // Get filtered worktrees
+-        let worktrees = self.repository.list(filter.clone())?;
+-
+-        // Get total count (without limit/offset)
+-        let mut count_filter = filter.clone();
+-        count_filter.limit = None;
+-        count_filter.offset = None;
+-
+-        let total_count = self.repository.list(count_filter)?.len();
+-
+-        Ok(ListWorktreesResult {
+-            worktrees,
+-            total_count,
+-            filter,
+-        })
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// Create a query with in-memory repository (for testing).
+     pub fn for_testing(
+         worktree_type: Option<WorktreeTypeEnum>,
+         state: Option<crate::domain::entities::WorktreeState>,
+         name_prefix: Option<String>,
+         limit: Option<usize>,

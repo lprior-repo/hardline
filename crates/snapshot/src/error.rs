@@ -35,6 +35,7 @@ pub enum SnapshotError {
     RestoreFailed(String),
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     #[error("Serialization error: {message}")]
     SerializationError {
         #[source]
@@ -127,12 +128,17 @@ impl SnapshotError {
         }
     }
 =======
+=======
+>>>>>>> polecat/theta
     #[error("Serialization error: {0}")]
     SerializationError(String),
 
     #[error("Deserialization error: {0}")]
     DeserializationError(String),
+<<<<<<< HEAD
 >>>>>>> polecat/beta
+=======
+>>>>>>> polecat/theta
 }
 
 #[derive(Error, Debug)]

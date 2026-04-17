@@ -1,0 +1,21 @@
+--- crates/worktree/src/domain/entities/worktree.rs
++++ replace <impl AsRef<str> for BranchName>::as_ref -> &str with ""
+@@ -120,17 +120,17 @@
+ impl std::fmt::Display for BranchName {
+     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+         write!(f, "{}", self.0)
+     }
+ }
+ 
+ impl AsRef<str> for BranchName {
+     fn as_ref(&self) -> &str {
+-        &self.0
++        "" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Error types for BranchName parsing.
+ #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+ pub enum BranchNameParseError {
+     #[error("Branch name cannot be empty")]
+     Empty,

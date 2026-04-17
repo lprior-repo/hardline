@@ -1,0 +1,21 @@
+[package]
+name = "tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+cucumber = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+trybuild = { workspace = true }
+
+[[test]]
+name = "cucumber"
+path = "cucumber.rs"
+harness = false
+
+[[test]]
+name = "architecture_test"
+path = "architecture_test.rs"

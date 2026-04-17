@@ -1,0 +1,21 @@
+--- crates/worktree/src/infrastructure/vcs/git_worktree_adapter.rs
++++ delete ! in <impl GitAdapter for Git2WorktreeAdapter>::add_worktree
+@@ -176,17 +176,17 @@
+         }
+ 
+         // Check if branch exists using git2
+         let branch_exists = self
+             .repo
+             .find_branch(source_branch, BranchType::Local)
+             .is_ok();
+ 
+-        if !branch_exists {
++        if  /* ~ changed by cargo-mutants ~ */branch_exists {
+             return Err(GitAdapterError::BranchNotFound {
+                 branch: source_branch.to_string(),
+             });
+         }
+ 
+         // Execute git worktree add using git commands
+         let repo_path = self
+             .repo

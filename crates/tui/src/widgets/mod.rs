@@ -1,5 +1,6 @@
 pub mod stack_tree;
 <<<<<<< HEAD
+<<<<<<< HEAD
 pub use stack_tree::{StackTreeWidget, TreeNode};
 
 pub mod diff {
@@ -18,6 +19,11 @@ pub use stack_tree::StackTreeWidget;
 
 pub mod diff {
 >>>>>>> polecat/beta
+=======
+pub use stack_tree::StackTreeWidget;
+
+pub mod diff {
+>>>>>>> polecat/theta
     #[derive(Debug, Clone, Copy)]
     pub struct DiffView;
 }
@@ -33,14 +39,20 @@ pub mod reorder_preview {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 pub mod agents;
 pub use agents::{AgentEntry, AgentsView};
 =======
+=======
+>>>>>>> polecat/theta
 pub mod agents {
     #[derive(Debug, Clone, Copy)]
     pub struct AgentsView;
 }
+<<<<<<< HEAD
 >>>>>>> polecat/beta
+=======
+>>>>>>> polecat/theta
 
 pub mod worktree;
 pub use worktree::WorktreeItem;
@@ -49,10 +61,14 @@ pub use worktree::WorktreeItem;
 mod tests {
     use super::{
 <<<<<<< HEAD
+<<<<<<< HEAD
         AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
 =======
         agents::AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
 >>>>>>> polecat/beta
+=======
+        agents::AgentsView, details::DetailsView, diff::DiffView, reorder_preview::ReorderPreview,
+>>>>>>> polecat/theta
         StackTreeWidget,
     };
 
@@ -66,7 +82,10 @@ mod tests {
         let _agents = AgentsView::new(Vec::new());
 =======
         let _agents = AgentsView;
+<<<<<<< HEAD
 >>>>>>> polecat/beta
+=======
+>>>>>>> polecat/theta
     }
 
     #[test]
@@ -118,7 +137,10 @@ mod tests {
         let _ = format!("{:?}", AgentsView::new(Vec::new()));
 =======
         let _ = format!("{:?}", AgentsView);
+<<<<<<< HEAD
 >>>>>>> polecat/beta
+=======
+>>>>>>> polecat/theta
     }
 
     #[test]
@@ -197,10 +219,14 @@ mod tests {
             DetailsView,
             ReorderPreview,
 <<<<<<< HEAD
+<<<<<<< HEAD
             AgentsView::new(Vec::new()),
 =======
             AgentsView,
 >>>>>>> polecat/beta
+=======
+            AgentsView,
+>>>>>>> polecat/theta
         );
     }
 

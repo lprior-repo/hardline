@@ -15,7 +15,3 @@ worktrees/
 
 # CI History cache
 .ci_history/
-<<<<<<< HEAD
-deacon/dogs/alpha/hardline/
-=======
->>>>>>> polecat/beta

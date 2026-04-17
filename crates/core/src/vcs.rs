@@ -9,6 +9,8 @@ mod trait_;
 mod types;
 #[path = "vcs_git.rs"]
 mod vcs_git;
+#[path = "vcs_git_repo.rs"]
+mod vcs_git_repo;
 
 pub use trait_::VcsBackend;
 pub use types::{
@@ -16,6 +18,7 @@ pub use types::{
     Workspace,
 };
 pub use vcs_git::GitBackend;
+pub use vcs_git_repo::GitRepo;
 
 use crate::error::{Error, Result};
 

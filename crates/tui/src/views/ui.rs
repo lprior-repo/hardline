@@ -8,9 +8,12 @@ use ratatui::{
 
 use crate::app::{FocusedPane, TuiApp};
 <<<<<<< HEAD
+<<<<<<< HEAD
 use crate::widgets::diff::DiffLine;
 =======
 >>>>>>> polecat/beta
+=======
+>>>>>>> polecat/theta
 use crate::widgets::StackTreeWidget;
 
 pub fn render(f: &mut Frame, app: &mut TuiApp) {
@@ -77,11 +80,15 @@ fn render_stack_tree(f: &mut Frame, app: &mut TuiApp, area: Rect) {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> polecat/theta
 fn render_diff_view(f: &mut Frame, app: &mut TuiApp, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title("Diff Viewer")
         .title_style(if app.focused_pane == FocusedPane::Diff {
+<<<<<<< HEAD
 =======
 fn render_diff_view(f: &mut Frame, _app: &mut TuiApp, area: Rect) {
     let block = Block::default()
@@ -89,18 +96,25 @@ fn render_diff_view(f: &mut Frame, _app: &mut TuiApp, area: Rect) {
         .title("Diff Viewer")
         .title_style(if _app.focused_pane == FocusedPane::Diff {
 >>>>>>> polecat/beta
+=======
+>>>>>>> polecat/theta
             Style::default().fg(Color::Yellow)
         } else {
             Style::default()
         });
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     let diff_content = if app.diff_lines.is_empty() {
+=======
+    let diff_content: Vec<Line<'static>> = if app.diff_lines.is_empty() {
+>>>>>>> polecat/theta
         vec![Line::from(Span::styled(
             "No diff available",
             Style::default().fg(Color::DarkGray),
         ))]
     } else {
+<<<<<<< HEAD
         app.diff_lines
             .iter()
             .map(|line| match line {
@@ -160,6 +174,10 @@ fn render_diff_view(f: &mut Frame, _app: &mut TuiApp, area: Rect) {
         Line::from(vec![Span::raw(" }")]),
     ];
 >>>>>>> polecat/beta
+=======
+        app.diff_lines.iter().map(|l| l.to_styled_line()).collect()
+    };
+>>>>>>> polecat/theta
 
     let diff_para = Paragraph::new(diff_content).block(block).scroll((0, 0));
 

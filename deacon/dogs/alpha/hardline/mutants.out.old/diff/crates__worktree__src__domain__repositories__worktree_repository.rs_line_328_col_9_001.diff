@@ -1,0 +1,25 @@
+--- crates/worktree/src/domain/repositories/worktree_repository.rs
++++ replace <impl WorktreeRepository for InMemoryWorktreeRepository>::get_by_id -> Result<Option<Worktree>, WorktreeRepositoryError> with Ok(Some(Default::default()))
+@@ -320,21 +320,17 @@
+ 
+         let id = worktree.id.clone();
+         worktrees.insert(id.clone(), worktree.clone());
+ 
+         Ok(id)
+     }
+ 
+     fn get_by_id(&self, id: &WorktreeId) -> Result<Option<Worktree>, WorktreeRepositoryError> {
+-        let worktrees = self
+-            .worktrees
+-            .read()
+-            .map_err(|e| WorktreeRepositoryError::DatabaseError(e.to_string()))?;
+-        Ok(worktrees.get(id).cloned())
++        Ok(Some(Default::default())) /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn get_by_name(
+         &self,
+         name: &WorktreeName,
+     ) -> Result<Option<Worktree>, WorktreeRepositoryError> {
+         let worktrees = self
+             .worktrees

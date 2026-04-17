@@ -3,9 +3,12 @@
 //! Receipts are stored as JSON files under `.git/stax/ops/<op-id>.json`
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 use crate::error::{Result, SnapshotError};
 =======
 >>>>>>> polecat/beta
+=======
+>>>>>>> polecat/theta
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -151,6 +154,7 @@ impl OpReceipt {
     }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     pub fn update_local_ref_after(&mut self, branch: &str, oid_after: &str) -> Result<()> {
         let entry = self
             .local_refs
@@ -185,6 +189,8 @@ impl OpReceipt {
         entry.oid_after = Some(oid_after.to_string());
         Ok(())
 =======
+=======
+>>>>>>> polecat/theta
     pub fn update_local_ref_after(&mut self, branch: &str, oid_after: &str) {
         if let Some(entry) = self.local_refs.iter_mut().find(|e| e.branch == branch) {
             entry.oid_after = Some(oid_after.to_string());
@@ -199,7 +205,10 @@ impl OpReceipt {
         {
             entry.oid_after = Some(oid_after.to_string());
         }
+<<<<<<< HEAD
 >>>>>>> polecat/beta
+=======
+>>>>>>> polecat/theta
     }
 
     pub fn mark_success(&mut self) {
@@ -222,6 +231,7 @@ impl OpReceipt {
         });
     }
 }
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 #[cfg(test)]
@@ -314,3 +324,5 @@ mod tests {
 }
 =======
 >>>>>>> polecat/beta
+=======
+>>>>>>> polecat/theta

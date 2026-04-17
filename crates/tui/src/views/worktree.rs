@@ -14,10 +14,14 @@ use worktree::WorktreeState;
 pub struct WorktreeView {
     items: Vec<WorktreeItem>,
 <<<<<<< HEAD
+<<<<<<< HEAD
     pub(crate) selected_index: usize,
 =======
     selected_index: usize,
 >>>>>>> polecat/beta
+=======
+    selected_index: usize,
+>>>>>>> polecat/theta
 }
 
 impl WorktreeView {
@@ -217,6 +221,7 @@ mod tests {
         assert!(view.items.is_empty());
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
 
     // ── Adversarial ──
 
@@ -273,4 +278,138 @@ mod tests {
     }
 =======
 >>>>>>> polecat/beta
+=======
+
+    // ── Adversarial: Send + Sync ──
+
+    #[test]
+    fn worktree_view_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<WorktreeView>();
+    }
+
+    #[test]
+    fn worktree_view_is_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<WorktreeView>();
+    }
+
+    // ── Adversarial: single item navigation ──
+
+    #[test]
+    fn single_item_navigation_stays_at_zero() {
+        let items = vec![WorktreeView::test_item("wt1", WorktreeState::Active)];
+        let mut view = WorktreeView::new(items);
+        for _ in 0..100 {
+            view.select_next();
+        }
+        assert_eq!(view.selected_index, 0);
+        for _ in 0..100 {
+            view.select_previous();
+        }
+        assert_eq!(view.selected_index, 0);
+        assert_eq!(view.selected_item().unwrap().name, "wt1");
+    }
+
+    // ── Adversarial: re-emptied view navigation ──
+
+    #[test]
+    fn re_emptied_view_navigation_no_panic() {
+        let items = vec![
+            WorktreeView::test_item("wt1", WorktreeState::Active),
+            WorktreeView::test_item("wt2", WorktreeState::Suspended),
+        ];
+        let mut view = WorktreeView::new(items);
+        view = view.with_items(Vec::new());
+        view.select_next();
+        view.select_previous();
+        assert_eq!(view.selected_index, 0);
+        assert!(view.selected_item().is_none());
+    }
+
+    // ── Adversarial: render empty view ──
+
+    #[test]
+    fn render_empty_view_no_panic() {
+        use ratatui::{backend::TestBackend, Terminal};
+        let view = WorktreeView::default();
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).expect("terminal creation");
+        terminal.draw(|f| {
+            let area = f.area();
+            view.render(f, area);
+        }).expect("draw");
+    }
+
+    // ── Adversarial: render with items ──
+
+    #[test]
+    fn render_with_items_no_panic() {
+        use ratatui::{backend::TestBackend, Terminal};
+        let items = vec![
+            WorktreeView::test_item("wt1", WorktreeState::Active),
+            WorktreeView::test_item("wt2", WorktreeState::Suspended),
+        ];
+        let view = WorktreeView::new(items);
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).expect("terminal creation");
+        terminal.draw(|f| {
+            let area = f.area();
+            view.render(f, area);
+        }).expect("draw");
+    }
+
+    // ── Adversarial: render tiny area ──
+
+    #[test]
+    fn render_tiny_area_no_panic() {
+        use ratatui::{backend::TestBackend, Terminal};
+        let view = WorktreeView::default();
+        let backend = TestBackend::new(1, 1);
+        let mut terminal = Terminal::new(backend).expect("terminal creation");
+        terminal.draw(|f| {
+            let area = f.area();
+            view.render(f, area);
+        }).expect("draw");
+    }
+
+    // ── Adversarial: render zero area ──
+
+    #[test]
+    fn render_zero_area_no_panic() {
+        use ratatui::{backend::TestBackend, Terminal};
+        let view = WorktreeView::default();
+        let backend = TestBackend::new(0, 0);
+        let mut terminal = Terminal::new(backend).expect("terminal creation");
+        terminal.draw(|f| {
+            let area = f.area();
+            view.render(f, area);
+        }).expect("draw");
+    }
+
+    // ── Adversarial: render with active item ──
+
+    #[test]
+    fn render_with_active_item_no_panic() {
+        use ratatui::{backend::TestBackend, Terminal};
+        let mut item = WorktreeView::test_item("active-wt", WorktreeState::Active);
+        item.is_active = true;
+        let view = WorktreeView::new(vec![item]);
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).expect("terminal creation");
+        terminal.draw(|f| {
+            let area = f.area();
+            view.render(f, area);
+        }).expect("draw");
+    }
+
+    // ── Adversarial: Debug format ──
+
+    #[test]
+    fn worktree_view_debug_format() {
+        let view = WorktreeView::default();
+        let debug = format!("{:?}", view);
+        assert!(debug.contains("WorktreeView"));
+    }
+>>>>>>> polecat/theta
 }
