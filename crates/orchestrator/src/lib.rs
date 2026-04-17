@@ -24,10 +24,10 @@ pub mod queue;
 pub mod state;
 
 pub use cleanup::{
-    CleanupContext, CleanupError, CleanupHandler, CleanupManager, CleanupResult, PhaseType,
-    ResourceId,
+    CleanupContext, CleanupError, CleanupHandler, CleanupManager, CleanupResult, CleanupStatus,
+    PhaseType, ResourceId,
 };
-pub use metrics::{Metrics, PhaseMetrics, ScenarioResult};
+pub use metrics::{AggregatedMetrics, Metrics, PhaseMetrics, PipelineMetrics, ScenarioResult};
 pub use persistence::StateStore;
 pub use phases::{PhaseError, PipelineExecutor};
 pub use policies::{
@@ -35,6 +35,7 @@ pub use policies::{
     NewCircuitBreakerError, OrchestratorError, PhaseTimeout, PolicyConfig,
     PolicyError, RetryPolicy, RetryPolicyError, TimeoutError, TimeoutPolicy, TimeoutPolicyError,
 };
+pub use parallel::{ParallelError, PhaseStatus};
 pub use queue::{
     InMemoryJobRepository, Job, JobOutcome, JobPayload, JobPriority, JobProcessor,
     JobProcessorConfig, JobRepository, JobResult, JobState, QueueError, QueueResult,
