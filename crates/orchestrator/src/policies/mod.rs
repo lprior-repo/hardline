@@ -4,7 +4,6 @@ pub mod circuit;
 pub mod circuit_breaker;
 pub mod deadline;
 pub mod errors;
-pub mod retry;
 pub mod retry_policy;
 pub mod timeout;
 pub mod timeout_error;
@@ -17,8 +16,7 @@ pub use circuit_breaker::{
 };
 pub use deadline::Deadline;
 pub use errors::{ConfigError, OrchestratorError};
-pub use retry::RetryPolicy;
-pub use retry_policy::{RetryPolicy as NewRetryPolicy, RetryPolicyError};
+pub use retry_policy::{RetryPolicy, RetryPolicyError};
 pub use timeout::PhaseTimeout;
 pub use timeout_error::{PolicyError, TimeoutError};
 pub use timeout_policy::{TimeoutPolicy, TimeoutPolicyError};

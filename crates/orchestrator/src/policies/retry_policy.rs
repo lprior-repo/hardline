@@ -1,9 +1,10 @@
 //! Retry policy with exponential backoff
 
+use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
 
 /// Configuration for retry behavior with exponential backoff
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RetryPolicy {
     max_retries: u32,
     base_delay_ms: NonZeroU64,
@@ -56,6 +57,12 @@ impl RetryPolicy {
         self.max_retries
     }
 
+    /// Get the total number of attempts (initial + retries)
+    #[must_use]
+    pub fn total_attempts(&self) -> u32 {
+        self.max_retries + 1
+    }
+
     /// Get the base delay in milliseconds
     #[must_use]
     pub fn base_delay_ms(&self) -> u64 {
@@ -106,7 +113,8 @@ impl RetryPolicy {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum RetryPolicyError {
     InvalidBaseDelay,
     InvalidFactor,
