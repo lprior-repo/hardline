@@ -102,12 +102,10 @@ mod stack_tree_escalated {
         assert_eq!(nodes.iter().filter(|n| n.depth == 0).count(), 3);
     }
 
-    /// CRITICAL BUG: duplicate branch names cause infinite recursion in StackTreeWidget.
-    /// When a branch's name matches its parent's name, collect_children_of matches
-    /// it as its own child, recursing until stack overflow.
-    /// Tracked: ha-dew0 (P0 CRITICAL)
+    /// Fixed: duplicate branch names no longer cause infinite recursion.
+    /// A visited set in build_tree_nodes prevents cycles.
+    /// Was: ha-dew0 (P0 CRITICAL)
     #[test]
-    #[ignore]
     fn duplicate_branch_names() {
         let nodes = StackTreeWidget::new(vec![
             branch("dup", None), branch("dup", Some("dup")),

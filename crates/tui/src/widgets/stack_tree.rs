@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use ratatui::{
     style::{Color, Style},
     text::{Line, Span},
@@ -58,7 +60,8 @@ impl StackTreeWidget {
             return Vec::new();
         }
         let mut nodes = Vec::new();
-        self.collect_root_nodes(&mut nodes, 0, &[]);
+        let mut visited = HashSet::new();
+        self.collect_root_nodes(&mut nodes, 0, &[], &mut visited);
         nodes
     }
 
@@ -67,15 +70,20 @@ impl StackTreeWidget {
         nodes: &mut Vec<TreeNode>,
         depth: usize,
         ancestor_is_last: &[bool],
+        visited: &mut HashSet<usize>,
     ) {
-        let roots: Vec<&StackBranch> = self
+        let roots: Vec<(usize, &StackBranch)> = self
             .branches
             .iter()
-            .filter(|b| b.parent.is_none())
+            .enumerate()
+            .filter(|(_, b)| b.parent.is_none())
             .collect();
 
         let total = roots.len();
-        for (idx, root) in roots.iter().enumerate() {
+        for (idx, (branch_idx, root)) in roots.iter().enumerate() {
+            if !visited.insert(*branch_idx) {
+                continue;
+            }
             let is_last = idx == total - 1;
             let mut new_ancestor = ancestor_is_last.to_vec();
             new_ancestor.push(is_last);
@@ -87,25 +95,31 @@ impl StackTreeWidget {
                 ancestor_is_last: new_ancestor.clone(),
             });
 
-            self.collect_children_of(root, nodes, depth + 1, &new_ancestor);
+            self.collect_children_of(*branch_idx, nodes, depth + 1, &new_ancestor, visited);
         }
     }
 
     fn collect_children_of(
         &self,
-        parent: &StackBranch,
+        parent_idx: usize,
         nodes: &mut Vec<TreeNode>,
         depth: usize,
         ancestor_is_last: &[bool],
+        visited: &mut HashSet<usize>,
     ) {
-        let children: Vec<&StackBranch> = self
+        let parent_name = &self.branches[parent_idx].name;
+        let children: Vec<(usize, &StackBranch)> = self
             .branches
             .iter()
-            .filter(|b| b.parent.as_ref() == Some(&parent.name))
+            .enumerate()
+            .filter(|(idx, b)| *idx != parent_idx && b.parent.as_ref() == Some(parent_name))
             .collect();
 
         let total = children.len();
-        for (idx, child) in children.iter().enumerate() {
+        for (idx, (branch_idx, child)) in children.iter().enumerate() {
+            if !visited.insert(*branch_idx) {
+                continue;
+            }
             let is_last = idx == total - 1;
             let mut new_ancestor = ancestor_is_last.to_vec();
             new_ancestor.push(is_last);
@@ -117,7 +131,7 @@ impl StackTreeWidget {
                 ancestor_is_last: new_ancestor.clone(),
             });
 
-            self.collect_children_of(child, nodes, depth + 1, &new_ancestor);
+            self.collect_children_of(*branch_idx, nodes, depth + 1, &new_ancestor, visited);
         }
     }
 
