@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-use anyhow::{Context, Result as AnyhowResult};
 use tracing::info;
 
 use crate::cleanup::{CleanupContext, CleanupManager, PhaseType};
@@ -10,6 +9,8 @@ use crate::metrics::Metrics;
 use crate::persistence::StateStore;
 use crate::policies::PolicyConfig;
 use crate::state::Pipeline;
+
+use super::types::PhaseError;
 
 /// Pipeline executor for running phases
 pub struct PipelineExecutor {
@@ -79,7 +80,7 @@ impl PipelineExecutor {
         !pipeline.state.is_terminal()
     }
 
-    pub fn create_pipeline(&mut self, spec_path: String) -> AnyhowResult<Pipeline> {
+    pub fn create_pipeline(&mut self, spec_path: String) -> Result<Pipeline, PhaseError> {
         let pipeline = Pipeline::new(spec_path);
         let pipeline = self.store.create(pipeline)?;
         info!("Created pipeline: {}", pipeline.id.0);
@@ -148,5 +149,3 @@ impl PipelineExecutor {
             .collect()
     }
 }
-
-use crate::phases::exec::types::PhaseError;

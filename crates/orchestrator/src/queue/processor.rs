@@ -185,14 +185,6 @@ impl<R: JobRepository> JobProcessor<R> {
             return Ok(());
         };
 
-        if self.running_jobs() >= self.config.concurrency_limit {
-            debug!(
-                "Concurrency limit reached ({}), skipping poll",
-                self.config.concurrency_limit
-            );
-            return Ok(());
-        }
-
         let _permit = self.semaphore.acquire().await.map_err(|e| {
             QueueError::ExecutionFailed(format!("Failed to acquire semaphore: {}", e))
         })?;

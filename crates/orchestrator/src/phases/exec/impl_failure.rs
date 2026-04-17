@@ -19,7 +19,7 @@ impl PipelineExecutor {
         let pipeline = self
             .store
             .get(id)
-            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .map_err(PhaseError::from)?
             .clone();
 
         self.cleanup_after_failure(&pipeline)
@@ -73,7 +73,7 @@ impl PipelineExecutor {
         let pipeline = self
             .store
             .get(id)
-            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
+            .map_err(PhaseError::from)?
             .clone();
 
         self.cleanup_after_failure(&pipeline)

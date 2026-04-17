@@ -5,9 +5,12 @@ use thiserror::Error;
 
 use crate::cleanup::PhaseType;
 use crate::metrics::ScenarioResult;
+use crate::parallel::ParallelError;
+use crate::persistence::StoreError;
+use crate::state::{IterationError, TransitionError};
 
 /// Errors that can occur during phase execution
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Error)]
 pub enum PhaseError {
     #[error("Spec review failed: {0}")]
     SpecReviewFailed(String),
@@ -25,13 +28,16 @@ pub enum PhaseError {
     CleanupFailed(String),
 
     #[error("State persistence failed: {0}")]
-    PersistenceFailed(String),
+    PersistenceFailed(#[from] StoreError),
 
     #[error("Invalid state transition: {0}")]
-    InvalidStateTransition(String),
+    InvalidStateTransition(#[from] TransitionError),
+
+    #[error("Iteration error: {0}")]
+    IterationError(#[from] IterationError),
 
     #[error("Parallel execution failed: {0}")]
-    ParallelExecutionFailed(String),
+    ParallelExecutionFailed(#[from] ParallelError),
 
     #[error("Dependency not met for phase: {0:?}")]
     DependencyNotMet(PhaseType),
@@ -62,15 +68,19 @@ mod tests {
 
     #[test]
     fn test_phase_error_variants_display() {
-        let errors = [
+        let errors: Vec<PhaseError> = vec![
             PhaseError::SpecReviewFailed("lint error".to_string()),
             PhaseError::SetupFailed("disk full".to_string()),
             PhaseError::DevelopmentFailed("oom".to_string()),
             PhaseError::ValidationFailed("scenario failed".to_string()),
             PhaseError::CleanupFailed("rollback error".to_string()),
-            PhaseError::PersistenceFailed("io error".to_string()),
-            PhaseError::InvalidStateTransition("bad transition".to_string()),
-            PhaseError::ParallelExecutionFailed("dependency error".to_string()),
+            StoreError::NotFound("missing".to_string()).into(),
+            TransitionError::InvalidTransition {
+                from: crate::state::PipelineState::Pending,
+                to: crate::state::PipelineState::Accepted,
+            }
+            .into(),
+            ParallelError::InvalidPhaseConfiguration("bad config".to_string()).into(),
             PhaseError::DependencyNotMet(PhaseType::Validation),
         ];
         for err in &errors {
@@ -84,6 +94,34 @@ mod tests {
         use std::error::Error;
         let err = PhaseError::SpecReviewFailed("test".to_string());
         assert!(err.source().is_none());
+
+        // Typed errors preserve source chain
+        let err: PhaseError = StoreError::NotFound("x".to_string()).into();
+        assert!(err.source().is_some());
+    }
+
+    #[test]
+    fn test_from_store_error() {
+        let store_err = StoreError::NotFound("pipeline-42".to_string());
+        let phase_err: PhaseError = store_err.into();
+        assert!(format!("{phase_err}").contains("pipeline-42"));
+    }
+
+    #[test]
+    fn test_from_transition_error() {
+        let trans_err = TransitionError::InvalidTransition {
+            from: crate::state::PipelineState::Pending,
+            to: crate::state::PipelineState::Accepted,
+        };
+        let phase_err: PhaseError = trans_err.into();
+        assert!(format!("{phase_err}").contains("Invalid"));
+    }
+
+    #[test]
+    fn test_from_parallel_error() {
+        let par_err = ParallelError::DependencyNotMet(PhaseType::Validation);
+        let phase_err: PhaseError = par_err.into();
+        assert!(format!("{phase_err}").contains("Validation"));
     }
 
     #[test]
