@@ -67,27 +67,19 @@ impl PipelineExecutor {
     ) -> Result<Vec<PhaseResult>, PhaseError> {
         match phase_type {
             PhaseType::SpecReview => {
-                let result = self
-                    .spec_review(pipeline)
-                    .map_err(|e| PhaseError::SpecReviewFailed(e.to_string()))?;
+                let result = self.spec_review(pipeline)?;
                 Ok(vec![result])
             }
             PhaseType::UniverseSetup => {
-                let result = self
-                    .universe_setup(pipeline)
-                    .map_err(|e| PhaseError::SetupFailed(e.to_string()))?;
+                let result = self.universe_setup(pipeline)?;
                 Ok(vec![result])
             }
             PhaseType::AgentDevelopment => {
-                let _result = self
-                    .agent_development(pipeline)
-                    .map_err(|e| PhaseError::DevelopmentFailed(e.to_string()))?;
+                let _result = self.agent_development(pipeline)?;
                 Ok(vec![])
             }
             PhaseType::Validation => {
-                let (_decision, result) = self
-                    .validation(pipeline)
-                    .map_err(|e| PhaseError::ValidationFailed(e.to_string()))?;
+                let (_decision, result) = self.validation(pipeline)?;
                 Ok(vec![result])
             }
         }

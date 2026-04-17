@@ -30,7 +30,7 @@ impl PipelineExecutor {
         self.run_pipeline(pipeline_id)
     }
 
-    pub(crate) fn finalize_acceptance(&mut self, id: &PipelineId) -> anyhow::Result<()> {
+    pub(crate) fn finalize_acceptance(&mut self, id: &PipelineId) -> Result<(), PhaseError> {
         let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
             let _ = p.transition_to(PipelineState::Accepted);
             p.clone()
@@ -42,7 +42,7 @@ impl PipelineExecutor {
         Ok(())
     }
 
-    pub(crate) fn escalate(&mut self, id: &PipelineId, reason: &str) -> anyhow::Result<()> {
+    pub(crate) fn escalate(&mut self, id: &PipelineId, reason: &str) -> Result<(), PhaseError> {
         let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
             let _ = p.transition_to(PipelineState::Escalated);
             p.set_error(reason.to_string());
@@ -55,7 +55,7 @@ impl PipelineExecutor {
         Ok(())
     }
 
-    pub(crate) fn fail(&mut self, id: &PipelineId, reason: &str) -> anyhow::Result<()> {
+    pub(crate) fn fail(&mut self, id: &PipelineId, reason: &str) -> Result<(), PhaseError> {
         let pipeline_opt = self.store.get_mut(id).ok().map(|p| {
             let _ = p.transition_to(PipelineState::Failed);
             p.set_error(reason.to_string());

@@ -6,7 +6,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
 use tracing::{debug, error, info};
 
 use crate::state::{Pipeline, PipelineId};

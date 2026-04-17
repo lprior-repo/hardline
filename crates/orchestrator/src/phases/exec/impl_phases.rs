@@ -10,13 +10,13 @@ use super::executor::PipelineExecutor;
 use super::types::{Decision, PhaseError, PhaseResult};
 
 impl PipelineExecutor {
-    pub(crate) fn spec_review(&mut self, pipeline: &mut Pipeline) -> anyhow::Result<PhaseResult> {
+    pub(crate) fn spec_review(&mut self, pipeline: &mut Pipeline) -> Result<PhaseResult, PhaseError> {
         let start = Utc::now();
         info!("Running spec review for: {}", pipeline.spec_path);
 
         pipeline
             .transition_to(PipelineState::SpecReview)
-            .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
+            .map_err(PhaseError::from)?;
         let quality_score = self.run_linter(&pipeline.spec_path);
 
         self.record_spec_review_metrics(pipeline, start, quality_score);
@@ -24,7 +24,7 @@ impl PipelineExecutor {
         if quality_score >= pipeline.quality_threshold {
             pipeline
                 .transition_to(PipelineState::UniverseSetup)
-                .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
+                .map_err(PhaseError::from)?;
             Ok(PhaseResult {
                 success: true,
                 message: format!("Spec passed with score {quality_score}"),
@@ -34,7 +34,7 @@ impl PipelineExecutor {
         } else {
             pipeline
                 .transition_to(PipelineState::Failed)
-                .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
+                .map_err(PhaseError::from)?;
             Ok(PhaseResult {
                 success: false,
                 message: format!(
@@ -72,7 +72,7 @@ impl PipelineExecutor {
     pub(crate) fn universe_setup(
         &mut self,
         pipeline: &mut Pipeline,
-    ) -> anyhow::Result<PhaseResult> {
+    ) -> Result<PhaseResult, PhaseError> {
         let start = Utc::now();
         info!("Setting up universe for pipeline: {}", pipeline.id.0);
 
@@ -100,7 +100,7 @@ impl PipelineExecutor {
     pub(crate) fn agent_development(
         &mut self,
         pipeline: &mut Pipeline,
-    ) -> anyhow::Result<PhaseResult> {
+    ) -> Result<PhaseResult, PhaseError> {
         let start = Utc::now();
         info!(
             "Agent development iteration {} for pipeline: {}",
@@ -143,7 +143,7 @@ impl PipelineExecutor {
     pub(crate) fn validation(
         &mut self,
         pipeline: &mut Pipeline,
-    ) -> anyhow::Result<(Decision, PhaseResult)> {
+    ) -> Result<(Decision, PhaseResult), PhaseError> {
         let start = Utc::now();
         info!("Running validation for pipeline: {}", pipeline.id.0);
 

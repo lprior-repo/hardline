@@ -12,11 +12,7 @@ impl PipelineExecutor {
     pub fn run_pipeline(&mut self, pipeline_id: &PipelineId) -> Result<Decision, PhaseError> {
         info!("Starting pipeline: {}", pipeline_id.0);
 
-        let mut pipeline = self
-            .store
-            .get(pipeline_id)
-            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?
-            .clone();
+        let mut pipeline = self.store.get(pipeline_id)?.clone();
 
         if !pipeline.state.is_terminal() {
             info!("Recovering pipeline from state: {:?}", pipeline.state);
@@ -32,9 +28,8 @@ impl PipelineExecutor {
     }
 
     fn persist_state(&mut self, pipeline: &Pipeline) -> Result<(), PhaseError> {
-        self.store
-            .update(pipeline.clone())
-            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))
+        self.store.update(pipeline.clone())?;
+        Ok(())
     }
 
     pub(crate) fn run_spec_review_phase(
@@ -50,9 +45,7 @@ impl PipelineExecutor {
             });
         }
 
-        let result = self
-            .spec_review(pipeline)
-            .map_err(|e| PhaseError::SpecReviewFailed(e.to_string()))?;
+        let result = self.spec_review(pipeline)?;
 
         if result.success {
             Ok(result)
@@ -74,9 +67,7 @@ impl PipelineExecutor {
             });
         }
 
-        let result = self
-            .universe_setup(pipeline)
-            .map_err(|e| PhaseError::SetupFailed(e.to_string()))?;
+        let result = self.universe_setup(pipeline)?;
 
         if result.success {
             Ok(result)
@@ -90,9 +81,7 @@ impl PipelineExecutor {
         pipeline: &mut Pipeline,
     ) -> Result<Decision, PhaseError> {
         while pipeline.state == PipelineState::AgentDevelopment {
-            let result = self
-                .agent_development(pipeline)
-                .map_err(|e| PhaseError::DevelopmentFailed(e.to_string()))?;
+            let result = self.agent_development(pipeline)?;
 
             if !result.success {
                 return self.handle_dev_failure(&pipeline.id, result.message);
@@ -107,9 +96,7 @@ impl PipelineExecutor {
         pipeline: &mut Pipeline,
     ) -> Result<Decision, PhaseError> {
         while pipeline.state == PipelineState::Validation {
-            let (decision, _result) = self
-                .validation(pipeline)
-                .map_err(|e| PhaseError::ValidationFailed(e.to_string()))?;
+            let (decision, _result) = self.validation(pipeline)?;
 
             let continue_loop = self.handle_validation_decision(pipeline_id, pipeline, decision)?;
             if continue_loop {
@@ -129,17 +116,14 @@ impl PipelineExecutor {
     ) -> Result<bool, PhaseError> {
         match decision {
             Decision::Accept => {
-                self.finalize_acceptance(pipeline_id)
-                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                self.finalize_acceptance(pipeline_id)?;
                 Ok(false)
             }
             Decision::Retry if pipeline.can_iterate() => {
                 pipeline
                     .increment_iteration()
                     .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
-                self.store
-                    .update(pipeline.clone())
-                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                self.store.update(pipeline.clone())?;
                 info!(
                     "Retrying agent development, iteration {}",
                     pipeline.iteration
@@ -148,28 +132,22 @@ impl PipelineExecutor {
             }
             Decision::Retry => {
                 tracing::warn!("Max iterations reached, escalating");
-                self.escalate(pipeline_id, "Max iterations reached")
-                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                self.escalate(pipeline_id, "Max iterations reached")?;
                 Ok(false)
             }
             Decision::Escalate => {
-                self.escalate(pipeline_id, "Validation escalated")
-                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                self.escalate(pipeline_id, "Validation escalated")?;
                 Ok(false)
             }
             Decision::Fail => {
-                self.fail(pipeline_id, "Validation failed")
-                    .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+                self.fail(pipeline_id, "Validation failed")?;
                 Ok(false)
             }
         }
     }
 
     fn get_final_decision(&self, pipeline_id: &PipelineId) -> Result<Decision, PhaseError> {
-        let final_pipeline = self
-            .store
-            .get(pipeline_id)
-            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
+        let final_pipeline = self.store.get(pipeline_id)?;
         match final_pipeline.state {
             PipelineState::Accepted => Ok(Decision::Accept),
             PipelineState::Escalated => Ok(Decision::Escalate),
