@@ -1,4 +1,0 @@
-vcs:
-  client: git
-  provider: github
-  defaultBranch: main

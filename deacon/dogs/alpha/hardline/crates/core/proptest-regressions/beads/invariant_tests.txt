@@ -1,7 +1,0 @@
-# Seeds for failure cases proptest has generated in the past. It is
-# automatically read and these particular cases re-run before any
-# novel cases are generated.
-#
-# It is recommended to check this file in to source control so that
-# everyone who runs the test benefits from these saved cases.
-cc b6f1b7dbac99274c5a3056aeb9efdff23eb246798ef590d65162c31a4280c9f1 # shrinks to id = "0", title = "a", new_state = Closed { closed_at: 2026-03-22T06:47:39.213175946Z }
