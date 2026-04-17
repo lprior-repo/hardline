@@ -15,7 +15,6 @@ thiserror = { workspace = true }
 gix = { workspace = true }
 hex = { workspace = true }
 sqlx = { workspace = true }
-tokio = { workspace = true }
 url = { version = "2", features = ["serde"] }
 
 [dev-dependencies]
