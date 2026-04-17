@@ -38,7 +38,7 @@ pub enum SessionCommands {
         name: String,
 
         /// Force removal (skip confirmation)
-        #[arg(short, long)]
+        #[arg(long)]
         force: bool,
 
         /// Merge changes to main before removing
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn remove_with_flags() {
-        match parse(&["remove", "s1", "-f", "-m"]) {
+        match parse(&["remove", "s1", "--force", "-m"]) {
             SessionCommands::Remove { force, merge, .. } => {
                 assert!(force);
                 assert!(merge);

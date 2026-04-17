@@ -20,7 +20,7 @@ pub enum TagCommands {
         commit: Option<String>,
 
         /// Replace existing tag
-        #[arg(short, long)]
+        #[arg(long)]
         force: bool,
     },
 
@@ -55,7 +55,7 @@ pub enum TagCommands {
         remote: String,
 
         /// Force push
-        #[arg(short, long)]
+        #[arg(long)]
         force: bool,
     },
 }
@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn create_with_all_options() {
-        match parse(&["create", "v1.0.0", "-m", "release", "-c", "abc123", "-f"]) {
+        match parse(&["create", "v1.0.0", "-m", "release", "-c", "abc123", "--force"]) {
             TagCommands::Create {
                 name,
                 message,
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn push_with_specific_tag_and_custom_remote() {
-        match parse(&["push", "v1.0.0", "-r", "upstream", "-f"]) {
+        match parse(&["push", "v1.0.0", "-r", "upstream", "--force"]) {
             TagCommands::Push { tag, remote, force } => {
                 assert_eq!(tag, Some("v1.0.0".to_string()));
                 assert_eq!(remote, "upstream");
