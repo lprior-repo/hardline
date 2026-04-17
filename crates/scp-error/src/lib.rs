@@ -984,4 +984,610 @@ mod tests {
             assert!(std::error::Error::source(&v).is_none(), "Expected no source for {:?}", v);
         }
     }
+<<<<<<< HEAD
+=======
+
+    // =========================================================================
+    // CLAIM 9: Tuple variants destructure correctly
+    // =========================================================================
+
+    #[test]
+    fn tuple_variant_destructure_single() {
+        let err = Error::IoError("disk full".into());
+        if let Error::IoError(msg) = err {
+            assert_eq!(msg, "disk full");
+        } else {
+            panic!("wrong variant");
+        }
+    }
+
+    #[test]
+    fn tuple_variant_destructure_pair() {
+        let err = Error::WorkspaceLocked("ws".into(), "agent".into());
+        if let Error::WorkspaceLocked(ws, agent) = err {
+            assert_eq!(ws, "ws");
+            assert_eq!(agent, "agent");
+        } else {
+            panic!("wrong variant");
+        }
+    }
+
+    #[test]
+    fn tuple_variant_destructure_triple() {
+        let err = Error::SessionInvalidState("s1".into(), "closed".into(), "open".into());
+        if let Error::SessionInvalidState(id, actual, expected) = err {
+            assert_eq!(id, "s1");
+            assert_eq!(actual, "closed");
+            assert_eq!(expected, "open");
+        } else {
+            panic!("wrong variant");
+        }
+    }
+
+    #[test]
+    fn usize_variant_destructure() {
+        let err = Error::QueueInvalidPosition(42);
+        if let Error::QueueInvalidPosition(pos) = err {
+            assert_eq!(pos, 42);
+        } else {
+            panic!("wrong variant");
+        }
+    }
+
+    // =========================================================================
+    // CLAIM 10: Edge cases — empty strings, special characters, unicode
+    // =========================================================================
+
+    #[test]
+    fn empty_string_in_display() {
+        assert_eq!(Error::NotFound("".into()).to_string(), "Not found: ");
+        assert_eq!(Error::InvalidBeadTitle("".into()).to_string(), "Invalid bead title: ");
+    }
+
+    #[test]
+    fn unicode_in_display() {
+        assert_eq!(
+            Error::WorkspaceNotFound("ワークスペース".into()).to_string(),
+            "Workspace not found: ワークスペース"
+        );
+    }
+
+    #[test]
+    fn special_characters_in_display() {
+        assert_eq!(
+            Error::IoError("error: \n\t\r\"'\\{}".into()).to_string(),
+            "IO error: error: \n\t\r\"'\\{}"
+        );
+    }
+
+    #[test]
+    fn very_long_string_in_display() {
+        let long = "x".repeat(10_000);
+        let result = Error::Internal(long.clone()).to_string();
+        assert!(result.starts_with("Internal error: "));
+        assert!(result.len() > 10_000);
+    }
+
+    #[test]
+    fn zero_usize_in_queue_position() {
+        assert_eq!(Error::QueueInvalidPosition(0).to_string(), "Invalid queue position: 0");
+    }
+
+    #[test]
+    fn max_usize_in_queue_full() {
+        assert_eq!(
+            Error::QueueFull(usize::MAX).to_string(),
+            format!("Queue is full (max: {})", usize::MAX)
+        );
+    }
+
+    #[test]
+    fn zero_timeout_in_lock_timeout() {
+        let err = Error::LockTimeout {
+            operation: "x".into(),
+            timeout_ms: 0,
+            retries: 0,
+        };
+        assert_eq!(err.exit_code(), 110);
+        assert!(err.to_string().contains("0ms"));
+        assert!(err.to_string().contains("0 retries"));
+    }
+
+    // =========================================================================
+    // CLAIM 11: std::error::Error trait is implemented
+    // =========================================================================
+
+    #[test]
+    fn error_trait_is_object_safe() {
+        fn takes_error(_: &dyn std::error::Error) {}
+        takes_error(&Error::Internal("test".into()));
+    }
+
+    // =========================================================================
+    // CLAIM 12: Debug trait works
+    // =========================================================================
+
+    #[test]
+    fn debug_format_contains_variant_name() {
+        let err = Error::QueueEmpty;
+        let debug = format!("{err:?}");
+        assert!(debug.contains("QueueEmpty"));
+    }
+
+    // =========================================================================
+    // CLAIM 13: code() returns SCREAMING_SNAKE_CASE for every variant
+    // =========================================================================
+
+    #[test]
+    fn code_workspace_session() {
+        assert_eq!(Error::WorkspaceNotFound("x".into()).code(), "WORKSPACE_NOT_FOUND");
+        assert_eq!(Error::WorkspaceExists("x".into()).code(), "WORKSPACE_EXISTS");
+        assert_eq!(Error::WorkspaceLocked("x".into(), "y".into()).code(), "WORKSPACE_LOCKED");
+        assert_eq!(Error::WorkspaceConflict("x".into()).code(), "WORKSPACE_CONFLICT");
+        assert_eq!(Error::SessionNotFound("x".into()).code(), "SESSION_NOT_FOUND");
+        assert_eq!(Error::SessionExists("x".into()).code(), "SESSION_EXISTS");
+        assert_eq!(Error::SessionLocked("x".into(), "y".into()).code(), "SESSION_LOCKED");
+        assert_eq!(Error::NotLockHolder("x".into(), "y".into()).code(), "NOT_LOCK_HOLDER");
+        assert_eq!(Error::SessionInvalidState("a".into(), "b".into(), "c".into()).code(), "SESSION_INVALID_STATE");
+    }
+
+    #[test]
+    fn code_bead() {
+        assert_eq!(Error::BeadNotFound("x".into()).code(), "BEAD_NOT_FOUND");
+        assert_eq!(Error::BeadAlreadyExists("x".into()).code(), "BEAD_ALREADY_EXISTS");
+        assert_eq!(Error::InvalidBeadId("x".into()).code(), "INVALID_BEAD_ID");
+        assert_eq!(Error::InvalidBeadTitle("x".into()).code(), "INVALID_BEAD_TITLE");
+        assert_eq!(Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() }.code(), "BEAD_INVALID_STATE_TRANSITION");
+        assert_eq!(Error::BeadDependencyCycle("x".into()).code(), "BEAD_DEPENDENCY_CYCLE");
+        assert_eq!(Error::BeadBlockedBy("x".into()).code(), "BEAD_BLOCKED_BY");
+        assert_eq!(Error::BeadInvalidDependency("x".into()).code(), "BEAD_INVALID_DEPENDENCY");
+    }
+
+    #[test]
+    fn code_queue() {
+        assert_eq!(Error::QueueEmpty.code(), "QUEUE_EMPTY");
+        assert_eq!(Error::QueueItemNotFound("x".into()).code(), "QUEUE_ITEM_NOT_FOUND");
+        assert_eq!(Error::QueueLocked("x".into()).code(), "QUEUE_LOCKED");
+        assert_eq!(Error::QueueProcessing.code(), "QUEUE_PROCESSING");
+        assert_eq!(Error::QueueInvalidPosition(0).code(), "QUEUE_INVALID_POSITION");
+        assert_eq!(Error::QueueFull(10).code(), "QUEUE_FULL");
+    }
+
+    #[test]
+    fn code_vcs() {
+        assert_eq!(Error::VcsNotInitialized.code(), "VCS_NOT_INITIALIZED");
+        assert_eq!(Error::VcsConflict("a".into(), "b".into()).code(), "VCS_CONFLICT");
+        assert_eq!(Error::VcsPushFailed("x".into()).code(), "VCS_PUSH_FAILED");
+        assert_eq!(Error::VcsPullFailed("x".into()).code(), "VCS_PULL_FAILED");
+        assert_eq!(Error::VcsRebaseFailed("x".into()).code(), "VCS_REBASE_FAILED");
+        assert_eq!(Error::BranchNotFound("x".into()).code(), "BRANCH_NOT_FOUND");
+        assert_eq!(Error::BranchExists("x".into()).code(), "BRANCH_EXISTS");
+        assert_eq!(Error::CommitNotFound("x".into()).code(), "COMMIT_NOT_FOUND");
+        assert_eq!(Error::WorkingCopyDirty.code(), "WORKING_COPY_DIRTY");
+    }
+
+    #[test]
+    fn code_config() {
+        assert_eq!(Error::ConfigNotFound("x".into()).code(), "CONFIG_NOT_FOUND");
+        assert_eq!(Error::ConfigInvalid("x".into()).code(), "CONFIG_INVALID");
+        assert_eq!(Error::ConfigPermission("x".into()).code(), "CONFIG_PERMISSION");
+        assert_eq!(Error::InvalidConfig("x".into()).code(), "INVALID_CONFIG");
+        assert_eq!(Error::InvalidRepoUrl("x".into()).code(), "INVALID_REPO_URL");
+    }
+
+    #[test]
+    fn code_agent() {
+        assert_eq!(Error::AgentNotFound("x".into()).code(), "AGENT_NOT_FOUND");
+        assert_eq!(Error::AgentExists("x".into()).code(), "AGENT_EXISTS");
+        assert_eq!(Error::AgentTimeout("x".into()).code(), "AGENT_TIMEOUT");
+    }
+
+    #[test]
+    fn code_state_validation() {
+        assert_eq!(Error::InvalidState("x".into()).code(), "INVALID_STATE");
+        assert_eq!(Error::NotFound("x".into()).code(), "NOT_FOUND");
+        assert_eq!(Error::InvalidOperation("x".into()).code(), "INVALID_OPERATION");
+        assert_eq!(Error::ValidationError("x".into()).code(), "VALIDATION_ERROR");
+        assert_eq!(Error::ValidationFieldError { message: "x".into(), field: "y".into(), value: None }.code(), "VALIDATION_FIELD_ERROR");
+        assert_eq!(Error::InvalidIdentifier("x".into()).code(), "INVALID_IDENTIFIER");
+    }
+
+    #[test]
+    fn code_io_orchestration() {
+        assert_eq!(Error::IoError("x".into()).code(), "IO_ERROR");
+        assert_eq!(Error::JsonParseError("x".into()).code(), "JSON_PARSE_ERROR");
+        assert_eq!(Error::YamlParseError("x".into()).code(), "YAML_PARSE_ERROR");
+        assert_eq!(Error::Database("x".into()).code(), "DATABASE_ERROR");
+        assert_eq!(Error::Serialization("x".into()).code(), "SERIALIZATION_ERROR");
+        assert_eq!(Error::LockTimeout { operation: "x".into(), timeout_ms: 0, retries: 0 }.code(), "LOCK_TIMEOUT");
+        assert_eq!(Error::CloneFailed("x".into()).code(), "CLONE_FAILED");
+        assert_eq!(Error::RecordFailed("x".into()).code(), "RECORD_FAILED");
+        assert_eq!(Error::Persistence("x".into()).code(), "PERSISTENCE_ERROR");
+        assert_eq!(Error::StateTransition("x".into()).code(), "STATE_TRANSITION_ERROR");
+    }
+
+    #[test]
+    fn code_scenario_internal() {
+        assert_eq!(Error::ScenarioError("x".into()).code(), "SCENARIO_ERROR");
+        assert_eq!(Error::RunnerError("x".into()).code(), "RUNNER_ERROR");
+        assert_eq!(Error::DefinitionError("x".into()).code(), "DEFINITION_ERROR");
+        assert_eq!(Error::ServerError("x".into()).code(), "SERVER_ERROR");
+        assert_eq!(Error::SyncError("x".into()).code(), "SYNC_ERROR");
+        assert_eq!(Error::Internal("x".into()).code(), "INTERNAL_ERROR");
+        assert_eq!(Error::Unimplemented("x".into()).code(), "NOT_IMPLEMENTED");
+        assert_eq!(Error::InvariantViolation("x".into()).code(), "INVARIANT_VIOLATION");
+    }
+
+    #[test]
+    fn code_is_static_lifetime() {
+        // code() returns &'static str, so the reference must outlive the error
+        let code = {
+            let err = Error::QueueEmpty;
+            err.code()
+        };
+        assert_eq!(code, "QUEUE_EMPTY");
+    }
+
+    // =========================================================================
+    // CLAIM 14: context_map() returns structured JSON for every variant
+    // =========================================================================
+
+    #[test]
+    fn context_map_workspace_not_found() {
+        let ctx = Error::WorkspaceNotFound("my-ws".into()).context_map().unwrap();
+        assert_eq!(ctx["resource_type"], "workspace");
+        assert_eq!(ctx["workspace_name"], "my-ws");
+    }
+
+    #[test]
+    fn context_map_workspace_locked() {
+        let ctx = Error::WorkspaceLocked("ws".into(), "agent-1".into()).context_map().unwrap();
+        assert_eq!(ctx["workspace_name"], "ws");
+        assert_eq!(ctx["holder"], "agent-1");
+    }
+
+    #[test]
+    fn context_map_session_invalid_state() {
+        let ctx = Error::SessionInvalidState("s1".into(), "closed".into(), "open".into()).context_map().unwrap();
+        assert_eq!(ctx["session"], "s1");
+        assert_eq!(ctx["actual_state"], "closed");
+        assert_eq!(ctx["expected_state"], "open");
+    }
+
+    #[test]
+    fn context_map_bead_not_found() {
+        let ctx = Error::BeadNotFound("ha-123".into()).context_map().unwrap();
+        assert_eq!(ctx["resource_type"], "bead");
+        assert_eq!(ctx["bead_id"], "ha-123");
+    }
+
+    #[test]
+    fn context_map_bead_invalid_state_transition() {
+        let ctx = Error::BeadInvalidStateTransition { from: "open".into(), to: "closed".into() }.context_map().unwrap();
+        assert_eq!(ctx["from_state"], "open");
+        assert_eq!(ctx["to_state"], "closed");
+    }
+
+    #[test]
+    fn context_map_bead_dependency_cycle() {
+        let ctx = Error::BeadDependencyCycle("ha-1 -> ha-2 -> ha-1".into()).context_map().unwrap();
+        assert_eq!(ctx["cycle_path"], "ha-1 -> ha-2 -> ha-1");
+    }
+
+    #[test]
+    fn context_map_queue_empty() {
+        let ctx = Error::QueueEmpty.context_map().unwrap();
+        assert_eq!(ctx["error_type"], "queue_empty");
+    }
+
+    #[test]
+    fn context_map_queue_full() {
+        let ctx = Error::QueueFull(50).context_map().unwrap();
+        assert_eq!(ctx["max_size"], 50);
+    }
+
+    #[test]
+    fn context_map_vcs_conflict() {
+        let ctx = Error::VcsConflict("file.rs".into(), "merge conflict".into()).context_map().unwrap();
+        assert_eq!(ctx["repo"], "file.rs");
+        assert_eq!(ctx["message"], "merge conflict");
+    }
+
+    #[test]
+    fn context_map_vcs_push_failed() {
+        let ctx = Error::VcsPushFailed("rejected".into()).context_map().unwrap();
+        assert_eq!(ctx["operation"], "push");
+        assert_eq!(ctx["error"], "rejected");
+    }
+
+    #[test]
+    fn context_map_branch_not_found() {
+        let ctx = Error::BranchNotFound("feature/x".into()).context_map().unwrap();
+        assert_eq!(ctx["resource_type"], "branch");
+        assert_eq!(ctx["branch_name"], "feature/x");
+    }
+
+    #[test]
+    fn context_map_config_not_found() {
+        let ctx = Error::ConfigNotFound("settings.toml".into()).context_map().unwrap();
+        assert_eq!(ctx["resource_type"], "config");
+        assert_eq!(ctx["key"], "settings.toml");
+    }
+
+    #[test]
+    fn context_map_agent_not_found() {
+        let ctx = Error::AgentNotFound("alpha".into()).context_map().unwrap();
+        assert_eq!(ctx["resource_type"], "agent");
+        assert_eq!(ctx["agent_id"], "alpha");
+    }
+
+    #[test]
+    fn context_map_validation_field_error_with_value() {
+        let ctx = Error::ValidationFieldError {
+            message: "must be positive".into(),
+            field: "age".into(),
+            value: Some("-5".into()),
+        }.context_map().unwrap();
+        assert_eq!(ctx["field"], "age");
+        assert_eq!(ctx["message"], "must be positive");
+        assert_eq!(ctx["value"], "-5");
+    }
+
+    #[test]
+    fn context_map_validation_field_error_without_value() {
+        let ctx = Error::ValidationFieldError {
+            message: "required".into(),
+            field: "name".into(),
+            value: None,
+        }.context_map().unwrap();
+        assert_eq!(ctx["field"], "name");
+        assert_eq!(ctx["message"], "required");
+        assert!(!ctx.as_object().unwrap().contains_key("value"));
+    }
+
+    #[test]
+    fn context_map_lock_timeout() {
+        let ctx = Error::LockTimeout {
+            operation: "acquire workspace".into(),
+            timeout_ms: 5000,
+            retries: 3,
+        }.context_map().unwrap();
+        assert_eq!(ctx["operation"], "acquire workspace");
+        assert_eq!(ctx["timeout_ms"], 5000);
+        assert_eq!(ctx["retries"], 3);
+    }
+
+    #[test]
+    fn context_map_io_error() {
+        let ctx = Error::IoError("disk full".into()).context_map().unwrap();
+        assert_eq!(ctx["error"], "disk full");
+    }
+
+    #[test]
+    fn context_map_database() {
+        let ctx = Error::Database("connection refused".into()).context_map().unwrap();
+        assert_eq!(ctx["error"], "connection refused");
+    }
+
+    #[test]
+    fn context_map_unimplemented() {
+        let ctx = Error::Unimplemented("feature X".into()).context_map().unwrap();
+        assert_eq!(ctx["feature"], "feature X");
+    }
+
+    #[test]
+    fn context_map_not_found() {
+        let ctx = Error::NotFound("resource".into()).context_map().unwrap();
+        assert_eq!(ctx["resource"], "resource");
+    }
+
+    #[test]
+    fn context_map_invalid_operation() {
+        let ctx = Error::InvalidOperation("delete on read-only".into()).context_map().unwrap();
+        assert_eq!(ctx["operation"], "delete on read-only");
+    }
+
+    #[test]
+    fn context_map_invalid_identifier() {
+        let ctx = Error::InvalidIdentifier("123bad".into()).context_map().unwrap();
+        assert_eq!(ctx["identifier"], "123bad");
+    }
+
+    #[test]
+    fn context_map_serialization() {
+        let ctx = Error::Serialization("buffer overflow".into()).context_map().unwrap();
+        assert_eq!(ctx["error"], "buffer overflow");
+    }
+
+    #[test]
+    fn context_map_state_transition() {
+        let ctx = Error::StateTransition("open -> locked invalid".into()).context_map().unwrap();
+        assert_eq!(ctx["transition"], "open -> locked invalid");
+    }
+
+    #[test]
+    fn context_map_all_variants_return_some() {
+        // Exhaustive check: every variant returns Some
+        let all_variants: Vec<Error> = vec![
+            Error::WorkspaceNotFound("x".into()),
+            Error::WorkspaceExists("x".into()),
+            Error::WorkspaceLocked("x".into(), "y".into()),
+            Error::WorkspaceConflict("x".into()),
+            Error::SessionNotFound("x".into()),
+            Error::SessionExists("x".into()),
+            Error::SessionLocked("x".into(), "y".into()),
+            Error::NotLockHolder("x".into(), "y".into()),
+            Error::SessionInvalidState("x".into(), "y".into(), "z".into()),
+            Error::BeadNotFound("x".into()),
+            Error::BeadAlreadyExists("x".into()),
+            Error::InvalidBeadId("x".into()),
+            Error::InvalidBeadTitle("x".into()),
+            Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() },
+            Error::BeadDependencyCycle("x".into()),
+            Error::BeadBlockedBy("x".into()),
+            Error::BeadInvalidDependency("x".into()),
+            Error::QueueEmpty,
+            Error::QueueItemNotFound("x".into()),
+            Error::QueueLocked("x".into()),
+            Error::QueueProcessing,
+            Error::QueueInvalidPosition(0),
+            Error::QueueFull(10),
+            Error::VcsNotInitialized,
+            Error::VcsConflict("a".into(), "b".into()),
+            Error::VcsPushFailed("x".into()),
+            Error::VcsPullFailed("x".into()),
+            Error::VcsRebaseFailed("x".into()),
+            Error::BranchNotFound("x".into()),
+            Error::BranchExists("x".into()),
+            Error::CommitNotFound("x".into()),
+            Error::WorkingCopyDirty,
+            Error::ConfigNotFound("x".into()),
+            Error::ConfigInvalid("x".into()),
+            Error::ConfigPermission("x".into()),
+            Error::InvalidConfig("x".into()),
+            Error::InvalidRepoUrl("x".into()),
+            Error::AgentNotFound("x".into()),
+            Error::AgentExists("x".into()),
+            Error::AgentTimeout("x".into()),
+            Error::InvalidState("x".into()),
+            Error::NotFound("x".into()),
+            Error::InvalidOperation("x".into()),
+            Error::ValidationError("x".into()),
+            Error::ValidationFieldError { message: "x".into(), field: "y".into(), value: None },
+            Error::InvalidIdentifier("x".into()),
+            Error::IoError("x".into()),
+            Error::JsonParseError("x".into()),
+            Error::YamlParseError("x".into()),
+            Error::Database("x".into()),
+            Error::Serialization("x".into()),
+            Error::LockTimeout { operation: "x".into(), timeout_ms: 0, retries: 0 },
+            Error::CloneFailed("x".into()),
+            Error::RecordFailed("x".into()),
+            Error::Persistence("x".into()),
+            Error::StateTransition("x".into()),
+            Error::ScenarioError("x".into()),
+            Error::RunnerError("x".into()),
+            Error::DefinitionError("x".into()),
+            Error::ServerError("x".into()),
+            Error::SyncError("x".into()),
+            Error::Internal("x".into()),
+            Error::Unimplemented("x".into()),
+            Error::InvariantViolation("x".into()),
+        ];
+        for variant in all_variants {
+            assert!(variant.context_map().is_some(), "context_map() returned None for: {variant}");
+        }
+    }
+
+    #[test]
+    fn code_all_variants_are_screaming_snake() {
+        // Verify all codes match SCREAMING_SNAKE_CASE pattern
+        let all_variants: Vec<Error> = vec![
+            Error::WorkspaceNotFound("x".into()),
+            Error::WorkspaceExists("x".into()),
+            Error::WorkspaceLocked("x".into(), "y".into()),
+            Error::WorkspaceConflict("x".into()),
+            Error::SessionNotFound("x".into()),
+            Error::SessionExists("x".into()),
+            Error::SessionLocked("x".into(), "y".into()),
+            Error::NotLockHolder("x".into(), "y".into()),
+            Error::SessionInvalidState("x".into(), "y".into(), "z".into()),
+            Error::BeadNotFound("x".into()),
+            Error::BeadAlreadyExists("x".into()),
+            Error::InvalidBeadId("x".into()),
+            Error::InvalidBeadTitle("x".into()),
+            Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() },
+            Error::BeadDependencyCycle("x".into()),
+            Error::BeadBlockedBy("x".into()),
+            Error::BeadInvalidDependency("x".into()),
+            Error::QueueEmpty,
+            Error::QueueItemNotFound("x".into()),
+            Error::QueueLocked("x".into()),
+            Error::QueueProcessing,
+            Error::QueueInvalidPosition(0),
+            Error::QueueFull(10),
+            Error::VcsNotInitialized,
+            Error::VcsConflict("a".into(), "b".into()),
+            Error::VcsPushFailed("x".into()),
+            Error::VcsPullFailed("x".into()),
+            Error::VcsRebaseFailed("x".into()),
+            Error::BranchNotFound("x".into()),
+            Error::BranchExists("x".into()),
+            Error::CommitNotFound("x".into()),
+            Error::WorkingCopyDirty,
+            Error::ConfigNotFound("x".into()),
+            Error::ConfigInvalid("x".into()),
+            Error::ConfigPermission("x".into()),
+            Error::InvalidConfig("x".into()),
+            Error::InvalidRepoUrl("x".into()),
+            Error::AgentNotFound("x".into()),
+            Error::AgentExists("x".into()),
+            Error::AgentTimeout("x".into()),
+            Error::InvalidState("x".into()),
+            Error::NotFound("x".into()),
+            Error::InvalidOperation("x".into()),
+            Error::ValidationError("x".into()),
+            Error::ValidationFieldError { message: "x".into(), field: "y".into(), value: None },
+            Error::InvalidIdentifier("x".into()),
+            Error::IoError("x".into()),
+            Error::JsonParseError("x".into()),
+            Error::YamlParseError("x".into()),
+            Error::Database("x".into()),
+            Error::Serialization("x".into()),
+            Error::LockTimeout { operation: "x".into(), timeout_ms: 0, retries: 0 },
+            Error::CloneFailed("x".into()),
+            Error::RecordFailed("x".into()),
+            Error::Persistence("x".into()),
+            Error::StateTransition("x".into()),
+            Error::ScenarioError("x".into()),
+            Error::RunnerError("x".into()),
+            Error::DefinitionError("x".into()),
+            Error::ServerError("x".into()),
+            Error::SyncError("x".into()),
+            Error::Internal("x".into()),
+            Error::Unimplemented("x".into()),
+            Error::InvariantViolation("x".into()),
+        ];
+        for variant in all_variants {
+            let code = variant.code();
+            assert!(
+                code.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
+                "Code '{code}' is not SCREAMING_SNAKE_CASE for: {variant}"
+            );
+            assert!(
+                !code.starts_with('_') && !code.ends_with('_') && !code.contains("__"),
+                "Code '{code}' has invalid underscores for: {variant}"
+            );
+        }
+    }
+
+    // CLAIM 13: From<std::io::Error> conversion
+    // =========================================================================
+
+    #[test]
+    fn from_io_error_converts_to_io_error_variant() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let err: Error = io_err.into();
+        assert!(matches!(err, Error::IoError(_)));
+        assert_eq!(err.to_string(), "IO error: file not found");
+    }
+
+    #[test]
+    fn from_io_error_preserves_message() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "access denied");
+        let err: Error = Error::from(io_err);
+        assert_eq!(err.to_string(), "IO error: access denied");
+    }
+
+    #[test]
+    fn from_io_error_works_with_map_err() {
+        fn fallible() -> Result<()> {
+            std::fs::read_to_string("/nonexistent/path")?;
+            Ok(())
+        }
+        let err = fallible().unwrap_err();
+        assert!(matches!(err, Error::IoError(_)));
+        assert!(err.to_string().contains("IO error:"));
+    }
+>>>>>>> polecat/theta-work
 }

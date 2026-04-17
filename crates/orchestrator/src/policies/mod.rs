@@ -1,6 +1,5 @@
 //! Policy configurations for orchestrator: timeouts, retries, circuit breakers
 
-pub mod circuit;
 pub mod circuit_breaker;
 pub mod deadline;
 pub mod errors;
@@ -9,11 +8,7 @@ pub mod timeout;
 pub mod timeout_error;
 pub mod timeout_policy;
 
-pub use circuit::{CircuitBreaker, CircuitBreakerState};
-pub use circuit_breaker::{
-    CircuitBreaker as NewCircuitBreaker, CircuitBreakerError as NewCircuitBreakerError,
-    CircuitState,
-};
+pub use circuit_breaker::{CircuitBreaker, CircuitBreakerError, CircuitBreakerState};
 pub use deadline::Deadline;
 pub use errors::{ConfigError, OrchestratorError};
 pub use retry_policy::{RetryPolicy, RetryPolicyError};
@@ -48,7 +43,10 @@ impl PolicyConfig {
             timeout: PhaseTimeout::new(timeout_ms)?,
             retry: RetryPolicy::new(max_retries, base_delay_ms, 2.0, Some(max_delay_ms), vec![])
                 .map_err(|_| ConfigError::InvalidBaseDelay { delay_ms: base_delay_ms })?,
-            circuit_breaker: CircuitBreaker::new(failure_threshold, recovery_timeout_ms)?,
+            circuit_breaker: CircuitBreaker::with_recovery_timeout(
+                failure_threshold,
+                recovery_timeout_ms,
+            )?,
             deadline: None,
         })
     }

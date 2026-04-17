@@ -2,7 +2,8 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 
-use crate::domain::entities::{QueueEntry, QueueEntryId};
+use crate::domain::identifiers::QueueEntryId;
+use crate::domain::queue::entry::QueueEntry;
 use crate::domain::queue::status::QueueStatus;
 use crate::domain::validation::ValidationError;
 use crate::error::QueueError;
@@ -84,7 +85,7 @@ impl QueueRepository for InMemoryQueueRepository {
             .lock()
             .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
         if let Some(entry) = entries.pop_front() {
-            if entry.status() == QueueStatus::Pending {
+            if entry.status == QueueStatus::Pending {
                 Ok(Some(entry))
             } else {
                 Ok(None)
@@ -99,7 +100,7 @@ impl QueueRepository for InMemoryQueueRepository {
             .entries
             .lock()
             .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
-        Ok(entries.iter().find(|e| e.id() == id).cloned())
+        Ok(entries.iter().find(|e| &e.id == id).cloned())
     }
 
     fn update(&self, entry: QueueEntry) -> Result<QueueEntry, QueueError> {
@@ -107,11 +108,11 @@ impl QueueRepository for InMemoryQueueRepository {
             .entries
             .lock()
             .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
-        if let Some(pos) = entries.iter().position(|e| e.id() == entry.id()) {
+        if let Some(pos) = entries.iter().position(|e| e.id == entry.id) {
             entries[pos] = entry.clone();
             Ok(entry)
         } else {
-            Err(QueueError::QueueEntryNotFound("entry not found".into()))
+            Err(QueueError::QueueEntryNotFound(entry.id.to_string()))
         }
     }
 
@@ -122,7 +123,7 @@ impl QueueRepository for InMemoryQueueRepository {
             .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
         Ok(entries
             .iter()
-            .filter(|e| e.status() == QueueStatus::Pending)
+            .filter(|e| e.status == QueueStatus::Pending)
             .cloned()
             .collect())
     }
@@ -140,11 +141,11 @@ impl QueueRepository for InMemoryQueueRepository {
             .entries
             .lock()
             .map_err(|e| QueueError::RepositoryError(e.to_string()))?;
-        if let Some(pos) = entries.iter().position(|e| e.id() == id) {
+        if let Some(pos) = entries.iter().position(|e| &e.id == id) {
             entries.remove(pos);
             Ok(())
         } else {
-            Err(QueueError::QueueEntryNotFound("entry not found".into()))
+            Err(QueueError::QueueEntryNotFound(id.to_string()))
         }
     }
 }
