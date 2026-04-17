@@ -301,14 +301,24 @@ impl ScenarioRunner {
     fn navigate_path(value: &Value, part: &str) -> Option<Value> {
         let (key, index) = Self::parse_path_segment(part)?;
 
-        match value {
+        let result = match value {
             Value::Object(map) => map.get(key).cloned(),
             Value::Array(arr) => {
                 let idx = index.map_or(0, |i| i);
                 arr.get(idx).cloned()
             }
             _ => None,
+        }?;
+
+        // When an explicit index was specified and the parent was an Object,
+        // the index was not applied yet (e.g., `items[0]` gets the array, not element 0).
+        if let Some(idx) = index {
+            if let Value::Array(arr) = &result {
+                return arr.get(idx).cloned();
+            }
         }
+
+        Some(result)
     }
 
     /// Parse a path segment to extract key and optional array index
@@ -468,6 +478,33 @@ mod tests {
 
         let result = ScenarioRunner::extract_json_path(&value, "nested.deep");
         assert_eq!(result, Some(serde_json::json!("value")));
+    }
+
+    #[test]
+    fn test_json_path_array_out_of_bounds() {
+        let value = serde_json::json!({
+            "items": ["a", "b", "c"]
+        });
+
+        // BUG: items[0] should return "a", but navigate_path ignores the index
+        // when the parent is an Object — it returns the entire array instead.
+        let result = ScenarioRunner::extract_json_path(&value, "items[0]");
+        if result != Some(serde_json::json!("a")) {
+            println!(
+                "BUG: extract_json_path(\"items[0]\") returned {:?}, expected \"a\" — \
+                 array index is ignored when parent is Object",
+                result
+            );
+        }
+        assert_eq!(result, Some(serde_json::json!("a")));
+
+        // items[2] — last valid index
+        let result = ScenarioRunner::extract_json_path(&value, "items[2]");
+        assert_eq!(result, Some(serde_json::json!("c")));
+
+        // items[3] — out of bounds, should return None (not panic)
+        let result = ScenarioRunner::extract_json_path(&value, "items[3]");
+        assert_eq!(result, None, "out-of-bounds array index should return None");
     }
 
     #[tokio::test]
