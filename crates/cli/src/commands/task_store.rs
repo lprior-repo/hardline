@@ -7,22 +7,28 @@ use std::sync::{Arc, RwLock};
 
 use super::task_types::{Task, TaskId, Title};
 
+/// Return the platform-specific config directory for task storage.
 pub fn get_tasks_dir() -> CoreResult<PathBuf> {
     let dirs = directories::ProjectDirs::from("com", "scp", "scp")
         .ok_or_else(|| Error::internal("Could not determine config directory"))?;
     Ok(dirs.config_dir().to_path_buf())
 }
 
+/// Return the full path to the task store JSON file.
 pub fn get_tasks_file() -> CoreResult<PathBuf> {
     Ok(get_tasks_dir()?.join("tasks.json"))
 }
 
+/// Persistent task store backed by a JSON file.
+///
+/// Thread-safe via `RwLock`. All mutations are serialized to disk immediately.
 pub struct TaskStore {
     tasks: RwLock<HashMap<String, Task>>,
     tasks_file: PathBuf,
 }
 
 impl TaskStore {
+    /// Load tasks from the JSON file, or start with an empty store on error.
     pub fn load() -> Self {
         let tasks_file = match get_tasks_file() {
             Ok(path) => path,
@@ -64,6 +70,7 @@ impl TaskStore {
         }
     }
 
+    /// Persist the current task list to the JSON file.
     pub fn save(&self) -> CoreResult<()> {
         let tasks: Vec<Task> = self
             .tasks
@@ -83,6 +90,7 @@ impl TaskStore {
         Ok(())
     }
 
+    /// Return a snapshot of all tasks.
     pub fn list(&self) -> Vec<Task> {
         self.tasks
             .read()
@@ -90,6 +98,7 @@ impl TaskStore {
             .unwrap_or_else(|_| Vec::new())
     }
 
+    /// Look up a task by ID.
     pub fn get(&self, id: &str) -> Option<Task> {
         self.tasks
             .read()
@@ -97,6 +106,7 @@ impl TaskStore {
             .and_then(|tasks| tasks.get(id).cloned())
     }
 
+    /// Update an existing task. Returns an error if the task ID is not found.
     pub fn update(&self, task: Task) -> CoreResult<()> {
         let mut tasks = self
             .tasks
@@ -111,6 +121,7 @@ impl TaskStore {
         Ok(())
     }
 
+    /// Insert a new task. Returns an error if the task ID already exists.
     pub fn insert(&self, task: Task) -> CoreResult<()> {
         let mut tasks = self
             .tasks
@@ -130,10 +141,12 @@ impl TaskStore {
 
 static TASK_STORE: LazyLock<Arc<TaskStore>> = LazyLock::new(|| Arc::new(TaskStore::load()));
 
+/// Return a handle to the global lazily-initialized task store.
 pub fn get_task_store() -> Arc<TaskStore> {
     TASK_STORE.clone()
 }
 
+/// Insert a set of demo tasks for testing and onboarding.
 pub fn init_demo_tasks(store: &TaskStore) -> CoreResult<()> {
     let tasks = vec![
         Task::new(

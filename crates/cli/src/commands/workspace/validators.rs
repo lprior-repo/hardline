@@ -4,7 +4,7 @@ use scp_core::Error;
 
 /// Validate workspace name (P1)
 /// Returns Some(Error) if invalid, None if valid
-/// Enforces regex: ^[a-zA-Z][a-zA-Z0-9_-]*$
+/// Enforces regex: `^[a-zA-Z][a-zA-Z0-9_-]*$`
 #[must_use]
 pub fn validate_workspace_name(name: &str) -> Option<Error> {
     if name.is_empty() {

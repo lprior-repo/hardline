@@ -44,6 +44,7 @@ impl TaskId {
         Ok(Self(id))
     }
 
+    /// Return the raw string representation of the task ID.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -60,10 +61,12 @@ impl fmt::Display for TaskId {
 pub struct Title(String);
 
 impl Title {
+    /// Create a new title from any string-like value.
     pub fn new(title: impl Into<String>) -> Self {
         Self(title.into())
     }
 
+    /// Return the raw string representation of the title.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -80,10 +83,12 @@ impl fmt::Display for Title {
 pub struct Priority(String);
 
 impl Priority {
+    /// Create a new priority from any string-like value.
     pub fn new(priority: impl Into<String>) -> Self {
         Self(priority.into())
     }
 
+    /// Return the raw string representation of the priority.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -100,10 +105,12 @@ impl fmt::Display for Priority {
 pub struct Assignee(String);
 
 impl Assignee {
+    /// Create a new assignee from any string-like value.
     pub fn new(assignee: impl Into<String>) -> Self {
         Self(assignee.into())
     }
 
+    /// Return the raw string representation of the assignee.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -129,6 +136,7 @@ pub struct Task {
 }
 
 impl Task {
+    /// Create a new task with the given ID and title, defaulting to Open state.
     pub fn new(id: impl Into<TaskId>, title: impl Into<Title>) -> Self {
         let now = Utc::now();
         Self {

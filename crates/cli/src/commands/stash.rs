@@ -3,6 +3,10 @@
 use scp_core::{output::Output, vcs::detect_vcs, Error, Result};
 use scp_vcs::gix::{repository, stash};
 
+/// Save current changes to the stash.
+///
+/// Stashes both tracked and (optionally) untracked files so the working
+/// directory can be restored to a clean state.
 pub fn save(message: Option<&str>, include_untracked: bool, _patch: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
@@ -26,6 +30,7 @@ pub fn save(message: Option<&str>, include_untracked: bool, _patch: bool) -> Res
     Ok(())
 }
 
+/// Apply the most recent (or specified) stash and remove it from the stash list.
 pub fn pop(stash_ref: Option<&str>, _restore_index: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
@@ -52,6 +57,7 @@ pub fn pop(stash_ref: Option<&str>, _restore_index: bool) -> Result<()> {
     Ok(())
 }
 
+/// List all stashed changes with their index and message.
 pub fn list() -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
@@ -80,6 +86,7 @@ pub fn list() -> Result<()> {
     Ok(())
 }
 
+/// Remove a stash entry by its reference (e.g., `stash@{0}`).
 pub fn drop(stash_ref: &str, _force: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
@@ -107,6 +114,7 @@ pub fn drop(stash_ref: &str, _force: bool) -> Result<()> {
     Ok(())
 }
 
+/// Show the diff contents of a stash entry.
 pub fn show(stash_ref: Option<&str>, _stat: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 

@@ -5,6 +5,9 @@ use std::process::Command;
 use scp_core::{output::Output, vcs::detect_vcs, Error, Result};
 use scp_vcs::gix::{remote, repository};
 
+/// Fetch from one or all remotes.
+///
+/// Optionally prunes stale remote-tracking branches and fetches tags.
 pub fn fetch(remote: Option<&str>, prune: bool, tags: bool, all: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
@@ -22,6 +25,7 @@ pub fn fetch(remote: Option<&str>, prune: bool, tags: bool, all: bool) -> Result
     Ok(())
 }
 
+/// Pull from the default remote, fast-forwarding the current branch.
 pub fn pull() -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
@@ -39,6 +43,7 @@ pub fn pull() -> Result<()> {
     Ok(())
 }
 
+/// Push to a remote, optionally forcing, pushing tags, or deleting a remote branch.
 pub fn push(
     remote: &str,
     branch: Option<&str>,

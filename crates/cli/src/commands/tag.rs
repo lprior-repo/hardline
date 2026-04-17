@@ -3,6 +3,7 @@
 use scp_core::{output::Output, vcs::detect_vcs, Error, Result};
 use scp_vcs::gix::{repository, tag};
 
+/// List tags, optionally filtered by a glob pattern.
 pub fn list(pattern: Option<&str>, _sort: Option<&str>) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
@@ -24,6 +25,7 @@ pub fn list(pattern: Option<&str>, _sort: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+/// Create a new Git tag, optionally with an annotated message.
 pub fn create(name: &str, message: Option<&str>, _commit: Option<&str>, force: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
@@ -40,6 +42,7 @@ pub fn create(name: &str, message: Option<&str>, _commit: Option<&str>, force: b
     Ok(())
 }
 
+/// Delete a local (or remote) tag.
 pub fn delete(name: &str, remote: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
@@ -62,6 +65,7 @@ pub fn delete(name: &str, remote: bool) -> Result<()> {
     Ok(())
 }
 
+/// Push a specific tag to a remote.
 pub fn push(tag: Option<&str>, remote: &str, _force: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
