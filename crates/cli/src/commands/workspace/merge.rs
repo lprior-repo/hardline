@@ -19,7 +19,7 @@ pub fn fork(name: &str, from: Option<&str>) -> Result<(), Error> {
     let from_branch = from.unwrap_or("main");
 
     let output = Command::new("git")
-        .args(["worktree", "add", name])
+        .args(["worktree", "add", name, from_branch])
         .current_dir(&cwd)
         .output()?;
 
