@@ -26,19 +26,19 @@ impl<R: QueueRepository> QueueService<R> {
         priority: Priority,
     ) -> Result<QueueEntry> {
         let entry = QueueEntry::enqueue(session_id, bead_id, priority)?;
-        self.repository.enqueue(entry.into_erased())
+        Ok(self.repository.enqueue(entry.into_erased())?)
     }
 
     pub fn dequeue(&self) -> Result<Option<QueueEntry>> {
-        self.repository.dequeue()
+        Ok(self.repository.dequeue()?)
     }
 
     pub fn get_job(&self, id: &QueueEntryId) -> Result<Option<QueueEntry>> {
-        self.repository.get(id)
+        Ok(self.repository.get(id)?)
     }
 
     pub fn update_job(&self, entry: QueueEntry) -> Result<QueueEntry> {
-        self.repository.update(entry)
+        Ok(self.repository.update(entry)?)
     }
 
     pub fn claim_job(&self, id: &QueueEntryId) -> Result<QueueEntry> {
@@ -47,7 +47,7 @@ impl<R: QueueRepository> QueueService<R> {
             .get(id)?
             .ok_or_else(|| QueueError::QueueEntryNotFound(id.as_str().to_string()))?;
         let claimed = entry.claim()?;
-        self.repository.update(claimed.into_erased())
+        Ok(self.repository.update(claimed.into_erased())?)
     }
 
     pub fn complete_job(&self, id: &QueueEntryId, success: bool) -> Result<QueueEntry> {
@@ -57,22 +57,21 @@ impl<R: QueueRepository> QueueService<R> {
             .ok_or_else(|| QueueError::QueueEntryNotFound(id.as_str().to_string()))?;
 
         if success {
-            entry
+            let e = entry
                 .claim()
                 .and_then(|e| e.start_rebase())
                 .and_then(|e| e.start_testing())
                 .and_then(|e| e.mark_ready_to_merge())
                 .and_then(|e| e.start_merging())
-                .and_then(|e| e.mark_merged())
-                .and_then(|e| self.repository.update(e.into_erased()))
+                .and_then(|e| e.mark_merged())?;
+            Ok(self.repository.update(e.into_erased())?)
         } else {
-            // Transition through states: Pending -> Claimed -> Rebasing -> Testing -> FailedRetryable
-            entry
+            let e = entry
                 .claim()
                 .and_then(|e| e.start_rebase())
                 .and_then(|e| e.start_testing())
-                .and_then(|e| e.mark_failed_retryable("Test failed".into()))
-                .and_then(|e| self.repository.update(e.into_erased()))
+                .and_then(|e| e.mark_failed_retryable("Test failed".into()))?;
+            Ok(self.repository.update(e.into_erased())?)
         }
     }
 
@@ -82,11 +81,11 @@ impl<R: QueueRepository> QueueService<R> {
             .get(id)?
             .ok_or_else(|| QueueError::QueueEntryNotFound(id.as_str().to_string()))?;
         let cancelled = entry.cancel()?;
-        self.repository.update(cancelled.into_erased())
+        Ok(self.repository.update(cancelled.into_erased())?)
     }
 
     pub fn list_pending(&self) -> Result<Vec<QueueEntry>> {
-        self.repository.list_pending()
+        Ok(self.repository.list_pending()?)
     }
 
     pub fn list_active(&self) -> Result<Vec<QueueEntry>> {
@@ -98,11 +97,11 @@ impl<R: QueueRepository> QueueService<R> {
     }
 
     pub fn list_all(&self) -> Result<Vec<QueueEntry>> {
-        self.repository.list_all()
+        Ok(self.repository.list_all()?)
     }
 
     pub fn remove_job(&self, id: &QueueEntryId) -> Result<()> {
-        self.repository.remove(id)
+        Ok(self.repository.remove(id)?)
     }
 
     pub fn retry_job(&self, id: &QueueEntryId) -> Result<QueueEntry> {
@@ -124,7 +123,7 @@ impl<R: QueueRepository> QueueService<R> {
             entry.bead_id().map(str::to_string),
             *entry.priority(),
         )?;
-        self.repository.enqueue(requeued.into_erased())
+        Ok(self.repository.enqueue(requeued.into_erased())?)
     }
 }
 
@@ -147,14 +146,14 @@ mod tests {
     }
 
     #[test]
-    fn queue_service_dequeue_returns_claimed_job() {
+    fn queue_service_dequeue_returns_pending_job() {
         let service = create_service();
         service
             .enqueue("session-1".into(), None, Priority::default())
             .unwrap();
         let dequeued = service.dequeue().unwrap();
         assert!(dequeued.is_some());
-        assert_eq!(dequeued.unwrap().status(), QueueStatus::Claimed);
+        assert_eq!(dequeued.unwrap().status(), QueueStatus::Pending);
     }
 
     #[test]
@@ -440,7 +439,7 @@ mod tests {
     fn queue_service_get_job_after_dequeue() {
         let service = create_service();
         let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
-        let id = entry.id;
+        let id = entry.id().clone();
 
         service.dequeue().unwrap();
 
@@ -487,12 +486,12 @@ mod tests {
         // Exhaust retries (3 failures)
         let mut current = entry;
         for _ in 0..3 {
-            let failed = service.complete_job(&current.id, false).unwrap();
+            let failed = service.complete_job(&current.id(), false).unwrap();
             current = failed;
         }
 
         // Now retry should fail
-        let result = service.retry_job(&current.id);
+        let result = service.retry_job(&current.id());
         assert!(result.is_err());
     }
 
@@ -502,7 +501,7 @@ mod tests {
         let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
 
         // Try to retry a pending job (not failed)
-        let result = service.retry_job(&entry.id);
+        let result = service.retry_job(&entry.id());
         assert!(result.is_err());
     }
 
@@ -510,7 +509,7 @@ mod tests {
     fn queue_service_claim_then_cancel() {
         let service = create_service();
         let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
-        let cancelled = service.cancel_job(&entry.id).unwrap();
+        let cancelled = service.cancel_job(&entry.id()).unwrap();
         assert_eq!(cancelled.status(), QueueStatus::Cancelled);
     }
 
@@ -518,7 +517,7 @@ mod tests {
     fn queue_service_claim_then_cancel_then_get() {
         let service = create_service();
         let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
-        let id = entry.id;
+        let id = entry.id().clone();
 
         service.cancel_job(&id).unwrap();
 
@@ -531,10 +530,10 @@ mod tests {
     fn queue_service_update_job_after_claim() {
         let service = create_service();
         let entry = service.enqueue("s1".into(), None, Priority::default()).unwrap();
-        let claimed = service.claim_job(&entry.id).unwrap();
+        let claimed = service.claim_job(&entry.id()).unwrap();
 
         // Update should succeed for existing entry
-        let updated = service.update_job(claimed).unwrap();
+        let updated = service.update_job(claimed.into_erased()).unwrap();
         assert_eq!(updated.status(), QueueStatus::Claimed);
     }
 }
