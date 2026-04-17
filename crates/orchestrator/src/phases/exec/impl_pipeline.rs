@@ -23,9 +23,18 @@ impl PipelineExecutor {
         }
 
         self.run_spec_review_phase(&mut pipeline)?;
+        self.persist_state(&pipeline)?;
         self.run_universe_setup_phase(&mut pipeline)?;
+        self.persist_state(&pipeline)?;
         self.run_agent_development_phase(&mut pipeline)?;
+        self.persist_state(&pipeline)?;
         self.run_validation_phase(pipeline_id, &mut pipeline)
+    }
+
+    fn persist_state(&mut self, pipeline: &Pipeline) -> Result<(), PhaseError> {
+        self.store
+            .update(pipeline.clone())
+            .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))
     }
 
     pub(crate) fn run_spec_review_phase(
@@ -125,7 +134,9 @@ impl PipelineExecutor {
                 Ok(false)
             }
             Decision::Retry if pipeline.can_iterate() => {
-                pipeline.iteration += 1;
+                pipeline
+                    .increment_iteration()
+                    .map_err(|e| PhaseError::InvalidStateTransition(e.to_string()))?;
                 self.store
                     .update(pipeline.clone())
                     .map_err(|e| PhaseError::PersistenceFailed(e.to_string()))?;
