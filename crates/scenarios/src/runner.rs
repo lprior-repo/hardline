@@ -80,7 +80,6 @@ pub struct ScenarioRunner {
     client: Client,
     #[allow(dead_code)]
     config: RunnerConfig,
-    sanitizer: Sanitizer,
 }
 
 impl ScenarioRunner {
@@ -103,7 +102,6 @@ impl ScenarioRunner {
         Ok(Self {
             client,
             config,
-            sanitizer: Sanitizer::new(FeedbackLevel::Level5),
         })
     }
 
@@ -148,20 +146,20 @@ impl ScenarioRunner {
         context: &mut RunContext,
     ) -> StepResult {
         match step {
-            Step::Http(http_step) => self.execute_http(http_step, context).await,
+            Step::Http(http_step) => self.execute_http(http_step, index, context).await,
             Step::Extract(extract_step) => Self::execute_extract(extract_step, index, context),
             Step::Assert(assert_step) => Self::execute_assert(assert_step, index, context),
         }
     }
 
     /// Execute an HTTP step
-    async fn execute_http(&self, step: &HttpStep, context: &mut RunContext) -> StepResult {
+    async fn execute_http(&self, step: &HttpStep, index: usize, context: &mut RunContext) -> StepResult {
         let request = Self::build_request(&self.client, step);
 
         match request.send().await {
-            Ok(response) => self.process_http_response(response, context).await,
+            Ok(response) => self.process_http_response(response, index, context).await,
             Err(e) => StepResult {
-                step_index: 0,
+                step_index: index,
                 step_type: "http".to_string(),
                 passed: false,
                 error: Some(format!("Request failed: {e}")),
@@ -189,7 +187,7 @@ impl ScenarioRunner {
                 let with_headers = with_headers;
                 match serde_json::to_string(body) {
                     Ok(s) => with_headers.body(s),
-                    Err(_) => with_headers,
+                    Err(e) => with_headers.body(format!("/* serialization failed: {e} */")),
                 }
             }
             None => with_headers,
@@ -200,11 +198,13 @@ impl ScenarioRunner {
     async fn process_http_response(
         &self,
         response: reqwest::Response,
+        index: usize,
         context: &mut RunContext,
     ) -> StepResult {
         let status = response.status().as_u16();
         let headers = Self::parse_response_headers(&response);
-        let body = response.json::<Value>().await.unwrap_or(Value::Null);
+        let body_text = response.text().await.unwrap_or_default();
+        let body = serde_json::from_str::<Value>(&body_text).unwrap_or_else(|_| Value::String(body_text));
 
         context.last_response = Some(HttpResponseData {
             status,
@@ -213,7 +213,7 @@ impl ScenarioRunner {
         });
 
         StepResult {
-            step_index: 0,
+            step_index: index,
             step_type: "http".to_string(),
             passed: (200..400).contains(&status),
             error: if status >= 400 {
@@ -301,14 +301,25 @@ impl ScenarioRunner {
     fn navigate_path(value: &Value, part: &str) -> Option<Value> {
         let (key, index) = Self::parse_path_segment(part)?;
 
-        match value {
+        let next = match value {
             Value::Object(map) => map.get(key).cloned(),
             Value::Array(arr) => {
-                let idx = index.map_or(0, |i| i);
+                let Some(idx) = index else {
+                    return None;
+                };
                 arr.get(idx).cloned()
             }
             _ => None,
+        }?;
+
+        // If an explicit index was provided and the result is an array, index into it
+        if let Some(idx) = index {
+            if let Value::Array(arr) = &next {
+                return arr.get(idx).cloned();
+            }
         }
+
+        Some(next)
     }
 
     /// Parse a path segment to extract key and optional array index
@@ -402,13 +413,12 @@ impl ScenarioRunner {
 
     /// Run scenario and sanitize feedback for agent
     pub async fn run_with_sanitized_feedback(
-        &mut self,
+        &self,
         scenario: &Scenario,
         level: FeedbackLevel,
     ) -> String {
         let result = self.run(scenario).await;
-        self.sanitizer.set_level(level);
-        self.sanitizer.sanitize_result(&result)
+        Sanitizer::new(level).sanitize_result(&result)
     }
 }
 
@@ -474,5 +484,342 @@ mod tests {
     async fn test_runner_default_config() {
         let runner = ScenarioRunner::with_default_config();
         assert!(runner.is_ok());
+    }
+
+    // --- JSON path extraction tests ---
+
+    #[test]
+    fn test_json_path_array_with_index() {
+        let value = serde_json::json!({
+            "items": [
+                {"name": "first"},
+                {"name": "second"}
+            ]
+        });
+
+        let result = ScenarioRunner::extract_json_path(&value, "items[0].name");
+        assert_eq!(result, Some(serde_json::json!("first")));
+
+        let result = ScenarioRunner::extract_json_path(&value, "items[1].name");
+        assert_eq!(result, Some(serde_json::json!("second")));
+    }
+
+    #[test]
+    fn test_json_path_array_without_index_returns_array() {
+        let value = serde_json::json!({
+            "items": ["a", "b", "c"]
+        });
+
+        // Accessing an object field that is an array returns the full array
+        let result = ScenarioRunner::extract_json_path(&value, "items");
+        assert_eq!(result, Some(serde_json::json!(["a", "b", "c"])));
+    }
+
+    #[test]
+    fn test_json_path_empty_path_returns_root() {
+        let value = serde_json::json!({"key": "value"});
+        let result = ScenarioRunner::extract_json_path(&value, "$");
+        assert_eq!(result, Some(value.clone()));
+    }
+
+    #[test]
+    fn test_json_path_missing_key_returns_none() {
+        let value = serde_json::json!({"key": "value"});
+        let result = ScenarioRunner::extract_json_path(&value, "nonexistent");
+        assert_eq!(result, None);
+    }
+
+    // --- value_to_string tests ---
+
+    #[test]
+    fn test_value_to_string_string() {
+        let value = serde_json::json!("hello");
+        assert_eq!(ScenarioRunner::value_to_string(&value), "hello");
+    }
+
+    #[test]
+    fn test_value_to_string_number() {
+        let value = serde_json::json!(42);
+        assert_eq!(ScenarioRunner::value_to_string(&value), "42");
+    }
+
+    #[test]
+    fn test_value_to_string_boolean() {
+        let value = serde_json::json!(true);
+        assert_eq!(ScenarioRunner::value_to_string(&value), "true");
+    }
+
+    #[test]
+    fn test_value_to_string_null() {
+        let value = serde_json::Value::Null;
+        assert_eq!(ScenarioRunner::value_to_string(&value), "null");
+    }
+
+    #[test]
+    fn test_value_to_string_array() {
+        let value = serde_json::json!([1, 2, 3]);
+        let result = ScenarioRunner::value_to_string(&value);
+        assert!(result.contains("1"));
+        assert!(result.contains("2"));
+    }
+
+    #[test]
+    fn test_value_to_string_object() {
+        let value = serde_json::json!({"a": 1});
+        let result = ScenarioRunner::value_to_string(&value);
+        assert!(result.contains("\"a\""));
+    }
+
+    // --- parse_path_segment tests ---
+
+    #[test]
+    fn test_parse_path_segment_simple() {
+        let (key, index) = ScenarioRunner::parse_path_segment("name").unwrap();
+        assert_eq!(key, "name");
+        assert_eq!(index, None);
+    }
+
+    #[test]
+    fn test_parse_path_segment_with_index() {
+        let (key, index) = ScenarioRunner::parse_path_segment("items[0]").unwrap();
+        assert_eq!(key, "items");
+        assert_eq!(index, Some(0));
+    }
+
+    #[test]
+    fn test_parse_path_segment_nested_with_index() {
+        let (key, index) = ScenarioRunner::parse_path_segment("items[2]").unwrap();
+        assert_eq!(key, "items");
+        assert_eq!(index, Some(2));
+    }
+
+    // --- Template resolution tests ---
+
+    #[test]
+    fn test_resolve_template_multiple_variables() {
+        let mut context = RunContext::default();
+        context
+            .variables
+            .insert("first".to_string(), "hello".to_string());
+        context
+            .variables
+            .insert("second".to_string(), "world".to_string());
+
+        let result = ScenarioRunner::resolve_template("{{first}} {{second}}", &context);
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn test_resolve_template_missing_variable_unchanged() {
+        let context = RunContext::default();
+        let result = ScenarioRunner::resolve_template("{{missing}}", &context);
+        assert_eq!(result, "{{missing}}");
+    }
+
+    #[test]
+    fn test_resolve_template_empty_string() {
+        let context = RunContext::default();
+        let result = ScenarioRunner::resolve_template("", &context);
+        assert_eq!(result, "");
+    }
+
+    // --- evaluate_assertion tests ---
+
+    #[test]
+    fn test_assert_equals_match() {
+        let mut context = RunContext::default();
+        context
+            .variables
+            .insert("val".to_string(), "expected".to_string());
+
+        let step = AssertStep {
+            assertion: AssertionType::Equals,
+            equals: Some("{{val}}".to_string()),
+            expected: Some("expected".to_string()),
+            exists: None,
+            not_exists: None,
+        };
+        assert!(ScenarioRunner::evaluate_assertion(&step, &context));
+    }
+
+    #[test]
+    fn test_assert_equals_mismatch() {
+        let mut context = RunContext::default();
+        context
+            .variables
+            .insert("val".to_string(), "actual".to_string());
+
+        let step = AssertStep {
+            assertion: AssertionType::Equals,
+            equals: Some("{{val}}".to_string()),
+            expected: Some("different".to_string()),
+            exists: None,
+            not_exists: None,
+        };
+        assert!(!ScenarioRunner::evaluate_assertion(&step, &context));
+    }
+
+    #[test]
+    fn test_assert_not_equals() {
+        let mut context = RunContext::default();
+        context
+            .variables
+            .insert("val".to_string(), "a".to_string());
+
+        let step = AssertStep {
+            assertion: AssertionType::NotEquals,
+            equals: Some("{{val}}".to_string()),
+            expected: Some("b".to_string()),
+            exists: None,
+            not_exists: None,
+        };
+        assert!(ScenarioRunner::evaluate_assertion(&step, &context));
+    }
+
+    #[test]
+    fn test_assert_not_equals_same_values() {
+        let mut context = RunContext::default();
+        context
+            .variables
+            .insert("val".to_string(), "same".to_string());
+
+        let step = AssertStep {
+            assertion: AssertionType::NotEquals,
+            equals: Some("{{val}}".to_string()),
+            expected: Some("same".to_string()),
+            exists: None,
+            not_exists: None,
+        };
+        assert!(!ScenarioRunner::evaluate_assertion(&step, &context));
+    }
+
+    #[test]
+    fn test_assert_exists_with_value() {
+        let mut context = RunContext::default();
+        context
+            .variables
+            .insert("val".to_string(), "present".to_string());
+
+        let step = AssertStep {
+            assertion: AssertionType::Exists,
+            equals: None,
+            expected: None,
+            exists: Some("{{val}}".to_string()),
+            not_exists: None,
+        };
+        assert!(ScenarioRunner::evaluate_assertion(&step, &context));
+    }
+
+    #[test]
+    fn test_assert_exists_without_resolved_value_still_exists() {
+        // Unresolved template {{missing}} stays as literal "{{missing}}" (non-empty)
+        // so Exists returns true even though the variable wasn't found
+        let context = RunContext::default();
+
+        let step = AssertStep {
+            assertion: AssertionType::Exists,
+            equals: None,
+            expected: None,
+            exists: Some("{{missing}}".to_string()),
+            not_exists: None,
+        };
+        // Unresolved templates produce non-empty strings, so Exists passes
+        assert!(ScenarioRunner::evaluate_assertion(&step, &context));
+    }
+
+    #[test]
+    fn test_assert_not_exists_with_resolved_empty_string() {
+        let mut context = RunContext::default();
+        // Empty string in a variable should trigger NotExists
+        context
+            .variables
+            .insert("empty_var".to_string(), String::new());
+
+        let step = AssertStep {
+            assertion: AssertionType::NotExists,
+            equals: None,
+            expected: None,
+            exists: None,
+            not_exists: Some("{{empty_var}}".to_string()),
+        };
+        assert!(ScenarioRunner::evaluate_assertion(&step, &context));
+    }
+
+    #[test]
+    fn test_assert_not_exists_with_value() {
+        let mut context = RunContext::default();
+        context
+            .variables
+            .insert("val".to_string(), "present".to_string());
+
+        let step = AssertStep {
+            assertion: AssertionType::NotExists,
+            equals: None,
+            expected: None,
+            exists: None,
+            not_exists: Some("{{val}}".to_string()),
+        };
+        assert!(!ScenarioRunner::evaluate_assertion(&step, &context));
+    }
+
+    #[test]
+    fn test_assert_contains() {
+        let mut context = RunContext::default();
+        context
+            .variables
+            .insert("msg".to_string(), "hello world".to_string());
+
+        let step = AssertStep {
+            assertion: AssertionType::Contains,
+            equals: Some("{{msg}}".to_string()),
+            expected: Some("world".to_string()),
+            exists: None,
+            not_exists: None,
+        };
+        assert!(ScenarioRunner::evaluate_assertion(&step, &context));
+    }
+
+    #[test]
+    fn test_assert_not_contains() {
+        let mut context = RunContext::default();
+        context
+            .variables
+            .insert("msg".to_string(), "hello world".to_string());
+
+        let step = AssertStep {
+            assertion: AssertionType::NotContains,
+            equals: Some("{{msg}}".to_string()),
+            expected: Some("goodbye".to_string()),
+            exists: None,
+            not_exists: None,
+        };
+        assert!(ScenarioRunner::evaluate_assertion(&step, &context));
+    }
+
+    // --- RunnerConfig defaults ---
+
+    #[test]
+    fn test_runner_config_defaults() {
+        let config = RunnerConfig::default();
+        assert_eq!(config.twin_url, "http://localhost:3001");
+        assert_eq!(config.timeout_secs, 30);
+        assert!(config.follow_redirects);
+    }
+
+    // --- RunnerError Display ---
+
+    #[test]
+    fn test_runner_error_display() {
+        let err = RunnerError::ClientError("connection refused".to_string());
+        assert_eq!(err.to_string(), "HTTP client error: connection refused");
+
+        let err = RunnerError::SerializationError("bad json".to_string());
+        assert_eq!(err.to_string(), "Serialization error: bad json");
+
+        let err = RunnerError::ExtractionError("path not found".to_string());
+        assert_eq!(err.to_string(), "Extraction error: path not found");
+
+        let err = RunnerError::AssertionError("values differ".to_string());
+        assert_eq!(err.to_string(), "Assertion error: values differ");
     }
 }
