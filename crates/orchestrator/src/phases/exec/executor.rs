@@ -8,25 +8,38 @@ use tracing::info;
 use crate::cleanup::{CleanupContext, CleanupManager, PhaseType};
 use crate::metrics::Metrics;
 use crate::persistence::StateStore;
+use crate::policies::PolicyConfig;
 use crate::state::Pipeline;
 
 /// Pipeline executor for running phases
-#[allow(dead_code)]
 pub struct PipelineExecutor {
     pub(crate) store: StateStore,
     pub(crate) metrics: Metrics,
-    #[allow(dead_code)]
-    scenarios_path: PathBuf,
-    #[allow(dead_code)]
-    linter_path: Option<PathBuf>,
     pub(crate) cleanup_manager: CleanupManager,
+    policy_config: PolicyConfig,
 }
 
 impl PipelineExecutor {
-    pub fn new(
+    pub fn new(state_dir: PathBuf) -> AnyhowResult<Self> {
+        let store = StateStore::new(state_dir)
+            .context("Failed to initialize state store")
+            .map_err(|e| anyhow::anyhow!(e))?;
+
+        let policy_config = PolicyConfig::new(30_000, 3, 100, 5_000, 5, 30_000)
+            .context("Failed to create default policy config")?;
+
+        Ok(Self {
+            store,
+            metrics: Metrics::new(),
+            cleanup_manager: CleanupManager::new(),
+            policy_config,
+        })
+    }
+
+    /// Create a new executor with a custom policy configuration.
+    pub fn with_policy_config(
         state_dir: PathBuf,
-        scenarios_path: PathBuf,
-        linter_path: Option<PathBuf>,
+        policy_config: PolicyConfig,
     ) -> AnyhowResult<Self> {
         let store = StateStore::new(state_dir)
             .context("Failed to initialize state store")
@@ -35,10 +48,14 @@ impl PipelineExecutor {
         Ok(Self {
             store,
             metrics: Metrics::new(),
-            scenarios_path,
-            linter_path,
             cleanup_manager: CleanupManager::new(),
+            policy_config,
         })
+    }
+
+    #[must_use]
+    pub fn policy_config(&self) -> &PolicyConfig {
+        &self.policy_config
     }
 
     #[must_use]

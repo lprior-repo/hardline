@@ -330,15 +330,12 @@ mod executor {
     use orchestrator::phases::{Decision, PhaseError};
     use orchestrator::state::{Pipeline, PipelineConfig, PipelineState};
     use orchestrator::PipelineExecutor;
-    use std::path::PathBuf;
     use tempfile::TempDir;
 
     fn make_executor() -> (PipelineExecutor, TempDir) {
         let tmp = TempDir::new().unwrap();
         let executor = PipelineExecutor::new(
             tmp.path().to_path_buf(),
-            PathBuf::from("scenarios"),
-            None,
         )
         .unwrap();
         (executor, tmp)
@@ -405,8 +402,6 @@ mod executor {
         // Executor loads from the same directory
         let mut exec = PipelineExecutor::new(
             state_dir,
-            PathBuf::from("scenarios"),
-            None,
         )
         .unwrap();
 
@@ -442,8 +437,6 @@ mod executor {
 
         let mut exec = PipelineExecutor::new(
             state_dir,
-            PathBuf::from("scenarios"),
-            None,
         )
         .unwrap();
 
@@ -1307,7 +1300,6 @@ mod adversarial {
     use orchestrator::phases::Decision;
     use orchestrator::state::{Pipeline, PipelineConfig, PipelineId, PipelineState};
     use orchestrator::PipelineExecutor;
-    use std::path::PathBuf;
     use tempfile::TempDir;
 
     // ADVERSARIAL: Empty spec path
@@ -1374,8 +1366,6 @@ mod adversarial {
 
         let mut exec = PipelineExecutor::new(
             state_dir,
-            PathBuf::from("scenarios"),
-            None,
         )
         .unwrap();
 
@@ -1405,8 +1395,6 @@ mod adversarial {
 
         let mut exec = PipelineExecutor::new(
             state_dir,
-            PathBuf::from("scenarios"),
-            None,
         )
         .unwrap();
 
@@ -1422,8 +1410,6 @@ mod adversarial {
         let tmp = TempDir::new().unwrap();
         let mut exec = PipelineExecutor::new(
             tmp.path().to_path_buf(),
-            PathBuf::from("scenarios"),
-            None,
         )
         .unwrap();
         let p = exec.create_pipeline("test.spec".into()).unwrap();
@@ -1450,8 +1436,6 @@ mod adversarial {
         let tmp = TempDir::new().unwrap();
         let mut exec = PipelineExecutor::new(
             tmp.path().to_path_buf(),
-            PathBuf::from("scenarios"),
-            None,
         )
         .unwrap();
 

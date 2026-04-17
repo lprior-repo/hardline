@@ -28,7 +28,7 @@ pub use cleanup::{
     PhaseType, ResourceId,
 };
 pub use metrics::{AggregatedMetrics, Metrics, PhaseMetrics, PipelineMetrics, ScenarioResult};
-pub use persistence::StateStore;
+pub use persistence::{StateStore, StoreError};
 pub use phases::{PhaseError, PipelineExecutor};
 pub use policies::{
     CircuitBreaker, CircuitBreakerState, CircuitState, ConfigError, Deadline, NewCircuitBreaker,

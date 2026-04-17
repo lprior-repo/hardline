@@ -172,8 +172,6 @@ mod tests {
         let tmp = TempDir::new().expect("temp dir");
         let executor = PipelineExecutor::new(
             tmp.path().to_path_buf(),
-            tmp.path().join("scenarios"),
-            None,
         )
         .expect("executor");
         (executor, tmp)
