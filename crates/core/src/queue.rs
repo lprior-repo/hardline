@@ -152,6 +152,9 @@ pub trait QueueManager: Send + Sync {
 
     /// Clear completed/failed items
     fn clear_completed(&self) -> Result<usize>;
+
+    /// Insert item at a specific position (overrides priority ordering)
+    fn insert_at(&self, position: usize, item: QueueItem) -> Result<()>;
 }
 
 /// In-memory queue implementation
@@ -290,6 +293,17 @@ impl QueueManager for MemQueue {
                 && i.status != QueueStatus::Cancelled
         });
         Ok(len_before - items.len())
+    }
+
+    fn insert_at(&self, position: usize, mut item: QueueItem) -> Result<()> {
+        let mut items = self.items.write().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire write lock: {}", e))
+        })?;
+        item.created_at = Utc::now();
+        item.updated_at = Utc::now();
+        let pos = position.min(items.len());
+        items.insert(pos, item);
+        Ok(())
     }
 }
 

@@ -169,8 +169,7 @@ pub fn insert(position: usize, branch: &str) -> Result<()> {
     let queue = get_queue();
 
     let item = QueueItem::direct(branch);
-    // Note: MemQueue handles priority ordering, position is advisory
-    queue.enqueue(item)?;
+    queue.insert_at(position, item)?;
 
     println!("✓ Inserted '{}' at position {}", branch, position);
     Ok(())
