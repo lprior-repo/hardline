@@ -49,3 +49,71 @@ impl RepositoryPath {
         &self.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repository_path_new_unchecked() {
+        let path = PathBuf::from("/some/path");
+        let rp = RepositoryPath::new_unchecked(path.clone());
+        assert_eq!(rp.as_path(), path);
+    }
+
+    #[test]
+    fn repository_path_clone() {
+        let rp = RepositoryPath::new_unchecked(PathBuf::from("/test"));
+        let cloned = rp.clone();
+        assert_eq!(rp, cloned);
+    }
+
+    #[test]
+    fn repository_path_eq() {
+        let a = RepositoryPath::new_unchecked(PathBuf::from("/a"));
+        let b = RepositoryPath::new_unchecked(PathBuf::from("/a"));
+        let c = RepositoryPath::new_unchecked(PathBuf::from("/c"));
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn repository_path_hash() {
+        use std::collections::HashSet;
+        let a = RepositoryPath::new_unchecked(PathBuf::from("/same"));
+        let b = RepositoryPath::new_unchecked(PathBuf::from("/same"));
+        let mut set = HashSet::new();
+        set.insert(a);
+        assert!(set.contains(&b));
+    }
+
+    #[test]
+    fn repository_path_debug() {
+        let rp = RepositoryPath::new_unchecked(PathBuf::from("/debug"));
+        let debug = format!("{rp:?}");
+        assert!(debug.contains("/debug"));
+    }
+
+    #[test]
+    fn repository_path_serde_roundtrip() {
+        let rp = RepositoryPath::new_unchecked(PathBuf::from("/repo/project"));
+        let json = serde_json::to_string(&rp).expect("serialize");
+        let deserialized: RepositoryPath = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(rp, deserialized);
+    }
+
+    #[test]
+    fn repository_path_serde_contains_path() {
+        let rp = RepositoryPath::new_unchecked(PathBuf::from("/home/user/code"));
+        let json = serde_json::to_string(&rp).expect("serialize");
+        assert!(json.contains("/home/user/code"));
+    }
+
+    #[test]
+    fn repository_path_serde_preserves_unicode_path() {
+        let rp = RepositoryPath::new_unchecked(PathBuf::from("/home/用户/项目"));
+        let json = serde_json::to_string(&rp).expect("serialize");
+        let deserialized: RepositoryPath = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(rp, deserialized);
+    }
+}

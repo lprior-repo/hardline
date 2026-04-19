@@ -887,6 +887,27 @@ mod tests {
     }
 
     #[test]
+    fn hook_event_serialize_pascal_case() {
+        assert_eq!(serde_json::to_string(&HookEvent::PostCommit).unwrap(), "\"PostCommit\"");
+        assert_eq!(serde_json::to_string(&HookEvent::PreRebase).unwrap(), "\"PreRebase\"");
+        assert_eq!(serde_json::to_string(&HookEvent::PostPush).unwrap(), "\"PostPush\"");
+    }
+
+    #[test]
+    fn hook_event_deserialize_pascal_case() {
+        let event: HookEvent = serde_json::from_str("\"PostCommit\"").expect("deserialize");
+        assert_eq!(event, HookEvent::PostCommit);
+        let event: HookEvent = serde_json::from_str("\"PrePush\"").expect("deserialize");
+        assert_eq!(event, HookEvent::PrePush);
+    }
+
+    #[test]
+    fn hook_event_deserialize_rejects_snake_case() {
+        let result: std::result::Result<HookEvent, _> = serde_json::from_str("\"post_commit\"");
+        assert!(result.is_err(), "snake_case should be rejected");
+    }
+
+    #[test]
     fn hook_result_serde_roundtrip() {
         let result = HookResult::success(HookEvent::PreCommit, "output".to_string(), 100);
         let json = serde_json::to_string(&result).expect("serialize");
