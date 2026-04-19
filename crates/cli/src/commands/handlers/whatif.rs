@@ -1075,7 +1075,7 @@ mod tests {
                 description: "Name is valid".to_string(),
             }],
         };
-        let json = serde_json::to_string(&resu        let json = serde_json::to_string(&result).expect("serialize");
+        let json = serde_json::to_string(&result).expect("serialize");
         let deserialized: WhatIfResult = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(result.command, deserialized.command);
         assert_eq!(result.steps.len(), deserialized.steps.len());
