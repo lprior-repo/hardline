@@ -1,22 +1,59 @@
 //! Queue commands (from Stak)
 
 use scp_core::{
+    infrastructure::database::{DatabaseConfig, DatabaseService, SqliteDatabaseService},
     lock::{LockManager, LockType, MemLockManager},
-    queue::{MemQueue, Priority, QueueItem, QueueManager},
+    queue::{MemQueue, Priority, QueueItem, QueueManager, QueueStatus},
+    queue_sqlite::SqliteQueue,
     vcs::{self, VcsStatus},
     Result,
 };
+use std::env;
+use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::runtime::Runtime;
 
-/// Global queue instance
-fn get_queue() -> Arc<dyn QueueManager> {
-    let lock = Arc::new(MemLockManager::new()) as Arc<dyn LockManager>;
-    Arc::new(MemQueue::new(lock))
+/// Get the database path from environment or default
+fn get_db_path() -> String {
+    env::var("SCP_DATABASE_PATH").unwrap_or_else(|_| {
+        let mut path = env::var("HOME").map_or_else(|_| PathBuf::from("."), PathBuf::from);
+        path.push(".scp");
+        path.push("hardline.db");
+        path.to_string_lossy().to_string()
+    })
+}
+
+/// Run async code in a temporary Tokio runtime
+fn run_async<F, T>(f: F) -> Result<T>
+where
+    F: std::future::Future<Output = Result<T>>,
+{
+    let rt = Runtime::new()
+        .map_err(|e| scp_core::Error::internal(format!("Failed to create runtime: {}", e)))?;
+    rt.block_on(f)
+}
+
+/// Get a persistent SQLite-backed queue
+fn get_queue() -> Result<Arc<dyn QueueManager>> {
+    let db_path = get_db_path();
+    // Ensure parent directory exists
+    if let Some(parent) = std::path::Path::new(&db_path).parent() {
+        std::fs::create_dir_all(parent).map_err(|e| {
+            scp_core::Error::io_error(format!("Failed to create database directory: {}", e))
+        })?;
+    }
+    run_async(async {
+        let config = DatabaseConfig::new(db_path)?;
+        let db_service = SqliteDatabaseService::new(config).await?;
+        let queue = SqliteQueue::new(db_service.pool().clone());
+        queue.init().await?;
+        Ok(Arc::new(queue) as Arc<dyn QueueManager>)
+    })
 }
 
 /// List queue items
 pub fn list() -> Result<()> {
-    let queue = get_queue();
+    let queue = get_queue()?;
     let items = queue.list()?;
 
     if items.is_empty() {
@@ -35,7 +72,7 @@ pub fn list() -> Result<()> {
 
 /// Add item to queue
 pub fn enqueue(branch: &str, priority: Option<&str>) -> Result<()> {
-    let queue = get_queue();
+    let queue = get_queue()?;
 
     let mut item = QueueItem::direct(branch);
 
@@ -56,7 +93,7 @@ pub fn enqueue(branch: &str, priority: Option<&str>) -> Result<()> {
 
 /// Remove front item from queue
 pub fn dequeue() -> Result<()> {
-    let queue = get_queue();
+    let queue = get_queue()?;
 
     match queue.dequeue()? {
         Some(item) => {
@@ -152,7 +189,7 @@ pub fn process_with_backend(
 
 /// Process next item in queue
 pub fn process(checks: bool) -> Result<()> {
-    let queue = get_queue();
+    let queue = get_queue()?;
 
     // Acquire lock
     let lock = Arc::new(MemLockManager::new()) as Arc<dyn LockManager>;
@@ -166,7 +203,7 @@ pub fn process(checks: bool) -> Result<()> {
 
 /// Insert item at position
 pub fn insert(position: usize, branch: &str) -> Result<()> {
-    let queue = get_queue();
+    let queue = get_queue()?;
 
     let item = QueueItem::direct(branch);
     queue.insert_at(position, item)?;
@@ -177,7 +214,7 @@ pub fn insert(position: usize, branch: &str) -> Result<()> {
 
 /// Remove item from queue
 pub fn remove(branch: &str) -> Result<()> {
-    let queue = get_queue();
+    let queue = get_queue()?;
 
     // Find by branch name
     let items = queue.list()?;
@@ -194,7 +231,7 @@ pub fn remove(branch: &str) -> Result<()> {
 
 /// Show queue status
 pub fn status() -> Result<()> {
-    let queue = get_queue();
+    let queue = get_queue()?;
 
     let len = queue.len()?;
     let pending = queue.list_pending()?;

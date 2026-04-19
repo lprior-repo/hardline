@@ -57,6 +57,7 @@ pub mod output;
 pub mod output_format;
 pub mod output_jsonl;
 pub mod queue;
+pub mod queue_sqlite;
 pub mod recovery;
 pub mod session_state;
 pub mod session_sync;
@@ -119,6 +120,7 @@ pub use output_format::OutputFormat;
 pub use queue::{
     MemQueue, Priority, ProcessResult, QueueItem, QueueManager, QueueSource, QueueStatus,
 };
+pub use queue_sqlite::SqliteQueue;
 pub use recovery::{RecoveryConfig, RecoveryPolicy};
 pub use session_state::{SessionState, SessionStateManager, StateTransition};
 pub use shutdown::{signal_channels, ShutdownCoordinator, ShutdownSignal};
