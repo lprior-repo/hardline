@@ -45,6 +45,9 @@ chrono = { version = "0.4", features = ["serde"] }
 # CLI
 clap = { version = "4", features = ["derive"] }
 
+# Random
+rand = "0.9"
+
 # Collections & functional
 im = { version = "15.1", features = ["serde"] }
 rpds = "1.2"
@@ -83,9 +86,46 @@ faster-hex = "0.10"
 gix = { version = "0.78", features = ["status", "blocking-network-client"] }
 git2 = "0.20"
 uuid = { version = "1", features = ["v4", "serde"] }
+uuid-no-serde = { version = "1", features = ["v4"] }
 
 # Path utilities
 pathdiff = "0.2"
+
+# URL parsing
+url = "2"
+
+# TUI
+ratatui = "0.28"
+crossterm = "0.28"
+
+# HTTP
+hyper = { version = "1", features = ["client", "http1", "http2"] }
+http-body-util = "0.1"
+tower = { version = "0.4", features = ["util"] }
+tower-http = { version = "0.5", features = ["trace"] }
+axum = "0.7"
+
+# Process/Shell
+shell-words = "1.0"
+
+# Hashing
+sha2 = "0.10"
+
+# ORM
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Octocrab (GitHub API)
+octocrab = "0.44"
+
+# State
+once_cell = "1.20"
+
+# Testing utilities
+assert_cmd = "2.0"
+predicates = "3.0"
+
+# Additional async
+futures-util = "0.3"
 
 # Design-by-Contract
 dbc = { package = "contracts", version = "0.6" }

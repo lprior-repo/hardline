@@ -1,5 +1,6 @@
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
+use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
 use crate::views::WorktreeView;
@@ -11,7 +12,7 @@ pub trait BranchProvider: Send + Sync {
 }
 
 /// A single line of diff output with associated style.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DiffLine {
     /// The text content of this diff line.
     pub content: String,
@@ -20,7 +21,7 @@ pub struct DiffLine {
 }
 
 /// Style classification for a diff line.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DiffLineKind {
     /// File header (e.g., `diff --git a/... b/...`)
     Header,
@@ -55,14 +56,14 @@ impl DiffLine {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum FocusedPane {
     Stack,
     Diff,
     Worktrees,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Mode {
     Normal,
     Search,
@@ -72,7 +73,7 @@ pub enum Mode {
     Reorder,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ConfirmAction {
     Delete(String),
     Restack(String),
@@ -80,7 +81,7 @@ pub enum ConfirmAction {
     ApplyReorder,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum InputAction {
     Rename,
     NewBranch,
@@ -943,7 +944,11 @@ mod tests {
             || Mode::Input(InputAction::NewBranch),
             || Mode::Reorder,
         ];
-        let panes = [FocusedPane::Stack, FocusedPane::Diff, FocusedPane::Worktrees];
+        let panes = [
+            FocusedPane::Stack,
+            FocusedPane::Diff,
+            FocusedPane::Worktrees,
+        ];
         for make_mode in modes {
             for pane in panes {
                 let mut app = TuiApp::new(Box::new(DefaultBranchProvider)).expect("ok");
@@ -1148,6 +1153,344 @@ mod tests {
                 .collect();
             app.set_diff(lines);
             assert_eq!(app.diff_lines.len(), count);
+        }
+    }
+
+    // ── Serde Round-Trip Tests ─────────────────────────────────────────────────
+
+    mod serde_tests {
+        use super::*;
+
+        // ── DiffLineKind round-trip ──
+
+        #[test]
+        fn serde_diff_line_kind_header_roundtrip() {
+            let original = DiffLineKind::Header;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: DiffLineKind = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_diff_line_kind_hunk_roundtrip() {
+            let original = DiffLineKind::Hunk;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: DiffLineKind = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_diff_line_kind_add_roundtrip() {
+            let original = DiffLineKind::Add;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: DiffLineKind = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_diff_line_kind_remove_roundtrip() {
+            let original = DiffLineKind::Remove;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: DiffLineKind = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_diff_line_kind_context_roundtrip() {
+            let original = DiffLineKind::Context;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: DiffLineKind = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        // ── DiffLine round-trip ──
+
+        #[test]
+        fn serde_diff_line_roundtrip_empty_content() {
+            let original = DiffLine::new("", DiffLineKind::Context);
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: DiffLine = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_diff_line_roundtrip_with_content() {
+            let original = DiffLine::new("+ new feature line", DiffLineKind::Add);
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: DiffLine = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_diff_line_roundtrip_unicode() {
+            let original = DiffLine::new("フィーチャー/ブランチ + 日本語", DiffLineKind::Add);
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: DiffLine = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_diff_line_roundtrip_all_kinds() {
+            let content = "test content";
+            for kind in [
+                DiffLineKind::Header,
+                DiffLineKind::Hunk,
+                DiffLineKind::Add,
+                DiffLineKind::Remove,
+                DiffLineKind::Context,
+            ] {
+                let line = DiffLine::new(content, kind);
+                let json = serde_json::to_string(&line).expect("serialize");
+                let deserialized: DiffLine = serde_json::from_str(&json).expect("deserialize");
+                assert_eq!(line, deserialized);
+            }
+        }
+
+        #[test]
+        fn serde_diff_line_roundtrip_preserves_content_special_chars() {
+            let content = "line with\ttabs\x00nulls\nnewlines\r\ncarriage returns";
+            let original = DiffLine::new(content, DiffLineKind::Context);
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: DiffLine = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        // ── FocusedPane round-trip ──
+
+        #[test]
+        fn serde_focused_pane_stack_roundtrip() {
+            let original = FocusedPane::Stack;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: FocusedPane = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_focused_pane_diff_roundtrip() {
+            let original = FocusedPane::Diff;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: FocusedPane = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_focused_pane_worktrees_roundtrip() {
+            let original = FocusedPane::Worktrees;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: FocusedPane = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        // ── InputAction round-trip ──
+
+        #[test]
+        fn serde_input_action_rename_roundtrip() {
+            let original = InputAction::Rename;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: InputAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_input_action_new_branch_roundtrip() {
+            let original = InputAction::NewBranch;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: InputAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        // ── ConfirmAction round-trip ──
+
+        #[test]
+        fn serde_confirm_action_delete_roundtrip() {
+            let original = ConfirmAction::Delete("feature/my-branch".to_string());
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ConfirmAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_confirm_action_delete_empty_name() {
+            let original = ConfirmAction::Delete(String::new());
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ConfirmAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_confirm_action_delete_unicode() {
+            let original = ConfirmAction::Delete("フィーチャー/ブランチ".to_string());
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ConfirmAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_confirm_action_restack_roundtrip() {
+            let original = ConfirmAction::Restack("feature/restack".to_string());
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ConfirmAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_confirm_action_restack_all_roundtrip() {
+            let original = ConfirmAction::RestackAll;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ConfirmAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_confirm_action_apply_reorder_roundtrip() {
+            let original = ConfirmAction::ApplyReorder;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ConfirmAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        // ── Mode round-trip ──
+
+        #[test]
+        fn serde_mode_normal_roundtrip() {
+            let original = Mode::Normal;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: Mode = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_search_roundtrip() {
+            let original = Mode::Search;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: Mode = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_help_roundtrip() {
+            let original = Mode::Help;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: Mode = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_reorder_roundtrip() {
+            let original = Mode::Reorder;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: Mode = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_confirm_delete_roundtrip() {
+            let original = Mode::Confirm(ConfirmAction::Delete("my-branch".to_string()));
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: Mode = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_confirm_restack_roundtrip() {
+            let original = Mode::Confirm(ConfirmAction::Restack("feature/x".to_string()));
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: Mode = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_confirm_restack_all_roundtrip() {
+            let original = Mode::Confirm(ConfirmAction::RestackAll);
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: Mode = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_confirm_apply_reorder_roundtrip() {
+            let original = Mode::Confirm(ConfirmAction::ApplyReorder);
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: Mode = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_input_rename_roundtrip() {
+            let original = Mode::Input(InputAction::Rename);
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: Mode = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_input_new_branch_roundtrip() {
+            let original = Mode::Input(InputAction::NewBranch);
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: Mode = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        // ── Missing and extra fields tests ──
+
+        #[test]
+        fn serde_ignores_extra_fields_in_json() {
+            let json = r#"{"extra_field": "should be ignored", "content": "test", "kind": "Context"}"#;
+            let deserialized: DiffLine = serde_json::from_str(json).expect("deserialize");
+            assert_eq!(deserialized.content, "test");
+            assert_eq!(deserialized.kind, DiffLineKind::Context);
+        }
+
+        // ── Proptests for serde ──
+
+        use proptest::proptest;
+
+        proptest! {
+            #[test]
+            fn prop_diff_line_kind_roundtrip(kind_idx in 0usize..5) {
+                let kinds = [
+                    DiffLineKind::Header,
+                    DiffLineKind::Hunk,
+                    DiffLineKind::Add,
+                    DiffLineKind::Remove,
+                    DiffLineKind::Context,
+                ];
+                let original = kinds[kind_idx];
+                let json = serde_json::to_string(&original).expect("serialize");
+                let deserialized: DiffLineKind = serde_json::from_str(&json).expect("deserialize");
+                assert_eq!(original, deserialized);
+            }
+
+            #[test]
+            fn prop_diff_line_roundtrip(content in ".{0,500}", kind_idx in 0usize..5) {
+                let kinds = [
+                    DiffLineKind::Header,
+                    DiffLineKind::Hunk,
+                    DiffLineKind::Add,
+                    DiffLineKind::Remove,
+                    DiffLineKind::Context,
+                ];
+                let original = DiffLine::new(content, kinds[kind_idx]);
+                let json = serde_json::to_string(&original).expect("serialize");
+                let deserialized: DiffLine = serde_json::from_str(&json).expect("deserialize");
+                assert_eq!(original, deserialized);
+            }
+
+            #[test]
+            fn prop_confirm_action_delete_roundtrip(name in ".{0,200}") {
+                let original = ConfirmAction::Delete(name.clone());
+                let json = serde_json::to_string(&original).expect("serialize");
+                let deserialized: ConfirmAction = serde_json::from_str(&json).expect("deserialize");
+                assert_eq!(original, deserialized);
+            }
+
+            #[test]
+            fn prop_confirm_action_restack_roundtrip(name in ".{0,200}") {
+                let original = ConfirmAction::Restack(name.clone());
+                let json = serde_json::to_string(&original).expect("serialize");
+                let deserialized: ConfirmAction = serde_json::from_str(&json).expect("deserialize");
+                assert_eq!(original, deserialized);
+            }
         }
     }
 }

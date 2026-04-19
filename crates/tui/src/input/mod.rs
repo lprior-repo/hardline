@@ -1,9 +1,10 @@
 use crossterm::event::{KeyCode, KeyEvent};
+use serde::{Deserialize, Serialize};
 
 use crate::app::{ConfirmAction, FocusedPane, InputAction, Mode};
 
 /// Actions that mutate hunk-level state in the diff view.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum HunkAction {
     Stage,
     Unstage,
@@ -15,7 +16,7 @@ pub enum HunkAction {
 }
 
 /// Mode transitions that InputHandler can request.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ModeAction {
     EnterSearch,
     EnterHelp,
@@ -27,7 +28,7 @@ pub enum ModeAction {
 }
 
 /// Discriminated result from handling a single key event.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum InputResult {
     Handled(HunkAction),
     /// Tab was pressed — caller should cycle `FocusedPane`.
@@ -40,7 +41,7 @@ pub enum InputResult {
     Quit,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InputHandler {
     pub current_hunk: usize,
     pub total_hunks: usize,
@@ -78,7 +79,9 @@ impl InputHandler {
             KeyCode::Tab => InputResult::SwitchPane,
             KeyCode::Char('/') => InputResult::ModeTransition(ModeAction::EnterSearch),
             KeyCode::Char('?') => InputResult::ModeTransition(ModeAction::EnterHelp),
-            KeyCode::Char('i') => InputResult::ModeTransition(ModeAction::EnterInput(InputAction::Rename)),
+            KeyCode::Char('i') => {
+                InputResult::ModeTransition(ModeAction::EnterInput(InputAction::Rename))
+            }
             KeyCode::Char('R') => InputResult::ModeTransition(ModeAction::EnterReorder),
             KeyCode::Char(' ') | KeyCode::Char('s') => InputResult::Handled(HunkAction::Stage),
             KeyCode::Char('u') => InputResult::Handled(HunkAction::Unstage),
@@ -469,14 +472,20 @@ mod tests {
     fn normal_i_enters_input_rename() {
         let mut handler = InputHandler::new();
         let result = handler.handle_key_event(char_key('i'), &normal());
-        assert_eq!(result, InputResult::ModeTransition(ModeAction::EnterInput(InputAction::Rename)));
+        assert_eq!(
+            result,
+            InputResult::ModeTransition(ModeAction::EnterInput(InputAction::Rename))
+        );
     }
 
     #[test]
     fn normal_uppercase_r_enters_reorder() {
         let mut handler = InputHandler::new();
         let result = handler.handle_key_event(char_key('R'), &normal());
-        assert_eq!(result, InputResult::ModeTransition(ModeAction::EnterReorder));
+        assert_eq!(
+            result,
+            InputResult::ModeTransition(ModeAction::EnterReorder)
+        );
     }
 
     // ── Normal mode: unhandled keys ──
@@ -526,14 +535,20 @@ mod tests {
     fn search_mode_esc_returns_to_normal() {
         let mut handler = InputHandler::new();
         let result = handler.handle_key_event(key(KeyCode::Esc), &Mode::Search);
-        assert_eq!(result, InputResult::ModeTransition(ModeAction::ReturnToNormal));
+        assert_eq!(
+            result,
+            InputResult::ModeTransition(ModeAction::ReturnToNormal)
+        );
     }
 
     #[test]
     fn help_mode_esc_returns_to_normal() {
         let mut handler = InputHandler::new();
         let result = handler.handle_key_event(key(KeyCode::Esc), &Mode::Help);
-        assert_eq!(result, InputResult::ModeTransition(ModeAction::ReturnToNormal));
+        assert_eq!(
+            result,
+            InputResult::ModeTransition(ModeAction::ReturnToNormal)
+        );
     }
 
     #[test]
@@ -541,7 +556,10 @@ mod tests {
         let mut handler = InputHandler::new();
         let mode = Mode::Confirm(ConfirmAction::Delete("x".into()));
         let result = handler.handle_key_event(key(KeyCode::Esc), &mode);
-        assert_eq!(result, InputResult::ModeTransition(ModeAction::ReturnToNormal));
+        assert_eq!(
+            result,
+            InputResult::ModeTransition(ModeAction::ReturnToNormal)
+        );
     }
 
     #[test]
@@ -549,14 +567,20 @@ mod tests {
         let mut handler = InputHandler::new();
         let mode = Mode::Input(InputAction::Rename);
         let result = handler.handle_key_event(key(KeyCode::Esc), &mode);
-        assert_eq!(result, InputResult::ModeTransition(ModeAction::ReturnToNormal));
+        assert_eq!(
+            result,
+            InputResult::ModeTransition(ModeAction::ReturnToNormal)
+        );
     }
 
     #[test]
     fn reorder_mode_esc_returns_to_normal() {
         let mut handler = InputHandler::new();
         let result = handler.handle_key_event(key(KeyCode::Esc), &Mode::Reorder);
-        assert_eq!(result, InputResult::ModeTransition(ModeAction::ReturnToNormal));
+        assert_eq!(
+            result,
+            InputResult::ModeTransition(ModeAction::ReturnToNormal)
+        );
     }
 
     // ── Non-Normal mode: Enter confirms ──
@@ -812,6 +836,225 @@ mod tests {
             ];
             for mode in &modes {
                 let _result = handler.handle_key_event(k, mode);
+            }
+        }
+    }
+
+    // ── Serde Round-Trip Tests ─────────────────────────────────────────────────
+
+    mod serde_tests {
+        use super::*;
+
+        // ── HunkAction round-trip ──
+
+        #[test]
+        fn serde_hunk_action_stage_roundtrip() {
+            let original = HunkAction::Stage;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: HunkAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_hunk_action_unstage_roundtrip() {
+            let original = HunkAction::Unstage;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: HunkAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_hunk_action_discard_roundtrip() {
+            let original = HunkAction::Discard;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: HunkAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_hunk_action_navigate_next_roundtrip() {
+            let original = HunkAction::NavigateNext;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: HunkAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_hunk_action_navigate_prev_roundtrip() {
+            let original = HunkAction::NavigatePrev;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: HunkAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_hunk_action_scroll_up_roundtrip() {
+            let original = HunkAction::ScrollUp;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: HunkAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_hunk_action_scroll_down_roundtrip() {
+            let original = HunkAction::ScrollDown;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: HunkAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        // ── InputResult round-trip ──
+
+        #[test]
+        fn serde_input_result_handled_stage_roundtrip() {
+            let original = InputResult::Handled(HunkAction::Stage);
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: InputResult = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_input_result_switch_pane_roundtrip() {
+            let original = InputResult::SwitchPane;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: InputResult = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_input_result_mode_transition_search_roundtrip() {
+            let original = InputResult::ModeTransition(ModeAction::EnterSearch);
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: InputResult = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_input_result_confirm_roundtrip() {
+            let original = InputResult::Confirm;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: InputResult = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_input_result_unhandled_roundtrip() {
+            let original = InputResult::Unhandled;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: InputResult = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_input_result_quit_roundtrip() {
+            let original = InputResult::Quit;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: InputResult = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        // ── ModeAction round-trip ──
+
+        #[test]
+        fn serde_mode_action_enter_search_roundtrip() {
+            let original = ModeAction::EnterSearch;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ModeAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_action_enter_help_roundtrip() {
+            let original = ModeAction::EnterHelp;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ModeAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_action_enter_reorder_roundtrip() {
+            let original = ModeAction::EnterReorder;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ModeAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_action_return_to_normal_roundtrip() {
+            let original = ModeAction::ReturnToNormal;
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ModeAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_action_enter_confirm_delete_roundtrip() {
+            let original = ModeAction::EnterConfirm(ConfirmAction::Delete("branch".to_string()));
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ModeAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_mode_action_enter_input_rename_roundtrip() {
+            let original = ModeAction::EnterInput(InputAction::Rename);
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: ModeAction = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        // ── InputHandler round-trip ──
+
+        #[test]
+        fn serde_input_handler_default_roundtrip() {
+            let original = InputHandler::new();
+            let json = serde_json::to_string(&original).expect("serialize");
+            let deserialized: InputHandler = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(original, deserialized);
+        }
+
+        #[test]
+        fn serde_input_handler_with_hunks_roundtrip() {
+            let mut handler = InputHandler::new();
+            handler.set_hunk_count(5);
+            handler.current_hunk = 3;
+            let json = serde_json::to_string(&handler).expect("serialize");
+            let deserialized: InputHandler = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(handler.current_hunk, deserialized.current_hunk);
+            assert_eq!(handler.total_hunks, deserialized.total_hunks);
+        }
+
+        // ── Proptests for serde ──
+
+        use proptest::proptest;
+
+        proptest! {
+            #[test]
+            fn prop_hunk_action_roundtrip(idx in 0usize..7) {
+                let actions = [
+                    HunkAction::Stage,
+                    HunkAction::Unstage,
+                    HunkAction::Discard,
+                    HunkAction::NavigateNext,
+                    HunkAction::NavigatePrev,
+                    HunkAction::ScrollUp,
+                    HunkAction::ScrollDown,
+                ];
+                let original = actions[idx];
+                let json = serde_json::to_string(&original).expect("serialize");
+                let deserialized: HunkAction = serde_json::from_str(&json).expect("deserialize");
+                assert_eq!(original, deserialized);
+            }
+
+            #[test]
+            fn prop_input_handler_roundtrip(current in 0usize..10, total in 0usize..10) {
+                let mut handler = InputHandler::new();
+                handler.set_hunk_count(total);
+                handler.current_hunk = current.min(total.saturating_sub(1));
+                let json = serde_json::to_string(&handler).expect("serialize");
+                let deserialized: InputHandler = serde_json::from_str(&json).expect("deserialize");
+                assert_eq!(handler.current_hunk, deserialized.current_hunk);
+                assert_eq!(handler.total_hunks, deserialized.total_hunks);
             }
         }
     }
