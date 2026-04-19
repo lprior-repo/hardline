@@ -180,6 +180,23 @@ mod tests {
     }
 
     #[test]
+    fn test_ci_status_serde_roundtrip_all() {
+        let variants = [
+            (CiStatus::Success, "success"),
+            (CiStatus::Failure, "failure"),
+            (CiStatus::Pending, "pending"),
+            (CiStatus::InProgress, "in_progress"),
+            (CiStatus::Cancelled, "cancelled"),
+        ];
+        for (status, expected_json) in &variants {
+            let json = serde_json::to_string(status).expect("serialize");
+            assert_eq!(json, format!("\"{expected_json}\""), "snake_case rename");
+            let back: CiStatus = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(*status, back);
+        }
+    }
+
+    #[test]
     fn test_ci_run_record_serde() {
         let record = CiRunRecord::new("run-123", "abc123", CiStatus::Success, Utc::now(), 120);
         let json = serde_json::to_string(&record).expect("serialize");
