@@ -16,7 +16,7 @@ use super::data::{
 ///
 /// Returns errors for validation failures or VCS operation failures.
 pub fn run_branch_create(options: &BranchCreateOptions) -> Result<BranchCreateOutput> {
-    validate_branch_name(&options.name).map_err(|e| Error::validation_error(e))?;
+    validate_branch_name(&options.name).map_err(Error::validation_error)?;
 
     if options.dry_run {
         Output::info(&format!(
@@ -106,7 +106,7 @@ pub fn run_branch_rename(options: &BranchRenameOptions) -> Result<()> {
         )));
     }
 
-    validate_branch_name(&options.new_name).map_err(|e| Error::validation_error(e))?;
+    validate_branch_name(&options.new_name).map_err(Error::validation_error)?;
 
     // Edge case: rename to same name is a no-op
     if options.old_name == options.new_name {

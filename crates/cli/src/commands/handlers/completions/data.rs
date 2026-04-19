@@ -18,6 +18,7 @@ pub struct CompletionsOptions {
 /// Supported shells for completion generation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[allow(clippy::enum_variant_names)] // PowerShell is a compound proper noun, not a Shell variant
 pub enum Shell {
     Bash,
     Zsh,

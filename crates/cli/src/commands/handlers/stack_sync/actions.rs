@@ -97,8 +97,8 @@ pub fn run_stack_sync(
         let detected = detect_merged_branches(&options.trunk_branch, &input);
 
         // 5. Delete merged branches
-        for (branch, method) in &detected {
-            let merged = delete_merged_branch(workdir, stack, branch, method, &options);
+        for (branch, method) in detected.iter().map(|(b, m)| (b, m)) {
+            let merged = delete_merged_branch(workdir, stack, branch, method, options);
             result.merged_branches.push(merged);
         }
 
@@ -221,7 +221,7 @@ fn update_trunk(workdir: &Path, trunk: &str, remote: &str, safe: bool) -> Result
         .output();
 
     match output {
-        Ok(out) if out.status.success() => return Ok(true),
+        Ok(out) if out.status.success() => Ok(true),
         Ok(_) => {
             // ff-only failed
             if safe {
@@ -409,8 +409,7 @@ fn stash_push(workdir: &Path) -> Result<(), std::io::Error> {
     if output.status.success() {
         Ok(())
     } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(std::io::Error::other(
             String::from_utf8_lossy(&output.stderr).to_string(),
         ))
     }
@@ -426,8 +425,7 @@ fn stash_pop(workdir: &Path) -> Result<(), std::io::Error> {
     if output.status.success() {
         Ok(())
     } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        Err(std::io::Error::other(
             String::from_utf8_lossy(&output.stderr).to_string(),
         ))
     }

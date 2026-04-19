@@ -9,17 +9,22 @@
 //! - invariant-preservation: Cross-field independence
 //! - branch-provider: Provider contract, error handling, refresh semantics
 
+#[cfg(test)]
 use crate::app::{BranchProvider, TuiApp};
+#[cfg(test)]
 use scp_stack::domain::StackBranch;
 
+#[cfg(test)]
 struct StubProvider;
 
+#[cfg(test)]
 impl BranchProvider for StubProvider {
     fn load_branches(&self) -> std::result::Result<Vec<StackBranch>, String> {
         Ok(Vec::new())
     }
 }
 
+#[cfg(test)]
 fn test_app() -> TuiApp {
     TuiApp::new(Box::new(StubProvider)).expect("TuiApp::new should succeed")
 }
