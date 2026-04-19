@@ -395,7 +395,10 @@ mod tests {
         let mut buf = Buffer::empty(area);
         widget.render(area, &mut buf);
         // Buffer should have non-zero content after rendering
-        let has_content = buf.content.iter().any(|cell| cell.symbol().is_empty() == false);
+        let has_content = buf
+            .content
+            .iter()
+            .any(|cell| cell.symbol().is_empty() == false);
         assert!(has_content, "buffer should have rendered content");
     }
 
@@ -478,8 +481,15 @@ mod tests {
     fn deep_nesting_chain() {
         let mut branches = vec![create_test_branch("root", None)];
         for i in 0..50 {
-            let parent = if i == 0 { "root" } else { &format!("branch-{}", i) };
-            branches.push(create_test_branch(&format!("branch-{}", i + 1), Some(parent)));
+            let parent = if i == 0 {
+                "root"
+            } else {
+                &format!("branch-{}", i)
+            };
+            branches.push(create_test_branch(
+                &format!("branch-{}", i + 1),
+                Some(parent),
+            ));
         }
         let widget = StackTreeWidget::new(branches);
         let nodes = widget.build_tree_nodes();

@@ -20,4 +20,6 @@ pub mod actions;
 pub mod data;
 
 pub use actions::run_completions;
-pub use data::{install_instructions, supported_shells, CompletionsOptions, CompletionsOutput, Shell};
+pub use data::{
+    install_instructions, supported_shells, CompletionsOptions, CompletionsOutput, Shell,
+};

@@ -1074,7 +1074,7 @@ mod tests {
 
     mod state_machine_transition_tests {
         use super::*;
-        use crate::domain::events::{SessionEvent, serialize_event};
+        use crate::domain::events::{serialize_event, SessionEvent};
 
         /// Path 1: Created → Active → Completed
         /// Verifies state correctness and event correspondence at each step.
@@ -1174,7 +1174,13 @@ mod tests {
             // Path 3: Active→Paused→Active
             let s = Session::<Created>::create(name).expect("created");
             let id3 = s.id.as_str().to_string();
-            let resumed = s.activate().expect("a").pause().expect("p").resume().expect("r");
+            let resumed = s
+                .activate()
+                .expect("a")
+                .pause()
+                .expect("p")
+                .resume()
+                .expect("r");
             assert_eq!(resumed.id.as_str(), id3);
             assert_eq!(resumed.name.as_str(), "identity-check");
 

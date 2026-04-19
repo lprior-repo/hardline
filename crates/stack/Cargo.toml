@@ -2,11 +2,14 @@
 name = "scp-stack"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
-gix = "0.78"
-octocrab = "0.44"
+gix = { workspace = true }
+octocrab = { workspace = true }
 tokio.workspace = true
 thiserror.workspace = true
 serde.workspace = true

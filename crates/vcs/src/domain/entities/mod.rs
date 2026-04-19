@@ -286,9 +286,18 @@ mod tests {
             Utc::now(),
             parents.clone(),
         );
-        assert_eq!(commit.parents[0], "1111111111111111111111111111111111111111");
-        assert_eq!(commit.parents[1], "2222222222222222222222222222222222222222");
-        assert_eq!(commit.parents[2], "3333333333333333333333333333333333333333");
+        assert_eq!(
+            commit.parents[0],
+            "1111111111111111111111111111111111111111"
+        );
+        assert_eq!(
+            commit.parents[1],
+            "2222222222222222222222222222222222222222"
+        );
+        assert_eq!(
+            commit.parents[2],
+            "3333333333333333333333333333333333333333"
+        );
     }
 
     #[test]

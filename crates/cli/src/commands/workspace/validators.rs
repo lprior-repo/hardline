@@ -264,7 +264,10 @@ mod tests {
     fn error_message_contains_input_for_bad_chars() {
         let err = validate_workspace_name("abc def").unwrap();
         let msg = err.to_string();
-        assert!(msg.contains("abc def"), "Error should mention the input: {msg}");
+        assert!(
+            msg.contains("abc def"),
+            "Error should mention the input: {msg}"
+        );
     }
 
     // ---- Proptests ----

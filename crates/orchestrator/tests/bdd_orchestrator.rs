@@ -3,8 +3,6 @@
 //! Claim Sheet built from types, docs, and public API surface.
 //! Each test is a Given/When/Then claim with adversarial variants.
 
-
-
 // ─── State Machine Claims ───
 
 mod state_machine {
@@ -153,7 +151,7 @@ mod state_machine {
     fn claim_terminal_states_block_transitions() {
         // Build a path to each terminal state
         let terminal_paths: Vec<PipelineState> = vec![
-            PipelineState::Failed,   // Pending -> SpecReview -> Failed
+            PipelineState::Failed,    // Pending -> SpecReview -> Failed
             PipelineState::Escalated, // Pending -> SpecReview -> Escalated
         ];
         for terminal in terminal_paths {
@@ -172,7 +170,10 @@ mod state_machine {
                 PipelineState::Failed,
             ] {
                 let result = p.transition_to(target);
-                assert!(result.is_err(), "Terminal state {terminal:?} should block transition to {target:?}");
+                assert!(
+                    result.is_err(),
+                    "Terminal state {terminal:?} should block transition to {target:?}"
+                );
             }
         }
 
@@ -195,7 +196,10 @@ mod state_machine {
             PipelineState::Failed,
         ] {
             let result = p.transition_to(target);
-            assert!(result.is_err(), "Terminal state Accepted should block transition to {target:?}");
+            assert!(
+                result.is_err(),
+                "Terminal state Accepted should block transition to {target:?}"
+            );
         }
     }
 
@@ -334,10 +338,7 @@ mod executor {
 
     fn make_executor() -> (PipelineExecutor, TempDir) {
         let tmp = TempDir::new().unwrap();
-        let executor = PipelineExecutor::new(
-            tmp.path().to_path_buf(),
-        )
-        .unwrap();
+        let executor = PipelineExecutor::new(tmp.path().to_path_buf()).unwrap();
         (executor, tmp)
     }
 
@@ -400,10 +401,7 @@ mod executor {
         }
 
         // Executor loads from the same directory
-        let mut exec = PipelineExecutor::new(
-            state_dir,
-        )
-        .unwrap();
+        let mut exec = PipelineExecutor::new(state_dir).unwrap();
 
         // Find the pipeline we created
         let pipelines = exec.store().list();
@@ -435,10 +433,7 @@ mod executor {
             store.create(p).unwrap();
         }
 
-        let mut exec = PipelineExecutor::new(
-            state_dir,
-        )
-        .unwrap();
+        let mut exec = PipelineExecutor::new(state_dir).unwrap();
 
         let pipelines = exec.store().list();
         let id = pipelines[0].id.clone();
@@ -448,8 +443,14 @@ mod executor {
             Ok(Decision::Escalate)
             | Err(PhaseError::DevelopmentFailed(_))
             | Err(PhaseError::IterationError(_)) => {}
-            Ok(other) => panic!("Expected Escalate, DevelopmentFailed, or IterationError, got {:?}", other),
-            Err(e) => panic!("Expected Escalate, DevelopmentFailed, or IterationError, got {:?}", e),
+            Ok(other) => panic!(
+                "Expected Escalate, DevelopmentFailed, or IterationError, got {:?}",
+                other
+            ),
+            Err(e) => panic!(
+                "Expected Escalate, DevelopmentFailed, or IterationError, got {:?}",
+                e
+            ),
         }
     }
 
@@ -477,7 +478,11 @@ mod executor {
 
         let metrics = exec.metrics();
         let phases: Vec<_> = metrics.get_phase_metrics().collect();
-        assert!(phases.len() >= 4, "Expected at least 4 phase metrics, got {}", phases.len());
+        assert!(
+            phases.len() >= 4,
+            "Expected at least 4 phase metrics, got {}",
+            phases.len()
+        );
     }
 
     // CLAIM: recover_pipeline works for non-terminal pipelines
@@ -884,8 +889,8 @@ mod persistence {
 
 mod policies {
     use orchestrator::policies::{
-        CircuitBreaker, CircuitBreakerState, ConfigError, Deadline,
-        PhaseTimeout, PolicyConfig, RetryPolicy, RetryPolicyError, TimeoutPolicy,
+        CircuitBreaker, CircuitBreakerState, ConfigError, Deadline, PhaseTimeout, PolicyConfig,
+        RetryPolicy, RetryPolicyError, TimeoutPolicy,
     };
 
     // CLAIM: PhaseTimeout rejects zero
@@ -963,9 +968,14 @@ mod policies {
     // CLAIM: RetryPolicy is_retryable works
     #[test]
     fn claim_retry_policy_retryable() {
-        let rp =
-            RetryPolicy::new(3, 100, 2.0, None, vec!["timeout".into(), "connection".into()])
-                .unwrap();
+        let rp = RetryPolicy::new(
+            3,
+            100,
+            2.0,
+            None,
+            vec!["timeout".into(), "connection".into()],
+        )
+        .unwrap();
         assert!(rp.is_retryable("request timeout occurred"));
         assert!(rp.is_retryable("connection refused"));
         assert!(!rp.is_retryable("invalid input"));
@@ -1188,14 +1198,8 @@ mod parallel {
     fn claim_cycle_detection() {
         let graph = DependencyGraph::new()
             .add_phase(PhaseType::SpecReview, vec![])
-            .add_phase(
-                PhaseType::UniverseSetup,
-                vec![PhaseType::Validation],
-            )
-            .add_phase(
-                PhaseType::Validation,
-                vec![PhaseType::UniverseSetup],
-            );
+            .add_phase(PhaseType::UniverseSetup, vec![PhaseType::Validation])
+            .add_phase(PhaseType::Validation, vec![PhaseType::UniverseSetup]);
 
         let result = graph.validate();
         assert!(result.is_err());
@@ -1204,8 +1208,8 @@ mod parallel {
     // CLAIM: Self-cycle detected
     #[test]
     fn claim_self_cycle_detection() {
-        let graph = DependencyGraph::new()
-            .add_phase(PhaseType::SpecReview, vec![PhaseType::SpecReview]);
+        let graph =
+            DependencyGraph::new().add_phase(PhaseType::SpecReview, vec![PhaseType::SpecReview]);
 
         let result = graph.validate();
         assert!(result.is_err());
@@ -1217,10 +1221,7 @@ mod parallel {
         let graph = DependencyGraph::new()
             .add_phase(PhaseType::SpecReview, vec![])
             .add_phase(PhaseType::UniverseSetup, vec![PhaseType::SpecReview])
-            .add_phase(
-                PhaseType::AgentDevelopment,
-                vec![PhaseType::UniverseSetup],
-            );
+            .add_phase(PhaseType::AgentDevelopment, vec![PhaseType::UniverseSetup]);
 
         assert!(graph.validate().is_ok());
     }
@@ -1239,10 +1240,7 @@ mod parallel {
     fn claim_get_ready_phases() {
         let mut graph = DependencyGraph::new()
             .add_phase(PhaseType::SpecReview, vec![])
-            .add_phase(
-                PhaseType::UniverseSetup,
-                vec![PhaseType::SpecReview],
-            );
+            .add_phase(PhaseType::UniverseSetup, vec![PhaseType::SpecReview]);
 
         let mut completed = std::collections::HashSet::new();
         let ready = graph.get_ready_phases(&completed);
@@ -1366,10 +1364,7 @@ mod adversarial {
             store.create(p).unwrap();
         }
 
-        let mut exec = PipelineExecutor::new(
-            state_dir,
-        )
-        .unwrap();
+        let mut exec = PipelineExecutor::new(state_dir).unwrap();
 
         let pipelines = exec.store().list();
         let id = pipelines[0].id.clone();
@@ -1395,10 +1390,7 @@ mod adversarial {
             store.create(p).unwrap();
         }
 
-        let mut exec = PipelineExecutor::new(
-            state_dir,
-        )
-        .unwrap();
+        let mut exec = PipelineExecutor::new(state_dir).unwrap();
 
         let pipelines = exec.store().list();
         let id = pipelines[0].id.clone();
@@ -1410,10 +1402,7 @@ mod adversarial {
     #[test]
     fn claim_run_pipeline_twice() {
         let tmp = TempDir::new().unwrap();
-        let mut exec = PipelineExecutor::new(
-            tmp.path().to_path_buf(),
-        )
-        .unwrap();
+        let mut exec = PipelineExecutor::new(tmp.path().to_path_buf()).unwrap();
         let p = exec.create_pipeline("test.spec".into()).unwrap();
 
         let d1 = exec.run_pipeline(&p.id).unwrap();
@@ -1436,10 +1425,7 @@ mod adversarial {
     #[test]
     fn claim_multiple_pipelines() {
         let tmp = TempDir::new().unwrap();
-        let mut exec = PipelineExecutor::new(
-            tmp.path().to_path_buf(),
-        )
-        .unwrap();
+        let mut exec = PipelineExecutor::new(tmp.path().to_path_buf()).unwrap();
 
         let ids: Vec<_> = (0..5)
             .map(|i| {

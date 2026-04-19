@@ -166,9 +166,10 @@ mod tests {
         let path = resolve_state_db_path(&cwd).unwrap();
 
         // Verify: result is either the default path or a value set by a concurrent test
-        let is_default = path.to_string_lossy().contains(".scp")
-            && path.to_string_lossy().contains("state.db");
-        let is_polluted = std::env::var("SCP_STATE_DB").map_or(false, |v| path == PathBuf::from(&v))
+        let is_default =
+            path.to_string_lossy().contains(".scp") && path.to_string_lossy().contains("state.db");
+        let is_polluted = std::env::var("SCP_STATE_DB")
+            .map_or(false, |v| path == PathBuf::from(&v))
             || std::env::var("SCP_DATABASE_PATH").map_or(false, |v| path == PathBuf::from(&v));
         assert!(is_default || is_polluted, "unexpected path: {path:?}");
     }
@@ -203,9 +204,15 @@ mod tests {
         assert!(paths.project_config.to_string_lossy().contains(".scp"));
         // state_db may be default or polluted by concurrent test
         let is_default = paths.state_db.to_string_lossy().contains("state.db");
-        let is_polluted = std::env::var("SCP_STATE_DB").map_or(false, |v| paths.state_db == PathBuf::from(&v))
-            || std::env::var("SCP_DATABASE_PATH").map_or(false, |v| paths.state_db == PathBuf::from(&v));
-        assert!(is_default || is_polluted, "unexpected state_db: {:?}", paths.state_db);
+        let is_polluted = std::env::var("SCP_STATE_DB")
+            .map_or(false, |v| paths.state_db == PathBuf::from(&v))
+            || std::env::var("SCP_DATABASE_PATH")
+                .map_or(false, |v| paths.state_db == PathBuf::from(&v));
+        assert!(
+            is_default || is_polluted,
+            "unexpected state_db: {:?}",
+            paths.state_db
+        );
     }
 
     #[test]

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 /// Options for the recover command (parsed from CLI).
 #[derive(Debug, Clone, Default)]
-#[expect(clippy::struct_excessive_bools)] // CLI flags: independent options
+#[allow(clippy::struct_excessive_bools)] // CLI flags: independent options
 pub struct RecoverOptions {
     /// Just diagnose without fixing
     pub diagnose_only: bool,
@@ -518,9 +518,21 @@ mod tests {
         let json = serde_json::to_string(&issue).expect("serialize");
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse");
 
-        assert!(parsed.get("code").is_some(), "AI needs code for categorization");
-        assert!(parsed.get("severity").is_some(), "AI needs severity for prioritization");
-        assert!(parsed.get("fix_command").is_some(), "AI needs fix_command for automation");
-        assert!(parsed.get("fixed").is_some(), "AI needs fixed for status tracking");
+        assert!(
+            parsed.get("code").is_some(),
+            "AI needs code for categorization"
+        );
+        assert!(
+            parsed.get("severity").is_some(),
+            "AI needs severity for prioritization"
+        );
+        assert!(
+            parsed.get("fix_command").is_some(),
+            "AI needs fix_command for automation"
+        );
+        assert!(
+            parsed.get("fixed").is_some(),
+            "AI needs fixed for status tracking"
+        );
     }
 }

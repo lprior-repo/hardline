@@ -72,9 +72,9 @@ impl SnapshotService {
 mod tests {
     use super::*;
     use crate::error::SnapshotError;
-    use proptest::proptest;
     use proptest::prop_assert;
     use proptest::prop_assert_eq;
+    use proptest::proptest;
 
     fn make_service() -> SnapshotService {
         SnapshotService::new(Arc::new(SnapshotStore::new()))
@@ -94,19 +94,21 @@ mod tests {
             Some("test snapshot".to_string()),
         );
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SnapshotError::StorageError { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            SnapshotError::StorageError { .. }
+        ));
     }
 
     #[test]
     fn create_snapshot_without_description_propagates_storage_error() {
         let service = make_service();
-        let result = service.create_snapshot(
-            "dev".to_string(),
-            "def456".to_string(),
-            None,
-        );
+        let result = service.create_snapshot("dev".to_string(), "def456".to_string(), None);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SnapshotError::StorageError { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            SnapshotError::StorageError { .. }
+        ));
     }
 
     #[test]
@@ -143,7 +145,10 @@ mod tests {
     fn cleanup_expired_reports() {
         let service = make_service();
         let report = service.cleanup_expired();
-        assert!(report.is_err(), "list returns Err since storage is not implemented");
+        assert!(
+            report.is_err(),
+            "list returns Err since storage is not implemented"
+        );
     }
 
     // --- Additional service tests ---
@@ -165,7 +170,10 @@ mod tests {
         // The store returns SnapshotError::StorageError, which flows through via ?.
         let service = make_service();
         let result = service.create_snapshot("main".to_string(), "abc".to_string(), None);
-        assert!(result.is_err(), "save always fails in unimplemented storage");
+        assert!(
+            result.is_err(),
+            "save always fails in unimplemented storage"
+        );
     }
 
     #[test]
@@ -268,21 +276,30 @@ mod tests {
 
     #[test]
     fn cleanup_report_fields_accessible() {
-        let report = CleanupReport { deleted: 5, failed: 3 };
+        let report = CleanupReport {
+            deleted: 5,
+            failed: 3,
+        };
         assert_eq!(report.deleted, 5);
         assert_eq!(report.failed, 3);
     }
 
     #[test]
     fn cleanup_report_zero_values() {
-        let report = CleanupReport { deleted: 0, failed: 0 };
+        let report = CleanupReport {
+            deleted: 0,
+            failed: 0,
+        };
         assert_eq!(report.deleted, 0);
         assert_eq!(report.failed, 0);
     }
 
     #[test]
     fn cleanup_report_debug() {
-        let report = CleanupReport { deleted: 1, failed: 2 };
+        let report = CleanupReport {
+            deleted: 1,
+            failed: 2,
+        };
         let debug_str = format!("{report:?}");
         assert!(debug_str.contains("deleted"));
         assert!(debug_str.contains("failed"));

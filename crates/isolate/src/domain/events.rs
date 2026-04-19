@@ -26,7 +26,12 @@ impl EventType {
     /// All event type variants.
     #[must_use]
     pub const fn all() -> &'static [Self] {
-        &[Self::WorkspaceLifecycle, Self::Session, Self::Agent, Self::Vcs]
+        &[
+            Self::WorkspaceLifecycle,
+            Self::Session,
+            Self::Agent,
+            Self::Vcs,
+        ]
     }
 }
 
@@ -377,7 +382,10 @@ mod tests {
 
     #[test]
     fn event_type_display() {
-        assert_eq!(EventType::WorkspaceLifecycle.to_string(), "workspace_lifecycle");
+        assert_eq!(
+            EventType::WorkspaceLifecycle.to_string(),
+            "workspace_lifecycle"
+        );
         assert_eq!(EventType::Session.to_string(), "session");
         assert_eq!(EventType::Agent.to_string(), "agent");
         assert_eq!(EventType::Vcs.to_string(), "vcs");
@@ -411,8 +419,7 @@ mod tests {
 
     #[test]
     fn context_with_session_chaining() {
-        let c = EventContext::for_agent("ws".into(), "a1".into())
-            .with_session("s1".into());
+        let c = EventContext::for_agent("ws".into(), "a1".into()).with_session("s1".into());
         assert!(c.has_agent());
         assert!(c.has_session());
     }
@@ -570,55 +577,103 @@ mod tests {
         let now = Utc::now();
         let events: Vec<IsolateEvent> = vec![
             IsolateEvent::WorkspaceCreated {
-                name: "w".into(), source: "cli".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                source: "cli".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::WorkspaceActivated {
-                name: "w".into(), state: WorkspaceState::Working, context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                state: WorkspaceState::Working,
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::WorkspaceSyncing {
-                name: "w".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::WorkspaceSynced {
-                name: "w".into(), commits_rebased: 0, context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                commits_rebased: 0,
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::WorkspacePaused {
-                name: "w".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::WorkspaceResumed {
-                name: "w".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::WorkspaceCompleted {
-                name: "w".into(), branch: "b".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                branch: "b".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::WorkspaceFailed {
-                name: "w".into(), reason: "err".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                reason: "err".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::SessionStarted {
-                name: "w".into(), session_id: "s".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                session_id: "s".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::SessionEnded {
-                name: "w".into(), session_id: "s".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                session_id: "s".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::AgentClaimed {
-                name: "w".into(), agent_id: "a".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                agent_id: "a".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::AgentReleased {
-                name: "w".into(), agent_id: "a".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                agent_id: "a".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::BranchCreated {
-                name: "w".into(), branch: "b".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                branch: "b".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::BranchPushed {
-                name: "w".into(), branch: "b".into(), commits: 0, context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                branch: "b".into(),
+                commits: 0,
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::RebaseCompleted {
-                name: "w".into(), commits: 0, context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                commits: 0,
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::ConflictDetected {
-                name: "w".into(), files: vec![], context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                files: vec![],
+                context: ctx("w"),
+                timestamp: now,
             },
             IsolateEvent::ConflictResolved {
-                name: "w".into(), context: ctx("w"), timestamp: now,
+                name: "w".into(),
+                context: ctx("w"),
+                timestamp: now,
             },
         ];
         for e in &events {

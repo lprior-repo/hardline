@@ -15,11 +15,11 @@ thiserror = { workspace = true }
 gix = { workspace = true }
 hex = { workspace = true }
 sqlx = { workspace = true }
-url = { version = "2", features = ["serde"] }
+url = { workspace = true }
 
 [dev-dependencies]
 tokio-test = { workspace = true }
 tempfile = { workspace = true }
 insta = { workspace = true }
-proptest = "1"
-serde_json = "1"
+proptest = { workspace = true }
+serde_json = { workspace = true }

@@ -9,10 +9,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use scp_vcs::{
-    Branch, Commit, VcsBackend, VcsService, VcsStatus, VcsType, Workspace,
     create_vcs_service,
     error::{GitError, VcsError},
     infrastructure::{GitBackend, GitCliBackend},
+    Branch, Commit, VcsBackend, VcsService, VcsStatus, VcsType, Workspace,
 };
 use tempfile::TempDir;
 
@@ -25,12 +25,30 @@ fn make_git_repo() -> TempDir {
     let path = dir.path();
     Command::new("git")
         .args(["init", "-b", "main"])
-        .current_dir(path).output().expect("git init");
-    Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(path).output().expect("config email");
-    Command::new("git").args(["config", "user.name", "Test"]).current_dir(path).output().expect("config name");
+        .current_dir(path)
+        .output()
+        .expect("git init");
+    Command::new("git")
+        .args(["config", "user.email", "test@test.com"])
+        .current_dir(path)
+        .output()
+        .expect("config email");
+    Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(path)
+        .output()
+        .expect("config name");
     fs::write(path.join("README.md"), "hello").expect("write readme");
-    Command::new("git").args(["add", "."]).current_dir(path).output().expect("git add");
-    Command::new("git").args(["commit", "-m", "initial"]).current_dir(path).output().expect("git commit");
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(path)
+        .output()
+        .expect("git add");
+    Command::new("git")
+        .args(["commit", "-m", "initial"])
+        .current_dir(path)
+        .output()
+        .expect("git commit");
     dir
 }
 
@@ -44,20 +62,52 @@ fn make_dirty_repo() -> TempDir {
 fn make_repo_with_branches() -> TempDir {
     let dir = make_git_repo();
     let path = dir.path();
-    Command::new("git").args(["checkout", "-b", "feature-a"]).current_dir(path).output().expect("checkout feature-a");
+    Command::new("git")
+        .args(["checkout", "-b", "feature-a"])
+        .current_dir(path)
+        .output()
+        .expect("checkout feature-a");
     fs::write(path.join("feature.txt"), "a").expect("write feature");
-    Command::new("git").args(["add", "."]).current_dir(path).output().expect("git add");
-    Command::new("git").args(["commit", "-m", "feature a"]).current_dir(path).output().expect("git commit");
-    Command::new("git").args(["checkout", "-b", "feature-b", "main"]).current_dir(path).output().expect("checkout feature-b");
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(path)
+        .output()
+        .expect("git add");
+    Command::new("git")
+        .args(["commit", "-m", "feature a"])
+        .current_dir(path)
+        .output()
+        .expect("git commit");
+    Command::new("git")
+        .args(["checkout", "-b", "feature-b", "main"])
+        .current_dir(path)
+        .output()
+        .expect("checkout feature-b");
     fs::write(path.join("feature2.txt"), "b").expect("write feature2");
-    Command::new("git").args(["add", "."]).current_dir(path).output().expect("git add");
-    Command::new("git").args(["commit", "-m", "feature b"]).current_dir(path).output().expect("git commit");
-    Command::new("git").args(["checkout", "main"]).current_dir(path).output().expect("checkout main");
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(path)
+        .output()
+        .expect("git add");
+    Command::new("git")
+        .args(["commit", "-m", "feature b"])
+        .current_dir(path)
+        .output()
+        .expect("git commit");
+    Command::new("git")
+        .args(["checkout", "main"])
+        .current_dir(path)
+        .output()
+        .expect("checkout main");
     dir
 }
 
 fn get_head_sha(repo_path: &std::path::Path) -> String {
-    let output = Command::new("git").args(["rev-parse", "HEAD"]).current_dir(repo_path).output().expect("rev-parse");
+    let output = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(repo_path)
+        .output()
+        .expect("rev-parse");
     String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
@@ -127,8 +177,14 @@ fn claim1_adversarial_not_initialized() {
 fn claim1_adversarial_nonexistent_repo_operations() {
     let backend = GitBackend::new_from_path(PathBuf::from("/nonexistent"));
     assert!(!backend.is_initialized().expect("is_initialized"));
-    assert!(backend.current_branch().is_err(), "should fail on nonexistent repo");
-    assert!(backend.list_branches().is_err(), "should fail on nonexistent repo");
+    assert!(
+        backend.current_branch().is_err(),
+        "should fail on nonexistent repo"
+    );
+    assert!(
+        backend.list_branches().is_err(),
+        "should fail on nonexistent repo"
+    );
     assert!(backend.status().is_err(), "should fail on nonexistent repo");
     assert!(backend.log(10).is_err(), "should fail on nonexistent repo");
 }
@@ -161,7 +217,10 @@ fn claim2_happy_switch_branch() {
 fn claim2_adversarial_switch_nonexistent_branch() {
     let dir = make_git_repo();
     let backend = GitBackend::new_from_path(dir.path());
-    assert!(backend.switch_branch("no-such-branch").is_err(), "should fail");
+    assert!(
+        backend.switch_branch("no-such-branch").is_err(),
+        "should fail"
+    );
 }
 
 // ============================================================================
@@ -182,8 +241,16 @@ fn claim3_happy_log_multiple_commits() {
     let path = dir.path();
     for i in 0..5 {
         fs::write(path.join(format!("f{i}.txt")), "content").expect("write");
-        Command::new("git").args(["add", "."]).current_dir(path).output().expect("add");
-        Command::new("git").args(["commit", "-m", &format!("commit {i}")]).current_dir(path).output().expect("commit");
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(path)
+            .output()
+            .expect("add");
+        Command::new("git")
+            .args(["commit", "-m", &format!("commit {i}")])
+            .current_dir(path)
+            .output()
+            .expect("commit");
     }
     let backend = GitBackend::new_from_path(dir.path());
     let commits = backend.log(3).expect("log");
@@ -277,7 +344,10 @@ fn claim5_adversarial_detect_vcs_type_none() {
 fn claim5_adversarial_detect_vcs_nonexistent() {
     let service = create_vcs_service();
     let vcs_type = service.detect_vcs_type(std::path::Path::new("/nonexistent"));
-    assert!(vcs_type.is_none(), "should return None for nonexistent path");
+    assert!(
+        vcs_type.is_none(),
+        "should return None for nonexistent path"
+    );
 }
 
 // ============================================================================
@@ -298,7 +368,13 @@ fn claim6_happy_vcs_status_display() {
 
 #[test]
 fn claim7_happy_commit_entity() {
-    let commit = Commit::new("sha123".to_string(), "message".to_string(), "author".to_string(), chrono::Utc::now(), vec![]);
+    let commit = Commit::new(
+        "sha123".to_string(),
+        "message".to_string(),
+        "author".to_string(),
+        chrono::Utc::now(),
+        vec![],
+    );
     assert_eq!(commit.id, "sha123");
     assert_eq!(commit.message, "message");
     assert_eq!(commit.author, "author");
@@ -335,7 +411,13 @@ fn claim7_happy_workspace_entity() {
 
 #[test]
 fn claim7_happy_entity_serde_roundtrip() {
-    let commit = Commit::new("sha".to_string(), "msg".to_string(), "auth".to_string(), chrono::Utc::now(), vec!["p".to_string()]);
+    let commit = Commit::new(
+        "sha".to_string(),
+        "msg".to_string(),
+        "auth".to_string(),
+        chrono::Utc::now(),
+        vec!["p".to_string()],
+    );
     let json = serde_json::to_string(&commit).expect("serialize");
     let deserialized: Commit = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(commit.id, deserialized.id);
@@ -423,10 +505,22 @@ fn claim11_happy_unicode_commit_message() {
     let dir = make_git_repo();
     let path = dir.path();
     fs::write(path.join("unicode.txt"), "content").expect("write");
-    Command::new("git").args(["add", "."]).current_dir(path).output().expect("add");
     Command::new("git")
-        .args(["-c", "core.quotepath=false", "commit", "-m", "日本語コミットメッセージ"])
-        .current_dir(path).output().expect("commit");
+        .args(["add", "."])
+        .current_dir(path)
+        .output()
+        .expect("add");
+    Command::new("git")
+        .args([
+            "-c",
+            "core.quotepath=false",
+            "commit",
+            "-m",
+            "日本語コミットメッセージ",
+        ])
+        .current_dir(path)
+        .output()
+        .expect("commit");
 
     let backend = GitBackend::new_from_path(dir.path());
     let commits = backend.log(1).expect("log");
@@ -454,12 +548,28 @@ fn claim13_stress_many_branches() {
     let path = dir.path();
     for i in 0..50 {
         let name = format!("stress-{}", i);
-        Command::new("git").args(["checkout", "-b", &name]).current_dir(path).output().expect("checkout");
+        Command::new("git")
+            .args(["checkout", "-b", &name])
+            .current_dir(path)
+            .output()
+            .expect("checkout");
         fs::write(path.join(format!("f{i}")), "x").expect("write");
-        Command::new("git").args(["add", "."]).current_dir(path).output().expect("add");
-        Command::new("git").args(["commit", "-m", &format!("c{i}")]).current_dir(path).output().expect("commit");
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(path)
+            .output()
+            .expect("add");
+        Command::new("git")
+            .args(["commit", "-m", &format!("c{i}")])
+            .current_dir(path)
+            .output()
+            .expect("commit");
     }
-    Command::new("git").args(["checkout", "main"]).current_dir(path).output().expect("checkout main");
+    Command::new("git")
+        .args(["checkout", "main"])
+        .current_dir(path)
+        .output()
+        .expect("checkout main");
 
     let backend = GitBackend::new_from_path(dir.path());
     let branches = backend.list_branches().expect("list");
@@ -476,8 +586,16 @@ fn claim14_stress_many_commits() {
     let path = dir.path();
     for i in 0..100 {
         fs::write(path.join(format!("c{i}")), format!("content {i}")).expect("write");
-        Command::new("git").args(["add", "."]).current_dir(path).output().expect("add");
-        Command::new("git").args(["commit", "-m", &format!("commit number {i}")]).current_dir(path).output().expect("commit");
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(path)
+            .output()
+            .expect("add");
+        Command::new("git")
+            .args(["commit", "-m", &format!("commit number {i}")])
+            .current_dir(path)
+            .output()
+            .expect("commit");
     }
     let backend = GitBackend::new_from_path(dir.path());
     let commits = backend.log(1000).expect("log");
@@ -493,12 +611,22 @@ fn claim14_stress_many_commits() {
 fn claim15_edge_empty_repo_status() {
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path();
-    Command::new("git").args(["init"]).current_dir(path).output().expect("init");
+    Command::new("git")
+        .args(["init"])
+        .current_dir(path)
+        .output()
+        .expect("init");
     let backend = GitBackend::new_from_path(dir.path());
     let result = backend.current_branch();
-    assert!(result.is_ok() || result.is_err(), "should not panic on empty repo");
+    assert!(
+        result.is_ok() || result.is_err(),
+        "should not panic on empty repo"
+    );
     let status = backend.status();
-    assert!(status.is_ok() || status.is_err(), "should not panic on empty repo");
+    assert!(
+        status.is_ok() || status.is_err(),
+        "should not panic on empty repo"
+    );
 }
 
 // ============================================================================
@@ -510,7 +638,10 @@ fn claim16_happy_list_workspaces_empty() {
     let dir = make_git_repo();
     let backend = GitBackend::new_from_path(dir.path());
     let workspaces = backend.list_workspaces().expect("list_workspaces");
-    assert!(workspaces.is_empty() || !workspaces.is_empty(), "should not panic");
+    assert!(
+        workspaces.is_empty() || !workspaces.is_empty(),
+        "should not panic"
+    );
 }
 
 // ============================================================================
@@ -661,7 +792,8 @@ fn claim19_adversarial_gix_tag_push_unimplemented() {
 fn claim20_adversarial_gix_remote_fetch_no_remote() {
     let dir = make_git_repo();
     let repo = scp_vcs::gix::repository::open(dir.path()).expect("open");
-    let result = scp_vcs::gix::remote::fetch(&repo, Some("nonexistent-remote"), false, false, false);
+    let result =
+        scp_vcs::gix::remote::fetch(&repo, Some("nonexistent-remote"), false, false, false);
     assert!(result.is_err(), "should fail with no remote");
 }
 
@@ -697,7 +829,10 @@ fn claim21_happy_gix_detailed_status_stub() {
     let dir2 = make_dirty_repo();
     let repo2 = scp_vcs::gix::repository::open(dir2.path()).expect("open");
     let status2 = scp_vcs::gix::status::detailed_status(&repo2).expect("detailed_status");
-    assert!(status2.is_empty(), "stub returns empty even for dirty repo (known limitation)");
+    assert!(
+        status2.is_empty(),
+        "stub returns empty even for dirty repo (known limitation)"
+    );
 }
 
 // ============================================================================
@@ -720,8 +855,14 @@ fn claim22_happy_gix_workdir() {
 fn claim23_happy_git_error_display() {
     let errors = vec![
         GitError::NotFound(PathBuf::from("/missing")),
-        GitError::InvalidRef { name: "bad".into(), reason: "reason".into() },
-        GitError::Conflict { message: "conflict".into(), conflicted_files: vec![] },
+        GitError::InvalidRef {
+            name: "bad".into(),
+            reason: "reason".into(),
+        },
+        GitError::Conflict {
+            message: "conflict".into(),
+            conflicted_files: vec![],
+        },
         GitError::Unauthorized("unauthorized".into()),
         GitError::Network("network error".into()),
     ];
@@ -768,7 +909,10 @@ fn claim24_happy_hook_manager() {
         target: None,
     };
     let results = manager.run_pre(HookEvent::PostCommit, &env);
-    assert!(results.is_empty(), "run_pre should return empty with no hooks registered");
+    assert!(
+        results.is_empty(),
+        "run_pre should return empty with no hooks registered"
+    );
 }
 
 // ============================================================================
@@ -796,7 +940,11 @@ fn claim25_adversarial_vcs_type_detect_none() {
 #[test]
 fn claim26_edge_fresh_repo_operations() {
     let dir = TempDir::new().expect("tempdir");
-    Command::new("git").args(["init"]).current_dir(dir.path()).output().expect("init");
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("init");
     let backend = GitBackend::new_from_path(dir.path());
     assert!(backend.is_initialized().expect("ok"));
     let log = backend.log(10);

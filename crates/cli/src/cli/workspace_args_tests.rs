@@ -349,7 +349,10 @@ fn branch_rename_defaults() {
             assert_eq!(new_name, "new-name");
             assert!(!dry_run);
         }
-        other => panic!("Expected BranchRename, got {:?}", std::mem::discriminant(&other)),
+        other => panic!(
+            "Expected BranchRename, got {:?}",
+            std::mem::discriminant(&other)
+        ),
     }
 }
 
@@ -365,7 +368,10 @@ fn branch_rename_with_dry_run() {
             assert_eq!(new_name, "new-name");
             assert!(dry_run);
         }
-        other => panic!("Expected BranchRename with dry_run, got {:?}", std::mem::discriminant(&other)),
+        other => panic!(
+            "Expected BranchRename with dry_run, got {:?}",
+            std::mem::discriminant(&other)
+        ),
     }
 }
 

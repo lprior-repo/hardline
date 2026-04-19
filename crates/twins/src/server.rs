@@ -245,7 +245,9 @@ async fn not_found_handler(method: Method, req: Request<Body>) -> impl IntoRespo
     )
 }
 
-async fn inspect_state<T>(State(state): State<AppState<T>>) -> Result<impl IntoResponse, ServerError>
+async fn inspect_state<T>(
+    State(state): State<AppState<T>>,
+) -> Result<impl IntoResponse, ServerError>
 where
     T: TwinState + Clone + Send + Sync,
 {
@@ -265,7 +267,9 @@ where
     Ok((StatusCode::OK, body))
 }
 
-async fn inspect_requests<T>(State(state): State<AppState<T>>) -> Result<impl IntoResponse, ServerError>
+async fn inspect_requests<T>(
+    State(state): State<AppState<T>>,
+) -> Result<impl IntoResponse, ServerError>
 where
     T: TwinState + Clone + Send + Sync,
 {
@@ -530,7 +534,12 @@ endpoints:
             .expect("response");
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body_bytes = response.into_body().collect().await.expect("body").to_bytes();
+        let body_bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes();
         let body: serde_json::Value = serde_json::from_slice(&body_bytes).expect("json");
         assert_eq!(body["message"], "test response");
     }
@@ -617,7 +626,12 @@ endpoints:
             .expect("response");
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body_bytes = response.into_body().collect().await.expect("body").to_bytes();
+        let body_bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes();
         let body: serde_json::Value = serde_json::from_slice(&body_bytes).expect("json");
         assert_eq!(body["twin"], "test-twin");
         assert_eq!(body["port"], 3002);
@@ -641,7 +655,12 @@ endpoints:
             .expect("response");
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body_bytes = response.into_body().collect().await.expect("body").to_bytes();
+        let body_bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes();
         let body: serde_json::Value = serde_json::from_slice(&body_bytes).expect("json");
         assert_eq!(body["requests"].as_array().expect("array").len(), 0);
     }
@@ -678,7 +697,12 @@ endpoints:
             .expect("response");
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body_bytes = response.into_body().collect().await.expect("body").to_bytes();
+        let body_bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes();
         assert!(body_bytes.starts_with(br#"{"status":"cleared"}"#));
     }
 
@@ -713,7 +737,12 @@ endpoints:
             .await
             .expect("response");
 
-        let body_bytes = response.into_body().collect().await.expect("body").to_bytes();
+        let body_bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes();
         let body: serde_json::Value = serde_json::from_slice(&body_bytes).expect("json");
         assert_eq!(body["request_count"], 1);
     }
@@ -792,7 +821,10 @@ endpoints:
             .expect("response");
 
         assert_eq!(response.status(), StatusCode::OK);
-        let ct = response.headers().get("content-type").expect("content-type");
+        let ct = response
+            .headers()
+            .get("content-type")
+            .expect("content-type");
         assert_eq!(ct, "application/json");
     }
 }

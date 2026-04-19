@@ -268,10 +268,12 @@ mod tests {
         let view = WorktreeView::default();
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).expect("terminal creation");
-        terminal.draw(|f| {
-            let area = f.area();
-            view.render(f, area);
-        }).expect("draw");
+        terminal
+            .draw(|f| {
+                let area = f.area();
+                view.render(f, area);
+            })
+            .expect("draw");
     }
 
     // ── Adversarial: render with items ──
@@ -286,10 +288,12 @@ mod tests {
         let view = WorktreeView::new(items);
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).expect("terminal creation");
-        terminal.draw(|f| {
-            let area = f.area();
-            view.render(f, area);
-        }).expect("draw");
+        terminal
+            .draw(|f| {
+                let area = f.area();
+                view.render(f, area);
+            })
+            .expect("draw");
     }
 
     // ── Adversarial: render tiny area ──
@@ -300,10 +304,12 @@ mod tests {
         let view = WorktreeView::default();
         let backend = TestBackend::new(1, 1);
         let mut terminal = Terminal::new(backend).expect("terminal creation");
-        terminal.draw(|f| {
-            let area = f.area();
-            view.render(f, area);
-        }).expect("draw");
+        terminal
+            .draw(|f| {
+                let area = f.area();
+                view.render(f, area);
+            })
+            .expect("draw");
     }
 
     // ── Adversarial: render zero area ──
@@ -314,10 +320,12 @@ mod tests {
         let view = WorktreeView::default();
         let backend = TestBackend::new(0, 0);
         let mut terminal = Terminal::new(backend).expect("terminal creation");
-        terminal.draw(|f| {
-            let area = f.area();
-            view.render(f, area);
-        }).expect("draw");
+        terminal
+            .draw(|f| {
+                let area = f.area();
+                view.render(f, area);
+            })
+            .expect("draw");
     }
 
     // ── Adversarial: render with active item ──
@@ -330,10 +338,12 @@ mod tests {
         let view = WorktreeView::new(vec![item]);
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).expect("terminal creation");
-        terminal.draw(|f| {
-            let area = f.area();
-            view.render(f, area);
-        }).expect("draw");
+        terminal
+            .draw(|f| {
+                let area = f.area();
+                view.render(f, area);
+            })
+            .expect("draw");
     }
 
     // ── Adversarial: Debug format ──

@@ -58,7 +58,10 @@ fn handle_create(args: &[String]) {
 
     // Warn if an unrecognized type was provided
     if !is_known_type(type_str) {
-        eprintln!("Warning: Unknown type '{}', defaulting to Development", type_str);
+        eprintln!(
+            "Warning: Unknown type '{}', defaulting to Development",
+            type_str
+        );
     }
 
     let branch = parse_branch(args, 4);
@@ -167,7 +170,10 @@ fn is_known_type(s: &str) -> bool {
     )
 }
 
-fn parse_branch(args: &[String], start: usize) -> Option<Result<worktree::BranchName, worktree::WorktreeDomainError>> {
+fn parse_branch(
+    args: &[String],
+    start: usize,
+) -> Option<Result<worktree::BranchName, worktree::WorktreeDomainError>> {
     if args.get(start).map(|s| s.as_str()) == Some("--branch") {
         match args.get(start + 1) {
             Some(val) => Some(worktree::BranchName::new(val)),

@@ -10,7 +10,10 @@ use super::executor::PipelineExecutor;
 use super::types::{Decision, PhaseError, PhaseResult};
 
 impl PipelineExecutor {
-    pub(crate) fn spec_review(&mut self, pipeline: &mut Pipeline) -> Result<PhaseResult, PhaseError> {
+    pub(crate) fn spec_review(
+        &mut self,
+        pipeline: &mut Pipeline,
+    ) -> Result<PhaseResult, PhaseError> {
         let start = Utc::now();
         info!("Running spec review for: {}", pipeline.spec_path);
 
@@ -129,9 +132,7 @@ impl PipelineExecutor {
             success: true,
         });
 
-        pipeline
-            .increment_iteration()
-            .map_err(PhaseError::from)?;
+        pipeline.increment_iteration().map_err(PhaseError::from)?;
 
         pipeline
             .transition_to(PipelineState::Validation)

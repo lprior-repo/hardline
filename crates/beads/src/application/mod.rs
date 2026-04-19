@@ -1552,9 +1552,8 @@ mod tests {
         // assert!(result.is_err(), "Transitive cycle A->B->C->A should be rejected");
         if result.is_ok() {
             // VULNERABILITY detected - transitive cycle not caught
-            let _ = eprintln!(
-                "WARNING: VULNERABILITY - Transitive cycle A->B->C->A was not detected!"
-            );
+            let _ =
+                eprintln!("WARNING: VULNERABILITY - Transitive cycle A->B->C->A was not detected!");
         }
     }
 
@@ -1598,7 +1597,10 @@ mod tests {
     #[tokio::test]
     async fn blackhat_self_loop_edge_case() {
         let service = make_service();
-        service.create_bead("self-loop", "Self", None).await.unwrap();
+        service
+            .create_bead("self-loop", "Self", None)
+            .await
+            .unwrap();
 
         // This should definitely fail
         let result = service
@@ -1608,10 +1610,7 @@ mod tests {
             )
             .await;
 
-        assert!(
-            result.is_err(),
-            "Self-dependency must be rejected"
-        );
+        assert!(result.is_err(), "Self-dependency must be rejected");
     }
 
     // ── Priority Sorting Edge Cases ───────────────────────────────────────────
@@ -1683,7 +1682,10 @@ mod tests {
                 .unwrap();
         }
 
-        let bead = service.get_bead(&BeadId::new("flip").unwrap()).await.unwrap();
+        let bead = service
+            .get_bead(&BeadId::new("flip").unwrap())
+            .await
+            .unwrap();
         assert!(bead.priority().is_some());
     }
 
@@ -1693,7 +1695,10 @@ mod tests {
     async fn blackhat_find_by_state_returns_empty_for_nonexistent() {
         let service = make_service();
         let result = service.find_by_state(BeadState::InProgress).await.unwrap();
-        assert!(result.is_empty(), "Empty repo should return empty for any state");
+        assert!(
+            result.is_empty(),
+            "Empty repo should return empty for any state"
+        );
     }
 
     #[tokio::test]
@@ -1723,12 +1728,18 @@ mod tests {
         let service = make_service();
 
         // Create bead
-        service.create_bead("rapid-seq", "Rapid", None).await.unwrap();
+        service
+            .create_bead("rapid-seq", "Rapid", None)
+            .await
+            .unwrap();
 
         // Rapidly change priority
         for i in 0..100 {
             let _ = service
-                .set_priority(&BeadId::new("rapid-seq").unwrap(), Priority::from_value(i % 5))
+                .set_priority(
+                    &BeadId::new("rapid-seq").unwrap(),
+                    Priority::from_value(i % 5),
+                )
                 .await;
         }
 
@@ -1737,7 +1748,11 @@ mod tests {
             let _ = service
                 .assign_bead(
                     &BeadId::new("rapid-seq").unwrap(),
-                    if i % 2 == 0 { Some("alice".into()) } else { None },
+                    if i % 2 == 0 {
+                        Some("alice".into())
+                    } else {
+                        None
+                    },
                 )
                 .await;
         }
@@ -1773,7 +1788,10 @@ mod tests {
             .await;
 
         // Check what happened
-        let bead = service.get_bead(&BeadId::new("dup-a").unwrap()).await.unwrap();
+        let bead = service
+            .get_bead(&BeadId::new("dup-a").unwrap())
+            .await
+            .unwrap();
         let dep_count = bead.depends_on().len();
 
         // BUG: Currently allows duplicates! Should be idempotent or error.
@@ -1783,10 +1801,7 @@ mod tests {
 
         // This assertion documents current (buggy) behavior
         // When fixed, this test should expect 1 dependency
-        assert!(
-            dep_count >= 1,
-            "Should have at least 1 dependency"
-        );
+        assert!(dep_count >= 1, "Should have at least 1 dependency");
     }
 
     #[tokio::test]
@@ -1832,7 +1847,10 @@ mod tests {
             .await
             .unwrap();
 
-        let bead_a = service.get_bead(&BeadId::new("diamond-a").unwrap()).await.unwrap();
+        let bead_a = service
+            .get_bead(&BeadId::new("diamond-a").unwrap())
+            .await
+            .unwrap();
         assert_eq!(bead_a.depends_on().len(), 2, "A should depend on B and C");
     }
 
@@ -1856,15 +1874,15 @@ mod tests {
                 .await;
         }
 
-        let bead = service.get_bead(&BeadId::new("rapid").unwrap()).await.unwrap();
+        let bead = service
+            .get_bead(&BeadId::new("rapid").unwrap())
+            .await
+            .unwrap();
         // Should end in a valid state
         assert!(
             matches!(
                 bead.state(),
-                BeadState::Open
-                    | BeadState::InProgress
-                    | BeadState::Blocked
-                    | BeadState::Deferred
+                BeadState::Open | BeadState::InProgress | BeadState::Blocked | BeadState::Deferred
             ),
             "Should end in a non-terminal state or InProgress/Blocked"
         );
@@ -1873,7 +1891,10 @@ mod tests {
     #[tokio::test]
     async fn blackhat_invalid_state_transition_from_closed_is_rejected() {
         let service = make_service();
-        service.create_bead("closed-test", "Closed", None).await.unwrap();
+        service
+            .create_bead("closed-test", "Closed", None)
+            .await
+            .unwrap();
 
         // Go to InProgress then Closed
         service
@@ -1931,7 +1952,9 @@ mod tests {
     async fn blackhat_over_max_length_id_rejected() {
         let service = make_service();
         let over_max_id = "a".repeat(BeadId::MAX_LENGTH + 1);
-        let result = service.create_bead(&over_max_id as &str, "Too Long", None).await;
+        let result = service
+            .create_bead(&over_max_id as &str, "Too Long", None)
+            .await;
         assert!(result.is_err(), "Over max length ID should be rejected");
     }
 
@@ -1954,15 +1977,7 @@ mod tests {
     async fn blackhat_special_chars_in_id_rejected() {
         let service = make_service();
         let special_ids = [
-            "test!",
-            "test@",
-            "test#",
-            "test$",
-            "test%",
-            "test^",
-            "test&",
-            "test*",
-            "test(id)",
+            "test!", "test@", "test#", "test$", "test%", "test^", "test&", "test*", "test(id)",
             "test[id]",
         ];
 
@@ -1981,9 +1996,15 @@ mod tests {
     #[tokio::test]
     async fn blackhat_delete_then_get_returns_not_found() {
         let service = make_service();
-        service.create_bead("delete-me", "Delete", None).await.unwrap();
+        service
+            .create_bead("delete-me", "Delete", None)
+            .await
+            .unwrap();
 
-        service.delete_bead(&BeadId::new("delete-me").unwrap()).await.unwrap();
+        service
+            .delete_bead(&BeadId::new("delete-me").unwrap())
+            .await
+            .unwrap();
 
         let result = service.get_bead(&BeadId::new("delete-me").unwrap()).await;
         match result {

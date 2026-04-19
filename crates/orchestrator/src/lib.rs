@@ -28,17 +28,19 @@ pub use cleanup::{
     PhaseType, ResourceId,
 };
 pub use metrics::{AggregatedMetrics, Metrics, PhaseMetrics, PipelineMetrics, ScenarioResult};
+pub use parallel::{ParallelError, PhaseStatus};
 pub use persistence::{StateStore, StoreError};
 pub use phases::{PhaseError, PipelineExecutor};
 pub use policies::{
     CircuitBreaker, CircuitBreakerError, CircuitBreakerState, ConfigError, Deadline,
-    OrchestratorError, PhaseTimeout, PolicyConfig,
-    PolicyError, RetryPolicy, RetryPolicyError, TimeoutError, TimeoutPolicy, TimeoutPolicyError,
+    OrchestratorError, PhaseTimeout, PolicyConfig, PolicyError, RetryPolicy, RetryPolicyError,
+    TimeoutError, TimeoutPolicy, TimeoutPolicyError,
 };
-pub use parallel::{ParallelError, PhaseStatus};
 pub use queue::{
     InMemoryJobRepository, Job, JobOutcome, JobPayload, JobPriority, JobProcessor,
     JobProcessorConfig, JobRepository, JobResult, JobState, JobTransitionError, QueueError,
     QueueResult,
 };
-pub use state::{IterationError, Pipeline, PipelineConfig, PipelineId, PipelineState, TransitionError};
+pub use state::{
+    IterationError, Pipeline, PipelineConfig, PipelineId, PipelineState, TransitionError,
+};

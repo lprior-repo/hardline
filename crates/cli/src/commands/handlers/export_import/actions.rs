@@ -7,9 +7,7 @@ use std::path::Path;
 use scp_core::output::Output;
 use scp_core::{Error, Result};
 
-use super::data::{
-    ExportOptions, ExportResult, ExportedSession, ImportOptions, ImportResult,
-};
+use super::data::{ExportOptions, ExportResult, ExportedSession, ImportOptions, ImportResult};
 
 /// Execute the export command.
 ///
@@ -35,7 +33,10 @@ pub fn run_export(options: &ExportOptions) -> Result<()> {
         Some(output_path) => {
             std::fs::write(output_path, &json_output)
                 .map_err(|e| Error::io_error(format!("Failed to write export file: {e}")))?;
-            Output::success(&format!("Exported {} sessions to {}", result.count, output_path));
+            Output::success(&format!(
+                "Exported {} sessions to {}",
+                result.count, output_path
+            ));
         }
         None => {
             println!("{json_output}");
@@ -142,8 +143,11 @@ mod tests {
             count: 0,
             sessions: vec![],
         };
-        std::fs::write(&input_path, serde_json::to_string_pretty(&export_data).expect("ser"))
-            .expect("write");
+        std::fs::write(
+            &input_path,
+            serde_json::to_string_pretty(&export_data).expect("ser"),
+        )
+        .expect("write");
 
         let options = ImportOptions {
             input: input_path.to_string_lossy().to_string(),

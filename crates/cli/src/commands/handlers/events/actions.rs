@@ -95,13 +95,15 @@ fn filter_and_sort_events(
         .lines()
         .filter(|line| !line.trim().is_empty())
         .filter_map(|line| {
-            serde_json::from_str::<EventEntry>(line).ok().filter(|entry| {
-                let session_ok = session.is_none_or(|s| entry.session.as_deref() == Some(s));
-                let type_ok = event_type_matches(event_type, &entry.event_type);
-                let since_ok = since.is_none_or(|st| entry.timestamp.as_str() >= st);
+            serde_json::from_str::<EventEntry>(line)
+                .ok()
+                .filter(|entry| {
+                    let session_ok = session.is_none_or(|s| entry.session.as_deref() == Some(s));
+                    let type_ok = event_type_matches(event_type, &entry.event_type);
+                    let since_ok = since.is_none_or(|st| entry.timestamp.as_str() >= st);
 
-                session_ok && type_ok && since_ok
-            })
+                    session_ok && type_ok && since_ok
+                })
         })
         .collect();
 
@@ -126,7 +128,9 @@ fn read_and_filter_events(
     since: Option<&str>,
 ) -> Result<Vec<EventEntry>> {
     let content = read_raw_events()?;
-    Ok(filter_and_sort_events(&content, session, event_type, limit, since))
+    Ok(filter_and_sort_events(
+        &content, session, event_type, limit, since,
+    ))
 }
 
 /// Resolve the path to the events JSONL log file.
@@ -139,9 +143,8 @@ fn resolve_events_file_path() -> Result<std::path::PathBuf> {
         return Ok(local_path.to_path_buf());
     }
 
-    let home_dir = std::env::var("HOME").map_err(|_| {
-        Error::io_error("Cannot determine home directory: HOME env var not set")
-    })?;
+    let home_dir = std::env::var("HOME")
+        .map_err(|_| Error::io_error("Cannot determine home directory: HOME env var not set"))?;
 
     Ok(std::path::Path::new(&home_dir).join(".scp/data/events.jsonl"))
 }
@@ -153,7 +156,11 @@ fn print_events(output: &EventsOutput) {
         return;
     }
 
-    Output::info(&format!("Events ({} shown, {} total):", output.events.len(), output.total));
+    Output::info(&format!(
+        "Events ({} shown, {} total):",
+        output.events.len(),
+        output.total
+    ));
 
     output.events.iter().for_each(|entry| {
         let session_str = entry

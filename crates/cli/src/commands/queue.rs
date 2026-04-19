@@ -263,8 +263,12 @@ mod tests {
         fn list_branches(&self) -> scp_core::Result<Vec<Branch>> {
             Ok(self.branches.clone())
         }
-        fn create_branch(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
-        fn switch_branch(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
+        fn create_branch(&self, _name: &str) -> scp_core::Result<()> {
+            Ok(())
+        }
+        fn switch_branch(&self, _name: &str) -> scp_core::Result<()> {
+            Ok(())
+        }
         fn push(&self) -> scp_core::Result<()> {
             if self.push_should_fail {
                 Err(scp_core::Error::invalid_state("push rejected"))
@@ -272,8 +276,12 @@ mod tests {
                 Ok(())
             }
         }
-        fn pull(&self) -> scp_core::Result<()> { Ok(()) }
-        fn rebase(&self, _onto: &str) -> scp_core::Result<()> { Ok(()) }
+        fn pull(&self) -> scp_core::Result<()> {
+            Ok(())
+        }
+        fn rebase(&self, _onto: &str) -> scp_core::Result<()> {
+            Ok(())
+        }
         fn merge(&self, branch: &str) -> scp_core::Result<()> {
             self.merge_calls.lock().unwrap().push(branch.to_string());
             if self.merge_should_fail {
@@ -285,25 +293,51 @@ mod tests {
                 Ok(())
             }
         }
-        fn log(&self, _limit: usize) -> scp_core::Result<Vec<Commit>> { Ok(vec![]) }
-        fn status(&self) -> scp_core::Result<VcsStatus> { Ok(self.status_result.clone()) }
-        fn is_initialized(&self) -> scp_core::Result<bool> { Ok(true) }
-        fn repo_exists(&self, _path: &str) -> bool { true }
-        fn checkout(&self, _target: &str) -> scp_core::Result<()> { Ok(()) }
+        fn log(&self, _limit: usize) -> scp_core::Result<Vec<Commit>> {
+            Ok(vec![])
+        }
+        fn status(&self) -> scp_core::Result<VcsStatus> {
+            Ok(self.status_result.clone())
+        }
+        fn is_initialized(&self) -> scp_core::Result<bool> {
+            Ok(true)
+        }
+        fn repo_exists(&self, _path: &str) -> bool {
+            true
+        }
+        fn checkout(&self, _target: &str) -> scp_core::Result<()> {
+            Ok(())
+        }
         fn commit(&self, _message: &str) -> scp_core::Result<CommitId> {
             Ok(CommitId::from_unchecked("abc123"))
         }
         fn diff(&self, _from: &CommitId, _to: &CommitId) -> scp_core::Result<String> {
             Ok(String::new())
         }
-        fn repo_status(&self) -> scp_core::Result<RepoStatus> { Ok(RepoStatus::clean()) }
-        fn create_workspace(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
-        fn switch_workspace(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
-        fn list_workspaces(&self) -> scp_core::Result<Vec<Workspace>> { Ok(vec![]) }
-        fn delete_workspace(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
-        fn fork_workspace(&self, _src: &str, _tgt: &str) -> scp_core::Result<()> { Ok(()) }
-        fn merge_workspace(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
-        fn abort_workspace(&self, _name: &str) -> scp_core::Result<()> { Ok(()) }
+        fn repo_status(&self) -> scp_core::Result<RepoStatus> {
+            Ok(RepoStatus::clean())
+        }
+        fn create_workspace(&self, _name: &str) -> scp_core::Result<()> {
+            Ok(())
+        }
+        fn switch_workspace(&self, _name: &str) -> scp_core::Result<()> {
+            Ok(())
+        }
+        fn list_workspaces(&self) -> scp_core::Result<Vec<Workspace>> {
+            Ok(vec![])
+        }
+        fn delete_workspace(&self, _name: &str) -> scp_core::Result<()> {
+            Ok(())
+        }
+        fn fork_workspace(&self, _src: &str, _tgt: &str) -> scp_core::Result<()> {
+            Ok(())
+        }
+        fn merge_workspace(&self, _name: &str) -> scp_core::Result<()> {
+            Ok(())
+        }
+        fn abort_workspace(&self, _name: &str) -> scp_core::Result<()> {
+            Ok(())
+        }
     }
 
     fn make_queue() -> Arc<dyn scp_core::queue::QueueManager> {

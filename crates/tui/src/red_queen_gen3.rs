@@ -28,9 +28,9 @@ fn test_app() -> TuiApp {
 
 #[cfg(test)]
 mod branch_indicator_priority {
+    use crate::widgets::StackTreeWidget;
     use scp_stack::domain::value_objects::BranchName;
     use scp_stack::domain::{PrInfo, PrState, StackBranch};
-    use crate::widgets::StackTreeWidget;
 
     fn branch(name: &str) -> StackBranch {
         StackBranch {
@@ -158,9 +158,9 @@ mod branch_indicator_priority {
 
 #[cfg(test)]
 mod tree_node_prefix_edge_cases {
+    use crate::widgets::TreeNode;
     use scp_stack::domain::value_objects::BranchName;
     use scp_stack::domain::StackBranch;
-    use crate::widgets::TreeNode;
 
     fn branch(name: &str) -> StackBranch {
         StackBranch {
@@ -238,7 +238,10 @@ mod tree_node_prefix_edge_cases {
         let spans = node.prefix_symbols();
         // All ancestors are last → all "   " (spaces) + "└─ "
         let all_content: String = spans.iter().map(|s| s.content.clone()).collect();
-        assert!(!all_content.contains('│'), "no vertical bars when all ancestors are last");
+        assert!(
+            !all_content.contains('│'),
+            "no vertical bars when all ancestors are last"
+        );
     }
 
     #[test]
@@ -279,7 +282,10 @@ mod worktree_fragility {
         // Directly set selected_index beyond bounds
         let mut view = view;
         view.selected_index = 999;
-        assert!(view.selected_item().is_none(), "out-of-bounds index should return None");
+        assert!(
+            view.selected_item().is_none(),
+            "out-of-bounds index should return None"
+        );
     }
 
     #[test]
@@ -288,7 +294,10 @@ mod worktree_fragility {
         let mut view = view;
         view.selected_index = 2;
         let view = view.with_items(vec![make_item("x")]);
-        assert_eq!(view.selected_index, 0, "with_items should always reset to 0");
+        assert_eq!(
+            view.selected_index, 0,
+            "with_items should always reset to 0"
+        );
     }
 
     #[test]
@@ -334,7 +343,10 @@ mod worktree_fragility {
             view.select_next();
             view.select_previous();
         }
-        assert_eq!(view.selected_index, 0, "alternating next/prev should return to 0");
+        assert_eq!(
+            view.selected_index, 0,
+            "alternating next/prev should return to 0"
+        );
     }
 
     #[test]
@@ -350,7 +362,10 @@ mod worktree_fragility {
         let mut view = WorktreeView::new(items);
         view.selected_index = 0;
         view.select_previous();
-        assert_eq!(view.selected_index, 99, "prev from 0 on 100 items wraps to 99");
+        assert_eq!(
+            view.selected_index, 99,
+            "prev from 0 on 100 items wraps to 99"
+        );
     }
 }
 
@@ -389,7 +404,10 @@ mod diff_line_semantics {
         ];
         for v in variants {
             let cloned = v.clone();
-            assert_eq!(v.content, cloned.content, "empty content should clone correctly");
+            assert_eq!(
+                v.content, cloned.content,
+                "empty content should clone correctly"
+            );
         }
     }
 
@@ -455,9 +473,9 @@ mod diff_line_semantics {
 
 #[cfg(test)]
 mod input_handler_modifiers {
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    use crate::input::{HunkAction, InputHandler, InputResult};
     use crate::app::Mode;
+    use crate::input::{HunkAction, InputHandler, InputResult};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     fn key_with(code: KeyCode, mods: KeyModifiers) -> KeyEvent {
         KeyEvent::new(code, mods)
@@ -466,28 +484,44 @@ mod input_handler_modifiers {
     #[test]
     fn ctrl_q_is_still_quit() {
         let mut handler = InputHandler::new();
-        let result = handler.handle_key_event(key_with(KeyCode::Char('q'), KeyModifiers::CONTROL), &Mode::Normal);
+        let result = handler.handle_key_event(
+            key_with(KeyCode::Char('q'), KeyModifiers::CONTROL),
+            &Mode::Normal,
+        );
         assert_eq!(result, InputResult::Quit);
     }
 
     #[test]
     fn shift_q_is_still_quit() {
         let mut handler = InputHandler::new();
-        let result = handler.handle_key_event(key_with(KeyCode::Char('q'), KeyModifiers::SHIFT), &Mode::Normal);
-        assert_eq!(result, InputResult::Quit, "Shift+Q (uppercase) should also quit");
+        let result = handler.handle_key_event(
+            key_with(KeyCode::Char('q'), KeyModifiers::SHIFT),
+            &Mode::Normal,
+        );
+        assert_eq!(
+            result,
+            InputResult::Quit,
+            "Shift+Q (uppercase) should also quit"
+        );
     }
 
     #[test]
     fn ctrl_s_is_still_stage() {
         let mut handler = InputHandler::new();
-        let result = handler.handle_key_event(key_with(KeyCode::Char('s'), KeyModifiers::CONTROL), &Mode::Normal);
+        let result = handler.handle_key_event(
+            key_with(KeyCode::Char('s'), KeyModifiers::CONTROL),
+            &Mode::Normal,
+        );
         assert_eq!(result, InputResult::Handled(HunkAction::Stage));
     }
 
     #[test]
     fn alt_d_is_still_discard() {
         let mut handler = InputHandler::new();
-        let result = handler.handle_key_event(key_with(KeyCode::Char('d'), KeyModifiers::ALT), &Mode::Normal);
+        let result = handler.handle_key_event(
+            key_with(KeyCode::Char('d'), KeyModifiers::ALT),
+            &Mode::Normal,
+        );
         assert_eq!(result, InputResult::Handled(HunkAction::Discard));
     }
 
@@ -495,7 +529,11 @@ mod input_handler_modifiers {
     fn ctrl_shift_combined_on_j() {
         let mut handler = InputHandler::new();
         let result = handler.handle_key_event(
-            key_with(KeyCode::Char('j'), KeyModifiers::CONTROL | KeyModifiers::SHIFT), &Mode::Normal
+            key_with(
+                KeyCode::Char('j'),
+                KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            ),
+            &Mode::Normal,
         );
         // KeyCode::Char('j') regardless of modifiers maps to NavigateNext
         assert_eq!(result, InputResult::Handled(HunkAction::NavigateNext));
@@ -504,7 +542,8 @@ mod input_handler_modifiers {
     #[test]
     fn esc_with_any_modifier_is_quit() {
         let mut handler = InputHandler::new();
-        let result = handler.handle_key_event(key_with(KeyCode::Esc, KeyModifiers::SHIFT), &Mode::Normal);
+        let result =
+            handler.handle_key_event(key_with(KeyCode::Esc, KeyModifiers::SHIFT), &Mode::Normal);
         assert_eq!(result, InputResult::Quit);
     }
 
@@ -512,7 +551,11 @@ mod input_handler_modifiers {
     fn all_modifiers_combined_on_mapped_key() {
         let mut handler = InputHandler::new();
         let result = handler.handle_key_event(
-            key_with(KeyCode::Char('u'), KeyModifiers::CONTROL | KeyModifiers::SHIFT | KeyModifiers::ALT), &Mode::Normal
+            key_with(
+                KeyCode::Char('u'),
+                KeyModifiers::CONTROL | KeyModifiers::SHIFT | KeyModifiers::ALT,
+            ),
+            &Mode::Normal,
         );
         assert_eq!(result, InputResult::Handled(HunkAction::Unstage));
     }
@@ -534,15 +577,18 @@ mod input_handler_modifiers {
 
 #[cfg(test)]
 mod stack_children_field {
+    use crate::widgets::StackTreeWidget;
     use scp_stack::domain::value_objects::BranchName;
     use scp_stack::domain::StackBranch;
-    use crate::widgets::StackTreeWidget;
 
     fn branch(name: &str, parent: Option<&str>, children: Vec<&str>) -> StackBranch {
         StackBranch {
             name: BranchName::new(name.to_string()),
             parent: parent.map(|p| BranchName::new(p.to_string())),
-            children: children.iter().map(|c| BranchName::new(c.to_string())).collect(),
+            children: children
+                .iter()
+                .map(|c| BranchName::new(c.to_string()))
+                .collect(),
             needs_restack: false,
             pr_info: None,
         }
@@ -553,8 +599,8 @@ mod stack_children_field {
         // The children field on StackBranch is NOT used by build_tree_nodes.
         // Tree construction uses the parent field to find children.
         let branches = vec![
-            branch("root", None, vec!["child1", "child2"]),  // children listed but ignored
-            branch("child1", Some("root"), vec![]),           // parent link is what matters
+            branch("root", None, vec!["child1", "child2"]), // children listed but ignored
+            branch("child1", Some("root"), vec![]),         // parent link is what matters
             branch("child2", Some("root"), vec![]),
         ];
         let nodes = StackTreeWidget::new(branches).build_tree_nodes();
@@ -566,7 +612,7 @@ mod stack_children_field {
     #[test]
     fn children_field_empty_does_not_affect_tree() {
         let branches = vec![
-            branch("root", None, vec![]),  // no children listed
+            branch("root", None, vec![]), // no children listed
             branch("child", Some("root"), vec![]),
         ];
         let nodes = StackTreeWidget::new(branches).build_tree_nodes();
@@ -577,8 +623,8 @@ mod stack_children_field {
     fn stale_children_list_ignored() {
         // children says "orphan" is a child, but orphan has no parent pointing back
         let branches = vec![
-            branch("root", None, vec!["orphan"]),  // claims orphan is child
-            branch("orphan", None, vec![]),          // but orphan has no parent → it's a root
+            branch("root", None, vec!["orphan"]), // claims orphan is child
+            branch("orphan", None, vec![]),       // but orphan has no parent → it's a root
         ];
         let nodes = StackTreeWidget::new(branches).build_tree_nodes();
         // Both are roots since orphan.parent is None
@@ -589,9 +635,9 @@ mod stack_children_field {
 
 #[cfg(test)]
 mod widget_selection_edge_cases {
+    use crate::widgets::StackTreeWidget;
     use scp_stack::domain::value_objects::BranchName;
     use scp_stack::domain::StackBranch;
-    use crate::widgets::StackTreeWidget;
 
     fn branch(name: &str, parent: Option<&str>) -> StackBranch {
         StackBranch {
@@ -652,7 +698,11 @@ mod refresh_idempotency {
     }
 
     impl CountingProvider {
-        fn new() -> Self { Self { count: AtomicUsize::new(0) } }
+        fn new() -> Self {
+            Self {
+                count: AtomicUsize::new(0),
+            }
+        }
     }
 
     impl BranchProvider for CountingProvider {
@@ -675,7 +725,11 @@ mod refresh_idempotency {
         app.refresh_branches().expect("ok");
         app.refresh_branches().expect("ok");
         app.refresh_branches().expect("ok");
-        assert_eq!(app.stack_branches.len(), 1, "branches from first call preserved");
+        assert_eq!(
+            app.stack_branches.len(),
+            1,
+            "branches from first call preserved"
+        );
         // Provider was called exactly once
     }
 
@@ -692,7 +746,9 @@ mod refresh_idempotency {
 
     #[test]
     fn refresh_error_clears_flag_preventing_repeated_calls() {
-        struct FailOnce { called: AtomicUsize }
+        struct FailOnce {
+            called: AtomicUsize,
+        }
         impl BranchProvider for FailOnce {
             fn load_branches(&self) -> std::result::Result<Vec<StackBranch>, String> {
                 if self.called.fetch_add(1, Ordering::SeqCst) == 0 {
@@ -708,7 +764,9 @@ mod refresh_idempotency {
                 }
             }
         }
-        let provider = FailOnce { called: AtomicUsize::new(0) };
+        let provider = FailOnce {
+            called: AtomicUsize::new(0),
+        };
         let mut app = TuiApp::new(Box::new(provider)).expect("ok");
         // First refresh: fails
         app.refresh_branches().expect("ok");
@@ -726,9 +784,9 @@ mod refresh_idempotency {
 
 #[cfg(test)]
 mod format_functions {
+    use crate::widgets::StackTreeWidget;
     use scp_stack::domain::value_objects::BranchName;
     use scp_stack::domain::{PrInfo, PrState, StackBranch};
-    use crate::widgets::StackTreeWidget;
 
     fn branch(name: &str) -> StackBranch {
         StackBranch {
@@ -755,7 +813,10 @@ mod format_functions {
     #[test]
     fn format_branch_name_unicode() {
         let b = branch("フィーチャー/ブランチ");
-        assert_eq!(StackTreeWidget::format_branch_name(&b), "フィーチャー/ブランチ");
+        assert_eq!(
+            StackTreeWidget::format_branch_name(&b),
+            "フィーチャー/ブランチ"
+        );
     }
 
     #[test]
@@ -897,8 +958,8 @@ mod mode_clone_equality_deep {
 
 #[cfg(test)]
 mod proptest_gen3 {
-    use proptest::proptest;
     use crate::app::{ConfirmAction, DiffLine, DiffLineKind, InputAction, Mode};
+    use proptest::proptest;
 
     proptest! {
         #[test]

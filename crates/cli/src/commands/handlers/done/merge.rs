@@ -180,7 +180,10 @@ mod tests {
         let output = result.expect("happy path should succeed");
         assert_eq!(output.workspace_name, "feature-x");
         assert!(output.merged, "should be marked as merged");
-        assert!(output.cleaned, "should be marked as cleaned (default: no keep_workspace)");
+        assert!(
+            output.cleaned,
+            "should be marked as cleaned (default: no keep_workspace)"
+        );
         assert!(output.pushed_to_remote, "push should succeed");
         assert!(!output.dry_run);
         assert!(output.preview.is_none());
@@ -208,7 +211,10 @@ mod tests {
         let output = result.expect("keep-workspace should succeed");
         assert_eq!(output.workspace_name, "feature-y");
         assert!(output.merged);
-        assert!(!output.cleaned, "workspace should NOT be cleaned with --keep-workspace");
+        assert!(
+            !output.cleaned,
+            "workspace should NOT be cleaned with --keep-workspace"
+        );
         assert!(output.pushed_to_remote);
     }
 
@@ -227,7 +233,8 @@ mod tests {
         let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
-        let result = execute_done_workflow("push-fail-ws", "/tmp/ws", &options, &backend, &executor);
+        let result =
+            execute_done_workflow("push-fail-ws", "/tmp/ws", &options, &backend, &executor);
         let output = result.expect("push failure should not abort workflow");
         assert!(output.merged);
         assert!(!output.pushed_to_remote, "push should be marked as failed");
@@ -245,7 +252,8 @@ mod tests {
         let executor = MockGitExecutor::new(no_conflict_responses());
         let options = DoneOptions::default();
 
-        let result = execute_done_workflow("rebase-fail-ws", "/tmp/ws", &options, &backend, &executor);
+        let result =
+            execute_done_workflow("rebase-fail-ws", "/tmp/ws", &options, &backend, &executor);
         assert!(result.is_err(), "rebase failure should propagate as error");
     }
 
@@ -276,7 +284,10 @@ mod tests {
         let options = DoneOptions::default();
 
         let result = execute_done_workflow("overlap-ws", "/tmp/ws", &options, &backend, &executor);
-        assert!(result.is_err(), "overlapping files should be detected as conflicts");
+        assert!(
+            result.is_err(),
+            "overlapping files should be detected as conflicts"
+        );
     }
 
     #[test]
@@ -335,7 +346,10 @@ mod tests {
         let options = DoneOptions::default();
 
         let result = execute_done_workflow("del-fail-ws", "/tmp/ws", &options, &backend, &executor);
-        assert!(result.is_err(), "delete workspace failure should propagate as error");
+        assert!(
+            result.is_err(),
+            "delete workspace failure should propagate as error"
+        );
     }
 
     #[test]
@@ -355,10 +369,14 @@ mod tests {
         let executor = MockGitExecutor::new(responses);
         let options = DoneOptions::default();
 
-        let result = execute_done_workflow("detect-fail-ws", "/tmp/ws", &options, &backend, &executor);
+        let result =
+            execute_done_workflow("detect-fail-ws", "/tmp/ws", &options, &backend, &executor);
         let output =
             result.expect("conflict detection failure should not abort workflow (best-effort)");
-        assert!(output.merged, "should still merge even if conflict detection failed");
+        assert!(
+            output.merged,
+            "should still merge even if conflict detection failed"
+        );
     }
 
     // ===================================================================
@@ -425,7 +443,9 @@ mod tests {
 
         let preview = output.preview.expect("dry run should have preview");
         assert_eq!(preview.potential_conflicts.len(), 1);
-        assert!(preview.potential_conflicts.contains(&"shared.rs".to_string()));
+        assert!(preview
+            .potential_conflicts
+            .contains(&"shared.rs".to_string()));
     }
 
     #[test]

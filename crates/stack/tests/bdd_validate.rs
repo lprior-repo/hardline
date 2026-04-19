@@ -130,7 +130,10 @@ mod claim_branch_name {
     #[test]
     fn attack_unicode_and_emojis() {
         let name = scp_stack::BranchName::new("feature/\u{65e5}\u{672c}\u{8a9e}-\u{1f389}-branch");
-        assert_eq!(name.as_str(), "feature/\u{65e5}\u{672c}\u{8a9e}-\u{1f389}-branch");
+        assert_eq!(
+            name.as_str(),
+            "feature/\u{65e5}\u{672c}\u{8a9e}-\u{1f389}-branch"
+        );
     }
 
     #[test]
@@ -167,7 +170,11 @@ mod claim_pr_state {
 
     #[test]
     fn happy_serde_roundtrip() {
-        for state in [scp_stack::PrState::Open, scp_stack::PrState::Closed, scp_stack::PrState::Merged] {
+        for state in [
+            scp_stack::PrState::Open,
+            scp_stack::PrState::Closed,
+            scp_stack::PrState::Merged,
+        ] {
             let json = serde_json::to_string(&state).expect("serialize");
             let back: scp_stack::PrState = serde_json::from_str(&json).expect("deserialize");
             assert_eq!(state, back);
@@ -466,8 +473,12 @@ mod claim_typestate_stack {
     #[test]
     fn happy_full_lifecycle_with_data() {
         let mut draft = scp_stack::Stack::new(scp_stack::BranchName::new("main"));
-        draft.add_branch(branch("feat-a", Some("main"))).expect("add");
-        draft.add_branch(branch("feat-b", Some("feat-a"))).expect("add");
+        draft
+            .add_branch(branch("feat-a", Some("main")))
+            .expect("add");
+        draft
+            .add_branch(branch("feat-b", Some("feat-a")))
+            .expect("add");
         assert_eq!(draft.branches.len(), 2);
 
         let published = draft.publish();
@@ -516,9 +527,18 @@ mod claim_typestate_stack {
         let order = stack.topological_order();
         assert_eq!(order.len(), 3);
         // a should come before b, b before c
-        let a_idx = order.iter().position(|b| b.name.as_str() == "a").expect("a");
-        let b_idx = order.iter().position(|b| b.name.as_str() == "b").expect("b");
-        let c_idx = order.iter().position(|b| b.name.as_str() == "c").expect("c");
+        let a_idx = order
+            .iter()
+            .position(|b| b.name.as_str() == "a")
+            .expect("a");
+        let b_idx = order
+            .iter()
+            .position(|b| b.name.as_str() == "b")
+            .expect("b");
+        let c_idx = order
+            .iter()
+            .position(|b| b.name.as_str() == "c")
+            .expect("c");
         assert!(a_idx < b_idx);
         assert!(b_idx < c_idx);
     }
@@ -564,9 +584,18 @@ mod claim_typestate_stack {
         });
         let order = stack.topological_order();
         assert_eq!(order.len(), 3);
-        let c_idx = order.iter().position(|b| b.name.as_str() == "c").expect("c");
-        let a_idx = order.iter().position(|b| b.name.as_str() == "a").expect("a");
-        let b_idx = order.iter().position(|b| b.name.as_str() == "b").expect("b");
+        let c_idx = order
+            .iter()
+            .position(|b| b.name.as_str() == "c")
+            .expect("c");
+        let a_idx = order
+            .iter()
+            .position(|b| b.name.as_str() == "a")
+            .expect("a");
+        let b_idx = order
+            .iter()
+            .position(|b| b.name.as_str() == "b")
+            .expect("b");
         assert!(a_idx < c_idx);
         assert!(b_idx < c_idx);
     }
@@ -587,7 +616,10 @@ mod claim_typestate_stack {
         stack.branches.push(scp_stack::StackBranch {
             name: scp_stack::BranchName::new("a"),
             parent: Some(scp_stack::BranchName::new("main")),
-            children: vec![scp_stack::BranchName::new("b"), scp_stack::BranchName::new("c")],
+            children: vec![
+                scp_stack::BranchName::new("b"),
+                scp_stack::BranchName::new("c"),
+            ],
             needs_restack: false,
             pr_info: None,
         });
@@ -652,14 +684,20 @@ mod claim_typestate_stack {
     #[test]
     fn happy_add_branch_validates_parent() {
         let mut stack = scp_stack::Stack::new(scp_stack::BranchName::new("main"));
-        stack.add_branch(branch("feat-a", Some("main"))).expect("add with main");
-        stack.add_branch(branch("feat-b", Some("feat-a"))).expect("add with existing");
+        stack
+            .add_branch(branch("feat-a", Some("main")))
+            .expect("add with main");
+        stack
+            .add_branch(branch("feat-b", Some("feat-a")))
+            .expect("add with existing");
     }
 
     #[test]
     fn happy_add_branch_no_parent() {
         let mut stack = scp_stack::Stack::new(scp_stack::BranchName::new("main"));
-        stack.add_branch(branch("root", None)).expect("add no parent");
+        stack
+            .add_branch(branch("root", None))
+            .expect("add no parent");
         assert_eq!(stack.branches.len(), 1);
     }
 
@@ -714,13 +752,17 @@ mod claim_typestate_stack {
     #[test]
     fn attack_ancestors_nonexistent() {
         let stack = scp_stack::Stack::new(scp_stack::BranchName::new("main"));
-        assert!(stack.ancestors(&scp_stack::BranchName::new("ghost")).is_empty());
+        assert!(stack
+            .ancestors(&scp_stack::BranchName::new("ghost"))
+            .is_empty());
     }
 
     #[test]
     fn attack_descendants_nonexistent() {
         let stack = scp_stack::Stack::new(scp_stack::BranchName::new("main"));
-        assert!(stack.descendants(&scp_stack::BranchName::new("ghost")).is_empty());
+        assert!(stack
+            .descendants(&scp_stack::BranchName::new("ghost"))
+            .is_empty());
     }
 
     #[test]
@@ -775,7 +817,11 @@ mod claim_stack_error {
         ];
         let mut displays: Vec<String> = variants.iter().map(|v| format!("{v}")).collect();
         displays.dedup();
-        assert_eq!(displays.len(), 7, "All 7 error variants should have distinct display");
+        assert_eq!(
+            displays.len(),
+            7,
+            "All 7 error variants should have distinct display"
+        );
     }
 
     #[test]
@@ -817,8 +863,12 @@ mod claim_serde_robustness {
     #[test]
     fn happy_stack_serde_roundtrip() {
         let mut stack = scp_stack::Stack::new(scp_stack::BranchName::new("main"));
-        stack.add_branch(branch_with_pr("feat-a", Some("main"), 1)).expect("ok");
-        stack.add_branch(branch_with_pr("feat-b", Some("feat-a"), 2)).expect("ok");
+        stack
+            .add_branch(branch_with_pr("feat-a", Some("main"), 1))
+            .expect("ok");
+        stack
+            .add_branch(branch_with_pr("feat-b", Some("feat-a"), 2))
+            .expect("ok");
 
         let json = serde_json::to_string(&stack).expect("serialize");
         let back: scp_stack::Stack = serde_json::from_str(&json).expect("deserialize");
@@ -856,7 +906,7 @@ mod claim_serde_robustness {
     #[test]
     fn attack_pr_info_invalid_state() {
         let result = serde_json::from_str::<scp_stack::PrInfo>(
-            r#"{"number":1,"url":"x","title":"t","state":"INVALID","is_draft":null}"#
+            r#"{"number":1,"url":"x","title":"t","state":"INVALID","is_draft":null}"#,
         );
         assert!(result.is_err());
     }

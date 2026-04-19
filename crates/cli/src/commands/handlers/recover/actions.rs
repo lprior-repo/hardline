@@ -97,10 +97,8 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<RollbackOutput> {
     }
 
     // Verify the commit exists in the workspace
-    let verify_result = executor.run_in_workspace(
-        &["cat-file", "-t", &options.commit],
-        workspace_path,
-    );
+    let verify_result =
+        executor.run_in_workspace(&["cat-file", "-t", &options.commit], workspace_path);
 
     match verify_result {
         Ok(output) if output.trim() == "commit" => {}
@@ -138,10 +136,8 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<RollbackOutput> {
     }
 
     // Perform the rollback using git reset --hard
-    let reset_result = executor.run_in_workspace(
-        &["reset", "--hard", &options.commit],
-        workspace_path,
-    );
+    let reset_result =
+        executor.run_in_workspace(&["reset", "--hard", &options.commit], workspace_path);
 
     match reset_result {
         Ok(_) => Ok(RollbackOutput {
@@ -170,10 +166,7 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<RollbackOutput> {
 // ============================================================================
 
 /// Diagnose common issues with the repository and worktrees.
-fn diagnose_issues(
-    repo_path: &Path,
-    executor: &dyn GitExecutor,
-) -> Result<Vec<Issue>> {
+fn diagnose_issues(repo_path: &Path, executor: &dyn GitExecutor) -> Result<Vec<Issue>> {
     let mut issues = Vec::new();
 
     // Check 1: Is git available?
@@ -353,7 +346,10 @@ fn fix_issues(issues: Vec<Issue>, executor: &dyn GitExecutor) -> Result<Vec<Issu
 fn try_fix_issue(issue: Issue, executor: &dyn GitExecutor) -> Result<Issue> {
     match issue.code.as_str() {
         "STALE_WORKTREES" => match executor.run(&["worktree", "prune"]) {
-            Ok(_) => Ok(Issue { fixed: true, ..issue }),
+            Ok(_) => Ok(Issue {
+                fixed: true,
+                ..issue
+            }),
             Err(_) => Ok(issue),
         },
         "DETACHED_HEAD" => {
@@ -503,8 +499,7 @@ mod tests {
 
     #[test]
     fn check_detached_head_on_branch_no_issue() {
-        let mock =
-            MockRecoverExecutor::new().with_ok("symbolic-ref -q HEAD", "refs/heads/main");
+        let mock = MockRecoverExecutor::new().with_ok("symbolic-ref -q HEAD", "refs/heads/main");
         let mut issues = Vec::new();
         check_detached_head(&mut issues, &mock);
         assert!(issues.is_empty());

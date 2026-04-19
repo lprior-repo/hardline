@@ -120,9 +120,7 @@ impl PipelineExecutor {
                 Ok(false)
             }
             Decision::Retry if pipeline.can_iterate() => {
-                pipeline
-                    .increment_iteration()
-                    .map_err(PhaseError::from)?;
+                pipeline.increment_iteration().map_err(PhaseError::from)?;
                 self.store
                     .update(pipeline.clone())
                     .map_err(PhaseError::from)?;

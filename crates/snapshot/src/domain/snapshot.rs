@@ -59,13 +59,18 @@ impl TryFrom<String> for SnapshotId {
 }
 
 impl Serialize for SnapshotId {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
         self.0.serialize(serializer)
     }
 }
 
 impl<'de> Deserialize<'de> for SnapshotId {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         SnapshotId::try_from(s).map_err(serde::de::Error::custom)
     }

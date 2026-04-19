@@ -4,10 +4,10 @@
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 
-use crate::domain::queue::entry::QueueEntry;
-use crate::domain::queue::status::QueueStatus;
 use crate::domain::identifiers::QueueEntryId;
 use crate::domain::ports::QueueRepository;
+use crate::domain::queue::entry::QueueEntry;
+use crate::domain::queue::status::QueueStatus;
 use crate::domain::value_objects::Priority;
 use crate::error::{QueueError, Result};
 
@@ -20,24 +20,48 @@ impl<R: QueueRepository> QueueService<R> {
         Self { repository }
     }
 
+    /// Enqueue a new job in the queue.
+    ///
+    /// # Errors
+    /// Returns `QueueError::ValidationError` if `session_id` is empty or whitespace.
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn enqueue(&self, session_id: String, priority: u32) -> Result<QueueEntry> {
         let id = QueueEntryId::generate();
         let entry = QueueEntry::new(id.as_str(), session_id, priority)?;
         self.repository.enqueue(entry)
     }
 
+    /// Dequeue the next pending job from the queue.
+    ///
+    /// # Errors
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn dequeue(&self) -> Result<Option<QueueEntry>> {
         self.repository.dequeue()
     }
 
+    /// Get a job by its ID.
+    ///
+    /// # Errors
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn get_job(&self, id: &QueueEntryId) -> Result<Option<QueueEntry>> {
         self.repository.get(id)
     }
 
+    /// Update a job in the queue.
+    ///
+    /// # Errors
+    /// Returns `QueueError::QueueEntryNotFound` if the job does not exist.
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn update_job(&self, entry: QueueEntry) -> Result<QueueEntry> {
         self.repository.update(entry)
     }
 
+    /// Claim a job, changing its status to Claimed.
+    ///
+    /// # Errors
+    /// Returns `QueueError::QueueEntryNotFound` if the job does not exist.
+    /// Returns `QueueError::InvalidStateTransition` if the job cannot be claimed.
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn claim_job(&self, id: &QueueEntryId) -> Result<QueueEntry> {
         let entry = self
             .repository
@@ -47,6 +71,12 @@ impl<R: QueueRepository> QueueService<R> {
         self.repository.update(claimed)
     }
 
+    /// Complete a job, transitioning it to `Merged` or `FailedRetryable`.
+    ///
+    /// # Errors
+    /// Returns `QueueError::QueueEntryNotFound` if the job does not exist.
+    /// Returns `QueueError::InvalidStateTransition` if the job cannot be completed from its current state.
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn complete_job(&self, id: &QueueEntryId, success: bool) -> Result<QueueEntry> {
         let entry = self
             .repository
@@ -68,10 +98,12 @@ impl<R: QueueRepository> QueueService<R> {
                     .and_then(|e| e.transition_status(QueueStatus::ReadyToMerge))
                     .and_then(|e| e.transition_status(QueueStatus::Merging))
                     .and_then(|e| e.transition_status(QueueStatus::Merged)),
-                _ => return Err(QueueError::InvalidStateTransition {
-                    from: format!("{:?}", entry.status),
-                    to: "Merged".into(),
-                }),
+                _ => {
+                    return Err(QueueError::InvalidStateTransition {
+                        from: format!("{:?}", entry.status),
+                        to: "Merged".into(),
+                    })
+                }
             }?;
             self.repository.update(result)
         } else {
@@ -85,15 +117,23 @@ impl<R: QueueRepository> QueueService<R> {
                     .transition_status(QueueStatus::Rebasing)
                     .and_then(|e| e.transition_status(QueueStatus::Testing))
                     .and_then(|e| e.with_failure("Test failed".into())),
-                _ => return Err(QueueError::InvalidStateTransition {
-                    from: format!("{:?}", entry.status),
-                    to: "FailedRetryable".into(),
-                }),
+                _ => {
+                    return Err(QueueError::InvalidStateTransition {
+                        from: format!("{:?}", entry.status),
+                        to: "FailedRetryable".into(),
+                    })
+                }
             }?;
             self.repository.update(result)
         }
     }
 
+    /// Cancel a job, changing its status to Cancelled.
+    ///
+    /// # Errors
+    /// Returns `QueueError::QueueEntryNotFound` if the job does not exist.
+    /// Returns `QueueError::InvalidStateTransition` if the job cannot be cancelled.
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn cancel_job(&self, id: &QueueEntryId) -> Result<QueueEntry> {
         let entry = self
             .repository
@@ -103,10 +143,18 @@ impl<R: QueueRepository> QueueService<R> {
         self.repository.update(cancelled)
     }
 
+    /// List all pending jobs in the queue.
+    ///
+    /// # Errors
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn list_pending(&self) -> Result<Vec<QueueEntry>> {
         self.repository.list_pending()
     }
 
+    /// List all active (non-terminal) jobs in the queue.
+    ///
+    /// # Errors
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn list_active(&self) -> Result<Vec<QueueEntry>> {
         let all = self.repository.list_all()?;
         Ok(all
@@ -115,14 +163,29 @@ impl<R: QueueRepository> QueueService<R> {
             .collect())
     }
 
+    /// List all jobs in the queue.
+    ///
+    /// # Errors
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn list_all(&self) -> Result<Vec<QueueEntry>> {
         self.repository.list_all()
     }
 
+    /// Remove a job from the queue.
+    ///
+    /// # Errors
+    /// Returns `QueueError::QueueEntryNotFound` if the job does not exist.
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn remove_job(&self, id: &QueueEntryId) -> Result<()> {
         self.repository.remove(id)
     }
 
+    /// Retry a failed job, re-queuing it with a new ID.
+    ///
+    /// # Errors
+    /// Returns `QueueError::QueueEntryNotFound` if the job does not exist.
+    /// Returns `QueueError::InvalidStateTransition` if the job is not in `FailedRetryable` state or has exceeded retry limit.
+    /// Returns `QueueError::RepositoryError` if the repository fails.
     pub fn retry_job(&self, id: &QueueEntryId) -> Result<QueueEntry> {
         let entry = self
             .repository

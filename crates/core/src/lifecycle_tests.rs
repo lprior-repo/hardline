@@ -9,11 +9,11 @@
 mod tests {
     use std::str::FromStr;
 
-    use chrono::Utc;
     use crate::lifecycle::LifecycleState;
     use crate::session_state::{SessionState, SessionStateManager, StateTransition};
     use crate::type_session_status::{Operation, SessionStatus};
     use crate::workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition};
+    use chrono::Utc;
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SessionState — exhaustive transition matrix
@@ -133,7 +133,9 @@ mod tests {
 
     #[test]
     fn manager_active_pause_resume_complete() {
-        let mgr = SessionStateManager::new("sess-2").activate("go").expect("activate");
+        let mgr = SessionStateManager::new("sess-2")
+            .activate("go")
+            .expect("activate");
         let mgr = mgr.pause("break").expect("pause");
         assert_eq!(mgr.current_state(), SessionState::Paused);
         let mgr = mgr.resume("back").expect("resume");
@@ -184,7 +186,9 @@ mod tests {
 
     #[test]
     fn manager_created_fail() {
-        let mgr = SessionStateManager::new("sess-6").fail("startup error").expect("fail");
+        let mgr = SessionStateManager::new("sess-6")
+            .fail("startup error")
+            .expect("fail");
         assert_eq!(mgr.current_state(), SessionState::Failed);
     }
 
@@ -353,7 +357,10 @@ mod tests {
                     continue;
                 }
                 let t = StateTransition::new(from, to, "invalid");
-                assert!(t.validate().is_err(), "Should be invalid: {from:?} -> {to:?}");
+                assert!(
+                    t.validate().is_err(),
+                    "Should be invalid: {from:?} -> {to:?}"
+                );
             }
         }
     }
@@ -373,29 +380,45 @@ mod tests {
     #[test]
     fn try_transition_ok_for_all_valid_session_status() {
         assert_eq!(
-            SessionStatus::Creating.try_transition(SessionStatus::Active).ok(),
+            SessionStatus::Creating
+                .try_transition(SessionStatus::Active)
+                .ok(),
             Some(SessionStatus::Active)
         );
         assert_eq!(
-            SessionStatus::Active.try_transition(SessionStatus::Paused).ok(),
+            SessionStatus::Active
+                .try_transition(SessionStatus::Paused)
+                .ok(),
             Some(SessionStatus::Paused)
         );
         assert_eq!(
-            SessionStatus::Active.try_transition(SessionStatus::Completed).ok(),
+            SessionStatus::Active
+                .try_transition(SessionStatus::Completed)
+                .ok(),
             Some(SessionStatus::Completed)
         );
         assert_eq!(
-            SessionStatus::Paused.try_transition(SessionStatus::Active).ok(),
+            SessionStatus::Paused
+                .try_transition(SessionStatus::Active)
+                .ok(),
             Some(SessionStatus::Active)
         );
     }
 
     #[test]
     fn try_transition_err_for_all_invalid_session_status() {
-        assert!(SessionStatus::Creating.try_transition(SessionStatus::Paused).is_err());
-        assert!(SessionStatus::Creating.try_transition(SessionStatus::Creating).is_err());
-        assert!(SessionStatus::Completed.try_transition(SessionStatus::Active).is_err());
-        assert!(SessionStatus::Failed.try_transition(SessionStatus::Active).is_err());
+        assert!(SessionStatus::Creating
+            .try_transition(SessionStatus::Paused)
+            .is_err());
+        assert!(SessionStatus::Creating
+            .try_transition(SessionStatus::Creating)
+            .is_err());
+        assert!(SessionStatus::Completed
+            .try_transition(SessionStatus::Active)
+            .is_err());
+        assert!(SessionStatus::Failed
+            .try_transition(SessionStatus::Active)
+            .is_err());
     }
 
     #[test]
@@ -417,7 +440,12 @@ mod tests {
     #[test]
     fn session_status_operations_guard_exhaustive() {
         // Creating: no operations
-        for op in [Operation::Status, Operation::Diff, Operation::Focus, Operation::Remove] {
+        for op in [
+            Operation::Status,
+            Operation::Diff,
+            Operation::Focus,
+            Operation::Remove,
+        ] {
             assert!(
                 !SessionStatus::Creating.allows_operation(op),
                 "Creating should not allow {op:?}"
@@ -474,7 +502,10 @@ mod tests {
     #[test]
     fn workspace_state_no_self_transitions() {
         for &state in WorkspaceState::all() {
-            assert!(!state.can_transition_to(state), "No self-transition for {state:?}");
+            assert!(
+                !state.can_transition_to(state),
+                "No self-transition for {state:?}"
+            );
         }
     }
 
@@ -513,7 +544,10 @@ mod tests {
         ];
         for &state in &non_terminals {
             assert!(!state.is_terminal());
-            assert!(!state.valid_next_states().is_empty(), "{state:?} should have transitions");
+            assert!(
+                !state.valid_next_states().is_empty(),
+                "{state:?} should have transitions"
+            );
         }
     }
 
@@ -593,11 +627,8 @@ mod tests {
 
     #[test]
     fn workspace_transition_without_agent() {
-        let t = WorkspaceStateTransition::new(
-            WorkspaceState::Working,
-            WorkspaceState::Ready,
-            "ready",
-        );
+        let t =
+            WorkspaceStateTransition::new(WorkspaceState::Working, WorkspaceState::Ready, "ready");
         assert!(t.agent_id.is_none());
     }
 
@@ -606,7 +637,10 @@ mod tests {
         for &terminal in &[WorkspaceState::Merged, WorkspaceState::Abandoned] {
             for &target in WorkspaceState::all() {
                 let t = WorkspaceStateTransition::new(terminal, target, "try");
-                assert!(t.validate().is_err(), "Terminal {terminal:?} -> {target:?} should fail");
+                assert!(
+                    t.validate().is_err(),
+                    "Terminal {terminal:?} -> {target:?} should fail"
+                );
             }
         }
     }
@@ -622,7 +656,10 @@ mod tests {
             assert!(filter.matches(state));
             for &other in WorkspaceState::all() {
                 if other != state {
-                    assert!(!filter.matches(other), "{state:?} filter should not match {other:?}");
+                    assert!(
+                        !filter.matches(other),
+                        "{state:?} filter should not match {other:?}"
+                    );
                 }
             }
         }
@@ -641,7 +678,10 @@ mod tests {
         for &state in WorkspaceState::all() {
             let terminal = WorkspaceStateFilter::Terminal.matches(state);
             let non_terminal = WorkspaceStateFilter::NonTerminal.matches(state);
-            assert_ne!(terminal, non_terminal, "{state:?}: terminal={terminal}, non_terminal={non_terminal}");
+            assert_ne!(
+                terminal, non_terminal,
+                "{state:?}: terminal={terminal}, non_terminal={non_terminal}"
+            );
         }
     }
 
@@ -654,14 +694,24 @@ mod tests {
         for &state in WorkspaceState::all() {
             let s = state.to_string();
             let parsed: std::result::Result<WorkspaceState, _> = s.parse();
-            assert_eq!(parsed.ok(), Some(state), "Roundtrip failed for {state:?}: display={s}");
+            assert_eq!(
+                parsed.ok(),
+                Some(state),
+                "Roundtrip failed for {state:?}: display={s}"
+            );
         }
     }
 
     #[test]
     fn workspace_from_str_case_insensitive() {
-        assert_eq!("CREATED".parse::<WorkspaceState>().ok(), Some(WorkspaceState::Created));
-        assert_eq!("Working".parse::<WorkspaceState>().ok(), Some(WorkspaceState::Working));
+        assert_eq!(
+            "CREATED".parse::<WorkspaceState>().ok(),
+            Some(WorkspaceState::Created)
+        );
+        assert_eq!(
+            "Working".parse::<WorkspaceState>().ok(),
+            Some(WorkspaceState::Working)
+        );
     }
 
     #[test]
@@ -834,7 +884,8 @@ mod tests {
     #[test]
     fn workspace_transition_timestamp_is_recent() {
         let before = Utc::now();
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "test");
+        let t =
+            WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "test");
         let after = Utc::now();
         assert!(t.timestamp >= before, "Timestamp should be >= before");
         assert!(t.timestamp <= after, "Timestamp should be <= after");
@@ -956,7 +1007,10 @@ mod tests {
                 let t = WorkspaceStateTransition::new(terminal, target, "try");
                 let err = t.validate().expect_err("terminal should reject");
                 let msg = format!("{err}");
-                assert!(!msg.is_empty(), "Error for {terminal:?}->{target:?} should be descriptive");
+                assert!(
+                    !msg.is_empty(),
+                    "Error for {terminal:?}->{target:?} should be descriptive"
+                );
             }
         }
     }
@@ -1060,7 +1114,10 @@ mod tests {
             })
             .collect();
 
-        let ids: Vec<_> = results.into_iter().map(|h| h.join().expect("thread")).collect();
+        let ids: Vec<_> = results
+            .into_iter()
+            .map(|h| h.join().expect("thread"))
+            .collect();
         assert_eq!(ids.len(), 4);
         for i in 0..4 {
             assert_eq!(ids[i], format!("thread-{i}"));
@@ -1370,7 +1427,10 @@ mod tests {
 
         // No self-transitions
         for &state in SessionState::all_states() {
-            assert!(!state.can_transition_to(state), "No self-transition for {state:?}");
+            assert!(
+                !state.can_transition_to(state),
+                "No self-transition for {state:?}"
+            );
         }
 
         // All states listed in all_states are unique
@@ -1421,7 +1481,10 @@ mod tests {
 
         // No self-transitions
         for &state in WorkspaceState::all() {
-            assert!(!state.can_transition_to(state), "No self-transition for {state:?}");
+            assert!(
+                !state.can_transition_to(state),
+                "No self-transition for {state:?}"
+            );
         }
     }
 
@@ -1434,7 +1497,12 @@ mod tests {
         // allows_operation must be consistent with allowed_operations
         for &status in SessionStatus::all_states() {
             let ops = status.allowed_operations();
-            for op in [Operation::Status, Operation::Diff, Operation::Focus, Operation::Remove] {
+            for op in [
+                Operation::Status,
+                Operation::Diff,
+                Operation::Focus,
+                Operation::Remove,
+            ] {
                 assert_eq!(
                     status.allows_operation(op),
                     ops.contains(&op),
@@ -1518,10 +1586,17 @@ mod tests {
 
     #[test]
     fn workspace_state_transition_serde_without_agent_skips_field() {
-        let t = WorkspaceStateTransition::new(WorkspaceState::Created, WorkspaceState::Working, "start");
+        let t = WorkspaceStateTransition::new(
+            WorkspaceState::Created,
+            WorkspaceState::Working,
+            "start",
+        );
         let json = serde_json::to_string(&t).expect("serialize");
         // agent_id is None, so skip_serializing_if should omit it
-        assert!(!json.contains("agent_id"), "Should skip null agent_id: {json}");
+        assert!(
+            !json.contains("agent_id"),
+            "Should skip null agent_id: {json}"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1628,7 +1703,10 @@ mod tests {
             .count();
 
         let expected_valid = 14;
-        assert_eq!(valid_count, expected_valid, "SessionState should have exactly {expected_valid} valid transitions");
+        assert_eq!(
+            valid_count, expected_valid,
+            "SessionState should have exactly {expected_valid} valid transitions"
+        );
 
         // All invalid transitions must produce errors
         let invalid_count = (0..7)
@@ -1659,7 +1737,10 @@ mod tests {
             })
             .count();
 
-        assert_eq!(valid_count, 10, "WorkspaceState should have exactly 10 valid transitions");
+        assert_eq!(
+            valid_count, 10,
+            "WorkspaceState should have exactly 10 valid transitions"
+        );
     }
 
     #[test]
@@ -1679,7 +1760,10 @@ mod tests {
             })
             .count();
 
-        assert_eq!(valid_count, 6, "SessionStatus should have exactly 6 valid transitions");
+        assert_eq!(
+            valid_count, 6,
+            "SessionStatus should have exactly 6 valid transitions"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1700,22 +1784,38 @@ mod tests {
         // Use chained transitions - type-state pattern requires each step to
         // return the correct typed manager. We can chain multiple restart cycles.
         let mgr = SessionStateManager::new("stress")
-            .activate("c0").expect("a0")
-            .complete("c0").expect("c0")
-            .restart("c0").expect("r0")
-            .activate("c1").expect("a1")
-            .complete("c1").expect("c1")
-            .restart("c1").expect("r1")
-            .activate("c2").expect("a2")
-            .complete("c2").expect("c2")
-            .restart("c2").expect("r2")
-            .activate("c3").expect("a3")
-            .complete("c3").expect("c3")
-            .restart("c3").expect("r3")
-            .activate("c4").expect("a4")
-            .complete("c4").expect("c4")
-            .restart("c4").expect("r4")
-            .activate("final").expect("final");
+            .activate("c0")
+            .expect("a0")
+            .complete("c0")
+            .expect("c0")
+            .restart("c0")
+            .expect("r0")
+            .activate("c1")
+            .expect("a1")
+            .complete("c1")
+            .expect("c1")
+            .restart("c1")
+            .expect("r1")
+            .activate("c2")
+            .expect("a2")
+            .complete("c2")
+            .expect("c2")
+            .restart("c2")
+            .expect("r2")
+            .activate("c3")
+            .expect("a3")
+            .complete("c3")
+            .expect("c3")
+            .restart("c3")
+            .expect("r3")
+            .activate("c4")
+            .expect("a4")
+            .complete("c4")
+            .expect("c4")
+            .restart("c4")
+            .expect("r4")
+            .activate("final")
+            .expect("final");
 
         assert_eq!(mgr.current_state(), SessionState::Active);
         // 5 cycles * 3 (activate+complete+restart) + 1 final activate = 16
@@ -1725,15 +1825,24 @@ mod tests {
     #[test]
     fn manager_stress_sync_reactivate_cycles() {
         let mgr = SessionStateManager::new("stress-sync")
-            .activate("s0").expect("a0")
-            .sync("s0").expect("s0")
-            .sync_complete("s0").expect("sc0")
-            .reactivate("s0").expect("r0")
-            .sync("s1").expect("s1")
-            .sync_complete("s1").expect("sc1")
-            .reactivate("s1").expect("r1")
-            .sync("s2").expect("s2")
-            .sync_complete("s2").expect("sc2");
+            .activate("s0")
+            .expect("a0")
+            .sync("s0")
+            .expect("s0")
+            .sync_complete("s0")
+            .expect("sc0")
+            .reactivate("s0")
+            .expect("r0")
+            .sync("s1")
+            .expect("s1")
+            .sync_complete("s1")
+            .expect("sc1")
+            .reactivate("s1")
+            .expect("r1")
+            .sync("s2")
+            .expect("s2")
+            .sync_complete("s2")
+            .expect("sc2");
 
         assert_eq!(mgr.current_state(), SessionState::Synced);
         // 3 full sync cycles: (activate+sync+sync_complete) + (reactivate+sync+sync_complete) * 2 = 9

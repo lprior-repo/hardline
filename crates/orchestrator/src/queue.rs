@@ -12,7 +12,9 @@ pub mod types;
 
 pub use processor::{JobProcessor, JobProcessorConfig, QueueError, QueueResult};
 pub use repository::{sort_jobs_by_priority, InMemoryJobRepository, JobRepository};
-pub use types::{Job, JobOutcome, JobPayload, JobPriority, JobResult, JobState, JobTransitionError};
+pub use types::{
+    Job, JobOutcome, JobPayload, JobPriority, JobResult, JobState, JobTransitionError,
+};
 
 #[cfg(test)]
 mod tests {
@@ -66,9 +68,12 @@ mod tests {
     async fn test_in_memory_repository_poll_pending() {
         let repo = InMemoryJobRepository::new();
 
-        repo.add_job(create_test_job("1", JobPriority::P1)).expect("add");
-        repo.add_job(create_test_job("2", JobPriority::P0)).expect("add");
-        repo.add_job(create_test_job("3", JobPriority::P2)).expect("add");
+        repo.add_job(create_test_job("1", JobPriority::P1))
+            .expect("add");
+        repo.add_job(create_test_job("2", JobPriority::P0))
+            .expect("add");
+        repo.add_job(create_test_job("3", JobPriority::P2))
+            .expect("add");
 
         let jobs = repo.poll_pending_jobs(2).await.unwrap();
         assert_eq!(jobs.len(), 2);
@@ -116,7 +121,8 @@ mod tests {
                 state: JobState::Pending,
                 created_at: chrono::Utc::now(),
                 updated_at: chrono::Utc::now(),
-            }).expect("add");
+            })
+            .expect("add");
         }
 
         let config = JobProcessorConfig {
@@ -213,7 +219,8 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_repository_update_job_state() {
         let repo = InMemoryJobRepository::new();
-        repo.add_job(create_test_job("1", JobPriority::P0)).expect("add");
+        repo.add_job(create_test_job("1", JobPriority::P0))
+            .expect("add");
 
         repo.update_job_state(
             "1",
@@ -245,7 +252,8 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_repository_get_job() {
         let repo = InMemoryJobRepository::new();
-        repo.add_job(create_test_job("1", JobPriority::P0)).expect("add");
+        repo.add_job(create_test_job("1", JobPriority::P0))
+            .expect("add");
 
         let job = repo.get_job("1").await.expect("get");
         assert!(job.is_some());
@@ -259,7 +267,8 @@ mod tests {
     async fn test_in_memory_repository_poll_respects_limit() {
         let repo = InMemoryJobRepository::new();
         for i in 0..10 {
-            repo.add_job(create_test_job(&format!("job-{i}"), JobPriority::P0)).expect("add");
+            repo.add_job(create_test_job(&format!("job-{i}"), JobPriority::P0))
+                .expect("add");
         }
 
         let jobs = repo.poll_pending_jobs(3).await.expect("poll");
@@ -269,8 +278,10 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_repository_poll_after_completion() {
         let repo = InMemoryJobRepository::new();
-        repo.add_job(create_test_job("1", JobPriority::P0)).expect("add");
-        repo.add_job(create_test_job("2", JobPriority::P0)).expect("add");
+        repo.add_job(create_test_job("1", JobPriority::P0))
+            .expect("add");
+        repo.add_job(create_test_job("2", JobPriority::P0))
+            .expect("add");
 
         // Complete job-1
         repo.update_job_state(
@@ -329,8 +340,10 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_repository_poll_excludes_running_jobs() {
         let repo = InMemoryJobRepository::new();
-        repo.add_job(create_test_job("1", JobPriority::P0)).expect("add");
-        repo.add_job(create_test_job("2", JobPriority::P1)).expect("add");
+        repo.add_job(create_test_job("1", JobPriority::P0))
+            .expect("add");
+        repo.add_job(create_test_job("2", JobPriority::P1))
+            .expect("add");
 
         repo.update_job_state(
             "1",
@@ -349,8 +362,10 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_repository_poll_excludes_failed_jobs() {
         let repo = InMemoryJobRepository::new();
-        repo.add_job(create_test_job("1", JobPriority::P0)).expect("add");
-        repo.add_job(create_test_job("2", JobPriority::P1)).expect("add");
+        repo.add_job(create_test_job("1", JobPriority::P0))
+            .expect("add");
+        repo.add_job(create_test_job("2", JobPriority::P1))
+            .expect("add");
 
         repo.update_job_state(
             "1",
@@ -374,11 +389,16 @@ mod tests {
         let repo = InMemoryJobRepository::new();
 
         // Enqueue one job per priority level in reverse order
-        repo.add_job(create_test_job("p4", JobPriority::P4)).expect("add");
-        repo.add_job(create_test_job("p3", JobPriority::P3)).expect("add");
-        repo.add_job(create_test_job("p2", JobPriority::P2)).expect("add");
-        repo.add_job(create_test_job("p1", JobPriority::P1)).expect("add");
-        repo.add_job(create_test_job("p0", JobPriority::P0)).expect("add");
+        repo.add_job(create_test_job("p4", JobPriority::P4))
+            .expect("add");
+        repo.add_job(create_test_job("p3", JobPriority::P3))
+            .expect("add");
+        repo.add_job(create_test_job("p2", JobPriority::P2))
+            .expect("add");
+        repo.add_job(create_test_job("p1", JobPriority::P1))
+            .expect("add");
+        repo.add_job(create_test_job("p0", JobPriority::P0))
+            .expect("add");
 
         let jobs = repo.poll_pending_jobs(10).await.expect("poll");
         assert_eq!(jobs.len(), 5);
@@ -395,11 +415,16 @@ mod tests {
         let repo = InMemoryJobRepository::new();
 
         // Enqueue 5 P1 jobs in order
-        repo.add_job(create_test_job("first", JobPriority::P1)).expect("add");
-        repo.add_job(create_test_job("second", JobPriority::P1)).expect("add");
-        repo.add_job(create_test_job("third", JobPriority::P1)).expect("add");
-        repo.add_job(create_test_job("fourth", JobPriority::P1)).expect("add");
-        repo.add_job(create_test_job("fifth", JobPriority::P1)).expect("add");
+        repo.add_job(create_test_job("first", JobPriority::P1))
+            .expect("add");
+        repo.add_job(create_test_job("second", JobPriority::P1))
+            .expect("add");
+        repo.add_job(create_test_job("third", JobPriority::P1))
+            .expect("add");
+        repo.add_job(create_test_job("fourth", JobPriority::P1))
+            .expect("add");
+        repo.add_job(create_test_job("fifth", JobPriority::P1))
+            .expect("add");
 
         let jobs = repo.poll_pending_jobs(10).await.expect("poll");
         assert_eq!(jobs.len(), 5);
@@ -416,12 +441,18 @@ mod tests {
         let repo = InMemoryJobRepository::new();
 
         // Enqueue mixed priorities, multiple jobs per priority
-        repo.add_job(create_test_job("p1-a", JobPriority::P1)).expect("add");
-        repo.add_job(create_test_job("p0-a", JobPriority::P0)).expect("add");
-        repo.add_job(create_test_job("p1-b", JobPriority::P1)).expect("add");
-        repo.add_job(create_test_job("p0-b", JobPriority::P0)).expect("add");
-        repo.add_job(create_test_job("p2-a", JobPriority::P2)).expect("add");
-        repo.add_job(create_test_job("p0-c", JobPriority::P0)).expect("add");
+        repo.add_job(create_test_job("p1-a", JobPriority::P1))
+            .expect("add");
+        repo.add_job(create_test_job("p0-a", JobPriority::P0))
+            .expect("add");
+        repo.add_job(create_test_job("p1-b", JobPriority::P1))
+            .expect("add");
+        repo.add_job(create_test_job("p0-b", JobPriority::P0))
+            .expect("add");
+        repo.add_job(create_test_job("p2-a", JobPriority::P2))
+            .expect("add");
+        repo.add_job(create_test_job("p0-c", JobPriority::P0))
+            .expect("add");
 
         let jobs = repo.poll_pending_jobs(10).await.expect("poll");
         assert_eq!(jobs.len(), 6);
@@ -441,9 +472,12 @@ mod tests {
     async fn test_repeated_polls_drain_queue() {
         let repo = InMemoryJobRepository::new();
 
-        repo.add_job(create_test_job("a", JobPriority::P2)).expect("add");
-        repo.add_job(create_test_job("b", JobPriority::P0)).expect("add");
-        repo.add_job(create_test_job("c", JobPriority::P1)).expect("add");
+        repo.add_job(create_test_job("a", JobPriority::P2))
+            .expect("add");
+        repo.add_job(create_test_job("b", JobPriority::P0))
+            .expect("add");
+        repo.add_job(create_test_job("c", JobPriority::P1))
+            .expect("add");
 
         // First poll: get all 3
         let batch1 = repo.poll_pending_jobs(10).await.expect("poll");
@@ -462,7 +496,8 @@ mod tests {
     async fn test_interleaved_enqueue_and_state_changes() {
         let repo = InMemoryJobRepository::new();
 
-        repo.add_job(create_test_job("j1", JobPriority::P0)).expect("add");
+        repo.add_job(create_test_job("j1", JobPriority::P0))
+            .expect("add");
         let jobs = repo.poll_pending_jobs(10).await.expect("poll");
         assert_eq!(jobs.len(), 1);
 
@@ -477,8 +512,10 @@ mod tests {
         .expect("update");
 
         // Add more jobs
-        repo.add_job(create_test_job("j2", JobPriority::P1)).expect("add");
-        repo.add_job(create_test_job("j3", JobPriority::P0)).expect("add");
+        repo.add_job(create_test_job("j2", JobPriority::P1))
+            .expect("add");
+        repo.add_job(create_test_job("j3", JobPriority::P0))
+            .expect("add");
 
         let jobs = repo.poll_pending_jobs(10).await.expect("poll");
         assert_eq!(jobs.len(), 2);
@@ -489,7 +526,8 @@ mod tests {
     #[tokio::test]
     async fn test_poll_limit_zero_returns_empty() {
         let repo = InMemoryJobRepository::new();
-        repo.add_job(create_test_job("1", JobPriority::P0)).expect("add");
+        repo.add_job(create_test_job("1", JobPriority::P0))
+            .expect("add");
 
         let jobs = repo.poll_pending_jobs(0).await.expect("poll");
         assert!(jobs.is_empty());
@@ -498,9 +536,12 @@ mod tests {
     #[tokio::test]
     async fn test_poll_limit_one_returns_highest_priority() {
         let repo = InMemoryJobRepository::new();
-        repo.add_job(create_test_job("low", JobPriority::P4)).expect("add");
-        repo.add_job(create_test_job("mid", JobPriority::P2)).expect("add");
-        repo.add_job(create_test_job("high", JobPriority::P0)).expect("add");
+        repo.add_job(create_test_job("low", JobPriority::P4))
+            .expect("add");
+        repo.add_job(create_test_job("mid", JobPriority::P2))
+            .expect("add");
+        repo.add_job(create_test_job("high", JobPriority::P0))
+            .expect("add");
 
         let jobs = repo.poll_pending_jobs(1).await.expect("poll");
         assert_eq!(jobs.len(), 1);
@@ -512,7 +553,8 @@ mod tests {
         let repo = InMemoryJobRepository::new();
 
         // Single enqueue then dequeue
-        repo.add_job(create_test_job("solo", JobPriority::P3)).expect("add");
+        repo.add_job(create_test_job("solo", JobPriority::P3))
+            .expect("add");
         let jobs = repo.poll_pending_jobs(1).await.expect("poll");
         assert_eq!(jobs.len(), 1);
         assert_eq!(jobs[0].id, "solo");
@@ -532,7 +574,10 @@ mod tests {
 
         sort_jobs_by_priority(&mut jobs);
 
-        assert_eq!(jobs.iter().map(|j| j.priority.value()).collect::<Vec<_>>(), vec![0, 1, 2, 3, 4]);
+        assert_eq!(
+            jobs.iter().map(|j| j.priority.value()).collect::<Vec<_>>(),
+            vec![0, 1, 2, 3, 4]
+        );
     }
 
     #[test]

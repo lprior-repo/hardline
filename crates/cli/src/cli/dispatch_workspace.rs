@@ -43,7 +43,11 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
         WorkspaceCommands::Branch { name } => commands::workspace::branch_create(&name),
         WorkspaceCommands::BranchDelete { name } => commands::workspace::branch_delete(&name),
         WorkspaceCommands::BranchCurrent => commands::workspace::branch_current(),
-        WorkspaceCommands::BranchRename { old_name, new_name, dry_run } => {
+        WorkspaceCommands::BranchRename {
+            old_name,
+            new_name,
+            dry_run,
+        } => {
             let options = commands::handlers::branch::BranchRenameOptions {
                 old_name,
                 new_name,
@@ -52,9 +56,7 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             commands::handlers::branch::run_branch_rename(&options)
         }
         WorkspaceCommands::Add { path } => commands::workspace::add(&path),
-        WorkspaceCommands::Fork { name, from } => {
-            commands::workspace::fork(&name, from.as_deref())
-        }
+        WorkspaceCommands::Fork { name, from } => commands::workspace::fork(&name, from.as_deref()),
         WorkspaceCommands::Merge { name } => commands::workspace::merge(&name),
         WorkspaceCommands::Revert { name, dry_run } => {
             let options = commands::handlers::revert::RevertOptions {
@@ -65,16 +67,13 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             Ok(())
         }
         WorkspaceCommands::IntegrityValidate { workspace } => {
-            let subcommand = commands::handlers::integrity::IntegritySubcommand::Validate {
-                workspace,
-            };
+            let subcommand =
+                commands::handlers::integrity::IntegritySubcommand::Validate { workspace };
             commands::handlers::integrity::run_integrity(&subcommand)
         }
         WorkspaceCommands::IntegrityRepair { workspace, force } => {
-            let subcommand = commands::handlers::integrity::IntegritySubcommand::Repair {
-                workspace,
-                force,
-            };
+            let subcommand =
+                commands::handlers::integrity::IntegritySubcommand::Repair { workspace, force };
             commands::handlers::integrity::run_integrity(&subcommand)
         }
         WorkspaceCommands::IntegrityBackupList => {
@@ -88,7 +87,12 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             };
             commands::handlers::integrity::run_integrity(&subcommand)
         }
-        WorkspaceCommands::Recover { target, diagnose, dry_run, verbose } => {
+        WorkspaceCommands::Recover {
+            target,
+            diagnose,
+            dry_run,
+            verbose,
+        } => {
             let options = commands::handlers::recover::RecoverOptions {
                 diagnose_only: diagnose,
                 target,
@@ -105,7 +109,11 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             }
             Ok(())
         }
-        WorkspaceCommands::Rollback { session, commit, dry_run } => {
+        WorkspaceCommands::Rollback {
+            session,
+            commit,
+            dry_run,
+        } => {
             let options = commands::handlers::recover::RollbackOptions {
                 session,
                 commit,
@@ -119,7 +127,11 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             }
             Ok(())
         }
-        WorkspaceCommands::Rename { old_name, new_name, dry_run } => {
+        WorkspaceCommands::Rename {
+            old_name,
+            new_name,
+            dry_run,
+        } => {
             let options = commands::handlers::rename::RenameOptions {
                 old_name,
                 new_name,
@@ -129,13 +141,15 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             Ok(())
         }
         WorkspaceCommands::Export { session, output } => {
-            let options = commands::handlers::export_import::ExportOptions {
-                session,
-                output,
-            };
+            let options = commands::handlers::export_import::ExportOptions { session, output };
             commands::handlers::export_import::run_export(&options)
         }
-        WorkspaceCommands::Import { input, force, skip_existing, dry_run } => {
+        WorkspaceCommands::Import {
+            input,
+            force,
+            skip_existing,
+            dry_run,
+        } => {
             let options = commands::handlers::export_import::ImportOptions {
                 input,
                 force,
@@ -148,7 +162,11 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             let options = commands::handlers::contract::ContractOptions { command };
             commands::handlers::contract::run_contract(&options)
         }
-        WorkspaceCommands::Validate { command, args, dry_run } => {
+        WorkspaceCommands::Validate {
+            command,
+            args,
+            dry_run,
+        } => {
             let options = commands::handlers::validate::ValidateOptions {
                 command,
                 args,
@@ -156,11 +174,15 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             };
             commands::handlers::validate::run_validate(&options)
         }
-        WorkspaceCommands::Query { query_type, argument, status, agent } => {
-            let qt = commands::handlers::query::data::QueryType::from_str(&query_type)
-                .ok_or_else(|| {
-                    Error::validation_error(format!("Unknown query type: {query_type}"))
-                })?;
+        WorkspaceCommands::Query {
+            query_type,
+            argument,
+            status,
+            agent,
+        } => {
+            let qt = commands::handlers::query::data::QueryType::from_str(&query_type).ok_or_else(
+                || Error::validation_error(format!("Unknown query type: {query_type}")),
+            )?;
             let options = commands::handlers::query::QueryOptions {
                 query_type: qt,
                 argument,
@@ -174,7 +196,12 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             commands::handlers::can_i::run_can_i(&options)?;
             Ok(())
         }
-        WorkspaceCommands::Events { session, event_type, follow, limit } => {
+        WorkspaceCommands::Events {
+            session,
+            event_type,
+            follow,
+            limit,
+        } => {
             let options = commands::handlers::events::EventsOptions {
                 session,
                 event_type,
@@ -184,7 +211,12 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             };
             commands::handlers::events::run_events(&options)
         }
-        WorkspaceCommands::Clean { dry_run, force, verbose, .. } => {
+        WorkspaceCommands::Clean {
+            dry_run,
+            force,
+            verbose,
+            ..
+        } => {
             let options = commands::handlers::clean::CleanOptions {
                 dry_run,
                 force,
@@ -203,10 +235,7 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             use crate::cli::workspace_args::BookmarkCommands;
             let subcmd = match command {
                 BookmarkCommands::Create { name } => {
-                    commands::handlers::bookmark::BookmarkSubcommand::Create {
-                        name,
-                        push: false,
-                    }
+                    commands::handlers::bookmark::BookmarkSubcommand::Create { name, push: false }
                 }
                 BookmarkCommands::List => {
                     commands::handlers::bookmark::BookmarkSubcommand::List { show_all: false }
@@ -215,17 +244,21 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
                     commands::handlers::bookmark::BookmarkSubcommand::Delete { name }
                 }
                 BookmarkCommands::Track { name } => {
-                    commands::handlers::bookmark::BookmarkSubcommand::Track {
-                        name,
-                        remote: None,
-                    }
+                    commands::handlers::bookmark::BookmarkSubcommand::Track { name, remote: None }
                 }
             };
             let options = commands::handlers::bookmark::BookmarkOptions { subcommand: subcmd };
             commands::handlers::bookmark::run_bookmark(&options)?;
             Ok(())
         }
-        WorkspaceCommands::Work { name, bead, agent, no_agent, idempotent, dry_run } => {
+        WorkspaceCommands::Work {
+            name,
+            bead,
+            agent,
+            no_agent,
+            idempotent,
+            dry_run,
+        } => {
             let mode = if dry_run {
                 commands::handlers::work::WorkMode::DryRun
             } else if idempotent {
@@ -247,7 +280,11 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             let options = commands::handlers::whoami::WhoamiOptions { json };
             commands::handlers::whoami::run_whoami(&options)
         }
-        WorkspaceCommands::Wait { condition, timeout, poll_interval } => {
+        WorkspaceCommands::Wait {
+            condition,
+            timeout,
+            poll_interval,
+        } => {
             let options = commands::handlers::wait::WaitOptions {
                 condition: commands::handlers::wait::WaitCondition::SessionExists(condition),
                 timeout: std::time::Duration::from_secs(timeout),
@@ -283,9 +320,7 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
                     }
                 }
                 CheckpointCommands::Restore { id } => {
-                    commands::handlers::checkpoint::CheckpointAction::Restore {
-                        checkpoint_id: id,
-                    }
+                    commands::handlers::checkpoint::CheckpointAction::Restore { checkpoint_id: id }
                 }
                 CheckpointCommands::List => commands::handlers::checkpoint::CheckpointAction::List,
             };
@@ -310,7 +345,10 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             let options = commands::handlers::prune::PruneOptions::from_cli(yes, dry_run);
             let output = commands::handlers::prune::run_prune(&options)?;
             if dry_run {
-                Output::info(&format!("Would prune {} invalid items", output.invalid_count));
+                Output::info(&format!(
+                    "Would prune {} invalid items",
+                    output.invalid_count
+                ));
             }
             Ok(())
         }

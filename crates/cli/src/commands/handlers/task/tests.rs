@@ -784,7 +784,8 @@ mod red_queen_adversarial {
         let json = r#""bad id""#;
         let deserialized: TaskId = serde_json::from_str(json).expect("deserialize should succeed");
         assert_eq!(
-            deserialized.as_str(), "bad id",
+            deserialized.as_str(),
+            "bad id",
             "Serde bypass: TaskId with spaces accepted via deserialization"
         );
     }
@@ -795,7 +796,8 @@ mod red_queen_adversarial {
         let json = r#""task; DROP TABLE tasks""#;
         let deserialized: TaskId = serde_json::from_str(json).expect("deserialize should succeed");
         assert_eq!(
-            deserialized.as_str(), "task; DROP TABLE tasks",
+            deserialized.as_str(),
+            "task; DROP TABLE tasks",
             "Serde bypass: SQL injection string accepted via deserialization"
         );
     }
@@ -806,7 +808,8 @@ mod red_queen_adversarial {
         let json = r#""../../../etc/passwd""#;
         let deserialized: TaskId = serde_json::from_str(json).expect("deserialize should succeed");
         assert_eq!(
-            deserialized.as_str(), "../../../etc/passwd",
+            deserialized.as_str(),
+            "../../../etc/passwd",
             "Serde bypass: path traversal string accepted via deserialization"
         );
     }
@@ -817,7 +820,8 @@ mod red_queen_adversarial {
         let json = r#""""#;
         let deserialized: TaskId = serde_json::from_str(json).expect("deserialize should succeed");
         assert_eq!(
-            deserialized.as_str(), "",
+            deserialized.as_str(),
+            "",
             "Serde bypass: empty TaskId accepted via deserialization"
         );
     }
@@ -842,9 +846,11 @@ mod red_queen_adversarial {
         let json = serde_json::to_string(&task).expect("serialize");
         // Replace the valid ID with an invalid one
         let tampered = json.replace("\"valid-001\"", "\"invalid id!\"");
-        let deserialized: Task = serde_json::from_str(&tampered).expect("deserialize tampered task");
+        let deserialized: Task =
+            serde_json::from_str(&tampered).expect("deserialize tampered task");
         assert_eq!(
-            deserialized.id.as_str(), "invalid id!",
+            deserialized.id.as_str(),
+            "invalid id!",
             "Full task deserialization accepts invalid TaskId"
         );
     }
@@ -917,7 +923,10 @@ mod red_queen_adversarial {
 
         let json = serde_json::to_string(&task).expect("serialize");
         // JSON should escape the newline as \n
-        assert!(json.contains("\\n"), "Newline in title should be JSON-escaped");
+        assert!(
+            json.contains("\\n"),
+            "Newline in title should be JSON-escaped"
+        );
         // Verify the JSON is valid by deserializing
         let _: Task = serde_json::from_str(&json).expect("deserialize roundtrip");
     }
@@ -936,7 +945,10 @@ mod red_queen_adversarial {
             matches!(reclaimed.state, TaskState::InProgress),
             "Raw transition_to_claimed allows Closed -> InProgress"
         );
-        assert_eq!(reclaimed.assignee.as_ref().map(|a| a.as_str()), Some("agent-2"));
+        assert_eq!(
+            reclaimed.assignee.as_ref().map(|a| a.as_str()),
+            Some("agent-2")
+        );
     }
 
     /// MAJOR: Blocked task can be yielded (no state guard on transition).

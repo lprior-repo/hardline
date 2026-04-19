@@ -17,14 +17,14 @@ use scp_session::domain::entities::session::{
     BranchState, Created, Session, SessionId, SessionState,
 };
 use scp_session::domain::events::{
-    deserialize_event, serialize_event, SessionCompletedEvent, SessionCreatedEvent,
-    SessionEvent, SessionFailedEvent,
+    deserialize_event, serialize_event, SessionCompletedEvent, SessionCreatedEvent, SessionEvent,
+    SessionFailedEvent,
 };
 use scp_session::domain::value_objects::metadata::{
     DependsOn, IssueType, Labels, Priority as MetaPriority, WorkspaceName as MetaWorkspaceName,
 };
-use scp_session::domain::value_objects::path::AbsolutePath;
 use scp_session::domain::value_objects::path::path_validation::find_first_metacharacter;
+use scp_session::domain::value_objects::path::AbsolutePath;
 use scp_session::domain::value_objects::session::{
     BeadId as VoBeadId, SessionName, WorkspaceId as VoWorkspaceId,
 };
@@ -49,7 +49,10 @@ fn c01_session_id_parse_valid_ascii() {
 #[test]
 fn c02_session_id_generate_has_prefix_and_is_unique() {
     let id = SessionId::generate();
-    assert!(id.as_str().starts_with("session-"), "C02: must have session- prefix");
+    assert!(
+        id.as_str().starts_with("session-"),
+        "C02: must have session- prefix"
+    );
     assert!(!id.as_str().is_empty(), "C02: must be non-empty");
     let id2 = SessionId::generate();
     assert_ne!(id, id2, "C02: must be unique");
@@ -59,7 +62,10 @@ fn c02_session_id_generate_has_prefix_and_is_unique() {
 fn c03_session_id_parse_empty_rejects() {
     let result = SessionId::parse("");
     assert!(result.is_err(), "C03: empty must reject");
-    assert!(matches!(result.unwrap_err(), SessionError::InvalidIdentifier(_)));
+    assert!(matches!(
+        result.unwrap_err(),
+        SessionError::InvalidIdentifier(_)
+    ));
 }
 
 #[test]
@@ -99,13 +105,22 @@ fn c08_session_name_exceeds_max_rejects() {
 #[test]
 fn c09_session_name_empty_rejects() {
     assert!(SessionName::parse("").is_err(), "C09: empty rejects");
-    assert!(SessionName::parse("   ").is_err(), "C09: whitespace-only rejects");
+    assert!(
+        SessionName::parse("   ").is_err(),
+        "C09: whitespace-only rejects"
+    );
 }
 
 #[test]
 fn c10_session_name_must_start_with_letter() {
-    assert!(SessionName::parse("123invalid").is_err(), "C10: starts with number rejects");
-    assert!(SessionName::parse("_underscore").is_err(), "C10: starts with underscore rejects");
+    assert!(
+        SessionName::parse("123invalid").is_err(),
+        "C10: starts with number rejects"
+    );
+    assert!(
+        SessionName::parse("_underscore").is_err(),
+        "C10: starts with underscore rejects"
+    );
 }
 
 // --- VoBeadId Claims ---
@@ -122,7 +137,10 @@ fn c12_vo_bead_id_generate_has_prefix_and_hex() {
     assert!(id.as_str().starts_with("bd-"), "C12: prefix bd-");
     let suffix = &id.as_str()[3..];
     assert!(suffix.len() >= 8, "C12: hex suffix at least 8 chars");
-    assert!(suffix.chars().all(|c| c.is_ascii_hexdigit()), "C12: all hex");
+    assert!(
+        suffix.chars().all(|c| c.is_ascii_hexdigit()),
+        "C12: all hex"
+    );
 }
 
 #[test]
@@ -143,10 +161,22 @@ fn c14_task_id_parse_valid() {
 
 #[test]
 fn c15_task_id_all_error_variants() {
-    assert!(matches!(TaskId::parse("").unwrap_err(), TaskIdError::InvalidInput));
-    assert!(matches!(TaskId::parse("abc-123").unwrap_err(), TaskIdError::InvalidPrefix));
-    assert!(matches!(TaskId::parse("bd-xyz").unwrap_err(), TaskIdError::InvalidHex));
-    assert!(matches!(TaskId::parse("bd-").unwrap_err(), TaskIdError::EmptySuffix));
+    assert!(matches!(
+        TaskId::parse("").unwrap_err(),
+        TaskIdError::InvalidInput
+    ));
+    assert!(matches!(
+        TaskId::parse("abc-123").unwrap_err(),
+        TaskIdError::InvalidPrefix
+    ));
+    assert!(matches!(
+        TaskId::parse("bd-xyz").unwrap_err(),
+        TaskIdError::InvalidHex
+    ));
+    assert!(matches!(
+        TaskId::parse("bd-").unwrap_err(),
+        TaskIdError::EmptySuffix
+    ));
 }
 
 // --- Title, Description, AgentId Claims ---
@@ -161,7 +191,10 @@ fn c16_title_valid_and_trims() {
 fn c17_title_at_max_boundary() {
     let max = "a".repeat(Title::MAX_LENGTH);
     assert!(Title::new(max).is_ok(), "C17: max length valid");
-    assert!(Title::new("a".repeat(Title::MAX_LENGTH + 1)).is_err(), "C17: over max rejects");
+    assert!(
+        Title::new("a".repeat(Title::MAX_LENGTH + 1)).is_err(),
+        "C17: over max rejects"
+    );
 }
 
 #[test]
@@ -183,7 +216,10 @@ fn c19_agent_id_non_empty() {
 #[test]
 fn c20_absolute_path_valid() {
     let path = AbsolutePath::try_from("/usr/local/bin").expect("C20: valid absolute path");
-    assert_eq!(path.to_path_buf(), std::path::PathBuf::from("/usr/local/bin"));
+    assert_eq!(
+        path.to_path_buf(),
+        std::path::PathBuf::from("/usr/local/bin")
+    );
 }
 
 #[test]
@@ -194,19 +230,40 @@ fn c21_absolute_path_rejects_relative() {
 
 #[test]
 fn c22_absolute_path_rejects_metacharacters() {
-    assert!(AbsolutePath::try_from("/home/$USER/bin").is_err(), "C22: $ rejects");
-    assert!(AbsolutePath::try_from("/tmp/`cmd`").is_err(), "C22: backtick rejects");
-    assert!(AbsolutePath::try_from("/tmp/a;b").is_err(), "C22: semicolon rejects");
-    assert!(AbsolutePath::try_from("/tmp/a|b").is_err(), "C22: pipe rejects");
-    assert!(AbsolutePath::try_from("/tmp/a&b").is_err(), "C22: ampersand rejects");
+    assert!(
+        AbsolutePath::try_from("/home/$USER/bin").is_err(),
+        "C22: $ rejects"
+    );
+    assert!(
+        AbsolutePath::try_from("/tmp/`cmd`").is_err(),
+        "C22: backtick rejects"
+    );
+    assert!(
+        AbsolutePath::try_from("/tmp/a;b").is_err(),
+        "C22: semicolon rejects"
+    );
+    assert!(
+        AbsolutePath::try_from("/tmp/a|b").is_err(),
+        "C22: pipe rejects"
+    );
+    assert!(
+        AbsolutePath::try_from("/tmp/a&b").is_err(),
+        "C22: ampersand rejects"
+    );
 }
 
 #[test]
 fn c23_find_first_metacharacter() {
     let err = find_first_metacharacter("/path/$var").expect("C23: finds $");
-    assert!(matches!(err, scp_session::domain::value_objects::path::ShellMetacharacterError::ContainsDollar { .. }));
+    assert!(matches!(
+        err,
+        scp_session::domain::value_objects::path::ShellMetacharacterError::ContainsDollar { .. }
+    ));
     let err2 = find_first_metacharacter("/path/`cmd`").expect("C23: finds backtick");
-    assert!(matches!(err2, scp_session::domain::value_objects::path::ShellMetacharacterError::ContainsBacktick { .. }));
+    assert!(matches!(
+        err2,
+        scp_session::domain::value_objects::path::ShellMetacharacterError::ContainsBacktick { .. }
+    ));
 }
 
 // --- Session Lifecycle Claims ---
@@ -254,13 +311,26 @@ fn c27_session_fail_from_every_non_terminal_state() {
     let s = Session::<Created>::create(SessionName::parse("f1").expect("v")).unwrap();
     assert_eq!(s.fail().unwrap().state(), SessionState::Failed);
     // Fail from Active
-    let s = Session::<Created>::create(SessionName::parse("f2").expect("v")).unwrap().activate().unwrap();
+    let s = Session::<Created>::create(SessionName::parse("f2").expect("v"))
+        .unwrap()
+        .activate()
+        .unwrap();
     assert_eq!(s.fail().unwrap().state(), SessionState::Failed);
     // Fail from Syncing
-    let s = Session::<Created>::create(SessionName::parse("f3").expect("v")).unwrap().activate().unwrap().sync().unwrap();
+    let s = Session::<Created>::create(SessionName::parse("f3").expect("v"))
+        .unwrap()
+        .activate()
+        .unwrap()
+        .sync()
+        .unwrap();
     assert_eq!(s.fail().unwrap().state(), SessionState::Failed);
     // Fail from Paused
-    let s = Session::<Created>::create(SessionName::parse("f4").expect("v")).unwrap().activate().unwrap().pause().unwrap();
+    let s = Session::<Created>::create(SessionName::parse("f4").expect("v"))
+        .unwrap()
+        .activate()
+        .unwrap()
+        .pause()
+        .unwrap();
     assert_eq!(s.fail().unwrap().state(), SessionState::Failed);
 }
 
@@ -292,7 +362,11 @@ fn c29_session_id_name_preserved_through_full_lifecycle() {
     let name_before = created.name.as_str().to_string();
     let ts = Utc::now();
 
-    let created = created.transition_branch(BranchState::OnBranch { name: "feature".into() }).expect("branch");
+    let created = created
+        .transition_branch(BranchState::OnBranch {
+            name: "feature".into(),
+        })
+        .expect("branch");
     let created = created.mark_synced(ts).expect("sync");
     let active = created.activate().expect("activate");
     let syncing = active.sync().expect("sync");
@@ -301,20 +375,37 @@ fn c29_session_id_name_preserved_through_full_lifecycle() {
 
     assert_eq!(completed.id.as_str(), id_before, "C29: ID preserved");
     assert_eq!(completed.name.as_str(), name_before, "C29: name preserved");
-    assert_eq!(completed.branch.branch_name(), Some("feature"), "C29: branch preserved");
-    assert_eq!(completed.last_synced, Some(ts), "C29: last_synced preserved");
+    assert_eq!(
+        completed.branch.branch_name(),
+        Some("feature"),
+        "C29: branch preserved"
+    );
+    assert_eq!(
+        completed.last_synced,
+        Some(ts),
+        "C29: last_synced preserved"
+    );
 }
 
 #[test]
 fn c30_session_branch_transitions() {
     let name = SessionName::parse("branch-test").expect("valid");
     let session = Session::<Created>::create(name).expect("created");
-    let on_branch = session.transition_branch(BranchState::OnBranch { name: "main".into() }).expect("C30: to branch");
+    let on_branch = session
+        .transition_branch(BranchState::OnBranch {
+            name: "main".into(),
+        })
+        .expect("C30: to branch");
     assert_eq!(on_branch.branch.branch_name(), Some("main"));
-    let detached = on_branch.transition_branch(BranchState::Detached).expect("C30: to detached");
+    let detached = on_branch
+        .transition_branch(BranchState::Detached)
+        .expect("C30: to detached");
     assert!(detached.branch.is_detached());
     // Detached to detached rejects
-    assert!(detached.transition_branch(BranchState::Detached).is_err(), "C30: detached->detached rejects");
+    assert!(
+        detached.transition_branch(BranchState::Detached).is_err(),
+        "C30: detached->detached rejects"
+    );
 }
 
 // --- Bead Aggregate Claims ---
@@ -344,14 +435,22 @@ fn c32_bead_full_lifecycle() {
     );
     assert_eq!(bead.state(), BeadState::Open);
 
-    let in_progress = bead.transition(BeadState::InProgress).expect("C32: to InProgress");
+    let in_progress = bead
+        .transition(BeadState::InProgress)
+        .expect("C32: to InProgress");
     assert_eq!(in_progress.state(), BeadState::InProgress);
 
-    let blocked = in_progress.transition(BeadState::Blocked).expect("C32: to Blocked");
+    let blocked = in_progress
+        .transition(BeadState::Blocked)
+        .expect("C32: to Blocked");
     assert_eq!(blocked.state(), BeadState::Blocked);
 
-    let resumed = blocked.transition(BeadState::InProgress).expect("C32: back to InProgress");
-    let closed = resumed.transition(BeadState::Closed).expect("C32: to Closed");
+    let resumed = blocked
+        .transition(BeadState::InProgress)
+        .expect("C32: back to InProgress");
+    let closed = resumed
+        .transition(BeadState::Closed)
+        .expect("C32: to Closed");
     assert!(closed.state().is_terminal());
     assert!(closed.closed_at().is_some(), "C32: closed_at set on close");
 }
@@ -363,10 +462,19 @@ fn c33_bead_closed_is_terminal() {
         BeadTitle::new("Terminal").unwrap(),
         None,
     );
-    let closed = bead.transition(BeadState::InProgress).unwrap()
-        .transition(BeadState::Closed).unwrap();
-    assert!(closed.transition(BeadState::Open).is_err(), "C33: closed->open rejects");
-    assert!(closed.transition(BeadState::InProgress).is_err(), "C33: closed->in_progress rejects");
+    let closed = bead
+        .transition(BeadState::InProgress)
+        .unwrap()
+        .transition(BeadState::Closed)
+        .unwrap();
+    assert!(
+        closed.transition(BeadState::Open).is_err(),
+        "C33: closed->open rejects"
+    );
+    assert!(
+        closed.transition(BeadState::InProgress).is_err(),
+        "C33: closed->in_progress rejects"
+    );
 }
 
 #[test]
@@ -377,7 +485,11 @@ fn c34_bead_dependencies_no_self_reference() {
         None,
     );
     let with_dep = bead.add_dependency(BeadId::new("bd-self").unwrap());
-    assert_eq!(with_dep.depends_on().len(), 0, "C34: self-reference rejected");
+    assert_eq!(
+        with_dep.depends_on().len(),
+        0,
+        "C34: self-reference rejected"
+    );
 }
 
 #[test]
@@ -393,7 +505,11 @@ fn c35_bead_blocked_by_and_is_blocked() {
     assert_eq!(blocked.blocked_by().len(), 1);
     // Duplicate blocker rejected
     let blocked2 = blocked.add_blocker(BeadId::new("bd-blocker1").unwrap());
-    assert_eq!(blocked2.blocked_by().len(), 1, "C35: duplicate blocker rejected");
+    assert_eq!(
+        blocked2.blocked_by().len(),
+        1,
+        "C35: duplicate blocker rejected"
+    );
 }
 
 #[test]
@@ -403,11 +519,20 @@ fn c36_bead_can_transition_to_always_allows_closed() {
         BeadTitle::new("Can Transition").unwrap(),
         None,
     );
-    assert!(bead.can_transition_to(BeadState::Closed), "C36: open->closed allowed");
+    assert!(
+        bead.can_transition_to(BeadState::Closed),
+        "C36: open->closed allowed"
+    );
     let in_progress = bead.transition(BeadState::InProgress).unwrap();
-    assert!(in_progress.can_transition_to(BeadState::Closed), "C36: in_progress->closed allowed");
+    assert!(
+        in_progress.can_transition_to(BeadState::Closed),
+        "C36: in_progress->closed allowed"
+    );
     let closed = in_progress.transition(BeadState::Closed).unwrap();
-    assert!(!closed.can_transition_to(BeadState::Open), "C36: closed->open rejected");
+    assert!(
+        !closed.can_transition_to(BeadState::Open),
+        "C36: closed->open rejected"
+    );
 }
 
 // --- Workspace Aggregate Claims ---
@@ -417,7 +542,8 @@ fn c37_workspace_create_starts_created() {
     let ws = Workspace::create(
         WorkspaceName::new("test-ws").unwrap(),
         WorkspacePath::new("/tmp/test").unwrap(),
-    ).expect("C37: created");
+    )
+    .expect("C37: created");
     assert_eq!(ws.state(), WorkspaceState::Created);
     assert!(ws.id().as_str().starts_with("ws-"));
     assert_eq!(ws.created_at(), ws.updated_at());
@@ -428,7 +554,8 @@ fn c38_workspace_full_happy_path() {
     let ws = Workspace::create(
         WorkspaceName::new("happy-path").unwrap(),
         WorkspacePath::new("/tmp/happy").unwrap(),
-    ).expect("created");
+    )
+    .expect("created");
     let working = ws.start_working().expect("C38: working");
     assert!(working.is_working());
     let ready = working.mark_ready().expect("C38: ready");
@@ -443,7 +570,8 @@ fn c39_workspace_conflict_path() {
     let ws = Workspace::create(
         WorkspaceName::new("conflict-ws").unwrap(),
         WorkspacePath::new("/tmp/conflict").unwrap(),
-    ).expect("created");
+    )
+    .expect("created");
     let working = ws.start_working().unwrap();
     let ready = working.mark_ready().unwrap();
     let conflict = ready.mark_conflict().expect("C39: conflict");
@@ -453,35 +581,83 @@ fn c39_workspace_conflict_path() {
 #[test]
 fn c40_workspace_abandon_from_any_non_terminal() {
     // Abandon from Created
-    let ws = Workspace::create(WorkspaceName::new("a1").unwrap(), WorkspacePath::new("/tmp/a1").unwrap()).unwrap();
+    let ws = Workspace::create(
+        WorkspaceName::new("a1").unwrap(),
+        WorkspacePath::new("/tmp/a1").unwrap(),
+    )
+    .unwrap();
     assert_eq!(ws.abandon().unwrap().state(), WorkspaceState::Abandoned);
     // Abandon from Working
-    let ws = Workspace::create(WorkspaceName::new("a2").unwrap(), WorkspacePath::new("/tmp/a2").unwrap()).unwrap();
-    assert_eq!(ws.start_working().unwrap().abandon().unwrap().state(), WorkspaceState::Abandoned);
+    let ws = Workspace::create(
+        WorkspaceName::new("a2").unwrap(),
+        WorkspacePath::new("/tmp/a2").unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        ws.start_working().unwrap().abandon().unwrap().state(),
+        WorkspaceState::Abandoned
+    );
     // Abandon from Ready
-    let ws = Workspace::create(WorkspaceName::new("a3").unwrap(), WorkspacePath::new("/tmp/a3").unwrap()).unwrap();
+    let ws = Workspace::create(
+        WorkspaceName::new("a3").unwrap(),
+        WorkspacePath::new("/tmp/a3").unwrap(),
+    )
+    .unwrap();
     let ready = ws.start_working().unwrap().mark_ready().unwrap();
     assert_eq!(ready.abandon().unwrap().state(), WorkspaceState::Abandoned);
     // Abandon from terminal (Merged) fails
-    let ws = Workspace::create(WorkspaceName::new("a4").unwrap(), WorkspacePath::new("/tmp/a4").unwrap()).unwrap();
-    let merged = ws.start_working().unwrap().mark_ready().unwrap().merge().unwrap();
-    assert!(merged.abandon().is_err(), "C40: abandon from terminal rejects");
+    let ws = Workspace::create(
+        WorkspaceName::new("a4").unwrap(),
+        WorkspacePath::new("/tmp/a4").unwrap(),
+    )
+    .unwrap();
+    let merged = ws
+        .start_working()
+        .unwrap()
+        .mark_ready()
+        .unwrap()
+        .merge()
+        .unwrap();
+    assert!(
+        merged.abandon().is_err(),
+        "C40: abandon from terminal rejects"
+    );
 }
 
 // --- WorkspaceState Machine Claims ---
 
 #[test]
 fn c41_workspace_state_machine_transitions() {
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Working).is_ok());
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Ready).is_ok());
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Merged).is_ok());
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Conflict).is_ok());
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Abandoned).is_ok());
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Abandoned).is_ok());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Working).is_ok()
+    );
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Ready).is_ok()
+    );
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Merged).is_ok()
+    );
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Conflict).is_ok()
+    );
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Working, WorkspaceState::Abandoned)
+            .is_ok()
+    );
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Abandoned).is_ok()
+    );
     // Invalid transitions
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Ready).is_err());
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Merged, WorkspaceState::Working).is_err());
-    assert!(WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Created).is_err());
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Ready).is_err()
+    );
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Merged, WorkspaceState::Working).is_err()
+    );
+    assert!(
+        WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Created)
+            .is_err()
+    );
 }
 
 // --- BeadState Machine Claims ---
@@ -531,9 +707,18 @@ fn c44_priority_range_and_default() {
 #[test]
 fn c45_labels_validation() {
     assert!(Labels::new(vec![]).is_ok(), "C45: empty labels valid");
-    assert!(Labels::new(vec!["a".into(), "b".into()]).is_ok(), "C45: valid labels");
-    assert!(Labels::new((0..=Labels::MAX_LABELS).map(|i| format!("l-{i}")).collect()).is_err(), "C45: too many rejects");
-    assert!(Labels::new(vec!["dup".into(), "dup".into()]).is_err(), "C45: duplicates reject");
+    assert!(
+        Labels::new(vec!["a".into(), "b".into()]).is_ok(),
+        "C45: valid labels"
+    );
+    assert!(
+        Labels::new((0..=Labels::MAX_LABELS).map(|i| format!("l-{i}")).collect()).is_err(),
+        "C45: too many rejects"
+    );
+    assert!(
+        Labels::new(vec!["dup".into(), "dup".into()]).is_err(),
+        "C45: duplicates reject"
+    );
 }
 
 #[test]
@@ -558,7 +743,9 @@ fn c47_issue_type_validation() {
 
 #[test]
 fn c48_meta_priority_range() {
-    for p in 0..=4u8 { assert!(MetaPriority::new(p).is_ok()); }
+    for p in 0..=4u8 {
+        assert!(MetaPriority::new(p).is_ok());
+    }
     assert!(MetaPriority::new(5).is_err(), "C48: 5 rejects");
     assert!(MetaPriority::new(255).is_err(), "C48: 255 rejects");
 }
@@ -568,8 +755,14 @@ fn c49_meta_workspace_name_validation() {
     assert!(MetaWorkspaceName::new("my-ws").is_ok(), "C49: valid");
     assert!(MetaWorkspaceName::new("  padded  ").is_ok(), "C49: trims");
     assert!(MetaWorkspaceName::new("").is_err(), "C49: empty rejects");
-    assert!(MetaWorkspaceName::new("   ").is_err(), "C49: whitespace rejects");
-    assert!(MetaWorkspaceName::new("a".repeat(MetaWorkspaceName::MAX_LENGTH + 1)).is_err(), "C49: too long rejects");
+    assert!(
+        MetaWorkspaceName::new("   ").is_err(),
+        "C49: whitespace rejects"
+    );
+    assert!(
+        MetaWorkspaceName::new("a".repeat(MetaWorkspaceName::MAX_LENGTH + 1)).is_err(),
+        "C49: too long rejects"
+    );
 }
 
 // --- Event Claims ---
@@ -599,9 +792,18 @@ fn c51_event_structs_timestamp_within_bounds() {
     let completed = SessionCompletedEvent::new("s-2".into(), name.clone());
     let failed = SessionFailedEvent::new("s-3".into(), name, "err".into());
     let after = Utc::now();
-    assert!(created.timestamp >= before && created.timestamp <= after, "C51: created timestamp");
-    assert!(completed.timestamp >= before && completed.timestamp <= after, "C51: completed timestamp");
-    assert!(failed.timestamp >= before && failed.timestamp <= after, "C51: failed timestamp");
+    assert!(
+        created.timestamp >= before && created.timestamp <= after,
+        "C51: created timestamp"
+    );
+    assert!(
+        completed.timestamp >= before && completed.timestamp <= after,
+        "C51: completed timestamp"
+    );
+    assert!(
+        failed.timestamp >= before && failed.timestamp <= after,
+        "C51: failed timestamp"
+    );
 }
 
 // --- SessionService Claims ---
@@ -616,21 +818,34 @@ fn c52_service_full_lifecycle() {
 
 #[test]
 fn c53_service_list_returns_empty() {
-    assert!(SessionService::list_sessions().unwrap().is_empty(), "C53: stub returns empty");
+    assert!(
+        SessionService::list_sessions().unwrap().is_empty(),
+        "C53: stub returns empty"
+    );
 }
 
 #[test]
 fn c54_service_get_session_returns_not_found() {
     let result = SessionService::get_session(SessionId::parse("nonexistent").unwrap());
-    assert!(matches!(result, Err(SessionError::NotFound(_))), "C54: returns NotFound");
+    assert!(
+        matches!(result, Err(SessionError::NotFound(_))),
+        "C54: returns NotFound"
+    );
 }
 
 // --- Serde Roundtrip Claims ---
 
 #[test]
 fn c55_session_state_serde_all_variants() {
-    for state in [SessionState::Created, SessionState::Active, SessionState::Syncing,
-                  SessionState::Synced, SessionState::Paused, SessionState::Completed, SessionState::Failed] {
+    for state in [
+        SessionState::Created,
+        SessionState::Active,
+        SessionState::Syncing,
+        SessionState::Synced,
+        SessionState::Paused,
+        SessionState::Completed,
+        SessionState::Failed,
+    ] {
         let json = serde_json::to_string(&state).unwrap();
         let parsed: SessionState = serde_json::from_str(&json).unwrap();
         assert_eq!(state, parsed, "C55: roundtrip {:?}", state);
@@ -643,9 +858,10 @@ fn c56_bead_serde_roundtrip() {
         BeadId::new("bd-serde").unwrap(),
         BeadTitle::new("Serde Bead").unwrap(),
         Some(BeadDescription::new("desc").unwrap()),
-    ).with_priority(Priority::new(0).unwrap())
-     .with_type(BeadType::Bug)
-     .with_assignee("alice");
+    )
+    .with_priority(Priority::new(0).unwrap())
+    .with_type(BeadType::Bug)
+    .with_assignee("alice");
     let json = serde_json::to_string(&bead).unwrap();
     let parsed: Bead = serde_json::from_str(&json).unwrap();
     assert_eq!(bead.id().as_str(), parsed.id().as_str());
@@ -671,7 +887,12 @@ fn adv02_session_name_unicode() {
 
 #[test]
 fn adv03_session_name_special_chars() {
-    for name in ["test@session", "test.session", "test session", "test/session"] {
+    for name in [
+        "test@session",
+        "test.session",
+        "test session",
+        "test/session",
+    ] {
         assert!(SessionName::parse(name).is_err(), "ADV03: '{name}' rejects");
     }
 }
@@ -679,13 +900,22 @@ fn adv03_session_name_special_chars() {
 #[test]
 fn adv04_task_id_mixed_invalid_chars() {
     // Uppercase hex IS valid (A-F are hex digits)
-    assert!(TaskId::parse("bd-ABCDEF").is_ok(), "ADV04: uppercase A-F hex valid");
-    assert!(TaskId::parse("bd-abcdef").is_ok(), "ADV04: lowercase a-f hex valid");
+    assert!(
+        TaskId::parse("bd-ABCDEF").is_ok(),
+        "ADV04: uppercase A-F hex valid"
+    );
+    assert!(
+        TaskId::parse("bd-abcdef").is_ok(),
+        "ADV04: lowercase a-f hex valid"
+    );
     // G is NOT a hex digit
     assert!(TaskId::parse("bd-12345G").is_err(), "ADV04: G not hex");
     assert!(TaskId::parse("bd-ghijkl").is_err(), "ADV04: g-l not hex");
     // TaskId requires lowercase 'bd-' prefix (starts_with check)
-    assert!(TaskId::parse("BD-abc123").is_err(), "ADV04: uppercase BD- prefix rejects");
+    assert!(
+        TaskId::parse("BD-abc123").is_err(),
+        "ADV04: uppercase BD- prefix rejects"
+    );
 }
 
 #[test]
@@ -697,37 +927,73 @@ fn adv05_bead_id_value_special_chars() {
 
 #[test]
 fn adv06_absolute_path_traversal() {
-    assert!(AbsolutePath::try_from("/safe/path").is_ok(), "ADV06: normal path ok");
+    assert!(
+        AbsolutePath::try_from("/safe/path").is_ok(),
+        "ADV06: normal path ok"
+    );
     // These should pass path validation (they're absolute and no metacharacters)
     // but the crate doesn't specifically block traversal sequences
     let result = AbsolutePath::try_from("/tmp/../etc/passwd");
-    assert!(result.is_ok(), "ADV06: traversal is absolute and shell-safe (no metacharacters)");
+    assert!(
+        result.is_ok(),
+        "ADV06: traversal is absolute and shell-safe (no metacharacters)"
+    );
 }
 
 #[test]
 fn adv07_absolute_path_shell_injection() {
-    assert!(AbsolutePath::try_from("/$(whoami)").is_err(), "ADV07: $() injection rejects");
-    assert!(AbsolutePath::try_from("/`whoami`").is_err(), "ADV07: backtick injection rejects");
-    assert!(AbsolutePath::try_from("/tmp;rm -rf /").is_err(), "ADV07: semicolon injection rejects");
-    assert!(AbsolutePath::try_from("/tmp|cat /etc/passwd").is_err(), "ADV07: pipe injection rejects");
-    assert!(AbsolutePath::try_from("/tmp&&echo pwned").is_err(), "ADV07: ampersand injection rejects");
+    assert!(
+        AbsolutePath::try_from("/$(whoami)").is_err(),
+        "ADV07: $() injection rejects"
+    );
+    assert!(
+        AbsolutePath::try_from("/`whoami`").is_err(),
+        "ADV07: backtick injection rejects"
+    );
+    assert!(
+        AbsolutePath::try_from("/tmp;rm -rf /").is_err(),
+        "ADV07: semicolon injection rejects"
+    );
+    assert!(
+        AbsolutePath::try_from("/tmp|cat /etc/passwd").is_err(),
+        "ADV07: pipe injection rejects"
+    );
+    assert!(
+        AbsolutePath::try_from("/tmp&&echo pwned").is_err(),
+        "ADV07: ampersand injection rejects"
+    );
 }
 
 #[test]
 fn adv08_workspace_path_validation() {
     assert!(WorkspacePath::new("").is_err(), "ADV08: empty rejects");
-    assert!(WorkspacePath::new("bare-name").is_err(), "ADV08: bare name rejects");
-    assert!(WorkspacePath::new("/valid/path").is_ok(), "ADV08: absolute ok");
-    assert!(WorkspacePath::new("./relative").is_ok(), "ADV08: relative with dot ok");
+    assert!(
+        WorkspacePath::new("bare-name").is_err(),
+        "ADV08: bare name rejects"
+    );
+    assert!(
+        WorkspacePath::new("/valid/path").is_ok(),
+        "ADV08: absolute ok"
+    );
+    assert!(
+        WorkspacePath::new("./relative").is_ok(),
+        "ADV08: relative with dot ok"
+    );
 }
 
 #[test]
 fn adv09_bead_title_boundary() {
     assert!(BeadTitle::new("").is_err(), "ADV09: empty rejects");
-    assert!(BeadTitle::new("   ").is_err(), "ADV09: whitespace-only rejects");
+    assert!(
+        BeadTitle::new("   ").is_err(),
+        "ADV09: whitespace-only rejects"
+    );
     let max = "x".repeat(BeadTitle::MAX_LENGTH);
     assert!(BeadTitle::new(max).is_ok(), "ADV09: max length ok");
-    assert!(BeadTitle::new("x".repeat(BeadTitle::MAX_LENGTH + 1)).is_err(), "ADV09: over max rejects");
+    assert!(
+        BeadTitle::new("x".repeat(BeadTitle::MAX_LENGTH + 1)).is_err(),
+        "ADV09: over max rejects"
+    );
 }
 
 #[test]
@@ -735,9 +1001,15 @@ fn adv10_bead_description_none_behavior() {
     let desc = BeadDescription::new("");
     assert!(desc.unwrap().is_empty(), "ADV10: empty -> None -> is_empty");
     let desc = BeadDescription::new("   ");
-    assert!(desc.unwrap().is_empty(), "ADV10: whitespace -> None -> is_empty");
+    assert!(
+        desc.unwrap().is_empty(),
+        "ADV10: whitespace -> None -> is_empty"
+    );
     let desc = BeadDescription::new("content");
-    assert!(!desc.unwrap().is_empty(), "ADV10: content -> Some -> not is_empty");
+    assert!(
+        !desc.unwrap().is_empty(),
+        "ADV10: content -> Some -> not is_empty"
+    );
 }
 
 #[test]
@@ -749,9 +1021,18 @@ fn adv11_workspace_state_invalid_transitions() {
     assert!(!WorkspaceState::Merged.can_transition_to(WorkspaceState::Ready));
     assert!(!WorkspaceState::Conflict.can_transition_to(WorkspaceState::Ready));
     // Terminal states cannot transition anywhere
-    for terminal in [WorkspaceState::Merged, WorkspaceState::Conflict, WorkspaceState::Abandoned] {
+    for terminal in [
+        WorkspaceState::Merged,
+        WorkspaceState::Conflict,
+        WorkspaceState::Abandoned,
+    ] {
         for target in WorkspaceState::all() {
-            assert!(!terminal.can_transition_to(target), "ADV11: {:?} -> {:?} must be invalid", terminal, target);
+            assert!(
+                !terminal.can_transition_to(target),
+                "ADV11: {:?} -> {:?} must be invalid",
+                terminal,
+                target
+            );
         }
     }
 }
@@ -763,9 +1044,16 @@ fn adv12_bead_state_invalid_transitions() {
     // NOTE: Bead::can_transition_to always returns true for Closed target (Q16)
     // So this is actually valid per the Bead aggregate's design
     // Let's verify the Bead transition works
-    let bead = Bead::create(BeadId::new("bd-direct").unwrap(), BeadTitle::new("Direct").unwrap(), None);
+    let bead = Bead::create(
+        BeadId::new("bd-direct").unwrap(),
+        BeadTitle::new("Direct").unwrap(),
+        None,
+    );
     let result = bead.transition(BeadState::Closed);
-    assert!(result.is_ok(), "ADV12: open->closed is allowed by Bead (Q16)");
+    assert!(
+        result.is_ok(),
+        "ADV12: open->closed is allowed by Bead (Q16)"
+    );
 
     // But closed->anything fails
     let closed = result.unwrap();
@@ -785,8 +1073,13 @@ fn adv13_session_from_parts_with_all_fields() {
     let ts = Utc::now();
 
     let session = Session::from_parts(
-        id.clone(), name.clone(), Some(ws.clone()), Some(bd.clone()),
-        branch.clone(), Some(ts), Utc::now(),
+        id.clone(),
+        name.clone(),
+        Some(ws.clone()),
+        Some(bd.clone()),
+        branch.clone(),
+        Some(ts),
+        Utc::now(),
     );
 
     assert_eq!(session.id.as_str(), "preset-id");
@@ -808,7 +1101,11 @@ fn adv14_bead_add_dependency_duplicate_rejected() {
     let with_dep = bead.add_dependency(dep_id.clone());
     assert_eq!(with_dep.depends_on().len(), 1);
     let with_dup = with_dep.add_dependency(dep_id);
-    assert_eq!(with_dup.depends_on().len(), 1, "ADV14: duplicate dependency rejected");
+    assert_eq!(
+        with_dup.depends_on().len(),
+        1,
+        "ADV14: duplicate dependency rejected"
+    );
 }
 
 #[test]
@@ -819,7 +1116,11 @@ fn adv15_bead_add_blocker_self_reference_rejected() {
         None,
     );
     let with_self = bead.add_blocker(BeadId::new("bd-self-block").unwrap());
-    assert_eq!(with_self.blocked_by().len(), 0, "ADV15: self-blocker rejected");
+    assert_eq!(
+        with_self.blocked_by().len(),
+        0,
+        "ADV15: self-blocker rejected"
+    );
 }
 
 #[test]
@@ -827,52 +1128,90 @@ fn adv16_session_mark_synced_with_edge_timestamps() {
     let name = SessionName::parse("sync-edges").unwrap();
     let session = Session::<Created>::create(name).unwrap();
 
-    let past = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00+00:00").unwrap().with_timezone(&Utc);
+    let past = chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00+00:00")
+        .unwrap()
+        .with_timezone(&Utc);
     let synced = session.mark_synced(past).unwrap();
-    assert_eq!(synced.last_synced, Some(past), "ADV16: past timestamp works");
+    assert_eq!(
+        synced.last_synced,
+        Some(past),
+        "ADV16: past timestamp works"
+    );
 
     let future = Utc::now() + chrono::Duration::days(365);
     let synced2 = synced.mark_synced(future).unwrap();
-    assert_eq!(synced2.last_synced, Some(future), "ADV16: future timestamp works");
+    assert_eq!(
+        synced2.last_synced,
+        Some(future),
+        "ADV16: future timestamp works"
+    );
 }
 
 #[test]
 fn adv17_labels_boundary_max() {
-    let labels_vec: Vec<String> = (0..Labels::MAX_LABELS).map(|i| format!("label-{i}")).collect();
+    let labels_vec: Vec<String> = (0..Labels::MAX_LABELS)
+        .map(|i| format!("label-{i}"))
+        .collect();
     let labels = Labels::new(labels_vec).expect("ADV17: at max boundary");
     assert_eq!(labels.as_slice().len(), Labels::MAX_LABELS);
 }
 
 #[test]
 fn adv18_issue_type_case_sensitivity() {
-    assert!(IssueType::new("BUG").is_err(), "ADV18: uppercase BUG rejects");
-    assert!(IssueType::new("Feature").is_err(), "ADV18: capitalized rejects");
-    assert!(IssueType::new("TASK").is_err(), "ADV18: uppercase TASK rejects");
+    assert!(
+        IssueType::new("BUG").is_err(),
+        "ADV18: uppercase BUG rejects"
+    );
+    assert!(
+        IssueType::new("Feature").is_err(),
+        "ADV18: capitalized rejects"
+    );
+    assert!(
+        IssueType::new("TASK").is_err(),
+        "ADV18: uppercase TASK rejects"
+    );
 }
 
 #[test]
 fn adv19_workspace_name_max_boundary() {
     let max = "w".repeat(WorkspaceName::MAX_LENGTH);
-    assert!(WorkspaceName::new(max).is_ok(), "ADV19: max workspace name ok");
-    assert!(WorkspaceName::new("w".repeat(WorkspaceName::MAX_LENGTH + 1)).is_err(), "ADV19: over max rejects");
+    assert!(
+        WorkspaceName::new(max).is_ok(),
+        "ADV19: max workspace name ok"
+    );
+    assert!(
+        WorkspaceName::new("w".repeat(WorkspaceName::MAX_LENGTH + 1)).is_err(),
+        "ADV19: over max rejects"
+    );
 }
 
 #[test]
 fn adv20_workspace_id_empty_rejects() {
-    assert!(WorkspaceId::new("").is_err(), "ADV20: empty workspace ID rejects");
+    assert!(
+        WorkspaceId::new("").is_err(),
+        "ADV20: empty workspace ID rejects"
+    );
 }
 
 #[test]
 fn adv21_description_max_boundary() {
     let max = "x".repeat(Description::MAX_LENGTH);
     assert!(Description::new(max).is_ok(), "ADV21: at max ok");
-    assert!(Description::new("x".repeat(Description::MAX_LENGTH + 1)).is_err(), "ADV21: over max rejects");
+    assert!(
+        Description::new("x".repeat(Description::MAX_LENGTH + 1)).is_err(),
+        "ADV21: over max rejects"
+    );
 }
 
 #[test]
 fn adv22_session_state_is_terminal_only_completed_and_failed() {
-    for state in [SessionState::Created, SessionState::Active, SessionState::Syncing,
-                  SessionState::Synced, SessionState::Paused] {
+    for state in [
+        SessionState::Created,
+        SessionState::Active,
+        SessionState::Syncing,
+        SessionState::Synced,
+        SessionState::Paused,
+    ] {
         assert!(!state.is_terminal(), "ADV22: {:?} not terminal", state);
     }
     assert!(SessionState::Completed.is_terminal());
@@ -918,7 +1257,13 @@ fn xcut01_bead_state_serde_roundtrip() {
 
 #[test]
 fn xcut02_bead_type_serde_roundtrip() {
-    for bt in [BeadType::Bug, BeadType::Feature, BeadType::Task, BeadType::Epic, BeadType::Chore] {
+    for bt in [
+        BeadType::Bug,
+        BeadType::Feature,
+        BeadType::Task,
+        BeadType::Epic,
+        BeadType::Chore,
+    ] {
         let json = serde_json::to_string(&bt).unwrap();
         let parsed: BeadType = serde_json::from_str(&json).unwrap();
         assert_eq!(bt, parsed, "XCUT02: roundtrip {:?}", bt);
@@ -936,7 +1281,12 @@ fn xcut03_workspace_state_serde_roundtrip() {
 
 #[test]
 fn xcut04_branch_state_serde_roundtrip() {
-    for bs in [BranchState::Detached, BranchState::OnBranch { name: "main".into() }] {
+    for bs in [
+        BranchState::Detached,
+        BranchState::OnBranch {
+            name: "main".into(),
+        },
+    ] {
         let json = serde_json::to_string(&bs).unwrap();
         let parsed: BranchState = serde_json::from_str(&json).unwrap();
         assert_eq!(bs, parsed, "XCUT04: roundtrip {:?}", bs);
@@ -948,7 +1298,8 @@ fn xcut05_workspace_serde_roundtrip_through_lifecycle() {
     let ws = Workspace::create(
         WorkspaceName::new("serde-ws").unwrap(),
         WorkspacePath::new("/tmp/serde").unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
     let working = ws.start_working().unwrap();
     let ready = working.mark_ready().unwrap();
     let merged = ready.merge().unwrap();
@@ -968,7 +1319,10 @@ fn stress01_bulk_session_creation() {
     for i in 0..100 {
         let name = SessionName::parse(&format!("stress-{i}")).unwrap();
         let session = Session::<Created>::create(name).unwrap();
-        assert!(ids.insert(session.id.as_str().to_string()), "STRESS01: unique ID at iteration {i}");
+        assert!(
+            ids.insert(session.id.as_str().to_string()),
+            "STRESS01: unique ID at iteration {i}"
+        );
     }
 }
 
@@ -991,13 +1345,18 @@ fn stress03_bulk_bead_id_generate_uniqueness() {
     let mut ids = HashSet::new();
     for _ in 0..200 {
         let id = VoBeadId::generate();
-        assert!(ids.insert(id.as_str().to_string()), "STRESS03: unique generated ID");
+        assert!(
+            ids.insert(id.as_str().to_string()),
+            "STRESS03: unique generated ID"
+        );
     }
 }
 
 #[test]
 fn stress04_bulk_labels_at_boundary() {
-    let labels_vec: Vec<String> = (0..Labels::MAX_LABELS).map(|i| format!("stress-label-{i}")).collect();
+    let labels_vec: Vec<String> = (0..Labels::MAX_LABELS)
+        .map(|i| format!("stress-label-{i}"))
+        .collect();
     let labels = Labels::new(labels_vec).unwrap();
     assert_eq!(labels.as_slice().len(), Labels::MAX_LABELS);
     // Verify all unique

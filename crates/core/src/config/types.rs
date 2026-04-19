@@ -9,27 +9,23 @@ use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ForgeType {
+    #[default]
     Github,
     Gitlab,
     Gitea,
 }
 
 impl ForgeType {
-    pub fn display_name(self) -> &'static str {
+    #[must_use]
+    pub const fn display_name(self) -> &'static str {
         match self {
             Self::Github => "github",
             Self::Gitlab => "gitlab",
             Self::Gitea => "gitea",
         }
-    }
-}
-
-impl Default for ForgeType {
-    fn default() -> Self {
-        Self::Github
     }
 }
 
@@ -51,29 +47,25 @@ impl std::fmt::Display for ForgeType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthSourceType {
     StaxGithubTokenEnv,
     CredentialsFile,
+    #[default]
     GhCli,
     GithubTokenEnv,
 }
 
 impl AuthSourceType {
-    pub fn display_name(self) -> &'static str {
+    #[must_use]
+    pub const fn display_name(self) -> &'static str {
         match self {
             Self::StaxGithubTokenEnv => "STAX_GITHUB_TOKEN",
             Self::CredentialsFile => "credentials_file",
             Self::GhCli => "gh_cli",
             Self::GithubTokenEnv => "GITHUB_TOKEN",
         }
-    }
-}
-
-impl Default for AuthSourceType {
-    fn default() -> Self {
-        Self::GhCli
     }
 }
 

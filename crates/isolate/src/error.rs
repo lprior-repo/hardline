@@ -7,10 +7,7 @@ use thiserror::Error;
 pub enum IsolateError {
     /// An invalid state transition was attempted.
     #[error("invalid state transition: '{from}' -> '{to}'")]
-    InvalidTransition {
-        from: String,
-        to: String,
-    },
+    InvalidTransition { from: String, to: String },
 
     /// A workspace state string could not be parsed.
     #[error("invalid workspace state: '{0}'. Valid: created, working, ready, merged, abandoned, conflict")]

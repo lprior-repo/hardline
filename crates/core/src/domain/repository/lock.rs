@@ -71,12 +71,7 @@ pub trait LockRepository: Send + Sync {
     ///
     /// Returns [`RepositoryError::Conflict`] if the session is locked by another agent,
     /// or [`RepositoryError::InvalidInput`] if session or `agent_id` is empty.
-    fn acquire(
-        &self,
-        session: &str,
-        agent_id: &str,
-        ttl_seconds: u64,
-    ) -> RepositoryResult<Lock>;
+    fn acquire(&self, session: &str, agent_id: &str, ttl_seconds: u64) -> RepositoryResult<Lock>;
 
     /// Release a lock held by the caller.
     ///
@@ -215,12 +210,7 @@ impl Clone for InMemoryLockRepository {
 }
 
 impl LockRepository for InMemoryLockRepository {
-    fn acquire(
-        &self,
-        session: &str,
-        agent_id: &str,
-        ttl_seconds: u64,
-    ) -> RepositoryResult<Lock> {
+    fn acquire(&self, session: &str, agent_id: &str, ttl_seconds: u64) -> RepositoryResult<Lock> {
         if session.is_empty() {
             return Err(RepositoryError::InvalidInput(
                 "session cannot be empty".to_string(),
@@ -354,10 +344,7 @@ impl LockRepository for InMemoryLockRepository {
             .lock()
             .map_err(|e| RepositoryError::StorageError(e.to_string()))?;
         let now = Utc::now();
-        Ok(locks
-            .get(session)
-            .filter(|l| l.expires_at >= now)
-            .cloned())
+        Ok(locks.get(session).filter(|l| l.expires_at >= now).cloned())
     }
 
     fn get_audit_log(&self, session: &str) -> RepositoryResult<Vec<LockAudit>> {
@@ -420,7 +407,9 @@ mod tests {
         let repo = InMemoryLockRepository::new();
         repo.acquire("session-1", "agent-a", 300).expect("acquire");
         repo.release("session-1", "agent-a").expect("release");
-        let lock = repo.acquire("session-1", "agent-b", 300).expect("reacquire");
+        let lock = repo
+            .acquire("session-1", "agent-b", 300)
+            .expect("reacquire");
         assert_eq!(lock.agent_id, "agent-b");
     }
 
@@ -435,7 +424,8 @@ mod tests {
     #[test]
     fn given_no_lock_when_release_then_double_unlock_warning() {
         let repo = InMemoryLockRepository::new();
-        repo.release("session-1", "agent-a").expect("double unlock ok");
+        repo.release("session-1", "agent-a")
+            .expect("double unlock ok");
         let log = repo.get_audit_log("session-1").expect("audit");
         assert_eq!(log.len(), 1);
         assert_eq!(log[0].operation, LockOperation::DoubleUnlockWarning);

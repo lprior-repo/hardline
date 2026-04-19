@@ -336,25 +336,19 @@ mod tests {
 
     #[test]
     fn run_completions_bash() {
-        let options = CompletionsOptions {
-            shell: Shell::Bash,
-        };
+        let options = CompletionsOptions { shell: Shell::Bash };
         assert!(run_completions(&options).is_ok());
     }
 
     #[test]
     fn run_completions_zsh() {
-        let options = CompletionsOptions {
-            shell: Shell::Zsh,
-        };
+        let options = CompletionsOptions { shell: Shell::Zsh };
         assert!(run_completions(&options).is_ok());
     }
 
     #[test]
     fn run_completions_fish() {
-        let options = CompletionsOptions {
-            shell: Shell::Fish,
-        };
+        let options = CompletionsOptions { shell: Shell::Fish };
         assert!(run_completions(&options).is_ok());
     }
 

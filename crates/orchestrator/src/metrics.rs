@@ -1600,8 +1600,7 @@ mod tests {
             duration_secs: 3.14,
             error: None,
         };
-        let val: serde_json::Value =
-            serde_json::to_value(&r).expect("to_value");
+        let val: serde_json::Value = serde_json::to_value(&r).expect("to_value");
         assert_eq!(val["name"], "struct_test");
         assert_eq!(val["passed"], true);
         assert_eq!(val["duration_secs"], 3.14);
@@ -1616,8 +1615,7 @@ mod tests {
             duration_secs: 0.1,
             error: Some("boom".into()),
         };
-        let val: serde_json::Value =
-            serde_json::to_value(&r).expect("to_value");
+        let val: serde_json::Value = serde_json::to_value(&r).expect("to_value");
         assert_eq!(val["error"], "boom");
     }
 
@@ -1898,28 +1896,24 @@ mod tests {
         // First batch: all pass
         metrics.record_scenarios(
             "p1",
-            vec![
-                ScenarioResult {
-                    name: "s1".into(),
-                    passed: true,
-                    duration_secs: 1.0,
-                    error: None,
-                },
-            ],
+            vec![ScenarioResult {
+                name: "s1".into(),
+                passed: true,
+                duration_secs: 1.0,
+                error: None,
+            }],
         );
         assert!((metrics.scenario_pass_rate() - 100.0).abs() < 0.01);
 
         // Overwrite: all fail
         metrics.record_scenarios(
             "p1",
-            vec![
-                ScenarioResult {
-                    name: "s1".into(),
-                    passed: false,
-                    duration_secs: 1.0,
-                    error: Some("replaced".into()),
-                },
-            ],
+            vec![ScenarioResult {
+                name: "s1".into(),
+                passed: false,
+                duration_secs: 1.0,
+                error: Some("replaced".into()),
+            }],
         );
         assert!((metrics.scenario_pass_rate() - 0.0).abs() < 0.01);
     }

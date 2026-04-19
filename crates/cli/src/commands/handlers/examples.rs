@@ -152,9 +152,7 @@ fn workflow_examples() -> Vec<Example> {
         Example {
             name: "Start working on a feature".to_string(),
             description: "Create a workspace and start coding".to_string(),
-            commands: vec![
-                "scp workspace work --name feature-auth".to_string(),
-            ],
+            commands: vec!["scp workspace work --name feature-auth".to_string()],
             expected_output: Some(
                 "Created session 'feature-auth'\nRegistered as agent".to_string(),
             ),
@@ -229,9 +227,7 @@ fn error_handling_examples() -> Vec<Example> {
         Example {
             name: "Abort work without merging".to_string(),
             description: "Discard work and cleanup".to_string(),
-            commands: vec![
-                "scp workspace abort".to_string(),
-            ],
+            commands: vec!["scp workspace abort".to_string()],
             expected_output: Some("Aborted 'feature-auth'".to_string()),
             use_case: "error-handling".to_string(),
             prerequisites: vec!["Must be in a workspace".to_string()],
@@ -244,9 +240,7 @@ fn automation_examples() -> Vec<Example> {
     vec![Example {
         name: "Spawn automated agent".to_string(),
         description: "Run an AI agent on a task".to_string(),
-        commands: vec![
-            "scp workspace spawn task-abc12".to_string(),
-        ],
+        commands: vec!["scp workspace spawn task-abc12".to_string()],
         expected_output: None,
         use_case: "automation".to_string(),
         prerequisites: vec!["Task must exist".to_string()],
@@ -303,10 +297,7 @@ fn maintenance_examples() -> Vec<Example> {
     vec![Example {
         name: "Run health checks".to_string(),
         description: "Diagnose and fix issues".to_string(),
-        commands: vec![
-            "scp doctor".to_string(),
-            "scp doctor --full".to_string(),
-        ],
+        commands: vec!["scp doctor".to_string(), "scp doctor --full".to_string()],
         expected_output: None,
         use_case: "maintenance".to_string(),
         prerequisites: vec![],

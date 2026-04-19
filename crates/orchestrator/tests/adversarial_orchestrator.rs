@@ -226,7 +226,9 @@ mod pipeline_state_adversarial {
     #[test]
     fn adv_c1_skip_ahead_pending_to_agent_development() {
         let mut pipeline = Pipeline::new("test".to_string());
-        assert!(pipeline.transition_to(PipelineState::AgentDevelopment).is_err());
+        assert!(pipeline
+            .transition_to(PipelineState::AgentDevelopment)
+            .is_err());
     }
 
     #[test]
@@ -256,8 +258,12 @@ mod pipeline_state_adversarial {
         for _ in 0..100 {
             let mut pipeline = Pipeline::new("test".to_string());
             pipeline.transition_to(PipelineState::SpecReview).unwrap();
-            pipeline.transition_to(PipelineState::UniverseSetup).unwrap();
-            pipeline.transition_to(PipelineState::AgentDevelopment).unwrap();
+            pipeline
+                .transition_to(PipelineState::UniverseSetup)
+                .unwrap();
+            pipeline
+                .transition_to(PipelineState::AgentDevelopment)
+                .unwrap();
             pipeline.transition_to(PipelineState::Validation).unwrap();
             pipeline.transition_to(PipelineState::Accepted).unwrap();
             assert!(pipeline.state.is_terminal());
@@ -341,7 +347,10 @@ mod pipeline_state_adversarial {
             let mut pipeline = Pipeline::new("test".to_string());
             pipeline.state = terminal;
             let result = pipeline.transition_to(PipelineState::Pending);
-            assert!(matches!(result, Err(TransitionError::AlreadyTerminal { .. })));
+            assert!(matches!(
+                result,
+                Err(TransitionError::AlreadyTerminal { .. })
+            ));
         }
     }
 }
@@ -360,8 +369,7 @@ mod pipeline_executor_adversarial {
         let temp_dir = TempDir::new().unwrap();
         let state_dir = temp_dir.path().to_path_buf();
         let scenarios_path = temp_dir.path().join("scenarios");
-        let executor =
-            PipelineExecutor::new(state_dir).expect("create executor");
+        let executor = PipelineExecutor::new(state_dir).expect("create executor");
         (executor, temp_dir)
     }
 
@@ -663,8 +671,8 @@ mod state_store_adversarial {
 // ============================================================
 
 mod metrics_adversarial {
-    use orchestrator::metrics::*;
     use chrono::Utc;
+    use orchestrator::metrics::*;
 
     // --- Missing input ---
     #[test]
@@ -911,8 +919,7 @@ mod policies_adversarial {
 
     #[test]
     fn adv_c5_retry_match_substring() {
-        let policy =
-            RetryPolicy::new(3, 100, 2.0, None, vec!["timeout".into()]).unwrap();
+        let policy = RetryPolicy::new(3, 100, 2.0, None, vec!["timeout".into()]).unwrap();
         assert!(policy.is_retryable("connection timeout after 30s"));
         assert!(policy.is_retryable("timeout"));
         assert!(!policy.is_retryable("time out")); // Space breaks it
@@ -1652,7 +1659,11 @@ mod parallel_adversarial {
 
         assert!(node.can_execute(&completed));
 
-        for status in [PhaseStatus::Running, PhaseStatus::Completed, PhaseStatus::Failed] {
+        for status in [
+            PhaseStatus::Running,
+            PhaseStatus::Completed,
+            PhaseStatus::Failed,
+        ] {
             node.status = status;
             assert!(!node.can_execute(&completed));
         }
@@ -1727,8 +1738,7 @@ mod integration_adversarial {
         let state_dir = temp_dir.path().to_path_buf();
         let scenarios_path = temp_dir.path().join("scenarios");
 
-        let mut executor =
-            phases::PipelineExecutor::new(state_dir).expect("executor");
+        let mut executor = phases::PipelineExecutor::new(state_dir).expect("executor");
 
         // Create and run pipeline
         let pipeline = executor
@@ -1741,7 +1751,10 @@ mod integration_adversarial {
         // The run_pipeline goes through: spec_review -> universe_setup -> agent_dev -> validation
         // Since run_linter returns 85 (hardcoded) and threshold is 80, it should pass
         if !decision.is_ok() {
-            eprintln!("Pipeline decision error: {:?}", decision.as_ref().unwrap_err());
+            eprintln!(
+                "Pipeline decision error: {:?}",
+                decision.as_ref().unwrap_err()
+            );
         }
         assert!(decision.is_ok());
     }
@@ -1758,9 +1771,7 @@ mod integration_adversarial {
             },
         );
 
-        pipeline
-            .transition_to(PipelineState::SpecReview)
-            .unwrap();
+        pipeline.transition_to(PipelineState::SpecReview).unwrap();
         pipeline
             .transition_to(PipelineState::UniverseSetup)
             .unwrap();
@@ -1788,8 +1799,7 @@ mod integration_adversarial {
         let state_dir = temp_dir.path().to_path_buf();
         let scenarios_path = temp_dir.path().join("scenarios");
 
-        let mut executor =
-            phases::PipelineExecutor::new(state_dir).expect("executor");
+        let mut executor = phases::PipelineExecutor::new(state_dir).expect("executor");
 
         let pipeline = executor
             .create_pipeline("specs/metrics.yaml".to_string())

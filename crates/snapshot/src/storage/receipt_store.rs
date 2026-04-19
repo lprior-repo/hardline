@@ -30,32 +30,26 @@ impl ReceiptStore {
 
     pub fn save(&self, git_dir: &Path, receipt: &OpReceipt) -> Result<()> {
         let ops_path = Self::ops_dir(git_dir);
-        std::fs::create_dir_all(&ops_path).map_err(|e| {
-            SnapshotError::StorageError {
-                source: Some(e.into()),
-                message: format!("Failed to create ops directory {}", ops_path.display()),
-            }
+        std::fs::create_dir_all(&ops_path).map_err(|e| SnapshotError::StorageError {
+            source: Some(e.into()),
+            message: format!("Failed to create ops directory {}", ops_path.display()),
         })?;
         let path = Self::receipt_path(git_dir, &receipt.op_id);
         let json = serde_json::to_string_pretty(receipt).map_err(|e| {
             SnapshotError::SerializationError(format!("Failed to serialize receipt: {}", e))
         })?;
-        std::fs::write(&path, json).map_err(|e| {
-            SnapshotError::StorageError {
-                source: Some(e.into()),
-                message: format!("Failed to write receipt {}", path.display()),
-            }
+        std::fs::write(&path, json).map_err(|e| SnapshotError::StorageError {
+            source: Some(e.into()),
+            message: format!("Failed to write receipt {}", path.display()),
         })?;
         Ok(())
     }
 
     pub fn load(&self, git_dir: &Path, op_id: &str) -> Result<OpReceipt> {
         let path = Self::receipt_path(git_dir, op_id);
-        let json = std::fs::read_to_string(&path).map_err(|e| {
-            SnapshotError::StorageError {
-                source: Some(e.into()),
-                message: format!("Failed to read receipt {}", path.display()),
-            }
+        let json = std::fs::read_to_string(&path).map_err(|e| SnapshotError::StorageError {
+            source: Some(e.into()),
+            message: format!("Failed to read receipt {}", path.display()),
         })?;
         serde_json::from_str(&json).map_err(|e| {
             SnapshotError::DeserializationError(format!(
@@ -72,11 +66,9 @@ impl ReceiptStore {
             return Ok(Vec::new());
         }
         let mut ops: Vec<String> = std::fs::read_dir(&dir)
-            .map_err(|e| {
-                SnapshotError::StorageError {
-                    source: Some(e.into()),
-                    message: "Failed to read ops directory".to_string(),
-                }
+            .map_err(|e| SnapshotError::StorageError {
+                source: Some(e.into()),
+                message: "Failed to read ops directory".to_string(),
             })?
             .filter_map(|entry| entry.ok())
             .filter_map(|entry| {

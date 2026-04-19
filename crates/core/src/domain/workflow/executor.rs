@@ -14,8 +14,10 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::domain::workflow::records::{
+    CompensationAction, OperationRecord, RecoveryReport, RecoveryTask,
+};
 use crate::domain::workflow::states::{OperationState, StepStatus};
-use crate::domain::workflow::records::{CompensationAction, OperationRecord, RecoveryReport, RecoveryTask};
 
 #[derive(Error, Debug)]
 pub enum DurableExecutionError {
@@ -191,8 +193,7 @@ impl DurableExecutor {
         self.started_at = Some(Utc::now().timestamp());
 
         #[allow(clippy::unwrap_used)]
-        let total_steps =
-            u32::try_from(self.steps.len()).unwrap(); // SAFETY: Vec cannot have > u32::MAX elements
+        let total_steps = u32::try_from(self.steps.len()).unwrap(); // SAFETY: Vec cannot have > u32::MAX elements
 
         for index in 0..self.steps.len() {
             #[allow(clippy::unwrap_used)]
@@ -274,10 +275,7 @@ impl DurableExecutor {
                         Ok(()) => StepStatus::Completed,
                         Err(_) => StepStatus::Failed,
                     },
-                    error_message: result
-                        .as_ref()
-                        .err()
-                        .map(std::string::ToString::to_string),
+                    error_message: result.as_ref().err().map(std::string::ToString::to_string),
                 };
 
                 self.compensation_actions.push(compensation_action);
@@ -337,9 +335,7 @@ impl RecoveryScanner {
     /// # Errors
     ///
     /// Returns an error if scanning fails.
-    pub const fn scan_incomplete_operations(
-        &self,
-    ) -> DurableResult<Vec<RecoveryTask>> {
+    pub const fn scan_incomplete_operations(&self) -> DurableResult<Vec<RecoveryTask>> {
         let _ = self;
         Ok(Vec::new())
     }
@@ -349,10 +345,7 @@ impl RecoveryScanner {
     /// # Errors
     ///
     /// Returns an error if recovery fails.
-    pub fn recover_operation(
-        &self,
-        _task: RecoveryTask,
-    ) -> DurableResult<()> {
+    pub fn recover_operation(&self, _task: RecoveryTask) -> DurableResult<()> {
         let _ = self;
         Ok(())
     }
@@ -362,9 +355,7 @@ impl RecoveryScanner {
     /// # Errors
     ///
     /// Returns an error if scanning or recovery fails.
-    pub fn scan_and_recover_all(
-        &self,
-    ) -> DurableResult<RecoveryReport> {
+    pub fn scan_and_recover_all(&self) -> DurableResult<RecoveryReport> {
         let tasks = self.scan_incomplete_operations()?;
         let total_incomplete = tasks.len();
 
@@ -438,7 +429,11 @@ mod tests {
 
         executor.add_compensation_step(
             "step-1".to_string(),
-            || Box::pin(async move { Ok::<String, DurableExecutionError>("step-1 done".to_string()) }),
+            || {
+                Box::pin(
+                    async move { Ok::<String, DurableExecutionError>("step-1 done".to_string()) },
+                )
+            },
             || Box::pin(async move { Ok::<(), DurableExecutionError>(()) }),
         );
 

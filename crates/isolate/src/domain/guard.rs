@@ -107,9 +107,10 @@ impl WorkspaceGuard {
     /// and will not trigger cleanup on drop. Returns a `CommittedGuard`
     /// with the final state.
     pub fn commit(mut self) -> Result<CommittedGuard> {
-        let inner = self.inner.take().ok_or_else(|| {
-            IsolateError::OperationFailed("guard already consumed".into())
-        })?;
+        let inner = self
+            .inner
+            .take()
+            .ok_or_else(|| IsolateError::OperationFailed("guard already consumed".into()))?;
         let ready = WorkspaceStateMachine::transition(inner.state, WorkspaceState::Ready)?;
         inner.committed.store(true, Ordering::SeqCst);
         Ok(CommittedGuard {
@@ -126,9 +127,10 @@ impl WorkspaceGuard {
     /// and will not trigger cleanup on drop. Returns a `CommittedGuard`
     /// with the final state.
     pub fn abandon(mut self) -> Result<CommittedGuard> {
-        let inner = self.inner.take().ok_or_else(|| {
-            IsolateError::OperationFailed("guard already consumed".into())
-        })?;
+        let inner = self
+            .inner
+            .take()
+            .ok_or_else(|| IsolateError::OperationFailed("guard already consumed".into()))?;
         let abandoned = WorkspaceStateMachine::transition(inner.state, WorkspaceState::Abandoned)?;
         inner.committed.store(true, Ordering::SeqCst);
         Ok(CommittedGuard {
@@ -163,7 +165,10 @@ impl std::fmt::Debug for WorkspaceGuard {
                 .field("state", &inner.state)
                 .field("committed", &inner.committed.load(Ordering::SeqCst))
                 .finish_non_exhaustive(),
-            None => f.debug_struct("WorkspaceGuard").field("consumed", &true).finish(),
+            None => f
+                .debug_struct("WorkspaceGuard")
+                .field("consumed", &true)
+                .finish(),
         }
     }
 }
@@ -370,12 +375,9 @@ mod tests {
         let guard = WorkspaceGuard::acquire(ws_id, bead_id, WorkspaceState::Created).unwrap();
         let _committed = guard.commit().unwrap();
         // After commit, the original guard is consumed — debug on a fresh one
-        let guard2 = WorkspaceGuard::acquire(
-            test_workspace_id(),
-            test_bead_id(),
-            WorkspaceState::Created,
-        )
-        .unwrap();
+        let guard2 =
+            WorkspaceGuard::acquire(test_workspace_id(), test_bead_id(), WorkspaceState::Created)
+                .unwrap();
         let debug_str = format!("{guard2:?}");
         assert!(debug_str.contains("WorkspaceGuard"));
     }
@@ -388,8 +390,7 @@ mod tests {
         let bead_id = test_bead_id();
         // Guard is created and immediately dropped — no panic, just a warning
         {
-            let _guard =
-                WorkspaceGuard::acquire(ws_id, bead_id, WorkspaceState::Created).unwrap();
+            let _guard = WorkspaceGuard::acquire(ws_id, bead_id, WorkspaceState::Created).unwrap();
         }
         // Drop happens here, warning emitted via eprintln
     }
@@ -398,8 +399,7 @@ mod tests {
     fn dropped_after_commit_no_warning() {
         let ws_id = test_workspace_id();
         let bead_id = test_bead_id();
-        let guard =
-            WorkspaceGuard::acquire(ws_id, bead_id, WorkspaceState::Created).unwrap();
+        let guard = WorkspaceGuard::acquire(ws_id, bead_id, WorkspaceState::Created).unwrap();
         let _committed = guard.commit().unwrap();
         // No warning because committed flag is set
     }

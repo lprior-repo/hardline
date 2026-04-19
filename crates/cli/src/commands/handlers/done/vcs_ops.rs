@@ -10,14 +10,17 @@ use scp_core::output::Output;
 use scp_core::{Error, Result};
 
 use super::data::{CommitInfo, UndoEntry};
-use super::executor::{detect_conflicts, GitExecutor, ExecutorError};
+use super::executor::{detect_conflicts, ExecutorError, GitExecutor};
 
 // ============================================================================
 // Workspace Resolution
 // ============================================================================
 
 /// Resolve workspace name from option or current workspace.
-pub(crate) fn resolve_workspace(backend: &dyn scp_core::vcs::VcsBackend, name: Option<&str>) -> Result<String> {
+pub(crate) fn resolve_workspace(
+    backend: &dyn scp_core::vcs::VcsBackend,
+    name: Option<&str>,
+) -> Result<String> {
     match name {
         Some(n) => Ok(n.to_string()),
         None => {

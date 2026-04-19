@@ -60,10 +60,7 @@ fn format_dry_run_output(entry: &UndoEntry) -> Result<UndoOutput> {
         entry.session_name
     ));
     Output::info(&format!("  Commit to undo: {}", entry.commit_id));
-    Output::info(&format!(
-        "  Would reset to: {}",
-        entry.pre_merge_commit_id
-    ));
+    Output::info(&format!("  Would reset to: {}", entry.pre_merge_commit_id));
 
     Ok(UndoOutput {
         session_name: entry.session_name.clone(),
@@ -82,10 +79,7 @@ fn format_undo_output(entry: &UndoEntry) -> Result<UndoOutput> {
     Output::info(&format!("  Reset to commit: {}", entry.pre_merge_commit_id));
     Output::info("NEXT: Verify changes and re-commit if needed:");
     Output::info("  git status");
-    Output::info(&format!(
-        "  git commit -m 'Revert: {}'",
-        entry.session_name
-    ));
+    Output::info(&format!("  git commit -m 'Revert: {}'", entry.session_name));
 
     Ok(UndoOutput {
         session_name: entry.session_name.clone(),
@@ -124,10 +118,7 @@ fn run_list() -> Result<UndoOutput> {
 }
 
 /// Build display entries from raw undo entries and the current time.
-fn build_history_entries(
-    history: &[UndoEntry],
-    now_seconds: u64,
-) -> Vec<UndoHistoryEntry> {
+fn build_history_entries(history: &[UndoEntry], now_seconds: u64) -> Vec<UndoHistoryEntry> {
     history
         .iter()
         .map(|entry| history_entry_from_undo(entry, now_seconds))
@@ -158,11 +149,10 @@ fn history_entry_from_undo(entry: &UndoEntry, now_seconds: u64) -> UndoHistoryEn
 
 /// Format a unix timestamp as a human-readable UTC string.
 fn format_timestamp(timestamp: u64) -> String {
-    chrono::DateTime::from_timestamp(i64::try_from(timestamp).map_or(0, |t| t), 0)
-        .map_or_else(
-            || timestamp.to_string(),
-            |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-        )
+    chrono::DateTime::from_timestamp(i64::try_from(timestamp).map_or(0, |t| t), 0).map_or_else(
+        || timestamp.to_string(),
+        |dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+    )
 }
 
 /// Print history output in human-readable format.
@@ -288,21 +278,17 @@ fn mark_entry_undone(entry: &UndoEntry) -> UndoEntry {
 ///
 /// Reverses most-recent-first order back to chronological, marks
 /// the matching entry as undone.
-fn serialize_updated_history(
-    history: &[UndoEntry],
-    target: &UndoEntry,
-) -> Result<String> {
+fn serialize_updated_history(history: &[UndoEntry], target: &UndoEntry) -> Result<String> {
     let lines: std::result::Result<Vec<_>, _> = history
         .iter()
         .rev()
         .map(|e| {
-            let updated = if e.session_name == target.session_name
-                && e.commit_id == target.commit_id
-            {
-                mark_entry_undone(e)
-            } else {
-                e.clone()
-            };
+            let updated =
+                if e.session_name == target.session_name && e.commit_id == target.commit_id {
+                    mark_entry_undone(e)
+                } else {
+                    e.clone()
+                };
             serde_json::to_string(&updated)
         })
         .collect();

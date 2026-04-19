@@ -70,7 +70,10 @@ mod claim_debug_serialize {
             Error::BeadAlreadyExists("b".into()),
             Error::InvalidBeadId("x".into()),
             Error::InvalidBeadTitle("".into()),
-            Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() },
+            Error::BeadInvalidStateTransition {
+                from: "a".into(),
+                to: "b".into(),
+            },
             Error::BeadDependencyCycle("cycle".into()),
             Error::BeadBlockedBy("b1".into()),
             Error::BeadInvalidDependency("dep".into()),
@@ -162,10 +165,8 @@ mod claim_debug_serialize {
         ];
 
         for v in &variants {
-            let json = serde_json::to_string(v).expect(&format!(
-                "Serialize failed for variant: {:?}",
-                v
-            ));
+            let json =
+                serde_json::to_string(v).expect(&format!("Serialize failed for variant: {:?}", v));
             assert!(!json.is_empty(), "Serialized JSON is empty");
             // Must be valid JSON
             let _: serde_json::Value =
@@ -292,7 +293,10 @@ mod claim_suggestion {
             Error::CommitNotFound("c".into()),
         ];
         for v in &no_suggestion_variants {
-            assert!(v.suggestion().is_none(), "Expected no suggestion for: {v:?}");
+            assert!(
+                v.suggestion().is_none(),
+                "Expected no suggestion for: {v:?}"
+            );
         }
     }
 }
@@ -319,7 +323,10 @@ mod claim_exit_codes {
             Error::BeadAlreadyExists("".into()),
             Error::InvalidBeadId("".into()),
             Error::InvalidBeadTitle("".into()),
-            Error::BeadInvalidStateTransition { from: "".into(), to: "".into() },
+            Error::BeadInvalidStateTransition {
+                from: "".into(),
+                to: "".into(),
+            },
             Error::BeadDependencyCycle("".into()),
             Error::BeadBlockedBy("".into()),
             Error::BeadInvalidDependency("".into()),
@@ -382,7 +389,12 @@ mod claim_exit_codes {
 
         // All exit codes must be positive
         for v in &variants {
-            assert!(v.exit_code() > 0, "exit_code must be > 0, got {} for {:?}", v.exit_code(), v);
+            assert!(
+                v.exit_code() > 0,
+                "exit_code must be > 0, got {} for {:?}",
+                v.exit_code(),
+                v
+            );
         }
 
         // All exit codes must be unique
@@ -408,7 +420,15 @@ mod claim_exit_codes {
         assert_eq!(Error::InvalidState("".into()).exit_code(), 80);
         assert_eq!(Error::ValidationError("".into()).exit_code(), 90);
         assert_eq!(Error::IoError("".into()).exit_code(), 100);
-        assert_eq!(Error::LockTimeout { operation: "".into(), timeout_ms: 0, retries: 0 }.exit_code(), 110);
+        assert_eq!(
+            Error::LockTimeout {
+                operation: "".into(),
+                timeout_ms: 0,
+                retries: 0
+            }
+            .exit_code(),
+            110
+        );
         assert_eq!(Error::ScenarioError("".into()).exit_code(), 120);
         assert_eq!(Error::Internal("".into()).exit_code(), 130);
     }
@@ -423,75 +443,248 @@ mod claim_display {
     #[test]
     fn all_variants_have_human_readable_display() {
         let test_cases: Vec<(Error, &str)> = vec![
-            (Error::WorkspaceNotFound("my-ws".into()), "Workspace not found: my-ws"),
-            (Error::WorkspaceExists("my-ws".into()), "Workspace already exists: my-ws"),
-            (Error::WorkspaceLocked("ws".into(), "agent1".into()), "Workspace 'ws' is locked by 'agent1'"),
-            (Error::WorkspaceConflict("merge conflict".into()), "Workspace conflict: merge conflict"),
-            (Error::SessionNotFound("sess1".into()), "Session not found: sess1"),
-            (Error::SessionExists("sess1".into()), "Session already exists: sess1"),
-            (Error::SessionLocked("s".into(), "a".into()), "Session 's' is locked by 'a'"),
-            (Error::NotLockHolder("s".into(), "a".into()), "Agent 'a' does not hold lock on session 's'"),
-            (Error::SessionInvalidState("s".into(), "dead".into(), "alive".into()), "Session 's' is dead, expected alive"),
+            (
+                Error::WorkspaceNotFound("my-ws".into()),
+                "Workspace not found: my-ws",
+            ),
+            (
+                Error::WorkspaceExists("my-ws".into()),
+                "Workspace already exists: my-ws",
+            ),
+            (
+                Error::WorkspaceLocked("ws".into(), "agent1".into()),
+                "Workspace 'ws' is locked by 'agent1'",
+            ),
+            (
+                Error::WorkspaceConflict("merge conflict".into()),
+                "Workspace conflict: merge conflict",
+            ),
+            (
+                Error::SessionNotFound("sess1".into()),
+                "Session not found: sess1",
+            ),
+            (
+                Error::SessionExists("sess1".into()),
+                "Session already exists: sess1",
+            ),
+            (
+                Error::SessionLocked("s".into(), "a".into()),
+                "Session 's' is locked by 'a'",
+            ),
+            (
+                Error::NotLockHolder("s".into(), "a".into()),
+                "Agent 'a' does not hold lock on session 's'",
+            ),
+            (
+                Error::SessionInvalidState("s".into(), "dead".into(), "alive".into()),
+                "Session 's' is dead, expected alive",
+            ),
             (Error::BeadNotFound("b".into()), "Bead not found: b"),
-            (Error::BeadAlreadyExists("b".into()), "Bead already exists: b"),
+            (
+                Error::BeadAlreadyExists("b".into()),
+                "Bead already exists: b",
+            ),
             (Error::InvalidBeadId("x!".into()), "Invalid bead ID: x!"),
             (Error::InvalidBeadTitle("".into()), "Invalid bead title: "),
-            (Error::BeadInvalidStateTransition { from: "open".into(), to: "closed".into() }, "Invalid bead state transition: open -> closed"),
-            (Error::BeadDependencyCycle("a->b->a".into()), "Dependency cycle detected: a->b->a"),
-            (Error::BeadBlockedBy("b1, b2".into()), "Bead is blocked by: [b1, b2]"),
-            (Error::BeadInvalidDependency("self".into()), "Invalid bead dependency: self"),
+            (
+                Error::BeadInvalidStateTransition {
+                    from: "open".into(),
+                    to: "closed".into(),
+                },
+                "Invalid bead state transition: open -> closed",
+            ),
+            (
+                Error::BeadDependencyCycle("a->b->a".into()),
+                "Dependency cycle detected: a->b->a",
+            ),
+            (
+                Error::BeadBlockedBy("b1, b2".into()),
+                "Bead is blocked by: [b1, b2]",
+            ),
+            (
+                Error::BeadInvalidDependency("self".into()),
+                "Invalid bead dependency: self",
+            ),
             (Error::QueueEmpty, "Queue is empty"),
-            (Error::QueueItemNotFound("q".into()), "Queue item not found: q"),
+            (
+                Error::QueueItemNotFound("q".into()),
+                "Queue item not found: q",
+            ),
             (Error::QueueLocked("a".into()), "Queue is locked by 'a'"),
-            (Error::QueueProcessing, "Queue operation already in progress"),
+            (
+                Error::QueueProcessing,
+                "Queue operation already in progress",
+            ),
             (Error::QueueInvalidPosition(5), "Invalid queue position: 5"),
             (Error::QueueFull(100), "Queue is full (max: 100)"),
-            (Error::VcsNotInitialized, "VCS not initialized in this directory"),
-            (Error::VcsConflict("file.rs".into(), "merge".into()), "VCS conflict in file.rs: merge"),
-            (Error::VcsPushFailed("rejected".into()), "Failed to push: rejected"),
-            (Error::VcsPullFailed("network".into()), "Failed to pull: network"),
-            (Error::VcsRebaseFailed("conflict".into()), "Failed to rebase: conflict"),
-            (Error::BranchNotFound("feat/x".into()), "Branch not found: feat/x"),
-            (Error::BranchExists("main".into()), "Branch already exists: main"),
-            (Error::CommitNotFound("abc123".into()), "Commit not found: abc123"),
-            (Error::WorkingCopyDirty, "Working copy has uncommitted changes"),
-            (Error::ConfigNotFound("key".into()), "Configuration not found: key"),
-            (Error::ConfigInvalid("bad value".into()), "Configuration invalid: bad value"),
-            (Error::ConfigPermission("/root/scp".into()), "Configuration permission denied: /root/scp"),
-            (Error::InvalidConfig("missing field".into()), "Invalid configuration: missing field"),
-            (Error::InvalidRepoUrl("not-a-url".into()), "Invalid repository URL: not-a-url"),
+            (
+                Error::VcsNotInitialized,
+                "VCS not initialized in this directory",
+            ),
+            (
+                Error::VcsConflict("file.rs".into(), "merge".into()),
+                "VCS conflict in file.rs: merge",
+            ),
+            (
+                Error::VcsPushFailed("rejected".into()),
+                "Failed to push: rejected",
+            ),
+            (
+                Error::VcsPullFailed("network".into()),
+                "Failed to pull: network",
+            ),
+            (
+                Error::VcsRebaseFailed("conflict".into()),
+                "Failed to rebase: conflict",
+            ),
+            (
+                Error::BranchNotFound("feat/x".into()),
+                "Branch not found: feat/x",
+            ),
+            (
+                Error::BranchExists("main".into()),
+                "Branch already exists: main",
+            ),
+            (
+                Error::CommitNotFound("abc123".into()),
+                "Commit not found: abc123",
+            ),
+            (
+                Error::WorkingCopyDirty,
+                "Working copy has uncommitted changes",
+            ),
+            (
+                Error::ConfigNotFound("key".into()),
+                "Configuration not found: key",
+            ),
+            (
+                Error::ConfigInvalid("bad value".into()),
+                "Configuration invalid: bad value",
+            ),
+            (
+                Error::ConfigPermission("/root/scp".into()),
+                "Configuration permission denied: /root/scp",
+            ),
+            (
+                Error::InvalidConfig("missing field".into()),
+                "Invalid configuration: missing field",
+            ),
+            (
+                Error::InvalidRepoUrl("not-a-url".into()),
+                "Invalid repository URL: not-a-url",
+            ),
             (Error::AgentNotFound("bot".into()), "Agent not found: bot"),
-            (Error::AgentExists("bot".into()), "Agent already registered: bot"),
-            (Error::AgentTimeout("bot".into()), "Agent 'bot' heartbeat timeout"),
+            (
+                Error::AgentExists("bot".into()),
+                "Agent already registered: bot",
+            ),
+            (
+                Error::AgentTimeout("bot".into()),
+                "Agent 'bot' heartbeat timeout",
+            ),
             (Error::InvalidState("bad".into()), "Invalid state: bad"),
             (Error::NotFound("resource".into()), "Not found: resource"),
-            (Error::InvalidOperation("delete on read".into()), "Invalid operation: delete on read"),
-            (Error::ValidationError("field required".into()), "Validation error: field required"),
-            (Error::ValidationFieldError { message: "too short".into(), field: "name".into(), value: Some("a".into()) }, "Validation error on 'name': too short"),
-            (Error::InvalidIdentifier("123abc".into()), "Invalid identifier: 123abc"),
-            (Error::IoError("permission denied".into()), "IO error: permission denied"),
-            (Error::JsonParseError("unexpected token".into()), "JSON parse error: unexpected token"),
-            (Error::YamlParseError("invalid mapping".into()), "YAML parse error: invalid mapping"),
-            (Error::Database("connection lost".into()), "Database error: connection lost"),
-            (Error::Serialization("struct too large".into()), "Serialization error: struct too large"),
-            (Error::LockTimeout { operation: "write".into(), timeout_ms: 5000, retries: 3 }, "Lock acquisition timeout for 'write' after 5000ms (3 retries)"),
-            (Error::CloneFailed("network error".into()), "Clone failed: network error"),
-            (Error::RecordFailed("disk full".into()), "Record failed: disk full"),
-            (Error::Persistence("save failed".into()), "Persistence error: save failed"),
-            (Error::StateTransition("invalid".into()), "State transition error: invalid"),
-            (Error::ScenarioError("setup failed".into()), "Scenario error: setup failed"),
-            (Error::RunnerError("exec failed".into()), "Runner error: exec failed"),
-            (Error::DefinitionError("missing step".into()), "Definition error: missing step"),
-            (Error::ServerError("port in use".into()), "Server error: port in use"),
+            (
+                Error::InvalidOperation("delete on read".into()),
+                "Invalid operation: delete on read",
+            ),
+            (
+                Error::ValidationError("field required".into()),
+                "Validation error: field required",
+            ),
+            (
+                Error::ValidationFieldError {
+                    message: "too short".into(),
+                    field: "name".into(),
+                    value: Some("a".into()),
+                },
+                "Validation error on 'name': too short",
+            ),
+            (
+                Error::InvalidIdentifier("123abc".into()),
+                "Invalid identifier: 123abc",
+            ),
+            (
+                Error::IoError("permission denied".into()),
+                "IO error: permission denied",
+            ),
+            (
+                Error::JsonParseError("unexpected token".into()),
+                "JSON parse error: unexpected token",
+            ),
+            (
+                Error::YamlParseError("invalid mapping".into()),
+                "YAML parse error: invalid mapping",
+            ),
+            (
+                Error::Database("connection lost".into()),
+                "Database error: connection lost",
+            ),
+            (
+                Error::Serialization("struct too large".into()),
+                "Serialization error: struct too large",
+            ),
+            (
+                Error::LockTimeout {
+                    operation: "write".into(),
+                    timeout_ms: 5000,
+                    retries: 3,
+                },
+                "Lock acquisition timeout for 'write' after 5000ms (3 retries)",
+            ),
+            (
+                Error::CloneFailed("network error".into()),
+                "Clone failed: network error",
+            ),
+            (
+                Error::RecordFailed("disk full".into()),
+                "Record failed: disk full",
+            ),
+            (
+                Error::Persistence("save failed".into()),
+                "Persistence error: save failed",
+            ),
+            (
+                Error::StateTransition("invalid".into()),
+                "State transition error: invalid",
+            ),
+            (
+                Error::ScenarioError("setup failed".into()),
+                "Scenario error: setup failed",
+            ),
+            (
+                Error::RunnerError("exec failed".into()),
+                "Runner error: exec failed",
+            ),
+            (
+                Error::DefinitionError("missing step".into()),
+                "Definition error: missing step",
+            ),
+            (
+                Error::ServerError("port in use".into()),
+                "Server error: port in use",
+            ),
             (Error::SyncError("diverged".into()), "Sync error: diverged"),
-            (Error::Internal("unexpected null".into()), "Internal error: unexpected null"),
-            (Error::Unimplemented("feature x".into()), "Not implemented: feature x"),
-            (Error::InvariantViolation("state corrupted".into()), "Invariant violation: state corrupted"),
+            (
+                Error::Internal("unexpected null".into()),
+                "Internal error: unexpected null",
+            ),
+            (
+                Error::Unimplemented("feature x".into()),
+                "Not implemented: feature x",
+            ),
+            (
+                Error::InvariantViolation("state corrupted".into()),
+                "Invariant violation: state corrupted",
+            ),
         ];
 
         for (err, expected) in test_cases {
             let display = err.to_string();
-            assert_eq!(display, expected, "Display mismatch for variant: expected '{expected}', got '{display}'");
+            assert_eq!(
+                display, expected,
+                "Display mismatch for variant: expected '{expected}', got '{display}'"
+            );
         }
     }
 }
@@ -616,9 +809,7 @@ mod claim_thread_safety {
     #[test]
     fn error_can_cross_thread_boundary() {
         let err = Error::Internal("cross-thread test".into());
-        let handle = thread::spawn(move || {
-            format!("{err}")
-        });
+        let handle = thread::spawn(move || format!("{err}"));
         let result = handle.join().unwrap();
         assert_eq!(result, "Internal error: cross-thread test");
     }

@@ -84,8 +84,8 @@ impl CircuitBreaker {
             .ok_or(CircuitBreakerError::InvalidFailureThreshold)?;
         let success_threshold = NonZeroU32::new(success_threshold)
             .ok_or(CircuitBreakerError::InvalidSuccessThreshold)?;
-        let open_duration_ms = NonZeroU64::new(open_duration_ms)
-            .ok_or(CircuitBreakerError::InvalidOpenDuration)?;
+        let open_duration_ms =
+            NonZeroU64::new(open_duration_ms).ok_or(CircuitBreakerError::InvalidOpenDuration)?;
         Ok(Self {
             state: CircuitBreakerState::Closed,
             failure_threshold,
@@ -717,20 +717,36 @@ mod tests {
         // Phase 2: Accumulate failures BELOW threshold — stays Closed
         cb.record_failure();
         cb.record_failure();
-        assert_eq!(cb.state(), CircuitBreakerState::Closed, "2 failures < threshold 3");
+        assert_eq!(
+            cb.state(),
+            CircuitBreakerState::Closed,
+            "2 failures < threshold 3"
+        );
         assert!(cb.is_execution_allowed());
         assert_eq!(cb.failure_count(), 2);
 
         // Phase 3: Hit failure threshold — transitions to Open
         cb.record_failure();
-        assert_eq!(cb.state(), CircuitBreakerState::Open, "3 failures >= threshold 3");
+        assert_eq!(
+            cb.state(),
+            CircuitBreakerState::Open,
+            "3 failures >= threshold 3"
+        );
         assert!(!cb.is_execution_allowed(), "Open rejects requests");
 
         // Phase 3b: Open ignores successes and failures
         cb.record_success();
-        assert_eq!(cb.state(), CircuitBreakerState::Open, "Open ignores success");
+        assert_eq!(
+            cb.state(),
+            CircuitBreakerState::Open,
+            "Open ignores success"
+        );
         cb.record_failure();
-        assert_eq!(cb.state(), CircuitBreakerState::Open, "Open ignores failure");
+        assert_eq!(
+            cb.state(),
+            CircuitBreakerState::Open,
+            "Open ignores failure"
+        );
 
         // Phase 4: Not enough time elapsed — stays Open
         assert!(
@@ -741,7 +757,11 @@ mod tests {
 
         // Phase 5: Enough time elapsed — transitions to HalfOpen (probe)
         assert!(cb.check_and_transition(30000));
-        assert_eq!(cb.state(), CircuitBreakerState::HalfOpen, "elapsed >= open_duration");
+        assert_eq!(
+            cb.state(),
+            CircuitBreakerState::HalfOpen,
+            "elapsed >= open_duration"
+        );
         assert!(cb.is_execution_allowed(), "HalfOpen allows probe requests");
         assert_eq!(cb.success_count(), 0, "success_count reset on transition");
 
@@ -756,7 +776,11 @@ mod tests {
 
         // Phase 7: Hit success threshold — transitions to Closed
         cb.record_success();
-        assert_eq!(cb.state(), CircuitBreakerState::Closed, "recovered after 2 successes");
+        assert_eq!(
+            cb.state(),
+            CircuitBreakerState::Closed,
+            "recovered after 2 successes"
+        );
         assert!(cb.is_execution_allowed());
         assert_eq!(cb.failure_count(), 0, "failure_count reset on close");
         assert_eq!(cb.success_count(), 0, "success_count reset on close");
@@ -779,7 +803,11 @@ mod tests {
         cb.record_success();
         assert_eq!(cb.success_count(), 1);
         cb.record_failure();
-        assert_eq!(cb.state(), CircuitBreakerState::Open, "failure in HalfOpen reopens");
+        assert_eq!(
+            cb.state(),
+            CircuitBreakerState::Open,
+            "failure in HalfOpen reopens"
+        );
         assert_eq!(cb.success_count(), 0, "success_count reset on reopen");
 
         // Can transition to HalfOpen again
@@ -963,7 +991,10 @@ mod tests {
 
         // Exactly at the boundary — must transition
         let transitioned = cb.check_and_transition(30000);
-        assert!(transitioned, "must transition when elapsed == open_duration");
+        assert!(
+            transitioned,
+            "must transition when elapsed == open_duration"
+        );
         assert_eq!(cb.state(), CircuitBreakerState::HalfOpen);
     }
 
@@ -979,7 +1010,11 @@ mod tests {
         // Additional failures in Open state don't increment
         cb.record_failure();
         cb.record_failure();
-        assert_eq!(cb.failure_count(), 3, "failure_count unchanged in Open state");
+        assert_eq!(
+            cb.failure_count(),
+            3,
+            "failure_count unchanged in Open state"
+        );
     }
 
     #[test]
@@ -1015,8 +1050,18 @@ mod tests {
                 "cycle {}: should be Closed after 2 successes",
                 cycle
             );
-            assert_eq!(cb.failure_count(), 0, "cycle {}: failure_count reset", cycle);
-            assert_eq!(cb.success_count(), 0, "cycle {}: success_count reset", cycle);
+            assert_eq!(
+                cb.failure_count(),
+                0,
+                "cycle {}: failure_count reset",
+                cycle
+            );
+            assert_eq!(
+                cb.success_count(),
+                0,
+                "cycle {}: success_count reset",
+                cycle
+            );
         }
     }
 
@@ -1032,11 +1077,21 @@ mod tests {
 
             // Partial success (not enough to close)
             cb.record_success();
-            assert_eq!(cb.state(), CircuitBreakerState::HalfOpen, "cycle {} after 1 success", cycle);
+            assert_eq!(
+                cb.state(),
+                CircuitBreakerState::HalfOpen,
+                "cycle {} after 1 success",
+                cycle
+            );
 
             // Failure reopens
             cb.record_failure();
-            assert_eq!(cb.state(), CircuitBreakerState::Open, "cycle {} after failure", cycle);
+            assert_eq!(
+                cb.state(),
+                CircuitBreakerState::Open,
+                "cycle {} after failure",
+                cycle
+            );
             assert_eq!(cb.success_count(), 0);
         }
 
@@ -1122,7 +1177,12 @@ mod tests {
         // Accumulate 4 successes
         for i in 0..4 {
             cb.record_success();
-            assert_eq!(cb.state(), CircuitBreakerState::HalfOpen, "after success {}", i + 1);
+            assert_eq!(
+                cb.state(),
+                CircuitBreakerState::HalfOpen,
+                "after success {}",
+                i + 1
+            );
             assert_eq!(cb.success_count(), i as u32 + 1);
         }
 

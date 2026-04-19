@@ -18,6 +18,6 @@ pub mod data;
 
 pub use actions::{run_branch_create, run_branch_delete, run_branch_rename};
 pub use data::{
-    is_protected_branch, validate_branch_name, BranchCreateOptions, BranchCreateOutput, BranchDeleteOptions,
-    BranchRenameOptions,
+    is_protected_branch, validate_branch_name, BranchCreateOptions, BranchCreateOutput,
+    BranchDeleteOptions, BranchRenameOptions,
 };

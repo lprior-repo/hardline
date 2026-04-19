@@ -150,9 +150,11 @@ impl QueueEntry {
     /// # Errors
     /// Returns `ValidationError` if the transition is invalid.
     pub fn transition_status(self, new_status: QueueStatus) -> ValidationResult<Self> {
-        self.status
-            .transition_to(new_status)
-            .map(|status| Self { status, updated_at: Utc::now(), ..self })
+        self.status.transition_to(new_status).map(|status| Self {
+            status,
+            updated_at: Utc::now(),
+            ..self
+        })
     }
 
     /// Update the priority, returning a new entry.
@@ -201,7 +203,10 @@ impl QueueEntry {
     /// Set the bead ID, returning a new entry.
     #[must_use]
     pub fn with_bead_id(self, bead_id: String) -> Self {
-        Self { bead_id: Some(bead_id), ..self }
+        Self {
+            bead_id: Some(bead_id),
+            ..self
+        }
     }
 
     /// Get the retry count.

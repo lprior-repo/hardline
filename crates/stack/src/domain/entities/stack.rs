@@ -569,11 +569,7 @@ mod tests {
     // ── Exhaustive topological_order tests (ha-ais2) ──
 
     /// Helper: push a branch into the stack with minimal boilerplate.
-    fn push_branch(
-        stack: &mut Stack<Draft>,
-        name: &str,
-        parent: Option<&str>,
-    ) {
+    fn push_branch(stack: &mut Stack<Draft>, name: &str, parent: Option<&str>) {
         stack.branches.push(StackBranch {
             name: BranchName::new(name.to_string()),
             parent: parent.map(|p| BranchName::new(p.to_string())),
@@ -689,7 +685,7 @@ mod tests {
         push_branch(&mut s, "cycle-a", Some("cycle-c")); // a depends on c
         push_branch(&mut s, "cycle-b", Some("cycle-a")); // b depends on a
         push_branch(&mut s, "cycle-c", Some("cycle-b")); // c depends on b
-        // cycle: a→b→c→a
+                                                         // cycle: a→b→c→a
 
         let order = s.topological_order();
         assert_eq!(order.len(), 3, "cycle should fall back to all branches");
@@ -766,7 +762,11 @@ mod tests {
 
         let order = s.topological_order();
         // Self-loop is a cycle — should fall back to all branches
-        assert_eq!(order.len(), 1, "self-referencing branch should still appear");
+        assert_eq!(
+            order.len(),
+            1,
+            "self-referencing branch should still appear"
+        );
         assert_eq!(order[0].name.as_str(), "self-loop");
     }
 
@@ -808,7 +808,10 @@ mod tests {
         let names3: Vec<&str> = order3.iter().map(|b| b.name.as_str()).collect();
 
         assert_eq!(names1, names2, "topo order must be deterministic");
-        assert_eq!(names2, names3, "topo order must be deterministic across calls");
+        assert_eq!(
+            names2, names3,
+            "topo order must be deterministic across calls"
+        );
     }
 
     #[test]
@@ -818,9 +821,20 @@ mod tests {
         push_branch(&mut s, "y", None);
         push_branch(&mut s, "z", Some("x"));
 
-        let names1: Vec<&str> = s.topological_order().iter().map(|b| b.name.as_str()).collect();
-        let names2: Vec<&str> = s.topological_order().iter().map(|b| b.name.as_str()).collect();
-        assert_eq!(names1, names2, "disconnected graph topo must be deterministic");
+        let names1: Vec<&str> = s
+            .topological_order()
+            .iter()
+            .map(|b| b.name.as_str())
+            .collect();
+        let names2: Vec<&str> = s
+            .topological_order()
+            .iter()
+            .map(|b| b.name.as_str())
+            .collect();
+        assert_eq!(
+            names1, names2,
+            "disconnected graph topo must be deterministic"
+        );
     }
 
     // 9. Linear chain of 5 — deeper chain with exact ordering verification.
@@ -941,7 +955,7 @@ mod tests {
         push_branch(&mut s, "a", Some("main"));
         push_branch(&mut s, "b", Some("main"));
         push_branch(&mut s, "c", Some("a")); // c depends on a
-        // b has no children — it's independent
+                                             // b has no children — it's independent
 
         let order = s.topological_order();
         assert_eq!(order.len(), 3);
@@ -1494,14 +1508,20 @@ mod tests {
     fn test_pr_info_debug_contains_struct_name() {
         let pr = make_pr_info(42);
         let debug = format!("{pr:?}");
-        assert!(debug.contains("PrInfo"), "Debug output should contain struct name");
+        assert!(
+            debug.contains("PrInfo"),
+            "Debug output should contain struct name"
+        );
     }
 
     #[test]
     fn test_pr_info_debug_contains_number() {
         let pr = make_pr_info(42);
         let debug = format!("{pr:?}");
-        assert!(debug.contains("42"), "Debug output should contain PR number");
+        assert!(
+            debug.contains("42"),
+            "Debug output should contain PR number"
+        );
     }
 
     #[test]

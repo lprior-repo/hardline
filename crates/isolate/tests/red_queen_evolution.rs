@@ -18,12 +18,12 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
+use scp_isolate::dag::{BranchDag, BranchId, DagError};
 use scp_isolate::{
     classify_command, BeadId, BeadWorkspaceMapping, CheckpointRecord, CheckpointState,
-    EventContext, EventType, IsolateEvent, OperationRisk, WorkspaceGuard,
-    WorkspaceId, WorkspaceState, WorkspaceStateMachine,
+    EventContext, EventType, IsolateEvent, OperationRisk, WorkspaceGuard, WorkspaceId,
+    WorkspaceState, WorkspaceStateMachine,
 };
-use scp_isolate::dag::{BranchDag, BranchId, DagError};
 
 // =========================================================================
 // DIMENSION: state-machine-exhaustive
@@ -53,7 +53,8 @@ fn rq_state_machine_self_transitions_all_rejected() {
         assert!(
             result.is_err(),
             "Self-transition {:?} -> {:?} should be rejected",
-            state, state
+            state,
+            state
         );
     }
 }
@@ -94,7 +95,10 @@ fn rq_state_machine_working_to_merged_rejected() {
 #[test]
 fn rq_state_machine_ready_cannot_go_back_to_created() {
     let result = WorkspaceStateMachine::transition(WorkspaceState::Ready, WorkspaceState::Created);
-    assert!(result.is_err(), "Ready -> Created should be rejected (no going back)");
+    assert!(
+        result.is_err(),
+        "Ready -> Created should be rejected (no going back)"
+    );
 }
 
 #[test]
@@ -202,8 +206,8 @@ fn test_bead_id() -> BeadId {
 
 #[test]
 fn rq_guard_double_commit_fails() {
-    let guard = WorkspaceGuard::acquire(test_ws_id(), test_bead_id(), WorkspaceState::Created)
-        .unwrap();
+    let guard =
+        WorkspaceGuard::acquire(test_ws_id(), test_bead_id(), WorkspaceState::Created).unwrap();
     let _committed = guard.commit().unwrap();
     // guard is consumed — cannot commit again (move semantics)
     // This test verifies the type system prevents double-use
@@ -211,8 +215,8 @@ fn rq_guard_double_commit_fails() {
 
 #[test]
 fn rq_guard_commit_then_abandon_type_safe() {
-    let guard = WorkspaceGuard::acquire(test_ws_id(), test_bead_id(), WorkspaceState::Created)
-        .unwrap();
+    let guard =
+        WorkspaceGuard::acquire(test_ws_id(), test_bead_id(), WorkspaceState::Created).unwrap();
     let committed = guard.commit().unwrap();
     assert!(committed.is_ready());
     assert!(!committed.is_abandoned());
@@ -307,23 +311,156 @@ fn rq_now() -> chrono::DateTime<chrono::Utc> {
 #[test]
 fn rq_event_all_variants_have_distinct_names() {
     let events: Vec<(&str, IsolateEvent)> = vec![
-        ("workspace.created", IsolateEvent::WorkspaceCreated { name: "w".into(), source: "s".into(), context: rq_ctx("w"), timestamp: rq_now() }),
-        ("workspace.activated", IsolateEvent::WorkspaceActivated { name: "w".into(), state: WorkspaceState::Working, context: rq_ctx("w"), timestamp: rq_now() }),
-        ("workspace.syncing", IsolateEvent::WorkspaceSyncing { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() }),
-        ("workspace.synced", IsolateEvent::WorkspaceSynced { name: "w".into(), commits_rebased: 0, context: rq_ctx("w"), timestamp: rq_now() }),
-        ("workspace.paused", IsolateEvent::WorkspacePaused { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() }),
-        ("workspace.resumed", IsolateEvent::WorkspaceResumed { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() }),
-        ("workspace.completed", IsolateEvent::WorkspaceCompleted { name: "w".into(), branch: "b".into(), context: rq_ctx("w"), timestamp: rq_now() }),
-        ("workspace.failed", IsolateEvent::WorkspaceFailed { name: "w".into(), reason: "r".into(), context: rq_ctx("w"), timestamp: rq_now() }),
-        ("session.started", IsolateEvent::SessionStarted { name: "w".into(), session_id: "s".into(), context: rq_ctx("w"), timestamp: rq_now() }),
-        ("session.ended", IsolateEvent::SessionEnded { name: "w".into(), session_id: "s".into(), context: rq_ctx("w"), timestamp: rq_now() }),
-        ("agent.claimed", IsolateEvent::AgentClaimed { name: "w".into(), agent_id: "a".into(), context: rq_ctx("w"), timestamp: rq_now() }),
-        ("agent.released", IsolateEvent::AgentReleased { name: "w".into(), agent_id: "a".into(), context: rq_ctx("w"), timestamp: rq_now() }),
-        ("vcs.branch_created", IsolateEvent::BranchCreated { name: "w".into(), branch: "b".into(), context: rq_ctx("w"), timestamp: rq_now() }),
-        ("vcs.branch_pushed", IsolateEvent::BranchPushed { name: "w".into(), branch: "b".into(), commits: 0, context: rq_ctx("w"), timestamp: rq_now() }),
-        ("vcs.rebase_completed", IsolateEvent::RebaseCompleted { name: "w".into(), commits: 0, context: rq_ctx("w"), timestamp: rq_now() }),
-        ("vcs.conflict_detected", IsolateEvent::ConflictDetected { name: "w".into(), files: vec![], context: rq_ctx("w"), timestamp: rq_now() }),
-        ("vcs.conflict_resolved", IsolateEvent::ConflictResolved { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() }),
+        (
+            "workspace.created",
+            IsolateEvent::WorkspaceCreated {
+                name: "w".into(),
+                source: "s".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "workspace.activated",
+            IsolateEvent::WorkspaceActivated {
+                name: "w".into(),
+                state: WorkspaceState::Working,
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "workspace.syncing",
+            IsolateEvent::WorkspaceSyncing {
+                name: "w".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "workspace.synced",
+            IsolateEvent::WorkspaceSynced {
+                name: "w".into(),
+                commits_rebased: 0,
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "workspace.paused",
+            IsolateEvent::WorkspacePaused {
+                name: "w".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "workspace.resumed",
+            IsolateEvent::WorkspaceResumed {
+                name: "w".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "workspace.completed",
+            IsolateEvent::WorkspaceCompleted {
+                name: "w".into(),
+                branch: "b".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "workspace.failed",
+            IsolateEvent::WorkspaceFailed {
+                name: "w".into(),
+                reason: "r".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "session.started",
+            IsolateEvent::SessionStarted {
+                name: "w".into(),
+                session_id: "s".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "session.ended",
+            IsolateEvent::SessionEnded {
+                name: "w".into(),
+                session_id: "s".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "agent.claimed",
+            IsolateEvent::AgentClaimed {
+                name: "w".into(),
+                agent_id: "a".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "agent.released",
+            IsolateEvent::AgentReleased {
+                name: "w".into(),
+                agent_id: "a".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "vcs.branch_created",
+            IsolateEvent::BranchCreated {
+                name: "w".into(),
+                branch: "b".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "vcs.branch_pushed",
+            IsolateEvent::BranchPushed {
+                name: "w".into(),
+                branch: "b".into(),
+                commits: 0,
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "vcs.rebase_completed",
+            IsolateEvent::RebaseCompleted {
+                name: "w".into(),
+                commits: 0,
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "vcs.conflict_detected",
+            IsolateEvent::ConflictDetected {
+                name: "w".into(),
+                files: vec![],
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
+        (
+            "vcs.conflict_resolved",
+            IsolateEvent::ConflictResolved {
+                name: "w".into(),
+                context: rq_ctx("w"),
+                timestamp: rq_now(),
+            },
+        ),
     ];
 
     // 17 distinct event variants
@@ -339,7 +476,11 @@ fn rq_event_all_variants_have_distinct_names() {
 #[test]
 fn rq_event_workspace_accessor_always_returns_input() {
     let names = [
-        "ws-alpha", "ws-beta", "ws-123", "a", "workspace-with-dashes",
+        "ws-alpha",
+        "ws-beta",
+        "ws-123",
+        "a",
+        "workspace-with-dashes",
     ];
     for name in &names {
         let e = IsolateEvent::WorkspaceCreated {
@@ -354,14 +495,12 @@ fn rq_event_workspace_accessor_always_returns_input() {
 
 #[test]
 fn rq_event_context_chaining_full() {
-    let ctx = EventContext::for_workspace("w".into())
-        .with_session("s1".into());
+    let ctx = EventContext::for_workspace("w".into()).with_session("s1".into());
     assert!(!ctx.has_agent());
     assert!(ctx.has_session());
     assert_eq!(ctx.session_id.as_deref(), Some("s1"));
 
-    let ctx2 = EventContext::for_agent("w".into(), "a1".into())
-        .with_session("s2".into());
+    let ctx2 = EventContext::for_agent("w".into(), "a1".into()).with_session("s2".into());
     assert!(ctx2.has_agent());
     assert!(ctx2.has_session());
     assert_eq!(ctx2.agent_id.as_deref(), Some("a1"));
@@ -371,29 +510,116 @@ fn rq_event_context_chaining_full() {
 #[test]
 fn rq_event_serde_roundtrip_all_variants() {
     let events: Vec<IsolateEvent> = vec![
-        IsolateEvent::WorkspaceCreated { name: "w".into(), source: "cli".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceActivated { name: "w".into(), state: WorkspaceState::Working, context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceSyncing { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceSynced { name: "w".into(), commits_rebased: 5, context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspacePaused { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceResumed { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceCompleted { name: "w".into(), branch: "main".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceFailed { name: "w".into(), reason: "oom".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::SessionStarted { name: "w".into(), session_id: "sess".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::SessionEnded { name: "w".into(), session_id: "sess".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::AgentClaimed { name: "w".into(), agent_id: "bot".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::AgentReleased { name: "w".into(), agent_id: "bot".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::BranchCreated { name: "w".into(), branch: "feat".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::BranchPushed { name: "w".into(), branch: "feat".into(), commits: 3, context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::RebaseCompleted { name: "w".into(), commits: 7, context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::ConflictDetected { name: "w".into(), files: vec!["a.rs".into(), "b.rs".into(), "c.rs".into()], context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::ConflictResolved { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() },
+        IsolateEvent::WorkspaceCreated {
+            name: "w".into(),
+            source: "cli".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceActivated {
+            name: "w".into(),
+            state: WorkspaceState::Working,
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceSyncing {
+            name: "w".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceSynced {
+            name: "w".into(),
+            commits_rebased: 5,
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspacePaused {
+            name: "w".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceResumed {
+            name: "w".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceCompleted {
+            name: "w".into(),
+            branch: "main".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceFailed {
+            name: "w".into(),
+            reason: "oom".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::SessionStarted {
+            name: "w".into(),
+            session_id: "sess".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::SessionEnded {
+            name: "w".into(),
+            session_id: "sess".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::AgentClaimed {
+            name: "w".into(),
+            agent_id: "bot".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::AgentReleased {
+            name: "w".into(),
+            agent_id: "bot".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::BranchCreated {
+            name: "w".into(),
+            branch: "feat".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::BranchPushed {
+            name: "w".into(),
+            branch: "feat".into(),
+            commits: 3,
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::RebaseCompleted {
+            name: "w".into(),
+            commits: 7,
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::ConflictDetected {
+            name: "w".into(),
+            files: vec!["a.rs".into(), "b.rs".into(), "c.rs".into()],
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::ConflictResolved {
+            name: "w".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
     ];
 
     for e in &events {
         let json = serde_json::to_string(e).unwrap();
         let parsed: IsolateEvent = serde_json::from_str(&json).unwrap();
-        assert_eq!(*e, parsed, "serde roundtrip failed for {:?}", e.event_name());
+        assert_eq!(
+            *e,
+            parsed,
+            "serde roundtrip failed for {:?}",
+            e.event_name()
+        );
     }
 }
 
@@ -402,31 +628,118 @@ fn rq_event_type_classification_completeness() {
     // Every event variant must classify into exactly one EventType
     let mut event_type_counts = std::collections::HashMap::new();
     let events: Vec<IsolateEvent> = vec![
-        IsolateEvent::WorkspaceCreated { name: "w".into(), source: "s".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceActivated { name: "w".into(), state: WorkspaceState::Working, context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceSyncing { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceSynced { name: "w".into(), commits_rebased: 0, context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspacePaused { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceResumed { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceCompleted { name: "w".into(), branch: "b".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::WorkspaceFailed { name: "w".into(), reason: "r".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::SessionStarted { name: "w".into(), session_id: "s".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::SessionEnded { name: "w".into(), session_id: "s".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::AgentClaimed { name: "w".into(), agent_id: "a".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::AgentReleased { name: "w".into(), agent_id: "a".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::BranchCreated { name: "w".into(), branch: "b".into(), context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::BranchPushed { name: "w".into(), branch: "b".into(), commits: 0, context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::RebaseCompleted { name: "w".into(), commits: 0, context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::ConflictDetected { name: "w".into(), files: vec![], context: rq_ctx("w"), timestamp: rq_now() },
-        IsolateEvent::ConflictResolved { name: "w".into(), context: rq_ctx("w"), timestamp: rq_now() },
+        IsolateEvent::WorkspaceCreated {
+            name: "w".into(),
+            source: "s".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceActivated {
+            name: "w".into(),
+            state: WorkspaceState::Working,
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceSyncing {
+            name: "w".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceSynced {
+            name: "w".into(),
+            commits_rebased: 0,
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspacePaused {
+            name: "w".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceResumed {
+            name: "w".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceCompleted {
+            name: "w".into(),
+            branch: "b".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::WorkspaceFailed {
+            name: "w".into(),
+            reason: "r".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::SessionStarted {
+            name: "w".into(),
+            session_id: "s".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::SessionEnded {
+            name: "w".into(),
+            session_id: "s".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::AgentClaimed {
+            name: "w".into(),
+            agent_id: "a".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::AgentReleased {
+            name: "w".into(),
+            agent_id: "a".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::BranchCreated {
+            name: "w".into(),
+            branch: "b".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::BranchPushed {
+            name: "w".into(),
+            branch: "b".into(),
+            commits: 0,
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::RebaseCompleted {
+            name: "w".into(),
+            commits: 0,
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::ConflictDetected {
+            name: "w".into(),
+            files: vec![],
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
+        IsolateEvent::ConflictResolved {
+            name: "w".into(),
+            context: rq_ctx("w"),
+            timestamp: rq_now(),
+        },
     ];
 
     for e in &events {
         let et = e.event_type();
-        *event_type_counts.entry(format!("{:?}", et)).or_insert(0usize) += 1;
+        *event_type_counts
+            .entry(format!("{:?}", et))
+            .or_insert(0usize) += 1;
     }
 
-    assert_eq!(*event_type_counts.get("WorkspaceLifecycle").unwrap_or(&0), 8);
+    assert_eq!(
+        *event_type_counts.get("WorkspaceLifecycle").unwrap_or(&0),
+        8
+    );
     assert_eq!(*event_type_counts.get("Session").unwrap_or(&0), 2);
     assert_eq!(*event_type_counts.get("Agent").unwrap_or(&0), 2);
     assert_eq!(*event_type_counts.get("Vcs").unwrap_or(&0), 5);
@@ -453,8 +766,10 @@ fn rq_event_timestamp_preserved() {
 #[test]
 fn rq_dag_cycle_a_b_a_detected() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
     let result = dag.add_branch(BranchId::new("a"), vec![BranchId::new("b")]);
     // "a" already exists so it's BranchAlreadyExists, not CycleDetected
     assert!(result.is_err());
@@ -472,7 +787,10 @@ fn rq_dag_trunk_can_be_removed_when_no_descendants() {
     let mut dag = BranchDag::new();
     let result = dag.remove_branch(BranchId::new("trunk"));
     // trunk has no descendants, so removal succeeds
-    assert!(result.is_ok(), "trunk should be removable when it has no descendants");
+    assert!(
+        result.is_ok(),
+        "trunk should be removable when it has no descendants"
+    );
     // After removing trunk, DAG has 0 branches
     assert_eq!(dag.len(), 0);
     // is_empty() checks len == 1 (trunk only), so with 0 branches it returns false
@@ -483,19 +801,41 @@ fn rq_dag_trunk_can_be_removed_when_no_descendants() {
 fn rq_dag_deep_diamond_pattern() {
     let mut dag = BranchDag::new();
     // trunk -> a, b -> c -> d
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a"), BranchId::new("b")]).unwrap();
-    dag.add_branch(BranchId::new("d"), vec![BranchId::new("c")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(
+        BranchId::new("c"),
+        vec![BranchId::new("a"), BranchId::new("b")],
+    )
+    .unwrap();
+    dag.add_branch(BranchId::new("d"), vec![BranchId::new("c")])
+        .unwrap();
 
     let order = dag.topological_sort().unwrap();
     assert_eq!(order.len(), 5);
 
-    let trunk_pos = order.iter().position(|id| id == &BranchId::new("trunk")).unwrap();
-    let a_pos = order.iter().position(|id| id == &BranchId::new("a")).unwrap();
-    let b_pos = order.iter().position(|id| id == &BranchId::new("b")).unwrap();
-    let c_pos = order.iter().position(|id| id == &BranchId::new("c")).unwrap();
-    let d_pos = order.iter().position(|id| id == &BranchId::new("d")).unwrap();
+    let trunk_pos = order
+        .iter()
+        .position(|id| id == &BranchId::new("trunk"))
+        .unwrap();
+    let a_pos = order
+        .iter()
+        .position(|id| id == &BranchId::new("a"))
+        .unwrap();
+    let b_pos = order
+        .iter()
+        .position(|id| id == &BranchId::new("b"))
+        .unwrap();
+    let c_pos = order
+        .iter()
+        .position(|id| id == &BranchId::new("c"))
+        .unwrap();
+    let d_pos = order
+        .iter()
+        .position(|id| id == &BranchId::new("d"))
+        .unwrap();
 
     assert!(trunk_pos < a_pos);
     assert!(trunk_pos < b_pos);
@@ -507,9 +847,15 @@ fn rq_dag_deep_diamond_pattern() {
 #[test]
 fn rq_dag_ancestors_diamond() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a"), BranchId::new("b")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(
+        BranchId::new("c"),
+        vec![BranchId::new("a"), BranchId::new("b")],
+    )
+    .unwrap();
 
     let ancestors = dag.ancestors(&BranchId::new("c")).unwrap();
     assert_eq!(ancestors.len(), 3); // trunk, a, b
@@ -521,9 +867,15 @@ fn rq_dag_ancestors_diamond() {
 #[test]
 fn rq_dag_descendants_diamond() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a"), BranchId::new("b")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(
+        BranchId::new("c"),
+        vec![BranchId::new("a"), BranchId::new("b")],
+    )
+    .unwrap();
 
     let desc = dag.descendants(&BranchId::new("trunk")).unwrap();
     assert_eq!(desc.len(), 3);
@@ -535,8 +887,10 @@ fn rq_dag_descendants_diamond() {
 #[test]
 fn rq_dag_remove_leaf_then_parent() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("a")])
+        .unwrap();
 
     // Remove leaf first
     dag.remove_branch(BranchId::new("b")).unwrap();
@@ -553,7 +907,8 @@ fn rq_dag_branch_ids_always_sorted() {
     let mut dag = BranchDag::new();
     let names = ["z", "m", "a", "f", "c"];
     for name in &names {
-        dag.add_branch(BranchId::new(*name), vec![BranchId::new("trunk")]).unwrap();
+        dag.add_branch(BranchId::new(*name), vec![BranchId::new("trunk")])
+            .unwrap();
     }
     let ids = dag.branch_ids();
     let mut sorted = ids.clone();
@@ -573,9 +928,15 @@ fn rq_dag_empty_topo_sort_fails() {
 #[test]
 fn rq_dag_path_to_root_diamond() {
     let mut dag = BranchDag::new();
-    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")]).unwrap();
-    dag.add_branch(BranchId::new("c"), vec![BranchId::new("a"), BranchId::new("b")]).unwrap();
+    dag.add_branch(BranchId::new("a"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(BranchId::new("b"), vec![BranchId::new("trunk")])
+        .unwrap();
+    dag.add_branch(
+        BranchId::new("c"),
+        vec![BranchId::new("a"), BranchId::new("b")],
+    )
+    .unwrap();
 
     let path = dag.path_to_root(&BranchId::new("c")).unwrap();
     assert_eq!(path[0], BranchId::new("c"));
@@ -607,7 +968,8 @@ fn rq_dag_deep_chain_ancestors() {
     let mut prev = "trunk".to_string();
     for i in 0..depth {
         let name = format!("b{i}");
-        dag.add_branch(BranchId::new(&name), vec![BranchId::new(&prev)]).unwrap();
+        dag.add_branch(BranchId::new(&name), vec![BranchId::new(&prev)])
+            .unwrap();
         prev = name;
     }
 
@@ -636,9 +998,23 @@ fn rq_classify_all_risky_commands() {
 #[test]
 fn rq_classify_safe_commands_comprehensive() {
     let safe = [
-        "list", "status", "context", "focus", "help", "version", "show",
-        "doctor", "init", "create", "destroy", "checkpoint", "restore",
-        "merge", "config", "info", "logs",
+        "list",
+        "status",
+        "context",
+        "focus",
+        "help",
+        "version",
+        "show",
+        "doctor",
+        "init",
+        "create",
+        "destroy",
+        "checkpoint",
+        "restore",
+        "merge",
+        "config",
+        "info",
+        "logs",
     ];
     for cmd in &safe {
         assert_eq!(
@@ -651,7 +1027,11 @@ fn rq_classify_safe_commands_comprehensive() {
 
 #[test]
 fn rq_checkpoint_state_db_roundtrip_all() {
-    for state in [CheckpointState::Pending, CheckpointState::Committed, CheckpointState::NeedsRestore] {
+    for state in [
+        CheckpointState::Pending,
+        CheckpointState::Committed,
+        CheckpointState::NeedsRestore,
+    ] {
         let db_str = state.as_db();
         let parsed = CheckpointState::from_db(db_str).unwrap();
         assert_eq!(state, parsed, "roundtrip failed for {state:?}");
@@ -680,17 +1060,29 @@ fn rq_operation_risk_needs_checkpoint() {
 // =========================================================================
 
 use scp_isolate::{
-    generate_hints, hints_for_error, next_actions_for_command, suggest_next_actions,
-    ActionRisk, CommandContext, HintType, SystemState, WorkspaceInfo,
+    generate_hints, hints_for_error, next_actions_for_command, suggest_next_actions, ActionRisk,
+    CommandContext, HintType, SystemState, WorkspaceInfo,
 };
 
 #[test]
 fn rq_hints_conflict_and_merged_together() {
     let state = SystemState {
         workspaces: vec![
-            WorkspaceInfo { id: "w1".into(), name: "conflicting".into(), state: WorkspaceState::Conflict },
-            WorkspaceInfo { id: "w2".into(), name: "done".into(), state: WorkspaceState::Merged },
-            WorkspaceInfo { id: "w3".into(), name: "active".into(), state: WorkspaceState::Working },
+            WorkspaceInfo {
+                id: "w1".into(),
+                name: "conflicting".into(),
+                state: WorkspaceState::Conflict,
+            },
+            WorkspaceInfo {
+                id: "w2".into(),
+                name: "done".into(),
+                state: WorkspaceState::Merged,
+            },
+            WorkspaceInfo {
+                id: "w3".into(),
+                name: "active".into(),
+                state: WorkspaceState::Working,
+            },
         ],
         initialized: true,
     };
@@ -720,7 +1112,10 @@ fn rq_hints_for_error_known_codes() {
 
 #[test]
 fn rq_hints_for_error_extracts_name_from_quotes() {
-    let hints = hints_for_error("WORKSPACE_EXISTS", "Workspace 'my-workspace' already exists");
+    let hints = hints_for_error(
+        "WORKSPACE_EXISTS",
+        "Workspace 'my-workspace' already exists",
+    );
     assert!(!hints.is_empty());
     // Should suggest a variant name
     let has_command = hints.iter().any(|h| {
@@ -750,13 +1145,22 @@ fn rq_suggest_next_actions_empty_gives_create() {
     };
     let actions = suggest_next_actions(&state);
     assert!(!actions.is_empty());
-    assert!(actions.iter().any(|a| a.commands.iter().any(|c| c.contains("create"))));
+    assert!(actions
+        .iter()
+        .any(|a| a.commands.iter().any(|c| c.contains("create"))));
 }
 
 #[test]
 fn rq_next_actions_for_command_all_branches() {
     let commands = [
-        "init", "create", "destroy", "list", "status", "checkpoint", "restore", "merge",
+        "init",
+        "create",
+        "destroy",
+        "list",
+        "status",
+        "checkpoint",
+        "restore",
+        "merge",
     ];
     for cmd in &commands {
         let ctx = CommandContext {
@@ -776,7 +1180,15 @@ fn rq_next_actions_for_command_all_branches() {
 
 #[test]
 fn rq_next_actions_for_command_error_branches() {
-    let error_cmds = ["init", "create", "destroy", "status", "checkpoint", "restore", "merge"];
+    let error_cmds = [
+        "init",
+        "create",
+        "destroy",
+        "status",
+        "checkpoint",
+        "restore",
+        "merge",
+    ];
     for cmd in &error_cmds {
         let ctx = CommandContext {
             command: cmd.to_string(),
@@ -813,7 +1225,9 @@ fn rq_next_actions_destroy_with_many_workspaces_suggests_cleanup() {
         workspace_name: Some("destroyed-ws".into()),
     };
     let actions = next_actions_for_command(&ctx);
-    assert!(actions.iter().any(|a| a.commands.iter().any(|c| c.contains("clean"))));
+    assert!(actions
+        .iter()
+        .any(|a| a.commands.iter().any(|c| c.contains("clean"))));
 }
 
 #[test]
@@ -840,7 +1254,9 @@ fn rq_suggest_next_actions_conflict_gives_resolve() {
         initialized: true,
     };
     let actions = suggest_next_actions(&state);
-    assert!(actions.iter().any(|a| a.commands.iter().any(|c| c.contains("resolve"))));
+    assert!(actions
+        .iter()
+        .any(|a| a.commands.iter().any(|c| c.contains("resolve"))));
 }
 
 // =========================================================================
@@ -899,7 +1315,12 @@ fn rq_bead_id_empty_rejected() {
 
 #[test]
 fn rq_workspace_id_special_chars_accepted() {
-    let cases = ["ws-with-dashes", "ws_with_underscores", "ws.with.dots", "ws/with/slashes"];
+    let cases = [
+        "ws-with-dashes",
+        "ws_with_underscores",
+        "ws.with.dots",
+        "ws/with/slashes",
+    ];
     for s in cases {
         let result = WorkspaceId::parse(s.into());
         assert!(result.is_ok(), "WorkspaceId::parse('{s}') should succeed");
@@ -962,6 +1383,9 @@ fn rq_checkpoint_state_invalid_db_strings() {
     let invalid = ["", "active", "done", "deleted", "PENDING", "Pending"];
     for s in &invalid {
         let result = CheckpointState::from_db(s);
-        assert!(result.is_err(), "CheckpointState::from_db('{s}') should fail");
+        assert!(
+            result.is_err(),
+            "CheckpointState::from_db('{s}') should fail"
+        );
     }
 }

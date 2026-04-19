@@ -6,14 +6,11 @@
 use std::path::Path;
 
 use scp_core::output::Output;
-use scp_core::workspace_integrity::{
-    BackupManager, IntegrityValidator, RepairExecutor,
-};
+use scp_core::workspace_integrity::{BackupManager, IntegrityValidator, RepairExecutor};
 use scp_core::{Error, Result};
 
 use super::data::{
-    BackupListResponse, IntegritySubcommand, RepairResponse, RestoreResponse,
-    ValidationResponse,
+    BackupListResponse, IntegritySubcommand, RepairResponse, RestoreResponse, ValidationResponse,
 };
 
 /// Execute the integrity command with the given subcommand.

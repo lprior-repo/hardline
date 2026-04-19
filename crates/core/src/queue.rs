@@ -509,12 +509,10 @@ mod tests {
     #[test]
     fn test_queue_status_serde_json_each_variant() {
         for status in ALL_STATUSES {
-            let json = serde_json::to_string(&status).unwrap_or_else(|e| {
-                panic!("Serialize failed for {:?}: {}", status, e)
-            });
-            let roundtrip: QueueStatus = serde_json::from_str(&json).unwrap_or_else(|e| {
-                panic!("Deserialize failed for {:?}: {}", status, e)
-            });
+            let json = serde_json::to_string(&status)
+                .unwrap_or_else(|e| panic!("Serialize failed for {:?}: {}", status, e));
+            let roundtrip: QueueStatus = serde_json::from_str(&json)
+                .unwrap_or_else(|e| panic!("Deserialize failed for {:?}: {}", status, e));
             assert_eq!(status, roundtrip, "Roundtrip failed for {:?}", status);
         }
     }
@@ -696,10 +694,16 @@ mod tests {
     #[test]
     fn test_queue_source_attribution_preserved_through_processing() {
         let mut item = QueueItem::from_workspace("my-workspace", "feature-branch");
-        assert_eq!(item.source, QueueSource::Workspace("my-workspace".to_string()));
+        assert_eq!(
+            item.source,
+            QueueSource::Workspace("my-workspace".to_string())
+        );
 
         item.start_processing();
-        assert_eq!(item.source, QueueSource::Workspace("my-workspace".to_string()));
+        assert_eq!(
+            item.source,
+            QueueSource::Workspace("my-workspace".to_string())
+        );
     }
 
     #[test]
@@ -707,7 +711,10 @@ mod tests {
         let mut item = QueueItem::from_workspace("ws-complete", "branch");
         item.start_processing();
         item.complete();
-        assert_eq!(item.source, QueueSource::Workspace("ws-complete".to_string()));
+        assert_eq!(
+            item.source,
+            QueueSource::Workspace("ws-complete".to_string())
+        );
     }
 
     #[test]
@@ -744,9 +751,14 @@ mod tests {
         queue.enqueue(QueueItem::from_workspace("ws", "ws-2"))?;
 
         let all = queue.list()?;
-        let direct_items: Vec<_> = all.iter().filter(|i| i.source == QueueSource::Direct).collect();
+        let direct_items: Vec<_> = all
+            .iter()
+            .filter(|i| i.source == QueueSource::Direct)
+            .collect();
         assert_eq!(direct_items.len(), 2);
-        assert!(direct_items.iter().all(|i| matches!(i.source, QueueSource::Direct)));
+        assert!(direct_items
+            .iter()
+            .all(|i| matches!(i.source, QueueSource::Direct)));
 
         Ok(())
     }
@@ -779,9 +791,7 @@ mod tests {
         let all = queue.list()?;
         let target_items: Vec<_> = all
             .iter()
-            .filter(|i| {
-                matches!(&i.source, QueueSource::Workspace(name) if name == "target-ws")
-            })
+            .filter(|i| matches!(&i.source, QueueSource::Workspace(name) if name == "target-ws"))
             .collect();
         assert_eq!(target_items.len(), 2);
 
@@ -834,8 +844,7 @@ mod tests {
         let ws_pending_items: Vec<_> = all
             .iter()
             .filter(|i| {
-                matches!(&i.source, QueueSource::Workspace(_))
-                    && i.status == QueueStatus::Pending
+                matches!(&i.source, QueueSource::Workspace(_)) && i.status == QueueStatus::Pending
             })
             .collect();
         assert_eq!(ws_pending_items.len(), 1);
@@ -844,9 +853,7 @@ mod tests {
         // Filter: direct + pending
         let direct_pending_items: Vec<_> = all
             .iter()
-            .filter(|i| {
-                i.source == QueueSource::Direct && i.status == QueueStatus::Pending
-            })
+            .filter(|i| i.source == QueueSource::Direct && i.status == QueueStatus::Pending)
             .collect();
         assert_eq!(direct_pending_items.len(), 1);
         assert_eq!(direct_pending_items[0].branch, "direct-pending");
@@ -1638,10 +1645,16 @@ mod tests {
             let item = QueueItem::direct("uuid-test");
             // Pattern: 8-4-4-4-12 hex chars separated by dashes
             let pattern = regex::Regex::new(
-                r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-            ).expect("valid regex");
+                r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            )
+            .expect("valid regex");
 
-            assert_eq!(item.id.len(), 36, "UUID should be 36 chars, got {}", item.id.len());
+            assert_eq!(
+                item.id.len(),
+                36,
+                "UUID should be 36 chars, got {}",
+                item.id.len()
+            );
             assert!(
                 pattern.is_match(&item.id),
                 "UUID '{}' does not match expected format",

@@ -12,10 +12,7 @@ impl PipelineExecutor {
         &mut self,
         pipeline_id: &PipelineId,
     ) -> Result<super::types::Decision, PhaseError> {
-        let pipeline = self
-            .store
-            .get(pipeline_id)
-            .map_err(PhaseError::from)?;
+        let pipeline = self.store.get(pipeline_id).map_err(PhaseError::from)?;
 
         if pipeline.state.is_terminal() {
             info!("Pipeline {} already in terminal state", pipeline_id.0);
@@ -87,8 +84,7 @@ mod tests {
     /// Helper: create an executor backed by a temp dir
     fn create_executor() -> (PipelineExecutor, TempDir) {
         let temp = TempDir::new().expect("temp dir");
-        let exec = PipelineExecutor::new(temp.path().to_path_buf())
-        .expect("executor");
+        let exec = PipelineExecutor::new(temp.path().to_path_buf()).expect("executor");
         (exec, temp)
     }
 
@@ -108,10 +104,9 @@ mod tests {
         let path: Vec<PipelineState> = match state {
             PipelineState::Pending => vec![],
             PipelineState::SpecReview => vec![PipelineState::SpecReview],
-            PipelineState::UniverseSetup => vec![
-                PipelineState::SpecReview,
-                PipelineState::UniverseSetup,
-            ],
+            PipelineState::UniverseSetup => {
+                vec![PipelineState::SpecReview, PipelineState::UniverseSetup]
+            }
             PipelineState::AgentDevelopment => vec![
                 PipelineState::SpecReview,
                 PipelineState::UniverseSetup,
@@ -179,7 +174,10 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         let msg = format!("{err}");
-        assert!(msg.contains("nonexistent"), "error should mention missing ID: {msg}");
+        assert!(
+            msg.contains("nonexistent"),
+            "error should mention missing ID: {msg}"
+        );
     }
 
     #[test]
@@ -284,7 +282,8 @@ mod tests {
         let (mut exec, _temp) = create_executor();
         let id = create_pipeline_at(&mut exec, PipelineState::AgentDevelopment);
 
-        exec.escalate(&id, "something went wrong").expect("escalate");
+        exec.escalate(&id, "something went wrong")
+            .expect("escalate");
 
         let pipeline = exec.store.get(&id).expect("get");
         assert_eq!(pipeline.last_error.as_deref(), Some("something went wrong"));
@@ -297,7 +296,8 @@ mod tests {
 
         // Already terminal — transition_to will fail with AlreadyTerminal,
         // but it's silently discarded. The update branch won't run.
-        exec.escalate(&id, "escalate from failed").expect("escalate");
+        exec.escalate(&id, "escalate from failed")
+            .expect("escalate");
 
         let pipeline = exec.store.get(&id).expect("get");
         // State should still be Failed since transition was rejected

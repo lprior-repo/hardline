@@ -253,10 +253,7 @@ mod tests {
         assert_eq!(receipt.local_refs.len(), 1);
 
         receipt.update_local_ref_after("feature", "def456");
-        assert_eq!(
-            receipt.local_refs[0].oid_after,
-            Some("def456".to_string())
-        );
+        assert_eq!(receipt.local_refs[0].oid_after, Some("def456".to_string()));
 
         receipt.mark_success();
         assert_eq!(receipt.status, OpStatus::Success);
@@ -294,10 +291,7 @@ mod tests {
         assert_eq!(receipt.remote_refs[0].remote, "origin");
 
         receipt.update_remote_ref_after("origin", "feature", "def456");
-        assert_eq!(
-            receipt.remote_refs[0].oid_after,
-            Some("def456".to_string())
-        );
+        assert_eq!(receipt.remote_refs[0].oid_after, Some("def456".to_string()));
     }
 
     #[test]
@@ -314,8 +308,7 @@ mod tests {
         receipt.mark_success();
 
         let json = serde_json::to_string(&receipt).expect("serialize");
-        let deserialized: OpReceipt =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: OpReceipt = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.op_id, receipt.op_id);
         assert_eq!(deserialized.status, OpStatus::Success);
         assert_eq!(deserialized.local_refs.len(), 1);

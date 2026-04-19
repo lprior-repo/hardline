@@ -71,10 +71,9 @@ pub fn push(tag: Option<&str>, remote: &str, _force: bool) -> Result<()> {
 
     detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
 
-    let t = tag.ok_or_else(|| Error::vcs_conflict(
-        "Push all tags not yet implemented",
-        "all tags".to_string(),
-    ))?;
+    let t = tag.ok_or_else(|| {
+        Error::vcs_conflict("Push all tags not yet implemented", "all tags".to_string())
+    })?;
 
     let repo = repository::open(&cwd)
         .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;

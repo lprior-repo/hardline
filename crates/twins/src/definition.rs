@@ -294,8 +294,8 @@ endpoints:
     #[test]
     fn test_all_http_methods_parse_case_insensitively() {
         for method_str in &[
-            "GET", "get", "GeT", "POST", "post", "PUT", "put",
-            "DELETE", "delete", "PATCH", "patch", "OPTIONS", "options", "HEAD", "head",
+            "GET", "get", "GeT", "POST", "post", "PUT", "put", "DELETE", "delete", "PATCH",
+            "patch", "OPTIONS", "options", "HEAD", "head",
         ] {
             let result = HttpMethod::from_str(method_str);
             assert!(result.is_ok(), "Should parse method '{method_str}'");
@@ -332,8 +332,13 @@ endpoints:
         // Regression: if a new HttpMethod variant is added without Display/FromStr,
         // this test will fail to compile (or fail on the assert).
         let all = [
-            HttpMethod::GET, HttpMethod::POST, HttpMethod::PUT,
-            HttpMethod::DELETE, HttpMethod::PATCH, HttpMethod::OPTIONS, HttpMethod::HEAD,
+            HttpMethod::GET,
+            HttpMethod::POST,
+            HttpMethod::PUT,
+            HttpMethod::DELETE,
+            HttpMethod::PATCH,
+            HttpMethod::OPTIONS,
+            HttpMethod::HEAD,
         ];
         for m in &all {
             let s = m.to_string();
@@ -421,8 +426,7 @@ endpoints:
             required: u32,
         }
         let err = DefinitionError::ParseError(
-            serde_yaml::from_str::<StrictParse>("not: valid: at: all: :::")
-                .unwrap_err(),
+            serde_yaml::from_str::<StrictParse>("not: valid: at: all: :::").unwrap_err(),
         );
         assert!(err.to_string().contains("Failed to parse YAML"));
 
@@ -462,9 +466,7 @@ endpoints:
                 "  - path: /ep{i}\n    method: GET\n    response:\n      status: 200\n      body: {{}}\n"
             ));
         }
-        let yaml = format!(
-            "name: bulk\nport: 3001\nendpoints:\n{endpoints}"
-        );
+        let yaml = format!("name: bulk\nport: 3001\nendpoints:\n{endpoints}");
         let def = TwinDefinition::from_yaml(&yaml).expect("Should parse 100 endpoints");
         assert_eq!(def.endpoints.len(), 100);
     }

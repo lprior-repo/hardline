@@ -9,9 +9,9 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
+use scp_queue::domain::identifiers::{QueueEntryId, SessionName};
 use scp_queue::domain::queue::{Queue, QueueEntry, QueueStatus};
 use scp_queue::domain::validation::{ValidationError, ValidationResult, Validator};
-use scp_queue::domain::identifiers::{QueueEntryId, SessionName};
 use scp_queue::MAX_PRIORITY;
 
 // =========================================================================
@@ -93,17 +93,23 @@ fn rq_state_machine_skip_ahead_rejected() {
 
 #[test]
 fn rq_state_machine_failed_terminal_to_pending_rejected() {
-    assert!(QueueStatus::FailedTerminal.transition_to(QueueStatus::Pending).is_err());
+    assert!(QueueStatus::FailedTerminal
+        .transition_to(QueueStatus::Pending)
+        .is_err());
 }
 
 #[test]
 fn rq_state_machine_failed_terminal_to_claimed_rejected() {
-    assert!(QueueStatus::FailedTerminal.transition_to(QueueStatus::Claimed).is_err());
+    assert!(QueueStatus::FailedTerminal
+        .transition_to(QueueStatus::Claimed)
+        .is_err());
 }
 
 #[test]
 fn rq_state_machine_failed_terminal_to_retryable_rejected() {
-    assert!(QueueStatus::FailedTerminal.transition_to(QueueStatus::FailedRetryable).is_err());
+    assert!(QueueStatus::FailedTerminal
+        .transition_to(QueueStatus::FailedRetryable)
+        .is_err());
 }
 
 #[test]
@@ -201,7 +207,11 @@ fn rq_priority_ordering_after_dequeue_front() {
     // Verify ordering preserved after removal
     let priorities: Vec<u32> = queue.entries().iter().map(|e| e.priority).collect();
     for window in priorities.windows(2) {
-        assert!(window[0] <= window[1], "Priority ordering violated: {:?}", window);
+        assert!(
+            window[0] <= window[1],
+            "Priority ordering violated: {:?}",
+            window
+        );
     }
 }
 
@@ -219,7 +229,10 @@ fn rq_priority_ordering_after_dequeue_middle() {
 
     let priorities: Vec<u32> = queue.entries().iter().map(|e| e.priority).collect();
     for window in priorities.windows(2) {
-        assert!(window[0] <= window[1], "Priority ordering violated after middle dequeue");
+        assert!(
+            window[0] <= window[1],
+            "Priority ordering violated after middle dequeue"
+        );
     }
 }
 
@@ -237,7 +250,10 @@ fn rq_priority_ordering_after_dequeue_last() {
 
     let priorities: Vec<u32> = queue.entries().iter().map(|e| e.priority).collect();
     for window in priorities.windows(2) {
-        assert!(window[0] <= window[1], "Priority ordering violated after last dequeue");
+        assert!(
+            window[0] <= window[1],
+            "Priority ordering violated after last dequeue"
+        );
     }
 }
 
@@ -281,7 +297,11 @@ fn rq_priority_invariant_after_many_enqueue_dequeue_cycles() {
     // Verify priority ordering still holds
     let priorities: Vec<u32> = queue.entries().iter().map(|e| e.priority).collect();
     for window in priorities.windows(2) {
-        assert!(window[0] <= window[1], "Priority ordering violated after cycles: {:?}", window);
+        assert!(
+            window[0] <= window[1],
+            "Priority ordering violated after cycles: {:?}",
+            window
+        );
     }
 }
 
@@ -480,15 +500,45 @@ fn rq_validate_that_preserves_value() {
 fn rq_validation_error_is_recoverable_all_variants() {
     // Recoverable
     assert!(ValidationError::EmptyValue("x".into()).is_recoverable());
-    assert!(ValidationError::InvalidCharacters { field: "f".into(), found: "c".into() }.is_recoverable());
-    assert!(ValidationError::OutOfBounds { position: 0, length: 0 }.is_recoverable());
+    assert!(ValidationError::InvalidCharacters {
+        field: "f".into(),
+        found: "c".into()
+    }
+    .is_recoverable());
+    assert!(ValidationError::OutOfBounds {
+        position: 0,
+        length: 0
+    }
+    .is_recoverable());
 
     // NOT recoverable
-    assert!(!ValidationError::ExceedsMaximum { field: "f".into(), value: 0, max: 0 }.is_recoverable());
-    assert!(!ValidationError::BelowMinimum { field: "f".into(), value: 0, min: 0 }.is_recoverable());
-    assert!(!ValidationError::InvalidStateTransition { from: "A".into(), to: "B".into() }.is_recoverable());
-    assert!(!ValidationError::NotFound { field: "f".into(), value: "v".into() }.is_recoverable());
-    assert!(!ValidationError::AlreadyExists { field: "f".into(), value: "v".into() }.is_recoverable());
+    assert!(!ValidationError::ExceedsMaximum {
+        field: "f".into(),
+        value: 0,
+        max: 0
+    }
+    .is_recoverable());
+    assert!(!ValidationError::BelowMinimum {
+        field: "f".into(),
+        value: 0,
+        min: 0
+    }
+    .is_recoverable());
+    assert!(!ValidationError::InvalidStateTransition {
+        from: "A".into(),
+        to: "B".into()
+    }
+    .is_recoverable());
+    assert!(!ValidationError::NotFound {
+        field: "f".into(),
+        value: "v".into()
+    }
+    .is_recoverable());
+    assert!(!ValidationError::AlreadyExists {
+        field: "f".into(),
+        value: "v".into()
+    }
+    .is_recoverable());
     assert!(!ValidationError::Multiple(vec![]).is_recoverable());
 }
 
@@ -573,7 +623,10 @@ fn rq_enqueue_does_not_mutate_original() {
     let queue = Queue::new();
     let entry = QueueEntry::new("e1", "s1", 10).unwrap();
     let _new_queue = queue.enqueue(entry);
-    assert!(queue.is_empty(), "Original queue must remain empty after enqueue");
+    assert!(
+        queue.is_empty(),
+        "Original queue must remain empty after enqueue"
+    );
 }
 
 #[test]
@@ -593,7 +646,10 @@ fn rq_update_status_does_not_mutate_original() {
     assert!(result.is_ok());
     // Original should still have Pending
     assert_eq!(queue.find(&id).unwrap().status, QueueStatus::Pending);
-    assert_eq!(result.unwrap().find(&id).unwrap().status, QueueStatus::Claimed);
+    assert_eq!(
+        result.unwrap().find(&id).unwrap().status,
+        QueueStatus::Claimed
+    );
 }
 
 #[test]
@@ -625,7 +681,10 @@ fn rq_update_status_invalid_transition_error_details() {
     let id = QueueEntryId::new("e1").unwrap();
 
     let result = queue.update_status(&id, QueueStatus::Merged);
-    assert!(matches!(result, Err(ValidationError::InvalidStateTransition { .. })));
+    assert!(matches!(
+        result,
+        Err(ValidationError::InvalidStateTransition { .. })
+    ));
     if let Err(ValidationError::InvalidStateTransition { from, to }) = result {
         assert_eq!(from, "pending");
         assert_eq!(to, "merged");
@@ -662,7 +721,9 @@ fn rq_update_status_failure_then_retry_cycle() {
     let queue = queue.update_status(&id, QueueStatus::Claimed).unwrap();
     let queue = queue.update_status(&id, QueueStatus::Rebasing).unwrap();
     let queue = queue.update_status(&id, QueueStatus::Testing).unwrap();
-    let queue = queue.update_status(&id, QueueStatus::FailedRetryable).unwrap();
+    let queue = queue
+        .update_status(&id, QueueStatus::FailedRetryable)
+        .unwrap();
     let queue = queue.update_status(&id, QueueStatus::Pending).unwrap();
     let queue = queue.update_status(&id, QueueStatus::Claimed).unwrap();
     let queue = queue.update_status(&id, QueueStatus::Rebasing).unwrap();
@@ -718,7 +779,10 @@ fn rq_entry_transition_invalid_returns_error() {
     let entry = QueueEntry::new("id", "s", 10).unwrap();
     let result = entry.transition_status(QueueStatus::Merged);
     assert!(result.is_err());
-    assert!(matches!(result, Err(ValidationError::InvalidStateTransition { .. })));
+    assert!(matches!(
+        result,
+        Err(ValidationError::InvalidStateTransition { .. })
+    ));
 }
 
 #[test]
@@ -815,13 +879,36 @@ fn rq_sorted_by_key_does_not_mutate_original() {
 fn rq_validation_error_all_variants_display() {
     let errors: Vec<ValidationError> = vec![
         ValidationError::EmptyValue("field".into()),
-        ValidationError::InvalidCharacters { field: "f".into(), found: "c".into() },
-        ValidationError::ExceedsMaximum { field: "f".into(), value: 5, max: 3 },
-        ValidationError::BelowMinimum { field: "f".into(), value: 1, min: 5 },
-        ValidationError::InvalidStateTransition { from: "A".into(), to: "B".into() },
-        ValidationError::NotFound { field: "f".into(), value: "v".into() },
-        ValidationError::AlreadyExists { field: "f".into(), value: "v".into() },
-        ValidationError::OutOfBounds { position: 5, length: 3 },
+        ValidationError::InvalidCharacters {
+            field: "f".into(),
+            found: "c".into(),
+        },
+        ValidationError::ExceedsMaximum {
+            field: "f".into(),
+            value: 5,
+            max: 3,
+        },
+        ValidationError::BelowMinimum {
+            field: "f".into(),
+            value: 1,
+            min: 5,
+        },
+        ValidationError::InvalidStateTransition {
+            from: "A".into(),
+            to: "B".into(),
+        },
+        ValidationError::NotFound {
+            field: "f".into(),
+            value: "v".into(),
+        },
+        ValidationError::AlreadyExists {
+            field: "f".into(),
+            value: "v".into(),
+        },
+        ValidationError::OutOfBounds {
+            position: 5,
+            length: 3,
+        },
         ValidationError::Multiple(vec![
             ValidationError::EmptyValue("x".into()),
             ValidationError::EmptyValue("y".into()),
@@ -878,7 +965,11 @@ fn rq_queue_entry_serde_with_all_statuses() {
         .unwrap();
         let json = serde_json::to_string(&entry).unwrap();
         let back: QueueEntry = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.status, *status, "Serde roundtrip failed for {:?}", status);
+        assert_eq!(
+            back.status, *status,
+            "Serde roundtrip failed for {:?}",
+            status
+        );
     }
 }
 
@@ -886,7 +977,9 @@ fn rq_queue_entry_serde_with_all_statuses() {
 fn rq_queue_serde_large_queue() {
     let mut queue = Queue::new();
     for i in 0..200 {
-        queue = queue.enqueue(QueueEntry::new(format!("e-{}", i), format!("s-{}", i), (i % 50) as u32).unwrap());
+        queue = queue.enqueue(
+            QueueEntry::new(format!("e-{}", i), format!("s-{}", i), (i % 50) as u32).unwrap(),
+        );
     }
     let json = serde_json::to_string(&queue).unwrap();
     let back: Queue = serde_json::from_str(&json).unwrap();

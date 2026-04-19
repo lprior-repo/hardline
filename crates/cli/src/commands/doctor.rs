@@ -331,7 +331,11 @@ mod tests {
 
         std::env::set_current_dir(&original).unwrap();
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().status, CheckStatus::Pass, ".git directory should be detected");
+        assert_eq!(
+            result.unwrap().status,
+            CheckStatus::Pass,
+            ".git directory should be detected"
+        );
     }
 
     #[test]
@@ -346,7 +350,11 @@ mod tests {
 
         std::env::set_current_dir(&original).unwrap();
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().status, CheckStatus::Pass, ".git file (worktree) should be detected");
+        assert_eq!(
+            result.unwrap().status,
+            CheckStatus::Pass,
+            ".git file (worktree) should be detected"
+        );
     }
 
     #[test]
@@ -359,7 +367,11 @@ mod tests {
 
         std::env::set_current_dir(&original).unwrap();
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().status, CheckStatus::Fail, "no .git should return Fail");
+        assert_eq!(
+            result.unwrap().status,
+            CheckStatus::Fail,
+            "no .git should return Fail"
+        );
     }
 
     #[test]

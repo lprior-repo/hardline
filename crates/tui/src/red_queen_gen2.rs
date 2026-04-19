@@ -23,9 +23,9 @@ fn test_app() -> TuiApp {
 
 #[cfg(test)]
 mod stack_tree_escalated {
+    use crate::widgets::StackTreeWidget;
     use scp_stack::domain::value_objects::BranchName;
     use scp_stack::domain::StackBranch;
-    use crate::widgets::StackTreeWidget;
 
     fn branch(name: &str, parent: Option<&str>) -> StackBranch {
         StackBranch {
@@ -62,7 +62,11 @@ mod stack_tree_escalated {
     fn deeply_nested_chain_stress() {
         let branches: Vec<StackBranch> = (0..50)
             .map(|i| {
-                let parent = if i > 0 { Some(format!("r{}", i - 1)) } else { None };
+                let parent = if i > 0 {
+                    Some(format!("r{}", i - 1))
+                } else {
+                    None
+                };
                 branch(&format!("r{}", i), parent.as_deref())
             })
             .collect();
@@ -93,9 +97,15 @@ mod stack_tree_escalated {
     #[test]
     fn multiple_roots_each_with_children() {
         let branches = vec![
-            branch("a", None), branch("a1", Some("a")), branch("a2", Some("a")),
-            branch("b", None), branch("b1", Some("b")),
-            branch("c", None), branch("c1", Some("c")), branch("c2", Some("c")), branch("c3", Some("c")),
+            branch("a", None),
+            branch("a1", Some("a")),
+            branch("a2", Some("a")),
+            branch("b", None),
+            branch("b1", Some("b")),
+            branch("c", None),
+            branch("c1", Some("c")),
+            branch("c2", Some("c")),
+            branch("c3", Some("c")),
         ];
         let nodes = StackTreeWidget::new(branches).build_tree_nodes();
         assert_eq!(nodes.len(), 9);
@@ -107,9 +117,8 @@ mod stack_tree_escalated {
     /// Was: ha-dew0 (P0 CRITICAL)
     #[test]
     fn duplicate_branch_names() {
-        let nodes = StackTreeWidget::new(vec![
-            branch("dup", None), branch("dup", Some("dup")),
-        ]).build_tree_nodes();
+        let nodes = StackTreeWidget::new(vec![branch("dup", None), branch("dup", Some("dup"))])
+            .build_tree_nodes();
         assert_eq!(nodes.len(), 2);
     }
 
@@ -125,24 +134,28 @@ mod stack_tree_escalated {
         let nodes = StackTreeWidget::new(vec![
             branch("フィーチャー", None),
             branch("功能", Some("フィーチャー")),
-        ]).build_tree_nodes();
+        ])
+        .build_tree_nodes();
         assert_eq!(nodes.len(), 2);
     }
 }
 
 #[cfg(test)]
 mod key_mapping_complete {
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    use crate::input::{HunkAction, InputHandler, InputResult};
     use crate::app::Mode;
+    use crate::input::{HunkAction, InputHandler, InputResult};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::empty())
     }
 
     fn assert_handled(handler: &mut InputHandler, code: KeyCode, expected: HunkAction) {
-        assert_eq!(handler.handle_key_event(key(code), &Mode::Normal), InputResult::Handled(expected),
-            "KeyCode::{code:?} should map to {expected:?}");
+        assert_eq!(
+            handler.handle_key_event(key(code), &Mode::Normal),
+            InputResult::Handled(expected),
+            "KeyCode::{code:?} should map to {expected:?}"
+        );
     }
 
     #[test]
@@ -164,24 +177,39 @@ mod key_mapping_complete {
         assert_handled(&mut handler, KeyCode::Char('f'), HunkAction::ScrollDown);
         assert_handled(&mut handler, KeyCode::PageDown, HunkAction::ScrollDown);
 
-        assert_eq!(handler.handle_key_event(key(KeyCode::Char('q')), &Mode::Normal), InputResult::Quit);
+        assert_eq!(
+            handler.handle_key_event(key(KeyCode::Char('q')), &Mode::Normal),
+            InputResult::Quit
+        );
         let mut h2 = InputHandler::new();
-        assert_eq!(h2.handle_key_event(key(KeyCode::Esc), &Mode::Normal), InputResult::Quit);
+        assert_eq!(
+            h2.handle_key_event(key(KeyCode::Esc), &Mode::Normal),
+            InputResult::Quit
+        );
     }
 
     #[test]
     fn char_q_vs_char_c() {
         let mut h = InputHandler::new();
-        assert_eq!(h.handle_key_event(key(KeyCode::Char('q')), &Mode::Normal), InputResult::Quit);
+        assert_eq!(
+            h.handle_key_event(key(KeyCode::Char('q')), &Mode::Normal),
+            InputResult::Quit
+        );
         let mut h2 = InputHandler::new();
-        assert_eq!(h2.handle_key_event(key(KeyCode::Char('c')), &Mode::Normal), InputResult::Unhandled);
+        assert_eq!(
+            h2.handle_key_event(key(KeyCode::Char('c')), &Mode::Normal),
+            InputResult::Unhandled
+        );
     }
 
     #[test]
     fn number_keys_unhandled() {
         let mut handler = InputHandler::new();
         for n in '0'..='9' {
-            assert_eq!(handler.handle_key_event(key(KeyCode::Char(n)), &Mode::Normal), InputResult::Unhandled);
+            assert_eq!(
+                handler.handle_key_event(key(KeyCode::Char(n)), &Mode::Normal),
+                InputResult::Unhandled
+            );
         }
     }
 
@@ -189,15 +217,24 @@ mod key_mapping_complete {
     fn function_keys_unhandled() {
         let mut handler = InputHandler::new();
         for f in 1..=12 {
-            assert_eq!(handler.handle_key_event(key(KeyCode::F(f)), &Mode::Normal), InputResult::Unhandled);
+            assert_eq!(
+                handler.handle_key_event(key(KeyCode::F(f)), &Mode::Normal),
+                InputResult::Unhandled
+            );
         }
     }
 
     #[test]
     fn arrow_left_right_unhandled() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(key(KeyCode::Left), &Mode::Normal), InputResult::Unhandled);
-        assert_eq!(handler.handle_key_event(key(KeyCode::Right), &Mode::Normal), InputResult::Unhandled);
+        assert_eq!(
+            handler.handle_key_event(key(KeyCode::Left), &Mode::Normal),
+            InputResult::Unhandled
+        );
+        assert_eq!(
+            handler.handle_key_event(key(KeyCode::Right), &Mode::Normal),
+            InputResult::Unhandled
+        );
     }
 }
 
@@ -212,7 +249,11 @@ mod branch_provider_escalated {
     }
 
     impl CountingProvider {
-        fn new() -> Self { Self { count: AtomicUsize::new(0) } }
+        fn new() -> Self {
+            Self {
+                count: AtomicUsize::new(0),
+            }
+        }
     }
 
     impl BranchProvider for CountingProvider {
@@ -264,13 +305,19 @@ mod branch_provider_escalated {
         struct LargeProvider;
         impl BranchProvider for LargeProvider {
             fn load_branches(&self) -> std::result::Result<Vec<StackBranch>, String> {
-                Ok((0..1000).map(|i| StackBranch {
-                    name: BranchName::new(format!("branch-{}", i)),
-                    parent: if i > 0 { Some(BranchName::new(format!("branch-{}", i - 1))) } else { None },
-                    children: Vec::new(),
-                    needs_restack: false,
-                    pr_info: None,
-                }).collect())
+                Ok((0..1000)
+                    .map(|i| StackBranch {
+                        name: BranchName::new(format!("branch-{}", i)),
+                        parent: if i > 0 {
+                            Some(BranchName::new(format!("branch-{}", i - 1)))
+                        } else {
+                            None
+                        },
+                        children: Vec::new(),
+                        needs_restack: false,
+                        pr_info: None,
+                    })
+                    .collect())
             }
         }
 
@@ -281,7 +328,9 @@ mod branch_provider_escalated {
 
     #[test]
     fn empty_result_clears_existing_branches() {
-        struct OneThenEmpty { called: AtomicBool }
+        struct OneThenEmpty {
+            called: AtomicBool,
+        }
         impl BranchProvider for OneThenEmpty {
             fn load_branches(&self) -> std::result::Result<Vec<StackBranch>, String> {
                 if self.called.swap(true, Ordering::SeqCst) {
@@ -289,26 +338,35 @@ mod branch_provider_escalated {
                 } else {
                     Ok(vec![StackBranch {
                         name: BranchName::new("temp"),
-                        parent: None, children: Vec::new(),
-                        needs_restack: false, pr_info: None,
+                        parent: None,
+                        children: Vec::new(),
+                        needs_restack: false,
+                        pr_info: None,
                     }])
                 }
             }
         }
 
-        let mut app = TuiApp::new(Box::new(OneThenEmpty { called: AtomicBool::new(false) })).expect("ok");
+        let mut app = TuiApp::new(Box::new(OneThenEmpty {
+            called: AtomicBool::new(false),
+        }))
+        .expect("ok");
         app.refresh_branches().expect("ok");
         assert_eq!(app.stack_branches.len(), 1);
         app.needs_refresh = true;
         app.refresh_branches().expect("ok");
-        assert_eq!(app.stack_branches.len(), 0, "second refresh should replace, not append");
+        assert_eq!(
+            app.stack_branches.len(),
+            0,
+            "second refresh should replace, not append"
+        );
     }
 }
 
 #[cfg(test)]
 mod proptest_invariants {
-    use proptest::proptest;
     use crate::app::{ConfirmAction, InputAction, Mode};
+    use proptest::proptest;
 
     proptest! {
         #[test]

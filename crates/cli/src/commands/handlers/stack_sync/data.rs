@@ -54,7 +54,7 @@ impl Default for StackSyncOptions {
 // ============================================================================
 
 /// Result of a stack sync operation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct StackSyncResult {
     /// Remote branches that were fetched.
     pub branches_fetched: Vec<BranchName>,
@@ -70,20 +70,6 @@ pub struct StackSyncResult {
     pub stash_used: bool,
     /// Per-step timing information.
     pub timings: Vec<(String, Duration)>,
-}
-
-impl Default for StackSyncResult {
-    fn default() -> Self {
-        Self {
-            branches_fetched: Vec::new(),
-            trunk_updated: false,
-            merged_branches: Vec::new(),
-            restack_results: Vec::new(),
-            had_conflicts: false,
-            stash_used: false,
-            timings: Vec::new(),
-        }
-    }
 }
 
 /// A branch detected as merged, with its detection method and deletion status.
@@ -187,11 +173,17 @@ pub enum SyncError {
     #[error("Failed to delete branch '{branch}': {reason}")]
     BranchDeleteFailed { branch: BranchName, reason: String },
     #[error("Branch '{branch}' is checked out in worktree '{worktree}'")]
-    BranchInWorktree { branch: BranchName, worktree: String },
+    BranchInWorktree {
+        branch: BranchName,
+        worktree: String,
+    },
 
     // Restack failures
     #[error("Rebase conflict on '{branch}' against '{parent}'")]
-    RebaseConflict { branch: BranchName, parent: BranchName },
+    RebaseConflict {
+        branch: BranchName,
+        parent: BranchName,
+    },
     #[error("Rebase failed on '{branch}': {reason}")]
     RebaseFailed { branch: BranchName, reason: String },
 

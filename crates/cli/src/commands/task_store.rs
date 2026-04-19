@@ -26,16 +26,18 @@ impl TaskStore {
     pub fn load() -> CoreResult<Self> {
         let tasks_file = get_tasks_file()?;
         let tasks = if tasks_file.exists() {
-            let contents =
-                fs::read_to_string(&tasks_file).map_err(|e| Error::io_error(format!(
+            let contents = fs::read_to_string(&tasks_file).map_err(|e| {
+                Error::io_error(format!(
                     "Failed to read tasks file '{}': {e}",
                     tasks_file.display()
-                )))?;
-            let parsed: Vec<Task> =
-                serde_json::from_str(&contents).map_err(|e| Error::internal(format!(
+                ))
+            })?;
+            let parsed: Vec<Task> = serde_json::from_str(&contents).map_err(|e| {
+                Error::internal(format!(
                     "Failed to parse tasks file '{}': {e}",
                     tasks_file.display()
-                )))?;
+                ))
+            })?;
             parsed
                 .into_iter()
                 .map(|t| (t.id.as_str().to_string(), t))
@@ -114,12 +116,12 @@ impl TaskStore {
     }
 }
 
-static TASK_STORE: LazyLock<Arc<TaskStore>> = LazyLock::new(|| {
-    Arc::new(
-        TaskStore::load()
-            .expect("Fatal: failed to initialize task store — check file permissions and disk state"),
-    )
-});
+static TASK_STORE: LazyLock<Arc<TaskStore>> =
+    LazyLock::new(|| {
+        Arc::new(TaskStore::load().expect(
+            "Fatal: failed to initialize task store — check file permissions and disk state",
+        ))
+    });
 
 pub fn get_task_store() -> Arc<TaskStore> {
     TASK_STORE.clone()

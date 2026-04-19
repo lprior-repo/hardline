@@ -9,7 +9,9 @@ pub const MAX_PRIORITY: u32 = 100;
 ///
 /// Represents the state machine for a queue entry through its lifecycle.
 /// All state transitions are validated via `transition_to`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, Default,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum QueueStatus {
     /// Waiting to be processed
@@ -66,11 +68,7 @@ impl QueueStatus {
     pub const fn is_active(self) -> bool {
         matches!(
             self,
-            Self::Claimed
-                | Self::Rebasing
-                | Self::Testing
-                | Self::ReadyToMerge
-                | Self::Merging
+            Self::Claimed | Self::Rebasing | Self::Testing | Self::ReadyToMerge | Self::Merging
         )
     }
 

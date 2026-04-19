@@ -86,10 +86,8 @@ mod tests {
 
     #[test]
     fn created_to_ready_rejected() {
-        let result = WorkspaceStateMachine::transition(
-            WorkspaceState::Created,
-            WorkspaceState::Ready,
-        );
+        let result =
+            WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Ready);
         assert!(result.is_err());
     }
 
@@ -129,10 +127,10 @@ mod tests {
 
     #[test]
     fn transition_error_has_context() {
-        let err = WorkspaceStateMachine::transition(
-            WorkspaceState::Created,
-            WorkspaceState::Merged,
-        ).err().unwrap();
+        let err =
+            WorkspaceStateMachine::transition(WorkspaceState::Created, WorkspaceState::Merged)
+                .err()
+                .unwrap();
         let msg = format!("{err}");
         assert!(msg.contains("created"));
         assert!(msg.contains("merged"));
@@ -141,9 +139,15 @@ mod tests {
     #[test]
     fn helper_consistency_checks() {
         for state in WorkspaceState::all() {
-            assert_eq!(WorkspaceStateMachine::is_terminal(*state), state.is_terminal());
+            assert_eq!(
+                WorkspaceStateMachine::is_terminal(*state),
+                state.is_terminal()
+            );
             assert_eq!(WorkspaceStateMachine::is_active(*state), state.is_active());
-            assert_eq!(WorkspaceStateMachine::is_complete(*state), state.is_complete());
+            assert_eq!(
+                WorkspaceStateMachine::is_complete(*state),
+                state.is_complete()
+            );
         }
     }
 }

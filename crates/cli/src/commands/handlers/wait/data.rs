@@ -92,7 +92,10 @@ mod tests {
             name: "build-task".to_string(),
             status: "completed".to_string(),
         };
-        assert_eq!(format_condition(&cond), "session-status:build-task=completed");
+        assert_eq!(
+            format_condition(&cond),
+            "session-status:build-task=completed"
+        );
     }
 
     // ========================================================================

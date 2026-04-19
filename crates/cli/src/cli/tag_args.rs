@@ -97,7 +97,9 @@ mod tests {
 
     #[test]
     fn create_with_all_options() {
-        match parse(&["create", "v1.0.0", "-m", "release", "-c", "abc123", "--force"]) {
+        match parse(&[
+            "create", "v1.0.0", "-m", "release", "-c", "abc123", "--force",
+        ]) {
             TagCommands::Create {
                 name,
                 message,

@@ -130,9 +130,9 @@ mod state_transitions {
 
 #[cfg(test)]
 mod input_navigation {
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-    use crate::input::{HunkAction, InputHandler, InputResult};
     use crate::app::Mode;
+    use crate::input::{HunkAction, InputHandler, InputResult};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     fn make_key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::empty())
@@ -144,7 +144,10 @@ mod input_navigation {
         handler.set_hunk_count(1);
         assert_eq!(handler.current_hunk, 0);
         handler.handle_key_event(make_key(KeyCode::Down), &Mode::Normal);
-        assert_eq!(handler.current_hunk, 0, "single hunk: navigate_next should stay at 0");
+        assert_eq!(
+            handler.current_hunk, 0,
+            "single hunk: navigate_next should stay at 0"
+        );
     }
 
     #[test]
@@ -152,7 +155,10 @@ mod input_navigation {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(1);
         handler.handle_key_event(make_key(KeyCode::Up), &Mode::Normal);
-        assert_eq!(handler.current_hunk, 0, "single hunk: navigate_prev should stay at 0");
+        assert_eq!(
+            handler.current_hunk, 0,
+            "single hunk: navigate_prev should stay at 0"
+        );
     }
 
     #[test]
@@ -190,7 +196,10 @@ mod input_navigation {
         handler.set_hunk_count(5);
         handler.current_hunk = 2;
         handler.set_hunk_count(5);
-        assert_eq!(handler.current_hunk, 2, "same count should not change index");
+        assert_eq!(
+            handler.current_hunk, 2,
+            "same count should not change index"
+        );
     }
 
     #[test]
@@ -209,7 +218,10 @@ mod input_navigation {
         for _ in 0..1000 {
             handler.handle_key_event(make_key(KeyCode::Down), &Mode::Normal);
         }
-        assert_eq!(handler.current_hunk, 0, "1000 next on 1000 hunks should wrap to 0");
+        assert_eq!(
+            handler.current_hunk, 0,
+            "1000 next on 1000 hunks should wrap to 0"
+        );
     }
 
     #[test]
@@ -217,75 +229,120 @@ mod input_navigation {
         let mut handler = InputHandler::new();
         handler.set_hunk_count(1000);
         handler.handle_key_event(make_key(KeyCode::Up), &Mode::Normal);
-        assert_eq!(handler.current_hunk, 999, "prev from 0 on 1000 hunks should be 999");
+        assert_eq!(
+            handler.current_hunk, 999,
+            "prev from 0 on 1000 hunks should be 999"
+        );
     }
 
     #[test]
     fn stage_key_space_and_s_both_work() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char(' ')), &Mode::Normal), InputResult::Handled(HunkAction::Stage));
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('s')), &Mode::Normal), InputResult::Handled(HunkAction::Stage));
+        assert_eq!(
+            handler.handle_key_event(make_key(KeyCode::Char(' ')), &Mode::Normal),
+            InputResult::Handled(HunkAction::Stage)
+        );
+        assert_eq!(
+            handler.handle_key_event(make_key(KeyCode::Char('s')), &Mode::Normal),
+            InputResult::Handled(HunkAction::Stage)
+        );
     }
 
     #[test]
     fn discard_upper_and_lower_d() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('d')), &Mode::Normal), InputResult::Handled(HunkAction::Discard));
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('D')), &Mode::Normal), InputResult::Handled(HunkAction::Discard));
+        assert_eq!(
+            handler.handle_key_event(make_key(KeyCode::Char('d')), &Mode::Normal),
+            InputResult::Handled(HunkAction::Discard)
+        );
+        assert_eq!(
+            handler.handle_key_event(make_key(KeyCode::Char('D')), &Mode::Normal),
+            InputResult::Handled(HunkAction::Discard)
+        );
     }
 
     #[test]
     fn esc_is_quit() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Esc), &Mode::Normal), InputResult::Quit);
+        assert_eq!(
+            handler.handle_key_event(make_key(KeyCode::Esc), &Mode::Normal),
+            InputResult::Quit
+        );
     }
 
     #[test]
     fn unhandled_keys() {
         let mut handler = InputHandler::new();
         let unhandled = vec![
-            KeyCode::F(1), KeyCode::Enter, KeyCode::Tab,
-            KeyCode::Backspace, KeyCode::Delete, KeyCode::Home,
-            KeyCode::End, KeyCode::Insert,
-            KeyCode::Char('x'), KeyCode::Char('Z'),
+            KeyCode::F(1),
+            KeyCode::Enter,
+            KeyCode::Tab,
+            KeyCode::Backspace,
+            KeyCode::Delete,
+            KeyCode::Home,
+            KeyCode::End,
+            KeyCode::Insert,
+            KeyCode::Char('x'),
+            KeyCode::Char('Z'),
         ];
         for code in unhandled {
-            assert_eq!(handler.handle_key_event(make_key(code), &Mode::Normal), InputResult::Unhandled,
-                "KeyCode::{code:?} should be unhandled");
+            assert_eq!(
+                handler.handle_key_event(make_key(code), &Mode::Normal),
+                InputResult::Unhandled,
+                "KeyCode::{code:?} should be unhandled"
+            );
         }
     }
 
     #[test]
     fn page_up_is_scroll_up() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::PageUp), &Mode::Normal), InputResult::Handled(HunkAction::ScrollUp));
+        assert_eq!(
+            handler.handle_key_event(make_key(KeyCode::PageUp), &Mode::Normal),
+            InputResult::Handled(HunkAction::ScrollUp)
+        );
     }
 
     #[test]
     fn page_down_is_scroll_down() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::PageDown), &Mode::Normal), InputResult::Handled(HunkAction::ScrollDown));
+        assert_eq!(
+            handler.handle_key_event(make_key(KeyCode::PageDown), &Mode::Normal),
+            InputResult::Handled(HunkAction::ScrollDown)
+        );
     }
 
     #[test]
     fn scroll_keys() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('b')), &Mode::Normal), InputResult::Handled(HunkAction::ScrollUp));
+        assert_eq!(
+            handler.handle_key_event(make_key(KeyCode::Char('b')), &Mode::Normal),
+            InputResult::Handled(HunkAction::ScrollUp)
+        );
         let mut handler2 = InputHandler::new();
-        assert_eq!(handler2.handle_key_event(make_key(KeyCode::Char('f')), &Mode::Normal), InputResult::Handled(HunkAction::ScrollDown));
+        assert_eq!(
+            handler2.handle_key_event(make_key(KeyCode::Char('f')), &Mode::Normal),
+            InputResult::Handled(HunkAction::ScrollDown)
+        );
     }
 
     #[test]
     fn unstage_key_u() {
         let mut handler = InputHandler::new();
-        assert_eq!(handler.handle_key_event(make_key(KeyCode::Char('u')), &Mode::Normal), InputResult::Handled(HunkAction::Unstage));
+        assert_eq!(
+            handler.handle_key_event(make_key(KeyCode::Char('u')), &Mode::Normal),
+            InputResult::Handled(HunkAction::Unstage)
+        );
     }
 
     #[test]
     fn modifier_keys_dont_change_outcome() {
         let mut handler = InputHandler::new();
         let ctrl_q = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL);
-        assert_eq!(handler.handle_key_event(ctrl_q, &Mode::Normal), InputResult::Quit);
+        assert_eq!(
+            handler.handle_key_event(ctrl_q, &Mode::Normal),
+            InputResult::Quit
+        );
     }
 
     #[test]
@@ -354,14 +411,18 @@ mod worktree_selection {
     #[test]
     fn three_items_full_cycle_next() {
         let mut view = WorktreeView::new(vec![make_item("a"), make_item("b"), make_item("c")]);
-        view.select_next(); view.select_next(); view.select_next();
+        view.select_next();
+        view.select_next();
+        view.select_next();
         assert_eq!(view.selected_index, 0);
     }
 
     #[test]
     fn three_items_full_cycle_prev() {
         let mut view = WorktreeView::new(vec![make_item("a"), make_item("b"), make_item("c")]);
-        view.select_previous(); view.select_previous(); view.select_previous();
+        view.select_previous();
+        view.select_previous();
+        view.select_previous();
         assert_eq!(view.selected_index, 0);
     }
 
@@ -399,18 +460,22 @@ mod worktree_selection {
     fn ten_items_navigation_stress() {
         let items: Vec<WorktreeItem> = (0..10).map(|i| make_item(&format!("wt-{}", i))).collect();
         let mut view = WorktreeView::new(items);
-        for _ in 0..10 { view.select_next(); }
+        for _ in 0..10 {
+            view.select_next();
+        }
         assert_eq!(view.selected_index, 0);
-        for _ in 0..10 { view.select_previous(); }
+        for _ in 0..10 {
+            view.select_previous();
+        }
         assert_eq!(view.selected_index, 0);
     }
 }
 
 #[cfg(test)]
 mod stack_tree_adversarial {
+    use crate::widgets::StackTreeWidget;
     use scp_stack::domain::value_objects::BranchName;
     use scp_stack::domain::{PrInfo, PrState, StackBranch};
-    use crate::widgets::StackTreeWidget;
 
     fn branch(name: &str, parent: Option<&str>) -> StackBranch {
         StackBranch {
@@ -422,7 +487,12 @@ mod stack_tree_adversarial {
         }
     }
 
-    fn branch_with_pr(name: &str, parent: Option<&str>, number: u32, state: PrState) -> StackBranch {
+    fn branch_with_pr(
+        name: &str,
+        parent: Option<&str>,
+        number: u32,
+        state: PrState,
+    ) -> StackBranch {
         let mut b = branch(name, parent);
         b.pr_info = Some(PrInfo {
             number,
@@ -437,9 +507,12 @@ mod stack_tree_adversarial {
     #[test]
     fn deep_nesting_chain() {
         let branches = vec![
-            branch("r0", None), branch("r1", Some("r0")),
-            branch("r2", Some("r1")), branch("r3", Some("r2")),
-            branch("r4", Some("r3")), branch("r5", Some("r4")),
+            branch("r0", None),
+            branch("r1", Some("r0")),
+            branch("r2", Some("r1")),
+            branch("r3", Some("r2")),
+            branch("r4", Some("r3")),
+            branch("r5", Some("r4")),
         ];
         let nodes = StackTreeWidget::new(branches).build_tree_nodes();
         assert_eq!(nodes.len(), 6);
@@ -455,7 +528,9 @@ mod stack_tree_adversarial {
             .collect();
         let nodes = StackTreeWidget::new(branches).build_tree_nodes();
         assert_eq!(nodes.len(), 10);
-        for node in &nodes { assert_eq!(node.depth, 0); }
+        for node in &nodes {
+            assert_eq!(node.depth, 0);
+        }
         for (i, node) in nodes.iter().enumerate() {
             assert_eq!(node.is_last_child, i == 9);
         }
@@ -480,15 +555,19 @@ mod stack_tree_adversarial {
 
     #[test]
     fn orphan_branch_produces_no_nodes() {
-        let nodes = StackTreeWidget::new(vec![branch("orphan", Some("nonexistent"))]).build_tree_nodes();
+        let nodes =
+            StackTreeWidget::new(vec![branch("orphan", Some("nonexistent"))]).build_tree_nodes();
         assert_eq!(nodes.len(), 0);
     }
 
     #[test]
     fn sibling_ordering_preserved() {
         let nodes = StackTreeWidget::new(vec![
-            branch("c", None), branch("b", Some("c")), branch("a", Some("c")),
-        ]).build_tree_nodes();
+            branch("c", None),
+            branch("b", Some("c")),
+            branch("a", Some("c")),
+        ])
+        .build_tree_nodes();
         assert_eq!(nodes[1].branch.name.as_str(), "b");
         assert_eq!(nodes[2].branch.name.as_str(), "a");
     }
@@ -562,7 +641,9 @@ mod error_contract_adversarial {
 
     #[test]
     fn result_into_dyn_error_send_sync() {
-        fn takes_dyn(err: Box<dyn Error + Send + Sync>) -> String { err.to_string() }
+        fn takes_dyn(err: Box<dyn Error + Send + Sync>) -> String {
+            err.to_string()
+        }
         let result: Result<()> = Err(TuiError::Error("test".into()));
         let _ = takes_dyn(Box::new(result.expect_err("should be err")));
     }
@@ -576,9 +657,9 @@ mod error_contract_adversarial {
         ];
         for err in errors {
             match &err {
-                TuiError::Error(_) => {},
-                TuiError::TerminalError(_) => {},
-                TuiError::IoError(_) => {},
+                TuiError::Error(_) => {}
+                TuiError::TerminalError(_) => {}
+                TuiError::IoError(_) => {}
             }
         }
     }
@@ -623,7 +704,10 @@ mod invariant_preservation {
     #[test]
     fn refresh_preserves_diff_lines() {
         let mut app = test_app();
-        app.diff_lines = vec![crate::app::DiffLine::new("h", crate::app::DiffLineKind::Header)];
+        app.diff_lines = vec![crate::app::DiffLine::new(
+            "h",
+            crate::app::DiffLineKind::Header,
+        )];
         app.refresh_branches().expect("ok");
         assert_eq!(app.diff_lines.len(), 1);
     }
@@ -670,7 +754,7 @@ mod diff_line_adversarial {
         let c = DiffLine::new("x", DiffLineKind::Context);
         let all = vec![&h, &hh, &a, &d, &c];
         for i in 0..all.len() {
-            for j in (i+1)..all.len() {
+            for j in (i + 1)..all.len() {
                 assert_ne!(all[i].kind, all[j].kind);
             }
         }
@@ -685,7 +769,13 @@ mod diff_line_adversarial {
 
     #[test]
     fn clone_produces_equal_copy() {
-        for kind in &[DiffLineKind::Header, DiffLineKind::Hunk, DiffLineKind::Add, DiffLineKind::Remove, DiffLineKind::Context] {
+        for kind in &[
+            DiffLineKind::Header,
+            DiffLineKind::Hunk,
+            DiffLineKind::Add,
+            DiffLineKind::Remove,
+            DiffLineKind::Context,
+        ] {
             let line = DiffLine::new("test", *kind);
             let cloned = line.clone();
             assert_eq!(line.content, cloned.content);
@@ -723,7 +813,8 @@ mod branch_provider_contract {
     #[test]
     fn failing_provider_sets_status_message() {
         let mut app = TuiApp::new(Box::new(FailingProvider)).expect("ok");
-        app.refresh_branches().expect("refresh should not propagate provider error");
+        app.refresh_branches()
+            .expect("refresh should not propagate provider error");
         assert!(app.status_message.contains("connection refused"));
         assert!(!app.needs_refresh);
     }

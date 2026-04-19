@@ -56,8 +56,7 @@ mod tests {
 
     #[test]
     fn receipt_error_implements_error_trait() {
-        let err: Box<dyn std::error::Error> =
-            Box::new(ReceiptError::NotFound("test".to_string()));
+        let err: Box<dyn std::error::Error> = Box::new(ReceiptError::NotFound("test".to_string()));
         let _msg = err.to_string();
     }
 

@@ -229,7 +229,13 @@ fn schema_required_fields(def: &SchemaDefinition) -> Vec<&str> {
     if def.schema_type == "error" {
         vec!["$schema", "_schema_version", "success", "error"]
     } else {
-        vec!["$schema", "_schema_version", "schema_type", "success", "data"]
+        vec![
+            "$schema",
+            "_schema_version",
+            "schema_type",
+            "success",
+            "data",
+        ]
     }
 }
 
@@ -238,16 +244,31 @@ fn schema_properties(def: &SchemaDefinition, is_error: bool) -> serde_json::Valu
     let data_field = build_data_field(def);
 
     let mut props = serde_json::Map::from_iter([
-        ("$schema".to_string(), serde_json::json!({ "type": "string" })),
-        ("_schema_version".to_string(), serde_json::json!({ "type": "string", "const": "1.0" })),
+        (
+            "$schema".to_string(),
+            serde_json::json!({ "type": "string" }),
+        ),
+        (
+            "_schema_version".to_string(),
+            serde_json::json!({ "type": "string", "const": "1.0" }),
+        ),
     ]);
 
     if is_error {
-        props.insert("success".to_string(), serde_json::json!({ "type": "boolean", "const": false }));
+        props.insert(
+            "success".to_string(),
+            serde_json::json!({ "type": "boolean", "const": false }),
+        );
         props.insert("error".to_string(), data_field);
     } else {
-        props.insert("schema_type".to_string(), serde_json::json!({ "type": "string", "const": def.schema_type }));
-        props.insert("success".to_string(), serde_json::json!({ "type": "boolean" }));
+        props.insert(
+            "schema_type".to_string(),
+            serde_json::json!({ "type": "string", "const": def.schema_type }),
+        );
+        props.insert(
+            "success".to_string(),
+            serde_json::json!({ "type": "boolean" }),
+        );
         props.insert("data".to_string(), data_field);
     }
 
@@ -478,12 +499,18 @@ mod tests {
 
     #[test]
     fn run_schema_revert_response() {
-        assert!(run_schema(&schema_opts(SchemaMode::Single("revert-response".to_string()))).is_ok());
+        assert!(run_schema(&schema_opts(SchemaMode::Single(
+            "revert-response".to_string()
+        )))
+        .is_ok());
     }
 
     #[test]
     fn run_schema_done_response() {
-        assert!(run_schema(&schema_opts(SchemaMode::Single("done-response".to_string()))).is_ok());
+        assert!(run_schema(&schema_opts(SchemaMode::Single(
+            "done-response".to_string()
+        )))
+        .is_ok());
     }
 
     #[test]

@@ -97,7 +97,13 @@ mod tests {
     /// — when present, `body` runs and the process exits.  When absent
     /// (parent process), the binary is re-launched with the marker, the
     /// specified env overrides, and a narrow test filter.
-    fn isolated(marker: &str, test_name: &str, env_set: &[(&str, &str)], env_remove: &[&str], body: impl FnOnce()) {
+    fn isolated(
+        marker: &str,
+        test_name: &str,
+        env_set: &[(&str, &str)],
+        env_remove: &[&str],
+        body: impl FnOnce(),
+    ) {
         if std::env::var(marker).is_ok() {
             body();
             std::process::exit(0);

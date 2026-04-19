@@ -51,7 +51,10 @@ impl SnapshotError {
     }
 
     /// Create a StorageError with both source error and message
-    pub fn storage_with_source(source: impl std::error::Error + Send + Sync + 'static, message: impl Into<String>) -> Self {
+    pub fn storage_with_source(
+        source: impl std::error::Error + Send + Sync + 'static,
+        message: impl Into<String>,
+    ) -> Self {
         SnapshotError::StorageError {
             source: Some(Box::new(source)),
             message: message.into(),

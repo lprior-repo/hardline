@@ -6,8 +6,8 @@
 use scp_workspace::{
     domain::value_objects::{branch_name::BranchName, lock_holder::LockHolder},
     InMemoryWorkspaceRepository, Workspace, WorkspaceError, WorkspaceEvent, WorkspaceId,
-    WorkspaceName, WorkspacePath, WorkspaceService, WorkspaceState, WorkspaceStateMachine,
-    WorkspaceRepository,
+    WorkspaceName, WorkspacePath, WorkspaceRepository, WorkspaceService, WorkspaceState,
+    WorkspaceStateMachine,
 };
 use std::marker::PhantomData;
 
@@ -29,13 +29,25 @@ struct Claim {
 
 impl Claim {
     fn green(id: &'static str, desc: &'static str) -> Self {
-        Self { id, description: desc, verdict: Verdict::Green }
+        Self {
+            id,
+            description: desc,
+            verdict: Verdict::Green,
+        }
     }
     fn yellow(id: &'static str, _desc: &str) -> Self {
-        Self { id, description: "", verdict: Verdict::Yellow }
+        Self {
+            id,
+            description: "",
+            verdict: Verdict::Yellow,
+        }
     }
     fn red(id: &'static str, desc: &'static str, reason: String) -> Self {
-        Self { id, description: desc, verdict: Verdict::Red(reason) }
+        Self {
+            id,
+            description: desc,
+            verdict: Verdict::Red(reason),
+        }
     }
 }
 
@@ -74,7 +86,10 @@ fn to_generic<S>(ws: Workspace<S>) -> Workspace {
 #[test]
 fn claim_wname_01_valid_alphanumeric() {
     let name = WorkspaceName::new("my-workspace_123".into());
-    assert!(name.is_ok(), "GREEN: alphanumeric names with hyphens/underscores accepted");
+    assert!(
+        name.is_ok(),
+        "GREEN: alphanumeric names with hyphens/underscores accepted"
+    );
 }
 
 #[test]
@@ -181,7 +196,10 @@ fn claim_wpath_02_rejects_empty() {
 #[test]
 fn claim_wpath_03_relative_resolved_to_absolute() {
     let path = WorkspacePath::new("relative/path".into()).unwrap();
-    assert!(path.as_path().is_absolute(), "GREEN: relative paths resolved via cwd");
+    assert!(
+        path.as_path().is_absolute(),
+        "GREEN: relative paths resolved via cwd"
+    );
 }
 
 #[test]
@@ -226,8 +244,18 @@ fn claim_wpath_08_equality() {
 
 #[test]
 fn claim_branch_01_valid_common_patterns() {
-    for pat in &["main", "master", "develop", "feature/USER-123", "bugfix/fix-crash", "release/1.0.0"] {
-        assert!(BranchName::new((*pat).into()).is_ok(), "GREEN: '{pat}' accepted");
+    for pat in &[
+        "main",
+        "master",
+        "develop",
+        "feature/USER-123",
+        "bugfix/fix-crash",
+        "release/1.0.0",
+    ] {
+        assert!(
+            BranchName::new((*pat).into()).is_ok(),
+            "GREEN: '{pat}' accepted"
+        );
     }
 }
 
@@ -238,9 +266,18 @@ fn claim_branch_02_rejects_empty() {
 
 #[test]
 fn claim_branch_03_rejects_null_char() {
-    assert!(BranchName::new("feat\0ure".into()).is_err(), "GREEN: null char rejected");
-    assert!(BranchName::new("\0".into()).is_err(), "GREEN: sole null rejected");
-    assert!(BranchName::new("test\0".into()).is_err(), "GREEN: trailing null rejected");
+    assert!(
+        BranchName::new("feat\0ure".into()).is_err(),
+        "GREEN: null char rejected"
+    );
+    assert!(
+        BranchName::new("\0".into()).is_err(),
+        "GREEN: sole null rejected"
+    );
+    assert!(
+        BranchName::new("test\0".into()).is_err(),
+        "GREEN: trailing null rejected"
+    );
 }
 
 #[test]
@@ -286,15 +323,14 @@ fn claim_lockholder_02_rejects_empty() {
 
 #[test]
 fn claim_lockholder_03_default_is_system() {
-    assert_eq!(
-        LockHolder::default().as_str(),
-        "system"
-    );
+    assert_eq!(LockHolder::default().as_str(), "system");
 }
 
 #[test]
 fn claim_lockholder_04_allows_anything_non_empty() {
-    let lh = scp_workspace::domain::value_objects::lock_holder::LockHolder::new("agent/special!@#$%\n".into());
+    let lh = scp_workspace::domain::value_objects::lock_holder::LockHolder::new(
+        "agent/special!@#$%\n".into(),
+    );
     assert!(lh.is_ok(), "GREEN: any non-empty string accepted");
 }
 
@@ -324,7 +360,10 @@ fn claim_entity_03_create_has_default_config() {
     let config = ws.config().expect("should have config");
     assert_eq!(config.default_branch, "main");
     assert!(config.auto_sync);
-    assert_eq!(config.vcs_type, scp_workspace::domain::entities::workspace::VcsType::Git);
+    assert_eq!(
+        config.vcs_type,
+        scp_workspace::domain::entities::workspace::VcsType::Git
+    );
 }
 
 #[test]
@@ -581,8 +620,12 @@ fn claim_sm_02_invalid_transitions() {
 #[test]
 fn claim_sm_03_terminal_states() {
     assert!(WorkspaceStateMachine::is_terminal(WorkspaceState::Deleted));
-    assert!(WorkspaceStateMachine::is_terminal(WorkspaceState::Corrupted));
-    assert!(!WorkspaceStateMachine::is_terminal(WorkspaceState::Initializing));
+    assert!(WorkspaceStateMachine::is_terminal(
+        WorkspaceState::Corrupted
+    ));
+    assert!(!WorkspaceStateMachine::is_terminal(
+        WorkspaceState::Initializing
+    ));
     assert!(!WorkspaceStateMachine::is_terminal(WorkspaceState::Active));
     assert!(!WorkspaceStateMachine::is_terminal(WorkspaceState::Locked));
 }
@@ -590,14 +633,23 @@ fn claim_sm_03_terminal_states() {
 #[test]
 fn claim_sm_04_lockable_only_active() {
     assert!(WorkspaceStateMachine::is_lockable(WorkspaceState::Active));
-    for s in [WorkspaceState::Initializing, WorkspaceState::Locked, WorkspaceState::Corrupted, WorkspaceState::Deleted] {
+    for s in [
+        WorkspaceState::Initializing,
+        WorkspaceState::Locked,
+        WorkspaceState::Corrupted,
+        WorkspaceState::Deleted,
+    ] {
         assert!(!WorkspaceStateMachine::is_lockable(s));
     }
 }
 
 #[test]
 fn claim_sm_05_deletable_non_terminal() {
-    for s in [WorkspaceState::Initializing, WorkspaceState::Active, WorkspaceState::Locked] {
+    for s in [
+        WorkspaceState::Initializing,
+        WorkspaceState::Active,
+        WorkspaceState::Locked,
+    ] {
         assert!(WorkspaceStateMachine::is_deletable(s));
     }
     for s in [WorkspaceState::Deleted, WorkspaceState::Corrupted] {
@@ -612,7 +664,8 @@ fn claim_svc_01_create_returns_initializing() {
     let ws = WorkspaceService::create_workspace(
         WorkspaceName::new("svc-create".into()).unwrap(),
         WorkspacePath::new("/tmp/svc-create".into()).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
     assert_eq!(ws.state, WorkspaceState::Initializing);
 }
 
@@ -814,7 +867,8 @@ fn claim_svc_19_find_workspace_by_id() {
 fn claim_svc_20_find_workspace_missing() {
     let ws = make_workspace("svc-find-miss");
     let all = vec![ws];
-    let found = WorkspaceService::find_workspace(&all, &WorkspaceId::parse("nonexistent".into()).unwrap());
+    let found =
+        WorkspaceService::find_workspace(&all, &WorkspaceId::parse("nonexistent".into()).unwrap());
     assert!(found.is_none());
 }
 
@@ -823,7 +877,8 @@ fn claim_svc_21_find_by_name() {
     let ws1 = make_workspace("svc-name-1");
     let ws2 = make_workspace("svc-name-2");
     let all = vec![ws1.clone(), ws2];
-    let found = WorkspaceService::find_by_name(&all, &WorkspaceName::new("svc-name-1".into()).unwrap());
+    let found =
+        WorkspaceService::find_by_name(&all, &WorkspaceName::new("svc-name-1".into()).unwrap());
     assert!(found.is_some());
 }
 
@@ -852,8 +907,12 @@ fn claim_svc_23_full_lifecycle_with_recover() {
 fn claim_svc_24_filter_helpers_on_empty() {
     assert!(WorkspaceService::get_active_workspaces(&[]).is_empty());
     assert!(WorkspaceService::get_locked_workspaces(&[]).is_empty());
-    assert!(WorkspaceService::find_workspace(&[], &WorkspaceId::parse("any".into()).unwrap()).is_none());
-    assert!(WorkspaceService::find_by_name(&[], &WorkspaceName::new("any".into()).unwrap()).is_none());
+    assert!(
+        WorkspaceService::find_workspace(&[], &WorkspaceId::parse("any".into()).unwrap()).is_none()
+    );
+    assert!(
+        WorkspaceService::find_by_name(&[], &WorkspaceName::new("any".into()).unwrap()).is_none()
+    );
 }
 
 // ─── CLAIM SHEET: WorkspaceRepository (InMemory) ───────────────────────────
@@ -871,7 +930,9 @@ fn claim_repo_01_save_and_get() {
 #[test]
 fn claim_repo_02_get_missing_returns_none() {
     let repo = InMemoryWorkspaceRepository::new();
-    let found = repo.get(&WorkspaceId::parse("nonexistent".into()).unwrap()).unwrap();
+    let found = repo
+        .get(&WorkspaceId::parse("nonexistent".into()).unwrap())
+        .unwrap();
     assert!(found.is_none());
 }
 
@@ -957,13 +1018,37 @@ fn claim_repo_10_default_is_empty() {
 fn claim_event_01_all_variants_constructible() {
     let ts = chrono::Utc::now();
     let events = vec![
-        WorkspaceEvent::WorkspaceCreated { workspace_id: "ws-1".into(), name: "test".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceActivated { workspace_id: "ws-2".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceLocked { workspace_id: "ws-3".into(), holder: "agent".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceUnlocked { workspace_id: "ws-4".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceCorrupted { workspace_id: "ws-5".into(), reason: "disk".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceDeleted { workspace_id: "ws-6".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceConfigUpdated { workspace_id: "ws-7".into(), timestamp: ts },
+        WorkspaceEvent::WorkspaceCreated {
+            workspace_id: "ws-1".into(),
+            name: "test".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceActivated {
+            workspace_id: "ws-2".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceLocked {
+            workspace_id: "ws-3".into(),
+            holder: "agent".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceUnlocked {
+            workspace_id: "ws-4".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceCorrupted {
+            workspace_id: "ws-5".into(),
+            reason: "disk".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceDeleted {
+            workspace_id: "ws-6".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceConfigUpdated {
+            workspace_id: "ws-7".into(),
+            timestamp: ts,
+        },
     ];
     assert_eq!(events.len(), 7, "GREEN: all 7 event variants constructed");
 }
@@ -979,8 +1064,16 @@ fn claim_event_02_factory_methods() {
 #[test]
 fn claim_event_03_equality() {
     let ts = chrono::Utc::now();
-    let e1 = WorkspaceEvent::WorkspaceCreated { workspace_id: "ws-1".into(), name: "test".into(), timestamp: ts };
-    let e2 = WorkspaceEvent::WorkspaceCreated { workspace_id: "ws-1".into(), name: "test".into(), timestamp: ts };
+    let e1 = WorkspaceEvent::WorkspaceCreated {
+        workspace_id: "ws-1".into(),
+        name: "test".into(),
+        timestamp: ts,
+    };
+    let e2 = WorkspaceEvent::WorkspaceCreated {
+        workspace_id: "ws-1".into(),
+        name: "test".into(),
+        timestamp: ts,
+    };
     assert_eq!(e1, e2);
 }
 
@@ -988,13 +1081,37 @@ fn claim_event_03_equality() {
 fn claim_event_04_serialization_roundtrip_all_variants() {
     let ts = chrono::Utc::now();
     let events = vec![
-        WorkspaceEvent::WorkspaceCreated { workspace_id: "ws-1".into(), name: "test".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceActivated { workspace_id: "ws-2".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceLocked { workspace_id: "ws-3".into(), holder: "h".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceUnlocked { workspace_id: "ws-4".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceCorrupted { workspace_id: "ws-5".into(), reason: "r".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceDeleted { workspace_id: "ws-6".into(), timestamp: ts },
-        WorkspaceEvent::WorkspaceConfigUpdated { workspace_id: "ws-7".into(), timestamp: ts },
+        WorkspaceEvent::WorkspaceCreated {
+            workspace_id: "ws-1".into(),
+            name: "test".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceActivated {
+            workspace_id: "ws-2".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceLocked {
+            workspace_id: "ws-3".into(),
+            holder: "h".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceUnlocked {
+            workspace_id: "ws-4".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceCorrupted {
+            workspace_id: "ws-5".into(),
+            reason: "r".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceDeleted {
+            workspace_id: "ws-6".into(),
+            timestamp: ts,
+        },
+        WorkspaceEvent::WorkspaceConfigUpdated {
+            workspace_id: "ws-7".into(),
+            timestamp: ts,
+        },
     ];
     for event in events {
         let json = serde_json::to_string(&event).unwrap();
@@ -1006,8 +1123,15 @@ fn claim_event_04_serialization_roundtrip_all_variants() {
 #[test]
 fn claim_event_05_different_variants_not_equal() {
     let ts = chrono::Utc::now();
-    let e1 = WorkspaceEvent::WorkspaceCreated { workspace_id: "ws-1".into(), name: "test".into(), timestamp: ts };
-    let e2 = WorkspaceEvent::WorkspaceDeleted { workspace_id: "ws-1".into(), timestamp: ts };
+    let e1 = WorkspaceEvent::WorkspaceCreated {
+        workspace_id: "ws-1".into(),
+        name: "test".into(),
+        timestamp: ts,
+    };
+    let e2 = WorkspaceEvent::WorkspaceDeleted {
+        workspace_id: "ws-1".into(),
+        timestamp: ts,
+    };
     assert_ne!(e1, e2);
 }
 
@@ -1019,7 +1143,10 @@ fn claim_error_01_all_variants_have_display() {
         WorkspaceError::WorkspaceNotFound("a".into()),
         WorkspaceError::WorkspaceExists("b".into()),
         WorkspaceError::WorkspaceLocked("c".into(), "d".into()),
-        WorkspaceError::InvalidStateTransition { from: "e".into(), to: "f".into() },
+        WorkspaceError::InvalidStateTransition {
+            from: "e".into(),
+            to: "f".into(),
+        },
         WorkspaceError::InvalidWorkspaceId("g".into()),
         WorkspaceError::InvalidWorkspaceName("h".into()),
         WorkspaceError::InvalidWorkspacePath("i".into()),
@@ -1030,7 +1157,10 @@ fn claim_error_01_all_variants_have_display() {
     ];
     for err in errors {
         let display = format!("{err}");
-        assert!(!display.is_empty(), "GREEN: all 11 error variants have Display");
+        assert!(
+            !display.is_empty(),
+            "GREEN: all 11 error variants have Display"
+        );
         let debug = format!("{err:?}");
         assert!(!debug.is_empty());
     }
@@ -1044,7 +1174,8 @@ fn claim_error_02_implements_send_sync() {
 
 #[test]
 fn claim_error_03_implements_std_error() {
-    let err: Box<dyn std::error::Error> = Box::new(WorkspaceError::WorkspaceNotFound("test".into()));
+    let err: Box<dyn std::error::Error> =
+        Box::new(WorkspaceError::WorkspaceNotFound("test".into()));
     assert!(format!("{err}").contains("not found"));
 }
 
@@ -1189,13 +1320,15 @@ fn adversarial_07_stress_rapid_create_delete_1000() {
     for i in 0..1000 {
         let ws = make_workspace(&format!("stress-{}", i));
         let saved = repo.save(ws).unwrap();
-        let active = WorkspaceService::initialize_workspace(
-            repo.get(&saved.id).unwrap().unwrap()
-        ).unwrap();
+        let active =
+            WorkspaceService::initialize_workspace(repo.get(&saved.id).unwrap().unwrap()).unwrap();
         repo.save(to_generic(active)).unwrap();
         repo.delete(&saved.id).unwrap();
     }
-    assert!(repo.list().unwrap().is_empty(), "GREEN: 1000 create/delete cycles");
+    assert!(
+        repo.list().unwrap().is_empty(),
+        "GREEN: 1000 create/delete cycles"
+    );
 }
 
 #[test]
@@ -1203,9 +1336,8 @@ fn adversarial_08_stress_lock_unlock_cycles_500() {
     let repo = InMemoryWorkspaceRepository::new();
     let ws = make_workspace("stress-lock");
     let saved = repo.save(ws).unwrap();
-    let mut current = WorkspaceService::initialize_workspace(
-        repo.get(&saved.id).unwrap().unwrap()
-    ).unwrap();
+    let mut current =
+        WorkspaceService::initialize_workspace(repo.get(&saved.id).unwrap().unwrap()).unwrap();
 
     for i in 0..500 {
         let locked = WorkspaceService::lock_workspace(current, format!("agent-{}", i)).unwrap();
@@ -1220,10 +1352,16 @@ fn adversarial_09_path_traversal_vectors() {
     // Path traversal: these are just strings, no filesystem enforcement
     // The crate validates non-empty and resolves relative -> absolute, but doesn't block traversal
     let path = WorkspacePath::new("/etc/passwd".into());
-    assert!(path.is_ok(), "YELLOW: path traversal not blocked (by design — no FS policy)");
+    assert!(
+        path.is_ok(),
+        "YELLOW: path traversal not blocked (by design — no FS policy)"
+    );
 
     let path = WorkspacePath::new("../../../../etc/shadow".into());
-    assert!(path.is_ok(), "YELLOW: relative traversal resolved to absolute (by design)");
+    assert!(
+        path.is_ok(),
+        "YELLOW: relative traversal resolved to absolute (by design)"
+    );
 }
 
 #[test]
@@ -1240,8 +1378,14 @@ fn adversarial_10_workspace_name_edge_cases() {
     // This is a YELLOW finding: WorkspaceName accepts Unicode (e.g., "日本語", "café")
     // because is_alphanumeric() includes Unicode letters. This may cause filesystem
     // issues on some platforms but is not necessarily a bug.
-    assert!(WorkspaceName::new("日本語".into()).is_ok(), "YELLOW: Unicode accepted by is_alphanumeric()");
-    assert!(WorkspaceName::new("café".into()).is_ok(), "YELLOW: Unicode accepted by is_alphanumeric()");
+    assert!(
+        WorkspaceName::new("日本語".into()).is_ok(),
+        "YELLOW: Unicode accepted by is_alphanumeric()"
+    );
+    assert!(
+        WorkspaceName::new("café".into()).is_ok(),
+        "YELLOW: Unicode accepted by is_alphanumeric()"
+    );
 }
 
 #[test]
@@ -1266,7 +1410,10 @@ fn adversarial_13_repository_double_delete() {
     let ws = make_workspace("adv-double-del");
     let saved = repo.save(ws).unwrap();
     assert!(repo.delete(&saved.id).is_ok());
-    assert!(repo.delete(&saved.id).is_err(), "GREEN: double delete fails");
+    assert!(
+        repo.delete(&saved.id).is_err(),
+        "GREEN: double delete fails"
+    );
 }
 
 #[test]
@@ -1337,7 +1484,10 @@ fn adversarial_16_full_matrix_invalid_state_machine() {
 fn adversarial_17_manager_is_placeholder() {
     // The manager.rs is a placeholder — verify it exists but has no logic
     // This is a YELLOW finding: placeholder module exists
-    assert!(true, "YELLOW: manager.rs is a placeholder with no implementation");
+    assert!(
+        true,
+        "YELLOW: manager.rs is a placeholder with no implementation"
+    );
 }
 
 // ─── FINAL VERDICT AGGREGATOR ───────────────────────────────────────────────
@@ -1349,7 +1499,10 @@ fn final_verdict() {
     println!("╠══════════════════════════════════════════════════════════════╣");
 
     let claims = vec![
-        Claim::green("wname-01", "Valid alphanumeric/hyphen/underscore names accepted"),
+        Claim::green(
+            "wname-01",
+            "Valid alphanumeric/hyphen/underscore names accepted",
+        ),
         Claim::green("wname-02", "Empty name rejected with descriptive error"),
         Claim::green("wname-03", "Names >255 chars rejected"),
         Claim::green("wname-04", "Names exactly 255 chars accepted (boundary)"),
@@ -1360,7 +1513,6 @@ fn final_verdict() {
         Claim::green("wname-09", "Equality and inequality work correctly"),
         Claim::green("wname-10", "Single character names accepted"),
         Claim::green("wname-11", "Only hyphens/underscores accepted"),
-
         Claim::green("wpath-01", "Absolute paths accepted"),
         Claim::green("wpath-02", "Empty path rejected with descriptive error"),
         Claim::green("wpath-03", "Relative paths resolved to absolute via cwd"),
@@ -1369,19 +1521,25 @@ fn final_verdict() {
         Claim::green("wpath-06", "Nonexistent path returns false for exists()"),
         Claim::green("wpath-07", "Serialization roundtrip preserves value"),
         Claim::green("wpath-08", "Equality and inequality work correctly"),
-
         Claim::green("branch-01", "Common git branch patterns accepted"),
         Claim::green("branch-02", "Empty name rejected"),
         Claim::green("branch-03", "Null character rejected at any position"),
         Claim::green("branch-04", "Default name is 'main'"),
         Claim::green("branch-05", "Serialization roundtrip preserves value"),
-        Claim::yellow("branch-06", "Newlines/tabs/spaces accepted (only empty and \\0 rejected)"),
-
+        Claim::yellow(
+            "branch-06",
+            "Newlines/tabs/spaces accepted (only empty and \\0 rejected)",
+        ),
         Claim::green("lockholder-01", "Valid non-empty holders accepted"),
-        Claim::green("lockholder-02", "Empty holder rejected with descriptive error"),
+        Claim::green(
+            "lockholder-02",
+            "Empty holder rejected with descriptive error",
+        ),
         Claim::green("lockholder-03", "Default holder is 'system'"),
-        Claim::yellow("lockholder-04", "Any non-empty string accepted including null bytes"),
-
+        Claim::yellow(
+            "lockholder-04",
+            "Any non-empty string accepted including null bytes",
+        ),
         Claim::green("entity-01", "Create produces Initializing state"),
         Claim::green("entity-02", "IDs are unique and prefixed with 'ws-'"),
         Claim::green("entity-03", "Default config: Git, main, auto_sync=true"),
@@ -1401,19 +1559,20 @@ fn final_verdict() {
         Claim::green("entity-17", "Clone preserves all fields"),
         Claim::green("entity-18", "State serialization roundtrip (all 5 states)"),
         Claim::green("entity-19", "State deserialization from snake_case JSON"),
-
         Claim::green("sm-01", "All 10 valid transitions accepted"),
         Claim::green("sm-02", "All 14 invalid transitions rejected"),
         Claim::green("sm-03", "Terminal states: Deleted, Corrupted"),
         Claim::green("sm-04", "Only Active is lockable"),
         Claim::green("sm-05", "Non-terminal states are deletable"),
-
         Claim::green("svc-01", "Create returns Initializing workspace"),
         Claim::green("svc-02", "Initialize transitions to Active"),
         Claim::green("svc-03", "Lock and unlock cycle works"),
         Claim::green("svc-04", "Delete active workspace succeeds"),
         Claim::green("svc-05", "Delete initializing workspace succeeds"),
-        Claim::green("svc-06", "Delete locked workspace fails with WorkspaceLocked"),
+        Claim::green(
+            "svc-06",
+            "Delete locked workspace fails with WorkspaceLocked",
+        ),
         Claim::green("svc-07", "Delete corrupted workspace fails"),
         Claim::green("svc-08", "Delete already-deleted workspace fails"),
         Claim::green("svc-09", "Unlock non-locked (Active) fails"),
@@ -1432,7 +1591,6 @@ fn final_verdict() {
         Claim::green("svc-22", "find_by_name missing returns None"),
         Claim::green("svc-23", "Full lifecycle with recover works"),
         Claim::green("svc-24", "Filter helpers on empty slice return empty"),
-
         Claim::green("repo-01", "Save and get roundtrip"),
         Claim::green("repo-02", "Get missing returns None"),
         Claim::green("repo-03", "Get by name works"),
@@ -1443,24 +1601,20 @@ fn final_verdict() {
         Claim::green("repo-08", "Delete missing returns WorkspaceNotFound"),
         Claim::green("repo-09", "Save overwrites existing by ID"),
         Claim::green("repo-10", "Default repo is empty"),
-
         Claim::green("event-01", "All 7 event variants constructible"),
         Claim::green("event-02", "Factory methods produce correct variants"),
         Claim::green("event-03", "Equality works for same variant/data"),
         Claim::green("event-04", "Serialization roundtrip for all 7 variants"),
         Claim::green("event-05", "Different variants are not equal"),
-
         Claim::green("error-01", "All 11 error variants have Display"),
         Claim::green("error-02", "Error implements Send + Sync"),
         Claim::green("error-03", "Error implements std::error::Error"),
-
         Claim::green("wid-01", "Generate produces 'ws-' prefixed UUIDs"),
         Claim::green("wid-02", "Parse rejects empty string"),
         Claim::green("wid-03", "Parse accepts non-empty string"),
         Claim::green("wid-04", "Generate produces 100 unique IDs"),
         Claim::green("wid-05", "Hash dedup works for same ID"),
         Claim::green("wid-06", "Default generates unique ID"),
-
         // Adversarial results
         Claim::green("adv-01", "All value objects reject empty input"),
         Claim::green("adv-02", "WorkspaceName boundary at 255/256"),
@@ -1470,15 +1624,30 @@ fn final_verdict() {
         Claim::green("adv-06", "Recover from wrong states fails"),
         Claim::green("adv-07", "Stress: 1000 rapid create/delete cycles"),
         Claim::green("adv-08", "Stress: 500 lock/unlock cycles"),
-        Claim::yellow("adv-09", "Path traversal not blocked (by design — no FS policy)"),
-        Claim::yellow("adv-10", "WorkspaceName accepts Unicode via is_alphanumeric() (café, 日本語)"),
-        Claim::yellow("adv-11", "LockHolder accepts null bytes (downstream concern)"),
-        Claim::yellow("adv-12", "BranchName accepts newlines/tabs (only \\0 rejected)"),
+        Claim::yellow(
+            "adv-09",
+            "Path traversal not blocked (by design — no FS policy)",
+        ),
+        Claim::yellow(
+            "adv-10",
+            "WorkspaceName accepts Unicode via is_alphanumeric() (café, 日本語)",
+        ),
+        Claim::yellow(
+            "adv-11",
+            "LockHolder accepts null bytes (downstream concern)",
+        ),
+        Claim::yellow(
+            "adv-12",
+            "BranchName accepts newlines/tabs (only \\0 rejected)",
+        ),
         Claim::green("adv-13", "Double delete fails correctly"),
         Claim::green("adv-14", "Repository save/get preserves all fields"),
         Claim::green("adv-15", "Service lock preserves identity fields"),
         Claim::green("adv-16", "Full 5x5 state machine invalid matrix verified"),
-        Claim::yellow("adv-17", "manager.rs is a placeholder with no implementation"),
+        Claim::yellow(
+            "adv-17",
+            "manager.rs is a placeholder with no implementation",
+        ),
     ];
 
     let mut green_count = 0;
@@ -1489,15 +1658,27 @@ fn final_verdict() {
         match &claim.verdict {
             Verdict::Green => {
                 green_count += 1;
-                println!("║  {:12} {:50} ✓ GREEN  ║", claim.id, &claim.description[..claim.description.len().min(50)]);
+                println!(
+                    "║  {:12} {:50} ✓ GREEN  ║",
+                    claim.id,
+                    &claim.description[..claim.description.len().min(50)]
+                );
             }
             Verdict::Yellow => {
                 yellow_count += 1;
-                println!("║  {:12} {:50} ⚡ YELLOW║", claim.id, &claim.description[..claim.description.len().min(50)]);
+                println!(
+                    "║  {:12} {:50} ⚡ YELLOW║",
+                    claim.id,
+                    &claim.description[..claim.description.len().min(50)]
+                );
             }
             Verdict::Red(reason) => {
                 red_count += 1;
-                println!("║  {:12} {:50} ✗ RED   ║", claim.id, &claim.description[..claim.description.len().min(50)]);
+                println!(
+                    "║  {:12} {:50} ✗ RED   ║",
+                    claim.id,
+                    &claim.description[..claim.description.len().min(50)]
+                );
                 println!("║    Reason: {:55} ║", &reason[..reason.len().min(55)]);
             }
         }
@@ -1505,7 +1686,10 @@ fn final_verdict() {
 
     let total = claims.len();
     println!("╠══════════════════════════════════════════════════════════════╣");
-    println!("║  TOTAL: {:3}  GREEN: {:3}  YELLOW: {:3}  RED: {:3}                  ║", total, green_count, yellow_count, red_count);
+    println!(
+        "║  TOTAL: {:3}  GREEN: {:3}  YELLOW: {:3}  RED: {:3}                  ║",
+        total, green_count, yellow_count, red_count
+    );
     println!("╚══════════════════════════════════════════════════════════════╝");
 
     if red_count > 0 {

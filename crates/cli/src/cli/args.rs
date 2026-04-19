@@ -409,7 +409,17 @@ mod tests {
     #[test]
     fn parse_push_with_all_flags() {
         let cli = Cli::parse_from([
-            "scp", "push", "-r", "upstream", "-b", "feature", "-s", "--force", "--force-with-lease", "-t", "-d",
+            "scp",
+            "push",
+            "-r",
+            "upstream",
+            "-b",
+            "feature",
+            "-s",
+            "--force",
+            "--force-with-lease",
+            "-t",
+            "-d",
         ]);
         match cli.command {
             Commands::Push {

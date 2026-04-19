@@ -68,9 +68,7 @@ fn check_condition(condition: &WaitCondition) -> Result<(bool, Option<String>)> 
         WaitCondition::Healthy => check_healthy(),
         WaitCondition::SessionExists(name) => check_session_exists(name),
         WaitCondition::SessionUnlocked(name) => check_session_unlocked(name),
-        WaitCondition::SessionStatus { name, status } => {
-            check_session_status(name, status)
-        }
+        WaitCondition::SessionStatus { name, status } => check_session_status(name, status),
     }
 }
 

@@ -3,8 +3,8 @@
 //! Comprehensive happy-path and adversarial validation of all public types.
 //! Run with: cargo test -p scp-core --test bdd_validation -- --nocapture
 
-use scp_core::*;
 use scp_core::lock::LockManager;
+use scp_core::*;
 use std::sync::Arc;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -120,7 +120,10 @@ fn claim_absolute_path_path_traversal_attack() {
     // Even with absolute prefix but traversal in segments — accepted as absolute
     // (the type only checks leading /, not canonicalization)
     let dangerous = AbsolutePath::parse("/tmp/../../etc/passwd");
-    assert!(dangerous.is_ok(), "AbsolutePath only validates leading /, not canonicalization — this is expected");
+    assert!(
+        dangerous.is_ok(),
+        "AbsolutePath only validates leading /, not canonicalization — this is expected"
+    );
     println!("[PASS] AbsolutePath: path traversal handled (relative rejected, absolute-with-traversal accepted as documented)");
 }
 
@@ -281,9 +284,22 @@ fn claim_priority_ordering() {
     assert!(Priority::Normal < Priority::Low);
     assert_eq!(Priority::default(), Priority::Normal);
 
-    let mut sorted = vec![Priority::Low, Priority::Critical, Priority::High, Priority::Normal];
+    let mut sorted = vec![
+        Priority::Low,
+        Priority::Critical,
+        Priority::High,
+        Priority::Normal,
+    ];
     sorted.sort();
-    assert_eq!(sorted, vec![Priority::Critical, Priority::High, Priority::Normal, Priority::Low]);
+    assert_eq!(
+        sorted,
+        vec![
+            Priority::Critical,
+            Priority::High,
+            Priority::Normal,
+            Priority::Low
+        ]
+    );
     println!("[PASS] Priority: ordering correct, default is Normal");
 }
 
@@ -626,7 +642,11 @@ fn claim_file_change_tracking() {
 
     // ChangesSummary: total() excludes untracked (only tracked: modified+added+deleted+renamed)
     let summary = ChangesSummary {
-        modified: 5, added: 3, deleted: 2, renamed: 1, untracked: 4,
+        modified: 5,
+        added: 3,
+        deleted: 2,
+        renamed: 1,
+        untracked: 4,
     };
     assert_eq!(summary.total(), 11); // 5+3+2+1 (untracked excluded)
     assert!(summary.has_changes());
@@ -634,7 +654,11 @@ fn claim_file_change_tracking() {
 
     // Only untracked changes = no tracked changes
     let untracked_only = ChangesSummary {
-        modified: 0, added: 0, deleted: 0, renamed: 0, untracked: 5,
+        modified: 0,
+        added: 0,
+        deleted: 0,
+        renamed: 0,
+        untracked: 5,
     };
     assert_eq!(untracked_only.total(), 0);
     assert!(!untracked_only.has_changes());
@@ -656,14 +680,20 @@ fn claim_file_change_tracking() {
 #[test]
 fn claim_beads_types() {
     let summary = BeadsSummary {
-        open: 3, in_progress: 2, blocked: 1, closed: 5,
+        open: 3,
+        in_progress: 2,
+        blocked: 1,
+        closed: 5,
     };
     assert_eq!(summary.total(), 11);
     assert_eq!(summary.active(), 5); // open + in_progress (3 + 2)
     assert!(summary.has_blockers());
 
     let no_blockers = BeadsSummary {
-        open: 1, in_progress: 0, blocked: 0, closed: 3,
+        open: 1,
+        in_progress: 0,
+        blocked: 0,
+        closed: 3,
     };
     assert!(!no_blockers.has_blockers());
 
@@ -692,13 +722,24 @@ fn claim_serde_roundtrip_all_types() {
     assert_eq!(ap, serde_json::from_str::<AbsolutePath>(&json).unwrap());
 
     // Priority
-    for p in [Priority::Critical, Priority::High, Priority::Normal, Priority::Low] {
+    for p in [
+        Priority::Critical,
+        Priority::High,
+        Priority::Normal,
+        Priority::Low,
+    ] {
         let json = serde_json::to_string(&p).unwrap();
         assert_eq!(p, serde_json::from_str::<Priority>(&json).unwrap());
     }
 
     // QueueStatus
-    for s in [QueueStatus::Pending, QueueStatus::Processing, QueueStatus::Completed, QueueStatus::Failed, QueueStatus::Cancelled] {
+    for s in [
+        QueueStatus::Pending,
+        QueueStatus::Processing,
+        QueueStatus::Completed,
+        QueueStatus::Failed,
+        QueueStatus::Cancelled,
+    ] {
         let json = serde_json::to_string(&s).unwrap();
         assert_eq!(s, serde_json::from_str::<QueueStatus>(&json).unwrap());
     }

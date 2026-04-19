@@ -19,7 +19,8 @@ fn test_gix_remote_push_uses_cli_fallback() {
         empty_tree,
         gix::refs::transaction::PreviousValue::MustNotExist,
         "init",
-    ).ok();
+    )
+    .ok();
 
     // Test push - should fail gracefully since no remote is configured
     let result = remote::push(&repo, "origin", None, false, false, false);
@@ -32,8 +33,8 @@ fn test_gix_remote_push_uses_cli_fallback() {
             // Should be either Network error (CLI failed) or InvalidRef (no workdir)
             assert!(
                 err_str.contains("Network")
-                || err_str.contains("InvalidRef")
-                || err_str.contains("push"),
+                    || err_str.contains("InvalidRef")
+                    || err_str.contains("push"),
                 "Expected network or ref error, got: {:?}",
                 e
             );
@@ -56,7 +57,10 @@ fn test_gix_remote_fetch_without_remote_fails() {
     let result = remote::fetch(&repo, Some("origin"), false, false, false);
 
     // Should fail because origin remote doesn't exist
-    assert!(result.is_err(), "Expected fetch to fail without remote configured");
+    assert!(
+        result.is_err(),
+        "Expected fetch to fail without remote configured"
+    );
 }
 
 #[test]
@@ -71,7 +75,10 @@ fn test_gix_remote_pull_without_remote_fails() {
     let result = remote::pull(&repo, Some("origin"), false);
 
     // Should fail because origin remote doesn't exist
-    assert!(result.is_err(), "Expected pull to fail without remote configured");
+    assert!(
+        result.is_err(),
+        "Expected pull to fail without remote configured"
+    );
 }
 
 #[test]
@@ -88,5 +95,9 @@ fn test_gix_remote_pull_rebase_unsupported() {
     assert!(result.is_err());
     let err = result.unwrap_err();
     let msg = format!("{}", err);
-    assert!(msg.contains("rebase"), "Expected rebase-related error, got: {}", msg);
+    assert!(
+        msg.contains("rebase"),
+        "Expected rebase-related error, got: {}",
+        msg
+    );
 }

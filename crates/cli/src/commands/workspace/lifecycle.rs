@@ -143,13 +143,19 @@ mod tests {
     #[test]
     fn test_sync_rejects_session_name_with_special_chars() {
         let result = scp_core::domain::SessionName::parse("bad name!");
-        assert!(result.is_err(), "session name with spaces and special chars should be rejected");
+        assert!(
+            result.is_err(),
+            "session name with spaces and special chars should be rejected"
+        );
     }
 
     #[test]
     fn test_sync_rejects_session_name_starting_with_number() {
         let result = scp_core::domain::SessionName::parse("123session");
-        assert!(result.is_err(), "session name starting with number should be rejected");
+        assert!(
+            result.is_err(),
+            "session name starting with number should be rejected"
+        );
     }
 
     #[test]

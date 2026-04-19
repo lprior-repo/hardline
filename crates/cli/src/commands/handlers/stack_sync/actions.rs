@@ -9,8 +9,8 @@ use std::process::Command;
 use scp_stack::{BranchName, PrState, Stack};
 
 use super::calc::{
-    compute_drift, detect_merged_branches, find_children_to_reparent,
-    plan_restack_order, resolve_effective_parent, validate_sync_preconditions,
+    compute_drift, detect_merged_branches, find_children_to_reparent, plan_restack_order,
+    resolve_effective_parent, validate_sync_preconditions,
 };
 use super::data::{
     DriftReport, MergedBranch, MergedDetectionInput, RestackOutcome, RestackStatus,
@@ -33,8 +33,7 @@ pub fn run_stack_sync(
 
     // 0. Validate preconditions
     let is_clean = check_workspace_clean(workdir);
-    validate_sync_preconditions(stack, is_clean)
-        .map_err(|_| SyncError::DirtyWorkspace)?;
+    validate_sync_preconditions(stack, is_clean).map_err(|_| SyncError::DirtyWorkspace)?;
 
     // 1. Stash if dirty
     if !is_clean && options.force {
@@ -72,8 +71,10 @@ pub fn run_stack_sync(
         let detect_start = std::time::Instant::now();
 
         let local_merged = list_merged_branches(workdir, options.trunk_branch.as_str());
-        let remote_merged =
-            list_merged_branches(workdir, &format!("{}/{}", options.remote_name, options.trunk_branch));
+        let remote_merged = list_merged_branches(
+            workdir,
+            &format!("{}/{}", options.remote_name, options.trunk_branch),
+        );
         let remote_branches = list_remote_branches(workdir, &options.remote_name);
         let local_branches = list_local_branches(workdir);
 
@@ -97,13 +98,7 @@ pub fn run_stack_sync(
 
         // 5. Delete merged branches
         for (branch, method) in &detected {
-            let merged = delete_merged_branch(
-                workdir,
-                stack,
-                branch,
-                method,
-                &options,
-            );
+            let merged = delete_merged_branch(workdir, stack, branch, method, &options);
             result.merged_branches.push(merged);
         }
 
@@ -216,12 +211,7 @@ fn fetch_remote(workdir: &Path, remote: &str, refspec: Option<&str>) -> Result<(
 }
 
 /// Update trunk branch via fast-forward merge.
-fn update_trunk(
-    workdir: &Path,
-    trunk: &str,
-    remote: &str,
-    safe: bool,
-) -> Result<bool, SyncError> {
+fn update_trunk(workdir: &Path, trunk: &str, remote: &str, safe: bool) -> Result<bool, SyncError> {
     let remote_trunk = format!("{}/{}", remote, trunk);
 
     // Try ff-only merge first

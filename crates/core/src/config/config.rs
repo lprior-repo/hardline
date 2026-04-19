@@ -279,21 +279,11 @@ impl SessionConfig {
 
 use super::types::{AuthSourceType, ForgeType};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BranchTemplate {
     pub name: String,
     pub pattern: String,
     pub description: Option<String>,
-}
-
-impl Default for BranchTemplate {
-    fn default() -> Self {
-        Self {
-            name: String::new(),
-            pattern: String::new(),
-            description: None,
-        }
-    }
 }
 
 impl BranchTemplate {

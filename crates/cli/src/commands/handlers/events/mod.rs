@@ -21,4 +21,4 @@ pub mod actions;
 pub mod data;
 
 pub use actions::run_events;
-pub use data::{EventEntry, EventsOptions, EventsOutput, EventType};
+pub use data::{EventEntry, EventType, EventsOptions, EventsOutput};

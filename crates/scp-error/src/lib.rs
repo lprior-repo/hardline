@@ -262,12 +262,12 @@ impl From<std::io::Error> for Error {
 }
 
 impl Error {
-    /// Returns a SCREAMING_SNAKE_CASE machine-readable error code for this error.
+    /// Returns a `SCREAMING_SNAKE_CASE` machine-readable error code for this error.
     ///
     /// Useful for programmatic error handling, structured logging, and
     /// machine-readable output in CLI `--json` mode.
     #[must_use]
-    pub fn code(&self) -> &'static str {
+    pub const fn code(&self) -> &'static str {
         match self {
             // Workspace/Session (1xxx)
             Self::WorkspaceNotFound(_) => "WORKSPACE_NOT_FOUND",
@@ -353,14 +353,11 @@ impl Error {
     /// Provides machine-readable context for AI agents and tooling to understand
     /// the error in detail. Each variant exposes its relevant fields.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn context_map(&self) -> Option<serde_json::Value> {
         match self {
             // Workspace/Session
-            Self::WorkspaceNotFound(name) => Some(serde_json::json!({
-                "resource_type": "workspace",
-                "workspace_name": name,
-            })),
-            Self::WorkspaceExists(name) => Some(serde_json::json!({
+            Self::WorkspaceNotFound(name) | Self::WorkspaceExists(name) => Some(serde_json::json!({
                 "resource_type": "workspace",
                 "workspace_name": name,
             })),
@@ -371,11 +368,7 @@ impl Error {
             Self::WorkspaceConflict(msg) => Some(serde_json::json!({
                 "message": msg,
             })),
-            Self::SessionNotFound(name) => Some(serde_json::json!({
-                "resource_type": "session",
-                "session_name": name,
-            })),
-            Self::SessionExists(name) => Some(serde_json::json!({
+            Self::SessionNotFound(name) | Self::SessionExists(name) => Some(serde_json::json!({
                 "resource_type": "session",
                 "session_name": name,
             })),
@@ -393,11 +386,7 @@ impl Error {
                 "expected_state": expected,
             })),
             // Bead
-            Self::BeadNotFound(id) => Some(serde_json::json!({
-                "resource_type": "bead",
-                "bead_id": id,
-            })),
-            Self::BeadAlreadyExists(id) => Some(serde_json::json!({
+            Self::BeadNotFound(id) | Self::BeadAlreadyExists(id) => Some(serde_json::json!({
                 "resource_type": "bead",
                 "bead_id": id,
             })),
@@ -459,11 +448,7 @@ impl Error {
                 "operation": "rebase",
                 "error": msg,
             })),
-            Self::BranchNotFound(branch) => Some(serde_json::json!({
-                "resource_type": "branch",
-                "branch_name": branch,
-            })),
-            Self::BranchExists(branch) => Some(serde_json::json!({
+            Self::BranchNotFound(branch) | Self::BranchExists(branch) => Some(serde_json::json!({
                 "resource_type": "branch",
                 "branch_name": branch,
             })),
@@ -479,24 +464,34 @@ impl Error {
                 "resource_type": "config",
                 "key": key,
             })),
-            Self::ConfigInvalid(msg) => Some(serde_json::json!({
+            Self::ConfigInvalid(msg)
+            | Self::InvalidConfig(msg)
+            | Self::ValidationError(msg)
+            | Self::IoError(msg)
+            | Self::JsonParseError(msg)
+            | Self::YamlParseError(msg)
+            | Self::Database(msg)
+            | Self::Serialization(msg)
+            | Self::CloneFailed(msg)
+            | Self::RecordFailed(msg)
+            | Self::Persistence(msg)
+            | Self::ScenarioError(msg)
+            | Self::RunnerError(msg)
+            | Self::DefinitionError(msg)
+            | Self::ServerError(msg)
+            | Self::SyncError(msg)
+            | Self::Internal(msg)
+            | Self::InvariantViolation(msg) => Some(serde_json::json!({
                 "error": msg,
             })),
             Self::ConfigPermission(path) => Some(serde_json::json!({
                 "path": path,
             })),
-            Self::InvalidConfig(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
             Self::InvalidRepoUrl(url) => Some(serde_json::json!({
                 "url": url,
             })),
             // Agent
-            Self::AgentNotFound(id) => Some(serde_json::json!({
-                "resource_type": "agent",
-                "agent_id": id,
-            })),
-            Self::AgentExists(id) => Some(serde_json::json!({
+            Self::AgentNotFound(id) | Self::AgentExists(id) => Some(serde_json::json!({
                 "resource_type": "agent",
                 "agent_id": id,
             })),
@@ -512,10 +507,6 @@ impl Error {
             })),
             Self::InvalidOperation(op) => Some(serde_json::json!({
                 "operation": op,
-            })),
-            // Validation
-            Self::ValidationError(msg) => Some(serde_json::json!({
-                "error": msg,
             })),
             Self::ValidationFieldError {
                 message,
@@ -534,22 +525,6 @@ impl Error {
             Self::InvalidIdentifier(id) => Some(serde_json::json!({
                 "identifier": id,
             })),
-            // IO/Storage
-            Self::IoError(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
-            Self::JsonParseError(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
-            Self::YamlParseError(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
-            Self::Database(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
-            Self::Serialization(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
             // Orchestration/Workflow
             Self::LockTimeout {
                 operation,
@@ -560,43 +535,11 @@ impl Error {
                 "timeout_ms": timeout_ms,
                 "retries": retries,
             })),
-            Self::CloneFailed(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
-            Self::RecordFailed(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
-            Self::Persistence(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
             Self::StateTransition(msg) => Some(serde_json::json!({
                 "transition": msg,
             })),
-            // Scenario/Execution
-            Self::ScenarioError(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
-            Self::RunnerError(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
-            Self::DefinitionError(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
-            Self::ServerError(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
-            Self::SyncError(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
-            // Internal
-            Self::Internal(msg) => Some(serde_json::json!({
-                "error": msg,
-            })),
             Self::Unimplemented(feature) => Some(serde_json::json!({
                 "feature": feature,
-            })),
-            Self::InvariantViolation(msg) => Some(serde_json::json!({
-                "error": msg,
             })),
         }
     }
@@ -713,7 +656,10 @@ mod tests {
             Error::BeadAlreadyExists("b".into()),
             Error::InvalidBeadId("b".into()),
             Error::InvalidBeadTitle("".into()),
-            Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() },
+            Error::BeadInvalidStateTransition {
+                from: "a".into(),
+                to: "b".into(),
+            },
             Error::BeadDependencyCycle("b".into()),
             Error::BeadBlockedBy("b".into()),
             Error::BeadInvalidDependency("b".into()),
@@ -744,14 +690,22 @@ mod tests {
             Error::NotFound("res".into()),
             Error::InvalidOperation("op".into()),
             Error::ValidationError("msg".into()),
-            Error::ValidationFieldError { message: "m".into(), field: "f".into(), value: Some("v".into()) },
+            Error::ValidationFieldError {
+                message: "m".into(),
+                field: "f".into(),
+                value: Some("v".into()),
+            },
             Error::InvalidIdentifier("id".into()),
             Error::IoError("msg".into()),
             Error::JsonParseError("msg".into()),
             Error::YamlParseError("msg".into()),
             Error::Database("msg".into()),
             Error::Serialization("msg".into()),
-            Error::LockTimeout { operation: "op".into(), timeout_ms: 5000, retries: 3 },
+            Error::LockTimeout {
+                operation: "op".into(),
+                timeout_ms: 5000,
+                retries: 3,
+            },
             Error::CloneFailed("msg".into()),
             Error::RecordFailed("msg".into()),
             Error::Persistence("msg".into()),
@@ -774,7 +728,11 @@ mod tests {
         let variants = all_variants();
         for v in &variants {
             let display = v.to_string();
-            assert!(!display.is_empty(), "Display should not be empty for {:?}", v);
+            assert!(
+                !display.is_empty(),
+                "Display should not be empty for {:?}",
+                v
+            );
         }
     }
 
@@ -789,14 +747,23 @@ mod tests {
 
     #[test]
     fn test_display_contains_key_fields() {
-        assert!(Error::WorkspaceNotFound("my-ws".into()).to_string().contains("my-ws"));
-        assert!(Error::WorkspaceLocked("ws".into(), "alice".into()).to_string().contains("alice"));
-        assert!(Error::SessionInvalidState("s".into(), "open".into(), "closed".into())
+        assert!(Error::WorkspaceNotFound("my-ws".into())
             .to_string()
-            .contains("open"));
-        assert!(Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() }
+            .contains("my-ws"));
+        assert!(Error::WorkspaceLocked("ws".into(), "alice".into())
             .to_string()
-            .contains("a"));
+            .contains("alice"));
+        assert!(
+            Error::SessionInvalidState("s".into(), "open".into(), "closed".into())
+                .to_string()
+                .contains("open")
+        );
+        assert!(Error::BeadInvalidStateTransition {
+            from: "a".into(),
+            to: "b".into()
+        }
+        .to_string()
+        .contains("a"));
     }
 
     // ── Suggestions ──────────────────────────────────────────────────────
@@ -812,7 +779,11 @@ mod tests {
             Error::WorkingCopyDirty,
         ];
         for err in &suggesters {
-            assert!(err.suggestion().is_some(), "Expected suggestion for {:?}", err);
+            assert!(
+                err.suggestion().is_some(),
+                "Expected suggestion for {:?}",
+                err
+            );
         }
     }
 
@@ -827,10 +798,18 @@ mod tests {
             Error::AgentNotFound("x".into()),
             Error::ConfigNotFound("x".into()),
             Error::IoError("x".into()),
-            Error::LockTimeout { operation: "op".into(), timeout_ms: 1000, retries: 0 },
+            Error::LockTimeout {
+                operation: "op".into(),
+                timeout_ms: 1000,
+                retries: 0,
+            },
         ];
         for err in &non_suggesters {
-            assert!(err.suggestion().is_none(), "Expected no suggestion for {:?}", err);
+            assert!(
+                err.suggestion().is_none(),
+                "Expected no suggestion for {:?}",
+                err
+            );
         }
     }
 
@@ -857,7 +836,11 @@ mod tests {
         let mut sorted = codes.clone();
         sorted.sort();
         sorted.dedup();
-        assert_eq!(codes.len(), sorted.len(), "Exit codes must be unique — found duplicates");
+        assert_eq!(
+            codes.len(),
+            sorted.len(),
+            "Exit codes must be unique — found duplicates"
+        );
     }
 
     #[test]
@@ -872,44 +855,69 @@ mod tests {
         for v in all_variants() {
             let code = v.exit_code();
             let (lo, hi, name) = match &v {
-                Error::WorkspaceNotFound(_) | Error::WorkspaceExists(_)
-                | Error::WorkspaceLocked(_, _) | Error::WorkspaceConflict(_)
-                | Error::SessionNotFound(_) | Error::SessionExists(_)
-                | Error::SessionLocked(_, _) | Error::NotLockHolder(_, _)
+                Error::WorkspaceNotFound(_)
+                | Error::WorkspaceExists(_)
+                | Error::WorkspaceLocked(_, _)
+                | Error::WorkspaceConflict(_)
+                | Error::SessionNotFound(_)
+                | Error::SessionExists(_)
+                | Error::SessionLocked(_, _)
+                | Error::NotLockHolder(_, _)
                 | Error::SessionInvalidState(_, _, _) => (10, 19, "workspace/session"),
                 Error::BeadNotFound(_) | Error::BeadAlreadyExists(_) => (19, 21, "bead"),
-                Error::InvalidBeadId(_) | Error::InvalidBeadTitle(_)
+                Error::InvalidBeadId(_)
+                | Error::InvalidBeadTitle(_)
                 | Error::BeadInvalidStateTransition { .. }
-                | Error::BeadDependencyCycle(_) | Error::BeadBlockedBy(_)
+                | Error::BeadDependencyCycle(_)
+                | Error::BeadBlockedBy(_)
                 | Error::BeadInvalidDependency(_) => (133, 139, "bead-extended"),
-                Error::QueueEmpty | Error::QueueItemNotFound(_)
-                | Error::QueueLocked(_) | Error::QueueProcessing
-                | Error::QueueInvalidPosition(_) | Error::QueueFull(_) => (30, 36, "queue"),
-                Error::VcsNotInitialized | Error::VcsConflict(_, _)
-                | Error::VcsPushFailed(_) | Error::VcsPullFailed(_)
-                | Error::VcsRebaseFailed(_) | Error::BranchNotFound(_)
-                | Error::BranchExists(_) | Error::CommitNotFound(_)
+                Error::QueueEmpty
+                | Error::QueueItemNotFound(_)
+                | Error::QueueLocked(_)
+                | Error::QueueProcessing
+                | Error::QueueInvalidPosition(_)
+                | Error::QueueFull(_) => (30, 36, "queue"),
+                Error::VcsNotInitialized
+                | Error::VcsConflict(_, _)
+                | Error::VcsPushFailed(_)
+                | Error::VcsPullFailed(_)
+                | Error::VcsRebaseFailed(_)
+                | Error::BranchNotFound(_)
+                | Error::BranchExists(_)
+                | Error::CommitNotFound(_)
                 | Error::WorkingCopyDirty => (40, 49, "vcs"),
-                Error::ConfigNotFound(_) | Error::ConfigInvalid(_)
-                | Error::ConfigPermission(_) | Error::InvalidConfig(_)
+                Error::ConfigNotFound(_)
+                | Error::ConfigInvalid(_)
+                | Error::ConfigPermission(_)
+                | Error::InvalidConfig(_)
                 | Error::InvalidRepoUrl(_) => (60, 65, "config"),
-                Error::AgentNotFound(_) | Error::AgentExists(_)
-                | Error::AgentTimeout(_) => (70, 73, "agent"),
-                Error::InvalidState(_) | Error::NotFound(_)
-                | Error::InvalidOperation(_) => (80, 83, "state/conflict"),
-                Error::ValidationError(_) | Error::ValidationFieldError { .. }
+                Error::AgentNotFound(_) | Error::AgentExists(_) | Error::AgentTimeout(_) => {
+                    (70, 73, "agent")
+                }
+                Error::InvalidState(_) | Error::NotFound(_) | Error::InvalidOperation(_) => {
+                    (80, 83, "state/conflict")
+                }
+                Error::ValidationError(_)
+                | Error::ValidationFieldError { .. }
                 | Error::InvalidIdentifier(_) => (90, 93, "validation"),
-                Error::IoError(_) | Error::JsonParseError(_)
-                | Error::YamlParseError(_) | Error::Database(_)
+                Error::IoError(_)
+                | Error::JsonParseError(_)
+                | Error::YamlParseError(_)
+                | Error::Database(_)
                 | Error::Serialization(_) => (100, 106, "io/storage"),
-                Error::LockTimeout { .. } | Error::CloneFailed(_)
-                | Error::RecordFailed(_) | Error::Persistence(_)
+                Error::LockTimeout { .. }
+                | Error::CloneFailed(_)
+                | Error::RecordFailed(_)
+                | Error::Persistence(_)
                 | Error::StateTransition(_) => (110, 115, "orchestration"),
-                Error::ScenarioError(_) | Error::RunnerError(_)
-                | Error::DefinitionError(_) | Error::ServerError(_)
+                Error::ScenarioError(_)
+                | Error::RunnerError(_)
+                | Error::DefinitionError(_)
+                | Error::ServerError(_)
                 | Error::SyncError(_) => (120, 125, "scenario"),
-                Error::Internal(_) | Error::Unimplemented(_)
-                | Error::InvariantViolation(_) => (130, 133, "internal"),
+                Error::Internal(_) | Error::Unimplemented(_) | Error::InvariantViolation(_) => {
+                    (130, 133, "internal")
+                }
             };
             assert!(
                 code >= lo && code < hi,
@@ -935,7 +943,8 @@ mod tests {
     #[test]
     fn test_serialize_all_variants_produces_valid_json() {
         for v in all_variants() {
-            let json = serde_json::to_string(&v).unwrap_or_else(|e| panic!("Serialize failed for {:?}: {e}", v));
+            let json = serde_json::to_string(&v)
+                .unwrap_or_else(|e| panic!("Serialize failed for {:?}: {e}", v));
             let _: serde_json::Value = serde_json::from_str(&json)
                 .unwrap_or_else(|e| panic!("Invalid JSON for {:?}: {e}\nJSON: {json}", v));
         }
@@ -943,7 +952,10 @@ mod tests {
 
     #[test]
     fn test_serialize_struct_variants_includes_fields() {
-        let err = Error::BeadInvalidStateTransition { from: "open".into(), to: "closed".into() };
+        let err = Error::BeadInvalidStateTransition {
+            from: "open".into(),
+            to: "closed".into(),
+        };
         let json = serde_json::to_string(&err).unwrap();
         assert!(json.contains("open"));
         assert!(json.contains("closed"));
@@ -957,7 +969,11 @@ mod tests {
         assert!(json.contains("title"));
         assert!(json.contains("required"));
 
-        let err = Error::LockTimeout { operation: "write".into(), timeout_ms: 5000, retries: 3 };
+        let err = Error::LockTimeout {
+            operation: "write".into(),
+            timeout_ms: 5000,
+            retries: 3,
+        };
         let json = serde_json::to_string(&err).unwrap();
         assert!(json.contains("write"));
         assert!(json.contains("5000"));
@@ -981,7 +997,11 @@ mod tests {
     fn test_error_source_is_none() {
         // All variants are plain data — no wrapped std::error::Error sources.
         for v in all_variants() {
-            assert!(std::error::Error::source(&v).is_none(), "Expected no source for {:?}", v);
+            assert!(
+                std::error::Error::source(&v).is_none(),
+                "Expected no source for {:?}",
+                v
+            );
         }
     }
 
@@ -1039,7 +1059,10 @@ mod tests {
     #[test]
     fn empty_string_in_display() {
         assert_eq!(Error::NotFound("".into()).to_string(), "Not found: ");
-        assert_eq!(Error::InvalidBeadTitle("".into()).to_string(), "Invalid bead title: ");
+        assert_eq!(
+            Error::InvalidBeadTitle("".into()).to_string(),
+            "Invalid bead title: "
+        );
     }
 
     #[test]
@@ -1068,7 +1091,10 @@ mod tests {
 
     #[test]
     fn zero_usize_in_queue_position() {
-        assert_eq!(Error::QueueInvalidPosition(0).to_string(), "Invalid queue position: 0");
+        assert_eq!(
+            Error::QueueInvalidPosition(0).to_string(),
+            "Invalid queue position: 0"
+        );
     }
 
     #[test]
@@ -1118,46 +1144,101 @@ mod tests {
 
     #[test]
     fn code_workspace_session() {
-        assert_eq!(Error::WorkspaceNotFound("x".into()).code(), "WORKSPACE_NOT_FOUND");
-        assert_eq!(Error::WorkspaceExists("x".into()).code(), "WORKSPACE_EXISTS");
-        assert_eq!(Error::WorkspaceLocked("x".into(), "y".into()).code(), "WORKSPACE_LOCKED");
-        assert_eq!(Error::WorkspaceConflict("x".into()).code(), "WORKSPACE_CONFLICT");
-        assert_eq!(Error::SessionNotFound("x".into()).code(), "SESSION_NOT_FOUND");
+        assert_eq!(
+            Error::WorkspaceNotFound("x".into()).code(),
+            "WORKSPACE_NOT_FOUND"
+        );
+        assert_eq!(
+            Error::WorkspaceExists("x".into()).code(),
+            "WORKSPACE_EXISTS"
+        );
+        assert_eq!(
+            Error::WorkspaceLocked("x".into(), "y".into()).code(),
+            "WORKSPACE_LOCKED"
+        );
+        assert_eq!(
+            Error::WorkspaceConflict("x".into()).code(),
+            "WORKSPACE_CONFLICT"
+        );
+        assert_eq!(
+            Error::SessionNotFound("x".into()).code(),
+            "SESSION_NOT_FOUND"
+        );
         assert_eq!(Error::SessionExists("x".into()).code(), "SESSION_EXISTS");
-        assert_eq!(Error::SessionLocked("x".into(), "y".into()).code(), "SESSION_LOCKED");
-        assert_eq!(Error::NotLockHolder("x".into(), "y".into()).code(), "NOT_LOCK_HOLDER");
-        assert_eq!(Error::SessionInvalidState("a".into(), "b".into(), "c".into()).code(), "SESSION_INVALID_STATE");
+        assert_eq!(
+            Error::SessionLocked("x".into(), "y".into()).code(),
+            "SESSION_LOCKED"
+        );
+        assert_eq!(
+            Error::NotLockHolder("x".into(), "y".into()).code(),
+            "NOT_LOCK_HOLDER"
+        );
+        assert_eq!(
+            Error::SessionInvalidState("a".into(), "b".into(), "c".into()).code(),
+            "SESSION_INVALID_STATE"
+        );
     }
 
     #[test]
     fn code_bead() {
         assert_eq!(Error::BeadNotFound("x".into()).code(), "BEAD_NOT_FOUND");
-        assert_eq!(Error::BeadAlreadyExists("x".into()).code(), "BEAD_ALREADY_EXISTS");
+        assert_eq!(
+            Error::BeadAlreadyExists("x".into()).code(),
+            "BEAD_ALREADY_EXISTS"
+        );
         assert_eq!(Error::InvalidBeadId("x".into()).code(), "INVALID_BEAD_ID");
-        assert_eq!(Error::InvalidBeadTitle("x".into()).code(), "INVALID_BEAD_TITLE");
-        assert_eq!(Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() }.code(), "BEAD_INVALID_STATE_TRANSITION");
-        assert_eq!(Error::BeadDependencyCycle("x".into()).code(), "BEAD_DEPENDENCY_CYCLE");
+        assert_eq!(
+            Error::InvalidBeadTitle("x".into()).code(),
+            "INVALID_BEAD_TITLE"
+        );
+        assert_eq!(
+            Error::BeadInvalidStateTransition {
+                from: "a".into(),
+                to: "b".into()
+            }
+            .code(),
+            "BEAD_INVALID_STATE_TRANSITION"
+        );
+        assert_eq!(
+            Error::BeadDependencyCycle("x".into()).code(),
+            "BEAD_DEPENDENCY_CYCLE"
+        );
         assert_eq!(Error::BeadBlockedBy("x".into()).code(), "BEAD_BLOCKED_BY");
-        assert_eq!(Error::BeadInvalidDependency("x".into()).code(), "BEAD_INVALID_DEPENDENCY");
+        assert_eq!(
+            Error::BeadInvalidDependency("x".into()).code(),
+            "BEAD_INVALID_DEPENDENCY"
+        );
     }
 
     #[test]
     fn code_queue() {
         assert_eq!(Error::QueueEmpty.code(), "QUEUE_EMPTY");
-        assert_eq!(Error::QueueItemNotFound("x".into()).code(), "QUEUE_ITEM_NOT_FOUND");
+        assert_eq!(
+            Error::QueueItemNotFound("x".into()).code(),
+            "QUEUE_ITEM_NOT_FOUND"
+        );
         assert_eq!(Error::QueueLocked("x".into()).code(), "QUEUE_LOCKED");
         assert_eq!(Error::QueueProcessing.code(), "QUEUE_PROCESSING");
-        assert_eq!(Error::QueueInvalidPosition(0).code(), "QUEUE_INVALID_POSITION");
+        assert_eq!(
+            Error::QueueInvalidPosition(0).code(),
+            "QUEUE_INVALID_POSITION"
+        );
         assert_eq!(Error::QueueFull(10).code(), "QUEUE_FULL");
     }
 
     #[test]
     fn code_vcs() {
         assert_eq!(Error::VcsNotInitialized.code(), "VCS_NOT_INITIALIZED");
-        assert_eq!(Error::VcsConflict("a".into(), "b".into()).code(), "VCS_CONFLICT");
+        assert_eq!(
+            Error::VcsConflict("a".into(), "b".into()).code(),
+            "VCS_CONFLICT"
+        );
         assert_eq!(Error::VcsPushFailed("x".into()).code(), "VCS_PUSH_FAILED");
         assert_eq!(Error::VcsPullFailed("x".into()).code(), "VCS_PULL_FAILED");
-        assert_eq!(Error::VcsRebaseFailed("x".into()).code(), "VCS_REBASE_FAILED");
+        assert_eq!(
+            Error::VcsRebaseFailed("x".into()).code(),
+            "VCS_REBASE_FAILED"
+        );
         assert_eq!(Error::BranchNotFound("x".into()).code(), "BRANCH_NOT_FOUND");
         assert_eq!(Error::BranchExists("x".into()).code(), "BRANCH_EXISTS");
         assert_eq!(Error::CommitNotFound("x".into()).code(), "COMMIT_NOT_FOUND");
@@ -1168,7 +1249,10 @@ mod tests {
     fn code_config() {
         assert_eq!(Error::ConfigNotFound("x".into()).code(), "CONFIG_NOT_FOUND");
         assert_eq!(Error::ConfigInvalid("x".into()).code(), "CONFIG_INVALID");
-        assert_eq!(Error::ConfigPermission("x".into()).code(), "CONFIG_PERMISSION");
+        assert_eq!(
+            Error::ConfigPermission("x".into()).code(),
+            "CONFIG_PERMISSION"
+        );
         assert_eq!(Error::InvalidConfig("x".into()).code(), "INVALID_CONFIG");
         assert_eq!(Error::InvalidRepoUrl("x".into()).code(), "INVALID_REPO_URL");
     }
@@ -1184,10 +1268,27 @@ mod tests {
     fn code_state_validation() {
         assert_eq!(Error::InvalidState("x".into()).code(), "INVALID_STATE");
         assert_eq!(Error::NotFound("x".into()).code(), "NOT_FOUND");
-        assert_eq!(Error::InvalidOperation("x".into()).code(), "INVALID_OPERATION");
-        assert_eq!(Error::ValidationError("x".into()).code(), "VALIDATION_ERROR");
-        assert_eq!(Error::ValidationFieldError { message: "x".into(), field: "y".into(), value: None }.code(), "VALIDATION_FIELD_ERROR");
-        assert_eq!(Error::InvalidIdentifier("x".into()).code(), "INVALID_IDENTIFIER");
+        assert_eq!(
+            Error::InvalidOperation("x".into()).code(),
+            "INVALID_OPERATION"
+        );
+        assert_eq!(
+            Error::ValidationError("x".into()).code(),
+            "VALIDATION_ERROR"
+        );
+        assert_eq!(
+            Error::ValidationFieldError {
+                message: "x".into(),
+                field: "y".into(),
+                value: None
+            }
+            .code(),
+            "VALIDATION_FIELD_ERROR"
+        );
+        assert_eq!(
+            Error::InvalidIdentifier("x".into()).code(),
+            "INVALID_IDENTIFIER"
+        );
     }
 
     #[test]
@@ -1196,24 +1297,44 @@ mod tests {
         assert_eq!(Error::JsonParseError("x".into()).code(), "JSON_PARSE_ERROR");
         assert_eq!(Error::YamlParseError("x".into()).code(), "YAML_PARSE_ERROR");
         assert_eq!(Error::Database("x".into()).code(), "DATABASE_ERROR");
-        assert_eq!(Error::Serialization("x".into()).code(), "SERIALIZATION_ERROR");
-        assert_eq!(Error::LockTimeout { operation: "x".into(), timeout_ms: 0, retries: 0 }.code(), "LOCK_TIMEOUT");
+        assert_eq!(
+            Error::Serialization("x".into()).code(),
+            "SERIALIZATION_ERROR"
+        );
+        assert_eq!(
+            Error::LockTimeout {
+                operation: "x".into(),
+                timeout_ms: 0,
+                retries: 0
+            }
+            .code(),
+            "LOCK_TIMEOUT"
+        );
         assert_eq!(Error::CloneFailed("x".into()).code(), "CLONE_FAILED");
         assert_eq!(Error::RecordFailed("x".into()).code(), "RECORD_FAILED");
         assert_eq!(Error::Persistence("x".into()).code(), "PERSISTENCE_ERROR");
-        assert_eq!(Error::StateTransition("x".into()).code(), "STATE_TRANSITION_ERROR");
+        assert_eq!(
+            Error::StateTransition("x".into()).code(),
+            "STATE_TRANSITION_ERROR"
+        );
     }
 
     #[test]
     fn code_scenario_internal() {
         assert_eq!(Error::ScenarioError("x".into()).code(), "SCENARIO_ERROR");
         assert_eq!(Error::RunnerError("x".into()).code(), "RUNNER_ERROR");
-        assert_eq!(Error::DefinitionError("x".into()).code(), "DEFINITION_ERROR");
+        assert_eq!(
+            Error::DefinitionError("x".into()).code(),
+            "DEFINITION_ERROR"
+        );
         assert_eq!(Error::ServerError("x".into()).code(), "SERVER_ERROR");
         assert_eq!(Error::SyncError("x".into()).code(), "SYNC_ERROR");
         assert_eq!(Error::Internal("x".into()).code(), "INTERNAL_ERROR");
         assert_eq!(Error::Unimplemented("x".into()).code(), "NOT_IMPLEMENTED");
-        assert_eq!(Error::InvariantViolation("x".into()).code(), "INVARIANT_VIOLATION");
+        assert_eq!(
+            Error::InvariantViolation("x".into()).code(),
+            "INVARIANT_VIOLATION"
+        );
     }
 
     #[test]
@@ -1232,21 +1353,27 @@ mod tests {
 
     #[test]
     fn context_map_workspace_not_found() {
-        let ctx = Error::WorkspaceNotFound("my-ws".into()).context_map().unwrap();
+        let ctx = Error::WorkspaceNotFound("my-ws".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["resource_type"], "workspace");
         assert_eq!(ctx["workspace_name"], "my-ws");
     }
 
     #[test]
     fn context_map_workspace_locked() {
-        let ctx = Error::WorkspaceLocked("ws".into(), "agent-1".into()).context_map().unwrap();
+        let ctx = Error::WorkspaceLocked("ws".into(), "agent-1".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["workspace_name"], "ws");
         assert_eq!(ctx["holder"], "agent-1");
     }
 
     #[test]
     fn context_map_session_invalid_state() {
-        let ctx = Error::SessionInvalidState("s1".into(), "closed".into(), "open".into()).context_map().unwrap();
+        let ctx = Error::SessionInvalidState("s1".into(), "closed".into(), "open".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["session"], "s1");
         assert_eq!(ctx["actual_state"], "closed");
         assert_eq!(ctx["expected_state"], "open");
@@ -1261,14 +1388,21 @@ mod tests {
 
     #[test]
     fn context_map_bead_invalid_state_transition() {
-        let ctx = Error::BeadInvalidStateTransition { from: "open".into(), to: "closed".into() }.context_map().unwrap();
+        let ctx = Error::BeadInvalidStateTransition {
+            from: "open".into(),
+            to: "closed".into(),
+        }
+        .context_map()
+        .unwrap();
         assert_eq!(ctx["from_state"], "open");
         assert_eq!(ctx["to_state"], "closed");
     }
 
     #[test]
     fn context_map_bead_dependency_cycle() {
-        let ctx = Error::BeadDependencyCycle("ha-1 -> ha-2 -> ha-1".into()).context_map().unwrap();
+        let ctx = Error::BeadDependencyCycle("ha-1 -> ha-2 -> ha-1".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["cycle_path"], "ha-1 -> ha-2 -> ha-1");
     }
 
@@ -1286,28 +1420,36 @@ mod tests {
 
     #[test]
     fn context_map_vcs_conflict() {
-        let ctx = Error::VcsConflict("file.rs".into(), "merge conflict".into()).context_map().unwrap();
+        let ctx = Error::VcsConflict("file.rs".into(), "merge conflict".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["repo"], "file.rs");
         assert_eq!(ctx["message"], "merge conflict");
     }
 
     #[test]
     fn context_map_vcs_push_failed() {
-        let ctx = Error::VcsPushFailed("rejected".into()).context_map().unwrap();
+        let ctx = Error::VcsPushFailed("rejected".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["operation"], "push");
         assert_eq!(ctx["error"], "rejected");
     }
 
     #[test]
     fn context_map_branch_not_found() {
-        let ctx = Error::BranchNotFound("feature/x".into()).context_map().unwrap();
+        let ctx = Error::BranchNotFound("feature/x".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["resource_type"], "branch");
         assert_eq!(ctx["branch_name"], "feature/x");
     }
 
     #[test]
     fn context_map_config_not_found() {
-        let ctx = Error::ConfigNotFound("settings.toml".into()).context_map().unwrap();
+        let ctx = Error::ConfigNotFound("settings.toml".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["resource_type"], "config");
         assert_eq!(ctx["key"], "settings.toml");
     }
@@ -1325,7 +1467,9 @@ mod tests {
             message: "must be positive".into(),
             field: "age".into(),
             value: Some("-5".into()),
-        }.context_map().unwrap();
+        }
+        .context_map()
+        .unwrap();
         assert_eq!(ctx["field"], "age");
         assert_eq!(ctx["message"], "must be positive");
         assert_eq!(ctx["value"], "-5");
@@ -1337,7 +1481,9 @@ mod tests {
             message: "required".into(),
             field: "name".into(),
             value: None,
-        }.context_map().unwrap();
+        }
+        .context_map()
+        .unwrap();
         assert_eq!(ctx["field"], "name");
         assert_eq!(ctx["message"], "required");
         assert!(!ctx.as_object().unwrap().contains_key("value"));
@@ -1349,7 +1495,9 @@ mod tests {
             operation: "acquire workspace".into(),
             timeout_ms: 5000,
             retries: 3,
-        }.context_map().unwrap();
+        }
+        .context_map()
+        .unwrap();
         assert_eq!(ctx["operation"], "acquire workspace");
         assert_eq!(ctx["timeout_ms"], 5000);
         assert_eq!(ctx["retries"], 3);
@@ -1363,13 +1511,17 @@ mod tests {
 
     #[test]
     fn context_map_database() {
-        let ctx = Error::Database("connection refused".into()).context_map().unwrap();
+        let ctx = Error::Database("connection refused".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["error"], "connection refused");
     }
 
     #[test]
     fn context_map_unimplemented() {
-        let ctx = Error::Unimplemented("feature X".into()).context_map().unwrap();
+        let ctx = Error::Unimplemented("feature X".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["feature"], "feature X");
     }
 
@@ -1381,25 +1533,33 @@ mod tests {
 
     #[test]
     fn context_map_invalid_operation() {
-        let ctx = Error::InvalidOperation("delete on read-only".into()).context_map().unwrap();
+        let ctx = Error::InvalidOperation("delete on read-only".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["operation"], "delete on read-only");
     }
 
     #[test]
     fn context_map_invalid_identifier() {
-        let ctx = Error::InvalidIdentifier("123bad".into()).context_map().unwrap();
+        let ctx = Error::InvalidIdentifier("123bad".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["identifier"], "123bad");
     }
 
     #[test]
     fn context_map_serialization() {
-        let ctx = Error::Serialization("buffer overflow".into()).context_map().unwrap();
+        let ctx = Error::Serialization("buffer overflow".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["error"], "buffer overflow");
     }
 
     #[test]
     fn context_map_state_transition() {
-        let ctx = Error::StateTransition("open -> locked invalid".into()).context_map().unwrap();
+        let ctx = Error::StateTransition("open -> locked invalid".into())
+            .context_map()
+            .unwrap();
         assert_eq!(ctx["transition"], "open -> locked invalid");
     }
 
@@ -1420,7 +1580,10 @@ mod tests {
             Error::BeadAlreadyExists("x".into()),
             Error::InvalidBeadId("x".into()),
             Error::InvalidBeadTitle("x".into()),
-            Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() },
+            Error::BeadInvalidStateTransition {
+                from: "a".into(),
+                to: "b".into(),
+            },
             Error::BeadDependencyCycle("x".into()),
             Error::BeadBlockedBy("x".into()),
             Error::BeadInvalidDependency("x".into()),
@@ -1451,14 +1614,22 @@ mod tests {
             Error::NotFound("x".into()),
             Error::InvalidOperation("x".into()),
             Error::ValidationError("x".into()),
-            Error::ValidationFieldError { message: "x".into(), field: "y".into(), value: None },
+            Error::ValidationFieldError {
+                message: "x".into(),
+                field: "y".into(),
+                value: None,
+            },
             Error::InvalidIdentifier("x".into()),
             Error::IoError("x".into()),
             Error::JsonParseError("x".into()),
             Error::YamlParseError("x".into()),
             Error::Database("x".into()),
             Error::Serialization("x".into()),
-            Error::LockTimeout { operation: "x".into(), timeout_ms: 0, retries: 0 },
+            Error::LockTimeout {
+                operation: "x".into(),
+                timeout_ms: 0,
+                retries: 0,
+            },
             Error::CloneFailed("x".into()),
             Error::RecordFailed("x".into()),
             Error::Persistence("x".into()),
@@ -1473,7 +1644,10 @@ mod tests {
             Error::InvariantViolation("x".into()),
         ];
         for variant in all_variants {
-            assert!(variant.context_map().is_some(), "context_map() returned None for: {variant}");
+            assert!(
+                variant.context_map().is_some(),
+                "context_map() returned None for: {variant}"
+            );
         }
     }
 
@@ -1494,7 +1668,10 @@ mod tests {
             Error::BeadAlreadyExists("x".into()),
             Error::InvalidBeadId("x".into()),
             Error::InvalidBeadTitle("x".into()),
-            Error::BeadInvalidStateTransition { from: "a".into(), to: "b".into() },
+            Error::BeadInvalidStateTransition {
+                from: "a".into(),
+                to: "b".into(),
+            },
             Error::BeadDependencyCycle("x".into()),
             Error::BeadBlockedBy("x".into()),
             Error::BeadInvalidDependency("x".into()),
@@ -1525,14 +1702,22 @@ mod tests {
             Error::NotFound("x".into()),
             Error::InvalidOperation("x".into()),
             Error::ValidationError("x".into()),
-            Error::ValidationFieldError { message: "x".into(), field: "y".into(), value: None },
+            Error::ValidationFieldError {
+                message: "x".into(),
+                field: "y".into(),
+                value: None,
+            },
             Error::InvalidIdentifier("x".into()),
             Error::IoError("x".into()),
             Error::JsonParseError("x".into()),
             Error::YamlParseError("x".into()),
             Error::Database("x".into()),
             Error::Serialization("x".into()),
-            Error::LockTimeout { operation: "x".into(), timeout_ms: 0, retries: 0 },
+            Error::LockTimeout {
+                operation: "x".into(),
+                timeout_ms: 0,
+                retries: 0,
+            },
             Error::CloneFailed("x".into()),
             Error::RecordFailed("x".into()),
             Error::Persistence("x".into()),

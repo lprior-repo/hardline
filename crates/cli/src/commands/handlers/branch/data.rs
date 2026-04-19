@@ -114,7 +114,10 @@ pub fn validate_branch_name(name: &str) -> Result<(), String> {
         .chars()
         .any(|c| c.is_control() || matches!(c, ' ' | '~' | '^' | ':' | '?' | '*' | '[' | '\\'))
     {
-        return Err(format!("Branch name '{}' contains invalid characters", name));
+        return Err(format!(
+            "Branch name '{}' contains invalid characters",
+            name
+        ));
     }
 
     if name.split('/').any(str::is_empty) {

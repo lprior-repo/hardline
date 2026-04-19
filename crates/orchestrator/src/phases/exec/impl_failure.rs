@@ -16,11 +16,7 @@ impl PipelineExecutor {
     ) -> Result<PhaseResult, PhaseError> {
         error!("Spec review failed: {message}");
 
-        let pipeline = self
-            .store
-            .get(id)
-            .map_err(PhaseError::from)?
-            .clone();
+        let pipeline = self.store.get(id).map_err(PhaseError::from)?.clone();
 
         self.cleanup_after_failure(&pipeline)
             .map_err(|e| PhaseError::CleanupFailed(e.to_string()))?;
@@ -68,11 +64,7 @@ impl PipelineExecutor {
         message: String,
         phase: PhaseType,
     ) -> Result<PhaseResult, PhaseError> {
-        let pipeline = self
-            .store
-            .get(id)
-            .map_err(PhaseError::from)?
-            .clone();
+        let pipeline = self.store.get(id).map_err(PhaseError::from)?.clone();
 
         self.cleanup_after_failure(&pipeline)
             .map_err(|e| PhaseError::CleanupFailed(e.to_string()))?;
@@ -120,8 +112,7 @@ mod tests {
     /// Helper: create an executor backed by a temp dir
     fn create_executor() -> (PipelineExecutor, TempDir) {
         let temp = TempDir::new().expect("temp dir");
-        let exec = PipelineExecutor::new(temp.path().to_path_buf())
-        .expect("executor");
+        let exec = PipelineExecutor::new(temp.path().to_path_buf()).expect("executor");
         (exec, temp)
     }
 
@@ -141,10 +132,9 @@ mod tests {
         let path: Vec<PipelineState> = match state {
             PipelineState::Pending => vec![],
             PipelineState::SpecReview => vec![PipelineState::SpecReview],
-            PipelineState::UniverseSetup => vec![
-                PipelineState::SpecReview,
-                PipelineState::UniverseSetup,
-            ],
+            PipelineState::UniverseSetup => {
+                vec![PipelineState::SpecReview, PipelineState::UniverseSetup]
+            }
             PipelineState::AgentDevelopment => vec![
                 PipelineState::SpecReview,
                 PipelineState::UniverseSetup,
@@ -181,7 +171,9 @@ mod tests {
         let (mut exec, _temp) = create_executor();
         let id = create_pipeline_at(&mut exec, PipelineState::SpecReview);
 
-        let result = exec.handle_spec_failure(&id, "lint error".to_string()).expect("handle");
+        let result = exec
+            .handle_spec_failure(&id, "lint error".to_string())
+            .expect("handle");
 
         assert!(!result.success);
         assert_eq!(result.message, "lint error");
@@ -197,7 +189,8 @@ mod tests {
         let (mut exec, _temp) = create_executor();
         let id = create_pipeline_at(&mut exec, PipelineState::SpecReview);
 
-        exec.handle_spec_failure(&id, "type mismatch".to_string()).expect("handle");
+        exec.handle_spec_failure(&id, "type mismatch".to_string())
+            .expect("handle");
 
         let pipeline = exec.store.get(&id).expect("get");
         assert_eq!(pipeline.last_error.as_deref(), Some("type mismatch"));
@@ -240,7 +233,9 @@ mod tests {
 
         // Pending has no phase type, so cleanup_after_failure returns Ok (no-op).
         // Then transition to Failed succeeds from any state.
-        let result = exec.handle_spec_failure(&id, "early failure".to_string()).expect("handle");
+        let result = exec
+            .handle_spec_failure(&id, "early failure".to_string())
+            .expect("handle");
 
         assert!(!result.success);
         let pipeline = exec.store.get(&id).expect("get");
@@ -254,7 +249,8 @@ mod tests {
         let (mut exec, _temp) = create_executor();
         let id = create_pipeline_at(&mut exec, PipelineState::UniverseSetup);
 
-        exec.handle_setup_failure(&id, "disk full".to_string()).expect("handle");
+        exec.handle_setup_failure(&id, "disk full".to_string())
+            .expect("handle");
 
         let pipeline = exec.store.get(&id).expect("get");
         assert_eq!(pipeline.state, PipelineState::Escalated);
@@ -265,7 +261,8 @@ mod tests {
         let (mut exec, _temp) = create_executor();
         let id = create_pipeline_at(&mut exec, PipelineState::UniverseSetup);
 
-        exec.handle_setup_failure(&id, "oom".to_string()).expect("handle");
+        exec.handle_setup_failure(&id, "oom".to_string())
+            .expect("handle");
 
         let pipeline = exec.store.get(&id).expect("get");
         assert_eq!(pipeline.last_error.as_deref(), Some("oom"));

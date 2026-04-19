@@ -24,7 +24,14 @@ pub enum WorkspaceState {
 impl WorkspaceState {
     #[must_use]
     pub const fn all() -> &'static [Self] {
-        &[Self::Created, Self::Working, Self::Ready, Self::Merged, Self::Abandoned, Self::Conflict]
+        &[
+            Self::Created,
+            Self::Working,
+            Self::Ready,
+            Self::Merged,
+            Self::Abandoned,
+            Self::Conflict,
+        ]
     }
 
     #[must_use]
@@ -187,5 +194,107 @@ impl BeadWorkspaceMapping {
     #[must_use]
     pub fn assigned_at(&self) -> DateTime<Utc> {
         self.assigned_at
+    }
+}
+
+#[cfg(test)]
+mod serde_tests {
+    use super::*;
+    use serde::{Deserialize, Serialize};
+
+    #[test]
+    fn workspace_id_roundtrip() {
+        let id = WorkspaceId::parse("test-workspace-123".to_string()).unwrap();
+        let json = serde_json::to_string(&id).unwrap();
+        let parsed: WorkspaceId = serde_json::from_str(&json).unwrap();
+        assert_eq!(id, parsed);
+    }
+
+    #[test]
+    fn workspace_id_from_empty_string_fails() {
+        let result = WorkspaceId::parse("".to_string());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn bead_id_roundtrip() {
+        let id = BeadId::parse("bead-456".to_string()).unwrap();
+        let json = serde_json::to_string(&id).unwrap();
+        let parsed: BeadId = serde_json::from_str(&json).unwrap();
+        assert_eq!(id, parsed);
+    }
+
+    #[test]
+    fn bead_id_from_empty_string_fails() {
+        let result = BeadId::parse("".to_string());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn bead_workspace_mapping_roundtrip() {
+        let mapping = BeadWorkspaceMapping::new(
+            BeadId::parse("bead-1".to_string()).unwrap(),
+            WorkspaceId::parse("ws-1".to_string()).unwrap(),
+        );
+        let json = serde_json::to_string(&mapping).unwrap();
+        let parsed: BeadWorkspaceMapping = serde_json::from_str(&json).unwrap();
+        assert_eq!(mapping, parsed);
+    }
+
+    #[test]
+    fn bead_workspace_mapping_preserves_ids() {
+        let mapping = BeadWorkspaceMapping::new(
+            BeadId::parse("bead-xyz".to_string()).unwrap(),
+            WorkspaceId::parse("ws-abc".to_string()).unwrap(),
+        );
+        let json = serde_json::to_string(&mapping).unwrap();
+        let parsed: BeadWorkspaceMapping = serde_json::from_str(&json).unwrap();
+        assert_eq!(mapping.bead_id(), parsed.bead_id());
+        assert_eq!(mapping.workspace_id(), parsed.workspace_id());
+    }
+
+    #[test]
+    fn workspace_state_all_variants_serialize_lowercase() {
+        for state in WorkspaceState::all() {
+            let json = serde_json::to_string(state).unwrap();
+            assert!(json.ends_with('"'), "JSON should be quoted string");
+            let expected = format!("\"{}\"", state);
+            assert_eq!(
+                json, expected,
+                "WorkspaceState::{:?} should serialize to {}",
+                state, expected
+            );
+        }
+    }
+
+    #[test]
+    fn workspace_state_all_variants_roundtrip() {
+        for state in WorkspaceState::all() {
+            let json = serde_json::to_string(state).unwrap();
+            let parsed: WorkspaceState = serde_json::from_str(&json).unwrap();
+            assert_eq!(
+                *state, parsed,
+                "WorkspaceState::{:?} failed roundtrip",
+                state
+            );
+        }
+    }
+
+    #[test]
+    fn workspace_state_deserialize_invalid_fails() {
+        let result: std::result::Result<WorkspaceState, _> = serde_json::from_str("\"invalid\"");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn workspace_state_deserialize_uppercase_works() {
+        let parsed: WorkspaceState = serde_json::from_str("\"WORKING\"").unwrap();
+        assert_eq!(parsed, WorkspaceState::Working);
+    }
+
+    #[test]
+    fn workspace_state_deserialize_mixed_case_works() {
+        let parsed: WorkspaceState = serde_json::from_str("\"ReAdY\"").unwrap();
+        assert_eq!(parsed, WorkspaceState::Ready);
     }
 }

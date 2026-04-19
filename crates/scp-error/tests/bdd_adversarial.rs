@@ -142,13 +142,19 @@ mod attack_boundary {
     #[test]
     fn huge_queue_position() {
         let err = Error::QueueInvalidPosition(usize::MAX);
-        assert_eq!(err.to_string(), format!("Invalid queue position: {}", usize::MAX));
+        assert_eq!(
+            err.to_string(),
+            format!("Invalid queue position: {}", usize::MAX)
+        );
     }
 
     #[test]
     fn huge_queue_full_max() {
         let err = Error::QueueFull(usize::MAX);
-        assert_eq!(err.to_string(), format!("Queue is full (max: {})", usize::MAX));
+        assert_eq!(
+            err.to_string(),
+            format!("Queue is full (max: {})", usize::MAX)
+        );
     }
 
     #[test]
@@ -165,7 +171,10 @@ mod attack_boundary {
 
     #[test]
     fn many_beads_blocked() {
-        let many = (0..1000).map(|i| format!("bead-{i}")).collect::<Vec<_>>().join(", ");
+        let many = (0..1000)
+            .map(|i| format!("bead-{i}"))
+            .collect::<Vec<_>>()
+            .join(", ");
         let err = Error::BeadBlockedBy(many);
         let msg = err.to_string();
         assert!(msg.contains("bead-0"));

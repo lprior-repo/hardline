@@ -92,7 +92,10 @@ pub fn known_contracts() -> Vec<CommandContract> {
                 default: false,
             }],
             output_schema: "WorkspaceInfo".to_string(),
-            side_effects: vec!["Creates git worktree".to_string(), "Registers workspace".to_string()],
+            side_effects: vec![
+                "Creates git worktree".to_string(),
+                "Registers workspace".to_string(),
+            ],
             related_commands: vec!["switch".to_string(), "done".to_string()],
             examples: vec!["scp workspace spawn feature-auth".to_string()],
             reversible: true,
@@ -131,8 +134,15 @@ pub fn known_contracts() -> Vec<CommandContract> {
                 },
             ],
             output_schema: "DoneOutput".to_string(),
-            side_effects: vec!["Merges branch into main".to_string(), "Removes worktree".to_string()],
-            related_commands: vec!["spawn".to_string(), "abort".to_string(), "revert".to_string()],
+            side_effects: vec![
+                "Merges branch into main".to_string(),
+                "Removes worktree".to_string(),
+            ],
+            related_commands: vec![
+                "spawn".to_string(),
+                "abort".to_string(),
+                "revert".to_string(),
+            ],
             examples: vec!["scp workspace done feature-auth -m 'Add auth'".to_string()],
             reversible: true,
             undo_command: Some("revert".to_string()),
@@ -187,8 +197,7 @@ mod tests {
             prerequisites: vec![],
         };
         let json = serde_json::to_string(&contract).expect("serialize");
-        let deserialized: CommandContract =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: CommandContract = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.name, "test");
     }
 

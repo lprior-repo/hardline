@@ -8,7 +8,9 @@
 //! - **Calculations**: preview functions for each command (pure)
 //! - **Actions**: run_whatif (I/O - output)
 
-use scp_core::{output::Output, validation::domain::validate_session_name, Error, OutputFormat, Result};
+use scp_core::{
+    output::Output, validation::domain::validate_session_name, Error, OutputFormat, Result,
+};
 use serde::{Deserialize, Serialize};
 
 /// Options for the whatif command
@@ -127,8 +129,15 @@ pub fn run_whatif(options: &WhatIfOptions) -> Result<()> {
             .map_err(|e| Error::io_error(format!("Failed to serialize whatif result: {e}")))?;
         println!("{json}");
     } else {
-        Output::info(&format!("Preview for: {} {}", options.command, options.args.join(" ")));
-        Output::info(&format!("Reversible: {}", if result.reversible { "yes" } else { "no" }));
+        Output::info(&format!(
+            "Preview for: {} {}",
+            options.command,
+            options.args.join(" ")
+        ));
+        Output::info(&format!(
+            "Reversible: {}",
+            if result.reversible { "yes" } else { "no" }
+        ));
 
         if !result.steps.is_empty() {
             Output::info("Steps:");
@@ -232,7 +241,8 @@ fn get_name_arg(args: &[String]) -> (String, bool) {
     let name = args.first().map(String::as_str).unwrap_or("<name>");
     let is_placeholder = name == "<name>";
     (name.to_string(), is_placeholder)
-}fn ensure_valid_name(name: &str, is_placeholder: bool) -> Result<()> {
+}
+fn ensure_valid_name(name: &str, is_placeholder: bool) -> Result<()> {
     if !is_placeholder {
         validate_session_name(name).map_err(|e| Error::validation_error(e.to_string()))?;
     }
@@ -290,7 +300,11 @@ fn preview_add(args: &[String], has_force_flag: bool) -> Result<WhatIfResult> {
         prerequisites: vec![
             PrerequisiteCheck {
                 check: "valid_name".to_string(),
-                status: if is_placeholder { PrerequisiteStatus::Unknown } else { PrerequisiteStatus::Met },
+                status: if is_placeholder {
+                    PrerequisiteStatus::Unknown
+                } else {
+                    PrerequisiteStatus::Met
+                },
                 description: "Session name is valid".to_string(),
             },
             PrerequisiteCheck {
@@ -302,7 +316,9 @@ fn preview_add(args: &[String], has_force_flag: bool) -> Result<WhatIfResult> {
     };
 
     if has_force_flag {
-        result.warnings.push("--force flag will skip all confirmations".to_string());
+        result
+            .warnings
+            .push("--force flag will skip all confirmations".to_string());
     }
 
     Ok(result)
@@ -344,7 +360,11 @@ fn preview_work(args: &[String]) -> Result<WhatIfResult> {
         warnings: vec![],
         prerequisites: vec![PrerequisiteCheck {
             check: "valid_name".to_string(),
-            status: if is_placeholder { PrerequisiteStatus::Unknown } else { PrerequisiteStatus::Met },
+            status: if is_placeholder {
+                PrerequisiteStatus::Unknown
+            } else {
+                PrerequisiteStatus::Met
+            },
             description: "Session name is valid".to_string(),
         }],
     })
@@ -407,7 +427,11 @@ fn preview_remove(args: &[String], has_keep_flag: bool) -> Result<WhatIfResult> 
         warnings: vec![],
         prerequisites: vec![PrerequisiteCheck {
             check: "valid_name".to_string(),
-            status: if is_placeholder { PrerequisiteStatus::Unknown } else { PrerequisiteStatus::Met },
+            status: if is_placeholder {
+                PrerequisiteStatus::Unknown
+            } else {
+                PrerequisiteStatus::Met
+            },
             description: "Session name is valid".to_string(),
         }],
     };
@@ -417,7 +441,9 @@ fn preview_remove(args: &[String], has_keep_flag: bool) -> Result<WhatIfResult> 
         result.steps[2].action = format!("Preserve .scp/workspaces/{name}");
         result.steps[2].can_fail = false;
         result.deletes[0].description = "Workspace directory (unless --keep-workspace)".to_string();
-        result.warnings.push("--keep-workspace flag will preserve workspace files".to_string());
+        result
+            .warnings
+            .push("--keep-workspace flag will preserve workspace files".to_string());
     }
 
     Ok(result)
@@ -519,7 +545,11 @@ fn preview_done(
         prerequisites: vec![
             PrerequisiteCheck {
                 check: "in_workspace".to_string(),
-                status: if is_placeholder { PrerequisiteStatus::Unknown } else { PrerequisiteStatus::Met },
+                status: if is_placeholder {
+                    PrerequisiteStatus::Unknown
+                } else {
+                    PrerequisiteStatus::Met
+                },
                 description: "Must be in a workspace".to_string(),
             },
             PrerequisiteCheck {
@@ -534,18 +564,24 @@ fn preview_done(
         result.steps[0].description = "Validate workspace location".to_string();
         result.steps[0].action = format!("Check --workspace {workspace} exists");
         result.prerequisites[0].description = "Workspace exists".to_string();
-        result.warnings.push("--workspace flag specifies workspace to close".to_string());
+        result
+            .warnings
+            .push("--workspace flag specifies workspace to close".to_string());
     }
 
     if has_force_flag {
-        result.warnings.push("--force flag will skip confirmations".to_string());
+        result
+            .warnings
+            .push("--force flag will skip confirmations".to_string());
     }
 
     if has_keep_flag {
         result.steps[5].description = "Keep workspace files".to_string();
         result.steps[5].action = format!("Preserve .scp/workspaces/{workspace}");
         result.deletes[0].description = "Workspace directory (unless --keep-workspace)".to_string();
-        result.warnings.push("--keep-workspace flag will preserve workspace files".to_string());
+        result
+            .warnings
+            .push("--keep-workspace flag will preserve workspace files".to_string());
     }
 
     Ok(result)
@@ -613,12 +649,20 @@ fn preview_abort(args: &[String], has_workspace_flag: bool) -> Result<WhatIfResu
         prerequisites: vec![
             PrerequisiteCheck {
                 check: "in_workspace".to_string(),
-                status: if is_placeholder { PrerequisiteStatus::Unknown } else { PrerequisiteStatus::Met },
+                status: if is_placeholder {
+                    PrerequisiteStatus::Unknown
+                } else {
+                    PrerequisiteStatus::Met
+                },
                 description: "Must be in a workspace".to_string(),
             },
             PrerequisiteCheck {
                 check: "valid_name".to_string(),
-                status: if is_placeholder { PrerequisiteStatus::Unknown } else { PrerequisiteStatus::Met },
+                status: if is_placeholder {
+                    PrerequisiteStatus::Unknown
+                } else {
+                    PrerequisiteStatus::Met
+                },
                 description: "Workspace name is valid".to_string(),
             },
         ],
@@ -628,7 +672,9 @@ fn preview_abort(args: &[String], has_workspace_flag: bool) -> Result<WhatIfResu
         result.steps[0].description = "Validate workspace location".to_string();
         result.steps[0].action = format!("Check --workspace {workspace} exists");
         result.prerequisites[0].description = "Workspace exists".to_string();
-        result.warnings.push("--workspace flag specifies workspace to abort".to_string());
+        result
+            .warnings
+            .push("--workspace flag specifies workspace to abort".to_string());
     }
 
     Ok(result)
@@ -744,7 +790,11 @@ fn preview_spawn(args: &[String]) -> Result<WhatIfResult> {
         prerequisites: vec![
             PrerequisiteCheck {
                 check: "valid_name".to_string(),
-                status: if is_placeholder { PrerequisiteStatus::Unknown } else { PrerequisiteStatus::Met },
+                status: if is_placeholder {
+                    PrerequisiteStatus::Unknown
+                } else {
+                    PrerequisiteStatus::Met
+                },
                 description: "Task ID is valid".to_string(),
             },
             PrerequisiteCheck {
@@ -889,7 +939,10 @@ mod tests {
             format: OutputFormat::Json,
         };
         let result = preview(&opts).unwrap();
-        assert!(result.warnings.iter().any(|w| w.contains("--keep-workspace")));
+        assert!(result
+            .warnings
+            .iter()
+            .any(|w| w.contains("--keep-workspace")));
     }
 
     #[test]
@@ -949,7 +1002,10 @@ mod tests {
             format: OutputFormat::Json,
         };
         let result = preview(&opts).unwrap();
-        assert!(result.warnings.iter().any(|w| w.contains("--keep-workspace")));
+        assert!(result
+            .warnings
+            .iter()
+            .any(|w| w.contains("--keep-workspace")));
     }
 
     #[test]

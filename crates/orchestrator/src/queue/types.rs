@@ -791,8 +791,7 @@ mod tests {
             },
         };
         let json = serde_json::to_string(&err).expect("serialize");
-        let deserialized: JobTransitionError =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: JobTransitionError = serde_json::from_str(&json).expect("deserialize");
         match (err, deserialized) {
             (
                 JobTransitionError::InvalidTransition { .. },
@@ -811,8 +810,7 @@ mod tests {
             },
         };
         let json = serde_json::to_string(&err).expect("serialize");
-        let deserialized: JobTransitionError =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: JobTransitionError = serde_json::from_str(&json).expect("deserialize");
         match deserialized {
             JobTransitionError::AlreadyTerminal { .. } => {}
             _ => panic!("Expected AlreadyTerminal"),

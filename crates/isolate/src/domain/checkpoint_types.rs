@@ -145,10 +145,7 @@ mod tests {
             CheckpointState::Committed,
             CheckpointState::NeedsRestore,
         ] {
-            assert_eq!(
-                CheckpointState::from_db(state.as_db()).unwrap(),
-                state
-            );
+            assert_eq!(CheckpointState::from_db(state.as_db()).unwrap(), state);
         }
     }
 
@@ -169,5 +166,48 @@ mod tests {
         let a = CheckpointRecord::new("auto-1".to_string(), true);
         let b = CheckpointRecord::new("auto-1".to_string(), true);
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn operation_risk_roundtrip() {
+        for risk in [OperationRisk::Safe, OperationRisk::Risky] {
+            let json = serde_json::to_string(&risk).unwrap();
+            let parsed: OperationRisk = serde_json::from_str(&json).unwrap();
+            assert_eq!(risk, parsed);
+        }
+    }
+
+    #[test]
+    fn operation_risk_default_is_safe() {
+        let json = serde_json::to_string(&OperationRisk::default()).unwrap();
+        let parsed: OperationRisk = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, OperationRisk::Safe);
+    }
+
+    #[test]
+    fn checkpoint_state_all_variants_serialize_snake_case() {
+        let pending_json = serde_json::to_string(&CheckpointState::Pending).unwrap();
+        assert_eq!(pending_json, "\"pending\"");
+
+        let committed_json = serde_json::to_string(&CheckpointState::Committed).unwrap();
+        assert_eq!(committed_json, "\"committed\"");
+
+        let needs_restore_json = serde_json::to_string(&CheckpointState::NeedsRestore).unwrap();
+        assert_eq!(needs_restore_json, "\"needs_restore\"");
+    }
+
+    #[test]
+    fn checkpoint_state_all_variants_roundtrip() {
+        for state in [CheckpointState::Pending, CheckpointState::Committed, CheckpointState::NeedsRestore] {
+            let json = serde_json::to_string(&state).unwrap();
+            let parsed: CheckpointState = serde_json::from_str(&json).unwrap();
+            assert_eq!(state, parsed);
+        }
+    }
+
+    #[test]
+    fn checkpoint_state_default_is_pending() {
+        let json = serde_json::to_string(&CheckpointState::default()).unwrap();
+        assert_eq!(json, "\"pending\"");
     }
 }

@@ -5,8 +5,8 @@ use std::collections::HashSet;
 use tracing::debug;
 
 use crate::cleanup::PhaseType;
-use crate::parallel::{DependencyGraph, ParallelExecutor, PhaseGroup};
 use crate::parallel::ParallelError;
+use crate::parallel::{DependencyGraph, ParallelExecutor, PhaseGroup};
 use crate::state::{Pipeline, PipelineState, TransitionError};
 
 use super::executor::PipelineExecutor;
@@ -57,8 +57,7 @@ impl PipelineExecutor {
         }
 
         let phases = &group.phases;
-        let graph = ParallelExecutor::build_dependency_graph(phases)
-            .map_err(PhaseError::from)?;
+        let graph = ParallelExecutor::build_dependency_graph(phases).map_err(PhaseError::from)?;
 
         self.execute_with_dependency_graph(pipeline, graph)
     }
@@ -169,10 +168,7 @@ mod tests {
     /// Helper: create an executor backed by a temp dir.
     fn setup_executor() -> (PipelineExecutor, TempDir) {
         let tmp = TempDir::new().expect("temp dir");
-        let executor = PipelineExecutor::new(
-            tmp.path().to_path_buf(),
-        )
-        .expect("executor");
+        let executor = PipelineExecutor::new(tmp.path().to_path_buf()).expect("executor");
         (executor, tmp)
     }
 
@@ -429,12 +425,15 @@ mod tests {
         use crate::parallel::DependencyGraph;
 
         // Create a graph with a self-loop
-        let graph = DependencyGraph::new()
-            .add_phase(PhaseType::SpecReview, vec![PhaseType::SpecReview]);
+        let graph =
+            DependencyGraph::new().add_phase(PhaseType::SpecReview, vec![PhaseType::SpecReview]);
         let result = graph.validate();
         assert!(result.is_err());
         let err = format!("{:?}", result.unwrap_err());
-        assert!(err.contains("Circular") || err.contains("cycle"), "Expected cycle error, got: {err}");
+        assert!(
+            err.contains("Circular") || err.contains("cycle"),
+            "Expected cycle error, got: {err}"
+        );
     }
 
     #[test]
@@ -443,8 +442,8 @@ mod tests {
         use crate::parallel::DependencyGraph;
 
         // UniverseSetup depends on SpecReview, but SpecReview is not in graph
-        let graph = DependencyGraph::new()
-            .add_phase(PhaseType::UniverseSetup, vec![PhaseType::SpecReview]);
+        let graph =
+            DependencyGraph::new().add_phase(PhaseType::UniverseSetup, vec![PhaseType::SpecReview]);
         let result = graph.validate();
         assert!(result.is_err());
     }
@@ -455,17 +454,11 @@ mod tests {
         use crate::parallel::ParallelExecutor;
 
         // Phases in correct order should validate
-        let phases = vec![
-            PhaseType::SpecReview,
-            PhaseType::UniverseSetup,
-        ];
+        let phases = vec![PhaseType::SpecReview, PhaseType::UniverseSetup];
         assert!(ParallelExecutor::validate_dependency_order(&phases).is_ok());
 
         // Phases in wrong order should fail
-        let phases_reversed = vec![
-            PhaseType::UniverseSetup,
-            PhaseType::SpecReview,
-        ];
+        let phases_reversed = vec![PhaseType::UniverseSetup, PhaseType::SpecReview];
         assert!(ParallelExecutor::validate_dependency_order(&phases_reversed).is_err());
     }
 
@@ -506,6 +499,9 @@ mod tests {
         // Now pipeline is terminal — should error
         let result = executor.execute_parallel_phases(&mut pipeline);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), PhaseError::InvalidStateTransition(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            PhaseError::InvalidStateTransition(_)
+        ));
     }
 }

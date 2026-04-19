@@ -42,11 +42,7 @@ impl ReceiptStore {
             ReceiptError::SerializationError(format!("Failed to serialize receipt: {}", e))
         })?;
         std::fs::write(&path, json).map_err(|e| {
-            ReceiptError::StorageError(format!(
-                "Failed to write receipt {}: {}",
-                path.display(),
-                e
-            ))
+            ReceiptError::StorageError(format!("Failed to write receipt {}: {}", path.display(), e))
         })?;
         Ok(())
     }

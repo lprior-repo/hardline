@@ -144,15 +144,24 @@ mod tests {
     }
     #[test]
     fn output_format_from_str_json() {
-        assert_eq!(IntegrityOutputFormat::from("json"), IntegrityOutputFormat::Json);
+        assert_eq!(
+            IntegrityOutputFormat::from("json"),
+            IntegrityOutputFormat::Json
+        );
     }
     #[test]
     fn output_format_from_str_human() {
-        assert_eq!(IntegrityOutputFormat::from("human"), IntegrityOutputFormat::Human);
+        assert_eq!(
+            IntegrityOutputFormat::from("human"),
+            IntegrityOutputFormat::Human
+        );
     }
     #[test]
     fn output_format_from_str_default_is_human() {
-        assert_eq!(IntegrityOutputFormat::from("anything"), IntegrityOutputFormat::Human);
+        assert_eq!(
+            IntegrityOutputFormat::from("anything"),
+            IntegrityOutputFormat::Human
+        );
     }
 
     // -- IntegrityOptions construction --
@@ -222,7 +231,8 @@ mod tests {
             summary: "Fixed locks".to_string(),
         };
         let json = serde_json::to_string(&response).expect("serialize");
-        let deserialized: RepairResponse = serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: RepairResponse =
+            serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.workspace, "test-ws");
         assert!(deserialized.success);
         assert_eq!(deserialized.summary, "Fixed locks");
@@ -239,7 +249,8 @@ mod tests {
             summary: "Restored".to_string(),
         };
         let json = serde_json::to_string(&response).expect("serialize");
-        let deserialized: RestoreResponse = serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: RestoreResponse =
+            serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.workspace, "ws");
         assert_eq!(deserialized.backup_id, "bk-1");
         assert!(deserialized.success);
@@ -263,7 +274,8 @@ mod tests {
             count: 0,
         };
         let json = serde_json::to_string(&response).expect("serialize");
-        let deserialized: BackupListResponse = serde_json::from_str(&json).expect("deserialize roundtrip");
+        let deserialized: BackupListResponse =
+            serde_json::from_str(&json).expect("deserialize roundtrip");
         assert_eq!(deserialized.count, 0);
     }
 }

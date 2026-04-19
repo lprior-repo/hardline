@@ -138,8 +138,14 @@ mod tests {
             names.contains(&"remove-response"),
             "must include remove-response"
         );
-        assert!(names.contains(&"list-response"), "must include list-response");
-        assert!(names.contains(&"error-response"), "must include error-response");
+        assert!(
+            names.contains(&"list-response"),
+            "must include list-response"
+        );
+        assert!(
+            names.contains(&"error-response"),
+            "must include error-response"
+        );
     }
 
     #[test]
