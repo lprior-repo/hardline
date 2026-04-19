@@ -1018,4 +1018,230 @@ mod tests {
         let result = preview(&opts).unwrap();
         assert!(result.warnings.iter().any(|w| w.contains("--workspace")));
     }
+
+    // ---- Roundtrip Serialization Tests ----
+
+    #[test]
+    fn what_if_result_roundtrip_empty() {
+        let result = WhatIfResult {
+            command: "test".to_string(),
+            args: vec![],
+            steps: vec![],
+            creates: vec![],
+            modifies: vec![],
+            deletes: vec![],
+            side_effects: vec![],
+            reversible: false,
+            undo_command: None,
+            warnings: vec![],
+            prerequisites: vec![],
+        };
+        let json = serde_json::to_string(&result).expect("serialize");
+        let deserialized: WhatIfResult = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(result.command, deserialized.command);
+        assert_eq!(result.reversible, deserialized.reversible);
+        assert!(deserialized.creates.is_empty());
+        assert!(deserialized.modifies.is_empty());
+        assert!(deserialized.deletes.is_empty());
+        assert!(deserialized.warnings.is_empty());
+    }
+
+    #[test]
+    fn what_if_result_with_all_fields() {
+        let result = WhatIfResult {
+            command: "add".to_string(),
+            args: vec!["test-session".to_string()],
+            steps: vec![WhatIfStep {
+                order: 1,
+                description: "Test step".to_string(),
+                action: "Do thing".to_string(),
+                can_fail: true,
+                on_failure: Some("Error".to_string()),
+            }],
+            creates: vec![ResourceChange {
+                resource_type: "workspace".to_string(),
+                resource: ".scp/workspaces/test".to_string(),
+                description: "Creates workspace".to_string(),
+            }],
+            modifies: vec![],
+            deletes: vec![],
+            side_effects: vec!["Changes cwd".to_string()],
+            reversible: true,
+            undo_command: Some("scp workspace remove test".to_string()),
+            warnings: vec!["Warning 1".to_string()],
+            prerequisites: vec![PrerequisiteCheck {
+                check: "valid_name".to_string(),
+                status: PrerequisiteStatus::Met,
+                description: "Name is valid".to_string(),
+            }],
+        };
+        let json = serde_json::to_string(&resu        let json = serde_json::to_string(&result).expect("serialize");
+        let deserialized: WhatIfResult = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(result.command, deserialized.command);
+        assert_eq!(result.steps.len(), deserialized.steps.len());
+        assert_eq!(result.creates.len(), deserialized.creates.len());
+        assert_eq!(result.reversible, deserialized.reversible);
+        assert!(deserialized.undo_command.is_some());
+        assert_eq!(result.prerequisites.len(), deserialized.prerequisites.len());
+    }
+
+    #[test]
+    fn what_if_result_skip_serializing_if_empty() {
+        let result = WhatIfResult {
+            command: "add".to_string(),
+            args: vec![],
+            steps: vec![],
+            creates: vec![],
+            modifies: vec![],
+            deletes: vec![],
+            side_effects: vec![],
+            reversible: false,
+            undo_command: None,
+            warnings: vec![],
+            prerequisites: vec![],
+        };
+        let json = serde_json::to_string(&result).expect("serialize");
+        assert!(!json.contains("\"creates\""));
+        assert!(!json.contains("\"warnings\""));
+        assert!(!json.contains("\"undo_command\""));
+        assert!(!json.contains("\"side_effects\""));
+    }
+
+    #[test]
+    fn what_if_step_roundtrip() {
+        let step = WhatIfStep {
+            order: 5,
+            description: "Complex step".to_string(),
+            action: "do complex thing".to_string(),
+            can_fail: false,
+            on_failure: None,
+        };
+        let json = serde_json::to_string(&step).expect("serialize");
+        let deserialized: WhatIfStep = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(step.order, deserialized.order);
+        assert_eq!(step.description, deserialized.description);
+        assert_eq!(step.action, deserialized.action);
+        assert_eq!(step.can_fail, deserialized.can_fail);
+        assert!(deserialized.on_failure.is_none());
+    }
+
+    #[test]
+    fn what_if_step_with_on_failure_roundtrip() {
+        let step = WhatIfStep {
+            order: 1,
+            description: "Risky step".to_string(),
+            action: "do risky thing".to_string(),
+            can_fail: true,
+            on_failure: Some("Rollback changes".to_string()),
+        };
+        let json = serde_json::to_string(&step).expect("serialize");
+        let deserialized: WhatIfStep = serde_json::from_str(&json).expect("deserialize");
+        assert!(deserialized.on_failure.is_some());
+        assert_eq!(deserialized.on_failure.unwrap(), "Rollback changes");
+    }
+
+    #[test]
+    fn what_if_step_on_failure_omitted_when_none() {
+        let step = WhatIfStep {
+            order: 1,
+            description: "Safe step".to_string(),
+            action: "do safe thing".to_string(),
+            can_fail: false,
+            on_failure: None,
+        };
+        let json = serde_json::to_string(&step).expect("serialize");
+        assert!(!json.contains("on_failure"));
+    }
+
+    #[test]
+    fn resource_change_roundtrip() {
+        let change = ResourceChange {
+            resource_type: "session".to_string(),
+            resource: "session:test".to_string(),
+            description: "Agent session".to_string(),
+        };
+        let json = serde_json::to_string(&change).expect("serialize");
+        let deserialized: ResourceChange = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(change.resource_type, deserialized.resource_type);
+        assert_eq!(change.resource, deserialized.resource);
+        assert_eq!(change.description, deserialized.description);
+    }
+
+    #[test]
+    fn prerequisite_check_roundtrip() {
+        let check = PrerequisiteCheck {
+            check: "git_installed".to_string(),
+            status: PrerequisiteStatus::Met,
+            description: "Git is installed".to_string(),
+        };
+        let json = serde_json::to_string(&check).expect("serialize");
+        let deserialized: PrerequisiteCheck = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(check.check, deserialized.check);
+        assert_eq!(check.status, deserialized.status);
+        assert_eq!(check.description, deserialized.description);
+    }
+
+    #[test]
+    fn prerequisite_status_lowercase_rename() {
+        let status = PrerequisiteStatus::Met;
+        let json = serde_json::to_string(&status).expect("serialize");
+        assert_eq!(json, "\"met\"");
+        let status = PrerequisiteStatus::NotMet;
+        let json = serde_json::to_string(&status).expect("serialize");
+        assert_eq!(json, "\"notmet\"");
+        let status = PrerequisiteStatus::Unknown;
+        let json = serde_json::to_string(&status).expect("serialize");
+        assert_eq!(json, "\"unknown\"");
+    }
+
+    #[test]
+    fn prerequisite_status_roundtrip_all_variants() {
+        for status in [
+            PrerequisiteStatus::Met,
+            PrerequisiteStatus::NotMet,
+            PrerequisiteStatus::Unknown,
+        ] {
+            let json = serde_json::to_string(&status).expect("serialize");
+            let deserialized: PrerequisiteStatus = serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(status, deserialized);
+        }
+    }
+
+    #[test]
+    fn what_if_result_unknown_fields_ignored() {
+        let json = r#"{
+            "command": "test",
+            "args": [],
+            "steps": [],
+            "creates": [],
+            "modifies": [],
+            "deletes": [],
+            "side_effects": [],
+            "reversible": false,
+            "undo_command": null,
+            "warnings": [],
+            "prerequisites": [],
+            "extra_field": "should be ignored",
+            "another_extra": 123
+        }"#;
+        let result: Result<WhatIfResult, _> = serde_json::from_str(json);
+        assert!(result.is_ok(), "Should deserialize despite unknown fields");
+    }
+
+    #[test]
+    fn what_if_result_missing_optional_fields_deserializes() {
+        let json = r#"{
+            "command": "add",
+            "args": [],
+            "steps": [],
+            "creates": [],
+            "modifies": [],
+            "deletes": [],
+            "side_effects": [],
+            "reversible": true,
+            "undo_command": null
+        }"#;
+        let result: Result<WhatIfResult, _> = serde_json::from_str(json);
+        assert!(result.is_ok(), "Should deserialize despite missing warnings and prerequisites");
+    }
 }
