@@ -1,0 +1,6 @@
+---
+source: crates/queue/tests/snapshot_tests.rs
+assertion_line: 71
+expression: json
+---
+{"id":"qe-jkl012","session":"feature-auth","priority":3,"enqueued_at":"2024-01-15T10:30:00Z","status":"testing","bead_id":null,"updated_at":"2024-01-15T10:30:00Z","retry_count":0,"error_message":null}

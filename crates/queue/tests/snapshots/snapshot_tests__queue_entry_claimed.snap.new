@@ -1,0 +1,6 @@
+---
+source: crates/queue/tests/snapshot_tests.rs
+assertion_line: 43
+expression: json
+---
+{"id":"qe-def456","session":"bugfix-issue","priority":2,"enqueued_at":"2024-01-15T10:30:00Z","status":"claimed","bead_id":null,"updated_at":"2024-01-15T10:30:00Z","retry_count":0,"error_message":null}
