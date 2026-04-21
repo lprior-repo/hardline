@@ -1202,7 +1202,8 @@ mod tests {
             PrerequisiteStatus::Unknown,
         ] {
             let json = serde_json::to_string(&status).expect("serialize");
-            let deserialized: PrerequisiteStatus = serde_json::from_str(&json).expect("deserialize");
+            let deserialized: PrerequisiteStatus =
+                serde_json::from_str(&json).expect("deserialize");
             assert_eq!(status, deserialized);
         }
     }
@@ -1241,7 +1242,10 @@ mod tests {
             "reversible": true,
             "undo_command": null
         }"#;
-        let result: std::result::Result<WhatIfResult, _> = serde_json::from_str(json);
-        assert!(result.is_ok(), "Should deserialize despite missing warnings and prerequisites");
+        let result: Result<WhatIfResult, _> = serde_json::from_str(json);
+        assert!(
+            result.is_ok(),
+            "Should deserialize despite missing warnings and prerequisites"
+        );
     }
 }
