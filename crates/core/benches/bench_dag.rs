@@ -138,7 +138,7 @@ fn bench_dag_topological_sort(c: &mut Criterion) {
                 dag.add_branch(black_box(id), black_box(parents)).ok();
             }
 
-            black_box(dag.topological_order()).ok();
+            black_box(dag.topological_sort()).ok();
         });
     });
 }

@@ -1242,7 +1242,7 @@ mod tests {
             "reversible": true,
             "undo_command": null
         }"#;
-        let result: Result<WhatIfResult, _> = serde_json::from_str(json);
+        let result: std::result::Result<WhatIfResult, _> = serde_json::from_str(json);
         assert!(
             result.is_ok(),
             "Should deserialize despite missing warnings and prerequisites"

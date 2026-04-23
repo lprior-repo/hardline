@@ -194,12 +194,15 @@ pub fn determine_next_action(
             reason: "SCP is not initialized in this repository".to_string(),
             priority: Priority::High,
         },
-        _ if let Some(ws) = workspace => NextActionOutput {
-            action: format!("Continue work in '{ws}'"),
-            command: "scp context --json".to_string(),
-            reason: format!("Currently in workspace '{ws}' - check context or complete work"),
-            priority: Priority::Medium,
-        },
+        _ if workspace.is_some() => {
+            let ws = workspace.unwrap_or("unknown");
+            NextActionOutput {
+                action: format!("Continue work in '{ws}'"),
+                command: "scp context --json".to_string(),
+                reason: format!("Currently in workspace '{ws}' - check context or complete work"),
+                priority: Priority::Medium,
+            }
+        }
         _ if active_sessions > 0 => NextActionOutput {
             action: "Check existing sessions".to_string(),
             command: "scp list --json".to_string(),

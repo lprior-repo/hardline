@@ -4,12 +4,13 @@ use scp_core::types::{SessionId, SessionName};
 fn bench_session_name_parse(c: &mut Criterion) {
     let mut group = c.benchmark_group("session_name_parse");
 
+    let long_name = "a".repeat(64);
     let valid_names = [
         "feature-branch",
         "session-123",
         "my_awesome_feature",
         "a",
-        "a".repeat(64).as_str(),
+        long_name.as_str(),
     ];
 
     for name in valid_names.iter() {
@@ -22,18 +23,19 @@ fn bench_session_name_parse(c: &mut Criterion) {
 }
 
 fn bench_session_name_invalid(c: &mut Criterion) {
+    let long_name = "a".repeat(65);
     let invalid_names = [
         "",
         "123-start-with-number",
         "has@invalid#chars!",
         "a b c",
-        "a".repeat(65).as_str(),
+        long_name.as_str(),
     ];
 
     c.bench_function("session_name_invalid", |b| {
         b.iter(|| {
             for name in invalid_names.iter() {
-                black_box(SessionName::parse(name)).ok();
+                black_box(SessionName::parse(*name)).ok();
             }
         });
     });
@@ -45,7 +47,7 @@ fn bench_session_id_parse(c: &mut Criterion) {
     c.bench_function("session_id_parse", |b| {
         b.iter(|| {
             for id in valid_ids.iter() {
-                black_box(SessionId::parse(id)).ok();
+                black_box(SessionId::parse(*id)).ok();
             }
         });
     });
@@ -57,7 +59,7 @@ fn bench_session_id_invalid(c: &mut Criterion) {
     c.bench_function("session_id_invalid", |b| {
         b.iter(|| {
             for id in invalid_ids.iter() {
-                black_box(SessionId::parse(id)).ok();
+                black_box(SessionId::parse(*id)).ok();
             }
         });
     });

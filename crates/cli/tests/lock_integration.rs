@@ -1,5 +1,4 @@
 use assert_cmd::Command;
-use std::env;
 use tempfile::NamedTempFile;
 
 fn scp_cmd(db_path: &str) -> Command {
