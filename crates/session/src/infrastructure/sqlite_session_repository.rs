@@ -100,6 +100,7 @@ fn parse_session_state(s: &str) -> Result<SessionState> {
     match s {
         "Created" => Ok(SessionState::Created),
         "Active" => Ok(SessionState::Active),
+        "CommittingEffect" => Ok(SessionState::CommittingEffect),
         "Syncing" => Ok(SessionState::Syncing),
         "Synced" => Ok(SessionState::Synced),
         "Paused" => Ok(SessionState::Paused),

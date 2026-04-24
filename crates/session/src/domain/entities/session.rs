@@ -20,6 +20,7 @@ use crate::error::SessionError;
 pub enum SessionState {
     Created,
     Active,
+    CommittingEffect,
     Syncing,
     Synced,
     Paused,
@@ -120,6 +121,7 @@ impl std::fmt::Display for SessionId {
 
 pub struct Created;
 pub struct Active;
+pub struct CommittingEffect;
 pub struct Syncing;
 pub struct Synced;
 pub struct Paused;
@@ -139,6 +141,11 @@ impl StateInfo for Created {
 impl StateInfo for Active {
     fn state() -> SessionState {
         SessionState::Active
+    }
+}
+impl StateInfo for CommittingEffect {
+    fn state() -> SessionState {
+        SessionState::CommittingEffect
     }
 }
 impl StateInfo for Syncing {
@@ -170,6 +177,7 @@ impl StateInfo for Failed {
 /// Typestate marker trait for active states (where `is_active` returns true)
 pub trait SealedActive {}
 impl SealedActive for Active {}
+impl SealedActive for CommittingEffect {}
 impl SealedActive for Syncing {}
 impl SealedActive for Synced {}
 
@@ -315,6 +323,10 @@ impl<S: StateInfo> Session<S> {
 }
 
 impl Session<Active> {
+    pub fn begin_commit_effect(self) -> Result<Session<CommittingEffect>, SessionError> {
+        self.transition_impl()
+    }
+
     pub fn sync(self) -> Result<Session<Syncing>, SessionError> {
         self.transition_impl()
     }
@@ -324,6 +336,20 @@ impl Session<Active> {
     }
 
     pub fn complete(self) -> Result<Session<Completed>, SessionError> {
+        self.transition_impl()
+    }
+
+    pub fn fail(self) -> Result<Session<Failed>, SessionError> {
+        self.transition_impl()
+    }
+}
+
+impl Session<CommittingEffect> {
+    pub fn commit_complete(self) -> Result<Session<Active>, SessionError> {
+        self.transition_impl()
+    }
+
+    pub fn sync(self) -> Result<Session<Syncing>, SessionError> {
         self.transition_impl()
     }
 
@@ -563,6 +589,11 @@ mod tests {
         }
 
         #[test]
+        fn session_state_is_not_terminal_committing_effect() {
+            assert!(!SessionState::CommittingEffect.is_terminal());
+        }
+
+        #[test]
         fn session_state_is_not_terminal_syncing() {
             assert!(!SessionState::Syncing.is_terminal());
         }
@@ -582,6 +613,7 @@ mod tests {
             let states = [
                 SessionState::Created,
                 SessionState::Active,
+                SessionState::CommittingEffect,
                 SessionState::Syncing,
                 SessionState::Synced,
                 SessionState::Paused,
@@ -818,6 +850,78 @@ mod tests {
             let completed = active.complete().expect("complete");
             assert_eq!(completed.state(), SessionState::Completed);
             assert!(completed.state().is_terminal());
+        }
+
+        #[test]
+        fn session_committing_effect_from_active() {
+            let name = SessionName::parse("test").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            let active = session.activate().expect("activate");
+            let committing = active.begin_commit_effect().expect("begin_commit_effect");
+            assert_eq!(committing.state(), SessionState::CommittingEffect);
+        }
+
+        #[test]
+        fn session_committing_effect_is_active() {
+            let name = SessionName::parse("test").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            let active = session.activate().expect("activate");
+            let committing = active.begin_commit_effect().expect("begin_commit_effect");
+            assert!(committing.is_active());
+        }
+
+        #[test]
+        fn session_committing_effect_commit_complete_returns_active() {
+            let name = SessionName::parse("test").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            let active = session.activate().expect("activate");
+            let committing = active.begin_commit_effect().expect("begin_commit_effect");
+            let back_to_active = committing.commit_complete().expect("commit_complete");
+            assert_eq!(back_to_active.state(), SessionState::Active);
+        }
+
+        #[test]
+        fn session_committing_effect_can_sync() {
+            let name = SessionName::parse("test").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            let active = session.activate().expect("activate");
+            let committing = active.begin_commit_effect().expect("begin_commit_effect");
+            let syncing = committing.sync().expect("sync");
+            assert_eq!(syncing.state(), SessionState::Syncing);
+        }
+
+        #[test]
+        fn session_committing_effect_can_fail() {
+            let name = SessionName::parse("test").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            let active = session.activate().expect("activate");
+            let committing = active.begin_commit_effect().expect("begin_commit_effect");
+            let failed = committing.fail().expect("fail");
+            assert_eq!(failed.state(), SessionState::Failed);
+            assert!(failed.state().is_terminal());
+        }
+
+        #[test]
+        fn session_committing_effect_full_cycle() {
+            let name = SessionName::parse("test").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            let active = session.activate().expect("activate");
+            let committing = active.begin_commit_effect().expect("begin_commit_effect");
+            let back = committing.commit_complete().expect("commit_complete");
+            let completed = back.complete().expect("complete");
+            assert_eq!(completed.state(), SessionState::Completed);
+        }
+
+        #[test]
+        fn session_committing_effect_preserves_identity() {
+            let name = SessionName::parse("test").expect("valid");
+            let session = Session::<Created>::create(name).expect("created");
+            let original_id = session.id.as_str().to_string();
+            let active = session.activate().expect("activate");
+            let committing = active.begin_commit_effect().expect("begin_commit_effect");
+            assert_eq!(committing.id.as_str(), original_id);
+            let back = committing.commit_complete().expect("commit_complete");
+            assert_eq!(back.id.as_str(), original_id);
         }
 
         #[test]
@@ -1060,6 +1164,7 @@ mod tests {
         fn session_state_info_trait_provides_correct_state_for_all_markers() {
             assert_eq!(Created::state(), SessionState::Created);
             assert_eq!(Active::state(), SessionState::Active);
+            assert_eq!(CommittingEffect::state(), SessionState::CommittingEffect);
             assert_eq!(Syncing::state(), SessionState::Syncing);
             assert_eq!(Synced::state(), SessionState::Synced);
             assert_eq!(Paused::state(), SessionState::Paused);
@@ -1565,6 +1670,7 @@ mod tests {
                 let states = [
                     SessionState::Created,
                     SessionState::Active,
+                    SessionState::CommittingEffect,
                     SessionState::Syncing,
                     SessionState::Synced,
                     SessionState::Paused,
@@ -1579,10 +1685,11 @@ mod tests {
 
             /// SessionState serde roundtrip for all variants
             #[test]
-            fn prop_session_state_serde_roundtrip(state_idx in 0u8..7u8) {
+            fn prop_session_state_serde_roundtrip(state_idx in 0u8..8u8) {
                 let states = [
                     SessionState::Created,
                     SessionState::Active,
+                    SessionState::CommittingEffect,
                     SessionState::Syncing,
                     SessionState::Synced,
                     SessionState::Paused,

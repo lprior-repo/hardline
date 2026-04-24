@@ -9,7 +9,8 @@ fn given_created_state_when_check_transitions_then_active_and_failed_valid() {
 }
 
 #[test]
-fn given_active_state_when_check_transitions_then_three_options() {
+fn given_active_state_when_check_transitions_then_four_options() {
+    assert!(SessionState::Active.can_transition_to(SessionState::CommittingEffect));
     assert!(SessionState::Active.can_transition_to(SessionState::Syncing));
     assert!(SessionState::Active.can_transition_to(SessionState::Paused));
     assert!(SessionState::Active.can_transition_to(SessionState::Completed));
@@ -65,9 +66,10 @@ fn given_created_state_when_get_valid_states_then_returns_list() {
 }
 
 #[test]
-fn given_active_state_when_get_valid_states_then_returns_three() {
+fn given_active_state_when_get_valid_states_then_returns_four() {
     let states = SessionState::Active.valid_next_states();
-    assert_eq!(states.len(), 3);
+    assert_eq!(states.len(), 4);
+    assert!(states.contains(&SessionState::CommittingEffect));
     assert!(states.contains(&SessionState::Syncing));
     assert!(states.contains(&SessionState::Paused));
     assert!(states.contains(&SessionState::Completed));
@@ -109,13 +111,14 @@ fn given_paused_state_when_check_is_terminal_then_false() {
 }
 
 #[test]
-fn given_all_states_when_called_then_returns_seven_states() {
+fn given_all_states_when_called_then_returns_eight_states() {
     let states = SessionState::all_states();
-    assert_eq!(states.len(), 7);
+    assert_eq!(states.len(), 8);
 
     let state_values = [
         SessionState::Created,
         SessionState::Active,
+        SessionState::CommittingEffect,
         SessionState::Syncing,
         SessionState::Synced,
         SessionState::Paused,
@@ -180,6 +183,35 @@ fn given_state_when_debug_format_then_no_panic() {
     let state = SessionState::Synced;
     let debug_str = format!("{:?}", state);
     assert!(!debug_str.is_empty());
+}
+
+#[test]
+fn given_committing_effect_state_when_check_transitions_then_three_options() {
+    assert!(SessionState::CommittingEffect.can_transition_to(SessionState::Active));
+    assert!(SessionState::CommittingEffect.can_transition_to(SessionState::Syncing));
+    assert!(SessionState::CommittingEffect.can_transition_to(SessionState::Failed));
+    assert!(!SessionState::CommittingEffect.can_transition_to(SessionState::Created));
+    assert!(!SessionState::CommittingEffect.can_transition_to(SessionState::Paused));
+    assert!(!SessionState::CommittingEffect.can_transition_to(SessionState::Completed));
+}
+
+#[test]
+fn given_committing_effect_state_when_check_is_terminal_then_false() {
+    assert!(!SessionState::CommittingEffect.is_terminal());
+}
+
+#[test]
+fn given_active_state_when_transition_to_committing_effect_then_valid() {
+    assert!(SessionState::Active.can_transition_to(SessionState::CommittingEffect));
+}
+
+#[test]
+fn given_committing_effect_when_get_valid_states_then_returns_three() {
+    let states = SessionState::CommittingEffect.valid_next_states();
+    assert_eq!(states.len(), 3);
+    assert!(states.contains(&SessionState::Active));
+    assert!(states.contains(&SessionState::Syncing));
+    assert!(states.contains(&SessionState::Failed));
 }
 
 #[test]

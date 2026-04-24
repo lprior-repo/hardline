@@ -255,9 +255,13 @@ fn rq_session_state_exhaustive_transition_matrix() {
 
     assert!(SessionState::Created.can_transition_to(SessionState::Active));
     assert!(SessionState::Created.can_transition_to(SessionState::Failed));
+    assert!(SessionState::Active.can_transition_to(SessionState::CommittingEffect));
     assert!(SessionState::Active.can_transition_to(SessionState::Syncing));
     assert!(SessionState::Active.can_transition_to(SessionState::Paused));
     assert!(SessionState::Active.can_transition_to(SessionState::Completed));
+    assert!(SessionState::CommittingEffect.can_transition_to(SessionState::Active));
+    assert!(SessionState::CommittingEffect.can_transition_to(SessionState::Syncing));
+    assert!(SessionState::CommittingEffect.can_transition_to(SessionState::Failed));
     assert!(SessionState::Syncing.can_transition_to(SessionState::Synced));
     assert!(SessionState::Syncing.can_transition_to(SessionState::Failed));
     assert!(SessionState::Synced.can_transition_to(SessionState::Active));
