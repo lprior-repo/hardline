@@ -917,6 +917,7 @@ fn rq_queue_status_serde_roundtrip_all_variants() {
     for status in [
         QueueStatus::Pending,
         QueueStatus::Processing,
+        QueueStatus::Retrying,
         QueueStatus::Completed,
         QueueStatus::Failed,
         QueueStatus::Cancelled,

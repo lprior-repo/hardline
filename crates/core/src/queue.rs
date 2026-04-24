@@ -21,18 +21,54 @@ pub enum Priority {
 }
 
 /// Status of a queue item
+///
+/// Hierarchical superstates:
+/// - **Active**: Pending, Processing, Retrying — item is still being worked on
+/// - **Terminal**: Completed, Failed, Cancelled — item has reached a final state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum QueueStatus {
     /// Item is waiting in queue
     Pending,
     /// Item is being processed
     Processing,
+    /// Item is being retried after a transient failure
+    Retrying,
     /// Item completed successfully
     Completed,
     /// Item failed processing
     Failed,
     /// Item was cancelled
     Cancelled,
+}
+
+/// Superstate grouping for QueueStatus variants
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QueueSuperstate {
+    /// Active statuses: item is still being worked on
+    Active,
+    /// Terminal statuses: item has reached a final state
+    Terminal,
+}
+
+impl QueueStatus {
+    /// Returns true if this status is in the Active superstate
+    pub fn is_active(&self) -> bool {
+        matches!(self, QueueStatus::Pending | QueueStatus::Processing | QueueStatus::Retrying)
+    }
+
+    /// Returns true if this status is in the Terminal superstate
+    pub fn is_terminal(&self) -> bool {
+        matches!(self, QueueStatus::Completed | QueueStatus::Failed | QueueStatus::Cancelled)
+    }
+
+    /// Returns the superstate this status belongs to
+    pub fn superstate(&self) -> QueueSuperstate {
+        if self.is_active() {
+            QueueSuperstate::Active
+        } else {
+            QueueSuperstate::Terminal
+        }
+    }
 }
 
 /// Source of queue item
@@ -287,11 +323,7 @@ impl QueueManager for MemQueue {
             crate::error::Error::invalid_state(format!("Failed to acquire write lock: {}", e))
         })?;
         let len_before = items.len();
-        items.retain(|i| {
-            i.status != QueueStatus::Completed
-                && i.status != QueueStatus::Failed
-                && i.status != QueueStatus::Cancelled
-        });
+        items.retain(|i| !i.status.is_terminal());
         Ok(len_before - items.len())
     }
 
@@ -451,17 +483,18 @@ mod tests {
     // QueueStatus exhaustive tests (ha-opg)
     // ═══════════════════════════════════════════════════════════════════════
 
-    const ALL_STATUSES: [QueueStatus; 5] = [
+    const ALL_STATUSES: [QueueStatus; 6] = [
         QueueStatus::Pending,
         QueueStatus::Processing,
+        QueueStatus::Retrying,
         QueueStatus::Completed,
         QueueStatus::Failed,
         QueueStatus::Cancelled,
     ];
 
     #[test]
-    fn test_queue_status_has_five_variants() {
-        assert_eq!(ALL_STATUSES.len(), 5);
+    fn test_queue_status_has_six_variants() {
+        assert_eq!(ALL_STATUSES.len(), 6);
     }
 
     #[test]
@@ -482,6 +515,7 @@ mod tests {
     fn test_queue_status_debug_format_all_variants() {
         assert!(format!("{:?}", QueueStatus::Pending).contains("Pending"));
         assert!(format!("{:?}", QueueStatus::Processing).contains("Processing"));
+        assert!(format!("{:?}", QueueStatus::Retrying).contains("Retrying"));
         assert!(format!("{:?}", QueueStatus::Completed).contains("Completed"));
         assert!(format!("{:?}", QueueStatus::Failed).contains("Failed"));
         assert!(format!("{:?}", QueueStatus::Cancelled).contains("Cancelled"));
@@ -512,6 +546,7 @@ mod tests {
             let label = match status {
                 QueueStatus::Pending => "pending",
                 QueueStatus::Processing => "processing",
+                QueueStatus::Retrying => "retrying",
                 QueueStatus::Completed => "completed",
                 QueueStatus::Failed => "failed",
                 QueueStatus::Cancelled => "cancelled",
@@ -528,6 +563,60 @@ mod tests {
             let roundtrip: QueueStatus = serde_json::from_str(&json)
                 .unwrap_or_else(|e| panic!("Deserialize failed for {:?}: {}", status, e));
             assert_eq!(status, roundtrip, "Roundtrip failed for {:?}", status);
+        }
+    }
+
+    #[test]
+    fn test_queue_status_superstate_active_variants() {
+        for status in [QueueStatus::Pending, QueueStatus::Processing, QueueStatus::Retrying] {
+            assert!(
+                status.is_active(),
+                "{:?} should be active",
+                status
+            );
+            assert_eq!(
+                status.superstate(),
+                QueueSuperstate::Active,
+                "{:?} should belong to Active superstate",
+                status
+            );
+        }
+    }
+
+    #[test]
+    fn test_queue_status_superstate_terminal_variants() {
+        for status in [QueueStatus::Completed, QueueStatus::Failed, QueueStatus::Cancelled] {
+            assert!(
+                status.is_terminal(),
+                "{:?} should be terminal",
+                status
+            );
+            assert_eq!(
+                status.superstate(),
+                QueueSuperstate::Terminal,
+                "{:?} should belong to Terminal superstate",
+                status
+            );
+        }
+    }
+
+    #[test]
+    fn test_queue_status_active_vs_terminal_mutually_exclusive() {
+        for status in ALL_STATUSES {
+            let active = status.is_active();
+            let terminal = status.is_terminal();
+            assert_ne!(active, terminal, "{:?} cannot be both active and terminal", status);
+        }
+    }
+
+    #[test]
+    fn test_queue_status_all_variants_covered_by_superstate() {
+        for status in ALL_STATUSES {
+            assert!(
+                status.is_active() || status.is_terminal(),
+                "{:?} must be either active or terminal",
+                status
+            );
         }
     }
 
@@ -577,6 +666,10 @@ mod tests {
         let mut processing = QueueItem::direct("processing-item");
         processing.status = QueueStatus::Processing;
         queue.enqueue(processing)?;
+
+        let mut retrying = QueueItem::direct("retrying-item");
+        retrying.status = QueueStatus::Retrying;
+        queue.enqueue(retrying)?;
 
         let mut completed = QueueItem::direct("completed-item");
         completed.status = QueueStatus::Completed;
@@ -1284,6 +1377,10 @@ mod tests {
         let pending = QueueItem::direct("still-pending");
         queue.enqueue(pending)?;
 
+        let mut retrying = QueueItem::direct("retrying");
+        retrying.status = QueueStatus::Retrying;
+        queue.enqueue(retrying)?;
+
         let mut completed = QueueItem::direct("done");
         completed.status = QueueStatus::Completed;
         queue.enqueue(completed)?;
@@ -1298,10 +1395,12 @@ mod tests {
 
         let removed = queue.clear_completed()?;
         assert_eq!(removed, 3);
-        assert_eq!(queue.len()?, 1);
+        assert_eq!(queue.len()?, 2);
 
         let remaining = queue.list()?;
-        assert_eq!(remaining[0].branch, "still-pending");
+        let branches: Vec<&str> = remaining.iter().map(|i| i.branch.as_str()).collect();
+        assert!(branches.contains(&"still-pending"));
+        assert!(branches.contains(&"retrying"));
 
         Ok(())
     }
@@ -1442,6 +1541,7 @@ mod tests {
             let mut item = QueueItem::direct("branch-1");
             item.complete();
             assert_eq!(item.status, QueueStatus::Completed);
+            assert!(item.status.is_terminal());
 
             // State machine allows re-processing of completed item
             item.start_processing();
@@ -1459,6 +1559,7 @@ mod tests {
             let mut item = QueueItem::direct("branch-2");
             item.fail("disk full");
             assert_eq!(item.status, QueueStatus::Failed);
+            assert!(item.status.is_terminal());
 
             item.complete();
             assert_eq!(
@@ -1474,6 +1575,7 @@ mod tests {
             let mut item = QueueItem::direct("branch-3");
             item.complete();
             assert_eq!(item.status, QueueStatus::Completed);
+            assert!(item.status.is_terminal());
 
             item.fail("post-hoc failure");
             assert_eq!(item.status, QueueStatus::Failed);
@@ -1554,6 +1656,88 @@ mod tests {
 
             item.fail("second error");
             assert_eq!(item.last_error, Some("second error".to_string()));
+        }
+
+        // --- DIM-3: Hierarchical Superstate Enforcement ---
+
+        /// CRITICAL: All 6 QueueStatus variants map to exactly one superstate.
+        #[test]
+        fn all_variants_map_to_single_superstate() {
+            for status in [
+                QueueStatus::Pending,
+                QueueStatus::Processing,
+                QueueStatus::Retrying,
+                QueueStatus::Completed,
+                QueueStatus::Failed,
+                QueueStatus::Cancelled,
+            ] {
+                match status.superstate() {
+                    QueueSuperstate::Active => assert!(status.is_active()),
+                    QueueSuperstate::Terminal => assert!(status.is_terminal()),
+                }
+            }
+        }
+
+        /// CRITICAL: Pending, Processing, Retrying are all Active superstate members.
+        #[test]
+        fn active_variants_are_not_terminal() {
+            for status in [QueueStatus::Pending, QueueStatus::Processing, QueueStatus::Retrying] {
+                assert!(status.is_active(), "{status:?} should be active");
+                assert!(!status.is_terminal(), "{status:?} should NOT be terminal");
+                assert_eq!(status.superstate(), QueueSuperstate::Active);
+            }
+        }
+
+        /// CRITICAL: Completed, Failed, Cancelled are all Terminal superstate members.
+        #[test]
+        fn terminal_variants_are_not_active() {
+            for status in [QueueStatus::Completed, QueueStatus::Failed, QueueStatus::Cancelled] {
+                assert!(!status.is_active(), "{status:?} should NOT be active");
+                assert!(status.is_terminal(), "{status:?} should be terminal");
+                assert_eq!(status.superstate(), QueueSuperstate::Terminal);
+            }
+        }
+
+        /// MAJOR: clear_completed only removes Terminal items, keeps Active items.
+        #[test]
+        fn clear_completed_preserves_active_variants() -> Result<()> {
+            let queue = make_queue();
+
+            let mut pending = QueueItem::direct("pending");
+            pending.status = QueueStatus::Pending;
+            queue.enqueue(pending)?;
+
+            let mut processing = QueueItem::direct("processing");
+            processing.status = QueueStatus::Processing;
+            queue.enqueue(processing)?;
+
+            let mut retrying = QueueItem::direct("retrying");
+            retrying.status = QueueStatus::Retrying;
+            queue.enqueue(retrying)?;
+
+            let mut completed = QueueItem::direct("completed");
+            completed.status = QueueStatus::Completed;
+            queue.enqueue(completed)?;
+
+            let mut failed = QueueItem::direct("failed");
+            failed.status = QueueStatus::Failed;
+            queue.enqueue(failed)?;
+
+            let mut cancelled = QueueItem::direct("cancelled");
+            cancelled.status = QueueStatus::Cancelled;
+            queue.enqueue(cancelled)?;
+
+            let removed = queue.clear_completed()?;
+            assert_eq!(removed, 3);
+            assert_eq!(queue.len()?, 3);
+
+            let remaining = queue.list()?;
+            let statuses: Vec<_> = remaining.iter().map(|i| i.status).collect();
+            assert!(statuses.contains(&QueueStatus::Pending));
+            assert!(statuses.contains(&QueueStatus::Processing));
+            assert!(statuses.contains(&QueueStatus::Retrying));
+
+            Ok(())
         }
 
         // --- DIM-5: Queue Priority Edge Cases ---

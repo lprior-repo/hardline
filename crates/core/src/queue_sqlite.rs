@@ -84,6 +84,7 @@ fn status_to_string(s: QueueStatus) -> &'static str {
     match s {
         QueueStatus::Pending => "Pending",
         QueueStatus::Processing => "Processing",
+        QueueStatus::Retrying => "Retrying",
         QueueStatus::Completed => "Completed",
         QueueStatus::Failed => "Failed",
         QueueStatus::Cancelled => "Cancelled",
@@ -93,6 +94,7 @@ fn status_to_string(s: QueueStatus) -> &'static str {
 fn string_to_status(s: &str) -> QueueStatus {
     match s {
         "Processing" => QueueStatus::Processing,
+        "Retrying" => QueueStatus::Retrying,
         "Completed" => QueueStatus::Completed,
         "Failed" => QueueStatus::Failed,
         "Cancelled" => QueueStatus::Cancelled,
