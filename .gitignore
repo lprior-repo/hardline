@@ -16,6 +16,18 @@ worktrees/
 # CI History cache
 .ci_history/
 .moon/cache/
+.moon/
 
-# Beads / Dolt files (added by bd init)
-.beads-credential-key
+# Report artifacts
+*-report-*.md
+*-report.md
+drift-report-*.md
+qa-report-*.md
+blackhat-report-*.md
+kani-report-*.md
+red-queen-report-*.md
+
+# Coverage/profiling artifacts
+*.profraw
+*.profdata
+*.prof

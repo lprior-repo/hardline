@@ -6,6 +6,7 @@ use super::value_objects::SessionName;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SessionEvent {
     Activated,
+    CommittingEffect,
     Syncing,
     Synced,
     Paused,
@@ -17,6 +18,7 @@ impl SessionEvent {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Activated => "activated",
+            Self::CommittingEffect => "committing_effect",
             Self::Syncing => "syncing",
             Self::Synced => "synced",
             Self::Paused => "paused",
@@ -115,24 +117,26 @@ mod tests {
 
     #[test]
     fn session_event_all_variants_serialize_and_deserialize() {
-        let events = [
-            SessionEvent::Activated,
-            SessionEvent::Syncing,
-            SessionEvent::Synced,
-            SessionEvent::Paused,
-            SessionEvent::Completed,
-            SessionEvent::Failed,
-        ];
-        for event in &events {
-            let json = serialize_event(event).expect("serialize");
-            let parsed = deserialize_event(&json).expect("deserialize");
-            assert_eq!(event, &parsed);
-        }
+            let events = [
+                SessionEvent::Activated,
+                SessionEvent::CommittingEffect,
+                SessionEvent::Syncing,
+                SessionEvent::Synced,
+                SessionEvent::Paused,
+                SessionEvent::Completed,
+                SessionEvent::Failed,
+            ];
+            for event in &events {
+                let json = serialize_event(event).expect("serialize");
+                let parsed = deserialize_event(&json).expect("deserialize");
+                assert_eq!(event, &parsed);
+            }
     }
 
     #[test]
     fn session_event_as_str() {
         assert_eq!(SessionEvent::Activated.as_str(), "activated");
+        assert_eq!(SessionEvent::CommittingEffect.as_str(), "committing_effect");
         assert_eq!(SessionEvent::Syncing.as_str(), "syncing");
         assert_eq!(SessionEvent::Synced.as_str(), "synced");
         assert_eq!(SessionEvent::Paused.as_str(), "paused");
@@ -144,6 +148,7 @@ mod tests {
     fn session_event_serde_roundtrip_all_variants() {
         let events = [
             SessionEvent::Activated,
+            SessionEvent::CommittingEffect,
             SessionEvent::Syncing,
             SessionEvent::Synced,
             SessionEvent::Paused,
@@ -231,9 +236,10 @@ mod tests {
         proptest! {
             /// SessionEvent serialize/deserialize roundtrip for all variants
             #[test]
-            fn prop_session_event_serde_roundtrip(variant in 0u8..6u8) {
+            fn prop_session_event_serde_roundtrip(variant in 0u8..7u8) {
                 let events = [
                     SessionEvent::Activated,
+                    SessionEvent::CommittingEffect,
                     SessionEvent::Syncing,
                     SessionEvent::Synced,
                     SessionEvent::Paused,
@@ -248,9 +254,10 @@ mod tests {
 
             /// SessionEvent as_str returns non-empty string for all variants
             #[test]
-            fn prop_session_event_as_str_non_empty(variant in 0u8..6u8) {
+            fn prop_session_event_as_str_non_empty(variant in 0u8..7u8) {
                 let events = [
                     SessionEvent::Activated,
+                    SessionEvent::CommittingEffect,
                     SessionEvent::Syncing,
                     SessionEvent::Synced,
                     SessionEvent::Paused,
@@ -338,6 +345,7 @@ mod tests {
         fn session_event_all_variants_distinct_as_str() {
             let events = [
                 (SessionEvent::Activated, "activated"),
+                (SessionEvent::CommittingEffect, "committing_effect"),
                 (SessionEvent::Syncing, "syncing"),
                 (SessionEvent::Synced, "synced"),
                 (SessionEvent::Paused, "paused"),
@@ -353,6 +361,7 @@ mod tests {
         fn session_event_all_variants_distinct_json() {
             let events = [
                 SessionEvent::Activated,
+                SessionEvent::CommittingEffect,
                 SessionEvent::Syncing,
                 SessionEvent::Synced,
                 SessionEvent::Paused,
@@ -367,7 +376,7 @@ mod tests {
             jsons.dedup();
             assert_eq!(
                 jsons.len(),
-                6,
+                7,
                 "All events should have distinct JSON representations"
             );
         }
@@ -412,6 +421,7 @@ mod tests {
         fn serialize_event_returns_valid_json() {
             for event in [
                 SessionEvent::Activated,
+                SessionEvent::CommittingEffect,
                 SessionEvent::Syncing,
                 SessionEvent::Synced,
                 SessionEvent::Paused,

@@ -840,6 +840,7 @@ fn c55_session_state_serde_all_variants() {
     for state in [
         SessionState::Created,
         SessionState::Active,
+        SessionState::CommittingEffect,
         SessionState::Syncing,
         SessionState::Synced,
         SessionState::Paused,
@@ -1208,6 +1209,7 @@ fn adv22_session_state_is_terminal_only_completed_and_failed() {
     for state in [
         SessionState::Created,
         SessionState::Active,
+        SessionState::CommittingEffect,
         SessionState::Syncing,
         SessionState::Synced,
         SessionState::Paused,

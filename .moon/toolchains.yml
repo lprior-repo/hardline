@@ -1,6 +1,0 @@
-rust:
-  version: '1.84.0'
-  bins:
-    - 'cargo-nextest@latest'
-    - 'cargo-audit@latest'
-  syncToolchainConfig: true

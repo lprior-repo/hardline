@@ -153,9 +153,8 @@ fn tokio_block_on<F: std::future::Future>(fut: F) -> F::Output {
     match tokio::runtime::Handle::try_current() {
         Ok(handle) => handle.block_on(fut),
         Err(_) => {
-            let runtime =
-                tokio::runtime::Runtime::new().expect("Failed to create runtime for block_on");
-            runtime.block_on(fut)
+            let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
+            rt.block_on(fut)
         }
     }
 }

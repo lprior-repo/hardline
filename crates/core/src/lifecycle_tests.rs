@@ -19,15 +19,19 @@ mod tests {
     // SessionState — exhaustive transition matrix
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// SessionState has 7 variants. Test every (from, to) pair exhaustively.
+    /// SessionState has 8 variants. Test every (from, to) pair exhaustively.
     #[test]
     fn session_state_exhaustive_transition_matrix() {
         let valid: Vec<(SessionState, SessionState)> = vec![
             (SessionState::Created, SessionState::Active),
             (SessionState::Created, SessionState::Failed),
+            (SessionState::Active, SessionState::CommittingEffect),
             (SessionState::Active, SessionState::Syncing),
             (SessionState::Active, SessionState::Paused),
             (SessionState::Active, SessionState::Completed),
+            (SessionState::CommittingEffect, SessionState::Active),
+            (SessionState::CommittingEffect, SessionState::Syncing),
+            (SessionState::CommittingEffect, SessionState::Failed),
             (SessionState::Syncing, SessionState::Synced),
             (SessionState::Syncing, SessionState::Failed),
             (SessionState::Synced, SessionState::Active),
@@ -84,6 +88,7 @@ mod tests {
         assert!(SessionState::Failed.is_terminal());
         assert!(!SessionState::Created.is_terminal());
         assert!(!SessionState::Active.is_terminal());
+        assert!(!SessionState::CommittingEffect.is_terminal());
         assert!(!SessionState::Syncing.is_terminal());
         assert!(!SessionState::Synced.is_terminal());
         assert!(!SessionState::Paused.is_terminal());
@@ -99,7 +104,7 @@ mod tests {
     #[test]
     fn session_state_all_states_exhaustive_and_unique() {
         let all = SessionState::all_states();
-        assert_eq!(all.len(), 7);
+        assert_eq!(all.len(), 8);
         let mut seen = std::collections::HashSet::new();
         for &s in all {
             assert!(seen.insert(s), "Duplicate state: {s:?}");
@@ -329,9 +334,13 @@ mod tests {
         let valid_pairs: Vec<(SessionState, SessionState)> = vec![
             (SessionState::Created, SessionState::Active),
             (SessionState::Created, SessionState::Failed),
+            (SessionState::Active, SessionState::CommittingEffect),
             (SessionState::Active, SessionState::Syncing),
             (SessionState::Active, SessionState::Paused),
             (SessionState::Active, SessionState::Completed),
+            (SessionState::CommittingEffect, SessionState::Active),
+            (SessionState::CommittingEffect, SessionState::Syncing),
+            (SessionState::CommittingEffect, SessionState::Failed),
             (SessionState::Syncing, SessionState::Synced),
             (SessionState::Syncing, SessionState::Failed),
             (SessionState::Synced, SessionState::Active),
@@ -1148,13 +1157,18 @@ mod tests {
     }
 
     #[test]
-    fn active_phase_allows_sync_pause_complete() {
-        // Verify all three transitions from Active are accessible
+    fn active_phase_allows_committing_effect_sync_pause_complete() {
         let _mgr = SessionStateManager::new("phase-active")
             .activate("go")
             .expect("activate");
 
-        // All three transitions from Active are available
+        let m0 = SessionStateManager::new("a-commit")
+            .activate("go")
+            .expect("a")
+            .begin_commit_effect("commit")
+            .expect("begin_commit_effect");
+        assert_eq!(m0.current_state(), SessionState::CommittingEffect);
+
         let m1 = SessionStateManager::new("a-sync")
             .activate("go")
             .expect("a")
@@ -1175,6 +1189,40 @@ mod tests {
             .complete("done")
             .expect("complete");
         assert_eq!(m3.current_state(), SessionState::Completed);
+    }
+
+    #[test]
+    fn committing_effect_phase_allows_commit_complete_sync_or_fail() {
+        let base = || {
+            SessionStateManager::new("ce-base")
+                .activate("go")
+                .expect("a")
+                .begin_commit_effect("commit")
+                .expect("ce")
+        };
+
+        let m1 = base().commit_complete("done").expect("cc");
+        assert_eq!(m1.current_state(), SessionState::Active);
+
+        let m2 = base().sync("push").expect("sync");
+        assert_eq!(m2.current_state(), SessionState::Syncing);
+
+        let m3 = base().fail("error").expect("fail");
+        assert_eq!(m3.current_state(), SessionState::Failed);
+    }
+
+    #[test]
+    fn committing_effect_roundtrip_preserves_identity() {
+        let mgr = SessionStateManager::new("ce-rt")
+            .activate("go")
+            .expect("a")
+            .begin_commit_effect("commit")
+            .expect("ce")
+            .commit_complete("done")
+            .expect("cc");
+        assert_eq!(mgr.current_state(), SessionState::Active);
+        assert_eq!(mgr.session_id(), "ce-rt");
+        assert_eq!(mgr.history().len(), 3);
     }
 
     #[test]
@@ -1439,7 +1487,7 @@ mod tests {
         for &s in all {
             assert!(seen.insert(s), "Duplicate in all_states: {s:?}");
         }
-        assert_eq!(all.len(), 7);
+        assert_eq!(all.len(), 8);
     }
 
     // NOTE: WorkspaceState does not implement LifecycleState trait (it uses its own
@@ -1646,7 +1694,7 @@ mod tests {
         for &state in SessionState::all_states() {
             assert!(set.insert(state), "Duplicate hash for {state:?}");
         }
-        assert_eq!(set.len(), 7);
+        assert_eq!(set.len(), 8);
     }
 
     #[test]

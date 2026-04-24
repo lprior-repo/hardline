@@ -1,11 +1,12 @@
 //! Receipt persistence storage.
 //!
-//! Provides I/O operations for saving and loading operation receipts
+//! Provides async I/O operations for saving and loading operation receipts
 //! to/from JSON files in the `.git/stax/ops/` directory.
 
 use crate::domain::receipt::OpReceipt;
 use crate::error::{ReceiptError, Result};
 use std::path::{Path, PathBuf};
+use tokio::fs;
 
 pub struct ReceiptStore;
 
@@ -28,9 +29,9 @@ impl ReceiptStore {
         Self::ops_dir(git_dir).join(format!("{}.json", op_id))
     }
 
-    pub fn save(&self, git_dir: &Path, receipt: &OpReceipt) -> Result<()> {
+    pub async fn save(&self, git_dir: &Path, receipt: &OpReceipt) -> Result<()> {
         let ops_path = Self::ops_dir(git_dir);
-        std::fs::create_dir_all(&ops_path).map_err(|e| {
+        fs::create_dir_all(&ops_path).await.map_err(|e| {
             ReceiptError::StorageError(format!(
                 "Failed to create ops directory {}: {}",
                 ops_path.display(),
@@ -41,15 +42,15 @@ impl ReceiptStore {
         let json = serde_json::to_string_pretty(receipt).map_err(|e| {
             ReceiptError::SerializationError(format!("Failed to serialize receipt: {}", e))
         })?;
-        std::fs::write(&path, json).map_err(|e| {
+        fs::write(&path, json).await.map_err(|e| {
             ReceiptError::StorageError(format!("Failed to write receipt {}: {}", path.display(), e))
         })?;
         Ok(())
     }
 
-    pub fn load(&self, git_dir: &Path, op_id: &str) -> Result<OpReceipt> {
+    pub async fn load(&self, git_dir: &Path, op_id: &str) -> Result<OpReceipt> {
         let path = Self::receipt_path(git_dir, op_id);
-        let json = std::fs::read_to_string(&path).map_err(|e| {
+        let json = fs::read_to_string(&path).await.map_err(|e| {
             ReceiptError::StorageError(format!("Failed to read receipt {}: {}", path.display(), e))
         })?;
         serde_json::from_str(&json).map_err(|e| {
@@ -61,38 +62,48 @@ impl ReceiptStore {
         })
     }
 
-    pub fn list_op_ids(&self, git_dir: &Path) -> Result<Vec<String>> {
+    pub async fn list_op_ids(&self, git_dir: &Path) -> Result<Vec<String>> {
         let dir = Self::ops_dir(git_dir);
-        if !dir.exists() {
-            return Ok(Vec::new());
-        }
-        let mut ops: Vec<String> = std::fs::read_dir(&dir)
-            .map_err(|e| {
-                ReceiptError::StorageError(format!("Failed to read ops directory: {}", e))
-            })?
-            .filter_map(|entry| entry.ok())
-            .filter_map(|entry| {
-                let name = entry.file_name().to_string_lossy().to_string();
-                if name.ends_with(".json") {
-                    Some(name.trim_end_matches(".json").to_string())
-                } else {
-                    None
+        let mut read_dir = match fs::read_dir(&dir).await {
+            Ok(rd) => rd,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => {
+                return Err(ReceiptError::StorageError(format!(
+                    "Failed to read ops directory: {}",
+                    e
+                )))
+            }
+        };
+        let mut ops: Vec<String> = Vec::new();
+        loop {
+            let entry = match read_dir.next_entry().await {
+                Ok(Some(e)) => e,
+                Ok(None) => break,
+                Err(e) => {
+                    return Err(ReceiptError::StorageError(format!(
+                        "Failed to read directory entry: {}",
+                        e
+                    )))
                 }
-            })
-            .collect();
+            };
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.ends_with(".json") {
+                ops.push(name.trim_end_matches(".json").to_string());
+            }
+        }
         ops.sort();
         ops.reverse();
         Ok(ops)
     }
 
-    pub fn latest_op_id(&self, git_dir: &Path) -> Result<Option<String>> {
-        let ops = self.list_op_ids(git_dir)?;
+    pub async fn latest_op_id(&self, git_dir: &Path) -> Result<Option<String>> {
+        let ops = self.list_op_ids(git_dir).await?;
         Ok(ops.into_iter().next())
     }
 
-    pub fn load_latest(&self, git_dir: &Path) -> Result<Option<OpReceipt>> {
-        match self.latest_op_id(git_dir)? {
-            Some(op_id) => self.load(git_dir, &op_id).map(Some),
+    pub async fn load_latest(&self, git_dir: &Path) -> Result<Option<OpReceipt>> {
+        match self.latest_op_id(git_dir).await? {
+            Some(op_id) => self.load(git_dir, &op_id).await.map(Some),
             None => Ok(None),
         }
     }
@@ -122,8 +133,8 @@ mod tests {
         let _store = ReceiptStore::default();
     }
 
-    #[test]
-    fn save_and_load_receipt_roundtrip() {
+    #[tokio::test]
+    async fn save_and_load_receipt_roundtrip() {
         let store = make_store();
         let temp = make_temp_git_dir();
         let git_dir = temp.path().join(".git");
@@ -140,9 +151,9 @@ mod tests {
         receipt.update_local_ref_after("feature/foo", "def456");
         receipt.mark_success();
 
-        store.save(&git_dir, &receipt).unwrap();
+        store.save(&git_dir, &receipt).await.unwrap();
 
-        let loaded = store.load(&git_dir, "20251229T120500Z-abc123").unwrap();
+        let loaded = store.load(&git_dir, "20251229T120500Z-abc123").await.unwrap();
         assert_eq!(loaded.op_id, receipt.op_id);
         assert_eq!(loaded.status, crate::domain::receipt::OpStatus::Success);
         assert_eq!(loaded.local_refs.len(), 1);
@@ -150,19 +161,19 @@ mod tests {
         assert_eq!(loaded.local_refs[0].oid_after, Some("def456".to_string()));
     }
 
-    #[test]
-    fn list_op_ids_empty_when_no_files() {
+    #[tokio::test]
+    async fn list_op_ids_empty_when_no_files() {
         let store = make_store();
         let temp = make_temp_git_dir();
         let git_dir = temp.path().join(".git");
         std::fs::create_dir_all(&git_dir).unwrap();
 
-        let ops = store.list_op_ids(&git_dir).unwrap();
+        let ops = store.list_op_ids(&git_dir).await.unwrap();
         assert!(ops.is_empty());
     }
 
-    #[test]
-    fn list_op_ids_returns_sorted_receipts() {
+    #[tokio::test]
+    async fn list_op_ids_returns_sorted_receipts() {
         let store = make_store();
         let temp = make_temp_git_dir();
         let git_dir = temp.path().join(".git");
@@ -173,15 +184,15 @@ mod tests {
         std::fs::write(ops_path.join("20251229T120100Z-bbb222.json"), "{}").unwrap();
         std::fs::write(ops_path.join("20251229T120200Z-ccc333.json"), "{}").unwrap();
 
-        let ops = store.list_op_ids(&git_dir).unwrap();
+        let ops = store.list_op_ids(&git_dir).await.unwrap();
         assert_eq!(ops.len(), 3);
         assert_eq!(ops[0], "20251229T120200Z-ccc333");
         assert_eq!(ops[1], "20251229T120100Z-bbb222");
         assert_eq!(ops[2], "20251229T120000Z-aaa111");
     }
 
-    #[test]
-    fn latest_op_id_returns_newest() {
+    #[tokio::test]
+    async fn latest_op_id_returns_newest() {
         let store = make_store();
         let temp = make_temp_git_dir();
         let git_dir = temp.path().join(".git");
@@ -191,29 +202,29 @@ mod tests {
         std::fs::write(ops_path.join("20251229T120000Z-old.json"), "{}").unwrap();
         std::fs::write(ops_path.join("20251229T120200Z-new.json"), "{}").unwrap();
 
-        let latest = store.latest_op_id(&git_dir).unwrap();
+        let latest = store.latest_op_id(&git_dir).await.unwrap();
         assert_eq!(latest, Some("20251229T120200Z-new".to_string()));
     }
 
-    #[test]
-    fn load_latest_returns_none_when_empty() {
+    #[tokio::test]
+    async fn load_latest_returns_none_when_empty() {
         let store = make_store();
         let temp = make_temp_git_dir();
         let git_dir = temp.path().join(".git");
         std::fs::create_dir_all(&git_dir).unwrap();
 
-        let latest = store.load_latest(&git_dir).unwrap();
+        let latest = store.load_latest(&git_dir).await.unwrap();
         assert!(latest.is_none());
     }
 
-    #[test]
-    fn load_nonexistent_returns_err() {
+    #[tokio::test]
+    async fn load_nonexistent_returns_err() {
         let store = make_store();
         let temp = make_temp_git_dir();
         let git_dir = temp.path().join(".git");
         std::fs::create_dir_all(&git_dir).unwrap();
 
-        let result = store.load(&git_dir, "nonexistent");
+        let result = store.load(&git_dir, "nonexistent").await;
         assert!(result.is_err());
     }
 }
