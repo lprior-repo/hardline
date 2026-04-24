@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::commands::task_types::TaskId;
+pub use scp_core::cli_contracts::domain_types::TaskStatus;
 
 /// Task command variants (CLI subcommand representation).
 #[derive(Debug, Clone, PartialEq, Eq)]

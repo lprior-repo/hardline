@@ -97,7 +97,7 @@ pub fn sync(name: Option<&str>, all: bool) -> Result<(), Error> {
         },
     };
 
-    tokio::runtime::Handle::current().block_on(async {
+    let sync_future = async {
         if all {
             crate::commands::handlers::sync::sync_all_sessions(options).await
         } else if let Some(n) = name {
@@ -108,7 +108,16 @@ pub fn sync(name: Option<&str>, all: bool) -> Result<(), Error> {
         } else {
             crate::commands::handlers::sync::sync_current_workspace(options).await
         }
-    })?;
+    };
+
+    match tokio::runtime::Handle::try_current() {
+        Ok(handle) => handle.block_on(sync_future)?,
+        Err(_) => {
+            let runtime =
+                tokio::runtime::Runtime::new().expect("Failed to create runtime for sync");
+            runtime.block_on(sync_future)?
+        }
+    };
 
     Ok(())
 }

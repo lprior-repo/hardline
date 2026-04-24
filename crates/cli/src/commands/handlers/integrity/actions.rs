@@ -149,9 +149,15 @@ fn run_backup_restore(backup_id: &str, force: bool) -> Result<RestoreResponse> {
     })
 }
 
-/// Block on an async future using the current tokio runtime.
 fn tokio_block_on<F: std::future::Future>(fut: F) -> F::Output {
-    tokio::runtime::Handle::current().block_on(fut)
+    match tokio::runtime::Handle::try_current() {
+        Ok(handle) => handle.block_on(fut),
+        Err(_) => {
+            let runtime =
+                tokio::runtime::Runtime::new().expect("Failed to create runtime for block_on");
+            runtime.block_on(fut)
+        }
+    }
 }
 
 #[cfg(test)]

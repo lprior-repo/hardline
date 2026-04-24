@@ -122,6 +122,7 @@ pub enum TaskStatus {
     Open,
     InProgress,
     Blocked,
+    Deferred,
     Closed,
 }
 
@@ -132,6 +133,7 @@ impl TaskStatus {
             Self::Open => "open",
             Self::InProgress => "in_progress",
             Self::Blocked => "blocked",
+            Self::Deferred => "deferred",
             Self::Closed => "closed",
         }
     }
@@ -145,10 +147,11 @@ impl FromStr for TaskStatus {
             "open" => Ok(Self::Open),
             "in_progress" => Ok(Self::InProgress),
             "blocked" => Ok(Self::Blocked),
+            "deferred" => Ok(Self::Deferred),
             "closed" => Ok(Self::Closed),
             _ => Err(ContractError::invalid_input(
                 "status",
-                "must be one of: open, in_progress, blocked, closed",
+                "must be one of: open, in_progress, blocked, deferred, closed",
             )),
         }
     }

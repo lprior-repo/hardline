@@ -1,0 +1,286 @@
+diff --git a/cmd/bd/human.go b/cmd/bd/human.go
+--- a/cmd/bd/human.go
++++ b/cmd/bd/human.go
+@@ -189,6 +189,10 @@ BUG-9 FIX: Add ensureStoreActive() before resolveAndGetIssueWithRouting in respo
+ 			CheckReadonly("human respond")
+
+ 			ctx := rootCtx
+ 			issueID := args[0]
++
++			// BUG-9 FIX: Initialize storage before using it
++			if err := ensureStoreActive(); err != nil {
++				FatalErrorRespectJSON("initializing storage: %v", err)
++			}
+
+ 			// Resolve partial ID and get issue
+ 			result, err := resolveAndGetIssueWithRouting(ctx, store, issueID)
+@@ -263,6 +267,10 @@ BUG-9 FIX: Same fix for dismiss command
+ 			CheckReadonly("human dismiss")
+
+ 			ctx := rootCtx
+ 			issueID := args[0]
++
++			// BUG-9 FIX: Initialize storage before using it
++			if err := ensureStoreActive(); err != nil {
++				FatalErrorRespectJSON("initializing storage: %v", err)
++			}
+
+ 			// Resolve partial ID and get issue
+ 			result, err := resolveAndGetIssueWithRouting(ctx, store, issueID)
+
+
+diff --git a/internal/utils/id_parser.go b/internal/utils/id_parser.go
+--- a/internal/utils/id_parser.go
++++ b/internal/utils/id_parser.go
+@@ -105,6 +105,14 @@ BUG-10 FIX: Exclude hierarchical children when resolving base IDs
+ 		for _, issue := range issues {
++			// BUG-10 FIX: When input has no dot, skip hierarchical children
++			// to prevent ambiguity (e.g., "ha-34vz" should not match "ha-34vz.1")
++			if !strings.Contains(input, ".") && strings.Contains(issue.ID, ".") {
++				continue
++			}
++
+ 			// Check for exact full ID match first (case: user typed full ID with different prefix)
+ 			if issue.ID == input {
+ 				exactMatch = issue.ID
+ 				break
+ 			}
+
+
+diff --git a/cmd/bd/mol_ready_gated.go b/cmd/bd/mol_ready_gated.go
+--- a/cmd/bd/mol_ready_gated.go
++++ b/cmd/bd/mol_ready_gated.go
+@@ -217,5 +217,6 @@ BUG-11 FIX: Register --gated flag on molReadyGatedCmd
+ func init() {
+-	// Note: --gated flag is registered in ready.go
+-	// Also add as a subcommand under mol for discoverability
++	// BUG-11 FIX: Register --gated flag on this subcommand
++	// (previously only existed on top-level readyCmd, not this mol subcommand)
++	molReadyGatedCmd.Flags().Bool("gated", true, "Find molecules ready for gate-resume dispatch (always enabled)")
+ 	molCmd.AddCommand(molReadyGatedCmd)
+ }
+
+
+diff --git a/cmd/bd/list.go b/cmd/bd/list.go
+--- a/cmd/bd/list.go
++++ b/cmd/bd/list.go
+@@ -750,6 +750,14 @@ BUG-4 FIX: Honor --quiet flag by printing only IDs
+ 		blockedByMap, blocksMap, _ := activeStore.GetBlockingInfoForIssues(ctx, issueIDs)
+
++		// BUG-4 FIX: In quiet mode, only print IDs (one per line) and return
++		if debug.IsQuiet() {
++			for _, issue := range issues {
++				fmt.Println(issue.ID)
++			}
++			return
++		}
++
+ 		// Build output in buffer for pager support (bd-jdz3)
+ 		var buf strings.Builder
+
+
+diff --git a/internal/storage/dolt/history.go b/internal/storage/dolt/history.go
+--- a/internal/storage/dolt/history.go
++++ b/internal/storage/dolt/history.go
+@@ -11,7 +11,10 @@ BUG-5 FIX PART 1: Allow tilde and dot in ref pattern for HEAD~N notation
+ )
+
+ // validRefPattern matches valid Dolt commit hashes (32 hex chars) or branch names
+-var validRefPattern = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
++// BUG-5 FIX: Allow tilde (~) for HEAD~N notation and dot (.) for branch names
++// Original was too restrictive: `^[a-zA-Z0-9_\-]+$`
++var validRefPattern = regexp.MustCompile(`^[a-zA-Z0-9_\-.~]+$`)
++
+
+diff --git a/internal/storage/dolt/versioned.go b/internal/storage/dolt/versioned.go
+--- a/internal/storage/dolt/versioned.go
++++ b/internal/storage/dolt/versioned.go
+@@ -37,6 +37,28 @@ BUG-5 FIX PART 2: Resolve HEAD~N notation to actual commit hash before querying
+ // Diff returns changes between two commits/branches.
+ func (s *DoltStore) Diff(ctx context.Context, fromRef, toRef string) ([]*storage.DiffEntry, error) {
++	// BUG-5 FIX: Resolve HEAD~N notation to actual commit hash
++	// Dolt doesn't understand git-style tilde notation natively
++	fromRef = s.resolveTildeRef(ctx, fromRef)
++	toRef = s.resolveTildeRef(ctx, toRef)
++
+ 	// Validate refs to prevent SQL injection
+ 	if err := validateRef(fromRef); err != nil {
+@@ -95,3 +117,32 @@ func (s *DoltStore) Diff(...) ... {
+ 	return entries, nil
+ }
++
++// resolveTildeRef resolves HEAD~N notation to an actual commit hash by walking
++// the dolt_log table. Dolt doesn't support git-style tilde notation natively.
++func (s *DoltStore) resolveTildeRef(ctx context.Context, ref string) string {
++	if !strings.Contains(ref, "~") {
++		return ref
++	}
++	parts := strings.SplitN(ref, "~", 2)
++	if len(parts) != 2 {
++		return ref
++	}
++	baseRef := parts[0]
++	n, err := strconv.Atoi(parts[1])
++	if err != nil || n < 1 {
++		return ref
++	}
++
++	// Query dolt_log to walk back N commits from baseRef
++	query := `SELECT commit_hash FROM dolt_log WHERE commit_hash != '' ORDER BY date DESC`
++	if baseRef == "HEAD" {
++		query += ` LIMIT ?`
++		rows, err := s.db.QueryContext(ctx, query, n+1)
++		if err != nil {
++			return ref
++		}
++		defer rows.Close()
++		for i := 0; rows.Next(); i++ {
++			var hash string
++			if err := rows.Scan(&hash); err != nil {
++				break
++			}
++			if i == n {
++				return hash
++			}
++		}
++	}
++	return ref
++}
+
+
+diff --git a/cmd/bd/create.go b/cmd/bd/create.go
+--- a/cmd/bd/create.go
++++ b/cmd/bd/create.go
+@@ -615,6 +615,16 @@ BUG-6 FIX: Validate dependency target exists before AddDependency
+ 				continue
+ 			}
+
++			// BUG-6 FIX: Validate that dependency target exists
++			// Previously nonexistent IDs were silently warned, now they error
++			targetIssue, err := store.GetIssue(ctx, dependsOnID)
++			if err != nil || targetIssue == nil {
++				if forceCreate {
++					WarnError("dependency target %s not found (continuing due to --force)", dependsOnID)
++				} else {
++					FatalError("dependency target %s not found", dependsOnID)
++				}
++				continue
++			}
++
+ 			// Add the dependency
+
+
+@@ -450,6 +460,10 @@ BUG-7 FIX: Add fallback for underscore config key
+ 			dbPrefix, _ = store.GetConfig(ctx, "issue_prefix")
+ 			if dbPrefix == "" {
+ 				dbPrefix = config.GetString("issue-prefix")
++				// BUG-7 FIX: Also try underscore form since YAML may use either
++				if dbPrefix == "" {
++					dbPrefix = config.GetString("issue_prefix")
++				}
+ 			}
+
+
+diff --git a/cmd/bd/admin.go b/cmd/bd/admin.go
+--- a/cmd/bd/admin.go
++++ b/cmd/bd/admin.go
+@@ -7,6 +7,9 @@ BUG-2 FIX: Add SilenceUsage to prevent Usage dump on errors
+ var adminCmd = &cobra.Command{
+ 	Use:     "admin",
+ 	GroupID: "advanced",
++	// BUG-2 FIX: Silence usage dump when subcommands error
++	// Previously cobra would print full Usage text after any error
++	SilenceUsage: true,
+ 	Short:   "Administrative commands for database maintenance",
+ 	Long: `Administrative commands for beads database maintenance.
+
+@@ -22,6 +25,11 @@ automatically. Use these admin commands for targeted database operations.`,
+ func init() {
+ 	rootCmd.AddCommand(adminCmd)
+ 	adminCmd.AddCommand(cleanupCmd)
+ 	adminCmd.AddCommand(compactCmd)
+ 	adminCmd.AddCommand(resetCmd)
++	// BUG-2 FIX: Propagate SilenceUsage to subcommands
++	for _, cmd := range adminCmd.Commands() {
++		cmd.SilenceUsage = true
++	}
+ }
+
+
+diff --git a/cmd/bd/rename.go b/cmd/bd/rename.go
+--- a/cmd/bd/rename.go
++++ b/cmd/bd/rename.go
+@@ -34,6 +34,8 @@ BUG-3 FIX: Add --force flag to rename command
+ func init() {
+ 	rootCmd.AddCommand(renameCmd)
++	// BUG-3 FIX: Add --force flag for consistency with other commands
++	renameCmd.Flags().Bool("force", false, "Force rename even if target ID already exists")
+ }
+
+@@ -67,8 +69,11 @@ func runRename(cmd *cobra.Command, args []string) error {
++	force, _ := cmd.Flags().GetBool("force")
+
+ 	// Check if new ID already exists
+ 	existing, err := store.GetIssue(ctx, newID)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to check for existing issue: %w", err)
+ 	}
+-	if existing != nil {
++	if existing != nil && !force {
++		// BUG-3 FIX: Allow overwrite with --force
+ 		return fmt.Errorf("issue %s already exists", newID)
+ 	}
+
+
+diff --git a/internal/storage/dolt/schema.go b/internal/storage/dolt/schema.go
+--- a/internal/storage/dolt/schema.go
++++ b/internal/storage/dolt/schema.go
+@@ -97,7 +97,9 @@ BUG-8 FIX: Include type in primary key to allow multiple dep types between same
+ 	    metadata JSON DEFAULT (JSON_OBJECT()),
+ 	    thread_id VARCHAR(255) DEFAULT '',
+-	    PRIMARY KEY (issue_id, depends_on_id),
++	    -- BUG-8 FIX: Include type in PK to allow multiple dependency types
++	    -- between the same pair of issues (e.g., both "blocks" and "tracks")
++	    PRIMARY KEY (issue_id, depends_on_id, type),
+ 	    INDEX idx_dependencies_issue (issue_id),
+
+
+diff --git a/internal/storage/dolt/dependencies.go b/internal/storage/dolt/dependencies.go
+--- a/internal/storage/dolt/dependencies.go
++++ b/internal/storage/dolt/dependencies.go
+@@ -74,8 +74,9 @@ BUG-8 FIX PART 2: Update RemoveDependency to include type in WHERE clause
+ 		if _, err := tx.ExecContext(ctx, `
+ 			INSERT INTO dependencies (issue_id, depends_on_id, type, created_at, created_by, metadata, thread_id)
+ 			VALUES (?, ?, ?, NOW(), ?, ?, ?)
+-			ON DUPLICATE KEY UPDATE type = VALUES(type), metadata = VALUES(metadata)
++			ON DUPLICATE KEY UPDATE metadata = VALUES(metadata)
+ 		`, dep.IssueID, dep.DependsOnID, dep.Type, actor, metadata, dep.ThreadID); err != nil {
+
+@@ -100,7 +101,8 @@ func (s *DoltStore) RemoveDependency(ctx context.Context, issueID, dependsOnID
+ 		defer func() { _ = tx.Rollback() }()
+
+ 		if _, err := tx.ExecContext(ctx, `
+-			DELETE FROM dependencies WHERE issue_id = ? AND depends_on_id = ?
+-		`, issueID, dependsOnID); err != nil {
++			DELETE FROM dependencies WHERE issue_id = ? AND depends_on_id = ? AND type = ?
++		`, issueID, dependsOnID, depType); err != nil {
+ 			return fmt.Errorf("failed to remove dependency: %w", err)
+ 		}
+
+
+diff --git a/cmd/bd/create.go b/cmd/bd/create.go
+--- a/cmd/bd/create.go
++++ b/cmd/bd/create.go
+@@ -100,6 +100,15 @@ BUG-1 FIX: Early title length validation before hitting store
+ 			title = titleFlag
+ 		} else {
+ 			FatalError("title required (or use --file to create from markdown)")
+ 		}
++		// BUG-1 FIX: Validate title length early, before hitting the database.
++		// The store.CreateIssue path calls FatalError on validation errors which
++		// calls os.Exit(1), but some shell wrappers or process supervisors may
++		// not correctly capture the exit code when the process exits abruptly
++		// without flushing stderr. This early check gives a clean error path.
++		if len(title) > 500 {
++			FatalError("title must be 500 characters or less (got %d)", len(title))
++		}
