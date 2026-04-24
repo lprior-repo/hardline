@@ -225,7 +225,7 @@ pub(crate) fn run_command(cmd: Commands) -> Result<()> {
                 args,
                 format: OutputFormat::Json,
             };
-            commands::handlers::whatif::run_whatif(&options)
+            commands::handlers::whatif::report::run_whatif(&options)
         }
 
         Commands::Examples { command, use_case } => {
