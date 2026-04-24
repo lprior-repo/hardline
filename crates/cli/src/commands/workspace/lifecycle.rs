@@ -97,7 +97,11 @@ pub fn sync(name: Option<&str>, all: bool) -> Result<(), Error> {
         },
     };
 
-    tokio::runtime::Handle::current().block_on(async {
+    let handle = tokio::runtime::Handle::try_current().unwrap_or_else(|_| {
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
+        rt.handle().clone()
+    });
+    handle.block_on(async {
         if all {
             crate::commands::handlers::sync::sync_all_sessions(options).await
         } else if let Some(n) = name {
@@ -177,11 +181,12 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "no reactor running")]
-    fn test_sync_panics_without_tokio_runtime() {
-        // Calling sync() outside a tokio runtime should panic
-        // because Handle::current().block_on() fails when no runtime exists
-        let _ = sync(None, false);
+    fn test_sync_does_not_panic_without_tokio_runtime() {
+        let result = sync(None, false);
+        assert!(
+            result.is_err(),
+            "sync should return error (not panic) when no workspace exists"
+        );
     }
 
     #[tokio::test]
