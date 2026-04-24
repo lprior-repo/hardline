@@ -548,17 +548,19 @@ impl ConfigManager {
     }
 }
 
-#[allow(clippy::expect_used)]
 impl Default for ConfigManager {
     fn default() -> Self {
-        Self::new().expect("Failed to create config manager")
+        Self::with_paths(
+            directories::ProjectDirs::from("com", "scp", "scp")
+                .map(|dirs| dirs.config_dir().join("config.toml"))
+                .unwrap_or_else(|| PathBuf::from(".scp/config.toml")),
+            None,
+        )
     }
 }
 
-/// Global config instance
-#[allow(clippy::expect_used)]
 pub fn global_config() -> ConfigManager {
-    ConfigManager::new().expect("Failed to create config manager")
+    ConfigManager::default()
 }
 
 /// Get config directory
