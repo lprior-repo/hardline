@@ -50,7 +50,7 @@ pub fn execute_task_command(cmd: &TaskCommand, lock: &dyn LockManager) -> scp_co
 
 /// Execute the task list subcommand.
 fn execute_list(status_filter: Option<&str>, include_all: bool) -> scp_core::Result<()> {
-    let store = get_task_store();
+    let store = get_task_store()?;
     let tasks = store.list();
 
     let outputs: Vec<_> = tasks.iter().map(task_to_output).collect();
@@ -90,7 +90,7 @@ fn execute_list(status_filter: Option<&str>, include_all: bool) -> scp_core::Res
 
 /// Execute the task show subcommand.
 fn execute_show(task_id: &TaskId) -> scp_core::Result<()> {
-    let store = get_task_store();
+    let store = get_task_store()?;
     let task = store
         .get(task_id.as_str())
         .ok_or_else(|| Error::from(TaskErrorKind::NotFound(task_id.to_string())))?;
@@ -119,7 +119,7 @@ fn execute_claim(
     agent_id: &super::data::AgentId,
     lock: &dyn LockManager,
 ) -> scp_core::Result<()> {
-    let store = get_task_store();
+    let store = get_task_store()?;
     let _guard = acquire_task_lock(lock, task_id.as_str(), agent_id.as_str())?;
 
     let task = validate_task_exists(store.get(task_id.as_str()), task_id.as_str())?;
@@ -138,7 +138,7 @@ fn execute_yield(
     agent_id: &super::data::AgentId,
     lock: &dyn LockManager,
 ) -> scp_core::Result<()> {
-    let store = get_task_store();
+    let store = get_task_store()?;
     let _guard = acquire_task_lock(lock, task_id.as_str(), agent_id.as_str())?;
 
     let task = validate_task_exists(store.get(task_id.as_str()), task_id.as_str())?;
@@ -157,7 +157,7 @@ fn execute_start(
     agent_id: &super::data::AgentId,
     lock: &dyn LockManager,
 ) -> scp_core::Result<()> {
-    let store = get_task_store();
+    let store = get_task_store()?;
     let _guard = acquire_task_lock(lock, task_id.as_str(), agent_id.as_str())?;
 
     // First claim the task
@@ -181,7 +181,7 @@ fn execute_done(
     agent_id: &super::data::AgentId,
     lock: &dyn LockManager,
 ) -> scp_core::Result<()> {
-    let store = get_task_store();
+    let store = get_task_store()?;
     let _guard = acquire_task_lock(lock, task_id.as_str(), agent_id.as_str())?;
 
     let task = validate_task_exists(store.get(task_id.as_str()), task_id.as_str())?;
