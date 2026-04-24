@@ -86,6 +86,10 @@ pub enum AgentRegistryError {
     /// Invalid capability
     #[error("invalid capability: {0}")]
     InvalidCapability(String),
+
+    /// Lock poisoned
+    #[error("lock poisoned")]
+    PoisonedLock,
 }
 
 /// Result type for agent registry operations

@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use once_cell::sync::OnceCell;
 
 use super::task_types::{Task, TaskId, Title};
 
@@ -116,13 +115,39 @@ impl TaskStore {
     }
 }
 
-static TASK_STORE: OnceCell<Arc<TaskStore>> = OnceCell::new();
+static TASK_STORE: RwLock<Option<Arc<TaskStore>>> = RwLock::new(None);
 
-pub fn get_task_store() -> CoreResult<Arc<TaskStore>> {
-    TASK_STORE
-        .get_or_try_init(|| TaskStore::load().map(Arc::new))
-        .cloned()
+fn task_store_guard() -> &'static RwLock<Option<Arc<TaskStore>>> {
+    &TASK_STORE
 }
+
+pub fn get_task_store() -> Arc<TaskStore> {
+    // Fast path: check if already initialized
+    if let Ok(guard) = task_store_guard().read() {
+        if let Some(store) = guard.as_ref() {
+            return store.clone();
+        }
+    }
+
+    // Slow path: initialize lazily
+    let store = match TaskStore::load() {
+        Ok(s) => Arc::new(s),
+        Err(e) => {
+            eprintln!("Warning: failed to load task store, using empty store: {}", e);
+            Arc::new(TaskStore {
+                tasks: RwLock::new(HashMap::new()),
+                tasks_file: PathBuf::new(),
+            })
+        }
+    };
+
+    if let Ok(mut guard) = task_store_guard().write() {
+        if guard.is_none() {
+            *guard = Some(store.clone());
+        }
+    }
+
+    store
 }
 
 #[cfg(test)]

@@ -31,7 +31,7 @@ impl Default for InMemoryAgentRepository {
 
 impl AgentRegistryRepository for InMemoryAgentRepository {
     fn save(&self, agent: &Agent) -> AgentRegistryResult<()> {
-        let mut agents = self.agents.write().expect("lock poisoned");
+        let mut agents = self.agents.write().map_err(|_| AgentRegistryError::PoisonedLock)?;
         if let Some(idx) = agents.iter().position(|a| &a.id == &agent.id) {
             agents[idx] = agent.clone();
         } else {
@@ -41,17 +41,17 @@ impl AgentRegistryRepository for InMemoryAgentRepository {
     }
 
     fn find_by_id(&self, id: &AgentId) -> AgentRegistryResult<Option<Agent>> {
-        let agents = self.agents.read().expect("lock poisoned");
+        let agents = self.agents.read().map_err(|_| AgentRegistryError::PoisonedLock)?;
         Ok(agents.iter().find(|a| &a.id == id).cloned())
     }
 
     fn find_by_name(&self, name: &str) -> AgentRegistryResult<Option<Agent>> {
-        let agents = self.agents.read().expect("lock poisoned");
+        let agents = self.agents.read().map_err(|_| AgentRegistryError::PoisonedLock)?;
         Ok(agents.iter().find(|a| a.name == name).cloned())
     }
 
     fn list_all(&self) -> AgentRegistryResult<Vec<Agent>> {
-        let agents = self.agents.read().expect("lock poisoned");
+        let agents = self.agents.read().map_err(|_| AgentRegistryError::PoisonedLock)?;
         Ok(agents.clone())
     }
 
@@ -59,7 +59,7 @@ impl AgentRegistryRepository for InMemoryAgentRepository {
         &self,
         status: crate::domain::agent_registry::AgentStatus,
     ) -> AgentRegistryResult<Vec<Agent>> {
-        let agents = self.agents.read().expect("lock poisoned");
+        let agents = self.agents.read().map_err(|_| AgentRegistryError::PoisonedLock)?;
         Ok(agents
             .iter()
             .filter(|a| a.status == status)
@@ -71,7 +71,7 @@ impl AgentRegistryRepository for InMemoryAgentRepository {
         &self,
         workspace_id: &crate::domain::agent_registry::WorkspaceId,
     ) -> AgentRegistryResult<Vec<Agent>> {
-        let agents = self.agents.read().expect("lock poisoned");
+        let agents = self.agents.read().map_err(|_| AgentRegistryError::PoisonedLock)?;
         Ok(agents
             .iter()
             .filter(|a| a.metadata.workspace_id.as_ref() == Some(workspace_id))
@@ -80,7 +80,7 @@ impl AgentRegistryRepository for InMemoryAgentRepository {
     }
 
     fn find_stale_agents(&self, cutoff: DateTime<Utc>) -> AgentRegistryResult<Vec<Agent>> {
-        let agents = self.agents.read().expect("lock poisoned");
+        let agents = self.agents.read().map_err(|_| AgentRegistryError::PoisonedLock)?;
         Ok(agents
             .iter()
             .filter(|a| a.is_stale(cutoff))
@@ -89,7 +89,7 @@ impl AgentRegistryRepository for InMemoryAgentRepository {
     }
 
     fn delete(&self, id: &AgentId) -> AgentRegistryResult<()> {
-        let mut agents = self.agents.write().expect("lock poisoned");
+        let mut agents = self.agents.write().map_err(|_| AgentRegistryError::PoisonedLock)?;
         if let Some(idx) = agents.iter().position(|a| &a.id == id) {
             agents.remove(idx);
             Ok(())
@@ -99,7 +99,7 @@ impl AgentRegistryRepository for InMemoryAgentRepository {
     }
 
     fn update_heartbeat(&self, heartbeat: &Heartbeat) -> AgentRegistryResult<AgentEvent> {
-        let mut agents = self.agents.write().expect("lock poisoned");
+        let mut agents = self.agents.write().map_err(|_| AgentRegistryError::PoisonedLock)?;
         if let Some(agent) = agents.iter_mut().find(|a| &a.id == &heartbeat.agent_id) {
             let previous_status = agent.status;
             agent.last_heartbeat_at = heartbeat.timestamp;
