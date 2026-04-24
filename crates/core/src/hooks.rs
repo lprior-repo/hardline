@@ -298,33 +298,83 @@ impl HookRunner {
         results
     }
 
-    /// Run a single hook
+    /// Run a single hook with timeout enforcement.
+    ///
+    /// If the child process does not exit within `hook.timeout_ms`, it is killed
+    /// and a timeout failure result is returned.
     fn run_hook(&self, hook: &Hook, env: &HookEnv) -> HookResult {
-        let start = std::time::Instant::now();
+        use std::io::Read;
 
-        let output = std::process::Command::new(&hook.command)
+        let start = std::time::Instant::now();
+        let timeout = std::time::Duration::from_millis(hook.timeout_ms);
+
+        let child_result = std::process::Command::new(&hook.command)
             .args(&hook.args)
             .envs(env.to_env())
-            .output();
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .stdin(std::process::Stdio::null())
+            .spawn();
+
+        let mut child = match child_result {
+            Ok(c) => c,
+            Err(e) => {
+                let duration = start.elapsed().as_millis() as u64;
+                return HookResult::failure(
+                    hook.event,
+                    format!("Failed to execute hook: {}", e),
+                    duration,
+                );
+            }
+        };
+
+        // Poll for exit with timeout
+        let exit_status = loop {
+            match child.try_wait() {
+                Ok(Some(status)) => break Some(status),
+                Ok(None) => {
+                    if start.elapsed() >= timeout {
+                        break None;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(2));
+                }
+                Err(_) => break None,
+            }
+        };
 
         let duration = start.elapsed().as_millis() as u64;
 
-        match output {
-            Ok(output) if output.status.success() => HookResult::success(
-                hook.event,
-                String::from_utf8_lossy(&output.stdout).to_string(),
-                duration,
-            ),
-            Ok(output) => HookResult::failure(
-                hook.event,
-                String::from_utf8_lossy(&output.stderr).to_string(),
-                duration,
-            ),
-            Err(e) => HookResult::failure(
-                hook.event,
-                format!("Failed to execute hook: {}", e),
-                duration,
-            ),
+        match exit_status {
+            Some(status) => {
+                // Read captured output
+                let mut stdout = String::new();
+                let mut stderr = String::new();
+                if let Some(mut out) = child.stdout.take() {
+                    let _ = out.read_to_string(&mut stdout);
+                }
+                if let Some(mut err) = child.stderr.take() {
+                    let _ = err.read_to_string(&mut stderr);
+                }
+                let _ = child.wait(); // reap
+
+                if status.success() {
+                    HookResult::success(hook.event, stdout, duration)
+                } else {
+                    HookResult::failure(hook.event, stderr, duration)
+                }
+            }
+            None => {
+                let _ = child.kill();
+                let _ = child.wait();
+                HookResult::failure(
+                    hook.event,
+                    format!(
+                        "Hook timed out after {}ms (limit: {}ms)",
+                        duration, hook.timeout_ms
+                    ),
+                    duration,
+                )
+            }
         }
     }
 
@@ -1045,5 +1095,184 @@ mod tests {
         let deserialized: HookResult = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(result, deserialized);
         assert!(deserialized.error.is_none());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Timeout enforcement tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn run_hook_timeout_kills_long_running_process() {
+        let mut runner = HookRunner::new();
+        // `sleep 30` with a 200ms timeout should be killed
+        runner.register(
+            Hook::new("slow-hook", HookEvent::PreCommit, "sleep")
+                .arg("30")
+                .timeout(200),
+        );
+
+        let env = HookEnv {
+            event: HookEvent::PreCommit,
+            vcs_type: "test".to_string(),
+            ..Default::default()
+        };
+
+        let start = std::time::Instant::now();
+        let results = runner.run(HookEvent::PreCommit, &env);
+        let elapsed = start.elapsed();
+
+        assert_eq!(results.len(), 1);
+        let result = &results[0];
+        assert!(!result.success, "timed-out hook should report failure");
+        assert!(
+            result.error.as_ref().map_or(false, |e| e.contains("timed out")),
+            "error should mention timeout: {:?}", result.error
+        );
+        assert!(
+            elapsed < std::time::Duration::from_secs(5),
+            "hook took {:?}, should have been killed",
+            elapsed
+        );
+    }
+
+    #[test]
+    fn run_hook_fast_command_within_timeout() {
+        let mut runner = HookRunner::new();
+        // `echo` completes instantly, even with a tight timeout
+        runner.register(
+            Hook::new("fast-hook", HookEvent::PrePush, "echo")
+                .arg("hello")
+                .timeout(5000),
+        );
+
+        let env = HookEnv {
+            event: HookEvent::PrePush,
+            vcs_type: "test".to_string(),
+            ..Default::default()
+        };
+
+        let results = runner.run(HookEvent::PrePush, &env);
+        assert_eq!(results.len(), 1);
+        assert!(results[0].success, "fast hook should succeed");
+        assert!(
+            results[0].error.is_none(),
+            "fast hook should have no error"
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Proptests: timeout enforcement invariants
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    use proptest::{proptest, prop_assert, prop_assert_eq};
+
+    // Property: for any timeout_ms T, a hook that sleeps longer than T is
+    // killed and reports failure. Wall-clock time stays within 10*T (accounts
+    // for process spawn + polling + kill overhead under load).
+    proptest! {
+        #[test]
+        fn prop_timeout_kills_oversleep(
+            timeout_ms in 200u64..500,
+            oversleep_secs in 2u64..5,
+        ) {
+            let mut runner = HookRunner::new();
+            runner.register(
+                Hook::new("oversleep", HookEvent::PreCommit, "sleep")
+                    .arg(oversleep_secs.to_string())
+                    .timeout(timeout_ms),
+            );
+
+            let env = HookEnv {
+                event: HookEvent::PreCommit,
+                vcs_type: "test".to_string(),
+                ..Default::default()
+            };
+
+            let start = std::time::Instant::now();
+            let results = runner.run(HookEvent::PreCommit, &env);
+            let elapsed_ms = start.elapsed().as_millis() as u64;
+
+            prop_assert_eq!(results.len(), 1);
+            prop_assert!(!results[0].success, "oversleeping hook must fail");
+            prop_assert!(
+                results[0].error.as_ref().map_or(false, |e| e.contains("timed out")),
+                "error must mention timeout: {:?}", results[0].error
+            );
+            let upper_bound = timeout_ms.saturating_mul(10);
+            prop_assert!(
+                elapsed_ms <= upper_bound,
+                "elapsed {}ms exceeds 10*timeout {}ms",
+                elapsed_ms, upper_bound
+            );
+        }
+    }
+
+    // Property: for any timeout_ms T >= 200, a fast command (`true`) always
+    // succeeds regardless of how tight the timeout is.
+    proptest! {
+        #[test]
+        fn prop_fast_command_respects_timeout_bound(
+            timeout_ms in 200u64..5000,
+        ) {
+            let mut runner = HookRunner::new();
+            runner.register(
+                Hook::new("fast", HookEvent::PostCommit, "true")
+                    .timeout(timeout_ms),
+            );
+
+            let env = HookEnv {
+                event: HookEvent::PostCommit,
+                vcs_type: "test".to_string(),
+                ..Default::default()
+            };
+
+            let results = runner.run(HookEvent::PostCommit, &env);
+
+            prop_assert_eq!(results.len(), 1);
+            prop_assert!(results[0].success, "fast command should succeed");
+            prop_assert!(results[0].duration_ms <= timeout_ms,
+                "duration {}ms should be <= timeout {}ms",
+                results[0].duration_ms, timeout_ms
+            );
+        }
+    }
+
+    // Property: duration_ms in HookResult is always <= 10x the configured timeout.
+    proptest! {
+        #[test]
+        fn prop_duration_bounded_by_timeout(
+            timeout_ms in 200u64..500,
+            sleep_ms in 0u64..2000u64,
+        ) {
+            let mut runner = HookRunner::new();
+            let cmd = if sleep_ms == 0 {
+                "true".to_string()
+            } else {
+                "sleep".to_string()
+            };
+            let mut hook = Hook::new("bounded", HookEvent::PreMerge, &cmd)
+                .timeout(timeout_ms);
+            if sleep_ms > 0 {
+                let secs = (sleep_ms + 999) / 1000;
+                hook = hook.arg(secs.to_string());
+            }
+            runner.register(hook);
+
+            let env = HookEnv {
+                event: HookEvent::PreMerge,
+                vcs_type: "test".to_string(),
+                ..Default::default()
+            };
+
+            let results = runner.run(HookEvent::PreMerge, &env);
+
+            prop_assert_eq!(results.len(), 1);
+            let upper_bound = timeout_ms.saturating_mul(10);
+            prop_assert!(
+                results[0].duration_ms <= upper_bound,
+                "duration_ms {} exceeds 10*timeout {}ms",
+                results[0].duration_ms, upper_bound
+            );
+        }
     }
 }
