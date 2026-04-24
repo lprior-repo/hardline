@@ -16,3 +16,6 @@ worktrees/
 # CI History cache
 .ci_history/
 .moon/cache/
+
+# Beads / Dolt files (added by bd init)
+.beads-credential-key
