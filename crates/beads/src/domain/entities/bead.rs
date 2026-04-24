@@ -19,12 +19,6 @@ use super::super::value_objects::{
     BeadDescription, BeadId, BeadState, BeadTitle, BeadType, Labels, Priority,
 };
 
-impl Default for BeadState {
-    fn default() -> Self {
-        Self::Open
-    }
-}
-
 // ── Typestate markers ─────────────────────────────────────────────────────────
 
 /// Typestate marker: bead is open (initial state).
