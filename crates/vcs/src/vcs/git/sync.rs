@@ -60,7 +60,7 @@ impl GitBackend {
         let original_branch = current;
 
         let _checkout_result = Command::new("git")
-            .args(["checkout", branch.as_str()])
+            .args(["checkout", "--", branch.as_str()])
             .current_dir(self.path.as_path())
             .output()
             .map_err(|e| VcsError::CommandFailed {
@@ -73,13 +73,13 @@ impl GitBackend {
                     .success()
                     .then_some(())
                     .ok_or_else(|| VcsError::GitCliFailed {
-                        command: format!("git checkout {}", branch.as_str()),
+                        command: format!("git checkout -- {}", branch.as_str()),
                         source: None,
                     })
             })?;
 
         let _rebase_result = Command::new("git")
-            .args(["rebase", "--update-refs", parent.as_str()])
+            .args(["rebase", "--update-refs", "--", parent.as_str()])
             .current_dir(self.path.as_path())
             .output()
             .map_err(|e| VcsError::CommandFailed {
@@ -93,7 +93,7 @@ impl GitBackend {
                 (output.status.success() || is_up_to_date)
                     .then_some(())
                     .ok_or_else(|| VcsError::GitCliFailed {
-                        command: format!("git rebase --update-refs {}", parent.as_str()),
+                        command: format!("git rebase --update-refs -- {}", parent.as_str()),
                         source: None,
                     })
             })?;

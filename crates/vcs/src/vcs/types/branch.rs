@@ -2,7 +2,7 @@
 //!
 //! This module provides `BranchName` - named reference to a line of development.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::vcs::errors::VcsError;
 
@@ -81,8 +81,21 @@ fn has_invalid_branch_syntax(name: &str) -> bool {
 // ============================================================================
 
 /// Name of a branch in the VCS
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BranchName(String);
+
+impl Serialize for BranchName {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.0.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for BranchName {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Self::new(s).map_err(|e| serde::de::Error::custom(format!("{e}")))
+    }
+}
 
 impl BranchName {
     /// Create a new branch name with validation
@@ -342,6 +355,34 @@ mod tests {
         let json = serde_json::to_string(&b).expect("serialize");
         let deserialized: BranchName = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(b, deserialized);
+    }
+
+    #[test]
+    fn branch_name_serde_rejects_invalid() {
+        let json = "\"--upload-pack=evil\"";
+        let result = serde_json::from_str::<BranchName>(json);
+        assert!(result.is_err(), "serde must reject -- prefixed branch names");
+    }
+
+    #[test]
+    fn branch_name_serde_rejects_leading_hyphen() {
+        let json = "\"-foo\"";
+        let result = serde_json::from_str::<BranchName>(json);
+        assert!(result.is_err(), "serde must reject - prefixed branch names");
+    }
+
+    #[test]
+    fn branch_name_serde_rejects_empty() {
+        let json = "\"\"";
+        let result = serde_json::from_str::<BranchName>(json);
+        assert!(result.is_err(), "serde must reject empty branch names");
+    }
+
+    #[test]
+    fn branch_name_serde_rejects_tilde() {
+        let json = "\"main~1\"";
+        let result = serde_json::from_str::<BranchName>(json);
+        assert!(result.is_err(), "serde must reject tilde in branch names");
     }
 
     #[test]
