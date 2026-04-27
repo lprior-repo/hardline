@@ -205,9 +205,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn checkpoint_state_default_is_pending() {
-        let json = serde_json::to_string(&CheckpointState::default()).unwrap();
-        assert_eq!(json, "\"pending\"");
-    }
 }

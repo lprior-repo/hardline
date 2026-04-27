@@ -3,7 +3,7 @@
 //! Tests that all Serialize/Deserialize impls in worktree round-trip correctly.
 
 use chrono::Utc;
-use worktree::worktree::Incomplete;
+use worktree::domain::worktree::Incomplete;
 use worktree::{
     AbsolutePath, BranchName, Worktree, WorktreeId, WorktreeName, WorktreeState, WorktreeTypeEnum,
 };

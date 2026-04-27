@@ -160,7 +160,7 @@ impl fmt::Display for BeadId {
 ///
 /// Each bead maps to at most one workspace. This is the link between
 /// the task tracking system and the isolation system.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BeadWorkspaceMapping {
     bead_id: BeadId,
     workspace_id: WorkspaceId,
@@ -200,8 +200,6 @@ impl BeadWorkspaceMapping {
 #[cfg(test)]
 mod serde_tests {
     use super::*;
-    use serde::{Deserialize, Serialize};
-
     #[test]
     fn workspace_id_roundtrip() {
         let id = WorkspaceId::parse("test-workspace-123".to_string()).unwrap();

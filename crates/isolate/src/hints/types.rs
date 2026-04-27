@@ -89,9 +89,6 @@ pub struct CommandContext {
 #[cfg(test)]
 mod serde_tests {
     use super::*;
-    use crate::domain::WorkspaceState;
-    use chrono::Utc;
-
     #[test]
     fn hint_type_all_variants_lowercase() {
         for variant in [HintType::Info, HintType::Suggestion, HintType::Warning, HintType::Error, HintType::Tip] {

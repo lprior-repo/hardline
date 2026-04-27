@@ -522,7 +522,7 @@ mod serde_roundtrip_tests {
 
     #[test]
     fn op_receipt_pretty_print_roundtrip() {
-        let mut receipt = OpReceipt::new(
+        let receipt = OpReceipt::new(
             "op-pretty-1".to_string(),
             OpKind::Reorder,
             "/repo".to_string(),
