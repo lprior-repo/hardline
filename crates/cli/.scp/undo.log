@@ -1,4 +1,5 @@
-{"session_name":"feature-y","commit_id":"","pre_merge_commit_id":"sha","timestamp":1776447900,"pushed_to_remote":true,"status":"completed"}
-d"}
-eted"}
-{"session_name":"detect-fail-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1777058583,"pushed_to_remote":true,"status":"completed"}
+{"session_name":"changes-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1777062141,"pushed_to_remote":true,"status":"completed"}
+mpleted"}
+{"session_name":"feature-y","commit_id":"","pre_merge_commit_id":"sha","timestamp":1777062141,"pushed_to_remote":true,"status":"completed"}
+ed"}
+{"session_name":"push-fail-ws","commit_id":"","pre_merge_commit_id":"sha","timestamp":1777062141,"pushed_to_remote":false,"status":"completed"}

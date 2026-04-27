@@ -24,7 +24,7 @@
 mod agent;
 mod config;
 mod doctor;
-mod domain_types;
+pub mod domain_types;
 mod error;
 mod macros;
 mod session;
