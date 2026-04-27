@@ -31,3 +31,6 @@ red-queen-report-*.md
 *.profraw
 *.profdata
 *.prof
+
+# Beads / Dolt files (added by bd init)
+.beads-credential-key
