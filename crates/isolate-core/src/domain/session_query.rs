@@ -39,6 +39,30 @@ use crate::domain::repository::{Session, SessionRepository};
 use crate::session_state::SessionState;
 
 // ============================================================================
+// QUERY ERROR TYPE
+// ============================================================================
+
+/// Errors that can occur during session query operations
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QueryError {
+    /// Session has no branch name (should not happen for on-branch sessions)
+    MissingBranchName,
+    /// Invalid pagination parameters
+    PaginationError,
+}
+
+impl std::fmt::Display for QueryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            QueryError::MissingBranchName => write!(f, "Session has no branch name"),
+            QueryError::PaginationError => write!(f, "Invalid pagination parameters"),
+        }
+    }
+}
+
+impl std::error::Error for QueryError {}
+
+// ============================================================================
 // SESSION FILTER VALUE OBJECT
 // ============================================================================
 
@@ -312,8 +336,7 @@ pub fn filter_sessions(sessions: &[Session], filter: &SessionFilter) -> Vec<Sess
 ///
 /// Pure function - no side effects, deterministic.
 /// Uses iterator pipeline with functional composition.
-#[must_use]
-pub fn sort_sessions(sessions: &[Session], sort: &SessionSort) -> Vec<Session> {
+pub fn sort_sessions(sessions: &[Session], sort: &SessionSort) -> Result<Vec<Session>, QueryError> {
     let sorted = match (sort.field, sort.direction) {
         (SessionSortField::Name, SortDirection::Asc) => sessions
             .iter()
@@ -342,50 +365,59 @@ pub fn sort_sessions(sessions: &[Session], sort: &SessionSort) -> Vec<Session> {
             .collect(),
         (SessionSortField::Branch, SortDirection::Asc) => sessions
             .iter()
-            .sorted_by_key(|s| s.branch.branch_name().unwrap_or(""))
+            .sorted_by_key(|s| {
+                s.branch
+                    .branch_name()
+                    .ok_or(QueryError::MissingBranchName)
+            })
+            .cloned()
+            .collect::<Result<Vec<Session>, QueryError>>()
+            .map_err(|_| QueryError::MissingBranchName)?
+            .into_iter()
             .cloned()
             .collect(),
         (SessionSortField::Branch, SortDirection::Desc) => sessions
             .iter()
             .sorted_by(|a, b| {
-                let a_branch = a.branch.branch_name().unwrap_or("");
-                let b_branch = b.branch.branch_name().unwrap_or("");
+                let a_branch = a
+                    .branch
+                    .branch_name()
+                    .ok_or(QueryError::MissingBranchName)?;
+                let b_branch = b
+                    .branch
+                    .branch_name()
+                    .ok_or(QueryError::MissingBranchName)?;
                 b_branch.cmp(a_branch)
             })
             .cloned()
             .collect(),
     };
-    sorted
+    Ok(sorted)
 }
 
 /// Paginate sessions (skip + take)
 ///
 /// Pure function - no side effects.
-#[must_use]
 pub fn paginate_sessions(
     sessions: &[Session],
     offset: Option<usize>,
     limit: Option<usize>,
-) -> Vec<Session> {
-    let offset = offset.unwrap_or(0);
+) -> Result<Vec<Session>, QueryError> {
+    let offset = offset.ok_or(QueryError::PaginationError)?;
     let limit = limit.unwrap_or(sessions.len());
-    sessions.iter().skip(offset).take(limit).cloned().collect()
+    Ok(sessions.iter().skip(offset).take(limit).cloned().collect())
 }
 
 /// Apply a complete query (filter + sort + paginate)
 ///
 /// Uses `tap::Pipe` for functional composition.
-#[must_use]
-pub fn apply_query(sessions: &[Session], query: &SessionQuery) -> Vec<Session> {
-    sessions
-        .pipe(|s| filter_sessions(s, &query.filter))
-        .pipe(|s| {
-            query
-                .sort
-                .as_ref()
-                .map_or(s.clone(), |sort| sort_sessions(&s, sort))
-        })
-        .pipe(|s| paginate_sessions(&s, query.offset, query.limit))
+pub fn apply_query(sessions: &[Session], query: &SessionQuery) -> Result<Vec<Session>, QueryError> {
+    let filtered = filter_sessions(sessions, &query.filter);
+    let sorted = query
+        .sort
+        .as_ref()
+        .map_or(Ok(filtered.clone()), |sort| sort_sessions(&filtered, sort))?;
+    paginate_sessions(&sorted, query.offset, query.limit)
 }
 
 // ============================================================================
@@ -395,23 +427,39 @@ pub fn apply_query(sessions: &[Session], query: &SessionQuery) -> Vec<Session> {
 /// Extension trait for SessionRepository to support filtering
 pub trait SessionRepositoryExt {
     /// List sessions with a filter
-    fn list_filtered(&self, filter: &SessionFilter) -> Vec<Session>;
+    fn list_filtered(&self, filter: &SessionFilter) -> Result<Vec<Session>, SessionRepositoryError>;
 
     /// List sessions with a complete query
-    fn query(&self, query: &SessionQuery) -> Vec<Session>;
+    fn query(&self, query: &SessionQuery) -> Result<Vec<Session>, SessionRepositoryError>;
+}
+
+/// Error type for SessionRepository operations
+#[derive(Debug, Clone)]
+pub enum SessionRepositoryError {
+    /// Repository error
+    Repository(Box<dyn std::error::Error + Send + Sync>),
+    /// Query error
+    Query(QueryError),
+}
+
+impl From<QueryError> for SessionRepositoryError {
+    fn from(err: QueryError) -> Self {
+        Self::Query(err)
+    }
 }
 
 impl<R: SessionRepository> SessionRepositoryExt for R {
-    fn list_filtered(&self, filter: &SessionFilter) -> Vec<Session> {
-        self.list_all()
-            .map(|sessions| filter_sessions(&sessions, filter))
-            .unwrap_or_default()
+    fn list_filtered(
+        &self,
+        filter: &SessionFilter,
+    ) -> Result<Vec<Session>, SessionRepositoryError> {
+        let sessions = self.list_all()?;
+        Ok(filter_sessions(&sessions, filter))
     }
 
-    fn query(&self, query: &SessionQuery) -> Vec<Session> {
-        self.list_all()
-            .map(|sessions| apply_query(&sessions, query))
-            .unwrap_or_default()
+    fn query(&self, query: &SessionQuery) -> Result<Vec<Session>, SessionRepositoryError> {
+        let sessions = self.list_all()?;
+        apply_query(&sessions, query).map_err(Into::into)
     }
 }
 

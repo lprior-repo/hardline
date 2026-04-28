@@ -26,11 +26,19 @@ impl SqliteWorktreeRow {
     fn to_worktree(&self) -> Worktree {
         let id = WorktreeId::from_string(&self.id).unwrap_or_else(|_| WorktreeId::new_random());
         let name =
-            WorktreeName::new(&self.name).unwrap_or_else(|_| WorktreeName::new("unknown").unwrap());
+            WorktreeName::new(&self.name).unwrap_or_else(|_| WorktreeName::new_unchecked("unknown".to_string()));
         let path =
-            AbsolutePath::new(&self.path).unwrap_or_else(|_| AbsolutePath::new("/tmp").unwrap());
+            AbsolutePath::new(&self.path).unwrap_or_else(|_| {
+                // Use new_unchecked since /tmp is guaranteed to be valid
+                // SAFETY: /tmp is always an absolute path without traversal
+                unsafe { AbsolutePath::new_unchecked("/tmp") }
+            });
         let parent_path = AbsolutePath::new(&self.parent_path)
-            .unwrap_or_else(|_| AbsolutePath::new("/tmp").unwrap());
+            .unwrap_or_else(|_| {
+                // Use new_unchecked since /tmp is guaranteed to be valid
+                // SAFETY: /tmp is always an absolute path without traversal
+                unsafe { AbsolutePath::new_unchecked("/tmp") }
+            });
         let state = WorktreeState::from_u8(self.state).unwrap_or(WorktreeState::Creating);
         let worktree_type =
             WorktreeTypeEnum::from_u8(self.worktree_type).unwrap_or(WorktreeTypeEnum::Development);

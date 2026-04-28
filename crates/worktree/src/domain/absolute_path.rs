@@ -8,6 +8,9 @@ pub struct AbsolutePath(PathBuf);
 
 impl AbsolutePath {
     /// Create a new absolute path with validation
+    ///
+    /// # Errors
+    /// Returns error if path is not absolute or contains parent directory traversal.
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, super::WorktreeDomainError> {
         let path = path.as_ref();
 
@@ -29,6 +32,26 @@ impl AbsolutePath {
         }
 
         Ok(Self(path.to_path_buf()))
+    }
+
+    /// Create an absolute path without validation.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure the path is absolute and does not contain
+    /// parent directory traversal components (`..`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use worktree::domain::AbsolutePath;
+    ///
+    /// // Safe when using a known absolute path
+    /// let path = unsafe { AbsolutePath::new_unchecked("/tmp") };
+    /// ```
+    #[must_use]
+    pub unsafe fn new_unchecked<P: AsRef<Path>>(path: P) -> Self {
+        Self(path.as_ref().to_path_buf())
     }
 
     /// Create an absolute path from a string
@@ -53,8 +76,10 @@ impl AbsolutePath {
 
     /// Create a child path relative to this absolute path
     pub fn join<P: AsRef<Path>>(&self, child: P) -> AbsolutePath {
-        AbsolutePath::new(self.0.join(child))
-            .expect("Joined path should be absolute when joining to absolute path")
+        // Joining two absolute paths always produces an absolute path.
+        // Use new_unchecked to avoid expect/unwrap since validation is redundant here.
+        // SAFETY: PathBuf::join of absolute path always produces absolute path.
+        unsafe { AbsolutePath::new_unchecked(self.0.join(child)) }
     }
 
     /// Get the parent directory

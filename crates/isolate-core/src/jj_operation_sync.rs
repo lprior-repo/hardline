@@ -96,7 +96,9 @@ async fn acquire_lock_with_backoff() -> Result<MutexGuardClosing<'static, ()>> {
                     return Err(Error::LockTimeout {
                         operation: "workspace creation".to_string(),
                         timeout_ms: u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis())
-                            .unwrap_or(u64::MAX),
+                            .map_err(|_| Error::IoError(
+                                "LOCK_ACQUISITION_TIMEOUT exceeds u64::MAX".to_string(),
+                            ))?,
                         retries: MAX_LOCK_RETRIES,
                     });
                 }
@@ -107,7 +109,10 @@ async fn acquire_lock_with_backoff() -> Result<MutexGuardClosing<'static, ()>> {
     // This should never be reached, but required for type checking
     Err(Error::LockTimeout {
         operation: "workspace creation".to_string(),
-        timeout_ms: u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis()).unwrap_or(u64::MAX),
+        timeout_ms: u64::try_from(LOCK_ACQUISITION_TIMEOUT.as_millis())
+            .map_err(|_| Error::IoError(
+                "LOCK_ACQUISITION_TIMEOUT exceeds u64::MAX".to_string(),
+            ))?,
         retries: MAX_LOCK_RETRIES,
     })
 }
@@ -346,7 +351,10 @@ fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<()> 
                 std::thread::sleep(backoff);
             }
             Err(_) => {
-                let max_attempts_u32 = u32::try_from(HIGH_CONTENTION_MAX_ATTEMPTS).unwrap_or(8);
+                let max_attempts_u32 = u32::try_from(HIGH_CONTENTION_MAX_ATTEMPTS)
+                    .map_err(|_| Error::IoError(
+                        "HIGH_CONTENTION_MAX_ATTEMPTS exceeds u32::MAX".to_string(),
+                    ))?;
                 let total_wait_ms: u64 = (0u32..max_attempts_u32)
                     .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i))
                     .sum();
@@ -360,7 +368,10 @@ fn acquire_file_lock_with_timeout(file: &File, description: &str) -> Result<()> 
     }
 
     // This should never be reached due to the error case above
-    let max_attempts_u32 = u32::try_from(HIGH_CONTENTION_MAX_ATTEMPTS).unwrap_or(8);
+    let max_attempts_u32 = u32::try_from(HIGH_CONTENTION_MAX_ATTEMPTS)
+        .map_err(|_| Error::IoError(
+            "HIGH_CONTENTION_MAX_ATTEMPTS exceeds u32::MAX".to_string(),
+        ))?;
     let total_wait_ms: u64 = (0u32..max_attempts_u32)
         .map(|i| FILE_LOCK_BASE_BACKOFF_MS * 2_u64.pow(i))
         .sum();

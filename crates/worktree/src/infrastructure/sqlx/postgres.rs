@@ -27,15 +27,20 @@ impl PostgresWorktreeRow {
         let id = WorktreeId::from_bytes(self.id);
         let name = WorktreeName::new(&self.name).unwrap_or_else(|err| {
             eprintln!("Invalid worktree name '{}': {}", self.name, err);
-            WorktreeName::new("unknown").expect("unknown is always valid")
+            // "unknown" is a valid fallback since it passes validation
+            WorktreeName::new_unchecked("unknown".to_string())
         });
         let path = AbsolutePath::new(&self.path).unwrap_or_else(|err| {
             eprintln!("Invalid path '{}': {}", self.path, err);
-            AbsolutePath::new("/tmp").expect("/tmp is always valid")
+            // Use new_unchecked since /tmp is guaranteed to be valid
+            // SAFETY: /tmp is always an absolute path without traversal
+            unsafe { AbsolutePath::new_unchecked("/tmp") }
         });
         let parent_path = AbsolutePath::new(&self.parent_path).unwrap_or_else(|err| {
             eprintln!("Invalid parent path '{}': {}", self.parent_path, err);
-            AbsolutePath::new("/tmp").expect("/tmp is always valid")
+            // Use new_unchecked since /tmp is guaranteed to be valid
+            // SAFETY: /tmp is always an absolute path without traversal
+            unsafe { AbsolutePath::new_unchecked("/tmp") }
         });
         let state = WorktreeState::from_u8(self.state as u8).unwrap_or_else(|| {
             eprintln!(
