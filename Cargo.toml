@@ -85,6 +85,9 @@ faster-hex = "0.10"
 # Git
 gix = { version = "0.78", features = ["status", "blocking-network-client"] }
 git2 = "0.20"
+
+# Jujutsu VCS
+jj-lib = "0.38"
 uuid = { version = "1", features = ["v4", "serde"] }
 uuid-no-serde = { version = "1", features = ["v4"] }
 
