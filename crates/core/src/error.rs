@@ -122,6 +122,18 @@ impl From<std::io::Error> for Error {
     }
 }
 
+/// Convert serde_json::Error to Error::Io
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        use super::error_io::IoErrorKind;
+        IoErrorKind::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("JSON error: {e}"),
+        ))
+        .into()
+    }
+}
+
 // ========================================================================
 // Constructors for backwards compatibility
 // ========================================================================
