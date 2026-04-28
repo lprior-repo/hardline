@@ -55,12 +55,9 @@ pub async fn handle_init(sub_m: &clap::ArgMatches) -> Result<()> {
 pub async fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
     // Hardline doesn't have ai_contracts - handle contract flag gracefully
     if sub_m.get_flag("contract") {
-        println!(
-            "{}",
-            introspect::data::IntrospectOptions::from_cli(
-                introspect::data::IntrospectTarget::Specific("add".to_string())
-            )
-        );
+        let target = introspect::data::IntrospectTarget::Specific("add".to_string());
+        let options = introspect::data::IntrospectOptions { target };
+        introspect::run_introspect(&options)?;
         return Ok(());
     }
 
@@ -231,7 +228,7 @@ pub async fn handle_spawn(sub_m: &clap::ArgMatches) -> Result<()> {
     workspace::spawn(
         name,
         if _sync {
-            workspace::SyncOption::Sync
+            workspace::SyncOption::WithSync
         } else {
             workspace::SyncOption::NoSync
         },
@@ -301,6 +298,8 @@ pub async fn handle_rename(sub_m: &clap::ArgMatches) -> Result<()> {
         dry_run: false,
     };
     crate::commands::handlers::rename::run_rename(&options)
+        .map_err(|e| Error::internal(e.to_string()))?;
+    Ok(())
 }
 
 /// Handle workspace cloning.
@@ -318,7 +317,8 @@ pub async fn handle_clone(sub_m: &clap::ArgMatches) -> Result<()> {
         .clone();
     let _dry_run = sub_m.get_flag("dry-run");
 
-    let result = crate::commands::handlers::session::clone_session(&source, &target, _dry_run)?;
+    let result = crate::commands::handlers::session::clone_session(&source, &target, _dry_run)
+        .map_err(|e| Error::internal(e.to_string()))?;
     if result.success {
         Ok(())
     } else {
@@ -337,6 +337,8 @@ pub async fn handle_pause(sub_m: &clap::ArgMatches) -> Result<()> {
         .ok_or_else(|| Error::invalid_identifier("Session name is required".to_string()))?;
 
     crate::commands::handlers::session::pause(&session)
+        .map_err(|e| Error::internal(e.to_string()))?;
+    Ok(())
 }
 
 /// Handle workspace resume.
@@ -350,6 +352,8 @@ pub async fn handle_resume(sub_m: &clap::ArgMatches) -> Result<()> {
         .ok_or_else(|| Error::invalid_identifier("Session name is required".to_string()))?;
 
     crate::commands::handlers::session::resume(&session)
+        .map_err(|e| Error::internal(e.to_string()))?;
+    Ok(())
 }
 
 /// Handle whoami introspection.

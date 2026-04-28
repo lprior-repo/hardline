@@ -3,9 +3,8 @@
 //! This module provides the main dispatcher for `scp session <action>` commands,
 //! delegating to existing command implementations or providing custom handling.
 
-use anyhow::Result;
 use clap::ArgMatches;
-use scp_core::{output::Output, vcs, Error};
+use scp_core::{output::Output, vcs, Error, Result};
 
 use super::json_format::get_format;
 use crate::commands::session;
@@ -144,7 +143,7 @@ async fn handle_session_list(args: &ArgMatches) -> Result<()> {
 async fn handle_session_add(args: &ArgMatches) -> Result<()> {
     let name = args
         .get_one::<String>("name")
-        .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
+        .ok_or_else(|| Error::invalid_identifier("Name is required".to_string()))?;
 
     let format = get_format(args);
     let _dry_run = args.get_flag("dry-run");
@@ -153,13 +152,13 @@ async fn handle_session_add(args: &ArgMatches) -> Result<()> {
 
     // Note: add options not fully implemented - hardline uses workspace add(path)
     if format.is_json() {
-        serde_json::json!({
+        let json = serde_json::json!({
             "command": "session add",
             "name": name,
             "status": "unimplemented",
             "message": "session add not yet implemented - use workspace split instead"
-        })
-        .println();
+        });
+        println!("{}", serde_json::to_string_pretty(&json)?);
     } else {
         println!("session add not yet implemented - use 'scp workspace split' instead");
     }
@@ -171,7 +170,7 @@ async fn handle_session_add(args: &ArgMatches) -> Result<()> {
 async fn handle_session_remove(args: &ArgMatches) -> Result<()> {
     let name = args
         .get_one::<String>("name")
-        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+        .ok_or_else(|| Error::invalid_identifier("Session name is required".to_string()))?;
 
     let _format = get_format(args);
     let _force = args.get_flag("force");
@@ -184,19 +183,19 @@ async fn handle_session_remove(args: &ArgMatches) -> Result<()> {
 async fn handle_session_pause(args: &ArgMatches) -> Result<()> {
     let name = args
         .get_one::<String>("name")
-        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+        .ok_or_else(|| Error::invalid_identifier("Session name is required".to_string()))?;
 
     let format = get_format(args);
 
     pause(name)?;
 
     if format.is_json() {
-        serde_json::json!({
+        let json = serde_json::json!({
             "command": "session pause",
             "session": name,
             "status": "unimplemented"
-        })
-        .println();
+        });
+        println!("{}", serde_json::to_string_pretty(&json)?);
     }
 
     Ok(())
@@ -206,19 +205,19 @@ async fn handle_session_pause(args: &ArgMatches) -> Result<()> {
 async fn handle_session_resume(args: &ArgMatches) -> Result<()> {
     let name = args
         .get_one::<String>("name")
-        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+        .ok_or_else(|| Error::invalid_identifier("Session name is required".to_string()))?;
 
     let format = get_format(args);
 
     resume(name)?;
 
     if format.is_json() {
-        serde_json::json!({
+        let json = serde_json::json!({
             "command": "session resume",
             "session": name,
             "status": "unimplemented"
-        })
-        .println();
+        });
+        println!("{}", serde_json::to_string_pretty(&json)?);
     }
 
     Ok(())
@@ -228,7 +227,7 @@ async fn handle_session_resume(args: &ArgMatches) -> Result<()> {
 async fn handle_session_clone(args: &ArgMatches) -> Result<()> {
     let source = args
         .get_one::<String>("name")
-        .ok_or_else(|| anyhow::anyhow!("Source session name is required"))?;
+        .ok_or_else(|| Error::invalid_identifier("Source session name is required".to_string()))?;
 
     let target = args
         .get_one::<String>("new-name")
@@ -241,14 +240,14 @@ async fn handle_session_clone(args: &ArgMatches) -> Result<()> {
     let result = clone_session(source, &target, dry_run)?;
 
     if format.is_json() {
-        serde_json::json!({
+        let json = serde_json::json!({
             "command": "session clone",
             "source": result.source,
             "target": result.target,
             "success": result.success,
             "dry_run": result.dry_run
-        })
-        .println();
+        });
+        println!("{}", serde_json::to_string_pretty(&json)?);
     }
 
     Ok(())
@@ -267,19 +266,19 @@ async fn handle_session_status(args: &ArgMatches) -> Result<()> {
 async fn handle_session_focus(args: &ArgMatches) -> Result<()> {
     let name = args
         .get_one::<String>("name")
-        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+        .ok_or_else(|| Error::invalid_identifier("Session name is required".to_string()))?;
 
     let format = get_format(args);
 
     session::focus(name)?;
 
     if format.is_json() {
-        serde_json::json!({
+        let json = serde_json::json!({
             "command": "session focus",
             "session": name,
             "status": "focused"
-        })
-        .println();
+        });
+        println!("{}", serde_json::to_string_pretty(&json)?);
     }
 
     Ok(())
@@ -311,10 +310,14 @@ async fn handle_session_sync(args: &ArgMatches) -> Result<()> {
         },
     };
 
-    let handle = tokio::runtime::Handle::try_current().unwrap_or_else(|_| {
-        let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
-        rt.handle().clone()
-    });
+    let handle = match tokio::runtime::Handle::try_current() {
+        Ok(h) => h,
+        Err(_) => {
+            let rt = tokio::runtime::Runtime::new()
+                .map_err(|e| Error::io_error(format!("Failed to create tokio runtime: {e}")))?;
+            rt.handle().clone()
+        }
+    };
 
     handle.block_on(async {
         if all {
@@ -339,12 +342,12 @@ async fn handle_session_init(args: &ArgMatches) -> Result<()> {
 
     if dry_run {
         if format.is_json() {
-            serde_json::json!({
+            let json = serde_json::json!({
                 "command": "session init",
                 "dry_run": true,
                 "status": "would_initialize"
-            })
-            .println();
+            });
+            println!("{}", serde_json::to_string_pretty(&json)?);
         } else {
             println!("[dry-run] Would initialize session repository");
         }
@@ -354,12 +357,12 @@ async fn handle_session_init(args: &ArgMatches) -> Result<()> {
     crate::commands::init::run("git")?;
 
     if format.is_json() {
-        serde_json::json!({
+        let json = serde_json::json!({
             "command": "session init",
             "vcs_type": "git",
             "status": "initialized"
-        })
-        .println();
+        });
+        println!("{}", serde_json::to_string_pretty(&json)?);
     }
 
     Ok(())

@@ -137,6 +137,7 @@ pub fn pull(repo: &gix::Repository, remote: Option<&str>, rebase: bool) -> GitRe
 /// - `GitError::Network` if push fails
 /// - `GitError::Unauthorized` if authentication fails
 /// - `GitError::InvalidRef` if branch resolution fails
+#[allow(clippy::too_many_arguments)]
 pub fn push(
     repo: &gix::Repository,
     remote: &str,

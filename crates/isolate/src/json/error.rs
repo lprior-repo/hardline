@@ -53,6 +53,7 @@ pub fn semantic_exit_code(error: &anyhow::Error) -> i32 {
 
 /// Create an error envelope payload
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 struct ErrorEnvelopePayload {
     error: ErrorDetail,
 }

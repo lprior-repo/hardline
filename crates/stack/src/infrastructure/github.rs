@@ -34,10 +34,10 @@ impl GitHubClientImpl {
         }
     }
 
-    fn block_on<F: std::future::Future>(&self, f: F) -> F::Output {
-        #[allow(clippy::expect_used)]
-        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
-        rt.block_on(f)
+    fn block_on<F: std::future::Future>(&self, f: F) -> Result<F::Output> {
+        let rt = tokio::runtime::Runtime::new()
+            .map_err(|e| StackError::GitHubError(format!("Failed to create tokio runtime: {}", e)))?;
+        Ok(rt.block_on(f))
     }
 }
 
@@ -81,7 +81,7 @@ impl GitHubClientTrait for GitHubClientImpl {
                     branch.branch_name
                 ))
                 .send(),
-        )
+        )?
         .map_err(|e| StackError::GitHubError(e.to_string()))
         .map(pr_from_octocrab)
     }
@@ -102,7 +102,7 @@ impl GitHubClientTrait for GitHubClientImpl {
             update_builder = update_builder.body(b.as_str());
         }
 
-        self.block_on(update_builder.send())
+        self.block_on(update_builder.send())?
             .map_err(|e| StackError::GitHubError(e.to_string()))
             .map(pr_from_octocrab)
     }
@@ -112,7 +112,7 @@ impl GitHubClientTrait for GitHubClientImpl {
             self.client
                 .pulls(&self.owner, &self.repo)
                 .get(pr_number as u64),
-        )
+        )?
         .map_err(|e| StackError::GitHubError(e.to_string()))
         .map(pr_from_octocrab)
     }
@@ -125,7 +125,7 @@ impl GitHubClientTrait for GitHubClientImpl {
                     .list()
                     .head(format!("{}:{}", self.owner, branch_name))
                     .send(),
-            )
+            )?
             .map_err(|e| StackError::GitHubError(e.to_string()))?;
 
         if pulls.items.is_empty() {
@@ -144,7 +144,7 @@ impl GitHubClientTrait for GitHubClientImpl {
             self.client
                 .pulls(&self.owner, &self.repo)
                 .get(pr_number as u64),
-        )
+        )?
         .map_err(|e| StackError::GitHubError(e.to_string()))
         .map(|pr| pr.merged.unwrap_or(false))
     }
@@ -154,7 +154,7 @@ impl GitHubClientTrait for GitHubClientImpl {
             self.client
                 .pulls(&self.owner, &self.repo)
                 .get(pr_number as u64),
-        )
+        )?
         .map_err(|e| StackError::GitHubError(e.to_string()))
         .map(|pr| {
             if pr.merged.unwrap_or(false) {
@@ -183,7 +183,7 @@ impl GitHubClientTrait for GitHubClientImpl {
                 .pulls(&self.owner, &self.repo)
                 .merge(pr_number as u64)
                 .send(),
-        )
+        )?
         .map_err(|e| StackError::GitHubError(e.to_string()))?;
         Ok(())
     }
@@ -207,7 +207,7 @@ impl GitHubClientTrait for GitHubClientImpl {
                 .merge(pr_number as u64)
                 .method(method)
                 .send(),
-        )
+        )?
         .map_err(|e| StackError::GitHubError(e.to_string()))?;
         Ok(())
     }
@@ -219,7 +219,7 @@ impl GitHubClientTrait for GitHubClientImpl {
                 .update(pr_number as u64)
                 .base(base_branch.as_str())
                 .send(),
-        )
+        )?
         .map_err(|e| StackError::GitHubError(e.to_string()))?;
         Ok(())
     }

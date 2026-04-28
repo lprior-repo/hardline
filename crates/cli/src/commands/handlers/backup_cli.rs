@@ -16,7 +16,10 @@ use clap::ArgMatches;
 
 use super::json_format::get_format;
 use crate::commands::handlers::{
-    backup::{actions::execute_backup_command, data::BackupCommand, BackupConfig},
+    backup::{
+        actions::execute_backup_command,
+        data::{BackupCommand, BackupConfig},
+    },
     export_import::{
         actions::{run_export, run_import},
         data::{ExportOptions, ImportOptions},
@@ -39,7 +42,7 @@ pub async fn handle_backup(sub_m: &ArgMatches, root: &Path) -> Result<()> {
         (true, false, None, false, false) => BackupCommand::Create,
         (false, true, None, false, false) => BackupCommand::List,
         (false, false, Some(database), false, false) => BackupCommand::Restore {
-            database,
+            database: database.clone(),
             timestamp: sub_m.get_one::<String>("timestamp").cloned(),
         },
         (false, false, None, true, false) => BackupCommand::Status,
@@ -51,7 +54,9 @@ pub async fn handle_backup(sub_m: &ArgMatches, root: &Path) -> Result<()> {
         }
     };
 
-    execute_backup_command(&cmd, root, &config).await
+    execute_backup_command(&cmd, root, &config)
+        .await
+        .map_err(Into::into)
 }
 
 /// Handle the export command - export session configurations.
@@ -76,7 +81,7 @@ pub fn handle_export(sub_m: &ArgMatches) -> Result<()> {
     }
 
     let options = ExportOptions { session, output };
-    run_export(&options)
+    run_export(&options).map_err(Into::into)
 }
 
 /// Handle the import command - import session configurations.
@@ -97,7 +102,7 @@ pub fn handle_import(sub_m: &ArgMatches) -> Result<()> {
         skip_existing,
         dry_run,
     };
-    run_import(&options)
+    run_import(&options).map_err(Into::into)
 }
 
 /// Check if a string looks like a file path based on extension or path separators.

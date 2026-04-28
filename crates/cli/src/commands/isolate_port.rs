@@ -1264,7 +1264,7 @@ pub struct WaitCommand {
     pub ai_hints: bool,
 }
 
-#[derive(clap::ValueEnum, Debug, Clone)]
+#[derive(clap::ValueEnum, Debug, Clone, PartialEq)]
 pub enum WaitCondition {
     SessionExists,
     SessionUnlocked,

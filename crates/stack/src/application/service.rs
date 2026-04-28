@@ -1,4 +1,5 @@
 use chrono::Utc;
+use tracing::warn;
 
 use crate::{
     application::traits::{GitHubClientTrait, StackRepository, VcsClientTrait},
@@ -192,11 +193,18 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         for branch in &mut stack.branches {
             if let Some(pr_info) = &branch.pr_info {
                 branch.state = BranchState::Closed;
-                let _ = self.github.update_pull_request(
+                if let Err(e) = self.github.update_pull_request(
                     pr_info.pr_number,
                     None,
                     Some("Stack closed".to_string()),
-                );
+                ) {
+                    warn!(
+                        pr_number = pr_info.pr_number,
+                        branch = %branch.branch_name,
+                        error = %e,
+                        "Failed to update PR during stack close"
+                    );
+                }
             }
         }
 

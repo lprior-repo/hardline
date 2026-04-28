@@ -4,21 +4,20 @@ use strum::{Display, EnumString};
 
 use crate::error::{BeadError, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq, EnumString, Display, Serialize, Deserialize, Hash)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, EnumString, Display, Default, Serialize, Deserialize, Hash,
+)]
 #[strum(serialize_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum BeadState {
+    #[default]
     Open,
     InProgress,
     Blocked,
     Deferred,
-    Closed { closed_at: DateTime<Utc> },
-}
-
-impl Default for BeadState {
-    fn default() -> Self {
-        Self::Open
-    }
+    Closed {
+        closed_at: DateTime<Utc>,
+    },
 }
 
 impl BeadState {

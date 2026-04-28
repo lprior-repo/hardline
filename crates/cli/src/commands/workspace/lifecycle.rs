@@ -94,10 +94,9 @@ pub fn sync(name: Option<&str>, all: bool) -> Result<(), Error> {
         },
     };
 
-    let handle = tokio::runtime::Handle::try_current().unwrap_or_else(|_| {
-        let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
-        rt.handle().clone()
-    });
+    let handle = tokio::runtime::Handle::try_current()
+        .map_err(|_| Error::io_error("no tokio runtime in context"))?
+        .clone();
     handle.block_on(async {
         if all {
             crate::commands::handlers::sync::sync_all_sessions(options).await

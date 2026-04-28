@@ -361,6 +361,11 @@ async fn list_sessions(pool: &SqlitePool) -> AnyhowResult<Vec<Session>> {
             let metadata_json: Option<serde_json::Value> =
                 metadata.as_ref().and_then(|m| serde_json::from_str(m).ok());
 
+            let created_at = u64::try_from(created_at)
+                .map_err(|_| anyhow::anyhow!("created_at timestamp out of range: {created_at}"))?;
+            let updated_at = u64::try_from(updated_at)
+                .map_err(|_| anyhow::anyhow!("updated_at timestamp out of range: {updated_at}"))?;
+
             Ok(Session {
                 id: None,
                 name,
@@ -368,8 +373,8 @@ async fn list_sessions(pool: &SqlitePool) -> AnyhowResult<Vec<Session>> {
                 state: WorkspaceState::Created,
                 workspace_path,
                 branch,
-                created_at: created_at as u64,
-                updated_at: updated_at as u64,
+                created_at,
+                updated_at,
                 last_synced: None,
                 metadata: metadata_json,
             })
@@ -589,7 +594,12 @@ async fn restore_checkpoint(
         // Check if we have a backup file for this session
         let has_backup = backup_path
             .as_ref()
-            .map(|p| Path::new(p).exists())
+            .map(|p| {
+                Path::new(p)
+                    .try_exists()
+                    .map_err(|e| anyhow::anyhow!("Failed to check backup existence '{p}': {e}"))
+            })
+            .transpose()?
             .unwrap_or(false);
 
         if !has_backup {
@@ -772,7 +782,9 @@ async fn backup_workspace(
             .context("Failed to finalize gzip compression")?;
 
         // Verify backup size is within limits
-        let backup_size = fs::metadata(&backup_path).map(|m| m.len()).unwrap_or(0);
+        let backup_size = fs::metadata(&backup_path)
+            .map(|m| m.len())
+            .context("Failed to get backup file size")?;
 
         if backup_size > limit {
             fs::remove_file(&backup_path).with_context(|| {

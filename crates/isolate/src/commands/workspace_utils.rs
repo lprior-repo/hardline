@@ -49,9 +49,9 @@ pub fn candidate_workspace_roots(root: &Path, workspace_dir: &str) -> Vec<PathBu
 pub async fn find_relocated_workspace(workspace_name: &str, roots: &[PathBuf]) -> Option<PathBuf> {
     for root in roots {
         let candidate = root.join(workspace_name);
-        if fs::try_exists(&candidate).await.unwrap_or(false) {
+        if fs::try_exists(&candidate).await.map_or(false, |exists| exists) {
             let jj_path = candidate.join(".jj");
-            if fs::try_exists(&jj_path).await.unwrap_or(false) {
+            if fs::try_exists(&jj_path).await.map_or(false, |exists| exists) {
                 return Some(candidate);
             }
         }

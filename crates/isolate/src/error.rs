@@ -37,6 +37,12 @@ pub enum IsolateError {
 /// Result alias for isolate operations.
 pub type Result<T> = std::result::Result<T, IsolateError>;
 
+impl From<serde_json::Error> for IsolateError {
+    fn from(e: serde_json::Error) -> Self {
+        IsolateError::OperationFailed(format!("JSON error: {e}"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

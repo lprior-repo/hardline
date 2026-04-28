@@ -389,8 +389,12 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
         )));
     }
 
+    let canonical = std::fs::canonicalize(workspace_path)
+        .map_err(|e| Error::io_error(format!("Failed to resolve path: {e}")))?;
+    let canonical_path = canonical.to_string_lossy();
+
     let workspaces = backend.list_workspaces()?;
-    let path_str = workspace_path.to_string_lossy().to_string();
+    let path_str = canonical_path.to_string();
 
     for ws in workspaces {
         if ws.name == path_str || ws.branch == path_str {
@@ -398,10 +402,10 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
         }
     }
 
-    Output::info(&format!("Adding workspace at '{}'...", path));
+    Output::info(&format!("Adding workspace at '{}'...", canonical_path));
 
     let output = Command::new("git")
-        .args(["worktree", "add", path])
+        .args(["worktree", "add", canonical_path.as_ref()])
         .output()?;
 
     if !output.status.success() {
@@ -409,7 +413,7 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
         return Err(Error::vcs_conflict("worktree add", stderr));
     }
 
-    Output::success(&format!("Added workspace at '{}'", path));
+    Output::success(&format!("Added workspace at '{}'", canonical_path));
 
     Ok(())
 }

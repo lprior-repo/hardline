@@ -65,6 +65,7 @@ pub struct PrInfo {
 }
 
 impl PrInfo {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pr_number: u32,
         url: String,

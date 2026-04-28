@@ -57,6 +57,44 @@ pub fn project_config_path() -> Result<PathBuf> {
         .map_err(|e| Error::io_error(format!("Failed to get current directory: {e}")))
 }
 
+/// Validate a path for traversal attacks
+///
+/// Checks:
+/// - No ".." components that could escape intended directory
+/// - If absolute, must be within expected base directory
+///
+/// **Calculations (Tier 2)**: Pure function
+fn validate_path_traversal(path: &std::path::Path, base_dir: &std::path::Path) -> Result<PathBuf> {
+    let stripped = path.strip_prefix("/").unwrap_or(path);
+
+    // Check for traversal attempts
+    if stripped.components().any(|c| c.as_os_str() == "..") {
+        return Err(Error::io_error(
+            "Path traversal detected in environment variable".to_string(),
+        ));
+    }
+
+    // For absolute paths, must canonicalize successfully to validate
+    // This ensures the path actually exists and is within bounds
+    let joined = base_dir.join(stripped);
+    let canonical = joined.canonicalize().map_err(|_| {
+        Error::io_error(format!(
+            "Cannot resolve absolute path '{}': path does not exist or is inaccessible",
+            stripped.display()
+        ))
+    })?;
+
+    // Verify canonical path is within base_dir
+    let canonical_base = base_dir.canonicalize().unwrap_or_else(|_| base_dir.to_path_buf());
+    if !canonical.starts_with(&canonical_base) {
+        return Err(Error::io_error(
+            "Path escape detected - path must be within repository".to_string(),
+        ));
+    }
+
+    Ok(canonical)
+}
+
 /// Resolve state database path
 ///
 /// Priority: env `SCP_STATE_DB` > default `.scp/state.db`
@@ -64,11 +102,22 @@ pub fn project_config_path() -> Result<PathBuf> {
 /// **Calculations (Tier 2)**: Pure function
 pub fn resolve_state_db_path(repo_root: &std::path::Path) -> Result<PathBuf> {
     if let Ok(env_db) = std::env::var("SCP_STATE_DB") {
-        return Ok(PathBuf::from(env_db));
+        let path = PathBuf::from(&env_db);
+        return if path.is_absolute() {
+            validate_path_traversal(&path, repo_root)
+        } else {
+            // Relative paths are joined with repo_root - no traversal possible
+            Ok(repo_root.join(path))
+        };
     }
 
     if let Ok(db_flag) = std::env::var("SCP_DATABASE_PATH") {
-        return Ok(PathBuf::from(db_flag));
+        let path = PathBuf::from(&db_flag);
+        return if path.is_absolute() {
+            validate_path_traversal(&path, repo_root)
+        } else {
+            Ok(repo_root.join(path))
+        };
     }
 
     Ok(repo_root.join(".scp").join("state.db"))

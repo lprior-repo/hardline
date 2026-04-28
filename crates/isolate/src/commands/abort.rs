@@ -10,7 +10,23 @@
 use isolate_core::json::SchemaEnvelope;
 use serde::Serialize;
 
-use crate::{IsolateError, Result};
+use crate::{session::Session, IsolateError, Result};
+
+/// Stub session database for abort operations
+#[derive(Debug, Clone, Default)]
+pub struct StubSessionDb;
+
+impl StubSessionDb {
+    /// Get a session by name (stub - returns none for now)
+    pub async fn get(&self, _name: &str) -> Result<Option<Session>> {
+        Ok(None)
+    }
+}
+
+/// Get the session database (stub)
+pub async fn get_session_db() -> Result<StubSessionDb> {
+    Ok(StubSessionDb)
+}
 
 /// Output for abort command
 #[derive(Debug, Clone, Serialize)]
@@ -118,7 +134,8 @@ pub async fn run(options: &AbortOptions) -> Result<()> {
     }
 
     // Find the session
-    let session = crate::session::Session::new(&workspace_name, "").map_err(|_| {
+    let db = get_session_db().await?;
+    let session = db.get(&workspace_name).await?.ok_or_else(|| {
         IsolateError::OperationFailed(format!("Session '{workspace_name}' not found"))
     })?;
 

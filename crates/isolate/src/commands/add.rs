@@ -415,7 +415,7 @@ pub async fn run_internal(options: &AddOptions) -> Result<()> {
 
     // Query bead metadata if bead_id provided
     let bead_metadata = if let Some(bead_id) = &options.bead_id {
-        Some(query_bead_metadata(bead_id).await?)
+        query_bead_metadata(bead_id).await?
     } else {
         None
     };
@@ -678,7 +678,7 @@ async fn perform_creation_sequence(
 ) -> Result<Session> {
     // Query bead metadata if bead_id provided
     let bead_metadata = if let Some(bead_id) = &options.bead_id {
-        Some(query_bead_metadata(bead_id).await?)
+        query_bead_metadata(bead_id).await?
     } else {
         None
     };
