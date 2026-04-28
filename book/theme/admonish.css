@@ -1,0 +1,213 @@
+/* ADMONISH CALLOUT STYLES - Stripe-inspired */
+
+.admonition {
+  margin: 24px 0;
+  padding: 16px 20px;
+  border-radius: 8px;
+  border-left: 4px solid;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.admonition-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admonition p:last-child,
+.admonition ul:last-child,
+.admonition ol:last-child {
+  margin-bottom: 0;
+}
+
+/* Note */
+.admonition.note {
+  background: #f0f7ff;
+  border-left-color: #0073e6;
+}
+
+.admonition.note .admonition-title {
+  color: #0073e6;
+}
+
+.admonition.note .admonition-title::before {
+  content: 'ℹ️';
+  font-size: 16px;
+}
+
+/* Tip */
+.admonition.tip {
+  background: #f0fff4;
+  border-left-color: #00a569;
+}
+
+.admonition.tip .admonition-title {
+  color: #00a569;
+}
+
+.admonition.tip .admonition-title::before {
+  content: '💡';
+  font-size: 16px;
+}
+
+/* Warning */
+.admonition.warning {
+  background: #fff8f0;
+  border-left-color: #f5a623;
+}
+
+.admonition.warning .admonition-title {
+  color: #b85c00;
+}
+
+.admonition.warning .admonition-title::before {
+  content: '⚠️';
+  font-size: 16px;
+}
+
+/* Danger */
+.admonition.danger {
+  background: #fff5f5;
+  border-left-color: #df3b3b;
+}
+
+.admonition.danger .admonition-title {
+  color: #df3b3b;
+}
+
+.admonition.danger .admonition-title::before {
+  content: '🚫';
+  font-size: 16px;
+}
+
+/* Info */
+.admonition.info {
+  background: #f0f7ff;
+  border-left-color: #0073e6;
+}
+
+.admonition.info .admonition-title {
+  color: #0073e6;
+}
+
+.admonition.info .admonition-title::before {
+  content: '📖';
+  font-size: 16px;
+}
+
+/* Example */
+.admonition.example {
+  background: #f8f4ff;
+  border-left-color: #635bff;
+}
+
+.admonition.example .admonition-title {
+  color: #635bff;
+}
+
+.admonition.example .admonition-title::before {
+  content: '📝';
+  font-size: 16px;
+}
+
+/* Success */
+.admonition.success {
+  background: #f0fff4;
+  border-left-color: #00a569;
+}
+
+.admonition.success .admonition-title {
+  color: #00a569;
+}
+
+.admonition.success .admonition-title::before {
+  content: '✅';
+  font-size: 16px;
+}
+
+/* Failure / Error */
+.admonition.failure,
+.admonition.error {
+  background: #fff5f5;
+  border-left-color: #df3b3b;
+}
+
+.admonition.failure .admonition-title,
+.admonition.error .admonition-title {
+  color: #df3b3b;
+}
+
+.admonition.failure .admonition-title::before,
+.admonition.error .admonition-title::before {
+  content: '❌';
+  font-size: 16px;
+}
+
+/* Question */
+.admonition.question {
+  background: #fff8f0;
+  border-left-color: #f5a623;
+}
+
+.admonition.question .admonition-title {
+  color: #b85c00;
+}
+
+.admonition.question .admonition-title::before {
+  content: '❓';
+  font-size: 16px;
+}
+
+/* Bug */
+.admonition.bug {
+  background: #fff5f5;
+  border-left-color: #df3b3b;
+}
+
+.admonition.bug .admonition-title {
+  color: #df3b3b;
+}
+
+.admonition.bug .admonition-title::before {
+  content: '🐛';
+  font-size: 16px;
+}
+
+/* Quote */
+.admonition.quote {
+  background: #f6f9fc;
+  border-left-color: #6b7c93;
+}
+
+.admonition.quote .admonition-title {
+  color: #6b7c93;
+}
+
+.admonition.quote .admonition-title::before {
+  content: '💬';
+  font-size: 16px;
+}
+
+/* Abstract / Summary */
+.admonition.abstract,
+.admonition.summary {
+  background: #f6f9fc;
+  border-left-color: #a3acb9;
+}
+
+.admonition.abstract .admonition-title,
+.admonition.summary .admonition-title {
+  color: #6b7c93;
+}
+
+.admonition.abstract .admonition-title::before,
+.admonition.summary .admonition-title::before {
+  content: '📄';
+  font-size: 16px;
+}

@@ -125,7 +125,7 @@ codanna mcp search_documents --query error_handling
 ### Dependency Analysis (`analyze_impact`)
 
 - **Expected Latency:** 100-500ms
-- **Best Case:** ~100ms (hardlined symbol, few dependencies)
+- **Best Case:** ~100ms (isolated symbol, few dependencies)
 - **Worst Case:** ~500ms (highly connected symbol, deep call chains)
 - **Use Case:** Understanding change impact, refactoring planning
 
@@ -215,13 +215,13 @@ codanna mcp semantic_search_docs --query workspace --limit 10
 # Index only what you need
 codanna remove-dir node_modules      # Exclude large dependencies
 codanna remove-dir target            # Exclude build artifacts
-codanna add-dir crates/hardline-core/src  # Index core library only
+codanna add-dir crates/isolate-core/src  # Index core library only
 ```
 
 **Current Indexed Paths:**
-- `crates/hardline-core/src` (core library)
-- `crates/hardline/src` (CLI binary)
-- `crates/hardline/tests` (integration tests)
+- `crates/isolate-core/src` (core library)
+- `crates/isolate/src` (CLI binary)
+- `crates/isolate/tests` (integration tests)
 - `docs` (documentation)
 
 ### 5. Keep Index Fresh

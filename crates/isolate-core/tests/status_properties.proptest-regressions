@@ -1,0 +1,14 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 59104b3d3357d71ebe5684006925a29ab6b94b9dd6bfb4472d8adc32b01339bd # shrinks to from = Completed, to = Creating
+cc 9546484b3f2bbd1da6b10963e5d43a3bb335b90e04ac5e3b663868159e5ab800 # shrinks to from = Completed, to = Creating
+cc 8e38079b663fe8a45151a1d3431344d604240ce8f88ec70a5bbbc8c1481471ac # shrinks to name = "A", status = Creating, state = Created, path = "A"
+cc e80d43d7a600cbe0c70d796c93d96e0683d48cffbb755cebc0603e168d9bbf03 # shrinks to name = "A", status = Creating, state = Created, path = "/tmp/isolate-test--", branch = Some("a")
+cc 186de856faacc59a1c914d8bee0f21672476483e12758ef4a948d3838cfe3c67 # shrinks to from = Creating, to = Paused
+cc 66b17ba3b86a8b0e7531ad69f809aca2afb873d073fe5d389fa02d569fb85255 # shrinks to name = "A", status = Completed, state = Created, path = "/"
+cc f1b6c7694e4c8f365cf59daa1c5ab06b91d43d73e6c4f4cea16642e0b3c05eef # shrinks to from = Active, to = Failed
+cc 7bbe86b46e6b40aa79cbb1675605a122abb10ca1ab7fbed7f9ec9f25217b7f27 # shrinks to name = "\t"

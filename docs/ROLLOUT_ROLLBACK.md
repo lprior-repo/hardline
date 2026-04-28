@@ -1,6 +1,6 @@
 # Rollout and Rollback Instructions
 
-This guide defines a safe rollout plan for `hardline` changes and a rollback path for each phase.
+This guide defines a safe rollout plan for `isolate` changes and a rollback path for each phase.
 
 ## Goals
 
@@ -16,7 +16,7 @@ Run and record these checks before any rollout step:
 moon run :quick
 moon run :test
 moon run :ci
-hardline --version
+isolate --version
 ```
 
 Confirm:
@@ -93,7 +93,7 @@ Rollback:
 3. Verify health with:
 
 ```bash
-hardline --version
+isolate --version
 swarm status
 ```
 

@@ -360,12 +360,12 @@ impl Error {
     /// Returns a human-readable suggestion for fixing the error
     pub fn suggestion(&self) -> Option<String> {
         match self {
-            Error::NotFound(_) => Some("Try 'hardline list' to see available sessions"),
+            Error::NotFound(_) => Some("Try 'isolate list' to see available sessions"),
             Error::IoError(msg) if msg.contains("Permission") => {
                 Some("Check file permissions: 'ls -la' or run with appropriate access rights")
             }
             Error::SessionLocked { session, holder } => Some(
-                format!("Session '{session}' is locked by '{holder}'. Use 'hardline agent kill {holder}' to force release")
+                format!("Session '{session}' is locked by '{holder}'. Use 'isolate agent kill {holder}' to force release")
             )
             // ... more cases
         }
@@ -374,8 +374,8 @@ impl Error {
     /// Returns copy-pastable shell commands to resolve the error
     pub fn fix_commands(&self) -> Vec<String> {
         match self {
-            Error::NotFound(_) => vec!["hardline list".to_string(), "hardline add <session-name>".to_string()],
-            Error::IoError(_) => vec!["ls -la".to_string(), "hardline doctor".to_string()],
+            Error::NotFound(_) => vec!["isolate list".to_string(), "isolate add <session-name>".to_string()],
+            Error::IoError(_) => vec!["ls -la".to_string(), "isolate doctor".to_string()],
             // ... more cases
         }
     }
@@ -391,10 +391,10 @@ impl Error {
 
 ### Guidelines for Error Suggestions
 
-1. **Be specific**: Don't just say "check config" - say "run 'hardline config list' to review configuration"
+1. **Be specific**: Don't just say "check config" - say "run 'isolate config list' to review configuration"
 2. **Provide commands**: Include exact shell commands users can copy-paste
 3. **Account for variations**: Handle different error types with context-specific suggestions
-4. **Include fallbacks**: For unknown errors, suggest "hardline doctor" as a catch-all
+4. **Include fallbacks**: For unknown errors, suggest "isolate doctor" as a catch-all
 
 ### Example: Session Locked Error
 
@@ -406,10 +406,10 @@ Error::SessionLocked {
 
 // Output:
 // Error: Session 'my-session' is locked by agent 'agent-123'
-// Suggestion: Session 'my-session' is locked by 'agent-123'. Use 'hardline agent kill agent-123' to force release or check status with 'hardline agent status'
+// Suggestion: Session 'my-session' is locked by 'agent-123'. Use 'isolate agent kill agent-123' to force release or check status with 'isolate agent status'
 // Fix commands:
-//   - hardline agent status my-session
-//   - hardline agent kill agent-123
+//   - isolate agent status my-session
+//   - isolate agent kill agent-123
 ```
 
 This turns a confusing error into clear next steps.

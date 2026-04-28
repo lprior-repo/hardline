@@ -1,4 +1,4 @@
-# Daily Workflow: Beads + Git + Moon
+# Daily Workflow: Beads + Jujutsu + Moon
 
 Integration of issue tracking, version control, and build system.
 
@@ -14,21 +14,18 @@ br list
 br update BD-123 --status in_progress
 
 # Pull latest
-git pull --rebase
+jj git fetch --all-remotes
 ```
 
 ### 2. Make Changes
 
 ```bash
-# Create a feature branch
-git checkout -b feature/BD-123
-
-# Edit files
-vim crates/hardline-core/src/lib.rs
+# Edit files (automatically tracked by jj)
+vim crates/isolate-core/src/lib.rs
 
 # Check status
-git status
-git diff
+jj status
+jj diff
 
 # Test locally
 moon run :test
@@ -37,24 +34,29 @@ moon run :test
 ### 3. Commit Changes
 
 ```bash
-# Stage and commit (conventional commits)
-git add .
-git commit -m "feat: add new feature
+# Describe change (conventional commits)
+jj describe -m "feat: add new feature
 
 - Implementation detail 1
 - Implementation detail 2
 
 Closes BD-123"
+
+# Start next change
+jj new
 ```
 
 ### 4. Push to Remote
 
 ```bash
-# Push feature branch
-git push -u origin feature/BD-123
+# Fetch latest
+jj git fetch --all-remotes
 
-# Or push to main
-git push
+# Push
+jj git push
+
+# Verify
+jj log -r @
 ```
 
 ### 5. Close Issue
@@ -104,25 +106,31 @@ chore      - Maintenance, refactoring
 p0, p1, p2 - Priority (0=highest)
 ```
 
-## Git (Version Control)
+## Jujutsu (Version Control)
 
 ### Status & Diff
 
 ```bash
-git status          # Current state
-git diff            # Changes in working copy
-git log --oneline   # Commit history
+jj status           # Current state
+jj diff             # Changes in working copy
+jj log              # Commit history
+jj log -r @         # Current change
 ```
 
 ### Commits
 
 ```bash
-# Stage and commit
-git add .
-git commit -m "feat: description"
+# Set commit message
+jj describe -m "feat: description"
 
-# Amend last commit message (before push only)
-git commit --amend -m "feat: better description"
+# View full message
+jj describe -r @
+
+# Edit message
+jj describe -e
+
+# Start new change
+jj new
 ```
 
 ### Conventional Commits
@@ -140,7 +148,7 @@ perf: Performance improvements
 ### Example Commit
 
 ```bash
-git commit -m "feat: add validation builder
+jj describe -m "feat: add validation builder
 
 - Implement ValidatorBuilder struct
 - Add error types for validation
@@ -152,22 +160,22 @@ Closes BD-42"
 ### Working with Remotes
 
 ```bash
-git fetch origin                    # Fetch latest
-git push                            # Push changes
-git log origin/main..HEAD           # Commits not yet pushed
+jj git fetch --all-remotes        # Fetch latest
+jj git push                        # Push changes
+jj log -r origin/main..@           # Commits not yet pushed
 ```
 
-### Branching
+### Editing Commits
 
 ```bash
-# Create and switch to branch
-git checkout -b feature/my-feature
+# Edit current change
+jj edit
 
-# Switch back to main
-git checkout main
+# Edit specific commit
+jj edit -r BD-123
 
-# Merge feature branch
-git merge feature/my-feature
+# Squash into parent
+jj squash
 ```
 
 ## Moon (Build System)
@@ -189,14 +197,14 @@ moon run :test
 moon run :ci
 
 # If all pass
-git push
+jj git push
 ```
 
 ### Common Issues
 
 ```bash
 # Fix formatting
-moon run :fmt-fix
+cargo fmt
 
 # Re-run tests
 moon run :test
@@ -211,7 +219,7 @@ moon run :quick --log debug
 
 ```bash
 # Check latest
-git pull --rebase
+jj git fetch --all-remotes
 
 # See available work
 br list
@@ -238,18 +246,20 @@ moon run :test
 moon run :ci
 
 # Commit with message
-git add .
-git commit -m "feat: implement feature
+jj describe -m "feat: implement feature
 
 - Detail 1
 - Detail 2"
+
+# Start next
+jj new
 ```
 
 ### End of Day
 
 ```bash
 # Push all changes
-git push
+jj git push
 
 # Close completed issues
 br close BD-123
@@ -266,18 +276,18 @@ br show BD-125
 br update BD-123 --status in_progress
 
 # Make changes, commit
-git add .
-git commit -m "fix: issue 123"
+jj describe -m "fix: issue 123"
+jj new
 
 # Claim second issue
 br update BD-124 --status in_progress
 
 # Make changes, commit
-git add .
-git commit -m "feat: issue 124"
+jj describe -m "feat: issue 124"
+jj new
 
 # Push all
-git push
+jj git push
 
 # Close both
 br close BD-123
@@ -286,24 +296,24 @@ br close BD-124
 
 ## Syncing Workspaces
 
-`hardline sync` rebases your workspace onto main, keeping your work up to date with the latest changes.
+`isolate sync` rebases your workspace onto main, keeping your work up to date with the latest changes.
 
 ### Basic Usage
 
 ```bash
 # Sync current workspace with main
-hardline sync
+isolate sync
 
 # Sync specific workspace
-hardline sync feature-auth
+isolate sync feature-auth
 
 # Sync all workspaces
-hardline sync --all
+isolate sync --all
 ```
 
 ### What It Does
 
-1. Runs: `git pull --rebase`
+1. Runs: `jj rebase -d main`
 2. Updates `last_synced` timestamp in session database
 3. Shows summary of changes applied
 
@@ -316,7 +326,7 @@ hardline sync --all
 ### Example
 
 ```bash
-$ hardline sync
+$ isolate sync
 Syncing workspace 'feature-auth' with main...
 Rebasing workspace commits onto main
 Summary: 3 commits rebased, 0 conflicts
@@ -329,16 +339,13 @@ If conflicts occur during rebase:
 
 ```bash
 # View conflicts
-git diff --name-only --diff-filter=U
+jj diff
 
 # Edit conflicted files
 vim conflicted_file.rs
 
-# Stage resolved files
-git add conflicted_file.rs
-
-# Continue rebase
-git rebase --continue
+# Continue with rebase (jj tracks resolution automatically)
+jj diff  # Should show no conflicts
 ```
 
 ## Handling Conflicts
@@ -346,7 +353,11 @@ git rebase --continue
 ### Update with Latest
 
 ```bash
-git pull --rebase
+jj git fetch --all-remotes
+# jj automatically handles conflicts
+
+# View conflicts
+jj diff
 ```
 
 ### Resolving Conflicts
@@ -355,14 +366,12 @@ git pull --rebase
 # Edit conflicted file
 vim conflicted_file.rs
 
-# Stage resolved file
-git add conflicted_file.rs
+# Mark resolved (jj tracks this)
+jj diff  # Should show no conflicts
 
-# Continue rebase
-git rebase --continue
-
-# Or abort rebase
-git rebase --abort
+# Commit resolution
+jj describe -m "merge: resolve conflicts"
+jj git push
 ```
 
 ## Landing (Finishing Session)
@@ -375,62 +384,67 @@ moon run :ci
 br create "Follow-up: X" --labels chore
 
 # 3. Commit final changes
-git add .
-git commit -m "chore: final cleanup"
+jj describe -m "chore: final cleanup"
+jj new
 
 # 4. Update Beads
 br close BD-123
 br close BD-124
 
 # 5. Push everything
-git push
+jj git fetch --all-remotes
+jj git push
 
 # 6. Verify push
-git status
+jj log -r @
 ```
 
 ## Common Patterns
 
-### Feature Branch
+### Feature Branch (using jj bookmarks)
 
 ```bash
-# Create feature branch
-git checkout -b feature/cool-thing
+# Create feature bookmark
+jj bookmark set feature/cool-thing
 
-# Make changes and commit
+# Make changes on current commit
 # ... changes ...
-git add .
-git commit -m "feat: cool thing"
-
-# Push feature branch
-git push -u origin feature/cool-thing
+jj describe -m "feat: cool thing"
+jj new
 
 # Switch back to main
-git checkout main
+jj bookmark set main
 
 # Later, merge feature
-git merge feature/cool-thing
+jj bookmark set feature/cool-thing
+# ... feature is now on top
 ```
 
-### Stashing
+### Stashing (Temporal Commits)
 
 ```bash
 # Save work in progress
-git stash
+jj describe -m "wip: work in progress"
 
 # Continue elsewhere
-git checkout -b other-work
+jj new
 
-# Come back to stashed work
-git stash pop
+# Come back to WIP later
+jj log
+jj edit -r <wip-commit>
 ```
 
 ### Squashing Multiple Commits
 
 ```bash
-# Interactive rebase to squash commits (before push only)
-git rebase -i HEAD~3
-# Mark commits as 'squash' or 'fixup'
+# Make several commits
+jj describe -m "feat: part 1"
+jj new
+jj describe -m "feat: part 2"
+jj new
+
+# Squash into parent (now just one commit)
+jj squash
 ```
 
 ## Tips & Tricks
@@ -438,67 +452,67 @@ git rebase -i HEAD~3
 ### See what changed since last push
 
 ```bash
-git log origin/main..HEAD
+jj log -r origin/main..@
 ```
 
 ### Abandon unwanted changes
 
 ```bash
-git reset HEAD~1        # Undo last commit, keep changes
-git reset --hard HEAD~1 # Undo last commit, discard changes
+jj abandon <revision>
 ```
 
 ### Revert a change
 
 ```bash
-git revert <commit-hash>
+jj undo <revision>
 ```
 
-### Cherry-pick a commit
+### Move changes between commits
 
 ```bash
-git cherry-pick <commit-hash>
+jj move <source> <destination>
 ```
 
 ## Troubleshooting
 
 ### "Commit not found"
 
-Use `git log` to find the commit hash.
+Use `jj log` to find commit hash, then use hash instead of shorthand.
 
 ### "Can't push"
 
 ```bash
-# Pull first
-git pull --rebase
+# Fetch first
+jj git fetch --all-remotes
 
 # Then push
-git push
+jj git push
 ```
 
 ### "Changes not tracked"
 
+All file changes are automatically tracked. If not appearing in `jj diff`:
 ```bash
-git status  # Check status
-git diff    # Show changes
+jj status  # Check status
+jj diff    # Show changes
 ```
 
 ### "Wrong commit message"
 
-Amend before pushing:
+Edit before pushing:
 ```bash
-git commit --amend -m "corrected message"
-git push
+jj describe -e  # Opens editor
+jj git push     # Push corrected
 ```
 
 ## The Flow
 
 1. **Beads**: Organization (what to work on)
-2. **Git**: Implementation (tracking changes)
+2. **Jujutsu**: Implementation (tracking changes)
 3. **Moon**: Validation (building & testing)
 4. **Beads**: Closure (marking done)
 
-Everything flows through these tools. Master them and you master Hardline development.
+Everything flows through these tools. Master them and you master Isolate development.
 
 ---
 

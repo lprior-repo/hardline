@@ -25,7 +25,7 @@ codanna list-dirs
 - **Relationships:** 3,399 (call graph, dependencies)
 - **Symbol Types:** 9 kinds (Functions, Structs, Modules, etc.)
 - **Semantic Search:** Disabled (configurable)
-- **Indexed Paths:** 3 directories (crates/hardline-core/src, crates/hardline/src, docs)
+- **Indexed Paths:** 3 directories (crates/isolate-core/src, crates/isolate/src, docs)
 
 **Symbol Distribution:**
 | Kind | Count | Percentage |
@@ -71,7 +71,7 @@ codanna list-dirs
 
 **Dependency Analysis (`analyze_impact`)**
 - **Expected Latency:** 100-500ms
-- **Best Case:** ~100ms (hardlined symbol, few dependencies)
+- **Best Case:** ~100ms (isolated symbol, few dependencies)
 - **Worst Case:** ~500ms (highly connected symbol, deep call chains)
 - **Use Case:** Understanding change impact, refactoring planning
 
@@ -237,13 +237,13 @@ codanna mcp semantic_search_docs --query workspace --limit 10  # Top 10 matches
 # Index only what you need
 codanna remove-dir node_modules      # Exclude large dependencies
 codanna remove-dir target            # Exclude build artifacts
-codanna add-dir crates/hardline-core/src  # Index core library only
+codanna add-dir crates/isolate-core/src  # Index core library only
 ```
 
 **Current Indexed Paths:**
-- `crates/hardline-core/src` (core library)
-- `crates/hardline/src` (CLI binary)
-- `crates/hardline/tests` (integration tests)
+- `crates/isolate-core/src` (core library)
+- `crates/isolate/src` (CLI binary)
+- `crates/isolate/tests` (integration tests)
 - `docs` (documentation)
 
 ### 5. Keep Index Fresh

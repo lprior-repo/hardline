@@ -1,6 +1,6 @@
-# Hardline Documentation
+# Isolate Documentation
 
-The Hardline project documentation — everything you need to start working.
+The Isolate project documentation — everything you need to start working.
 
 ---
 
@@ -74,34 +74,34 @@ cargo build        # ❌ Wrong
 cargo test         # ❌ Wrong
 ```
 
-### Hardline (Workspace Management)
+### Isolate (Workspace Management)
 
 ```bash
 # Start work
-hardline work <bead-id>     # Start on a task
-hardline add <name>        # Create session manually
+isolate work <bead-id>     # Start on a task
+isolate add <name>        # Create session manually
 
 # Navigation
-hardline list              # List all sessions
-hardline whereami          # Check current location
+isolate list              # List all sessions
+isolate whereami          # Check current location
 
 # Complete work
-hardline sync              # Sync with main
-hardline done              # Complete and merge
+isolate sync              # Sync with main
+isolate done              # Complete and merge
 
 # Abandon work
-hardline abort             # Abort and cleanup
+isolate abort             # Abort and cleanup
 ```
 
-### Git (Version Control)
+### Jujutsu (Version Control)
 
 ```bash
-git commit -m "feat: description"   # Commit
-git push                            # Push
-git checkout -b feature/x           # Start new branch
-git log --oneline                   # View history
-git diff                            # Show changes
-git status                          # Show working state
+jj describe -m "feat: description"  # Commit
+jj git push                         # Push
+jj new                              # Start new change
+jj log                              # View history
+jj diff                             # Show changes
+jj status                           # Show working state
 ```
 
 ### Beads (Issue Tracking)
@@ -127,12 +127,12 @@ codanna index src lib                             # Reindex code
 ## Project Structure
 
 ```
-hardline/
+isolate/
 ├── Cargo.toml              # Workspace (strict lints)
 ├── rust-toolchain.toml     # Nightly Rust
 ├── docs/                   # This documentation
 └── crates/
-    └── hardline-core/
+    └── isolate-core/
         ├── Cargo.toml
         └── src/
             ├── lib.rs      # Library root
@@ -143,13 +143,16 @@ hardline/
 
 ---
 
-## Git Workflow
+## Why JJ Instead of Git?
 
-Hardline uses Git for version control. Each agent works in its own full clone for complete isolation.
+Isolate uses JJ (Jujutsu) because Git breaks at multi-agent scale (4+ agents). JJ provides:
 
-- **Standard Git commands** — `git add`, `git commit`, `git push`, `git rebase`
-- **Feature branches** — isolate work per branch
-- **Full clone isolation** — each agent gets its own complete repository
+- **Lock-free concurrency** — agents don't corrupt each other's work
+- **Operation log** — undo any operation, always recover
+- **Anonymous commits** — no branch pollution at 8-12 agents
+- **First-class conflicts** — no blocking on merges
+
+> Running 8-12 agents in parallel? You need JJ. See [09_JUJUTSU.md](09_JUJUTSU.md) for the full comparison.
 
 ---
 
@@ -185,7 +188,7 @@ See **Common Commands** above, or [COMMANDS.md](COMMANDS.md) for the complete re
 | Iterator combinators | [06_COMBINATORS.md](06_COMBINATORS.md) |
 | Testing patterns | [07_TESTING.md](07_TESTING.md) |
 | Issue tracking | [08_BEADS.md](08_BEADS.md) |
-| Version control (Git) | Standard `git` commands |
+| Version control (JJ) | [09_JUJUTSU.md](09_JUJUTSU.md) |
 | Complete index | [INDEX.md](INDEX.md) |
 
 ---

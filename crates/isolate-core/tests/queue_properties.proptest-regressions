@@ -1,0 +1,14 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 9051e5583443e27c50fa763c2913a16ff63e278f9a84087a028eb2b653a69891 # shrinks to _operations = [0]
+cc e99fa29f689892bd6deaeef3ca04b2a81baa8ee7d468028ee57302dde4dfb67e # shrinks to _initial_entries = [("ws-0", 0)], _operation_type = 0
+cc f1bb9bef4a3b38395e577168d2067f0d7db7d84832f59f18b3433eca2790756b # shrinks to _workspace1 = "ws--", _workspace2 = "ws-a", _dedupe_key = "A0-_A"
+cc c51d0a5dbb5da099fb18f7fbc6f61ffc0395a30c36d5aaffe587a8cd3bc3f25c # shrinks to _claimed_workspace = "ws-a", _higher_priority = 0, _lower_priority = 0
+cc e7d9ff0d781bbb498defc79e1ca26c304d78ce01375ed13bed76bbeb700f2fe5 # shrinks to _agents = ["A", "a"]
+cc 551a217c45eebcb3ca3113aff8ee08e586ee4a6787d98fc87e077733243420b9 # shrinks to _agent1 = "a", _agent2 = "a"
+cc 42b845a9b0c3c2bd1cbae2c42d861b8dc109e407dad2efe8a847a452a792f65f # shrinks to _batch1 = [("ws-A", 0)], _batch2 = [("ws-a", 0)]
+cc df0619d2ed2f279c9ee6fc3fafe5cfc2cacbc74404ea51973ab21a845aa13fd7 # shrinks to _entries = [("ws-a", 0)]

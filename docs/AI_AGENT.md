@@ -1,8 +1,8 @@
-# Hardline AI Agent Guide
+# Isolate AI Agent Guide
 
-> **Comprehensive reference for AI agents working with Hardline, beads, and the hardline toolchain.**
+> **Comprehensive reference for AI agents working with Isolate, beads, and the isolate toolchain.**
 
-This document serves as the complete reference for autonomous AI agents operating within the Hardline system. It covers mandatory rules, workflows, commands, and best practices.
+This document serves as the complete reference for autonomous AI agents operating within the Isolate system. It covers mandatory rules, workflows, commands, and best practices.
 
 ---
 
@@ -28,17 +28,17 @@ This document serves as the complete reference for autonomous AI agents operatin
 ### Three Essential Commands
 
 ```bash
-hardline whereami        # Check: "main" or "workspace:<name>"
-hardline work my-task   # Start: Create workspace
-hardline done           # Finish: Merge and cleanup
+isolate whereami        # Check: "main" or "workspace:<name>"
+isolate work my-task   # Start: Create workspace
+isolate done           # Finish: Merge and cleanup
 ```
 
 ### AI Helper Commands
 
 ```bash
-hardline ai status       # Full status with guided next action
-hardline ai workflow     # 7-step parallel agent workflow
-hardline ai quick-start  # Minimum commands reference
+isolate ai status       # Full status with guided next action
+isolate ai workflow     # 7-step parallel agent workflow
+isolate ai quick-start  # Minimum commands reference
 ```
 
 ---
@@ -211,16 +211,16 @@ codanna index && codanna documents index --collection docs
 
 ---
 
-### Workspace (hardline)
+### Workspace (isolate)
 
 | Command | Use | Frequency |
 |---------|-----|-----------|
-| `hardline add <name>` | Create session + Zellij tab | New work |
-| `hardline remove <name>` | Close tab + workspace | Work complete |
-| `hardline list` | Show all sessions | Status check |
-| `hardline whereami` | Check current location | Orient yourself |
-| `hardline work <name>` | Create workspace (simpler than add) | New work |
-| `hardline done` | Complete and merge work | Finish work |
+| `isolate add <name>` | Create session + Zellij tab | New work |
+| `isolate remove <name>` | Close tab + workspace | Work complete |
+| `isolate list` | Show all sessions | Status check |
+| `isolate whereami` | Check current location | Orient yourself |
+| `isolate work <name>` | Create workspace (simpler than add) | New work |
+| `isolate done` | Complete and merge work | Finish work |
 
 **For complete command reference, see [COMMANDS.md](COMMANDS.md)**
 
@@ -236,11 +236,11 @@ Each autonomous agent follows this pipeline:
 |------|------|----------------|--------|
 | 1 | TRIAGE | `bv --robot-triage --robot-triage-by-track` | Parallel execution tracks |
 | 2 | CLAIM | `br update <bead-id> --status in_progress` | Reserve bead |
-| 3 | ISOLATE | `hardline work <name>` | Spawn isolated Git workspace + Zellij tab |
+| 3 | ISOLATE | Skill: `isolate` | Spawn isolated JJ workspace + Zellij tab |
 | 4 | IMPLEMENT | Skill: `functional-rust-generator` (Rust) or `tdd15-gleam` (Gleam) | ZERO unwrap/expect/panic, Railway-Oriented Programming |
 | 5 | REVIEW | Skill: `red-queen` | Adversarial QA, regression hunting |
 | 6 | LAND | Skill: `landing-skill` | Moon quick check, commit, sync, push (MANDATORY) |
-| 7 | MERGE | `hardline done` | git rebase main, cleanup, tab switch |
+| 7 | MERGE | Skill: `isolate` | jj rebase -d main, cleanup, tab switch |
 
 ---
 
@@ -251,7 +251,7 @@ Each autonomous agent follows this pipeline:
 
 **WORKFLOW**:
 1. CLAIM: `br update <bead-id> --status in_progress`
-2. ISOLATE: hardline skill → "<session-name>"
+2. ISOLATE: isolate skill → "<session-name>"
 3. IMPLEMENT: functional-rust-generator skill (Rust) or tdd15-gleam skill (Gleam)
    - **ZERO unwrap(), unwrap_or(), unwrap_or_else(), unwrap_or_default()**
    - **ZERO expect(), expect_err()**
@@ -260,7 +260,7 @@ Each autonomous agent follows this pipeline:
    - map, and_then, ? operator
 4. REVIEW: red-queen skill (adversarial QA)
 5. LAND: landing-skill (quality gates, sync, push)
-6. MERGE: hardline skill (merge to main)
+6. MERGE: isolate skill (merge to main)
 
 **CRITICAL CONSTRAINTS**:
 - **ZERO unwrap/expect/panic variants** (see rule 4)
@@ -288,7 +288,7 @@ bv --robot-triage --robot-triage-by-track
 
 | Benefit | Description |
 |---------|-------------|
-| **Isolation** | Each agent works in separate Git clone workspace |
+| **Isolation** | Each agent works in separate JJ workspace |
 | **Parallel** | 8x throughput with no conflicts |
 | **Deterministic** | bv precomputes dependencies and execution tracks |
 | **Quality** | Red-queen ensures adversarial testing on each change |
@@ -328,7 +328,7 @@ br close 123
 br update 456 --status done
 
 # 4. COMMIT AND PUSH (MANDATORY)
-git add crates/hardline-core/src/error.rs
+git add crates/isolate-core/src/error.rs
 git commit -m "fix: add error handling for edge case"
 br sync --flush-only
 git add .beads/
@@ -380,11 +380,11 @@ If `git push` fails:
 
 | Variable | Description |
 |----------|-------------|
-| `Hardline_AGENT_ID` | Your agent ID (set by register) |
-| `Hardline_SESSION` | Current session name |
-| `Hardline_WORKSPACE` | Current workspace path |
-| `Hardline_BEAD_ID` | Associated bead ID |
-| `Hardline_ACTIVE` | "1" when in workspace |
+| `Isolate_AGENT_ID` | Your agent ID (set by register) |
+| `Isolate_SESSION` | Current session name |
+| `Isolate_WORKSPACE` | Current workspace path |
+| `Isolate_BEAD_ID` | Associated bead ID |
+| `Isolate_ACTIVE` | "1" when in workspace |
 
 ---
 
@@ -394,7 +394,7 @@ All commands support `--json` and return:
 
 ```json
 {
-  "$schema": "hardline://<command>-response/v1",
+  "$schema": "isolate://<command>-response/v1",
   "_schema_version": "1.0",
   "schema_type": "single",
   "success": true,
@@ -427,7 +427,7 @@ Errors include suggestions:
   "error": {
     "code": "SESSION_NOT_FOUND",
     "message": "...",
-    "suggestion": "Use 'hardline list' to see available sessions"
+    "suggestion": "Use 'isolate list' to see available sessions"
   }
 }
 ```
@@ -437,10 +437,10 @@ Errors include suggestions:
 ## Introspection
 
 ```bash
-hardline introspect              # All capabilities
-hardline introspect <cmd>        # Command details
-hardline introspect --env-vars   # Environment variables
-hardline introspect --workflows  # Workflow patterns
+isolate introspect              # All capabilities
+isolate introspect <cmd>        # Command details
+isolate introspect --env-vars   # Environment variables
+isolate introspect --workflows  # Workflow patterns
 ```
 
 ---
@@ -449,16 +449,16 @@ hardline introspect --workflows  # Workflow patterns
 
 ```bash
 # Register (optional but recommended)
-hardline agent register
+isolate agent register
 
 # Send heartbeat while working
-hardline agent heartbeat --command "implementing"
+isolate agent heartbeat --command "implementing"
 
 # Check your status
-hardline agent status
+isolate agent status
 
 # Unregister when done
-hardline agent unregister
+isolate agent unregister
 ```
 
 ---
@@ -468,39 +468,39 @@ hardline agent unregister
 ### Start Fresh
 
 ```bash
-hardline whereami                        # Should return "main"
-hardline work feature-auth --idempotent
+isolate whereami                        # Should return "main"
+isolate work feature-auth --idempotent
 ```
 
 ### Continue Existing Work
 
 ```bash
-hardline whereami                        # Returns "workspace:feature-auth"
+isolate whereami                        # Returns "workspace:feature-auth"
 # Already in workspace, continue working
 ```
 
 ### Abandon and Start Over
 
 ```bash
-hardline abort --dry-run                 # Preview
-hardline abort                           # Execute
-hardline work feature-auth-v2            # Start fresh
+isolate abort --dry-run                 # Preview
+isolate abort                           # Execute
+isolate work feature-auth-v2            # Start fresh
 ```
 
 ### Multiple Sessions
 
 ```bash
-hardline list --json                     # List all sessions
-hardline sync --all                      # Sync all with main
+isolate list --json                     # List all sessions
+isolate sync --all                      # Sync all with main
 ```
 
 ---
 
 ## What NOT to Do
 
-- ❌ Don't use `hardline spawn` for simple workflows (use `hardline work`)
+- ❌ Don't use `isolate spawn` for simple workflows (use `isolate work`)
 - ❌ Don't forget `--idempotent` when retrying
-- ❌ Don't skip `hardline whereami` before operations
+- ❌ Don't skip `isolate whereami` before operations
 - ❌ Don't modify files outside your workspace
 - ❌ Don't use unwrap/expect/panic in Rust code
 - ❌ Don't use raw cargo commands (use Moon)
@@ -519,22 +519,22 @@ Load these skills for specialized tasks:
 | `tdd15-gleam` | 15-phase TDD workflow for Gleam | Gleam implementation |
 | `red-queen` | Adversarial evolutionary QA, regression hunting | Code review/testing |
 | `landing-skill` | Session completion with quality gates, sync, push | **Before ending session** |
-| `hardline work/done` | Workspace isolation and management | Workspace operations |
+| `isolate` | Workspace isolation and management | Workspace operations |
 | `coding-rigor` | TDD-first development, clean boundaries | Code design |
 | `rust-contract` | Design-by-contract, test planning | Planning Rust features |
 
-**Multi-Agent Isolation:**
+**Why JJ for Multi-Agent?**
 
-Each agent works in its own full Git clone, ensuring complete workspace isolation without lock contention.
+See [09_JUJUTSU.md](09_JUJUTSU.md) — JJ enables 8-12 parallel agents without corruption, unlike Git which breaks at 4+.
 
 ---
 
 ## Quick Queries
 
 ```bash
-hardline query location              # Where am I?
-hardline query can-spawn             # Can I start work?
-hardline query pending-merges        # What needs merging?
+isolate query location              # Where am I?
+isolate query can-spawn             # Can I start work?
+isolate query pending-merges        # What needs merging?
 ```
 
 ---
@@ -555,18 +555,18 @@ hardline query pending-merges        # What needs merging?
 
 ```bash
 # 1. Check location
-hardline whereami
+isolate whereami
 
 # 2. Start work (safe to retry with --idempotent)
-hardline work my-task --idempotent
+isolate work my-task --idempotent
 
 # 3. Enter workspace
-cd $(hardline context --json | jq -r '.location.path // empty')
+cd $(isolate context --json | jq -r '.location.path // empty')
 
 # 4. Do work...
 
 # 5. Complete
-hardline done
+isolate done
 ```
 
 ---
@@ -594,13 +594,13 @@ systemctl --user start bazel-remote
 
 ## Reference
 
-- Full documentation: `hardline --help`
-- Command details: `hardline introspect <command>`
-- AI status: `hardline ai status`
+- Full documentation: `isolate --help`
+- Command details: `isolate introspect <command>`
+- AI status: `isolate ai status`
 - Core docs: [docs/INDEX.md](INDEX.md)
 - Command reference: [COMMANDS.md](COMMANDS.md)
-- Git workflow: standard `git` commands
+- Jujutsu workflow: [09_JUJUTSU.md](09_JUJUTSU.md)
 
 ---
 
-*This document is maintained as part of the Hardline system. Last updated: 2024.*
+*This document is maintained as part of the Isolate system. Last updated: 2024.*

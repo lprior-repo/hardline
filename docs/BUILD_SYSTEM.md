@@ -1,10 +1,10 @@
 # Build System
 
-Comprehensive guide for building, testing, and deploying Hardline using Moon, Git, and Beads.
+Comprehensive guide for building, testing, and deploying Isolate using Moon, Jujutsu, and Beads.
 
 ## Philosophy
 
-The Hardline build system is built on three core principles:
+The Isolate build system is built on three core principles:
 
 1. **Cache** - Skip unchanged work
 2. **Parallelize** - Run independent tasks simultaneously
@@ -12,7 +12,7 @@ The Hardline build system is built on three core principles:
 
 Everything flows through these tools:
 - **Beads**: Organization (what to work on)
-- **Git**: Implementation (tracking changes)
+- **Jujutsu**: Implementation (tracking changes)
 - **Moon**: Validation (building & testing)
 
 ---
@@ -171,7 +171,7 @@ All binaries in `crates/*/src/bin/` are built to `target/release/`.
 
 ## Daily Workflow
 
-Integration of issue tracking (Beads), version control (Git), and build system (Moon).
+Integration of issue tracking (Beads), version control (Jujutsu), and build system (Moon).
 
 ### Full Workflow
 
@@ -185,18 +185,18 @@ br list
 br update BD-123 --status in_progress
 
 # Pull latest
-git fetch --all
+jj git fetch --all-remotes
 ```
 
 #### 2. Make Changes
 
 ```bash
-# Edit files (automatically tracked by git)
-vim crates/hardline-core/src/lib.rs
+# Edit files (automatically tracked by jj)
+vim crates/isolate-core/src/lib.rs
 
 # Check status
-git status
-git diff
+jj status
+jj diff
 
 # Test locally
 moon run :test
@@ -206,8 +206,7 @@ moon run :test
 
 ```bash
 # Describe change (conventional commits)
-git add .
-# git commit -m"feat: add new feature
+jj describe -m "feat: add new feature
 
 - Implementation detail 1
 - Implementation detail 2
@@ -215,20 +214,20 @@ git add .
 Closes BD-123"
 
 # Start next change
-# git checkout -b new-feature
+jj new
 ```
 
 #### 4. Push to Remote
 
 ```bash
 # Fetch latest
-git fetch --all
+jj git fetch --all-remotes
 
 # Push
-git push
+jj git push
 
 # Verify
-git log -r @
+jj log -r @
 ```
 
 #### 5. Close Issue
@@ -247,7 +246,7 @@ br update BD-123 --status ready
 
 ```bash
 # Check latest
-git fetch --all
+jj git fetch --all-remotes
 
 # See available work
 br list
@@ -274,21 +273,20 @@ moon run :test
 moon run :ci
 
 # Commit with message
-git add .
-# git commit -m"feat: implement feature
+jj describe -m "feat: implement feature
 
 - Detail 1
 - Detail 2"
 
 # Start next
-# git checkout -b new-feature
+jj new
 ```
 
 #### End of Day
 
 ```bash
 # Push all changes
-git push
+jj git push
 
 # Close completed issues
 br close BD-123
@@ -308,8 +306,7 @@ moon run :quick
 moon run :test
 
 # If satisfied, commit
-git add .
-# git commit -m"feat: description"
+jj describe -m "feat: description"
 ```
 
 ### Before Pushing
@@ -319,7 +316,7 @@ git add .
 moon run :ci
 
 # If all pass
-git push
+jj git push
 
 # If any fail, fix and retry
 moon run :ci
@@ -366,32 +363,31 @@ p0, p1, p2 - Priority (0=highest)
 
 ---
 
-## Git (Version Control)
+## Jujutsu (Version Control)
 
 ### Status & Diff
 
 ```bash
-git status           # Current state
-git diff             # Changes in working copy
-git log              # Commit history
-git log -r @         # Current change
+jj status           # Current state
+jj diff             # Changes in working copy
+jj log              # Commit history
+jj log -r @         # Current change
 ```
 
 ### Commits
 
 ```bash
 # Set commit message
-git add .
-# git commit -m"feat: description"
+jj describe -m "feat: description"
 
 # View full message
-git log -1
+jj describe -r @
 
 # Edit message
-git commit --amend
+jj describe -e
 
 # Start new change
-# git checkout -b new-feature
+jj new
 ```
 
 ### Conventional Commits
@@ -409,45 +405,44 @@ perf: Performance improvements
 ### Working with Remotes
 
 ```bash
-git fetch --all        # Fetch latest
-git push                        # Push changes
-git log -r origin/main..@           # Commits not yet pushed
+jj git fetch --all-remotes        # Fetch latest
+jj git push                        # Push changes
+jj log -r origin/main..@           # Commits not yet pushed
 ```
 
 ### Syncing Workspaces
 
-`hardline sync` rebases your workspace onto main, keeping your work up to date with the latest changes.
+`isolate sync` rebases your workspace onto main, keeping your work up to date with the latest changes.
 
 ```bash
 # Sync current workspace with main
-hardline sync
+isolate sync
 
 # Sync specific workspace
-hardline sync feature-auth
+isolate sync feature-auth
 
 # Sync all workspaces
-hardline sync --all
+isolate sync --all
 ```
 
 ### Handling Conflicts
 
 ```bash
 # Fetch latest
-git fetch --all
+jj git fetch --all-remotes
 
 # View conflicts
-git diff
+jj diff
 
 # Edit conflicted file
 vim conflicted_file.rs
 
 # Verify resolution
-git diff  # Should show no conflicts
+jj diff  # Should show no conflicts
 
 # Commit resolution
-git add .
-# git commit -m"merge: resolve conflicts"
-git push
+jj describe -m "merge: resolve conflicts"
+jj git push
 ```
 
 ### Common Patterns
@@ -456,61 +451,57 @@ git push
 
 ```bash
 # Create feature bookmark
-git checkout -b feature/cool-thing
+jj bookmark set feature/cool-thing
 
 # Make changes on current commit
-git add .
-# git commit -m"feat: cool thing"
-# git checkout -b new-feature
+jj describe -m "feat: cool thing"
+jj new
 
 # Switch back to main
-git checkout -b main
+jj bookmark set main
 ```
 
 #### Stashing (Temporal Commits)
 
 ```bash
 # Save work in progress
-git add .
-# git commit -m"wip: work in progress"
+jj describe -m "wip: work in progress"
 
 # Continue elsewhere
-# git checkout -b new-feature
+jj new
 
 # Come back to WIP later
-git log
-git checkout <wip-commit>
+jj log
+jj edit -r <wip-commit>
 ```
 
 #### Squashing Multiple Commits
 
 ```bash
 # Make several commits
-git add .
-# git commit -m"feat: part 1"
-# git checkout -b new-feature
-git add .
-# git commit -m"feat: part 2"
-# git checkout -b new-feature
+jj describe -m "feat: part 1"
+jj new
+jj describe -m "feat: part 2"
+jj new
 
 # Squash into parent (now just one commit)
-git rebase -i
+jj squash
 ```
 
 ### Tips & Tricks
 
 ```bash
 # See what changed since last push
-git log -r origin/main..@
+jj log -r origin/main..@
 
 # Abandon unwanted changes
-git reset <revision>
+jj abandon <revision>
 
 # Revert a change
-git revert <revision>
+jj undo <revision>
 
 # Move changes between commits
-git cherry-pick <source> <destination>
+jj move <source> <destination>
 ```
 
 ### Landing (Finishing Session)
@@ -523,27 +514,26 @@ moon run :ci
 br create "Follow-up: X" --labels chore
 
 # 3. Commit final changes
-git add .
-# git commit -m"chore: final cleanup"
-# git checkout -b new-feature
+jj describe -m "chore: final cleanup"
+jj new
 
 # 4. Update Beads
 br close BD-123
 br close BD-124
 
 # 5. Push everything
-git fetch --all
-git push
+jj git fetch --all-remotes
+jj git push
 
 # 6. Verify push
-git log -r @
+jj log -r @
 ```
 
 ---
 
 ## Rollout and Rollback
 
-Safe rollout plan for Hardline changes with deterministic rollback paths.
+Safe rollout plan for Isolate changes with deterministic rollback paths.
 
 ### Goals
 
@@ -559,7 +549,7 @@ Run and record these checks before any rollout step:
 moon run :quick
 moon run :test
 moon run :ci
-hardline --version
+isolate --version
 ```
 
 Confirm:
@@ -624,7 +614,7 @@ swarm monitor --view failures
 2. Deploy that artifact to all affected runners.
 3. Verify health with:
 ```bash
-hardline --version
+isolate --version
 swarm status
 ```
 4. Confirm critical command paths used by automation.
@@ -705,28 +695,28 @@ moon dump :ci
 ls -la ~/.moon/cache
 ```
 
-### Git
+### Jujutsu
 
 #### "Can't push"
 
 ```bash
 # Fetch first
-git fetch --all
+jj git fetch --all-remotes
 
 # Then push
-git push
+jj git push
 ```
 
 #### "Wrong commit message"
 
 ```bash
-git commit --amend  # Opens editor
-git push     # Push corrected
+jj describe -e  # Opens editor
+jj git push     # Push corrected
 ```
 
 #### "Commit not found"
 
-Use `git log` to find commit hash, then use hash instead of shorthand.
+Use `jj log` to find commit hash, then use hash instead of shorthand.
 
 ### All Tools
 
@@ -773,7 +763,7 @@ Task definitions. Never edit directly unless you know what you're doing.
 ### Run specific task
 
 ```bash
-moon run :test --scope hardline-core
+moon run :test --scope isolate-core
 ```
 
 ### Watch mode (experimental)

@@ -1,0 +1,253 @@
+# Quality Rules for Spec Validation
+# Categories: completeness, clarity, testability, security, specificity
+
+rules:
+  # ===========================================
+  # COMPLETENESS RULES
+  # ===========================================
+  completeness:
+    - id: COMP-001
+      name: Has identity section
+      description: Spec must have identity section with id and title
+      weight: 5
+      required_fields:
+        - identity.id
+        - identity.title
+      error_message: "Missing required identity fields (id, title)"
+      
+    - id: COMP-002
+      name: Has context section
+      description: Spec must have context section with purpose
+      weight: 5
+      required_fields:
+        - context.purpose
+      error_message: "Missing required context.purpose"
+      
+    - id: COMP-003
+      name: Has requirements
+      description: Spec must have at least one requirement
+      weight: 5
+      min_items: 1
+      path: requirements
+      error_message: "Spec must have at least one requirement"
+      
+    - id: COMP-004
+      name: Has preconditions
+      description: Spec must have at least one precondition
+      weight: 5
+      min_items: 1
+      path: preconditions
+      error_message: "Spec must have at least one precondition"
+      
+    - id: COMP-005
+      name: Has postconditions
+      description: Spec must have at least one postcondition
+      weight: 5
+      min_items: 1
+      path: postconditions
+      error_message: "Spec must have at least one postcondition"
+      
+    - id: COMP-006
+      name: Has acceptance tests
+      description: Spec must have both happy_paths and error_paths
+      weight: 10
+      required_fields:
+        - acceptance_tests.happy_paths
+        - acceptance_tests.error_paths
+      error_message: "Missing acceptance_tests sections"
+      
+    - id: COMP-007
+      name: Has completion checklist
+      description: Spec must have a completion_checklist
+      weight: 3
+      path: completion_checklist
+      error_message: "Missing completion_checklist"
+
+  # ===========================================
+  # CLARITY RULES
+  # ===========================================
+  clarity:
+    - id: CLAR-001
+      name: No ambiguous language
+      description: Spec must not contain ambiguous phrases
+      weight: 10
+      prohibited_patterns:
+        - "etc"
+        - "and so on"
+        - "things"
+        - "stuff"
+        - "maybe"
+        - "probably"
+        - "might"
+        - "could be"
+        - "TBD"
+        - "TBC"
+        - "to be determined"
+        - "to be confirmed"
+      error_message: "Found ambiguous language in spec"
+      severity: warning
+      
+    - id: CLAR-002
+      name: No undefined terms
+      description: All domain terms must be defined
+      weight: 5
+      check_undefined: true
+      error_message: "Found potentially undefined domain terms"
+      severity: warning
+      
+    - id: CLAR-003
+      name: Clear requirement descriptions
+      description: Requirements must have meaningful descriptions
+      weight: 5
+      min_description_length: 20
+      path: requirements
+      error_message: "Requirements must have descriptions of at least 20 characters"
+      severity: warning
+
+  # ===========================================
+  # TESTABILITY RULES
+  # ===========================================
+  testability:
+    - id: TEST-001
+      name: Has happy path tests
+      description: Must have at least one happy path test
+      weight: 10
+      min_items: 1
+      path: acceptance_tests.happy_paths
+      error_message: "Must have at least one happy path test"
+      
+    - id: TEST-002
+      name: Has error path tests
+      description: Must have at least one error path test
+      weight: 10
+      min_items: 1
+      path: acceptance_tests.error_paths
+      error_message: "Must have at least one error path test"
+      
+    - id: TEST-003
+      name: Tests have all fields
+      description: All tests must have given, when, then fields
+      weight: 5
+      required_test_fields:
+        - given
+        - when
+        - then
+      error_message: "All tests must have given, when, then fields"
+      
+    - id: TEST-004
+      name: Test names are descriptive
+      description: Test names must be descriptive (snake_case, > 5 chars)
+      weight: 3
+      min_test_name_length: 5
+      error_message: "Test names must be at least 5 characters"
+
+  # ===========================================
+  # SECURITY RULES
+  # ===========================================
+  security:
+    - id: SEC-001
+      name: No hardcoded secrets
+      description: Must not contain hardcoded passwords, API keys, tokens
+      weight: 20
+      prohibited_patterns:
+        # API keys and tokens (matches both YAML and JSON formats)
+        - "\"?api_key\"?\\s*[:=]\\s*[\"']?[a-zA-Z0-9_-]{20,}"
+        - "\"?apikey\"?\\s*[:=]\\s*[\"']?[a-zA-Z0-9_-]{20,}"
+        - "\"?api-key\"?\\s*[:=]\\s*[\"']?[a-zA-Z0-9_-]{20,}"
+        - "bearer\\s+[a-zA-Z0-9_-]{20,}"
+        - "\"?token\"?\\s*[:=]\\s*[\"']?[a-zA-Z0-9_-]{20,}"
+        - "\"?access_token\"?\\s*[:=]"
+        - "\"?refresh_token\"?\\s*[:=]"
+        # Passwords in configs
+        - "\"?password\"?\\s*[:=]\\s*[\"'][^#\\s\"']{8,}"
+        - "\"?passwd\"?\\s*[:=]\\s*[\"'][^#\\s\"']{8,}"
+        - "\"?pwd\"?\\s*[:=]\\s*[\"'][^#\\s\"']{8,}"
+        # Private keys
+        - "-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"
+        - "ssh-rsa\\s+[A-Za-z0-9+/=]{300,}"
+        - "ssh-ed25519\\s+[A-Za-z0-9+/=]{80,}"
+      error_message: "Found potential hardcoded secret in spec"
+      severity: error
+      
+    - id: SEC-002
+      name: No credentials in examples
+      description: Must not contain credentials in example values
+      weight: 10
+      prohibited_patterns:
+        # Actual credential patterns in example fields
+        - "\"?password\"?\\s*[:=]\\s*[\"'][^#\\s\"']{8,}"
+        - "\"?username\"?\\s*[:=]\\s*[\"'][^#\\s\"']{4,}"
+        - "\"?credentials\"?\\s*[:=]"
+      error_message: "Found potential credentials in examples"
+      severity: error
+      
+    - id: SEC-003
+      name: No connection strings with auth
+      description: Must not contain connection strings with embedded credentials
+      weight: 15
+      prohibited_patterns:
+        # Connection strings with embedded credentials
+        - "://[^:]+:[^@]+@"
+        - "mongodb\\+srv://[^:]+:[^@]+@"
+        - "postgres://[^:]+:[^@]+@"
+        - "mysql://[^:]+:[^@]+@"
+        - "redis://[^:]+:[^@]+@"
+        - "amqp://[^:]+:[^@]+@"
+      error_message: "Found connection string with embedded credentials"
+      severity: error
+
+  # ===========================================
+  # SPECIFICITY RULES
+  # ===========================================
+  specificity:
+    - id: SPEC-001
+      name: No vague requirements
+      description: Requirements must not use vague language
+      weight: 10
+      prohibited_patterns:
+        - "as appropriate"
+        - "as needed"
+        - "when necessary"
+        - "as required"
+        - "flexible"
+        - "robust"
+        - "efficient"
+        - "optimized"
+        - "improved"
+        - "better"
+        - "seamless"
+        - "smooth"
+        - "securing"
+      error_message: "Found vague language in requirements"
+      severity: warning
+      
+    - id: SPEC-002
+      name: Has measurable criteria
+      description: Requirements should have measurable success criteria
+      weight: 5
+      check_measurable: true
+      path: requirements
+      error_message: "Requirements should include measurable criteria"
+      severity: warning
+      
+    - id: SPEC-003
+      name: No requirements without IDs
+      description: All requirements must have proper IDs
+      weight: 5
+      required_id_pattern: "^[A-Z][0-9]+$"
+      path: requirements
+      error_message: "All requirements must have IDs (e.g., R1, R2)"
+      severity: warning
+
+# Scoring configuration
+scoring:
+  # Minimum score threshold
+  threshold: 80
+  
+  # Category weights (must sum to 100)
+  category_weights:
+    completeness: 30
+    clarity: 15
+    testability: 30
+    security: 15
+    specificity: 10

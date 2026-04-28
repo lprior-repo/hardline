@@ -1,0 +1,36 @@
+# Strict Clippy Configuration
+# Enforces idiomatic Rust patterns and zero-unwrap philosophy
+
+# Complexity thresholds - keep functions simple
+cognitive-complexity-threshold = 20
+too-many-arguments-threshold = 5
+type-complexity-threshold = 250
+
+# Enforcement: Source code - no panics/unwrap allowed
+# Tests: ANYTHING GOES - no restrictions on test code
+allow-panic-in-tests = true
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+
+# Suggest safer alternatives
+enforce-iter-loop-reborrow = true
+
+# Doc comment enforcement
+doc-valid-idents = [
+    "JSON",
+    "HTTP",
+    "HTTPS",
+    "API",
+    "URL",
+    "GitHub",
+    "Beads",
+    "Jujutsu",
+    "Moon",
+    "CUE",
+    "RUST",
+    "Isolate",
+    "Windmill",
+]
+
+# Matches enforce idiomatic patterns
+single-char-binding-names-threshold = 4

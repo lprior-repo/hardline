@@ -1,0 +1,14 @@
+# Isolate Rust Toolchain Configuration
+# Uses latest nightly for maximum functional programming features
+# and unstable feature gates for cutting-edge patterns
+
+[toolchain]
+channel = "nightly"
+# Pinning to a specific nightly is optional - remove the date to always use the latest
+# date = "2024-01-08"
+
+# Components
+components = ["rustfmt", "clippy", "rust-analyzer"]
+
+# Target support - add platforms as needed
+targets = ["x86_64-unknown-linux-gnu"]

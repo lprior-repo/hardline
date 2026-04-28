@@ -361,8 +361,8 @@ All integration tests should include this header (after doc comments, before cod
 
 ### Common Test Modules
 
-- `crates/hardline/tests/common/mod.rs` - Utilities for hardline integration tests
-- `crates/hardline-core/tests/common/mod.rs` - Utilities for hardline-core integration tests
+- `crates/isolate/tests/common/mod.rs` - Utilities for isolate integration tests
+- `crates/isolate-core/tests/common/mod.rs` - Utilities for isolate-core integration tests
 
 These modules export helper functions and ensure consistent lint allowances across all integration tests.
 

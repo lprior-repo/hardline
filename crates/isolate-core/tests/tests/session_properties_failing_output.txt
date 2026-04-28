@@ -1,0 +1,90 @@
+
+running 12 tests
+prop_tab_name_derives_from_session_name --- FAILED
+prop_all_session_invariants_hold --- FAILED
+.... 6/12
+prop_zellij_tabs_are_unique --- FAILED
+prop_session_names_are_unique --- FAILED
+....
+failures:
+
+---- prop_tab_name_derives_from_session_name stdout ----
+proptest: FileFailurePersistence::SourceParallel set, but failed to find lib.rs or main.rs
+
+thread 'prop_tab_name_derives_from_session_name' (2679889) panicked at crates/isolate-core/tests/session_properties.rs:443:1:
+Test failed: assertion failed: `(left == right)` 
+  left: `"a"`, 
+ right: `"isolate:a"`: Tab name should be derived from session name at crates/isolate-core/tests/session_properties.rs:523.
+minimal failing input: name = "a"
+	successes: 0
+	local rejects: 0
+	global rejects: 0
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- prop_all_session_invariants_hold stdout ----
+proptest: FileFailurePersistence::SourceParallel set, but failed to find lib.rs or main.rs
+
+thread 'prop_all_session_invariants_hold' (2679881) panicked at crates/isolate-core/tests/session_properties.rs:556:1:
+Test failed: All invariants should hold: names_unique=true, paths_unique=true, tabs_unique=true, all_created=true, enforced=false at crates/isolate-core/tests/session_properties.rs:608.
+minimal failing input: sessions = {
+    (
+        "a",
+        "/workspace/alpha",
+    ),
+}
+	successes: 0
+	local rejects: 0
+	global rejects: 0
+
+
+---- prop_zellij_tabs_are_unique stdout ----
+proptest: FileFailurePersistence::SourceParallel set, but failed to find lib.rs or main.rs
+proptest: Aborting shrinking after the PROPTEST_MAX_SHRINK_ITERS environment variable or ProptestConfig.max_shrink_iters iterations (set 1024 to a large(r) value to shrink more; current configuration: 1024 iterations)
+
+thread 'prop_zellij_tabs_are_unique' (2679892) panicked at crates/isolate-core/tests/session_properties.rs:443:1:
+Test failed: Zellij tabs should be unique across sessions. Found 1 tabs, 1 unique at crates/isolate-core/tests/session_properties.rs:505.
+minimal failing input: sessions = [
+    (
+        "a",
+        "isolate:aaaaA_--1-YO",
+    ),
+]
+	successes: 0
+	local rejects: 0
+	global rejects: 0
+
+
+---- prop_session_names_are_unique stdout ----
+proptest: FileFailurePersistence::SourceParallel set, but failed to find lib.rs or main.rs
+proptest: Aborting shrinking after the PROPTEST_MAX_SHRINK_ITERS environment variable or ProptestConfig.max_shrink_iters iterations (set 1024 to a large(r) value to shrink more; current configuration: 1024 iterations)
+
+thread 'prop_session_names_are_unique' (2679887) panicked at crates/isolate-core/tests/session_properties.rs:93:1:
+Test failed: Collection with duplicate 'ERT-i_K_3_vpec-A----h_Y-3_2_0_8_n--_OzM-_Q--0_NY-' should not be unique at crates/isolate-core/tests/session_properties.rs:118.
+minimal failing input: names = [
+    "aaaaaaaaaaaaaaaaA4U--j3__A_-3WH9iPLV--A-51zP_",
+    "n-0j_O_y--_G39HITl61SwOrLa_a-7-be--NXOd_Z-j0I-376",
+    "a",
+    "H2_7_L_nyhir3-Ie_-Hgk__--bSg-_Nv_h_X_4c_VJz--47-",
+    "d_-d8__L-z7G__8j---H-146K-A",
+    "L---W_626e_a9D-i9-U__7IKgT5-0---PN--z-",
+    "ERT-i_K_3_vpec-A----h_Y-3_2_0_8_n--_OzM-_Q--0_NY-",
+    "ZU__4-5-2H_1_0_e-a__l_-f9c5-N99t-Z_h_AV-",
+    "hyun-8iv_v-Oq_75-_1P8c5--VWfmb__3SP-8-__QLd--n-_3y50_KQX_8_-_7p",
+    "M7-1NB-zeB1-7",
+]
+	successes: 0
+	local rejects: 0
+	global rejects: 0
+
+
+
+failures:
+    prop_all_session_invariants_hold
+    prop_session_names_are_unique
+    prop_tab_name_derives_from_session_name
+    prop_zellij_tabs_are_unique
+
+test result: FAILED. 8 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+
+error: test failed, to rerun pass `-p isolate-core --test session_properties`

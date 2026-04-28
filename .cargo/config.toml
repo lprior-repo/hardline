@@ -1,0 +1,47 @@
+# Cargo configuration for maximum build performance
+
+[build]
+# Incremental compilation for faster rebuilds
+incremental = true
+# sccache compiler cache wrapper
+rustc-wrapper = "sccache"
+
+[term]
+# Quiet output for cleaner test output
+quiet = true
+# Better progress reporting
+progress.when = "auto"
+progress.width = 80
+
+# Colorized output
+color = "auto"
+
+[profile.dev]
+# Faster debug builds - reduce debuginfo
+debug = 1  # Line tables only (was 2 = full)
+incremental = true
+split-debuginfo = "unpacked"  # Faster linking on Linux
+
+[profile.test]
+# Faster test compilation
+debug = 1  # Line tables only
+incremental = true
+
+# Fast linker configuration - using lld (20-40% faster linking)
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = [
+    "-C", "link-arg=-fuse-ld=lld",
+    "-C", "link-arg=-Wl,--gc-sections",    # Remove unused sections
+    "-C", "link-arg=-Wl,--icf=all",        # Identical code folding
+]
+
+# Release profile optimizations - MAXIMUM SPEED + MINIMUM SIZE + SAFETY
+# Trade-off: "fat" LTO = slower compile but maximum optimization
+[profile.release]
+lto = "fat"            # Full LTO - maximum cross-crate optimization (slower compile)
+codegen-units = 1      # Single codegen unit - maximum optimization
+opt-level = "z"        # Minimum size (aggressive size optimization)
+panic = "abort"        # No unwinding - smaller and faster (safe with zero-unwrap code)
+strip = "symbols"      # Strip all symbols - smallest binary
+overflow-checks = true # Keep overflow checks for safety

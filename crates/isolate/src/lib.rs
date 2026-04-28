@@ -27,13 +27,19 @@
 #![allow(clippy::missing_errors_doc)]
 #![forbid(unsafe_code)]
 
+pub mod beads;
 pub mod checkpoint;
+pub mod command_context;
 pub mod dag;
 pub mod domain;
 pub mod error;
+pub mod hooks;
 pub mod hints;
+pub mod session;
 
+pub use beads::{BeadMetadata, BeadRepository, BeadStatus};
 pub use checkpoint::{find_pending_restores, AutoCheckpoint, CheckpointGuard};
+pub use command_context::{next_write_command_id, resolve_base_command_id, with_command_context};
 pub use dag::{BranchDag, BranchId, DagError};
 pub use domain::{
     classify_command, BeadId, BeadWorkspaceMapping, CheckpointRecord, CheckpointState,
@@ -45,3 +51,5 @@ pub use hints::{
     generate_hints, hints_for_error, next_actions_for_command, suggest_next_actions, ActionRisk,
     CommandContext, Hint, HintType, NextAction, SystemState, WorkspaceInfo,
 };
+pub use hooks::{HooksConfig, HookResult, with_hooks};
+pub use session::{Session, SessionStatus, SessionUpdate, validate_session_name, validate_status_transition};

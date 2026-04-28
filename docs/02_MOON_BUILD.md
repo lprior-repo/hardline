@@ -116,7 +116,7 @@ moon run :test          # Run tests (~30s)
 moon run :ci            # Full pipeline (~2min)
 
 # Push
-git push
+jj git push
 ```
 
 ### In CI/CD
@@ -246,7 +246,7 @@ Task definitions. Never edit directly unless you know what you're doing.
 All binaries in `crates/*/src/bin/` are built:
 
 ```
-crates/hardline-core/src/bin/
+crates/isolate-core/src/bin/
 ├── example1.rs
 ├── example2.rs
 └── ...
@@ -272,14 +272,14 @@ This uses cached outputs when available and checks all dependencies.
 moon run :quick
 
 # If satisfied, commit
-git commit -m "feat: description"
+jj describe -m "feat: description"
 ```
 
 ### Making Changes
 
 ```bash
 # Change a file
-vim crates/hardline-core/src/lib.rs
+vim crates/isolate-core/src/lib.rs
 
 # Test
 moon run :test
@@ -294,7 +294,7 @@ moon run :test
 moon run :ci
 
 # If all pass
-git push
+jj git push
 
 # If any fail, fix and retry
 moon run :ci
@@ -312,7 +312,7 @@ Check `moon.yml` for task definitions and dependencies.
 ### Run specific task
 
 ```bash
-moon run :test --scope hardline-core
+moon run :test --scope isolate-core
 ```
 
 ### Watch mode (experimental)

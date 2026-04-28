@@ -1,6 +1,6 @@
 # Error Handling Guide
 
-Comprehensive guide to idiomatic, zero-panic error handling in hardline — both for writing error-aware code and troubleshooting errors when they occur.
+Comprehensive guide to idiomatic, zero-panic error handling in isolate — both for writing error-aware code and troubleshooting errors when they occur.
 
 ---
 
@@ -313,12 +313,12 @@ impl Error {
     /// Returns a human-readable suggestion for fixing the error
     pub fn suggestion(&self) -> Option<String> {
         match self {
-            Error::NotFound(_) => Some("Try 'hardline list' to see available sessions"),
+            Error::NotFound(_) => Some("Try 'isolate list' to see available sessions"),
             Error::IoError(msg) if msg.contains("Permission") => {
                 Some("Check file permissions: 'ls -la' or run with appropriate access rights")
             }
             Error::SessionLocked { session, holder } => Some(
-                format!("Session '{session}' is locked by '{holder}'. Use 'hardline agent kill {holder}' to force release")
+                format!("Session '{session}' is locked by '{holder}'. Use 'isolate agent kill {holder}' to force release")
             )
             // ... more cases
         }
@@ -327,8 +327,8 @@ impl Error {
     /// Returns copy-pastable shell commands to resolve the error
     pub fn fix_commands(&self) -> Vec<String> {
         match self {
-            Error::NotFound(_) => vec!["hardline list".to_string(), "hardline add <session-name>".to_string()],
-            Error::IoError(_) => vec!["ls -la".to_string(), "hardline doctor".to_string()],
+            Error::NotFound(_) => vec!["isolate list".to_string(), "isolate add <session-name>".to_string()],
+            Error::IoError(_) => vec!["ls -la".to_string(), "isolate doctor".to_string()],
             // ... more cases
         }
     }
@@ -344,10 +344,10 @@ impl Error {
 
 ### Guidelines for Error Suggestions
 
-1. **Be specific:** Don't just say "check config" — say "run 'hardline config list' to review configuration"
+1. **Be specific:** Don't just say "check config" — say "run 'isolate config list' to review configuration"
 2. **Provide commands:** Include exact shell commands users can copy-paste
 3. **Account for variations:** Handle different error types with context-specific suggestions
-4. **Include fallbacks:** For unknown errors, suggest "hardline doctor" as a catch-all
+4. **Include fallbacks:** For unknown errors, suggest "isolate doctor" as a catch-all
 
 ### Example: Session Locked Error
 
@@ -359,10 +359,10 @@ Error::SessionLocked {
 
 // Output:
 // Error: Session 'my-session' is locked by agent 'agent-123'
-// Suggestion: Session 'my-session' is locked by 'agent-123'. Use 'hardline agent kill agent-123' to force release or check status with 'hardline agent status'
+// Suggestion: Session 'my-session' is locked by 'agent-123'. Use 'isolate agent kill agent-123' to force release or check status with 'isolate agent status'
 // Fix commands:
-//   - hardline agent status my-session
-//   - hardline agent kill agent-123
+//   - isolate agent status my-session
+//   - isolate agent kill agent-123
 ```
 
 This turns a confusing error into clear next steps.
@@ -378,7 +378,7 @@ This turns a confusing error into clear next steps.
 | 1 | Validation Error | `INVALID_CONFIG`, `VALIDATION_ERROR`, `PARSE_ERROR` |
 | 2 | Not Found | `NOT_FOUND` |
 | 3 | System Error | `IO_ERROR`, `DATABASE_ERROR` |
-| 4 | External Command | `COMMAND_ERROR`, `GIT_COMMAND_ERROR`, `HOOK_FAILED`, `HOOK_EXECUTION_FAILED` |
+| 4 | External Command | `COMMAND_ERROR`, `JJ_COMMAND_ERROR`, `HOOK_FAILED`, `HOOK_EXECUTION_FAILED` |
 | 5 | Lock Contention | `SESSION_LOCKED`, `NOT_LOCK_HOLDER` |
 | 130 | Cancelled | `OPERATION_CANCELLED` |
 
@@ -402,9 +402,9 @@ Validation error: value cannot be empty
 **How to fix:**
 ```bash
 # Example: Create a valid session name
-hardline add feature-auth          # Valid (starts with letter)
-hardline add feature_auth          # Valid (underscores allowed)
-hardline add 123-bad               # Invalid (starts with number)
+isolate add feature-auth          # Valid (starts with letter)
+isolate add feature_auth          # Valid (underscores allowed)
+isolate add 123-bad               # Invalid (starts with number)
 ```
 
 **Expected vs Received:**
@@ -435,17 +435,17 @@ Invalid configuration: Failed to parse config: TOML parse error
 **How to fix:**
 ```bash
 # View current configuration
-hardline config list
+isolate config list
 
 # Reset to defaults
-hardline config reset
+isolate config reset
 
 # Edit configuration
-hardline config edit
+isolate config edit
 ```
 
 **Common issues:**
-- Missing `[hardline]` section header
+- Missing `[isolate]` section header
 - Invalid key names
 - Wrong value types (string vs number)
 - Unquoted strings with special characters
@@ -473,10 +473,10 @@ Parse error: Failed to parse config: invalid TOML syntax
 echo '{...}' | jq .
 
 # Validate TOML syntax
-hardline config list
+isolate config list
 
 # Check file encoding
-file ~/.hardline/config.toml
+file ~/.isolate/config.toml
 ```
 
 ---
@@ -488,7 +488,7 @@ file ~/.hardline/config.toml
 **Error message examples:**
 ```
 Not found: session 'my-feature' not found
-Not found: workspace 'fix-hardline-abc' not found
+Not found: workspace 'fix-isolate-abc' not found
 ```
 
 **What to check:**
@@ -499,13 +499,13 @@ Not found: workspace 'fix-hardline-abc' not found
 **How to fix:**
 ```bash
 # List available sessions
-hardline list
+isolate list
 
 # Show current context
-hardline context
+isolate context
 
 # Create missing session
-hardline add my-feature
+isolate add my-feature
 ```
 
 ---
@@ -530,16 +530,16 @@ IO error: Disk quota exceeded
 **How to fix:**
 ```bash
 # Check permissions
-ls -la ~/.hardline
+ls -la ~/.isolate
 
 # Check disk space
 df -h
 
 # Fix permissions
-chmod 755 ~/.hardline
+chmod 755 ~/.isolate
 
 # Check for locked files
-lsof ~/.hardline/state.db
+lsof ~/.isolate/state.db
 ```
 
 ---
@@ -563,18 +563,18 @@ Database error: database disk image is malformed
 **How to fix:**
 ```bash
 # Run database diagnostics
-hardline doctor
+isolate doctor
 
 # Attempt automatic repair
-hardline doctor --fix
+isolate doctor --fix
 
 # Manual repair (last resort)
-rm ~/.hardline/state.db
+rm ~/.isolate/state.db
 br sync
 ```
 
 **Prevention:**
-- Avoid running multiple hardline instances simultaneously
+- Avoid running multiple isolate instances simultaneously
 - Use proper shutdown procedures
 - Backup database regularly
 
@@ -586,7 +586,7 @@ br sync
 
 **Error message examples:**
 ```
-Command error: git: command failed with exit code 1
+Command error: jj: command failed with exit code 1
 ```
 
 **What to check:**
@@ -597,59 +597,62 @@ Command error: git: command failed with exit code 1
 **How to fix:**
 ```bash
 # Check if command exists
-which git
+which jj
 
 # Verify PATH
 echo $PATH
 
 # Test command directly
-git status
+jj status
 ```
 
 ---
 
-### GIT_COMMAND_ERROR (Exit Code 4)
+### JJ_COMMAND_ERROR (Exit Code 4)
 
-**What it means:** Git command failed
+**What it means:** JJ (Jujutsu) command failed
 
 **Error message examples:**
 ```
-Failed to create workspace: Git is not installed or not in PATH.
+Failed to create workspace: JJ is not installed or not in PATH.
 
-Install Git:
+Install JJ:
 
-  sudo apt install git
+  cargo install jj-cli
 
 or:
 
-  brew install git
+  brew install jj
+
+or visit: https://github.com/martinvonz/jj#installation
 
 Error: No such file or directory (os error 2)
 ```
 
 **What to check:**
-- Git is installed
-- Git is in PATH
-- Current directory is a Git repo
-- Git is working correctly
+- JJ is installed
+- JJ is in PATH
+- Current directory is a JJ repo
+- JJ is working correctly
 
 **How to fix:**
 ```bash
-# Install Git (choose one)
-sudo apt install git
-brew install git
+# Install JJ (choose one)
+cargo install jj-cli
+brew install jj
+# Visit: https://martinvonz.github.io/jj/latest/install-and-setup/
 
 # Verify installation
-git --version
-git status
+jj --version
+jj status
 
-# Initialize Git repo (if needed)
+# Initialize JJ repo (if needed)
 cd /path/to/project
-git init
+jj init
 
-# Check Git is working
-git log
-git diff
+# Check JJ is working
+jj log
+jj diff
 ```
 
 ---
@@ -674,17 +677,17 @@ Stderr: Package not found
 **How to fix:**
 ```bash
 # Check hook configuration
-hardline config get hooks.post_create
-hardline config list hooks
+isolate config get hooks.post_create
+isolate config list hooks
 
 # Test hook manually
-~/.hardline/hooks/post_create
+~/.isolate/hooks/post_create
 
 # Skip hooks for debugging
-hardline add test-session --no-hooks
+isolate add test-session --no-hooks
 
 # Fix hook script
-chmod +x ~/.hardline/hooks/post_create
+chmod +x ~/.isolate/hooks/post_create
 ```
 
 **Hook exit codes:**
@@ -712,16 +715,16 @@ Failed to execute hook 'invalid-shell': Permission denied
 **How to fix:**
 ```bash
 # Check hook file
-ls -la ~/.hardline/hooks/
+ls -la ~/.isolate/hooks/
 
 # Add executable permission
-chmod +x ~/.hardline/hooks/*
+chmod +x ~/.isolate/hooks/*
 
 # Verify shebang line
-head -1 ~/.hardline/hooks/post_create
+head -1 ~/.isolate/hooks/post_create
 
 # Test hook directly
-~/.hardline/hooks/post_create
+~/.isolate/hooks/post_create
 ```
 
 ---
@@ -742,10 +745,10 @@ Session 'feature-auth' is locked by agent 'agent-123'
 **How to fix:**
 ```bash
 # Check agent status
-hardline agent status feature-auth
+isolate agent status feature-auth
 
 # Force release (only if agent is dead)
-hardline agent kill agent-123
+isolate agent kill agent-123
 ```
 
 **Lock timeout:** Locks auto-release after 1 hour of inactivity.
@@ -768,7 +771,7 @@ Agent 'agent-456' does not hold the lock for session 'feature-auth'
 **How to fix:**
 ```bash
 # Check lock holder
-hardline agent status feature-auth
+isolate agent status feature-auth
 ```
 
 ---
@@ -815,17 +818,17 @@ When you encounter an error:
 
 4. **Run diagnostics:**
    ```bash
-   hardline doctor
+   isolate doctor
    ```
 
 5. **Check the logs:**
    ```bash
    # View recent logs
-   hardline logs
+   isolate logs
 
    # Enable debug logging
-   export Hardline_LOG=debug
-   hardline <command>
+   export Isolate_LOG=debug
+   isolate <command>
    ```
 
 ---
@@ -901,7 +904,7 @@ fn test_operation_error() {
 For machine-readable error output:
 
 ```bash
-hardline <command> --json
+isolate <command> --json
 ```
 
 JSON error structure:
@@ -920,12 +923,12 @@ JSON error structure:
         "resource_id": "my-feature",
         "searched_in": "database"
       },
-      "suggestion": "Use 'hardline list' to see available sessions"
+      "suggestion": "Use 'isolate list' to see available sessions"
     },
     "validation_hints": [],
     "fix_commands": [
-      "hardline list",
-      "hardline add my-feature"
+      "isolate list",
+      "isolate add my-feature"
     ]
   }
 }
@@ -941,28 +944,28 @@ If you can't resolve the error:
 
 1. **Collect diagnostic information**
    ```bash
-   hardline doctor > doctor-output.txt
-   hardline context > context.txt
-   hardline logs --last 100 > logs.txt
+   isolate doctor > doctor-output.txt
+   isolate context > context.txt
+   isolate logs --last 100 > logs.txt
    ```
 
 2. **Search existing issues**
-   - GitHub Issues: https://github.com/your-org/hardline/issues
+   - GitHub Issues: https://github.com/your-org/isolate/issues
    - Search for your error code
 
 3. **Create a bug report**
    - Include error code and message
    - Include diagnostic output
    - Include steps to reproduce
-   - Include `hardline --version`
+   - Include `isolate --version`
 
 ---
 
 ## Prevention Best Practices
 
 1. **Always validate input** before running commands
-2. **Use `hardline doctor`** to check system health
-3. **Keep dependencies updated** (Git, Cargo)
+2. **Use `isolate doctor`** to check system health
+3. **Keep dependencies updated** (JJ)
 4. **Backup regularly:** `br sync`
 5. **Use `--dry-run`** to preview changes
 6. **Read error messages** carefully before acting

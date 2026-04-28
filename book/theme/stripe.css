@@ -1,0 +1,357 @@
+/* STRIPE-QUALITY DESIGN SYSTEM */
+/* Works with mdBook's layout system */
+
+:root {
+  --sidebar-width: 280px;
+  --purple: #635bff;
+  --purple-light: #7c73ff;
+  --purple-dark: #0a2540;
+  --text-primary: #0a2540;
+  --text-secondary: #4f566b;
+  --text-muted: #6b7c93;
+  --bg-primary: #fff;
+  --bg-secondary: #f6f9fc;
+  --border: #e3e8ee;
+  --accent: #635bff;
+  --success: #00a569;
+  --warning: #f5a623;
+  --danger: #df3b3b;
+  --info: #0073e6;
+  
+  /* Override mdBook variables */
+  --sidebar-bg: #fff;
+  --sidebar-fg: #6b7c93;
+  --sidebar-active: #635bff;
+  --sidebar-width: 280px;
+  --content-max-width: 760px;
+}
+
+/* Base styles */
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+/* ==================== SIDEBAR ==================== */
+
+.sidebar {
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.sidebar .sidebar-scrollbox {
+  padding: 0;
+}
+
+#searchbar {
+  width: calc(100% - 40px);
+  margin: 16px 20px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+#searchbar:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(99,91,255,0.1);
+}
+
+/* Navigation styling */
+.chapter {
+  list-style: none;
+}
+
+.chapter li a {
+  display: block;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.chapter li a:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  text-decoration: none;
+}
+
+.chapter li a.active {
+  color: var(--accent);
+  font-weight: 500;
+  border-left-color: var(--accent);
+  background: rgba(99,91,255,0.04);
+}
+
+/* Spacer between sections */
+.chapter .spacer {
+  height: 16px;
+}
+
+/* ==================== CONTENT ==================== */
+
+.content {
+  padding: 56px 48px 80px;
+  max-width: none;
+}
+
+.content main {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+/* ==================== TYPOGRAPHY ==================== */
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: 42px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+h2 {
+  font-size: 24px;
+  margin-top: 48px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+h3 {
+  font-size: 20px;
+  margin-top: 32px;
+  margin-bottom: 12px;
+}
+
+h4 {
+  font-size: 16px;
+  margin-top: 24px;
+  margin-bottom: 8px;
+}
+
+p {
+  margin: 0 0 16px 0;
+  color: var(--text-secondary);
+  line-height: 1.75;
+}
+
+/* ==================== LINKS ==================== */
+
+.content a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.content a:hover {
+  color: var(--purple-light);
+  text-decoration: underline;
+}
+
+/* ==================== CODE ==================== */
+
+code {
+  font-family: 'SFMono-Regular', Monaco, 'Cascadia Code', 'Consolas', monospace;
+  font-size: 0.875em;
+  font-weight: 500;
+  color: var(--accent);
+  background: transparent;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+pre {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 24px 0;
+  overflow-x: auto;
+}
+
+pre code {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: transparent;
+  padding: 0;
+  font-weight: 400;
+}
+
+/* ==================== TABLES ==================== */
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 24px 0;
+  font-size: 14px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tr:hover td {
+  background: var(--bg-secondary);
+}
+
+table strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ==================== LISTS ==================== */
+
+ul, ol {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+li {
+  margin: 8px 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* ==================== BLOCKQUOTES ==================== */
+
+blockquote {
+  margin: 24px 0;
+  padding: 16px 20px;
+  border-left: 4px solid var(--accent);
+  background: var(--bg-secondary);
+  border-radius: 0 8px 8px 0;
+}
+
+blockquote p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+/* ==================== HR ==================== */
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 48px 0;
+}
+
+/* ==================== NAVIGATION ==================== */
+
+.nav-wrapper {
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.nav-chapters {
+  display: flex;
+  justify-content: space-between;
+}
+
+.nav-chapters a {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 400;
+  padding: 12px 0;
+}
+
+.nav-chapters a:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* ==================== HIDE UNUSED ELEMENTS ==================== */
+
+.mdbook-help-container,
+#mdbook-help-popup,
+.theme-popup,
+#mdbook-theme-list,
+#mdbook-theme-toggle,
+.right-buttons,
+.left-buttons {
+  display: none;
+}
+
+/* Keep sidebar resize handle hidden */
+.sidebar-resize-handle {
+  display: none;
+}
+
+/* ==================== RESPONSIVE ==================== */
+
+@media (max-width: 1080px) {
+  .content {
+    padding: 24px;
+  }
+  
+  h1 {
+    font-size: 32px;
+  }
+  
+  h2 {
+    font-size: 20px;
+  }
+}
+
+/* ==================== PRINT ==================== */
+
+@media print {
+  .sidebar,
+  .menu-bar,
+  .nav-wrapper {
+    display: none;
+  }
+  
+  .content {
+    padding: 0;
+  }
+}

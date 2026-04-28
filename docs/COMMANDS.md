@@ -1,19 +1,19 @@
-# Hardline CLI Command Reference
+# Isolate CLI Command Reference
 
-Complete reference for all Hardline CLI commands.
+Complete reference for all Isolate CLI commands.
 
 ---
 
 ## Command Overview
 
-Hardline uses an object-based command structure for organization:
+Isolate uses an object-based command structure for organization:
 
 ```
-hardline task <action>      # Manage tasks/beads
-hardline session <action>   # Manage workspaces/sessions  
-hardline status <action>    # Query system status
-hardline config <action>   # Manage configuration
-hardline doctor <action>   # Run diagnostics
+isolate task <action>      # Manage tasks/beads
+isolate session <action>   # Manage workspaces/sessions  
+isolate status <action>    # Query system status
+isolate config <action>   # Manage configuration
+isolate doctor <action>   # Run diagnostics
 ```
 
 ---
@@ -23,46 +23,46 @@ hardline doctor <action>   # Run diagnostics
 ### Task Management (Beads)
 
 ```bash
-hardline task list              # List all tasks
-hardline task show <id>         # Show task details
-hardline task start <id>        # Start work on a task
-hardline task done <id>        # Complete a task
+isolate task list              # List all tasks
+isolate task show <id>         # Show task details
+isolate task start <id>        # Start work on a task
+isolate task done <id>        # Complete a task
 ```
 
 ### Session Management
 
 ```bash
-hardline session list           # List all sessions
-hardline session add <name>     # Create new session
-hardline session remove <name>  # Remove a session
-hardline session pause <name>   # Pause a session
-hardline session resume <name>  # Resume a paused session
-hardline session clone <name>   # Clone a session
-hardline session rename <name>  # Rename a session
-hardline session spawn <bead>   # Spawn session for automated work
-hardline session sync           # Sync session with remote
-hardline session init           # Initialize hardline in a repo
+isolate session list           # List all sessions
+isolate session add <name>     # Create new session
+isolate session remove <name>  # Remove a session
+isolate session pause <name>   # Pause a session
+isolate session resume <name>  # Resume a paused session
+isolate session clone <name>   # Clone a session
+isolate session rename <name>  # Rename a session
+isolate session spawn <bead>   # Spawn session for automated work
+isolate session sync           # Sync session with remote
+isolate session init           # Initialize isolate in a repo
 ```
 
 ### Status
 
 ```bash
-hardline status                 # Query system status
-hardline status <action>       # Various status queries
+isolate status                 # Query system status
+isolate status <action>       # Various status queries
 ```
 
 ### Configuration
 
 ```bash
-hardline config                # Manage hardline configuration
-hardline config <action>      # Various config operations
+isolate config                # Manage isolate configuration
+isolate config <action>      # Various config operations
 ```
 
 ### Diagnostics
 
 ```bash
-hardline doctor                # Run diagnostics
-hardline doctor <action>      # Run specific diagnostic
+isolate doctor                # Run diagnostics
+isolate doctor <action>      # Run specific diagnostic
 ```
 
 ---
@@ -72,115 +72,115 @@ hardline doctor <action>      # Run specific diagnostic
 ### Initialization
 
 ```bash
-hardline init                  # Initialize hardline in current Git repository
-hardline init --dry-run       # Preview initialization
-hardline init --json          # Output JSON metadata
+isolate init                  # Initialize isolate in current JJ repository
+isolate init --dry-run       # Preview initialization
+isolate init --json          # Output JSON metadata
 ```
 
 ### Session Creation
 
 ```bash
-hardline add <name>           # Create session for manual work (Git workspace)
-hardline add <name> --bead <id>    # Associate with bead
-hardline add <name> --no-open      # Create without opening terminal
-hardline add <name> --no-hooks    # Skip post-create hooks
-hardline add <name> --idempotent  # Succeed if already exists
-hardline work <bead>          # Start work on a task (simpler than add)
-hardline work <bead> <name>  # Start work with custom name
-hardline work <bead> --idempotent  # Succeed if already exists
-hardline spawn <bead>        # Spawn session for automated agent work
-hardline spawn <bead> --agent <name>  # Specify agent name
-hardline spawn <bead> --idempotent    # Succeed if already exists
+isolate add <name>           # Create session for manual work (JJ workspace)
+isolate add <name> --bead <id>    # Associate with bead
+isolate add <name> --no-open      # Create without opening terminal
+isolate add <name> --no-hooks    # Skip post-create hooks
+isolate add <name> --idempotent  # Succeed if already exists
+isolate work <bead>          # Start work on a task (simpler than add)
+isolate work <bead> <name>  # Start work with custom name
+isolate work <bead> --idempotent  # Succeed if already exists
+isolate spawn <bead>        # Spawn session for automated agent work
+isolate spawn <bead> --agent <name>  # Specify agent name
+isolate spawn <bead> --idempotent    # Succeed if already exists
 ```
 
 ### Session Navigation
 
 ```bash
-hardline list                 # List all sessions
-hardline list --all          # Include all sessions
-hardline context             # Show current context
-hardline context --field <path>  # Extract single field (e.g., repository.branch)
-hardline context --no-beads   # Skip beads database query (faster)
-hardline context --no-health # Skip health checks (faster)
+isolate list                 # List all sessions
+isolate list --all          # Include all sessions
+isolate context             # Show current context
+isolate context --field <path>  # Extract single field (e.g., repository.branch)
+isolate context --no-beads   # Skip beads database query (faster)
+isolate context --no-health # Skip health checks (faster)
 ```
 
 ### Session Completion
 
 ```bash
-hardline done [name]         # Complete and merge work
-hardline sync                # Sync session with main
-hardline abort [name]        # Abort and clean up workspace
-hardline abort [name] --force  # Force abort without confirmation
+isolate done [name]         # Complete and merge work
+isolate sync                # Sync session with main
+isolate abort [name]        # Abort and clean up workspace
+isolate abort [name] --force  # Force abort without confirmation
 ```
 
 ### Session Management
 
 ```bash
-hardline remove <name>       # Remove a session
-hardline rename <name>       # Rename a session
-hardline clone <name>        # Clone session
-hardline pause <name>        # Pause a session
-hardline resume <name>       # Resume a paused session
+isolate remove <name>       # Remove a session
+isolate rename <name>       # Rename a session
+isolate clone <name>        # Clone session
+isolate pause <name>        # Pause a session
+isolate resume <name>       # Resume a paused session
 ```
 
 ### Task Management (Flat Commands)
 
-(Use `hardline task` subcommands instead - see below)
+(Use `isolate task` subcommands instead - see below)
 
 ### Task Object Commands
 
 ### History & Recovery
 
 ```bash
-hardline checkpoint [name]    # Create checkpoint
-hardline undo                # Undo last operation
-hardline revert              # Revert changes
+isolate checkpoint [name]    # Create checkpoint
+isolate undo                # Undo last operation
+isolate revert              # Revert changes
 ```
 
 ### Identity
 
 ```bash
-hardline whoami              # Show current user/agent
-hardline whereami            # Show current location (main or workspace)
+isolate whoami              # Show current user/agent
+isolate whereami            # Show current location (main or workspace)
 ```
 
 ### Help & Info
 
 ```bash
-hardline help                # Print help
-hardline introspect          # Show all capabilities
-hardline introspect <cmd>    # Show command details
-hardline introspect --env-vars   # Show environment variables
-hardline introspect --workflows  # Show workflow patterns
+isolate help                # Print help
+isolate introspect          # Show all capabilities
+isolate introspect <cmd>    # Show command details
+isolate introspect --env-vars   # Show environment variables
+isolate introspect --workflows  # Show workflow patterns
 ```
 
 ### Completion
 
 ```bash
-hardline completions <shell> # Generate shell completions
+isolate completions <shell> # Generate shell completions
 ```
 
 ### Validation
 
 ```bash
-hardline validate             # Validate configurations
+isolate validate             # Validate configurations
 ```
 
 ### Other Commands
 
 ```bash
-hardline diff                # Show changes
-hardline clean                # Clean up
-hardline prune-invalid        # Remove invalid entries
-hardline whatif              # Preview operations
-hardline events              # List events
-hardline backup              # Create backup
-hardline recover             # Recover from errors
-hardline retry               # Retry failed operation
-hardline rollback            # Rollback operation
-hardline wait                # Wait for condition
-hardline schema              # Show schema
-hardline examples            # Show examples
+isolate diff                # Show changes
+isolate clean                # Clean up
+isolate prune-invalid        # Remove invalid entries
+isolate whatif              # Preview operations
+isolate events              # List events
+isolate backup              # Create backup
+isolate recover             # Recover from errors
+isolate retry               # Retry failed operation
+isolate rollback            # Rollback operation
+isolate wait                # Wait for condition
+isolate schema              # Show schema
+isolate examples            # Show examples
 ```
 
 ---
@@ -205,22 +205,22 @@ hardline examples            # Show examples
 
 ```bash
 # Check where you are
-hardline whereami
+isolate whereami
 
 # Start work on a task
-hardline work <bead-id>
+isolate work <bead-id>
 
 # List all sessions
-hardline list
+isolate list
 
 # Sync with main
-hardline sync
+isolate sync
 
 # Complete work
-hardline done
+isolate done
 
 # Abort work
-hardline abort
+isolate abort
 ```
 
 ---
@@ -229,11 +229,11 @@ hardline abort
 
 | Command | Alias |
 |---------|-------|
-| `hardline done` | `hardline submit` |
-| `hardline checkpoint` | `hardline ckpt` |
-| `hardline session add` | `hardline session create` |
-| `hardline task done` | `hardline task complete` |
-| `hardline session sync` | `hardline session rebase` |
+| `isolate done` | `isolate submit` |
+| `isolate checkpoint` | `isolate ckpt` |
+| `isolate session add` | `isolate session create` |
+| `isolate task done` | `isolate task complete` |
+| `isolate session sync` | `isolate session rebase` |
 
 ---
 
@@ -243,25 +243,25 @@ hardline abort
 
 ```bash
 # Check you're on main
-hardline whereami
+isolate whereami
 
 # Start work on a bead
-hardline work feature-abc123
+isolate work feature-abc123
 
 # Do your work...
 
 # Sync with main if needed
-hardline sync
+isolate sync
 
 # Complete work
-hardline done
+isolate done
 ```
 
 ### Continue Existing Work
 
 ```bash
 # Check where you are
-hardline whereami  # Returns "workspace:feature-abc123"
+isolate whereami  # Returns "workspace:feature-abc123"
 
 # You're already in the workspace, continue working
 ```
@@ -270,23 +270,23 @@ hardline whereami  # Returns "workspace:feature-abc123"
 
 ```bash
 # Preview abort
-hardline abort --dry-run
+isolate abort --dry-run
 
 # Execute abort
-hardline abort
+isolate abort
 
 # Start fresh
-hardline work feature-abc123-v2
+isolate work feature-abc123-v2
 ```
 
 ### Multiple Sessions
 
 ```bash
 # List all sessions
-hardline list --json
+isolate list --json
 
 # Sync all with main
-hardline session sync --all
+isolate session sync --all
 ```
 
 ---
@@ -308,7 +308,7 @@ Errors include suggestions:
   "error": {
     "code": "SESSION_NOT_FOUND",
     "message": "...",
-    "suggestion": "Use 'hardline list' to see available sessions"
+    "suggestion": "Use 'isolate list' to see available sessions"
   }
 }
 ```

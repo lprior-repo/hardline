@@ -347,7 +347,7 @@ Rust's type system and zero-cost abstractions make functional programming both e
 
 ## Command Implementation Patterns
 
-hardline follows a consistent pattern for command implementation:
+isolate follows a consistent pattern for command implementation:
 
 ### 1. Command Structure
 
@@ -390,9 +390,9 @@ pub struct Options {
 
 ### 2. Error Handling Pattern
 
-**Business Logic Errors**: Use `hardline_core::Error` at command boundaries
+**Business Logic Errors**: Use `isolate_core::Error` at command boundaries
 ```rust
-use hardline_core::Error;
+use isolate_core::Error;
 
 pub fn run(options: &Options) -> Result<()> {
     let result = execute_business_logic(options)
@@ -415,7 +415,7 @@ pub fn run(options: &Options) -> Result<()> {
 
 All commands use `SchemaEnvelope` for JSON output:
 ```rust
-use hardline_core::json::SchemaEnvelope;
+use isolate_core::json::SchemaEnvelope;
 
 pub struct Output {
     pub name: String,
@@ -430,8 +430,8 @@ fn output_json(data: &Output) -> Result<()> {
 
 ### 4. Module Boundaries
 
-- **hardline-core**: Pure library (no CLI, database, or side effects)
-- **crrates/hardline**: CLI + commands + database + Zellij integration
-- **hardline_core::Error**: Defined in core for semantic exit codes
+- **isolate-core**: Pure library (no CLI, database, or side effects)
+- **crates/isolate**: CLI + commands + database + Zellij integration
+- **isolate_core::Error**: Defined in core for semantic exit codes
 
 **Next**: [Rust Standards](05_RUST_STANDARDS.md)

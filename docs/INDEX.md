@@ -1,6 +1,6 @@
-# Hardline Complete Documentation Index
+# Isolate Complete Documentation Index
 
-All Hardline documentation in one place, token-efficient and searchable.
+All Isolate documentation in one place, token-efficient and searchable.
 
 ---
 
@@ -15,28 +15,6 @@ All Hardline documentation in one place, token-efficient and searchable.
 
 ---
 
-## 🏛 Architecture Decision Records (ADRs)
-
-| # | Document | Purpose | Status |
-|---|----------|---------|--------|
-| **ADR-001** | [hardline-cli-architecture](adr/001-hardline-cli-architecture.md) | Final command hierarchy, AI-first output, no shell out | Accepted |
-| **ADR-002** | [durable-workflow-execution](adr/002-durable-workflow-execution.md) | Step journal, saga pattern, compensation, recovery | Accepted |
-| **ADR-003** | [restate-feature-parity](adr/003-restate-feature-parity.md) | Verified Restate SDK API (from docs.rs) | Research Complete |
-| **ADR-004** | [vcs-abstraction](adr/004-vcs-abstraction.md) | Git-only concrete backend via gitoxide, no trait abstraction | Accepted |
-| **ADR-005** | [workspace-isolation-model](adr/005-workspace-isolation-model.md) | Full clones for workspace isolation, state machine | Accepted |
-| **ADR-006** | [database-schema](adr/006-database-schema.md) | SQLite + WAL, schema for workspaces/operations/queue | Accepted |
-| **ADR-007** | [error-taxonomy](adr/007-error-taxonomy.md) | 1xxx-9xxx error codes, retryable vs terminal, fix suggestions | Accepted |
-| **ADR-008** | [queue-processing](adr/008-queue-processing.md) | Priority + FIFO ordering, QueueStatus state machine | Accepted |
-| **ADR-009** | [ddd-layer-structure](adr/009-ddd-layer-structure.md) | Domain/Application/Infrastructure separation, invariants | Accepted |
-| **ADR-010** | [agent-registry-heartbeat](adr/010-agent-registry-heartbeat.md) | Agent lifecycle, heartbeat timeout, capability registry | Accepted |
-| **ADR-011** | [output-json-schema](adr/011-output-json-schema.md) | Response envelope, workspace/queue/agent schemas | Accepted |
-| **ADR-012** | [stacked-prs-branch-stacks](adr/012-stacked-prs-branch-stacks.md) | Branch stack operations, restack, ordered merging | Accepted |
-| **ADR-013** | [snapshot-system](adr/013-snapshot-system.md) | Backup/restore/checkpoint, snapshot storage | Accepted |
-| **ADR-014** | [observability-telemetry](adr/014-observability-telemetry.md) | Traces, metrics, logs, health checks | Accepted |
-| **ADR-015** | [security-access-control](adr/015-security-access-control.md) | RBAC, workspace isolation, audit logging, secrets | Accepted |
-
----
-
 ## 📚 Core Documentation (00-12)
 
 | # | Document | Purpose | Read Time |
@@ -44,13 +22,13 @@ All Hardline documentation in one place, token-efficient and searchable.
 | **00** | [START HERE](00_START_HERE.md) | 5-minute crash course + navigation | 5 min |
 | **01** | [ERROR HANDLING](01_ERROR_HANDLING.md) | Fallible operations, Result patterns | 20 min |
 | **02** | [MOON BUILD](02_MOON_BUILD.md) | Building, testing, caching | 15 min |
-| **03** | [WORKFLOW](03_WORKFLOW.md) | Daily dev workflow (Beads + Git + Moon) | 20 min |
+| **03** | [WORKFLOW](03_WORKFLOW.md) | Daily dev workflow (Beads + jj + Moon) | 20 min |
 | **04** | [FUNCTIONAL PATTERNS](04_FUNCTIONAL_PATTERNS.md) | Iterator combinators, FP techniques | 25 min |
 | **05** | [RUST STANDARDS](05_RUST_STANDARDS.md) | Zero unwrap/panic law + enforcement | 20 min |
 | **06** | [COMBINATORS](06_COMBINATORS.md) | Complete combinator reference | Reference |
 | **07** | [TESTING](07_TESTING.md) | Testing without panics | 15 min |
 | **08** | [BEADS](08_BEADS.md) | Issue tracking, triage, graph metrics | 25 min |
-| **09** | *(removed — VCS abstraction layer)* | — | — |
+| **09** | [JUJUTSU](09_JUJUTSU.md) | Version control, **JJ vs Git FAQ**, multi-agent benefits | 20 min |
 | **10** | [MOON CICD INDEXED](10_MOON_CICD_INDEXED.md) | Complete moon task catalog (indexed) | Reference |
 | **11** | [ZELLIJ](11_ZELLIJ.md) | Terminal multiplexing, layouts, tab management | 25 min |
 
@@ -112,6 +90,10 @@ All Hardline documentation in one place, token-efficient and searchable.
 1. See [08_BEADS.md](08_BEADS.md) - `bv --robot-triage` (pick task)
 2. See [03_WORKFLOW.md](03_WORKFLOW.md) - Daily workflow
 3. See [02_MOON_BUILD.md](02_MOON_BUILD.md) - Testing
+4. See [09_JUJUTSU.md](09_JUJUTSU.md) - Committing & pushing
+
+### Why JJ Instead of Git for Multi-Agent?
+→ [09_JUJUTSU.md](09_JUJUTSU.md) - JJ vs Git FAQ, lock-free concurrency, operation log
 
 ### How Do I Handle Errors?
 → [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) - 10 patterns with examples  
@@ -141,7 +123,7 @@ All Hardline documentation in one place, token-efficient and searchable.
 → [08_BEADS.md](08_BEADS.md) - Using `bv` for triage
 
 ### How Do I Commit & Push?
-→ Use `git commit` and `git push` — standard Git workflow
+→ [09_JUJUTSU.md](09_JUJUTSU.md) - Version control
 
 ### How Do I Test Code?
 → [07_TESTING.md](07_TESTING.md) - Testing patterns
@@ -177,7 +159,7 @@ All Hardline documentation in one place, token-efficient and searchable.
 ### Development Tools
 - [03_WORKFLOW.md](03_WORKFLOW.md) - Daily workflow integration
 - [08_BEADS.md](08_BEADS.md) - Issue tracking + triage
-- Git - Version control (standard `git` commands)
+- [09_JUJUTSU.md](09_JUJUTSU.md) - Version control
 - [11_ZELLIJ.md](11_ZELLIJ.md) - Terminal multiplexing + layouts
 - [19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md) - Code search metrics and optimization
 
@@ -207,35 +189,35 @@ moon run :check # Type check
 moon run :fmt-fix  # Auto-fix formatting
 ```
 
-### Git (VCS)
+### Jujutsu (VCS)
 ```bash
-git add .                           # Stage changes
-git commit -m "feat: description"   # Commit
-git push                            # Push
-git log --oneline                   # View history
+jj describe -m "feat: description"  # Commit
+jj git push                         # Push
+jj new                              # Start new change
+jj log                              # View history
 ```
 
-### Hardline (Workspace Management)
+### Isolate (Workspace Management)
 ```bash
 # See COMMANDS.md for complete reference
-hardline add <name>           # Create session + workspace
-hardline work <name>          # Simpler workspace creation
-hardline whereami             # Check current location
-hardline done                 # Complete and merge work
-hardline sync                 # Sync with main
-hardline abort                # Abort and cleanup
-hardline list                 # List all sessions
+isolate add <name>           # Create session + workspace
+isolate work <name>          # Simpler workspace creation
+isolate whereami             # Check current location
+isolate done                 # Complete and merge work
+isolate sync                 # Sync with main
+isolate abort                # Abort and cleanup
+isolate list                 # List all sessions
 
 # For complete command reference, see COMMANDS.md
 ```
 
-### Hardline Object Commands (New)
+### Isolate Object Commands (New)
 ```bash
-hardline session add <name>   # Create session (replaces 'hardline add')
-hardline session list         # List sessions (replaces 'hardline list')
-hardline session sync [name]  # Sync workspace (replaces 'hardline sync')
-hardline session done         # Complete work (replaces 'hardline done')
-hardline doctor check         # System health check
+isolate session add <name>   # Create session (replaces 'isolate add')
+isolate session list         # List sessions (replaces 'isolate list')
+isolate session sync [name]  # Sync workspace (replaces 'isolate sync')
+isolate session done         # Complete work (replaces 'isolate done')
+isolate doctor check         # System health check
 ```
 
 ### Codanna (Code Search)
@@ -247,7 +229,7 @@ codanna index src lib                                       # Reindex code
 ```
 
 ### More Commands
-See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md)
+See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md), [08_BEADS.md](08_BEADS.md), [09_JUJUTSU.md](09_JUJUTSU.md), [19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md)
 
 ---
 
@@ -271,17 +253,18 @@ See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 5. [01_ERROR_HANDLING.md](01_ERROR_HANDLING.md) - 20 min
 6. [07_TESTING.md](07_TESTING.md) - 15 min
 
-### Path 4: Practitioner (1 hour)
+### Path 4: Practitioner (1.5 hours)
 1. [03_WORKFLOW.md](03_WORKFLOW.md) - 20 min
 2. [08_BEADS.md](08_BEADS.md) - 25 min
-3. [06_COMBINATORS.md](06_COMBINATORS.md) - 25 min
+3. [09_JUJUTSU.md](09_JUJUTSU.md) - 20 min
+4. [06_COMBINATORS.md](06_COMBINATORS.md) - 25 min
 
 ---
 
 ## 📊 Documentation Stats
 
-- **Total Active Pages**: 18
-- **Core Docs**: 11 (00-08, 10-11)
+- **Total Active Pages**: 20
+- **Core Docs**: 12 (00-11)
 - **AI Agent Guide**: 1 comprehensive doc
 - **Operational Guides**: 5
 - **Advanced Topics**: 1
@@ -308,8 +291,8 @@ See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 - Beads: [08_BEADS.md](08_BEADS.md)
 - Moon User Guide: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 - Moon CICD Reference: [10_MOON_CICD_INDEXED.md](10_MOON_CICD_INDEXED.md)
-- Git: Standard `git` commands
-- Hardline: [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) + README.md
+- Jujutsu: [09_JUJUTSU.md](09_JUJUTSU.md)
+- Isolate: [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) + README.md
 - Queue Operations: [QUEUE_OPERATIONS_RUNBOOK.md](QUEUE_OPERATIONS_RUNBOOK.md)
 - Rollout/Rollback: [ROLLOUT_ROLLBACK.md](ROLLOUT_ROLLBACK.md)
 
@@ -326,7 +309,7 @@ See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 | Functional Style | [04_FUNCTIONAL_PATTERNS.md](04_FUNCTIONAL_PATTERNS.md) | Immutability, composition, lazy eval |
 | Moon Caching | [02_MOON_BUILD.md](02_MOON_BUILD.md) | Smart task skipping for speed |
 | Beads Triage | [08_BEADS.md](08_BEADS.md) | Graph-aware issue prioritization |
-| Git Workflow | Standard `git` commands | Commit, push, branch, merge |
+| Jujutsu Multi-Agent | [09_JUJUTSU.md](09_JUJUTSU.md) | **Lock-free concurrency**, operation log, JJ vs Git FAQ |
 | Codanna Search | [19_CODANNA_QUERY_PERFORMANCE.md](19_CODANNA_QUERY_PERFORMANCE.md) | 40-50x faster than grep, semantic code search |
 | 7 Mandatory Rules | [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) | Agent critical constraints |
 
@@ -346,7 +329,7 @@ See individual docs for full command lists: [02_MOON_BUILD.md](02_MOON_BUILD.md)
 
 ## ✅ What TO Do
 
-- Use Hardline commands ([COMMANDS.md](COMMANDS.md))
+- Use Isolate commands ([COMMANDS.md](COMMANDS.md))
 - Return `Result<T, Error>` for fallible ops ([01_ERROR_HANDLING.md](01_ERROR_HANDLING.md))
 - Use `?` operator, match, or combinators ([01_ERROR_HANDLING.md](01_ERROR_HANDLING.md))
 - Build with `moon run` ([02_MOON_BUILD.md](02_MOON_BUILD.md))

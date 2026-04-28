@@ -1,0 +1,119 @@
+/* Minimal custom styles - Override mdbook defaults */
+
+/* Hide elements we don't need */
+.mdbook-help,
+.mdbook-help-container {
+  display: none;
+}
+
+/* Fix iframe sidebar */
+body.sidebar-iframe-inner {
+  padding: 0;
+  margin: 0;
+  background: #ffffff;
+}
+
+body.sidebar-iframe-inner .chapter {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+body.sidebar-iframe-inner .chapter-item {
+  margin: 0;
+  padding: 0;
+}
+
+body.sidebar-iframe-inner .chapter-link-wrapper a {
+  display: block;
+  padding: 8px 20px;
+  font-size: 14px;
+  color: #6b7c93;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+}
+
+body.sidebar-iframe-inner .chapter-link-wrapper a:hover {
+  color: #0a2540;
+  text-decoration: none;
+}
+
+body.sidebar-iframe-inner .chapter-link-wrapper a.active {
+  color: #635bff;
+  font-weight: 500;
+  border-left-color: #635bff;
+}
+
+body.sidebar-iframe-inner .part-title {
+  display: block;
+  padding: 20px 20px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #6b7c93;
+}
+
+body.sidebar-iframe-inner .spacer {
+  height: 16px;
+  display: block;
+}
+
+/* Fix numbers next to links */
+body.sidebar-iframe-inner .chapter-link-wrapper strong {
+  color: #a3acb9;
+  font-weight: 400;
+  margin-right: 8px;
+}
+
+/* Menu bar */
+#mdbook-menu-bar {
+  background: #ffffff;
+  border-bottom: 1px solid #e3e8ee;
+  padding: 12px 16px;
+}
+
+#mdbook-menu-bar .icon-button {
+  color: #6b7c93;
+}
+
+#mdbook-menu-bar .icon-button:hover {
+  color: #0a2540;
+}
+
+/* Hide resize handle */
+.sidebar-resize-handle,
+.mdbook-sidebar-toggle-anchor {
+  display: none;
+}
+
+/* Page wrapper */
+.page-wrapper {
+  background: #ffffff;
+}
+
+/* Anchor links for headings */
+.anchor-link {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+h1:hover .anchor-link,
+h2:hover .anchor-link,
+h3:hover .anchor-link {
+  opacity: 0.5;
+}
+
+/* Strong in tables */
+table strong {
+  color: #0a2540;
+}
+
+/* First child in content */
+.content > *:first-child {
+  margin-top: 0;
+}
+
+.content > *:first-child h1 {
+  margin-top: 0;
+}

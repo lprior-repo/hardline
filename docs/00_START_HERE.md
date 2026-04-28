@@ -1,14 +1,17 @@
-# Hardline Documentation - Start Here
+# Isolate Documentation - Start Here
 
 **The Law**: No unwrap, no panic, no unsafe. Period.
 
-## Git Workflow
+## Why JJ Instead of Git?
 
-Hardline uses Git for version control. Each agent works in its own full clone for complete isolation.
+Isolate uses JJ (Jujutsu) because Git breaks at multi-agent scale (4+ agents). JJ provides:
 
-- **Standard Git commands** — `git add`, `git commit`, `git push`, `git rebase`
-- **Feature branches** — isolate work per branch
-- **Full clone isolation** — each agent gets its own complete repository
+- **Lock-free concurrency** — agents don't corrupt each other's work
+- **Operation log** — undo any operation, always recover
+- **Anonymous commits** — no branch pollution at 8-12 agents
+- **First-class conflicts** — no blocking on merges
+
+> Running 8-12 agents in parallel? You need JJ. See [09_JUJUTSU.md](09_JUJUTSU.md) for the full comparison.
 
 ## 🎯 Go Here For...
 
@@ -75,8 +78,8 @@ cargo test         # ❌ Wrong
 br update <issue> --status in_progress  # Claim issue
 # Make changes
 moon run :test     # Test locally
-git commit -m "feat: description"  # Commit
-git push        # Push
+jj describe -m "feat: description"  # Commit
+jj git push        # Push
 br close <id>      # Close issue
 ```
 
@@ -95,12 +98,12 @@ br close <id>      # Close issue
 ## Project Structure
 
 ```
-hardline/
+isolate/
 ├── Cargo.toml              # Workspace (strict lints)
 ├── rust-toolchain.toml     # Nightly Rust
 ├── docs/                   # This documentation
 └── crates/
-    └── hardline-core/
+    └── isolate-core/
         ├── Cargo.toml
         └── src/
             ├── lib.rs      # Library root
@@ -135,15 +138,17 @@ br update BD-123 --status in_progress
 # Your changes are tracked automatically
 
 # Review changes
-git diff
-git status
+jj diff
+jj status
 
 # Commit
-git add .
-git commit -m "feat: add feature"
+jj describe -m "feat: add feature"
+
+# Start next change
+jj new
 
 # Push
-git push
+jj git push
 
 # Close issue
 br close BD-123

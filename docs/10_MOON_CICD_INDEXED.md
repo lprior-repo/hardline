@@ -2,7 +2,7 @@
 
 **Purpose**: Centralized, machine-readable catalog of all moon CICD tasks and pipelines from the project configuration.
 
-**Source**: `.moon/tasks.yml` + `.moon/workspace.yml` + `/home/lewis/src/hardline/docs/02_MOON_BUILD.md`
+**Source**: `.moon/tasks.yml` + `.moon/workspace.yml` + `/home/lewis/src/isolate/docs/02_MOON_BUILD.md`
 
 **Last Updated**: 2026-01-08
 
@@ -525,25 +525,25 @@ moon run :deploy      # ~2-3 min
 
 ## Configuration Files
 
-### `/home/lewis/src/hardline/moon.yml`
+### `/home/lewis/src/isolate/moon.yml`
 - **Purpose**: All task definitions
 - **Lines**: 355
 - **Structure**: 17 individual tasks + 4 composite pipelines + 2 utilities
 
-### `/home/lewis/src/hardline/.moon/workspace.yml`
+### `/home/lewis/src/isolate/.moon/workspace.yml`
 - **Purpose**: Moon workspace configuration
 - **Version**: 1.20
 - **Templates**: `.moon/templates`
 
-### `/home/lewis/src/hardline/.moon/toolchain.yml`
+### `/home/lewis/src/isolate/.moon/toolchain.yml`
 - **Purpose**: Rust toolchain specification
 - **Version**: `nightly`
 
-### `/home/lewis/src/hardline/rustfmt.toml`
+### `/home/lewis/src/isolate/rustfmt.toml`
 - **Purpose**: Code formatting rules
 - **Referenced**: In `fmt` and `fmt-fix` tasks
 
-### `/home/lewis/src/hardline/.clippy.toml`
+### `/home/lewis/src/isolate/.clippy.toml`
 - **Purpose**: Linting configuration
 - **Referenced**: In `clippy` task
 
