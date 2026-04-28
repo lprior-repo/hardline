@@ -6,14 +6,15 @@
 //! - Custom hook scripts via shell commands
 //! - Async hook execution
 
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-
 use scp_core::{Error, Result};
+use serde::{Deserialize, Serialize};
 
 /// Hook event types
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -472,8 +473,9 @@ impl Default for HookManager {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs;
+
+    use super::*;
 
     #[test]
     fn test_hook_event_names() {
@@ -888,9 +890,18 @@ mod tests {
 
     #[test]
     fn hook_event_serialize_pascal_case() {
-        assert_eq!(serde_json::to_string(&HookEvent::PostCommit).unwrap(), "\"PostCommit\"");
-        assert_eq!(serde_json::to_string(&HookEvent::PreRebase).unwrap(), "\"PreRebase\"");
-        assert_eq!(serde_json::to_string(&HookEvent::PostPush).unwrap(), "\"PostPush\"");
+        assert_eq!(
+            serde_json::to_string(&HookEvent::PostCommit).unwrap(),
+            "\"PostCommit\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HookEvent::PreRebase).unwrap(),
+            "\"PreRebase\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HookEvent::PostPush).unwrap(),
+            "\"PostPush\""
+        );
     }
 
     #[test]

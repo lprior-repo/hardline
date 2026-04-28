@@ -5,15 +5,16 @@
 #![allow(clippy::missing_errors_doc)]
 #![forbid(unsafe_code)]
 
-use crate::application::{
-    commands::{
-        CreateWorktreeCommand, InitializeWorktreeCommand, ListWorktreesQuery,
-        RemoveWorktreeCommand, ResumeWorktreeCommand, SuspendWorktreeCommand,
+use crate::{
+    application::{
+        commands::{
+            CreateWorktreeCommand, InitializeWorktreeCommand, ListWorktreesQuery,
+            RemoveWorktreeCommand, ResumeWorktreeCommand, SuspendWorktreeCommand,
+        },
+        repositories::WorktreeRepository,
     },
-    repositories::WorktreeRepository,
+    domain::{Worktree, WorktreeDomainError, WorktreeId, WorktreeState},
 };
-use crate::domain::Worktree;
-use crate::domain::{WorktreeDomainError, WorktreeId, WorktreeState};
 
 pub struct WorktreeService<R: WorktreeRepository> {
     repository: R,
@@ -210,8 +211,10 @@ impl<R: WorktreeRepository> WorktreeService<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::application::repositories::WorktreeRepository;
-    use crate::domain::{AbsolutePath, BranchName, WorktreeName, WorktreeState, WorktreeTypeEnum};
+    use crate::{
+        application::repositories::WorktreeRepository,
+        domain::{AbsolutePath, BranchName, WorktreeName, WorktreeState, WorktreeTypeEnum},
+    };
 
     #[derive(Default)]
     struct InMemoryRepository {

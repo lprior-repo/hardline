@@ -1031,9 +1031,254 @@ mod tests {
         );
     }
 
-    use proptest::prelude::*;
-    use proptest::proptest;
-    use proptest::{prop_assert, prop_assert_eq};
+    // =============================================================================
+    // CLI Handlers (ported from isolate)
+    // =============================================================================
+    // CLI batch and events handlers adapted from isolate project.
+    // These handlers provide the CLI interface for batch command execution
+    // and event streaming, adapted to use hardline's scp_core and structure.
+
+    use std::process::Command;
+
+    use anyhow::Result;
+    use clap::ArgMatches;
+    use futures::{StreamExt, TryStreamExt};
+    use scp_core::OutputFormat;
+
+    use crate::commands::handlers::json_format::get_format;
+
+    /// Parse legacy batch command format (one command per line, # for comments).
+    ///
+    /// **Calculations (Tier 2)**: Pure parsing function, no I/O
+    fn parse_legacy_batch_commands(input: &str) -> anyhow::Result<Vec<String>> {
+        let commands: Vec<String> = input
+            .lines()
+            .filter(|line| !line.trim().is_empty() && !line.trim().starts_with('#'))
+            .map(|line| line.trim().to_string())
+            .collect();
+        if commands.is_empty() {
+            anyhow::bail!("No valid commands found");
+        }
+        Ok(commands)
+    }
+
+    /// Handle batch command execution from CLI.
+    ///
+    /// Routes to atomic batch if `--atomic` flag is set, otherwise executes
+    /// commands sequentially using the current executable path.
+    ///
+    /// **Actions (Tier 3)**: I/O operations for file reading and process execution
+    pub async fn handle_batch(sub_m: &ArgMatches) -> Result<()> {
+        let format = get_format(sub_m);
+        let _ = format; // suppress unused warning
+        let file = sub_m.get_one::<String>("file").cloned();
+        let atomic = sub_m.get_flag("atomic");
+        let stop_on_error = sub_m.get_flag("stop-on-error");
+        let dry_run = sub_m.get_flag("dry-run");
+
+        if atomic {
+            return handle_atomic_batch(sub_m, file, stop_on_error, dry_run).await;
+        }
+
+        let commands = if let Some(file_path) = file {
+            let content = tokio::fs::read_to_string(&file_path)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to read file: {e}"))?;
+            parse_legacy_batch_commands(&content)?
+        } else {
+            let raw_commands: Vec<String> = sub_m
+                .get_many::<String>("commands")
+                .map(|v| v.cloned().collect())
+                .unwrap_or_default();
+            if raw_commands.is_empty() {
+                anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
+            }
+            parse_legacy_batch_commands(&raw_commands.join("\n"))?
+        };
+
+        futures::stream::iter(commands.iter().enumerate())
+            .map(Ok)
+            .try_fold((), |(), (index, command_str)| async move {
+                let parts: Vec<&str> = command_str.split_whitespace().collect();
+                if parts.is_empty() {
+                    return Ok(());
+                }
+
+                let (cmd, args) = if parts[0] == "isolate" {
+                    if parts.len() < 2 {
+                        return Err(anyhow::anyhow!(
+                            "Empty command after 'isolate' at index {index}"
+                        ));
+                    }
+                    (parts[1], &parts[2..])
+                } else {
+                    (parts[0], &parts[1..])
+                };
+
+                if dry_run {
+                    println!(
+                        "Would execute command {index}: isolate {} {}",
+                        cmd,
+                        args.join(" ")
+                    );
+                    return Ok(());
+                }
+
+                // Use the current executable path so batch works even when
+                // `isolate` is not on PATH (e.g., during cargo tests).
+                // SAFETY: current_exe() is safe here - we invoke our own binary.
+                let current_exe =
+                    std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("isolate"));
+
+                let output = tokio::process::Command::new(current_exe)
+                    .arg(cmd)
+                    .args(args)
+                    .output()
+                    .await
+                    .map_err(|e| anyhow::anyhow!("Failed to execute: {e}"))?;
+
+                if output.status.success() {
+                    println!(
+                        "Command {index}: {}",
+                        String::from_utf8_lossy(&output.stdout).trim()
+                    );
+                    Ok(())
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let error_msg = if stderr.is_empty() { stdout } else { stderr };
+                    eprintln!("Command {index} failed: {error_msg}");
+                    if stop_on_error {
+                        Err(anyhow::anyhow!("Batch failed at command {index}"))
+                    } else {
+                        Ok(())
+                    }
+                }
+            })
+            .await
+    }
+
+    /// Handle atomic batch execution.
+    ///
+    /// Executes a batch of commands atomically - all succeed or all roll back.
+    /// Uses hardline's batch execution infrastructure.
+    async fn handle_atomic_batch(
+        sub_m: &ArgMatches,
+        file: Option<String>,
+        _stop_on_error: bool,
+        dry_run: bool,
+    ) -> anyhow::Result<()> {
+        let workspace = sub_m.get_one::<String>("workspace").cloned();
+        let commands = if let Some(file_path) = file {
+            let content = tokio::fs::read_to_string(&file_path)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to read file: {e}"))?;
+            parse_legacy_batch_commands(&content)?
+        } else {
+            let raw_commands: Vec<String> = sub_m
+                .get_many::<String>("commands")
+                .map(|v| v.cloned().collect())
+                .unwrap_or_default();
+            if raw_commands.is_empty() {
+                anyhow::bail!("No commands provided. Use --file or provide commands as arguments");
+            }
+            raw_commands
+        };
+
+        if dry_run {
+            println!(
+                "Would execute atomic batch with {} commands",
+                commands.len()
+            );
+            for (i, cmd) in commands.iter().enumerate() {
+                println!("  [{i}] {cmd}");
+            }
+            return Ok(());
+        }
+
+        // Execute via hardline's batch execution
+        execute_batch(workspace.as_deref(), commands).await
+    }
+
+    /// Handle events command from CLI.
+    ///
+    /// Provides event streaming and querying capabilities.
+    pub async fn handle_events(sub_m: &ArgMatches) -> Result<()> {
+        use crate::commands::handlers::events::{run_events, EventType, EventsOptions};
+
+        let format = get_format(sub_m);
+        let _ = format; // suppress unused warning
+        let session = sub_m.get_one::<String>("session").cloned();
+        let event_type = sub_m.get_one::<String>("type").cloned();
+        let limit = sub_m.get_one::<usize>("limit").copied();
+        let follow = sub_m.get_flag("follow");
+        let options = EventsOptions {
+            session,
+            event_type,
+            limit,
+            follow,
+            since: None,
+        };
+        run_events(&options)
+    }
+
+    // =============================================================================
+    // CLI Handler Tests
+    // =============================================================================
+
+    #[cfg(test)]
+    mod cli_handler_tests {
+        use super::*;
+
+        #[test]
+        fn test_parse_legacy_batch_commands_empty() {
+            let result = parse_legacy_batch_commands("");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_parse_legacy_batch_commands_comments_only() {
+            let result = parse_legacy_batch_commands("# comment\n# another");
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn test_parse_legacy_batch_commands_whitespace_lines() {
+            let result = parse_legacy_batch_commands("cmd1\n  \ncmd2");
+            assert!(result.is_ok());
+            let cmds = result.unwrap();
+            assert_eq!(cmds.len(), 2);
+            assert_eq!(cmds[0], "cmd1");
+            assert_eq!(cmds[1], "cmd2");
+        }
+
+        #[test]
+        fn test_parse_legacy_batch_commands_with_comments() {
+            let input = "cmd1\n# comment\ncmd2\n  # indented comment\ncmd3";
+            let result = parse_legacy_batch_commands(input);
+            assert!(result.is_ok());
+            let cmds = result.unwrap();
+            assert_eq!(cmds.len(), 3);
+        }
+
+        #[test]
+        fn test_parse_legacy_batch_commands_trims_whitespace() {
+            let result = parse_legacy_batch_commands("  cmd1  \n  cmd2  ");
+            assert!(result.is_ok());
+            let cmds = result.unwrap();
+            assert_eq!(cmds[0], "cmd1");
+            assert_eq!(cmds[1], "cmd2");
+        }
+    }
+
+    // Close the original mod tests from line 365
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::{prelude::*, prop_assert, prop_assert_eq, proptest};
+
+    use super::*;
 
     proptest! {
         #[test]

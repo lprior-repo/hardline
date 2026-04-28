@@ -7,8 +7,7 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): PruneOptions, PruneMode, PruneOutput, PrunableItem
-//!   (inert, serializable)
+//! - **Data** (`data.rs`): PruneOptions, PruneMode, PruneOutput, PrunableItem (inert, serializable)
 //! - **Actions** (`actions.rs`): run_prune (I/O operations)
 //!
 //! # CLI Usage

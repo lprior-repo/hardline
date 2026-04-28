@@ -1,9 +1,10 @@
 //! Tests for AbsolutePath value object.
 
+use pretty_assertions::assert_eq;
+
 use crate::domain::value_objects::path::{
     find_first_metacharacter, path_errors::*, AbsolutePath, PathBuf,
 };
-use pretty_assertions::assert_eq;
 
 // Helper to create AbsolutePath easily in tests
 fn abs_path(s: &str) -> Result<AbsolutePath, AbsolutePathError> {
@@ -472,6 +473,7 @@ fn test_scenario_rejecting_variable_expansion_attempt() {
 #[test]
 fn test_integration_write_and_read_file() {
     use std::io::Write;
+
     use tempfile::TempDir;
 
     let temp_dir = TempDir::new().unwrap();

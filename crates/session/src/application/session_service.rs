@@ -1,6 +1,10 @@
-use crate::domain::entities::session::{Active, Completed, Created, Failed, Session, SessionId};
-use crate::domain::value_objects::SessionName;
-use crate::error::{Result, SessionError};
+use crate::{
+    domain::{
+        entities::session::{Active, Completed, Created, Failed, Session, SessionId},
+        value_objects::SessionName,
+    },
+    error::{Result, SessionError},
+};
 
 pub struct SessionService;
 

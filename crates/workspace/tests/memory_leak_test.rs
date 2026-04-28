@@ -1,5 +1,7 @@
-use scp_workspace::application::workspace_service::WorkspaceService;
-use scp_workspace::domain::value_objects::{WorkspaceName, WorkspacePath};
+use scp_workspace::{
+    application::workspace_service::WorkspaceService,
+    domain::value_objects::{WorkspaceName, WorkspacePath},
+};
 
 #[test]
 fn test_rapid_create_delete() {

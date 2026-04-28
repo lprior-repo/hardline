@@ -3,14 +3,15 @@
 //! I/O operations that orchestrate the workspace completion workflow.
 //! All validation is delegated to Tier 2 (calculations).
 
-use scp_core::vcs;
-use scp_core::{Error, Result};
+use scp_core::{vcs, Error, Result};
 
-use super::conflict::run_conflict_detection_only;
-use super::data::{DoneOptions, DoneOutput};
-use super::executor::RealGitExecutor;
-use super::merge::{execute_done_workflow, run_dry_run};
-use super::vcs_ops::{get_workspace_path, resolve_workspace};
+use super::{
+    conflict::run_conflict_detection_only,
+    data::{DoneOptions, DoneOutput},
+    executor::RealGitExecutor,
+    merge::{execute_done_workflow, run_dry_run},
+    vcs_ops::{get_workspace_path, resolve_workspace},
+};
 
 /// Execute the done command with the given options.
 ///

@@ -5,13 +5,14 @@ use std::path::PathBuf;
 use anyhow::{Context, Result as AnyhowResult};
 use tracing::info;
 
-use crate::cleanup::{CleanupContext, CleanupManager, PhaseType};
-use crate::metrics::Metrics;
-use crate::persistence::StateStore;
-use crate::policies::PolicyConfig;
-use crate::state::Pipeline;
-
 use super::types::PhaseError;
+use crate::{
+    cleanup::{CleanupContext, CleanupManager, PhaseType},
+    metrics::Metrics,
+    persistence::StateStore,
+    policies::PolicyConfig,
+    state::Pipeline,
+};
 
 /// Pipeline executor for running phases
 pub struct PipelineExecutor {

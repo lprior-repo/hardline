@@ -1,10 +1,11 @@
 #[cfg(test)]
 mod tests {
+    use tempfile::NamedTempFile;
+
     use super::*;
     use crate::commands::lock::{
         acquire_with_path, heartbeat_with_path, list_with_path, release_with_path, status_with_path,
     };
-    use tempfile::NamedTempFile;
 
     fn get_temp_db() -> NamedTempFile {
         NamedTempFile::new().expect("Failed to create temp db")

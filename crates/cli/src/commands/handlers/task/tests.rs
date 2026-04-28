@@ -3,21 +3,24 @@
 //! All test names are descriptive (no `test_` prefix + generic name).
 //! All assertions use exact error variant matching (no bare `is_ok()`/`is_err()`).
 
-use super::actions::{execute_task_command, run_task_command};
-use super::calculations::{
-    filter_tasks_by_status, parse_task_id, status_display_icon, task_state_to_output,
-    task_to_output, truncate_description, validate_task_command,
-};
-use super::data::{
-    AgentId, TaskCommand, TaskDoneOutput, TaskInfoOutput, TaskListOutput, TaskStartOutput,
-    TaskStatusOutput,
-};
-
-use crate::commands::task_store::TaskStore;
-use crate::commands::task_types::{Assignee, Priority, Task, TaskId, TaskState, Title};
 use chrono::Utc;
-use scp_core::error::Error;
-use scp_core::error_task::TaskErrorKind;
+use scp_core::{error::Error, error_task::TaskErrorKind};
+
+use super::{
+    actions::{execute_task_command, run_task_command},
+    calculations::{
+        filter_tasks_by_status, parse_task_id, status_display_icon, task_state_to_output,
+        task_to_output, truncate_description, validate_task_command,
+    },
+    data::{
+        AgentId, TaskCommand, TaskDoneOutput, TaskInfoOutput, TaskListOutput, TaskStartOutput,
+        TaskStatusOutput,
+    },
+};
+use crate::commands::{
+    task_store::TaskStore,
+    task_types::{Assignee, Priority, Task, TaskId, TaskState, Title},
+};
 
 /// Helper to create an open task for testing
 fn open_task(id: &str) -> Task {
@@ -548,9 +551,11 @@ fn different_show_commands_are_not_equal() {
 
 mod red_queen_adversarial {
     use super::*;
-    use crate::commands::task_types::TaskState;
-    use crate::commands::task_validation::{
-        transition_to_claimed, transition_to_done, transition_to_started, transition_to_yielded,
+    use crate::commands::{
+        task_types::TaskState,
+        task_validation::{
+            transition_to_claimed, transition_to_done, transition_to_started, transition_to_yielded,
+        },
     };
 
     // --- ATTACK: validate_task_command vs TaskId::new parity ---

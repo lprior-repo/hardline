@@ -357,10 +357,12 @@ impl Error {
     pub fn context_map(&self) -> Option<serde_json::Value> {
         match self {
             // Workspace/Session
-            Self::WorkspaceNotFound(name) | Self::WorkspaceExists(name) => Some(serde_json::json!({
-                "resource_type": "workspace",
-                "workspace_name": name,
-            })),
+            Self::WorkspaceNotFound(name) | Self::WorkspaceExists(name) => {
+                Some(serde_json::json!({
+                    "resource_type": "workspace",
+                    "workspace_name": name,
+                }))
+            }
             Self::WorkspaceLocked(name, holder) => Some(serde_json::json!({
                 "workspace_name": name,
                 "holder": holder,

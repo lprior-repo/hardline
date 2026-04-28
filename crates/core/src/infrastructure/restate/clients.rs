@@ -22,8 +22,7 @@
 
 use std::future::Future;
 
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::infrastructure::restate::errors::HandlerError;
 

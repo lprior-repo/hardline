@@ -1,10 +1,11 @@
 //! VCS Use Cases
 
-use crate::domain::traits::VcsBackend;
-use crate::domain::value_objects::VcsType;
-use crate::error::{Result, VcsError};
-use std::path::Path;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
+
+use crate::{
+    domain::{traits::VcsBackend, value_objects::VcsType},
+    error::{Result, VcsError},
+};
 
 pub trait VcsService: Send + Sync {
     fn detect_and_create_backend(&self, path: &Path) -> Result<Arc<dyn VcsBackend>>;

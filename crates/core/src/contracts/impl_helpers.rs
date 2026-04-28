@@ -1,9 +1,10 @@
 //! Implementation helpers for contract types
 
+use super::{
+    builders::{FieldContractBuilder, TypeContractBuilder},
+    types::{Constraint, FieldContract, TypeContract},
+};
 use crate::{Error, Result};
-
-use super::builders::{FieldContractBuilder, TypeContractBuilder};
-use super::types::{Constraint, FieldContract, TypeContract};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // IMPLEMENTATION HELPERS

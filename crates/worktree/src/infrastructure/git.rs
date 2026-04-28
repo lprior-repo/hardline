@@ -1,6 +1,8 @@
-use crate::domain::{AbsolutePath, BranchName, WorktreeDomainError};
-use git2::Repository as GitRepository;
 use std::path::Path;
+
+use git2::Repository as GitRepository;
+
+use crate::domain::{AbsolutePath, BranchName, WorktreeDomainError};
 
 /// Errors that can occur during Git operations
 #[derive(thiserror::Error, Debug)]
@@ -138,9 +140,11 @@ impl GitWorktreeAdapter {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs;
+
     use tempfile::TempDir;
+
+    use super::*;
 
     fn create_test_repo() -> (TempDir, GitWorktreeAdapter) {
         let temp_dir = TempDir::new().unwrap();

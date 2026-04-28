@@ -1,7 +1,6 @@
 use thiserror::Error;
 
-use crate::domain::entities::session::SessionState;
-use crate::domain::workspace_state::WorkspaceState;
+use crate::domain::{entities::session::SessionState, workspace_state::WorkspaceState};
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum TaskIdError {
@@ -182,8 +181,7 @@ mod tests {
 
     mod session_error_tests {
         use super::*;
-        use crate::domain::entities::session::SessionState;
-        use crate::domain::workspace_state::WorkspaceState;
+        use crate::domain::{entities::session::SessionState, workspace_state::WorkspaceState};
 
         #[test]
         fn session_error_not_found_display() {

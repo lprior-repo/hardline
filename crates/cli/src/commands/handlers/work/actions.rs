@@ -2,9 +2,7 @@
 //!
 //! I/O operations that create/manage work sessions.
 
-use scp_core::output::Output;
-use scp_core::validation::domain::validate_session_name;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, validation::domain::validate_session_name, Error, Result};
 
 use super::data::{build_env_vars, generate_short_id, WorkMode, WorkOptions, WorkOutput};
 
@@ -130,8 +128,9 @@ fn output_result(output: &WorkOutput) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use scp_core::OutputFormat;
+
+    use super::*;
 
     fn test_options(name: &str) -> WorkOptions {
         WorkOptions {

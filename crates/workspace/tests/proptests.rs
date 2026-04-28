@@ -1,10 +1,10 @@
 //! Exhaustive proptest invariants for workspace crate value objects
 
 use proptest::prelude::*;
-use scp_workspace::domain::value_objects::branch_name::BranchName;
-use scp_workspace::domain::value_objects::lock_holder::LockHolder;
-use scp_workspace::domain::value_objects::workspace_name::WorkspaceName;
-use scp_workspace::domain::value_objects::workspace_path::WorkspacePath;
+use scp_workspace::domain::value_objects::{
+    branch_name::BranchName, lock_holder::LockHolder, workspace_name::WorkspaceName,
+    workspace_path::WorkspacePath,
+};
 
 // === WorkspaceName proptests ===
 

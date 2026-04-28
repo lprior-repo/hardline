@@ -4,9 +4,7 @@
 mod tests {
     use chrono::Utc;
 
-    use crate::domain::identifiers::BeadId;
-
-    use crate::domain::aggregates::bead::Bead;
+    use crate::domain::{aggregates::bead::Bead, identifiers::BeadId};
 
     fn create_test_bead() -> Bead {
         let id = BeadId::parse("bd-1").expect("valid id");
@@ -230,8 +228,10 @@ mod tests {
 
     #[test]
     fn test_concurrent_state_transitions() {
-        use std::sync::{Arc, Mutex};
-        use std::thread;
+        use std::{
+            sync::{Arc, Mutex},
+            thread,
+        };
 
         let bead = Arc::new(Mutex::new(create_test_bead()));
         let mut handles = vec![];

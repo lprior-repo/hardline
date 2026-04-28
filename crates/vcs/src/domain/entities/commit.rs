@@ -32,8 +32,9 @@ impl Commit {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::Utc;
+
+    use super::*;
 
     #[test]
     fn commit_new_with_all_fields() {

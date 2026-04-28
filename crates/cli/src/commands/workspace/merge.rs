@@ -2,9 +2,7 @@
 
 use std::process::Command;
 
-use scp_core::output::Output;
-use scp_core::vcs;
-use scp_core::Error;
+use scp_core::{output::Output, vcs, Error};
 
 /// Fork workspace
 pub fn fork(name: &str, from: Option<&str>) -> Result<(), Error> {

@@ -2,16 +2,16 @@
 //!
 //! Provides async SQLite database operations with WAL mode enabled.
 
+use std::path::Path;
+
 use async_trait::async_trait;
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteRow},
     Column, Row, SqlitePool, TypeInfo,
 };
-use std::path::Path;
-
-use crate::error::{Error, Result};
 
 use super::database_types::{DatabasePath, MaxConnections};
+use crate::error::{Error, Result};
 
 /// Database configuration with validated newtypes
 #[derive(Debug, Clone)]

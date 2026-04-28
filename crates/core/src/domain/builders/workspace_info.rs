@@ -1,5 +1,4 @@
 // //! Workspace info builder
-//!
 //! Builder for `WorkspaceInfo` with fluent API.
 
 use std::path::PathBuf;

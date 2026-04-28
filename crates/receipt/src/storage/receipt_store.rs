@@ -3,10 +3,14 @@
 //! Provides async I/O operations for saving and loading operation receipts
 //! to/from JSON files in the `.git/stax/ops/` directory.
 
-use crate::domain::receipt::OpReceipt;
-use crate::error::{ReceiptError, Result};
 use std::path::{Path, PathBuf};
+
 use tokio::fs;
+
+use crate::{
+    domain::receipt::OpReceipt,
+    error::{ReceiptError, Result},
+};
 
 pub struct ReceiptStore;
 
@@ -111,9 +115,10 @@ impl ReceiptStore {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use super::*;
     use crate::domain::receipt::OpKind;
-    use tempfile::TempDir;
 
     fn make_store() -> ReceiptStore {
         ReceiptStore::new()
@@ -153,7 +158,10 @@ mod tests {
 
         store.save(&git_dir, &receipt).await.unwrap();
 
-        let loaded = store.load(&git_dir, "20251229T120500Z-abc123").await.unwrap();
+        let loaded = store
+            .load(&git_dir, "20251229T120500Z-abc123")
+            .await
+            .unwrap();
         assert_eq!(loaded.op_id, receipt.op_id);
         assert_eq!(loaded.status, crate::domain::receipt::OpStatus::Success);
         assert_eq!(loaded.local_refs.len(), 1);

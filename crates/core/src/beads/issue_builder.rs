@@ -1,11 +1,12 @@
 use chrono::{DateTime, Utc};
 
-use crate::beads::domain::{
-    Assignee, BlockedBy, DependsOn, Description, DomainError, IssueId, IssueState, IssueType,
-    Labels, ParentId, Priority, Title,
+use crate::beads::{
+    domain::{
+        Assignee, BlockedBy, DependsOn, Description, DomainError, IssueId, IssueState, IssueType,
+        Labels, ParentId, Priority, Title,
+    },
+    issue_data::Issue,
 };
-
-use crate::beads::issue_data::Issue;
 
 // ============================================================================
 // Builder Pattern for Issue Construction

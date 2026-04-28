@@ -1,7 +1,9 @@
-use crate::error::{Result, SnapshotError};
+use std::convert::TryFrom;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
+
+use crate::error::{Result, SnapshotError};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
@@ -84,11 +86,9 @@ impl std::fmt::Display for SnapshotId {
 
 #[cfg(test)]
 mod tests {
+    use proptest::{prop_assert, prop_assert_eq, prop_assert_ne, proptest};
+
     use super::*;
-    use proptest::prop_assert;
-    use proptest::prop_assert_eq;
-    use proptest::prop_assert_ne;
-    use proptest::proptest;
 
     // --- SnapshotId tests ---
 

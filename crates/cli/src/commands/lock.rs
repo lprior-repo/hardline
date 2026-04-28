@@ -1,10 +1,12 @@
 //! Lock management CLI implementation.
 
-use scp_core::coordination::locks::manager::LockManager;
-use scp_core::infrastructure::database::{DatabaseConfig, DatabaseService, SqliteDatabaseService};
-use scp_core::Result;
-use std::env;
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
+
+use scp_core::{
+    coordination::locks::manager::LockManager,
+    infrastructure::database::{DatabaseConfig, DatabaseService, SqliteDatabaseService},
+    Result,
+};
 use tokio::runtime::Runtime;
 
 /// Get the database path from environment or default

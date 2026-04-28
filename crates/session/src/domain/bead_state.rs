@@ -262,9 +262,9 @@ mod tests {
     // =========================================================================
 
     mod bead_state_proptests {
+        use proptest::{prop_assert, prop_assert_eq, proptest};
+
         use super::*;
-        use proptest::proptest;
-        use proptest::{prop_assert, prop_assert_eq};
 
         proptest! {
             /// can_transition_to is reflexive-free: no state can transition to itself

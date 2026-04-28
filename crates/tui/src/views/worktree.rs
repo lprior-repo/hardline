@@ -1,4 +1,3 @@
-use crate::widgets::worktree::WorktreeItem;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
@@ -6,9 +5,10 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
-
 #[cfg(test)]
 use worktree::WorktreeState;
+
+use crate::widgets::worktree::WorktreeItem;
 
 #[derive(Debug)]
 pub struct WorktreeView {

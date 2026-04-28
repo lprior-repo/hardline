@@ -11,8 +11,10 @@ use thiserror::Error;
 use tokio::sync::Semaphore;
 use tracing::{debug, error, info};
 
-use crate::queue::repository::JobRepository;
-use crate::queue::types::{Job, JobOutcome, JobResult, JobState};
+use crate::queue::{
+    repository::JobRepository,
+    types::{Job, JobOutcome, JobResult, JobState},
+};
 
 #[derive(Debug, Clone, Error)]
 pub enum QueueError {

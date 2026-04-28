@@ -2,8 +2,9 @@
 //!
 //! Semantic newtypes prevent primitive obsession and validate at construction.
 
-use super::errors::DomainError;
 use serde::{Deserialize, Serialize};
+
+use super::errors::DomainError;
 
 /// A validated issue identifier.
 ///

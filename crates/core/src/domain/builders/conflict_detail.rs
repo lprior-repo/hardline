@@ -1,5 +1,4 @@
 // //! Conflict detail builder
-//!
 //! Builder for `ConflictDetail` with fluent API.
 
 use crate::output_jsonl::{

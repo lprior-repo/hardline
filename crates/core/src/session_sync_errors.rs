@@ -6,10 +6,10 @@
 
 use thiserror::Error;
 
-use crate::error::Error as CoreError;
-use crate::error_io::IoErrorKind;
-use crate::error_vcs::VcsErrorKind;
-use crate::error_workspace::SessionErrorKind;
+use crate::{
+    error::Error as CoreError, error_io::IoErrorKind, error_vcs::VcsErrorKind,
+    error_workspace::SessionErrorKind,
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ERROR LAYER - Domain errors using thiserror

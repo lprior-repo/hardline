@@ -9,11 +9,14 @@
 mod tests {
     use std::str::FromStr;
 
-    use crate::lifecycle::LifecycleState;
-    use crate::session_state::{SessionState, SessionStateManager, StateTransition};
-    use crate::type_session_status::{Operation, SessionStatus};
-    use crate::workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition};
     use chrono::Utc;
+
+    use crate::{
+        lifecycle::LifecycleState,
+        session_state::{SessionState, SessionStateManager, StateTransition},
+        type_session_status::{Operation, SessionStatus},
+        workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition},
+    };
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SessionState — exhaustive transition matrix
@@ -765,8 +768,9 @@ mod tests {
     // ═══════════════════════════════════════════════════════════════════════════
 
     mod proptests {
-        use super::*;
         use proptest::prelude::*;
+
+        use super::*;
 
         // SessionState index: 0..7 mapping to all_states
         fn session_state_idx() -> impl Strategy<Value = usize> {
@@ -1358,7 +1362,8 @@ mod tests {
             .expect("c3");
 
         assert_eq!(mgr.current_state(), SessionState::Completed);
-        assert_eq!(mgr.history().len(), 8); // 3 full cycles (activate+complete+restart+activate+complete+restart+activate+complete)
+        assert_eq!(mgr.history().len(), 8); // 3 full cycles
+                                            // (activate+complete+restart+activate+complete+restart+activate+complete)
     }
 
     #[test]
@@ -1893,7 +1898,8 @@ mod tests {
             .expect("sc2");
 
         assert_eq!(mgr.current_state(), SessionState::Synced);
-        // 3 full sync cycles: (activate+sync+sync_complete) + (reactivate+sync+sync_complete) * 2 = 9
+        // 3 full sync cycles: (activate+sync+sync_complete) + (reactivate+sync+sync_complete) * 2 =
+        // 9
         assert_eq!(mgr.history().len(), 9);
     }
 }

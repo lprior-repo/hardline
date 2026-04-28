@@ -2,8 +2,9 @@
 //!
 //! Error codes: 3xxx
 
-use crate::error::Error;
 use thiserror::Error;
+
+use crate::error::Error;
 
 /// VCS-related errors
 #[derive(Error, Debug, Clone)]

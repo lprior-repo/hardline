@@ -9,8 +9,7 @@ use petgraph::{
     graph::{DiGraph, NodeIndex},
 };
 
-use crate::dag::BranchId;
-use crate::Error;
+use crate::{dag::BranchId, Error};
 
 /// Backend trait for metadata persistence
 pub trait MetadataBackend {

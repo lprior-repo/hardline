@@ -4,7 +4,8 @@
 //!   - scp_stack::BranchName       (value object)
 //!   - scp_stack::PrInfo           (typestate PR info)
 //!   - scp_stack::PrState          (typestate PR state: Open/Closed/Merged)
-//!   - scp_stack::Stack<S>         (typestate stack: Draft/Published/Merging/Merged/Conflict/Failed)
+//!   - scp_stack::Stack<S>         (typestate stack:
+//!     Draft/Published/Merging/Merged/Conflict/Failed)
 //!   - scp_stack::StackBranch      (typestate branch with parent/children graph)
 //!   - scp_stack::StackError       (error enum with 7 variants)
 //!   - scp_stack::Result<T>        (alias for std::result::Result<T, StackError>)

@@ -1,7 +1,8 @@
 #![no_main]
 
-use libfuzzer_sys::fuzz_target;
 use std::io::Write;
+
+use libfuzzer_sys::fuzz_target;
 use tempfile::NamedTempFile;
 
 fuzz_target!(|data: &[u8]| {

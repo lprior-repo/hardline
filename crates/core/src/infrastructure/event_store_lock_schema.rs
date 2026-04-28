@@ -101,10 +101,10 @@ pub async fn ensure_event_store_lock_schema(pool: &SqlitePool) -> Result<(), Eve
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use sqlx::Row as _;
-    use sqlx::SqlitePool;
+    use sqlx::{Row as _, SqlitePool};
     use tempfile::TempDir;
+
+    use super::*;
 
     async fn create_test_pool() -> (SqlitePool, TempDir) {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");

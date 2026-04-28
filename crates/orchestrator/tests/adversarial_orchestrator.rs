@@ -64,8 +64,9 @@ use tempfile::TempDir;
 // ============================================================
 
 mod pipeline_state_adversarial {
-    use super::*;
     use orchestrator::state::*;
+
+    use super::*;
 
     // --- Missing input ---
     #[test]
@@ -360,10 +361,9 @@ mod pipeline_state_adversarial {
 // ============================================================
 
 mod pipeline_executor_adversarial {
+    use orchestrator::{phases::PipelineExecutor, state::*, PhaseType};
+
     use super::*;
-    use orchestrator::phases::PipelineExecutor;
-    use orchestrator::state::*;
-    use orchestrator::PhaseType;
 
     fn create_executor() -> (PipelineExecutor, TempDir) {
         let temp_dir = TempDir::new().unwrap();
@@ -505,9 +505,9 @@ mod pipeline_executor_adversarial {
 // ============================================================
 
 mod state_store_adversarial {
+    use orchestrator::{persistence::StateStore, state::*};
+
     use super::*;
-    use orchestrator::persistence::StateStore;
-    use orchestrator::state::*;
 
     fn create_temp_store() -> (StateStore, TempDir) {
         let temp_dir = TempDir::new().unwrap();
@@ -1130,8 +1130,9 @@ mod policies_adversarial {
 // ============================================================
 
 mod queue_adversarial {
-    use orchestrator::queue::*;
     use std::time::Duration;
+
+    use orchestrator::queue::*;
 
     fn create_test_job(id: &str, priority: JobPriority) -> Job {
         Job {
@@ -1377,9 +1378,7 @@ mod queue_adversarial {
 // ============================================================
 
 mod cleanup_adversarial {
-    use orchestrator::cleanup::*;
-    use orchestrator::state::PipelineId;
-    use orchestrator::CleanupHandler;
+    use orchestrator::{cleanup::*, state::PipelineId, CleanupHandler};
 
     // --- Missing input ---
     #[test]
@@ -1524,10 +1523,9 @@ mod cleanup_adversarial {
 // ============================================================
 
 mod parallel_adversarial {
-    use orchestrator::cleanup::PhaseType;
-    use orchestrator::parallel::*;
-    use orchestrator::state::PipelineState;
     use std::collections::HashSet;
+
+    use orchestrator::{cleanup::PhaseType, parallel::*, state::PipelineState};
 
     // --- Missing input ---
     #[test]

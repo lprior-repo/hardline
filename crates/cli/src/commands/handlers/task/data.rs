@@ -3,10 +3,10 @@
 //! Inert, serializable types with no business logic.
 
 use chrono::{DateTime, Utc};
+pub use scp_core::cli_contracts::domain_types::TaskStatus;
 use serde::{Deserialize, Serialize};
 
 use crate::commands::task_types::TaskId;
-pub use scp_core::cli_contracts::domain_types::TaskStatus;
 
 /// Task command variants (CLI subcommand representation).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -201,9 +201,8 @@ pub struct TaskStartOutput {
 mod tests {
     use chrono::Utc;
 
-    use crate::commands::task_types::{TaskId, TaskState};
-
     use super::*;
+    use crate::commands::task_types::{TaskId, TaskState};
 
     // ---- TaskCommand equality ----
 

@@ -3,16 +3,16 @@
 //! Contains the dry-run preview and the full done workflow that
 //! performs rebase, push, cleanup, and undo logging.
 
-use scp_core::output::Output;
-use scp_core::vcs;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, vcs, Error, Result};
 
-use super::conflict::run_conflict_detection_only;
-use super::data::{DoneOptions, DoneOutput, DonePreview};
-use super::executor::{detect_conflicts, GitExecutor};
-use super::vcs_ops::{
-    get_commits_to_merge, get_potential_conflicts, get_uncommitted_files, log_undo_history,
-    update_workspace_state, WorkspaceGitExecutor,
+use super::{
+    conflict::run_conflict_detection_only,
+    data::{DoneOptions, DoneOutput, DonePreview},
+    executor::{detect_conflicts, GitExecutor},
+    vcs_ops::{
+        get_commits_to_merge, get_potential_conflicts, get_uncommitted_files, log_undo_history,
+        update_workspace_state, WorkspaceGitExecutor,
+    },
 };
 
 // ============================================================================
@@ -154,8 +154,7 @@ pub(crate) fn execute_done_workflow(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::handlers::done::executor::ExecutorError;
-    use crate::commands::handlers::done::test_support::*;
+    use crate::commands::handlers::done::{executor::ExecutorError, test_support::*};
 
     // ===================================================================
     // execute_done_workflow orchestration tests

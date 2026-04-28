@@ -40,9 +40,9 @@ impl std::fmt::Display for SessionId {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use proptest::proptest;
+
+    use super::*;
 
     // ── Valid Session IDs ────────────────────────────────────────────────────
 

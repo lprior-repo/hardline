@@ -4,12 +4,12 @@
 
 use chrono::Utc;
 
-use crate::error::Result;
-use crate::types::SessionStatus;
-
-use super::helpers::extract_session_name;
-use super::response::{HintsResponse, SystemContext};
-use super::types::{ActionRisk, Hint, NextAction, SystemState};
+use super::{
+    helpers::extract_session_name,
+    response::{HintsResponse, SystemContext},
+    types::{ActionRisk, Hint, NextAction, SystemState},
+};
+use crate::{error::Result, types::SessionStatus};
 
 /// Generate contextual hints based on system state
 ///

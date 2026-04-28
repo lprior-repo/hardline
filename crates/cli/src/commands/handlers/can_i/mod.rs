@@ -6,10 +6,9 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): CanIOptions, CanIOutput, Prerequisite, helper
-//!   functions (inert, serializable types)
-//! - **Actions** (`actions.rs`): run_can_i, check_permission, per-action
-//!   checks (I/O operations)
+//! - **Data** (`data.rs`): CanIOptions, CanIOutput, Prerequisite, helper functions (inert,
+//!   serializable types)
+//! - **Actions** (`actions.rs`): run_can_i, check_permission, per-action checks (I/O operations)
 //!
 //! # CLI Usage
 //!

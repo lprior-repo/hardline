@@ -1,10 +1,11 @@
 //! Tests for the queue repository ports.
 //! These tests verify the in-memory repository implementation.
 
-use crate::domain::identifiers::QueueEntryId;
-use crate::domain::ports::{InMemoryQueueRepository, QueueRepository};
-use crate::domain::queue::entry::QueueEntry;
-use crate::domain::queue::status::QueueStatus;
+use crate::domain::{
+    identifiers::QueueEntryId,
+    ports::{InMemoryQueueRepository, QueueRepository},
+    queue::{entry::QueueEntry, status::QueueStatus},
+};
 
 /// Helper to create a test entry
 fn create_test_entry(session: &str) -> QueueEntry {
@@ -297,8 +298,7 @@ fn in_memory_repo_remove_then_get_returns_none() {
 
 // --- Proptests for repository invariants ---
 
-use proptest::prelude::*;
-use proptest::{prop_assert, prop_assert_eq};
+use proptest::{prelude::*, prop_assert, prop_assert_eq};
 
 proptest! {
     #[test]

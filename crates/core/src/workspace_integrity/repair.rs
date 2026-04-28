@@ -4,11 +4,13 @@
 
 use std::path::Path;
 
-use crate::workspace_integrity::backup::BackupManager;
-use crate::workspace_integrity::repair_result::RepairResult;
-use crate::workspace_integrity::types::RepairStrategy;
-use crate::workspace_integrity::validation_result::ValidationResult;
-use crate::{Error, Result};
+use crate::{
+    workspace_integrity::{
+        backup::BackupManager, repair_result::RepairResult, types::RepairStrategy,
+        validation_result::ValidationResult,
+    },
+    Error, Result,
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // REPAIR EXECUTOR

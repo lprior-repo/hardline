@@ -20,6 +20,8 @@ pub use commands::{
     calculate_land_scope, calculate_merge_scope, wait_for_pr_ready, LandBranchInfo,
     MergeWhenReadyContext, MergeWhenReadyOptions, MergeWhenReadyScope, RemainingBranchInfo,
 };
-pub use domain::entities::{PrInfo, PrState, Stack, StackBranch};
-pub use domain::value_objects::{BranchName, CiCheckHistory, CiRunRecord, CiStatus};
+pub use domain::{
+    entities::{PrInfo, PrState, Stack, StackBranch},
+    value_objects::{BranchName, CiCheckHistory, CiRunRecord, CiStatus},
+};
 pub use error::{Result, StackError};

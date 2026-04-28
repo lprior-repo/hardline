@@ -7,5 +7,6 @@ pub mod types;
 
 pub use generation::{generate_hints, hints_for_error, suggest_next_actions};
 pub use next_actions::next_actions_for_command;
-pub use types::{ActionRisk, CommandContext, NextAction, SystemState, WorkspaceInfo};
-pub use types::{Hint, HintType};
+pub use types::{
+    ActionRisk, CommandContext, Hint, HintType, NextAction, SystemState, WorkspaceInfo,
+};

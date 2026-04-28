@@ -191,7 +191,8 @@ mod serde_roundtrip_tests {
     fn op_status_roundtrip_via_json() {
         for status in [OpStatus::InProgress, OpStatus::Success, OpStatus::Failed] {
             let json = serde_json::to_string(&status).expect("serialize should succeed");
-            let deserialized: OpStatus = serde_json::from_str(&json).expect("deserialize should succeed");
+            let deserialized: OpStatus =
+                serde_json::from_str(&json).expect("deserialize should succeed");
             assert_eq!(status, deserialized);
         }
     }
@@ -236,30 +237,64 @@ mod serde_roundtrip_tests {
             OpKind::Fix,
         ] {
             let json = serde_json::to_string(&kind).expect("serialize should succeed");
-            let deserialized: OpKind = serde_json::from_str(&json).expect("deserialize should succeed");
+            let deserialized: OpKind =
+                serde_json::from_str(&json).expect("deserialize should succeed");
             assert_eq!(kind, deserialized);
         }
     }
 
     #[test]
     fn op_kind_snake_case_serialization() {
-        assert_eq!(serde_json::to_string(&OpKind::Restack).unwrap(), "\"restack\"");
-        assert_eq!(serde_json::to_string(&OpKind::UpstackRestack).unwrap(), "\"upstack_restack\"");
-        assert_eq!(serde_json::to_string(&OpKind::SyncRestack).unwrap(), "\"sync_restack\"");
-        assert_eq!(serde_json::to_string(&OpKind::Submit).unwrap(), "\"submit\"");
-        assert_eq!(serde_json::to_string(&OpKind::Reorder).unwrap(), "\"reorder\"");
+        assert_eq!(
+            serde_json::to_string(&OpKind::Restack).unwrap(),
+            "\"restack\""
+        );
+        assert_eq!(
+            serde_json::to_string(&OpKind::UpstackRestack).unwrap(),
+            "\"upstack_restack\""
+        );
+        assert_eq!(
+            serde_json::to_string(&OpKind::SyncRestack).unwrap(),
+            "\"sync_restack\""
+        );
+        assert_eq!(
+            serde_json::to_string(&OpKind::Submit).unwrap(),
+            "\"submit\""
+        );
+        assert_eq!(
+            serde_json::to_string(&OpKind::Reorder).unwrap(),
+            "\"reorder\""
+        );
         assert_eq!(serde_json::to_string(&OpKind::Split).unwrap(), "\"split\"");
-        assert_eq!(serde_json::to_string(&OpKind::MergeWhenReady).unwrap(), "\"merge_when_ready\"");
-        assert_eq!(serde_json::to_string(&OpKind::Detach).unwrap(), "\"detach\"");
+        assert_eq!(
+            serde_json::to_string(&OpKind::MergeWhenReady).unwrap(),
+            "\"merge_when_ready\""
+        );
+        assert_eq!(
+            serde_json::to_string(&OpKind::Detach).unwrap(),
+            "\"detach\""
+        );
         assert_eq!(serde_json::to_string(&OpKind::Fix).unwrap(), "\"fix\"");
     }
 
     #[test]
     fn op_kind_deserialize_snake_case() {
-        assert_eq!(serde_json::from_str::<OpKind>("\"restack\"").unwrap(), OpKind::Restack);
-        assert_eq!(serde_json::from_str::<OpKind>("\"upstack_restack\"").unwrap(), OpKind::UpstackRestack);
-        assert_eq!(serde_json::from_str::<OpKind>("\"sync_restack\"").unwrap(), OpKind::SyncRestack);
-        assert_eq!(serde_json::from_str::<OpKind>("\"merge_when_ready\"").unwrap(), OpKind::MergeWhenReady);
+        assert_eq!(
+            serde_json::from_str::<OpKind>("\"restack\"").unwrap(),
+            OpKind::Restack
+        );
+        assert_eq!(
+            serde_json::from_str::<OpKind>("\"upstack_restack\"").unwrap(),
+            OpKind::UpstackRestack
+        );
+        assert_eq!(
+            serde_json::from_str::<OpKind>("\"sync_restack\"").unwrap(),
+            OpKind::SyncRestack
+        );
+        assert_eq!(
+            serde_json::from_str::<OpKind>("\"merge_when_ready\"").unwrap(),
+            OpKind::MergeWhenReady
+        );
     }
 
     #[test]
@@ -278,7 +313,8 @@ mod serde_roundtrip_tests {
             oid_after: Some("def456".to_string()),
         };
         let json = serde_json::to_string(&entry).expect("serialize should succeed");
-        let deserialized: LocalRefEntry = serde_json::from_str(&json).expect("deserialize should succeed");
+        let deserialized: LocalRefEntry =
+            serde_json::from_str(&json).expect("deserialize should succeed");
         assert_eq!(deserialized.branch, entry.branch);
         assert_eq!(deserialized.refname, entry.refname);
         assert_eq!(deserialized.existed_before, entry.existed_before);
@@ -296,7 +332,8 @@ mod serde_roundtrip_tests {
             oid_after: None,
         };
         let json = serde_json::to_string(&entry).expect("serialize should succeed");
-        let deserialized: LocalRefEntry = serde_json::from_str(&json).expect("deserialize should succeed");
+        let deserialized: LocalRefEntry =
+            serde_json::from_str(&json).expect("deserialize should succeed");
         assert!(deserialized.oid_before.is_none());
         assert!(deserialized.oid_after.is_none());
     }
@@ -324,7 +361,8 @@ mod serde_roundtrip_tests {
             oid_after: Some("def".to_string()),
         };
         let json = serde_json::to_string(&entry).expect("serialize should succeed");
-        let deserialized: RemoteRefEntry = serde_json::from_str(&json).expect("deserialize should succeed");
+        let deserialized: RemoteRefEntry =
+            serde_json::from_str(&json).expect("deserialize should succeed");
         assert_eq!(deserialized.remote, entry.remote);
         assert_eq!(deserialized.branch, entry.branch);
         assert_eq!(deserialized.oid_before, entry.oid_before);
@@ -351,7 +389,8 @@ mod serde_roundtrip_tests {
             failed_branch: Some("feature".to_string()),
         };
         let json = serde_json::to_string(&error).expect("serialize should succeed");
-        let deserialized: OpError = serde_json::from_str(&json).expect("deserialize should succeed");
+        let deserialized: OpError =
+            serde_json::from_str(&json).expect("deserialize should succeed");
         assert_eq!(deserialized.message, error.message);
         assert_eq!(deserialized.failed_step, error.failed_step);
         assert_eq!(deserialized.failed_branch, error.failed_branch);
@@ -365,7 +404,8 @@ mod serde_roundtrip_tests {
             failed_branch: None,
         };
         let json = serde_json::to_string(&error).expect("serialize should succeed");
-        let deserialized: OpError = serde_json::from_str(&json).expect("deserialize should succeed");
+        let deserialized: OpError =
+            serde_json::from_str(&json).expect("deserialize should succeed");
         assert!(deserialized.failed_step.is_none());
         assert!(deserialized.failed_branch.is_none());
     }
@@ -389,7 +429,8 @@ mod serde_roundtrip_tests {
             description: vec!["step 1".to_string(), "step 2".to_string()],
         };
         let json = serde_json::to_string(&summary).expect("serialize should succeed");
-        let deserialized: PlanSummary = serde_json::from_str(&json).expect("deserialize should succeed");
+        let deserialized: PlanSummary =
+            serde_json::from_str(&json).expect("deserialize should succeed");
         assert_eq!(deserialized.branches_to_rebase, summary.branches_to_rebase);
         assert_eq!(deserialized.branches_to_push, summary.branches_to_push);
         assert_eq!(deserialized.description, summary.description);
@@ -399,7 +440,8 @@ mod serde_roundtrip_tests {
     fn plan_summary_default_roundtrip() {
         let summary = PlanSummary::default();
         let json = serde_json::to_string(&summary).expect("serialize should succeed");
-        let deserialized: PlanSummary = serde_json::from_str(&json).expect("deserialize should succeed");
+        let deserialized: PlanSummary =
+            serde_json::from_str(&json).expect("deserialize should succeed");
         assert_eq!(deserialized.branches_to_rebase, 0);
         assert_eq!(deserialized.branches_to_push, 0);
         assert!(deserialized.description.is_empty());
@@ -419,12 +461,16 @@ mod serde_roundtrip_tests {
         receipt.mark_success();
 
         let json = serde_json::to_string(&receipt).expect("serialize should succeed");
-        let deserialized: OpReceipt = serde_json::from_str(&json).expect("deserialize should succeed");
+        let deserialized: OpReceipt =
+            serde_json::from_str(&json).expect("deserialize should succeed");
         assert_eq!(deserialized.op_id, receipt.op_id);
         assert_eq!(deserialized.kind, receipt.kind);
         assert_eq!(deserialized.status, receipt.status);
         assert_eq!(deserialized.local_refs.len(), 1);
-        assert_eq!(deserialized.local_refs[0].oid_after, Some("def456".to_string()));
+        assert_eq!(
+            deserialized.local_refs[0].oid_after,
+            Some("def456".to_string())
+        );
     }
 
     #[test]
@@ -439,7 +485,8 @@ mod serde_roundtrip_tests {
         receipt.mark_failed("merge conflict", Some("rebase"), Some("feature"));
 
         let json = serde_json::to_string(&receipt).expect("serialize should succeed");
-        let deserialized: OpReceipt = serde_json::from_str(&json).expect("deserialize should succeed");
+        let deserialized: OpReceipt =
+            serde_json::from_str(&json).expect("deserialize should succeed");
         assert_eq!(deserialized.status, OpStatus::Failed);
         assert!(deserialized.error.is_some());
         let error = deserialized.error.unwrap();
@@ -460,7 +507,10 @@ mod serde_roundtrip_tests {
             "head_branch_before": "feature"
         }"#;
         let result: std::result::Result<OpReceipt, _> = serde_json::from_str(json);
-        assert!(result.is_err(), "missing local_refs, remote_refs, plan_summary should fail");
+        assert!(
+            result.is_err(),
+            "missing local_refs, remote_refs, plan_summary should fail"
+        );
     }
 
     #[test]
@@ -498,10 +548,14 @@ mod serde_roundtrip_tests {
         receipt.update_remote_ref_after("origin", "feature", "def456");
 
         let json = serde_json::to_string(&receipt).expect("serialize should succeed");
-        let deserialized: OpReceipt = serde_json::from_str(&json).expect("deserialize should succeed");
+        let deserialized: OpReceipt =
+            serde_json::from_str(&json).expect("deserialize should succeed");
         assert_eq!(deserialized.remote_refs.len(), 1);
         assert_eq!(deserialized.remote_refs[0].remote, "origin");
-        assert_eq!(deserialized.remote_refs[0].oid_after, Some("def456".to_string()));
+        assert_eq!(
+            deserialized.remote_refs[0].oid_after,
+            Some("def456".to_string())
+        );
     }
 
     #[test]
@@ -516,7 +570,8 @@ mod serde_roundtrip_tests {
         receipt.mark_success();
 
         let bytes = serde_json::to_vec(&receipt).expect("to_vec should succeed");
-        let deserialized: OpReceipt = serde_json::from_slice(&bytes).expect("from_slice should succeed");
+        let deserialized: OpReceipt =
+            serde_json::from_slice(&bytes).expect("from_slice should succeed");
         assert_eq!(deserialized.op_id, receipt.op_id);
     }
 
@@ -531,7 +586,8 @@ mod serde_roundtrip_tests {
         );
 
         let pretty = serde_json::to_string_pretty(&receipt).expect("pretty print should succeed");
-        let deserialized: OpReceipt = serde_json::from_str(&pretty).expect("roundtrip should succeed");
+        let deserialized: OpReceipt =
+            serde_json::from_str(&pretty).expect("roundtrip should succeed");
         assert_eq!(deserialized.op_id, receipt.op_id);
     }
 }

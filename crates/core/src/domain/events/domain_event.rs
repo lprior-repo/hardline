@@ -8,13 +8,12 @@ use std::path::PathBuf;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::identifiers::{BeadId, SessionName, WorkspaceName};
-
 use super::{
     bead_events::{BeadClosedEvent, BeadCreatedEvent},
     session_events::{SessionCompletedEvent, SessionCreatedEvent, SessionFailedEvent},
     workspace_events::{WorkspaceCreatedEvent, WorkspaceRemovedEvent},
 };
+use crate::domain::identifiers::{BeadId, SessionName, WorkspaceName};
 
 /// A domain event representing something important that happened.
 ///

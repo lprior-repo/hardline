@@ -1,5 +1,6 @@
-use crate::error::QueueError;
 use serde::{Deserialize, Serialize};
+
+use crate::error::QueueError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct QueuePosition(usize);

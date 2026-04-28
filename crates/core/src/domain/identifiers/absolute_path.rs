@@ -4,8 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::identifiers::error::IdentifierError;
-use crate::domain::identifiers::validation::validate_absolute_path;
+use crate::domain::identifiers::{error::IdentifierError, validation::validate_absolute_path};
 
 /// A validated absolute path
 ///

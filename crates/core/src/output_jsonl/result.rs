@@ -5,8 +5,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::output_jsonl::domain_types::{Message, Outcome};
-use crate::output_jsonl::errors::OutputLineError;
+use crate::output_jsonl::{
+    domain_types::{Message, Outcome},
+    errors::OutputLineError,
+};
 
 /// Result output line for operation results.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

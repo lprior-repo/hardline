@@ -4,19 +4,21 @@
 //! FileConfigReadPort implementation, port registry for dependency injection,
 //! parse_cli_value, get_nested_value, set_nested_value.
 
-use std::collections::HashMap;
-use std::future::Future;
-use std::path::{Path, PathBuf};
-use std::pin::Pin;
-use std::str::FromStr;
-use std::sync::{Arc, OnceLock, RwLock};
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    future::Future,
+    path::{Path, PathBuf},
+    pin::Pin,
+    str::FromStr,
+    sync::{Arc, OnceLock, RwLock},
+    time::{Duration, Instant},
+};
 
-use crate::error::Result;
-use crate::error_config::ConfigErrorKind;
-
-use super::config_core::{Config, ConfigScope};
-use super::config_watcher::validate_config_file;
+use super::{
+    config_core::{Config, ConfigScope},
+    config_watcher::validate_config_file,
+};
+use crate::{error::Result, error_config::ConfigErrorKind};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ConfigKey

@@ -1,5 +1,4 @@
-use crate::domain::entities::WorkspaceState;
-use crate::error::WorkspaceError;
+use crate::{domain::entities::WorkspaceState, error::WorkspaceError};
 
 pub struct WorkspaceStateMachine;
 
@@ -550,8 +549,7 @@ mod tests {
 
     #[test]
     fn table_driven_valid_transitions_return_ok_and_update_state() {
-        use crate::domain::entities::workspace::Workspace;
-        use crate::{WorkspaceName, WorkspacePath};
+        use crate::{domain::entities::workspace::Workspace, WorkspaceName, WorkspacePath};
 
         // Table: (label, setup_fn that produces a workspace at the 'from' state, expected_to)
         // We test the actual entity transitions, not just the boolean state machine.
@@ -723,8 +721,9 @@ mod tests {
 
     #[test]
     fn table_driven_recover_locked_to_active_via_service() {
-        use crate::application::workspace_service::WorkspaceService;
-        use crate::{WorkspaceName, WorkspacePath};
+        use crate::{
+            application::workspace_service::WorkspaceService, WorkspaceName, WorkspacePath,
+        };
 
         // The "recover" operation in the domain: Locked→Active via WorkspaceService
         let ws = WorkspaceService::create_workspace(
@@ -801,9 +800,9 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
+        use proptest::{prelude::*, prop_assert, prop_assert_eq};
+
         use super::*;
-        use proptest::prelude::*;
-        use proptest::{prop_assert, prop_assert_eq};
 
         proptest! {
             #[test]

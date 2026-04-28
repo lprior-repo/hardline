@@ -2,10 +2,8 @@
 
 use tracing::{error, info, warn};
 
+use super::{executor::PipelineExecutor, types::PhaseError};
 use crate::state::{PipelineId, PipelineState, TransitionError};
-
-use super::executor::PipelineExecutor;
-use super::types::PhaseError;
 
 impl PipelineExecutor {
     pub fn recover_pipeline(
@@ -75,11 +73,8 @@ impl PipelineExecutor {
 mod tests {
     use tempfile::TempDir;
 
+    use super::super::{executor::PipelineExecutor, types::Decision};
     use crate::state::{Pipeline, PipelineState};
-
-    use super::super::types::Decision;
-
-    use super::super::executor::PipelineExecutor;
 
     /// Helper: create an executor backed by a temp dir
     fn create_executor() -> (PipelineExecutor, TempDir) {

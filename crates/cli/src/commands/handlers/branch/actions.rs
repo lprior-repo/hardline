@@ -2,8 +2,7 @@
 //!
 //! I/O operations that orchestrate branch create, delete, and rename.
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
 use super::data::{
     validate_branch_name, BranchCreateOptions, BranchCreateOutput, BranchDeleteOptions,

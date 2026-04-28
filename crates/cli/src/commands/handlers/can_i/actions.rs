@@ -6,8 +6,7 @@
 
 use std::path::Path;
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
 use super::data::{default_allowed_output, CanIOptions, CanIOutput, Prerequisite};
 

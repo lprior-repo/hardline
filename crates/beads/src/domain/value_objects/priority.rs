@@ -109,7 +109,13 @@ mod tests {
 
     #[test]
     fn serde_roundtrip() {
-        for p in [Priority::P0, Priority::P1, Priority::P2, Priority::P3, Priority::P4] {
+        for p in [
+            Priority::P0,
+            Priority::P1,
+            Priority::P2,
+            Priority::P3,
+            Priority::P4,
+        ] {
             let json = serde_json::to_string(&p).unwrap();
             let parsed: Priority = serde_json::from_str(&json).unwrap();
             assert_eq!(p, parsed);
@@ -160,8 +166,9 @@ mod tests {
     }
 
     mod proptest_priority {
-        use super::*;
         use proptest::proptest;
+
+        use super::*;
 
         proptest! {
             #[test]

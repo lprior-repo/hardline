@@ -5,8 +5,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::output_jsonl::domain_types::{IssueId, IssueScope, IssueTitle, SessionName};
-use crate::output_jsonl::errors::OutputLineError;
+use crate::output_jsonl::{
+    domain_types::{IssueId, IssueScope, IssueTitle, SessionName},
+    errors::OutputLineError,
+};
 
 /// Issue output line for reporting problems or validation errors.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

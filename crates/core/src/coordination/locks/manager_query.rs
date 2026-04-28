@@ -2,8 +2,10 @@
 
 use chrono::{DateTime, Utc};
 
-use super::manager::LockManager;
-use super::types::{LockAuditEntry, LockInfo, LockOperation, LockState};
+use super::{
+    manager::LockManager,
+    types::{LockAuditEntry, LockInfo, LockOperation, LockState},
+};
 use crate::Result;
 
 impl LockManager {

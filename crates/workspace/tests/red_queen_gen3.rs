@@ -5,16 +5,22 @@
 //! - stress-concurrent: Heavy concurrent stress testing
 //! - edge-semantics: Semantic edge cases in business logic
 
-use scp_workspace::domain::entities::workspace::Initializing;
-use scp_workspace::domain::entities::{Workspace, WorkspaceId, WorkspaceState};
-use scp_workspace::domain::events::WorkspaceEvent;
-use scp_workspace::domain::state::WorkspaceStateMachine;
-use scp_workspace::domain::value_objects::{BranchName, LockHolder, WorkspaceName, WorkspacePath};
-use scp_workspace::infrastructure::workspace_repository::InMemoryWorkspaceRepository;
-use scp_workspace::{WorkspaceError, WorkspaceRepository, WorkspaceService};
-use std::collections::HashSet;
-use std::sync::{Arc, Barrier, Mutex};
-use std::thread;
+use std::{
+    collections::HashSet,
+    sync::{Arc, Barrier, Mutex},
+    thread,
+};
+
+use scp_workspace::{
+    domain::{
+        entities::{workspace::Initializing, Workspace, WorkspaceId, WorkspaceState},
+        events::WorkspaceEvent,
+        state::WorkspaceStateMachine,
+        value_objects::{BranchName, LockHolder, WorkspaceName, WorkspacePath},
+    },
+    infrastructure::workspace_repository::InMemoryWorkspaceRepository,
+    WorkspaceError, WorkspaceRepository, WorkspaceService,
+};
 
 // ============================================================================
 // DIMENSION: proptest-invariants

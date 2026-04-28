@@ -1,10 +1,12 @@
 //! Tests for the lock manager.
 
+use chrono::Duration;
 use sqlx::sqlite::SqlitePoolOptions;
 
-use crate::coordination::locks::{LockManager, LockOperation};
-use crate::Error;
-use chrono::Duration;
+use crate::{
+    coordination::locks::{LockManager, LockOperation},
+    Error,
+};
 
 #[allow(dead_code)]
 async fn test_pool() -> Result<sqlx::SqlitePool, Error> {

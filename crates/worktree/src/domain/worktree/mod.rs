@@ -4,8 +4,7 @@ pub mod constructors;
 pub mod metadata;
 pub mod state_transitions;
 
-use std::collections::HashMap;
-use std::marker::PhantomData;
+use std::{collections::HashMap, marker::PhantomData};
 
 use serde::{Deserialize, Serialize};
 

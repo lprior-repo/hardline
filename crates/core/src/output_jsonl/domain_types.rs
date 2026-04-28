@@ -19,13 +19,15 @@
 #![forbid(unsafe_code)]
 
 // Re-export from sibling modules
-pub use crate::output_jsonl::action_verb::ActionVerb;
-pub use crate::output_jsonl::identifier_types::{BeadId, IssueId, SessionName};
-pub use crate::output_jsonl::metadata_type::ValidatedMetadata;
-pub use crate::output_jsonl::state_enums::{
-    ActionResult, AgentAssignment, BeadAttachment, ExecutionMode, IssueScope, MergeAnalysis,
-    Outcome, RecoveryCapability, RecoveryExecution,
+pub use crate::output_jsonl::{
+    action_verb::ActionVerb,
+    identifier_types::{BeadId, IssueId, SessionName},
+    metadata_type::ValidatedMetadata,
+    state_enums::{
+        ActionResult, AgentAssignment, BeadAttachment, ExecutionMode, IssueScope, MergeAnalysis,
+        Outcome, RecoveryCapability, RecoveryExecution,
+    },
+    target_types::{ActionTarget, BaseRef, Command},
+    text_types::{IssueTitle, Message, PlanDescription, PlanTitle},
+    warning_code::WarningCode,
 };
-pub use crate::output_jsonl::target_types::{ActionTarget, BaseRef, Command};
-pub use crate::output_jsonl::text_types::{IssueTitle, Message, PlanDescription, PlanTitle};
-pub use crate::output_jsonl::warning_code::WarningCode;

@@ -6,8 +6,7 @@ use std::path::Path;
 
 use sqlx::SqlitePool;
 
-use crate::beads::db::parsing::parse_bead_row;
-use crate::beads::types::BeadsError;
+use crate::beads::{db::parsing::parse_bead_row, types::BeadsError};
 
 /// Enable `WAL` mode on the `SQLite` connection for better crash recovery.
 ///

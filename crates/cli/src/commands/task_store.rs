@@ -1,8 +1,11 @@
+use std::{
+    collections::HashMap,
+    fs,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
+
 use scp_core::{error::Error, error_task::TaskErrorKind, Result as CoreResult};
-use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
 
 use super::task_types::{Task, TaskId, Title};
 
@@ -133,7 +136,10 @@ pub fn get_task_store() -> Arc<TaskStore> {
     let store = match TaskStore::load() {
         Ok(s) => Arc::new(s),
         Err(e) => {
-            eprintln!("Warning: failed to load task store, using empty store: {}", e);
+            eprintln!(
+                "Warning: failed to load task store, using empty store: {}",
+                e
+            );
             Arc::new(TaskStore {
                 tasks: RwLock::new(HashMap::new()),
                 tasks_file: PathBuf::new(),
@@ -152,8 +158,9 @@ pub fn get_task_store() -> Arc<TaskStore> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::io::Write;
+
+    use super::*;
 
     #[test]
     fn load_returns_error_on_invalid_json() {

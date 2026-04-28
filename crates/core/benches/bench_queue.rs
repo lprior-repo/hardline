@@ -1,7 +1,10 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use scp_core::lock::{LockManager, MemLockManager};
-use scp_core::queue::{MemQueue, Priority, QueueItem, QueueManager, QueueSource};
 use std::sync::Arc;
+
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use scp_core::{
+    lock::{LockManager, MemLockManager},
+    queue::{MemQueue, Priority, QueueItem, QueueManager, QueueSource},
+};
 
 fn bench_queue_enqueue(c: &mut Criterion) {
     let mut group = c.benchmark_group("queue_enqueue");

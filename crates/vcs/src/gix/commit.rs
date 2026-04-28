@@ -1,10 +1,12 @@
 //! Gitoxide Commit Operations
 
-use crate::domain::entities::Commit;
-use crate::error::{GitError, GitResult};
 use chrono::{TimeZone, Utc};
-use gix::bstr::ByteSlice;
-use gix::prelude::ObjectIdExt;
+use gix::{bstr::ByteSlice, prelude::ObjectIdExt};
+
+use crate::{
+    domain::entities::Commit,
+    error::{GitError, GitResult},
+};
 
 /// Get commit log
 pub fn log(repo: &gix::Repository, limit: usize) -> GitResult<Vec<Commit>> {

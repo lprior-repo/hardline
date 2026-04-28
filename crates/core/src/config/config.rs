@@ -4,9 +4,8 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Result;
-
 use super::types::{ConflictMode, ValidatedBool};
+use crate::Result;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HooksConfig

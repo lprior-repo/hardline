@@ -1,6 +1,7 @@
 //! # Design-by-Contract Annotations
 //!
-//! This module provides contract annotations for domain functions using the `dbc` crate (contracts).
+//! This module provides contract annotations for domain functions using the `dbc` crate
+//! (contracts).
 //!
 //! # Usage
 //!
@@ -19,6 +20,4 @@
 //! - **Postconditions** (`#[ensures]`): Guarantees on return values
 //! - **Invariants** (`#[invariant]`): Constraints on struct state
 
-pub use dbc::ensures;
-pub use dbc::invariant;
-pub use dbc::requires;
+pub use dbc::{ensures, invariant, requires};

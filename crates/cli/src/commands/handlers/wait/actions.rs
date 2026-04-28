@@ -4,8 +4,7 @@
 
 use std::time::Instant;
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
 use super::data::{format_condition, WaitCondition, WaitOptions, WaitOutput};
 

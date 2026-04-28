@@ -1,7 +1,10 @@
-use crate::domain::snapshot::{Snapshot, SnapshotId};
-use crate::error::Result;
-use crate::storage::storage::SnapshotStore;
 use std::sync::Arc;
+
+use crate::{
+    domain::snapshot::{Snapshot, SnapshotId},
+    error::Result,
+    storage::storage::SnapshotStore,
+};
 
 /// Report returned after cleaning up expired snapshots.
 #[derive(Debug)]
@@ -70,11 +73,10 @@ impl SnapshotService {
 
 #[cfg(test)]
 mod tests {
+    use proptest::{prop_assert, prop_assert_eq, proptest};
+
     use super::*;
     use crate::error::SnapshotError;
-    use proptest::prop_assert;
-    use proptest::prop_assert_eq;
-    use proptest::proptest;
 
     fn make_service() -> SnapshotService {
         SnapshotService::new(Arc::new(SnapshotStore::new()))

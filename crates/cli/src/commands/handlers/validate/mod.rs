@@ -2,8 +2,8 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): ValidateOptions, ValidateOutput, ArgValidation
-//!   (inert, serializable types + pure computation)
+//! - **Data** (`data.rs`): ValidateOptions, ValidateOutput, ArgValidation (inert, serializable
+//!   types + pure computation)
 //! - **Actions** (`actions.rs`): run_validate (I/O operations)
 //!
 //! # CLI Usage

@@ -2,11 +2,13 @@
 //!
 //! Contains the main entry point and command dispatch logic.
 
-use crate::cli::args::Cli;
+use std::process::ExitCode;
+
 use clap::Parser;
 use scp_core::{output::Output, Result};
-use std::process::ExitCode;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+use crate::cli::args::Cli;
 
 /// Main entry point for the CLI
 pub fn main() -> ExitCode {

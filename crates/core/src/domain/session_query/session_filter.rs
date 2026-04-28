@@ -12,8 +12,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::repository::Session;
-use crate::session_state::SessionState;
+use crate::{domain::repository::Session, session_state::SessionState};
 
 // ============================================================================
 // SESSION FILTER VALUE OBJECT

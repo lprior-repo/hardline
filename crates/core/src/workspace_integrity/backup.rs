@@ -2,11 +2,15 @@
 //!
 //! Provides BackupManager for creating and restoring workspace backups.
 
-use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
-use crate::workspace_integrity::repair_result::{BackupMetadata, RollbackResult};
-use crate::{Error, Result};
+use crate::{
+    workspace_integrity::repair_result::{BackupMetadata, RollbackResult},
+    Error, Result,
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BACKUP MANAGER

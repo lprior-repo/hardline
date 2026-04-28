@@ -2,8 +2,8 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): ContractOptions, CommandContract, ArgContract, FlagContract
-//!   (inert, serializable)
+//! - **Data** (`data.rs`): ContractOptions, CommandContract, ArgContract, FlagContract (inert,
+//!   serializable)
 //! - **Actions** (`actions.rs`): run_contract, list_contracts (I/O operations)
 //!
 //! # CLI Usage

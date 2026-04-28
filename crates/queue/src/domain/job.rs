@@ -7,10 +7,12 @@
 
 use chrono::{DateTime, Utc};
 
-pub use super::job_id::{JobCreationError, JobId, QueueId};
-pub use super::job_priority::Priority;
-pub use super::job_status::{JobStatus, QueueError};
-pub use super::payload::Payload;
+pub use super::{
+    job_id::{JobCreationError, JobId, QueueId},
+    job_priority::Priority,
+    job_status::{JobStatus, QueueError},
+    payload::Payload,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Job {

@@ -2,9 +2,8 @@
 //!
 //! Utility functions used across hint generation
 
-use crate::types::BeadsSummary;
-
 use super::types::Hint;
+use crate::types::BeadsSummary;
 
 /// Extract session name from error message
 ///

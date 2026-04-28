@@ -12,7 +12,9 @@ pub mod analysis;
 pub mod report;
 pub mod simulation;
 
-use scp_core::{output::Output, validation::domain::validate_session_name, Error, OutputFormat, Result};
+use scp_core::{
+    output::Output, validation::domain::validate_session_name, Error, OutputFormat, Result,
+};
 use serde::{Deserialize, Serialize};
 
 /// Options for the whatif command

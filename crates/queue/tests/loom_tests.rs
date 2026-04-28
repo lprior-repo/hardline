@@ -4,14 +4,10 @@
 
 #[cfg(loom)]
 mod concurrency_tests {
-    use loom::model;
     use std::sync::Arc;
 
-    use scp_queue::Queue;
-    use scp_queue::QueueEntry;
-    use scp_queue::QueueEntryId;
-    use scp_queue::QueueStatus;
-    use scp_queue::SessionName;
+    use loom::model;
+    use scp_queue::{Queue, QueueEntry, QueueEntryId, QueueStatus, SessionName};
 
     fn make_entry(id: &str, session: &str, priority: u32) -> QueueEntry {
         QueueEntry::from_identifiers(

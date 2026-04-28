@@ -13,11 +13,12 @@
 use itertools::Itertools;
 use tap::Pipe;
 
+use super::{
+    session_filter::SessionFilter,
+    session_query_types::SessionQuery,
+    session_sort::{SessionSort, SessionSortField, SortDirection},
+};
 use crate::domain::repository::Session;
-
-use super::session_filter::SessionFilter;
-use super::session_query_types::SessionQuery;
-use super::session_sort::{SessionSort, SessionSortField, SortDirection};
 
 // ============================================================================
 // FILTERING FUNCTIONS

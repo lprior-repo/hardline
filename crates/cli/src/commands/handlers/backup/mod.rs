@@ -9,8 +9,8 @@
 //!   BackupCreateOutput, BackupListOutput, BackupRestoreOutput, BackupRetentionOutput,
 //!   RetentionStatusOutput, BackupStatusOutput (inert, serializable)
 //! - **Calculations** (`calculations.rs`): validate_backup_command, parse_backup_filename,
-//!   generate_backup_filename, get_database_backup_dir, resolve_database_target,
-//!   backups_to_remove, format_size, build_retention_status (pure functions, no I/O)
+//!   generate_backup_filename, get_database_backup_dir, resolve_database_target, backups_to_remove,
+//!   format_size, build_retention_status (pure functions, no I/O)
 //! - **Actions** (`actions.rs`): execute_backup_command, execute_create, execute_list,
 //!   execute_restore, execute_retention, execute_status, create_backup, restore_backup,
 //!   compute_checksum (I/O operations)

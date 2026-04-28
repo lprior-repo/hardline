@@ -12,9 +12,10 @@
 //! - format-functions: format_branch_name, format_pr_info edge cases
 
 #[cfg(test)]
-use crate::app::{BranchProvider, TuiApp};
-#[cfg(test)]
 use scp_stack::domain::StackBranch;
+
+#[cfg(test)]
+use crate::app::{BranchProvider, TuiApp};
 
 #[cfg(test)]
 struct StubProvider;
@@ -33,9 +34,9 @@ fn test_app() -> TuiApp {
 
 #[cfg(test)]
 mod branch_indicator_priority {
+    use scp_stack::domain::{value_objects::BranchName, PrInfo, PrState, StackBranch};
+
     use crate::widgets::StackTreeWidget;
-    use scp_stack::domain::value_objects::BranchName;
-    use scp_stack::domain::{PrInfo, PrState, StackBranch};
 
     fn branch(name: &str) -> StackBranch {
         StackBranch {
@@ -163,9 +164,9 @@ mod branch_indicator_priority {
 
 #[cfg(test)]
 mod tree_node_prefix_edge_cases {
+    use scp_stack::domain::{value_objects::BranchName, StackBranch};
+
     use crate::widgets::TreeNode;
-    use scp_stack::domain::value_objects::BranchName;
-    use scp_stack::domain::StackBranch;
 
     fn branch(name: &str) -> StackBranch {
         StackBranch {
@@ -267,8 +268,7 @@ mod tree_node_prefix_edge_cases {
 
 #[cfg(test)]
 mod worktree_fragility {
-    use crate::views::WorktreeView;
-    use crate::widgets::worktree::WorktreeItem;
+    use crate::{views::WorktreeView, widgets::worktree::WorktreeItem};
 
     fn make_item(name: &str) -> WorktreeItem {
         WorktreeItem {
@@ -478,9 +478,12 @@ mod diff_line_semantics {
 
 #[cfg(test)]
 mod input_handler_modifiers {
-    use crate::app::Mode;
-    use crate::input::{HunkAction, InputHandler, InputResult};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    use crate::{
+        app::Mode,
+        input::{HunkAction, InputHandler, InputResult},
+    };
 
     fn key_with(code: KeyCode, mods: KeyModifiers) -> KeyEvent {
         KeyEvent::new(code, mods)
@@ -582,9 +585,9 @@ mod input_handler_modifiers {
 
 #[cfg(test)]
 mod stack_children_field {
+    use scp_stack::domain::{value_objects::BranchName, StackBranch};
+
     use crate::widgets::StackTreeWidget;
-    use scp_stack::domain::value_objects::BranchName;
-    use scp_stack::domain::StackBranch;
 
     fn branch(name: &str, parent: Option<&str>, children: Vec<&str>) -> StackBranch {
         StackBranch {
@@ -640,9 +643,9 @@ mod stack_children_field {
 
 #[cfg(test)]
 mod widget_selection_edge_cases {
+    use scp_stack::domain::{value_objects::BranchName, StackBranch};
+
     use crate::widgets::StackTreeWidget;
-    use scp_stack::domain::value_objects::BranchName;
-    use scp_stack::domain::StackBranch;
 
     fn branch(name: &str, parent: Option<&str>) -> StackBranch {
         StackBranch {
@@ -694,9 +697,11 @@ mod widget_selection_edge_cases {
 
 #[cfg(test)]
 mod refresh_idempotency {
-    use super::*;
-    use scp_stack::domain::BranchName;
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use scp_stack::domain::BranchName;
+
+    use super::*;
 
     struct CountingProvider {
         count: AtomicUsize,
@@ -789,9 +794,9 @@ mod refresh_idempotency {
 
 #[cfg(test)]
 mod format_functions {
+    use scp_stack::domain::{value_objects::BranchName, PrInfo, PrState, StackBranch};
+
     use crate::widgets::StackTreeWidget;
-    use scp_stack::domain::value_objects::BranchName;
-    use scp_stack::domain::{PrInfo, PrState, StackBranch};
 
     fn branch(name: &str) -> StackBranch {
         StackBranch {
@@ -963,8 +968,9 @@ mod mode_clone_equality_deep {
 
 #[cfg(test)]
 mod proptest_gen3 {
-    use crate::app::{ConfirmAction, DiffLine, DiffLineKind, InputAction, Mode};
     use proptest::proptest;
+
+    use crate::app::{ConfirmAction, DiffLine, DiffLineKind, InputAction, Mode};
 
     proptest! {
         #[test]

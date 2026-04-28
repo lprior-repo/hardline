@@ -1,6 +1,6 @@
+use std::{fs, process::Command};
+
 use scp_vcs::{GitBackend, VcsBackend, VcsStatus};
-use std::fs;
-use std::process::Command;
 use tempfile::TempDir;
 
 fn run_git(dir: &std::path::Path, args: &[&str]) {

@@ -423,8 +423,9 @@ mod tests {
     }
 
     mod proptest_bead_title {
-        use super::*;
         use proptest::proptest;
+
+        use super::*;
 
         proptest! {
             #[test]

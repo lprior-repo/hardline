@@ -1,6 +1,10 @@
-use crate::domain::entities::{Workspace, WorkspaceId, WorkspaceState};
-use crate::domain::value_objects::{WorkspaceName, WorkspacePath};
-use crate::error::WorkspaceError;
+use crate::{
+    domain::{
+        entities::{Workspace, WorkspaceId, WorkspaceState},
+        value_objects::{WorkspaceName, WorkspacePath},
+    },
+    error::WorkspaceError,
+};
 
 pub struct WorkspaceService;
 
@@ -90,7 +94,8 @@ impl WorkspaceService {
                 match workspace.state {
                     WorkspaceState::Active => {
                         // Need to call delete on Workspace<Active>
-                        // Since we have Workspace, we need to use transition_with_lock_holder(None) equivalent
+                        // Since we have Workspace, we need to use transition_with_lock_holder(None)
+                        // equivalent
                         Ok(Workspace {
                             id: workspace.id,
                             name: workspace.name,
@@ -959,9 +964,9 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
+        use proptest::{prelude::*, prop_assert, prop_assert_eq};
+
         use super::*;
-        use proptest::prelude::*;
-        use proptest::{prop_assert, prop_assert_eq};
 
         proptest! {
             #[test]

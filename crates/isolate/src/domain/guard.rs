@@ -17,8 +17,10 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::types::{BeadId, BeadWorkspaceMapping, WorkspaceId, WorkspaceState};
-use crate::error::{IsolateError, Result};
-use crate::WorkspaceStateMachine;
+use crate::{
+    error::{IsolateError, Result},
+    WorkspaceStateMachine,
+};
 
 /// Inner data shared between the guard and its resolved output.
 struct GuardInner {
@@ -487,8 +489,7 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
-        use proptest::prelude::*;
-        use proptest::prop_assert;
+        use proptest::{prelude::*, prop_assert};
 
         use super::*;
 

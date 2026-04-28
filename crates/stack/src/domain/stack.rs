@@ -46,8 +46,10 @@ impl AsRef<str> for StackName {
     }
 }
 
-use super::state::{BranchState, PrState, StackState};
-use super::value_objects::BranchName;
+use super::{
+    state::{BranchState, PrState, StackState},
+    value_objects::BranchName,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrInfo {
@@ -731,8 +733,9 @@ mod tests {
 
 #[cfg(test)]
 mod proptests {
-    use super::*;
     use proptest::proptest;
+
+    use super::*;
 
     proptest! {
         #[test]

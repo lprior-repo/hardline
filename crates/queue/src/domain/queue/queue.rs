@@ -1,10 +1,10 @@
 //! Merge queue - Immutable persistent data structure
 
-use crate::domain::identifiers::{QueueEntryId, SessionName};
-use crate::domain::validation::{ValidationError, ValidationResult};
-
-use super::entry::QueueEntry;
-use super::status::QueueStatus;
+use super::{entry::QueueEntry, status::QueueStatus};
+use crate::domain::{
+    identifiers::{QueueEntryId, SessionName},
+    validation::{ValidationError, ValidationResult},
+};
 
 /// The merge queue - an immutable persistent data structure.
 ///
@@ -293,8 +293,10 @@ impl Queue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::identifiers::{QueueEntryId, SessionName};
-    use crate::domain::queue::status::MAX_PRIORITY;
+    use crate::domain::{
+        identifiers::{QueueEntryId, SessionName},
+        queue::status::MAX_PRIORITY,
+    };
 
     fn make_entry(id: &str, session: &str, priority: u32) -> QueueEntry {
         QueueEntry::new(id, session, priority).unwrap()

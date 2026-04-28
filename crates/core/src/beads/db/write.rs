@@ -4,8 +4,10 @@
 
 use sqlx::SqlitePool;
 
-use crate::beads::db::validation::{serialize_optional_vec, validate_bead_for_insert};
-use crate::beads::types::{BeadIssue, BeadsError, IssueStatus, Priority};
+use crate::beads::{
+    db::validation::{serialize_optional_vec, validate_bead_for_insert},
+    types::{BeadIssue, BeadsError, IssueStatus, Priority},
+};
 
 /// Insert a bead issue into the database.
 ///

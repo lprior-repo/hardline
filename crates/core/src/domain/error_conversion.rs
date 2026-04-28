@@ -13,9 +13,8 @@
 // which loads this file, and the sibling files are in the same directory
 
 // Bring the implementation modules into scope via use
-use crate::domain::error_conversion_context as context;
-use crate::domain::error_conversion_extension as extension;
-
 // Re-export public traits for ergonomic access
 pub use context::IntoRepositoryError;
 pub use extension::{AggregateErrorExt, IdentifierErrorExt};
+
+use crate::domain::{error_conversion_context as context, error_conversion_extension as extension};

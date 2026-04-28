@@ -1,7 +1,8 @@
 //! Tests for workspace argument parsing
 
-use crate::cli::workspace_args::*;
 use clap::Parser;
+
+use crate::cli::workspace_args::*;
 
 /// Wrapper to parse WorkspaceCommands directly via clap
 #[derive(Parser)]

@@ -6,16 +6,16 @@
 //! - Environment variable overrides
 //! - Config validation
 
-use std::collections::HashMap;
-use std::fmt;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    fmt,
+    path::{Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
 
-use super::config_watcher::validate_config_file;
-use super::types::ValidatedBool;
-use crate::error::Result;
-use crate::error_config::ConfigErrorKind;
+use super::{config_watcher::validate_config_file, types::ValidatedBool};
+use crate::{error::Result, error_config::ConfigErrorKind};
 
 /// Configuration key names
 pub mod keys {
@@ -100,8 +100,8 @@ pub const ENV_PREFIX: &str = "SCP_";
 ///
 /// Checks if the given key is either:
 /// - An exact match in [`VALID_CONFIG_KEYS`], or
-/// - A parent prefix of a valid key (e.g. `"watch"` is valid because
-///   `"watch.enabled"` etc. start with `"watch."`)
+/// - A parent prefix of a valid key (e.g. `"watch"` is valid because `"watch.enabled"` etc. start
+///   with `"watch."`)
 ///
 /// # Errors
 ///
@@ -586,8 +586,9 @@ pub struct WatchConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use proptest::{prop_assert, prop_assert_eq};
+
+    use super::*;
 
     #[test]
     fn test_config_basic() {

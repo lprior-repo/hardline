@@ -234,8 +234,9 @@ mod tests {
     }
 
     mod proptest_bead_id {
-        use super::*;
         use proptest::proptest;
+
+        use super::*;
 
         proptest! {
             #[test]

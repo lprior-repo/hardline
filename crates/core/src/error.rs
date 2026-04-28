@@ -6,7 +6,6 @@ use thiserror::Error;
 
 // Re-export types from sub-modules
 pub use super::error_types::Result;
-
 // Forward declaration for lock errors
 pub use crate::coordination::locks::errors::LockError;
 
@@ -18,7 +17,7 @@ pub use crate::coordination::locks::errors::LockError;
 ///
 /// Error codes:
 /// - 1xxx: Workspace/Session errors
-/// - 2xxx: Queue errors  
+/// - 2xxx: Queue errors
 /// - 3xxx: VCS errors
 /// - 4xxx: Configuration errors
 /// - 5xxx: Agent errors
@@ -1043,9 +1042,9 @@ fn lock_context_map(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error_queue::QueueErrorKind;
-    use crate::error_vcs::VcsErrorKind;
-    use crate::error_workspace::WorkspaceErrorKind;
+    use crate::{
+        error_queue::QueueErrorKind, error_vcs::VcsErrorKind, error_workspace::WorkspaceErrorKind,
+    };
 
     #[test]
     fn test_error_suggestions() {

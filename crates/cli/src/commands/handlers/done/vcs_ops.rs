@@ -3,14 +3,17 @@
 //! Lower-level helpers for workspace resolution, file introspection,
 //! commit parsing, undo history, and the WorkspaceGitExecutor wrapper.
 
-use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::{
+    path::{Path, PathBuf},
+    time::SystemTime,
+};
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
-use super::data::{CommitInfo, UndoEntry};
-use super::executor::{detect_conflicts, ExecutorError, GitExecutor};
+use super::{
+    data::{CommitInfo, UndoEntry},
+    executor::{detect_conflicts, ExecutorError, GitExecutor},
+};
 
 // ============================================================================
 // Workspace Resolution

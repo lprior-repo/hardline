@@ -3,12 +3,13 @@
 //! Claim Sheet derived from types, docs, and help text.
 //! Each claim is tested on the happy path with real terminal output.
 
-use std::collections::HashMap;
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
-use twins::definition::{EndpointResponse, HttpMethod, TwinDefinition};
-use twins::server::{build_router, AppState};
-use twins::state::{InMemoryTwinState, RequestRecord, TwinState};
+use twins::{
+    definition::{EndpointResponse, HttpMethod, TwinDefinition},
+    server::{build_router, AppState},
+    state::{InMemoryTwinState, RequestRecord, TwinState},
+};
 
 // ---------------------------------------------------------------------------
 // Helpers

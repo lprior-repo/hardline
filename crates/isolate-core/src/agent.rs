@@ -5,8 +5,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::error::Error;
-use crate::queue::SessionName;
+use crate::{error::Error, queue::SessionName};
 
 /// Heartbeat timeout in seconds
 const HEARTBEAT_TIMEOUT_SECS: i64 = 60;

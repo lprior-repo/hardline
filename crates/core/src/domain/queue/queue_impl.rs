@@ -3,12 +3,13 @@
 //! All operations return new Queue instances, preserving structural sharing
 //! where possible. This enables safe concurrent access and easy undo/redo.
 
-use super::entry::QueueEntry;
-use super::status::QueueStatus;
+use super::{entry::QueueEntry, status::QueueStatus};
 #[allow(unused_imports)]
 use crate::domain::contracts::{ensures, invariant, requires};
-use crate::domain::identifiers::{QueueEntryId, SessionName};
-use crate::domain::validation::{ValidationError, ValidationResult};
+use crate::domain::{
+    identifiers::{QueueEntryId, SessionName},
+    validation::{ValidationError, ValidationResult},
+};
 
 /// The merge queue - an immutable persistent data structure.
 ///

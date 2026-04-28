@@ -1,5 +1,4 @@
 // //! Action builder
-//!
 //! Builder for `Action` with fluent API.
 
 use chrono::{DateTime, Utc};

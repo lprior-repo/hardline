@@ -4,8 +4,7 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use std::fmt::Display;
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use crate::cli_contracts::ContractError;
 

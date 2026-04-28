@@ -6,13 +6,19 @@
 //! - serialization: JSON edge cases and roundtrips
 //! - service-edge: Uncovered service method edge cases
 
-use scp_workspace::domain::entities::workspace::{Initializing, VcsType};
-use scp_workspace::domain::entities::{Workspace, WorkspaceId, WorkspaceState};
-use scp_workspace::domain::events::WorkspaceEvent;
-use scp_workspace::domain::state::WorkspaceStateMachine;
-use scp_workspace::domain::value_objects::{BranchName, LockHolder, WorkspaceName, WorkspacePath};
-use scp_workspace::infrastructure::workspace_repository::InMemoryWorkspaceRepository;
-use scp_workspace::{WorkspaceRepository, WorkspaceService};
+use scp_workspace::{
+    domain::{
+        entities::{
+            workspace::{Initializing, VcsType},
+            Workspace, WorkspaceId, WorkspaceState,
+        },
+        events::WorkspaceEvent,
+        state::WorkspaceStateMachine,
+        value_objects::{BranchName, LockHolder, WorkspaceName, WorkspacePath},
+    },
+    infrastructure::workspace_repository::InMemoryWorkspaceRepository,
+    WorkspaceRepository, WorkspaceService,
+};
 
 // ============================================================================
 // DIMENSION: mutation-style

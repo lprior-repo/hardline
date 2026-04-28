@@ -62,8 +62,9 @@ pub enum TagCommands {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use clap::Parser;
+
+    use super::*;
 
     #[derive(Parser)]
     struct TagParser {

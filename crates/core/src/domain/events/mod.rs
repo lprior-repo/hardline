@@ -32,15 +32,13 @@ mod session_events;
 mod workspace_events;
 
 // Re-export the main domain event enum
-pub use domain_event::DomainEvent;
-
 // Re-export event types
 pub use bead_events::{BeadClosedEvent, BeadCreatedEvent};
+pub use domain_event::DomainEvent;
 pub use event_metadata::{EventMetadata, StoredEvent};
-pub use session_events::{SessionCompletedEvent, SessionCreatedEvent, SessionFailedEvent};
-pub use workspace_events::{WorkspaceCreatedEvent, WorkspaceRemovedEvent};
-
 // Re-export serialization functions
 pub use serialization::{
     deserialize_event, deserialize_event_bytes, serialize_event, serialize_event_bytes,
 };
+pub use session_events::{SessionCompletedEvent, SessionCreatedEvent, SessionFailedEvent};
+pub use workspace_events::{WorkspaceCreatedEvent, WorkspaceRemovedEvent};

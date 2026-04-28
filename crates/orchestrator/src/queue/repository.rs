@@ -9,8 +9,10 @@ use std::sync;
 use async_trait::async_trait;
 use chrono::Utc;
 
-use crate::queue::processor::{QueueError, QueueResult};
-use crate::queue::types::{Job, JobState};
+use crate::queue::{
+    processor::{QueueError, QueueResult},
+    types::{Job, JobState},
+};
 
 #[async_trait]
 pub trait JobRepository: Send + Sync {

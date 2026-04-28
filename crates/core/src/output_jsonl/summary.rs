@@ -5,8 +5,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::output_jsonl::domain_types::Message;
-use crate::output_jsonl::errors::OutputLineError;
+use crate::output_jsonl::{domain_types::Message, errors::OutputLineError};
 
 /// Summary output line containing a message with optional details.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

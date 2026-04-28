@@ -1,9 +1,7 @@
 //! `StackMetadata` mutation operations
 
-use crate::dag::BranchId;
-use crate::Error;
-
 use super::entities::StackMetadata;
+use crate::{dag::BranchId, Error};
 
 impl StackMetadata {
     /// Set parent relationship

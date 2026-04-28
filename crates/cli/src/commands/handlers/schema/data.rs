@@ -7,9 +7,8 @@
 #![cfg_attr(not(test), deny(clippy::panic))]
 #![warn(clippy::pedantic)]
 
-use serde::{Deserialize, Serialize};
-
 use scp_core::OutputFormat;
+use serde::{Deserialize, Serialize};
 
 /// Execution mode for the schema command.
 ///

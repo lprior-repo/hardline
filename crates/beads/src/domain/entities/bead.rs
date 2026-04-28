@@ -42,8 +42,9 @@ pub struct Closed;
 /// A bead (work item / issue) with compile-time typestate enforcement.
 ///
 /// The `S` type parameter tracks the lifecycle state. Use the typestate methods
-/// ([`start`](Bead::start), [`block`](Bead::<InProgress>::block), [`close`](Bead::<InProgress>::close), etc.)
-/// to transition between states. Invalid transitions are prevented at compile time.
+/// ([`start`](Bead::start), [`block`](Bead::<InProgress>::block),
+/// [`close`](Bead::<InProgress>::close), etc.) to transition between states. Invalid transitions
+/// are prevented at compile time.
 ///
 /// For dynamic transitions (e.g., when the state is loaded from storage), use
 /// [`transition_to`](Bead::transition_to) which returns `Option<Bead>`.

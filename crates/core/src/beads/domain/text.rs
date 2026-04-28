@@ -2,8 +2,9 @@
 //!
 //! Validated text fields prevent empty strings and enforce length limits.
 
-use super::errors::DomainError;
 use serde::{Deserialize, Serialize};
+
+use super::errors::DomainError;
 
 /// A validated issue title.
 ///

@@ -5,9 +5,8 @@
 //! which manages workspace corruption detection, validation, repair,
 //! and backup operations.
 
-use serde::{Deserialize, Serialize};
-
 use scp_core::workspace_integrity::{BackupMetadata, ValidationResult};
+use serde::{Deserialize, Serialize};
 
 // ============================================================================
 // Input Types

@@ -2,9 +2,12 @@
 //!
 //! Queue items survive process restarts by storing them in a SQLite table.
 
-use crate::error::Result;
-use crate::queue::{Priority, QueueItem, QueueManager, QueueSource, QueueStatus};
 use sqlx::SqlitePool;
+
+use crate::{
+    error::Result,
+    queue::{Priority, QueueItem, QueueManager, QueueSource, QueueStatus},
+};
 
 const SCHEMA: &str = "\
 CREATE TABLE IF NOT EXISTS queue_items (
@@ -114,8 +117,12 @@ fn row_to_item(row: &sqlx::sqlite::SqliteRow) -> QueueItem {
     let attempt_count: i32 = row.get("attempt_count");
     let last_error: Option<String> = row.get("last_error");
 
-    let created_at = created_at_str.parse().unwrap_or_else(|_| chrono::Utc::now());
-    let updated_at = updated_at_str.parse().unwrap_or_else(|_| chrono::Utc::now());
+    let created_at = created_at_str
+        .parse()
+        .unwrap_or_else(|_| chrono::Utc::now());
+    let updated_at = updated_at_str
+        .parse()
+        .unwrap_or_else(|_| chrono::Utc::now());
 
     QueueItem {
         id,
@@ -267,10 +274,11 @@ impl QueueManager for SqliteQueue {
                 .map_err(|e| crate::error::Error::internal(format!("Runtime: {}", e)))?;
 
             rt.block_on(async {
-                let rows = sqlx::query("SELECT * FROM queue_items ORDER BY priority ASC, created_at ASC")
-                    .fetch_all(&pool)
-                    .await
-                    .map_err(|e| crate::error::Error::database(e.to_string()))?;
+                let rows =
+                    sqlx::query("SELECT * FROM queue_items ORDER BY priority ASC, created_at ASC")
+                        .fetch_all(&pool)
+                        .await
+                        .map_err(|e| crate::error::Error::database(e.to_string()))?;
 
                 Ok(rows.iter().map(row_to_item).collect())
             })
@@ -370,7 +378,7 @@ impl QueueManager for SqliteQueue {
 
             rt.block_on(async {
                 let result = sqlx::query(
-                    "DELETE FROM queue_items WHERE status IN ('Completed', 'Failed', 'Cancelled')"
+                    "DELETE FROM queue_items WHERE status IN ('Completed', 'Failed', 'Cancelled')",
                 )
                 .execute(&pool)
                 .await

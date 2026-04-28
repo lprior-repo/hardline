@@ -3,8 +3,8 @@
 //! These tests use real SQLite connections via SQLx to verify repository behavior.
 //! Each test creates isolated state and cleans up after completion.
 
-use worktree::application::repositories::WorktreeRepository;
 use worktree::{
+    application::repositories::WorktreeRepository,
     domain::{
         AbsolutePath, BranchName, Worktree, WorktreeDomainError, WorktreeId, WorktreeName,
         WorktreeState, WorktreeTypeEnum,

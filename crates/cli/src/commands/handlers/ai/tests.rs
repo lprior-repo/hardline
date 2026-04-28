@@ -4,13 +4,16 @@
 //! No `is_ok()`/`is_err()` assertions -- exact variant matching only.
 //! No unbounded loops -- all iteration is bounded by fixed-length arrays.
 
-use super::calculations::{
-    build_overview, build_quick_start, build_workflow, determine_next_action,
-    determine_ready_state, format_session_count, format_status_human,
-};
-use super::data::{
-    AiEnvelope, AiOverview, AiStatusOutput, AiSubcommand, Location, NextActionOutput, Priority,
-    QuickCommand, QuickStartOutput, SubcommandInfo, WorkflowInfo, WorkflowStep, AI_STATUS_RESPONSE,
+use super::{
+    calculations::{
+        build_overview, build_quick_start, build_workflow, determine_next_action,
+        determine_ready_state, format_session_count, format_status_human,
+    },
+    data::{
+        AiEnvelope, AiOverview, AiStatusOutput, AiSubcommand, Location, NextActionOutput, Priority,
+        QuickCommand, QuickStartOutput, SubcommandInfo, WorkflowInfo, WorkflowStep,
+        AI_STATUS_RESPONSE,
+    },
 };
 
 // =============================================================================

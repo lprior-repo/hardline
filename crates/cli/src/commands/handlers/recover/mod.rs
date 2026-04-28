@@ -5,9 +5,9 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): RecoverOptions, RecoverOutput, RollbackOptions, RollbackOutput,
-//!   Issue, RecoverPhase, compute_status, count_fixed, count_remaining
-//!   (inert, serializable types + pure functions)
+//! - **Data** (`data.rs`): RecoverOptions, RecoverOutput, RollbackOptions, RollbackOutput, Issue,
+//!   RecoverPhase, compute_status, count_fixed, count_remaining (inert, serializable types + pure
+//!   functions)
 //! - **Actions** (`actions.rs`): run_recover, run_rollback (I/O operations)
 //!
 //! # Git-Based Recovery (no JJ)

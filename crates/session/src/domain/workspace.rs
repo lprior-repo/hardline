@@ -4,14 +4,13 @@
 //! - States: Created → Working → Ready → Merged | Conflict | Abandoned
 //! - Invariants enforced via type system and runtime checks
 
+// Re-export for convenience
+use std::result::Result;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::workspace_state::WorkspaceState;
-use crate::error::SessionError;
-
-// Re-export for convenience
-use std::result::Result;
+use crate::{domain::workspace_state::WorkspaceState, error::SessionError};
 
 /// Unique workspace identifier
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

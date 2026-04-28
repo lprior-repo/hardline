@@ -1,6 +1,9 @@
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+};
+
 use scp_queue::{Queue, QueueEntry, QueueEntryId};
-use std::sync::{Arc, Mutex};
-use std::thread;
 
 #[test]
 fn test_adversarial_max_priority_overflow() {

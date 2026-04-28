@@ -8,31 +8,34 @@
 //!   C1-C30:  Happy path claims
 //!   ADV1-ADV25: Adversarial attacks
 
-use chrono::Utc;
-use scp_session::application::session_service::SessionService;
-use scp_session::domain::bead::{Bead, BeadState};
-use scp_session::domain::bead_types::{BeadType, Priority};
-use scp_session::domain::bead_value::{BeadDescription, BeadId, BeadTitle};
-use scp_session::domain::entities::session::{
-    BranchState, Created, Session, SessionId, SessionState,
-};
-use scp_session::domain::events::{
-    deserialize_event, serialize_event, SessionCompletedEvent, SessionCreatedEvent, SessionEvent,
-    SessionFailedEvent,
-};
-use scp_session::domain::value_objects::metadata::{
-    DependsOn, IssueType, Labels, Priority as MetaPriority, WorkspaceName as MetaWorkspaceName,
-};
-use scp_session::domain::value_objects::path::path_validation::find_first_metacharacter;
-use scp_session::domain::value_objects::path::AbsolutePath;
-use scp_session::domain::value_objects::session::{
-    BeadId as VoBeadId, SessionName, WorkspaceId as VoWorkspaceId,
-};
-use scp_session::domain::value_objects::task::{AgentId, Description, TaskId, Title};
-use scp_session::domain::workspace::{Workspace, WorkspaceId, WorkspaceName, WorkspacePath};
-use scp_session::domain::workspace_state::{WorkspaceState, WorkspaceStateMachine};
-use scp_session::error::{SessionError, TaskIdError};
 use std::collections::HashSet;
+
+use chrono::Utc;
+use scp_session::{
+    application::session_service::SessionService,
+    domain::{
+        bead::{Bead, BeadState},
+        bead_types::{BeadType, Priority},
+        bead_value::{BeadDescription, BeadId, BeadTitle},
+        entities::session::{BranchState, Created, Session, SessionId, SessionState},
+        events::{
+            deserialize_event, serialize_event, SessionCompletedEvent, SessionCreatedEvent,
+            SessionEvent, SessionFailedEvent,
+        },
+        value_objects::{
+            metadata::{
+                DependsOn, IssueType, Labels, Priority as MetaPriority,
+                WorkspaceName as MetaWorkspaceName,
+            },
+            path::{path_validation::find_first_metacharacter, AbsolutePath},
+            session::{BeadId as VoBeadId, SessionName, WorkspaceId as VoWorkspaceId},
+            task::{AgentId, Description, TaskId, Title},
+        },
+        workspace::{Workspace, WorkspaceId, WorkspaceName, WorkspacePath},
+        workspace_state::{WorkspaceState, WorkspaceStateMachine},
+    },
+    error::{SessionError, TaskIdError},
+};
 
 // =========================================================================
 // HAPPY PATH CLAIMS (C1-C30)

@@ -1,5 +1,6 @@
-use crate::error::WorkspaceError;
 use serde::{Deserialize, Serialize};
+
+use crate::error::WorkspaceError;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LockHolder(String);
@@ -179,9 +180,9 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
+        use proptest::{prelude::*, prop_assert, prop_assert_eq};
+
         use super::*;
-        use proptest::prelude::*;
-        use proptest::{prop_assert, prop_assert_eq};
 
         proptest! {
             #[test]

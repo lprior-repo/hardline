@@ -96,8 +96,10 @@ impl Bead {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::aggregates::bead::{Bead, BeadError};
-    use crate::domain::identifiers::BeadId;
+    use crate::domain::{
+        aggregates::bead::{Bead, BeadError},
+        identifiers::BeadId,
+    };
 
     fn create_test_bead() -> Bead {
         let id = BeadId::parse("bd-1").expect("valid id");

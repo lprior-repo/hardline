@@ -39,16 +39,13 @@
 //! # }
 //! ```
 
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use notify::Watcher;
 use tokio::sync::{mpsc, RwLock};
 
 use super::config_core::{Config, ConfigManager};
-use crate::error::Result;
-use crate::error_config::ConfigErrorKind;
+use crate::{error::Result, error_config::ConfigErrorKind};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants
@@ -293,8 +290,9 @@ pub fn validate_config_file(path: &std::path::Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs;
+
+    use super::*;
 
     // ------------------------------------------------------------------
     // MAX_CONFIG_FILE_SIZE constant

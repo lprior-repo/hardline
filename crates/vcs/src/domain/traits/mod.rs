@@ -1,8 +1,12 @@
 //! VCS Backend Trait - Domain contract for VCS operations
 
-use crate::domain::entities::{Branch, Commit, Workspace};
-use crate::domain::value_objects::VcsStatus;
-use crate::error::Result;
+use crate::{
+    domain::{
+        entities::{Branch, Commit, Workspace},
+        value_objects::VcsStatus,
+    },
+    error::Result,
+};
 
 pub trait VcsBackend: Send + Sync {
     fn current_branch(&self) -> Result<String>;

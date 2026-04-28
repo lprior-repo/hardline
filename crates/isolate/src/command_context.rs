@@ -2,9 +2,11 @@
 //!
 //! Provides task-local state for generating unique command IDs during execution.
 
-use std::future::Future;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    future::Future,
+    sync::atomic::{AtomicU64, Ordering},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use tokio::task_local;
 
@@ -104,7 +106,8 @@ mod tests {
     async fn test_with_command_context() {
         let result = with_command_context("test-cmd".to_string(), async {
             next_write_command_id("action", "target")
-        }).await;
+        })
+        .await;
         assert!(result.is_some());
         let id = result.unwrap();
         assert!(id.contains("test-cmd"));

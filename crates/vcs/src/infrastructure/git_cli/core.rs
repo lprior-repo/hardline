@@ -2,10 +2,14 @@
 //!
 //! Executes git CLI commands and parses output into domain types.
 
-use crate::domain::value_objects::VcsStatus;
-use crate::error::{Result, VcsError};
-use chrono::{DateTime, TimeZone, Utc};
 use std::process::Command;
+
+use chrono::{DateTime, TimeZone, Utc};
+
+use crate::{
+    domain::value_objects::VcsStatus,
+    error::{Result, VcsError},
+};
 
 pub struct GitCliBackend {
     repo_path: std::path::PathBuf,
@@ -117,8 +121,7 @@ impl GitCliBackend {
     }
 
     pub(crate) fn run_git_command_with_stdin(&self, args: &[&str], input: &str) -> Result<String> {
-        use std::io::Write;
-        use std::process::Stdio;
+        use std::{io::Write, process::Stdio};
 
         let mut child = Command::new("git")
             .args(args)

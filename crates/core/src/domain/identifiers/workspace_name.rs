@@ -4,8 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::identifiers::error::IdentifierError;
-use crate::domain::identifiers::validation::validate_workspace_name;
+use crate::domain::identifiers::{error::IdentifierError, validation::validate_workspace_name};
 
 /// A validated workspace name
 ///

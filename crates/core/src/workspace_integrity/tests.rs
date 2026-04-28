@@ -2,19 +2,23 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::workspace_integrity::RepairResult;
     use std::path::PathBuf;
 
     use tempfile::TempDir;
 
-    use crate::workspace_integrity::backup::BackupManager;
-    use crate::workspace_integrity::checks::resolve_workspace_path;
-    use crate::workspace_integrity::issue::IntegrityIssue;
-    use crate::workspace_integrity::repair::RepairExecutor;
-    use crate::workspace_integrity::types::{CorruptionType, RepairStrategy, Severity};
-    use crate::workspace_integrity::validation::IntegrityValidator;
-    use crate::workspace_integrity::validation_result::ValidationResult;
-    use crate::Result;
+    use crate::{
+        workspace_integrity::{
+            backup::BackupManager,
+            checks::resolve_workspace_path,
+            issue::IntegrityIssue,
+            repair::RepairExecutor,
+            types::{CorruptionType, RepairStrategy, Severity},
+            validation::IntegrityValidator,
+            validation_result::ValidationResult,
+            RepairResult,
+        },
+        Result,
+    };
 
     // Helper to create a temporary workspaces root for testing
     fn create_test_root() -> Result<TempDir> {

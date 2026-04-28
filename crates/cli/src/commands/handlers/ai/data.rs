@@ -3,8 +3,9 @@
 //! Inert, serializable structs and enums with no business logic.
 //! All types here are pure data carriers following the Data->Calc->Actions pattern.
 
-use serde::Serialize;
 use std::fmt;
+
+use serde::Serialize;
 
 // =============================================================================
 // Schema constants (local, matching scp-core/json/schemas.rs pattern)

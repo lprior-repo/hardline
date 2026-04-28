@@ -1,6 +1,5 @@
-use std::env;
-use std::path::PathBuf;
-use std::process::Command;
+use std::{env, path::PathBuf, process::Command};
+
 use tempfile::TempDir;
 
 fn get_bin_path() -> PathBuf {
@@ -28,8 +27,8 @@ fn test_cli_end_to_end() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Usage:"));
 
-    // Assuming the full system wiring requires initializing some state or running a specific command.
-    // E.g. scp init, or similar. We wire up persistence + orchestrator + queue.
+    // Assuming the full system wiring requires initializing some state or running a specific
+    // command. E.g. scp init, or similar. We wire up persistence + orchestrator + queue.
     // Without knowing the exact subcommands, we can run a dummy or known command.
     // For now, let's just test that the binary executes and returns success.
 }

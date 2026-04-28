@@ -3,9 +3,8 @@
 //! This module provides the suggest_name function for generating
 //! unique session names based on patterns.
 
-use crate::error::{Error, Result};
-
 use super::query::SuggestNameQuery;
+use crate::error::{Error, Result};
 
 /// Parse a name pattern and suggest next available name
 ///

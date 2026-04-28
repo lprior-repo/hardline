@@ -4,9 +4,7 @@
 //! Each claim is tested on the happy path with real terminal output,
 //! then attacked adversarially.
 
-use std::fs;
-use std::path::PathBuf;
-use std::process::Command;
+use std::{fs, path::PathBuf, process::Command};
 
 use scp_vcs::{
     create_vcs_service,
@@ -474,8 +472,7 @@ fn claim10_stress_concurrent_backend_operations() {
     let dir = make_git_repo();
     let backend = GitBackend::new_from_path(dir.path());
 
-    use std::sync::Arc;
-    use std::thread;
+    use std::{sync::Arc, thread};
 
     let backend = Arc::new(backend);
     let mut handles = vec![];

@@ -21,13 +21,10 @@
 //! // - ContextWriteState: set(), clear(), clear_all()
 //! ```
 
-use std::future::Future;
-use std::pin::Pin;
-use std::time::Duration;
+use std::{future::Future, pin::Pin, time::Duration};
 
 use rand::rngs::StdRng;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use uuid::Uuid;
 
 use crate::infrastructure::restate::errors::{HandlerResult, TerminalError};

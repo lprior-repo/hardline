@@ -7,8 +7,10 @@ use std::path::PathBuf;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::output_jsonl::domain_types::{Message, WarningCode};
-use crate::output_jsonl::errors::OutputLineError;
+use crate::output_jsonl::{
+    domain_types::{Message, WarningCode},
+    errors::OutputLineError,
+};
 
 /// Warning output line for non-critical issues.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

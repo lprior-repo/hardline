@@ -287,8 +287,9 @@ mod tests {
     }
 
     mod proptest_bead_description {
-        use super::*;
         use proptest::proptest;
+
+        use super::*;
 
         proptest! {
             #[test]

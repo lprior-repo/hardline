@@ -5,11 +5,10 @@
 
 use crate::domain::{
     aggregates::{bead::BeadError, session::SessionError, workspace::WorkspaceError},
+    error_conversion_context::IntoRepositoryError,
     identifiers::IdentifierError,
     repository::RepositoryError,
 };
-
-use crate::domain::error_conversion_context::IntoRepositoryError;
 
 // ============================================================================
 // IDENTIFIER ERROR EXT

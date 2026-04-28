@@ -14,25 +14,25 @@
 //! - type_beads_issue: Beads issue types
 
 // Re-export all types for convenience
-pub use crate::type_beads_issue::{BeadsIssue, BeadsSummary, IssueStatus};
-pub use crate::type_branch_state::BranchState;
-pub use crate::type_file_change::{
-    ChangesSummary, DiffSummary, FileChange, FileDiffStat, FileStatus,
+pub use crate::{
+    type_beads_issue::{BeadsIssue, BeadsSummary, IssueStatus},
+    type_branch_state::BranchState,
+    type_file_change::{ChangesSummary, DiffSummary, FileChange, FileDiffStat, FileStatus},
+    type_metadata::ValidatedMetadata,
+    type_session::Session,
+    type_session_id::SessionId,
+    type_session_name::SessionName,
+    type_session_path::AbsolutePath,
+    type_session_status::{Operation, SessionStatus},
+    workspace_state::WorkspaceState,
 };
-pub use crate::type_metadata::ValidatedMetadata;
-pub use crate::type_session::Session;
-pub use crate::type_session_id::SessionId;
-pub use crate::type_session_name::SessionName;
-pub use crate::type_session_path::AbsolutePath;
-pub use crate::type_session_status::{Operation, SessionStatus};
-pub use crate::workspace_state::WorkspaceState;
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
-    use proptest::prelude::*;
-    use proptest::prop_assert;
     use std::path::PathBuf;
+
+    use chrono::Utc;
+    use proptest::{prelude::*, prop_assert};
 
     use super::*;
 

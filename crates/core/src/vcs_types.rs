@@ -242,8 +242,9 @@ impl RepoStatus {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use proptest::{prop_assert, prop_assert_eq};
+
+    use super::*;
 
     #[test]
     fn branch_name_accepts_valid() {

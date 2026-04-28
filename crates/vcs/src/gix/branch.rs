@@ -2,8 +2,10 @@
 //!
 //! Pure gitoxide implementation - no CLI spawning
 
-use crate::domain::entities::Branch;
-use crate::error::{GitError, GitResult};
+use crate::{
+    domain::entities::Branch,
+    error::{GitError, GitResult},
+};
 
 /// Get the name of the current branch.
 pub fn current(repo: &gix::Repository) -> GitResult<String> {

@@ -2,8 +2,9 @@
 //!
 //! No I/O, no side effects. All functions are pure.
 
-use chrono::{DateTime, Utc};
 use std::path::{Path, PathBuf};
+
+use chrono::{DateTime, Utc};
 
 use super::data::{BackupCommand, BackupConfig, BackupInfo, RetentionStatusOutput};
 

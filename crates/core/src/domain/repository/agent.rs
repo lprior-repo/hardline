@@ -8,9 +8,8 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::domain::identifiers::AgentId;
-
 use super::error::RepositoryResult;
+use crate::domain::identifiers::AgentId;
 
 /// Agent information.
 #[derive(Debug, Clone)]

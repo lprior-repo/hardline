@@ -1,8 +1,9 @@
-use crate::application::traits::{GitHubClientTrait, MergeMethod};
-use crate::domain::land_status::LandStatus;
-use crate::domain::stack::Stack;
-use crate::domain::value_objects::BranchName;
 use std::time::{Duration, Instant};
+
+use crate::{
+    application::traits::{GitHubClientTrait, MergeMethod},
+    domain::{land_status::LandStatus, stack::Stack, value_objects::BranchName},
+};
 
 #[derive(Debug, Clone)]
 pub struct LandBranchInfo {
@@ -206,8 +207,10 @@ impl LandStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::application::traits::{MergeMethod, PrMergeStatus};
-    use crate::domain::stack::{CommitHash, StackBranch};
+    use crate::{
+        application::traits::{MergeMethod, PrMergeStatus},
+        domain::stack::{CommitHash, StackBranch},
+    };
 
     fn create_test_stack() -> Stack {
         let main = StackBranch::new(BranchName::new("main"), 0, CommitHash::new("abc123"), None);

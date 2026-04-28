@@ -1,10 +1,14 @@
 //! Git CLI Backend - VCS Backend Trait Implementation
 
-use crate::domain::entities::{Branch, Commit, Workspace};
-use crate::domain::traits::VcsBackend;
-use crate::domain::value_objects::VcsStatus;
-use crate::error::{Result, VcsError};
-use crate::infrastructure::git_cli::core::GitCliBackend;
+use crate::{
+    domain::{
+        entities::{Branch, Commit, Workspace},
+        traits::VcsBackend,
+        value_objects::VcsStatus,
+    },
+    error::{Result, VcsError},
+    infrastructure::git_cli::core::GitCliBackend,
+};
 
 impl VcsBackend for GitCliBackend {
     fn current_branch(&self) -> Result<String> {

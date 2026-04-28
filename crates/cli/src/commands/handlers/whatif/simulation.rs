@@ -2,9 +2,12 @@
 //!
 //! Pure functions that generate preview results without I/O.
 
-use crate::commands::handlers::whatif::analysis::{ensure_valid_name, get_name_arg};
-use crate::commands::handlers::whatif::{PrerequisiteCheck, PrerequisiteStatus, ResourceChange, WhatIfOptions, WhatIfResult, WhatIfStep};
 use scp_core::Result;
+
+use crate::commands::handlers::whatif::{
+    analysis::{ensure_valid_name, get_name_arg},
+    PrerequisiteCheck, PrerequisiteStatus, ResourceChange, WhatIfOptions, WhatIfResult, WhatIfStep,
+};
 
 /// Generate a preview for the given command
 ///

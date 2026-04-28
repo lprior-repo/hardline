@@ -198,11 +198,14 @@ mod tests {
 
     #[test]
     fn checkpoint_state_all_variants_roundtrip() {
-        for state in [CheckpointState::Pending, CheckpointState::Committed, CheckpointState::NeedsRestore] {
+        for state in [
+            CheckpointState::Pending,
+            CheckpointState::Committed,
+            CheckpointState::NeedsRestore,
+        ] {
             let json = serde_json::to_string(&state).unwrap();
             let parsed: CheckpointState = serde_json::from_str(&json).unwrap();
             assert_eq!(state, parsed);
         }
     }
-
 }

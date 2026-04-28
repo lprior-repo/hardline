@@ -2,8 +2,7 @@
 //!
 //! I/O operations that display introspection data about hardline capabilities.
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
 use super::data::{known_commands, CommandInfo, IntrospectOptions, IntrospectTarget};
 

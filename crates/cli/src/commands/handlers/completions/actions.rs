@@ -2,8 +2,7 @@
 //!
 //! I/O operations that generate and display shell completions.
 
-use scp_core::output::Output;
-use scp_core::Result;
+use scp_core::{output::Output, Result};
 
 use super::data::{install_instructions, CompletionsOptions, CompletionsOutput, Shell};
 

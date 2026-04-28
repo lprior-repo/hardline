@@ -1,6 +1,9 @@
+use std::{
+    fmt::{self, Display, Formatter},
+    path::{Path, PathBuf},
+};
+
 use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display, Formatter};
-use std::path::{Path, PathBuf};
 
 /// Value object representing an absolute path
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -128,8 +131,9 @@ impl AsRef<Path> for AbsolutePath {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::env;
+
+    use super::*;
 
     #[test]
     fn absolute_path_new_absolute_path_returns_instance() {

@@ -27,16 +27,19 @@ pub mod hooks;
 pub mod infrastructure;
 
 pub use application::{create_vcs_service, VcsService, VcsServiceImpl};
-pub use domain::entities::{Branch, Commit, Workspace};
-pub use domain::traits::VcsBackend;
-pub use domain::value_objects::{VcsStatus, VcsType};
+pub use domain::{
+    entities::{Branch, Commit, Workspace},
+    traits::VcsBackend,
+    value_objects::{VcsStatus, VcsType},
+};
 pub use error::{Result, VcsError};
 pub use infrastructure::{GitBackend, GitCliBackend};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::Path;
+
+    use super::*;
 
     #[test]
     fn test_vcs_type_detection_none() {

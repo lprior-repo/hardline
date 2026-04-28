@@ -353,10 +353,11 @@ pub async fn start_server(definition: TwinDefinition) -> Result<(), ServerError>
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use axum::body::Body;
     use http_body_util::BodyExt;
     use tower::ServiceExt;
+
+    use super::*;
 
     const TEST_YAML: &str = r"
 name: test-twin

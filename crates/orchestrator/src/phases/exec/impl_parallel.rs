@@ -4,13 +4,15 @@ use std::collections::HashSet;
 
 use tracing::debug;
 
-use crate::cleanup::PhaseType;
-use crate::parallel::ParallelError;
-use crate::parallel::{DependencyGraph, ParallelExecutor, PhaseGroup};
-use crate::state::{Pipeline, PipelineState, TransitionError};
-
-use super::executor::PipelineExecutor;
-use super::types::{PhaseError, PhaseResult};
+use super::{
+    executor::PipelineExecutor,
+    types::{PhaseError, PhaseResult},
+};
+use crate::{
+    cleanup::PhaseType,
+    parallel::{DependencyGraph, ParallelError, ParallelExecutor, PhaseGroup},
+    state::{Pipeline, PipelineState, TransitionError},
+};
 
 impl PipelineExecutor {
     pub fn execute_parallel_phases(
@@ -161,9 +163,10 @@ impl PipelineExecutor {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use super::*;
     use crate::state::{Pipeline, PipelineState};
-    use tempfile::TempDir;
 
     /// Helper: create an executor backed by a temp dir.
     fn setup_executor() -> (PipelineExecutor, TempDir) {
@@ -215,7 +218,8 @@ mod tests {
         // Pending -> resolve returns [SpecReview], so it should NOT be empty
         let result = executor.execute_parallel_phases(&mut pipeline);
         assert!(result.is_ok());
-        // It runs spec_review which transitions to UniverseSetup (linter returns 85 >= threshold 80)
+        // It runs spec_review which transitions to UniverseSetup (linter returns 85 >= threshold
+        // 80)
         assert!(!result.unwrap().is_empty());
     }
 
@@ -401,8 +405,7 @@ mod tests {
     fn dependency_graph_builds_for_multi_phase_group() {
         // Verify that build_dependency_graph works for a multi-phase set.
         // This exercises the graph path that execute_with_dependency_graph uses.
-        use crate::cleanup::PhaseType;
-        use crate::parallel::ParallelExecutor;
+        use crate::{cleanup::PhaseType, parallel::ParallelExecutor};
 
         let phases = vec![
             PhaseType::SpecReview,
@@ -421,8 +424,7 @@ mod tests {
 
     #[test]
     fn dependency_graph_cycle_detection() {
-        use crate::cleanup::PhaseType;
-        use crate::parallel::DependencyGraph;
+        use crate::{cleanup::PhaseType, parallel::DependencyGraph};
 
         // Create a graph with a self-loop
         let graph =
@@ -438,8 +440,7 @@ mod tests {
 
     #[test]
     fn dependency_graph_missing_dependency() {
-        use crate::cleanup::PhaseType;
-        use crate::parallel::DependencyGraph;
+        use crate::{cleanup::PhaseType, parallel::DependencyGraph};
 
         // UniverseSetup depends on SpecReview, but SpecReview is not in graph
         let graph =
@@ -450,8 +451,7 @@ mod tests {
 
     #[test]
     fn dependency_graph_respects_execution_order() {
-        use crate::cleanup::PhaseType;
-        use crate::parallel::ParallelExecutor;
+        use crate::{cleanup::PhaseType, parallel::ParallelExecutor};
 
         // Phases in correct order should validate
         let phases = vec![PhaseType::SpecReview, PhaseType::UniverseSetup];

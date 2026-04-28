@@ -175,7 +175,8 @@ mod tests {
 
     #[test]
     fn queue_status_all_transitions() {
-        // Happy path: Pending -> Claimed -> Rebasing -> Testing -> ReadyToMerge -> Merging -> Merged
+        // Happy path: Pending -> Claimed -> Rebasing -> Testing -> ReadyToMerge -> Merging ->
+        // Merged
         let chain = [
             (QueueStatus::Pending, QueueStatus::Claimed),
             (QueueStatus::Claimed, QueueStatus::Rebasing),

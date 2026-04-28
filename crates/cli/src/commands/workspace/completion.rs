@@ -1,8 +1,6 @@
 //! Workspace completion commands
 
-use scp_core::output::Output;
-use scp_core::vcs;
-use scp_core::Error;
+use scp_core::{output::Output, vcs, Error};
 
 use super::operations::*;
 

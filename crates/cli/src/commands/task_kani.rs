@@ -10,12 +10,16 @@
 
 #[cfg(kani)]
 mod proofs {
-    use crate::commands::handlers::task::{
-        filter_tasks_by_status, status_display_icon, task_state_to_output, truncate_description,
-        validate_task_command, TaskCommand, TaskInfoOutput, TaskStatusOutput,
-    };
-    use crate::commands::task_types::TaskState;
     use chrono::Utc;
+
+    use crate::commands::{
+        handlers::task::{
+            filter_tasks_by_status, status_display_icon, task_state_to_output,
+            truncate_description, validate_task_command, TaskCommand, TaskInfoOutput,
+            TaskStatusOutput,
+        },
+        task_types::TaskState,
+    };
 
     // =========================================================================
     // hl-d3r: validate_task_command correctly rejects invalid inputs

@@ -35,8 +35,9 @@ pub fn validate_workspace_name(name: &str) -> Option<Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use proptest::prelude::*;
+
+    use super::*;
 
     // ---- Valid names ----
 

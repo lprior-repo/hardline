@@ -27,10 +27,8 @@ pub mod bead_updates;
 pub mod bead_validation;
 
 // Re-export types for convenience
-pub use bead_error::BeadError;
-pub use bead_error::BeadState;
+pub use bead_error::{BeadError, BeadState};
 pub use bead_timestamps::BeadTimestamps;
-
 use chrono::{DateTime, Utc};
 
 use crate::{

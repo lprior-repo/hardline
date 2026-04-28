@@ -19,17 +19,17 @@
 #![forbid(unsafe_code)]
 
 // Re-export data types
-pub use crate::session_sync_data::{
-    PreconditionCheck, SessionSyncInput, SessionSyncResult, WorkspaceCleanStatus,
-};
-
-// Re-export error types
-pub use crate::session_sync_errors::SyncError;
-
 // Re-export calculation functions
-pub use crate::session_sync_calculations::{
-    create_sync_result, determine_workspace_status, has_conflicts_in_output, parse_rebase_output,
-    validate_sync_preconditions,
+// Re-export error types
+pub use crate::{
+    session_sync_calculations::{
+        create_sync_result, determine_workspace_status, has_conflicts_in_output,
+        parse_rebase_output, validate_sync_preconditions,
+    },
+    session_sync_data::{
+        PreconditionCheck, SessionSyncInput, SessionSyncResult, WorkspaceCleanStatus,
+    },
+    session_sync_errors::SyncError,
 };
 
 // Tests

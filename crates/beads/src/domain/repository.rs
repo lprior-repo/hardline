@@ -3,9 +3,13 @@
 //! This trait defines the contract for bead persistence operations.
 //! Implementations live in the infrastructure layer.
 
-use crate::domain::entities::bead::Bead;
-use crate::domain::value_objects::{BeadId, BeadState};
-use crate::error::Result;
+use crate::{
+    domain::{
+        entities::bead::Bead,
+        value_objects::{BeadId, BeadState},
+    },
+    error::Result,
+};
 
 /// Repository trait for Bead aggregate persistence.
 ///

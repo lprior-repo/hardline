@@ -7,8 +7,7 @@
 #![cfg_attr(not(test), deny(clippy::expect_used))]
 #![cfg_attr(not(test), deny(clippy::panic))]
 
-use std::collections::HashSet;
-use std::process::Command;
+use std::{collections::HashSet, process::Command};
 
 use scp_core::Error;
 

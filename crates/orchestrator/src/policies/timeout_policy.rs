@@ -301,8 +301,7 @@ mod tests {
 
     // ── Proptests ─────────────────────────────────────────────────────
 
-    use proptest::prelude::*;
-    use proptest::prop_assert;
+    use proptest::{prelude::*, prop_assert};
 
     proptest! {
         #[test]

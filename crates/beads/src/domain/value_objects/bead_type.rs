@@ -67,7 +67,13 @@ mod tests {
 
     #[test]
     fn serde_roundtrip() {
-        for bt in [BeadType::Bug, BeadType::Feature, BeadType::Task, BeadType::Epic, BeadType::Chore] {
+        for bt in [
+            BeadType::Bug,
+            BeadType::Feature,
+            BeadType::Task,
+            BeadType::Epic,
+            BeadType::Chore,
+        ] {
             let json = serde_json::to_string(&bt).unwrap();
             let parsed: BeadType = serde_json::from_str(&json).unwrap();
             assert_eq!(bt, parsed);
@@ -118,8 +124,9 @@ mod tests {
     }
 
     mod proptest_bead_type {
-        use super::*;
         use proptest::proptest;
+
+        use super::*;
 
         proptest! {
             #[test]

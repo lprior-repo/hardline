@@ -6,13 +6,13 @@
 //! 3. State machine transition tests
 //! 4. Edge case path handling tests
 
+use proptest::{prelude::*, prop_assert};
+use serial_test::serial;
+use tempfile::{NamedTempFile, TempDir};
+
 use crate::commands::lock::{
     acquire_with_path, heartbeat_with_path, list_with_path, release_with_path, status_with_path,
 };
-use proptest::prelude::*;
-use proptest::prop_assert;
-use serial_test::serial;
-use tempfile::{NamedTempFile, TempDir};
 
 fn get_temp_db() -> NamedTempFile {
     NamedTempFile::new().expect("Failed to create temp db")

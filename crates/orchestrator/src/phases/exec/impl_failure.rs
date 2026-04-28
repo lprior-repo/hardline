@@ -2,11 +2,14 @@
 
 use tracing::error;
 
-use crate::cleanup::PhaseType;
-use crate::state::{PipelineId, PipelineState, TransitionError};
-
-use super::executor::PipelineExecutor;
-use super::types::{PhaseError, PhaseResult};
+use super::{
+    executor::PipelineExecutor,
+    types::{PhaseError, PhaseResult},
+};
+use crate::{
+    cleanup::PhaseType,
+    state::{PipelineId, PipelineState, TransitionError},
+};
 
 impl PipelineExecutor {
     pub(crate) fn handle_spec_failure(
@@ -104,10 +107,11 @@ impl PipelineExecutor {
 mod tests {
     use tempfile::TempDir;
 
+    use super::super::{
+        executor::PipelineExecutor,
+        types::{Decision, PhaseError},
+    };
     use crate::state::{Pipeline, PipelineState};
-
-    use super::super::executor::PipelineExecutor;
-    use super::super::types::{Decision, PhaseError};
 
     /// Helper: create an executor backed by a temp dir
     fn create_executor() -> (PipelineExecutor, TempDir) {

@@ -1,12 +1,13 @@
-use crate::application::repositories::WorktreeRepository;
-use crate::domain::{
-    AbsolutePath, BranchName, Worktree, WorktreeDomainError, WorktreeId, WorktreeName,
-    WorktreeState, WorktreeTypeEnum,
-};
 use serde::Deserialize;
-use sqlx::postgres::PgPoolOptions;
-use sqlx::FromRow;
-use sqlx::PgPool;
+use sqlx::{postgres::PgPoolOptions, FromRow, PgPool};
+
+use crate::{
+    application::repositories::WorktreeRepository,
+    domain::{
+        AbsolutePath, BranchName, Worktree, WorktreeDomainError, WorktreeId, WorktreeName,
+        WorktreeState, WorktreeTypeEnum,
+    },
+};
 
 #[derive(Deserialize, FromRow)]
 struct PostgresWorktreeRow {
@@ -211,8 +212,8 @@ impl PostgresWorktreeRepository {
                 WorktreeDomainError::InvalidPath(format!("Failed to connect to database: {}", e))
             })?;
 
-        // Initialize schema - execute each statement separately since SQLx doesn't support multiple statements
-        // Create table
+        // Initialize schema - execute each statement separately since SQLx doesn't support multiple
+        // statements Create table
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS worktrees (
@@ -255,8 +256,8 @@ impl PostgresWorktreeRepository {
 
     /// Create a repository from an existing pool (for testing)
     pub async fn from_pool(pool: PgPool) -> Result<Self, WorktreeDomainError> {
-        // Initialize schema - execute each statement separately since SQLx doesn't support multiple statements
-        // Create table
+        // Initialize schema - execute each statement separately since SQLx doesn't support multiple
+        // statements Create table
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS worktrees (

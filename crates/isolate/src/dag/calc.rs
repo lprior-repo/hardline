@@ -11,8 +11,10 @@ use petgraph::{
     visit::{Bfs, Reversed},
 };
 
-use super::data::BranchDag;
-use super::types::{BranchId, DagError};
+use super::{
+    data::BranchDag,
+    types::{BranchId, DagError},
+};
 
 impl BranchDag {
     /// Build the internal petgraph representation.

@@ -2,9 +2,11 @@
 
 use chrono::{DateTime, Duration, Utc};
 
-use super::helpers::is_constraint_conflict_error;
-use super::manager::LockManager;
-use super::types::{LockOperation, LockResponse};
+use super::{
+    helpers::is_constraint_conflict_error,
+    manager::LockManager,
+    types::{LockOperation, LockResponse},
+};
 use crate::Result;
 
 impl LockManager {

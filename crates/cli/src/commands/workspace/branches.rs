@@ -12,8 +12,7 @@
 //! scp workspace branch-rename <old> <new> [--dry-run]  # Rename branch
 //! ```
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
 use crate::commands::handlers::branch;
 

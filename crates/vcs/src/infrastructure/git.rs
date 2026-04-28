@@ -1,11 +1,16 @@
 //! Git VCS Backend Implementation
 
-use crate::domain::entities::{Branch, Commit, Workspace};
-use crate::domain::traits::VcsBackend;
-use crate::domain::value_objects::VcsStatus;
-use crate::error::{Result, VcsError};
-use crate::gix;
 use std::path::PathBuf;
+
+use crate::{
+    domain::{
+        entities::{Branch, Commit, Workspace},
+        traits::VcsBackend,
+        value_objects::VcsStatus,
+    },
+    error::{Result, VcsError},
+    gix,
+};
 
 pub struct GitBackend {
     repo_path: PathBuf,

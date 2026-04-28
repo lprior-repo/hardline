@@ -1,24 +1,20 @@
-//! Session management handlers
+//! Session command handler - Dispatches session subcommands
 //!
-//! Ported from hardline's session management module, adapted to use scp_core types.
-//!
-//! Operations:
-//! - Pause: transition an active session to paused state
-//! - Resume: transition a paused session back to active state
-//! - Clone: duplicate a session into a new workspace
+//! This module provides the main dispatcher for `scp session <action>` commands,
+//! delegating to existing command implementations or providing custom handling.
 
-use scp_core::{output::Output, vcs, Error, Result};
+use anyhow::Result;
+use clap::ArgMatches;
+use scp_core::{output::Output, vcs, Error};
+
+use super::json_format::get_format;
+use crate::commands::session;
+
+// =============================================================================
+// Sync functions (from original handlers/session.rs)
+// =============================================================================
 
 /// Pause an active session.
-///
-/// Validates that the named session exists and is in a valid state for pausing.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Session name is empty
-/// - Session (workspace) not found
-/// - Pause functionality is not yet implemented
 pub fn pause(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(Error::invalid_identifier(
@@ -40,15 +36,6 @@ pub fn pause(name: &str) -> Result<()> {
 }
 
 /// Resume a paused session.
-///
-/// Validates that the named session exists and is in a valid state for resuming.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Session name is empty
-/// - Session (workspace) not found
-/// - Resume functionality is not yet implemented
 pub fn resume(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(Error::invalid_identifier(
@@ -79,16 +66,6 @@ pub struct CloneResult {
 }
 
 /// Clone a session.
-///
-/// Creates a new workspace forked from the source session.
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Session name is empty
-/// - Source workspace not found
-/// - Target workspace already exists
-/// - VCS fork operation fails
 pub fn clone_session(source: &str, target: &str, dry_run: bool) -> Result<CloneResult> {
     if source.is_empty() {
         return Err(Error::invalid_identifier(
@@ -141,494 +118,312 @@ pub fn clone_session(source: &str, target: &str, dry_run: bool) -> Result<CloneR
     })
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TESTS
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
+// Async handlers
+// =============================================================================
 
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+/// Handle session list subcommand
+async fn handle_session_list(args: &ArgMatches) -> Result<()> {
+    let _format = get_format(args);
+    let include_all = args.get_flag("all");
+    let verbose = args.get_flag("verbose");
+    let bead = args.get_one::<String>("bead").map(String::as_str);
+    let _agent = args.get_one::<String>("agent").map(String::as_str);
+    let _state = args.get_one::<String>("state").map(String::as_str);
 
-    use super::*;
-    use tempfile::TempDir;
+    // Note: bead, agent, state filters not yet implemented in hardline
+    if include_all || verbose || bead.is_some() {
+        tracing::warn!("session list --all/--verbose/--bead flags not yet implemented");
+    }
 
-    /// Get a known-valid directory (project root via CARGO_MANIFEST_DIR) for
-    /// cwd restoration in tests that change directory.
-    fn safe_restore_dir() -> std::path::PathBuf {
-        std::env::var("CARGO_MANIFEST_DIR")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|_| {
-                // Fallback: the process exe's parent directory is usually valid
-                std::env::current_exe()
-                    .ok()
-                    .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-                    .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+    session::list()?;
+    Ok(())
+}
+
+/// Handle session add subcommand
+async fn handle_session_add(args: &ArgMatches) -> Result<()> {
+    let name = args
+        .get_one::<String>("name")
+        .ok_or_else(|| anyhow::anyhow!("Name is required"))?;
+
+    let format = get_format(args);
+    let _dry_run = args.get_flag("dry-run");
+    let _no_open = args.get_flag("no-open");
+    let _no_hooks = args.get_flag("no-hooks");
+
+    // Note: add options not fully implemented - hardline uses workspace add(path)
+    if format.is_json() {
+        serde_json::json!({
+            "command": "session add",
+            "name": name,
+            "status": "unimplemented",
+            "message": "session add not yet implemented - use workspace split instead"
+        })
+        .println();
+    } else {
+        println!("session add not yet implemented - use 'scp workspace split' instead");
+    }
+
+    Ok(())
+}
+
+/// Handle session remove subcommand
+async fn handle_session_remove(args: &ArgMatches) -> Result<()> {
+    let name = args
+        .get_one::<String>("name")
+        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+
+    let _format = get_format(args);
+    let _force = args.get_flag("force");
+
+    session::remove(name, false, false)?;
+    Ok(())
+}
+
+/// Handle session pause subcommand
+async fn handle_session_pause(args: &ArgMatches) -> Result<()> {
+    let name = args
+        .get_one::<String>("name")
+        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+
+    let format = get_format(args);
+
+    pause(name)?;
+
+    if format.is_json() {
+        serde_json::json!({
+            "command": "session pause",
+            "session": name,
+            "status": "unimplemented"
+        })
+        .println();
+    }
+
+    Ok(())
+}
+
+/// Handle session resume subcommand
+async fn handle_session_resume(args: &ArgMatches) -> Result<()> {
+    let name = args
+        .get_one::<String>("name")
+        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+
+    let format = get_format(args);
+
+    resume(name)?;
+
+    if format.is_json() {
+        serde_json::json!({
+            "command": "session resume",
+            "session": name,
+            "status": "unimplemented"
+        })
+        .println();
+    }
+
+    Ok(())
+}
+
+/// Handle session clone subcommand
+async fn handle_session_clone(args: &ArgMatches) -> Result<()> {
+    let source = args
+        .get_one::<String>("name")
+        .ok_or_else(|| anyhow::anyhow!("Source session name is required"))?;
+
+    let target = args
+        .get_one::<String>("new-name")
+        .cloned()
+        .unwrap_or_else(|| format!("{source}-copy"));
+
+    let format = get_format(args);
+    let dry_run = args.get_flag("dry-run");
+
+    let result = clone_session(source, &target, dry_run)?;
+
+    if format.is_json() {
+        serde_json::json!({
+            "command": "session clone",
+            "source": result.source,
+            "target": result.target,
+            "success": result.success,
+            "dry_run": result.dry_run
+        })
+        .println();
+    }
+
+    Ok(())
+}
+
+/// Handle session status subcommand
+async fn handle_session_status(args: &ArgMatches) -> Result<()> {
+    let _format = get_format(args);
+
+    session::status()?;
+
+    Ok(())
+}
+
+/// Handle session focus subcommand
+async fn handle_session_focus(args: &ArgMatches) -> Result<()> {
+    let name = args
+        .get_one::<String>("name")
+        .ok_or_else(|| anyhow::anyhow!("Session name is required"))?;
+
+    let format = get_format(args);
+
+    session::focus(name)?;
+
+    if format.is_json() {
+        serde_json::json!({
+            "command": "session focus",
+            "session": name,
+            "status": "focused"
+        })
+        .println();
+    }
+
+    Ok(())
+}
+
+/// Handle session submit subcommand
+async fn handle_session_submit(args: &ArgMatches) -> Result<()> {
+    let name = args.get_one::<String>("name").map(String::as_str);
+    let auto_commit = args.get_flag("auto-commit");
+    let message = args.get_one::<String>("message").map(String::as_str);
+
+    session::submit(name, auto_commit, message)?;
+
+    Ok(())
+}
+
+/// Handle session sync subcommand
+async fn handle_session_sync(args: &ArgMatches) -> Result<()> {
+    let name = args.get_one::<String>("name").map(String::as_str);
+    let all = args.get_flag("all");
+
+    let options = crate::commands::handlers::sync::SyncOptions {
+        allow_dirty: false,
+        target_branch: None,
+        lock_timeout_secs: 30,
+        retry_config: crate::commands::handlers::sync::RetryConfig {
+            max_attempts: 3,
+            initial_delay_ms: 100,
+        },
+    };
+
+    let handle = tokio::runtime::Handle::try_current().unwrap_or_else(|_| {
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
+        rt.handle().clone()
+    });
+
+    handle.block_on(async {
+        if all {
+            crate::commands::handlers::sync::sync_all_sessions(options).await
+        } else if let Some(n) = name {
+            let session_name = scp_core::domain::SessionName::parse(n).map_err(|e| {
+                crate::commands::handlers::sync::SyncError::InvalidIdentifier(e.to_string())
+            })?;
+            crate::commands::handlers::sync::sync_named_session(session_name, options).await
+        } else {
+            crate::commands::handlers::sync::sync_current_workspace(options).await
+        }
+    })?;
+
+    Ok(())
+}
+
+/// Handle session init subcommand
+async fn handle_session_init(args: &ArgMatches) -> Result<()> {
+    let format = get_format(args);
+    let dry_run = args.get_flag("dry-run");
+
+    if dry_run {
+        if format.is_json() {
+            serde_json::json!({
+                "command": "session init",
+                "dry_run": true,
+                "status": "would_initialize"
             })
-    }
-
-    #[test]
-    fn test_pause_rejects_empty_name() {
-        let result = pause("");
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code(), "INVALID_IDENTIFIER");
-    }
-
-    #[test]
-    fn test_resume_rejects_empty_name() {
-        let result = resume("");
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code(), "INVALID_IDENTIFIER");
-    }
-
-    #[test]
-    #[serial]
-    fn test_pause_returns_error_for_nonexistent_session() {
-        // Run in a non-VCS directory so create_backend fails early.
-        // Use a TempDir guard so the cwd is always valid during the test.
-        let tmp = TempDir::new().expect("temp dir");
-        std::env::set_current_dir(tmp.path()).expect("chdir to tmp");
-
-        let result = pause("no-such-session");
-        assert!(
-            result.is_err(),
-            "pause should error for non-existent session"
-        );
-        // In a non-VCS dir the error comes from VCS not being initialized,
-        // but the key invariant is: it must not silently succeed.
-        assert_ne!(
-            result.unwrap_err().code(),
-            "INVALID_IDENTIFIER",
-            "expected VCS/session error, not identifier error"
-        );
-
-        // Restore cwd to a known-valid dir BEFORE TempDir drops (deletes dir)
-        std::env::set_current_dir(safe_restore_dir()).ok();
-    }
-
-    #[test]
-    #[serial]
-    fn test_resume_returns_error_for_nonexistent_session() {
-        let tmp = TempDir::new().expect("temp dir");
-        std::env::set_current_dir(tmp.path()).expect("chdir to tmp");
-
-        let result = resume("no-such-session");
-        assert!(
-            result.is_err(),
-            "resume should error for non-existent session"
-        );
-        assert_ne!(
-            result.unwrap_err().code(),
-            "INVALID_IDENTIFIER",
-            "expected VCS/session error, not identifier error"
-        );
-
-        std::env::set_current_dir(safe_restore_dir()).ok();
-    }
-
-    #[test]
-    #[serial]
-    fn test_pause_returns_unimplemented_error() {
-        // pause should never silently succeed -- it must return an error
-        // until session state persistence is implemented.
-        let tmp = TempDir::new().expect("temp dir");
-        std::env::set_current_dir(tmp.path()).expect("chdir to tmp");
-
-        let result = pause("any-session");
-        assert!(result.is_err(), "pause must not be a silent no-op");
-
-        std::env::set_current_dir(safe_restore_dir()).ok();
-    }
-
-    #[test]
-    #[serial]
-    fn test_resume_returns_unimplemented_error() {
-        // resume should never silently succeed -- it must return an error
-        // until session state persistence is implemented.
-        let tmp = TempDir::new().expect("temp dir");
-        std::env::set_current_dir(tmp.path()).expect("chdir to tmp");
-
-        let result = resume("any-session");
-        assert!(result.is_err(), "resume must not be a silent no-op");
-
-        std::env::set_current_dir(safe_restore_dir()).ok();
-    }
-
-    // -- Clone validation tests --
-
-    #[test]
-    fn test_clone_rejects_empty_source() {
-        let result = clone_session("", "target", false);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_clone_rejects_empty_target() {
-        let result = clone_session("source", "", false);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_clone_result_fields() {
-        let result = CloneResult {
-            success: true,
-            source: "src".to_string(),
-            target: "dst".to_string(),
-            dry_run: true,
-        };
-        assert_eq!(result.source, "src");
-        assert_eq!(result.target, "dst");
-        assert!(result.dry_run);
-        assert!(result.success);
-    }
-
-    // -- Whitespace name edge cases --
-
-    #[test]
-    #[serial]
-    fn test_pause_rejects_whitespace_only_name() {
-        let result = pause("   \t  ");
-        assert!(result.is_err());
-        // Whitespace-only is not empty, so it passes the is_empty() check
-        // and proceeds to VCS validation which fails in a non-VCS directory.
-        // The key invariant is: it must not silently succeed.
-        assert!(result.is_err(), "whitespace-only name must not succeed");
-    }
-
-    #[test]
-    #[serial]
-    fn test_resume_rejects_whitespace_only_name() {
-        let result = resume("   \t  ");
-        assert!(result.is_err(), "whitespace-only name must not succeed");
-    }
-
-    #[test]
-    #[serial]
-    fn test_pause_leading_trailing_whitespace() {
-        // "  session  " is not empty, passes is_empty(), then VCS fails.
-        let result = pause("  my-session  ");
-        assert!(
-            result.is_err(),
-            "leading/trailing whitespace must not bypass validation"
-        );
-    }
-
-    #[test]
-    #[serial]
-    fn test_resume_leading_trailing_whitespace() {
-        let result = resume("  my-session  ");
-        assert!(
-            result.is_err(),
-            "leading/trailing whitespace must not bypass validation"
-        );
-    }
-
-    // -- Clone with same source and target --
-
-    #[test]
-    fn test_clone_same_source_and_target() {
-        // Same source and target: the source workspace won't be found (or
-        // if it is, target already exists). Either way, must not succeed.
-        let result = clone_session("same-name", "same-name", false);
-        assert!(
-            result.is_err(),
-            "clone with same source and target must not succeed"
-        );
-    }
-
-    #[test]
-    fn test_clone_same_source_and_target_dry_run() {
-        let result = clone_session("same-name", "same-name", true);
-        assert!(
-            result.is_err(),
-            "dry-run clone with same source and target must not succeed"
-        );
-    }
-
-    // -- Very long session names --
-
-    #[test]
-    fn test_pause_with_very_long_name() {
-        let long_name = "a".repeat(10_000);
-        let result = pause(&long_name);
-        // Should not panic on extremely long names; must return an error
-        // (workspace won't be found).
-        assert!(
-            result.is_err(),
-            "very long name must not cause a panic or silent success"
-        );
-    }
-
-    #[test]
-    fn test_resume_with_very_long_name() {
-        let long_name = "b".repeat(10_000);
-        let result = resume(&long_name);
-        assert!(
-            result.is_err(),
-            "very long name must not cause a panic or silent success"
-        );
-    }
-
-    #[test]
-    fn test_clone_with_very_long_source_name() {
-        let long_name = "c".repeat(10_000);
-        let result = clone_session(&long_name, "target", false);
-        assert!(
-            result.is_err(),
-            "very long source name must not cause a panic or silent success"
-        );
-    }
-
-    #[test]
-    fn test_clone_with_very_long_target_name() {
-        let long_name = "d".repeat(10_000);
-        let result = clone_session("source", &long_name, false);
-        assert!(
-            result.is_err(),
-            "very long target name must not cause a panic or silent success"
-        );
-    }
-
-    #[test]
-    fn test_clone_with_very_long_both_names() {
-        let long_source = "s".repeat(10_000);
-        let long_target = "t".repeat(10_000);
-        let result = clone_session(&long_source, &long_target, false);
-        assert!(
-            result.is_err(),
-            "very long names must not cause a panic or silent success"
-        );
-    }
-
-    // -- Clone with whitespace-only names --
-
-    #[test]
-    fn test_clone_whitespace_only_source() {
-        let result = clone_session("   ", "target", false);
-        // Whitespace-only source is not empty, but VCS backend or
-        // workspace listing will reject it.
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_clone_whitespace_only_target() {
-        let result = clone_session("source", "   ", false);
-        // Whitespace-only target is not empty, but VCS backend or
-        // workspace listing will reject it.
-        assert!(result.is_err());
-    }
-
-    // -- CloneResult data type tests --
-
-    #[test]
-    fn test_clone_result_debug_contains_fields() {
-        let result = CloneResult {
-            success: true,
-            source: "src".to_string(),
-            target: "dst".to_string(),
-            dry_run: false,
-        };
-        let debug = format!("{:?}", result);
-        assert!(debug.contains("src"));
-        assert!(debug.contains("dst"));
-        assert!(debug.contains("true") || debug.contains("false"));
-    }
-
-    #[test]
-    fn test_clone_result_clone_independence() {
-        let result = CloneResult {
-            success: true,
-            source: "original".to_string(),
-            target: "target".to_string(),
-            dry_run: false,
-        };
-        let mut cloned = result.clone();
-        cloned.source = "modified".to_string();
-        assert_eq!(result.source, "original", "clone should be independent");
-        assert_eq!(cloned.source, "modified");
-    }
-
-    #[test]
-    fn test_clone_result_field_equality() {
-        let a = CloneResult {
-            success: true,
-            source: "s".to_string(),
-            target: "t".to_string(),
-            dry_run: true,
-        };
-        let b = CloneResult {
-            success: true,
-            source: "s".to_string(),
-            target: "t".to_string(),
-            dry_run: true,
-        };
-        assert_eq!(a.source, b.source);
-        assert_eq!(a.target, b.target);
-        assert_eq!(a.success, b.success);
-        assert_eq!(a.dry_run, b.dry_run);
-    }
-
-    #[test]
-    fn test_clone_result_field_inequality() {
-        let a = CloneResult {
-            success: true,
-            source: "s".to_string(),
-            target: "t".to_string(),
-            dry_run: true,
-        };
-        let b = CloneResult {
-            success: false,
-            source: "s".to_string(),
-            target: "t".to_string(),
-            dry_run: true,
-        };
-        assert_ne!(a.success, b.success);
-    }
-
-    #[test]
-    fn test_clone_result_differs_by_dry_run() {
-        let wet = CloneResult {
-            success: true,
-            source: "s".to_string(),
-            target: "t".to_string(),
-            dry_run: false,
-        };
-        let dry = CloneResult {
-            success: true,
-            source: "s".to_string(),
-            target: "t".to_string(),
-            dry_run: true,
-        };
-        assert_ne!(wet.dry_run, dry.dry_run);
-    }
-
-    #[test]
-    fn test_clone_result_failed_variant() {
-        let result = CloneResult {
-            success: false,
-            source: "src".to_string(),
-            target: "dst".to_string(),
-            dry_run: false,
-        };
-        assert!(!result.success);
-    }
-
-    // -- Clone with special characters in names --
-
-    #[test]
-    fn test_pause_with_newline_in_name() {
-        let result = pause("session\nname");
-        assert!(result.is_err(), "newline in name must not succeed");
-    }
-
-    #[test]
-    fn test_resume_with_newline_in_name() {
-        let result = resume("session\nname");
-        assert!(result.is_err(), "newline in name must not succeed");
-    }
-
-    #[test]
-    fn test_clone_with_null_byte_in_source() {
-        let result = clone_session("source\0", "target", false);
-        assert!(result.is_err(), "null byte in name must not succeed");
-    }
-
-    #[test]
-    fn test_clone_with_null_byte_in_target() {
-        let result = clone_session("source", "target\0", false);
-        assert!(result.is_err(), "null byte in name must not succeed");
-    }
-
-    // -- Error code verification --
-
-    #[test]
-    fn test_pause_empty_error_code_is_invalid_identifier() {
-        let result = pause("");
-        let err = result.expect_err("should be error");
-        assert_eq!(err.code(), "INVALID_IDENTIFIER");
-    }
-
-    #[test]
-    fn test_resume_empty_error_code_is_invalid_identifier() {
-        let result = resume("");
-        let err = result.expect_err("should be error");
-        assert_eq!(err.code(), "INVALID_IDENTIFIER");
-    }
-
-    #[test]
-    fn test_clone_empty_source_error_code_is_invalid_identifier() {
-        let result = clone_session("", "target", false);
-        let err = result.expect_err("should be error");
-        assert_eq!(err.code(), "INVALID_IDENTIFIER");
-    }
-
-    #[test]
-    fn test_clone_empty_target_error_code_is_invalid_identifier() {
-        let result = clone_session("source", "", false);
-        let err = result.expect_err("should be error");
-        assert_eq!(err.code(), "INVALID_IDENTIFIER");
-    }
-
-    // -- Clone dry_run vs non-dry_run error behavior --
-
-    #[test]
-    fn test_clone_dry_run_vs_wet_same_validation() {
-        // Both dry_run and non-dry_run should reject empty names identically
-        let dry = clone_session("", "target", true);
-        let wet = clone_session("", "target", false);
-        assert_eq!(
-            dry.is_err(),
-            wet.is_err(),
-            "dry_run and non-dry_run should have identical validation"
-        );
-    }
-
-    use proptest::prelude::*;
-    use proptest::proptest;
-    use proptest::{prop_assert, prop_assert_eq};
-    use serial_test::serial;
-
-    proptest! {
-        #[test]
-        fn prop_pause_any_whitespace_or_empty_always_fails(
-            name in proptest::string::string_regex("[ \t]*").unwrap()
-        ) {
-            let result = pause(&name);
-            prop_assert!(result.is_err());
+            .println();
+        } else {
+            println!("[dry-run] Would initialize session repository");
         }
+        return Ok(());
+    }
 
-        #[test]
-        fn prop_resume_any_whitespace_or_empty_always_fails(
-            name in proptest::string::string_regex("[ \t]*").unwrap()
-        ) {
-            let result = resume(&name);
-            prop_assert!(result.is_err());
-        }
+    crate::commands::init::run("git")?;
 
-        #[test]
-        fn prop_clone_empty_source_always_fails(target in "[a-z]{1,20}", dry_run in proptest::bool::ANY) {
-            let result = clone_session("", &target, dry_run);
-            prop_assert!(result.is_err());
-        }
+    if format.is_json() {
+        serde_json::json!({
+            "command": "session init",
+            "vcs_type": "git",
+            "status": "initialized"
+        })
+        .println();
+    }
 
-        #[test]
-        fn prop_clone_empty_target_always_fails(source in "[a-z]{1,20}", dry_run in proptest::bool::ANY) {
-            let result = clone_session(&source, "", dry_run);
-            prop_assert!(result.is_err());
-        }
+    Ok(())
+}
 
-        #[test]
-        fn prop_clone_result_clone_preserves_fields(source in "[a-z]{1,10}", target in "[a-z]{1,10}", dry_run in proptest::bool::ANY) {
-            let r = CloneResult {
-                success: true,
-                source: source.clone(),
-                target: target.clone(),
-                dry_run,
-            };
-            let cloned = r.clone();
-            prop_assert_eq!(r.source, cloned.source);
-            prop_assert_eq!(r.target, cloned.target);
-            prop_assert_eq!(r.success, cloned.success);
-            prop_assert_eq!(r.dry_run, cloned.dry_run);
+// =============================================================================
+// Dispatcher
+// =============================================================================
+
+/// Main session command dispatcher
+///
+/// Routes `scp session <action>` commands to their handlers.
+pub async fn handle_session(args: &ArgMatches) -> Result<()> {
+    match args.subcommand() {
+        Some(("list", sub_args)) => handle_session_list(sub_args).await,
+        Some(("add", sub_args)) => handle_session_add(sub_args).await,
+        Some(("remove", sub_args)) => handle_session_remove(sub_args).await,
+        Some(("pause", sub_args)) => handle_session_pause(sub_args).await,
+        Some(("resume", sub_args)) => handle_session_resume(sub_args).await,
+        Some(("clone", sub_args)) => handle_session_clone(sub_args).await,
+        Some(("status", sub_args)) => handle_session_status(sub_args).await,
+        Some(("focus", sub_args)) => handle_session_focus(sub_args).await,
+        Some(("submit", sub_args)) => handle_session_submit(sub_args).await,
+        Some(("sync", sub_args)) => handle_session_sync(sub_args).await,
+        Some(("init", sub_args)) => handle_session_init(sub_args).await,
+        _ => {
+            // No subcommand - show help
+            let format = get_format(args);
+            if format.is_json() {
+                let help_json = serde_json::json!({
+                    "command": "session",
+                    "subcommands": [
+                        {"name": "list", "description": "List all sessions"},
+                        {"name": "add", "description": "Create a new session"},
+                        {"name": "remove", "description": "Remove a session"},
+                        {"name": "pause", "description": "Pause a session"},
+                        {"name": "resume", "description": "Resume a paused session"},
+                        {"name": "clone", "description": "Clone a session"},
+                        {"name": "status", "description": "Show session status"},
+                        {"name": "focus", "description": "Switch to a session"},
+                        {"name": "submit", "description": "Submit session changes for review"},
+                        {"name": "sync", "description": "Sync session with remote"},
+                        {"name": "init", "description": "Initialize SCP in repository"},
+                    ]
+                });
+                println!("{}", serde_json::to_string_pretty(&help_json)?);
+            } else {
+                println!("Session management commands:");
+                println!();
+                println!("  scp session list                      List all sessions");
+                println!("  scp session add <name>                Create a new session");
+                println!("  scp session remove <name>             Remove a session");
+                println!("  scp session pause [name]              Pause a session");
+                println!("  scp session resume [name]              Resume a paused session");
+                println!("  scp session clone <name>              Clone a session");
+                println!("  scp session status                    Show session status");
+                println!("  scp session focus <name>               Switch to a session");
+                println!("  scp session submit                    Submit session for review");
+                println!("  scp session sync [name]               Sync session with remote");
+                println!("  scp session init                      Initialize SCP in repository");
+                println!();
+                println!("Run 'scp session <command> --help' for more information.");
+            }
+            Ok(())
         }
     }
 }

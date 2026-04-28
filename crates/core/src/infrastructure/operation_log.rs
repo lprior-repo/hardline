@@ -17,12 +17,14 @@
 #![forbid(unsafe_code)]
 
 // Re-export types from sibling modules
-pub use crate::infrastructure::operation_log_repository::{
-    get_stream_version, insert_operation_log, query_all_operations, query_stream_events,
-};
-pub use crate::infrastructure::operation_log_schema::ensure_operation_log_schema;
-pub use crate::infrastructure::operation_log_types::{
-    parse_datetime, parse_operation_log_row, OperationLogEntry, OperationLogError,
+pub use crate::infrastructure::{
+    operation_log_repository::{
+        get_stream_version, insert_operation_log, query_all_operations, query_stream_events,
+    },
+    operation_log_schema::ensure_operation_log_schema,
+    operation_log_types::{
+        parse_datetime, parse_operation_log_row, OperationLogEntry, OperationLogError,
+    },
 };
 
 #[cfg(test)]
@@ -30,11 +32,13 @@ mod tests {
     use sqlx::SqlitePool;
     use tempfile::TempDir;
 
-    use crate::infrastructure::operation_log_repository::{
-        get_stream_version, insert_operation_log, query_all_operations, query_stream_events,
+    use crate::infrastructure::{
+        operation_log_repository::{
+            get_stream_version, insert_operation_log, query_all_operations, query_stream_events,
+        },
+        operation_log_schema::ensure_operation_log_schema,
+        operation_log_types::OperationLogEntry,
     };
-    use crate::infrastructure::operation_log_schema::ensure_operation_log_schema;
-    use crate::infrastructure::operation_log_types::OperationLogEntry;
 
     async fn create_test_pool() -> (SqlitePool, TempDir) {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");

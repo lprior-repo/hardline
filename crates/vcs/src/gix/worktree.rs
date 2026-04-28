@@ -1,7 +1,8 @@
 //! Gitoxide Worktree Operations
 
-use crate::error::{GitError, GitResult};
 use std::path::PathBuf;
+
+use crate::error::{GitError, GitResult};
 
 /// Add worktree
 pub fn add(_repo: &gix::Repository, path: &PathBuf, _branch: Option<&str>) -> GitResult<()> {

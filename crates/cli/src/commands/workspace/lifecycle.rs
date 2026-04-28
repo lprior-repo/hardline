@@ -1,11 +1,8 @@
 //! Workspace lifecycle commands
 
-use scp_core::output::Output;
-use scp_core::vcs;
-use scp_core::Error;
+use scp_core::{output::Output, vcs, Error};
 
-use super::operations::*;
-use super::types::SyncOption;
+use super::{operations::*, types::SyncOption};
 
 /// Create a new workspace
 pub fn spawn(name: &str, sync: SyncOption) -> Result<(), Error> {

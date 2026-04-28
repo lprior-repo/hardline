@@ -37,7 +37,9 @@ impl super::config::ConflictResolutionConfig {
     /// # Examples
     ///
     /// ```rust
-    /// use scp_core::config::{ConflictMode, ConflictResolutionConfig, PartialConflictResolutionConfig};
+    /// use scp_core::config::{
+    ///     ConflictMode, ConflictResolutionConfig, PartialConflictResolutionConfig,
+    /// };
     ///
     /// let mut config = ConflictResolutionConfig::default();
     /// let original_autonomy = config.autonomy;
@@ -220,10 +222,10 @@ mod tests {
     use std::collections::HashMap;
 
     use super::*;
-    use crate::config::config::{
-        AgentConfig, ConflictResolutionConfig, HooksConfig, SessionConfig,
+    use crate::config::{
+        config::{AgentConfig, ConflictResolutionConfig, HooksConfig, SessionConfig},
+        types::{ConflictMode, ValidatedBool},
     };
-    use crate::config::types::{ConflictMode, ValidatedBool};
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PartialConflictResolutionConfig tests

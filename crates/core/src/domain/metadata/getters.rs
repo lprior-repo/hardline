@@ -1,8 +1,7 @@
 //! `StackMetadata` query operations
 
-use crate::dag::BranchId;
-
 use super::entities::StackMetadata;
+use crate::dag::BranchId;
 
 impl StackMetadata {
     /// Get parent of branch

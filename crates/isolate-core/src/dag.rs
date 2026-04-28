@@ -2,8 +2,9 @@
 //!
 //! This module provides DAG operations for tracking branch relationships.
 
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+
+use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 

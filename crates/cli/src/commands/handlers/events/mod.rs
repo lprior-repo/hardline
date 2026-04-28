@@ -2,8 +2,8 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): EventsOptions, EventType, EventEntry, EventsOutput
-//!   (inert, serializable) and pure filter helper `event_type_matches`.
+//! - **Data** (`data.rs`): EventsOptions, EventType, EventEntry, EventsOutput (inert, serializable)
+//!   and pure filter helper `event_type_matches`.
 //! - **Actions** (`actions.rs`): run_events (I/O operations)
 //!
 //! # CLI Usage

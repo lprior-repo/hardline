@@ -30,11 +30,13 @@
 pub mod beads;
 pub mod checkpoint;
 pub mod command_context;
+pub mod commands;
 pub mod dag;
 pub mod domain;
 pub mod error;
-pub mod hooks;
 pub mod hints;
+pub mod hooks;
+pub mod json;
 pub mod session;
 
 pub use beads::{BeadMetadata, BeadRepository, BeadStatus};
@@ -51,5 +53,7 @@ pub use hints::{
     generate_hints, hints_for_error, next_actions_for_command, suggest_next_actions, ActionRisk,
     CommandContext, Hint, HintType, NextAction, SystemState, WorkspaceInfo,
 };
-pub use hooks::{HooksConfig, HookResult, with_hooks};
-pub use session::{Session, SessionStatus, SessionUpdate, validate_session_name, validate_status_transition};
+pub use hooks::{with_hooks, HookResult, HooksConfig};
+pub use session::{
+    validate_session_name, validate_status_transition, Session, SessionStatus, SessionUpdate,
+};

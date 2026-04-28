@@ -6,8 +6,7 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use crate::domain::identifiers::AgentId;
-use crate::error::Error;
+use crate::{domain::identifiers::AgentId, error::Error};
 
 /// Agent state information
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -273,7 +272,8 @@ mod tests {
 
     #[test]
     fn test_valid_idle_to_error_transition() {
-        // From contract: transition(Idle, Error) -> should Ok (valid transition per "any->Error" rule)
+        // From contract: transition(Idle, Error) -> should Ok (valid transition per "any->Error"
+        // rule)
         let result = AgentState::Idle.transition_to(AgentState::Error);
         assert!(result.is_ok());
     }

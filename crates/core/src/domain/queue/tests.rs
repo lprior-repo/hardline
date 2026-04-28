@@ -2,10 +2,14 @@
 
 use chrono::Utc;
 
-use crate::domain::identifiers::{QueueEntryId, SessionName};
-use crate::domain::queue::entry::QueueEntry;
-use crate::domain::queue::queue_impl::Queue;
-use crate::domain::queue::status::{QueueStatus, MAX_PRIORITY};
+use crate::domain::{
+    identifiers::{QueueEntryId, SessionName},
+    queue::{
+        entry::QueueEntry,
+        queue_impl::Queue,
+        status::{QueueStatus, MAX_PRIORITY},
+    },
+};
 
 // =========================================================================
 // Happy Path Tests
@@ -433,7 +437,8 @@ fn test_group_by_status() {
 fn test_count_active_excludes_terminal() {
     let queue = Queue::new();
     let queue = queue.enqueue(QueueEntry::new("test-1", "session-1", 10).unwrap());
-    // Create an entry with a terminal status via valid transitions: Pending -> Claimed -> Rebasing -> Testing -> ReadyToMerge -> Merging -> Merged
+    // Create an entry with a terminal status via valid transitions: Pending -> Claimed -> Rebasing
+    // -> Testing -> ReadyToMerge -> Merging -> Merged
     let entry2 = QueueEntry::new("test-2", "session-2", 20)
         .unwrap()
         .transition_status(QueueStatus::Claimed)

@@ -167,9 +167,9 @@ mod tests {
     // =========================================================================
 
     mod bead_types_proptests {
+        use proptest::{prop_assert, prop_assert_eq, proptest};
+
         use super::*;
-        use proptest::proptest;
-        use proptest::{prop_assert, prop_assert_eq};
 
         proptest! {
             /// Priority valid range is 0..=4

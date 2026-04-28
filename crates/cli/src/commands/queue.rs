@@ -1,5 +1,7 @@
 //! Queue commands (from Stak)
 
+use std::{env, path::PathBuf, sync::Arc};
+
 use scp_core::{
     infrastructure::database::{DatabaseConfig, DatabaseService, SqliteDatabaseService},
     lock::{LockManager, LockType, MemLockManager},
@@ -8,9 +10,6 @@ use scp_core::{
     vcs::{self, VcsStatus},
     Result,
 };
-use std::env;
-use std::path::PathBuf;
-use std::sync::Arc;
 use tokio::runtime::Runtime;
 
 /// Get the database path from environment or default
@@ -259,8 +258,9 @@ pub fn parse_priority(priority: &str) -> Priority {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use scp_core::vcs::{Branch, Commit, CommitId, RepoStatus, VcsStatus, Workspace};
+
+    use super::*;
 
     // ── Mock VCS backend for testing ──────────────────────────────────────
 

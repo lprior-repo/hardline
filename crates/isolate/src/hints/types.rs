@@ -91,7 +91,13 @@ mod serde_tests {
     use super::*;
     #[test]
     fn hint_type_all_variants_lowercase() {
-        for variant in [HintType::Info, HintType::Suggestion, HintType::Warning, HintType::Error, HintType::Tip] {
+        for variant in [
+            HintType::Info,
+            HintType::Suggestion,
+            HintType::Warning,
+            HintType::Error,
+            HintType::Tip,
+        ] {
             let json = serde_json::to_string(&variant).unwrap();
             let expected = format!("\"{:?}\"", variant).to_lowercase();
             assert_eq!(json, expected);
@@ -100,7 +106,13 @@ mod serde_tests {
 
     #[test]
     fn hint_type_roundtrip() {
-        for variant in [HintType::Info, HintType::Suggestion, HintType::Warning, HintType::Error, HintType::Tip] {
+        for variant in [
+            HintType::Info,
+            HintType::Suggestion,
+            HintType::Warning,
+            HintType::Error,
+            HintType::Tip,
+        ] {
             let json = serde_json::to_string(&variant).unwrap();
             let parsed: HintType = serde_json::from_str(&json).unwrap();
             assert_eq!(variant, parsed);
@@ -206,7 +218,10 @@ mod serde_tests {
     fn next_action_roundtrip_full() {
         let action = NextAction {
             action: "create".to_string(),
-            commands: vec!["isolate create foo".to_string(), "isolate status".to_string()],
+            commands: vec![
+                "isolate create foo".to_string(),
+                "isolate status".to_string(),
+            ],
             risk: ActionRisk::Medium,
             description: Some("Create a workspace".to_string()),
         };
@@ -255,6 +270,7 @@ mod serde_tests {
     #[test]
     fn hint_roundtrip_with_workspace_info_context() {
         use serde::{Deserialize, Serialize};
+
         use crate::domain::WorkspaceState;
 
         #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -269,11 +285,14 @@ mod serde_tests {
             message: "Workspace suggestion".to_string(),
             suggested_command: None,
             rationale: None,
-            context: Some(serde_json::to_value(WorkspaceContext {
-                id: "ws-1".to_string(),
-                name: "my-workspace".to_string(),
-                state: WorkspaceState::Ready,
-            }).unwrap()),
+            context: Some(
+                serde_json::to_value(WorkspaceContext {
+                    id: "ws-1".to_string(),
+                    name: "my-workspace".to_string(),
+                    state: WorkspaceState::Ready,
+                })
+                .unwrap(),
+            ),
         };
         let json = serde_json::to_string(&hint).unwrap();
         let parsed: Hint = serde_json::from_str(&json).unwrap();

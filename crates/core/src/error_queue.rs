@@ -2,8 +2,9 @@
 //!
 //! Error codes: 2xxx
 
-use crate::error::Error;
 use thiserror::Error;
+
+use crate::error::Error;
 
 /// Queue-related errors
 #[derive(Error, Debug, Clone)]

@@ -23,8 +23,10 @@ use std::sync::{
 use chrono::Utc;
 use sqlx::SqlitePool;
 
-use crate::domain::checkpoint_types::OperationRisk;
-use crate::error::{IsolateError, Result};
+use crate::{
+    domain::checkpoint_types::OperationRisk,
+    error::{IsolateError, Result},
+};
 
 /// Auto-checkpoint manager that creates checkpoints before risky operations.
 #[derive(Debug, Clone)]

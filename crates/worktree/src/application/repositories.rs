@@ -1,7 +1,8 @@
 //! Repository trait for worktree persistence
 
-use crate::domain::{Worktree, WorktreeDomainError, WorktreeId};
 use async_trait::async_trait;
+
+use crate::domain::{Worktree, WorktreeDomainError, WorktreeId};
 
 #[async_trait]
 pub trait WorktreeRepository: Send + Sync {

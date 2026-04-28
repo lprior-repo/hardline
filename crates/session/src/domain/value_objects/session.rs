@@ -146,9 +146,9 @@ impl std::fmt::Display for BeadId {
 
 #[cfg(test)]
 mod tests {
+    use proptest::{prelude::*, prop_assert};
+
     use super::*;
-    use proptest::prelude::*;
-    use proptest::prop_assert;
 
     proptest! {
         fn prop_session_value_object_name_adversarial(s in ".*") {

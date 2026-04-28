@@ -16,8 +16,9 @@ pub type Result<T> = std::result::Result<T, TuiError>;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::error::Error;
+
+    use super::*;
 
     // ── TuiError::Error display ──
 

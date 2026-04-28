@@ -99,6 +99,10 @@ mod types_tests;
 pub use agent::{
     get_agent_registry, Agent, AgentActivity, AgentId, AgentRegistry, AgentStatus, MemAgentRegistry,
 };
+pub use application::{
+    create_coordination_service, create_queue_service, CoordinationService, QueueService,
+    QueueServiceImpl,
+};
 pub use checkpoint::{
     classify_command, find_pending_restores, AutoCheckpoint, CheckpointGuard, OperationRisk,
 };
@@ -112,6 +116,10 @@ pub use error::{Error, Result};
 pub use events::{EmittedEvent, Event, EventEmitter};
 pub use fix::{ErrorWithFixes, Fix, FixImpact};
 pub use hooks::{Hook, HookConfig, HookEnv, HookEvent, HookManager, HookResult, HookRunner};
+pub use infrastructure::{
+    create_database_service, create_vcs_integration_service, DatabaseConfig, DatabaseService,
+    SqliteDatabaseService, VcsIntegrationService, VcsIntegrationServiceImpl,
+};
 pub use lifecycle::LifecycleState;
 pub use lock::{LockGuard, LockType, MemLockManager};
 pub use moon_gates::{GateError, GateResult, GatesOutcome, GatesStatus, MoonGate};
@@ -136,15 +144,6 @@ pub use vcs::{
 };
 pub use watcher::{BeadsStatus, FileWatcher, WatchEvent};
 pub use workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition};
-
-pub use application::{
-    create_coordination_service, create_queue_service, CoordinationService, QueueService,
-    QueueServiceImpl,
-};
-pub use infrastructure::{
-    create_database_service, create_vcs_integration_service, DatabaseConfig, DatabaseService,
-    SqliteDatabaseService, VcsIntegrationService, VcsIntegrationServiceImpl,
-};
 
 /// SCP version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -6,8 +6,10 @@
 //! - Railway-Oriented Programming for error chaining
 //! - Each use case takes domain types and returns Results
 
-use crate::queue::{Queue, QueueEntry, QueueEntryId, QueueStatus, SessionName};
-use crate::Error;
+use crate::{
+    queue::{Queue, QueueEntry, QueueEntryId, QueueStatus, SessionName},
+    Error,
+};
 
 /// Domain errors for queue operations
 #[derive(Debug)]

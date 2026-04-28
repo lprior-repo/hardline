@@ -169,9 +169,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::super::domain_types::Message;
-    use super::super::summary::{Summary, SummaryType};
-    use super::*;
+    use super::{
+        super::{
+            domain_types::Message,
+            summary::{Summary, SummaryType},
+        },
+        *,
+    };
 
     fn make_test_line() -> OutputLine {
         OutputLine::Summary(

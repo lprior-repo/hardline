@@ -1,5 +1,4 @@
 // //! Issue builder
-//!
 //! Builder for `Issue` with fluent API.
 
 use crate::output_jsonl::{

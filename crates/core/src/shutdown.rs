@@ -12,8 +12,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::error::Result;
-use crate::Error;
+use crate::{error::Result, Error};
 
 /// Shutdown signal that can be sent to all active operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

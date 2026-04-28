@@ -3,11 +3,13 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::cleanup::PhaseType;
-use crate::metrics::ScenarioResult;
-use crate::parallel::ParallelError;
-use crate::persistence::StoreError;
-use crate::state::{IterationError, TransitionError};
+use crate::{
+    cleanup::PhaseType,
+    metrics::ScenarioResult,
+    parallel::ParallelError,
+    persistence::StoreError,
+    state::{IterationError, TransitionError},
+};
 
 /// Errors that can occur during phase execution
 #[derive(Debug, Error)]

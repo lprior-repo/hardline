@@ -1,15 +1,17 @@
 //! Git backend implementation
 
-use crate::error::Result;
-use crate::error_internal::InternalErrorKind;
-use crate::error_io::IoErrorKind;
-use crate::error_vcs::VcsErrorKind;
-use crate::error_workspace::WorkspaceErrorKind;
-use chrono::Utc;
 use std::process::Command;
 
-use super::types::{Branch, Commit, CommitId, RepoStatus, VcsStatus, Workspace};
-use super::VcsBackend;
+use chrono::Utc;
+
+use super::{
+    types::{Branch, Commit, CommitId, RepoStatus, VcsStatus, Workspace},
+    VcsBackend,
+};
+use crate::{
+    error::Result, error_internal::InternalErrorKind, error_io::IoErrorKind,
+    error_vcs::VcsErrorKind, error_workspace::WorkspaceErrorKind,
+};
 
 pub struct GitBackend {
     repo_path: std::path::PathBuf,

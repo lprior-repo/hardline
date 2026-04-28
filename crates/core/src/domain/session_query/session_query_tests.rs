@@ -4,12 +4,14 @@
 
 use std::path::PathBuf;
 
-use crate::domain::identifiers::SessionName;
-use crate::domain::repository::Session;
-use crate::domain::session::BranchState;
-use crate::domain::session_query::{
-    apply_query, filter_sessions, paginate_sessions, sort_sessions, SessionFilter, SessionQuery,
-    SessionSort, SessionSortField, SortDirection,
+use crate::domain::{
+    identifiers::SessionName,
+    repository::Session,
+    session::BranchState,
+    session_query::{
+        apply_query, filter_sessions, paginate_sessions, sort_sessions, SessionFilter,
+        SessionQuery, SessionSort, SessionSortField, SortDirection,
+    },
 };
 
 // ============================================================================

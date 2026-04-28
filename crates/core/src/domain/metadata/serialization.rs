@@ -1,8 +1,7 @@
 //! Metadata serialization logic
 
-use crate::Error;
-
 use super::entities::StackMetadata;
+use crate::Error;
 
 impl StackMetadata {
     /// Serialize metadata to bytes

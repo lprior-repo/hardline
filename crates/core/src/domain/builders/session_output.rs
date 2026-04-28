@@ -1,5 +1,4 @@
 // //! SessionOutput builder
-//!
 //! Builder for `SessionOutput` with compile-time required field tracking.
 
 use std::path::PathBuf;

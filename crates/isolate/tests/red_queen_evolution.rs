@@ -18,11 +18,12 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
-use scp_isolate::dag::{BranchDag, BranchId, DagError};
 use scp_isolate::{
-    classify_command, BeadId, BeadWorkspaceMapping, CheckpointRecord, CheckpointState,
-    EventContext, EventType, IsolateEvent, OperationRisk, WorkspaceGuard, WorkspaceId,
-    WorkspaceState, WorkspaceStateMachine,
+    classify_command,
+    dag::{BranchDag, BranchId, DagError},
+    BeadId, BeadWorkspaceMapping, CheckpointRecord, CheckpointState, EventContext, EventType,
+    IsolateEvent, OperationRisk, WorkspaceGuard, WorkspaceId, WorkspaceState,
+    WorkspaceStateMachine,
 };
 
 // =========================================================================

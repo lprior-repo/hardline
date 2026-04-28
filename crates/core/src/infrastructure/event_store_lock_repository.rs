@@ -13,12 +13,11 @@
 //! - `cleanup_expired_stream_locks` - Remove all expired locks
 //! - `locks_by_holder` - Get all locks held by a specific agent
 
-use sqlx::Row;
-use sqlx::SqlitePool;
+use sqlx::{Row, SqlitePool};
 
-use super::event_store_lock_schema::ensure_event_store_lock_schema;
-use super::event_store_lock_types::{
-    parse_event_store_lock_row, EventStoreLock, EventStoreLockError,
+use super::{
+    event_store_lock_schema::ensure_event_store_lock_schema,
+    event_store_lock_types::{parse_event_store_lock_row, EventStoreLock, EventStoreLockError},
 };
 
 /// Acquire a stream lock for a specific position in the event stream.
@@ -269,9 +268,10 @@ pub async fn ensure_event_store_locks(pool: &SqlitePool) -> Result<(), EventStor
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use sqlx::SqlitePool;
     use tempfile::TempDir;
+
+    use super::*;
 
     async fn create_test_pool() -> (SqlitePool, TempDir) {
         let temp_dir = TempDir::new().expect("Failed to create temp dir");

@@ -1,8 +1,8 @@
 //! Dispatch for non-workspace top-level commands
 
-use crate::cli::args::Commands;
-use crate::commands;
 use scp_core::{OutputFormat, Result};
+
+use crate::{cli::args::Commands, commands};
 
 pub(crate) fn run_command(cmd: Commands) -> Result<()> {
     match cmd {

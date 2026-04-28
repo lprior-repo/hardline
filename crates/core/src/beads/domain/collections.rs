@@ -2,9 +2,9 @@
 //!
 //! Newtype wrappers around vectors with validation.
 
-use super::errors::DomainError;
-use super::ids::IssueId;
 use serde::{Deserialize, Serialize};
+
+use super::{errors::DomainError, ids::IssueId};
 
 /// A collection of validated labels.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

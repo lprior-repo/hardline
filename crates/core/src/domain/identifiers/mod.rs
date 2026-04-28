@@ -66,17 +66,15 @@ mod workspace_name;
 mod tests;
 
 // Re-export for use in validation functions
+// Re-export identifier types
+pub use absolute_path::AbsolutePath;
+pub use agent_id::AgentId;
 pub use error::IdentifierError;
-
 // Re-export error aliases
 pub use error::{
     AbsolutePathError, AgentIdError, BeadIdError, IdError, SessionIdError, SessionNameError,
     TaskIdError, WorkspaceNameError,
 };
-
-// Re-export identifier types
-pub use absolute_path::AbsolutePath;
-pub use agent_id::AgentId;
 pub use queue_entry_id::QueueEntryId;
 pub use session_id::SessionId;
 pub use session_name::SessionName;

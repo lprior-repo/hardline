@@ -3,11 +3,14 @@
 use chrono::{DateTime, Utc};
 use tracing::{debug, info};
 
-use crate::metrics::{PhaseMetrics, ScenarioResult};
-use crate::state::{Pipeline, PipelineState};
-
-use super::executor::PipelineExecutor;
-use super::types::{Decision, PhaseError, PhaseResult};
+use super::{
+    executor::PipelineExecutor,
+    types::{Decision, PhaseError, PhaseResult},
+};
+use crate::{
+    metrics::{PhaseMetrics, ScenarioResult},
+    state::{Pipeline, PipelineState},
+};
 
 impl PipelineExecutor {
     pub(crate) fn spec_review(

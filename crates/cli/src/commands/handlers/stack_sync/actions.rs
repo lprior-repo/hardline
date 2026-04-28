@@ -2,19 +2,19 @@
 //!
 //! V1 uses shell commands directly. V2 will use extended VcsBackend trait.
 
-use std::collections::HashSet;
-use std::path::Path;
-use std::process::Command;
+use std::{collections::HashSet, path::Path, process::Command};
 
 use scp_stack::{BranchName, PrState, Stack};
 
-use super::calc::{
-    compute_drift, detect_merged_branches, find_children_to_reparent, plan_restack_order,
-    resolve_effective_parent, validate_sync_preconditions,
-};
-use super::data::{
-    DriftReport, MergedBranch, MergedDetectionInput, RestackOutcome, RestackStatus,
-    StackSyncOptions, StackSyncResult, SyncError,
+use super::{
+    calc::{
+        compute_drift, detect_merged_branches, find_children_to_reparent, plan_restack_order,
+        resolve_effective_parent, validate_sync_preconditions,
+    },
+    data::{
+        DriftReport, MergedBranch, MergedDetectionInput, RestackOutcome, RestackStatus,
+        StackSyncOptions, StackSyncResult, SyncError,
+    },
 };
 
 /// Run the full stack sync operation.

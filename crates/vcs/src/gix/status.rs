@@ -1,8 +1,8 @@
 //! Gitoxide Status Operations
 
-use crate::domain::value_objects::VcsStatus;
-use crate::error::GitResult;
 use std::path::PathBuf;
+
+use crate::{domain::value_objects::VcsStatus, error::GitResult};
 
 /// Get repository status using gix
 pub fn status(repo: &::gix::Repository) -> GitResult<VcsStatus> {

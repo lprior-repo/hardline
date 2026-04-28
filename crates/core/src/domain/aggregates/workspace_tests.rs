@@ -10,10 +10,11 @@
 mod tests {
     use std::path::PathBuf;
 
-    use crate::domain::aggregates::workspace::Workspace;
-    use crate::domain::aggregates::workspace_error::WorkspaceError;
-    use crate::domain::identifiers::WorkspaceName;
-    use crate::domain::workspace::WorkspaceState;
+    use crate::domain::{
+        aggregates::{workspace::Workspace, workspace_error::WorkspaceError},
+        identifiers::WorkspaceName,
+        workspace::WorkspaceState,
+    };
 
     fn create_test_workspace() -> Workspace {
         let name = WorkspaceName::parse("test-workspace").expect("valid name");

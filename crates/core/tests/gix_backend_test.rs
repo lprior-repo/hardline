@@ -1,7 +1,8 @@
 //! Tests for core vcs GitBackend using gix
 
-use scp_core::vcs::{create_backend, detect_vcs, VcsType};
 use std::env;
+
+use scp_core::vcs::{create_backend, detect_vcs, VcsType};
 
 #[test]
 fn test_core_git_backend_uses_gix() {

@@ -2,13 +2,19 @@
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
 
-use crate::domain::identifiers::QueueEntryId;
-use crate::domain::queue::entry::QueueEntry;
-use crate::domain::queue::status::QueueStatus;
-use crate::domain::validation::ValidationError;
-use crate::error::QueueError;
-use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+};
+
+use crate::{
+    domain::{
+        identifiers::QueueEntryId,
+        queue::{entry::QueueEntry, status::QueueStatus},
+        validation::ValidationError,
+    },
+    error::QueueError,
+};
 
 /// Port (trait) for queue repository - defines the contract for queue persistence.
 /// This belongs in the domain layer for dependency inversion.

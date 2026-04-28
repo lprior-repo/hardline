@@ -8,11 +8,8 @@
 
 use std::path::PathBuf;
 
-use crate::domain::identifiers::WorkspaceName;
-use crate::domain::workspace::WorkspaceState;
-
-use super::workspace::Workspace;
-use super::workspace_error::WorkspaceError;
+use super::{workspace::Workspace, workspace_error::WorkspaceError};
+use crate::domain::{identifiers::WorkspaceName, workspace::WorkspaceState};
 
 // ============================================================================
 // WORKSPACE BUILDER

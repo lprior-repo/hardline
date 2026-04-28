@@ -8,12 +8,6 @@ pub mod domain;
 pub mod infrastructure;
 
 // Re-export domain types at crate level
-pub use domain::{
-    absolute_path::AbsolutePath, branch_name::BranchName, errors::WorktreeDomainError,
-    worktree::Worktree, worktree_id::WorktreeId, worktree_name::WorktreeName,
-    worktree_state::WorktreeState, worktree_type_enum::WorktreeTypeEnum,
-};
-
 // Re-export application types
 pub use application::{
     commands::{
@@ -22,10 +16,13 @@ pub use application::{
     },
     services::WorktreeService,
 };
-
-// Re-export repository traits
-pub use infrastructure::repositories::WorktreeRepository;
-
+pub use domain::{
+    absolute_path::AbsolutePath, branch_name::BranchName, errors::WorktreeDomainError,
+    worktree::Worktree, worktree_id::WorktreeId, worktree_name::WorktreeName,
+    worktree_state::WorktreeState, worktree_type_enum::WorktreeTypeEnum,
+};
 // Re-export adapters
 pub use infrastructure::git::{GitError, GitWorktreeAdapter};
+// Re-export repository traits
+pub use infrastructure::repositories::WorktreeRepository;
 pub use infrastructure::sqlx::{PostgresWorktreeRepository, SqliteWorktreeRepository};

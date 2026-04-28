@@ -2,8 +2,7 @@
 //!
 //! I/O operations that query and display events from the event log.
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
 use super::data::{event_type_matches, EventEntry, EventsOptions, EventsOutput};
 

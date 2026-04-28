@@ -4,19 +4,19 @@
 mod tests {
     use chrono::Utc;
 
-    use crate::type_session::Session;
-    use crate::types::BeadsSummary;
-    use crate::types::{AbsolutePath, SessionId, SessionName, ValidatedMetadata};
-    use crate::workspace_state::WorkspaceState;
-
-    use crate::hints::types::{
-        ActionRisk, CommandContext, Hint, HintType, NextAction, SystemState,
+    use crate::{
+        hints::{
+            extract_session_name, generate_hints, generate_hints_response, hints_for_beads,
+            hints_for_error, next_actions_for_command, suggest_next_actions,
+            types::{ActionRisk, CommandContext, Hint, HintType, NextAction, SystemState},
+        },
+        type_session::Session,
+        types::{
+            AbsolutePath, BeadsSummary, BranchState, SessionId, SessionName, SessionStatus,
+            ValidatedMetadata,
+        },
+        workspace_state::WorkspaceState,
     };
-    use crate::hints::{
-        extract_session_name, generate_hints, generate_hints_response, hints_for_beads,
-        hints_for_error, next_actions_for_command, suggest_next_actions,
-    };
-    use crate::types::{BranchState, SessionStatus};
 
     fn create_test_session(name: &str, status: SessionStatus) -> Session {
         Session {

@@ -7,8 +7,7 @@ use std::path::PathBuf;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::output_jsonl::errors::OutputLineError;
-use crate::{types::SessionStatus, WorkspaceState};
+use crate::{output_jsonl::errors::OutputLineError, types::SessionStatus, WorkspaceState};
 
 /// Session output line containing session state and metadata.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

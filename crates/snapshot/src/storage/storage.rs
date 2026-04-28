@@ -1,5 +1,7 @@
-use crate::domain::snapshot::{Snapshot, SnapshotId};
-use crate::error::{Result, SnapshotError};
+use crate::{
+    domain::snapshot::{Snapshot, SnapshotId},
+    error::{Result, SnapshotError},
+};
 
 pub struct SnapshotStore;
 

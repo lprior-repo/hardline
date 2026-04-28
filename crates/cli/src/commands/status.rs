@@ -1,7 +1,8 @@
 //! Status command - shows current workspace/session status
 
-use crate::commands::session as sess;
 use scp_core::Result;
+
+use crate::commands::session as sess;
 
 /// Show status (default: detailed)
 pub fn run(short: bool) -> Result<()> {

@@ -1,9 +1,11 @@
 //! VCS Integration Infrastructure Service
 
-use crate::error::Result;
-use crate::vcs::{self, Branch, VcsBackend, VcsStatus};
-use std::path::Path;
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
+
+use crate::{
+    error::Result,
+    vcs::{self, Branch, VcsBackend, VcsStatus},
+};
 
 pub trait VcsIntegrationService: Send + Sync {
     fn detect_and_create_backend(&self, path: &Path) -> Result<Arc<dyn VcsBackend>>;

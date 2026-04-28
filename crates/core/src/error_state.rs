@@ -2,8 +2,9 @@
 //!
 //! Error codes: 7xxx, 8xxx
 
-use crate::error::Error;
 use thiserror::Error;
+
+use crate::error::Error;
 
 /// State and validation errors
 #[derive(Error, Debug, Clone)]

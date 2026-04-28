@@ -1,8 +1,8 @@
 //! Config commands
 
+use std::{fs, path::PathBuf};
+
 use scp_core::{Error, Result};
-use std::fs;
-use std::path::PathBuf;
 
 /// Get the config directory
 fn get_config_dir() -> Result<PathBuf> {
@@ -481,8 +481,7 @@ mod tests {
         }
     }
 
-    use proptest::prelude::*;
-    use proptest::proptest;
+    use proptest::{prelude::*, proptest};
 
     proptest! {
         #[test]

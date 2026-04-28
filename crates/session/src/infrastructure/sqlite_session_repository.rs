@@ -1,12 +1,15 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-
-use crate::domain::entities::session::Created;
-use crate::domain::entities::{BranchState, Session, SessionId, SessionState};
-use crate::domain::value_objects::{BeadId, SessionName, WorkspaceId};
-use crate::error::{Result, SessionError, SessionError::*};
-use crate::infrastructure::repository::SessionRepository;
 use scp_core::infrastructure::database::{DatabaseService, SqliteDatabaseService};
+
+use crate::{
+    domain::{
+        entities::{session::Created, BranchState, Session, SessionId, SessionState},
+        value_objects::{BeadId, SessionName, WorkspaceId},
+    },
+    error::{Result, SessionError, SessionError::*},
+    infrastructure::repository::SessionRepository,
+};
 
 #[derive(Debug, Clone)]
 pub struct SessionRow {

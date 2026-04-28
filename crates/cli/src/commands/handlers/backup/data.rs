@@ -3,9 +3,10 @@
 //! Inert, serializable types with no business logic.
 //! These types represent the inputs and outputs of backup commands.
 
+use std::path::PathBuf;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 // ============================================================================
 // Input Types

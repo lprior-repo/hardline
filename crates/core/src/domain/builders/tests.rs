@@ -1,23 +1,26 @@
 // //! Builder tests
-//!
 //! Integration tests for all builders.
 
 use std::path::PathBuf;
 
-use crate::domain::builders::action::ActionBuilder;
-use crate::domain::builders::agent_info::{AgentInfoBuilder, AgentState};
-use crate::domain::builders::errors::BuilderError;
-use crate::domain::builders::issue::{IssueBuilder, IssueKind};
-use crate::domain::builders::plan::PlanBuilder;
-use crate::domain::builders::session_output::SessionOutputBuilder;
-use crate::domain::builders::summary::SummaryBuilder;
-use crate::domain::builders::workspace_info::{WorkspaceInfoBuilder, WorkspaceInfoState};
-use crate::output_jsonl::{
-    domain_types::{IssueId, IssueTitle, Message, PlanDescription, PlanTitle},
-    ActionStatus, ActionTarget, ActionVerb, IssueSeverity, SummaryType,
+use crate::{
+    domain::builders::{
+        action::ActionBuilder,
+        agent_info::{AgentInfoBuilder, AgentState},
+        errors::BuilderError,
+        issue::{IssueBuilder, IssueKind},
+        plan::PlanBuilder,
+        session_output::SessionOutputBuilder,
+        summary::SummaryBuilder,
+        workspace_info::{WorkspaceInfoBuilder, WorkspaceInfoState},
+    },
+    output_jsonl::{
+        domain_types::{IssueId, IssueTitle, Message, PlanDescription, PlanTitle},
+        ActionStatus, ActionTarget, ActionVerb, IssueSeverity, SummaryType,
+    },
+    types::SessionStatus as TypesSessionStatus,
+    WorkspaceState as TypesWorkspaceState,
 };
-use crate::types::SessionStatus as TypesSessionStatus;
-use crate::WorkspaceState as TypesWorkspaceState;
 
 #[test]
 fn test_session_output_builder_complete() {

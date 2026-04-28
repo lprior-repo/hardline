@@ -2,23 +2,24 @@
 //!
 //! I/O operations that use scp_core. All validation is delegated to Tier 2.
 
-use crate::commands::task_store::get_task_store;
-use crate::commands::task_types::TaskId;
-use crate::commands::task_validation::{
-    acquire_task_lock, transition_to_claimed, transition_to_done, transition_to_started,
-    transition_to_yielded, validate_claimed_by_user, validate_not_claimed_by_other,
-    validate_not_closed, validate_task_exists,
-};
-use scp_core::error::Error;
-use scp_core::error_task::TaskErrorKind;
-use scp_core::lock::LockManager;
-use scp_core::output::Output;
+use scp_core::{error::Error, error_task::TaskErrorKind, lock::LockManager, output::Output};
 
-use super::calculations::{
-    filter_tasks_by_status, resolve_task_id, status_display_icon, task_to_output,
-    truncate_description, validate_task_command,
+use super::{
+    calculations::{
+        filter_tasks_by_status, resolve_task_id, status_display_icon, task_to_output,
+        truncate_description, validate_task_command,
+    },
+    data::{TaskCommand, TaskListOutput},
 };
-use super::data::{TaskCommand, TaskListOutput};
+use crate::commands::{
+    task_store::get_task_store,
+    task_types::TaskId,
+    task_validation::{
+        acquire_task_lock, transition_to_claimed, transition_to_done, transition_to_started,
+        transition_to_yielded, validate_claimed_by_user, validate_not_claimed_by_other,
+        validate_not_closed, validate_task_exists,
+    },
+};
 
 /// Execute a validated task command.
 ///

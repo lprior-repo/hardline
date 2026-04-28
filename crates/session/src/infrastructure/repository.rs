@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 
-use crate::domain::entities::Session;
-use crate::domain::value_objects::SessionName;
-use crate::error::SessionError;
+use crate::{
+    domain::{entities::Session, value_objects::SessionName},
+    error::SessionError,
+};
 
 #[async_trait]
 pub trait SessionRepository: Send + Sync {

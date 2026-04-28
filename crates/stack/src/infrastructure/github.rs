@@ -1,7 +1,11 @@
-use crate::application::traits::{GitHubClientTrait, MergeMethod, PrMergeStatus};
-use crate::domain::stack::{CommitHash, PrInfo, StackBranch};
-use crate::domain::value_objects::BranchName;
-use crate::error::{Result, StackError};
+use crate::{
+    application::traits::{GitHubClientTrait, MergeMethod, PrMergeStatus},
+    domain::{
+        stack::{CommitHash, PrInfo, StackBranch},
+        value_objects::BranchName,
+    },
+    error::{Result, StackError},
+};
 
 pub struct GitHubClientImpl {
     owner: String,

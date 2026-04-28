@@ -4,12 +4,14 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::introspection::{
-        suggest_name, ArgumentSpec, Capabilities, CheckStatus, CommandExample,
-        CommandIntrospection, DependencyInfo, DoctorCheck, DoctorOutput, ErrorCondition, FlagSpec,
-        IntrospectOutput, Prerequisites, SystemState,
+    use crate::{
+        introspection::{
+            suggest_name, ArgumentSpec, Capabilities, CheckStatus, CommandExample,
+            CommandIntrospection, DependencyInfo, DoctorCheck, DoctorOutput, ErrorCondition,
+            FlagSpec, IntrospectOutput, Prerequisites, SystemState,
+        },
+        Error,
     };
-    use crate::Error;
 
     #[test]
     fn test_introspect_output_new() {

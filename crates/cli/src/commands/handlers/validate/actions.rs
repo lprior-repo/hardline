@@ -2,8 +2,7 @@
 //!
 //! I/O operations that validate command inputs.
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
 use super::data::{
     is_reserved_name, validate_bead_id_format, validate_session_name, ArgValidation,

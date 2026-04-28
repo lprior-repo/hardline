@@ -5,8 +5,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::output_jsonl::domain_types::{PlanDescription, PlanTitle};
-use crate::output_jsonl::errors::OutputLineError;
+use crate::output_jsonl::{
+    domain_types::{PlanDescription, PlanTitle},
+    errors::OutputLineError,
+};
 
 /// Plan output line for multi-step operations.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

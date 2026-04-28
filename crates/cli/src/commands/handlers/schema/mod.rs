@@ -2,8 +2,8 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): SchemaOptions, SchemaInfo, SchemaListOutput, AllSchemasOutput
-//!   (inert, serializable)
+//! - **Data** (`data.rs`): SchemaOptions, SchemaInfo, SchemaListOutput, AllSchemasOutput (inert,
+//!   serializable)
 //! - **Actions** (`actions.rs`): run_schema, resolve_schema (I/O operations)
 //!
 //! # CLI Usage

@@ -19,8 +19,7 @@
 //! let _: HandlerError = TerminalError::new_with_code(404, "Not found").into();
 //! ```
 
-use std::error::Error as StdError;
-use std::fmt;
+use std::{error::Error as StdError, fmt};
 
 use thiserror::Error;
 

@@ -613,7 +613,8 @@ mod tests {
             next_command: "scp work".to_string(),
         };
         let lines = format_status_human(&status);
-        // Expect: title + separator + blank + 6 fields + blank + status + suggestion + blank + "Next command:" + indented cmd = 14 lines
+        // Expect: title + separator + blank + 6 fields + blank + status + suggestion + blank +
+        // "Next command:" + indented cmd = 14 lines
         assert!(
             lines.len() >= 10,
             "Should have at least 10 lines, got {}: {:?}",

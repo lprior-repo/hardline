@@ -1,12 +1,16 @@
 //! In-memory repository implementation for bead persistence.
 
-use async_trait::async_trait;
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-use crate::domain::entities::bead::Bead;
-use crate::domain::value_objects::{BeadId, BeadState};
-use crate::error::{BeadError, Result};
+use async_trait::async_trait;
+
+use crate::{
+    domain::{
+        entities::bead::Bead,
+        value_objects::{BeadId, BeadState},
+    },
+    error::{BeadError, Result},
+};
 
 /// Async repository trait for bead persistence.
 ///
@@ -113,8 +117,7 @@ impl BeadRepository for InMemoryBeadRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::entities::bead::Bead;
-    use crate::domain::value_objects::*;
+    use crate::domain::{entities::bead::Bead, value_objects::*};
 
     fn make_bead(id: &str) -> Bead {
         Bead::<crate::domain::entities::bead::Open>::create(

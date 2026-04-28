@@ -1,7 +1,9 @@
-use crate::domain::entities::{Workspace, WorkspaceId, WorkspaceState};
-use crate::error::{Result, WorkspaceError};
-use std::collections::HashMap;
-use std::sync::RwLock;
+use std::{collections::HashMap, sync::RwLock};
+
+use crate::{
+    domain::entities::{Workspace, WorkspaceId, WorkspaceState},
+    error::{Result, WorkspaceError},
+};
 
 pub trait WorkspaceRepository: Send + Sync {
     fn save(&self, workspace: Workspace) -> Result<Workspace>;
@@ -498,9 +500,9 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
+        use proptest::{prelude::*, prop_assert, prop_assert_eq};
+
         use super::*;
-        use proptest::prelude::*;
-        use proptest::{prop_assert, prop_assert_eq};
 
         proptest! {
             #[test]

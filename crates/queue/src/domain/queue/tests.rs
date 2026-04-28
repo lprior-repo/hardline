@@ -4,11 +4,11 @@
 
 use chrono::Utc;
 
-use crate::domain::identifiers::{QueueEntryId, SessionName};
-use crate::domain::queue::entry::QueueEntry;
-use crate::domain::queue::queue::Queue;
-use crate::domain::queue::status::QueueStatus;
-use crate::domain::validation::ValidationError;
+use crate::domain::{
+    identifiers::{QueueEntryId, SessionName},
+    queue::{entry::QueueEntry, queue::Queue, status::QueueStatus},
+    validation::ValidationError,
+};
 
 #[test]
 fn test_queue_new_is_empty() {
@@ -435,8 +435,7 @@ fn test_queue_entry_new_accepts_max_priority() {
     assert!(result.is_ok());
 }
 
-use proptest::prelude::*;
-use proptest::{prop_assert, prop_assert_eq};
+use proptest::{prelude::*, prop_assert, prop_assert_eq};
 
 proptest! {
     #[test]

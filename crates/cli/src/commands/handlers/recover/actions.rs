@@ -6,11 +6,12 @@
 //! This module is Git-only (no JJ operations). Recovery strategies use
 //! `git reflog`, `git reset`, `git stash`, and workspace inspection.
 
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 
-use scp_core::vcs;
-use scp_core::{Error, Result};
+use scp_core::{vcs, Error, Result};
 
 use super::data::{
     compute_status, count_fixed, count_remaining, Issue, RecoverOptions, RecoverOutput,
@@ -418,8 +419,9 @@ fn resolve_workspace_path(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::HashMap;
+
+    use super::*;
 
     // ---- Mock GitExecutor for recover tests ----
 

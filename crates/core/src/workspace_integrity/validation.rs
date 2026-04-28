@@ -2,19 +2,22 @@
 //!
 //! Provides the IntegrityValidator for detecting workspace corruption.
 
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::SystemTime;
+use std::{path::PathBuf, sync::Arc, time::SystemTime};
 
 use futures::future::try_join_all;
 
-use crate::workspace_integrity::checks::{
-    check_config_file, check_stale_locks, resolve_workspace_path, validate_git_dir_for_issue,
+use crate::{
+    workspace_integrity::{
+        checks::{
+            check_config_file, check_stale_locks, resolve_workspace_path,
+            validate_git_dir_for_issue,
+        },
+        issue::IntegrityIssue,
+        types::CorruptionType,
+        validation_result::ValidationResult,
+    },
+    Error, Result,
 };
-use crate::workspace_integrity::issue::IntegrityIssue;
-use crate::workspace_integrity::types::CorruptionType;
-use crate::workspace_integrity::validation_result::ValidationResult;
-use crate::{Error, Result};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INTEGRITY VALIDATOR

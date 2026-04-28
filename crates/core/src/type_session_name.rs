@@ -80,9 +80,9 @@ impl AsRef<str> for SessionName {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use proptest::proptest;
+
+    use super::*;
 
     // ── Valid names ──────────────────────────────────────────────────────────
 

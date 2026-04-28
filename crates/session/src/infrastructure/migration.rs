@@ -2,8 +2,10 @@
 //!
 //! Provides idempotent migrations for the sessions table schema.
 
-use sqlx::sqlite::{SqlitePool, SqliteRow};
-use sqlx::Row;
+use sqlx::{
+    sqlite::{SqlitePool, SqliteRow},
+    Row,
+};
 
 // =============================================================================
 // Data Types (Tier 1: Data - inert, serializable)

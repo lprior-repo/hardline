@@ -7,9 +7,10 @@
 //! - proptest-invariants: property-based wrapping, mode transitions
 
 #[cfg(test)]
-use crate::app::{BranchProvider, TuiApp};
-#[cfg(test)]
 use scp_stack::domain::StackBranch;
+
+#[cfg(test)]
+use crate::app::{BranchProvider, TuiApp};
 
 #[cfg(test)]
 struct StubProvider;
@@ -28,9 +29,9 @@ fn test_app() -> TuiApp {
 
 #[cfg(test)]
 mod stack_tree_escalated {
+    use scp_stack::domain::{value_objects::BranchName, StackBranch};
+
     use crate::widgets::StackTreeWidget;
-    use scp_stack::domain::value_objects::BranchName;
-    use scp_stack::domain::StackBranch;
 
     fn branch(name: &str, parent: Option<&str>) -> StackBranch {
         StackBranch {
@@ -147,9 +148,12 @@ mod stack_tree_escalated {
 
 #[cfg(test)]
 mod key_mapping_complete {
-    use crate::app::Mode;
-    use crate::input::{HunkAction, InputHandler, InputResult};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    use crate::{
+        app::Mode,
+        input::{HunkAction, InputHandler, InputResult},
+    };
 
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::empty())
@@ -245,9 +249,11 @@ mod key_mapping_complete {
 
 #[cfg(test)]
 mod branch_provider_escalated {
-    use super::*;
-    use scp_stack::domain::BranchName;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    use scp_stack::domain::BranchName;
+
+    use super::*;
 
     struct CountingProvider {
         count: AtomicUsize,
@@ -370,8 +376,9 @@ mod branch_provider_escalated {
 
 #[cfg(test)]
 mod proptest_invariants {
-    use crate::app::{ConfirmAction, InputAction, Mode};
     use proptest::proptest;
+
+    use crate::app::{ConfirmAction, InputAction, Mode};
 
     proptest! {
         #[test]

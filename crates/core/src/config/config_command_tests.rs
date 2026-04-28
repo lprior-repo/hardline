@@ -3,12 +3,14 @@
 //! ConfigKey::try_from() (17), parse_cli_value() (18),
 //! error variants (3), nested value ops (6), env scope (1), exit codes (1).
 
-use crate::config::command_types::{
-    get_nested_value, parse_cli_value, set_nested_value, ConfigKey,
+use crate::{
+    config::{
+        command_types::{get_nested_value, parse_cli_value, set_nested_value, ConfigKey},
+        config_core::{Config, ConfigScope},
+    },
+    error::Error,
+    error_config::{ConfigError, ConfigErrorKind},
 };
-use crate::config::config_core::{Config, ConfigScope};
-use crate::error::Error;
-use crate::error_config::{ConfigError, ConfigErrorKind};
 
 fn extract_kind(err: Error) -> ConfigErrorKind {
     match err {

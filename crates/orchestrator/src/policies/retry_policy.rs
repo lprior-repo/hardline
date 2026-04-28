@@ -1,7 +1,8 @@
 //! Retry policy with exponential backoff
 
-use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
+
+use serde::{Deserialize, Serialize};
 
 /// Configuration for retry behavior with exponential backoff
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -356,8 +357,7 @@ mod tests {
 
     // --- Proptests for metrics accumulation properties ---
 
-    use proptest::prelude::*;
-    use proptest::prop_assert;
+    use proptest::{prelude::*, prop_assert};
 
     proptest! {
         #[test]

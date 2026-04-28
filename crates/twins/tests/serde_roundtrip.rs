@@ -9,8 +9,10 @@
 
 use std::collections::HashMap;
 
-use twins::definition::{Endpoint, EndpointResponse, HttpMethod, TwinDefinition};
-use twins::state::{InMemoryTwinState, RequestRecord, TwinState};
+use twins::{
+    definition::{Endpoint, EndpointResponse, HttpMethod, TwinDefinition},
+    state::{InMemoryTwinState, RequestRecord, TwinState},
+};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 struct Person {
@@ -40,7 +42,10 @@ fn http_method_json_format_is_uppercase() {
     let method = HttpMethod::GET;
     let json = serde_json::to_string(&method).expect("serialize");
     assert_eq!(json, "\"GET\"", "HttpMethod should serialize to UPPERCASE");
-    assert!(!json.contains("\"get\""), "HttpMethod should NOT serialize to lowercase");
+    assert!(
+        !json.contains("\"get\""),
+        "HttpMethod should NOT serialize to lowercase"
+    );
 }
 
 #[test]
@@ -49,9 +54,15 @@ fn http_method_json_deserialization_is_case_sensitive() {
         let json = format!("\"{input}\"");
         let result: Result<HttpMethod, _> = serde_json::from_str(&json);
         if input == input.to_uppercase() && input != input.to_lowercase() {
-            assert!(result.is_ok(), "HttpMethod should deserialize uppercase '{input}'");
+            assert!(
+                result.is_ok(),
+                "HttpMethod should deserialize uppercase '{input}'"
+            );
         } else {
-            assert!(result.is_err(), "HttpMethod should NOT deserialize lowercase '{input}' (serde is case-sensitive)");
+            assert!(
+                result.is_err(),
+                "HttpMethod should NOT deserialize lowercase '{input}' (serde is case-sensitive)"
+            );
         }
     }
 }
@@ -61,7 +72,10 @@ fn http_method_invalid_value_rejected() {
     for invalid in ["INVALID", "TRACE", "CONNECT", "PING", "", "getx"] {
         let json = format!("\"{invalid}\"");
         let result: Result<HttpMethod, _> = serde_json::from_str(&json);
-        assert!(result.is_err(), "HttpMethod should reject invalid value '{invalid}'");
+        assert!(
+            result.is_err(),
+            "HttpMethod should reject invalid value '{invalid}'"
+        );
     }
 }
 
@@ -184,7 +198,10 @@ fn twin_definition_complex_body_roundtrip() {
 
     let json = serde_json::to_string(&def).expect("serialize");
     let parsed: TwinDefinition = serde_json::from_str(&json).expect("deserialize");
-    assert_eq!(def.endpoints[0].response.body, parsed.endpoints[0].response.body);
+    assert_eq!(
+        def.endpoints[0].response.body,
+        parsed.endpoints[0].response.body
+    );
 }
 
 #[test]
@@ -331,7 +348,10 @@ fn request_record_missing_optional_body_fields() {
 fn twin_definition_missing_optional_endpoints_field() {
     let json = r#"{"name": "test", "port": 3000}"#;
     let result: Result<TwinDefinition, _> = serde_json::from_str(json);
-    assert!(result.is_err(), "TwinDefinition should require endpoints field");
+    assert!(
+        result.is_err(),
+        "TwinDefinition should require endpoints field"
+    );
 }
 
 #[test]
@@ -397,7 +417,8 @@ fn request_record_extra_json_fields_ignored() {
         record: RequestRecord,
         extra: String,
     }
-    let json = format!(r#"{{
+    let json = format!(
+        r#"{{
         "record": {{
             "id": "{}",
             "timestamp": "2024-01-01T00:00:00Z",
@@ -408,7 +429,9 @@ fn request_record_extra_json_fields_ignored() {
             "response_headers": {{}}
         }},
         "extra": "ignored"
-    }}"#, uuid::Uuid::new_v4());
+    }}"#,
+        uuid::Uuid::new_v4()
+    );
     let parsed: WithExtra = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(parsed.record.method, "GET");
     assert_eq!(parsed.extra, "ignored");
@@ -481,7 +504,10 @@ fn all_http_methods_display_roundtrip() {
     for method in methods {
         let json = serde_json::to_string(&method).expect("serialize");
         let rehydrated: HttpMethod = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(method, rehydrated, "Display->JSON->Deserialize failed for {method}");
+        assert_eq!(
+            method, rehydrated,
+            "Display->JSON->Deserialize failed for {method}"
+        );
     }
 }
 

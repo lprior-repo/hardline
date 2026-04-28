@@ -1,8 +1,7 @@
 //! Hint generation functions.
 
-use crate::domain::WorkspaceState;
-
 use super::types::{ActionRisk, Hint, NextAction, SystemState};
+use crate::domain::WorkspaceState;
 
 /// Generate hints based on system state.
 #[must_use]

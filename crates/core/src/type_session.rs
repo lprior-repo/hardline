@@ -5,15 +5,15 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::error::{Error, Result};
-use crate::workspace_state::WorkspaceState;
-
-use super::type_branch_state::BranchState;
-use super::type_metadata::ValidatedMetadata;
-use super::type_session_id::SessionId;
-use super::type_session_name::SessionName;
-use super::type_session_path::AbsolutePath;
-use super::type_session_status::SessionStatus;
+use super::{
+    type_branch_state::BranchState, type_metadata::ValidatedMetadata, type_session_id::SessionId,
+    type_session_name::SessionName, type_session_path::AbsolutePath,
+    type_session_status::SessionStatus,
+};
+use crate::{
+    error::{Error, Result},
+    workspace_state::WorkspaceState,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
@@ -74,8 +74,7 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::type_branch_state::BranchState;
-    use crate::type_metadata::ValidatedMetadata;
+    use crate::{type_branch_state::BranchState, type_metadata::ValidatedMetadata};
 
     fn make_test_session() -> Session {
         Session {

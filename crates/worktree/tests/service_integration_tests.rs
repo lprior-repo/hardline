@@ -2,17 +2,19 @@
 //!
 //! Tests the service layer with real repository implementations
 
-use worktree::application::{
-    commands::{
-        CreateWorktreeCommand, InitializeWorktreeCommand, ListWorktreesQuery,
-        RemoveWorktreeCommand, ResumeWorktreeCommand, SuspendWorktreeCommand,
+use worktree::{
+    application::{
+        commands::{
+            CreateWorktreeCommand, InitializeWorktreeCommand, ListWorktreesQuery,
+            RemoveWorktreeCommand, ResumeWorktreeCommand, SuspendWorktreeCommand,
+        },
+        repositories::WorktreeRepository,
+        services::WorktreeService,
     },
-    repositories::WorktreeRepository,
-    services::WorktreeService,
-};
-use worktree::domain::{
-    AbsolutePath, BranchName, Worktree, WorktreeDomainError, WorktreeId, WorktreeName,
-    WorktreeState, WorktreeTypeEnum,
+    domain::{
+        AbsolutePath, BranchName, Worktree, WorktreeDomainError, WorktreeId, WorktreeName,
+        WorktreeState, WorktreeTypeEnum,
+    },
 };
 
 // In-memory repository for testing

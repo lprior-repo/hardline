@@ -6,10 +6,13 @@
 //! - serde support for serialization
 //! - success_threshold for configurable HalfOpen → Closed recovery
 
+use std::{
+    num::{NonZeroU32, NonZeroU64},
+    time::Duration,
+};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::num::{NonZeroU32, NonZeroU64};
-use std::time::Duration;
 
 /// Circuit breaker states
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

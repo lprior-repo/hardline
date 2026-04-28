@@ -3,12 +3,13 @@
 //! Provides the conflict-detection-only mode and the
 //! best-effort conflict query used by the merge workflow.
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
-use super::data::DoneOutput;
-use super::executor::{detect_conflicts, GitExecutor};
-use super::vcs_ops::WorkspaceGitExecutor;
+use super::{
+    data::DoneOutput,
+    executor::{detect_conflicts, GitExecutor},
+    vcs_ops::WorkspaceGitExecutor,
+};
 
 /// Run conflict detection only and return results.
 pub(crate) fn run_conflict_detection_only(

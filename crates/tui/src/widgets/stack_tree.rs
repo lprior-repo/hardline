@@ -212,8 +212,9 @@ impl Widget for StackTreeWidget {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use scp_stack::domain::value_objects::BranchName;
+
+    use super::*;
 
     fn create_test_branch(name: &str, parent: Option<&str>) -> StackBranch {
         StackBranch {

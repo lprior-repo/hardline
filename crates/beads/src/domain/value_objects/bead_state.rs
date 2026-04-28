@@ -12,9 +12,7 @@ pub enum BeadState {
     InProgress,
     Blocked,
     Deferred,
-    Closed {
-        closed_at: DateTime<Utc>,
-    },
+    Closed { closed_at: DateTime<Utc> },
 }
 
 impl Default for BeadState {
@@ -59,9 +57,7 @@ impl BeadState {
             (Self::Blocked, Self::Closed { .. }) => true,
             (Self::Deferred, Self::InProgress) => true,
             (Self::Deferred, Self::Closed { .. }) => true,
-            (current, _) => {
-                std::ptr::eq(current, &new_state) || *current == new_state
-            }
+            (current, _) => std::ptr::eq(current, &new_state) || *current == new_state,
         };
 
         if !is_valid {
@@ -459,8 +455,9 @@ mod tests {
     }
 
     mod proptest_bead_state {
-        use super::*;
         use proptest::proptest;
+
+        use super::*;
 
         proptest! {
             #[test]

@@ -1,8 +1,8 @@
 //! Database domain types - Newtypes for validated domain concepts
 
+use std::{fmt, str::FromStr};
+
 use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::str::FromStr;
 
 use crate::error::Error;
 

@@ -6,18 +6,20 @@
 
 #![allow(dead_code)]
 
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use serial_test::serial;
 
-use crate::config::command_types::{
-    config_get, config_list, config_set, ConfigReadPort, FileConfigReadPort,
+use crate::{
+    config::{
+        clear_port,
+        command_types::{config_get, config_list, config_set, ConfigReadPort, FileConfigReadPort},
+        config_core::ConfigScope,
+        set_port,
+    },
+    error::Error,
+    error_config::{ConfigError, ConfigErrorKind},
 };
-use crate::config::config_core::ConfigScope;
-use crate::config::{clear_port, set_port};
-use crate::error::Error;
-use crate::error_config::{ConfigError, ConfigErrorKind};
 
 /// Guard that clears the global port registry on drop.
 /// Use in tests that call `install_port_with` or `install_port_no_files`

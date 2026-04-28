@@ -9,8 +9,7 @@
 
 use std::sync::LazyLock;
 
-use scp_core::output::Output;
-use scp_core::{Error, OutputFormat, Result};
+use scp_core::{output::Output, Error, OutputFormat, Result};
 
 use super::data::{available_schemas, SchemaMode, SchemaOptions};
 

@@ -6,8 +6,10 @@
 //! - Custom hook scripts via shell commands
 //! - Async hook execution
 
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -186,9 +188,7 @@ impl Hook {
 
     pub fn validate(&self) -> Result<()> {
         if self.command.is_empty() {
-            return Err(Error::validation_error(
-                "hook.command must not be empty",
-            ));
+            return Err(Error::validation_error("hook.command must not be empty"));
         }
 
         let dangerous_chars = ['|', '&', ';', '$', '`', '(', ')', '<', '>', '\n', '\r'];
@@ -502,7 +502,9 @@ mod tests {
     #[test]
     fn test_hook_runner() {
         let mut runner = HookRunner::new();
-        runner.register(Hook::new("test", HookEvent::PreCommit, "echo")).unwrap();
+        runner
+            .register(Hook::new("test", HookEvent::PreCommit, "echo"))
+            .unwrap();
 
         let env = HookEnv {
             event: HookEvent::PreCommit,
@@ -805,8 +807,12 @@ mod tests {
     #[test]
     fn hook_runner_register_multiple_same_event() {
         let mut runner = HookRunner::new();
-        runner.register(Hook::new("hook1", HookEvent::PreCommit, "echo")).unwrap();
-        runner.register(Hook::new("hook2", HookEvent::PreCommit, "echo")).unwrap();
+        runner
+            .register(Hook::new("hook1", HookEvent::PreCommit, "echo"))
+            .unwrap();
+        runner
+            .register(Hook::new("hook2", HookEvent::PreCommit, "echo"))
+            .unwrap();
         let hooks = runner.get_hooks(HookEvent::PreCommit);
         assert_eq!(hooks.len(), 2);
     }
@@ -820,7 +826,9 @@ mod tests {
     #[test]
     fn hook_runner_unregister_existing() {
         let mut runner = HookRunner::new();
-        runner.register(Hook::new("to-remove", HookEvent::PreCommit, "echo")).unwrap();
+        runner
+            .register(Hook::new("to-remove", HookEvent::PreCommit, "echo"))
+            .unwrap();
         assert!(runner.unregister(HookEvent::PreCommit, "to-remove"));
         assert!(runner.get_hooks(HookEvent::PreCommit).is_empty());
     }
@@ -834,7 +842,8 @@ mod tests {
     #[test]
     fn hook_runner_disabled_hook_skipped() {
         let mut runner = HookRunner::new();
-        let _ = runner.register(Hook::new("disabled-hook", HookEvent::PreCommit, "echo").disabled());
+        let _ =
+            runner.register(Hook::new("disabled-hook", HookEvent::PreCommit, "echo").disabled());
         let env = HookEnv {
             event: HookEvent::PreCommit,
             vcs_type: "test".to_string(),

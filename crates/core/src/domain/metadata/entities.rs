@@ -1,7 +1,6 @@
 //! Metadata serialization and parsing
 
-use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::{collections::BTreeMap, rc::Rc};
 
 use crate::dag::BranchId;
 

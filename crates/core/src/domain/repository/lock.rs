@@ -7,9 +7,12 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
+
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 use super::error::{RepositoryError, RepositoryResult};
 

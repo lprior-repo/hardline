@@ -240,8 +240,9 @@ pub fn find_children_to_reparent(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use scp_stack::{PrInfo, StackBranch};
+
+    use super::*;
 
     fn bn(name: &str) -> BranchName {
         BranchName::new(name.to_string())

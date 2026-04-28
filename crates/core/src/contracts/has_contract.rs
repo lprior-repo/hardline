@@ -1,9 +1,8 @@
 //! Trait for types with contracts
 
-use crate::Result;
-
 // Re-export for trait use
 pub use super::types::TypeContract;
+use crate::Result;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TRAIT FOR TYPES WITH CONTRACTS

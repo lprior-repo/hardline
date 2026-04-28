@@ -2,8 +2,9 @@
 
 #[cfg(test)]
 mod tests {
-    use scp_vcs::error::{GitError, GitResult};
     use std::path::PathBuf;
+
+    use scp_vcs::error::{GitError, GitResult};
 
     #[test]
     fn test_git_error_not_found() {

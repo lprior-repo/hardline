@@ -3,8 +3,7 @@
 //! Orchestrates distributed lock operations through the LockRepository trait.
 //! Follows the DDD application layer pattern: thin orchestration over domain types.
 
-use crate::domain::repository::RepositoryResult;
-use crate::domain::repository::{Lock, LockAudit, LockRepository};
+use crate::domain::repository::{Lock, LockAudit, LockRepository, RepositoryResult};
 
 /// Application service for coordination operations.
 ///

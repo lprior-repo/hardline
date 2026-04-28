@@ -33,8 +33,9 @@ impl Default for Labels {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use proptest::proptest;
+
+    use super::*;
 
     #[test]
     fn new_is_empty() {

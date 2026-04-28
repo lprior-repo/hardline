@@ -1,8 +1,8 @@
 //! Dispatch for workspace subcommands
 
-use crate::cli::workspace_args::WorkspaceCommands;
-use crate::commands;
 use scp_core::{output::Output, Error, OutputFormat, Result};
+
+use crate::{cli::workspace_args::WorkspaceCommands, commands};
 
 pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
     match cmd {

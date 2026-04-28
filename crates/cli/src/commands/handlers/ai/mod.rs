@@ -5,14 +5,13 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): Location, Priority, `AiStatusOutput`, `WorkflowInfo`,
-//!   `WorkflowStep`, `AiSubcommand`, `NextActionOutput`, `QuickCommand`, `AiOverview`
-//!   (inert, serializable)
-//! - **Calculations** (`calculations.rs`): `determine_ready_state`,
-//!   `format_session_count`, `build_workflow`, `build_quick_start`, `build_overview`,
-//!   `determine_next_action`, `format_status_human` (pure functions)
-//! - **Actions** (`actions.rs`): run, `run_status`, `run_workflow`, `run_quick_start`,
-//!   `run_next`, `run_default` (I/O boundary: serialization + Output)
+//! - **Data** (`data.rs`): Location, Priority, `AiStatusOutput`, `WorkflowInfo`, `WorkflowStep`,
+//!   `AiSubcommand`, `NextActionOutput`, `QuickCommand`, `AiOverview` (inert, serializable)
+//! - **Calculations** (`calculations.rs`): `determine_ready_state`, `format_session_count`,
+//!   `build_workflow`, `build_quick_start`, `build_overview`, `determine_next_action`,
+//!   `format_status_human` (pure functions)
+//! - **Actions** (`actions.rs`): run, `run_status`, `run_workflow`, `run_quick_start`, `run_next`,
+//!   `run_default` (I/O boundary: serialization + Output)
 //!
 //! # Module split (DEFECT-9NB-1)
 //!

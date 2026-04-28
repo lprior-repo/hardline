@@ -20,7 +20,6 @@ pub mod types;
 
 // Re-export types for convenience
 pub use errors::LockError;
-pub use types::{LockAuditEntry, LockInfo, LockOperation, LockResponse, LockState, Ttl};
-
 // Re-export manager
 pub use manager::LockManager;
+pub use types::{LockAuditEntry, LockInfo, LockOperation, LockResponse, LockState, Ttl};

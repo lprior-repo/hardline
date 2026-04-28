@@ -21,21 +21,19 @@ pub mod workspace_state;
 // (BeadState, BeadType, Priority re-exported via bead module below)
 
 // Re-export value objects from value_objects module
+// Re-export new aggregates
+pub use bead::{
+    Bead, BeadDescription, BeadId, BeadState, BeadTitle, BeadType, Priority as BeadPriority,
+};
+pub use bead_types::Priority;
+// Re-export entities and events
+pub use entities::session::{BranchState, Session, SessionId, SessionState};
+pub use events::{SessionCompletedEvent, SessionCreatedEvent, SessionEvent, SessionFailedEvent};
 pub use value_objects::{
     AbsolutePath, AbsolutePathError, AgentId, DependsOn, Description, IssueType, Labels,
     PathValidationError, Priority as SessionPriority, SessionName, ShellMetacharacterError, TaskId,
     Title, WorkspaceId as SessionWorkspaceId, WorkspaceName,
 };
-
-// Re-export new aggregates
-pub use bead::Priority as BeadPriority;
-pub use bead::{Bead, BeadDescription, BeadId, BeadState, BeadTitle, BeadType};
-pub use bead_types::Priority;
 pub use workspace::{Workspace, WorkspaceId, WorkspaceName as WsName, WorkspacePath};
-
 // Re-export state
 pub use workspace_state::{WorkspaceState, WorkspaceStateMachine};
-
-// Re-export entities and events
-pub use entities::session::{BranchState, Session, SessionId, SessionState};
-pub use events::{SessionCompletedEvent, SessionCreatedEvent, SessionEvent, SessionFailedEvent};

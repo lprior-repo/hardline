@@ -2,12 +2,10 @@
 //!
 //! No business logic. Types only.
 
-use std::collections::HashSet;
-use std::time::Duration;
-
-use serde::{Deserialize, Serialize};
+use std::{collections::HashSet, time::Duration};
 
 use scp_stack::BranchName;
+use serde::{Deserialize, Serialize};
 
 // ============================================================================
 // Input Types

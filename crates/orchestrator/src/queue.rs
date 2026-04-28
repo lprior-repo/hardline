@@ -18,8 +18,9 @@ pub use types::{
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::time::Duration;
+
+    use super::*;
 
     fn create_test_job(id: &str, priority: JobPriority) -> Job {
         Job {

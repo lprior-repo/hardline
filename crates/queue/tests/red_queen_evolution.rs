@@ -9,10 +9,14 @@
 #![deny(clippy::panic)]
 #![forbid(unsafe_code)]
 
-use scp_queue::domain::identifiers::{QueueEntryId, SessionName};
-use scp_queue::domain::queue::{Queue, QueueEntry, QueueStatus};
-use scp_queue::domain::validation::{ValidationError, ValidationResult, Validator};
-use scp_queue::MAX_PRIORITY;
+use scp_queue::{
+    domain::{
+        identifiers::{QueueEntryId, SessionName},
+        queue::{Queue, QueueEntry, QueueStatus},
+        validation::{ValidationError, ValidationResult, Validator},
+    },
+    MAX_PRIORITY,
+};
 
 // =========================================================================
 // DIMENSION: state-machine-exhaustive
@@ -1229,8 +1233,9 @@ fn rq_into_inner_empty() {
 // =========================================================================
 
 mod proptest_red_queen {
-    use super::*;
     use proptest::prelude::*;
+
+    use super::*;
 
     proptest! {
         #[test]

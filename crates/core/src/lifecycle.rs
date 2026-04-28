@@ -157,8 +157,10 @@ pub mod conformance_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::session_state::{SessionState, StateTransition};
-    use crate::type_session_status::SessionStatus;
+    use crate::{
+        session_state::{SessionState, StateTransition},
+        type_session_status::SessionStatus,
+    };
 
     // ═══════════════════════════════════════════════════════════════════════
     // Conformance test helper validation (using SessionStatus which implements LifecycleState)

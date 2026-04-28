@@ -1,5 +1,4 @@
 // //! Plan builder
-//!
 //! Builder for `Plan` with step collection.
 
 use chrono::{DateTime, Utc};

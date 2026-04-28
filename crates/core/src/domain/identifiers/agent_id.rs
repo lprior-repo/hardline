@@ -4,8 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::identifiers::error::IdentifierError;
-use crate::domain::identifiers::validation::validate_agent_id;
+use crate::domain::identifiers::{error::IdentifierError, validation::validate_agent_id};
 
 /// A validated agent ID
 ///

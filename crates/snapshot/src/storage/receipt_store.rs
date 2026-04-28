@@ -3,9 +3,12 @@
 //! Provides I/O operations for saving and loading operation receipts
 //! to/from JSON files in the `.git/stax/ops/` directory.
 
-use crate::domain::receipt::OpReceipt;
-use crate::error::{Result, SnapshotError};
 use std::path::{Path, PathBuf};
+
+use crate::{
+    domain::receipt::OpReceipt,
+    error::{Result, SnapshotError},
+};
 
 pub struct ReceiptStore;
 
@@ -100,9 +103,10 @@ impl ReceiptStore {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use super::*;
     use crate::domain::receipt::OpKind;
-    use tempfile::TempDir;
 
     fn make_store() -> ReceiptStore {
         ReceiptStore::new()

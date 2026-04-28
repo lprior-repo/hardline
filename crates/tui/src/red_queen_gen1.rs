@@ -10,9 +10,10 @@
 //! - branch-provider: Provider contract, error handling, refresh semantics
 
 #[cfg(test)]
-use crate::app::{BranchProvider, TuiApp};
-#[cfg(test)]
 use scp_stack::domain::StackBranch;
+
+#[cfg(test)]
+use crate::app::{BranchProvider, TuiApp};
 
 #[cfg(test)]
 struct StubProvider;
@@ -135,9 +136,12 @@ mod state_transitions {
 
 #[cfg(test)]
 mod input_navigation {
-    use crate::app::Mode;
-    use crate::input::{HunkAction, InputHandler, InputResult};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    use crate::{
+        app::Mode,
+        input::{HunkAction, InputHandler, InputResult},
+    };
 
     fn make_key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::empty())
@@ -385,8 +389,7 @@ mod input_navigation {
 
 #[cfg(test)]
 mod worktree_selection {
-    use crate::views::WorktreeView;
-    use crate::widgets::worktree::WorktreeItem;
+    use crate::{views::WorktreeView, widgets::worktree::WorktreeItem};
 
     fn make_item(name: &str) -> WorktreeItem {
         WorktreeItem {
@@ -478,9 +481,9 @@ mod worktree_selection {
 
 #[cfg(test)]
 mod stack_tree_adversarial {
+    use scp_stack::domain::{value_objects::BranchName, PrInfo, PrState, StackBranch};
+
     use crate::widgets::StackTreeWidget;
-    use scp_stack::domain::value_objects::BranchName;
-    use scp_stack::domain::{PrInfo, PrState, StackBranch};
 
     fn branch(name: &str, parent: Option<&str>) -> StackBranch {
         StackBranch {
@@ -622,8 +625,9 @@ mod stack_tree_adversarial {
 
 #[cfg(test)]
 mod error_contract_adversarial {
-    use crate::error::{Result, TuiError};
     use std::error::Error;
+
+    use crate::error::{Result, TuiError};
 
     #[test]
     fn error_is_object_safe() {
@@ -798,8 +802,9 @@ mod diff_line_adversarial {
 
 #[cfg(test)]
 mod branch_provider_contract {
-    use super::*;
     use scp_stack::domain::BranchName;
+
+    use super::*;
 
     struct FailingProvider;
     impl BranchProvider for FailingProvider {

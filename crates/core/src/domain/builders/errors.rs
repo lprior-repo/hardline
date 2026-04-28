@@ -1,5 +1,4 @@
 // //! Builder error types
-//!
 //! Errors that can occur during builder operations.
 
 use thiserror::Error;

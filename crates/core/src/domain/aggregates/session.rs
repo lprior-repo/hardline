@@ -18,10 +18,10 @@
 
 use std::path::PathBuf;
 
-#[allow(unused_imports)]
-use crate::domain::contracts::{ensures, requires};
 use thiserror::Error;
 
+#[allow(unused_imports)]
+use crate::domain::contracts::{ensures, requires};
 use crate::domain::{
     identifiers::{SessionId, SessionName},
     session::BranchState,

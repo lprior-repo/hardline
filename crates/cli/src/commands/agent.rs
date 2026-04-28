@@ -188,9 +188,11 @@ pub fn heartbeat(session: Option<&str>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use scp_core::agent::{AgentActivity, MemAgentRegistry};
     use std::sync::Arc;
+
+    use scp_core::agent::{AgentActivity, MemAgentRegistry};
+
+    use super::*;
 
     /// Create a fresh in-memory registry for isolated tests
     fn fresh_registry() -> Arc<dyn scp_core::agent::AgentRegistry> {

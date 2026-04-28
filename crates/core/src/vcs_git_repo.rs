@@ -4,9 +4,12 @@
 //! needed by the TUI. It wraps git CLI commands for compatibility
 //! with the rest of scp-core.
 
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
+
 use crate::error::{Error, Result};
-use std::path::{Path, PathBuf};
-use std::process::Command;
 
 pub struct GitRepo {
     repo_path: PathBuf,

@@ -5,16 +5,12 @@
 
 use clap::{Parser, Subcommand};
 
-use crate::cli::agent_args::AgentCommands;
-use crate::cli::batch_args::BatchCommands;
-use crate::cli::config_args::ConfigCommands;
-use crate::cli::lock_args::LockCommands;
-use crate::cli::queue_args::QueueCommands;
-use crate::cli::session_args::SessionCommands;
-use crate::cli::stash_args::StashCommands;
-use crate::cli::tag_args::TagCommands;
-use crate::cli::task_args::TaskCommands;
-use crate::cli::workspace_args::WorkspaceCommands;
+use crate::cli::{
+    agent_args::AgentCommands, batch_args::BatchCommands, config_args::ConfigCommands,
+    lock_args::LockCommands, queue_args::QueueCommands, session_args::SessionCommands,
+    stash_args::StashCommands, tag_args::TagCommands, task_args::TaskCommands,
+    workspace_args::WorkspaceCommands,
+};
 
 /// Main CLI entry point
 #[derive(Parser)]
@@ -212,8 +208,9 @@ pub enum Commands {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use clap::Parser;
+
+    use super::*;
 
     #[test]
     fn parse_no_args_fails_requires_subcommand() {

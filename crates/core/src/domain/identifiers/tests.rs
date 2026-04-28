@@ -2,9 +2,9 @@
 //!
 //! This module contains comprehensive tests for all identifier types.
 
-use crate::domain::identifiers::error::IdentifierError;
 use crate::domain::identifiers::{
-    AbsolutePath, AgentId, BeadId, SessionId, SessionName, TaskId, WorkspaceName,
+    error::IdentifierError, AbsolutePath, AgentId, BeadId, SessionId, SessionName, TaskId,
+    WorkspaceName,
 };
 
 // ============================================================================

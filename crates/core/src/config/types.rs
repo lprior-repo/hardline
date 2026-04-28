@@ -4,10 +4,11 @@
 
 //! Configuration types for VCS, Auth, and Conflict Resolution
 
-use crate::error_config::ConfigErrorKind;
-use crate::{Error, Result};
-use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+
+use serde::{Deserialize, Serialize};
+
+use crate::{error_config::ConfigErrorKind, Error, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -199,8 +200,9 @@ impl<'de> Deserialize<'de> for ValidatedBool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json;
+
+    use super::*;
 
     #[test]
     fn test_validated_bool_success() {

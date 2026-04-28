@@ -30,8 +30,9 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use scp_core::coordination::conflict_resolutions::*;
-//! use scp_core::coordination::conflict_resolutions_entities::ConflictResolution;
+//! use scp_core::coordination::{
+//!     conflict_resolutions::*, conflict_resolutions_entities::ConflictResolution,
+//! };
 //! use sqlx::SqlitePool;
 //!
 //! # #[tokio::main]
@@ -59,8 +60,10 @@
 //! # }
 //! ```
 
-pub use super::conflict_resolutions_insert::insert_conflict_resolution;
-pub use super::conflict_resolutions_query::{
-    get_conflict_resolutions, get_resolutions_by_decider, get_resolutions_by_time_range,
+pub use super::{
+    conflict_resolutions_insert::insert_conflict_resolution,
+    conflict_resolutions_query::{
+        get_conflict_resolutions, get_resolutions_by_decider, get_resolutions_by_time_range,
+    },
+    conflict_resolutions_schema::init_conflict_resolutions_schema,
 };
-pub use super::conflict_resolutions_schema::init_conflict_resolutions_schema;

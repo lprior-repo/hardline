@@ -4,12 +4,15 @@
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 
-use crate::domain::identifiers::QueueEntryId;
-use crate::domain::ports::QueueRepository;
-use crate::domain::queue::entry::QueueEntry;
-use crate::domain::queue::status::QueueStatus;
-use crate::domain::value_objects::Priority;
-use crate::error::{QueueError, Result};
+use crate::{
+    domain::{
+        identifiers::QueueEntryId,
+        ports::QueueRepository,
+        queue::{entry::QueueEntry, status::QueueStatus},
+        value_objects::Priority,
+    },
+    error::{QueueError, Result},
+};
 
 pub struct QueueService<R: QueueRepository> {
     repository: R,
@@ -75,8 +78,8 @@ impl<R: QueueRepository> QueueService<R> {
     ///
     /// # Errors
     /// Returns `QueueError::QueueEntryNotFound` if the job does not exist.
-    /// Returns `QueueError::InvalidStateTransition` if the job cannot be completed from its current state.
-    /// Returns `QueueError::RepositoryError` if the repository fails.
+    /// Returns `QueueError::InvalidStateTransition` if the job cannot be completed from its current
+    /// state. Returns `QueueError::RepositoryError` if the repository fails.
     pub fn complete_job(&self, id: &QueueEntryId, success: bool) -> Result<QueueEntry> {
         let entry = self
             .repository
@@ -184,8 +187,8 @@ impl<R: QueueRepository> QueueService<R> {
     ///
     /// # Errors
     /// Returns `QueueError::QueueEntryNotFound` if the job does not exist.
-    /// Returns `QueueError::InvalidStateTransition` if the job is not in `FailedRetryable` state or has exceeded retry limit.
-    /// Returns `QueueError::RepositoryError` if the repository fails.
+    /// Returns `QueueError::InvalidStateTransition` if the job is not in `FailedRetryable` state or
+    /// has exceeded retry limit. Returns `QueueError::RepositoryError` if the repository fails.
     pub fn retry_job(&self, id: &QueueEntryId) -> Result<QueueEntry> {
         let entry = self
             .repository

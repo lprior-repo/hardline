@@ -520,9 +520,9 @@ mod tests {
     // ── Property-based tests ──
 
     mod proptests {
-        use super::*;
-
         use proptest::prelude::*;
+
+        use super::*;
 
         #[test]
         fn prop_register_increments_count_monotonically() {

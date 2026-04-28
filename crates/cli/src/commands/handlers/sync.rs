@@ -2,14 +2,17 @@
 //!
 //! Implementation of the sync command ported from hardline.
 
-use scp_core::domain::SessionName;
-use scp_core::output_jsonl::{
-    emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind,
-    IssueSeverity, IssueTitle, Message, OutputLine, ResultKind, ResultOutput,
-};
-use scp_core::vcs::{create_backend, VcsBackend, VcsStatus};
-use scp_core::Error;
 use std::path::{Path, PathBuf};
+
+use scp_core::{
+    domain::SessionName,
+    output_jsonl::{
+        emit_stdout, Action, ActionStatus, ActionTarget, ActionVerb, Issue, IssueId, IssueKind,
+        IssueSeverity, IssueTitle, Message, OutputLine, ResultKind, ResultOutput,
+    },
+    vcs::{create_backend, VcsBackend, VcsStatus},
+    Error,
+};
 use tokio::time::{sleep, Duration};
 
 /// Options for sync operation

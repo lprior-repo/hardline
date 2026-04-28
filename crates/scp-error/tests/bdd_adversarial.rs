@@ -2,9 +2,9 @@
 //! Attack vectors: empty input, bad input, boundary, unicode, path traversal,
 //! stress, special chars, null bytes, oversized payloads.
 
+use std::{sync::Arc, thread};
+
 use scp_error::Error;
-use std::sync::Arc;
-use std::thread;
 
 // ============================================================================
 // Attack 1: Empty input — every string-accepting variant with empty strings

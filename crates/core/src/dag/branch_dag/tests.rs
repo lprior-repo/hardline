@@ -1,8 +1,6 @@
 // `BranchDag` tests
 
-use crate::dag::BranchDag;
-use crate::dag::BranchId;
-use crate::dag::DagError;
+use crate::dag::{BranchDag, BranchId, DagError};
 
 // ── Construction ────────────────────────────────────────────────────────────
 

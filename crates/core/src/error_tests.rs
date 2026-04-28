@@ -1,6 +1,6 @@
+use proptest::{prelude::*, prop_assert};
+
 use crate::error::Error;
-use proptest::prelude::*;
-use proptest::prop_assert;
 
 // ========================================================================
 // Exhaustive Error Variant Generator
@@ -19,17 +19,19 @@ use proptest::prop_assert;
 /// public constructor methods on `Error` and the `From<XErrorKind> for Error`
 /// conversions that are available via `use`.
 fn all_error_variants() -> Vec<Error> {
-    use crate::coordination::locks::errors::LockErrorKind;
-    use crate::error_agent::AgentErrorKind;
-    use crate::error_config::ConfigErrorKind;
-    use crate::error_internal::InternalErrorKind;
-    use crate::error_io::IoErrorKind;
-    use crate::error_queue::QueueErrorKind;
-    use crate::error_state::StateErrorKind;
-    use crate::error_task::TaskErrorKind;
-    use crate::error_vcs::VcsErrorKind;
-    use crate::error_wait::WaitErrorKind;
-    use crate::error_workspace::{SessionErrorKind, WorkspaceErrorKind};
+    use crate::{
+        coordination::locks::errors::LockErrorKind,
+        error_agent::AgentErrorKind,
+        error_config::ConfigErrorKind,
+        error_internal::InternalErrorKind,
+        error_io::IoErrorKind,
+        error_queue::QueueErrorKind,
+        error_state::StateErrorKind,
+        error_task::TaskErrorKind,
+        error_vcs::VcsErrorKind,
+        error_wait::WaitErrorKind,
+        error_workspace::{SessionErrorKind, WorkspaceErrorKind},
+    };
 
     let s = |i: i32| format!("s{i}");
     let mut errors = Vec::new();
@@ -503,17 +505,19 @@ fn exhaustive_context_map_never_panics() {
 
 #[test]
 fn exhaustive_from_conversion_display_preserved() {
-    use crate::coordination::locks::errors::LockErrorKind;
-    use crate::error_agent::AgentErrorKind;
-    use crate::error_config::ConfigErrorKind;
-    use crate::error_internal::InternalErrorKind;
-    use crate::error_io::IoErrorKind;
-    use crate::error_queue::QueueErrorKind;
-    use crate::error_state::StateErrorKind;
-    use crate::error_task::TaskErrorKind;
-    use crate::error_vcs::VcsErrorKind;
-    use crate::error_wait::WaitErrorKind;
-    use crate::error_workspace::{SessionErrorKind, WorkspaceErrorKind};
+    use crate::{
+        coordination::locks::errors::LockErrorKind,
+        error_agent::AgentErrorKind,
+        error_config::ConfigErrorKind,
+        error_internal::InternalErrorKind,
+        error_io::IoErrorKind,
+        error_queue::QueueErrorKind,
+        error_state::StateErrorKind,
+        error_task::TaskErrorKind,
+        error_vcs::VcsErrorKind,
+        error_wait::WaitErrorKind,
+        error_workspace::{SessionErrorKind, WorkspaceErrorKind},
+    };
 
     let msg = "lossless-display-test-payload";
 

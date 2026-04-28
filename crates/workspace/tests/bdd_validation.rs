@@ -3,13 +3,14 @@
 //! Every claim from types, docs, and help text is tested on the happy path
 //! and then attacked adversarially. Each claim gets a verdict: GREEN, YELLOW, or RED.
 
+use std::marker::PhantomData;
+
 use scp_workspace::{
     domain::value_objects::{branch_name::BranchName, lock_holder::LockHolder},
     InMemoryWorkspaceRepository, Workspace, WorkspaceError, WorkspaceEvent, WorkspaceId,
     WorkspaceName, WorkspacePath, WorkspaceRepository, WorkspaceService, WorkspaceState,
     WorkspaceStateMachine,
 };
-use std::marker::PhantomData;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -1256,8 +1257,8 @@ fn adversarial_03_null_bytes_in_value_objects() {
 #[test]
 fn adversarial_04_wrong_state_transitions_via_service() {
     // Cannot lock an initializing workspace (service calls activate first, which works,
-    // then locks — so this actually succeeds via service. But entity-level type system prevents it.)
-    // The real test: service unlock on wrong states
+    // then locks — so this actually succeeds via service. But entity-level type system prevents
+    // it.) The real test: service unlock on wrong states
     let ws = make_workspace("adv-unlock-init");
     assert!(WorkspaceService::unlock_workspace(ws).is_err());
 

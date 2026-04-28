@@ -8,15 +8,16 @@
 //! 5. set_nested_value round-trip: round-trip must never produce invalid TOML
 //! 6. Scope precedence: resolved value == highest-precedence source
 
-use proptest::prelude::*;
-use proptest::{prop_assert, prop_assert_eq};
+use proptest::{prelude::*, prop_assert, prop_assert_eq};
 
-use crate::config::command_types::{
-    get_nested_value, parse_cli_value, set_nested_value, ConfigKey,
+use crate::{
+    config::{
+        command_types::{get_nested_value, parse_cli_value, set_nested_value, ConfigKey},
+        config_core::ConfigScope,
+    },
+    error::Error,
+    error_config::ConfigErrorKind,
 };
-use crate::config::config_core::ConfigScope;
-use crate::error::Error;
-use crate::error_config::ConfigErrorKind;
 
 fn extract_kind_from_ref(err: &Error) -> ConfigErrorKind {
     match err {

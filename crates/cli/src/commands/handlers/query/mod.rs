@@ -2,8 +2,8 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): QueryOptions, QueryOutput, SessionInfo, SessionStatus
-//!   (inert, serializable types + pure computation)
+//! - **Data** (`data.rs`): QueryOptions, QueryOutput, SessionInfo, SessionStatus (inert,
+//!   serializable types + pure computation)
 //! - **Actions** (`actions.rs`): run_query (I/O operations)
 //!
 //! # CLI Usage

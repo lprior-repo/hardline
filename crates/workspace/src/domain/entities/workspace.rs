@@ -11,8 +11,10 @@ use std::marker::PhantomData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::value_objects::{WorkspaceName, WorkspacePath};
-use crate::error::WorkspaceError;
+use crate::{
+    domain::value_objects::{WorkspaceName, WorkspacePath},
+    error::WorkspaceError,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -898,8 +900,7 @@ mod tests {
 
     #[cfg(test)]
     mod proptests {
-        use proptest::prelude::*;
-        use proptest::{prop_assert, prop_assert_eq};
+        use proptest::{prelude::*, prop_assert, prop_assert_eq};
 
         use super::*;
 

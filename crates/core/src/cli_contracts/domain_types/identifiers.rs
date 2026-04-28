@@ -7,9 +7,7 @@
 use std::fmt::Display;
 
 use crate::cli_contracts::ContractError;
-
-pub use crate::domain::AgentId;
-pub use crate::domain::SessionName;
+pub use crate::domain::{AgentId, SessionName};
 
 impl AgentId {
     /// Parses an agent ID from a string, returning a contract error on failure.

@@ -117,20 +117,20 @@ mod tests {
 
     #[test]
     fn session_event_all_variants_serialize_and_deserialize() {
-            let events = [
-                SessionEvent::Activated,
-                SessionEvent::CommittingEffect,
-                SessionEvent::Syncing,
-                SessionEvent::Synced,
-                SessionEvent::Paused,
-                SessionEvent::Completed,
-                SessionEvent::Failed,
-            ];
-            for event in &events {
-                let json = serialize_event(event).expect("serialize");
-                let parsed = deserialize_event(&json).expect("deserialize");
-                assert_eq!(event, &parsed);
-            }
+        let events = [
+            SessionEvent::Activated,
+            SessionEvent::CommittingEffect,
+            SessionEvent::Syncing,
+            SessionEvent::Synced,
+            SessionEvent::Paused,
+            SessionEvent::Completed,
+            SessionEvent::Failed,
+        ];
+        for event in &events {
+            let json = serialize_event(event).expect("serialize");
+            let parsed = deserialize_event(&json).expect("deserialize");
+            assert_eq!(event, &parsed);
+        }
     }
 
     #[test]
@@ -229,9 +229,9 @@ mod tests {
     // =========================================================================
 
     mod event_proptests {
+        use proptest::{prop_assert, prop_assert_eq, proptest};
+
         use super::*;
-        use proptest::proptest;
-        use proptest::{prop_assert, prop_assert_eq};
 
         proptest! {
             /// SessionEvent serialize/deserialize roundtrip for all variants

@@ -5,11 +5,12 @@
 
 use std::path::Path;
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
-use super::data::{RevertOptions, RevertOutput, UndoEntry};
-use super::executor::{GitExecutor, RealGitExecutor};
+use super::{
+    data::{RevertOptions, RevertOutput, UndoEntry},
+    executor::{GitExecutor, RealGitExecutor},
+};
 
 /// Path to the undo log relative to the project root.
 const UNDO_LOG_PATH: &str = ".scp/undo.log";

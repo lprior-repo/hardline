@@ -50,9 +50,9 @@ impl BeadsSummary {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use proptest::proptest;
+
+    use super::*;
 
     // ── IssueStatus variants ─────────────────────────────────────────────────
 

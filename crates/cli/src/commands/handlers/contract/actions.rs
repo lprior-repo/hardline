@@ -2,8 +2,7 @@
 //!
 //! I/O operations that display command contracts.
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
 use super::data::{known_contracts, ContractOptions};
 

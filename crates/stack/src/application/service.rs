@@ -1,10 +1,14 @@
 use chrono::Utc;
 
-use crate::application::traits::{GitHubClientTrait, StackRepository, VcsClientTrait};
-use crate::domain::stack::{Stack, StackBranch, StackId};
-use crate::domain::state::{BranchState, StackState};
-use crate::domain::value_objects::BranchName;
-use crate::error::{Result, StackError};
+use crate::{
+    application::traits::{GitHubClientTrait, StackRepository, VcsClientTrait},
+    domain::{
+        stack::{Stack, StackBranch, StackId},
+        state::{BranchState, StackState},
+        value_objects::BranchName,
+    },
+    error::{Result, StackError},
+};
 
 pub struct StackService<R, G, V> {
     stack_repo: R,
@@ -343,9 +347,10 @@ pub fn assert_merged_stack_all_merged(stack: &Stack) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
     use crate::domain::stack::{CommitHash, PrInfo as DomainPrInfo};
-    use std::sync::Arc;
 
     struct MockRepo {
         stacks: std::sync::Mutex<Vec<Stack>>,

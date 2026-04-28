@@ -113,12 +113,33 @@ pub mod use_cases;
 pub mod vcs;
 
 pub use agent::{Agent, AgentActivity, AgentId, AgentStatus};
+pub use config::{ConfigManager, RecoveryPolicy};
 pub use conflict::{Conflict, ConflictManager, ConflictState};
 pub use dag::{BranchDag, BranchId, DagError};
+pub use error::{Error, FailureContext, RichError, RichErrorInfo, ValidationHint};
 pub use events::{Event, EventType};
+pub use fix::{ErrorWithFixes, Fix, FixImpact};
+// Re-export fs2 for file locking utilities
+pub use fs2::FileExt;
+pub use hints::{ActionRisk, CommandContext, NextAction};
+pub use json::{
+    ErrorCode, HateoasLink, RelatedResources, ResponseMeta, SchemaEnvelope, SchemaEnvelopeArray,
+};
 pub use lock::{HolderId, Lock, LockManager, ResourceId, TtlSeconds};
 pub use metadata::{MetadataBackend, StackMetadata};
+pub use moon_gates::{
+    classify_exit_code, combine_results, format_failure_message, parse_summary, GateError,
+    GateResult, GatesOutcome, GatesStatus, MoonGate,
+};
+pub use output_format::OutputFormat;
 pub use queue::{Queue, QueueEntry, QueueEntryId, QueueStatus, SessionName, MAX_PRIORITY};
+pub use recovery::{
+    log_recovery, periodic_cleanup, recover_incomplete_sessions, repair_database,
+    should_log_recovery, validate_database,
+};
+pub use result::{Result, ResultExt};
+pub use shutdown::{signal_channels, ShutdownCoordinator, ShutdownSignal};
+pub use taskregistry::TaskRegistry;
 pub use use_cases::{
     dequeue_session, enqueue_session, insert_at_position, list_queue, remove_at_position,
     DomainError, QueueEntryView,
@@ -127,28 +148,6 @@ pub use vcs::{
     detect_backend, BackendType, BranchName, Change, ChangeId, CommitId, RepoStatus, VcsBackend,
     VcsError,
 };
-
-pub use config::{ConfigManager, RecoveryPolicy};
-pub use error::{Error, FailureContext, RichError, RichErrorInfo, ValidationHint};
-pub use fix::{ErrorWithFixes, Fix, FixImpact};
-// Re-export fs2 for file locking utilities
-pub use fs2::FileExt;
-pub use hints::{ActionRisk, CommandContext, NextAction};
-pub use json::{
-    ErrorCode, HateoasLink, RelatedResources, ResponseMeta, SchemaEnvelope, SchemaEnvelopeArray,
-};
-pub use moon_gates::{
-    classify_exit_code, combine_results, format_failure_message, parse_summary, GateError,
-    GateResult, GatesOutcome, GatesStatus, MoonGate,
-};
-pub use output_format::OutputFormat;
-pub use recovery::{
-    log_recovery, periodic_cleanup, recover_incomplete_sessions, repair_database,
-    should_log_recovery, validate_database,
-};
-pub use result::{Result, ResultExt};
-pub use shutdown::{signal_channels, ShutdownCoordinator, ShutdownSignal};
-pub use taskregistry::TaskRegistry;
 pub use workspace_state::{WorkspaceState, WorkspaceStateFilter, WorkspaceStateTransition};
 
 /// Marker trait for types guaranteed safe (no panics possible).

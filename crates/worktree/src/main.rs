@@ -1,6 +1,7 @@
 //! Worktree CLI - Command-line interface for worktree management
 
 use std::env;
+
 use worktree::{AbsolutePath, WorktreeId, WorktreeName, WorktreeTypeEnum};
 
 fn main() {

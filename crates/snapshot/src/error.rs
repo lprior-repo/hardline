@@ -88,10 +88,9 @@ pub type StorageResult<T> = std::result::Result<T, SnapshotError>;
 
 #[cfg(test)]
 mod tests {
+    use proptest::{prop_assert, prop_assert_eq, proptest};
+
     use super::*;
-    use proptest::prop_assert;
-    use proptest::prop_assert_eq;
-    use proptest::proptest;
 
     // --- SnapshotError Display tests ---
 

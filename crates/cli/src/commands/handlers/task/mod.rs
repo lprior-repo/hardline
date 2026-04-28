@@ -5,8 +5,8 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): TaskCommand, TaskOutput, TaskStatus, TaskListOutput, etc.
-//!   (inert, serializable)
+//! - **Data** (`data.rs`): TaskCommand, TaskOutput, TaskStatus, TaskListOutput, etc. (inert,
+//!   serializable)
 //! - **Calculations** (`calculations.rs`): validate_task_command, filter_tasks_by_status,
 //!   status_display_icon, parse_task_id (pure functions, no I/O)
 //! - **Actions** (`actions.rs`): execute_task_command, run_task_command (I/O operations)

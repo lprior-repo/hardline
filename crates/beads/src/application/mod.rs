@@ -2,11 +2,15 @@
 
 use chrono::Utc;
 
-use crate::domain::entities::bead::Bead;
-use crate::domain::events::BeadEvent;
-use crate::domain::value_objects::{BeadId, BeadState, BeadTitle, Priority};
-use crate::error::{BeadError, Result};
-use crate::infrastructure::repository::BeadRepository;
+use crate::{
+    domain::{
+        entities::bead::Bead,
+        events::BeadEvent,
+        value_objects::{BeadId, BeadState, BeadTitle, Priority},
+    },
+    error::{BeadError, Result},
+    infrastructure::repository::BeadRepository,
+};
 
 /// Primary application service for bead (issue) management.
 ///
@@ -296,8 +300,7 @@ impl<R: BeadRepository> BeadService<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::value_objects::BeadDescription;
-    use crate::infrastructure::InMemoryBeadRepository;
+    use crate::{domain::value_objects::BeadDescription, infrastructure::InMemoryBeadRepository};
 
     fn make_service() -> BeadService<InMemoryBeadRepository> {
         BeadService::new(InMemoryBeadRepository::new())

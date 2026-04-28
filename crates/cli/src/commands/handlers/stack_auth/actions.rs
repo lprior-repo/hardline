@@ -2,17 +2,13 @@
 //!
 //! Handles token storage, retrieval, and gh CLI integration.
 
-use std::fs;
-use std::path::PathBuf;
-use std::process::Command;
+use std::{fs, path::PathBuf, process::Command};
 
 use scp_core::output::Output;
 
-use crate::commands::handlers::stack_auth::calc::{
-    determine_auth_resolution_order, normalize_token, resolve_active_source,
-};
-use crate::commands::handlers::stack_auth::data::{
-    AuthError, AuthOptions, AuthResult, AuthSource, AuthStatus,
+use crate::commands::handlers::stack_auth::{
+    calc::{determine_auth_resolution_order, normalize_token, resolve_active_source},
+    data::{AuthError, AuthOptions, AuthResult, AuthSource, AuthStatus},
 };
 
 const CREDENTIALS_FILENAME: &str = ".credentials";

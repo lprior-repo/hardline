@@ -3,9 +3,11 @@
 //! This module demonstrates best practices for using the `tempfile` crate
 //! to safely handle temporary files in the SCP workspace.
 
-use std::fs::{self, File};
-use std::io::{self, Write};
-use std::path::PathBuf;
+use std::{
+    fs::{self, File},
+    io::{self, Write},
+    path::PathBuf,
+};
 
 use tempfile::{tempdir, tempdir_in, NamedTempFile, TempDir};
 

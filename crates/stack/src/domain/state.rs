@@ -4,8 +4,7 @@
 #![warn(clippy::pedantic)]
 #![forbid(unsafe_code)]
 
-use std::fmt;
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
@@ -640,10 +639,9 @@ mod tests {
 
 #[cfg(test)]
 mod proptests {
-    use super::BranchState;
-    use super::PrState;
-    use super::StackState;
     use proptest::proptest;
+
+    use super::{BranchState, PrState, StackState};
 
     proptest! {
         #[test]

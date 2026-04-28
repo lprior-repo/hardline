@@ -28,6 +28,10 @@ pub enum IsolateError {
     /// The workspace guard was dropped without being properly committed.
     #[error("workspace guard dropped without commit: workspace '{workspace_id}' needs cleanup")]
     GuardNotCommitted { workspace_id: String },
+
+    /// A bookmark operation failed.
+    #[error("bookmark error: {0}")]
+    Bookmark(String),
 }
 
 /// Result alias for isolate operations.

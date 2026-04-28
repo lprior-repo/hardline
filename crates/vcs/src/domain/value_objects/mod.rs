@@ -38,8 +38,9 @@ impl VcsType {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::fs;
+
+    use super::*;
 
     // -- VcsStatus Display tests --
 

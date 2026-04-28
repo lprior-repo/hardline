@@ -5,8 +5,8 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): UndoOptions, UndoOutput, UndoEntry, UndoHistoryEntry,
-//!   UndoHistoryOutput (inert, serializable)
+//! - **Data** (`data.rs`): UndoOptions, UndoOutput, UndoEntry, UndoHistoryEntry, UndoHistoryOutput
+//!   (inert, serializable)
 //! - **Actions** (`actions.rs`): run_undo, run_list, history reading, git reset (I/O operations)
 //!
 //! # Git vs JJ

@@ -2,8 +2,9 @@
 //!
 //! Helper functions for parsing and validating command arguments.
 
-use crate::commands::handlers::whatif::WhatIfResult;
 use scp_core::Result;
+
+use crate::commands::handlers::whatif::WhatIfResult;
 
 /// Extract the name argument from a command's argument list
 ///

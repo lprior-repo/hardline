@@ -4,8 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::identifiers::error::IdentifierError;
-use crate::domain::identifiers::validation::validate_session_id;
+use crate::domain::identifiers::{error::IdentifierError, validation::validate_session_id};
 
 /// A validated session ID
 ///

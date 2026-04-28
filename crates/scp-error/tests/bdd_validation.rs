@@ -179,8 +179,9 @@ mod claim_debug_serialize {
 // Claim 4: All variants implement std::error::Error (via thiserror)
 // ============================================================================
 mod claim_std_error {
-    use super::*;
     use std::error::Error as StdError;
+
+    use super::*;
 
     #[test]
     fn all_variants_are_std_error() {
@@ -791,8 +792,9 @@ mod claim_serialize_formats {
 // Claim 10: Error is Send + Sync (safe to use across threads)
 // ============================================================================
 mod claim_thread_safety {
-    use super::*;
     use std::thread;
+
+    use super::*;
 
     #[test]
     fn error_is_send() {

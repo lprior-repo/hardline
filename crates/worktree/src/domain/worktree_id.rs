@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
+
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Value object representing a unique worktree identifier

@@ -4,8 +4,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::output_jsonl::domain_types::{IssueId, RecoveryCapability, RecoveryExecution};
-use crate::output_jsonl::errors::OutputLineError;
+use crate::output_jsonl::{
+    domain_types::{IssueId, RecoveryCapability, RecoveryExecution},
+    errors::OutputLineError,
+};
 
 /// Recovery output line for error recovery reporting.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

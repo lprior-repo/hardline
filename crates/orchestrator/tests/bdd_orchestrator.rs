@@ -45,7 +45,8 @@ mod state_machine {
         assert!(!id.0.is_empty());
     }
 
-    // CLAIM: Happy path lifecycle: Pending -> SpecReview -> UniverseSetup -> AgentDevelopment -> Validation -> Accepted
+    // CLAIM: Happy path lifecycle: Pending -> SpecReview -> UniverseSetup -> AgentDevelopment ->
+    // Validation -> Accepted
     #[test]
     fn claim_happy_path_lifecycle() {
         let mut p = Pipeline::new("test.spec".into());
@@ -331,9 +332,11 @@ mod state_machine {
 // ─── PipelineExecutor Claims ───
 
 mod executor {
-    use orchestrator::phases::{Decision, PhaseError};
-    use orchestrator::state::{Pipeline, PipelineConfig, PipelineState};
-    use orchestrator::PipelineExecutor;
+    use orchestrator::{
+        phases::{Decision, PhaseError},
+        state::{Pipeline, PipelineConfig, PipelineState},
+        PipelineExecutor,
+    };
     use tempfile::TempDir;
 
     fn make_executor() -> (PipelineExecutor, TempDir) {
@@ -509,11 +512,13 @@ mod executor {
 // ─── Cleanup Claims ───
 
 mod cleanup {
-    use orchestrator::cleanup::{
-        CleanupContext, CleanupHandler, CleanupManager, CleanupResult, NoopCleanupHandler,
-        PhaseType, ResourceId, UniverseSetupCleanupHandler,
+    use orchestrator::{
+        cleanup::{
+            CleanupContext, CleanupHandler, CleanupManager, CleanupResult, NoopCleanupHandler,
+            PhaseType, ResourceId, UniverseSetupCleanupHandler,
+        },
+        state::{PipelineId, PipelineState},
     };
-    use orchestrator::state::{PipelineId, PipelineState};
 
     // CLAIM: PhaseType::from_state maps correctly
     #[test]
@@ -751,8 +756,10 @@ mod metrics {
 // ─── Persistence Claims ───
 
 mod persistence {
-    use orchestrator::persistence::StateStore;
-    use orchestrator::state::{Pipeline, PipelineId, PipelineState};
+    use orchestrator::{
+        persistence::StateStore,
+        state::{Pipeline, PipelineId, PipelineState},
+    };
     use tempfile::TempDir;
 
     // CLAIM: StateStore creates and loads from directory
@@ -1055,11 +1062,12 @@ mod policies {
 // ─── Queue Claims ───
 
 mod queue {
+    use std::time::Duration;
+
     use orchestrator::queue::{
         InMemoryJobRepository, Job, JobPayload, JobPriority, JobProcessor, JobProcessorConfig,
         JobRepository, JobState,
     };
-    use std::time::Duration;
 
     fn make_job(priority: JobPriority) -> Job {
         Job {
@@ -1189,9 +1197,11 @@ mod queue {
 // ─── Parallel Execution Claims ───
 
 mod parallel {
-    use orchestrator::cleanup::PhaseType;
-    use orchestrator::parallel::{DependencyGraph, ParallelExecutor, PhaseGroup, PhaseStatus};
-    use orchestrator::state::PipelineState;
+    use orchestrator::{
+        cleanup::PhaseType,
+        parallel::{DependencyGraph, ParallelExecutor, PhaseGroup, PhaseStatus},
+        state::PipelineState,
+    };
 
     // CLAIM: DependencyGraph cycle detection
     #[test]
@@ -1297,9 +1307,11 @@ mod parallel {
 // ─── Adversarial / Edge Case Claims ───
 
 mod adversarial {
-    use orchestrator::phases::Decision;
-    use orchestrator::state::{Pipeline, PipelineConfig, PipelineId, PipelineState};
-    use orchestrator::PipelineExecutor;
+    use orchestrator::{
+        phases::Decision,
+        state::{Pipeline, PipelineConfig, PipelineId, PipelineState},
+        PipelineExecutor,
+    };
     use tempfile::TempDir;
 
     // ADVERSARIAL: Empty spec path

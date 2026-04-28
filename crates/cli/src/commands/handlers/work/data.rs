@@ -2,9 +2,8 @@
 //!
 //! Inert, serializable types with no business logic.
 
-use serde::{Deserialize, Serialize};
-
 use scp_core::OutputFormat;
+use serde::{Deserialize, Serialize};
 
 /// Execution mode for the work command.
 ///

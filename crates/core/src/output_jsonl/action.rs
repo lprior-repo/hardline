@@ -5,8 +5,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::output_jsonl::domain_types::{ActionResult, ActionTarget, ActionVerb};
-use crate::output_jsonl::plan::ActionStatus;
+use crate::output_jsonl::{
+    domain_types::{ActionResult, ActionTarget, ActionVerb},
+    plan::ActionStatus,
+};
 
 /// Action output line for reporting action execution.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

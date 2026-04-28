@@ -41,11 +41,9 @@
 //! // - awakeable(), resolve_awakeable(key, value), reject_awakeable(key, error)
 //! ```
 
-use std::future::Future;
-use std::pin::Pin;
+use std::{future::Future, pin::Pin};
 
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::infrastructure::restate::errors::TerminalError;
 

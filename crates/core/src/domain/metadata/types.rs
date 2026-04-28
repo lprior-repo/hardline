@@ -1,10 +1,8 @@
 //! Metadata types and error definitions
 
-use std::error::Error;
-use std::fmt;
+use std::{error::Error, fmt};
 
-use crate::dag::BranchId;
-use crate::Error as CoreError;
+use crate::{dag::BranchId, Error as CoreError};
 
 /// Error types for metadata operations
 #[derive(Debug, Clone, PartialEq, Eq)]

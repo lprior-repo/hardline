@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
+
+use serde::{Deserialize, Serialize};
 
 /// Value object representing the state of a worktree
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

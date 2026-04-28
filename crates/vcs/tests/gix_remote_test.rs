@@ -1,7 +1,6 @@
 //! Tests for gix remote operations
 
-use scp_vcs::gix::remote;
-use scp_vcs::gix::repository;
+use scp_vcs::gix::{remote, repository};
 use tempfile::TempDir;
 
 #[test]

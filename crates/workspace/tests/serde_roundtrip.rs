@@ -6,10 +6,14 @@
 //! - Check enum representations
 //! - Test with missing and extra fields
 
-use scp_workspace::domain::entities::{WorkspaceId, WorkspaceState};
-use scp_workspace::domain::entities::workspace::{WorkspaceConfig, VcsType};
-use scp_workspace::domain::events::WorkspaceEvent;
-use scp_workspace::domain::value_objects::{WorkspaceName, WorkspacePath};
+use scp_workspace::domain::{
+    entities::{
+        workspace::{VcsType, WorkspaceConfig},
+        WorkspaceId, WorkspaceState,
+    },
+    events::WorkspaceEvent,
+    value_objects::{WorkspaceName, WorkspacePath},
+};
 
 #[test]
 fn workspace_state_all_variants_serde_roundtrip() {
@@ -22,7 +26,10 @@ fn workspace_state_all_variants_serde_roundtrip() {
     ] {
         let json = serde_json::to_string(&state).expect("serialize");
         let parsed: WorkspaceState = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(state, parsed, "WorkspaceState roundtrip failed for {state:?}");
+        assert_eq!(
+            state, parsed,
+            "WorkspaceState roundtrip failed for {state:?}"
+        );
     }
 }
 
@@ -64,7 +71,8 @@ fn workspace_id_roundtrip() {
 
 #[test]
 fn workspace_id_empty_deserializes_but_parse_rejects() {
-    let parsed: WorkspaceId = serde_json::from_str("\"\"").expect("serde deserializes empty string");
+    let parsed: WorkspaceId =
+        serde_json::from_str("\"\"").expect("serde deserializes empty string");
     let parse_result = WorkspaceId::parse("".into());
     assert!(
         parse_result.is_err(),
@@ -209,8 +217,7 @@ fn workspace_event_all_variants_roundtrip() {
 
 #[test]
 fn workspace_event_created_deserialization() {
-    let json =
-        r#"{"WorkspaceCreated":{"workspace_id":"ws-123","name":"my-workspace","timestamp":"2024-01-01T00:00:00Z"}}"#;
+    let json = r#"{"WorkspaceCreated":{"workspace_id":"ws-123","name":"my-workspace","timestamp":"2024-01-01T00:00:00Z"}}"#;
     let event: WorkspaceEvent = serde_json::from_str(json).expect("deserialize");
     match event {
         WorkspaceEvent::WorkspaceCreated {

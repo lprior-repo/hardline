@@ -7,14 +7,20 @@
 //! - concurrency: RwLock stress testing
 //! - invariant-violation: Invariants that should hold but aren't enforced
 
-use scp_workspace::domain::entities::workspace::Initializing;
-use scp_workspace::domain::entities::{Workspace, WorkspaceId, WorkspaceState};
-use scp_workspace::domain::state::WorkspaceStateMachine;
-use scp_workspace::domain::value_objects::{BranchName, LockHolder, WorkspaceName, WorkspacePath};
-use scp_workspace::infrastructure::workspace_repository::InMemoryWorkspaceRepository;
-use scp_workspace::{WorkspaceError, WorkspaceRepository, WorkspaceService};
-use std::sync::{Arc, Barrier};
-use std::thread;
+use std::{
+    sync::{Arc, Barrier},
+    thread,
+};
+
+use scp_workspace::{
+    domain::{
+        entities::{workspace::Initializing, Workspace, WorkspaceId, WorkspaceState},
+        state::WorkspaceStateMachine,
+        value_objects::{BranchName, LockHolder, WorkspaceName, WorkspacePath},
+    },
+    infrastructure::workspace_repository::InMemoryWorkspaceRepository,
+    WorkspaceError, WorkspaceRepository, WorkspaceService,
+};
 
 // ============================================================================
 // DIMENSION: state-inconsistency

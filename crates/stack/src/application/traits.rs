@@ -1,7 +1,11 @@
-use crate::domain::stack::{CommitHash, PrInfo, Stack, StackBranch, StackId};
-use crate::domain::state::StackState;
-use crate::domain::value_objects::BranchName;
-use crate::error::Result;
+use crate::{
+    domain::{
+        stack::{CommitHash, PrInfo, Stack, StackBranch, StackId},
+        state::StackState,
+        value_objects::BranchName,
+    },
+    error::Result,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MergeMethod {

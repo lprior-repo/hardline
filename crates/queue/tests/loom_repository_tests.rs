@@ -8,10 +8,13 @@
 
 #[cfg(loom)]
 mod tests {
-    use loom::model;
-    use loom::sync::{Arc, Mutex};
-    use loom::thread;
     use std::collections::VecDeque;
+
+    use loom::{
+        model,
+        sync::{Arc, Mutex},
+        thread,
+    };
 
     /// Mirrors InMemoryQueueRepository's internal structure using loom primitives.
     /// Uses `u32` values instead of `QueueEntry` to avoid complex type dependencies

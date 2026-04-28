@@ -2,8 +2,7 @@
 
 use std::process::Command;
 
-use scp_core::output::Output;
-use scp_core::Error;
+use scp_core::{output::Output, Error};
 
 /// Show diff
 pub fn diff(path: Option<&str>) -> Result<(), Error> {

@@ -2,12 +2,13 @@
 //!
 //! Domain types for task management: Task, TaskState, TaskId, Title, Priority, Assignee
 
+use std::fmt;
+
 use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use scp_core::{error::Error, error_task::TaskErrorKind};
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 /// Regex pattern for valid task IDs: alphanumeric with - or _
 static TASK_ID_PATTERN: Lazy<Regex> =

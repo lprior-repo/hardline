@@ -4,9 +4,11 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::domain::identifiers::{QueueEntryId, SessionName};
-use crate::domain::queue::status::{QueueStatus, MAX_PRIORITY};
-use crate::domain::validation::{validate_range, ValidationResult};
+use crate::domain::{
+    identifiers::{QueueEntryId, SessionName},
+    queue::status::{QueueStatus, MAX_PRIORITY},
+    validation::{validate_range, ValidationResult},
+};
 
 /// A queue entry representing a session waiting to be merged.
 ///

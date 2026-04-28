@@ -366,8 +366,7 @@ mod tests {
 
     // --- Proptests ---
 
-    use proptest::prelude::*;
-    use proptest::{prop_assert, prop_assert_eq};
+    use proptest::{prelude::*, prop_assert, prop_assert_eq};
 
     proptest! {
         #[test]

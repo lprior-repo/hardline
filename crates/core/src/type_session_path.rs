@@ -2,8 +2,7 @@
 //!
 //! Ensures paths are absolute (not relative).
 
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 

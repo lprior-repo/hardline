@@ -8,12 +8,11 @@
 
 use std::path::PathBuf;
 
+use super::error::{RepositoryError, RepositoryResult};
 use crate::domain::{
     identifiers::{SessionId, SessionName},
     session::BranchState,
 };
-
-use super::error::{RepositoryError, RepositoryResult};
 
 /// Session aggregate root.
 ///

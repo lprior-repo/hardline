@@ -3,6 +3,7 @@
 //! Contains argument definitions and main execution logic.
 
 pub mod agent_args;
+pub mod alias_handler;
 pub mod args;
 pub mod batch_args;
 pub mod config_args;
@@ -10,6 +11,7 @@ pub mod dispatch;
 pub mod dispatch_workspace;
 pub mod lock_args;
 pub mod main;
+pub mod object_commands;
 pub mod queue_args;
 pub mod session_args;
 pub mod stash_args;

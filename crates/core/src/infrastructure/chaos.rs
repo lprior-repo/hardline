@@ -3,14 +3,16 @@
 //! Provides wrappers for I/O, DB, and Network operations to inject random failures.
 //! Useful for resilience testing.
 
-use crate::error::{Error, Result};
-use crate::infrastructure::database::DatabaseService;
+use std::{path::Path, sync::Arc, time::Duration};
+
 use async_trait::async_trait;
 use rand::Rng;
 use sqlx::SqlitePool;
-use std::path::Path;
-use std::sync::Arc;
-use std::time::Duration;
+
+use crate::{
+    error::{Error, Result},
+    infrastructure::database::DatabaseService,
+};
 
 /// Configuration for chaos injection probabilities (0.0 to 1.0)
 #[derive(Debug, Clone)]

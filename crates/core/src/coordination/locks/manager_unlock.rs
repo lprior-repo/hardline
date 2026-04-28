@@ -2,8 +2,10 @@
 
 use chrono::Utc;
 
-use super::manager::LockManager;
-use super::types::{LockOperation, LockResponse};
+use super::{
+    manager::LockManager,
+    types::{LockOperation, LockResponse},
+};
 use crate::Result;
 
 impl LockManager {

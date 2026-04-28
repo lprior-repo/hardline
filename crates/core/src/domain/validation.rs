@@ -9,9 +9,10 @@
 //! All validation functions return `Result<T, ValidationError>`
 //! allowing for easy composition with `.and_then()` chains.
 
+use std::collections::VecDeque;
+
 #[allow(unused_imports)]
 use crate::domain::contracts::{ensures, requires};
-use std::collections::VecDeque;
 
 /// Type alias for validation results - Railway track
 pub type ValidationResult<T> = Result<T, ValidationError>;
@@ -218,11 +219,7 @@ pub fn validate_range(value: u32, min: u32, max: u32, field: &str) -> Validation
 /// ```
 /// use scp_core::domain::validation::validate_all;
 ///
-/// let result = validate_all(vec![
-///     Ok(42),
-///     Ok(43),
-///     Ok(44),
-/// ]);
+/// let result = validate_all(vec![Ok(42), Ok(43), Ok(44)]);
 /// assert_eq!(result, Ok(vec![42, 43, 44]));
 /// ```
 ///

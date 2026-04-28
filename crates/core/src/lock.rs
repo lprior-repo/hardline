@@ -3,15 +3,21 @@
 //! Provides lock types for workspaces, sessions, and queues.
 //! Zero panic, zero unwrap - all operations return Result.
 
-use crate::error::{Error, Result};
-use crate::error_agent::AgentErrorKind;
-use crate::error_queue::QueueErrorKind;
-use crate::error_task::TaskErrorKind;
-use crate::error_workspace::{SessionErrorKind, WorkspaceErrorKind};
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+
+use crate::{
+    error::{Error, Result},
+    error_agent::AgentErrorKind,
+    error_queue::QueueErrorKind,
+    error_task::TaskErrorKind,
+    error_workspace::{SessionErrorKind, WorkspaceErrorKind},
+};
 
 /// Type of lock held in the system
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

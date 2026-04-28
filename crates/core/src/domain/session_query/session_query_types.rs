@@ -9,8 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::session_filter::SessionFilter;
-use super::session_sort::SessionSort;
+use super::{session_filter::SessionFilter, session_sort::SessionSort};
 
 // ============================================================================
 // SESSION QUERY

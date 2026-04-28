@@ -2,8 +2,7 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): WaitOptions, WaitCondition, WaitOutput
-//!   (inert, serializable)
+//! - **Data** (`data.rs`): WaitOptions, WaitCondition, WaitOutput (inert, serializable)
 //! - **Actions** (`actions.rs`): run_wait (I/O operations)
 //!
 //! # CLI Usage

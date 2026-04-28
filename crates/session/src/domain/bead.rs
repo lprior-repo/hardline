@@ -7,12 +7,12 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::workspace_state::WorkspaceState;
-use crate::error::SessionError;
-
-pub use super::bead_state::BeadState;
-pub use super::bead_types::{BeadType, Priority};
-pub use super::bead_value::{BeadDescription, BeadId, BeadTitle};
+pub use super::{
+    bead_state::BeadState,
+    bead_types::{BeadType, Priority},
+    bead_value::{BeadDescription, BeadId, BeadTitle},
+};
+use crate::{domain::workspace_state::WorkspaceState, error::SessionError};
 
 /// Bead aggregate representing an atomic unit of work.
 ///

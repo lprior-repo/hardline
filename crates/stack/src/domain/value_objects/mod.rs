@@ -159,8 +159,9 @@ mod tests {
 
 #[cfg(test)]
 mod proptests {
-    use super::*;
     use proptest::proptest;
+
+    use super::*;
 
     proptest! {
         #[test]

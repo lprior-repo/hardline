@@ -1,10 +1,10 @@
 //! Session validation tests (hardline: Lock Non-Existent Session).
-use crate::coordination::locks::errors::LockErrorKind;
-use crate::coordination::locks::LockManager;
-
 use sqlx::sqlite::SqlitePoolOptions;
 
-use crate::Error;
+use crate::{
+    coordination::locks::{errors::LockErrorKind, LockManager},
+    Error,
+};
 
 #[allow(dead_code)]
 async fn test_pool() -> Result<sqlx::SqlitePool, Error> {

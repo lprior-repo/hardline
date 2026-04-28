@@ -3,9 +3,9 @@
 //! Comprehensive happy-path and adversarial validation of all public types.
 //! Run with: cargo test -p scp-core --test bdd_validation -- --nocapture
 
-use scp_core::lock::LockManager;
-use scp_core::*;
 use std::sync::Arc;
+
+use scp_core::{lock::LockManager, *};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CLAIM 1: SessionName validation
@@ -179,8 +179,8 @@ fn claim_session_status_operations() {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CLAIM 5: WorkspaceState state machine
-// Claims: Created->Working, Working->Ready|Conflict|Abandoned, Ready->Working|Merged|Conflict|Abandoned
-// Terminal: Merged, Abandoned
+// Claims: Created->Working, Working->Ready|Conflict|Abandoned,
+// Ready->Working|Merged|Conflict|Abandoned Terminal: Merged, Abandoned
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
@@ -771,8 +771,7 @@ fn claim_serde_roundtrip_all_types() {
 
 #[test]
 fn adversarial_queue_concurrent_enqueue_dequeue() -> Result<()> {
-    use std::sync::Arc;
-    use std::thread;
+    use std::{sync::Arc, thread};
 
     let lock = Arc::new(MemLockManager::new()) as Arc<dyn LockManager>;
     let queue = Arc::new(MemQueue::new(lock));
@@ -808,8 +807,7 @@ fn adversarial_queue_concurrent_enqueue_dequeue() -> Result<()> {
 
 #[test]
 fn adversarial_lock_concurrent_access() -> Result<()> {
-    use std::sync::Arc;
-    use std::thread;
+    use std::{sync::Arc, thread};
 
     let mgr = Arc::new(MemLockManager::new());
     let mut handles = vec![];

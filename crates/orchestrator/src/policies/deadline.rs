@@ -86,8 +86,8 @@ mod tests {
     #[test]
     fn test_deadline_from_now_zero_duration() {
         let deadline = Deadline::from_now(0);
-        // Deadline was set at now + 0ms, so by the time we check it should be exceeded or very close
-        // Even if not exceeded, remaining_ms should be clamped to 0
+        // Deadline was set at now + 0ms, so by the time we check it should be exceeded or very
+        // close Even if not exceeded, remaining_ms should be clamped to 0
         let remaining = deadline.remaining_ms();
         assert!(remaining <= 1);
     }

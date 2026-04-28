@@ -2,8 +2,8 @@
 //!
 //! Tests use unique prefixes based on test names for isolation
 
-use worktree::application::repositories::WorktreeRepository;
 use worktree::{
+    application::repositories::WorktreeRepository,
     domain::{
         AbsolutePath, BranchName, Worktree, WorktreeId, WorktreeName, WorktreeState,
         WorktreeTypeEnum,

@@ -8,9 +8,8 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::domain::identifiers::BeadId;
-
 use super::error::{RepositoryError, RepositoryResult};
+use crate::domain::identifiers::BeadId;
 
 /// Bead aggregate root (issue/task).
 ///

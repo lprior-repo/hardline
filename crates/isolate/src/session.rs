@@ -3,12 +3,11 @@
 //! This module provides the Session types which represent isolated git-clone
 //! workspaces managed by the isolate system.
 
-use std::fmt;
-use std::str::FromStr;
-
-use serde::{Deserialize, Serialize};
+use std::{fmt, str::FromStr};
 
 use isolate_core::workspace_state::WorkspaceState;
+use serde::{Deserialize, Serialize};
+
 use crate::{IsolateError, Result};
 
 /// Session status representing the lifecycle state of a session
@@ -152,7 +151,10 @@ pub fn validate_session_name(name: &str) -> Result<()> {
     }
 
     // Only allow ASCII alphanumeric, dash, and underscore
-    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
         return Err(IsolateError::OperationFailed(
             "session name can only contain ASCII alphanumeric characters, dashes, and underscores"
                 .to_string(),
@@ -169,7 +171,10 @@ pub fn validate_session_name(name: &str) -> Result<()> {
 
     // Check for reserved keywords
     let lower = name.to_lowercase();
-    if RESERVED_SESSION_NAMES.iter().any(|&keyword| keyword == lower) {
+    if RESERVED_SESSION_NAMES
+        .iter()
+        .any(|&keyword| keyword == lower)
+    {
         return Err(IsolateError::OperationFailed(format!(
             "session name '{name}' is a reserved keyword"
         )));
@@ -268,13 +273,7 @@ mod tests {
 
     #[test]
     fn test_session_name_rejects_unicode() {
-        let unicode_cases = vec![
-            "中文名字",
-            "日本語",
-            "café",
-            "Ñoño",
-            "naïve",
-        ];
+        let unicode_cases = vec!["中文名字", "日本語", "café", "Ñoño", "naïve"];
 
         for name in unicode_cases {
             let result = validate_session_name(name);
@@ -313,7 +312,10 @@ mod tests {
 
     #[test]
     fn test_status_from_str() -> Result<()> {
-        assert_eq!(SessionStatus::from_str("creating")?, SessionStatus::Creating);
+        assert_eq!(
+            SessionStatus::from_str("creating")?,
+            SessionStatus::Creating
+        );
         assert_eq!(SessionStatus::from_str("active")?, SessionStatus::Active);
         assert_eq!(SessionStatus::from_str("paused")?, SessionStatus::Paused);
         assert_eq!(
@@ -332,29 +334,25 @@ mod tests {
 
     #[test]
     fn test_validate_transition_creating_to_active() {
-        let result =
-            validate_status_transition(SessionStatus::Creating, SessionStatus::Active);
+        let result = validate_status_transition(SessionStatus::Creating, SessionStatus::Active);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_validate_transition_creating_to_failed() {
-        let result =
-            validate_status_transition(SessionStatus::Creating, SessionStatus::Failed);
+        let result = validate_status_transition(SessionStatus::Creating, SessionStatus::Failed);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_validate_transition_active_to_paused() {
-        let result =
-            validate_status_transition(SessionStatus::Active, SessionStatus::Paused);
+        let result = validate_status_transition(SessionStatus::Active, SessionStatus::Paused);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_validate_transition_invalid() {
-        let result =
-            validate_status_transition(SessionStatus::Completed, SessionStatus::Paused);
+        let result = validate_status_transition(SessionStatus::Completed, SessionStatus::Paused);
         assert!(result.is_err());
     }
 }

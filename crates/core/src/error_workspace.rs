@@ -2,8 +2,9 @@
 //!
 //! Error codes: 1xxx
 
-use crate::error::Error;
 use thiserror::Error;
+
+use crate::error::Error;
 
 /// Workspace-related errors
 #[derive(Error, Debug, Clone)]

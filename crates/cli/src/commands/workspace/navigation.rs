@@ -1,8 +1,6 @@
 //! Workspace navigation commands
 
-use scp_core::output::Output;
-use scp_core::vcs;
-use scp_core::Error;
+use scp_core::{output::Output, vcs, Error};
 
 /// Next workspace
 pub fn next() -> Result<(), Error> {

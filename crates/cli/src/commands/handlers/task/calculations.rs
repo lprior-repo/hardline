@@ -2,10 +2,10 @@
 //!
 //! No I/O, no side effects. All functions are pure.
 
-use crate::commands::task_types::{Task, TaskId, TaskState};
 use scp_core::error_task::TaskErrorKind;
 
 use super::data::{AgentId, TaskCommand, TaskInfoOutput, TaskStatusOutput};
+use crate::commands::task_types::{Task, TaskId, TaskState};
 
 /// Validate a task command before execution.
 ///
@@ -200,9 +200,10 @@ pub fn parse_task_id(raw: &str) -> scp_core::Result<TaskId> {
 
 #[cfg(test)]
 mod tests {
+    use scp_core::error_task::TaskErrorKind;
+
     use super::*;
     use crate::commands::task_types::{Assignee, Priority, TaskId, Title};
-    use scp_core::error_task::TaskErrorKind;
 
     // ---- truncate_description ----
 
@@ -417,8 +418,8 @@ mod tests {
         // AgentId::new rejects whitespace-only, but validate_agent_id checks as_str().trim()
         // We need to construct an AgentId with whitespace-only content.
         // Since AgentId::new("  ") returns Err, we test validate_task_command indirectly
-        // by verifying the validation function works via a valid AgentId that has trimmed-empty content.
-        // This path is actually caught at AgentId::new construction time.
+        // by verifying the validation function works via a valid AgentId that has trimmed-empty
+        // content. This path is actually caught at AgentId::new construction time.
         // We verify the validate_agent_id logic directly instead.
         let agent_id = AgentId::new("  ");
         assert!(

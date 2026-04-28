@@ -6,8 +6,9 @@
 //! - path.rs: AbsolutePath type and TryFrom implementations
 //! - path_tests.rs: All tests
 
-use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
 
 pub mod path_errors;
 pub mod path_validation;

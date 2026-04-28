@@ -4,14 +4,10 @@
 //! validate data during deserialization, ensuring that invalid data
 //! cannot be deserialized.
 
-use scp_session::domain::entities::session::{
-    BranchState, SessionId, SessionState,
-};
-use scp_session::domain::events::{
-    deserialize_event, serialize_event, SessionEvent,
-};
-use scp_session::domain::value_objects::session::{
-    BeadId as VoBeadId, SessionName, WorkspaceId as VoWorkspaceId,
+use scp_session::domain::{
+    entities::session::{BranchState, SessionId, SessionState},
+    events::{deserialize_event, serialize_event, SessionEvent},
+    value_objects::session::{BeadId as VoBeadId, SessionName, WorkspaceId as VoWorkspaceId},
 };
 
 #[test]
@@ -27,7 +23,11 @@ fn serde_session_state_roundtrip_all_variants() {
     ];
     for (state, expected_json) in variants {
         let json = serde_json::to_string(&state).expect("serialize");
-        assert_eq!(json, expected_json, "SessionState {:?} serializes correctly", state);
+        assert_eq!(
+            json, expected_json,
+            "SessionState {:?} serializes correctly",
+            state
+        );
         let parsed: SessionState = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(state, parsed, "SessionState roundtrip preserves value");
     }
@@ -44,7 +44,9 @@ fn serde_branch_state_roundtrip_detached() {
 
 #[test]
 fn serde_branch_state_roundtrip_on_branch() {
-    let state = BranchState::OnBranch { name: "main".into() };
+    let state = BranchState::OnBranch {
+        name: "main".into(),
+    };
     let json = serde_json::to_string(&state).expect("serialize");
     let parsed: BranchState = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(state, parsed);
@@ -53,7 +55,9 @@ fn serde_branch_state_roundtrip_on_branch() {
 
 #[test]
 fn serde_branch_state_roundtrip_with_special_chars() {
-    let state = BranchState::OnBranch { name: "feature/test".into() };
+    let state = BranchState::OnBranch {
+        name: "feature/test".into(),
+    };
     let json = serde_json::to_string(&state).expect("serialize");
     let parsed: BranchState = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(state, parsed);
@@ -109,7 +113,11 @@ fn serde_session_event_roundtrip_all_variants() {
     for event in events {
         let json = serialize_event(&event).expect("serialize");
         let parsed = deserialize_event(&json).expect("deserialize");
-        assert_eq!(event, parsed, "SessionEvent roundtrip failed for {:?}", event);
+        assert_eq!(
+            event, parsed,
+            "SessionEvent roundtrip failed for {:?}",
+            event
+        );
     }
 }
 
@@ -124,14 +132,19 @@ fn serde_session_state_rejects_invalid_variant() {
 fn serde_branch_state_repr_untagged() {
     let state = BranchState::Detached;
     let json = serde_json::to_string(&state).expect("serialize");
-    assert_eq!(json, r#""Detached""#, "Detached should serialize to 'Detached'");
+    assert_eq!(
+        json, r#""Detached""#,
+        "Detached should serialize to 'Detached'"
+    );
     let parsed: BranchState = serde_json::from_str(&json).expect("deserialize");
     assert!(matches!(parsed, BranchState::Detached));
 }
 
 #[test]
 fn serde_branch_state_on_branch_serialization() {
-    let state = BranchState::OnBranch { name: "main".into() };
+    let state = BranchState::OnBranch {
+        name: "main".into(),
+    };
     let json = serde_json::to_string(&state).expect("serialize");
     assert_eq!(json, r#"{"OnBranch":{"name":"main"}}"#);
     let parsed: BranchState = serde_json::from_str(&json).expect("deserialize");

@@ -5,10 +5,10 @@
 
 use std::path::Path;
 
-use crate::commands::handlers::backup::actions::{
-    compute_checksum as action_checksum, execute_backup_command,
+use crate::commands::handlers::backup::{
+    actions::{compute_checksum as action_checksum, execute_backup_command},
+    data::{BackupCommand, BackupConfig, BackupMetadata},
 };
-use crate::commands::handlers::backup::data::{BackupCommand, BackupConfig, BackupMetadata};
 
 fn test_config(root: &Path) -> BackupConfig {
     BackupConfig {

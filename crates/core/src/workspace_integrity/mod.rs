@@ -42,12 +42,11 @@ pub mod validation;
 pub mod validation_result;
 
 // Re-export types for convenience
-pub use issue::IntegrityIssue;
-pub use repair_result::{BackupMetadata, RepairResult, RollbackResult};
-pub use types::{CorruptionType, RepairStrategy, Severity};
-pub use validation_result::ValidationResult;
-
 // Re-export main structs
 pub use backup::BackupManager;
+pub use issue::IntegrityIssue;
 pub use repair::RepairExecutor;
+pub use repair_result::{BackupMetadata, RepairResult, RollbackResult};
+pub use types::{CorruptionType, RepairStrategy, Severity};
 pub use validation::IntegrityValidator;
+pub use validation_result::ValidationResult;

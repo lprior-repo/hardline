@@ -1,6 +1,7 @@
 //! Gitoxide Repository Operations
-use crate::error::{GitError, GitResult};
 use std::path::PathBuf;
+
+use crate::error::{GitError, GitResult};
 
 /// Open an existing git repository at the given path.
 pub fn open(path: impl Into<PathBuf>) -> GitResult<gix::Repository> {

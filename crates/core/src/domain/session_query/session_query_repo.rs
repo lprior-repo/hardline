@@ -7,11 +7,12 @@
 //! This module is pure **calculations** tier (no I/O):
 //! - `SessionRepositoryExt` - extension trait with query methods
 
+use super::{
+    session_filter::SessionFilter,
+    session_query_ops::{apply_query, filter_sessions},
+    session_query_types::SessionQuery,
+};
 use crate::domain::repository::{Session, SessionRepository};
-
-use super::session_filter::SessionFilter;
-use super::session_query_ops::{apply_query, filter_sessions};
-use super::session_query_types::SessionQuery;
 
 // ============================================================================
 // REPOSITORY EXTENSIONS

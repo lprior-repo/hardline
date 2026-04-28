@@ -264,9 +264,7 @@ mod tests {
         assert_eq!(f1, f3);
     }
 
-    use proptest::prelude::*;
-    use proptest::prop_assert;
-    use proptest::proptest;
+    use proptest::{prelude::*, prop_assert, proptest};
 
     proptest! {
         #[test]

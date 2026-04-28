@@ -3,10 +3,11 @@
 //! Covers: path traversal, null bytes, unicode, hash behavior,
 //! bincode serialization, serde negative tests, boundary conditions.
 
-use scp_workspace::domain::value_objects::lock_holder::LockHolder;
-use scp_workspace::domain::value_objects::workspace_name::WorkspaceName;
-use scp_workspace::domain::value_objects::workspace_path::WorkspacePath;
 use std::collections::{HashMap, HashSet};
+
+use scp_workspace::domain::value_objects::{
+    lock_holder::LockHolder, workspace_name::WorkspaceName, workspace_path::WorkspacePath,
+};
 
 // =============================================================================
 // WorkspaceName edge cases

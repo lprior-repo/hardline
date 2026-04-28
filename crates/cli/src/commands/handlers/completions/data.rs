@@ -2,11 +2,10 @@
 //!
 //! Inert, serializable types with no business logic.
 
-use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
 use scp_core::Error;
+use serde::{Deserialize, Serialize};
 
 /// Options for the completions command (parsed from CLI).
 #[derive(Debug, Clone)]

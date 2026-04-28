@@ -85,7 +85,12 @@ impl SessionState {
     pub fn valid_next_states(self) -> Vec<Self> {
         match self {
             Self::Created => vec![Self::Active, Self::Failed],
-            Self::Active => vec![Self::CommittingEffect, Self::Syncing, Self::Paused, Self::Completed],
+            Self::Active => vec![
+                Self::CommittingEffect,
+                Self::Syncing,
+                Self::Paused,
+                Self::Completed,
+            ],
             Self::CommittingEffect => vec![Self::Active, Self::Syncing, Self::Failed],
             Self::Syncing => vec![Self::Synced, Self::Failed],
             Self::Synced => vec![Self::Active, Self::Paused, Self::Completed],
@@ -248,8 +253,12 @@ impl SessionStateManager<Created> {
 
 impl SessionStateManager<Active> {
     /// Transition from Active to CommittingEffect
-    pub fn begin_commit_effect(mut self, reason: impl Into<String>) -> Result<SessionStateManager<CommittingEffect>> {
-        let transition = StateTransition::new(SessionState::Active, SessionState::CommittingEffect, reason);
+    pub fn begin_commit_effect(
+        mut self,
+        reason: impl Into<String>,
+    ) -> Result<SessionStateManager<CommittingEffect>> {
+        let transition =
+            StateTransition::new(SessionState::Active, SessionState::CommittingEffect, reason);
         self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
@@ -303,8 +312,12 @@ impl SessionStateManager<Active> {
 
 impl SessionStateManager<CommittingEffect> {
     /// Transition from CommittingEffect back to Active
-    pub fn commit_complete(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Active>> {
-        let transition = StateTransition::new(SessionState::CommittingEffect, SessionState::Active, reason);
+    pub fn commit_complete(
+        mut self,
+        reason: impl Into<String>,
+    ) -> Result<SessionStateManager<Active>> {
+        let transition =
+            StateTransition::new(SessionState::CommittingEffect, SessionState::Active, reason);
         self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
@@ -317,7 +330,11 @@ impl SessionStateManager<CommittingEffect> {
 
     /// Transition from CommittingEffect to Syncing
     pub fn sync(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Syncing>> {
-        let transition = StateTransition::new(SessionState::CommittingEffect, SessionState::Syncing, reason);
+        let transition = StateTransition::new(
+            SessionState::CommittingEffect,
+            SessionState::Syncing,
+            reason,
+        );
         self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,
@@ -330,7 +347,8 @@ impl SessionStateManager<CommittingEffect> {
 
     /// Transition from CommittingEffect to Failed
     pub fn fail(mut self, reason: impl Into<String>) -> Result<SessionStateManager<Failed>> {
-        let transition = StateTransition::new(SessionState::CommittingEffect, SessionState::Failed, reason);
+        let transition =
+            StateTransition::new(SessionState::CommittingEffect, SessionState::Failed, reason);
         self.record_transition(&transition)?;
         Ok(SessionStateManager {
             session_id: self.session_id,

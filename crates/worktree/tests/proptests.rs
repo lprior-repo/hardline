@@ -1,8 +1,7 @@
 //! Proptest invariants for worktree crate
 
 use itertools::Itertools;
-use proptest::prelude::*;
-use proptest::{prop_assert, prop_assert_eq};
+use proptest::{prelude::*, prop_assert, prop_assert_eq};
 use worktree::{WorktreeId, WorktreeState, WorktreeTypeEnum};
 
 fn arb_worktree_state() -> impl Strategy<Value = WorktreeState> {

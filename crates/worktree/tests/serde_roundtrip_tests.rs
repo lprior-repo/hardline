@@ -3,9 +3,9 @@
 //! Tests that all Serialize/Deserialize impls in worktree round-trip correctly.
 
 use chrono::Utc;
-use worktree::domain::worktree::Incomplete;
 use worktree::{
-    AbsolutePath, BranchName, Worktree, WorktreeId, WorktreeName, WorktreeState, WorktreeTypeEnum,
+    domain::worktree::Incomplete, AbsolutePath, BranchName, Worktree, WorktreeId, WorktreeName,
+    WorktreeState, WorktreeTypeEnum,
 };
 
 fn roundtrip<T: serde::Serialize + serde::de::DeserializeOwned + std::fmt::Debug + PartialEq>(
@@ -145,8 +145,9 @@ mod worktree_type_enum {
 }
 
 mod worktree_full {
-    use super::*;
     use std::collections::HashMap;
+
+    use super::*;
 
     fn create_test_worktree() -> Worktree {
         let now = Utc::now().timestamp();

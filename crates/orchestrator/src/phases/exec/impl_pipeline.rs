@@ -2,10 +2,11 @@
 
 use tracing::info;
 
+use super::{
+    executor::PipelineExecutor,
+    types::{Decision, PhaseError, PhaseResult},
+};
 use crate::state::{Pipeline, PipelineId, PipelineState};
-
-use super::executor::PipelineExecutor;
-use super::types::{Decision, PhaseError, PhaseResult};
 
 impl PipelineExecutor {
     /// Run the complete pipeline - entry point

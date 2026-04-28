@@ -7,10 +7,10 @@
 //!
 //! - **Data** (`data.rs`): DoneOptions, DoneOutput, DonePreview, ConflictDetectionResult,
 //!   CommitInfo, UndoEntry, DonePhase (inert, serializable)
-//! - **Executor** (`executor.rs`): JjExecutor trait, RealJjExecutor, conflict detection
-//!   (dependency injection for Git commands)
-//! - **VCS Ops** (`vcs_ops.rs`): workspace resolution, file/commit introspection,
-//!   undo history, WorkspaceGitExecutor wrapper
+//! - **Executor** (`executor.rs`): JjExecutor trait, RealJjExecutor, conflict detection (dependency
+//!   injection for Git commands)
+//! - **VCS Ops** (`vcs_ops.rs`): workspace resolution, file/commit introspection, undo history,
+//!   WorkspaceGitExecutor wrapper
 //! - **Conflict** (`conflict.rs`): conflict-detection-only mode
 //! - **Merge** (`merge.rs`): dry-run preview and the full done workflow
 //! - **Actions** (`actions.rs`): `run_done` entry point (orchestrator)

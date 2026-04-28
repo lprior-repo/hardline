@@ -3,16 +3,18 @@
 //! I/O boundary: serialization and Output calls.
 //! All side-effects are isolated to this module.
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
-use super::calculations::{
-    build_overview, build_quick_start, build_workflow, determine_next_action, determine_ready_state,
-};
-use super::data::{
-    AiEnvelope, AiOptions, AiStatusOutput, AiSubcommand, Location, NextActionOutput,
-    AI_NEXT_RESPONSE, AI_OVERVIEW_RESPONSE, AI_QUICKSTART_RESPONSE, AI_STATUS_RESPONSE,
-    AI_WORKFLOW_RESPONSE,
+use super::{
+    calculations::{
+        build_overview, build_quick_start, build_workflow, determine_next_action,
+        determine_ready_state,
+    },
+    data::{
+        AiEnvelope, AiOptions, AiStatusOutput, AiSubcommand, Location, NextActionOutput,
+        AI_NEXT_RESPONSE, AI_OVERVIEW_RESPONSE, AI_QUICKSTART_RESPONSE, AI_STATUS_RESPONSE,
+        AI_WORKFLOW_RESPONSE,
+    },
 };
 
 /// Run the ai command dispatcher.
@@ -136,9 +138,10 @@ fn check_initialized() -> bool {
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
+
     use super::*;
     use crate::commands::handlers::ai::data::AiSubcommand;
-    use serial_test::serial;
 
     // =========================================================================
     // Error handling patterns

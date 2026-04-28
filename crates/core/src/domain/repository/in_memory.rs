@@ -7,14 +7,14 @@
 #![warn(clippy::nursery)]
 #![forbid(unsafe_code)]
 
-use std::collections::HashMap;
-use std::sync::RwLock;
+use std::{collections::HashMap, sync::RwLock};
 
+use super::{
+    error::RepositoryError,
+    session::{Session, SessionRepository},
+    RepositoryResult,
+};
 use crate::domain::identifiers::{SessionId, SessionName};
-
-use super::error::RepositoryError;
-use super::session::{Session, SessionRepository};
-use super::RepositoryResult;
 
 /// In-memory session repository for testing.
 ///
@@ -157,9 +157,8 @@ impl SessionRepository for InMemorySessionRepository {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::domain::session::BranchState;
-
     use super::*;
+    use crate::domain::session::BranchState;
 
     #[test]
     fn test_save_and_load() {

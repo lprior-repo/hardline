@@ -6,8 +6,10 @@ use ratatui::{
     Frame,
 };
 
-use crate::app::{FocusedPane, TuiApp};
-use crate::widgets::StackTreeWidget;
+use crate::{
+    app::{FocusedPane, TuiApp},
+    widgets::StackTreeWidget,
+};
 
 pub fn render(f: &mut Frame, app: &mut TuiApp) {
     let area = f.area();

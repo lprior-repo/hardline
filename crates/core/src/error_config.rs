@@ -2,8 +2,9 @@
 //!
 //! Error codes: 4xxx
 
-use crate::error::Error;
 use thiserror::Error;
+
+use crate::error::Error;
 
 /// Configuration-related errors
 #[derive(Error, Debug, Clone)]
@@ -474,9 +475,10 @@ mod tests {
         // ConfigErrorKind variants are leaf errors with no #[source] attribute,
         // so std::error::Error::source() should return None.
         let err: ConfigError = ConfigErrorKind::ConfigLockError("test".to_string()).into();
-        // We can't call .source() directly on a non-Error type unless it implements std::error::Error.
-        // ConfigError derives thiserror::Error which implements std::error::Error.
-        // Since ConfigErrorKind variants have no #[source], source() is None.
+        // We can't call .source() directly on a non-Error type unless it implements
+        // std::error::Error. ConfigError derives thiserror::Error which implements
+        // std::error::Error. Since ConfigErrorKind variants have no #[source], source() is
+        // None.
         let _: &ConfigError = &err;
         // Just verify the type is usable as a dyn Error
         let _dyn: &(dyn std::error::Error + Send + Sync) = &err;

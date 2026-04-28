@@ -4,9 +4,10 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::workspace_integrity::issue::IntegrityIssue;
-use crate::workspace_integrity::types::CorruptionType;
-use crate::{Error, Result};
+use crate::{
+    workspace_integrity::{issue::IntegrityIssue, types::CorruptionType},
+    Error, Result,
+};
 
 /// Resolve a workspace name to its full path
 ///

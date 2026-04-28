@@ -455,9 +455,9 @@ mod workspace_state_machine_tests {
         // =========================================================================
 
         mod workspace_state_proptests {
+            use proptest::{prop_assert, prop_assert_eq, proptest};
+
             use super::*;
-            use proptest::proptest;
-            use proptest::{prop_assert, prop_assert_eq};
 
             proptest! {
                 /// No self-transitions are allowed

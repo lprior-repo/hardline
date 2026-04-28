@@ -1,5 +1,4 @@
 // //! Agent info builder
-//!
 //! Builder for `AgentInfo` with fluent API.
 
 use chrono::{DateTime, Utc};

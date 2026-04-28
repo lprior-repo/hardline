@@ -2,8 +2,10 @@
 
 use std::collections::HashSet;
 
-use crate::cleanup::PhaseType;
-use crate::parallel::{DependencyGraph, ParallelExecutor, PhaseGroup};
+use crate::{
+    cleanup::PhaseType,
+    parallel::{DependencyGraph, ParallelExecutor, PhaseGroup},
+};
 
 #[test]
 fn test_dependency_graph_empty() {
@@ -609,8 +611,9 @@ fn test_is_complete_with_mixed_completed_and_failed() {
 
 #[test]
 fn test_parallel_error_implements_error() {
-    use crate::parallel::ParallelError;
     use std::error::Error;
+
+    use crate::parallel::ParallelError;
     let err = ParallelError::DependencyNotMet(PhaseType::Validation);
     assert!(err.source().is_none());
 
@@ -623,8 +626,7 @@ fn test_parallel_error_implements_error() {
 
 // --- Proptests for state transition invariants ---
 
-use proptest::prelude::*;
-use proptest::{prop_assert, prop_assert_eq};
+use proptest::{prelude::*, prop_assert, prop_assert_eq};
 
 proptest! {
     #[test]

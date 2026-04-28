@@ -2,8 +2,9 @@
 //!
 //! Error codes: 5xxx, 8xxx
 
-use crate::error::Error;
 use thiserror::Error;
+
+use crate::error::Error;
 
 /// Wait and Batch command errors
 #[derive(Error, Debug, Clone)]

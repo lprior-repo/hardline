@@ -12,8 +12,10 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncReadExt;
 
-use crate::config::types::ValidatedBool;
-use crate::error::{Error, Result};
+use crate::{
+    config::types::ValidatedBool,
+    error::{Error, Result},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -105,8 +107,9 @@ pub async fn check_database_integrity(path: &Path) -> Result<bool> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::NamedTempFile;
+
+    use super::*;
 
     // ═══════════════════════════════════════════════════════════════════════
     // RecoveryPolicy tests

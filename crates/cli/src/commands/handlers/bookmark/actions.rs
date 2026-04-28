@@ -4,8 +4,7 @@
 //! Delegates to Git commands via the shell and uses `scp_core::Output` for
 //! user-facing messages.
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
 use super::data::{
     parse_branch_list, validate_bookmark_name, BookmarkCreateOutput, BookmarkDeleteOutput,

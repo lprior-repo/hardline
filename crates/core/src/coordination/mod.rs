@@ -80,7 +80,6 @@ pub use conflict_resolutions::{
 };
 pub use conflict_resolutions_entities::{ConflictResolution, ConflictResolutionError};
 pub use domain_types::{AgentId, BeadId, DomainError, WorkspaceName};
-
 // Lock types
 pub use locks::{
     LockAuditEntry, LockInfo, LockManager, LockOperation, LockResponse, LockState, Ttl,

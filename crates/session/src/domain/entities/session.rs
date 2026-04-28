@@ -12,8 +12,10 @@ use std::marker::PhantomData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::value_objects::{BeadId, SessionName, WorkspaceId};
-use crate::error::SessionError;
+use crate::{
+    domain::value_objects::{BeadId, SessionName, WorkspaceId},
+    error::SessionError,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -1302,9 +1304,9 @@ mod tests {
     // =========================================================================
 
     mod session_proptests {
+        use proptest::{prop_assert, prop_assert_eq, prop_assert_ne, proptest};
+
         use super::*;
-        use proptest::proptest;
-        use proptest::{prop_assert, prop_assert_eq, prop_assert_ne};
 
         proptest! {
             /// SessionId must reject empty strings
@@ -1660,8 +1662,9 @@ mod tests {
     // =========================================================================
 
     mod session_state_proptests {
-        use super::*;
         use proptest::prelude::*;
+
+        use super::*;
 
         proptest! {
             /// Terminal states are only Completed and Failed

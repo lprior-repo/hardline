@@ -1,8 +1,11 @@
-use crate::domain::entities::Session;
-use crate::domain::value_objects::SessionName;
-use crate::infrastructure::repository::SessionRepository;
-use crate::infrastructure::sqlite_session_repository::SqliteSessionRepository;
 use scp_core::infrastructure::database::SqliteDatabaseService;
+
+use crate::{
+    domain::{entities::Session, value_objects::SessionName},
+    infrastructure::{
+        repository::SessionRepository, sqlite_session_repository::SqliteSessionRepository,
+    },
+};
 
 async fn test_repository() -> SqliteSessionRepository {
     let db = SqliteDatabaseService::in_memory()

@@ -1,14 +1,11 @@
 //! `StackMetadata` constructors and factories
 
-use std::collections::BTreeMap;
-use std::rc::Rc;
+use std::{collections::BTreeMap, rc::Rc};
 
 use petgraph::graph::{DiGraph, NodeIndex};
 
-use crate::dag::BranchId;
-use crate::Error;
-
 use super::entities::StackMetadata;
+use crate::{dag::BranchId, Error};
 
 type BranchParentMap = BTreeMap<BranchId, Option<BranchId>>;
 type BranchChildrenMap = BTreeMap<BranchId, Vec<BranchId>>;

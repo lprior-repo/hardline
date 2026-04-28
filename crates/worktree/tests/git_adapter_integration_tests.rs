@@ -3,9 +3,9 @@
 //! Tests the Git adapter with real git repositories
 
 use std::process::Command;
+
 use tempfile::TempDir;
-use worktree::domain::BranchName;
-use worktree::infrastructure::git::GitWorktreeAdapter;
+use worktree::{domain::BranchName, infrastructure::git::GitWorktreeAdapter};
 
 /// Create a temporary git repository for testing
 fn create_test_repo() -> (TempDir, GitWorktreeAdapter) {

@@ -1,7 +1,8 @@
 //! Git CLI Backend Tests
 
-use scp_vcs::{GitCliBackend, VcsBackend, VcsError, VcsStatus};
 use std::process::Command;
+
+use scp_vcs::{GitCliBackend, VcsBackend, VcsError, VcsStatus};
 use tempfile::TempDir;
 
 fn create_test_repo() -> TempDir {

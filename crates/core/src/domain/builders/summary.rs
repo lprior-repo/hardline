@@ -1,5 +1,4 @@
 // //! Summary builder
-//!
 //! Builder for `Summary` with fluent API.
 
 use chrono::{DateTime, Utc};

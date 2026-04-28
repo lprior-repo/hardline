@@ -1,11 +1,12 @@
 //! Workspace operations - pure helper functions
 
-use std::path::Path;
-use std::process::Command;
+use std::{path::Path, process::Command};
 
-use scp_core::output::Output;
-use scp_core::vcs::{self, VcsBackend, VcsStatus};
-use scp_core::Error;
+use scp_core::{
+    output::Output,
+    vcs::{self, VcsBackend, VcsStatus},
+    Error,
+};
 
 /// Get sorted workspace names
 #[must_use]
@@ -160,8 +161,9 @@ pub fn build_git_diff_command(cwd: &Path, path: Option<&str>) -> Command {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use scp_core::vcs::Workspace;
+
+    use super::*;
 
     // ---- Helper ----
 

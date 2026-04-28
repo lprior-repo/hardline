@@ -1,10 +1,11 @@
-use ratatui::style::{Color, Style};
-use ratatui::text::{Line, Span};
+use ratatui::{
+    style::{Color, Style},
+    text::{Line, Span},
+};
+use scp_stack::domain::StackBranch;
 use serde::{Deserialize, Serialize};
 
-use crate::error::Result;
-use crate::views::WorktreeView;
-use scp_stack::domain::StackBranch;
+use crate::{error::Result, views::WorktreeView};
 
 /// Trait for providing branch data to the TUI.
 pub trait BranchProvider: Send + Sync {
@@ -1435,7 +1436,8 @@ mod tests {
 
         #[test]
         fn serde_ignores_extra_fields_in_json() {
-            let json = r#"{"extra_field": "should be ignored", "content": "test", "kind": "Context"}"#;
+            let json =
+                r#"{"extra_field": "should be ignored", "content": "test", "kind": "Context"}"#;
             let deserialized: DiffLine = serde_json::from_str(json).expect("deserialize");
             assert_eq!(deserialized.content, "test");
             assert_eq!(deserialized.kind, DiffLineKind::Context);

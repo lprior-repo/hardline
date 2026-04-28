@@ -2,10 +2,9 @@
 
 use std::path::PathBuf;
 
+use isolate_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-
-use isolate_core::{Error, Result};
 
 /// Status of an issue in the beads tracker.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,7 +44,9 @@ impl std::str::FromStr for BeadStatus {
                 message: format!("invalid bead status: {s}"),
                 field: Some("status".to_string()),
                 value: Some(s.to_string()),
-                constraints: vec!["valid values are: open, in_progress, blocked, deferred, closed".to_string()],
+                constraints: vec![
+                    "valid values are: open, in_progress, blocked, deferred, closed".to_string(),
+                ],
             }),
         }
     }
@@ -114,13 +115,12 @@ impl BeadRepository {
     pub async fn list_beads(&self) -> Result<Vec<BeadMetadata>> {
         // Load from JSONL then supplement with SQLite using im::HashMap for functional merging
         let jsonl_beads = self.list_beads_jsonl().await.unwrap_or_default();
-        let initial_map = jsonl_beads.into_iter().fold(
-            im::HashMap::new(),
-            |mut acc, b| {
+        let initial_map = jsonl_beads
+            .into_iter()
+            .fold(im::HashMap::new(), |mut acc, b| {
                 acc.insert(b.id.clone(), b);
                 acc
-            },
-        );
+            });
 
         let sqlite_beads = self.list_beads_sqlite().await.unwrap_or_default();
         let final_map = sqlite_beads.into_iter().fold(initial_map, |mut acc, b| {
@@ -170,7 +170,8 @@ impl BeadRepository {
             return Ok(Vec::new());
         }
 
-        let content = fs::read_to_string(path).await
+        let content = fs::read_to_string(path)
+            .await
             .map_err(|e| Error::IoError(format!("failed to read file: {e}")))?;
 
         let beads = content
@@ -249,7 +250,8 @@ impl BeadRepository {
             return Ok(None);
         }
 
-        let content = fs::read_to_string(path).await
+        let content = fs::read_to_string(path)
+            .await
             .map_err(|e| Error::IoError(format!("failed to read file: {e}")))?;
 
         let bead = content
@@ -327,7 +329,8 @@ impl BeadRepository {
         use tokio::fs;
 
         let path = self.issues_jsonl_path();
-        let content = fs::read_to_string(&path).await
+        let content = fs::read_to_string(&path)
+            .await
             .map_err(|e| Error::IoError(format!("failed to read file: {e}")))?;
 
         let now = chrono::Utc::now().to_rfc3339();
@@ -358,7 +361,8 @@ impl BeadRepository {
         )?;
 
         if updated {
-            fs::write(path, new_content).await
+            fs::write(path, new_content)
+                .await
                 .map_err(|e| Error::IoError(format!("failed to write file: {e}")))?;
         }
 

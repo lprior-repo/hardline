@@ -4,8 +4,7 @@
 
 use std::path::Path;
 
-use scp_core::output::Output;
-use scp_core::{Error, Result};
+use scp_core::{output::Output, Error, Result};
 
 use super::data::{ExportOptions, ExportResult, ExportedSession, ImportOptions, ImportResult};
 
@@ -82,8 +81,9 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::io::Write as IoWrite;
+
+    use super::*;
 
     #[test]
     fn run_export_to_stdout() {

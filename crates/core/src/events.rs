@@ -3,10 +3,12 @@
 //! Provides event types for workspaces, queues, and agents.
 //! Zero panic, zero unwrap - all operations return Result.
 
-use crate::error::{Error, Result};
+use std::sync::RwLock;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::RwLock;
+
+use crate::error::{Error, Result};
 
 /// Unified event types
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

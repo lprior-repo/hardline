@@ -2,10 +2,11 @@
 
 use chrono::Utc;
 
-use crate::beads::{Description, DomainError, Title};
-use crate::domain::identifiers::BeadId;
-
 use super::{Bead, BeadError, BeadState, BeadTimestamps};
+use crate::{
+    beads::{Description, DomainError, Title},
+    domain::identifiers::BeadId,
+};
 
 impl Bead {
     // ========================================================================

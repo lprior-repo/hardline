@@ -3,10 +3,9 @@
 
 use std::collections::HashMap;
 
-use crate::config::types::ValidatedBool;
 use crate::config::{
-    AgentConfig, HooksConfig, PartialAgentConfig, PartialHooksConfig, PartialSessionConfig,
-    SessionConfig,
+    types::ValidatedBool, AgentConfig, HooksConfig, PartialAgentConfig, PartialHooksConfig,
+    PartialSessionConfig, SessionConfig,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -2,9 +2,9 @@
 //!
 //! I/O actions that output the preview results.
 
-use crate::commands::handlers::whatif::{WhatIfOptions, WhatIfResult};
-use crate::commands::handlers::whatif::simulation::preview;
 use scp_core::{output::Output, Result};
+
+use crate::commands::handlers::whatif::{simulation::preview, WhatIfOptions, WhatIfResult};
 
 /// Run the whatif command
 ///
@@ -13,8 +13,9 @@ pub fn run_whatif(options: &WhatIfOptions) -> Result<()> {
     let result = preview(options)?;
 
     if options.format == scp_core::OutputFormat::Json {
-        let json = serde_json::to_string_pretty(&result)
-            .map_err(|e| scp_core::Error::io_error(format!("Failed to serialize whatif result: {e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| {
+            scp_core::Error::io_error(format!("Failed to serialize whatif result: {e}"))
+        })?;
         println!("{json}");
     } else {
         Output::info(&format!(

@@ -74,8 +74,9 @@ pub enum SessionCommands {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use clap::{Parser, Subcommand};
+
+    use super::*;
 
     /// Wrapper to parse SessionCommands directly via clap
     #[derive(Parser)]

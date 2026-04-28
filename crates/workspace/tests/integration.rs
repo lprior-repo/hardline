@@ -1,5 +1,6 @@
-use scp_workspace::{WorkspaceName, WorkspacePath, WorkspaceService, WorkspaceState};
 use std::fs;
+
+use scp_workspace::{WorkspaceName, WorkspacePath, WorkspaceService, WorkspaceState};
 use tempfile::tempdir;
 
 #[test]

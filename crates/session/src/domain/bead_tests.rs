@@ -1,10 +1,12 @@
 //! Tests for the Bead aggregate.
 
-use crate::domain::bead::Bead;
-use crate::domain::bead_state::BeadState;
-use crate::domain::bead_types::BeadType;
-use crate::domain::bead_value::{BeadDescription, BeadId, BeadTitle};
-use crate::domain::Priority;
+use crate::domain::{
+    bead::Bead,
+    bead_state::BeadState,
+    bead_types::BeadType,
+    bead_value::{BeadDescription, BeadId, BeadTitle},
+    Priority,
+};
 
 #[test]
 fn bead_create_sets_open_state() {

@@ -9,8 +9,7 @@ use std::marker::PhantomData;
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::value_objects::BranchName;
-use crate::{Result, StackError};
+use crate::{domain::value_objects::BranchName, Result, StackError};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrInfo {
@@ -593,8 +592,8 @@ mod tests {
             .collect()
     }
 
-    // 1. Single branch — returns single-element list (already tested above,
-    //    but this version asserts the exact element, not just length).
+    // 1. Single branch — returns single-element list (already tested above, but this version
+    //    asserts the exact element, not just length).
 
     #[test]
     fn test_topo_single_branch_returns_exact_element() {
@@ -637,8 +636,8 @@ mod tests {
         assert_eq!(topo_name_at(&order, 2), Some("c".to_string()));
     }
 
-    // 3. Diamond DAG: A→B, A→C, B→D — valid topological sort.
-    //    Invariant: B comes before D; A is not in branches so it has no node.
+    // 3. Diamond DAG: A→B, A→C, B→D — valid topological sort. Invariant: B comes before D; A is not
+    //    in branches so it has no node.
 
     #[test]
     fn test_topo_diamond_dag_invariants() {
@@ -770,9 +769,8 @@ mod tests {
         assert_eq!(order[0].name.as_str(), "self-loop");
     }
 
-    // 7. Dependency on non-existent branch: parent points to branch not in the stack.
-    //    The graph builder skips edges where parent is not found, so the branch
-    //    becomes a disconnected node.
+    // 7. Dependency on non-existent branch: parent points to branch not in the stack. The graph
+    //    builder skips edges where parent is not found, so the branch becomes a disconnected node.
 
     #[test]
     fn test_topo_dependency_on_nonexistent_branch() {
@@ -876,10 +874,9 @@ mod tests {
         assert!(names.contains(&"c"));
     }
 
-    // 11. Diamond with shared leaf: main→a, main→b, a→c, b→c.
-    //     Since c can only have one parent, we create two branches that
-    //     both point to c as child. The graph edge is only from one parent.
-    //     Test the actual diamond from the existing test but with stronger invariants.
+    // 11. Diamond with shared leaf: main→a, main→b, a→c, b→c. Since c can only have one parent, we
+    //     create two branches that both point to c as child. The graph edge is only from one
+    //     parent. Test the actual diamond from the existing test but with stronger invariants.
 
     #[test]
     fn test_topo_diamond_shared_leaf_strict() {
@@ -1952,8 +1949,9 @@ mod tests {
 
 #[cfg(test)]
 mod proptests {
-    use super::*;
     use proptest::proptest;
+
+    use super::*;
 
     proptest! {
         #[test]

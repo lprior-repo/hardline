@@ -2,8 +2,7 @@
 //!
 //! # Architecture (Data -> Calc -> Actions)
 //!
-//! - **Data** (`data.rs`): CompletionsOptions, CompletionsOutput, Shell
-//!   (inert, serializable)
+//! - **Data** (`data.rs`): CompletionsOptions, CompletionsOutput, Shell (inert, serializable)
 //! - **Actions** (`actions.rs`): run_completions, generate_completions_output (I/O operations)
 //!
 //! # CLI Usage

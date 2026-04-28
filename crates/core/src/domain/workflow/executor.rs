@@ -6,18 +6,16 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 #![cfg_attr(not(test), deny(clippy::expect_used))]
 
-use std::future::Future;
-use std::pin::Pin;
-use std::time::Duration;
+use std::{future::Future, pin::Pin, time::Duration};
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::domain::workflow::records::{
-    CompensationAction, OperationRecord, RecoveryReport, RecoveryTask,
+use crate::domain::workflow::{
+    records::{CompensationAction, OperationRecord, RecoveryReport, RecoveryTask},
+    states::{OperationState, StepStatus},
 };
-use crate::domain::workflow::states::{OperationState, StepStatus};
 
 #[derive(Error, Debug)]
 pub enum DurableExecutionError {

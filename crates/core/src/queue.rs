@@ -3,12 +3,12 @@
 //! Combines Stak's queue with Isolate workspace support.
 //! Zero panic, zero unwrap - all operations return Result.
 
-use crate::error::Result;
-use crate::error_queue::QueueErrorKind;
-use crate::lock::LockManager;
+use std::sync::Arc;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+
+use crate::{error::Result, error_queue::QueueErrorKind, lock::LockManager};
 
 /// Priority levels for queue items
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
@@ -53,12 +53,18 @@ pub enum QueueSuperstate {
 impl QueueStatus {
     /// Returns true if this status is in the Active superstate
     pub fn is_active(&self) -> bool {
-        matches!(self, QueueStatus::Pending | QueueStatus::Processing | QueueStatus::Retrying)
+        matches!(
+            self,
+            QueueStatus::Pending | QueueStatus::Processing | QueueStatus::Retrying
+        )
     }
 
     /// Returns true if this status is in the Terminal superstate
     pub fn is_terminal(&self) -> bool {
-        matches!(self, QueueStatus::Completed | QueueStatus::Failed | QueueStatus::Cancelled)
+        matches!(
+            self,
+            QueueStatus::Completed | QueueStatus::Failed | QueueStatus::Cancelled
+        )
     }
 
     /// Returns the superstate this status belongs to
@@ -568,12 +574,12 @@ mod tests {
 
     #[test]
     fn test_queue_status_superstate_active_variants() {
-        for status in [QueueStatus::Pending, QueueStatus::Processing, QueueStatus::Retrying] {
-            assert!(
-                status.is_active(),
-                "{:?} should be active",
-                status
-            );
+        for status in [
+            QueueStatus::Pending,
+            QueueStatus::Processing,
+            QueueStatus::Retrying,
+        ] {
+            assert!(status.is_active(), "{:?} should be active", status);
             assert_eq!(
                 status.superstate(),
                 QueueSuperstate::Active,
@@ -585,12 +591,12 @@ mod tests {
 
     #[test]
     fn test_queue_status_superstate_terminal_variants() {
-        for status in [QueueStatus::Completed, QueueStatus::Failed, QueueStatus::Cancelled] {
-            assert!(
-                status.is_terminal(),
-                "{:?} should be terminal",
-                status
-            );
+        for status in [
+            QueueStatus::Completed,
+            QueueStatus::Failed,
+            QueueStatus::Cancelled,
+        ] {
+            assert!(status.is_terminal(), "{:?} should be terminal", status);
             assert_eq!(
                 status.superstate(),
                 QueueSuperstate::Terminal,
@@ -605,7 +611,11 @@ mod tests {
         for status in ALL_STATUSES {
             let active = status.is_active();
             let terminal = status.is_terminal();
-            assert_ne!(active, terminal, "{:?} cannot be both active and terminal", status);
+            assert_ne!(
+                active, terminal,
+                "{:?} cannot be both active and terminal",
+                status
+            );
         }
     }
 
@@ -1681,7 +1691,11 @@ mod tests {
         /// CRITICAL: Pending, Processing, Retrying are all Active superstate members.
         #[test]
         fn active_variants_are_not_terminal() {
-            for status in [QueueStatus::Pending, QueueStatus::Processing, QueueStatus::Retrying] {
+            for status in [
+                QueueStatus::Pending,
+                QueueStatus::Processing,
+                QueueStatus::Retrying,
+            ] {
                 assert!(status.is_active(), "{status:?} should be active");
                 assert!(!status.is_terminal(), "{status:?} should NOT be terminal");
                 assert_eq!(status.superstate(), QueueSuperstate::Active);
@@ -1691,7 +1705,11 @@ mod tests {
         /// CRITICAL: Completed, Failed, Cancelled are all Terminal superstate members.
         #[test]
         fn terminal_variants_are_not_active() {
-            for status in [QueueStatus::Completed, QueueStatus::Failed, QueueStatus::Cancelled] {
+            for status in [
+                QueueStatus::Completed,
+                QueueStatus::Failed,
+                QueueStatus::Cancelled,
+            ] {
                 assert!(!status.is_active(), "{status:?} should NOT be active");
                 assert!(status.is_terminal(), "{status:?} should be terminal");
                 assert_eq!(status.superstate(), QueueSuperstate::Terminal);

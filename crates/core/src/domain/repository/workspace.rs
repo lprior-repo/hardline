@@ -8,9 +8,8 @@
 
 use std::path::PathBuf;
 
-use crate::domain::identifiers::WorkspaceName;
-
 use super::error::{RepositoryError, RepositoryResult};
+use crate::domain::identifiers::WorkspaceName;
 
 /// Workspace aggregate root.
 #[derive(Debug, Clone)]

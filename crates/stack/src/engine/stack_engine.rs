@@ -1,5 +1,4 @@
-use crate::domain::entities::Stack;
-use crate::error::Result;
+use crate::{domain::entities::Stack, error::Result};
 
 pub struct StackEngine;
 
