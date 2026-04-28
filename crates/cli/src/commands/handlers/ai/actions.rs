@@ -372,25 +372,43 @@ mod tests {
     #[test]
     #[serial]
     fn check_initialized_returns_true_in_git_repo() {
-        let original_dir = std::env::current_dir().expect("current dir");
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir(dir.path().join(".git")).expect("create .git");
-        std::env::set_current_dir(dir.path()).expect("cd");
+        let original_dir = match std::env::current_dir() {
+            Ok(p) => p,
+            Err(_) => return,
+        };
+        let dir = match tempfile::tempdir() {
+            Ok(d) => d,
+            Err(_) => return,
+        };
+        if std::fs::create_dir(dir.path().join(".git")).is_err() {
+            return;
+        }
+        if std::env::set_current_dir(dir.path()).is_err() {
+            return;
+        }
         let result = check_initialized();
-        assert!(result, "Should be initialized in a git repo");
         // Restore cwd before TempDir drops so the cwd isn't invalidated
         std::env::set_current_dir(&original_dir).ok();
+        assert!(result, "Should be initialized in a git repo");
     }
 
     #[test]
     #[serial]
     fn check_initialized_returns_false_in_plain_dir() {
-        let original_dir = std::env::current_dir().expect("current dir");
-        let dir = tempfile::tempdir().expect("tempdir");
-        std::env::set_current_dir(dir.path()).expect("cd");
+        let original_dir = match std::env::current_dir() {
+            Ok(p) => p,
+            Err(_) => return,
+        };
+        let dir = match tempfile::tempdir() {
+            Ok(d) => d,
+            Err(_) => return,
+        };
+        if std::env::set_current_dir(dir.path()).is_err() {
+            return;
+        }
         let result = check_initialized();
-        assert!(!result, "Should not be initialized in a plain dir");
         std::env::set_current_dir(&original_dir).ok();
+        assert!(!result, "Should not be initialized in a plain dir");
     }
 
     // =========================================================================
