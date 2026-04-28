@@ -126,8 +126,7 @@ impl From<std::io::Error> for Error {
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
         use super::error_io::IoErrorKind;
-        IoErrorKind::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        IoErrorKind::Io(std::io::Error::other(
             format!("JSON error: {e}"),
         ))
         .into()
