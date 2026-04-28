@@ -681,7 +681,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn wait_envelope_has_single_success_field() -> Result<(), Box<dyn std::error::Error>> {
+        fn wait_envelope_has_single_success_field() -> std::result::Result<(), Box<dyn std::error::Error>> {
             let output = WaitOutput {
                 condition_met: false,
                 condition: "healthy".to_string(),
@@ -705,7 +705,7 @@ mod tests {
         /// THEN: domain payload should expose `condition_met` (not `success`)
         #[test]
         fn given_wait_envelope_when_serialized_then_payload_uses_condition_met_field(
-        ) -> Result<(), Box<dyn std::error::Error>> {
+        ) -> std::result::Result<(), Box<dyn std::error::Error>> {
             let output = WaitOutput {
                 condition_met: true,
                 condition: "healthy".to_string(),
@@ -733,7 +733,7 @@ mod tests {
         /// WHEN: AI agent parses it
         /// THEN: All necessary fields should be present
         #[test]
-        fn json_has_all_required_fields() -> Result<(), Box<dyn std::error::Error>> {
+        fn json_has_all_required_fields() -> std::result::Result<(), Box<dyn std::error::Error>> {
             let output = WaitOutput {
                 condition_met: true,
                 condition: "healthy".to_string(),
@@ -766,7 +766,7 @@ mod tests {
         /// WHEN: Serialized and parsed
         /// THEN: Can determine why wait failed
         #[test]
-        fn timeout_output_is_diagnosable() -> Result<(), Box<dyn std::error::Error>> {
+        fn timeout_output_is_diagnosable() -> std::result::Result<(), Box<dyn std::error::Error>> {
             let output = WaitOutput {
                 condition_met: false,
                 condition: "session-exists:missing".to_string(),
@@ -783,7 +783,7 @@ mod tests {
             if let Some(condition) = json["condition"].as_str() {
                 assert!(condition.contains("missing"));
             } else {
-                return Err("condition field missing or not string".into());
+                return Err(Box::new(IsolateError::OperationFailed("condition field missing or not string".to_string())) as Box<dyn std::error::Error>);
             }
             assert_eq!(json["final_state"].as_str(), Some("not_found"));
             Ok(())

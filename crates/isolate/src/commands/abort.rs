@@ -272,7 +272,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_abort_output_serializes() -> Result<(), serde_json::Error> {
+    fn test_abort_output_serializes() -> std::result::Result<(), serde_json::Error> {
         let output = AbortOutput {
             session_name: "test-session".to_string(),
             workspace_removed: true,

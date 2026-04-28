@@ -65,3 +65,4 @@ predicates = { workspace = true }
 tempfile = { workspace = true }
 proptest = { workspace = true }
 serial_test = { workspace = true }
+futures = { workspace = true }

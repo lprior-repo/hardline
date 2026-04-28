@@ -1197,7 +1197,17 @@ mod tests {
         }
 
         // Execute via hardline's batch execution
-        execute_batch(workspace.as_deref(), commands).await
+        let workspace_name =
+            workspace.ok_or_else(|| anyhow::anyhow!("Atomic batch requires a workspace"))?;
+        let batch_commands: Vec<BatchCommand> = commands
+            .iter()
+            .map(|s| BatchCommand::parse(s))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| anyhow::anyhow!("Failed to parse commands: {e}"))?;
+        let _ = execute_batch(&workspace_name, batch_commands)
+            .await
+            .map_err(anyhow::Error::from)?;
+        Ok(())
     }
 
     /// Handle events command from CLI.
@@ -1219,7 +1229,8 @@ mod tests {
             follow,
             since: None,
         };
-        run_events(&options)
+        run_events(&options).map_err(anyhow::Error::from)?;
+        Ok(())
     }
 
     // =============================================================================
@@ -1269,95 +1280,88 @@ mod tests {
             assert_eq!(cmds[0], "cmd1");
             assert_eq!(cmds[1], "cmd2");
         }
-    }
 
-    // Close the original mod tests from line 365
-}
+        use proptest::{prelude::*, prop_assert, prop_assert_eq, proptest};
 
-#[cfg(test)]
-mod tests {
-    use proptest::{prelude::*, prop_assert, prop_assert_eq, proptest};
-
-    use super::*;
-
-    proptest! {
-        #[test]
-        fn prop_parse_non_empty_command_always_has_name(cmd_str in "[a-zA-Z][a-zA-Z0-9_ -]{0,100}") {
-            let result = BatchCommand::parse(&cmd_str);
-            if let Ok(cmd) = result {
-                prop_assert!(!cmd.name.is_empty());
-                prop_assert!(!cmd.name.contains(' '));
+        proptest! {
+            #[test]
+            fn prop_parse_non_empty_command_always_has_name(cmd_str in "[a-zA-Z][a-zA-Z0-9_ -]{0,100}") {
+                let result = BatchCommand::parse(&cmd_str);
+                if let Ok(cmd) = result {
+                    prop_assert!(!cmd.name.is_empty());
+                    prop_assert!(!cmd.name.contains(' '));
+                }
             }
-        }
 
-        #[test]
-        fn prop_validate_batch_accepts_small_batches(
-            count in 1usize..10,
-            name in "[a-z]{1,5}"
-        ) {
-            let commands: Vec<BatchCommand> = (0..count)
-                .map(|_| BatchCommand {
-                    name: name.clone(),
-                    args: vec![],
-                })
-                .collect();
-            let result = validate_batch(&commands);
-            prop_assert!(result.is_ok());
-        }
+            #[test]
+            fn prop_validate_batch_accepts_small_batches(
+                count in 1usize..10,
+                name in "[a-z]{1,5}"
+            ) {
+                let commands: Vec<BatchCommand> = (0..count)
+                    .map(|_| BatchCommand {
+                        name: name.clone(),
+                        args: vec![],
+                    })
+                    .collect();
+                let result = validate_batch(&commands);
+                prop_assert!(result.is_ok());
+            }
 
-        #[test]
-        fn prop_command_result_clone_equality(
-            name in "[a-z]{1,5}",
-            exit_code in 0i32..10i32,
-            stdout in "[a-z]{0,10}",
-            stderr in "[a-z]{0,10}"
-        ) {
-            let result = CommandResult {
-                command: BatchCommand { name: name.clone(), args: vec![] },
-                success: exit_code == 0,
-                exit_code,
-                stdout: stdout.clone(),
-                stderr: stderr.clone(),
-            };
-            prop_assert_eq!(result.clone(), result.clone());
-        }
+            #[test]
+            fn prop_command_result_clone_equality(
+                name in "[a-z]{1,5}",
+                exit_code in 0i32..10i32,
+                stdout in "[a-z]{0,10}",
+                stderr in "[a-z]{0,10}"
+            ) {
+                let result = CommandResult {
+                    command: BatchCommand { name: name.clone(), args: vec![] },
+                    success: exit_code == 0,
+                    exit_code,
+                    stdout: stdout.clone(),
+                    stderr: stderr.clone(),
+                };
+                prop_assert_eq!(result.clone(), result.clone());
+            }
 
-        #[test]
-        fn prop_batch_command_clone_equality(name in "[a-z]{1,5}") {
-            let cmd = BatchCommand { name: name.clone(), args: vec![] };
-            let cloned = cmd.clone();
-            prop_assert_eq!(cmd, cloned);
-        }
+            #[test]
+            fn prop_batch_command_clone_equality(name in "[a-z]{1,5}") {
+                let cmd = BatchCommand { name: name.clone(), args: vec![] };
+                let cloned = cmd.clone();
+                prop_assert_eq!(cmd, cloned);
+            }
 
-        #[test]
-        fn prop_batch_command_clone_independence(name in "[a-z]{1,5}", arg in "[a-z]{1,5}") {
-            let cmd = BatchCommand { name: name.clone(), args: vec![arg.clone()] };
-            let mut cloned = cmd.clone();
-            cloned.name = "modified".to_string();
-            prop_assert_eq!(cmd.name, name);
-            prop_assert_eq!(cloned.name, "modified");
-        }
+            #[test]
+            fn prop_batch_command_clone_independence(name in "[a-z]{1,5}", arg in "[a-z]{1,5}") {
+                let cmd = BatchCommand { name: name.clone(), args: vec![arg.clone()] };
+                let mut cloned = cmd.clone();
+                cloned.name = "modified".to_string();
+                prop_assert_eq!(cmd.name, name);
+                prop_assert_eq!(cloned.name, "modified");
+            }
 
-        #[test]
-        fn prop_command_result_clone_preserves_all_fields(
-            name in "[a-z]{1,5}",
-            exit_code in 0i32..10i32,
-            stdout in "[a-z]{0,10}",
-            stderr in "[a-z]{0,10}"
-        ) {
-            let result = CommandResult {
-                command: BatchCommand { name: name.clone(), args: vec![] },
-                success: exit_code == 0,
-                exit_code,
-                stdout: stdout.clone(),
-                stderr: stderr.clone(),
-            };
-            let cloned = result.clone();
-            prop_assert_eq!(result.command.name, cloned.command.name);
-            prop_assert_eq!(result.success, cloned.success);
-            prop_assert_eq!(result.exit_code, cloned.exit_code);
-            prop_assert_eq!(result.stdout, cloned.stdout);
-            prop_assert_eq!(result.stderr, cloned.stderr);
+            #[test]
+            fn prop_command_result_clone_preserves_all_fields(
+                name in "[a-z]{1,5}",
+                exit_code in 0i32..10i32,
+                stdout in "[a-z]{0,10}",
+                stderr in "[a-z]{0,10}"
+            ) {
+                let result = CommandResult {
+                    command: BatchCommand { name: name.clone(), args: vec![] },
+                    success: exit_code == 0,
+                    exit_code,
+                    stdout: stdout.clone(),
+                    stderr: stderr.clone(),
+                };
+                let cloned = result.clone();
+                prop_assert_eq!(result.command.name, cloned.command.name);
+                prop_assert_eq!(result.success, cloned.success);
+                prop_assert_eq!(result.exit_code, cloned.exit_code);
+                prop_assert_eq!(result.stdout, cloned.stdout);
+                prop_assert_eq!(result.stderr, cloned.stderr);
+            }
         }
     }
 }

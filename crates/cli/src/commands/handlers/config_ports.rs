@@ -85,7 +85,9 @@ fn validate_path_traversal(path: &std::path::Path, base_dir: &std::path::Path) -
     })?;
 
     // Verify canonical path is within base_dir
-    let canonical_base = base_dir.canonicalize().unwrap_or_else(|_| base_dir.to_path_buf());
+    let canonical_base = base_dir
+        .canonicalize()
+        .unwrap_or_else(|_| base_dir.to_path_buf());
     if !canonical.starts_with(&canonical_base) {
         return Err(Error::io_error(
             "Path escape detected - path must be within repository".to_string(),

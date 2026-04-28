@@ -385,20 +385,20 @@ mod tests {
 
     #[test]
     fn test_bead_status_from_str() {
-        assert_eq!("open".parse().unwrap(), BeadStatus::Open);
-        assert_eq!("in_progress".parse().unwrap(), BeadStatus::InProgress);
-        assert_eq!("blocked".parse().unwrap(), BeadStatus::Blocked);
-        assert_eq!("deferred".parse().unwrap(), BeadStatus::Deferred);
-        assert_eq!("closed".parse().unwrap(), BeadStatus::Closed);
+        assert_eq!("open".parse::<BeadStatus>().unwrap(), BeadStatus::Open);
+        assert_eq!("in_progress".parse::<BeadStatus>().unwrap(), BeadStatus::InProgress);
+        assert_eq!("blocked".parse::<BeadStatus>().unwrap(), BeadStatus::Blocked);
+        assert_eq!("deferred".parse::<BeadStatus>().unwrap(), BeadStatus::Deferred);
+        assert_eq!("closed".parse::<BeadStatus>().unwrap(), BeadStatus::Closed);
     }
 
     #[test]
     fn test_bead_status_from_str_aliases() {
-        assert_eq!("●".parse().unwrap(), BeadStatus::Open);
-        assert_eq!("ready".parse().unwrap(), BeadStatus::Open);
-        assert_eq!("working".parse().unwrap(), BeadStatus::InProgress);
-        assert_eq!("done".parse().unwrap(), BeadStatus::Closed);
-        assert_eq!("completed".parse().unwrap(), BeadStatus::Closed);
+        assert_eq!("●".parse::<BeadStatus>().unwrap(), BeadStatus::Open);
+        assert_eq!("ready".parse::<BeadStatus>().unwrap(), BeadStatus::Open);
+        assert_eq!("working".parse::<BeadStatus>().unwrap(), BeadStatus::InProgress);
+        assert_eq!("done".parse::<BeadStatus>().unwrap(), BeadStatus::Closed);
+        assert_eq!("completed".parse::<BeadStatus>().unwrap(), BeadStatus::Closed);
     }
 
     #[test]
