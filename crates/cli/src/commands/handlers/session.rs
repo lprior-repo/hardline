@@ -13,7 +13,7 @@ use crate::commands::session;
 // Sync functions (from original handlers/session.rs)
 // =============================================================================
 
-/// Pause an active session.
+/// Pause an active session by writing a `.hd/paused` marker file.
 pub fn pause(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(Error::invalid_identifier(
@@ -29,12 +29,27 @@ pub fn pause(name: &str) -> Result<()> {
         return Err(Error::session(format!("session '{name}' not found")));
     }
 
-    Err(Error::unimplemented(
-        "session pause: session state persistence is not yet implemented",
-    ))
+    let hd_dir = cwd.join(".hd");
+    std::fs::create_dir_all(&hd_dir)
+        .map_err(|e| Error::io_error(format!("failed to create .hd directory: {e}")))?;
+
+    let paused_path = hd_dir.join("paused");
+    if paused_path.exists() {
+        return Err(Error::session(
+            "session is already paused".to_string(),
+        ));
+    }
+
+    let timestamp = chrono::Utc::now().to_rfc3339();
+    let content = format!("{name}\n{timestamp}\n");
+    std::fs::write(&paused_path, content)
+        .map_err(|e| Error::io_error(format!("failed to write paused marker: {e}")))?;
+
+    Output::success(&format!("Session '{name}' paused at {timestamp}"));
+    Ok(())
 }
 
-/// Resume a paused session.
+/// Resume a paused session by removing the `.hd/paused` marker file.
 pub fn resume(name: &str) -> Result<()> {
     if name.is_empty() {
         return Err(Error::invalid_identifier(
@@ -50,9 +65,18 @@ pub fn resume(name: &str) -> Result<()> {
         return Err(Error::session(format!("session '{name}' not found")));
     }
 
-    Err(Error::unimplemented(
-        "session resume: session state persistence is not yet implemented",
-    ))
+    let paused_path = cwd.join(".hd").join("paused");
+    if !paused_path.exists() {
+        return Err(Error::session(
+            "no paused session found".to_string(),
+        ));
+    }
+
+    std::fs::remove_file(&paused_path)
+        .map_err(|e| Error::io_error(format!("failed to remove paused marker: {e}")))?;
+
+    Output::success(&format!("Session '{name}' resumed"));
+    Ok(())
 }
 
 /// Result of a clone operation.
