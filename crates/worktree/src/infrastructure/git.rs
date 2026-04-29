@@ -1,7 +1,5 @@
 use std::path::Path;
 
-use git2::Repository as GitRepository;
-
 use crate::domain::{AbsolutePath, BranchName, WorktreeDomainError};
 
 /// Errors that can occur during Git operations
@@ -23,7 +21,30 @@ pub enum GitError {
     IoError(#[from] std::io::Error),
 
     #[error("Git error: {0}")]
-    GitError(#[from] git2::Error),
+    GitError(String),
+}
+
+// String-based error conversion for gix error types that don't share a common trait
+macro_rules! impl_gix_error {
+    ($err_type:ty) => {
+        impl From<$err_type> for GitError {
+            fn from(err: $err_type) -> Self {
+                GitError::GitError(err.to_string())
+            }
+        }
+    };
+}
+
+impl_gix_error!(gix::discover::Error);
+impl_gix_error!(gix::open::Error);
+impl_gix_error!(gix::reference::find::existing::Error);
+impl_gix_error!(gix::reference::iter::Error);
+impl_gix_error!(gix::reference::iter::init::Error);
+
+impl From<Box<dyn std::error::Error + Send + Sync>> for GitError {
+    fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
+        GitError::GitError(err.to_string())
+    }
 }
 
 impl From<GitError> for WorktreeDomainError {
@@ -34,7 +55,7 @@ impl From<GitError> for WorktreeDomainError {
 
 /// Adapter for Git operations (read-only for now)
 pub struct GitWorktreeAdapter {
-    repo: GitRepository,
+    repo: gix::Repository,
 }
 
 impl GitWorktreeAdapter {
@@ -49,53 +70,53 @@ impl GitWorktreeAdapter {
             )));
         }
 
-        let repo = GitRepository::open(path)?;
+        let repo = gix::discover(path)?;
         Ok(Self { repo })
     }
 
     /// Get the underlying Git repository
-    pub fn repository(&self) -> &GitRepository {
+    pub fn repository(&self) -> &gix::Repository {
         &self.repo
     }
 
     /// Get the parent repository path
     pub fn get_parent_path(&self) -> Result<AbsolutePath, GitError> {
-        let path = self.repo.path();
-        let worktree_dir = path.parent().unwrap_or(path);
+        let workdir = self
+            .repo
+            .workdir()
+            .ok_or_else(|| GitError::InvalidPath("Repository has no working directory".into()))?;
 
-        AbsolutePath::new(worktree_dir)
+        AbsolutePath::new(workdir)
             .map_err(|e| GitError::InvalidPath(format!("Invalid repository path: {}", e)))
     }
 
     /// Get the current branch of the repository
     pub fn get_current_branch(&self) -> Result<Option<BranchName>, GitError> {
-        let head = self.repo.head()?;
+        let head_name = self.repo.head_name()?;
 
-        if head.is_branch() {
-            let branch_name = head.name();
-            match branch_name {
-                Some(name) => {
-                    // Strip refs/heads/ prefix if present
-                    let name = name.strip_prefix("refs/heads/").unwrap_or(name);
-                    BranchName::new(name)
-                        .map(Some)
-                        .map_err(|e| GitError::InvalidPath(format!("Invalid branch name: {}", e)))
-                }
-                None => Ok(None),
+        match head_name {
+            Some(name) => {
+                // shorten() strips the refs/heads/ prefix
+                let branch_name = name.shorten().to_string();
+                BranchName::new(&branch_name)
+                    .map(Some)
+                    .map_err(|e| GitError::InvalidPath(format!("Invalid branch name: {}", e)))
             }
-        } else {
-            Ok(None)
+            None => Ok(None),
         }
     }
 
     /// Get all local branches
     pub fn get_local_branches(&self) -> Result<Vec<BranchName>, GitError> {
         let mut branches = Vec::new();
-        for (branch, _) in self.repo.branches(None)?.flatten() {
-            if let Ok(Some(name)) = branch.name() {
-                if let Ok(bn) = BranchName::new(name) {
-                    branches.push(bn);
-                }
+        let refs = self.repo.references()?;
+        let local_iter = refs.local_branches()?;
+
+        for branch_result in local_iter {
+            let reference = branch_result?;
+            let name = reference.name().shorten().to_string();
+            if let Ok(bn) = BranchName::new(&name) {
+                branches.push(bn);
             }
         }
         Ok(branches)
@@ -104,22 +125,22 @@ impl GitWorktreeAdapter {
     /// Get all remote branches
     pub fn get_remote_branches(&self) -> Result<Vec<BranchName>, GitError> {
         let mut branches = Vec::new();
-        for (branch, _) in self
-            .repo
-            .branches(Some(git2::BranchType::Remote))?
-            .flatten()
-        {
-            if let Ok(Some(name)) = branch.name() {
-                let name = name.strip_prefix("origin/").unwrap_or(name);
-                if let Ok(bn) = BranchName::new(name) {
-                    branches.push(bn);
-                }
+        let refs = self.repo.references()?;
+        let remote_iter = refs.remote_branches()?;
+
+        for branch_result in remote_iter {
+            let reference = branch_result?;
+            let name = reference.name().shorten().to_string();
+            // Strip origin/ prefix to match previous git2 behavior
+            let name = name.strip_prefix("origin/").unwrap_or(&name);
+            if let Ok(bn) = BranchName::new(name) {
+                branches.push(bn);
             }
         }
         Ok(branches)
     }
 
-    /// List all worktrees (git2 0.20+)
+    /// List all worktrees
     pub fn list_worktrees(&self) -> Result<Vec<String>, GitError> {
         // Simplified - just return empty for now
         Ok(Vec::new())
@@ -141,6 +162,7 @@ impl GitWorktreeAdapter {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::process::Command;
 
     use tempfile::TempDir;
 
@@ -150,30 +172,29 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let repo_path = temp_dir.path();
 
-        // Initialize a git repository
-        GitRepository::init(repo_path).unwrap();
+        // Initialize a git repository using gix
+        gix::init(repo_path).unwrap();
 
-        // Create a test file and commit
+        // Create a test file
         let test_file = repo_path.join("test.txt");
         fs::write(&test_file, "test content").unwrap();
 
-        let repo = GitRepository::init(repo_path).unwrap();
-        let mut index = repo.index().unwrap();
-        index.add_path(std::path::Path::new("test.txt")).unwrap();
-        index.write().unwrap();
+        // Use git CLI for commit (test-only; gix lacks simple commit API)
+        Command::new("git")
+            .args(["add", "test.txt"])
+            .current_dir(repo_path)
+            .output()
+            .expect("git add failed");
 
-        let tree_id = index.write_tree().unwrap();
-        let tree = repo.find_tree(tree_id).unwrap();
-        let signature = git2::Signature::now("Test", "test@example.com").unwrap();
-        repo.commit(
-            Some("HEAD"),
-            &signature,
-            &signature,
-            "Initial commit",
-            &tree,
-            &[],
-        )
-        .unwrap();
+        Command::new("git")
+            .args(["commit", "--allow-empty", "-m", "Initial commit"])
+            .env("GIT_AUTHOR_NAME", "Test")
+            .env("GIT_AUTHOR_EMAIL", "test@example.com")
+            .env("GIT_COMMITTER_NAME", "Test")
+            .env("GIT_COMMITTER_EMAIL", "test@example.com")
+            .current_dir(repo_path)
+            .output()
+            .expect("git commit failed");
 
         let adapter = GitWorktreeAdapter::new(repo_path).unwrap();
         (temp_dir, adapter)
@@ -197,7 +218,10 @@ mod tests {
         let (_temp_dir, adapter) = create_test_repo();
         let branch = adapter.get_current_branch().unwrap();
         assert!(branch.is_some());
-        assert_eq!(branch.unwrap().as_str(), "master");
+        // Default branch could be master or main depending on git config
+        let binding = branch.unwrap();
+        let name = binding.as_str();
+        assert!(name == "master" || name == "main");
     }
 
     #[test]

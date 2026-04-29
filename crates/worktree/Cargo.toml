@@ -35,8 +35,8 @@ tokio = { workspace = true }
 # SQLx for database operations
 sqlx = { workspace = true, features = ["postgres", "sqlite", "runtime-tokio", "uuid", "chrono", "json", "macros"] }
 
-# Git operations
-git2 = { workspace = true }
+# Git operations (gitoxide - pure Rust)
+gix = { workspace = true }
 
 # Async traits
 async-trait = { workspace = true }

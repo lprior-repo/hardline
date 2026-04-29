@@ -74,7 +74,6 @@ petgraph = "0.6"
 
 # Git
 gix = { version = "0.78", features = ["status", "blocking-network-client"] }
-git2 = "0.20"
 
 uuid = { version = "1", features = ["v4", "serde"] }
 
