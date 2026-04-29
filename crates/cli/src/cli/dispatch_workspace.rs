@@ -614,7 +614,7 @@ fn dispatch_tooling(cmd: &WorkspaceCommands) -> Option<Result<()>> {
 // Main dispatch
 // ========================================================================
 
-pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
+pub fn run(cmd: WorkspaceCommands) -> Result<()> {
     dispatch_core(&cmd)
         .or_else(|| dispatch_branch(&cmd))
         .or_else(|| dispatch_workspace_ops(&cmd))

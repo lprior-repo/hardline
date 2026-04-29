@@ -516,7 +516,7 @@ async fn get_retention_status(
 // ============================================================================
 
 /// Compute SHA-256 checksum of a file.
-pub(crate) async fn compute_checksum(path: &Path) -> Result<String> {
+pub async fn compute_checksum(path: &Path) -> Result<String> {
     use sha2::{Digest, Sha256};
     use tokio::{fs::File, io::AsyncReadExt};
 

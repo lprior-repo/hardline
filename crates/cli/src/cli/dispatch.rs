@@ -69,7 +69,7 @@ fn audit_log(action: &str, resource: &str, agent_id: &scp_core::AgentId) {
     }
 }
 
-pub(crate) fn run_command(cmd: Commands) -> Result<()> {
+pub fn run_command(cmd: Commands) -> Result<()> {
     match cmd {
         Commands::Init { vcs } => commands::init::run(&vcs),
 

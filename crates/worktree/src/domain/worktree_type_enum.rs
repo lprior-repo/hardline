@@ -25,65 +25,65 @@ pub enum WorktreeTypeEnum {
 impl WorktreeTypeEnum {
     /// Create a worktree type from a numeric value
     #[must_use]
-    pub fn from_u8(value: u8) -> Option<Self> {
+    pub const fn from_u8(value: u8) -> Option<Self> {
         match value {
-            0 => Some(WorktreeTypeEnum::Development),
-            1 => Some(WorktreeTypeEnum::Testing),
-            2 => Some(WorktreeTypeEnum::Review),
-            3 => Some(WorktreeTypeEnum::Debugging),
-            4 => Some(WorktreeTypeEnum::Research),
+            0 => Some(Self::Development),
+            1 => Some(Self::Testing),
+            2 => Some(Self::Review),
+            3 => Some(Self::Debugging),
+            4 => Some(Self::Research),
             _ => None,
         }
     }
 
     /// Convert to numeric value
     #[must_use]
-    pub fn as_u8(self) -> u8 {
+    pub const fn as_u8(self) -> u8 {
         self as u8
     }
 
     /// Get a human-readable name for the type
     #[must_use]
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         match self {
-            WorktreeTypeEnum::Development => "Development",
-            WorktreeTypeEnum::Testing => "Testing",
-            WorktreeTypeEnum::Review => "Review",
-            WorktreeTypeEnum::Debugging => "Debugging",
-            WorktreeTypeEnum::Research => "Research",
+            Self::Development => "Development",
+            Self::Testing => "Testing",
+            Self::Review => "Review",
+            Self::Debugging => "Debugging",
+            Self::Research => "Research",
         }
     }
 
     /// Get a short code for the type
     #[must_use]
-    pub fn code(&self) -> &'static str {
+    pub const fn code(&self) -> &'static str {
         match self {
-            WorktreeTypeEnum::Development => "dev",
-            WorktreeTypeEnum::Testing => "test",
-            WorktreeTypeEnum::Review => "review",
-            WorktreeTypeEnum::Debugging => "debug",
-            WorktreeTypeEnum::Research => "research",
+            Self::Development => "dev",
+            Self::Testing => "test",
+            Self::Review => "review",
+            Self::Debugging => "debug",
+            Self::Research => "research",
         }
     }
 
     /// Check if this type is commonly used for development
     #[must_use]
-    pub fn is_development_focused(self) -> bool {
-        matches!(self, WorktreeTypeEnum::Development)
+    pub const fn is_development_focused(self) -> bool {
+        matches!(self, Self::Development)
     }
 
     /// Check if this type is for quality assurance
     #[must_use]
-    pub fn is_qa_focused(self) -> bool {
-        matches!(self, WorktreeTypeEnum::Testing | WorktreeTypeEnum::Review)
+    pub const fn is_qa_focused(self) -> bool {
+        matches!(self, Self::Testing | Self::Review)
     }
 
     /// Check if this type is for troubleshooting
     #[must_use]
-    pub fn is_troubleshooting_focused(self) -> bool {
+    pub const fn is_troubleshooting_focused(self) -> bool {
         matches!(
             self,
-            WorktreeTypeEnum::Debugging | WorktreeTypeEnum::Research
+            Self::Debugging | Self::Research
         )
     }
 }
@@ -104,7 +104,7 @@ impl TryFrom<u8> for WorktreeTypeEnum {
     type Error = super::WorktreeDomainError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        WorktreeTypeEnum::from_u8(value).ok_or_else(|| {
+        Self::from_u8(value).ok_or_else(|| {
             super::WorktreeDomainError::InvalidPath(format!("Invalid worktree type: {value}"))
         })
     }

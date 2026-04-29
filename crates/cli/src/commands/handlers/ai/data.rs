@@ -96,7 +96,7 @@ impl Location {
 
     /// Convert to the canonical string representation for serialization.
     #[must_use]
-    pub fn as_str(&self) -> &str {
+    pub const fn as_str(&self) -> &str {
         match self {
             Self::Main => "main",
             Self::Workspace(_) => "workspace",
@@ -140,7 +140,7 @@ pub enum Priority {
 impl Priority {
     /// Convert to the canonical string for backward-compatible assertions.
     #[must_use]
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::High => "high",
             Self::Medium => "medium",
@@ -160,7 +160,7 @@ impl fmt::Display for Priority {
 // =============================================================================
 
 /// AI Status output.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct AiStatusOutput {
     /// Current location (typed enum serialized as `snake_case` string).
     pub location: Location,
@@ -181,14 +181,14 @@ pub struct AiStatusOutput {
 }
 
 /// Workflow information.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct WorkflowInfo {
     pub name: String,
     pub steps: Vec<WorkflowStep>,
 }
 
 /// Workflow step.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct WorkflowStep {
     pub step: usize,
     pub command: String,
@@ -196,7 +196,7 @@ pub struct WorkflowStep {
 }
 
 /// Next action output.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct NextActionOutput {
     /// What to do.
     pub action: String,
@@ -209,14 +209,14 @@ pub struct NextActionOutput {
 }
 
 /// Quick-start command reference.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct QuickCommand {
     pub command: String,
     pub purpose: String,
 }
 
 /// Quick-start output structure.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct QuickStartOutput {
     pub essential_commands: Vec<QuickCommand>,
     pub orientation: Vec<QuickCommand>,
@@ -224,14 +224,14 @@ pub struct QuickStartOutput {
 }
 
 /// Subcommand info for overview.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct SubcommandInfo {
     pub command: String,
     pub description: String,
 }
 
 /// AI overview output.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct AiOverview {
     pub message: String,
     pub subcommands: Vec<SubcommandInfo>,

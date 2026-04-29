@@ -73,10 +73,7 @@ fn load_events_output(options: &EventsOptions, limit: usize) -> Result<EventsOut
 fn read_raw_events() -> Result<String> {
     let events_file = resolve_events_file_path()?;
 
-    match std::fs::read_to_string(&events_file) {
-        Ok(c) => Ok(c),
-        Err(_) => Ok(String::new()),
-    }
+    std::fs::read_to_string(&events_file).map_or_else(|_| Ok(String::new()), Ok)
 }
 
 /// Parse, filter, sort, and truncate event entries (pure).

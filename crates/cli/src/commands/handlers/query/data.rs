@@ -49,7 +49,7 @@ impl QueryType {
     }
 
     /// Get all query type names.
-    pub fn all_names() -> &'static [&'static str] {
+    pub const fn all_names() -> &'static [&'static str] {
         &[
             "session-exists",
             "sessions",
@@ -116,7 +116,7 @@ impl SessionStatus {
     }
 
     /// Convert to string.
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Active => "active",
             Self::Paused => "paused",

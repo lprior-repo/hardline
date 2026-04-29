@@ -27,13 +27,13 @@ impl WorktreeId {
 
     /// Create a worktree ID from bytes
     #[must_use]
-    pub fn from_bytes(bytes: [u8; 16]) -> Self {
+    pub const fn from_bytes(bytes: [u8; 16]) -> Self {
         Self(Uuid::from_bytes(bytes))
     }
 
     /// Get the UUID as bytes
     #[must_use]
-    pub fn as_bytes(&self) -> &[u8; 16] {
+    pub const fn as_bytes(&self) -> &[u8; 16] {
         self.0.as_bytes()
     }
 

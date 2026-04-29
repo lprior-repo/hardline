@@ -29,7 +29,7 @@ macro_rules! impl_gix_error {
     ($err_type:ty) => {
         impl From<$err_type> for GitError {
             fn from(err: $err_type) -> Self {
-                GitError::GitError(err.to_string())
+                Self::GitError(err.to_string())
             }
         }
     };
@@ -43,13 +43,13 @@ impl_gix_error!(gix::reference::iter::init::Error);
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for GitError {
     fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        GitError::GitError(err.to_string())
+        Self::GitError(err.to_string())
     }
 }
 
 impl From<GitError> for WorktreeDomainError {
     fn from(error: GitError) -> Self {
-        WorktreeDomainError::GitError(error.to_string())
+        Self::GitError(error.to_string())
     }
 }
 
@@ -79,7 +79,7 @@ impl GitWorktreeAdapter {
     }
 
     /// Get the underlying Git repository
-    pub fn repository(&self) -> &gix::Repository {
+    pub const fn repository(&self) -> &gix::Repository {
         &self.repo
     }
 
@@ -106,16 +106,13 @@ impl GitWorktreeAdapter {
     pub fn get_current_branch(&self) -> Result<Option<BranchName>, GitError> {
         let head_name = self.repo.head_name()?;
 
-        match head_name {
-            Some(name) => {
-                // shorten() strips the refs/heads/ prefix
-                let branch_name = name.shorten().to_string();
-                BranchName::new(&branch_name)
-                    .map(Some)
-                    .map_err(|e| GitError::InvalidPath(format!("Invalid branch name: {e}")))
-            }
-            None => Ok(None),
-        }
+        head_name.map_or(Ok(None), |name| {
+            // shorten() strips the refs/heads/ prefix
+            let branch_name = name.shorten().to_string();
+            BranchName::new(&branch_name)
+                .map(Some)
+                .map_err(|e| GitError::InvalidPath(format!("Invalid branch name: {e}")))
+        })
     }
 
     /// Get all local branches
@@ -165,7 +162,7 @@ impl GitWorktreeAdapter {
     /// # Errors
     ///
     /// Returns an error if the worktree list cannot be retrieved.
-    pub fn list_worktrees(&self) -> Result<Vec<String>, GitError> {
+    pub const fn list_worktrees(&self) -> Result<Vec<String>, GitError> {
         // Simplified - just return empty for now
         Ok(Vec::new())
     }
@@ -175,7 +172,7 @@ impl GitWorktreeAdapter {
     /// # Errors
     ///
     /// Returns an error if the worktree check fails.
-    pub fn worktree_exists(&self, _name: &str) -> Result<bool, GitError> {
+    pub const fn worktree_exists(&self, _name: &str) -> Result<bool, GitError> {
         // Simplified - just return false for now
         Ok(false)
     }
@@ -185,7 +182,7 @@ impl GitWorktreeAdapter {
     /// # Errors
     ///
     /// Returns an error if the worktree path lookup fails.
-    pub fn get_worktree_path(&self, _name: &str) -> Result<Option<AbsolutePath>, GitError> {
+    pub const fn get_worktree_path(&self, _name: &str) -> Result<Option<AbsolutePath>, GitError> {
         // Simplified - just return None for now
         Ok(None)
     }

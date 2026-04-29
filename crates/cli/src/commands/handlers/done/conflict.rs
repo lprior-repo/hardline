@@ -12,7 +12,7 @@ use super::{
 };
 
 /// Run conflict detection only and return results.
-pub(crate) fn run_conflict_detection_only(
+pub fn run_conflict_detection_only(
     executor: &dyn GitExecutor,
     workspace_name: &str,
     workspace_path: &str,

@@ -7,7 +7,7 @@ use scp_vcs::gix::{repository, tag};
 pub fn list(pattern: Option<&str>, _sort: Option<&str>) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
+    detect_vcs(&cwd).ok_or_else(Error::vcs_not_initialized)?;
 
     let repo = repository::open(&cwd)
         .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
@@ -29,7 +29,7 @@ pub fn list(pattern: Option<&str>, _sort: Option<&str>) -> Result<()> {
 pub fn create(name: &str, message: Option<&str>, _commit: Option<&str>, force: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
+    detect_vcs(&cwd).ok_or_else(Error::vcs_not_initialized)?;
 
     let repo = repository::open(&cwd)
         .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
@@ -46,7 +46,7 @@ pub fn create(name: &str, message: Option<&str>, _commit: Option<&str>, force: b
 pub fn delete(name: &str, remote: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
+    detect_vcs(&cwd).ok_or_else(Error::vcs_not_initialized)?;
 
     let repo = repository::open(&cwd)
         .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
@@ -80,12 +80,9 @@ fn delete_remote_tag(workdir: &std::path::Path, name: &str) -> Result<()> {
 pub fn push(tag: Option<&str>, remote: &str, _force: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
+    detect_vcs(&cwd).ok_or_else(Error::vcs_not_initialized)?;
 
-    match tag {
-        Some(t) => push_single_tag(&cwd, t, remote),
-        None => push_all_tags(&cwd, remote),
-    }
+    tag.map_or_else(|| push_all_tags(&cwd, remote), |t| push_single_tag(&cwd, t, remote))
 }
 
 /// Push a single tag to a remote using the gix native path.

@@ -163,6 +163,7 @@ pub fn print_auth_status(status: &AuthStatus) {
             AuthSource::GithubTokenEnv if !status.allow_github_token_env => {
                 " (disabled by default; enable with auth.allow_github_token_env = true)"
             }
+            #[allow(clippy::option_if_let_else)]
             AuthSource::GhCli if status.gh_hostname.is_some() => {
                 if let Some(ref hostname) = status.gh_hostname {
                     &format!(" (hostname: {})", hostname)

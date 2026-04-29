@@ -44,7 +44,7 @@ impl PruneOptions {
     ///
     /// Maps `--yes` and `--dry-run` flags to the appropriate `PruneMode`.
     /// Dry-run takes precedence over yes when both are set.
-    pub fn from_cli(yes: bool, dry_run: bool) -> Self {
+    pub const fn from_cli(yes: bool, dry_run: bool) -> Self {
         let mode = if dry_run {
             PruneMode::DryRun
         } else if yes {
@@ -74,7 +74,7 @@ pub struct PruneOutput {
 impl PruneOutput {
     /// Create an empty prune output (no invalid sessions found).
     #[must_use]
-    pub fn empty() -> Self {
+    pub const fn empty() -> Self {
         Self {
             invalid_count: 0,
             removed_count: 0,
@@ -84,7 +84,7 @@ impl PruneOutput {
 
     /// Create a dry-run output showing what would be pruned.
     #[must_use]
-    pub fn dry_run(invalid_sessions: Vec<String>) -> Self {
+    pub const fn dry_run(invalid_sessions: Vec<String>) -> Self {
         let invalid_count = invalid_sessions.len();
         Self {
             invalid_count,
@@ -95,7 +95,7 @@ impl PruneOutput {
 
     /// Create a completed prune output.
     #[must_use]
-    pub fn completed(invalid_sessions: Vec<String>, removed_count: usize) -> Self {
+    pub const fn completed(invalid_sessions: Vec<String>, removed_count: usize) -> Self {
         let invalid_count = invalid_sessions.len();
         Self {
             invalid_count,

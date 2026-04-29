@@ -47,7 +47,7 @@ impl<S> Worktree<S> {
         state: WorktreeState,
         created_at: i64,
         updated_at: i64,
-    ) -> Worktree<S> {
+    ) -> Self {
         Self::uninitialized_with_metadata(
             id,
             name,
@@ -64,7 +64,7 @@ impl<S> Worktree<S> {
 
     #[must_use]
     #[allow(clippy::too_many_arguments)]
-    pub fn uninitialized_with_metadata(
+    pub const fn uninitialized_with_metadata(
         id: WorktreeId,
         name: WorktreeName,
         path: AbsolutePath,
@@ -75,8 +75,8 @@ impl<S> Worktree<S> {
         created_at: i64,
         updated_at: i64,
         metadata: HashMap<String, String>,
-    ) -> Worktree<S> {
-        Worktree {
+    ) -> Self {
+        Self {
             id,
             name,
             path,

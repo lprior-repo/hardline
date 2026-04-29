@@ -73,7 +73,7 @@ pub enum UndoStatus {
 impl UndoStatus {
     /// Convert to the string representation used in the log file.
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Completed => "completed",
             Self::Undone => "undone",
@@ -155,7 +155,7 @@ pub enum Eligibility {
 impl Eligibility {
     /// Returns `true` if the entry is eligible.
     #[must_use]
-    pub fn is_eligible(&self) -> bool {
+    pub const fn is_eligible(&self) -> bool {
         matches!(self, Self::Eligible)
     }
 }

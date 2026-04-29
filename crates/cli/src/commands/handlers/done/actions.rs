@@ -38,7 +38,7 @@ pub fn run_done(options: &DoneOptions) -> Result<DoneOutput> {
     // Check workspace exists
     let workspaces = backend.list_workspaces()?;
     if !workspaces.iter().any(|w| w.name == workspace_name) {
-        return Err(Error::workspace_not_found(workspace_name.clone()));
+        return Err(Error::workspace_not_found(workspace_name));
     }
 
     // Determine workspace path (current dir if we're in it, or we need to switch)

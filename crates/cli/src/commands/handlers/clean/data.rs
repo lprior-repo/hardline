@@ -42,7 +42,7 @@ pub struct CleanOutput {
 impl CleanOutput {
     /// Create an empty output indicating no stale sessions.
     #[must_use]
-    pub fn no_stale() -> Self {
+    pub const fn no_stale() -> Self {
         Self {
             stale_count: 0,
             removed_count: 0,
@@ -52,7 +52,7 @@ impl CleanOutput {
 
     /// Create a dry-run output listing stale sessions without removing them.
     #[must_use]
-    pub fn dry_run(stale_sessions: Vec<String>) -> Self {
+    pub const fn dry_run(stale_sessions: Vec<String>) -> Self {
         let stale_count = stale_sessions.len();
         Self {
             stale_count,
@@ -63,7 +63,7 @@ impl CleanOutput {
 
     /// Create an output for a successful cleanup run.
     #[must_use]
-    pub fn cleaned(removed_count: usize, stale_sessions: Vec<String>) -> Self {
+    pub const fn cleaned(removed_count: usize, stale_sessions: Vec<String>) -> Self {
         let stale_count = stale_sessions.len();
         Self {
             stale_count,

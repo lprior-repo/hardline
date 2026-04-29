@@ -4,7 +4,7 @@
 
 use super::data::{AuthOptions, AuthSource, AuthStatus};
 
-pub fn resolve_active_source(status: &AuthStatus) -> Option<AuthSource> {
+pub const fn resolve_active_source(status: &AuthStatus) -> Option<AuthSource> {
     if status.stax_env_available {
         return Some(AuthSource::StaxGithubTokenEnv);
     }
@@ -53,11 +53,11 @@ pub fn normalize_token(token: &str) -> String {
     token.trim().to_string()
 }
 
-pub fn should_use_gh_cli(options: &AuthOptions) -> bool {
+pub const fn should_use_gh_cli(options: &AuthOptions) -> bool {
     options.use_gh_cli && options.token.is_none() && !options.from_gh
 }
 
-pub fn token_source_description(source: AuthSource) -> &'static str {
+pub const fn token_source_description(source: AuthSource) -> &'static str {
     match source {
         AuthSource::StaxGithubTokenEnv => "Environment variable STAX_GITHUB_TOKEN",
         AuthSource::CredentialsFile => "Stored credentials file",

@@ -28,78 +28,78 @@ pub enum WorktreeState {
 impl WorktreeState {
     /// Create a worktree state from a numeric value
     #[must_use]
-    pub fn from_u8(value: u8) -> Option<Self> {
+    pub const fn from_u8(value: u8) -> Option<Self> {
         match value {
-            0 => Some(WorktreeState::Creating),
-            1 => Some(WorktreeState::Incomplete),
-            2 => Some(WorktreeState::Active),
-            3 => Some(WorktreeState::Suspended),
-            4 => Some(WorktreeState::Removing),
-            5 => Some(WorktreeState::Removed),
+            0 => Some(Self::Creating),
+            1 => Some(Self::Incomplete),
+            2 => Some(Self::Active),
+            3 => Some(Self::Suspended),
+            4 => Some(Self::Removing),
+            5 => Some(Self::Removed),
             _ => None,
         }
     }
 
     /// Convert to numeric value
     #[must_use]
-    pub fn as_u8(self) -> u8 {
+    pub const fn as_u8(self) -> u8 {
         self as u8
     }
 
     /// Get a human-readable name for the state
     #[must_use]
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         match self {
-            WorktreeState::Creating => "Creating",
-            WorktreeState::Incomplete => "Incomplete",
-            WorktreeState::Active => "Active",
-            WorktreeState::Suspended => "Suspended",
-            WorktreeState::Removing => "Removing",
-            WorktreeState::Removed => "Removed",
+            Self::Creating => "Creating",
+            Self::Incomplete => "Incomplete",
+            Self::Active => "Active",
+            Self::Suspended => "Suspended",
+            Self::Removing => "Removing",
+            Self::Removed => "Removed",
         }
     }
 
     /// Check if state is terminal (no further transitions allowed)
     #[must_use]
-    pub fn is_terminal(self) -> bool {
-        matches!(self, WorktreeState::Removed)
+    pub const fn is_terminal(self) -> bool {
+        matches!(self, Self::Removed)
     }
 
     /// Check if state is active (worktree can be used)
     #[must_use]
-    pub fn is_active(self) -> bool {
-        matches!(self, WorktreeState::Active)
+    pub const fn is_active(self) -> bool {
+        matches!(self, Self::Active)
     }
 
     /// Check if state is transient (intermediate states)
     #[must_use]
-    pub fn is_transient(self) -> bool {
+    pub const fn is_transient(self) -> bool {
         matches!(
             self,
-            WorktreeState::Creating | WorktreeState::Incomplete | WorktreeState::Removing
+            Self::Creating | Self::Incomplete | Self::Removing
         )
     }
 
     /// Get valid next states from this state
     #[must_use]
-    pub fn valid_next_states(self) -> Vec<WorktreeState> {
+    pub fn valid_next_states(self) -> Vec<Self> {
         match self {
-            WorktreeState::Creating => vec![WorktreeState::Active, WorktreeState::Removed],
-            WorktreeState::Incomplete => vec![
-                WorktreeState::Active,
-                WorktreeState::Suspended,
-                WorktreeState::Removed,
+            Self::Creating => vec![Self::Active, Self::Removed],
+            Self::Incomplete => vec![
+                Self::Active,
+                Self::Suspended,
+                Self::Removed,
             ],
-            WorktreeState::Active => vec![WorktreeState::Suspended, WorktreeState::Removing],
-            WorktreeState::Suspended => vec![WorktreeState::Active, WorktreeState::Removing],
-            WorktreeState::Removing => vec![WorktreeState::Removed],
-            WorktreeState::Removed => vec![], // Terminal state
+            Self::Active => vec![Self::Suspended, Self::Removing],
+            Self::Suspended => vec![Self::Active, Self::Removing],
+            Self::Removing => vec![Self::Removed],
+            Self::Removed => vec![], // Terminal state
         }
     }
 
     /// Check if state transition is valid
     #[must_use]
-    pub fn can_transition_to(self, target: WorktreeState) -> bool {
+    pub fn can_transition_to(self, target: Self) -> bool {
         self.valid_next_states().contains(&target)
     }
 }
@@ -120,10 +120,10 @@ impl TryFrom<u8> for WorktreeState {
     type Error = super::WorktreeDomainError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        WorktreeState::from_u8(value).ok_or({
+        Self::from_u8(value).ok_or({
             super::WorktreeDomainError::InvalidStateTransition(
-                WorktreeState::Active,
-                WorktreeState::Active,
+                Self::Active,
+                Self::Active,
             )
         })
     }

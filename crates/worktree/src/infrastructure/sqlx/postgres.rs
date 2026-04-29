@@ -308,7 +308,7 @@ impl PostgresWorktreeRepository {
 
     /// Get the pool for testing (internal access)
     #[must_use]
-    pub fn pool(&self) -> &PgPool {
+    pub const fn pool(&self) -> &PgPool {
         &self.pool
     }
 }

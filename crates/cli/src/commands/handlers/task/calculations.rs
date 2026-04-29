@@ -45,7 +45,7 @@ pub fn validate_task_command(cmd: &TaskCommand) -> scp_core::Result<()> {
 /// Since TaskId::new already validated at construction, this is a belt-and-suspenders
 /// check that the ID remains valid. Primarily ensures consistency between
 /// validation and TaskId construction.
-fn validate_task_id_format(_task_id: &TaskId, _context: &str) -> scp_core::Result<()> {
+const fn validate_task_id_format(_task_id: &TaskId, _context: &str) -> scp_core::Result<()> {
     // TaskId is already validated at construction time via TaskId::new().
     // This function exists as a structural placeholder for any future validation.
     Ok(())
@@ -63,7 +63,7 @@ fn validate_agent_id(agent_id: &AgentId) -> scp_core::Result<()> {
 ///
 /// Pure mapping function.
 #[must_use]
-pub fn task_state_to_output(state: &TaskState) -> TaskStatusOutput {
+pub const fn task_state_to_output(state: &TaskState) -> TaskStatusOutput {
     match state {
         TaskState::Open => TaskStatusOutput::Open,
         TaskState::InProgress => TaskStatusOutput::InProgress,

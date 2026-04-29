@@ -10,7 +10,7 @@ pub enum ForgeType {
 }
 
 impl ForgeType {
-    pub fn display_name(self) -> &'static str {
+    pub const fn display_name(self) -> &'static str {
         match self {
             Self::GitHub => "GitHub",
             Self::GitLab => "GitLab",
@@ -28,7 +28,7 @@ pub enum AuthSource {
 }
 
 impl AuthSource {
-    pub fn display_name(self) -> &'static str {
+    pub const fn display_name(self) -> &'static str {
         match self {
             Self::StaxGithubTokenEnv => "STAX_GITHUB_TOKEN",
             Self::CredentialsFile => "credentials file (~/.config/stax/.credentials)",

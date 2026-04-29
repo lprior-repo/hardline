@@ -35,7 +35,7 @@ pub fn acquire(session: &str, agent: &str, ttl: Option<u64>) -> Result<()> {
 }
 
 /// Internal acquire with explicit path for testing
-pub(crate) fn acquire_with_path(
+pub fn acquire_with_path(
     session: &str,
     agent: &str,
     ttl: Option<u64>,
@@ -64,7 +64,7 @@ pub fn release(session: &str, agent: &str) -> Result<()> {
 }
 
 /// Internal release with explicit path for testing
-pub(crate) fn release_with_path(session: &str, agent: &str, db_path: &str) -> Result<()> {
+pub fn release_with_path(session: &str, agent: &str, db_path: &str) -> Result<()> {
     run_async(async {
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
@@ -83,7 +83,7 @@ pub fn heartbeat(session: &str, agent: &str) -> Result<()> {
 }
 
 /// Internal heartbeat with explicit path for testing
-pub(crate) fn heartbeat_with_path(session: &str, agent: &str, db_path: &str) -> Result<()> {
+pub fn heartbeat_with_path(session: &str, agent: &str, db_path: &str) -> Result<()> {
     run_async(async {
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
@@ -105,7 +105,7 @@ pub fn status(session: &str) -> Result<()> {
 }
 
 /// Internal status with explicit path for testing
-pub(crate) fn status_with_path(session: &str, db_path: &str) -> Result<()> {
+pub fn status_with_path(session: &str, db_path: &str) -> Result<()> {
     run_async(async {
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
@@ -138,7 +138,7 @@ pub fn list() -> Result<()> {
 }
 
 /// Internal list with explicit path for testing
-pub(crate) fn list_with_path(db_path: &str) -> Result<()> {
+pub fn list_with_path(db_path: &str) -> Result<()> {
     run_async(async {
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;

@@ -87,17 +87,17 @@ impl AbsolutePath {
 
     /// Create a child path relative to this absolute path
     #[must_use]
-    pub fn join<P: AsRef<Path>>(&self, child: P) -> AbsolutePath {
+    pub fn join<P: AsRef<Path>>(&self, child: P) -> Self {
         // Joining two absolute paths always produces an absolute path.
         // Use new_unchecked to avoid expect/unwrap since validation is redundant here.
         // SAFETY: PathBuf::join of absolute path always produces absolute path.
-        unsafe { AbsolutePath::new_unchecked(self.0.join(child)) }
+        unsafe { Self::new_unchecked(self.0.join(child)) }
     }
 
     /// Get the parent directory
     #[must_use]
-    pub fn parent(&self) -> Option<AbsolutePath> {
-        self.0.parent().and_then(|p| AbsolutePath::new(p).ok())
+    pub fn parent(&self) -> Option<Self> {
+        self.0.parent().and_then(|p| Self::new(p).ok())
     }
 
     /// Get the file or directory name

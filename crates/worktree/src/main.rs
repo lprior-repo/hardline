@@ -186,12 +186,14 @@ fn parse_branch(
     start: usize,
 ) -> Option<Result<worktree::BranchName, worktree::WorktreeDomainError>> {
     if args.get(start).map(String::as_str) == Some("--branch") {
-        match args.get(start + 1) {
-            Some(val) => Some(worktree::BranchName::new(val)),
-            None => Some(Err(worktree::WorktreeDomainError::InvalidBranch(
-                "--branch requires a value".to_string(),
-            ))),
-        }
+        args.get(start + 1).map_or_else(
+            || {
+                Some(Err(worktree::WorktreeDomainError::InvalidBranch(
+                    "--branch requires a value".to_string(),
+                )))
+            },
+            |val| Some(worktree::BranchName::new(val)),
+        )
     } else {
         None
     }

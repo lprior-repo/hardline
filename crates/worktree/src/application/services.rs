@@ -21,7 +21,7 @@ pub struct WorktreeService<R: WorktreeRepository> {
 }
 
 impl<R: WorktreeRepository> WorktreeService<R> {
-    pub fn new(repository: R) -> Self {
+    pub const fn new(repository: R) -> Self {
         Self { repository }
     }
 

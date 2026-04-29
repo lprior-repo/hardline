@@ -135,17 +135,12 @@ pub async fn handle_doctor(sub_m: &ArgMatches) -> Result<()> {
         // No subcommand - legacy mode (doctor with flags)
         None => {
             let _format = get_format(sub_m);
-            let fix = sub_m.get_flag("fix");
-            let dry_run = sub_m.get_flag("dry-run");
-            let verbose = sub_m.get_flag("verbose");
+            let _fix = sub_m.get_flag("fix");
+            let _dry_run = sub_m.get_flag("dry-run");
+            let _verbose = sub_m.get_flag("verbose");
 
-            // If no flags, run check mode
-            if !fix && !dry_run && !verbose {
-                Ok(doctor::run(false)?)
-            } else {
-                // hardline's doctor doesn't support fix/dry_run/verbose
-                Ok(doctor::run(false)?)
-            }
+            // hardline's doctor doesn't support fix/dry_run/verbose flags
+            Ok(doctor::run(false)?)
         }
         // Unknown subcommand
         _ => {

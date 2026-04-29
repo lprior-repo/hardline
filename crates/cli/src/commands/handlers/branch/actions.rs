@@ -74,18 +74,16 @@ pub fn run_branch_delete(options: &BranchDeleteOptions) -> Result<()> {
         .current_dir(&cwd)
         .output()?;
 
+    let stderr = String::from_utf8_lossy(&output.stderr);
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
         if !stderr.is_empty() {
             Output::success(&format!("Deleted branch '{}'", options.name));
-            Ok(())
         } else {
             // Git returned non-zero but with info in stderr
             Output::info(&stderr);
-            Ok(())
         }
+        Ok(())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
         Err(Error::vcs_conflict("branch delete", stderr))
     }
 }
@@ -130,8 +128,8 @@ pub fn run_branch_rename(options: &BranchRenameOptions) -> Result<()> {
         .current_dir(&cwd)
         .output()?;
 
+    let stderr = String::from_utf8_lossy(&output.stderr);
     if output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
         if !stderr.is_empty() || stderr.contains("Renamed") {
             Output::success(&format!(
                 "Renamed branch '{}' -> '{}'",
@@ -142,7 +140,6 @@ pub fn run_branch_rename(options: &BranchRenameOptions) -> Result<()> {
         }
         Ok(())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
         Err(Error::vcs_conflict("branch rename", stderr))
     }
 }

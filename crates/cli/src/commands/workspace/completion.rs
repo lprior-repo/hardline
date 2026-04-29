@@ -17,7 +17,7 @@ pub fn done(name: Option<&str>) -> Result<(), Error> {
 
     // P3: Check workspace exists
     if !workspace_exists(backend.as_ref(), &workspace_name)? {
-        return Err(Error::workspace_not_found(workspace_name.clone()));
+        return Err(Error::workspace_not_found(workspace_name));
     }
 
     Output::info(&format!("Completing workspace '{}'...", workspace_name));

@@ -73,7 +73,7 @@ fn run_git_init(cwd: &std::path::Path) -> Result<()> {
 ///
 /// Returns the open `File` handle. The lock is released when the `File` is
 /// dropped (or explicitly via `release_init_lock`).
-pub(crate) fn acquire_init_lock(cwd: &std::path::Path) -> Result<std::fs::File> {
+pub fn acquire_init_lock(cwd: &std::path::Path) -> Result<std::fs::File> {
     let lock_path = cwd.join(INIT_LOCK_FILE);
 
     // Security: refuse to follow symlinks for lock files

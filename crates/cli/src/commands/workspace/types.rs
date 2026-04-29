@@ -12,18 +12,18 @@ pub enum SyncOption {
 impl SyncOption {
     /// Convert bool to SyncOption
     #[must_use]
-    pub fn from_bool(sync: bool) -> Self {
+    pub const fn from_bool(sync: bool) -> Self {
         if sync {
-            SyncOption::WithSync
+            Self::WithSync
         } else {
-            SyncOption::NoSync
+            Self::NoSync
         }
     }
 
     /// Returns true if sync is enabled
     #[must_use]
     pub const fn is_sync(&self) -> bool {
-        matches!(self, SyncOption::WithSync)
+        matches!(self, Self::WithSync)
     }
 }
 

@@ -46,7 +46,7 @@ impl std::error::Error for ExecutorError {}
 
 impl From<ExecutorError> for Error {
     fn from(err: ExecutorError) -> Self {
-        Error::vcs_conflict("executor", err.to_string())
+        Self::vcs_conflict("executor", err.to_string())
     }
 }
 

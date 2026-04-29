@@ -97,7 +97,7 @@ impl WorktreeRepository for SqliteWorktreeRepository {
         let created_at = worktree.created_at();
         let updated_at = worktree.updated_at();
         let metadata_json =
-            serde_json::to_string(worktree.all_metadata()).unwrap_or("{}".to_string());
+            serde_json::to_string(worktree.all_metadata()).unwrap_or_else(|_| "{}".to_string());
 
         sqlx::query(query)
             .bind(&id_str)
@@ -225,7 +225,7 @@ impl SqliteWorktreeRepository {
 
     /// Get the pool for testing (internal access)
     #[must_use]
-    pub fn pool(&self) -> &SqlitePool {
+    pub const fn pool(&self) -> &SqlitePool {
         &self.pool
     }
 }

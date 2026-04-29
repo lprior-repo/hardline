@@ -127,7 +127,7 @@ pub fn process_with_backend(
         let msg = format!("merge failed: {}", e);
         println!("  ✗ {}", msg);
         let _ = backend.merge("--abort");
-        item.fail(msg.clone());
+        item.fail(msg);
         queue.enqueue(item)?;
         return Err(e);
     }
@@ -138,7 +138,7 @@ pub fn process_with_backend(
     if let Err(e) = backend.push() {
         let msg = format!("push failed: {}", e);
         println!("  ✗ {}", msg);
-        item.fail(msg.clone());
+        item.fail(msg);
         queue.enqueue(item)?;
         return Err(e);
     }
@@ -161,14 +161,14 @@ fn run_preflight_checks(
         VcsStatus::Dirty => {
             let msg = "working copy has uncommitted changes".to_string();
             println!("    ✗ {}", msg);
-            item.fail(msg.clone());
+            item.fail(msg);
             queue.enqueue(item.clone())?;
             return Err(scp_core::Error::working_copy_dirty());
         }
         VcsStatus::Conflicted => {
             let msg = "working copy has merge conflicts".to_string();
             println!("    ✗ {}", msg);
-            item.fail(msg.clone());
+            item.fail(msg);
             queue.enqueue(item.clone())?;
             return Err(scp_core::Error::vcs_conflict("working copy", "pre-flight"));
         }
@@ -188,7 +188,7 @@ fn run_preflight_checks(
         let branch_name = item.branch.clone();
         let msg = format!("branch '{}' not found", branch_name);
         println!("    ✗ {}", msg);
-        item.fail(msg.clone());
+        item.fail(msg);
         queue.enqueue(item.clone())?;
         return Err(scp_core::Error::branch_not_found(branch_name));
     }

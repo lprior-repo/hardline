@@ -20,7 +20,7 @@ use super::{
 // ============================================================================
 
 /// Run a dry-run preview of the done command.
-pub(crate) fn run_dry_run(
+pub fn run_dry_run(
     workspace_name: &str,
     workspace_path: &str,
     executor: &dyn GitExecutor,
@@ -78,7 +78,7 @@ pub(crate) fn run_dry_run(
 // ============================================================================
 
 /// Execute the full done workflow.
-pub(crate) fn execute_done_workflow(
+pub fn execute_done_workflow(
     workspace_name: &str,
     workspace_path: &str,
     options: &DoneOptions,

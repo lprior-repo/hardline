@@ -52,7 +52,7 @@ impl WorktreeName {
 
     /// Create a worktree name without validation (unsafe, use with caution)
     #[must_use]
-    pub fn new_unchecked(name: String) -> Self {
+    pub const fn new_unchecked(name: String) -> Self {
         Self(name)
     }
 

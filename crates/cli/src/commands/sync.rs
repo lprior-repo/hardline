@@ -11,7 +11,7 @@ use scp_vcs::gix::{remote, repository};
 pub fn fetch(remote: Option<&str>, prune: bool, tags: bool, all: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
+    let vcs_type = detect_vcs(&cwd).ok_or_else(Error::vcs_not_initialized)?;
 
     match vcs_type {
         scp_core::vcs::VcsType::Git => {
@@ -29,7 +29,7 @@ pub fn fetch(remote: Option<&str>, prune: bool, tags: bool, all: bool) -> Result
 pub fn pull() -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
+    let vcs_type = detect_vcs(&cwd).ok_or_else(Error::vcs_not_initialized)?;
 
     match vcs_type {
         scp_core::vcs::VcsType::Git => {
@@ -58,7 +58,7 @@ pub struct PushArgs<'a> {
 pub fn push(args: PushArgs<'_>) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
-    let vcs_type = detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
+    let vcs_type = detect_vcs(&cwd).ok_or_else(Error::vcs_not_initialized)?;
 
     match vcs_type {
         scp_core::vcs::VcsType::Git => {

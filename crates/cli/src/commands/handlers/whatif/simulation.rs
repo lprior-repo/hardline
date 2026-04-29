@@ -10,7 +10,7 @@ use crate::commands::handlers::whatif::{
 };
 
 /// Compute prerequisite status based on whether the name is a placeholder
-fn prereq_status(is_placeholder: bool) -> PrerequisiteStatus {
+const fn prereq_status(is_placeholder: bool) -> PrerequisiteStatus {
     if is_placeholder {
         PrerequisiteStatus::Unknown
     } else {

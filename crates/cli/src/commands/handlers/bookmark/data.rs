@@ -201,10 +201,7 @@ pub fn parse_branch_list(output: &str) -> Vec<BookmarkInfo> {
             }
 
             // Remove the active marker '* '
-            let name = match trimmed.strip_prefix("* ") {
-                Some(n) => n,
-                None => trimmed,
-            };
+            let name = trimmed.strip_prefix("* ").map_or(trimmed, |n| n);
 
             // Skip remote tracking branches for display but mark as remote
             let is_remote = name.starts_with("remotes/");

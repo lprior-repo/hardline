@@ -78,7 +78,7 @@ fn run_restore(checkpoint_id: &str) -> Result<CheckpointOutput> {
 /// # Errors
 ///
 /// Returns an error if listing fails due to I/O.
-fn run_list() -> Result<CheckpointOutput> {
+const fn run_list() -> Result<CheckpointOutput> {
     // TODO: Wire up actual checkpoint listing from database
     // once the workspace/session infrastructure is integrated.
 

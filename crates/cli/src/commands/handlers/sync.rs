@@ -86,15 +86,15 @@ pub enum SyncError {
 
 impl From<Error> for SyncError {
     fn from(err: Error) -> Self {
-        SyncError::ConfigurationError(err.to_string())
+        Self::ConfigurationError(err.to_string())
     }
 }
 
 impl From<SyncError> for Error {
     fn from(err: SyncError) -> Self {
         match err {
-            SyncError::IoError(e) => Error::from(e),
-            _ => Error::internal(err.to_string()),
+            SyncError::IoError(e) => Self::from(e),
+            _ => Self::internal(err.to_string()),
         }
     }
 }

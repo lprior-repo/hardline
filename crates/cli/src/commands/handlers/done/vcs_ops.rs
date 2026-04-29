@@ -20,7 +20,7 @@ use super::{
 // ============================================================================
 
 /// Resolve workspace name from option or current workspace.
-pub(crate) fn resolve_workspace(
+pub fn resolve_workspace(
     backend: &dyn scp_core::vcs::VcsBackend,
     name: Option<&str>,
 ) -> Result<String> {
@@ -38,7 +38,7 @@ pub(crate) fn resolve_workspace(
 }
 
 /// Get the workspace path for a given workspace name.
-pub(crate) fn get_workspace_path(
+pub fn get_workspace_path(
     cwd: &Path,
     workspace_name: &str,
     backend: &dyn scp_core::vcs::VcsBackend,
@@ -65,7 +65,7 @@ pub(crate) fn get_workspace_path(
 // ============================================================================
 
 /// Get list of uncommitted files via Git status.
-pub(crate) fn get_uncommitted_files(executor: &dyn GitExecutor) -> Result<Vec<String>> {
+pub fn get_uncommitted_files(executor: &dyn GitExecutor) -> Result<Vec<String>> {
     let output = executor
         .run(&["status", "--no-pager"])
         .map_err(Error::from)?;
@@ -93,7 +93,7 @@ fn parse_status_lines(output: &str) -> Vec<String> {
 }
 
 /// Get commits that will be merged.
-pub(crate) fn get_commits_to_merge(executor: &dyn GitExecutor) -> Result<Vec<CommitInfo>> {
+pub fn get_commits_to_merge(executor: &dyn GitExecutor) -> Result<Vec<CommitInfo>> {
     let output = executor
         .run(&[
             "log",
@@ -138,7 +138,7 @@ fn parse_commits_output(output: &str) -> Vec<CommitInfo> {
 /// Get potential conflicts via conflict detection.
 ///
 /// Best-effort: logs a warning on failure but returns an empty list.
-pub(crate) fn get_potential_conflicts(executor: &dyn GitExecutor) -> Vec<String> {
+pub fn get_potential_conflicts(executor: &dyn GitExecutor) -> Vec<String> {
     match detect_conflicts(executor) {
         Ok(result) => {
             let mut conflicts = result.existing_conflicts;
@@ -157,7 +157,7 @@ pub(crate) fn get_potential_conflicts(executor: &dyn GitExecutor) -> Vec<String>
 // ============================================================================
 
 /// Log undo history to `.scp/undo.log`.
-pub(crate) fn log_undo_history(
+pub fn log_undo_history(
     workspace_name: &str,
     executor: &dyn GitExecutor,
     pushed_to_remote: bool,
@@ -209,7 +209,7 @@ pub(crate) fn log_undo_history(
 ///
 /// Placeholder for future session state management integration.
 #[allow(clippy::unused_self)]
-pub(crate) fn update_workspace_state(_workspace_name: &str) -> bool {
+pub const fn update_workspace_state(_workspace_name: &str) -> bool {
     false
 }
 
@@ -218,13 +218,13 @@ pub(crate) fn update_workspace_state(_workspace_name: &str) -> bool {
 // ============================================================================
 
 /// Executor that runs Git commands in a specific workspace directory.
-pub(crate) struct WorkspaceGitExecutor<'a> {
+pub struct WorkspaceGitExecutor<'a> {
     inner: &'a dyn GitExecutor,
     workspace_path: String,
 }
 
 impl<'a> WorkspaceGitExecutor<'a> {
-    pub(crate) fn new(inner: &'a dyn GitExecutor, workspace_path: &str) -> Self {
+    pub fn new(inner: &'a dyn GitExecutor, workspace_path: &str) -> Self {
         Self {
             inner,
             workspace_path: workspace_path.to_string(),

@@ -154,7 +154,7 @@ struct PartialEntry {
 }
 
 impl PartialEntry {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             path: None,
             branch: None,

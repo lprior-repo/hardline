@@ -71,16 +71,16 @@ fn save_config(config: &std::collections::HashMap<String, String>) -> Result<()>
 pub fn get(key: &str) -> Result<()> {
     let config = load_config()?;
 
-    match config.get(key) {
-        Some(value) => {
-            println!("{} = {}", key, value);
-            Ok(())
-        }
-        None => {
+    config.get(key).map_or_else(
+        || {
             eprintln!("Config key '{}' not found", key);
             Err(Error::config_not_found(key.to_string()))
-        }
-    }
+        },
+        |value| {
+            println!("{} = {}", key, value);
+            Ok(())
+        },
+    )
 }
 
 /// Set config value

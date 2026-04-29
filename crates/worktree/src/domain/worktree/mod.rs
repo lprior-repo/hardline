@@ -29,7 +29,7 @@ pub struct Removing;
 pub struct Removed;
 
 #[allow(clippy::struct_field_names)]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Worktree<S = Creating> {
     id: WorktreeId,
     name: WorktreeName,
@@ -47,26 +47,26 @@ pub struct Worktree<S = Creating> {
 
 impl<S> Worktree<S> {
     #[must_use]
-    pub fn id(&self) -> &WorktreeId {
+    pub const fn id(&self) -> &WorktreeId {
         &self.id
     }
 
     #[must_use]
-    pub fn name(&self) -> &WorktreeName {
+    pub const fn name(&self) -> &WorktreeName {
         &self.name
     }
 
-    pub fn name_mut(&mut self) -> &mut WorktreeName {
+    pub const fn name_mut(&mut self) -> &mut WorktreeName {
         &mut self.name
     }
 
     #[must_use]
-    pub fn path(&self) -> &AbsolutePath {
+    pub const fn path(&self) -> &AbsolutePath {
         &self.path
     }
 
     #[must_use]
-    pub fn state(&self) -> WorktreeState {
+    pub const fn state(&self) -> WorktreeState {
         self.worktree_state
     }
 
@@ -89,32 +89,32 @@ impl<S> Worktree<S> {
     }
 
     #[must_use]
-    pub fn worktree_type(&self) -> WorktreeTypeEnum {
+    pub const fn worktree_type(&self) -> WorktreeTypeEnum {
         self.worktree_type
     }
 
     #[must_use]
-    pub fn branch(&self) -> Option<&BranchName> {
+    pub const fn branch(&self) -> Option<&BranchName> {
         self.branch.as_ref()
     }
 
     #[must_use]
-    pub fn parent_path(&self) -> &AbsolutePath {
+    pub const fn parent_path(&self) -> &AbsolutePath {
         &self.parent_path
     }
 
     #[must_use]
-    pub fn created_at(&self) -> i64 {
+    pub const fn created_at(&self) -> i64 {
         self.created_at
     }
 
     #[must_use]
-    pub fn updated_at(&self) -> i64 {
+    pub const fn updated_at(&self) -> i64 {
         self.updated_at
     }
 
     #[must_use]
-    pub fn all_metadata(&self) -> &HashMap<String, String> {
+    pub const fn all_metadata(&self) -> &HashMap<String, String> {
         &self.metadata
     }
 }
@@ -160,7 +160,7 @@ impl Worktree<Active> {
     }
 
     #[must_use]
-    pub fn is_active(&self) -> bool {
+    pub const fn is_active(&self) -> bool {
         true
     }
 }
@@ -186,7 +186,7 @@ impl Worktree<Removing> {
 
 impl Worktree<Removed> {
     #[must_use]
-    pub fn is_terminal(&self) -> bool {
+    pub const fn is_terminal(&self) -> bool {
         true
     }
 }
@@ -237,7 +237,7 @@ impl<S> Worktree<S> {
 /// Preserves the runtime `worktree_state` from the source.
 impl From<Worktree<Active>> for Worktree {
     fn from(other: Worktree<Active>) -> Self {
-        Worktree {
+        Self {
             id: other.id,
             name: other.name,
             path: other.path,
@@ -255,7 +255,7 @@ impl From<Worktree<Active>> for Worktree {
 
 impl From<Worktree<Incomplete>> for Worktree {
     fn from(other: Worktree<Incomplete>) -> Self {
-        Worktree {
+        Self {
             id: other.id,
             name: other.name,
             path: other.path,
@@ -273,7 +273,7 @@ impl From<Worktree<Incomplete>> for Worktree {
 
 impl From<Worktree<Suspended>> for Worktree {
     fn from(other: Worktree<Suspended>) -> Self {
-        Worktree {
+        Self {
             id: other.id,
             name: other.name,
             path: other.path,
@@ -291,7 +291,7 @@ impl From<Worktree<Suspended>> for Worktree {
 
 impl From<Worktree<Removing>> for Worktree {
     fn from(other: Worktree<Removing>) -> Self {
-        Worktree {
+        Self {
             id: other.id,
             name: other.name,
             path: other.path,
@@ -309,7 +309,7 @@ impl From<Worktree<Removing>> for Worktree {
 
 impl From<Worktree<Removed>> for Worktree {
     fn from(other: Worktree<Removed>) -> Self {
-        Worktree {
+        Self {
             id: other.id,
             name: other.name,
             path: other.path,
