@@ -9,28 +9,36 @@ pub struct WorktreeId(Uuid);
 
 impl WorktreeId {
     /// Create a new worktree ID from a UUID string
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the string is not a valid UUID.
     pub fn from_string(s: &str) -> Result<Self, super::WorktreeDomainError> {
         Uuid::parse_str(s)
             .map(Self)
-            .map_err(|e| super::WorktreeDomainError::InvalidId(format!("{}", e)))
+            .map_err(|e| super::WorktreeDomainError::InvalidId(format!("{e}")))
     }
 
     /// Create a new random worktree ID
+    #[must_use]
     pub fn new_random() -> Self {
         Self(Uuid::new_v4())
     }
 
     /// Create a worktree ID from bytes
+    #[must_use]
     pub fn from_bytes(bytes: [u8; 16]) -> Self {
         Self(Uuid::from_bytes(bytes))
     }
 
     /// Get the UUID as bytes
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8; 16] {
         self.0.as_bytes()
     }
 
     /// Convert to string representation
+    #[must_use]
     pub fn as_string(&self) -> String {
         self.0.to_string()
     }

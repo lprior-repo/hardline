@@ -8,6 +8,7 @@ use super::{Worktree, WorktreeState};
 use crate::domain::{AbsolutePath, BranchName, WorktreeId, WorktreeName, WorktreeTypeEnum};
 
 impl Worktree<super::Creating> {
+    #[must_use]
     pub fn new(
         name: WorktreeName,
         path: AbsolutePath,
@@ -34,6 +35,7 @@ impl Worktree<super::Creating> {
 }
 
 impl<S> Worktree<S> {
+    #[must_use]
     #[allow(clippy::too_many_arguments)]
     pub fn uninitialized(
         id: WorktreeId,
@@ -60,6 +62,7 @@ impl<S> Worktree<S> {
         )
     }
 
+    #[must_use]
     #[allow(clippy::too_many_arguments)]
     pub fn uninitialized_with_metadata(
         id: WorktreeId,

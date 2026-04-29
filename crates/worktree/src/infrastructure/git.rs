@@ -60,6 +60,10 @@ pub struct GitWorktreeAdapter {
 
 impl GitWorktreeAdapter {
     /// Create a new adapter from a repository path
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the path does not exist or is not a Git repository.
     pub fn new<P: AsRef<Path>>(repo_path: P) -> Result<Self, GitError> {
         let path = repo_path.as_ref();
 
@@ -80,6 +84,10 @@ impl GitWorktreeAdapter {
     }
 
     /// Get the parent repository path
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the repository has no working directory or the path is invalid.
     pub fn get_parent_path(&self) -> Result<AbsolutePath, GitError> {
         let workdir = self
             .repo
@@ -87,10 +95,14 @@ impl GitWorktreeAdapter {
             .ok_or_else(|| GitError::InvalidPath("Repository has no working directory".into()))?;
 
         AbsolutePath::new(workdir)
-            .map_err(|e| GitError::InvalidPath(format!("Invalid repository path: {}", e)))
+            .map_err(|e| GitError::InvalidPath(format!("Invalid repository path: {e}")))
     }
 
     /// Get the current branch of the repository
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the repository HEAD cannot be resolved or the branch name is invalid.
     pub fn get_current_branch(&self) -> Result<Option<BranchName>, GitError> {
         let head_name = self.repo.head_name()?;
 
@@ -100,13 +112,17 @@ impl GitWorktreeAdapter {
                 let branch_name = name.shorten().to_string();
                 BranchName::new(&branch_name)
                     .map(Some)
-                    .map_err(|e| GitError::InvalidPath(format!("Invalid branch name: {}", e)))
+                    .map_err(|e| GitError::InvalidPath(format!("Invalid branch name: {e}")))
             }
             None => Ok(None),
         }
     }
 
     /// Get all local branches
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the repository references cannot be iterated.
     pub fn get_local_branches(&self) -> Result<Vec<BranchName>, GitError> {
         let mut branches = Vec::new();
         let refs = self.repo.references()?;
@@ -123,6 +139,10 @@ impl GitWorktreeAdapter {
     }
 
     /// Get all remote branches
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the repository references cannot be iterated.
     pub fn get_remote_branches(&self) -> Result<Vec<BranchName>, GitError> {
         let mut branches = Vec::new();
         let refs = self.repo.references()?;
@@ -141,18 +161,30 @@ impl GitWorktreeAdapter {
     }
 
     /// List all worktrees
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the worktree list cannot be retrieved.
     pub fn list_worktrees(&self) -> Result<Vec<String>, GitError> {
         // Simplified - just return empty for now
         Ok(Vec::new())
     }
 
     /// Check if a worktree exists
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the worktree check fails.
     pub fn worktree_exists(&self, _name: &str) -> Result<bool, GitError> {
         // Simplified - just return false for now
         Ok(false)
     }
 
     /// Get the path to a worktree
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the worktree path lookup fails.
     pub fn get_worktree_path(&self, _name: &str) -> Result<Option<AbsolutePath>, GitError> {
         // Simplified - just return None for now
         Ok(None)

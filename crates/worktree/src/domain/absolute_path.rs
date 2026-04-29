@@ -6,6 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 /// Value object representing an absolute path
+#[allow(clippy::unsafe_derive_deserialize)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AbsolutePath(PathBuf);
 
@@ -58,26 +59,34 @@ impl AbsolutePath {
     }
 
     /// Create an absolute path from a string
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if path is not absolute or contains parent directory traversal.
     pub fn from_string(s: &str) -> Result<Self, super::WorktreeDomainError> {
         Self::new(s)
     }
 
     /// Get the path as a path buffer
+    #[must_use]
     pub fn into_path_buf(self) -> PathBuf {
         self.0
     }
 
     /// Get the path as a path reference
+    #[must_use]
     pub fn as_path(&self) -> &Path {
         &self.0
     }
 
     /// Get the path as a string reference
+    #[must_use]
     pub fn as_str(&self) -> std::borrow::Cow<'_, str> {
         self.0.to_string_lossy()
     }
 
     /// Create a child path relative to this absolute path
+    #[must_use]
     pub fn join<P: AsRef<Path>>(&self, child: P) -> AbsolutePath {
         // Joining two absolute paths always produces an absolute path.
         // Use new_unchecked to avoid expect/unwrap since validation is redundant here.
@@ -86,26 +95,31 @@ impl AbsolutePath {
     }
 
     /// Get the parent directory
+    #[must_use]
     pub fn parent(&self) -> Option<AbsolutePath> {
         self.0.parent().and_then(|p| AbsolutePath::new(p).ok())
     }
 
     /// Get the file or directory name
+    #[must_use]
     pub fn file_name(&self) -> Option<&str> {
         self.0.file_name().and_then(|s| s.to_str())
     }
 
     /// Check if path exists
+    #[must_use]
     pub fn exists(&self) -> bool {
         self.0.exists()
     }
 
     /// Check if path is a directory
+    #[must_use]
     pub fn is_dir(&self) -> bool {
         self.0.is_dir()
     }
 
     /// Check if path is a file
+    #[must_use]
     pub fn is_file(&self) -> bool {
         self.0.is_file()
     }

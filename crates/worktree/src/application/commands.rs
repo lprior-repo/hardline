@@ -13,6 +13,7 @@ pub struct CreateWorktreeCommand {
 }
 
 impl CreateWorktreeCommand {
+    #[must_use]
     pub fn new(
         name: WorktreeName,
         path: AbsolutePath,
@@ -37,6 +38,7 @@ pub struct InitializeWorktreeCommand {
 }
 
 impl InitializeWorktreeCommand {
+    #[must_use]
     pub fn new(worktree_id: WorktreeId) -> Self {
         Self { worktree_id }
     }
@@ -49,6 +51,7 @@ pub struct SuspendWorktreeCommand {
 }
 
 impl SuspendWorktreeCommand {
+    #[must_use]
     pub fn new(worktree_id: WorktreeId) -> Self {
         Self { worktree_id }
     }
@@ -61,6 +64,7 @@ pub struct ResumeWorktreeCommand {
 }
 
 impl ResumeWorktreeCommand {
+    #[must_use]
     pub fn new(worktree_id: WorktreeId) -> Self {
         Self { worktree_id }
     }
@@ -73,6 +77,7 @@ pub struct RemoveWorktreeCommand {
 }
 
 impl RemoveWorktreeCommand {
+    #[must_use]
     pub fn new(worktree_id: WorktreeId) -> Self {
         Self { worktree_id }
     }
@@ -88,25 +93,30 @@ pub struct ListWorktreesQuery {
 }
 
 impl ListWorktreesQuery {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[must_use]
     pub fn with_include_removed(mut self, include_removed: bool) -> Self {
         self.include_removed = include_removed;
         self
     }
 
+    #[must_use]
     pub fn with_state(mut self, state: crate::domain::WorktreeState) -> Self {
         self.state_filter = Some(state);
         self
     }
 
+    #[must_use]
     pub fn with_worktree_type(mut self, worktree_type: WorktreeTypeEnum) -> Self {
         self.worktree_type_filter = Some(worktree_type);
         self
     }
 
+    #[must_use]
     pub fn with_name_prefix(mut self, prefix: &str) -> Self {
         self.name_prefix = Some(prefix.to_string());
         self

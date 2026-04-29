@@ -9,6 +9,7 @@ use crate::{
     },
 };
 
+#[allow(clippy::unsafe_derive_deserialize)]
 #[derive(Deserialize, FromRow)]
 struct PostgresWorktreeRow {
     id: [u8; 16],
@@ -43,7 +44,7 @@ impl PostgresWorktreeRow {
             // SAFETY: /tmp is always an absolute path without traversal
             unsafe { AbsolutePath::new_unchecked("/tmp") }
         });
-        let state = WorktreeState::from_u8(self.state as u8).unwrap_or_else(|| {
+        let state = WorktreeState::from_u8(u8::try_from(self.state).unwrap_or_default()).unwrap_or_else(|| {
             eprintln!(
                 "Invalid state value {}: {}",
                 self.state,
@@ -52,7 +53,7 @@ impl PostgresWorktreeRow {
             WorktreeState::Creating
         });
         let worktree_type =
-            WorktreeTypeEnum::from_u8(self.worktree_type as u8).unwrap_or_else(|| {
+            WorktreeTypeEnum::from_u8(u8::try_from(self.worktree_type).unwrap_or_default()).unwrap_or_else(|| {
                 eprintln!(
                     "Invalid type value {}: {}",
                     self.worktree_type,
@@ -82,7 +83,7 @@ impl PostgresWorktreeRow {
     }
 }
 
-/// Repository implementation using PostgreSQL and SQLx
+/// Repository implementation using `PostgreSQL` and `SQLx`
 #[derive(Clone)]
 pub struct PostgresWorktreeRepository {
     pool: PgPool,
@@ -93,7 +94,7 @@ impl WorktreeRepository for PostgresWorktreeRepository {
     async fn save<S: Send>(&mut self, worktree: Worktree<S>) -> Result<(), WorktreeDomainError> {
         let id_bytes = worktree.id().as_bytes();
 
-        let query = r#"
+        let query = r"
             INSERT INTO worktrees (id, name, path, parent_path, state, worktree_type, branch, created_at, updated_at, metadata)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
             ON CONFLICT (id) DO UPDATE SET
@@ -105,13 +106,13 @@ impl WorktreeRepository for PostgresWorktreeRepository {
                 branch = excluded.branch,
                 updated_at = excluded.updated_at,
                 metadata = excluded.metadata
-        "#;
+        ";
 
         let name_str = worktree.name().as_str().to_string();
         let path_str = worktree.path().as_str().to_string();
         let parent_path_str = worktree.parent_path().as_str().to_string();
-        let state_i32 = worktree.state().as_u8() as i32;
-        let type_i32 = worktree.worktree_type().as_u8() as i32;
+        let state_i32 = i32::from(worktree.state().as_u8());
+        let type_i32 = i32::from(worktree.worktree_type().as_u8());
         let branch_opt = worktree.branch().map(|b| b.as_str().to_string());
         let created_at = worktree.created_at();
         let updated_at = worktree.updated_at();
@@ -119,8 +120,7 @@ impl WorktreeRepository for PostgresWorktreeRepository {
             Ok(json) => json,
             Err(e) => {
                 return Err(WorktreeDomainError::InvalidPath(format!(
-                    "Failed to serialize metadata: {}",
-                    e
+                    "Failed to serialize metadata: {e}"
                 )));
             }
         };
@@ -139,7 +139,7 @@ impl WorktreeRepository for PostgresWorktreeRepository {
             .execute(&self.pool)
             .await
             .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to save worktree: {}", e))
+                WorktreeDomainError::InvalidPath(format!("Failed to save worktree: {e}"))
             })?;
 
         Ok(())
@@ -150,7 +150,7 @@ impl WorktreeRepository for PostgresWorktreeRepository {
             .bind(id.as_bytes())
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {}", e)))?;
+            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {e}")))?;
 
         Ok(row.map(|row| row.to_worktree()))
     }
@@ -160,7 +160,7 @@ impl WorktreeRepository for PostgresWorktreeRepository {
             .bind(name)
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {}", e)))?;
+            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {e}")))?;
 
         Ok(row.map(|row| row.to_worktree()))
     }
@@ -169,7 +169,7 @@ impl WorktreeRepository for PostgresWorktreeRepository {
         let rows = sqlx::query_as::<_, PostgresWorktreeRow>("SELECT id, name, path, parent_path, state, worktree_type, branch, created_at, updated_at, metadata::TEXT as metadata FROM worktrees")
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to query worktrees: {}", e)))?;
+            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to query worktrees: {e}")))?;
 
         Ok(rows.into_iter().map(|row| row.to_worktree()).collect())
     }
@@ -182,7 +182,7 @@ impl WorktreeRepository for PostgresWorktreeRepository {
             .execute(&self.pool)
             .await
             .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to delete worktree: {}", e))
+                WorktreeDomainError::InvalidPath(format!("Failed to delete worktree: {e}"))
             })?;
 
         Ok(())
@@ -194,7 +194,7 @@ impl WorktreeRepository for PostgresWorktreeRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to check name: {}", e))
+                WorktreeDomainError::InvalidPath(format!("Failed to check name: {e}"))
             })?;
 
         Ok(count > 0)
@@ -202,20 +202,24 @@ impl WorktreeRepository for PostgresWorktreeRepository {
 }
 
 impl PostgresWorktreeRepository {
-    /// Create a new PostgreSQL repository
+    /// Create a new `PostgreSQL` repository
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database connection fails or schema initialization fails.
     pub async fn new(database_url: &str) -> Result<Self, WorktreeDomainError> {
         let pool = PgPoolOptions::new()
             .max_connections(5)
             .connect(database_url)
             .await
             .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to connect to database: {}", e))
+                WorktreeDomainError::InvalidPath(format!("Failed to connect to database: {e}"))
             })?;
 
         // Initialize schema - execute each statement separately since SQLx doesn't support multiple
         // statements Create table
         sqlx::query(
-            r#"
+            r"
             CREATE TABLE IF NOT EXISTS worktrees (
                 id BYTEA PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -229,24 +233,24 @@ impl PostgresWorktreeRepository {
                 metadata JSONB DEFAULT '{}',
                 UNIQUE(name)
             )
-            "#,
+            ",
         )
         .execute(&pool)
         .await
         .map_err(|e| {
-            WorktreeDomainError::InvalidPath(format!("Failed to create worktrees table: {}", e))
+            WorktreeDomainError::InvalidPath(format!("Failed to create worktrees table: {e}"))
         })?;
 
         // Create indexes - ignore errors if they already exist
-        let _ = sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_worktrees_name ON worktrees(name);"#)
+        let _ = sqlx::query(r"CREATE INDEX IF NOT EXISTS idx_worktrees_name ON worktrees(name);")
             .execute(&pool)
             .await;
         let _ =
-            sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_worktrees_state ON worktrees(state);"#)
+            sqlx::query(r"CREATE INDEX IF NOT EXISTS idx_worktrees_state ON worktrees(state);")
                 .execute(&pool)
                 .await;
         let _ = sqlx::query(
-            r#"CREATE INDEX IF NOT EXISTS idx_worktrees_type ON worktrees(worktree_type);"#,
+            r"CREATE INDEX IF NOT EXISTS idx_worktrees_type ON worktrees(worktree_type);",
         )
         .execute(&pool)
         .await;
@@ -255,11 +259,15 @@ impl PostgresWorktreeRepository {
     }
 
     /// Create a repository from an existing pool (for testing)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if schema initialization fails.
     pub async fn from_pool(pool: PgPool) -> Result<Self, WorktreeDomainError> {
         // Initialize schema - execute each statement separately since SQLx doesn't support multiple
         // statements Create table
         sqlx::query(
-            r#"
+            r"
             CREATE TABLE IF NOT EXISTS worktrees (
                 id BYTEA PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -273,24 +281,24 @@ impl PostgresWorktreeRepository {
                 metadata JSONB DEFAULT '{}',
                 UNIQUE(name)
             )
-            "#,
+            ",
         )
         .execute(&pool)
         .await
         .map_err(|e| {
-            WorktreeDomainError::InvalidPath(format!("Failed to create worktrees table: {}", e))
+            WorktreeDomainError::InvalidPath(format!("Failed to create worktrees table: {e}"))
         })?;
 
         // Create indexes - ignore errors if they already exist
-        let _ = sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_worktrees_name ON worktrees(name);"#)
+        let _ = sqlx::query(r"CREATE INDEX IF NOT EXISTS idx_worktrees_name ON worktrees(name);")
             .execute(&pool)
             .await;
         let _ =
-            sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_worktrees_state ON worktrees(state);"#)
+            sqlx::query(r"CREATE INDEX IF NOT EXISTS idx_worktrees_state ON worktrees(state);")
                 .execute(&pool)
                 .await;
         let _ = sqlx::query(
-            r#"CREATE INDEX IF NOT EXISTS idx_worktrees_type ON worktrees(worktree_type);"#,
+            r"CREATE INDEX IF NOT EXISTS idx_worktrees_type ON worktrees(worktree_type);",
         )
         .execute(&pool)
         .await;
@@ -299,6 +307,7 @@ impl PostgresWorktreeRepository {
     }
 
     /// Get the pool for testing (internal access)
+    #[must_use]
     pub fn pool(&self) -> &PgPool {
         &self.pool
     }

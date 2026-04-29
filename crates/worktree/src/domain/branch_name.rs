@@ -14,6 +14,11 @@ pub struct BranchName(String);
 
 impl BranchName {
     /// Create a new branch name with validation
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the name is empty, contains invalid characters,
+    /// starts or ends with hyphen/period, or contains consecutive periods.
     pub fn new(name: &str) -> Result<Self, super::WorktreeDomainError> {
         if name.is_empty() {
             return Err(super::WorktreeDomainError::InvalidBranch(
@@ -27,8 +32,7 @@ impl BranchName {
             .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/')
         {
             return Err(super::WorktreeDomainError::InvalidBranch(format!(
-                "Branch name contains invalid characters: {}",
-                name
+                "Branch name contains invalid characters: {name}"
             )));
         }
 
@@ -57,27 +61,32 @@ impl BranchName {
     }
 
     /// Get the branch name as a string slice
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Get the branch name as owned string
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
 
     /// Check if this is a default branch (main/master)
+    #[must_use]
     pub fn is_default_branch(&self) -> bool {
         let name = self.0.to_lowercase();
         name == "main" || name == "master"
     }
 
     /// Check if this is a feature branch
+    #[must_use]
     pub fn is_feature_branch(&self) -> bool {
         self.0.starts_with("feature/") || self.0.starts_with("feat/")
     }
 
     /// Check if this is a release branch
+    #[must_use]
     pub fn is_release_branch(&self) -> bool {
         self.0.starts_with("release/") || self.0.starts_with("rel/")
     }

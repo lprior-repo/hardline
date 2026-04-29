@@ -9,6 +9,7 @@ use crate::{
     },
 };
 
+#[allow(clippy::unsafe_derive_deserialize)]
 #[derive(Deserialize, FromRow)]
 struct SqliteWorktreeRow {
     id: String,
@@ -63,7 +64,7 @@ impl SqliteWorktreeRow {
     }
 }
 
-/// Repository implementation using SQLite and SQLx
+/// Repository implementation using `SQLite` and `SQLx`
 #[derive(Clone)]
 pub struct SqliteWorktreeRepository {
     pool: SqlitePool,
@@ -72,7 +73,7 @@ pub struct SqliteWorktreeRepository {
 #[async_trait::async_trait]
 impl WorktreeRepository for SqliteWorktreeRepository {
     async fn save<S: Send>(&mut self, worktree: Worktree<S>) -> Result<(), WorktreeDomainError> {
-        let query = r#"
+        let query = r"
             INSERT INTO worktrees (id, name, path, parent_path, state, worktree_type, branch, created_at, updated_at, metadata)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
@@ -84,7 +85,7 @@ impl WorktreeRepository for SqliteWorktreeRepository {
                 branch = excluded.branch,
                 updated_at = excluded.updated_at,
                 metadata = excluded.metadata
-        "#;
+        ";
 
         let id_str = worktree.id().to_string();
         let name_str = worktree.name().as_str().to_string();
@@ -112,7 +113,7 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .execute(&self.pool)
             .await
             .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to save worktree: {}", e))
+                WorktreeDomainError::InvalidPath(format!("Failed to save worktree: {e}"))
             })?;
 
         Ok(())
@@ -124,7 +125,7 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {}", e))
+                WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {e}"))
             })?;
 
         Ok(row.map(|row| row.to_worktree()))
@@ -136,7 +137,7 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {}", e))
+                WorktreeDomainError::InvalidPath(format!("Failed to query worktree: {e}"))
             })?;
 
         Ok(row.map(|row| row.to_worktree()))
@@ -147,7 +148,7 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .fetch_all(&self.pool)
             .await
             .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to query worktrees: {}", e))
+                WorktreeDomainError::InvalidPath(format!("Failed to query worktrees: {e}"))
             })?;
 
         Ok(rows.into_iter().map(|row| row.to_worktree()).collect())
@@ -159,7 +160,7 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .execute(&self.pool)
             .await
             .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to delete worktree: {}", e))
+                WorktreeDomainError::InvalidPath(format!("Failed to delete worktree: {e}"))
             })?;
 
         Ok(())
@@ -171,7 +172,7 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .fetch_one(&self.pool)
             .await
             .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to check name: {}", e))
+                WorktreeDomainError::InvalidPath(format!("Failed to check name: {e}"))
             })?;
 
         Ok(count > 0)
@@ -179,19 +180,23 @@ impl WorktreeRepository for SqliteWorktreeRepository {
 }
 
 impl SqliteWorktreeRepository {
-    /// Create a new SQLite repository
+    /// Create a new `SQLite` repository
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database connection fails or schema initialization fails.
     pub async fn new(database_url: &str) -> Result<Self, WorktreeDomainError> {
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
             .connect(database_url)
             .await
             .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to connect to database: {}", e))
+                WorktreeDomainError::InvalidPath(format!("Failed to connect to database: {e}"))
             })?;
 
         // Initialize schema
         sqlx::query(
-            r#"
+            r"
             CREATE TABLE IF NOT EXISTS worktrees (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE,
@@ -207,18 +212,19 @@ impl SqliteWorktreeRepository {
 
             CREATE INDEX IF NOT EXISTS idx_worktrees_state ON worktrees(state);
             CREATE INDEX IF NOT EXISTS idx_worktrees_type ON worktrees(worktree_type);
-            "#,
+            ",
         )
         .execute(&pool)
         .await
         .map_err(|e| {
-            WorktreeDomainError::InvalidPath(format!("Failed to initialize schema: {}", e))
+            WorktreeDomainError::InvalidPath(format!("Failed to initialize schema: {e}"))
         })?;
 
         Ok(Self { pool })
     }
 
     /// Get the pool for testing (internal access)
+    #[must_use]
     pub fn pool(&self) -> &SqlitePool {
         &self.pool
     }

@@ -1,4 +1,4 @@
-//! SQLx database persistence layer
+//! `SQLx` database persistence layer
 
 pub mod postgres;
 pub mod sqlite;

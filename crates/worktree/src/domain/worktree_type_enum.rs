@@ -24,6 +24,7 @@ pub enum WorktreeTypeEnum {
 
 impl WorktreeTypeEnum {
     /// Create a worktree type from a numeric value
+    #[must_use]
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
             0 => Some(WorktreeTypeEnum::Development),
@@ -36,11 +37,13 @@ impl WorktreeTypeEnum {
     }
 
     /// Convert to numeric value
+    #[must_use]
     pub fn as_u8(self) -> u8 {
         self as u8
     }
 
     /// Get a human-readable name for the type
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             WorktreeTypeEnum::Development => "Development",
@@ -52,6 +55,7 @@ impl WorktreeTypeEnum {
     }
 
     /// Get a short code for the type
+    #[must_use]
     pub fn code(&self) -> &'static str {
         match self {
             WorktreeTypeEnum::Development => "dev",
@@ -63,16 +67,19 @@ impl WorktreeTypeEnum {
     }
 
     /// Check if this type is commonly used for development
+    #[must_use]
     pub fn is_development_focused(self) -> bool {
         matches!(self, WorktreeTypeEnum::Development)
     }
 
     /// Check if this type is for quality assurance
+    #[must_use]
     pub fn is_qa_focused(self) -> bool {
         matches!(self, WorktreeTypeEnum::Testing | WorktreeTypeEnum::Review)
     }
 
     /// Check if this type is for troubleshooting
+    #[must_use]
     pub fn is_troubleshooting_focused(self) -> bool {
         matches!(
             self,
@@ -98,7 +105,7 @@ impl TryFrom<u8> for WorktreeTypeEnum {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         WorktreeTypeEnum::from_u8(value).ok_or_else(|| {
-            super::WorktreeDomainError::InvalidPath(format!("Invalid worktree type: {}", value))
+            super::WorktreeDomainError::InvalidPath(format!("Invalid worktree type: {value}"))
         })
     }
 }

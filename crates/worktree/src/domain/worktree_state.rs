@@ -27,6 +27,7 @@ pub enum WorktreeState {
 
 impl WorktreeState {
     /// Create a worktree state from a numeric value
+    #[must_use]
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
             0 => Some(WorktreeState::Creating),
@@ -40,11 +41,13 @@ impl WorktreeState {
     }
 
     /// Convert to numeric value
+    #[must_use]
     pub fn as_u8(self) -> u8 {
         self as u8
     }
 
     /// Get a human-readable name for the state
+    #[must_use]
     pub fn name(&self) -> &'static str {
         match self {
             WorktreeState::Creating => "Creating",
@@ -57,16 +60,19 @@ impl WorktreeState {
     }
 
     /// Check if state is terminal (no further transitions allowed)
+    #[must_use]
     pub fn is_terminal(self) -> bool {
         matches!(self, WorktreeState::Removed)
     }
 
     /// Check if state is active (worktree can be used)
+    #[must_use]
     pub fn is_active(self) -> bool {
         matches!(self, WorktreeState::Active)
     }
 
     /// Check if state is transient (intermediate states)
+    #[must_use]
     pub fn is_transient(self) -> bool {
         matches!(
             self,
@@ -75,6 +81,7 @@ impl WorktreeState {
     }
 
     /// Get valid next states from this state
+    #[must_use]
     pub fn valid_next_states(self) -> Vec<WorktreeState> {
         match self {
             WorktreeState::Creating => vec![WorktreeState::Active, WorktreeState::Removed],
@@ -91,6 +98,7 @@ impl WorktreeState {
     }
 
     /// Check if state transition is valid
+    #[must_use]
     pub fn can_transition_to(self, target: WorktreeState) -> bool {
         self.valid_next_states().contains(&target)
     }

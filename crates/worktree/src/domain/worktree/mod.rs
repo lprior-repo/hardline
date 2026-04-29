@@ -28,6 +28,7 @@ pub struct Removing;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Removed;
 
+#[allow(clippy::struct_field_names)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Worktree<S = Creating> {
     id: WorktreeId,
@@ -45,10 +46,12 @@ pub struct Worktree<S = Creating> {
 }
 
 impl<S> Worktree<S> {
+    #[must_use]
     pub fn id(&self) -> &WorktreeId {
         &self.id
     }
 
+    #[must_use]
     pub fn name(&self) -> &WorktreeName {
         &self.name
     }
@@ -57,10 +60,12 @@ impl<S> Worktree<S> {
         &mut self.name
     }
 
+    #[must_use]
     pub fn path(&self) -> &AbsolutePath {
         &self.path
     }
 
+    #[must_use]
     pub fn state(&self) -> WorktreeState {
         self.worktree_state
     }
@@ -83,86 +88,104 @@ impl<S> Worktree<S> {
         }
     }
 
+    #[must_use]
     pub fn worktree_type(&self) -> WorktreeTypeEnum {
         self.worktree_type
     }
 
+    #[must_use]
     pub fn branch(&self) -> Option<&BranchName> {
         self.branch.as_ref()
     }
 
+    #[must_use]
     pub fn parent_path(&self) -> &AbsolutePath {
         &self.parent_path
     }
 
+    #[must_use]
     pub fn created_at(&self) -> i64 {
         self.created_at
     }
 
+    #[must_use]
     pub fn updated_at(&self) -> i64 {
         self.updated_at
     }
 
+    #[must_use]
     pub fn all_metadata(&self) -> &HashMap<String, String> {
         &self.metadata
     }
 }
 
 impl Worktree<Creating> {
+    #[must_use]
     pub fn activate(self) -> Worktree<Active> {
         self.transition_impl()
     }
 
+    #[must_use]
     pub fn remove(self) -> Worktree<Removed> {
         self.transition_impl()
     }
 }
 
 impl Worktree<Incomplete> {
+    #[must_use]
     pub fn activate(self) -> Worktree<Active> {
         self.transition_impl()
     }
 
+    #[must_use]
     pub fn suspend(self) -> Worktree<Suspended> {
         self.transition_impl()
     }
 
+    #[must_use]
     pub fn remove(self) -> Worktree<Removed> {
         self.transition_impl()
     }
 }
 
 impl Worktree<Active> {
+    #[must_use]
     pub fn suspend(self) -> Worktree<Suspended> {
         self.transition_impl()
     }
 
+    #[must_use]
     pub fn mark_for_removal(self) -> Worktree<Removing> {
         self.transition_impl()
     }
 
+    #[must_use]
     pub fn is_active(&self) -> bool {
         true
     }
 }
 
 impl Worktree<Suspended> {
+    #[must_use]
     pub fn resume(self) -> Worktree<Active> {
         self.transition_impl()
     }
 
+    #[must_use]
     pub fn mark_for_removal(self) -> Worktree<Removing> {
         self.transition_impl()
     }
 }
 
 impl Worktree<Removing> {
+    #[must_use]
     pub fn complete_removal(self) -> Worktree<Removed> {
         self.transition_impl()
     }
 }
 
 impl Worktree<Removed> {
+    #[must_use]
     pub fn is_terminal(&self) -> bool {
         true
     }
@@ -186,6 +209,7 @@ impl<S> Worktree<S> {
     }
 
     /// Convert this worktree to a different state type
+    #[must_use]
     pub fn into_state<T>(self) -> Worktree<T> {
         Worktree {
             id: self.id,
@@ -203,13 +227,14 @@ impl<S> Worktree<S> {
     }
 
     /// Check if this worktree is in Removed state
+    #[must_use]
     pub fn is_removed(&self) -> bool {
         self.state() == WorktreeState::Removed
     }
 }
 
 /// Conversions from specific state types to the default Worktree (Creating).
-/// Preserves the runtime worktree_state from the source.
+/// Preserves the runtime `worktree_state` from the source.
 impl From<Worktree<Active>> for Worktree {
     fn from(other: Worktree<Active>) -> Self {
         Worktree {

@@ -21,7 +21,7 @@ fn main() {
         "remove" => handle_remove(&args[2..]),
         "help" | "--help" | "-h" => print_usage(),
         _ => {
-            eprintln!("Unknown command: {}", command);
+            eprintln!("Unknown command: {command}");
             print_usage();
             std::process::exit(1);
         }
@@ -54,30 +54,29 @@ fn handle_create(args: &[String]) {
     let path = args[1].clone();
     let parent = args[2].clone();
 
-    let type_str = args.get(3).map(|s| s.as_str()).unwrap_or("development");
+    let type_str = args.get(3).map_or("development", String::as_str);
     let worktree_type = parse_type(type_str);
 
     // Warn if an unrecognized type was provided
     if !is_known_type(type_str) {
         eprintln!(
-            "Warning: Unknown type '{}', defaulting to Development",
-            type_str
+            "Warning: Unknown type '{type_str}', defaulting to Development"
         );
     }
 
     let branch = parse_branch(args, 4);
 
     if let Some(Err(ref e)) = branch {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
         std::process::exit(1);
     }
 
-    let branch_value = branch.and_then(|r| r.ok());
+    let branch_value = branch.and_then(Result::ok);
 
     let name = match WorktreeName::new(&name) {
         Ok(n) => n,
         Err(e) => {
-            eprintln!("Error: Invalid name: {}", e);
+            eprintln!("Error: Invalid name: {e}");
             std::process::exit(1);
         }
     };
@@ -85,7 +84,7 @@ fn handle_create(args: &[String]) {
     let path = match AbsolutePath::new(path) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("Error: Invalid path: {}", e);
+            eprintln!("Error: Invalid path: {e}");
             std::process::exit(1);
         }
     };
@@ -93,12 +92,12 @@ fn handle_create(args: &[String]) {
     let parent = match AbsolutePath::new(parent) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("Error: Invalid parent path: {}", e);
+            eprintln!("Error: Invalid parent path: {e}");
             std::process::exit(1);
         }
     };
 
-    print_worktree_summary(&name, &path, &parent, &worktree_type, branch_value.as_ref());
+    print_worktree_summary(&name, &path, &parent, worktree_type, branch_value.as_ref());
 }
 
 /// Print the summary of a worktree being created.
@@ -106,16 +105,16 @@ fn print_worktree_summary(
     name: &WorktreeName,
     path: &AbsolutePath,
     parent: &AbsolutePath,
-    worktree_type: &WorktreeTypeEnum,
+    worktree_type: WorktreeTypeEnum,
     branch: Option<&worktree::BranchName>,
 ) {
     println!("Creating worktree:");
-    println!("  Name: {}", name);
-    println!("  Path: {}", path);
-    println!("  Parent: {}", parent);
-    println!("  Type: {}", worktree_type);
+    println!("  Name: {name}");
+    println!("  Path: {path}");
+    println!("  Parent: {parent}");
+    println!("  Type: {worktree_type}");
     if let Some(b) = branch {
-        println!("  Branch: {}", b);
+        println!("  Branch: {b}");
     }
 
     // In a real implementation, this would call the service
@@ -136,11 +135,11 @@ fn handle_info(args: &[String]) {
     let id_str = args[0].clone();
     match WorktreeId::from_string(&id_str) {
         Ok(_id) => {
-            println!("Worktree info for: {}", id_str);
+            println!("Worktree info for: {id_str}");
             println!("  (Simulated - no database connected)");
         }
         Err(e) => {
-            eprintln!("Error: {}", e);
+            eprintln!("Error: {e}");
             std::process::exit(1);
         }
     }
@@ -155,11 +154,11 @@ fn handle_remove(args: &[String]) {
     let id_str = args[0].clone();
     match WorktreeId::from_string(&id_str) {
         Ok(_id) => {
-            println!("Removing worktree: {}", id_str);
+            println!("Removing worktree: {id_str}");
             println!("  (Simulated - no database connected)");
         }
         Err(e) => {
-            eprintln!("Error: {}", e);
+            eprintln!("Error: {e}");
             std::process::exit(1);
         }
     }
@@ -186,7 +185,7 @@ fn parse_branch(
     args: &[String],
     start: usize,
 ) -> Option<Result<worktree::BranchName, worktree::WorktreeDomainError>> {
-    if args.get(start).map(|s| s.as_str()) == Some("--branch") {
+    if args.get(start).map(String::as_str) == Some("--branch") {
         match args.get(start + 1) {
             Some(val) => Some(worktree::BranchName::new(val)),
             None => Some(Err(worktree::WorktreeDomainError::InvalidBranch(

@@ -16,6 +16,11 @@ impl WorktreeName {
     const MAX_LENGTH: usize = 128;
 
     /// Create a new worktree name with validation
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the name is empty, exceeds 128 characters, contains '/',
+    /// or starts with '.'.
     pub fn new(name: &str) -> Result<Self, super::WorktreeDomainError> {
         if name.is_empty() {
             return Err(super::WorktreeDomainError::InvalidName(
@@ -46,21 +51,25 @@ impl WorktreeName {
     }
 
     /// Create a worktree name without validation (unsafe, use with caution)
+    #[must_use]
     pub fn new_unchecked(name: String) -> Self {
         Self(name)
     }
 
     /// Get the name as a string slice
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
     /// Get the name as owned string
+    #[must_use]
     pub fn into_string(self) -> String {
         self.0
     }
 
     /// Check if this name matches another
+    #[must_use]
     pub fn matches(&self, other: &str) -> bool {
         self.0 == other
     }
