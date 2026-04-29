@@ -20,7 +20,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use isolate_core::domain::{BeadError, invariant};
+//! use scp_core::domain::{BeadError, invariant};
 //!
 //! fn validate_timestamps(created_at: DateTime<Utc>, updated_at: DateTime<Utc>) -> Result<(), BeadError> {
 //!     invariant!(
@@ -68,7 +68,7 @@
 /// # Example
 ///
 /// ```rust,ignore
-/// use isolate_core::domain::{BeadError, invariant};
+/// use scp_core::domain::{BeadError, invariant};
 ///
 /// fn check_bead_state(bead: &Bead) -> Result<(), BeadError> {
 ///     invariant!(
@@ -145,7 +145,7 @@ macro_rules! invariant {
 /// # Example
 ///
 /// ```rust,ignore
-/// use isolate_core::domain::{BeadError, assert_invariant};
+/// use scp_core::domain::{BeadError, assert_invariant};
 ///
 /// fn expensive_validation(bead: &Bead) -> Result<(), BeadError> {
 ///     // Only check this invariant during tests
@@ -233,7 +233,7 @@ macro_rules! assert_invariant {
 /// # Example
 ///
 /// ```rust,ignore
-/// use isolate_core::domain::{BeadError, debug_invariant};
+/// use scp_core::domain::{BeadError, debug_invariant};
 ///
 /// fn update_with_debug_check(bead: &Bead) -> Result<Bead, BeadError> {
 ///     let updated = bead.update_title("New Title")?;

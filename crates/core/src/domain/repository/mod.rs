@@ -31,8 +31,8 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use isolate_core::domain::repository::{SessionRepository, RepositoryError};
-//! use isolate_core::domain::SessionName;
+//! use scp_core::domain::repository::{SessionRepository, RepositoryError};
+//! use scp_core::domain::SessionName;
 //!
 //! // Business logic depends on trait (dependency injection)
 //! fn get_active_sessions(repo: &dyn SessionRepository) -> Result<Vec<Session>, RepositoryError> {

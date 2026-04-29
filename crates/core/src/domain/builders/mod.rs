@@ -16,7 +16,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use isolate_core::{
+//! use scp_core::{
 //!     domain::builders::SessionOutputBuilder, types::SessionStatus, WorkspaceState,
 //! };
 //!

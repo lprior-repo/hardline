@@ -78,7 +78,7 @@
 //! ### Parse at Boundaries, Validate Once
 //!
 //! ```rust,ignore
-//! use isolate_core::domain::{SessionName, SessionNameError};
+//! use scp_core::domain::{SessionName, SessionNameError};
 //!
 //! // Parse and validate at the boundary
 //! let name = SessionName::parse("my-session")?;
