@@ -10,7 +10,6 @@ pub mod handlers;
 pub mod init;
 #[cfg(test)]
 pub mod init_tests;
-pub mod isolate_port;
 pub mod lock;
 pub mod lock_kani;
 pub mod lock_tests;
