@@ -5,6 +5,7 @@
 cognitive-complexity-threshold = 20
 too-many-arguments-threshold = 5
 type-complexity-threshold = 250
+too-many-lines-threshold = 60
 
 # Enforcement: Source code - no panics/unwrap allowed
 # Tests: ANYTHING GOES - no restrictions on test code
@@ -28,7 +29,6 @@ doc-valid-idents = [
     "Moon",
     "CUE",
     "RUST",
-    "Isolate",
     "Windmill",
 ]
 
