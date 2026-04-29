@@ -37,7 +37,7 @@ fn print_contract(contract: &str, json_mode: bool) {
 ///
 /// Routes to `commands::init::run()`.
 pub async fn handle_init(sub_m: &clap::ArgMatches) -> Result<()> {
-    let format = get_format(sub_m);
+    let _format = get_format(sub_m);
     let _dry_run = sub_m.get_flag("dry-run");
     let _vcs_type = sub_m
         .get_one::<String>("vcs")
@@ -92,9 +92,7 @@ pub async fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
 ///
 /// Routes to `workspace::list()`.
 pub async fn handle_list(sub_m: &clap::ArgMatches) -> Result<()> {
-    let format = get_format(sub_m);
-
-    // Hardline doesn't have ai_contracts - route to introspect instead
+    let _format = get_format(sub_m);
     if sub_m.get_flag("contract") {
         let target = introspect::data::IntrospectTarget::Specific("list".to_string());
         let options = introspect::data::IntrospectOptions { target };
@@ -135,7 +133,7 @@ pub async fn handle_remove(sub_m: &clap::ArgMatches) -> Result<()> {
         return Ok(());
     }
 
-    let name = sub_m
+    let _name = sub_m
         .get_one::<String>("name")
         .ok_or_else(|| Error::invalid_identifier("Name is required".to_string()))?;
     let _format = get_format(sub_m);

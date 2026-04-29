@@ -116,7 +116,7 @@ mod worktree_state {
     fn worktree_state_serde_representation() {
         let state = WorktreeState::Active;
         let json = serde_json::to_string(&state).unwrap();
-        assert_eq!(json, "2"); // u8 representation
+        assert_eq!(json, "\"Active\""); // string representation
     }
 }
 
@@ -140,7 +140,7 @@ mod worktree_type_enum {
     fn worktree_type_enum_serde_representation() {
         let wt_type = WorktreeTypeEnum::Debugging;
         let json = serde_json::to_string(&wt_type).unwrap();
-        assert_eq!(json, "3"); // u8 representation
+        assert_eq!(json, "\"Debugging\""); // string representation
     }
 }
 
@@ -202,12 +202,12 @@ mod worktree_full {
         let worktree = create_test_worktree();
         let json = serde_json::to_string(&worktree).unwrap();
         assert!(
-            !json.contains("_state"),
+            !json.contains("\"_state\""),
             "JSON should not contain _state field: {}",
             json
         );
         assert!(
-            json.contains("\"worktree_state\":2"),
+            json.contains("\"worktree_state\":\"Active\""),
             "JSON should contain worktree_state: {}",
             json
         );
@@ -224,13 +224,13 @@ mod missing_and_extra_fields {
             "name": "test",
             "path": "/tmp/test",
             "parent_path": "/tmp",
-            "state": 2,
-            "worktree_type": 0,
+            "state": "Active",
+            "worktree_type": "Development",
             "branch": "main",
             "created_at": 1234567890,
             "updated_at": 1234567890,
             "metadata": {},
-            "worktree_state": 2,
+            "worktree_state": "Active",
             "extra_field": "should be ignored"
         }"#;
         let result: Result<Worktree, _> = serde_json::from_str(json);

@@ -238,13 +238,13 @@ mod tests {
     #[test]
     fn parallel_spec_review_state_resolves_to_universe_setup_phase() {
         // resolve_parallel_phases(SpecReview) returns [UniverseSetup].
-        // universe_setup() transitions to AgentDevelopment, which requires
-        // the pipeline to be in UniverseSetup state — but it's in SpecReview.
-        // So this should fail with an invalid transition error.
+        // universe_setup() transitions SpecReview -> UniverseSetup (valid),
+        // then UniverseSetup -> AgentDevelopment. So this succeeds.
         let (mut executor, _tmp) = setup_executor();
         let mut pipeline = pipeline_in_state(PipelineState::SpecReview);
         let result = executor.execute_parallel_phases(&mut pipeline);
-        assert!(result.is_err());
+        assert!(result.is_ok(), "SpecReview -> UniverseSetup -> AgentDevelopment should succeed");
+        assert_eq!(pipeline.state, PipelineState::AgentDevelopment);
     }
 
     #[test]

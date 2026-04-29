@@ -225,9 +225,16 @@ mod tests {
         let (mut exec, _temp) = create_executor();
         let id = create_pipeline_at(&mut exec, PipelineState::Validation);
 
-        // Call twice — second time should still succeed
+        // First call succeeds: Validation -> Accepted
         exec.finalize_acceptance(&id).expect("first");
-        exec.finalize_acceptance(&id).expect("second");
+
+        // Second call fails: Accepted is terminal, AlreadyTerminal error
+        let result = exec.finalize_acceptance(&id);
+        assert!(result.is_err(), "second finalize_acceptance should fail on terminal state");
+        assert!(
+            matches!(result.unwrap_err(), super::super::types::PhaseError::InvalidStateTransition(_)),
+            "expected InvalidStateTransition error"
+        );
 
         let pipeline = exec.store.get(&id).expect("get");
         assert_eq!(pipeline.state, PipelineState::Accepted);
@@ -238,9 +245,14 @@ mod tests {
         let (mut exec, _temp) = create_executor();
         let missing_id = crate::state::PipelineId("nope".to_string());
 
-        // The method uses .ok().map() which silently discards missing pipelines
+        // mutate_and_persist returns Err(StoreError::NotFound) for missing pipelines,
+        // which is mapped to PhaseError::PersistenceFailed
         let result = exec.finalize_acceptance(&missing_id);
-        assert!(result.is_ok());
+        assert!(result.is_err(), "nonexistent pipeline should return an error");
+        assert!(
+            matches!(result.unwrap_err(), super::super::types::PhaseError::PersistenceFailed(_)),
+            "expected PersistenceFailed error"
+        );
     }
 
     #[test]
@@ -249,12 +261,12 @@ mod tests {
         // Pending -> Accepted is an invalid transition in the state machine
         let id = create_pipeline_at(&mut exec, PipelineState::Pending);
 
-        // The method uses `let _ = p.transition_to(...)` so the transition error
-        // is silently discarded. But since transition fails, state won't be Accepted.
-        exec.finalize_acceptance(&id).expect("finalize");
+        // The transition fails with InvalidTransition error (not silently discarded)
+        let result = exec.finalize_acceptance(&id);
+        assert!(result.is_err(), "invalid transition should return an error");
 
         let pipeline = exec.store.get(&id).expect("get");
-        // The transition_to fails silently, so state remains Pending
+        // The transition_to failed, so state remains Pending
         assert_eq!(pipeline.state, PipelineState::Pending);
     }
 
@@ -289,10 +301,13 @@ mod tests {
         let (mut exec, _temp) = create_executor();
         let id = create_pipeline_at(&mut exec, PipelineState::Failed);
 
-        // Already terminal — transition_to will fail with AlreadyTerminal,
-        // but it's silently discarded. The update branch won't run.
-        exec.escalate(&id, "escalate from failed")
-            .expect("escalate");
+        // Already terminal — transition_to will fail with AlreadyTerminal error
+        let result = exec.escalate(&id, "escalate from failed");
+        assert!(result.is_err(), "escalate from terminal state should fail");
+        assert!(
+            matches!(result.unwrap_err(), super::super::types::PhaseError::InvalidStateTransition(_)),
+            "expected InvalidStateTransition error"
+        );
 
         let pipeline = exec.store.get(&id).expect("get");
         // State should still be Failed since transition was rejected
@@ -304,8 +319,14 @@ mod tests {
         let (mut exec, _temp) = create_executor();
         let missing_id = crate::state::PipelineId("ghost".to_string());
 
+        // mutate_and_persist returns Err(StoreError::NotFound) for missing pipelines,
+        // which is mapped to PhaseError::PersistenceFailed
         let result = exec.escalate(&missing_id, "reason");
-        assert!(result.is_ok());
+        assert!(result.is_err(), "nonexistent pipeline should return an error");
+        assert!(
+            matches!(result.unwrap_err(), super::super::types::PhaseError::PersistenceFailed(_)),
+            "expected PersistenceFailed error"
+        );
     }
 
     #[test]
@@ -361,14 +382,18 @@ mod tests {
         let (mut exec, _temp) = create_executor();
         let id = create_pipeline_at(&mut exec, PipelineState::Failed);
 
-        exec.fail(&id, "double fail").expect("fail");
+        // transition_to(Failed) from Failed returns AlreadyTerminal error,
+        // and the ? operator returns early so set_error is never called
+        let result = exec.fail(&id, "double fail");
+        assert!(result.is_err(), "fail from terminal state should return error");
+        assert!(
+            matches!(result.unwrap_err(), super::super::types::PhaseError::InvalidStateTransition(_)),
+            "expected InvalidStateTransition error"
+        );
 
         let pipeline = exec.store.get(&id).expect("get");
         assert_eq!(pipeline.state, PipelineState::Failed);
-        // Error should be updated since set_error runs before transition_to
-        // but transition_to(Failed) from Failed returns AlreadyTerminal
-        // which is discarded with `let _ = ...`. However set_error still runs.
-        assert_eq!(pipeline.last_error.as_deref(), Some("double fail"));
+        // set_error was NOT called because the closure returned early via ?
     }
 
     #[test]
@@ -376,8 +401,14 @@ mod tests {
         let (mut exec, _temp) = create_executor();
         let missing_id = crate::state::PipelineId("ghost".to_string());
 
+        // mutate_and_persist returns Err(StoreError::NotFound) for missing pipelines,
+        // which is mapped to PhaseError::PersistenceFailed
         let result = exec.fail(&missing_id, "reason");
-        assert!(result.is_ok());
+        assert!(result.is_err(), "nonexistent pipeline should return an error");
+        assert!(
+            matches!(result.unwrap_err(), super::super::types::PhaseError::PersistenceFailed(_)),
+            "expected PersistenceFailed error"
+        );
     }
 
     #[test]
@@ -408,12 +439,13 @@ mod tests {
 
     #[test]
     fn finalize_acceptance_invalid_transition_does_not_persist_bad_state() {
-        // When transition_to fails (invalid), the cloned pipeline has the OLD state
-        // because transition_to didn't change it. So the update persists the old state.
+        // Pending -> Accepted is invalid. mutate_and_persist returns Ok(Err(InvalidTransition)),
+        // which is propagated as PhaseError::InvalidStateTransition. The mutation is not persisted.
         let (mut exec, _temp) = create_executor();
         let id = create_pipeline_at(&mut exec, PipelineState::Pending);
 
-        exec.finalize_acceptance(&id).expect("finalize");
+        let result = exec.finalize_acceptance(&id);
+        assert!(result.is_err(), "invalid transition should return error");
 
         let pipeline = exec.store.get(&id).expect("get");
         assert_eq!(pipeline.state, PipelineState::Pending);
