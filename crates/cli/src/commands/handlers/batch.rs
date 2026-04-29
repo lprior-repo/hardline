@@ -17,7 +17,7 @@ use scp_core::{
     Error, Result,
 };
 use shell_words;
-use sqlx::SqlitePool;
+use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 
 /// Maximum number of commands in a single batch
 const MAX_BATCH_SIZE: usize = 100;
@@ -193,7 +193,7 @@ pub async fn execute_batch(
     check_workspace_ready(status)?;
 
     // Get database pool for checkpointing
-    let _db_pool = get_database_pool()?;
+    let _db_pool = get_database_pool().await?;
 
     // Create auto-checkpoint manager
     let auto_cp = AutoCheckpoint::new(_db_pool);
@@ -290,11 +290,23 @@ fn find_workspace_path(cwd: &std::path::Path, workspace_name: &str) -> Result<st
     Ok(cwd.to_path_buf())
 }
 
-/// Get the database pool for checkpointing
-fn get_database_pool() -> Result<SqlitePool> {
-    Err(Error::unimplemented(
-        "Database pool not configured for batch execution",
-    ))
+/// Get the database pool for checkpointing.
+///
+/// Connects to `.hd/state.db` if it exists, otherwise falls back to
+/// an in-memory SQLite database.
+async fn get_database_pool() -> Result<SqlitePool> {
+    let db_path = std::path::PathBuf::from(".hd/state.db");
+    let url = if db_path.exists() {
+        format!("sqlite:{}?mode=rwc", db_path.display())
+    } else {
+        "sqlite::memory:".to_string()
+    };
+
+    SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect(&url)
+        .await
+        .map_err(|e| Error::database(e.to_string()))
 }
 
 /// Run batch command from CLI

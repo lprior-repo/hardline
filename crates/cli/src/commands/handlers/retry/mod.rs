@@ -16,5 +16,5 @@
 mod actions;
 mod data;
 
-pub use actions::run_retry;
-pub use data::{RetryOptions, RetryOutput};
+pub use actions::{record_operation, run_retry};
+pub use data::{LastOperation, RetryOptions, RetryOutput};

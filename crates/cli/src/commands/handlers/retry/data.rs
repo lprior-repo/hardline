@@ -35,3 +35,25 @@ pub struct RetryOutput {
     /// Message describing the outcome.
     pub message: String,
 }
+
+// ============================================================================
+// Operation Log Types
+// ============================================================================
+
+/// A recorded VCS operation for retry purposes.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LastOperation {
+    /// The type of VCS operation (e.g. "push", "pull", "commit").
+    pub operation: String,
+    /// Arguments passed to the operation.
+    pub args: Vec<String>,
+    /// Whether the original operation succeeded.
+    pub succeeded: bool,
+    /// Error message if the operation failed.
+    pub error: Option<String>,
+    /// Timestamp of the operation (ISO 8601).
+    pub timestamp: String,
+}
+
+/// The file path where the last operation is recorded.
+pub const LAST_OPERATION_PATH: &str = ".hd/last_operation.json";

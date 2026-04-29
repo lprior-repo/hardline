@@ -51,7 +51,7 @@ rand = { workspace = true }
 shell-words = { workspace = true }
 
 # Database
-sqlx = { workspace = true, features = ["runtime-tokio"] }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 
 # File locking
 fs4 = { workspace = true }

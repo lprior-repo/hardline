@@ -48,15 +48,12 @@ pub fn delete(name: &str, remote: bool) -> Result<()> {
 
     detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
 
-    if remote {
-        return Err(Error::vcs_conflict(
-            "Remote tag delete not yet implemented",
-            "remote".to_string(),
-        ));
-    }
-
     let repo = repository::open(&cwd)
         .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
+
+    if remote {
+        return delete_remote_tag(&cwd, name);
+    }
 
     tag::delete(&repo, name, false)
         .map_err(|e| Error::vcs_conflict("delete tag", e.to_string()))?;
@@ -65,20 +62,52 @@ pub fn delete(name: &str, remote: bool) -> Result<()> {
     Ok(())
 }
 
-/// Push a specific tag to a remote.
+/// Delete a remote tag using git CLI fallback.
+fn delete_remote_tag(workdir: &std::path::Path, name: &str) -> Result<()> {
+    let output = scp_vcs::gix::cli::run_git(workdir, &["push", "--delete", "origin", name])
+        .map_err(|e| Error::vcs_push_failed(e.to_string()))?;
+
+    if !output.success {
+        let git_err = scp_vcs::gix::cli::cli_error(&output, "remote tag delete");
+        return Err(Error::vcs_push_failed(git_err.to_string()));
+    }
+
+    Output::success(&format!("Deleted remote tag: {}", name));
+    Ok(())
+}
+
+/// Push a specific tag (or all tags) to a remote.
 pub fn push(tag: Option<&str>, remote: &str, _force: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
     detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
 
-    let t = tag.ok_or_else(|| {
-        Error::vcs_conflict("Push all tags not yet implemented", "all tags".to_string())
-    })?;
+    match tag {
+        Some(t) => push_single_tag(&cwd, t, remote),
+        None => push_all_tags(&cwd, remote),
+    }
+}
 
-    let repo = repository::open(&cwd)
+/// Push a single tag to a remote using the gix native path.
+fn push_single_tag(workdir: &std::path::Path, tag_name: &str, remote: &str) -> Result<()> {
+    let repo = repository::open(workdir)
         .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
-    tag::push(&repo, remote, t).map_err(|e| Error::vcs_push_failed(e.to_string()))?;
-    Output::success(&format!("Pushed tag {} to {}", t, remote));
+    tag::push(&repo, remote, tag_name).map_err(|e| Error::vcs_push_failed(e.to_string()))?;
+    Output::success(&format!("Pushed tag {} to {}", tag_name, remote));
+    Ok(())
+}
+
+/// Push all tags to a remote using git CLI fallback.
+fn push_all_tags(workdir: &std::path::Path, remote: &str) -> Result<()> {
+    let output = scp_vcs::gix::cli::run_git(workdir, &["push", "--tags", remote])
+        .map_err(|e| Error::vcs_push_failed(e.to_string()))?;
+
+    if !output.success {
+        let git_err = scp_vcs::gix::cli::cli_error(&output, "push all tags");
+        return Err(Error::vcs_push_failed(git_err.to_string()));
+    }
+
+    Output::success(&format!("Pushed all tags to {}", remote));
     Ok(())
 }
 
