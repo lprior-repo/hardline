@@ -54,12 +54,12 @@ Remove dead weight with zero compile risk.
 | Library | Reason |
 |---------|--------|
 | jj-lib 0.38 | Post-JJ rip-out, no crate uses it |
-| git2 0.20 | Replaced by gix, no crate uses it |
+| git2 0.20 | Replaced by gix in most crates, but worktree/infrastructure/git.rs still uses it — migrate in Phase 2 |
 | uuid-no-serde 1 | No crate references it, standard uuid covers all needs |
 | rpds 1.2 | Listed in workspace + worktree/isolate-core, zero `use rpds` in any source file. `im` covers all persistent data structure needs |
 | hex 0.4 | No `hex::encode/decode` calls anywhere. gix uses faster-hex transitively |
 | faster-hex 0.10 | No direct usage. gix brings it transitively; removing direct dep saves nothing but removes confusion |
-| dbc (contracts) 0.6 | Imported with `#[allow(unused_imports)]` in 3 files, never actually invoked. Project has its own contract system in `core/src/contracts/` |
+| dbc (contracts) 0.6 | Actively used via proc-macro attributes (`#[requires]`, `#[ensures]`) in validation.rs and queue_impl.rs. Migrate to inline assertions in Phase 2 |
 | askama 0.12 | Listed only in isolate-core Cargo.toml. Zero templates, zero `#[template]`, zero `use askama` |
 | either 1.13 | Listed in workspace + core/isolate-core. Zero `use either` in any source file |
 | kdl 4.7 | Listed only in isolate-core. Zero `use kdl` in any source file. No .kdl files exist |
