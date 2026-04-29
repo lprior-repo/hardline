@@ -21,7 +21,6 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 regex = "1.10"
 chrono = "0.4"
-im = "15.1"
 itertools = "0.13"
 
 [dev-dependencies]
