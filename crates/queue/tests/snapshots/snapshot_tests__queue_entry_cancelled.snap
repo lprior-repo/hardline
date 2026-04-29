@@ -1,5 +1,0 @@
----
-source: crates/queue/tests/snapshot_tests.rs
-expression: json
----
-{"id":"qe-vwx234","session":"feature-cancelled","priority":7,"enqueued_at":"2024-01-15T10:30:00Z","status":"cancelled"}

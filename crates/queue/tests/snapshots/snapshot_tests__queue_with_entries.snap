@@ -1,5 +1,0 @@
----
-source: crates/queue/tests/snapshot_tests.rs
-expression: json
----
-{"entries":[{"id":"qe-001","session":"high-priority","priority":0,"enqueued_at":"2024-01-15T10:30:00Z","status":"pending"},{"id":"qe-002","session":"medium-priority","priority":5,"enqueued_at":"2024-01-15T10:30:00Z","status":"claimed"},{"id":"qe-003","session":"low-priority","priority":10,"enqueued_at":"2024-01-15T10:30:00Z","status":"pending"}]}

@@ -1,5 +1,0 @@
----
-source: crates/queue/tests/snapshot_tests.rs
-expression: json
----
-{"id":"qe-pqr678","session":"feature-complete","priority":5,"enqueued_at":"2024-01-15T10:30:00Z","status":"merged"}

@@ -1,5 +1,0 @@
----
-source: crates/queue/tests/snapshot_tests.rs
-expression: json
----
-"ready_to_merge"

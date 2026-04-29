@@ -1,6 +1,0 @@
----
-source: crates/queue/tests/snapshot_tests.rs
-assertion_line: 85
-expression: json
----
-{"id":"qe-mno345","session":"hotfix-security","priority":0,"enqueued_at":"2024-01-15T10:30:00Z","status":"ready_to_merge","bead_id":null,"updated_at":"2024-01-15T10:30:00Z","retry_count":0,"error_message":null}
