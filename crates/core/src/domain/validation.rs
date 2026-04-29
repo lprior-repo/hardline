@@ -11,9 +11,6 @@
 
 use std::collections::VecDeque;
 
-#[allow(unused_imports)]
-use crate::domain::contracts::{ensures, requires};
-
 /// Type alias for validation results - Railway track
 pub type ValidationResult<T> = Result<T, ValidationError>;
 
@@ -193,9 +190,8 @@ where
 /// # Errors
 ///
 /// Returns an error if the value is below the minimum or above the maximum.
-#[requires(min <= max, "min must be <= max")]
-#[ensures(ret.is_ok() || ret.is_err(), "always returns a Result")]
 pub fn validate_range(value: u32, min: u32, max: u32, field: &str) -> ValidationResult<u32> {
+    assert!(min <= max, "min must be <= max");
     if value < min {
         Err(ValidationError::BelowMinimum {
             field: field.to_string(),

@@ -4,7 +4,6 @@
 //! where possible. This enables safe concurrent access and easy undo/redo.
 
 use super::{entry::QueueEntry, status::QueueStatus};
-use crate::domain::contracts::ensures;
 use crate::domain::{
     identifiers::{QueueEntryId, SessionName},
     validation::{ValidationError, ValidationResult},
@@ -80,7 +79,6 @@ impl Queue {
     /// Add an entry to the queue, returning a new Queue.
     ///
     /// Uses binary search to maintain priority order.
-    #[ensures(self.len() + 1 == ret.len(), "queue length increases by 1")]
     #[must_use]
     pub fn enqueue(&self, entry: QueueEntry) -> Self {
         let priority = entry.priority;
@@ -94,9 +92,11 @@ impl Queue {
         let mut new_entries = self.entries.clone();
         new_entries.insert(insert_pos, entry);
 
-        Self {
+        let ret = Self {
             entries: new_entries,
-        }
+        };
+        debug_assert_eq!(self.len() + 1, ret.len(), "queue length increases by 1");
+        ret
     }
 
     /// Remove an entry from the queue by ID, returning (`new_queue`, `removed_entry`).
