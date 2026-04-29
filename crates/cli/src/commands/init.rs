@@ -3,7 +3,7 @@
 //! Handles VCS initialization with cross-process locking to prevent
 //! concurrent init operations from corrupting repository state.
 
-use fs2::FileExt;
+use fs4::fs_std::FileExt;
 use scp_core::Result;
 use scp_vcs::gix::repository;
 

@@ -58,7 +58,7 @@ strum = { version = "0.26", features = ["derive"] }
 
 # File system
 directories = "6"
-fs2 = "0.4"
+fs4 = { version = "0.12", features = ["tokio"] }
 notify = "6"
 notify-debouncer-mini = "0.4"
 walkdir = "2"
@@ -101,9 +101,6 @@ shell-words = "1.0"
 # Hashing
 sha2 = "0.10"
 
-# ORM
-rusqlite = { version = "0.32", features = ["bundled"] }
-
 # Octocrab (GitHub API)
 octocrab = "0.44"
 
@@ -117,8 +114,6 @@ predicates = "3.0"
 # Additional async
 futures-util = "0.3"
 
-# Design-by-Contract
-dbc = { package = "contracts", version = "0.6" }
 
 # Dev dependencies
 tokio-test = "0.4"

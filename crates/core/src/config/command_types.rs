@@ -874,7 +874,7 @@ pub async fn config_set(key: &str, value: &str, scope: ConfigScope) -> Result<Co
         })?;
     let start = Instant::now();
     let file = loop {
-        match fs2::FileExt::try_lock_exclusive(&file) {
+        match fs4::fs_std::FileExt::try_lock_exclusive(&file) {
             Ok(()) => break file,
             Err(_) => {
                 if start.elapsed() >= LOCK_TIMEOUT {

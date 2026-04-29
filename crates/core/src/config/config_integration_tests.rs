@@ -309,7 +309,7 @@ async fn lock_timeout_returns_error() {
             .create(true)
             .open(&lp)
             .expect("should open");
-        fs2::FileExt::try_lock_exclusive(&f).expect("should lock");
+        fs4::fs_std::FileExt::try_lock_exclusive(&f).expect("should lock");
         std::thread::sleep(std::time::Duration::from_secs(10));
     });
     std::thread::sleep(std::time::Duration::from_millis(200));
@@ -351,7 +351,7 @@ async fn lock_released_on_failure() {
         .open(&config_path)
         .expect("should open");
     assert!(
-        fs2::FileExt::try_lock_exclusive(&f).is_ok(),
+        fs4::fs_std::FileExt::try_lock_exclusive(&f).is_ok(),
         "lock should be releasable"
     );
 }
@@ -380,7 +380,7 @@ async fn lock_retry_behavior() {
             .create(true)
             .open(&lp)
             .expect("should open");
-        fs2::FileExt::try_lock_exclusive(&f).expect("should lock");
+        fs4::fs_std::FileExt::try_lock_exclusive(&f).expect("should lock");
         std::thread::sleep(std::time::Duration::from_millis(500));
     });
     std::thread::sleep(std::time::Duration::from_millis(50));
@@ -424,7 +424,7 @@ async fn no_truncate_before_lock_prevents_data_loss() {
             .create(true)
             .open(&lp)
             .expect("should open");
-        fs2::FileExt::try_lock_exclusive(&f).expect("should lock");
+        fs4::fs_std::FileExt::try_lock_exclusive(&f).expect("should lock");
         std::thread::sleep(std::time::Duration::from_secs(10));
     });
     std::thread::sleep(std::time::Duration::from_millis(200));
@@ -583,7 +583,7 @@ async fn error_lock_timeout() {
             .create(true)
             .open(&lp)
             .expect("should open");
-        fs2::FileExt::try_lock_exclusive(&f).expect("should lock");
+        fs4::fs_std::FileExt::try_lock_exclusive(&f).expect("should lock");
         std::thread::sleep(std::time::Duration::from_secs(10));
     });
     std::thread::sleep(std::time::Duration::from_millis(100));

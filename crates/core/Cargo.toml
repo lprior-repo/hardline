@@ -47,7 +47,7 @@ gix = { workspace = true }
 
 # File system
 directories = { workspace = true }
-fs2 = { workspace = true }
+fs4 = { workspace = true }
 notify = { workspace = true }
 notify-debouncer-mini = { workspace = true }
 
@@ -59,8 +59,6 @@ strum = { workspace = true }
 rand = { workspace = true }
 uuid = { workspace = true }
 
-# Design-by-Contract
-dbc = { package = "contracts", version = "0.6" }
 
 [dev-dependencies]
 tokio-test = { workspace = true }
