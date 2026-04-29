@@ -1,6 +1,6 @@
 # Phase 2: Library Consolidation
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Migrate remaining legacy dependencies (git2, rusqlite, dbc/contracts, fs2) and tighten the dependency footprint.
 
@@ -15,7 +15,7 @@
 **Files:**
 - Delete: `crates/queue/` (entire directory)
 
-- [ ] **Step 1: Verify nothing depends on scp-queue**
+- [x] **Step 1: Verify nothing depends on scp-queue**
 
 ```bash
 cd /home/lewis/src/hardline
@@ -23,45 +23,24 @@ grep -rn "scp-queue\|scp_queue" crates/*/Cargo.toml | grep -v "crates/queue/"
 # Expected: 0 results
 ```
 
-- [ ] **Step 2: Delete the crate**
+- [x] **Step 2: Delete the crate**
 
 ```bash
 rm -rf crates/queue/
 ```
 
-- [ ] **Step 3: Remove rusqlite and queue from workspace Cargo.toml**
+- [x] **Step 3: Remove rusqlite and queue from workspace Cargo.toml**
 
 In `Cargo.toml`, remove:
 - `rusqlite = { version = "0.32", features = ["bundled"] }` (around line 121)
 
-- [ ] **Step 4: Verify build**
-
-```bash
-cargo check
-```
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add -A
-git commit -m "chore: remove standalone scp-queue crate
-
-Core already has queue_impl.rs (domain) and queue_sqlite.rs
-(infrastructure) with sqlx. The standalone crate had zero dependents
-and used rusqlite (sync) while core uses sqlx (async).
-
-Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
-```
-
----
-
-### Task 2: Migrate git2 → gix in worktree
+- [x] **Step 4: Verify build**
 
 **Files:**
 - Modify: `crates/worktree/src/infrastructure/git.rs`
 - Modify: `crates/worktree/Cargo.toml`
 
-- [ ] **Step 1: Read the current git2 adapter**
+- [x] **Step 1: Read the current git2 adapter**
 
 Read `crates/worktree/src/infrastructure/git.rs` fully.
 
@@ -70,13 +49,13 @@ The file has 3 production methods that map 1:1 to existing gix implementations i
 - `get_local_branches()` → `vcs::gix::branch::list()` with local filter
 - `get_remote_branches()` → `vcs::gix::branch::list()` with remote filter
 
-- [ ] **Step 2: Update Cargo.toml**
+- [x] **Step 2: Update Cargo.toml**
 
 In `crates/worktree/Cargo.toml`:
 - Remove `git2` dependency
 - Add `scp-vcs = { path = "../vcs" }` if not already present
 
-- [ ] **Step 3: Rewrite git.rs to use gix via vcs crate**
+- [x] **Step 3: Rewrite git.rs to use gix via vcs crate**
 
 Replace all `git2::` calls with `gix::` equivalents. The production methods:
 - `Repository::open(path)` → `gix::discover(&path)` or `gix::open(&path)`
@@ -88,30 +67,30 @@ For the test helper `create_test_repo()`, replace git2 calls:
 - `Repository::init(path)` → `gix::init(&path)`
 - `index.add_path/write/write_tree` + `repo.commit()` → use `gix::object::tree::Editor` or shell out to `git commit --allow-empty` in test helper
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 ```bash
 cargo check -p scp-worktree
 ```
 
-- [ ] **Step 5: Run worktree tests**
+- [x] **Step 5: Run worktree tests**
 
 ```bash
 cargo test -p scp-worktree
 ```
 
-- [ ] **Step 6: Remove git2 from workspace Cargo.toml**
+- [x] **Step 6: Remove git2 from workspace Cargo.toml**
 
 In root `Cargo.toml`, remove:
 - `git2 = "0.20"` (around line 77)
 
-- [ ] **Step 7: Verify full build**
+- [x] **Step 7: Verify full build**
 
 ```bash
 cargo check
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add -A
@@ -133,20 +112,20 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 - Modify: `crates/core/src/domain/contracts/mod.rs` (delete or gut)
 - Modify: `crates/core/Cargo.toml` (remove dbc dep)
 
-- [ ] **Step 1: Convert validation.rs contracts**
+- [x] **Step 1: Convert validation.rs contracts**
 
 In `crates/core/src/domain/validation.rs`:
 - Remove `#[requires(min <= max, "min must be <= max")]` → add `assert!(min <= max, "min must be <= max");` at function start
 - Remove `#[ensures(ret.is_ok() || ret.is_err(), "always returns a Result")]` → this is trivially true, just delete it
 - Remove `#[allow(unused_imports)]` + `use crate::domain::contracts::{ensures, requires};` if still present
 
-- [ ] **Step 2: Convert queue_impl.rs contract**
+- [x] **Step 2: Convert queue_impl.rs contract**
 
 In `crates/core/src/domain/queue/queue_impl.rs`:
 - Remove `#[ensures(self.len() + 1 == ret.len(), "queue length increases by 1")]` → add `debug_assert_eq!(self.len() + 1, ret.len(), "queue length increases by 1");` after the operation
 - Remove `use crate::domain::contracts::ensures;` import
 
-- [ ] **Step 3: Gut or delete contracts module**
+- [x] **Step 3: Gut or delete contracts module**
 
 In `crates/core/src/domain/contracts/mod.rs`:
 - Remove `pub use dbc::{ensures, invariant, requires};` re-exports
@@ -154,23 +133,23 @@ In `crates/core/src/domain/contracts/mod.rs`:
 
 If deleting: also remove `pub mod contracts;` from `crates/core/src/domain/mod.rs`
 
-- [ ] **Step 4: Remove dbc from core Cargo.toml**
+- [x] **Step 4: Remove dbc from core Cargo.toml**
 
 In `crates/core/Cargo.toml`, remove:
 - `dbc = { package = "contracts", version = "0.6" }`
 
-- [ ] **Step 5: Remove dbc from workspace Cargo.toml**
+- [x] **Step 5: Remove dbc from workspace Cargo.toml**
 
 In root `Cargo.toml`, remove:
 - `dbc = { package = "contracts", version = "0.6" }` (around line 121)
 
-- [ ] **Step 6: Verify build**
+- [x] **Step 6: Verify build**
 
 ```bash
 cargo check -p scp-core
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -195,13 +174,13 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 - Modify: `crates/core/src/config/command_types.rs` (change qualified call)
 - Modify: `crates/core/src/config/config_integration_tests.rs` (change qualified calls)
 
-- [ ] **Step 1: Update workspace Cargo.toml**
+- [x] **Step 1: Update workspace Cargo.toml**
 
 In root `Cargo.toml`:
 - Remove: `fs2 = "0.4"` (around line 66)
 - Add: `fs4 = { version = "0.12", features = ["tokio"] }`
 
-- [ ] **Step 2: Update crate-level Cargo.toml files**
+- [x] **Step 2: Update crate-level Cargo.toml files**
 
 In `crates/cli/Cargo.toml`:
 - Change `fs2 = { workspace = true }` → `fs4 = { workspace = true }`
@@ -209,7 +188,7 @@ In `crates/cli/Cargo.toml`:
 In `crates/core/Cargo.toml`:
 - Change `fs2 = { workspace = true }` → `fs4 = { workspace = true }`
 
-- [ ] **Step 3: Update source imports**
+- [x] **Step 3: Update source imports**
 
 In `crates/cli/src/commands/init.rs`:
 - Change `use fs2::FileExt;` → `use fs4::FileExt;`
@@ -220,13 +199,13 @@ In `crates/core/src/config/command_types.rs`:
 In `crates/core/src/config/config_integration_tests.rs`:
 - Change all `fs2::FileExt::try_lock_exclusive` → `fs4::FileExt::try_lock_exclusive`
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 ```bash
 cargo check
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -242,26 +221,26 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 
 ### Task 5: Final quality gate
 
-- [ ] **Step 1: Run cargo check**
+- [x] **Step 1: Run cargo check**
 
 ```bash
 cargo check
 ```
 
-- [ ] **Step 2: Verify no legacy deps remain**
+- [x] **Step 2: Verify no legacy deps remain**
 
 ```bash
 grep -c "jj-lib\|git2\|rusqlite\|fs2\|dbc.*contracts" Cargo.toml
 # Expected: 0
 ```
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 ```bash
 cargo test --workspace 2>&1 | tail -10
 ```
 
-- [ ] **Step 4: Push**
+- [x] **Step 4: Push**
 
 ```bash
 git push
