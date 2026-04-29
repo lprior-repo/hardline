@@ -73,264 +73,23 @@ pub(crate) fn run_command(cmd: Commands) -> Result<()> {
     match cmd {
         Commands::Init { vcs } => commands::init::run(&vcs),
 
-        Commands::Ai { command } => {
-            use crate::cli::ai_args::AiCommands;
-            use crate::commands::handlers::ai::{AiOptions, AiSubcommand, run};
-            let subcmd = match command {
-                AiCommands::Status => AiSubcommand::Status,
-                AiCommands::Workflow => AiSubcommand::Workflow,
-                AiCommands::QuickStart => AiSubcommand::QuickStart,
-                AiCommands::Next => AiSubcommand::Next,
-                AiCommands::Default => AiSubcommand::Default,
-            };
-            let opts = AiOptions { subcommand: subcmd };
-            run(&opts)
-        }
-
+        Commands::Ai { command } => handle_ai(command),
         Commands::Work { name, bead, agent, no_agent, idempotent, dry_run } => {
-            use crate::commands::handlers::work::{WorkMode, WorkOptions, run_work};
-            let ctx = auth_context(vec![Scope::WriteWorkspace]);
-            warn_missing_scope(&ctx, &Scope::WriteWorkspace, "work");
-            let mode = if dry_run {
-                WorkMode::DryRun
-            } else if idempotent {
-                WorkMode::Idempotent
-            } else {
-                WorkMode::Normal
-            };
-            match name {
-                Some(n) => {
-                    let opts = WorkOptions {
-                        name: n,
-                        bead_id: bead,
-                        agent_id: agent,
-                        mode,
-                        no_agent,
-                        format: OutputFormat::Json,
-                    };
-                    audit_log("workspace.spawn", &opts.name, &ctx.agent_id);
-                    run_work(&opts)
-                }
-                None => {
-                    use scp_core::Error;
-                    Err(Error::validation_error("work requires a workspace name"))
-                }
-            }
+            handle_work(name, bead, agent, no_agent, idempotent, dry_run)
         }
-
-        Commands::Lock { command } => match command {
-            crate::cli::lock_args::LockCommands::Acquire {
-                session,
-                agent,
-                ttl,
-            } => commands::lock::acquire(&session, &agent, ttl),
-            crate::cli::lock_args::LockCommands::Release { session, agent } => {
-                commands::lock::release(&session, &agent)
-            }
-            crate::cli::lock_args::LockCommands::Heartbeat { session, agent } => {
-                commands::lock::heartbeat(&session, &agent)
-            }
-            crate::cli::lock_args::LockCommands::Status { session } => {
-                commands::lock::status(&session)
-            }
-            crate::cli::lock_args::LockCommands::List => commands::lock::list(),
-        },
-
-        Commands::Queue { command } => {
-            let ctx = auth_context(vec![Scope::ManageQueue]);
-            match command {
-                crate::cli::queue_args::QueueCommands::List => commands::queue::list(),
-                crate::cli::queue_args::QueueCommands::Enqueue { branch, priority } => {
-                    warn_missing_scope(&ctx, &Scope::ManageQueue, "queue.enqueue");
-                    audit_log("queue.enqueue", &branch, &ctx.agent_id);
-                    commands::queue::enqueue(&branch, priority.as_deref())
-                }
-                crate::cli::queue_args::QueueCommands::Dequeue => {
-                    warn_missing_scope(&ctx, &Scope::ManageQueue, "queue.dequeue");
-                    commands::queue::dequeue()
-                }
-                crate::cli::queue_args::QueueCommands::Process { checks } => {
-                    warn_missing_scope(&ctx, &Scope::ManageQueue, "queue.process");
-                    commands::queue::process(checks)
-                }
-                crate::cli::queue_args::QueueCommands::Insert { position, branch } => {
-                    warn_missing_scope(&ctx, &Scope::ManageQueue, "queue.insert");
-                    audit_log("queue.insert", &branch, &ctx.agent_id);
-                    commands::queue::insert(position, &branch)
-                }
-                crate::cli::queue_args::QueueCommands::Remove { branch } => {
-                    warn_missing_scope(&ctx, &Scope::ManageQueue, "queue.remove");
-                    audit_log("queue.remove", &branch, &ctx.agent_id);
-                    commands::queue::remove(&branch)
-                }
-                crate::cli::queue_args::QueueCommands::Status => commands::queue::status(),
-            }
+        Commands::Lock { command } => handle_lock(command),
+        Commands::Queue { command } => handle_queue(command),
+        Commands::Agent { command } => handle_agent(command),
+        Commands::Session { command } => handle_session(command),
+        Commands::Task { command } => handle_task(command),
+        Commands::Config { command } => handle_config(command),
+        Commands::Stash { command } => handle_stash(command),
+        Commands::Tag { command } => handle_tag(command),
+        Commands::Batch { command } => handle_batch(command),
+        Commands::Fetch { remote, prune, tags, all } => {
+            handle_fetch(remote, prune, tags, all)
         }
-
-        Commands::Agent { command } => match command {
-            crate::cli::agent_args::AgentCommands::Create { name } => {
-                commands::agent::create(&name)
-            }
-            crate::cli::agent_args::AgentCommands::List => commands::agent::list(),
-            crate::cli::agent_args::AgentCommands::Kill { id } => commands::agent::kill(&id),
-            crate::cli::agent_args::AgentCommands::Status { id } => {
-                commands::agent::status(id.as_deref())
-            }
-            crate::cli::agent_args::AgentCommands::Register { session } => {
-                commands::agent::register(session.as_deref())
-            }
-            crate::cli::agent_args::AgentCommands::Heartbeat { session } => {
-                commands::agent::heartbeat(session.as_deref())
-            }
-        },
-
-        Commands::Session { command } => {
-            let ctx = auth_context(vec![Scope::ManageSessions]);
-            match command {
-                crate::cli::session_args::SessionCommands::List => commands::session::list(),
-                crate::cli::session_args::SessionCommands::Status => commands::session::status(),
-                crate::cli::session_args::SessionCommands::Focus { name } => {
-                    commands::session::focus(&name)
-                }
-                crate::cli::session_args::SessionCommands::Submit {
-                    name,
-                    auto_commit,
-                    message,
-                } => {
-                    warn_missing_scope(&ctx, &Scope::ManageSessions, "session.submit");
-                    audit_log("session.submit", name.as_deref().unwrap_or("unknown"), &ctx.agent_id);
-                    commands::session::submit(name.as_deref(), auto_commit, message.as_deref())
-                }
-                crate::cli::session_args::SessionCommands::Remove { name, force, merge } => {
-                    warn_missing_scope(&ctx, &Scope::ManageSessions, "session.remove");
-                    audit_log("session.remove", &name, &ctx.agent_id);
-                    commands::session::remove(&name, force, merge)
-                }
-                crate::cli::session_args::SessionCommands::Pause { name } => {
-                    commands::handlers::session::pause(&name)
-                }
-                crate::cli::session_args::SessionCommands::Resume { name } => {
-                    commands::handlers::session::resume(&name)
-                }
-                crate::cli::session_args::SessionCommands::Clone {
-                    source,
-                    target,
-                    dry_run,
-                } => {
-                    commands::handlers::session::clone_session(&source, &target, dry_run)?;
-                    Ok(())
-                }
-            }
-        }
-
-        Commands::Task { command } => {
-            use commands::handlers::task::{parse_task_id, run_task_command, AgentId, TaskCommand};
-            let cmd = match command {
-                crate::cli::task_args::TaskCommands::List => TaskCommand::List {
-                    status_filter: None,
-                    include_all: false,
-                },
-                crate::cli::task_args::TaskCommands::Show { task_id, .. } => TaskCommand::Show {
-                    task_id: parse_task_id(&task_id)?,
-                },
-                crate::cli::task_args::TaskCommands::Claim { task_id, user } => {
-                    TaskCommand::Claim {
-                        task_id: parse_task_id(&task_id)?,
-                        agent_id: AgentId::new(&user)?,
-                    }
-                }
-                crate::cli::task_args::TaskCommands::Yield { task_id, user } => {
-                    TaskCommand::YieldTask {
-                        task_id: parse_task_id(&task_id)?,
-                        agent_id: AgentId::new(&user)?,
-                    }
-                }
-                crate::cli::task_args::TaskCommands::Start { task_id, user } => {
-                    TaskCommand::Start {
-                        task_id: parse_task_id(&task_id)?,
-                        agent_id: AgentId::new(&user)?,
-                    }
-                }
-                crate::cli::task_args::TaskCommands::Done { task_id, user } => TaskCommand::Done {
-                    task_id: Some(parse_task_id(&task_id)?),
-                    agent_id: AgentId::new(&user)?,
-                },
-            };
-            run_task_command(&cmd)
-        }
-
-        Commands::Config { command } => match command {
-            crate::cli::config_args::ConfigCommands::Get { key } => commands::config::get(&key),
-            crate::cli::config_args::ConfigCommands::Set { key, value } => {
-                commands::config::set(&key, &value)
-            }
-            crate::cli::config_args::ConfigCommands::List => commands::config::list(),
-            crate::cli::config_args::ConfigCommands::Ports { json } => {
-                commands::handlers::config_ports::run_config_ports(json)
-            }
-        },
-
-        Commands::Stash { command } => match command {
-            crate::cli::stash_args::StashCommands::Save {
-                message,
-                include_untracked,
-                patch,
-            } => commands::stash::save(message.as_deref(), include_untracked, patch),
-            crate::cli::stash_args::StashCommands::Pop { stash, index } => {
-                commands::stash::pop(stash.as_deref(), index)
-            }
-            crate::cli::stash_args::StashCommands::List => commands::stash::list(),
-            crate::cli::stash_args::StashCommands::Drop { stash, force } => {
-                commands::stash::drop(&stash, force)
-            }
-            crate::cli::stash_args::StashCommands::Show { stash, stat } => {
-                commands::stash::show(stash.as_deref(), stat)
-            }
-        },
-
-        Commands::Tag { command } => match command {
-            crate::cli::tag_args::TagCommands::Create {
-                name,
-                message,
-                commit,
-                force,
-            } => commands::tag::create(&name, message.as_deref(), commit.as_deref(), force),
-            crate::cli::tag_args::TagCommands::List { pattern, sort } => {
-                commands::tag::list(pattern.as_deref(), sort.as_deref())
-            }
-            crate::cli::tag_args::TagCommands::Delete { tag, remote } => {
-                commands::tag::delete(&tag, remote)
-            }
-            crate::cli::tag_args::TagCommands::Push { tag, remote, force } => {
-                commands::tag::push(tag.as_deref(), &remote, force)
-            }
-        },
-
-        Commands::Batch { command } => match command {
-            crate::cli::batch_args::BatchCommands::Run {
-                workspace,
-                commands,
-            } => tokio::runtime::Handle::current()
-                .block_on(commands::batch::execute(workspace, commands)),
-        },
-
-        Commands::Fetch {
-            remote,
-            prune,
-            tags,
-            all,
-        } => {
-            let ctx = auth_context(vec![Scope::VcsOperations]);
-            warn_missing_scope(&ctx, &Scope::VcsOperations, "vcs.fetch");
-            commands::sync::fetch(remote.as_deref(), prune, tags, all)
-        }
-
-        Commands::Pull => {
-            let ctx = auth_context(vec![Scope::VcsOperations]);
-            warn_missing_scope(&ctx, &Scope::VcsOperations, "vcs.pull");
-            commands::sync::pull()
-        }
-
+        Commands::Pull => handle_pull(),
         Commands::Push {
             remote,
             branch,
@@ -339,67 +98,318 @@ pub(crate) fn run_command(cmd: Commands) -> Result<()> {
             force_with_lease,
             tags,
             delete,
-        } => {
-            let ctx = auth_context(vec![Scope::VcsOperations]);
-            warn_missing_scope(&ctx, &Scope::VcsOperations, "vcs.push");
+        } => handle_push(remote, branch, set_upstream, force, force_with_lease, tags, delete),
+
+        Commands::Doctor { full } => handle_doctor(full),
+        Commands::Status { short } => handle_status(short),
+        Commands::Switch { name } => commands::workspace::switch(&name),
+        Commands::Context => commands::context::run(),
+        Commands::Whereami => commands::context::whereami(),
+        Commands::Whatif { command, args } => handle_whatif(command, args),
+        Commands::Examples { command, use_case } => handle_examples(command, use_case),
+        Commands::Workspace { .. } => unreachable!("workspace commands dispatched separately"),
+        Commands::Retry { max_attempts, verbose } => handle_retry(max_attempts, verbose),
+    }
+}
+
+// ========================================================================
+// Command handlers
+// ========================================================================
+
+fn handle_ai(command: crate::cli::ai_args::AiCommands) -> Result<()> {
+    use crate::cli::ai_args::AiCommands;
+    use crate::commands::handlers::ai::{AiOptions, AiSubcommand, run};
+    let subcmd = match command {
+        AiCommands::Status => AiSubcommand::Status,
+        AiCommands::Workflow => AiSubcommand::Workflow,
+        AiCommands::QuickStart => AiSubcommand::QuickStart,
+        AiCommands::Next => AiSubcommand::Next,
+        AiCommands::Default => AiSubcommand::Default,
+    };
+    let opts = AiOptions { subcommand: subcmd };
+    run(&opts)
+}
+
+fn handle_work(
+    name: Option<String>,
+    bead: Option<String>,
+    agent: Option<String>,
+    no_agent: bool,
+    idempotent: bool,
+    dry_run: bool,
+) -> Result<()> {
+    use crate::commands::handlers::work::{WorkMode, WorkOptions, run_work};
+    let ctx = auth_context(vec![Scope::WriteWorkspace]);
+    warn_missing_scope(&ctx, &Scope::WriteWorkspace, "work");
+    let mode = if dry_run {
+        WorkMode::DryRun
+    } else if idempotent {
+        WorkMode::Idempotent
+    } else {
+        WorkMode::Normal
+    };
+    match name {
+        Some(n) => {
+            let opts = WorkOptions {
+                name: n,
+                bead_id: bead,
+                agent_id: agent,
+                mode,
+                no_agent,
+                format: OutputFormat::Json,
+            };
+            audit_log("workspace.spawn", &opts.name, &ctx.agent_id);
+            run_work(&opts)
+        }
+        None => {
+            use scp_core::Error;
+            Err(Error::validation_error("work requires a workspace name"))
+        }
+    }
+}
+
+fn handle_lock(command: crate::cli::lock_args::LockCommands) -> Result<()> {
+    use crate::cli::lock_args::LockCommands;
+    match command {
+        LockCommands::Acquire { session, agent, ttl } => {
+            commands::lock::acquire(&session, &agent, ttl)
+        }
+        LockCommands::Release { session, agent } => commands::lock::release(&session, &agent),
+        LockCommands::Heartbeat { session, agent } => {
+            commands::lock::heartbeat(&session, &agent)
+        }
+        LockCommands::Status { session } => commands::lock::status(&session),
+        LockCommands::List => commands::lock::list(),
+    }
+}
+
+fn handle_queue(command: crate::cli::queue_args::QueueCommands) -> Result<()> {
+    use crate::cli::queue_args::QueueCommands;
+    let ctx = auth_context(vec![Scope::ManageQueue]);
+    match command {
+        QueueCommands::List => commands::queue::list(),
+        QueueCommands::Enqueue { branch, priority } => {
+            warn_missing_scope(&ctx, &Scope::ManageQueue, "queue.enqueue");
+            audit_log("queue.enqueue", &branch, &ctx.agent_id);
+            commands::queue::enqueue(&branch, priority.as_deref())
+        }
+        QueueCommands::Dequeue => {
+            warn_missing_scope(&ctx, &Scope::ManageQueue, "queue.dequeue");
+            commands::queue::dequeue()
+        }
+        QueueCommands::Process { checks } => {
+            warn_missing_scope(&ctx, &Scope::ManageQueue, "queue.process");
+            commands::queue::process(checks)
+        }
+        QueueCommands::Insert { position, branch } => {
+            warn_missing_scope(&ctx, &Scope::ManageQueue, "queue.insert");
+            audit_log("queue.insert", &branch, &ctx.agent_id);
+            commands::queue::insert(position, &branch)
+        }
+        QueueCommands::Remove { branch } => {
+            warn_missing_scope(&ctx, &Scope::ManageQueue, "queue.remove");
+            audit_log("queue.remove", &branch, &ctx.agent_id);
+            commands::queue::remove(&branch)
+        }
+        QueueCommands::Status => commands::queue::status(),
+    }
+}
+
+fn handle_agent(command: crate::cli::agent_args::AgentCommands) -> Result<()> {
+    use crate::cli::agent_args::AgentCommands;
+    match command {
+        AgentCommands::Create { name } => commands::agent::create(&name),
+        AgentCommands::List => commands::agent::list(),
+        AgentCommands::Kill { id } => commands::agent::kill(&id),
+        AgentCommands::Status { id } => commands::agent::status(id.as_deref()),
+        AgentCommands::Register { session } => commands::agent::register(session.as_deref()),
+        AgentCommands::Heartbeat { session } => commands::agent::heartbeat(session.as_deref()),
+    }
+}
+
+fn handle_session(command: crate::cli::session_args::SessionCommands) -> Result<()> {
+    use crate::cli::session_args::SessionCommands;
+    let ctx = auth_context(vec![Scope::ManageSessions]);
+    match command {
+        SessionCommands::List => commands::session::list(),
+        SessionCommands::Status => commands::session::status(),
+        SessionCommands::Focus { name } => commands::session::focus(&name),
+        SessionCommands::Submit { name, auto_commit, message } => {
+            warn_missing_scope(&ctx, &Scope::ManageSessions, "session.submit");
             audit_log(
-                "vcs.push",
-                branch.as_deref().unwrap_or("unknown"),
+                "session.submit",
+                name.as_deref().unwrap_or("unknown"),
                 &ctx.agent_id,
             );
-            commands::sync::push(
-                &remote,
-                branch.as_deref(),
-                set_upstream,
-                force,
-                force_with_lease,
-                tags,
-                delete,
-            )
+            commands::session::submit(name.as_deref(), auto_commit, message.as_deref())
         }
-
-        Commands::Doctor { full } => {
-            let _ctx = auth_context(vec![Scope::ReadWorkspace]);
-            commands::doctor::run(full)
+        SessionCommands::Remove { name, force, merge } => {
+            warn_missing_scope(&ctx, &Scope::ManageSessions, "session.remove");
+            audit_log("session.remove", &name, &ctx.agent_id);
+            commands::session::remove(&name, force, merge)
         }
-
-        Commands::Status { short } => {
-            let _ctx = auth_context(vec![Scope::ReadWorkspace]);
-            commands::status::run(short)
-        }
-
-        Commands::Switch { name } => commands::workspace::switch(&name),
-
-        Commands::Context => commands::context::run(),
-
-        Commands::Whereami => commands::context::whereami(),
-
-        Commands::Whatif { command, args } => {
-            let options = commands::handlers::whatif::WhatIfOptions {
-                command,
-                args,
-                format: OutputFormat::Json,
-            };
-            commands::handlers::whatif::report::run_whatif(&options)
-        }
-
-        Commands::Examples { command, use_case } => {
-            let options = commands::handlers::examples::ExamplesOptions {
-                command,
-                use_case,
-                format: OutputFormat::Json,
-            };
-            commands::handlers::examples::run_examples(&options)
-        }
-
-        Commands::Workspace { .. } => unreachable!("workspace commands dispatched separately"),
-
-        Commands::Retry { max_attempts, verbose } => {
-            use crate::commands::handlers::retry::{run_retry, RetryOptions};
-            let opts = RetryOptions { max_attempts, verbose };
-            let output = run_retry(opts)?;
-            println!("{}", if output.success { "Retry succeeded" } else { &output.message });
+        SessionCommands::Pause { name } => commands::handlers::session::pause(&name),
+        SessionCommands::Resume { name } => commands::handlers::session::resume(&name),
+        SessionCommands::Clone { source, target, dry_run } => {
+            commands::handlers::session::clone_session(&source, &target, dry_run)?;
             Ok(())
         }
     }
+}
+
+fn handle_task(command: crate::cli::task_args::TaskCommands) -> Result<()> {
+    use commands::handlers::task::{parse_task_id, run_task_command, AgentId, TaskCommand};
+    let cmd = match command {
+        crate::cli::task_args::TaskCommands::List => TaskCommand::List {
+            status_filter: None,
+            include_all: false,
+        },
+        crate::cli::task_args::TaskCommands::Show { task_id, .. } => TaskCommand::Show {
+            task_id: parse_task_id(&task_id)?,
+        },
+        crate::cli::task_args::TaskCommands::Claim { task_id, user } => TaskCommand::Claim {
+            task_id: parse_task_id(&task_id)?,
+            agent_id: AgentId::new(&user)?,
+        },
+        crate::cli::task_args::TaskCommands::Yield { task_id, user } => TaskCommand::YieldTask {
+            task_id: parse_task_id(&task_id)?,
+            agent_id: AgentId::new(&user)?,
+        },
+        crate::cli::task_args::TaskCommands::Start { task_id, user } => TaskCommand::Start {
+            task_id: parse_task_id(&task_id)?,
+            agent_id: AgentId::new(&user)?,
+        },
+        crate::cli::task_args::TaskCommands::Done { task_id, user } => TaskCommand::Done {
+            task_id: Some(parse_task_id(&task_id)?),
+            agent_id: AgentId::new(&user)?,
+        },
+    };
+    run_task_command(&cmd)
+}
+
+fn handle_config(command: crate::cli::config_args::ConfigCommands) -> Result<()> {
+    use crate::cli::config_args::ConfigCommands;
+    match command {
+        ConfigCommands::Get { key } => commands::config::get(&key),
+        ConfigCommands::Set { key, value } => commands::config::set(&key, &value),
+        ConfigCommands::List => commands::config::list(),
+        ConfigCommands::Ports { json } => commands::handlers::config_ports::run_config_ports(json),
+    }
+}
+
+fn handle_stash(command: crate::cli::stash_args::StashCommands) -> Result<()> {
+    use crate::cli::stash_args::StashCommands;
+    match command {
+        StashCommands::Save { message, include_untracked, patch } => {
+            commands::stash::save(message.as_deref(), include_untracked, patch)
+        }
+        StashCommands::Pop { stash, index } => commands::stash::pop(stash.as_deref(), index),
+        StashCommands::List => commands::stash::list(),
+        StashCommands::Drop { stash, force } => commands::stash::drop(&stash, force),
+        StashCommands::Show { stash, stat } => commands::stash::show(stash.as_deref(), stat),
+    }
+}
+
+fn handle_tag(command: crate::cli::tag_args::TagCommands) -> Result<()> {
+    use crate::cli::tag_args::TagCommands;
+    match command {
+        TagCommands::Create { name, message, commit, force } => {
+            commands::tag::create(&name, message.as_deref(), commit.as_deref(), force)
+        }
+        TagCommands::List { pattern, sort } => {
+            commands::tag::list(pattern.as_deref(), sort.as_deref())
+        }
+        TagCommands::Delete { tag, remote } => commands::tag::delete(&tag, remote),
+        TagCommands::Push { tag, remote, force } => {
+            commands::tag::push(tag.as_deref(), &remote, force)
+        }
+    }
+}
+
+fn handle_batch(command: crate::cli::batch_args::BatchCommands) -> Result<()> {
+    use crate::cli::batch_args::BatchCommands;
+    match command {
+        BatchCommands::Run { workspace, commands } => tokio::runtime::Handle::current()
+            .block_on(commands::batch::execute(workspace, commands)),
+    }
+}
+
+fn handle_fetch(
+    remote: Option<String>,
+    prune: bool,
+    tags: bool,
+    all: bool,
+) -> Result<()> {
+    let ctx = auth_context(vec![Scope::VcsOperations]);
+    warn_missing_scope(&ctx, &Scope::VcsOperations, "vcs.fetch");
+    commands::sync::fetch(remote.as_deref(), prune, tags, all)
+}
+
+fn handle_pull() -> Result<()> {
+    let ctx = auth_context(vec![Scope::VcsOperations]);
+    warn_missing_scope(&ctx, &Scope::VcsOperations, "vcs.pull");
+    commands::sync::pull()
+}
+
+fn handle_push(
+    remote: String,
+    branch: Option<String>,
+    set_upstream: bool,
+    force: bool,
+    force_with_lease: bool,
+    tags: bool,
+    delete: bool,
+) -> Result<()> {
+    let ctx = auth_context(vec![Scope::VcsOperations]);
+    warn_missing_scope(&ctx, &Scope::VcsOperations, "vcs.push");
+    audit_log(
+        "vcs.push",
+        branch.as_deref().unwrap_or("unknown"),
+        &ctx.agent_id,
+    );
+    commands::sync::push(
+        &remote,
+        branch.as_deref(),
+        set_upstream,
+        force,
+        force_with_lease,
+        tags,
+        delete,
+    )
+}
+
+fn handle_doctor(full: bool) -> Result<()> {
+    let _ctx = auth_context(vec![Scope::ReadWorkspace]);
+    commands::doctor::run(full)
+}
+
+fn handle_status(short: bool) -> Result<()> {
+    let _ctx = auth_context(vec![Scope::ReadWorkspace]);
+    commands::status::run(short)
+}
+
+fn handle_whatif(command: String, args: Vec<String>) -> Result<()> {
+    let options = commands::handlers::whatif::WhatIfOptions {
+        command,
+        args,
+        format: OutputFormat::Json,
+    };
+    commands::handlers::whatif::report::run_whatif(&options)
+}
+
+fn handle_examples(command: Option<String>, use_case: Option<String>) -> Result<()> {
+    let options = commands::handlers::examples::ExamplesOptions {
+        command,
+        use_case,
+        format: OutputFormat::Json,
+    };
+    commands::handlers::examples::run_examples(&options)
+}
+
+fn handle_retry(max_attempts: u32, verbose: bool) -> Result<()> {
+    use crate::commands::handlers::retry::{run_retry, RetryOptions};
+    let opts = RetryOptions { max_attempts, verbose };
+    let output = run_retry(opts)?;
+    println!("{}", if output.success { "Retry succeeded" } else { &output.message });
+    Ok(())
 }

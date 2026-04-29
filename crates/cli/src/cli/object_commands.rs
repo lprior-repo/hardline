@@ -1,5 +1,4 @@
 #![allow(clippy::redundant_closure_for_method_calls)]
-#![allow(clippy::too_many_lines)]
 //! Object-based CLI command type system
 //!
 //! This module defines the object-based command structure following
@@ -258,111 +257,171 @@ pub fn cmd_task() -> ClapCommand {
         )
 }
 
+/// Session subcommand: `session list`
+#[must_use]
+fn session_list_cmd() -> ClapCommand {
+    ClapCommand::new("list")
+        .about("List all sessions")
+        .arg(json_arg())
+        .arg(
+            Arg::new("all")
+                .long("all")
+                .action(clap::ArgAction::SetTrue)
+                .help("Include closed sessions"),
+        )
+        .arg(
+            Arg::new("verbose")
+                .long("verbose")
+                .short('v')
+                .action(clap::ArgAction::SetTrue)
+                .help("Show detailed information"),
+        )
+        .arg(
+            Arg::new("bead")
+                .long("bead")
+                .value_name("BEAD_ID")
+                .help("Filter by bead ID"),
+        )
+        .arg(
+            Arg::new("agent")
+                .long("agent")
+                .value_name("AGENT")
+                .help("Filter by agent owner"),
+        )
+        .arg(
+            Arg::new("state")
+                .long("state")
+                .value_name("STATE")
+                .help("Filter by session state"),
+        )
+}
+
+/// Session subcommand: `session add`
+#[must_use]
+fn session_add_cmd() -> ClapCommand {
+    ClapCommand::new("add")
+        .visible_alias("create")
+        .about("Create a new session for manual work")
+        .arg(json_arg())
+        .arg(dry_run_arg())
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed if session already exists (no-op)"),
+        )
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Name for the new session"),
+        )
+        .arg(
+            Arg::new("bead")
+                .long("bead")
+                .short('b')
+                .value_name("BEAD_ID")
+                .help("Associate with a bead ID"),
+        )
+        .arg(
+            Arg::new("no-open")
+                .long("no-open")
+                .action(clap::ArgAction::SetTrue)
+                .help("Create without opening terminal"),
+        )
+        .arg(
+            Arg::new("no-hooks")
+                .long("no-hooks")
+                .action(clap::ArgAction::SetTrue)
+                .help("Skip post-create hooks"),
+        )
+}
+
+/// Session subcommand: `session remove`
+#[must_use]
+fn session_remove_cmd() -> ClapCommand {
+    ClapCommand::new("remove")
+        .about("Remove a session")
+        .arg(json_arg())
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .help("Succeed if session doesn't exist (no-op)"),
+        )
+        .arg(
+            Arg::new("name")
+                .required(true)
+                .help("Session name to remove"),
+        )
+        .arg(
+            Arg::new("force")
+                .long("force")
+                .short('f')
+                .action(clap::ArgAction::SetTrue)
+                .help("Force removal without confirmation"),
+        )
+}
+
+/// Session subcommand: `session spawn`
+#[must_use]
+fn session_spawn_cmd() -> ClapCommand {
+    ClapCommand::new("spawn")
+        .about("Spawn session for automated agent work")
+        .arg(json_arg())
+        .arg(dry_run_arg())
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .default_value("false")
+                .help("Succeed if session already exists (no-op)"),
+        )
+        .arg(
+            Arg::new("bead")
+                .required(true)
+                .help("Bead ID for the spawned session"),
+        )
+        .arg(
+            Arg::new("agent")
+                .long("agent")
+                .value_name("AGENT")
+                .help("Agent to assign"),
+        )
+}
+
+/// Session subcommand: `session sync`
+#[must_use]
+fn session_sync_cmd() -> ClapCommand {
+    ClapCommand::new("sync")
+        .visible_alias("rebase")
+        .about("Sync session with remote")
+        .arg(json_arg())
+        .arg(Arg::new("name").help("Session name (uses current if omitted)"))
+        .arg(
+            Arg::new("push")
+                .long("push")
+                .action(clap::ArgAction::SetTrue)
+                .help("Push changes to remote"),
+        )
+        .arg(
+            Arg::new("pull")
+                .long("pull")
+                .action(clap::ArgAction::SetTrue)
+                .help("Pull changes from remote"),
+        )
+}
+
 /// Build the Session object command with all subcommands
 #[must_use]
-#[allow(clippy::too_many_lines)]
 pub fn cmd_session() -> ClapCommand {
     ClapCommand::new("session")
         .about("Manage workspaces and sessions")
         .subcommand_required(true)
         .arg(json_arg())
         .arg(verbose_arg())
-        .subcommand(
-            ClapCommand::new("list")
-                .about("List all sessions")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("all")
-                        .long("all")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Include closed sessions"),
-                )
-                .arg(
-                    Arg::new("verbose")
-                        .long("verbose")
-                        .short('v')
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Show detailed information"),
-                )
-                .arg(
-                    Arg::new("bead")
-                        .long("bead")
-                        .value_name("BEAD_ID")
-                        .help("Filter by bead ID"),
-                )
-                .arg(
-                    Arg::new("agent")
-                        .long("agent")
-                        .value_name("AGENT")
-                        .help("Filter by agent owner"),
-                )
-                .arg(
-                    Arg::new("state")
-                        .long("state")
-                        .value_name("STATE")
-                        .help("Filter by session state"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("add")
-                .visible_alias("create")
-                .about("Create a new session for manual work")
-                .arg(json_arg())
-                .arg(dry_run_arg())
-                .arg(
-                    Arg::new("idempotent")
-                        .long("idempotent")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Succeed if session already exists (no-op)"),
-                )
-                .arg(
-                    Arg::new("name")
-                        .required(true)
-                        .help("Name for the new session"),
-                )
-                .arg(
-                    Arg::new("bead")
-                        .long("bead")
-                        .short('b')
-                        .value_name("BEAD_ID")
-                        .help("Associate with a bead ID"),
-                )
-                .arg(
-                    Arg::new("no-open")
-                        .long("no-open")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Create without opening terminal"),
-                )
-                .arg(
-                    Arg::new("no-hooks")
-                        .long("no-hooks")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Skip post-create hooks"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("remove")
-                .about("Remove a session")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("idempotent")
-                        .long("idempotent")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Succeed if session doesn't exist (no-op)"),
-                )
-                .arg(
-                    Arg::new("name")
-                        .required(true)
-                        .help("Session name to remove"),
-                )
-                .arg(
-                    Arg::new("force")
-                        .long("force")
-                        .short('f')
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Force removal without confirmation"),
-                ),
-        )
+        .subcommand(session_list_cmd())
+        .subcommand(session_add_cmd())
+        .subcommand(session_remove_cmd())
         .subcommand(
             ClapCommand::new("pause")
                 .about("Pause a session")
@@ -403,55 +462,38 @@ pub fn cmd_session() -> ClapCommand {
                 )
                 .arg(Arg::new("new-name").required(true).help("New session name")),
         )
-        .subcommand(
-            ClapCommand::new("spawn")
-                .about("Spawn session for automated agent work")
-                .arg(json_arg())
-                .arg(dry_run_arg())
-                .arg(
-                    Arg::new("idempotent")
-                        .long("idempotent")
-                        .action(clap::ArgAction::SetTrue)
-                        .default_value("false")
-                        .help("Succeed if session already exists (no-op)"),
-                )
-                .arg(
-                    Arg::new("bead")
-                        .required(true)
-                        .help("Bead ID for the spawned session"),
-                )
-                .arg(
-                    Arg::new("agent")
-                        .long("agent")
-                        .value_name("AGENT")
-                        .help("Agent to assign"),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("sync")
-                .visible_alias("rebase")
-                .about("Sync session with remote")
-                .arg(json_arg())
-                .arg(Arg::new("name").help("Session name (uses current if omitted)"))
-                .arg(
-                    Arg::new("push")
-                        .long("push")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Push changes to remote"),
-                )
-                .arg(
-                    Arg::new("pull")
-                        .long("pull")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Pull changes from remote"),
-                ),
-        )
+        .subcommand(session_spawn_cmd())
+        .subcommand(session_sync_cmd())
         .subcommand(
             ClapCommand::new("init")
                 .about("Initialize SCP in a repository")
                 .arg(json_arg())
                 .arg(dry_run_arg()),
         )
+}
+
+/// Status subcommand: `status context`
+#[must_use]
+fn status_context_cmd() -> ClapCommand {
+    ClapCommand::new("context")
+        .about("Show context information")
+        .arg(json_arg())
+        .arg(contract_arg())
+        .arg(ai_hints_arg())
+        .arg(Arg::new("field").help("Specific field to display"))
+        .arg(
+            Arg::new("no-beads")
+                .long("no-beads")
+                .action(clap::ArgAction::SetTrue)
+                .help("Don't show beads in context"),
+        )
+        .arg(
+            Arg::new("no-health")
+                .long("no-health")
+                .action(clap::ArgAction::SetTrue)
+                .help("Don't show health checks in context"),
+        )
+        .arg(Arg::new("session").help("Session name (uses current if omitted)"))
 }
 
 /// Build the Status object command with all subcommands
@@ -496,27 +538,7 @@ pub fn cmd_status() -> ClapCommand {
                 .arg(contract_arg())
                 .arg(ai_hints_arg()),
         )
-        .subcommand(
-            ClapCommand::new("context")
-                .about("Show context information")
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg())
-                .arg(Arg::new("field").help("Specific field to display"))
-                .arg(
-                    Arg::new("no-beads")
-                        .long("no-beads")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Don't show beads in context"),
-                )
-                .arg(
-                    Arg::new("no-health")
-                        .long("no-health")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Don't show health checks in context"),
-                )
-                .arg(Arg::new("session").help("Session name (uses current if omitted)")),
-        )
+        .subcommand(status_context_cmd())
 }
 
 /// Build the Config object command with all subcommands
@@ -581,6 +603,48 @@ pub fn cmd_config() -> ClapCommand {
         )
 }
 
+/// Doctor subcommand: `doctor fix`
+#[must_use]
+fn doctor_fix_cmd() -> ClapCommand {
+    ClapCommand::new("fix")
+        .about("Fix detected issues")
+        .arg(json_arg())
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without executing"),
+        )
+        .arg(
+            Arg::new("verbose")
+                .long("verbose")
+                .short('v')
+                .action(clap::ArgAction::SetTrue)
+                .help("Show detailed progress during fixes"),
+        )
+}
+
+/// Doctor subcommand: `doctor clean`
+#[must_use]
+fn doctor_clean_cmd() -> ClapCommand {
+    ClapCommand::new("clean")
+        .about("Clean up invalid sessions")
+        .arg(json_arg())
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help("Preview without executing"),
+        )
+        .arg(
+            Arg::new("force")
+                .long("force")
+                .short('f')
+                .action(clap::ArgAction::SetTrue)
+                .help("Force cleanup without confirmation"),
+        )
+}
+
 /// Build the Doctor object command with all subcommands
 #[must_use]
 pub fn cmd_doctor() -> ClapCommand {
@@ -613,56 +677,235 @@ pub fn cmd_doctor() -> ClapCommand {
                 .about("Run diagnostics")
                 .arg(json_arg()),
         )
-        .subcommand(
-            ClapCommand::new("fix")
-                .about("Fix detected issues")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("dry-run")
-                        .long("dry-run")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Preview without executing"),
-                )
-                .arg(
-                    Arg::new("verbose")
-                        .long("verbose")
-                        .short('v')
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Show detailed progress during fixes"),
-                ),
-        )
+        .subcommand(doctor_fix_cmd())
         .subcommand(
             ClapCommand::new("integrity")
                 .about("Check system integrity")
                 .arg(json_arg()),
         )
-        .subcommand(
-            ClapCommand::new("clean")
-                .about("Clean up invalid sessions")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("dry-run")
-                        .long("dry-run")
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Preview without executing"),
-                )
-                .arg(
-                    Arg::new("force")
-                        .long("force")
-                        .short('f')
-                        .action(clap::ArgAction::SetTrue)
-                        .help("Force cleanup without confirmation"),
-                ),
-        )
+        .subcommand(doctor_clean_cmd())
 }
 
-/// Build the complete object-based CLI
-///
-/// This creates the `scp <object> <action>` command structure
-/// while maintaining compatibility with existing handlers.
+/// Legacy command: `scp add`
 #[must_use]
-#[allow(clippy::too_many_lines)]
-pub fn build_object_cli() -> ClapCommand {
+fn legacy_add_cmd() -> ClapCommand {
+    ClapCommand::new("add")
+        .about("Add session")
+        .arg(Arg::new("name").required_unless_present("example-json"))
+        .arg(dry_run_arg())
+        .arg(json_arg())
+        .arg(contract_arg())
+        .arg(ai_hints_arg())
+        .arg(Arg::new("bead").long("bead").short('b').value_name("BEAD_ID"))
+        .arg(Arg::new("no-open").long("no-open").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(Arg::new("no-hooks").long("no-hooks").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(Arg::new("example-json").long("example-json").action(clap::ArgAction::SetTrue).default_value("false"))
+}
+
+/// Legacy command: `scp list`
+#[must_use]
+fn legacy_list_cmd() -> ClapCommand {
+    ClapCommand::new("list")
+        .about("List sessions")
+        .arg(json_arg())
+        .arg(contract_arg())
+        .arg(ai_hints_arg())
+        .arg(Arg::new("all").long("all").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(Arg::new("verbose").short('v').long("verbose").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(Arg::new("bead").long("bead").value_name("BEAD_ID"))
+        .arg(Arg::new("agent").long("agent").value_name("AGENT"))
+        .arg(Arg::new("state").long("state").value_name("STATE"))
+}
+
+/// Legacy command: `scp remove`
+#[must_use]
+fn legacy_remove_cmd() -> ClapCommand {
+    ClapCommand::new("remove")
+        .about("Remove session")
+        .arg(Arg::new("name").required(true))
+        .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("merge").short('m').long("merge").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("keep-branch").short('k').long("keep-branch").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+        .arg(json_arg())
+        .arg(contract_arg())
+        .arg(ai_hints_arg())
+}
+
+/// Legacy command: `scp spawn`
+#[must_use]
+fn legacy_spawn_cmd() -> ClapCommand {
+    ClapCommand::new("spawn")
+        .about("Spawn session")
+        .arg(Arg::new("bead").required(true))
+        .arg(dry_run_arg())
+        .arg(json_arg())
+        .arg(contract_arg())
+        .arg(ai_hints_arg())
+        .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(Arg::new("agent").long("agent").value_name("AGENT"))
+        .arg(Arg::new("no-auto-merge").long("no-auto-merge").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(Arg::new("no-auto-cleanup").long("no-auto-cleanup").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(Arg::new("background").short('b').long("background").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(Arg::new("timeout").long("timeout").value_name("SECONDS").default_value("14400"))
+        .arg(Arg::new("agent-command").long("agent-command").value_name("COMMAND").default_value("claude"))
+        .arg(Arg::new("agent-args").long("agent-args").num_args(0..))
+}
+
+/// Legacy command: `scp done`
+#[must_use]
+fn legacy_done_cmd() -> ClapCommand {
+    ClapCommand::new("done")
+        .about("Done (complete work)")
+        .visible_alias("submit")
+        .arg(json_arg())
+        .arg(contract_arg())
+        .arg(ai_hints_arg())
+        .arg(Arg::new("name").required(false))
+        .arg(Arg::new("workspace").short('w').long("workspace").value_name("NAME"))
+        .arg(Arg::new("message").short('m').long("message").value_name("MSG"))
+        .arg(Arg::new("keep-workspace").long("keep-workspace").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("no-keep").long("no-keep").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("squash").long("squash").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("detect-conflicts").long("detect-conflicts").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("no-bead-update").long("no-bead-update").action(clap::ArgAction::SetTrue))
+}
+
+/// Legacy command: `scp work`
+#[must_use]
+fn legacy_work_cmd() -> ClapCommand {
+    ClapCommand::new("work")
+        .about("Start work on a task")
+        .arg(Arg::new("bead").required(false))
+        .arg(Arg::new("name").required(false))
+        .arg(Arg::new("agent-id").long("agent-id").value_name("ID"))
+        .arg(Arg::new("no-agent").long("no-agent").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+        .arg(json_arg())
+        .arg(contract_arg())
+        .arg(ai_hints_arg())
+}
+
+/// Legacy command: `scp abort`
+#[must_use]
+fn legacy_abort_cmd() -> ClapCommand {
+    ClapCommand::new("abort")
+        .about("Abort work")
+        .arg(Arg::new("name").required(false))
+        .arg(Arg::new("workspace").short('w').long("workspace").value_name("NAME"))
+        .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("no-bead-update").long("no-bead-update").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("keep-workspace").long("keep-workspace").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+        .arg(json_arg())
+        .arg(contract_arg())
+        .arg(ai_hints_arg())
+}
+
+/// Legacy session management commands: sync, clone, rename, pause, resume
+fn apply_legacy_session_cmds(cmd: ClapCommand) -> ClapCommand {
+    cmd.subcommand(
+        ClapCommand::new("sync")
+            .about("Sync session")
+            .arg(json_arg())
+            .arg(contract_arg())
+            .arg(ai_hints_arg()),
+    )
+    .subcommand(
+        ClapCommand::new("clone")
+            .about("Clone session")
+            .arg(Arg::new("source").required(true))
+            .arg(Arg::new("dest").required(true))
+            .arg(json_arg())
+            .arg(contract_arg())
+            .arg(ai_hints_arg()),
+    )
+    .subcommand(
+        ClapCommand::new("rename")
+            .about("Rename session")
+            .arg(Arg::new("old_name").required(true))
+            .arg(Arg::new("new_name").required(true))
+            .arg(json_arg()),
+    )
+    .subcommand(
+        ClapCommand::new("pause")
+            .about("Pause session")
+            .arg(Arg::new("name").required(false))
+            .arg(json_arg())
+            .arg(contract_arg())
+            .arg(ai_hints_arg()),
+    )
+    .subcommand(
+        ClapCommand::new("resume")
+            .about("Resume session")
+            .arg(Arg::new("name").required(false))
+            .arg(json_arg())
+            .arg(contract_arg())
+            .arg(ai_hints_arg()),
+    )
+}
+
+/// Legacy query commands: whoami, whereami, context
+fn apply_legacy_query_cmds(cmd: ClapCommand) -> ClapCommand {
+    cmd.subcommand(
+        ClapCommand::new("whoami")
+            .about("Who am I")
+            .arg(json_arg())
+            .arg(contract_arg())
+            .arg(ai_hints_arg()),
+    )
+    .subcommand(
+        ClapCommand::new("whereami")
+            .about("Where am I")
+            .arg(json_arg())
+            .arg(contract_arg())
+            .arg(ai_hints_arg()),
+    )
+    .subcommand(
+        ClapCommand::new("context")
+            .about("Show context")
+            .arg(json_arg())
+            .arg(contract_arg())
+            .arg(ai_hints_arg())
+            .arg(Arg::new("field").long("field").value_name("PATH").help("Extract single field (e.g., --field=repository.branch)"))
+            .arg(Arg::new("no-beads").long("no-beads").action(clap::ArgAction::SetTrue).help("Skip beads database query (faster)"))
+            .arg(Arg::new("no-health").long("no-health").action(clap::ArgAction::SetTrue).help("Skip health checks (faster)")),
+    )
+}
+
+/// Legacy misc commands: checkpoint, undo, revert
+fn apply_legacy_misc_cmds(cmd: ClapCommand) -> ClapCommand {
+    cmd.subcommand(
+        ClapCommand::new("checkpoint")
+            .about("Create checkpoint")
+            .visible_alias("ckpt")
+            .arg(Arg::new("name").required(false))
+            .arg(json_arg()),
+    )
+    .subcommand(
+        ClapCommand::new("undo")
+            .about("Undo last operation")
+            .arg(Arg::new("list").short('l').long("list").action(clap::ArgAction::SetTrue))
+            .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+            .arg(json_arg()),
+    )
+    .subcommand(
+        ClapCommand::new("revert")
+            .about("Revert changes")
+            .arg(Arg::new("name").required(true))
+            .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+            .arg(json_arg()),
+    )
+}
+
+/// Build the base `scp` command with global args and object subcommands.
+/// Legacy top-level commands are added separately via [`build_legacy_subcommands`].
+#[must_use]
+fn build_scp_base() -> ClapCommand {
     ClapCommand::new("scp")
         .version(env!("CARGO_PKG_VERSION"))
         .author("SCP Contributors")
@@ -711,198 +954,33 @@ pub fn build_object_cli() -> ClapCommand {
         .subcommand(cmd_status())
         .subcommand(cmd_config())
         .subcommand(cmd_doctor())
-        // Legacy commands - route to same handlers
-        .subcommand(
-            ClapCommand::new("init")
-                .about("Initialize SCP")
-                .arg(dry_run_arg())
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("add")
-                .about("Add session")
-                .arg(Arg::new("name").required_unless_present("example-json"))
-                .arg(dry_run_arg())
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg())
-                .arg(Arg::new("bead").long("bead").short('b').value_name("BEAD_ID"))
-                .arg(Arg::new("no-open").long("no-open").action(clap::ArgAction::SetTrue).default_value("false"))
-                .arg(Arg::new("no-hooks").long("no-hooks").action(clap::ArgAction::SetTrue).default_value("false"))
-                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue).default_value("false"))
-                .arg(Arg::new("example-json").long("example-json").action(clap::ArgAction::SetTrue).default_value("false")),
-        )
-        .subcommand(
-            ClapCommand::new("list")
-                .about("List sessions")
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg())
-                .arg(Arg::new("all").long("all").action(clap::ArgAction::SetTrue).default_value("false"))
-                .arg(Arg::new("verbose").short('v').long("verbose").action(clap::ArgAction::SetTrue).default_value("false"))
-                .arg(Arg::new("bead").long("bead").value_name("BEAD_ID"))
-                .arg(Arg::new("agent").long("agent").value_name("AGENT"))
-                .arg(Arg::new("state").long("state").value_name("STATE")),
-        )
-        .subcommand(
-            ClapCommand::new("remove")
-                .about("Remove session")
-                .arg(Arg::new("name").required(true))
-                .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("merge").short('m').long("merge").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("keep-branch").short('k').long("keep-branch").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("spawn")
-                .about("Spawn session")
-                .arg(Arg::new("bead").required(true))
-                .arg(dry_run_arg())
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg())
-                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue).default_value("false"))
-                .arg(Arg::new("agent").long("agent").value_name("AGENT"))
-                .arg(Arg::new("no-auto-merge").long("no-auto-merge").action(clap::ArgAction::SetTrue).default_value("false"))
-                .arg(Arg::new("no-auto-cleanup").long("no-auto-cleanup").action(clap::ArgAction::SetTrue).default_value("false"))
-                .arg(Arg::new("background").short('b').long("background").action(clap::ArgAction::SetTrue).default_value("false"))
-                .arg(Arg::new("timeout").long("timeout").value_name("SECONDS").default_value("14400"))
-                .arg(Arg::new("agent-command").long("agent-command").value_name("COMMAND").default_value("claude"))
-                .arg(Arg::new("agent-args").long("agent-args").num_args(0..)),
-        )
-        .subcommand(
-            ClapCommand::new("sync")
-                .about("Sync session")
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("clone")
-                .about("Clone session")
-                .arg(Arg::new("source").required(true))
-                .arg(Arg::new("dest").required(true))
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("rename")
-                .about("Rename session")
-                .arg(Arg::new("old_name").required(true))
-                .arg(Arg::new("new_name").required(true))
-                .arg(json_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("pause")
-                .about("Pause session")
-                .arg(Arg::new("name").required(false))
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("resume")
-                .about("Resume session")
-                .arg(Arg::new("name").required(false))
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("whoami")
-                .about("Who am I")
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("whereami")
-                .about("Where am I")
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("context")
-                .about("Show context")
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg())
-                .arg(Arg::new("field").long("field").value_name("PATH").help("Extract single field (e.g., --field=repository.branch)"))
-                .arg(Arg::new("no-beads").long("no-beads").action(clap::ArgAction::SetTrue).help("Skip beads database query (faster)"))
-                .arg(Arg::new("no-health").long("no-health").action(clap::ArgAction::SetTrue).help("Skip health checks (faster)")),
-        )
-        .subcommand(
-            ClapCommand::new("done")
-                .about("Done (complete work)")
-                .visible_alias("submit")
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg())
-                .arg(Arg::new("name").required(false))
-                .arg(Arg::new("workspace").short('w').long("workspace").value_name("NAME"))
-                .arg(Arg::new("message").short('m').long("message").value_name("MSG"))
-                .arg(Arg::new("keep-workspace").long("keep-workspace").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("no-keep").long("no-keep").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("squash").long("squash").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("detect-conflicts").long("detect-conflicts").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("no-bead-update").long("no-bead-update").action(clap::ArgAction::SetTrue)),
-        )
-        .subcommand(
-            ClapCommand::new("work")
-                .about("Start work on a task")
-                .arg(Arg::new("bead").required(false))
-                .arg(Arg::new("name").required(false))
-                .arg(Arg::new("agent-id").long("agent-id").value_name("ID"))
-                .arg(Arg::new("no-agent").long("no-agent").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("abort")
-                .about("Abort work")
-                .arg(Arg::new("name").required(false))
-                .arg(Arg::new("workspace").short('w').long("workspace").value_name("NAME"))
-                .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("no-bead-update").long("no-bead-update").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("keep-workspace").long("keep-workspace").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
-                .arg(json_arg())
-                .arg(contract_arg())
-                .arg(ai_hints_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("checkpoint")
-                .about("Create checkpoint")
-                .visible_alias("ckpt")
-                .arg(Arg::new("name").required(false))
-                .arg(json_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("undo")
-                .about("Undo last operation")
-                .arg(Arg::new("list").short('l').long("list").action(clap::ArgAction::SetTrue))
-                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
-                .arg(json_arg()),
-        )
-        .subcommand(
-            ClapCommand::new("revert")
-                .about("Revert changes")
-                .arg(Arg::new("name").required(true))
-                .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
-                .arg(json_arg()),
-        )
+}
+
+/// Build the complete object-based CLI
+///
+/// This creates the `scp <object> <action>` command structure
+/// while maintaining compatibility with existing handlers.
+#[must_use]
+pub fn build_object_cli() -> ClapCommand {
+    let cli = build_scp_base();
+    let cli = apply_legacy_session_cmds(cli);
+    let cli = apply_legacy_query_cmds(cli);
+    let cli = apply_legacy_misc_cmds(cli);
+    cli.subcommand(
+        ClapCommand::new("init")
+            .about("Initialize SCP")
+            .arg(dry_run_arg())
+            .arg(json_arg())
+            .arg(contract_arg())
+            .arg(ai_hints_arg()),
+    )
+    .subcommand(legacy_add_cmd())
+    .subcommand(legacy_list_cmd())
+    .subcommand(legacy_remove_cmd())
+    .subcommand(legacy_spawn_cmd())
+    .subcommand(legacy_done_cmd())
+    .subcommand(legacy_work_cmd())
+    .subcommand(legacy_abort_cmd())
 }
 
 #[cfg(test)]
