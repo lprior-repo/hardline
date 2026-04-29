@@ -19,6 +19,7 @@
 
 pub mod events;
 pub mod executor;
+pub mod journal;
 pub mod pipeline;
 pub mod records;
 pub mod states;
@@ -43,6 +44,7 @@ pub use pipeline::{
 pub use records::{
     CompensationAction, JournalEntry, OperationRecord, RecoveryReport, RecoveryTask, StepRecord,
 };
+pub use journal::SqliteJournal;
 pub use states::{
     CompensationState, JournalState, OperationState, OperationStatus, PipelineState, StepStatus,
 };

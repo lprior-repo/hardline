@@ -317,44 +317,83 @@ impl DurableExecutor {
     }
 }
 
+/// Scans the step journal for incomplete operations and produces recovery tasks.
+///
+/// When a [`SqliteJournal`] is provided the scanner queries SQLite for operations
+/// in non-terminal states and determines the resume point from the last
+/// completed step. Without a journal the scanner is a no-op.
 pub struct RecoveryScanner {
-    #[allow(dead_code)]
-    db_path: String,
+    journal: Option<crate::domain::workflow::SqliteJournal>,
+}
+
+impl std::fmt::Debug for RecoveryScanner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RecoveryScanner")
+            .field("journal", &self.journal.as_ref().map(|_| "Some(...)"))
+            .finish()
+    }
 }
 
 impl RecoveryScanner {
+    /// Create a scanner backed by the given journal.
     #[must_use]
-    pub const fn new(db_path: String) -> Self {
-        Self { db_path }
+    pub fn new(journal: crate::domain::workflow::SqliteJournal) -> Self {
+        Self {
+            journal: Some(journal),
+        }
     }
 
-    /// Scan for incomplete operations in the database.
+    /// Create a no-op scanner with no backing store.
+    #[must_use]
+    pub const fn no_op() -> Self {
+        Self { journal: None }
+    }
+
+    /// Scan for incomplete operations in the journal.
     ///
     /// # Errors
     ///
-    /// Returns an error if scanning fails.
-    pub const fn scan_incomplete_operations(&self) -> DurableResult<Vec<RecoveryTask>> {
-        let _ = self;
-        Ok(Vec::new())
+    /// Returns an error if the underlying journal query fails.
+    pub async fn scan_incomplete_operations(&self) -> DurableResult<Vec<RecoveryTask>> {
+        let journal = match &self.journal {
+            Some(j) => j,
+            None => return Ok(Vec::new()),
+        };
+
+        journal
+            .recovery_tasks()
+            .await
+            .map_err(|e| DurableExecutionError::RecoveryFailed(e.to_string()))
     }
 
-    /// Recover a single incomplete operation.
+    /// Mark a recovered operation as completed in the journal.
     ///
     /// # Errors
     ///
-    /// Returns an error if recovery fails.
-    pub fn recover_operation(&self, _task: RecoveryTask) -> DurableResult<()> {
-        let _ = self;
-        Ok(())
+    /// Returns an error if the update fails.
+    pub async fn recover_operation(&self, task: RecoveryTask) -> DurableResult<()> {
+        let journal = match &self.journal {
+            Some(j) => j,
+            None => return Ok(()),
+        };
+
+        journal
+            .mark_operation_completed(&task.operation_id)
+            .await
+            .map_err(|e| DurableExecutionError::RecoveryFailed(e.to_string()))
     }
 
     /// Scan and recover all incomplete operations.
     ///
+    /// For each incomplete operation found in the journal, marks it as
+    /// completed. Callers should integrate this with the executor for actual
+    /// step replay.
+    ///
     /// # Errors
     ///
     /// Returns an error if scanning or recovery fails.
-    pub fn scan_and_recover_all(&self) -> DurableResult<RecoveryReport> {
-        let tasks = self.scan_incomplete_operations()?;
+    pub async fn scan_and_recover_all(&self) -> DurableResult<RecoveryReport> {
+        let tasks = self.scan_incomplete_operations().await?;
         let total_incomplete = tasks.len();
 
         let mut recovered_operations = Vec::new();
@@ -362,7 +401,7 @@ impl RecoveryScanner {
 
         for task in tasks {
             let op_id = task.operation_id.clone();
-            match self.recover_operation(task) {
+            match self.recover_operation(task).await {
                 Ok(()) => recovered_operations.push(op_id),
                 Err(e) => failed_operations.push((op_id, e.to_string())),
             }
