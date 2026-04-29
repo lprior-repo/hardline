@@ -848,10 +848,102 @@ impl Error {
     /// Provides machine-readable context for AI agents and tooling to understand
     /// the error in detail. Each variant exposes its relevant fields.
     #[must_use]
-    #[allow(clippy::too_many_lines)]
     pub fn context_map(&self) -> Option<serde_json::Value> {
         match self {
-            // Workspace
+            Self::WorkspaceNotFound(_)
+            | Self::WorkspaceExists(_)
+            | Self::WorkspaceLocked(_, _)
+            | Self::WorkspaceConflict(_) => self.context_workspace(),
+            Self::SessionNotFound(_)
+            | Self::SessionExists(_)
+            | Self::SessionLocked(_, _)
+            | Self::NotLockHolder(_, _)
+            | Self::SessionInvalidState(_, _, _) => self.context_session(),
+            Self::BeadNotFound(_)
+            | Self::BeadAlreadyExists(_)
+            | Self::InvalidBeadId(_)
+            | Self::InvalidBeadTitle(_)
+            | Self::BeadInvalidStateTransition { .. }
+            | Self::BeadDependencyCycle(_)
+            | Self::BeadBlockedBy(_)
+            | Self::BeadInvalidDependency(_) => self.context_bead(),
+            Self::QueueEmpty
+            | Self::QueueItemNotFound(_)
+            | Self::QueueLocked(_)
+            | Self::QueueProcessing
+            | Self::QueueInvalidPosition(_)
+            | Self::QueueFull(_) => self.context_queue(),
+            Self::VcsNotInitialized
+            | Self::VcsConflict(_, _)
+            | Self::VcsPushFailed(_)
+            | Self::VcsPullFailed(_)
+            | Self::VcsRebaseFailed(_)
+            | Self::BranchNotFound(_)
+            | Self::BranchExists(_)
+            | Self::CommitNotFound(_)
+            | Self::WorkingCopyDirty => self.context_vcs(),
+            Self::StackNotFound(_)
+            | Self::StackOrphaned(_)
+            | Self::StackCyclicDependency
+            | Self::StackInvalidState(_)
+            | Self::StackPrNotFound(_) => self.context_stack(),
+            Self::GitHubAuthFailed(_)
+            | Self::GitHubTokenExpired
+            | Self::GitHubRateLimited(_)
+            | Self::GitHubPrClosed(_)
+            | Self::GitHubPrNotFound(_)
+            | Self::GitHubApiError { .. }
+            | Self::GitHubCiFailed(_) => self.context_github(),
+            _ => self.context_map_infrastructure(),
+        }
+    }
+
+    /// Dispatches infrastructure (9xxx) context mapping.
+    fn context_map_infrastructure(&self) -> Option<serde_json::Value> {
+        match self {
+            Self::SnapshotNotFound(_)
+            | Self::SnapshotCorrupted(_)
+            | Self::SnapshotExpired(_)
+            | Self::SnapshotLimitExceeded(_)
+            | Self::SnapshotRestoreFailed(_) => self.context_snapshot(),
+            Self::ConfigNotFound(_)
+            | Self::ConfigInvalid(_)
+            | Self::ConfigPermission(_)
+            | Self::InvalidConfig(_)
+            | Self::InvalidRepoUrl(_) => self.context_config(),
+            Self::AgentNotFound(_)
+            | Self::AgentExists(_)
+            | Self::AgentTimeout(_) => self.context_agent(),
+            Self::InvalidState(_)
+            | Self::NotFound(_)
+            | Self::InvalidOperation(_)
+            | Self::ValidationError(_)
+            | Self::ValidationFieldError { .. }
+            | Self::InvalidIdentifier(_) => self.context_state_validation(),
+            Self::IoError(_)
+            | Self::JsonParseError(_)
+            | Self::YamlParseError(_)
+            | Self::Database(_)
+            | Self::Serialization(_) => self.context_io_storage(),
+            Self::LockTimeout { .. }
+            | Self::CloneFailed(_)
+            | Self::RecordFailed(_)
+            | Self::Persistence(_)
+            | Self::StateTransition(_)
+            | Self::Unimplemented(_) => self.context_orchestration(),
+            Self::ScenarioError(_)
+            | Self::RunnerError(_)
+            | Self::DefinitionError(_)
+            | Self::ServerError(_)
+            | Self::SyncError(_)
+            | Self::Internal(_)
+            | Self::InvariantViolation(_) => self.context_scenario(),
+            _ => unreachable!("context_map_infrastructure: unhandled variant"),
+        }
+    }
+
+    fn context_workspace(&self) -> Option<serde_json::Value> {
+        match self {
             Self::WorkspaceNotFound(name) | Self::WorkspaceExists(name) => {
                 Some(serde_json::json!({
                     "resource_type": "workspace",
@@ -865,7 +957,12 @@ impl Error {
             Self::WorkspaceConflict(msg) => Some(serde_json::json!({
                 "message": msg,
             })),
-            // Session
+            _ => unreachable!("context_workspace called on non-workspace variant"),
+        }
+    }
+
+    fn context_session(&self) -> Option<serde_json::Value> {
+        match self {
             Self::SessionNotFound(name) | Self::SessionExists(name) => Some(serde_json::json!({
                 "resource_type": "session",
                 "session_name": name,
@@ -883,7 +980,12 @@ impl Error {
                 "actual_state": actual,
                 "expected_state": expected,
             })),
-            // Bead
+            _ => unreachable!("context_session called on non-session variant"),
+        }
+    }
+
+    fn context_bead(&self) -> Option<serde_json::Value> {
+        match self {
             Self::BeadNotFound(id) | Self::BeadAlreadyExists(id) => Some(serde_json::json!({
                 "resource_type": "bead",
                 "bead_id": id,
@@ -907,7 +1009,12 @@ impl Error {
             Self::BeadInvalidDependency(dep) => Some(serde_json::json!({
                 "dependency": dep,
             })),
-            // Queue
+            _ => unreachable!("context_bead called on non-bead variant"),
+        }
+    }
+
+    fn context_queue(&self) -> Option<serde_json::Value> {
+        match self {
             Self::QueueEmpty => Some(serde_json::json!({
                 "error_type": "queue_empty",
             })),
@@ -926,7 +1033,12 @@ impl Error {
             Self::QueueFull(max) => Some(serde_json::json!({
                 "max_size": max,
             })),
-            // VCS
+            _ => unreachable!("context_queue called on non-queue variant"),
+        }
+    }
+
+    fn context_vcs(&self) -> Option<serde_json::Value> {
+        match self {
             Self::VcsNotInitialized => Some(serde_json::json!({
                 "error_type": "vcs_not_initialized",
             })),
@@ -957,7 +1069,12 @@ impl Error {
             Self::WorkingCopyDirty => Some(serde_json::json!({
                 "error_type": "working_copy_dirty",
             })),
-            // Stack
+            _ => unreachable!("context_vcs called on non-vcs variant"),
+        }
+    }
+
+    fn context_stack(&self) -> Option<serde_json::Value> {
+        match self {
             Self::StackNotFound(name) => Some(serde_json::json!({
                 "resource_type": "stack",
                 "stack_name": name,
@@ -974,7 +1091,12 @@ impl Error {
             Self::StackPrNotFound(pr) => Some(serde_json::json!({
                 "pr": pr,
             })),
-            // GitHub
+            _ => unreachable!("context_stack called on non-stack variant"),
+        }
+    }
+
+    fn context_github(&self) -> Option<serde_json::Value> {
+        match self {
             Self::GitHubAuthFailed(msg) => Some(serde_json::json!({
                 "error": msg,
             })),
@@ -997,7 +1119,12 @@ impl Error {
             Self::GitHubCiFailed(checks) => Some(serde_json::json!({
                 "checks": checks,
             })),
-            // Snapshot
+            _ => unreachable!("context_github called on non-github variant"),
+        }
+    }
+
+    fn context_snapshot(&self) -> Option<serde_json::Value> {
+        match self {
             Self::SnapshotNotFound(id) => Some(serde_json::json!({
                 "resource_type": "snapshot",
                 "snapshot_id": id,
@@ -1010,29 +1137,17 @@ impl Error {
             | Self::SnapshotRestoreFailed(msg) => Some(serde_json::json!({
                 "error": msg,
             })),
-            // Config
+            _ => unreachable!("context_snapshot called on non-snapshot variant"),
+        }
+    }
+
+    fn context_config(&self) -> Option<serde_json::Value> {
+        match self {
             Self::ConfigNotFound(key) => Some(serde_json::json!({
                 "resource_type": "config",
                 "key": key,
             })),
-            Self::ConfigInvalid(msg)
-            | Self::InvalidConfig(msg)
-            | Self::ValidationError(msg)
-            | Self::IoError(msg)
-            | Self::JsonParseError(msg)
-            | Self::YamlParseError(msg)
-            | Self::Database(msg)
-            | Self::Serialization(msg)
-            | Self::CloneFailed(msg)
-            | Self::RecordFailed(msg)
-            | Self::Persistence(msg)
-            | Self::ScenarioError(msg)
-            | Self::RunnerError(msg)
-            | Self::DefinitionError(msg)
-            | Self::ServerError(msg)
-            | Self::SyncError(msg)
-            | Self::Internal(msg)
-            | Self::InvariantViolation(msg) => Some(serde_json::json!({
+            Self::ConfigInvalid(msg) | Self::InvalidConfig(msg) => Some(serde_json::json!({
                 "error": msg,
             })),
             Self::ConfigPermission(path) => Some(serde_json::json!({
@@ -1041,7 +1156,12 @@ impl Error {
             Self::InvalidRepoUrl(url) => Some(serde_json::json!({
                 "url": url,
             })),
-            // Agent
+            _ => unreachable!("context_config called on non-config variant"),
+        }
+    }
+
+    fn context_agent(&self) -> Option<serde_json::Value> {
+        match self {
             Self::AgentNotFound(id) | Self::AgentExists(id) => Some(serde_json::json!({
                 "resource_type": "agent",
                 "agent_id": id,
@@ -1049,7 +1169,12 @@ impl Error {
             Self::AgentTimeout(id) => Some(serde_json::json!({
                 "agent_id": id,
             })),
-            // State/Conflict
+            _ => unreachable!("context_agent called on non-agent variant"),
+        }
+    }
+
+    fn context_state_validation(&self) -> Option<serde_json::Value> {
+        match self {
             Self::InvalidState(msg) => Some(serde_json::json!({
                 "state": msg,
             })),
@@ -1058,6 +1183,9 @@ impl Error {
             })),
             Self::InvalidOperation(op) => Some(serde_json::json!({
                 "operation": op,
+            })),
+            Self::ValidationError(msg) => Some(serde_json::json!({
+                "error": msg,
             })),
             Self::ValidationFieldError {
                 message,
@@ -1076,7 +1204,25 @@ impl Error {
             Self::InvalidIdentifier(id) => Some(serde_json::json!({
                 "identifier": id,
             })),
-            // Orchestration/Workflow
+            _ => unreachable!("context_state_validation called on non-state/validation variant"),
+        }
+    }
+
+    fn context_io_storage(&self) -> Option<serde_json::Value> {
+        match self {
+            Self::IoError(msg)
+            | Self::JsonParseError(msg)
+            | Self::YamlParseError(msg)
+            | Self::Database(msg)
+            | Self::Serialization(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            _ => unreachable!("context_io_storage called on non-io/storage variant"),
+        }
+    }
+
+    fn context_orchestration(&self) -> Option<serde_json::Value> {
+        match self {
             Self::LockTimeout {
                 operation,
                 timeout_ms,
@@ -1086,12 +1232,33 @@ impl Error {
                 "timeout_ms": timeout_ms,
                 "retries": retries,
             })),
+            Self::CloneFailed(msg)
+            | Self::RecordFailed(msg)
+            | Self::Persistence(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
             Self::StateTransition(msg) => Some(serde_json::json!({
                 "transition": msg,
             })),
             Self::Unimplemented(feature) => Some(serde_json::json!({
                 "feature": feature,
             })),
+            _ => unreachable!("context_orchestration called on non-orchestration variant"),
+        }
+    }
+
+    fn context_scenario(&self) -> Option<serde_json::Value> {
+        match self {
+            Self::ScenarioError(msg)
+            | Self::RunnerError(msg)
+            | Self::DefinitionError(msg)
+            | Self::ServerError(msg)
+            | Self::SyncError(msg)
+            | Self::Internal(msg)
+            | Self::InvariantViolation(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            _ => unreachable!("context_scenario called on non-scenario/internal variant"),
         }
     }
 

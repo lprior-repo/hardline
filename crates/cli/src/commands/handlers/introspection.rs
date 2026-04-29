@@ -218,7 +218,6 @@ pub fn handle_validate(sub_m: &ArgMatches) -> Result<()> {
 }
 
 /// Handle the whatif command - preview what a command would do.
-#[allow(clippy::too_many_lines)]
 pub fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
     // Handle --contract flag first
     if sub_m.get_flag("contract") {
@@ -252,89 +251,87 @@ pub fn handle_whatif(sub_m: &ArgMatches) -> Result<()> {
         let json_str = serde_json::to_string_pretty(&result)?;
         println!("{json_str}");
     } else {
-        println!("What-if preview for '{}' command:", command);
-        println!();
-
-        for step in &result.steps {
-            println!("  {}. {}", step.order, step.description);
-            println!("     > {}", step.action);
-            if step.can_fail {
-                if let Some(failure) = &step.on_failure {
-                    println!("     (can fail: {failure})");
-                } else {
-                    println!("     (can fail)");
-                }
-            }
-            println!();
-        }
-
-        if !result.creates.is_empty() {
-            println!("  Creates:");
-            for create in &result.creates {
-                println!("    - {} ({})", create.resource, create.resource_type);
-                println!("      {}", create.description);
-            }
-            println!();
-        }
-
-        if !result.modifies.is_empty() {
-            println!("  Modifies:");
-            for modify in &result.modifies {
-                println!("    - {} ({})", modify.resource, modify.resource_type);
-                println!("      {}", modify.description);
-            }
-            println!();
-        }
-
-        if !result.deletes.is_empty() {
-            println!("  Deletes:");
-            for delete in &result.deletes {
-                println!("    - {} ({})", delete.resource, delete.resource_type);
-                println!("      {}", delete.description);
-            }
-            println!();
-        }
-
-        if !result.side_effects.is_empty() {
-            println!("  Side effects:");
-            for effect in &result.side_effects {
-                println!("    - {}", effect);
-            }
-            println!();
-        }
-
-        if result.reversible {
-            println!("  Reversible: Yes");
-            if let Some(undo) = &result.undo_command {
-                println!("  Undo command: {}", undo);
-            }
-            println!();
-        }
-
-        if !result.warnings.is_empty() {
-            println!("  Warnings:");
-            for warning in &result.warnings {
-                println!("    - {}", warning);
-            }
-            println!();
-        }
-
-        if !result.prerequisites.is_empty() {
-            println!("  Prerequisites:");
-            for prereq in &result.prerequisites {
-                let status = match prereq.status {
-                    whatif::PrerequisiteStatus::Met => "✓ Met",
-                    whatif::PrerequisiteStatus::NotMet => "✗ Not met",
-                    whatif::PrerequisiteStatus::Unknown => "? Unknown",
-                };
-                println!("    {} {}", status, prereq.check);
-                println!("      {}", prereq.description);
-            }
-            println!();
-        }
+        print_whatif_text_preview(&command, &result);
     }
 
     Ok(())
+}
+
+/// Print the human-readable what-if preview for a command.
+fn print_whatif_text_preview(command: &str, result: &whatif::WhatIfResult) {
+    println!("What-if preview for '{}' command:", command);
+    println!();
+
+    for step in &result.steps {
+        println!("  {}. {}", step.order, step.description);
+        println!("     > {}", step.action);
+        if step.can_fail {
+            if let Some(failure) = &step.on_failure {
+                println!("     (can fail: {failure})");
+            } else {
+                println!("     (can fail)");
+            }
+        }
+        println!();
+    }
+
+    print_resource_changes("Creates", &result.creates);
+    print_resource_changes("Modifies", &result.modifies);
+    print_resource_changes("Deletes", &result.deletes);
+
+    if !result.side_effects.is_empty() {
+        println!("  Side effects:");
+        for effect in &result.side_effects {
+            println!("    - {}", effect);
+        }
+        println!();
+    }
+
+    if result.reversible {
+        println!("  Reversible: Yes");
+        if let Some(undo) = &result.undo_command {
+            println!("  Undo command: {}", undo);
+        }
+        println!();
+    }
+
+    if !result.warnings.is_empty() {
+        println!("  Warnings:");
+        for warning in &result.warnings {
+            println!("    - {}", warning);
+        }
+        println!();
+    }
+
+    if !result.prerequisites.is_empty() {
+        println!("  Prerequisites:");
+        for prereq in &result.prerequisites {
+            let status = match prereq.status {
+                whatif::PrerequisiteStatus::Met => "✓ Met",
+                whatif::PrerequisiteStatus::NotMet => "✗ Not met",
+                whatif::PrerequisiteStatus::Unknown => "? Unknown",
+            };
+            println!("    {} {}", status, prereq.check);
+            println!("      {}", prereq.description);
+        }
+        println!();
+    }
+}
+
+/// Print a section of resource changes (creates/modifies/deletes).
+fn print_resource_changes(
+    heading: &str,
+    changes: &[whatif::ResourceChange],
+) {
+    if changes.is_empty() {
+        return;
+    }
+    println!("  {}:", heading);
+    for change in changes {
+        println!("    - {} ({})", change.resource, change.resource_type);
+        println!("      {}", change.description);
+    }
+    println!();
 }
 
 // ============================================================================

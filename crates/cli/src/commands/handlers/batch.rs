@@ -199,10 +199,10 @@ pub async fn execute_batch(
     check_workspace_ready(status)?;
 
     // Get database pool for checkpointing
-    let _db_pool = get_database_pool().await?;
+    let db_pool = get_database_pool().await?;
 
     // Create auto-checkpoint manager
-    let auto_cp = AutoCheckpoint::new(_db_pool);
+    let auto_cp = AutoCheckpoint::new(db_pool);
     auto_cp.ensure_table().await?;
 
     // Create checkpoint guard for batch execution
@@ -214,10 +214,24 @@ pub async fn execute_batch(
     let checkpoint_id = guard.id().to_string();
 
     // Execute commands sequentially
+    let results = execute_commands_sequentially(commands, &cwd, workspace_name, &guard, &checkpoint_id).await?;
+
+    // All commands succeeded - commit the checkpoint
+    commit_checkpoint(guard, checkpoint_id, results).await
+}
+
+/// Execute commands sequentially, rolling back on failure.
+async fn execute_commands_sequentially(
+    commands: Vec<BatchCommand>,
+    cwd: &std::path::Path,
+    workspace_name: &str,
+    guard: &CheckpointGuard,
+    checkpoint_id: &str,
+) -> Result<Vec<CommandResult>> {
     let mut results: Vec<CommandResult> = Vec::new();
 
     for (index, command) in commands.into_iter().enumerate() {
-        let workspace_path = find_workspace_path(&cwd, workspace_name)?;
+        let workspace_path = find_workspace_path(cwd, workspace_name)?;
         let result = command.execute(&workspace_path);
 
         match result {
@@ -225,47 +239,74 @@ pub async fn execute_batch(
                 let failed = !cmd_result.success;
                 results.push(cmd_result);
                 if failed {
-                    // Command failed - need to rollback
-                    let failed_result = results.last().ok_or_else(|| {
-                        Error::internal("batch result missing after push — invariant violation")
-                    })?;
-
-                    // First, try to rollback the checkpoint
-                    if let Err(rollback_err) = rollback_with_error(&guard, &checkpoint_id).await {
-                        // Rollback failed - this is critical and must be propagated
-                        return Err(Error::batch_rollback_failed(format!(
-                            "Rollback failed after command {} failed: {}. Workspace may be in indeterminate state.",
-                            index,
-                            rollback_err
-                        )));
-                    }
-
-                    return Ok(BatchResult::RolledBack {
-                        failed_at: index,
-                        error: format!(
-                            "Command '{}' failed with exit code {}",
-                            failed_result.command.name, failed_result.exit_code
-                        ),
-                        partial_results: results,
+                    return handle_command_failure(
+                        index,
+                        &results,
+                        guard,
+                        checkpoint_id,
+                    )
+                    .await
+                    .and_then(|rb| match rb {
+                        BatchResult::RolledBack {
+                            partial_results, ..
+                        } => Ok(partial_results),
+                        _ => Err(Error::internal(
+                            "handle_command_failure returned unexpected variant",
+                        )),
                     });
                 }
             }
             Err(e) => {
-                // Command execution error - need to rollback
-                if let Err(rollback_err) = rollback_with_error(&guard, &checkpoint_id).await {
+                if let Err(rollback_err) = rollback_with_error(guard, checkpoint_id).await {
                     return Err(Error::batch_rollback_failed(format!(
                         "Rollback failed after execution error at command {}: {}. Workspace may be in indeterminate state.",
                         index,
                         rollback_err
                     )));
                 }
-
                 return Err(e);
             }
         }
     }
 
-    // All commands succeeded - commit the checkpoint
+    Ok(results)
+}
+
+/// Handle a failed command by rolling back and returning a RolledBack result.
+async fn handle_command_failure(
+    index: usize,
+    results: &[CommandResult],
+    guard: &CheckpointGuard,
+    checkpoint_id: &str,
+) -> Result<BatchResult> {
+    let failed_result = results.last().ok_or_else(|| {
+        Error::internal("batch result missing after push — invariant violation")
+    })?;
+
+    if let Err(rollback_err) = rollback_with_error(guard, checkpoint_id).await {
+        return Err(Error::batch_rollback_failed(format!(
+            "Rollback failed after command {} failed: {}. Workspace may be in indeterminate state.",
+            index,
+            rollback_err
+        )));
+    }
+
+    Ok(BatchResult::RolledBack {
+        failed_at: index,
+        error: format!(
+            "Command '{}' failed with exit code {}",
+            failed_result.command.name, failed_result.exit_code
+        ),
+        partial_results: results.to_vec(),
+    })
+}
+
+/// Commit the checkpoint after all commands succeeded.
+async fn commit_checkpoint(
+    guard: CheckpointGuard,
+    checkpoint_id: String,
+    results: Vec<CommandResult>,
+) -> Result<BatchResult> {
     match guard.commit().await {
         Ok(()) => Ok(BatchResult::Committed {
             checkpoint_id,
@@ -343,7 +384,11 @@ pub async fn run_batch(workspace: Option<String>, commands: Vec<String>) -> Resu
     ));
 
     let result = execute_batch(&workspace_name, batch_commands).await?;
+    report_batch_result(&result)
+}
 
+/// Report the result of a batch execution to the user.
+fn report_batch_result(result: &BatchResult) -> Result<()> {
     match result {
         BatchResult::Committed {
             checkpoint_id,
@@ -371,11 +416,11 @@ pub async fn run_batch(workspace: Option<String>, commands: Vec<String>) -> Resu
             partial_results,
         } => {
             Output::error(&format!("Batch rolled back at command {}", failed_at));
-            Output::error(&error);
+            Output::error(error);
             for (i, cmd_result) in partial_results.iter().enumerate() {
                 Output::info(&format!("  [{}] {}: executed", i, cmd_result.command.name));
             }
-            Err(Error::batch_command_failed(error))
+            Err(Error::batch_command_failed(error.clone()))
         }
     }
 }

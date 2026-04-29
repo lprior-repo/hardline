@@ -84,94 +84,112 @@ pub struct ConfigKey {
     segments: Vec<String>,
 }
 
-impl ConfigKey {
-    pub fn try_from(key: &str) -> Result<Self> {
-        if key.is_empty() {
-            return Err(ConfigErrorKind::ConfigParseError("empty config key".to_string()).into());
+/// Validate the overall format of a config key (length, characters, dots).
+fn validate_key_format(key: &str) -> Result<()> {
+    if key.is_empty() {
+        return Err(ConfigErrorKind::ConfigParseError("empty config key".to_string()).into());
+    }
+    if key.len() > MAX_KEY_LENGTH {
+        return Err(ConfigErrorKind::ConfigParseError(format!(
+            "config key exceeds maximum length of {MAX_KEY_LENGTH} characters"
+        ))
+        .into());
+    }
+    if key.contains('\0') {
+        return Err(ConfigErrorKind::ConfigParseError(
+            "config key contains null byte".to_string(),
+        )
+        .into());
+    }
+    if !key.is_ascii() {
+        return Err(ConfigErrorKind::ConfigParseError(
+            "config key contains non-ASCII characters".to_string(),
+        )
+        .into());
+    }
+    if key.contains('/') {
+        return Err(ConfigErrorKind::ConfigParseError(
+            "config key contains slash, possible path traversal".to_string(),
+        )
+        .into());
+    }
+    if key.contains('\\') {
+        return Err(ConfigErrorKind::ConfigParseError(
+            "config key contains backslash, invalid character".to_string(),
+        )
+        .into());
+    }
+    if key.starts_with('.') {
+        return Err(ConfigErrorKind::ConfigParseError(
+            "config key has leading dot, empty segment".to_string(),
+        )
+        .into());
+    }
+    if key.ends_with('.') {
+        return Err(ConfigErrorKind::ConfigParseError(
+            "config key has trailing dot, empty segment".to_string(),
+        )
+        .into());
+    }
+    if key.contains("..") {
+        return Err(ConfigErrorKind::ConfigParseError(
+            "config key contains consecutive dots".to_string(),
+        )
+        .into());
+    }
+    Ok(())
+}
+
+/// Split a key into segments and validate each segment's characters.
+fn parse_key_segments(key: &str) -> Result<Vec<String>> {
+    let segments: Vec<String> = key.split('.').map(String::from).collect();
+    if segments.len() < 2 {
+        return Err(ConfigErrorKind::ConfigParseError(
+            "config key must contain at least one dot separator (section.key)".to_string(),
+        )
+        .into());
+    }
+    for segment in &segments {
+        if segment.is_empty() {
+            return Err(ConfigErrorKind::ConfigParseError(
+                "config key contains empty segment".to_string(),
+            )
+            .into());
         }
-        if key.len() > MAX_KEY_LENGTH {
+        validate_segment_chars(segment)?;
+    }
+    Ok(segments)
+}
+
+/// Validate that a single key segment contains only allowed characters.
+fn validate_segment_chars(segment: &str) -> Result<()> {
+    for ch in segment.chars() {
+        if ch == '-' {
             return Err(ConfigErrorKind::ConfigParseError(format!(
-                "config key exceeds maximum length of {MAX_KEY_LENGTH} characters"
+                "config key segment contains hyphen '-': invalid character in '{segment}'"
             ))
             .into());
         }
-        if key.contains('\0') {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key contains null byte".to_string(),
-            )
+        if ch.is_whitespace() {
+            return Err(ConfigErrorKind::ConfigParseError(format!(
+                "config key segment contains whitespace: invalid character in '{segment}'"
+            ))
             .into());
         }
-        if !key.is_ascii() {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key contains non-ASCII characters".to_string(),
-            )
+        if !ch.is_ascii_alphanumeric() && ch != '_' {
+            return Err(ConfigErrorKind::ConfigParseError(format!(
+                "config key segment contains invalid character '{ch}' in '{segment}'"
+            ))
             .into());
         }
-        if key.contains('/') {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key contains slash, possible path traversal".to_string(),
-            )
-            .into());
-        }
-        if key.contains('\\') {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key contains backslash, invalid character".to_string(),
-            )
-            .into());
-        }
-        if key.starts_with('.') {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key has leading dot, empty segment".to_string(),
-            )
-            .into());
-        }
-        if key.ends_with('.') {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key has trailing dot, empty segment".to_string(),
-            )
-            .into());
-        }
-        if key.contains("..") {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key contains consecutive dots".to_string(),
-            )
-            .into());
-        }
-        let segments: Vec<String> = key.split('.').map(String::from).collect();
-        if segments.len() < 2 {
-            return Err(ConfigErrorKind::ConfigParseError(
-                "config key must contain at least one dot separator (section.key)".to_string(),
-            )
-            .into());
-        }
-        for segment in &segments {
-            if segment.is_empty() {
-                return Err(ConfigErrorKind::ConfigParseError(
-                    "config key contains empty segment".to_string(),
-                )
-                .into());
-            }
-            for ch in segment.chars() {
-                if ch == '-' {
-                    return Err(ConfigErrorKind::ConfigParseError(format!(
-                        "config key segment contains hyphen '-': invalid character in '{segment}'"
-                    ))
-                    .into());
-                }
-                if ch.is_whitespace() {
-                    return Err(ConfigErrorKind::ConfigParseError(format!(
-                        "config key segment contains whitespace: invalid character in '{segment}'"
-                    ))
-                    .into());
-                }
-                if !ch.is_ascii_alphanumeric() && ch != '_' {
-                    return Err(ConfigErrorKind::ConfigParseError(format!(
-                        "config key segment contains invalid character '{ch}' in '{segment}'"
-                    ))
-                    .into());
-                }
-            }
-        }
+    }
+    Ok(())
+}
+
+impl ConfigKey {
+    pub fn try_from(key: &str) -> Result<Self> {
+        validate_key_format(key)?;
+        let segments = parse_key_segments(key)?;
         let first_segment = &segments[0];
         if first_segment.len() > 1 && !KNOWN_SECTION_PREFIXES.contains(&first_segment.as_str()) {
             return Err(ConfigErrorKind::ConfigParseError(format!(
@@ -346,34 +364,34 @@ impl FileConfigReadPort {
         let mut paths: HashMap<String, PathBuf> = HashMap::new();
 
         if path_exists_on_disk(&self.global_path) {
-            let gv = Self::load_toml_file(&self.global_path)?;
-            for (k, v) in gv {
-                values.insert(k.clone(), v);
-                scopes.insert(k.clone(), ConfigScope::Global);
-                paths.insert(k, self.global_path.clone());
-            }
+            Self::apply_layer_values(
+                Self::load_toml_file(&self.global_path)?,
+                ConfigScope::Global,
+                self.global_path.clone(),
+                &mut values, &mut scopes, &mut paths,
+            );
         }
 
         if include_project {
             if let Some(ref pp) = self.project_path {
                 if path_exists_on_disk(pp) {
-                    let pv = Self::load_toml_file(pp)?;
-                    for (k, v) in pv {
-                        values.insert(k.clone(), v);
-                        scopes.insert(k.clone(), ConfigScope::Project);
-                        paths.insert(k, pp.clone());
-                    }
+                    Self::apply_layer_values(
+                        Self::load_toml_file(pp)?,
+                        ConfigScope::Project,
+                        pp.clone(),
+                        &mut values, &mut scopes, &mut paths,
+                    );
                 }
             }
         }
 
         if include_env {
-            let ev = Self::load_env_overrides();
-            for (k, v) in ev {
-                values.insert(k.clone(), v);
-                scopes.insert(k.clone(), ConfigScope::Env);
-                paths.insert(k, PathBuf::new());
-            }
+            Self::apply_layer_values(
+                Self::load_env_overrides(),
+                ConfigScope::Env,
+                PathBuf::new(),
+                &mut values, &mut scopes, &mut paths,
+            );
         }
 
         let mut config = Config::new();
@@ -381,23 +399,11 @@ impl FileConfigReadPort {
             config.set(k.clone(), v.clone());
         }
 
-        if path_exists_on_disk(&self.global_path) {
-            if let Ok(contents) = std::fs::read_to_string(&self.global_path) {
-                if let Ok(doc) = contents.parse::<toml_edit::DocumentMut>() {
-                    apply_structured_sections(&doc, &mut config);
-                }
-            }
-        }
+        Self::apply_structured_from_file(&self.global_path, &mut config);
 
         if include_project {
             if let Some(ref pp) = self.project_path {
-                if path_exists_on_disk(pp) {
-                    if let Ok(contents) = std::fs::read_to_string(pp) {
-                        if let Ok(doc) = contents.parse::<toml_edit::DocumentMut>() {
-                            apply_structured_sections(&doc, &mut config);
-                        }
-                    }
-                }
+                Self::apply_structured_from_file(pp, &mut config);
             }
         }
 
@@ -407,6 +413,36 @@ impl FileConfigReadPort {
         }
 
         Ok((config, scopes, paths))
+    }
+
+    /// Merge a layer of key-value pairs into the accumulator maps.
+    fn apply_layer_values(
+        layer: HashMap<String, String>,
+        scope: ConfigScope,
+        path: PathBuf,
+        values: &mut HashMap<String, String>,
+        scopes: &mut HashMap<String, ConfigScope>,
+        paths: &mut HashMap<String, PathBuf>,
+    ) {
+        for (k, v) in layer {
+            values.insert(k.clone(), v);
+            scopes.insert(k.clone(), scope);
+            paths.insert(k, path.clone());
+        }
+    }
+
+    /// Parse a TOML file and apply its structured sections to the config.
+    fn apply_structured_from_file(path: &Path, config: &mut Config) {
+        if !path_exists_on_disk(path) {
+            return;
+        }
+        let Ok(contents) = std::fs::read_to_string(path) else {
+            return;
+        };
+        let Ok(doc) = contents.parse::<toml_edit::DocumentMut>() else {
+            return;
+        };
+        apply_structured_sections(&doc, config);
     }
 }
 
@@ -479,88 +515,96 @@ fn stringify_toml_value(v: &toml_edit::Value) -> String {
 }
 
 fn apply_structured_sections(doc: &toml_edit::DocumentMut, config: &mut Config) {
-    if let Some(ci) = doc.get("conflict_resolution") {
-        if let Some(ct) = ci.as_table() {
-            if let Some(mv) = ct.get("mode") {
-                if let Some(s) = mv.as_str() {
-                    config.conflict.mode =
-                        super::types::ConflictMode::from_str(s).unwrap_or_default();
-                }
-            }
-            if let Some(av) = ct.get("autonomy") {
-                if let Some(n) = av.as_integer() {
-                    config.conflict.autonomy = u8::try_from(n).unwrap_or(0);
-                }
-            }
-            if let Some(kv) = ct.get("security_keywords") {
-                if let Some(arr) = kv.as_array() {
-                    config.conflict.security_keywords = arr
-                        .iter()
-                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                        .collect();
-                }
-            }
-            if let Some(lv) = ct.get("log_resolutions") {
-                if let Some(true) = lv.as_bool() {
-                    config.conflict.log_resolutions = super::types::ValidatedBool::new(true);
-                }
-            }
+    apply_conflict_section(doc, config);
+    apply_session_section(doc, config);
+    apply_hooks_section(doc, config);
+    apply_agent_section(doc, config);
+}
+
+fn apply_conflict_section(doc: &toml_edit::DocumentMut, config: &mut Config) {
+    let Some(ci) = doc.get("conflict_resolution") else { return };
+    let Some(ct) = ci.as_table() else { return };
+    if let Some(mv) = ct.get("mode") {
+        if let Some(s) = mv.as_str() {
+            config.conflict.mode =
+                super::types::ConflictMode::from_str(s).unwrap_or_default();
         }
     }
-    if let Some(si) = doc.get("session") {
-        if let Some(st) = si.as_table() {
-            if let Some(ac) = st.get("auto_commit") {
-                if let Some(true) = ac.as_bool() {
-                    config.session.auto_commit = super::types::ValidatedBool::new(true);
-                }
-            }
-            if let Some(cp) = st.get("commit_prefix") {
-                if let Some(s) = cp.as_str() {
-                    config.session.commit_prefix = s.to_string();
-                }
-            }
-            if let Some(ms) = st.get("max_sessions") {
-                if let Some(n) = ms.as_integer() {
-                    config.session.max_sessions = usize::try_from(n).unwrap_or(100);
-                }
-            }
+    if let Some(av) = ct.get("autonomy") {
+        if let Some(n) = av.as_integer() {
+            config.conflict.autonomy = u8::try_from(n).unwrap_or(0);
         }
     }
-    if let Some(hi) = doc.get("hooks") {
-        if let Some(ht) = hi.as_table() {
-            if let Some(pc) = ht.get("post_create") {
-                if let Some(arr) = pc.as_array() {
-                    config.hooks.post_create = arr
-                        .iter()
-                        .filter_map(|v| v.as_str().map(String::from))
-                        .collect();
-                }
-            }
-            if let Some(pr) = ht.get("pre_remove") {
-                if let Some(arr) = pr.as_array() {
-                    config.hooks.pre_remove = arr
-                        .iter()
-                        .filter_map(|v| v.as_str().map(String::from))
-                        .collect();
-                }
-            }
-            if let Some(pm) = ht.get("post_merge") {
-                if let Some(arr) = pm.as_array() {
-                    config.hooks.post_merge = arr
-                        .iter()
-                        .filter_map(|v| v.as_str().map(String::from))
-                        .collect();
-                }
-            }
+    if let Some(kv) = ct.get("security_keywords") {
+        if let Some(arr) = kv.as_array() {
+            config.conflict.security_keywords = arr
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect();
         }
     }
-    if let Some(ai) = doc.get("agent") {
-        if let Some(at) = ai.as_table() {
-            if let Some(cmd) = at.get("command") {
-                if let Some(s) = cmd.as_str() {
-                    config.agent.command = s.to_string();
-                }
-            }
+    if let Some(lv) = ct.get("log_resolutions") {
+        if let Some(true) = lv.as_bool() {
+            config.conflict.log_resolutions = super::types::ValidatedBool::new(true);
+        }
+    }
+}
+
+fn apply_session_section(doc: &toml_edit::DocumentMut, config: &mut Config) {
+    let Some(si) = doc.get("session") else { return };
+    let Some(st) = si.as_table() else { return };
+    if let Some(ac) = st.get("auto_commit") {
+        if let Some(true) = ac.as_bool() {
+            config.session.auto_commit = super::types::ValidatedBool::new(true);
+        }
+    }
+    if let Some(cp) = st.get("commit_prefix") {
+        if let Some(s) = cp.as_str() {
+            config.session.commit_prefix = s.to_string();
+        }
+    }
+    if let Some(ms) = st.get("max_sessions") {
+        if let Some(n) = ms.as_integer() {
+            config.session.max_sessions = usize::try_from(n).unwrap_or(100);
+        }
+    }
+}
+
+fn apply_hooks_section(doc: &toml_edit::DocumentMut, config: &mut Config) {
+    let Some(hi) = doc.get("hooks") else { return };
+    let Some(ht) = hi.as_table() else { return };
+    if let Some(pc) = ht.get("post_create") {
+        if let Some(arr) = pc.as_array() {
+            config.hooks.post_create = arr
+                .iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect();
+        }
+    }
+    if let Some(pr) = ht.get("pre_remove") {
+        if let Some(arr) = pr.as_array() {
+            config.hooks.pre_remove = arr
+                .iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect();
+        }
+    }
+    if let Some(pm) = ht.get("post_merge") {
+        if let Some(arr) = pm.as_array() {
+            config.hooks.post_merge = arr
+                .iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect();
+        }
+    }
+}
+
+fn apply_agent_section(doc: &toml_edit::DocumentMut, config: &mut Config) {
+    let Some(ai) = doc.get("agent") else { return };
+    let Some(at) = ai.as_table() else { return };
+    if let Some(cmd) = at.get("command") {
+        if let Some(s) = cmd.as_str() {
+            config.agent.command = s.to_string();
         }
     }
 }
@@ -843,11 +887,33 @@ pub async fn config_set(key: &str, value: &str, scope: ConfigScope) -> Result<Co
         .into());
     }
     let port = get_port();
-    let config_path = match scope {
-        ConfigScope::Global => port.global_config_path()?,
-        ConfigScope::Project => port.project_config_path()?,
+    let config_path = resolve_config_path(&*port, scope)?;
+    ensure_parent_dir(&config_path)?;
+    let file = open_config_file(&config_path)?;
+    let file = acquire_config_file_lock(file, &config_path)?;
+    let mut doc = read_config_doc(&file, &config_path)?;
+    let segments: Vec<&str> = config_key.segments().iter().map(String::as_str).collect();
+    set_nested_value(&mut doc, &segments, value)?;
+    write_config_doc(&file, &doc, &config_path)?;
+    Ok(ConfigSetResult {
+        key: config_key,
+        value: value.to_string(),
+        scope,
+        config_path,
+    })
+}
+
+/// Resolve the config file path for the given scope.
+fn resolve_config_path(port: &dyn ConfigReadPort, scope: ConfigScope) -> Result<PathBuf> {
+    match scope {
+        ConfigScope::Global => port.global_config_path(),
+        ConfigScope::Project => port.project_config_path(),
         ConfigScope::Env => unreachable!(),
-    };
+    }
+}
+
+/// Create the parent directory for a config file path if it doesn't exist.
+fn ensure_parent_dir(config_path: &Path) -> Result<()> {
     if let Some(parent) = config_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| {
             ConfigErrorKind::ConfigWriteError(format!(
@@ -856,26 +922,37 @@ pub async fn config_set(key: &str, value: &str, scope: ConfigScope) -> Result<Co
             ))
         })?;
     }
-    // SAFETY: truncate(false) is critical here. Opening with truncate(true) before
-    // acquiring the lock would zero the file. If the process crashes between open
-    // and lock, all existing config data is permanently lost. The actual truncate
-    // happens AFTER the lock is acquired (set_len(0) + seek below).
-    let file = std::fs::OpenOptions::new()
+    Ok(())
+}
+
+/// Open a config file for reading and writing without truncating.
+///
+/// SAFETY: `truncate(false)` is critical here. Opening with `truncate(true)` before
+/// acquiring the lock would zero the file. If the process crashes between open
+/// and lock, all existing config data is permanently lost. The actual truncate
+/// happens AFTER the lock is acquired (via `write_config_doc`).
+fn open_config_file(config_path: &Path) -> Result<std::fs::File> {
+    std::fs::OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
         .truncate(false)
-        .open(&config_path)
+        .open(config_path)
         .map_err(|e| {
             ConfigErrorKind::ConfigWriteError(format!(
                 "failed to open config file {}: {e}",
                 config_path.display()
             ))
-        })?;
+            .into()
+        })
+}
+
+/// Acquire an exclusive file lock with retry and timeout.
+fn acquire_config_file_lock(file: std::fs::File, config_path: &Path) -> Result<std::fs::File> {
     let start = Instant::now();
-    let file = loop {
+    loop {
         match fs4::fs_std::FileExt::try_lock_exclusive(&file) {
-            Ok(()) => break file,
+            Ok(()) => return Ok(file),
             Err(_) => {
                 if start.elapsed() >= LOCK_TIMEOUT {
                     return Err(ConfigErrorKind::ConfigLockError(format!(
@@ -887,27 +964,39 @@ pub async fn config_set(key: &str, value: &str, scope: ConfigScope) -> Result<Co
                 std::thread::sleep(LOCK_RETRY_INTERVAL);
             }
         }
-    };
+    }
+}
+
+/// Read and parse the TOML document from a locked config file.
+fn read_config_doc(
+    file: &std::fs::File,
+    config_path: &Path,
+) -> Result<toml_edit::DocumentMut> {
     let mut contents = String::new();
-    let mut file = &file;
-    std::io::Read::read_to_string(&mut file, &mut contents).map_err(|e| {
+    std::io::Read::read_to_string(&mut &*file, &mut contents).map_err(|e| {
         ConfigErrorKind::ConfigWriteError(format!(
             "failed to read config file {}: {e}",
             config_path.display()
         ))
     })?;
-    let mut doc: toml_edit::DocumentMut = if contents.trim().is_empty() {
-        toml_edit::DocumentMut::new()
-    } else {
-        contents.parse().map_err(|e: toml_edit::TomlError| {
-            ConfigErrorKind::ConfigParseError(format!(
-                "TOML parse error in {}: {e}",
-                config_path.display()
-            ))
-        })?
-    };
-    let segments: Vec<&str> = config_key.segments().iter().map(String::as_str).collect();
-    set_nested_value(&mut doc, &segments, value)?;
+    if contents.trim().is_empty() {
+        return Ok(toml_edit::DocumentMut::new());
+    }
+    contents.parse().map_err(|e: toml_edit::TomlError| {
+        ConfigErrorKind::ConfigParseError(format!(
+            "TOML parse error in {}: {e}",
+            config_path.display()
+        ))
+        .into()
+    })
+}
+
+/// Truncate, write, and flush a TOML document to a locked config file.
+fn write_config_doc(
+    mut file: &std::fs::File,
+    doc: &toml_edit::DocumentMut,
+    config_path: &Path,
+) -> Result<()> {
     use std::io::{Seek, Write};
     file.set_len(0).map_err(|e| {
         ConfigErrorKind::ConfigWriteError(format!(
@@ -933,12 +1022,7 @@ pub async fn config_set(key: &str, value: &str, scope: ConfigScope) -> Result<Co
             config_path.display()
         ))
     })?;
-    Ok(ConfigSetResult {
-        key: config_key,
-        value: value.to_string(),
-        scope,
-        config_path,
-    })
+    Ok(())
 }
 
 pub async fn config_list(global_only: bool) -> Result<Vec<ConfigGetResult>> {

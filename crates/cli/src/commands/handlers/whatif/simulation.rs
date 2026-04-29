@@ -71,7 +71,19 @@ pub fn preview_add(args: &[String], has_force_flag: bool) -> Result<WhatIfResult
     let (name, is_placeholder) = get_name_arg(args);
     ensure_valid_name(&name, is_placeholder)?;
 
-    let mut result = WhatIfResult {
+    let mut result = build_add_result(&name, is_placeholder, args);
+
+    if has_force_flag {
+        result
+            .warnings
+            .push("--force flag will skip all confirmations".to_string());
+    }
+
+    Ok(result)
+}
+
+fn build_add_result(name: &str, is_placeholder: bool, args: &[String]) -> WhatIfResult {
+    WhatIfResult {
         command: "add".to_string(),
         args: args.to_vec(),
         steps: vec![
@@ -131,15 +143,7 @@ pub fn preview_add(args: &[String], has_force_flag: bool) -> Result<WhatIfResult
                 description: "Git is installed".to_string(),
             },
         ],
-    };
-
-    if has_force_flag {
-        result
-            .warnings
-            .push("--force flag will skip all confirmations".to_string());
     }
-
-    Ok(result)
 }
 
 pub fn preview_work(args: &[String]) -> Result<WhatIfResult> {
@@ -192,7 +196,23 @@ pub fn preview_remove(args: &[String], has_keep_flag: bool) -> Result<WhatIfResu
     let (name, is_placeholder) = get_name_arg(args);
     ensure_valid_name(&name, is_placeholder)?;
 
-    let mut result = WhatIfResult {
+    let mut result = build_remove_result(&name, is_placeholder, args);
+
+    if has_keep_flag {
+        result.steps[2].description = "Keep workspace files".to_string();
+        result.steps[2].action = format!("Preserve .scp/workspaces/{name}");
+        result.steps[2].can_fail = false;
+        result.deletes[0].description = "Workspace directory (unless --keep-workspace)".to_string();
+        result
+            .warnings
+            .push("--keep-workspace flag will preserve workspace files".to_string());
+    }
+
+    Ok(result)
+}
+
+fn build_remove_result(name: &str, is_placeholder: bool, args: &[String]) -> WhatIfResult {
+    WhatIfResult {
         command: "remove".to_string(),
         args: args.to_vec(),
         steps: vec![
@@ -252,22 +272,9 @@ pub fn preview_remove(args: &[String], has_keep_flag: bool) -> Result<WhatIfResu
             },
             description: "Session name is valid".to_string(),
         }],
-    };
-
-    if has_keep_flag {
-        result.steps[2].description = "Keep workspace files".to_string();
-        result.steps[2].action = format!("Preserve .scp/workspaces/{name}");
-        result.steps[2].can_fail = false;
-        result.deletes[0].description = "Workspace directory (unless --keep-workspace)".to_string();
-        result
-            .warnings
-            .push("--keep-workspace flag will preserve workspace files".to_string());
     }
-
-    Ok(result)
 }
 
-#[allow(clippy::too_many_lines)]
 pub fn preview_done(
     args: &[String],
     has_workspace_flag: bool,
@@ -282,7 +289,15 @@ pub fn preview_done(
             .map_err(|e| scp_core::Error::validation_error(e.to_string()))?;
     }
 
-    let mut result = WhatIfResult {
+    let mut result = build_done_result(workspace, is_placeholder, args);
+
+    apply_done_flags(&mut result, workspace, has_workspace_flag, has_force_flag, has_keep_flag);
+
+    Ok(result)
+}
+
+fn build_done_result(workspace: &str, is_placeholder: bool, args: &[String]) -> WhatIfResult {
+    WhatIfResult {
         command: "done".to_string(),
         args: args.to_vec(),
         steps: vec![
@@ -377,8 +392,16 @@ pub fn preview_done(
                 description: "No merge conflicts with main".to_string(),
             },
         ],
-    };
+    }
+}
 
+fn apply_done_flags(
+    result: &mut WhatIfResult,
+    workspace: &str,
+    has_workspace_flag: bool,
+    has_force_flag: bool,
+    has_keep_flag: bool,
+) {
     if has_workspace_flag {
         result.steps[0].description = "Validate workspace location".to_string();
         result.steps[0].action = format!("Check --workspace {workspace} exists");
@@ -402,8 +425,6 @@ pub fn preview_done(
             .warnings
             .push("--keep-workspace flag will preserve workspace files".to_string());
     }
-
-    Ok(result)
 }
 
 pub fn preview_abort(args: &[String], has_workspace_flag: bool) -> Result<WhatIfResult> {
@@ -415,7 +436,22 @@ pub fn preview_abort(args: &[String], has_workspace_flag: bool) -> Result<WhatIf
             .map_err(|e| scp_core::Error::validation_error(e.to_string()))?;
     }
 
-    let mut result = WhatIfResult {
+    let mut result = build_abort_result(workspace, is_placeholder, args);
+
+    if has_workspace_flag {
+        result.steps[0].description = "Validate workspace location".to_string();
+        result.steps[0].action = format!("Check --workspace {workspace} exists");
+        result.prerequisites[0].description = "Workspace exists".to_string();
+        result
+            .warnings
+            .push("--workspace flag specifies workspace to abort".to_string());
+    }
+
+    Ok(result)
+}
+
+fn build_abort_result(workspace: &str, is_placeholder: bool, args: &[String]) -> WhatIfResult {
+    WhatIfResult {
         command: "abort".to_string(),
         args: args.to_vec(),
         steps: vec![
@@ -486,18 +522,7 @@ pub fn preview_abort(args: &[String], has_workspace_flag: bool) -> Result<WhatIf
                 description: "Workspace name is valid".to_string(),
             },
         ],
-    };
-
-    if has_workspace_flag {
-        result.steps[0].description = "Validate workspace location".to_string();
-        result.steps[0].action = format!("Check --workspace {workspace} exists");
-        result.prerequisites[0].description = "Workspace exists".to_string();
-        result
-            .warnings
-            .push("--workspace flag specifies workspace to abort".to_string());
     }
-
-    Ok(result)
 }
 
 pub fn preview_sync(args: &[String]) -> WhatIfResult {
@@ -552,8 +577,11 @@ pub fn preview_sync(args: &[String]) -> WhatIfResult {
 pub fn preview_spawn(args: &[String]) -> Result<WhatIfResult> {
     let (name, is_placeholder) = get_name_arg(args);
     ensure_valid_name(&name, is_placeholder)?;
+    Ok(build_spawn_result(&name, is_placeholder, args))
+}
 
-    Ok(WhatIfResult {
+fn build_spawn_result(name: &str, is_placeholder: bool, args: &[String]) -> WhatIfResult {
+    WhatIfResult {
         command: "spawn".to_string(),
         args: args.to_vec(),
         steps: vec![
@@ -623,7 +651,7 @@ pub fn preview_spawn(args: &[String]) -> Result<WhatIfResult> {
                 description: "Task exists in database".to_string(),
             },
         ],
-    })
+    }
 }
 
 #[cfg(test)]
