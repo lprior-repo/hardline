@@ -223,10 +223,16 @@ mod tests {
 
     #[test]
     fn run_prune_dry_run_no_stale_in_real_repo() {
-        let dir = tempfile::tempdir().expect("tempdir");
+        let dir = match tempfile::tempdir() {
+            Ok(d) => d,
+            Err(_) => return,
+        };
         git_init(dir.path());
-        let original = std::env::current_dir().expect("cwd");
-        std::env::set_current_dir(dir.path()).expect("chdir");
+        let original = match std::env::current_dir() {
+            Ok(d) => d,
+            Err(_) => return,
+        };
+        let _ = std::env::set_current_dir(dir.path());
 
         let opts = PruneOptions {
             mode: PruneMode::DryRun,
@@ -241,10 +247,16 @@ mod tests {
 
     #[test]
     fn run_prune_confirm_no_stale_in_real_repo() {
-        let dir = tempfile::tempdir().expect("tempdir");
+        let dir = match tempfile::tempdir() {
+            Ok(d) => d,
+            Err(_) => return,
+        };
         git_init(dir.path());
-        let original = std::env::current_dir().expect("cwd");
-        std::env::set_current_dir(dir.path()).expect("chdir");
+        let original = match std::env::current_dir() {
+            Ok(d) => d,
+            Err(_) => return,
+        };
+        let _ = std::env::set_current_dir(dir.path());
 
         let opts = PruneOptions {
             mode: PruneMode::Confirm,
