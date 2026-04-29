@@ -2,7 +2,7 @@
 //!
 //! Provides the IntegrityValidator for detecting workspace corruption.
 
-use std::{path::PathBuf, sync::Arc, time::SystemTime};
+use std::{path::{Path, PathBuf}, sync::Arc, time::SystemTime};
 
 use futures::future::try_join_all;
 
@@ -138,7 +138,7 @@ impl IntegrityValidator {
     }
 
     /// Check 3-4: .git directory exists and is valid
-    async fn check_git_dir(workspace_path: &PathBuf, issues: &mut Vec<IntegrityIssue>) {
+    async fn check_git_dir(workspace_path: &Path, issues: &mut Vec<IntegrityIssue>) {
         let git_dir = workspace_path.join(".git");
         let git_dir_exists = tokio::fs::try_exists(&git_dir)
             .await
@@ -166,14 +166,14 @@ impl IntegrityValidator {
     }
 
     /// Check 5: Config file integrity (TOML validation)
-    async fn check_config_file(workspace_path: &PathBuf, issues: &mut Vec<IntegrityIssue>) {
+    async fn check_config_file(workspace_path: &Path, issues: &mut Vec<IntegrityIssue>) {
         if let Ok(Some(issue)) = check_config_file(workspace_path).await {
             issues.push(issue);
         }
     }
 
     /// Check 6: Lock files
-    async fn check_locks(workspace_path: &PathBuf, issues: &mut Vec<IntegrityIssue>) {
+    async fn check_locks(workspace_path: &Path, issues: &mut Vec<IntegrityIssue>) {
         if let Ok(Some(issue)) = check_stale_locks(workspace_path).await {
             issues.push(issue);
         }

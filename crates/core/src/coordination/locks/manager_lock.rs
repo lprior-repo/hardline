@@ -9,6 +9,15 @@ use super::{
 };
 use crate::Result;
 
+/// Parameters required to insert a new lock row.
+struct LockInsertParams<'a> {
+    session: &'a str,
+    agent_id: &'a str,
+    lock_id: &'a str,
+    now_str: &'a str,
+    expires_str: &'a str,
+}
+
 impl LockManager {
     /// Acquire an exclusive lock on a session with custom TTL.
     ///
@@ -49,9 +58,13 @@ impl LockManager {
         })?;
         let lock_id = format!("lock-{session}-{nanos}");
 
-        self.insert_new_lock(
-            session, agent_id, &lock_id, &now_str, &expires_str,
-        )
+        self.insert_new_lock(LockInsertParams {
+            session,
+            agent_id,
+            lock_id: &lock_id,
+            now_str: &now_str,
+            expires_str: &expires_str,
+        })
         .await?;
 
         if let Err(log_error) = self
@@ -154,28 +167,21 @@ impl LockManager {
     }
 
     /// Insert a new lock row, handling constraint conflicts.
-    async fn insert_new_lock(
-        &self,
-        session: &str,
-        agent_id: &str,
-        lock_id: &str,
-        now_str: &str,
-        expires_str: &str,
-    ) -> Result<()> {
+    async fn insert_new_lock(&self, params: LockInsertParams<'_>) -> Result<()> {
         let insert_result = sqlx::query(
             "INSERT INTO session_locks (lock_id, session, agent_id, acquired_at, expires_at) VALUES (?, ?, ?, ?, ?)",
         )
-        .bind(lock_id)
-        .bind(session)
-        .bind(agent_id)
-        .bind(now_str)
-        .bind(expires_str)
+        .bind(params.lock_id)
+        .bind(params.session)
+        .bind(params.agent_id)
+        .bind(params.now_str)
+        .bind(params.expires_str)
         .execute(&self.db)
         .await;
 
         if let Err(e) = insert_result {
             if is_constraint_conflict_error(&e) {
-                return self.handle_constraint_conflict(session).await;
+                return self.handle_constraint_conflict(params.session).await;
             }
             return Err(crate::error::Error::from(
                 super::errors::LockErrorKind::DatabaseError(format!(

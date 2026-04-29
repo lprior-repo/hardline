@@ -4,7 +4,7 @@ use scp_core::infrastructure::database::{DatabaseService, SqliteDatabaseService}
 
 use crate::{
     domain::{
-        entities::{session::Created, BranchState, Session, SessionId, SessionState},
+        entities::{session::Created, BranchState, Session, SessionId, SessionParts, SessionState},
         value_objects::{BeadId, SessionName, WorkspaceId},
     },
     error::{Result, SessionError, SessionError::*},
@@ -67,7 +67,7 @@ impl TryFrom<SessionRow> for Session<Created> {
             .map_err(|e| SerializationError(format!("Invalid created_at timestamp: {}", e)))?
             .with_timezone(&Utc);
 
-        Ok(Session::from_parts(
+        Ok(Session::from_parts(SessionParts {
             id,
             name,
             workspace,
@@ -75,7 +75,7 @@ impl TryFrom<SessionRow> for Session<Created> {
             branch,
             last_synced,
             created_at,
-        ))
+        }))
     }
 }
 

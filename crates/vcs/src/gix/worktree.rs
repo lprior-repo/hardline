@@ -5,7 +5,7 @@
 //! the `.git/worktrees/` directory for linked worktrees and combines them
 //! with the main worktree from gix.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::error::{GitError, GitResult};
 use crate::gix::cli::{cli_error, require_workdir, run_git};
@@ -15,7 +15,7 @@ use crate::gix::cli::{cli_error, require_workdir, run_git};
 /// Uses `git worktree add` because gix lacks worktree management support.
 pub fn add(
     repo: &gix::Repository,
-    path: &PathBuf,
+    path: &Path,
     branch: Option<&str>,
 ) -> GitResult<()> {
     let workdir = require_workdir(repo, "worktree add")?;
@@ -78,7 +78,7 @@ pub fn list(repo: &gix::Repository) -> GitResult<Vec<Worktree>> {
 /// Remove a worktree.
 ///
 /// Uses `git worktree remove` because gix lacks worktree management support.
-pub fn remove(repo: &gix::Repository, path: &PathBuf, force: bool) -> GitResult<()> {
+pub fn remove(repo: &gix::Repository, path: &Path, force: bool) -> GitResult<()> {
     let workdir = require_workdir(repo, "worktree remove")?;
 
     let mut args: Vec<&str> = vec!["worktree", "remove"];
@@ -176,9 +176,5 @@ fn read_worktree_head(wt_entry_dir: &std::path::Path) -> Option<String> {
     let trimmed = content.trim();
 
     // HEAD is typically "ref: refs/heads/<branch>\n"
-    if let Some(rest) = trimmed.strip_prefix("ref: refs/heads/") {
-        Some(rest.trim().to_string())
-    } else {
-        None
-    }
+    trimmed.strip_prefix("ref: refs/heads/").map(|rest| rest.trim().to_string())
 }

@@ -10,7 +10,7 @@ use crate::{
     cleanup::{CleanupContext, CleanupManager, PhaseType},
     metrics::Metrics,
     persistence::StateStore,
-    policies::PolicyConfig,
+    policies::{PolicyConfig, PolicyOpts},
     state::Pipeline,
 };
 
@@ -28,7 +28,7 @@ impl PipelineExecutor {
             .context("Failed to initialize state store")
             .map_err(|e| anyhow::anyhow!(e))?;
 
-        let policy_config = PolicyConfig::new(30_000, 3, 100, 5_000, 5, 30_000)
+        let policy_config = PolicyConfig::new(PolicyOpts { timeout_ms: 30_000, max_retries: 3, base_delay_ms: 100, max_delay_ms: 5_000, failure_threshold: 5, recovery_timeout_ms: 30_000 })
             .context("Failed to create default policy config")?;
 
         Ok(Self {

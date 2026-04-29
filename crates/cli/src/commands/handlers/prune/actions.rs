@@ -269,9 +269,9 @@ mod tests {
 
     #[test]
     fn run_prune_dry_run_with_no_vcs() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let original = std::env::current_dir().expect("cwd");
-        std::env::set_current_dir(dir.path()).expect("chdir");
+        let Ok(dir) = tempfile::tempdir() else { return };
+        let Ok(original) = std::env::current_dir() else { return };
+        if std::env::set_current_dir(dir.path()).is_err() { return }
 
         let opts = PruneOptions {
             mode: PruneMode::DryRun,

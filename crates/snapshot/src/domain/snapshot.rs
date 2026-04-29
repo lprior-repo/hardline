@@ -6,18 +6,13 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Result, SnapshotError};
 
 /// The type of snapshot, determining its provenance and lifecycle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum SnapshotType {
     Checkpoint,
+    #[default]
     Manual,
     PreOperation,
-}
-
-impl Default for SnapshotType {
-    fn default() -> Self {
-        Self::Manual
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

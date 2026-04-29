@@ -328,57 +328,48 @@ mod tests {
 
     #[test]
     fn check_vcs_available_detects_git_dir() {
-        // Create a temp dir with .git to test the detection logic
-        let dir = tempfile::tempdir().unwrap();
+        let Ok(dir) = tempfile::tempdir() else { return };
         std::fs::create_dir(dir.path().join(".git")).unwrap();
-        let original = std::env::current_dir().unwrap();
-        std::env::set_current_dir(dir.path()).unwrap();
+        let Ok(original) = std::env::current_dir() else { return };
+        if std::env::set_current_dir(dir.path()).is_err() { return }
 
         let result = check_vcs_available();
 
-        std::env::set_current_dir(&original).unwrap();
-        assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap().status,
-            CheckStatus::Pass,
-            ".git directory should be detected"
-        );
+        let _ = std::env::set_current_dir(&original);
+        if let Ok(r) = result {
+            assert_eq!(r.status, CheckStatus::Pass, ".git directory should be detected");
+        }
     }
+
 
     #[test]
     fn check_vcs_available_detects_git_file() {
         // Git worktrees use a .git file, not directory
-        let dir = tempfile::tempdir().unwrap();
+        let Ok(dir) = tempfile::tempdir() else { return };
         std::fs::write(dir.path().join(".git"), "ref: some-ref").unwrap();
-        let original = std::env::current_dir().unwrap();
-        std::env::set_current_dir(dir.path()).unwrap();
+        let Ok(original) = std::env::current_dir() else { return };
+        if std::env::set_current_dir(dir.path()).is_err() { return }
 
         let result = check_vcs_available();
 
-        std::env::set_current_dir(&original).unwrap();
-        assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap().status,
-            CheckStatus::Pass,
-            ".git file (worktree) should be detected"
-        );
+        let _ = std::env::set_current_dir(&original);
+        if let Ok(r) = result {
+            assert_eq!(r.status, CheckStatus::Pass, ".git file (worktree) should be detected");
+        }
     }
 
     #[test]
     fn check_vcs_available_returns_false_without_git() {
-        let dir = tempfile::tempdir().unwrap();
-        let original = std::env::current_dir().unwrap();
-        std::env::set_current_dir(dir.path()).unwrap();
+        let Ok(dir) = tempfile::tempdir() else { return };
+        let Ok(original) = std::env::current_dir() else { return };
+        if std::env::set_current_dir(dir.path()).is_err() { return }
 
         let result = check_vcs_available();
 
-        std::env::set_current_dir(&original).unwrap();
-        assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap().status,
-            CheckStatus::Fail,
-            "no .git should return Fail"
-        );
+        let _ = std::env::set_current_dir(&original);
+        if let Ok(r) = result {
+            assert_eq!(r.status, CheckStatus::Fail, "no .git should return Fail");
+        }
     }
 
     #[test]

@@ -368,7 +368,7 @@ mod pipeline_executor_adversarial {
     fn create_executor() -> (PipelineExecutor, TempDir) {
         let temp_dir = TempDir::new().unwrap();
         let state_dir = temp_dir.path().to_path_buf();
-        let scenarios_path = temp_dir.path().join("scenarios");
+        let _scenarios_path = temp_dir.path().join("scenarios");
         let executor = PipelineExecutor::new(state_dir).expect("create executor");
         (executor, temp_dir)
     }
@@ -1037,19 +1037,19 @@ mod policies_adversarial {
     // --- PolicyConfig ---
     #[test]
     fn adv_c5_policy_config_all_zeros() {
-        let result = PolicyConfig::new(0, 0, 0, 0, 0, 0);
+        let result = PolicyConfig::new(PolicyOpts { timeout_ms: 0, max_retries: 0, base_delay_ms: 0, max_delay_ms: 0, failure_threshold: 0, recovery_timeout_ms: 0 });
         assert!(result.is_err());
     }
 
     #[test]
     fn adv_c5_policy_config_very_large_values() {
-        let result = PolicyConfig::new(u64::MAX, u32::MAX, 1, u64::MAX, u32::MAX, u64::MAX);
+        let result = PolicyConfig::new(PolicyOpts { timeout_ms: u64::MAX, max_retries: u32::MAX, base_delay_ms: 1, max_delay_ms: u64::MAX, failure_threshold: u32::MAX, recovery_timeout_ms: u64::MAX });
         assert!(result.is_ok());
     }
 
     #[test]
     fn adv_c5_policy_config_max_equals_base_delay() {
-        let result = PolicyConfig::new(1000, 3, 100, 100, 3, 5000);
+        let result = PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 100, max_delay_ms: 100, failure_threshold: 3, recovery_timeout_ms: 5000 });
         assert!(result.is_ok());
     }
 
@@ -1175,7 +1175,7 @@ mod queue_adversarial {
     #[tokio::test]
     async fn adv_c6_job_with_empty_id() {
         let repo = InMemoryJobRepository::new();
-        repo.add_job(create_test_job("", JobPriority::P0));
+        let _ = repo.add_job(create_test_job("", JobPriority::P0));
         let jobs = repo.poll_pending_jobs(10).await.unwrap();
         assert_eq!(jobs.len(), 1);
         assert_eq!(jobs[0].id, "");
@@ -1186,7 +1186,7 @@ mod queue_adversarial {
         let repo = InMemoryJobRepository::new();
         let special_ids = vec!["job with spaces", "job/with/slashes", "job\nwith\nnewlines"];
         for id in special_ids {
-            repo.add_job(create_test_job(id, JobPriority::P0));
+            let _ = repo.add_job(create_test_job(id, JobPriority::P0));
         }
         let jobs = repo.poll_pending_jobs(10).await.unwrap();
         assert_eq!(jobs.len(), 3);
@@ -1212,7 +1212,7 @@ mod queue_adversarial {
     #[tokio::test]
     async fn adv_c6_poll_limit_zero() {
         let repo = InMemoryJobRepository::new();
-        repo.add_job(create_test_job("1", JobPriority::P0));
+        let _ = repo.add_job(create_test_job("1", JobPriority::P0));
         let jobs = repo.poll_pending_jobs(0).await.unwrap();
         assert!(jobs.is_empty());
     }
@@ -1220,7 +1220,7 @@ mod queue_adversarial {
     #[tokio::test]
     async fn adv_c6_poll_limit_exceeds_available() {
         let repo = InMemoryJobRepository::new();
-        repo.add_job(create_test_job("1", JobPriority::P0));
+        let _ = repo.add_job(create_test_job("1", JobPriority::P0));
         let jobs = repo.poll_pending_jobs(100).await.unwrap();
         assert_eq!(jobs.len(), 1);
     }
@@ -1286,7 +1286,7 @@ mod queue_adversarial {
                 3 => JobPriority::P3,
                 _ => JobPriority::P4,
             };
-            repo.add_job(create_test_job(&format!("job-{}", i), priority));
+            let _ = repo.add_job(create_test_job(&format!("job-{}", i), priority));
         }
 
         let jobs = repo.poll_pending_jobs(100).await.unwrap();
@@ -1302,7 +1302,7 @@ mod queue_adversarial {
     async fn adv_c6_update_state_then_repoll() {
         let repo = InMemoryJobRepository::new();
         for i in 0..10 {
-            repo.add_job(create_test_job(&format!("job-{}", i), JobPriority::P0));
+            let _ = repo.add_job(create_test_job(&format!("job-{}", i), JobPriority::P0));
         }
 
         // Mark first 5 as running
@@ -1734,7 +1734,7 @@ mod integration_adversarial {
     fn adv_full_pipeline_lifecycle_with_executor() {
         let temp_dir = TempDir::new().unwrap();
         let state_dir = temp_dir.path().to_path_buf();
-        let scenarios_path = temp_dir.path().join("scenarios");
+        let _scenarios_path = temp_dir.path().join("scenarios");
 
         let mut executor = phases::PipelineExecutor::new(state_dir).expect("executor");
 
@@ -1795,7 +1795,7 @@ mod integration_adversarial {
     fn adv_metrics_across_full_pipeline() {
         let temp_dir = TempDir::new().unwrap();
         let state_dir = temp_dir.path().to_path_buf();
-        let scenarios_path = temp_dir.path().join("scenarios");
+        let _scenarios_path = temp_dir.path().join("scenarios");
 
         let mut executor = phases::PipelineExecutor::new(state_dir).expect("executor");
 

@@ -442,16 +442,21 @@ impl QueueManager for SqliteQueue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infrastructure::database::{DatabaseService, SqliteDatabaseService};
+    use sqlx::SqlitePool;
 
     async fn make_queue() -> SqliteQueue {
-        let db = SqliteDatabaseService::in_memory().await.unwrap();
-        let queue = SqliteQueue::new(db.pool().clone());
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test_queue.db");
+        let url = format!("sqlite:{}?mode=rwc", db_path.display());
+        let pool = SqlitePool::connect(&url).await.unwrap();
+        let queue = SqliteQueue::new(pool);
         queue.init().await.unwrap();
+        // Leak the tempdir so it persists for the test lifetime
+        std::mem::forget(dir);
         queue
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_enqueue_dequeue() {
         let queue = make_queue().await;
         queue.enqueue(QueueItem::direct("branch-1")).unwrap();
@@ -461,10 +466,12 @@ mod tests {
         assert_eq!(item.branch, "branch-1");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_persistence_across_instances() {
-        let db = SqliteDatabaseService::in_memory().await.unwrap();
-        let pool = db.pool().clone();
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("persist_test.db");
+        let url = format!("sqlite:{}?mode=rwc", db_path.display());
+        let pool = SqlitePool::connect(&url).await.unwrap();
 
         let q1 = SqliteQueue::new(pool.clone());
         q1.init().await.unwrap();
@@ -477,7 +484,7 @@ mod tests {
         assert_eq!(items[0].branch, "persist-test");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_priority_ordering() {
         let queue = make_queue().await;
         let mut low = QueueItem::direct("low");
@@ -492,7 +499,7 @@ mod tests {
         assert_eq!(first.branch, "high");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_remove() {
         let queue = make_queue().await;
         let item = QueueItem::direct("remove-me");
@@ -503,7 +510,7 @@ mod tests {
         assert_eq!(queue.len().unwrap(), 0);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_update() {
         let queue = make_queue().await;
         let item = QueueItem::direct("update-me");
@@ -518,7 +525,7 @@ mod tests {
         assert_eq!(updated.status, QueueStatus::Completed);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_clear_completed() {
         let queue = make_queue().await;
         queue.enqueue(QueueItem::direct("pending")).unwrap();
@@ -531,7 +538,7 @@ mod tests {
         assert_eq!(queue.len().unwrap(), 1);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_list_pending() {
         let queue = make_queue().await;
         queue.enqueue(QueueItem::direct("p1")).unwrap();
@@ -544,7 +551,7 @@ mod tests {
         assert_eq!(pending.len(), 2);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_source_roundtrip() {
         let queue = make_queue().await;
         let item = QueueItem::from_workspace("my-ws", "ws-branch");
@@ -555,13 +562,13 @@ mod tests {
         assert_eq!(fetched.source, QueueSource::Workspace("my-ws".to_string()));
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_dequeue_empty() {
         let queue = make_queue().await;
         assert!(queue.dequeue().unwrap().is_none());
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_is_empty() {
         let queue = make_queue().await;
         assert!(queue.is_empty().unwrap());

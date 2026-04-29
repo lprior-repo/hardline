@@ -103,7 +103,7 @@ impl AuditLogger {
             .create(true)
             .append(true)
             .open(&self.log_path)
-            .map_err(|e| IoErrorKind::Io(e))?;
+            .map_err(IoErrorKind::Io)?;
 
         let line = serde_json::to_string(entry)
             .map_err(|e| IoErrorKind::Io(std::io::Error::other(format!(
@@ -111,7 +111,7 @@ impl AuditLogger {
             ))))?;
 
         use std::io::Write;
-        writeln!(file, "{line}").map_err(|e| IoErrorKind::Io(e))?;
+        writeln!(file, "{line}").map_err(IoErrorKind::Io)?;
 
         Ok(())
     }
@@ -123,7 +123,7 @@ impl AuditLogger {
     /// Returns an error if the file cannot be read or parsed.
     pub fn query(&self, filter: &AuditFilter) -> Result<Vec<AuditEntry>> {
         let contents = std::fs::read_to_string(&self.log_path)
-            .map_err(|e| IoErrorKind::Io(e))?;
+            .map_err(IoErrorKind::Io)?;
 
         let mut entries = Vec::new();
 
@@ -162,12 +162,12 @@ fn matches_filter(entry: &AuditEntry, filter: &AuditFilter) -> bool {
     }
 
     if let Some(ref outcome) = filter.outcome {
-        let matches = match (&entry.outcome, outcome) {
-            (AuditOutcome::Success, AuditOutcomeFilter::Success) => true,
-            (AuditOutcome::Denied(_), AuditOutcomeFilter::Denied) => true,
-            (AuditOutcome::Error(_), AuditOutcomeFilter::Error) => true,
-            _ => false,
-        };
+        let matches = matches!(
+            (&entry.outcome, outcome),
+            (AuditOutcome::Success, AuditOutcomeFilter::Success)
+                | (AuditOutcome::Denied(_), AuditOutcomeFilter::Denied)
+                | (AuditOutcome::Error(_), AuditOutcomeFilter::Error)
+        );
         if !matches {
             return false;
         }

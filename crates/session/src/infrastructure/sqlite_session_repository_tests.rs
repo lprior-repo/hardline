@@ -143,16 +143,16 @@ async fn test_save_same_id_twice_updates() {
     let name1 = SessionName::parse("session-123").unwrap();
     let session1 = Session::create(name1).unwrap();
 
-    use crate::domain::entities::{BranchState, SessionState};
-    let session2 = Session::from_parts(
-        session1.id.clone(),
-        SessionName::parse("updated-session").unwrap(),
-        None,
-        None,
-        BranchState::Detached,
-        None,
-        session1.created_at,
-    );
+    use crate::domain::entities::{BranchState, SessionParts, SessionState};
+    let session2 = Session::from_parts(SessionParts {
+        id: session1.id.clone(),
+        name: SessionName::parse("updated-session").unwrap(),
+        workspace: None,
+        bead: None,
+        branch: BranchState::Detached,
+        last_synced: None,
+        created_at: session1.created_at,
+    });
 
     repo.save(&session1).await.expect("first save failed");
     repo.save(&session2).await.expect("second save failed");

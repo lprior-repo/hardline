@@ -300,6 +300,13 @@ type ConfigInitResult = (
     HashMap<String, PathBuf>,
 );
 
+/// Accumulators for collecting config layer data.
+struct LayerAccumulator<'a> {
+    values: &'a mut HashMap<String, String>,
+    scopes: &'a mut HashMap<String, ConfigScope>,
+    paths: &'a mut HashMap<String, PathBuf>,
+}
+
 impl FileConfigReadPort {
     pub fn new() -> Self {
         let global_path = directories::ProjectDirs::from("com", "scp", "scp")
@@ -363,12 +370,18 @@ impl FileConfigReadPort {
         let mut scopes: HashMap<String, ConfigScope> = HashMap::new();
         let mut paths: HashMap<String, PathBuf> = HashMap::new();
 
+        let mut acc = LayerAccumulator {
+            values: &mut values,
+            scopes: &mut scopes,
+            paths: &mut paths,
+        };
+
         if path_exists_on_disk(&self.global_path) {
             Self::apply_layer_values(
                 Self::load_toml_file(&self.global_path)?,
                 ConfigScope::Global,
                 self.global_path.clone(),
-                &mut values, &mut scopes, &mut paths,
+                &mut acc,
             );
         }
 
@@ -379,7 +392,7 @@ impl FileConfigReadPort {
                         Self::load_toml_file(pp)?,
                         ConfigScope::Project,
                         pp.clone(),
-                        &mut values, &mut scopes, &mut paths,
+                        &mut acc,
                     );
                 }
             }
@@ -390,7 +403,7 @@ impl FileConfigReadPort {
                 Self::load_env_overrides(),
                 ConfigScope::Env,
                 PathBuf::new(),
-                &mut values, &mut scopes, &mut paths,
+                &mut acc,
             );
         }
 
@@ -415,19 +428,17 @@ impl FileConfigReadPort {
         Ok((config, scopes, paths))
     }
 
-    /// Merge a layer of key-value pairs into the accumulator maps.
+    /// Accumulators for collecting config layer data.
     fn apply_layer_values(
         layer: HashMap<String, String>,
         scope: ConfigScope,
         path: PathBuf,
-        values: &mut HashMap<String, String>,
-        scopes: &mut HashMap<String, ConfigScope>,
-        paths: &mut HashMap<String, PathBuf>,
+        acc: &mut LayerAccumulator,
     ) {
         for (k, v) in layer {
-            values.insert(k.clone(), v);
-            scopes.insert(k.clone(), scope);
-            paths.insert(k, path.clone());
+            acc.values.insert(k.clone(), v);
+            acc.scopes.insert(k.clone(), scope);
+            acc.paths.insert(k, path.clone());
         }
     }
 

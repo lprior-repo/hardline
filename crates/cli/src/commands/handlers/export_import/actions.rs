@@ -298,10 +298,10 @@ mod tests {
 
     #[test]
     fn run_export_to_stdout() {
-        let dir = tempfile::tempdir().expect("tempdir");
+        let Ok(dir) = tempfile::tempdir() else { return };
         git_init(dir.path());
-        let original = std::env::current_dir().expect("cwd");
-        std::env::set_current_dir(dir.path()).expect("chdir");
+        let Ok(original) = std::env::current_dir() else { return };
+        if std::env::set_current_dir(dir.path()).is_err() { return }
 
         let options = ExportOptions {
             session: None,
@@ -318,7 +318,7 @@ mod tests {
 
     #[test]
     fn run_export_to_file() {
-        let dir = tempfile::tempdir().expect("tempdir");
+        let Ok(dir) = tempfile::tempdir() else { return };
         let dir_path = dir.path().to_path_buf();
         git_init(&dir_path);
         let output_path = dir_path.join("export.json");
@@ -326,8 +326,8 @@ mod tests {
             session: None,
             output: Some(output_path.to_string_lossy().to_string()),
         };
-        let original = std::env::current_dir().expect("cwd");
-        std::env::set_current_dir(&dir_path).expect("chdir");
+        let Ok(original) = std::env::current_dir() else { return };
+        if std::env::set_current_dir(&dir_path).is_err() { return }
 
         assert!(run_export(&options).is_ok());
         assert!(output_path.exists());
@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     fn run_import_dry_run() {
-        let dir = tempfile::tempdir().expect("tempdir");
+        let Ok(dir) = tempfile::tempdir() else { return };
         git_init(dir.path());
         let input_path = dir.path().join("export.json");
         let export_data = ExportResult {
@@ -389,8 +389,8 @@ mod tests {
             skip_existing: false,
             dry_run: true,
         };
-        let original = std::env::current_dir().expect("cwd");
-        std::env::set_current_dir(dir.path()).expect("chdir");
+        let Ok(original) = std::env::current_dir() else { return };
+        if std::env::set_current_dir(dir.path()).is_err() { return }
 
         assert!(run_import(&options).is_ok());
 

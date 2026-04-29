@@ -190,6 +190,10 @@ where
 /// # Errors
 ///
 /// Returns an error if the value is below the minimum or above the maximum.
+///
+/// # Panics
+///
+/// Panics if `min > max`.
 pub fn validate_range(value: u32, min: u32, max: u32, field: &str) -> ValidationResult<u32> {
     assert!(min <= max, "min must be <= max");
     if value < min {

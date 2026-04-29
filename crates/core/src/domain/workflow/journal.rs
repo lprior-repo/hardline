@@ -1,6 +1,6 @@
 //! SQLite-backed step journal for durable workflow execution.
 //!
-//! Persists [`StepRecord`] and [`OperationRecord`] entries to SQLite so that
+//! Persists [`StepRecord`] and [`OperationRecord`] entries to `SQLite` so that
 //! multi-step operations survive process crashes. On restart the
 //! [`RecoveryScanner`] queries the journal to find incomplete operations and
 //! resume from the last completed step.
@@ -72,7 +72,7 @@ struct MaxResult {
     max_step_order: Option<i64>,
 }
 
-/// Mirrors the columns returned when loading an operation from SQLite.
+/// Mirrors the columns returned when loading an operation from `SQLite`.
 #[derive(Debug, sqlx::FromRow)]
 struct OpRow {
     operation_id: String,
@@ -105,7 +105,7 @@ impl OpRow {
     }
 }
 
-/// Mirrors the columns returned when loading a step from SQLite.
+/// Mirrors the columns returned when loading a step from `SQLite`.
 #[derive(Debug, sqlx::FromRow)]
 struct StepRow {
     operation_id: String,

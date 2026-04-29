@@ -44,76 +44,53 @@ use crate::Result;
 /// # Ok(())
 /// # }
 /// ```
+/// SQL for the `conflict_resolutions` table.
+const CREATE_TABLE_SQL: &str = r"
+    CREATE TABLE IF NOT EXISTS conflict_resolutions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        session TEXT NOT NULL,
+        file TEXT NOT NULL,
+        strategy TEXT NOT NULL,
+        reason TEXT,
+        confidence TEXT,
+        decider TEXT NOT NULL CHECK(decider IN ('ai', 'human'))
+    )
+    ";
+
+/// SQL statements for the `conflict_resolutions` indexes.
+const INDEX_SQL: &[&str] = &[
+    "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_session ON conflict_resolutions(session)",
+    "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_timestamp ON conflict_resolutions(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_decider ON conflict_resolutions(decider)",
+    "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_session_timestamp ON conflict_resolutions(session, timestamp)",
+];
+
+/// Create a single index, returning a descriptive error on failure.
+async fn create_index(pool: &SqlitePool, sql: &str) -> Result<()> {
+    sqlx::query(sql).execute(pool).await.map_err(|e| {
+        crate::Error::from(ConflictResolutionError::SchemaInitializationError {
+            operation: sql.to_string(),
+            source: e.to_string(),
+            recovery: "Check database permissions".to_string(),
+        })
+    })?;
+    Ok(())
+}
+
 pub async fn init_conflict_resolutions_schema(pool: &SqlitePool) -> Result<()> {
-    // Create conflict_resolutions table
-    let create_table = sqlx::query(
-        r"
-        CREATE TABLE IF NOT EXISTS conflict_resolutions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            session TEXT NOT NULL,
-            file TEXT NOT NULL,
-            strategy TEXT NOT NULL,
-            reason TEXT,
-            confidence TEXT,
-            decider TEXT NOT NULL CHECK(decider IN ('ai', 'human'))
-        )
-        ",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| ConflictResolutionError::SchemaInitializationError {
-        operation: "CREATE TABLE conflict_resolutions".to_string(),
-        source: e.to_string(),
-        recovery: "Check database permissions and connection".to_string(),
+    let create_table = sqlx::query(CREATE_TABLE_SQL).execute(pool).await.map_err(|e| {
+        crate::Error::from(ConflictResolutionError::SchemaInitializationError {
+            operation: "CREATE TABLE conflict_resolutions".to_string(),
+            source: e.to_string(),
+            recovery: "Check database permissions and connection".to_string(),
+        })
     })?;
 
-    // Create indexes
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_session ON conflict_resolutions(session)",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| ConflictResolutionError::SchemaInitializationError {
-        operation: "CREATE INDEX idx_conflict_resolutions_session".to_string(),
-        source: e.to_string(),
-        recovery: "Check database permissions".to_string(),
-    })?;
+    for sql in INDEX_SQL {
+        create_index(pool, sql).await?;
+    }
 
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_timestamp ON conflict_resolutions(timestamp)",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| ConflictResolutionError::SchemaInitializationError {
-        operation: "CREATE INDEX idx_conflict_resolutions_timestamp".to_string(),
-        source: e.to_string(),
-        recovery: "Check database permissions".to_string(),
-    })?;
-
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_decider ON conflict_resolutions(decider)",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| ConflictResolutionError::SchemaInitializationError {
-        operation: "CREATE INDEX idx_conflict_resolutions_decider".to_string(),
-        source: e.to_string(),
-        recovery: "Check database permissions".to_string(),
-    })?;
-
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_session_timestamp ON conflict_resolutions(session, timestamp)",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| ConflictResolutionError::SchemaInitializationError {
-        operation: "CREATE INDEX idx_conflict_resolutions_session_timestamp".to_string(),
-        source: e.to_string(),
-        recovery: "Check database permissions".to_string(),
-    })?;
-
-    // Log success
     tracing::debug!(
         "Initialized conflict_resolutions schema (rows_affected: {})",
         create_table.rows_affected()
@@ -124,24 +101,11 @@ pub async fn init_conflict_resolutions_schema(pool: &SqlitePool) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // SQL schema structure validation (static string analysis)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    /// The CREATE TABLE SQL from init_conflict_resolutions_schema.
-    /// We extract it here so we can test the SQL structure without a database.
-    const CREATE_TABLE_SQL: &str = r"
-        CREATE TABLE IF NOT EXISTS conflict_resolutions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            session TEXT NOT NULL,
-            file TEXT NOT NULL,
-            strategy TEXT NOT NULL,
-            reason TEXT,
-            confidence TEXT,
-            decider TEXT NOT NULL CHECK(decider IN ('ai', 'human'))
-        )
-        ";
 
     #[test]
     fn test_create_table_has_if_not_exists() {
@@ -211,13 +175,6 @@ mod tests {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // Index SQL structure validation
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    const INDEX_SQL: &[&str] = &[
-        "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_session ON conflict_resolutions(session)",
-        "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_timestamp ON conflict_resolutions(timestamp)",
-        "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_decider ON conflict_resolutions(decider)",
-        "CREATE INDEX IF NOT EXISTS idx_conflict_resolutions_session_timestamp ON conflict_resolutions(session, timestamp)",
-    ];
 
     #[test]
     fn test_all_indexes_use_if_not_exists() {

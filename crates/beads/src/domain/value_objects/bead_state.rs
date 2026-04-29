@@ -48,12 +48,16 @@ impl BeadState {
         let is_valid = match (self, &new_state) {
             (Self::Closed { .. }, _) => false,
             (Self::Open, Self::InProgress) => true,
+            (Self::Open, Self::Blocked) => true,
+            (Self::Open, Self::Deferred) => true,
             (Self::InProgress, Self::Blocked) => true,
             (Self::InProgress, Self::Deferred) => true,
             (Self::InProgress, Self::Closed { .. }) => true,
+            (Self::Blocked, Self::Open) => true,
             (Self::Blocked, Self::InProgress) => true,
             (Self::Blocked, Self::Deferred) => true,
             (Self::Blocked, Self::Closed { .. }) => true,
+            (Self::Deferred, Self::Open) => true,
             (Self::Deferred, Self::InProgress) => true,
             (Self::Deferred, Self::Closed { .. }) => true,
             (current, _) => std::ptr::eq(current, &new_state) || *current == new_state,
@@ -304,16 +308,10 @@ mod tests {
     }
 
     #[test]
-    fn transition_open_to_blocked_rejected() {
+    fn transition_open_to_blocked_succeeds() {
         let result = BeadState::Open.transition_to(BeadState::Blocked);
-        assert!(result.is_err());
-        match result.unwrap_err() {
-            BeadError::InvalidStateTransition { from, to } => {
-                assert_eq!(from, "open");
-                assert_eq!(to, "blocked");
-            }
-            other => panic!("expected InvalidStateTransition, got {other:?}"),
-        }
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), BeadState::Blocked);
     }
 
     #[test]
@@ -323,9 +321,10 @@ mod tests {
     }
 
     #[test]
-    fn transition_blocked_to_open_rejected() {
+    fn transition_blocked_to_open_succeeds() {
         let result = BeadState::Blocked.transition_to(BeadState::Open);
-        assert!(result.is_err());
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), BeadState::Open);
     }
 
     #[test]

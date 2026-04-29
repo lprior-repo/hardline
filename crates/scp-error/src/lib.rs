@@ -536,6 +536,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn code_workspace(&self) -> &'static str {
         match self {
             Self::WorkspaceNotFound(_) => "WORKSPACE_NOT_FOUND",
@@ -546,6 +547,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn code_session(&self) -> &'static str {
         match self {
             Self::SessionNotFound(_) => "SESSION_NOT_FOUND",
@@ -557,6 +559,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn code_bead(&self) -> &'static str {
         match self {
             Self::BeadNotFound(_) => "BEAD_NOT_FOUND",
@@ -571,6 +574,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn code_queue(&self) -> &'static str {
         match self {
             Self::QueueEmpty => "QUEUE_EMPTY",
@@ -583,6 +587,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn code_vcs(&self) -> &'static str {
         match self {
             Self::VcsNotInitialized => "VCS_NOT_INITIALIZED",
@@ -598,6 +603,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn code_stack(&self) -> &'static str {
         match self {
             Self::StackNotFound(_) => "STACK_NOT_FOUND",
@@ -609,6 +615,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn code_github(&self) -> &'static str {
         match self {
             Self::GitHubAuthFailed(_) => "GITHUB_AUTH_FAILED",
@@ -622,6 +629,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn code_snapshot(&self) -> &'static str {
         match self {
             Self::SnapshotNotFound(_) => "SNAPSHOT_NOT_FOUND",
@@ -633,6 +641,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn code_infrastructure(&self) -> &'static str {
         match self {
             Self::ConfigNotFound(_) => "CONFIG_NOT_FOUND",
@@ -739,6 +748,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn numeric_code_workspace(&self) -> u16 {
         match self {
             Self::WorkspaceNotFound(_) => 1001,
@@ -749,6 +759,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn numeric_code_session(&self) -> u16 {
         match self {
             Self::SessionNotFound(_) => 2001,
@@ -760,6 +771,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn numeric_code_bead(&self) -> u16 {
         match self {
             Self::BeadNotFound(_) => 3001,
@@ -774,6 +786,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn numeric_code_queue(&self) -> u16 {
         match self {
             Self::QueueEmpty => 4001,
@@ -786,6 +799,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn numeric_code_vcs(&self) -> u16 {
         match self {
             Self::VcsNotInitialized => 5001,
@@ -801,6 +815,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn numeric_code_stack(&self) -> u16 {
         match self {
             Self::StackNotFound(_) => 6001,
@@ -812,6 +827,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn numeric_code_github(&self) -> u16 {
         match self {
             Self::GitHubAuthFailed(_) => 7001,
@@ -825,6 +841,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn numeric_code_snapshot(&self) -> u16 {
         match self {
             Self::SnapshotNotFound(_) => 8001,
@@ -836,6 +853,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn numeric_code_infrastructure(&self) -> u16 {
         match self {
             Self::ConfigNotFound(_) => 9101,
@@ -939,6 +957,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn category_infrastructure(&self) -> ErrorCategory {
         match self {
             Self::ConfigNotFound(_)
@@ -1036,12 +1055,12 @@ impl Error {
             Self::WorkspaceNotFound(_)
             | Self::WorkspaceExists(_)
             | Self::WorkspaceLocked(_, _)
-            | Self::WorkspaceConflict(_) => self.context_workspace(),
+            | Self::WorkspaceConflict(_) => Some(self.context_workspace()),
             Self::SessionNotFound(_)
             | Self::SessionExists(_)
             | Self::SessionLocked(_, _)
             | Self::NotLockHolder(_, _)
-            | Self::SessionInvalidState(_, _, _) => self.context_session(),
+            | Self::SessionInvalidState(_, _, _) => Some(self.context_session()),
             Self::BeadNotFound(_)
             | Self::BeadAlreadyExists(_)
             | Self::InvalidBeadId(_)
@@ -1049,13 +1068,13 @@ impl Error {
             | Self::BeadInvalidStateTransition { .. }
             | Self::BeadDependencyCycle(_)
             | Self::BeadBlockedBy(_)
-            | Self::BeadInvalidDependency(_) => self.context_bead(),
+            | Self::BeadInvalidDependency(_) => Some(self.context_bead()),
             Self::QueueEmpty
             | Self::QueueItemNotFound(_)
             | Self::QueueLocked(_)
             | Self::QueueProcessing
             | Self::QueueInvalidPosition(_)
-            | Self::QueueFull(_) => self.context_queue(),
+            | Self::QueueFull(_) => Some(self.context_queue()),
             Self::VcsNotInitialized
             | Self::VcsConflict(_, _)
             | Self::VcsPushFailed(_)
@@ -1064,25 +1083,25 @@ impl Error {
             | Self::BranchNotFound(_)
             | Self::BranchExists(_)
             | Self::CommitNotFound(_)
-            | Self::WorkingCopyDirty => self.context_vcs(),
+            | Self::WorkingCopyDirty => Some(self.context_vcs()),
             Self::StackNotFound(_)
             | Self::StackOrphaned(_)
             | Self::StackCyclicDependency
             | Self::StackInvalidState(_)
-            | Self::StackPrNotFound(_) => self.context_stack(),
+            | Self::StackPrNotFound(_) => Some(self.context_stack()),
             Self::GitHubAuthFailed(_)
             | Self::GitHubTokenExpired
             | Self::GitHubRateLimited(_)
             | Self::GitHubPrClosed(_)
             | Self::GitHubPrNotFound(_)
             | Self::GitHubApiError { .. }
-            | Self::GitHubCiFailed(_) => self.context_github(),
-            _ => self.context_map_infrastructure(),
+            | Self::GitHubCiFailed(_) => Some(self.context_github()),
+            _ => Some(self.context_map_infrastructure()),
         }
     }
 
     /// Dispatches infrastructure (9xxx) context mapping.
-    fn context_map_infrastructure(&self) -> Option<serde_json::Value> {
+    fn context_map_infrastructure(&self) -> serde_json::Value {
         match self {
             Self::SnapshotNotFound(_)
             | Self::SnapshotCorrupted(_)
@@ -1125,251 +1144,248 @@ impl Error {
         }
     }
 
-    fn context_workspace(&self) -> Option<serde_json::Value> {
+    fn context_workspace(&self) -> serde_json::Value {
         match self {
             Self::WorkspaceNotFound(name) | Self::WorkspaceExists(name) => {
-                Some(serde_json::json!({
+                serde_json::json!({
                     "resource_type": "workspace",
                     "workspace_name": name,
-                }))
+                })
             }
-            Self::WorkspaceLocked(name, holder) => Some(serde_json::json!({
+            Self::WorkspaceLocked(name, holder) => serde_json::json!({
                 "workspace_name": name,
                 "holder": holder,
-            })),
-            Self::WorkspaceConflict(msg) => Some(serde_json::json!({
+            }),
+            Self::WorkspaceConflict(msg) => serde_json::json!({
                 "message": msg,
-            })),
+            }),
             _ => unreachable!("context_workspace called on non-workspace variant"),
         }
     }
 
-    fn context_session(&self) -> Option<serde_json::Value> {
+    fn context_session(&self) -> serde_json::Value {
         match self {
-            Self::SessionNotFound(name) | Self::SessionExists(name) => Some(serde_json::json!({
+            Self::SessionNotFound(name) | Self::SessionExists(name) => serde_json::json!({
                 "resource_type": "session",
                 "session_name": name,
-            })),
-            Self::SessionLocked(session, holder) => Some(serde_json::json!({
+            }),
+            Self::SessionLocked(session, holder) => serde_json::json!({
                 "session": session,
                 "holder": holder,
-            })),
-            Self::NotLockHolder(session, agent_id) => Some(serde_json::json!({
+            }),
+            Self::NotLockHolder(session, agent_id) => serde_json::json!({
                 "session": session,
                 "agent_id": agent_id,
-            })),
-            Self::SessionInvalidState(session, actual, expected) => Some(serde_json::json!({
+            }),
+            Self::SessionInvalidState(session, actual, expected) => serde_json::json!({
                 "session": session,
                 "actual_state": actual,
                 "expected_state": expected,
-            })),
+            }),
             _ => unreachable!("context_session called on non-session variant"),
         }
     }
 
-    fn context_bead(&self) -> Option<serde_json::Value> {
+    fn context_bead(&self) -> serde_json::Value {
         match self {
-            Self::BeadNotFound(id) | Self::BeadAlreadyExists(id) => Some(serde_json::json!({
+            Self::BeadNotFound(id) | Self::BeadAlreadyExists(id) => serde_json::json!({
                 "resource_type": "bead",
                 "bead_id": id,
-            })),
-            Self::InvalidBeadId(id) => Some(serde_json::json!({
+            }),
+            Self::InvalidBeadId(id) => serde_json::json!({
                 "bead_id": id,
-            })),
-            Self::InvalidBeadTitle(title) => Some(serde_json::json!({
+            }),
+            Self::InvalidBeadTitle(title) => serde_json::json!({
                 "title": title,
-            })),
-            Self::BeadInvalidStateTransition { from, to } => Some(serde_json::json!({
+            }),
+            Self::BeadInvalidStateTransition { from, to } => serde_json::json!({
                 "from_state": from,
                 "to_state": to,
-            })),
-            Self::BeadDependencyCycle(path) => Some(serde_json::json!({
+            }),
+            Self::BeadDependencyCycle(path) => serde_json::json!({
                 "cycle_path": path,
-            })),
-            Self::BeadBlockedBy(blockers) => Some(serde_json::json!({
+            }),
+            Self::BeadBlockedBy(blockers) => serde_json::json!({
                 "blockers": blockers,
-            })),
-            Self::BeadInvalidDependency(dep) => Some(serde_json::json!({
+            }),
+            Self::BeadInvalidDependency(dep) => serde_json::json!({
                 "dependency": dep,
-            })),
+            }),
             _ => unreachable!("context_bead called on non-bead variant"),
         }
     }
 
-    fn context_queue(&self) -> Option<serde_json::Value> {
+    fn context_queue(&self) -> serde_json::Value {
         match self {
-            Self::QueueEmpty => Some(serde_json::json!({
+            Self::QueueEmpty => serde_json::json!({
                 "error_type": "queue_empty",
-            })),
-            Self::QueueItemNotFound(item) => Some(serde_json::json!({
+            }),
+            Self::QueueItemNotFound(item) => serde_json::json!({
                 "item": item,
-            })),
-            Self::QueueLocked(holder) => Some(serde_json::json!({
+            }),
+            Self::QueueLocked(holder) => serde_json::json!({
                 "holder": holder,
-            })),
-            Self::QueueProcessing => Some(serde_json::json!({
+            }),
+            Self::QueueProcessing => serde_json::json!({
                 "error_type": "queue_processing",
-            })),
-            Self::QueueInvalidPosition(pos) => Some(serde_json::json!({
+            }),
+            Self::QueueInvalidPosition(pos) => serde_json::json!({
                 "position": pos,
-            })),
-            Self::QueueFull(max) => Some(serde_json::json!({
+            }),
+            Self::QueueFull(max) => serde_json::json!({
                 "max_size": max,
-            })),
+            }),
             _ => unreachable!("context_queue called on non-queue variant"),
         }
     }
 
-    fn context_vcs(&self) -> Option<serde_json::Value> {
+    fn context_vcs(&self) -> serde_json::Value {
         match self {
-            Self::VcsNotInitialized => Some(serde_json::json!({
+            Self::VcsNotInitialized => serde_json::json!({
                 "error_type": "vcs_not_initialized",
-            })),
-            Self::VcsConflict(repo, msg) => Some(serde_json::json!({
+            }),
+            Self::VcsConflict(repo, msg) => serde_json::json!({
                 "repo": repo,
                 "message": msg,
-            })),
-            Self::VcsPushFailed(msg) => Some(serde_json::json!({
+            }),
+            Self::VcsPushFailed(msg) => serde_json::json!({
                 "operation": "push",
                 "error": msg,
-            })),
-            Self::VcsPullFailed(msg) => Some(serde_json::json!({
+            }),
+            Self::VcsPullFailed(msg) => serde_json::json!({
                 "operation": "pull",
                 "error": msg,
-            })),
-            Self::VcsRebaseFailed(msg) => Some(serde_json::json!({
+            }),
+            Self::VcsRebaseFailed(msg) => serde_json::json!({
                 "operation": "rebase",
                 "error": msg,
-            })),
-            Self::BranchNotFound(branch) | Self::BranchExists(branch) => Some(serde_json::json!({
+            }),
+            Self::BranchNotFound(branch) | Self::BranchExists(branch) => serde_json::json!({
                 "resource_type": "branch",
                 "branch_name": branch,
-            })),
-            Self::CommitNotFound(commit) => Some(serde_json::json!({
+            }),
+            Self::CommitNotFound(commit) => serde_json::json!({
                 "resource_type": "commit",
                 "commit_id": commit,
-            })),
-            Self::WorkingCopyDirty => Some(serde_json::json!({
+            }),
+            Self::WorkingCopyDirty => serde_json::json!({
                 "error_type": "working_copy_dirty",
-            })),
+            }),
             _ => unreachable!("context_vcs called on non-vcs variant"),
         }
     }
 
-    fn context_stack(&self) -> Option<serde_json::Value> {
+    fn context_stack(&self) -> serde_json::Value {
         match self {
-            Self::StackNotFound(name) => Some(serde_json::json!({
+            Self::StackNotFound(name) => serde_json::json!({
                 "resource_type": "stack",
                 "stack_name": name,
-            })),
-            Self::StackOrphaned(parent) => Some(serde_json::json!({
+            }),
+            Self::StackOrphaned(parent) => serde_json::json!({
                 "parent": parent,
-            })),
-            Self::StackCyclicDependency => Some(serde_json::json!({
+            }),
+            Self::StackCyclicDependency => serde_json::json!({
                 "error_type": "stack_cyclic_dependency",
-            })),
-            Self::StackInvalidState(state) => Some(serde_json::json!({
+            }),
+            Self::StackInvalidState(state) => serde_json::json!({
                 "state": state,
-            })),
-            Self::StackPrNotFound(pr) => Some(serde_json::json!({
+            }),
+            Self::StackPrNotFound(pr) => serde_json::json!({
                 "pr": pr,
-            })),
+            }),
             _ => unreachable!("context_stack called on non-stack variant"),
         }
     }
 
-    fn context_github(&self) -> Option<serde_json::Value> {
+    fn context_github(&self) -> serde_json::Value {
         match self {
-            Self::GitHubAuthFailed(msg) => Some(serde_json::json!({
+            Self::GitHubAuthFailed(msg) => serde_json::json!({
                 "error": msg,
-            })),
-            Self::GitHubTokenExpired => Some(serde_json::json!({
+            }),
+            Self::GitHubTokenExpired => serde_json::json!({
                 "error_type": "github_token_expired",
-            })),
-            Self::GitHubRateLimited(retry_after) => Some(serde_json::json!({
+            }),
+            Self::GitHubRateLimited(retry_after) => serde_json::json!({
                 "retry_after": retry_after,
-            })),
-            Self::GitHubPrClosed(pr) => Some(serde_json::json!({
+            }),
+            Self::GitHubPrClosed(pr) | Self::GitHubPrNotFound(pr) => serde_json::json!({
                 "pr": pr,
-            })),
-            Self::GitHubPrNotFound(pr) => Some(serde_json::json!({
-                "pr": pr,
-            })),
-            Self::GitHubApiError { status, message } => Some(serde_json::json!({
+            }),
+            Self::GitHubApiError { status, message } => serde_json::json!({
                 "status": status,
                 "message": message,
-            })),
-            Self::GitHubCiFailed(checks) => Some(serde_json::json!({
+            }),
+            Self::GitHubCiFailed(checks) => serde_json::json!({
                 "checks": checks,
-            })),
+            }),
             _ => unreachable!("context_github called on non-github variant"),
         }
     }
 
-    fn context_snapshot(&self) -> Option<serde_json::Value> {
+    fn context_snapshot(&self) -> serde_json::Value {
         match self {
-            Self::SnapshotNotFound(id) => Some(serde_json::json!({
+            Self::SnapshotNotFound(id) => serde_json::json!({
                 "resource_type": "snapshot",
                 "snapshot_id": id,
-            })),
-            Self::SnapshotCorrupted(details) => Some(serde_json::json!({
+            }),
+            Self::SnapshotCorrupted(details) => serde_json::json!({
                 "error": details,
-            })),
+            }),
             Self::SnapshotExpired(msg)
             | Self::SnapshotLimitExceeded(msg)
-            | Self::SnapshotRestoreFailed(msg) => Some(serde_json::json!({
+            | Self::SnapshotRestoreFailed(msg) => serde_json::json!({
                 "error": msg,
-            })),
+            }),
             _ => unreachable!("context_snapshot called on non-snapshot variant"),
         }
     }
 
-    fn context_config(&self) -> Option<serde_json::Value> {
+    fn context_config(&self) -> serde_json::Value {
         match self {
-            Self::ConfigNotFound(key) => Some(serde_json::json!({
+            Self::ConfigNotFound(key) => serde_json::json!({
                 "resource_type": "config",
                 "key": key,
-            })),
-            Self::ConfigInvalid(msg) | Self::InvalidConfig(msg) => Some(serde_json::json!({
+            }),
+            Self::ConfigInvalid(msg) | Self::InvalidConfig(msg) => serde_json::json!({
                 "error": msg,
-            })),
-            Self::ConfigPermission(path) => Some(serde_json::json!({
+            }),
+            Self::ConfigPermission(path) => serde_json::json!({
                 "path": path,
-            })),
-            Self::InvalidRepoUrl(url) => Some(serde_json::json!({
+            }),
+            Self::InvalidRepoUrl(url) => serde_json::json!({
                 "url": url,
-            })),
+            }),
             _ => unreachable!("context_config called on non-config variant"),
         }
     }
 
-    fn context_agent(&self) -> Option<serde_json::Value> {
+    fn context_agent(&self) -> serde_json::Value {
         match self {
-            Self::AgentNotFound(id) | Self::AgentExists(id) => Some(serde_json::json!({
+            Self::AgentNotFound(id) | Self::AgentExists(id) => serde_json::json!({
                 "resource_type": "agent",
                 "agent_id": id,
-            })),
-            Self::AgentTimeout(id) => Some(serde_json::json!({
+            }),
+            Self::AgentTimeout(id) => serde_json::json!({
                 "agent_id": id,
-            })),
+            }),
             _ => unreachable!("context_agent called on non-agent variant"),
         }
     }
 
-    fn context_state_validation(&self) -> Option<serde_json::Value> {
+    fn context_state_validation(&self) -> serde_json::Value {
         match self {
-            Self::InvalidState(msg) => Some(serde_json::json!({
+            Self::InvalidState(msg) => serde_json::json!({
                 "state": msg,
-            })),
-            Self::NotFound(resource) => Some(serde_json::json!({
+            }),
+            Self::NotFound(resource) => serde_json::json!({
                 "resource": resource,
-            })),
-            Self::InvalidOperation(op) => Some(serde_json::json!({
+            }),
+            Self::InvalidOperation(op) => serde_json::json!({
                 "operation": op,
-            })),
-            Self::ValidationError(msg) => Some(serde_json::json!({
+            }),
+            Self::ValidationError(msg) => serde_json::json!({
                 "error": msg,
-            })),
+            }),
             Self::ValidationFieldError {
                 message,
                 field,
@@ -1382,55 +1398,55 @@ impl Error {
                 if let Some(v) = value {
                     map["value"] = serde_json::json!(v);
                 }
-                Some(map)
+                map
             }
-            Self::InvalidIdentifier(id) => Some(serde_json::json!({
+            Self::InvalidIdentifier(id) => serde_json::json!({
                 "identifier": id,
-            })),
+            }),
             _ => unreachable!("context_state_validation called on non-state/validation variant"),
         }
     }
 
-    fn context_io_storage(&self) -> Option<serde_json::Value> {
+    fn context_io_storage(&self) -> serde_json::Value {
         match self {
             Self::IoError(msg)
             | Self::JsonParseError(msg)
             | Self::YamlParseError(msg)
             | Self::Database(msg)
-            | Self::Serialization(msg) => Some(serde_json::json!({
+            | Self::Serialization(msg) => serde_json::json!({
                 "error": msg,
-            })),
+            }),
             _ => unreachable!("context_io_storage called on non-io/storage variant"),
         }
     }
 
-    fn context_orchestration(&self) -> Option<serde_json::Value> {
+    fn context_orchestration(&self) -> serde_json::Value {
         match self {
             Self::LockTimeout {
                 operation,
                 timeout_ms,
                 retries,
-            } => Some(serde_json::json!({
+            } => serde_json::json!({
                 "operation": operation,
                 "timeout_ms": timeout_ms,
                 "retries": retries,
-            })),
+            }),
             Self::CloneFailed(msg)
             | Self::RecordFailed(msg)
-            | Self::Persistence(msg) => Some(serde_json::json!({
+            | Self::Persistence(msg) => serde_json::json!({
                 "error": msg,
-            })),
-            Self::StateTransition(msg) => Some(serde_json::json!({
+            }),
+            Self::StateTransition(msg) => serde_json::json!({
                 "transition": msg,
-            })),
-            Self::Unimplemented(feature) => Some(serde_json::json!({
+            }),
+            Self::Unimplemented(feature) => serde_json::json!({
                 "feature": feature,
-            })),
+            }),
             _ => unreachable!("context_orchestration called on non-orchestration variant"),
         }
     }
 
-    fn context_scenario(&self) -> Option<serde_json::Value> {
+    fn context_scenario(&self) -> serde_json::Value {
         match self {
             Self::ScenarioError(msg)
             | Self::RunnerError(msg)
@@ -1438,9 +1454,9 @@ impl Error {
             | Self::ServerError(msg)
             | Self::SyncError(msg)
             | Self::Internal(msg)
-            | Self::InvariantViolation(msg) => Some(serde_json::json!({
+            | Self::InvariantViolation(msg) => serde_json::json!({
                 "error": msg,
-            })),
+            }),
             _ => unreachable!("context_scenario called on non-scenario/internal variant"),
         }
     }
@@ -1527,6 +1543,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn exit_code_workspace(&self) -> i32 {
         match self {
             Self::WorkspaceNotFound(_) => 10,
@@ -1537,6 +1554,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn exit_code_session(&self) -> i32 {
         match self {
             Self::SessionNotFound(_) => 20,
@@ -1548,6 +1566,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn exit_code_bead(&self) -> i32 {
         match self {
             Self::BeadNotFound(_) => 30,
@@ -1562,6 +1581,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn exit_code_queue(&self) -> i32 {
         match self {
             Self::QueueEmpty => 40,
@@ -1574,6 +1594,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn exit_code_vcs(&self) -> i32 {
         match self {
             Self::VcsNotInitialized => 50,
@@ -1589,6 +1610,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn exit_code_stack(&self) -> i32 {
         match self {
             Self::StackNotFound(_) => 60,
@@ -1600,6 +1622,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn exit_code_github(&self) -> i32 {
         match self {
             Self::GitHubAuthFailed(_) => 70,
@@ -1613,6 +1636,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn exit_code_snapshot(&self) -> i32 {
         match self {
             Self::SnapshotNotFound(_) => 80,
@@ -1624,6 +1648,7 @@ impl Error {
         }
     }
 
+    #[allow(clippy::panic)]
     const fn exit_code_infrastructure(&self) -> i32 {
         match self {
             Self::ConfigNotFound(_) => 90,

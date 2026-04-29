@@ -319,7 +319,7 @@ impl DurableExecutor {
 
 /// Scans the step journal for incomplete operations and produces recovery tasks.
 ///
-/// When a [`SqliteJournal`] is provided the scanner queries SQLite for operations
+/// When a [`SqliteJournal`] is provided the scanner queries `SQLite` for operations
 /// in non-terminal states and determines the resume point from the last
 /// completed step. Without a journal the scanner is a no-op.
 pub struct RecoveryScanner {
@@ -337,7 +337,7 @@ impl std::fmt::Debug for RecoveryScanner {
 impl RecoveryScanner {
     /// Create a scanner backed by the given journal.
     #[must_use]
-    pub fn new(journal: crate::domain::workflow::SqliteJournal) -> Self {
+    pub const fn new(journal: crate::domain::workflow::SqliteJournal) -> Self {
         Self {
             journal: Some(journal),
         }
@@ -355,9 +355,8 @@ impl RecoveryScanner {
     ///
     /// Returns an error if the underlying journal query fails.
     pub async fn scan_incomplete_operations(&self) -> DurableResult<Vec<RecoveryTask>> {
-        let journal = match &self.journal {
-            Some(j) => j,
-            None => return Ok(Vec::new()),
+        let Some(journal) = &self.journal else {
+            return Ok(Vec::new());
         };
 
         journal
@@ -372,9 +371,8 @@ impl RecoveryScanner {
     ///
     /// Returns an error if the update fails.
     pub async fn recover_operation(&self, task: RecoveryTask) -> DurableResult<()> {
-        let journal = match &self.journal {
-            Some(j) => j,
-            None => return Ok(()),
+        let Some(journal) = &self.journal else {
+            return Ok(());
         };
 
         journal

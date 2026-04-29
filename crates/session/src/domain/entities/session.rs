@@ -183,6 +183,17 @@ impl SealedActive for CommittingEffect {}
 impl SealedActive for Syncing {}
 impl SealedActive for Synced {}
 
+/// Parameter struct for `Session::from_parts`.
+pub struct SessionParts {
+    pub id: SessionId,
+    pub name: SessionName,
+    pub workspace: Option<WorkspaceId>,
+    pub bead: Option<BeadId>,
+    pub branch: BranchState,
+    pub last_synced: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Session<S = Created> {
     pub id: SessionId,
@@ -211,23 +222,15 @@ impl Session<Created> {
 
     /// Create a Session from parsed components (used by repository)
     #[must_use]
-    pub fn from_parts(
-        id: SessionId,
-        name: SessionName,
-        workspace: Option<WorkspaceId>,
-        bead: Option<BeadId>,
-        branch: BranchState,
-        last_synced: Option<DateTime<Utc>>,
-        created_at: DateTime<Utc>,
-    ) -> Self {
+    pub fn from_parts(parts: SessionParts) -> Self {
         Self {
-            id,
-            name,
-            workspace,
-            bead,
-            branch,
-            last_synced,
-            created_at,
+            id: parts.id,
+            name: parts.name,
+            workspace: parts.workspace,
+            bead: parts.bead,
+            branch: parts.branch,
+            last_synced: parts.last_synced,
+            created_at: parts.created_at,
             _state: PhantomData,
         }
     }
@@ -769,15 +772,15 @@ mod tests {
             let branch = BranchState::OnBranch { name: "dev".into() };
             let created_at = chrono::Utc::now();
 
-            let session = Session::from_parts(
-                id.clone(),
-                name.clone(),
-                Some(ws.clone()),
-                Some(bd.clone()),
-                branch.clone(),
-                None,
+            let session = Session::from_parts(SessionParts {
+                id: id.clone(),
+                name: name.clone(),
+                workspace: Some(ws.clone()),
+                bead: Some(bd.clone()),
+                branch: branch.clone(),
+                last_synced: None,
                 created_at,
-            );
+            });
 
             assert_eq!(session.id.as_str(), "preset-id");
             assert_eq!(session.name.as_str(), "preset-name");
@@ -1484,15 +1487,15 @@ mod tests {
             let branch = BranchState::OnBranch { name: "dev".into() };
             let ts = chrono::Utc::now();
 
-            let session = Session::from_parts(
-                id.clone(),
-                name.clone(),
-                Some(ws.clone()),
-                Some(bd.clone()),
-                branch.clone(),
-                Some(ts),
-                chrono::Utc::now(),
-            );
+            let session = Session::from_parts(SessionParts {
+                id: id.clone(),
+                name: name.clone(),
+                workspace: Some(ws.clone()),
+                bead: Some(bd.clone()),
+                branch: branch.clone(),
+                last_synced: Some(ts),
+                created_at: chrono::Utc::now(),
+            });
 
             assert_eq!(session.id.as_str(), "preset-id");
             assert_eq!(session.name.as_str(), "preset-name");
@@ -1503,15 +1506,15 @@ mod tests {
 
         #[test]
         fn session_from_parts_with_no_optional_fields() {
-            let session = Session::from_parts(
-                SessionId::parse("minimal").expect("valid"),
-                SessionName::parse("minimal-name").expect("valid"),
-                None,
-                None,
-                BranchState::Detached,
-                None,
-                chrono::Utc::now(),
-            );
+            let session = Session::from_parts(SessionParts {
+                id: SessionId::parse("minimal").expect("valid"),
+                name: SessionName::parse("minimal-name").expect("valid"),
+                workspace: None,
+                bead: None,
+                branch: BranchState::Detached,
+                last_synced: None,
+                created_at: chrono::Utc::now(),
+            });
 
             assert!(session.workspace().is_none());
             assert!(session.bead().is_none());

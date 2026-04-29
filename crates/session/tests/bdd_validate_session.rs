@@ -17,7 +17,7 @@ use scp_session::{
         bead::{Bead, BeadState},
         bead_types::{BeadType, Priority},
         bead_value::{BeadDescription, BeadId, BeadTitle},
-        entities::session::{BranchState, Created, Session, SessionId, SessionState},
+        entities::session::{BranchState, Created, Session, SessionId, SessionParts, SessionState},
         events::{
             deserialize_event, serialize_event, SessionCompletedEvent, SessionCreatedEvent,
             SessionEvent, SessionFailedEvent,
@@ -1076,15 +1076,15 @@ fn adv13_session_from_parts_with_all_fields() {
     let branch = BranchState::OnBranch { name: "dev".into() };
     let ts = Utc::now();
 
-    let session = Session::from_parts(
-        id.clone(),
-        name.clone(),
-        Some(ws.clone()),
-        Some(bd.clone()),
-        branch.clone(),
-        Some(ts),
-        Utc::now(),
-    );
+    let session = Session::from_parts(SessionParts {
+        id: id.clone(),
+        name: name.clone(),
+        workspace: Some(ws.clone()),
+        bead: Some(bd.clone()),
+        branch: branch.clone(),
+        last_synced: Some(ts),
+        created_at: Utc::now(),
+    });
 
     assert_eq!(session.id.as_str(), "preset-id");
     assert_eq!(session.name.as_str(), "preset-name");
