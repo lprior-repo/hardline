@@ -10,7 +10,7 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new(name: String, branch: String, is_current: bool) -> Self {
+    pub const fn new(name: String, branch: String, is_current: bool) -> Self {
         Self {
             name,
             branch,

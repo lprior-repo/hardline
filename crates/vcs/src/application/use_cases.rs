@@ -21,7 +21,7 @@ impl Default for VcsServiceImpl {
 }
 
 impl VcsServiceImpl {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 }

@@ -108,7 +108,7 @@ impl BeadDescription {
     }
 
     #[must_use]
-    pub fn as_option(&self) -> Option<&String> {
+    pub const fn as_option(&self) -> Option<&String> {
         self.0.as_ref()
     }
 

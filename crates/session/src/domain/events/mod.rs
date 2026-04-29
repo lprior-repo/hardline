@@ -15,7 +15,7 @@ pub enum SessionEvent {
 }
 
 impl SessionEvent {
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Activated => "activated",
             Self::CommittingEffect => "committing_effect",

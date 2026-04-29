@@ -114,7 +114,7 @@ impl VcsBackend for GitCliBackend {
                     let _parent_count: usize = parts[4].parse().ok().unwrap_or(1);
                     let message = parts[5].to_string();
                     let author_full = if email.is_empty() {
-                        author.clone()
+                        author
                     } else {
                         format!("{} <{}>", author, email)
                     };
@@ -122,7 +122,7 @@ impl VcsBackend for GitCliBackend {
                         id,
                         message,
                         author_full,
-                        GitCliBackend::parse_timestamp(timestamp),
+                        Self::parse_timestamp(timestamp),
                         Vec::new(),
                     ))
                 } else {

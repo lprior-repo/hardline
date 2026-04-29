@@ -277,43 +277,43 @@ impl Workspace {
     /// # Postconditions (Q10)
     /// - returns true iff state ∈ {Merged, Conflict, Abandoned}
     #[must_use]
-    pub fn is_terminal(&self) -> bool {
+    pub const fn is_terminal(&self) -> bool {
         self.state.is_terminal()
     }
 
     /// Get the workspace ID
     #[must_use]
-    pub fn id(&self) -> &WorkspaceId {
+    pub const fn id(&self) -> &WorkspaceId {
         &self.id
     }
 
     /// Get the workspace name
     #[must_use]
-    pub fn name(&self) -> &WorkspaceName {
+    pub const fn name(&self) -> &WorkspaceName {
         &self.name
     }
 
     /// Get the workspace path
     #[must_use]
-    pub fn path(&self) -> &WorkspacePath {
+    pub const fn path(&self) -> &WorkspacePath {
         &self.path
     }
 
     /// Get the current state
     #[must_use]
-    pub fn state(&self) -> WorkspaceState {
+    pub const fn state(&self) -> WorkspaceState {
         self.state
     }
 
     /// Get creation timestamp
     #[must_use]
-    pub fn created_at(&self) -> DateTime<Utc> {
+    pub const fn created_at(&self) -> DateTime<Utc> {
         self.created_at
     }
 
     /// Get last update timestamp
     #[must_use]
-    pub fn updated_at(&self) -> DateTime<Utc> {
+    pub const fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at
     }
 }

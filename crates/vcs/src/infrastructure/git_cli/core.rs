@@ -16,7 +16,7 @@ pub struct GitCliBackend {
 }
 
 impl GitCliBackend {
-    pub fn new(repo_path: std::path::PathBuf) -> Self {
+    pub const fn new(repo_path: std::path::PathBuf) -> Self {
         Self { repo_path }
     }
 
@@ -24,7 +24,7 @@ impl GitCliBackend {
         Self::new(path.into())
     }
 
-    pub fn repo_path(&self) -> &std::path::PathBuf {
+    pub const fn repo_path(&self) -> &std::path::PathBuf {
         &self.repo_path
     }
 

@@ -28,7 +28,7 @@ impl MigrationVersion {
     }
 
     /// Get the inner value
-    pub fn as_i64(self) -> i64 {
+    pub const fn as_i64(self) -> i64 {
         self.0
     }
 }

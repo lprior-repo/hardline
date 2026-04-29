@@ -13,7 +13,7 @@ pub struct Commit {
 }
 
 impl Commit {
-    pub fn new(
+    pub const fn new(
         id: String,
         message: String,
         author: String,

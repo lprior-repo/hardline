@@ -94,17 +94,17 @@ pub type Result<T> = std::result::Result<T, VcsError>;
 impl From<GitError> for VcsError {
     fn from(err: GitError) -> Self {
         match err {
-            GitError::NotFound(_path) => VcsError::NotInitialized,
-            GitError::InvalidRef { name, reason: _ } => VcsError::BranchNotFound(name),
-            GitError::Conflict { message, .. } => VcsError::Conflict(message, String::new()),
-            GitError::Unauthorized(msg) => VcsError::PushFailed(msg),
-            GitError::Network(msg) => VcsError::PullFailed(msg),
-            GitError::Io(io_err) => VcsError::Io(io_err),
-            GitError::Gix(gix_err) => VcsError::Unimplemented(gix_err.to_string()),
-            GitError::GixDiscover(gix_err) => VcsError::Unimplemented(gix_err.to_string()),
-            GitError::GixInit(gix_err) => VcsError::Unimplemented(gix_err.to_string()),
-            GitError::GixStatus(err) => VcsError::Unimplemented(err.to_string()),
-            GitError::GixStatusIter(err) => VcsError::Unimplemented(err.to_string()),
+            GitError::NotFound(_path) => Self::NotInitialized,
+            GitError::InvalidRef { name, reason: _ } => Self::BranchNotFound(name),
+            GitError::Conflict { message, .. } => Self::Conflict(message, String::new()),
+            GitError::Unauthorized(msg) => Self::PushFailed(msg),
+            GitError::Network(msg) => Self::PullFailed(msg),
+            GitError::Io(io_err) => Self::Io(io_err),
+            GitError::Gix(gix_err) => Self::Unimplemented(gix_err.to_string()),
+            GitError::GixDiscover(gix_err) => Self::Unimplemented(gix_err.to_string()),
+            GitError::GixInit(gix_err) => Self::Unimplemented(gix_err.to_string()),
+            GitError::GixStatus(err) => Self::Unimplemented(err.to_string()),
+            GitError::GixStatusIter(err) => Self::Unimplemented(err.to_string()),
         }
     }
 }

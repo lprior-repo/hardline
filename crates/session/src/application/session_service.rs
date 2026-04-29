@@ -25,7 +25,7 @@ impl SessionService {
         session.fail()
     }
 
-    pub fn list_sessions() -> Result<Vec<Session<Created>>> {
+    pub const fn list_sessions() -> Result<Vec<Session<Created>>> {
         Ok(Vec::new())
     }
 

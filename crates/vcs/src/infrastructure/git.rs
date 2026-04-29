@@ -17,7 +17,7 @@ pub struct GitBackend {
 }
 
 impl GitBackend {
-    pub fn new(repo_path: PathBuf) -> Self {
+    pub const fn new(repo_path: PathBuf) -> Self {
         Self { repo_path }
     }
 

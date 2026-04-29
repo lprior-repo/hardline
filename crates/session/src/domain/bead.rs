@@ -22,7 +22,7 @@ use crate::{domain::workspace_state::WorkspaceState, error::SessionError};
 /// - Blocked: Bead has blockers
 /// - Deferred: Bead has been deferred
 /// - Closed: Bead is done (terminal state)
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bead {
     id: BeadId,
     title: BeadTitle,
@@ -195,7 +195,7 @@ impl Bead {
         }
     }
 
-    fn validate_state_transition(&self, new_state: BeadState) -> Result<(), SessionError> {
+    const fn validate_state_transition(&self, new_state: BeadState) -> Result<(), SessionError> {
         if self.state.can_transition_to(new_state) {
             Ok(())
         } else {
@@ -211,7 +211,7 @@ impl Bead {
     /// # Postconditions (Q14)
     /// - returns true iff blocked_by is non-empty
     #[must_use]
-    pub fn is_blocked(&self) -> bool {
+    pub const fn is_blocked(&self) -> bool {
         !self.blocked_by.is_empty()
     }
 
@@ -235,42 +235,42 @@ impl Bead {
 
     // Getters
     #[must_use]
-    pub fn id(&self) -> &BeadId {
+    pub const fn id(&self) -> &BeadId {
         &self.id
     }
 
     #[must_use]
-    pub fn title(&self) -> &BeadTitle {
+    pub const fn title(&self) -> &BeadTitle {
         &self.title
     }
 
     #[must_use]
-    pub fn description(&self) -> Option<&BeadDescription> {
+    pub const fn description(&self) -> Option<&BeadDescription> {
         self.description.as_ref()
     }
 
     #[must_use]
-    pub fn bead_type(&self) -> BeadType {
+    pub const fn bead_type(&self) -> BeadType {
         self.bead_type
     }
 
     #[must_use]
-    pub fn priority(&self) -> Priority {
+    pub const fn priority(&self) -> Priority {
         self.priority
     }
 
     #[must_use]
-    pub fn state(&self) -> BeadState {
+    pub const fn state(&self) -> BeadState {
         self.state
     }
 
     #[must_use]
-    pub fn assignee(&self) -> Option<&String> {
+    pub const fn assignee(&self) -> Option<&String> {
         self.assignee.as_ref()
     }
 
     #[must_use]
-    pub fn parent(&self) -> Option<&BeadId> {
+    pub const fn parent(&self) -> Option<&BeadId> {
         self.parent.as_ref()
     }
 
@@ -285,17 +285,17 @@ impl Bead {
     }
 
     #[must_use]
-    pub fn closed_at(&self) -> Option<DateTime<Utc>> {
+    pub const fn closed_at(&self) -> Option<DateTime<Utc>> {
         self.closed_at
     }
 
     #[must_use]
-    pub fn created_at(&self) -> DateTime<Utc> {
+    pub const fn created_at(&self) -> DateTime<Utc> {
         self.created_at
     }
 
     #[must_use]
-    pub fn updated_at(&self) -> DateTime<Utc> {
+    pub const fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at
     }
 }

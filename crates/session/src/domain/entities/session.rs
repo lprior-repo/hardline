@@ -32,7 +32,7 @@ pub enum SessionState {
 
 impl SessionState {
     #[must_use]
-    pub fn is_terminal(self) -> bool {
+    pub const fn is_terminal(self) -> bool {
         matches!(self, Self::Completed | Self::Failed)
     }
 }
@@ -58,7 +58,7 @@ impl BranchState {
     }
 
     #[must_use]
-    pub fn can_transition_to(&self, target: &Self) -> bool {
+    pub const fn can_transition_to(&self, target: &Self) -> bool {
         match (self, target) {
             (Self::Detached, Self::OnBranch { .. })
             | (Self::OnBranch { .. }, Self::Detached)
@@ -246,27 +246,27 @@ impl Session<Created> {
 
 impl<S: StateInfo> Session<S> {
     #[must_use]
-    pub fn id(&self) -> &SessionId {
+    pub const fn id(&self) -> &SessionId {
         &self.id
     }
 
     #[must_use]
-    pub fn name(&self) -> &SessionName {
+    pub const fn name(&self) -> &SessionName {
         &self.name
     }
 
     #[must_use]
-    pub fn workspace(&self) -> Option<&WorkspaceId> {
+    pub const fn workspace(&self) -> Option<&WorkspaceId> {
         self.workspace.as_ref()
     }
 
     #[must_use]
-    pub fn bead(&self) -> Option<&BeadId> {
+    pub const fn bead(&self) -> Option<&BeadId> {
         self.bead.as_ref()
     }
 
     #[must_use]
-    pub fn branch(&self) -> &BranchState {
+    pub const fn branch(&self) -> &BranchState {
         &self.branch
     }
 
@@ -429,7 +429,7 @@ impl Session<Failed> {
 
 impl<S: SealedActive> Session<S> {
     #[must_use]
-    pub fn is_active(&self) -> bool {
+    pub const fn is_active(&self) -> bool {
         true
     }
 }

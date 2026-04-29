@@ -14,10 +14,7 @@ use crate::gix::cli::{cli_error, require_workdir, run_git};
 /// Reads the reflog of `refs/stash` via gix when the reference exists,
 /// falling back to `git stash list` otherwise.
 pub fn list(repo: &gix::Repository) -> GitResult<Vec<StashEntry>> {
-    match list_via_gix(repo) {
-        Ok(entries) => Ok(entries),
-        Err(_) => list_via_cli(repo),
-    }
+    list_via_gix(repo).or_else(|_| list_via_cli(repo))
 }
 
 /// Save (push) a new stash entry.

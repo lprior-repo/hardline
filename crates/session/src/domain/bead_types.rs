@@ -18,7 +18,7 @@ pub enum BeadType {
 }
 
 impl BeadType {
-    pub fn as_str(&self) -> &str {
+    pub const fn as_str(&self) -> &str {
         match self {
             Self::Bug => "bug",
             Self::Feature => "feature",
@@ -51,7 +51,7 @@ impl Priority {
     }
 
     #[must_use]
-    pub fn as_u8(&self) -> u8 {
+    pub const fn as_u8(&self) -> u8 {
         self.0
     }
 }

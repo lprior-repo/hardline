@@ -115,7 +115,7 @@ pub struct WorkspaceStateMachine;
 
 impl WorkspaceStateMachine {
     /// Attempt to transition from one state to another
-    pub fn transition(
+    pub const fn transition(
         from: WorkspaceState,
         to: WorkspaceState,
     ) -> Result<WorkspaceState, crate::error::SessionError> {
@@ -128,13 +128,13 @@ impl WorkspaceStateMachine {
 
     /// Check if a transition is valid without performing it
     #[must_use]
-    pub fn can_transition(from: WorkspaceState, to: WorkspaceState) -> bool {
+    pub const fn can_transition(from: WorkspaceState, to: WorkspaceState) -> bool {
         from.can_transition_to(to)
     }
 
     /// Check if a state is terminal
     #[must_use]
-    pub fn is_terminal(state: WorkspaceState) -> bool {
+    pub const fn is_terminal(state: WorkspaceState) -> bool {
         state.is_terminal()
     }
 

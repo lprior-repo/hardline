@@ -34,13 +34,8 @@ pub fn fetch(
     let remote_name = remote.unwrap_or("origin");
 
     // Use gix's native fetch when blocking-network-client is available
-    match fetch_via_gix(repo, remote_name, prune, tags) {
-        Ok(results) => Ok(results),
-        Err(_) => {
-            // Fall back to CLI if gix fetch fails (e.g. unsupported protocol)
-            fetch_via_cli(repo, remote_name, prune, tags)
-        }
-    }
+    fetch_via_gix(repo, remote_name, prune, tags)
+        .or_else(|_| fetch_via_cli(repo, remote_name, prune, tags))
 }
 
 /// Pull from a remote (fetch + fast-forward).

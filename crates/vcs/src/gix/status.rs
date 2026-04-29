@@ -22,7 +22,7 @@ pub fn status(repo: &::gix::Repository) -> GitResult<VcsStatus> {
 }
 
 /// Get detailed status
-pub fn detailed_status(_repo: &::gix::Repository) -> GitResult<Vec<(PathBuf, StatusKind)>> {
+pub const fn detailed_status(_repo: &::gix::Repository) -> GitResult<Vec<(PathBuf, StatusKind)>> {
     Ok(Vec::new())
 }
 

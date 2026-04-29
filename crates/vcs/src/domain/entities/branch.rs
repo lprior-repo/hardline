@@ -10,7 +10,7 @@ pub struct Branch {
 }
 
 impl Branch {
-    pub fn new(name: String, is_current: bool, tracking: Option<String>) -> Self {
+    pub const fn new(name: String, is_current: bool, tracking: Option<String>) -> Self {
         Self {
             name,
             is_current,

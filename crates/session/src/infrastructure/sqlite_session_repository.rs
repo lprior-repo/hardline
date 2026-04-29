@@ -67,7 +67,7 @@ impl TryFrom<SessionRow> for Session<Created> {
             .map_err(|e| SerializationError(format!("Invalid created_at timestamp: {}", e)))?
             .with_timezone(&Utc);
 
-        Ok(Session::from_parts(SessionParts {
+        Ok(Self::from_parts(SessionParts {
             id,
             name,
             workspace,
@@ -118,7 +118,7 @@ pub struct SqliteSessionRepository {
 }
 
 impl SqliteSessionRepository {
-    pub fn new(db: SqliteDatabaseService) -> Self {
+    pub const fn new(db: SqliteDatabaseService) -> Self {
         Self { db }
     }
 
