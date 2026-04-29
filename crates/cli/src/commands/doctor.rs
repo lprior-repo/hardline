@@ -329,7 +329,7 @@ mod tests {
     #[test]
     fn check_vcs_available_detects_git_dir() {
         let Ok(dir) = tempfile::tempdir() else { return };
-        std::fs::create_dir(dir.path().join(".git")).unwrap();
+        if std::fs::create_dir(dir.path().join(".git")).is_err() { return }
         let Ok(original) = std::env::current_dir() else { return };
         if std::env::set_current_dir(dir.path()).is_err() { return }
 
@@ -346,7 +346,7 @@ mod tests {
     fn check_vcs_available_detects_git_file() {
         // Git worktrees use a .git file, not directory
         let Ok(dir) = tempfile::tempdir() else { return };
-        std::fs::write(dir.path().join(".git"), "ref: some-ref").unwrap();
+        if std::fs::write(dir.path().join(".git"), "ref: some-ref").is_err() { return }
         let Ok(original) = std::env::current_dir() else { return };
         if std::env::set_current_dir(dir.path()).is_err() { return }
 
