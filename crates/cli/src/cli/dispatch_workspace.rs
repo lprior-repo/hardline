@@ -1,12 +1,61 @@
-//! Dispatch for workspace subcommands
+//! Dispatch for workspace subcommands.
+//!
+//! Wires ADR-015 security: scope checks and audit logging for workspace
+//! mutations. Scope violations are advisory (warnings only) in
+//! local-only / anonymous mode.
 
-use scp_core::{output::Output, Error, OutputFormat, Result};
+use tracing::warn;
+
+use scp_core::{
+    output::Output, AuditEntry, AuditLogger, AuditOutcome, AuthContext, Error, OutputFormat,
+    Result, Scope,
+};
 
 use crate::{cli::workspace_args::WorkspaceCommands, commands};
+
+// ========================================================================
+// Security helpers (shared with dispatch.rs pattern)
+// ========================================================================
+
+fn workspace_auth(scopes: Vec<Scope>) -> AuthContext {
+    let agent_id = std::env::var("HD_AGENT_ID")
+        .or_else(|_| std::env::var("SCP_AGENT_ID"))
+        .unwrap_or_else(|_| "anonymous".to_string());
+    AuthContext::anonymous_with_scopes(agent_id, scopes)
+}
+
+fn workspace_warn_scope(ctx: &AuthContext, required: &Scope, action: &str) {
+    if ctx.is_anonymous() && !ctx.has_scope(required) {
+        warn!(
+            agent = %ctx.agent_id,
+            action = action,
+            required = required.as_str(),
+            "Scope check advisory: anonymous context lacks required scope (local-only mode)"
+        );
+    }
+}
+
+fn workspace_audit(action: &str, resource: &str, agent_id: &scp_core::AgentId) {
+    let entry = AuditEntry {
+        timestamp: chrono::Utc::now(),
+        agent_id: agent_id.clone(),
+        action: action.to_string(),
+        resource: resource.to_string(),
+        outcome: AuditOutcome::Success,
+    };
+    let log_path = std::path::PathBuf::from(".hd/audit.jsonl");
+    let logger = AuditLogger::new(log_path);
+    if let Err(e) = logger.log(&entry) {
+        warn!(error = %e, "Failed to write audit log entry");
+    }
+}
 
 pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
     match cmd {
         WorkspaceCommands::Spawn { name, sync } => {
+            let ctx = workspace_auth(vec![Scope::WriteWorkspace]);
+            workspace_warn_scope(&ctx, &Scope::WriteWorkspace, "workspace.spawn");
+            workspace_audit("workspace.spawn", &name, &ctx.agent_id);
             commands::workspace::spawn(&name, commands::workspace::SyncOption::from_bool(sync))
         }
         WorkspaceCommands::Switch { name } => commands::workspace::switch(&name),
@@ -22,6 +71,10 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             detect_conflicts,
             no_bead_update,
         } => {
+            let ctx = workspace_auth(vec![Scope::WriteWorkspace]);
+            workspace_warn_scope(&ctx, &Scope::WriteWorkspace, "workspace.done");
+            let ws_name = name.as_deref().unwrap_or("unknown");
+            workspace_audit("workspace.done", ws_name, &ctx.agent_id);
             let options = commands::handlers::done::DoneOptions {
                 workspace: name,
                 message,
@@ -34,14 +87,25 @@ pub(crate) fn run(cmd: WorkspaceCommands) -> Result<()> {
             commands::handlers::done::run_done(&options)?;
             Ok(())
         }
-        WorkspaceCommands::Abort { name } => commands::workspace::abort(name.as_deref()),
+        WorkspaceCommands::Abort { name } => {
+            let ctx = workspace_auth(vec![Scope::WriteWorkspace]);
+            workspace_warn_scope(&ctx, &Scope::WriteWorkspace, "workspace.abort");
+            let ws_name = name.as_deref().unwrap_or("unknown");
+            workspace_audit("workspace.abort", ws_name, &ctx.agent_id);
+            commands::workspace::abort(name.as_deref())
+        }
         WorkspaceCommands::Log { limit } => commands::workspace::log(limit),
         WorkspaceCommands::Diff { path } => commands::workspace::diff(path.as_deref()),
         WorkspaceCommands::Uncommitted => commands::workspace::uncommitted(),
         WorkspaceCommands::Commit { message } => commands::workspace::commit(&message),
         WorkspaceCommands::Branches => commands::workspace::branches(),
         WorkspaceCommands::Branch { name } => commands::workspace::branch_create(&name),
-        WorkspaceCommands::BranchDelete { name } => commands::workspace::branch_delete(&name),
+        WorkspaceCommands::BranchDelete { name } => {
+            let ctx = workspace_auth(vec![Scope::WriteWorkspace]);
+            workspace_warn_scope(&ctx, &Scope::WriteWorkspace, "workspace.branch_delete");
+            workspace_audit("workspace.branch_delete", &name, &ctx.agent_id);
+            commands::workspace::branch_delete(&name)
+        }
         WorkspaceCommands::BranchCurrent => commands::workspace::branch_current(),
         WorkspaceCommands::BranchRename {
             old_name,

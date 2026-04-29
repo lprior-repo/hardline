@@ -127,6 +127,21 @@ fn hex_encode(bytes: &[u8]) -> String {
 // AuthContext
 // ========================================================================
 
+/// Build a long-lived token for anonymous / local-only auth contexts.
+///
+/// Uses `Duration::try_days` with a fallback to seconds-based construction
+/// to stay zero-unwrap across chrono versions.
+fn make_local_token(now: DateTime<Utc>) -> AgentToken {
+    let ttl = Duration::try_days(365 * 100)
+        .or_else(|| Duration::try_seconds(31_536_000_000))
+        .unwrap_or(Duration::seconds(31_536_000_000));
+    AgentToken::new("local-only", ttl)
+        .unwrap_or_else(|_| AgentToken {
+            token_hash: hash_token("local-only-fallback"),
+            expires_at: now + ttl,
+        })
+}
+
 /// Authentication context for request-scoped identity.
 ///
 /// Carries the authenticated agent's identity, token, and granted scopes
@@ -169,6 +184,32 @@ impl AuthContext {
             scopes,
             authenticated_at: Utc::now(),
         })
+    }
+
+    /// Create an anonymous auth context for local-only usage.
+    ///
+    /// This context carries no real authentication token -- it is intended
+    /// for CLI operations in local-only mode where no external auth is
+    /// configured. Scope checks are advisory (warnings) rather than enforced.
+    #[must_use]
+    pub fn anonymous_with_scopes(agent_id: String, scopes: Vec<Scope>) -> Self {
+        let now = Utc::now();
+        let token = make_local_token(now);
+        Self {
+            agent_id: AgentId::new(agent_id),
+            token,
+            scopes,
+            authenticated_at: now,
+        }
+    }
+
+    /// Whether this context was created via [`anonymous_with_scopes`](Self::anonymous_with_scopes).
+    ///
+    /// Used by the dispatch layer to decide whether to enforce or merely
+    /// warn about scope violations.
+    #[must_use]
+    pub fn is_anonymous(&self) -> bool {
+        self.token.verify("local-only")
     }
 
     /// Check whether this context has a specific scope.
@@ -318,5 +359,39 @@ mod tests {
         assert_eq!(Scope::ManageQueue.as_str(), "manage:queue");
         assert_eq!(Scope::VcsOperations.as_str(), "vcs:operations");
         assert_eq!(Scope::Admin.as_str(), "admin");
+    }
+
+    #[test]
+    fn test_anonymous_with_scopes_basic() {
+        let ctx = AuthContext::anonymous_with_scopes(
+            "cli-user".to_string(),
+            vec![Scope::ReadWorkspace],
+        );
+        assert_eq!(ctx.agent_id.as_str(), "cli-user");
+        assert!(ctx.is_anonymous());
+        assert!(ctx.is_valid());
+        assert!(ctx.has_scope(&Scope::ReadWorkspace));
+        assert!(!ctx.has_scope(&Scope::WriteWorkspace));
+    }
+
+    #[test]
+    fn test_anonymous_with_scopes_admin_grants_all() {
+        let ctx = AuthContext::anonymous_with_scopes(
+            "admin-user".to_string(),
+            vec![Scope::Admin],
+        );
+        assert!(ctx.is_anonymous());
+        assert!(ctx.has_scope(&Scope::ReadWorkspace));
+        assert!(ctx.has_scope(&Scope::VcsOperations));
+    }
+
+    #[test]
+    fn test_authenticated_context_not_anonymous() {
+        let agent_id = AgentId::new("real-agent");
+        let token = AgentToken::new("real-tok", TimeDelta::try_seconds(3600).expect("valid duration"))
+            .expect("should create token");
+        let ctx = AuthContext::new(agent_id, token, vec![Scope::ReadWorkspace])
+            .expect("should create context");
+        assert!(!ctx.is_anonymous());
     }
 }
