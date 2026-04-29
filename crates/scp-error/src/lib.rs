@@ -9,17 +9,168 @@
 //!
 //! This crate provides the unified error types used across the SCP workspace.
 //! All other crates should depend on this crate for error handling.
+//!
+//! # Error Code Ranges (ADR-007)
+//!
+//! | Range | Category     | Description                          |
+//! |-------|-------------|--------------------------------------|
+//! | 1xxx  | Workspace    | Workspace creation, management, state |
+//! | 2xxx  | Session      | Session lifecycle, bead claiming       |
+//! | 3xxx  | Bead         | Task/bead operations, dependencies     |
+//! | 4xxx  | Queue        | Queue management, priority, ordering   |
+//! | 5xxx  | VCS          | Git operations, conflicts             |
+//! | 6xxx  | Stack        | Stacked PRs, branch stacks            |
+//! | 7xxx  | GitHub       | GitHub API, PRs, CI status            |
+//! | 8xxx  | Snapshot     | Backup/restore, checkpoints           |
+//! | 9xxx  | Internal     | System errors, database, infra        |
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+// ========================================================================
+// Error Category (ADR-007)
+// ========================================================================
+
+/// Categorizes errors into subsystem-level groups per ADR-007.
+///
+/// Each category maps to a numeric range (e.g. Workspace = 1xxx).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ErrorCategory {
+    /// Workspace creation, management, state (1xxx)
+    Workspace,
+    /// Session lifecycle, bead claiming (2xxx)
+    Session,
+    /// Task/bead operations, dependencies (3xxx)
+    Bead,
+    /// Queue management, priority, ordering (4xxx)
+    Queue,
+    /// Git operations, conflicts (5xxx)
+    Vcs,
+    /// Stacked PRs, branch stacks (6xxx)
+    Stack,
+    /// GitHub API, PRs, CI status (7xxx)
+    GitHub,
+    /// Backup/restore, checkpoints (8xxx)
+    Snapshot,
+    /// System errors, database, infrastructure (9xxx)
+    Internal,
+}
+
+impl ErrorCategory {
+    /// Returns the base numeric range for this category (e.g. 1000 for Workspace).
+    #[must_use]
+    pub const fn base(&self) -> u16 {
+        match self {
+            Self::Workspace => 1000,
+            Self::Session => 2000,
+            Self::Bead => 3000,
+            Self::Queue => 4000,
+            Self::Vcs => 5000,
+            Self::Stack => 6000,
+            Self::GitHub => 7000,
+            Self::Snapshot => 8000,
+            Self::Internal => 9000,
+        }
+    }
+
+    /// Returns the inclusive upper bound for this category (e.g. 1999 for Workspace).
+    #[must_use]
+    pub const fn max(&self) -> u16 {
+        match self {
+            Self::Workspace => 1999,
+            Self::Session => 2999,
+            Self::Bead => 3999,
+            Self::Queue => 4999,
+            Self::Vcs => 5999,
+            Self::Stack => 6999,
+            Self::GitHub => 7999,
+            Self::Snapshot => 8999,
+            Self::Internal => 9999,
+        }
+    }
+}
+
+impl std::fmt::Display for ErrorCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Workspace => write!(f, "workspace"),
+            Self::Session => write!(f, "session"),
+            Self::Bead => write!(f, "bead"),
+            Self::Queue => write!(f, "queue"),
+            Self::Vcs => write!(f, "vcs"),
+            Self::Stack => write!(f, "stack"),
+            Self::GitHub => write!(f, "github"),
+            Self::Snapshot => write!(f, "snapshot"),
+            Self::Internal => write!(f, "internal"),
+        }
+    }
+}
+
+// ========================================================================
+// Fix Suggestion (ADR-007)
+// ========================================================================
+
+/// Risk level of a suggested fix command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FixRisk {
+    /// Read-only or easily reversible.
+    Safe,
+    /// Modifies state but recoverable.
+    Moderate,
+    /// Potentially destructive.
+    Dangerous,
+}
+
+impl std::fmt::Display for FixRisk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Safe => write!(f, "safe"),
+            Self::Moderate => write!(f, "moderate"),
+            Self::Dangerous => write!(f, "dangerous"),
+        }
+    }
+}
+
+/// A suggested fix for an error, with a command the user can run.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ErrorFix {
+    /// Shell command the user can run to resolve the error.
+    pub command: String,
+    /// Human-readable description of what the fix does.
+    pub description: String,
+    /// Risk level of running this fix.
+    pub risk: FixRisk,
+}
+
+impl ErrorFix {
+    /// Creates a new fix suggestion.
+    pub fn new(
+        command: impl Into<String>,
+        description: impl Into<String>,
+        risk: FixRisk,
+    ) -> Self {
+        Self {
+            command: command.into(),
+            description: description.into(),
+            risk,
+        }
+    }
+
+    /// Convenience: creates a safe fix suggestion.
+    pub fn safe(command: impl Into<String>, description: impl Into<String>) -> Self {
+        Self::new(command, description, FixRisk::Safe)
+    }
+}
+
 #[derive(Error, Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum Error {
     // ========================================================================
-    // Workspace/Session Errors (1xxx)
+    // WORKSPACE ERRORS (1xxx)
     // ========================================================================
     #[error("Workspace not found: {0}")]
     WorkspaceNotFound(String),
@@ -33,6 +184,9 @@ pub enum Error {
     #[error("Workspace conflict: {0}")]
     WorkspaceConflict(String),
 
+    // ========================================================================
+    // SESSION ERRORS (2xxx)
+    // ========================================================================
     #[error("Session not found: {0}")]
     SessionNotFound(String),
 
@@ -49,7 +203,7 @@ pub enum Error {
     SessionInvalidState(String, String, String),
 
     // ========================================================================
-    // Bead Errors (1xxx - extended)
+    // BEAD ERRORS (3xxx)
     // ========================================================================
     #[error("Bead not found: {0}")]
     BeadNotFound(String),
@@ -76,7 +230,7 @@ pub enum Error {
     BeadInvalidDependency(String),
 
     // ========================================================================
-    // Queue Errors (2xxx)
+    // QUEUE ERRORS (4xxx)
     // ========================================================================
     #[error("Queue is empty")]
     QueueEmpty,
@@ -97,7 +251,7 @@ pub enum Error {
     QueueFull(usize),
 
     // ========================================================================
-    // VCS Errors (3xxx)
+    // VCS ERRORS (5xxx)
     // ========================================================================
     #[error("VCS not initialized in this directory")]
     VcsNotInitialized,
@@ -127,7 +281,67 @@ pub enum Error {
     WorkingCopyDirty,
 
     // ========================================================================
-    // Configuration Errors (4xxx)
+    // STACK ERRORS (6xxx)
+    // ========================================================================
+    #[error("Stack not found: {0}")]
+    StackNotFound(String),
+
+    #[error("Stack orphaned: parent {0} not found")]
+    StackOrphaned(String),
+
+    #[error("Stack cyclic dependency detected")]
+    StackCyclicDependency,
+
+    #[error("Stack in invalid state: {0}")]
+    StackInvalidState(String),
+
+    #[error("Stack PR not found: {0}")]
+    StackPrNotFound(String),
+
+    // ========================================================================
+    // GITHUB ERRORS (7xxx)
+    // ========================================================================
+    #[error("GitHub authentication failed: {0}")]
+    GitHubAuthFailed(String),
+
+    #[error("GitHub token expired")]
+    GitHubTokenExpired,
+
+    #[error("GitHub rate limited: retry after {0}")]
+    GitHubRateLimited(String),
+
+    #[error("GitHub PR closed: {0}")]
+    GitHubPrClosed(String),
+
+    #[error("GitHub PR not found: {0}")]
+    GitHubPrNotFound(String),
+
+    #[error("GitHub API error: {status} - {message}")]
+    GitHubApiError { status: u16, message: String },
+
+    #[error("GitHub CI status check failed: {0:?}")]
+    GitHubCiFailed(Vec<String>),
+
+    // ========================================================================
+    // SNAPSHOT ERRORS (8xxx)
+    // ========================================================================
+    #[error("Snapshot not found: {0}")]
+    SnapshotNotFound(String),
+
+    #[error("Snapshot corrupted: {0}")]
+    SnapshotCorrupted(String),
+
+    #[error("Snapshot expired: {0}")]
+    SnapshotExpired(String),
+
+    #[error("Snapshot limit exceeded: {0}")]
+    SnapshotLimitExceeded(String),
+
+    #[error("Snapshot restore failed: {0}")]
+    SnapshotRestoreFailed(String),
+
+    // ========================================================================
+    // CONFIGURATION ERRORS (9xxx - infrastructure)
     // ========================================================================
     #[error("Configuration not found: {0}")]
     ConfigNotFound(String),
@@ -145,7 +359,7 @@ pub enum Error {
     InvalidRepoUrl(String),
 
     // ========================================================================
-    // Agent Errors (5xxx)
+    // AGENT ERRORS (9xxx - infrastructure)
     // ========================================================================
     #[error("Agent not found: {0}")]
     AgentNotFound(String),
@@ -157,7 +371,7 @@ pub enum Error {
     AgentTimeout(String),
 
     // ========================================================================
-    // State/Conflict Errors (6xxx)
+    // STATE/CONFLICT ERRORS (9xxx - infrastructure)
     // ========================================================================
     #[error("Invalid state: {0}")]
     InvalidState(String),
@@ -169,7 +383,7 @@ pub enum Error {
     InvalidOperation(String),
 
     // ========================================================================
-    // Validation Errors (7xxx)
+    // VALIDATION ERRORS (9xxx - infrastructure)
     // ========================================================================
     #[error("Validation error: {0}")]
     ValidationError(String),
@@ -185,7 +399,7 @@ pub enum Error {
     InvalidIdentifier(String),
 
     // ========================================================================
-    // IO/Storage Errors (8xxx)
+    // IO/STORAGE ERRORS (9xxx - infrastructure)
     // ========================================================================
     #[error("IO error: {0}")]
     IoError(String),
@@ -203,7 +417,7 @@ pub enum Error {
     Serialization(String),
 
     // ========================================================================
-    // Orchestration/Workflow Errors (8xxx - extended)
+    // ORCHESTRATION/WORKFLOW ERRORS (9xxx - infrastructure)
     // ========================================================================
     #[error("Lock acquisition timeout for '{operation}' after {timeout_ms}ms ({retries} retries)")]
     LockTimeout {
@@ -225,7 +439,7 @@ pub enum Error {
     StateTransition(String),
 
     // ========================================================================
-    // Scenario/Execution Errors (8xxx - extended)
+    // SCENARIO/EXECUTION ERRORS (9xxx - infrastructure)
     // ========================================================================
     #[error("Scenario error: {0}")]
     ScenarioError(String),
@@ -243,7 +457,7 @@ pub enum Error {
     SyncError(String),
 
     // ========================================================================
-    // Internal Errors (9xxx)
+    // INTERNAL ERRORS (9xxx)
     // ========================================================================
     #[error("Internal error: {0}")]
     Internal(String),
@@ -269,17 +483,18 @@ impl Error {
     #[must_use]
     pub const fn code(&self) -> &'static str {
         match self {
-            // Workspace/Session (1xxx)
+            // Workspace (1xxx)
             Self::WorkspaceNotFound(_) => "WORKSPACE_NOT_FOUND",
             Self::WorkspaceExists(_) => "WORKSPACE_EXISTS",
             Self::WorkspaceLocked(_, _) => "WORKSPACE_LOCKED",
             Self::WorkspaceConflict(_) => "WORKSPACE_CONFLICT",
+            // Session (2xxx)
             Self::SessionNotFound(_) => "SESSION_NOT_FOUND",
             Self::SessionExists(_) => "SESSION_EXISTS",
             Self::SessionLocked(_, _) => "SESSION_LOCKED",
             Self::NotLockHolder(_, _) => "NOT_LOCK_HOLDER",
             Self::SessionInvalidState(_, _, _) => "SESSION_INVALID_STATE",
-            // Bead (1xxx extended)
+            // Bead (3xxx)
             Self::BeadNotFound(_) => "BEAD_NOT_FOUND",
             Self::BeadAlreadyExists(_) => "BEAD_ALREADY_EXISTS",
             Self::InvalidBeadId(_) => "INVALID_BEAD_ID",
@@ -288,14 +503,14 @@ impl Error {
             Self::BeadDependencyCycle(_) => "BEAD_DEPENDENCY_CYCLE",
             Self::BeadBlockedBy(_) => "BEAD_BLOCKED_BY",
             Self::BeadInvalidDependency(_) => "BEAD_INVALID_DEPENDENCY",
-            // Queue (2xxx)
+            // Queue (4xxx)
             Self::QueueEmpty => "QUEUE_EMPTY",
             Self::QueueItemNotFound(_) => "QUEUE_ITEM_NOT_FOUND",
             Self::QueueLocked(_) => "QUEUE_LOCKED",
             Self::QueueProcessing => "QUEUE_PROCESSING",
             Self::QueueInvalidPosition(_) => "QUEUE_INVALID_POSITION",
             Self::QueueFull(_) => "QUEUE_FULL",
-            // VCS (3xxx)
+            // VCS (5xxx)
             Self::VcsNotInitialized => "VCS_NOT_INITIALIZED",
             Self::VcsConflict(_, _) => "VCS_CONFLICT",
             Self::VcsPushFailed(_) => "VCS_PUSH_FAILED",
@@ -305,37 +520,57 @@ impl Error {
             Self::BranchExists(_) => "BRANCH_EXISTS",
             Self::CommitNotFound(_) => "COMMIT_NOT_FOUND",
             Self::WorkingCopyDirty => "WORKING_COPY_DIRTY",
-            // Config (4xxx)
+            // Stack (6xxx)
+            Self::StackNotFound(_) => "STACK_NOT_FOUND",
+            Self::StackOrphaned(_) => "STACK_ORPHANED",
+            Self::StackCyclicDependency => "STACK_CYCLIC_DEPENDENCY",
+            Self::StackInvalidState(_) => "STACK_INVALID_STATE",
+            Self::StackPrNotFound(_) => "STACK_PR_NOT_FOUND",
+            // GitHub (7xxx)
+            Self::GitHubAuthFailed(_) => "GITHUB_AUTH_FAILED",
+            Self::GitHubTokenExpired => "GITHUB_TOKEN_EXPIRED",
+            Self::GitHubRateLimited(_) => "GITHUB_RATE_LIMITED",
+            Self::GitHubPrClosed(_) => "GITHUB_PR_CLOSED",
+            Self::GitHubPrNotFound(_) => "GITHUB_PR_NOT_FOUND",
+            Self::GitHubApiError { .. } => "GITHUB_API_ERROR",
+            Self::GitHubCiFailed(_) => "GITHUB_CI_FAILED",
+            // Snapshot (8xxx)
+            Self::SnapshotNotFound(_) => "SNAPSHOT_NOT_FOUND",
+            Self::SnapshotCorrupted(_) => "SNAPSHOT_CORRUPTED",
+            Self::SnapshotExpired(_) => "SNAPSHOT_EXPIRED",
+            Self::SnapshotLimitExceeded(_) => "SNAPSHOT_LIMIT_EXCEEDED",
+            Self::SnapshotRestoreFailed(_) => "SNAPSHOT_RESTORE_FAILED",
+            // Config (9xxx - infrastructure)
             Self::ConfigNotFound(_) => "CONFIG_NOT_FOUND",
             Self::ConfigInvalid(_) => "CONFIG_INVALID",
             Self::ConfigPermission(_) => "CONFIG_PERMISSION",
             Self::InvalidConfig(_) => "INVALID_CONFIG",
             Self::InvalidRepoUrl(_) => "INVALID_REPO_URL",
-            // Agent (5xxx)
+            // Agent (9xxx - infrastructure)
             Self::AgentNotFound(_) => "AGENT_NOT_FOUND",
             Self::AgentExists(_) => "AGENT_EXISTS",
             Self::AgentTimeout(_) => "AGENT_TIMEOUT",
-            // State/Conflict (6xxx)
+            // State/Conflict (9xxx - infrastructure)
             Self::InvalidState(_) => "INVALID_STATE",
             Self::NotFound(_) => "NOT_FOUND",
             Self::InvalidOperation(_) => "INVALID_OPERATION",
-            // Validation (7xxx)
+            // Validation (9xxx - infrastructure)
             Self::ValidationError(_) => "VALIDATION_ERROR",
             Self::ValidationFieldError { .. } => "VALIDATION_FIELD_ERROR",
             Self::InvalidIdentifier(_) => "INVALID_IDENTIFIER",
-            // IO/Storage (8xxx)
+            // IO/Storage (9xxx - infrastructure)
             Self::IoError(_) => "IO_ERROR",
             Self::JsonParseError(_) => "JSON_PARSE_ERROR",
             Self::YamlParseError(_) => "YAML_PARSE_ERROR",
             Self::Database(_) => "DATABASE_ERROR",
             Self::Serialization(_) => "SERIALIZATION_ERROR",
-            // Orchestration/Workflow (8xxx extended)
+            // Orchestration/Workflow (9xxx - infrastructure)
             Self::LockTimeout { .. } => "LOCK_TIMEOUT",
             Self::CloneFailed(_) => "CLONE_FAILED",
             Self::RecordFailed(_) => "RECORD_FAILED",
             Self::Persistence(_) => "PERSISTENCE_ERROR",
             Self::StateTransition(_) => "STATE_TRANSITION_ERROR",
-            // Scenario/Execution (8xxx extended)
+            // Scenario/Execution (9xxx - infrastructure)
             Self::ScenarioError(_) => "SCENARIO_ERROR",
             Self::RunnerError(_) => "RUNNER_ERROR",
             Self::DefinitionError(_) => "DEFINITION_ERROR",
@@ -348,6 +583,266 @@ impl Error {
         }
     }
 
+    /// Returns the hierarchical numeric error code per ADR-007.
+    ///
+    /// Code ranges:
+    /// - 1xxx: Workspace errors
+    /// - 2xxx: Session errors
+    /// - 3xxx: Bead errors
+    /// - 4xxx: Queue errors
+    /// - 5xxx: VCS errors
+    /// - 6xxx: Stack errors
+    /// - 7xxx: GitHub errors
+    /// - 8xxx: Snapshot errors
+    /// - 9xxx: Internal/infrastructure errors
+    #[must_use]
+    pub const fn numeric_code(&self) -> u16 {
+        match self {
+            // Workspace (1xxx)
+            Self::WorkspaceNotFound(_) => 1001,
+            Self::WorkspaceExists(_) => 1002,
+            Self::WorkspaceLocked(_, _) => 1003,
+            Self::WorkspaceConflict(_) => 1004,
+            // Session (2xxx)
+            Self::SessionNotFound(_) => 2001,
+            Self::SessionExists(_) => 2002,
+            Self::SessionLocked(_, _) => 2003,
+            Self::NotLockHolder(_, _) => 2004,
+            Self::SessionInvalidState(_, _, _) => 2005,
+            // Bead (3xxx)
+            Self::BeadNotFound(_) => 3001,
+            Self::BeadAlreadyExists(_) => 3002,
+            Self::InvalidBeadId(_) => 3003,
+            Self::InvalidBeadTitle(_) => 3004,
+            Self::BeadInvalidStateTransition { .. } => 3005,
+            Self::BeadDependencyCycle(_) => 3006,
+            Self::BeadBlockedBy(_) => 3007,
+            Self::BeadInvalidDependency(_) => 3008,
+            // Queue (4xxx)
+            Self::QueueEmpty => 4001,
+            Self::QueueItemNotFound(_) => 4002,
+            Self::QueueLocked(_) => 4003,
+            Self::QueueProcessing => 4004,
+            Self::QueueInvalidPosition(_) => 4005,
+            Self::QueueFull(_) => 4006,
+            // VCS (5xxx)
+            Self::VcsNotInitialized => 5001,
+            Self::VcsConflict(_, _) => 5002,
+            Self::VcsPushFailed(_) => 5003,
+            Self::VcsPullFailed(_) => 5004,
+            Self::VcsRebaseFailed(_) => 5005,
+            Self::BranchNotFound(_) => 5006,
+            Self::BranchExists(_) => 5007,
+            Self::CommitNotFound(_) => 5008,
+            Self::WorkingCopyDirty => 5009,
+            // Stack (6xxx)
+            Self::StackNotFound(_) => 6001,
+            Self::StackOrphaned(_) => 6002,
+            Self::StackCyclicDependency => 6003,
+            Self::StackInvalidState(_) => 6004,
+            Self::StackPrNotFound(_) => 6005,
+            // GitHub (7xxx)
+            Self::GitHubAuthFailed(_) => 7001,
+            Self::GitHubTokenExpired => 7002,
+            Self::GitHubRateLimited(_) => 7003,
+            Self::GitHubPrClosed(_) => 7004,
+            Self::GitHubPrNotFound(_) => 7005,
+            Self::GitHubApiError { .. } => 7006,
+            Self::GitHubCiFailed(_) => 7007,
+            // Snapshot (8xxx)
+            Self::SnapshotNotFound(_) => 8001,
+            Self::SnapshotCorrupted(_) => 8002,
+            Self::SnapshotExpired(_) => 8003,
+            Self::SnapshotLimitExceeded(_) => 8004,
+            Self::SnapshotRestoreFailed(_) => 8005,
+            // Config (9xxx - infrastructure)
+            Self::ConfigNotFound(_) => 9101,
+            Self::ConfigInvalid(_) => 9102,
+            Self::ConfigPermission(_) => 9103,
+            Self::InvalidConfig(_) => 9104,
+            Self::InvalidRepoUrl(_) => 9105,
+            // Agent (9xxx - infrastructure)
+            Self::AgentNotFound(_) => 9201,
+            Self::AgentExists(_) => 9202,
+            Self::AgentTimeout(_) => 9203,
+            // State/Conflict (9xxx - infrastructure)
+            Self::InvalidState(_) => 9301,
+            Self::NotFound(_) => 9302,
+            Self::InvalidOperation(_) => 9303,
+            // Validation (9xxx - infrastructure)
+            Self::ValidationError(_) => 9401,
+            Self::ValidationFieldError { .. } => 9402,
+            Self::InvalidIdentifier(_) => 9403,
+            // IO/Storage (9xxx - infrastructure)
+            Self::IoError(_) => 9501,
+            Self::JsonParseError(_) => 9502,
+            Self::YamlParseError(_) => 9503,
+            Self::Database(_) => 9504,
+            Self::Serialization(_) => 9505,
+            // Orchestration/Workflow (9xxx - infrastructure)
+            Self::LockTimeout { .. } => 9601,
+            Self::CloneFailed(_) => 9602,
+            Self::RecordFailed(_) => 9603,
+            Self::Persistence(_) => 9604,
+            Self::StateTransition(_) => 9605,
+            // Scenario/Execution (9xxx - infrastructure)
+            Self::ScenarioError(_) => 9701,
+            Self::RunnerError(_) => 9702,
+            Self::DefinitionError(_) => 9703,
+            Self::ServerError(_) => 9704,
+            Self::SyncError(_) => 9705,
+            // Internal (9xxx)
+            Self::Internal(_) => 9001,
+            Self::Unimplemented(_) => 9002,
+            Self::InvariantViolation(_) => 9003,
+        }
+    }
+
+    /// Returns the error category per ADR-007.
+    #[must_use]
+    pub const fn category(&self) -> ErrorCategory {
+        match self {
+            Self::WorkspaceNotFound(_)
+            | Self::WorkspaceExists(_)
+            | Self::WorkspaceLocked(_, _)
+            | Self::WorkspaceConflict(_) => ErrorCategory::Workspace,
+
+            Self::SessionNotFound(_)
+            | Self::SessionExists(_)
+            | Self::SessionLocked(_, _)
+            | Self::NotLockHolder(_, _)
+            | Self::SessionInvalidState(_, _, _) => ErrorCategory::Session,
+
+            Self::BeadNotFound(_)
+            | Self::BeadAlreadyExists(_)
+            | Self::InvalidBeadId(_)
+            | Self::InvalidBeadTitle(_)
+            | Self::BeadInvalidStateTransition { .. }
+            | Self::BeadDependencyCycle(_)
+            | Self::BeadBlockedBy(_)
+            | Self::BeadInvalidDependency(_) => ErrorCategory::Bead,
+
+            Self::QueueEmpty
+            | Self::QueueItemNotFound(_)
+            | Self::QueueLocked(_)
+            | Self::QueueProcessing
+            | Self::QueueInvalidPosition(_)
+            | Self::QueueFull(_) => ErrorCategory::Queue,
+
+            Self::VcsNotInitialized
+            | Self::VcsConflict(_, _)
+            | Self::VcsPushFailed(_)
+            | Self::VcsPullFailed(_)
+            | Self::VcsRebaseFailed(_)
+            | Self::BranchNotFound(_)
+            | Self::BranchExists(_)
+            | Self::CommitNotFound(_)
+            | Self::WorkingCopyDirty => ErrorCategory::Vcs,
+
+            Self::StackNotFound(_)
+            | Self::StackOrphaned(_)
+            | Self::StackCyclicDependency
+            | Self::StackInvalidState(_)
+            | Self::StackPrNotFound(_) => ErrorCategory::Stack,
+
+            Self::GitHubAuthFailed(_)
+            | Self::GitHubTokenExpired
+            | Self::GitHubRateLimited(_)
+            | Self::GitHubPrClosed(_)
+            | Self::GitHubPrNotFound(_)
+            | Self::GitHubApiError { .. }
+            | Self::GitHubCiFailed(_) => ErrorCategory::GitHub,
+
+            Self::SnapshotNotFound(_)
+            | Self::SnapshotCorrupted(_)
+            | Self::SnapshotExpired(_)
+            | Self::SnapshotLimitExceeded(_)
+            | Self::SnapshotRestoreFailed(_) => ErrorCategory::Snapshot,
+
+            Self::ConfigNotFound(_)
+            | Self::ConfigInvalid(_)
+            | Self::ConfigPermission(_)
+            | Self::InvalidConfig(_)
+            | Self::InvalidRepoUrl(_)
+            | Self::AgentNotFound(_)
+            | Self::AgentExists(_)
+            | Self::AgentTimeout(_)
+            | Self::InvalidState(_)
+            | Self::NotFound(_)
+            | Self::InvalidOperation(_)
+            | Self::ValidationError(_)
+            | Self::ValidationFieldError { .. }
+            | Self::InvalidIdentifier(_)
+            | Self::IoError(_)
+            | Self::JsonParseError(_)
+            | Self::YamlParseError(_)
+            | Self::Database(_)
+            | Self::Serialization(_)
+            | Self::LockTimeout { .. }
+            | Self::CloneFailed(_)
+            | Self::RecordFailed(_)
+            | Self::Persistence(_)
+            | Self::StateTransition(_)
+            | Self::ScenarioError(_)
+            | Self::RunnerError(_)
+            | Self::DefinitionError(_)
+            | Self::ServerError(_)
+            | Self::SyncError(_)
+            | Self::Internal(_)
+            | Self::Unimplemented(_)
+            | Self::InvariantViolation(_) => ErrorCategory::Internal,
+        }
+    }
+
+    /// Returns whether this error is retryable.
+    ///
+    /// Network and transient errors are retryable; state violations and
+    /// not-found errors are terminal.
+    #[must_use]
+    pub const fn is_retryable(&self) -> bool {
+        match self {
+            Self::VcsPushFailed(_)
+            | Self::VcsPullFailed(_)
+            | Self::GitHubRateLimited(_)
+            | Self::LockTimeout { .. } => true,
+            // All other errors are terminal
+            _ => false,
+        }
+    }
+
+    /// Returns a suggested fix for this error, if available.
+    #[must_use]
+    pub fn fix(&self) -> Option<ErrorFix> {
+        match self {
+            Self::WorkspaceNotFound(_) => Some(ErrorFix::safe(
+                "scp workspace list",
+                "List available workspaces",
+            )),
+            Self::SessionNotFound(_) => Some(ErrorFix::safe(
+                "scp session list",
+                "List available sessions",
+            )),
+            Self::QueueEmpty => Some(ErrorFix::safe(
+                "scp queue enqueue <branch>",
+                "Add an item to the queue",
+            )),
+            Self::WorkspaceLocked(_, holder) => Some(ErrorFix::new(
+                format!("scp agent kill {holder}"),
+                "Force release the workspace lock",
+                FixRisk::Moderate,
+            )),
+            Self::VcsNotInitialized => Some(ErrorFix::safe(
+                "scp init",
+                "Initialize VCS in this directory",
+            )),
+            Self::WorkingCopyDirty => Some(ErrorFix::safe(
+                "git stash",
+                "Stash uncommitted changes before continuing",
+            )),
+            _ => None,
+        }
+    }
+
     /// Returns structured context information for this error as a JSON value.
     ///
     /// Provides machine-readable context for AI agents and tooling to understand
@@ -356,7 +851,7 @@ impl Error {
     #[allow(clippy::too_many_lines)]
     pub fn context_map(&self) -> Option<serde_json::Value> {
         match self {
-            // Workspace/Session
+            // Workspace
             Self::WorkspaceNotFound(name) | Self::WorkspaceExists(name) => {
                 Some(serde_json::json!({
                     "resource_type": "workspace",
@@ -370,6 +865,7 @@ impl Error {
             Self::WorkspaceConflict(msg) => Some(serde_json::json!({
                 "message": msg,
             })),
+            // Session
             Self::SessionNotFound(name) | Self::SessionExists(name) => Some(serde_json::json!({
                 "resource_type": "session",
                 "session_name": name,
@@ -460,6 +956,59 @@ impl Error {
             })),
             Self::WorkingCopyDirty => Some(serde_json::json!({
                 "error_type": "working_copy_dirty",
+            })),
+            // Stack
+            Self::StackNotFound(name) => Some(serde_json::json!({
+                "resource_type": "stack",
+                "stack_name": name,
+            })),
+            Self::StackOrphaned(parent) => Some(serde_json::json!({
+                "parent": parent,
+            })),
+            Self::StackCyclicDependency => Some(serde_json::json!({
+                "error_type": "stack_cyclic_dependency",
+            })),
+            Self::StackInvalidState(state) => Some(serde_json::json!({
+                "state": state,
+            })),
+            Self::StackPrNotFound(pr) => Some(serde_json::json!({
+                "pr": pr,
+            })),
+            // GitHub
+            Self::GitHubAuthFailed(msg) => Some(serde_json::json!({
+                "error": msg,
+            })),
+            Self::GitHubTokenExpired => Some(serde_json::json!({
+                "error_type": "github_token_expired",
+            })),
+            Self::GitHubRateLimited(retry_after) => Some(serde_json::json!({
+                "retry_after": retry_after,
+            })),
+            Self::GitHubPrClosed(pr) => Some(serde_json::json!({
+                "pr": pr,
+            })),
+            Self::GitHubPrNotFound(pr) => Some(serde_json::json!({
+                "pr": pr,
+            })),
+            Self::GitHubApiError { status, message } => Some(serde_json::json!({
+                "status": status,
+                "message": message,
+            })),
+            Self::GitHubCiFailed(checks) => Some(serde_json::json!({
+                "checks": checks,
+            })),
+            // Snapshot
+            Self::SnapshotNotFound(id) => Some(serde_json::json!({
+                "resource_type": "snapshot",
+                "snapshot_id": id,
+            })),
+            Self::SnapshotCorrupted(details) => Some(serde_json::json!({
+                "error": details,
+            })),
+            Self::SnapshotExpired(msg)
+            | Self::SnapshotLimitExceeded(msg)
+            | Self::SnapshotRestoreFailed(msg) => Some(serde_json::json!({
+                "error": msg,
             })),
             // Config
             Self::ConfigNotFound(key) => Some(serde_json::json!({
@@ -567,73 +1116,111 @@ impl Error {
         }
     }
 
+    /// Returns a CLI exit code.
+    ///
+    /// Uses the high byte of `numeric_code()` for categorization while
+    /// fitting in a `u8` range (1-255). The low byte provides uniqueness
+    /// within each category.
     #[must_use]
     pub const fn exit_code(&self) -> i32 {
         match self {
+            // Workspace (1xxx) -> 10-19
             Self::WorkspaceNotFound(_) => 10,
             Self::WorkspaceExists(_) => 11,
             Self::WorkspaceLocked(_, _) => 12,
             Self::WorkspaceConflict(_) => 13,
-            Self::SessionNotFound(_) => 14,
-            Self::SessionExists(_) => 15,
-            Self::SessionLocked(_, _) => 16,
-            Self::NotLockHolder(_, _) => 17,
-            Self::SessionInvalidState(_, _, _) => 18,
-            Self::BeadNotFound(_) => 19,
-            Self::BeadAlreadyExists(_) => 20,
-            Self::QueueEmpty => 30,
-            Self::QueueItemNotFound(_) => 31,
-            Self::QueueLocked(_) => 32,
-            Self::QueueProcessing => 33,
-            Self::QueueInvalidPosition(_) => 34,
-            Self::QueueFull(_) => 35,
-            Self::VcsNotInitialized => 40,
-            Self::VcsConflict(_, _) => 41,
-            Self::VcsPushFailed(_) => 42,
-            Self::VcsPullFailed(_) => 43,
-            Self::VcsRebaseFailed(_) => 44,
-            Self::BranchNotFound(_) => 45,
-            Self::BranchExists(_) => 46,
-            Self::CommitNotFound(_) => 47,
-            Self::WorkingCopyDirty => 48,
-            Self::ConfigNotFound(_) => 60,
-            Self::ConfigInvalid(_) => 61,
-            Self::ConfigPermission(_) => 62,
-            Self::InvalidConfig(_) => 63,
-            Self::InvalidRepoUrl(_) => 64,
-            Self::AgentNotFound(_) => 70,
-            Self::AgentExists(_) => 71,
-            Self::AgentTimeout(_) => 72,
-            Self::InvalidState(_) => 80,
-            Self::NotFound(_) => 81,
-            Self::InvalidOperation(_) => 82,
-            Self::ValidationError(_) => 90,
-            Self::ValidationFieldError { .. } => 91,
-            Self::InvalidIdentifier(_) => 92,
-            Self::IoError(_) => 100,
-            Self::JsonParseError(_) => 102,
-            Self::YamlParseError(_) => 103,
-            Self::Database(_) => 104,
-            Self::Serialization(_) => 105,
-            Self::LockTimeout { .. } => 110,
-            Self::CloneFailed(_) => 111,
-            Self::RecordFailed(_) => 112,
-            Self::Persistence(_) => 113,
-            Self::StateTransition(_) => 114,
-            Self::ScenarioError(_) => 120,
-            Self::RunnerError(_) => 121,
-            Self::DefinitionError(_) => 122,
-            Self::ServerError(_) => 123,
-            Self::SyncError(_) => 124,
-            Self::Internal(_) => 130,
-            Self::Unimplemented(_) => 131,
-            Self::InvariantViolation(_) => 132,
-            Self::InvalidBeadId(_) => 133,
-            Self::InvalidBeadTitle(_) => 134,
-            Self::BeadInvalidStateTransition { .. } => 135,
-            Self::BeadDependencyCycle(_) => 136,
-            Self::BeadBlockedBy(_) => 137,
-            Self::BeadInvalidDependency(_) => 138,
+            // Session (2xxx) -> 20-29
+            Self::SessionNotFound(_) => 20,
+            Self::SessionExists(_) => 21,
+            Self::SessionLocked(_, _) => 22,
+            Self::NotLockHolder(_, _) => 23,
+            Self::SessionInvalidState(_, _, _) => 24,
+            // Bead (3xxx) -> 30-39
+            Self::BeadNotFound(_) => 30,
+            Self::BeadAlreadyExists(_) => 31,
+            Self::InvalidBeadId(_) => 32,
+            Self::InvalidBeadTitle(_) => 33,
+            Self::BeadInvalidStateTransition { .. } => 34,
+            Self::BeadDependencyCycle(_) => 35,
+            Self::BeadBlockedBy(_) => 36,
+            Self::BeadInvalidDependency(_) => 37,
+            // Queue (4xxx) -> 40-49
+            Self::QueueEmpty => 40,
+            Self::QueueItemNotFound(_) => 41,
+            Self::QueueLocked(_) => 42,
+            Self::QueueProcessing => 43,
+            Self::QueueInvalidPosition(_) => 44,
+            Self::QueueFull(_) => 45,
+            // VCS (5xxx) -> 50-59
+            Self::VcsNotInitialized => 50,
+            Self::VcsConflict(_, _) => 51,
+            Self::VcsPushFailed(_) => 52,
+            Self::VcsPullFailed(_) => 53,
+            Self::VcsRebaseFailed(_) => 54,
+            Self::BranchNotFound(_) => 55,
+            Self::BranchExists(_) => 56,
+            Self::CommitNotFound(_) => 57,
+            Self::WorkingCopyDirty => 58,
+            // Stack (6xxx) -> 60-64
+            Self::StackNotFound(_) => 60,
+            Self::StackOrphaned(_) => 61,
+            Self::StackCyclicDependency => 62,
+            Self::StackInvalidState(_) => 63,
+            Self::StackPrNotFound(_) => 64,
+            // GitHub (7xxx) -> 70-76
+            Self::GitHubAuthFailed(_) => 70,
+            Self::GitHubTokenExpired => 71,
+            Self::GitHubRateLimited(_) => 72,
+            Self::GitHubPrClosed(_) => 73,
+            Self::GitHubPrNotFound(_) => 74,
+            Self::GitHubApiError { .. } => 75,
+            Self::GitHubCiFailed(_) => 76,
+            // Snapshot (8xxx) -> 80-84
+            Self::SnapshotNotFound(_) => 80,
+            Self::SnapshotCorrupted(_) => 81,
+            Self::SnapshotExpired(_) => 82,
+            Self::SnapshotLimitExceeded(_) => 83,
+            Self::SnapshotRestoreFailed(_) => 84,
+            // Config (9xxx infra) -> 90-94
+            Self::ConfigNotFound(_) => 90,
+            Self::ConfigInvalid(_) => 91,
+            Self::ConfigPermission(_) => 92,
+            Self::InvalidConfig(_) => 93,
+            Self::InvalidRepoUrl(_) => 94,
+            // Agent (9xxx infra) -> 100-102
+            Self::AgentNotFound(_) => 100,
+            Self::AgentExists(_) => 101,
+            Self::AgentTimeout(_) => 102,
+            // State/Conflict (9xxx infra) -> 110-112
+            Self::InvalidState(_) => 110,
+            Self::NotFound(_) => 111,
+            Self::InvalidOperation(_) => 112,
+            // Validation (9xxx infra) -> 120-122
+            Self::ValidationError(_) => 120,
+            Self::ValidationFieldError { .. } => 121,
+            Self::InvalidIdentifier(_) => 122,
+            // IO/Storage (9xxx infra) -> 130-134
+            Self::IoError(_) => 130,
+            Self::JsonParseError(_) => 131,
+            Self::YamlParseError(_) => 132,
+            Self::Database(_) => 133,
+            Self::Serialization(_) => 134,
+            // Orchestration (9xxx infra) -> 140-144
+            Self::LockTimeout { .. } => 140,
+            Self::CloneFailed(_) => 141,
+            Self::RecordFailed(_) => 142,
+            Self::Persistence(_) => 143,
+            Self::StateTransition(_) => 144,
+            // Scenario (9xxx infra) -> 150-154
+            Self::ScenarioError(_) => 150,
+            Self::RunnerError(_) => 151,
+            Self::DefinitionError(_) => 152,
+            Self::ServerError(_) => 153,
+            Self::SyncError(_) => 154,
+            // Internal (9xxx) -> 200-202
+            Self::Internal(_) => 200,
+            Self::Unimplemented(_) => 201,
+            Self::InvariantViolation(_) => 202,
         }
     }
 }
@@ -680,6 +1267,26 @@ mod tests {
             Error::BranchExists("b".into()),
             Error::CommitNotFound("c".into()),
             Error::WorkingCopyDirty,
+            Error::StackNotFound("stack".into()),
+            Error::StackOrphaned("parent".into()),
+            Error::StackCyclicDependency,
+            Error::StackInvalidState("bad".into()),
+            Error::StackPrNotFound("pr".into()),
+            Error::GitHubAuthFailed("fail".into()),
+            Error::GitHubTokenExpired,
+            Error::GitHubRateLimited("60s".into()),
+            Error::GitHubPrClosed("123".into()),
+            Error::GitHubPrNotFound("123".into()),
+            Error::GitHubApiError {
+                status: 502,
+                message: "bad gateway".into(),
+            },
+            Error::GitHubCiFailed(vec!["ci".into()]),
+            Error::SnapshotNotFound("snap".into()),
+            Error::SnapshotCorrupted("bad".into()),
+            Error::SnapshotExpired("old".into()),
+            Error::SnapshotLimitExceeded("max".into()),
+            Error::SnapshotRestoreFailed("err".into()),
             Error::ConfigNotFound("k".into()),
             Error::ConfigInvalid("msg".into()),
             Error::ConfigPermission("k".into()),
@@ -847,38 +1454,38 @@ mod tests {
 
     #[test]
     fn test_exit_codes_match_documented_block() {
-        // Each error group has a documented comment block (e.g. "Workspace/Session Errors (1xxx)").
-        // The actual codes use compact blocks: workspace 10-18, beads 19-20+,
-        // queue 30-35, vcs 40-48, config 60-64, agent 70-72, state 80-82,
-        // validation 90-92, io/storage 100-105, orchestration 110-114,
-        // scenario 120-124, internal 130-138.
-        // Bead codes (133-138) share the 13x range with internal codes.
-        // We verify each variant's code is in the correct documented block.
+        // Verify each variant's exit code is in the correct documented block
+        // per ADR-007 category mapping:
+        // workspace 10-13, session 20-24, bead 30-37, queue 40-45,
+        // vcs 50-58, stack 60-64, github 70-76, snapshot 80-84,
+        // config 90-94, agent 100-102, state 110-112, validation 120-122,
+        // io/storage 130-134, orchestration 140-144, scenario 150-154, internal 200-202
         for v in all_variants() {
             let code = v.exit_code();
             let (lo, hi, name) = match &v {
                 Error::WorkspaceNotFound(_)
                 | Error::WorkspaceExists(_)
                 | Error::WorkspaceLocked(_, _)
-                | Error::WorkspaceConflict(_)
-                | Error::SessionNotFound(_)
+                | Error::WorkspaceConflict(_) => (10, 14, "workspace"),
+                Error::SessionNotFound(_)
                 | Error::SessionExists(_)
                 | Error::SessionLocked(_, _)
                 | Error::NotLockHolder(_, _)
-                | Error::SessionInvalidState(_, _, _) => (10, 19, "workspace/session"),
-                Error::BeadNotFound(_) | Error::BeadAlreadyExists(_) => (19, 21, "bead"),
-                Error::InvalidBeadId(_)
+                | Error::SessionInvalidState(_, _, _) => (20, 25, "session"),
+                Error::BeadNotFound(_)
+                | Error::BeadAlreadyExists(_)
+                | Error::InvalidBeadId(_)
                 | Error::InvalidBeadTitle(_)
                 | Error::BeadInvalidStateTransition { .. }
                 | Error::BeadDependencyCycle(_)
                 | Error::BeadBlockedBy(_)
-                | Error::BeadInvalidDependency(_) => (133, 139, "bead-extended"),
+                | Error::BeadInvalidDependency(_) => (30, 38, "bead"),
                 Error::QueueEmpty
                 | Error::QueueItemNotFound(_)
                 | Error::QueueLocked(_)
                 | Error::QueueProcessing
                 | Error::QueueInvalidPosition(_)
-                | Error::QueueFull(_) => (30, 36, "queue"),
+                | Error::QueueFull(_) => (40, 46, "queue"),
                 Error::VcsNotInitialized
                 | Error::VcsConflict(_, _)
                 | Error::VcsPushFailed(_)
@@ -887,38 +1494,55 @@ mod tests {
                 | Error::BranchNotFound(_)
                 | Error::BranchExists(_)
                 | Error::CommitNotFound(_)
-                | Error::WorkingCopyDirty => (40, 49, "vcs"),
+                | Error::WorkingCopyDirty => (50, 59, "vcs"),
+                Error::StackNotFound(_)
+                | Error::StackOrphaned(_)
+                | Error::StackCyclicDependency
+                | Error::StackInvalidState(_)
+                | Error::StackPrNotFound(_) => (60, 65, "stack"),
+                Error::GitHubAuthFailed(_)
+                | Error::GitHubTokenExpired
+                | Error::GitHubRateLimited(_)
+                | Error::GitHubPrClosed(_)
+                | Error::GitHubPrNotFound(_)
+                | Error::GitHubApiError { .. }
+                | Error::GitHubCiFailed(_) => (70, 77, "github"),
+                Error::SnapshotNotFound(_)
+                | Error::SnapshotCorrupted(_)
+                | Error::SnapshotExpired(_)
+                | Error::SnapshotLimitExceeded(_)
+                | Error::SnapshotRestoreFailed(_) => (80, 85, "snapshot"),
                 Error::ConfigNotFound(_)
                 | Error::ConfigInvalid(_)
                 | Error::ConfigPermission(_)
                 | Error::InvalidConfig(_)
-                | Error::InvalidRepoUrl(_) => (60, 65, "config"),
+                | Error::InvalidRepoUrl(_) => (90, 95, "config"),
                 Error::AgentNotFound(_) | Error::AgentExists(_) | Error::AgentTimeout(_) => {
-                    (70, 73, "agent")
+                    (100, 103, "agent")
                 }
                 Error::InvalidState(_) | Error::NotFound(_) | Error::InvalidOperation(_) => {
-                    (80, 83, "state/conflict")
+                    (110, 113, "state/conflict")
                 }
                 Error::ValidationError(_)
                 | Error::ValidationFieldError { .. }
-                | Error::InvalidIdentifier(_) => (90, 93, "validation"),
+                | Error::InvalidIdentifier(_) => (120, 123, "validation"),
                 Error::IoError(_)
                 | Error::JsonParseError(_)
                 | Error::YamlParseError(_)
                 | Error::Database(_)
-                | Error::Serialization(_) => (100, 106, "io/storage"),
+                | Error::Serialization(_) => (130, 135, "io/storage"),
                 Error::LockTimeout { .. }
                 | Error::CloneFailed(_)
                 | Error::RecordFailed(_)
                 | Error::Persistence(_)
-                | Error::StateTransition(_) => (110, 115, "orchestration"),
+                | Error::StateTransition(_) => (140, 145, "orchestration"),
                 Error::ScenarioError(_)
                 | Error::RunnerError(_)
                 | Error::DefinitionError(_)
                 | Error::ServerError(_)
-                | Error::SyncError(_) => (120, 125, "scenario"),
+                | Error::SyncError(_) => (150, 155, "scenario"),
                 Error::Internal(_) | Error::Unimplemented(_) | Error::InvariantViolation(_) => {
-                    (130, 133, "internal")
+                    (200, 203, "internal")
                 }
             };
             assert!(
@@ -932,12 +1556,16 @@ mod tests {
     #[test]
     fn test_exit_codes_spot_checks() {
         assert_eq!(Error::WorkspaceNotFound("x".into()).exit_code(), 10);
-        assert_eq!(Error::QueueEmpty.exit_code(), 30);
-        assert_eq!(Error::VcsNotInitialized.exit_code(), 40);
-        assert_eq!(Error::ConfigNotFound("x".into()).exit_code(), 60);
-        assert_eq!(Error::AgentNotFound("x".into()).exit_code(), 70);
-        assert_eq!(Error::IoError("x".into()).exit_code(), 100);
-        assert_eq!(Error::Internal("x".into()).exit_code(), 130);
+        assert_eq!(Error::SessionNotFound("x".into()).exit_code(), 20);
+        assert_eq!(Error::BeadNotFound("x".into()).exit_code(), 30);
+        assert_eq!(Error::QueueEmpty.exit_code(), 40);
+        assert_eq!(Error::VcsNotInitialized.exit_code(), 50);
+        assert_eq!(Error::StackNotFound("x".into()).exit_code(), 60);
+        assert_eq!(Error::GitHubAuthFailed("x".into()).exit_code(), 70);
+        assert_eq!(Error::SnapshotNotFound("x".into()).exit_code(), 80);
+        assert_eq!(Error::ConfigNotFound("x".into()).exit_code(), 90);
+        assert_eq!(Error::AgentNotFound("x".into()).exit_code(), 100);
+        assert_eq!(Error::Internal("x".into()).exit_code(), 200);
     }
 
     // ── Serialization ────────────────────────────────────────────────────
@@ -1114,7 +1742,7 @@ mod tests {
             timeout_ms: 0,
             retries: 0,
         };
-        assert_eq!(err.exit_code(), 110);
+        assert_eq!(err.exit_code(), 140);
         assert!(err.to_string().contains("0ms"));
         assert!(err.to_string().contains("0 retries"));
     }
@@ -1568,84 +2196,7 @@ mod tests {
     #[test]
     fn context_map_all_variants_return_some() {
         // Exhaustive check: every variant returns Some
-        let all_variants: Vec<Error> = vec![
-            Error::WorkspaceNotFound("x".into()),
-            Error::WorkspaceExists("x".into()),
-            Error::WorkspaceLocked("x".into(), "y".into()),
-            Error::WorkspaceConflict("x".into()),
-            Error::SessionNotFound("x".into()),
-            Error::SessionExists("x".into()),
-            Error::SessionLocked("x".into(), "y".into()),
-            Error::NotLockHolder("x".into(), "y".into()),
-            Error::SessionInvalidState("x".into(), "y".into(), "z".into()),
-            Error::BeadNotFound("x".into()),
-            Error::BeadAlreadyExists("x".into()),
-            Error::InvalidBeadId("x".into()),
-            Error::InvalidBeadTitle("x".into()),
-            Error::BeadInvalidStateTransition {
-                from: "a".into(),
-                to: "b".into(),
-            },
-            Error::BeadDependencyCycle("x".into()),
-            Error::BeadBlockedBy("x".into()),
-            Error::BeadInvalidDependency("x".into()),
-            Error::QueueEmpty,
-            Error::QueueItemNotFound("x".into()),
-            Error::QueueLocked("x".into()),
-            Error::QueueProcessing,
-            Error::QueueInvalidPosition(0),
-            Error::QueueFull(10),
-            Error::VcsNotInitialized,
-            Error::VcsConflict("a".into(), "b".into()),
-            Error::VcsPushFailed("x".into()),
-            Error::VcsPullFailed("x".into()),
-            Error::VcsRebaseFailed("x".into()),
-            Error::BranchNotFound("x".into()),
-            Error::BranchExists("x".into()),
-            Error::CommitNotFound("x".into()),
-            Error::WorkingCopyDirty,
-            Error::ConfigNotFound("x".into()),
-            Error::ConfigInvalid("x".into()),
-            Error::ConfigPermission("x".into()),
-            Error::InvalidConfig("x".into()),
-            Error::InvalidRepoUrl("x".into()),
-            Error::AgentNotFound("x".into()),
-            Error::AgentExists("x".into()),
-            Error::AgentTimeout("x".into()),
-            Error::InvalidState("x".into()),
-            Error::NotFound("x".into()),
-            Error::InvalidOperation("x".into()),
-            Error::ValidationError("x".into()),
-            Error::ValidationFieldError {
-                message: "x".into(),
-                field: "y".into(),
-                value: None,
-            },
-            Error::InvalidIdentifier("x".into()),
-            Error::IoError("x".into()),
-            Error::JsonParseError("x".into()),
-            Error::YamlParseError("x".into()),
-            Error::Database("x".into()),
-            Error::Serialization("x".into()),
-            Error::LockTimeout {
-                operation: "x".into(),
-                timeout_ms: 0,
-                retries: 0,
-            },
-            Error::CloneFailed("x".into()),
-            Error::RecordFailed("x".into()),
-            Error::Persistence("x".into()),
-            Error::StateTransition("x".into()),
-            Error::ScenarioError("x".into()),
-            Error::RunnerError("x".into()),
-            Error::DefinitionError("x".into()),
-            Error::ServerError("x".into()),
-            Error::SyncError("x".into()),
-            Error::Internal("x".into()),
-            Error::Unimplemented("x".into()),
-            Error::InvariantViolation("x".into()),
-        ];
-        for variant in all_variants {
+        for variant in all_variants() {
             assert!(
                 variant.context_map().is_some(),
                 "context_map() returned None for: {variant}"
@@ -1656,84 +2207,7 @@ mod tests {
     #[test]
     fn code_all_variants_are_screaming_snake() {
         // Verify all codes match SCREAMING_SNAKE_CASE pattern
-        let all_variants: Vec<Error> = vec![
-            Error::WorkspaceNotFound("x".into()),
-            Error::WorkspaceExists("x".into()),
-            Error::WorkspaceLocked("x".into(), "y".into()),
-            Error::WorkspaceConflict("x".into()),
-            Error::SessionNotFound("x".into()),
-            Error::SessionExists("x".into()),
-            Error::SessionLocked("x".into(), "y".into()),
-            Error::NotLockHolder("x".into(), "y".into()),
-            Error::SessionInvalidState("x".into(), "y".into(), "z".into()),
-            Error::BeadNotFound("x".into()),
-            Error::BeadAlreadyExists("x".into()),
-            Error::InvalidBeadId("x".into()),
-            Error::InvalidBeadTitle("x".into()),
-            Error::BeadInvalidStateTransition {
-                from: "a".into(),
-                to: "b".into(),
-            },
-            Error::BeadDependencyCycle("x".into()),
-            Error::BeadBlockedBy("x".into()),
-            Error::BeadInvalidDependency("x".into()),
-            Error::QueueEmpty,
-            Error::QueueItemNotFound("x".into()),
-            Error::QueueLocked("x".into()),
-            Error::QueueProcessing,
-            Error::QueueInvalidPosition(0),
-            Error::QueueFull(10),
-            Error::VcsNotInitialized,
-            Error::VcsConflict("a".into(), "b".into()),
-            Error::VcsPushFailed("x".into()),
-            Error::VcsPullFailed("x".into()),
-            Error::VcsRebaseFailed("x".into()),
-            Error::BranchNotFound("x".into()),
-            Error::BranchExists("x".into()),
-            Error::CommitNotFound("x".into()),
-            Error::WorkingCopyDirty,
-            Error::ConfigNotFound("x".into()),
-            Error::ConfigInvalid("x".into()),
-            Error::ConfigPermission("x".into()),
-            Error::InvalidConfig("x".into()),
-            Error::InvalidRepoUrl("x".into()),
-            Error::AgentNotFound("x".into()),
-            Error::AgentExists("x".into()),
-            Error::AgentTimeout("x".into()),
-            Error::InvalidState("x".into()),
-            Error::NotFound("x".into()),
-            Error::InvalidOperation("x".into()),
-            Error::ValidationError("x".into()),
-            Error::ValidationFieldError {
-                message: "x".into(),
-                field: "y".into(),
-                value: None,
-            },
-            Error::InvalidIdentifier("x".into()),
-            Error::IoError("x".into()),
-            Error::JsonParseError("x".into()),
-            Error::YamlParseError("x".into()),
-            Error::Database("x".into()),
-            Error::Serialization("x".into()),
-            Error::LockTimeout {
-                operation: "x".into(),
-                timeout_ms: 0,
-                retries: 0,
-            },
-            Error::CloneFailed("x".into()),
-            Error::RecordFailed("x".into()),
-            Error::Persistence("x".into()),
-            Error::StateTransition("x".into()),
-            Error::ScenarioError("x".into()),
-            Error::RunnerError("x".into()),
-            Error::DefinitionError("x".into()),
-            Error::ServerError("x".into()),
-            Error::SyncError("x".into()),
-            Error::Internal("x".into()),
-            Error::Unimplemented("x".into()),
-            Error::InvariantViolation("x".into()),
-        ];
-        for variant in all_variants {
+        for variant in all_variants() {
             let code = variant.code();
             assert!(
                 code.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
@@ -1773,5 +2247,415 @@ mod tests {
         let err = fallible().unwrap_err();
         assert!(matches!(err, Error::IoError(_)));
         assert!(err.to_string().contains("IO error:"));
+    }
+
+    // =========================================================================
+    // CLAIM 15: ErrorCategory (ADR-007)
+    // =========================================================================
+
+    #[test]
+    fn error_category_display() {
+        assert_eq!(ErrorCategory::Workspace.to_string(), "workspace");
+        assert_eq!(ErrorCategory::Session.to_string(), "session");
+        assert_eq!(ErrorCategory::Bead.to_string(), "bead");
+        assert_eq!(ErrorCategory::Queue.to_string(), "queue");
+        assert_eq!(ErrorCategory::Vcs.to_string(), "vcs");
+        assert_eq!(ErrorCategory::Stack.to_string(), "stack");
+        assert_eq!(ErrorCategory::GitHub.to_string(), "github");
+        assert_eq!(ErrorCategory::Snapshot.to_string(), "snapshot");
+        assert_eq!(ErrorCategory::Internal.to_string(), "internal");
+    }
+
+    #[test]
+    fn error_category_base_and_max() {
+        assert_eq!(ErrorCategory::Workspace.base(), 1000);
+        assert_eq!(ErrorCategory::Workspace.max(), 1999);
+        assert_eq!(ErrorCategory::Session.base(), 2000);
+        assert_eq!(ErrorCategory::Internal.base(), 9000);
+        assert_eq!(ErrorCategory::Internal.max(), 9999);
+    }
+
+    // =========================================================================
+    // CLAIM 16: FixRisk and ErrorFix (ADR-007)
+    // =========================================================================
+
+    #[test]
+    fn fix_risk_display() {
+        assert_eq!(FixRisk::Safe.to_string(), "safe");
+        assert_eq!(FixRisk::Moderate.to_string(), "moderate");
+        assert_eq!(FixRisk::Dangerous.to_string(), "dangerous");
+    }
+
+    #[test]
+    fn error_fix_new_and_safe() {
+        let fix = ErrorFix::new("rm -rf /", "Delete everything", FixRisk::Dangerous);
+        assert_eq!(fix.command, "rm -rf /");
+        assert_eq!(fix.description, "Delete everything");
+        assert_eq!(fix.risk, FixRisk::Dangerous);
+
+        let safe_fix = ErrorFix::safe("git status", "Show working tree status");
+        assert_eq!(safe_fix.risk, FixRisk::Safe);
+    }
+
+    #[test]
+    fn error_fix_serialization() {
+        let fix = ErrorFix::safe("scp workspace list", "List workspaces");
+        let json = serde_json::to_string(&fix).expect("serialize");
+        assert!(json.contains("scp workspace list"));
+        assert!(json.contains("safe"));
+    }
+
+    // =========================================================================
+    // CLAIM 17: numeric_code() (ADR-007 hierarchical codes)
+    // =========================================================================
+
+    #[test]
+    fn numeric_code_workspace_range() {
+        assert_eq!(Error::WorkspaceNotFound("x".into()).numeric_code(), 1001);
+        assert_eq!(Error::WorkspaceExists("x".into()).numeric_code(), 1002);
+        assert_eq!(Error::WorkspaceLocked("x".into(), "y".into()).numeric_code(), 1003);
+        assert_eq!(Error::WorkspaceConflict("x".into()).numeric_code(), 1004);
+    }
+
+    #[test]
+    fn numeric_code_session_range() {
+        assert_eq!(Error::SessionNotFound("x".into()).numeric_code(), 2001);
+        assert_eq!(Error::SessionExists("x".into()).numeric_code(), 2002);
+        assert_eq!(Error::SessionLocked("x".into(), "y".into()).numeric_code(), 2003);
+        assert_eq!(Error::NotLockHolder("x".into(), "y".into()).numeric_code(), 2004);
+        assert_eq!(
+            Error::SessionInvalidState("a".into(), "b".into(), "c".into()).numeric_code(),
+            2005
+        );
+    }
+
+    #[test]
+    fn numeric_code_bead_range() {
+        assert_eq!(Error::BeadNotFound("x".into()).numeric_code(), 3001);
+        assert_eq!(Error::BeadAlreadyExists("x".into()).numeric_code(), 3002);
+        assert_eq!(Error::InvalidBeadId("x".into()).numeric_code(), 3003);
+        assert_eq!(Error::InvalidBeadTitle("x".into()).numeric_code(), 3004);
+        assert_eq!(
+            Error::BeadInvalidStateTransition {
+                from: "a".into(),
+                to: "b".into()
+            }
+            .numeric_code(),
+            3005
+        );
+        assert_eq!(Error::BeadDependencyCycle("x".into()).numeric_code(), 3006);
+        assert_eq!(Error::BeadBlockedBy("x".into()).numeric_code(), 3007);
+        assert_eq!(Error::BeadInvalidDependency("x".into()).numeric_code(), 3008);
+    }
+
+    #[test]
+    fn numeric_code_queue_range() {
+        assert_eq!(Error::QueueEmpty.numeric_code(), 4001);
+        assert_eq!(Error::QueueItemNotFound("x".into()).numeric_code(), 4002);
+        assert_eq!(Error::QueueLocked("x".into()).numeric_code(), 4003);
+        assert_eq!(Error::QueueProcessing.numeric_code(), 4004);
+        assert_eq!(Error::QueueInvalidPosition(0).numeric_code(), 4005);
+        assert_eq!(Error::QueueFull(10).numeric_code(), 4006);
+    }
+
+    #[test]
+    fn numeric_code_vcs_range() {
+        assert_eq!(Error::VcsNotInitialized.numeric_code(), 5001);
+        assert_eq!(
+            Error::VcsConflict("a".into(), "b".into()).numeric_code(),
+            5002
+        );
+        assert_eq!(Error::VcsPushFailed("x".into()).numeric_code(), 5003);
+        assert_eq!(Error::VcsPullFailed("x".into()).numeric_code(), 5004);
+        assert_eq!(Error::VcsRebaseFailed("x".into()).numeric_code(), 5005);
+        assert_eq!(Error::BranchNotFound("x".into()).numeric_code(), 5006);
+        assert_eq!(Error::BranchExists("x".into()).numeric_code(), 5007);
+        assert_eq!(Error::CommitNotFound("x".into()).numeric_code(), 5008);
+        assert_eq!(Error::WorkingCopyDirty.numeric_code(), 5009);
+    }
+
+    #[test]
+    fn numeric_code_stack_range() {
+        assert_eq!(Error::StackNotFound("x".into()).numeric_code(), 6001);
+        assert_eq!(Error::StackOrphaned("x".into()).numeric_code(), 6002);
+        assert_eq!(Error::StackCyclicDependency.numeric_code(), 6003);
+        assert_eq!(Error::StackInvalidState("x".into()).numeric_code(), 6004);
+        assert_eq!(Error::StackPrNotFound("x".into()).numeric_code(), 6005);
+    }
+
+    #[test]
+    fn numeric_code_github_range() {
+        assert_eq!(Error::GitHubAuthFailed("x".into()).numeric_code(), 7001);
+        assert_eq!(Error::GitHubTokenExpired.numeric_code(), 7002);
+        assert_eq!(Error::GitHubRateLimited("x".into()).numeric_code(), 7003);
+        assert_eq!(Error::GitHubPrClosed("x".into()).numeric_code(), 7004);
+        assert_eq!(Error::GitHubPrNotFound("x".into()).numeric_code(), 7005);
+        assert_eq!(
+            Error::GitHubApiError {
+                status: 502,
+                message: "x".into()
+            }
+            .numeric_code(),
+            7006
+        );
+        assert_eq!(Error::GitHubCiFailed(vec!["x".into()]).numeric_code(), 7007);
+    }
+
+    #[test]
+    fn numeric_code_snapshot_range() {
+        assert_eq!(Error::SnapshotNotFound("x".into()).numeric_code(), 8001);
+        assert_eq!(Error::SnapshotCorrupted("x".into()).numeric_code(), 8002);
+        assert_eq!(Error::SnapshotExpired("x".into()).numeric_code(), 8003);
+        assert_eq!(Error::SnapshotLimitExceeded("x".into()).numeric_code(), 8004);
+        assert_eq!(Error::SnapshotRestoreFailed("x".into()).numeric_code(), 8005);
+    }
+
+    #[test]
+    fn numeric_code_internal_range() {
+        assert_eq!(Error::Internal("x".into()).numeric_code(), 9001);
+        assert_eq!(Error::Unimplemented("x".into()).numeric_code(), 9002);
+        assert_eq!(Error::InvariantViolation("x".into()).numeric_code(), 9003);
+    }
+
+    #[test]
+    fn numeric_code_infrastructure_subranges() {
+        // Config (91xx)
+        assert_eq!(Error::ConfigNotFound("x".into()).numeric_code(), 9101);
+        // Agent (92xx)
+        assert_eq!(Error::AgentNotFound("x".into()).numeric_code(), 9201);
+        // State (93xx)
+        assert_eq!(Error::InvalidState("x".into()).numeric_code(), 9301);
+        // Validation (94xx)
+        assert_eq!(Error::ValidationError("x".into()).numeric_code(), 9401);
+        // IO (95xx)
+        assert_eq!(Error::IoError("x".into()).numeric_code(), 9501);
+        // Orchestration (96xx)
+        assert_eq!(
+            Error::LockTimeout {
+                operation: "x".into(),
+                timeout_ms: 0,
+                retries: 0
+            }
+            .numeric_code(),
+            9601
+        );
+        // Scenario (97xx)
+        assert_eq!(Error::ScenarioError("x".into()).numeric_code(), 9701);
+    }
+
+    #[test]
+    fn numeric_code_all_unique() {
+        let codes: Vec<u16> = all_variants().iter().map(|v| v.numeric_code()).collect();
+        let mut sorted = codes.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(
+            codes.len(),
+            sorted.len(),
+            "Numeric codes must be unique -- found duplicates"
+        );
+    }
+
+    #[test]
+    fn numeric_code_in_correct_category_range() {
+        for variant in all_variants() {
+            let code = variant.numeric_code();
+            let cat = variant.category();
+            assert!(
+                code >= cat.base() && code <= cat.max(),
+                "Numeric code {code} for {:?} outside category {:?} range {}-{}",
+                variant.code(),
+                cat,
+                cat.base(),
+                cat.max()
+            );
+        }
+    }
+
+    // =========================================================================
+    // CLAIM 18: category() (ADR-007)
+    // =========================================================================
+
+    #[test]
+    fn category_workspace() {
+        assert_eq!(Error::WorkspaceNotFound("x".into()).category(), ErrorCategory::Workspace);
+        assert_eq!(Error::WorkspaceExists("x".into()).category(), ErrorCategory::Workspace);
+        assert_eq!(
+            Error::WorkspaceLocked("x".into(), "y".into()).category(),
+            ErrorCategory::Workspace
+        );
+        assert_eq!(Error::WorkspaceConflict("x".into()).category(), ErrorCategory::Workspace);
+    }
+
+    #[test]
+    fn category_session() {
+        assert_eq!(Error::SessionNotFound("x".into()).category(), ErrorCategory::Session);
+        assert_eq!(Error::SessionExists("x".into()).category(), ErrorCategory::Session);
+    }
+
+    #[test]
+    fn category_bead() {
+        assert_eq!(Error::BeadNotFound("x".into()).category(), ErrorCategory::Bead);
+        assert_eq!(Error::BeadAlreadyExists("x".into()).category(), ErrorCategory::Bead);
+    }
+
+    #[test]
+    fn category_queue() {
+        assert_eq!(Error::QueueEmpty.category(), ErrorCategory::Queue);
+    }
+
+    #[test]
+    fn category_vcs() {
+        assert_eq!(Error::VcsNotInitialized.category(), ErrorCategory::Vcs);
+    }
+
+    #[test]
+    fn category_stack() {
+        assert_eq!(Error::StackNotFound("x".into()).category(), ErrorCategory::Stack);
+        assert_eq!(Error::StackCyclicDependency.category(), ErrorCategory::Stack);
+    }
+
+    #[test]
+    fn category_github() {
+        assert_eq!(Error::GitHubAuthFailed("x".into()).category(), ErrorCategory::GitHub);
+        assert_eq!(Error::GitHubTokenExpired.category(), ErrorCategory::GitHub);
+    }
+
+    #[test]
+    fn category_snapshot() {
+        assert_eq!(Error::SnapshotNotFound("x".into()).category(), ErrorCategory::Snapshot);
+    }
+
+    #[test]
+    fn category_internal() {
+        assert_eq!(Error::Internal("x".into()).category(), ErrorCategory::Internal);
+        assert_eq!(Error::ConfigNotFound("x".into()).category(), ErrorCategory::Internal);
+        assert_eq!(Error::AgentNotFound("x".into()).category(), ErrorCategory::Internal);
+        assert_eq!(Error::IoError("x".into()).category(), ErrorCategory::Internal);
+    }
+
+    // =========================================================================
+    // CLAIM 19: is_retryable() (ADR-007)
+    // =========================================================================
+
+    #[test]
+    fn retryable_errors() {
+        assert!(Error::VcsPushFailed("x".into()).is_retryable());
+        assert!(Error::VcsPullFailed("x".into()).is_retryable());
+        assert!(Error::GitHubRateLimited("60s".into()).is_retryable());
+        assert!(
+            Error::LockTimeout {
+                operation: "x".into(),
+                timeout_ms: 5000,
+                retries: 3
+            }
+            .is_retryable()
+        );
+    }
+
+    #[test]
+    fn non_retryable_errors() {
+        assert!(!Error::WorkspaceNotFound("x".into()).is_retryable());
+        assert!(!Error::SessionNotFound("x".into()).is_retryable());
+        assert!(!Error::BeadNotFound("x".into()).is_retryable());
+        assert!(!Error::QueueEmpty.is_retryable());
+        assert!(!Error::Internal("x".into()).is_retryable());
+        assert!(!Error::InvariantViolation("x".into()).is_retryable());
+        assert!(!Error::ConfigNotFound("x".into()).is_retryable());
+    }
+
+    // =========================================================================
+    // CLAIM 20: fix() (ADR-007)
+    // =========================================================================
+
+    #[test]
+    fn fix_workspace_not_found() {
+        let fix = Error::WorkspaceNotFound("x".into()).fix().expect("should have fix");
+        assert_eq!(fix.command, "scp workspace list");
+        assert_eq!(fix.risk, FixRisk::Safe);
+    }
+
+    #[test]
+    fn fix_session_not_found() {
+        let fix = Error::SessionNotFound("x".into()).fix().expect("should have fix");
+        assert_eq!(fix.command, "scp session list");
+        assert_eq!(fix.risk, FixRisk::Safe);
+    }
+
+    #[test]
+    fn fix_queue_empty() {
+        let fix = Error::QueueEmpty.fix().expect("should have fix");
+        assert!(fix.command.contains("enqueue"));
+        assert_eq!(fix.risk, FixRisk::Safe);
+    }
+
+    #[test]
+    fn fix_workspace_locked() {
+        let fix = Error::WorkspaceLocked("ws".into(), "alice".into())
+            .fix()
+            .expect("should have fix");
+        assert!(fix.command.contains("alice"));
+        assert!(fix.command.contains("kill"));
+        assert_eq!(fix.risk, FixRisk::Moderate);
+    }
+
+    #[test]
+    fn fix_vcs_not_initialized() {
+        let fix = Error::VcsNotInitialized.fix().expect("should have fix");
+        assert_eq!(fix.command, "scp init");
+    }
+
+    #[test]
+    fn fix_working_copy_dirty() {
+        let fix = Error::WorkingCopyDirty.fix().expect("should have fix");
+        assert_eq!(fix.command, "git stash");
+    }
+
+    #[test]
+    fn fix_none_for_non_recoverable() {
+        assert!(Error::Internal("x".into()).fix().is_none());
+        assert!(Error::BeadNotFound("x".into()).fix().is_none());
+        assert!(Error::QueueItemNotFound("x".into()).fix().is_none());
+        assert!(Error::InvariantViolation("x".into()).fix().is_none());
+    }
+
+    // =========================================================================
+    // CLAIM 21: New variant display
+    // =========================================================================
+
+    #[test]
+    fn display_stack_variants() {
+        assert!(Error::StackNotFound("s".into()).to_string().contains("Stack not found"));
+        assert!(Error::StackOrphaned("p".into()).to_string().contains("orphaned"));
+        assert!(Error::StackCyclicDependency.to_string().contains("cyclic"));
+        assert!(Error::StackInvalidState("bad".into()).to_string().contains("invalid state"));
+        assert!(Error::StackPrNotFound("123".into()).to_string().contains("PR not found"));
+    }
+
+    #[test]
+    fn display_github_variants() {
+        assert!(Error::GitHubAuthFailed("fail".into()).to_string().contains("auth"));
+        assert!(Error::GitHubTokenExpired.to_string().contains("expired"));
+        assert!(Error::GitHubRateLimited("60s".into()).to_string().contains("rate limited"));
+        assert!(Error::GitHubPrClosed("123".into()).to_string().contains("closed"));
+        assert!(Error::GitHubPrNotFound("123".into()).to_string().contains("not found"));
+        assert!(
+            Error::GitHubApiError {
+                status: 502,
+                message: "bad".into()
+            }
+            .to_string()
+            .contains("502")
+        );
+        assert!(Error::GitHubCiFailed(vec!["ci".into()]).to_string().contains("CI"));
+    }
+
+    #[test]
+    fn display_snapshot_variants() {
+        assert!(Error::SnapshotNotFound("s".into()).to_string().contains("not found"));
+        assert!(Error::SnapshotCorrupted("bad".into()).to_string().contains("corrupted"));
+        assert!(Error::SnapshotExpired("old".into()).to_string().contains("expired"));
+        assert!(Error::SnapshotLimitExceeded("max".into()).to_string().contains("exceeded"));
+        assert!(Error::SnapshotRestoreFailed("err".into()).to_string().contains("restore failed"));
     }
 }

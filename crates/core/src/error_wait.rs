@@ -1,6 +1,6 @@
 //! Wait and Batch command errors.
 //!
-//! Error codes: 5xxx, 8xxx
+//! Error codes: 9xxx infrastructure (ADR-007)
 
 use thiserror::Error;
 
@@ -67,16 +67,17 @@ impl WaitError {
     }
 
     /// Returns exit code for CLI.
+    /// Wait errors use range 150-154 (ADR-007: 9xxx infrastructure).
     pub fn exit_code(&self) -> i32 {
         match self.inner {
-            WaitErrorKind::Timeout(_, _) => 55,
-            WaitErrorKind::InvalidWaitMode(_) => 80,
-            WaitErrorKind::InvalidSessionName(_) => 82,
-            WaitErrorKind::BatchEmpty => 80,
-            WaitErrorKind::BatchCommandFailed(_) => 56,
-            WaitErrorKind::BatchRollbackFailed(_) => 57,
-            WaitErrorKind::CheckpointError(_) => 58,
-            WaitErrorKind::BatchSizeExceeded(_) => 80,
+            WaitErrorKind::Timeout(_, _) => 150,
+            WaitErrorKind::InvalidWaitMode(_) => 151,
+            WaitErrorKind::InvalidSessionName(_) => 152,
+            WaitErrorKind::BatchEmpty => 153,
+            WaitErrorKind::BatchCommandFailed(_) => 154,
+            WaitErrorKind::BatchRollbackFailed(_) => 155,
+            WaitErrorKind::CheckpointError(_) => 156,
+            WaitErrorKind::BatchSizeExceeded(_) => 157,
         }
     }
 }
@@ -152,32 +153,32 @@ mod tests {
     fn wait_error_exit_codes() {
         assert_eq!(
             WaitError::from(WaitErrorKind::Timeout("s".into(), "w".into())).exit_code(),
-            55
+            150
         );
         assert_eq!(
             WaitError::from(WaitErrorKind::InvalidWaitMode("x".into())).exit_code(),
-            80
+            151
         );
         assert_eq!(
             WaitError::from(WaitErrorKind::InvalidSessionName("x".into())).exit_code(),
-            82
+            152
         );
-        assert_eq!(WaitError::from(WaitErrorKind::BatchEmpty).exit_code(), 80);
+        assert_eq!(WaitError::from(WaitErrorKind::BatchEmpty).exit_code(), 153);
         assert_eq!(
             WaitError::from(WaitErrorKind::BatchCommandFailed("x".into())).exit_code(),
-            56
+            154
         );
         assert_eq!(
             WaitError::from(WaitErrorKind::BatchRollbackFailed("x".into())).exit_code(),
-            57
+            155
         );
         assert_eq!(
             WaitError::from(WaitErrorKind::CheckpointError("x".into())).exit_code(),
-            58
+            156
         );
         assert_eq!(
             WaitError::from(WaitErrorKind::BatchSizeExceeded(1)).exit_code(),
-            80
+            157
         );
     }
 

@@ -443,7 +443,7 @@ mod tests {
         use crate::error_config::ConfigErrorKind;
         let err: crate::error_config::ConfigError =
             ConfigErrorKind::DeadSymlink("test".to_string()).into();
-        assert_eq!(err.exit_code(), 48);
+        assert_eq!(err.exit_code(), 98);
     }
 
     // ------------------------------------------------------------------
@@ -535,7 +535,7 @@ mod tests {
         use crate::error_config::ConfigErrorKind;
         let err: crate::error_config::ConfigError =
             ConfigErrorKind::SecuritySymlink("test".to_string()).into();
-        assert_eq!(err.exit_code(), 45);
+        assert_eq!(err.exit_code(), 95);
     }
 
     #[test]
@@ -543,7 +543,7 @@ mod tests {
         use crate::error_config::ConfigErrorKind;
         let err: crate::error_config::ConfigError =
             ConfigErrorKind::FileTooLarge("test".to_string()).into();
-        assert_eq!(err.exit_code(), 46);
+        assert_eq!(err.exit_code(), 96);
     }
 
     #[test]
@@ -551,6 +551,6 @@ mod tests {
         use crate::error_config::ConfigErrorKind;
         let err: crate::error_config::ConfigError =
             ConfigErrorKind::WatcherError("test".to_string()).into();
-        assert_eq!(err.exit_code(), 47);
+        assert_eq!(err.exit_code(), 97);
     }
 }

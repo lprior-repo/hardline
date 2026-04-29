@@ -260,56 +260,56 @@ fn test_error_exit_codes_workspace() {
 
 #[test]
 fn test_error_exit_codes_session() {
-    assert_eq!(Error::session("x").exit_code(), 14);
-    assert_eq!(Error::session_exists("x").exit_code(), 15);
-    assert_eq!(Error::session_locked("x", "y").exit_code(), 16);
-    assert_eq!(Error::session_invalid_state("x", "y", "z").exit_code(), 18);
+    assert_eq!(Error::session("x").exit_code(), 20);
+    assert_eq!(Error::session_exists("x").exit_code(), 21);
+    assert_eq!(Error::session_locked("x", "y").exit_code(), 22);
+    assert_eq!(Error::session_invalid_state("x", "y", "z").exit_code(), 24);
 }
 
 #[test]
 fn test_error_exit_codes_queue() {
-    assert_eq!(Error::queue_empty().exit_code(), 20);
-    assert_eq!(Error::queue_item_not_found("x").exit_code(), 21);
-    assert_eq!(Error::queue_locked("x").exit_code(), 22);
-    assert_eq!(Error::queue_processing().exit_code(), 23);
-    assert_eq!(Error::queue_invalid_position(1).exit_code(), 24);
-    assert_eq!(Error::queue_full(100).exit_code(), 25);
+    assert_eq!(Error::queue_empty().exit_code(), 40);
+    assert_eq!(Error::queue_item_not_found("x").exit_code(), 41);
+    assert_eq!(Error::queue_locked("x").exit_code(), 42);
+    assert_eq!(Error::queue_processing().exit_code(), 43);
+    assert_eq!(Error::queue_invalid_position(1).exit_code(), 44);
+    assert_eq!(Error::queue_full(100).exit_code(), 45);
 }
 
 #[test]
 fn test_error_exit_codes_vcs() {
-    assert_eq!(Error::vcs_not_initialized().exit_code(), 30);
-    assert_eq!(Error::vcs_conflict("x", "y").exit_code(), 31);
-    assert_eq!(Error::vcs_push_failed("x").exit_code(), 32);
-    assert_eq!(Error::vcs_pull_failed("x").exit_code(), 33);
-    assert_eq!(Error::vcs_rebase_failed("x").exit_code(), 34);
-    assert_eq!(Error::branch_not_found("x").exit_code(), 35);
-    assert_eq!(Error::branch_exists("x").exit_code(), 36);
-    assert_eq!(Error::commit_not_found("x").exit_code(), 37);
-    assert_eq!(Error::working_copy_dirty().exit_code(), 38);
+    assert_eq!(Error::vcs_not_initialized().exit_code(), 50);
+    assert_eq!(Error::vcs_conflict("x", "y").exit_code(), 51);
+    assert_eq!(Error::vcs_push_failed("x").exit_code(), 52);
+    assert_eq!(Error::vcs_pull_failed("x").exit_code(), 53);
+    assert_eq!(Error::vcs_rebase_failed("x").exit_code(), 54);
+    assert_eq!(Error::branch_not_found("x").exit_code(), 55);
+    assert_eq!(Error::branch_exists("x").exit_code(), 56);
+    assert_eq!(Error::commit_not_found("x").exit_code(), 57);
+    assert_eq!(Error::working_copy_dirty().exit_code(), 58);
 }
 
 #[test]
 fn test_error_exit_codes_config() {
-    assert_eq!(Error::config_not_found("x").exit_code(), 40);
-    assert_eq!(Error::config_invalid("x").exit_code(), 41);
-    assert_eq!(Error::config_permission("x").exit_code(), 42);
+    assert_eq!(Error::config_not_found("x").exit_code(), 90);
+    assert_eq!(Error::config_invalid("x").exit_code(), 91);
+    assert_eq!(Error::config_permission("x").exit_code(), 92);
 }
 
 #[test]
 fn test_error_exit_codes_validation() {
-    assert_eq!(Error::validation_error("x").exit_code(), 80);
+    assert_eq!(Error::validation_error("x").exit_code(), 120);
     assert_eq!(
         Error::validation_field_error("y", "x", None).exit_code(),
-        81
+        121
     );
-    assert_eq!(Error::invalid_identifier("x").exit_code(), 82);
+    assert_eq!(Error::invalid_identifier("x").exit_code(), 122);
 }
 
 #[test]
 fn test_error_exit_codes_io() {
-    assert_eq!(Error::io_error("test").exit_code(), 64);
-    assert_eq!(Error::io_error("invalid json").exit_code(), 64);
+    assert_eq!(Error::io_error("test").exit_code(), 134);
+    assert_eq!(Error::io_error("invalid json").exit_code(), 134);
 }
 
 // ========================================================================

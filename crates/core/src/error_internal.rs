@@ -1,6 +1,6 @@
 //! Internal errors.
 //!
-//! Error codes: 9xxx
+//! Error codes: 9xxx (ADR-007)
 
 use thiserror::Error;
 
@@ -63,15 +63,16 @@ impl InternalError {
     }
 
     /// Returns exit code for CLI.
+    /// Internal errors use range 200-206 (ADR-007: 9xxx).
     pub fn exit_code(&self) -> i32 {
         match self.inner {
-            InternalErrorKind::Internal(_) => 90,
-            InternalErrorKind::Unimplemented(_) => 91,
-            InternalErrorKind::InvalidConfig(_) => 92,
-            InternalErrorKind::CloneFailed(_) => 93,
-            InternalErrorKind::RecordFailed(_) => 94,
-            InternalErrorKind::InvalidRepoUrl(_) => 95,
-            InternalErrorKind::InvalidOperation(_) => 96,
+            InternalErrorKind::Internal(_) => 200,
+            InternalErrorKind::Unimplemented(_) => 201,
+            InternalErrorKind::InvalidConfig(_) => 202,
+            InternalErrorKind::CloneFailed(_) => 203,
+            InternalErrorKind::RecordFailed(_) => 204,
+            InternalErrorKind::InvalidRepoUrl(_) => 205,
+            InternalErrorKind::InvalidOperation(_) => 206,
         }
     }
 }
@@ -135,31 +136,31 @@ mod tests {
     fn internal_error_exit_codes() {
         assert_eq!(
             InternalError::from(InternalErrorKind::Internal("x".into())).exit_code(),
-            90
+            200
         );
         assert_eq!(
             InternalError::from(InternalErrorKind::Unimplemented("x".into())).exit_code(),
-            91
+            201
         );
         assert_eq!(
             InternalError::from(InternalErrorKind::InvalidConfig("x".into())).exit_code(),
-            92
+            202
         );
         assert_eq!(
             InternalError::from(InternalErrorKind::CloneFailed("x".into())).exit_code(),
-            93
+            203
         );
         assert_eq!(
             InternalError::from(InternalErrorKind::RecordFailed("x".into())).exit_code(),
-            94
+            204
         );
         assert_eq!(
             InternalError::from(InternalErrorKind::InvalidRepoUrl("x".into())).exit_code(),
-            95
+            205
         );
         assert_eq!(
             InternalError::from(InternalErrorKind::InvalidOperation("x".into())).exit_code(),
-            96
+            206
         );
     }
 

@@ -1,6 +1,6 @@
 //! Queue-related errors.
 //!
-//! Error codes: 2xxx
+//! Error codes: 4xxx (ADR-007)
 
 use thiserror::Error;
 
@@ -69,14 +69,15 @@ impl QueueError {
     }
 
     /// Returns exit code for CLI.
+    /// Queue errors use range 40-45 (ADR-007: 4xxx).
     pub fn exit_code(&self) -> i32 {
         match self.inner {
-            QueueErrorKind::Empty => 20,
-            QueueErrorKind::ItemNotFound(_) => 21,
-            QueueErrorKind::Locked(_) => 22,
-            QueueErrorKind::Processing => 23,
-            QueueErrorKind::InvalidPosition(_) => 24,
-            QueueErrorKind::Full(_) => 25,
+            QueueErrorKind::Empty => 40,
+            QueueErrorKind::ItemNotFound(_) => 41,
+            QueueErrorKind::Locked(_) => 42,
+            QueueErrorKind::Processing => 43,
+            QueueErrorKind::InvalidPosition(_) => 44,
+            QueueErrorKind::Full(_) => 45,
         }
     }
 }
@@ -131,21 +132,21 @@ mod tests {
 
     #[test]
     fn queue_error_exit_codes() {
-        assert_eq!(QueueError::from(QueueErrorKind::Empty).exit_code(), 20);
+        assert_eq!(QueueError::from(QueueErrorKind::Empty).exit_code(), 40);
         assert_eq!(
             QueueError::from(QueueErrorKind::ItemNotFound("x".into())).exit_code(),
-            21
+            41
         );
         assert_eq!(
             QueueError::from(QueueErrorKind::Locked("x".into())).exit_code(),
-            22
+            42
         );
-        assert_eq!(QueueError::from(QueueErrorKind::Processing).exit_code(), 23);
+        assert_eq!(QueueError::from(QueueErrorKind::Processing).exit_code(), 43);
         assert_eq!(
             QueueError::from(QueueErrorKind::InvalidPosition(1)).exit_code(),
-            24
+            44
         );
-        assert_eq!(QueueError::from(QueueErrorKind::Full(100)).exit_code(), 25);
+        assert_eq!(QueueError::from(QueueErrorKind::Full(100)).exit_code(), 45);
     }
 
     #[test]

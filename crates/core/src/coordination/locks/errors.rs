@@ -1,6 +1,6 @@
 //! Lock manager error types.
 //!
-//! Error codes: 9xxx
+//! Error codes: 9xxx (ADR-007)
 
 use thiserror::Error;
 
@@ -127,22 +127,23 @@ impl LockError {
     }
 
     /// Returns exit code for CLI.
+    /// Lock errors use range 210-222 (ADR-007: 9xxx).
     #[must_use]
     pub fn exit_code(&self) -> i32 {
         match &self.0 {
-            LockErrorKind::SessionNotFound { .. } => 14,
-            LockErrorKind::SessionLocked { .. } => 16,
-            LockErrorKind::NotLockHolder { .. } => 17,
-            LockErrorKind::NotFound(_) => 71,
-            LockErrorKind::DatabaseError(_) => 63,
-            LockErrorKind::ParseError(_) => 80,
-            LockErrorKind::Unknown(_) => 90,
-            LockErrorKind::TtlOutOfRange(_) => 80,
-            LockErrorKind::EmptySessionName(_) => 80,
-            LockErrorKind::EmptyAgentId(_) => 80,
-            LockErrorKind::TtlOverflow(_) => 80,
-            LockErrorKind::SessionNameTooLong(_) => 80,
-            LockErrorKind::InvalidSessionName(_) => 80,
+            LockErrorKind::SessionNotFound { .. } => 210,
+            LockErrorKind::SessionLocked { .. } => 211,
+            LockErrorKind::NotLockHolder { .. } => 212,
+            LockErrorKind::NotFound(_) => 213,
+            LockErrorKind::DatabaseError(_) => 214,
+            LockErrorKind::ParseError(_) => 215,
+            LockErrorKind::Unknown(_) => 216,
+            LockErrorKind::TtlOutOfRange(_) => 217,
+            LockErrorKind::EmptySessionName(_) => 218,
+            LockErrorKind::EmptyAgentId(_) => 219,
+            LockErrorKind::TtlOverflow(_) => 220,
+            LockErrorKind::SessionNameTooLong(_) => 221,
+            LockErrorKind::InvalidSessionName(_) => 222,
         }
     }
 }
@@ -363,7 +364,7 @@ mod tests {
                 session: "s".into()
             })
             .exit_code(),
-            14
+            210
         );
         assert_eq!(
             LockError(LockErrorKind::SessionLocked {
@@ -371,7 +372,7 @@ mod tests {
                 holder: "h".into()
             })
             .exit_code(),
-            16
+            211
         );
         assert_eq!(
             LockError(LockErrorKind::NotLockHolder {
@@ -379,47 +380,47 @@ mod tests {
                 agent_id: "a".into()
             })
             .exit_code(),
-            17
+            212
         );
         assert_eq!(
             LockError(LockErrorKind::NotFound("x".into())).exit_code(),
-            71
+            213
         );
         assert_eq!(
             LockError(LockErrorKind::DatabaseError("x".into())).exit_code(),
-            63
+            214
         );
         assert_eq!(
             LockError(LockErrorKind::ParseError("x".into())).exit_code(),
-            80
+            215
         );
         assert_eq!(
             LockError(LockErrorKind::Unknown("x".into())).exit_code(),
-            90
+            216
         );
         assert_eq!(
             LockError(LockErrorKind::TtlOutOfRange("x".into())).exit_code(),
-            80
+            217
         );
         assert_eq!(
             LockError(LockErrorKind::EmptySessionName("x".into())).exit_code(),
-            80
+            218
         );
         assert_eq!(
             LockError(LockErrorKind::EmptyAgentId("x".into())).exit_code(),
-            80
+            219
         );
         assert_eq!(
             LockError(LockErrorKind::TtlOverflow("x".into())).exit_code(),
-            80
+            220
         );
         assert_eq!(
             LockError(LockErrorKind::SessionNameTooLong("x".into())).exit_code(),
-            80
+            221
         );
         assert_eq!(
             LockError(LockErrorKind::InvalidSessionName("x".into())).exit_code(),
-            80
+            222
         );
     }
 

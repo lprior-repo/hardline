@@ -1,6 +1,6 @@
 //! Workspace and Session errors.
 //!
-//! Error codes: 1xxx
+//! Error codes: Workspace 1xxx, Session 2xxx (ADR-007)
 
 use thiserror::Error;
 
@@ -101,6 +101,7 @@ impl WorkspaceError {
     }
 
     /// Returns exit code for CLI.
+    /// Workspace errors use range 10-13 (ADR-007: 1xxx).
     pub fn exit_code(&self) -> i32 {
         match self.inner {
             WorkspaceErrorKind::NotFound(_) => 10,
@@ -129,13 +130,14 @@ impl SessionError {
     }
 
     /// Returns exit code for CLI.
+    /// Session errors use range 20-24 (ADR-007: 2xxx).
     pub fn exit_code(&self) -> i32 {
         match self.inner {
-            SessionErrorKind::NotFound(_) => 14,
-            SessionErrorKind::Exists(_) => 15,
-            SessionErrorKind::Locked(_, _) => 16,
-            SessionErrorKind::NotLockHolder(_, _) => 17,
-            SessionErrorKind::InvalidState(_, _, _) => 18,
+            SessionErrorKind::NotFound(_) => 20,
+            SessionErrorKind::Exists(_) => 21,
+            SessionErrorKind::Locked(_, _) => 22,
+            SessionErrorKind::NotLockHolder(_, _) => 23,
+            SessionErrorKind::InvalidState(_, _, _) => 24,
         }
     }
 }
@@ -340,19 +342,19 @@ mod tests {
     fn session_error_exit_codes() {
         assert_eq!(
             SessionError::from(SessionErrorKind::NotFound("x".into())).exit_code(),
-            14
+            20
         );
         assert_eq!(
             SessionError::from(SessionErrorKind::Exists("x".into())).exit_code(),
-            15
+            21
         );
         assert_eq!(
             SessionError::from(SessionErrorKind::Locked("x".into(), "y".into())).exit_code(),
-            16
+            22
         );
         assert_eq!(
             SessionError::from(SessionErrorKind::NotLockHolder("x".into(), "y".into())).exit_code(),
-            17
+            23
         );
         assert_eq!(
             SessionError::from(SessionErrorKind::InvalidState(
@@ -361,7 +363,7 @@ mod tests {
                 "z".into()
             ))
             .exit_code(),
-            18
+            24
         );
     }
 

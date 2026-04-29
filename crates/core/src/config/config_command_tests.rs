@@ -382,7 +382,7 @@ fn error_not_found_variant() {
     let err: ConfigError = ConfigErrorKind::NotFound("path".into()).into();
     assert!(matches!(err.kind(), ConfigErrorKind::NotFound(_)));
     assert!(format!("{err}").contains("path"));
-    assert_eq!(err.exit_code(), 40);
+    assert_eq!(err.exit_code(), 90);
 }
 
 #[test]
@@ -390,7 +390,7 @@ fn error_invalid_variant() {
     let err: ConfigError = ConfigErrorKind::Invalid("bad config".into()).into();
     assert!(matches!(err.kind(), ConfigErrorKind::Invalid(_)));
     assert!(format!("{err}").contains("bad config"));
-    assert_eq!(err.exit_code(), 41);
+    assert_eq!(err.exit_code(), 91);
 }
 
 #[test]
@@ -398,20 +398,20 @@ fn error_permission_variant() {
     let err: ConfigError = ConfigErrorKind::Permission("/etc/config".into()).into();
     assert!(matches!(err.kind(), ConfigErrorKind::Permission(_)));
     assert!(format!("{err}").contains("/etc/config"));
-    assert_eq!(err.exit_code(), 42);
+    assert_eq!(err.exit_code(), 92);
 }
 
 #[test]
 fn exit_codes_match_contract() {
     let cases: Vec<(ConfigErrorKind, i32)> = vec![
-        (ConfigErrorKind::ConfigKeyNotFound("k".into()), 40),
-        (ConfigErrorKind::ConfigParseError("p".into()), 41),
-        (ConfigErrorKind::ConfigWriteError("w".into()), 42),
-        (ConfigErrorKind::ConfigScopeError("s".into()), 43),
-        (ConfigErrorKind::ConfigLockError("l".into()), 44),
-        (ConfigErrorKind::NotFound("n".into()), 40),
-        (ConfigErrorKind::Invalid("i".into()), 41),
-        (ConfigErrorKind::Permission("p".into()), 42),
+        (ConfigErrorKind::ConfigKeyNotFound("k".into()), 90),
+        (ConfigErrorKind::ConfigParseError("p".into()), 91),
+        (ConfigErrorKind::ConfigWriteError("w".into()), 92),
+        (ConfigErrorKind::ConfigScopeError("s".into()), 93),
+        (ConfigErrorKind::ConfigLockError("l".into()), 94),
+        (ConfigErrorKind::NotFound("n".into()), 90),
+        (ConfigErrorKind::Invalid("i".into()), 91),
+        (ConfigErrorKind::Permission("p".into()), 92),
     ];
     for (kind, expected) in cases {
         let err: ConfigError = kind.into();

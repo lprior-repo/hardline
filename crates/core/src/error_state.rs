@@ -1,6 +1,6 @@
 //! State and validation errors.
 //!
-//! Error codes: 7xxx, 8xxx
+//! Error codes: 9xxx infrastructure (ADR-007)
 
 use thiserror::Error;
 
@@ -72,13 +72,14 @@ impl StateError {
     }
 
     /// Returns exit code for CLI.
+    /// State errors use range 110-112, Validation 120-122 (ADR-007: 9xxx infrastructure).
     pub fn exit_code(&self) -> i32 {
         match self.inner {
-            StateErrorKind::InvalidState(_) => 70,
-            StateErrorKind::NotFound(_) => 71,
-            StateErrorKind::ValidationError(_) => 80,
-            StateErrorKind::ValidationFieldError { .. } => 81,
-            StateErrorKind::InvalidIdentifier(_) => 82,
+            StateErrorKind::InvalidState(_) => 110,
+            StateErrorKind::NotFound(_) => 111,
+            StateErrorKind::ValidationError(_) => 120,
+            StateErrorKind::ValidationFieldError { .. } => 121,
+            StateErrorKind::InvalidIdentifier(_) => 122,
         }
     }
 }
@@ -147,15 +148,15 @@ mod tests {
     fn state_error_exit_codes() {
         assert_eq!(
             StateError::from(StateErrorKind::InvalidState("x".into())).exit_code(),
-            70
+            110
         );
         assert_eq!(
             StateError::from(StateErrorKind::NotFound("x".into())).exit_code(),
-            71
+            111
         );
         assert_eq!(
             StateError::from(StateErrorKind::ValidationError("x".into())).exit_code(),
-            80
+            120
         );
         assert_eq!(
             StateError::from(StateErrorKind::ValidationFieldError {
@@ -164,11 +165,11 @@ mod tests {
                 value: None,
             })
             .exit_code(),
-            81
+            121
         );
         assert_eq!(
             StateError::from(StateErrorKind::InvalidIdentifier("x".into())).exit_code(),
-            82
+            122
         );
     }
 

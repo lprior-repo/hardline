@@ -765,11 +765,11 @@ async fn run_rejects_value_no_key() {
 #[test]
 fn cli_exit_codes() {
     let cases: Vec<(ConfigErrorKind, i32)> = vec![
-        (ConfigErrorKind::ConfigKeyNotFound("k".into()), 40),
-        (ConfigErrorKind::ConfigParseError("p".into()), 41),
-        (ConfigErrorKind::ConfigWriteError("w".into()), 42),
-        (ConfigErrorKind::ConfigScopeError("s".into()), 43),
-        (ConfigErrorKind::ConfigLockError("l".into()), 44),
+        (ConfigErrorKind::ConfigKeyNotFound("k".into()), 90),
+        (ConfigErrorKind::ConfigParseError("p".into()), 91),
+        (ConfigErrorKind::ConfigWriteError("w".into()), 92),
+        (ConfigErrorKind::ConfigScopeError("s".into()), 93),
+        (ConfigErrorKind::ConfigLockError("l".into()), 94),
     ];
     for (kind, expected_code) in cases {
         let config_err: ConfigError = kind.into();

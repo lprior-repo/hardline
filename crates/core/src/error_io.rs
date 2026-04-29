@@ -1,6 +1,6 @@
 //! IO-related errors.
 //!
-//! Error codes: 6xxx
+//! Error codes: 9xxx infrastructure (ADR-007)
 
 use thiserror::Error;
 
@@ -55,13 +55,14 @@ impl IoError {
     }
 
     /// Returns exit code for CLI.
+    /// IO errors use range 130-134 (ADR-007: 9xxx infrastructure).
     pub fn exit_code(&self) -> i32 {
         match self.inner {
-            IoErrorKind::Io(_) => 60,
-            IoErrorKind::IoError(_) => 64,
-            IoErrorKind::JsonParse(_) => 61,
-            IoErrorKind::YamlParse(_) => 62,
-            IoErrorKind::Database(_) => 63,
+            IoErrorKind::Io(_) => 130,
+            IoErrorKind::IoError(_) => 134,
+            IoErrorKind::JsonParse(_) => 131,
+            IoErrorKind::YamlParse(_) => 132,
+            IoErrorKind::Database(_) => 133,
         }
     }
 }
@@ -90,11 +91,11 @@ mod tests {
     fn io_error_exit_codes() {
         assert_eq!(
             IoError::from(IoErrorKind::IoError("x".into())).exit_code(),
-            64
+            134
         );
         assert_eq!(
             IoError::from(IoErrorKind::Database("x".into())).exit_code(),
-            63
+            133
         );
         assert_eq!(
             IoError::from(IoErrorKind::Io(std::io::Error::new(
@@ -102,21 +103,21 @@ mod tests {
                 "missing",
             )))
             .exit_code(),
-            60
+            130
         );
         assert_eq!(
             IoError::from(IoErrorKind::JsonParse(
                 serde_json::from_str::<serde_json::Value>("bad").expect_err("parse err"),
             ))
             .exit_code(),
-            61
+            131
         );
         assert_eq!(
             IoError::from(IoErrorKind::YamlParse(
                 serde_yaml::from_str::<serde_yaml::Value>(": bad").expect_err("parse err"),
             ))
             .exit_code(),
-            62
+            132
         );
     }
 

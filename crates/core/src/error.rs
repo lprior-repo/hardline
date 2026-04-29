@@ -15,16 +15,16 @@ pub use crate::coordination::locks::errors::LockError;
 
 /// Unified error type for SCP (Source Control Plane).
 ///
-/// Error codes:
-/// - 1xxx: Workspace/Session errors
-/// - 2xxx: Queue errors
-/// - 3xxx: VCS errors
-/// - 4xxx: Configuration errors
-/// - 5xxx: Agent errors
-/// - 6xxx: IO errors
-/// - 7xxx: State/Conflict errors
-/// - 8xxx: Validation errors
-/// - 9xxx: Internal errors
+/// Error codes (ADR-007 hierarchical scheme):
+/// - 10-13: Workspace errors (1xxx)
+/// - 20-24: Session errors (2xxx)
+/// - 30-35: Bead/Task errors (3xxx)
+/// - 40-45: Queue errors (4xxx)
+/// - 50-58: VCS errors (5xxx)
+/// - 60-64: Stack errors (6xxx)
+/// - 70-76: GitHub errors (7xxx)
+/// - 80-84: Snapshot errors (8xxx)
+/// - 90-222: Internal/infrastructure errors (9xxx)
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
@@ -1072,22 +1072,22 @@ mod tests {
         assert_eq!(err.exit_code(), 10);
 
         let err = Error::from(QueueErrorKind::Empty);
-        assert_eq!(err.exit_code(), 20);
+        assert_eq!(err.exit_code(), 40);
 
         let err = Error::from(VcsErrorKind::NotInitialized);
-        assert_eq!(err.exit_code(), 30);
+        assert_eq!(err.exit_code(), 50);
     }
 
     #[test]
     fn test_backwards_compat_constructors() {
         let err = Error::database("test");
-        assert_eq!(err.exit_code(), 63);
+        assert_eq!(err.exit_code(), 133);
 
         let err = Error::invalid_identifier("test");
-        assert_eq!(err.exit_code(), 82);
+        assert_eq!(err.exit_code(), 122);
 
         let err = Error::validation_field_error("field", "msg", None);
-        assert_eq!(err.exit_code(), 81);
+        assert_eq!(err.exit_code(), 121);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 //! Agent-related errors.
 //!
-//! Error codes: 5xxx
+//! Error codes: 9xxx infrastructure (ADR-007)
 
 use thiserror::Error;
 
@@ -67,15 +67,15 @@ mod tests {
     fn agent_error_exit_codes() {
         assert_eq!(
             AgentError::from(AgentErrorKind::NotFound("x".into())).exit_code(),
-            50
+            100
         );
         assert_eq!(
             AgentError::from(AgentErrorKind::Exists("x".into())).exit_code(),
-            51
+            101
         );
         assert_eq!(
             AgentError::from(AgentErrorKind::Timeout("x".into())).exit_code(),
-            52
+            102
         );
     }
 
@@ -104,11 +104,12 @@ impl AgentError {
     }
 
     /// Returns exit code for CLI.
+    /// Agent errors use range 100-102 (ADR-007: 9xxx infrastructure).
     pub fn exit_code(&self) -> i32 {
         match self.inner {
-            AgentErrorKind::NotFound(_) => 50,
-            AgentErrorKind::Exists(_) => 51,
-            AgentErrorKind::Timeout(_) => 52,
+            AgentErrorKind::NotFound(_) => 100,
+            AgentErrorKind::Exists(_) => 101,
+            AgentErrorKind::Timeout(_) => 102,
         }
     }
 }

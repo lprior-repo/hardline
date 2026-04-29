@@ -1,6 +1,6 @@
 //! VCS-related errors.
 //!
-//! Error codes: 3xxx
+//! Error codes: 5xxx (ADR-007)
 
 use thiserror::Error;
 
@@ -114,22 +114,23 @@ impl VcsError {
     }
 
     /// Returns exit code for CLI.
+    /// VCS errors use range 50-58 (ADR-007: 5xxx).
     pub fn exit_code(&self) -> i32 {
         match self.inner {
-            VcsErrorKind::NotInitialized => 30,
-            VcsErrorKind::Conflict(_, _) => 31,
-            VcsErrorKind::PushFailed(_) => 32,
-            VcsErrorKind::PullFailed(_) => 33,
-            VcsErrorKind::RebaseFailed(_) => 34,
-            VcsErrorKind::BranchNotFound(_) => 35,
-            VcsErrorKind::BranchExists(_) => 36,
-            VcsErrorKind::CommitNotFound(_) => 37,
-            VcsErrorKind::WorkingCopyDirty => 38,
-            VcsErrorKind::CommitFailed(_) => 39,
-            VcsErrorKind::CheckoutFailed(_) => 40,
-            VcsErrorKind::DiffFailed(_) => 41,
-            VcsErrorKind::MergeNoCommitId => 42,
-            VcsErrorKind::InitFailed { .. } => 43,
+            VcsErrorKind::NotInitialized => 50,
+            VcsErrorKind::Conflict(_, _) => 51,
+            VcsErrorKind::PushFailed(_) => 52,
+            VcsErrorKind::PullFailed(_) => 53,
+            VcsErrorKind::RebaseFailed(_) => 54,
+            VcsErrorKind::BranchNotFound(_) => 55,
+            VcsErrorKind::BranchExists(_) => 56,
+            VcsErrorKind::CommitNotFound(_) => 57,
+            VcsErrorKind::WorkingCopyDirty => 58,
+            VcsErrorKind::CommitFailed(_) => 59,
+            VcsErrorKind::CheckoutFailed(_) => 60,
+            VcsErrorKind::DiffFailed(_) => 61,
+            VcsErrorKind::MergeNoCommitId => 62,
+            VcsErrorKind::InitFailed { .. } => 63,
         }
     }
 }
@@ -223,54 +224,54 @@ mod tests {
 
     #[test]
     fn test_vcs_error_exit_codes() {
-        assert_eq!(VcsError::from(VcsErrorKind::NotInitialized).exit_code(), 30);
+        assert_eq!(VcsError::from(VcsErrorKind::NotInitialized).exit_code(), 50);
         assert_eq!(
             VcsError::from(VcsErrorKind::Conflict("x".into(), "y".into())).exit_code(),
-            31
+            51
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::PushFailed("x".into())).exit_code(),
-            32
+            52
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::PullFailed("x".into())).exit_code(),
-            33
+            53
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::RebaseFailed("x".into())).exit_code(),
-            34
+            54
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::BranchNotFound("x".into())).exit_code(),
-            35
+            55
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::BranchExists("x".into())).exit_code(),
-            36
+            56
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::CommitNotFound("x".into())).exit_code(),
-            37
+            57
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::WorkingCopyDirty).exit_code(),
-            38
+            58
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::CommitFailed("x".into())).exit_code(),
-            39
+            59
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::CheckoutFailed("x".into())).exit_code(),
-            40
+            60
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::DiffFailed("x".into())).exit_code(),
-            41
+            61
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::MergeNoCommitId).exit_code(),
-            42
+            62
         );
         assert_eq!(
             VcsError::from(VcsErrorKind::InitFailed {
@@ -279,7 +280,7 @@ mod tests {
                 reason: "x".into(),
             })
             .exit_code(),
-            43
+            63
         );
     }
 

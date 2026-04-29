@@ -1,6 +1,6 @@
 //! Configuration-related errors.
 //!
-//! Error codes: 4xxx
+//! Error codes: 9xxx infrastructure (ADR-007)
 
 use thiserror::Error;
 
@@ -107,20 +107,21 @@ impl ConfigError {
     }
 
     /// Returns exit code for CLI.
+    /// Config errors use range 90-94 (ADR-007: 9xxx infrastructure).
     pub fn exit_code(&self) -> i32 {
         match self.inner {
-            ConfigErrorKind::ConfigKeyNotFound(_) => 40,
-            ConfigErrorKind::ConfigParseError(_) => 41,
-            ConfigErrorKind::ConfigWriteError(_) => 42,
-            ConfigErrorKind::ConfigScopeError(_) => 43,
-            ConfigErrorKind::ConfigLockError(_) => 44,
-            ConfigErrorKind::NotFound(_) => 40,
-            ConfigErrorKind::Invalid(_) => 41,
-            ConfigErrorKind::Permission(_) => 42,
-            ConfigErrorKind::SecuritySymlink(_) => 45,
-            ConfigErrorKind::FileTooLarge(_) => 46,
-            ConfigErrorKind::DeadSymlink(_) => 48,
-            ConfigErrorKind::WatcherError(_) => 47,
+            ConfigErrorKind::ConfigKeyNotFound(_) => 90,
+            ConfigErrorKind::ConfigParseError(_) => 91,
+            ConfigErrorKind::ConfigWriteError(_) => 92,
+            ConfigErrorKind::ConfigScopeError(_) => 93,
+            ConfigErrorKind::ConfigLockError(_) => 94,
+            ConfigErrorKind::NotFound(_) => 90,
+            ConfigErrorKind::Invalid(_) => 91,
+            ConfigErrorKind::Permission(_) => 92,
+            ConfigErrorKind::SecuritySymlink(_) => 95,
+            ConfigErrorKind::FileTooLarge(_) => 96,
+            ConfigErrorKind::DeadSymlink(_) => 98,
+            ConfigErrorKind::WatcherError(_) => 97,
         }
     }
 }
@@ -337,51 +338,51 @@ mod tests {
     fn exit_codes_all_variants() {
         assert_eq!(
             ConfigError::from(ConfigErrorKind::ConfigKeyNotFound("x".into())).exit_code(),
-            40
+            90
         );
         assert_eq!(
             ConfigError::from(ConfigErrorKind::ConfigParseError("x".into())).exit_code(),
-            41
+            91
         );
         assert_eq!(
             ConfigError::from(ConfigErrorKind::ConfigWriteError("x".into())).exit_code(),
-            42
+            92
         );
         assert_eq!(
             ConfigError::from(ConfigErrorKind::ConfigScopeError("x".into())).exit_code(),
-            43
+            93
         );
         assert_eq!(
             ConfigError::from(ConfigErrorKind::ConfigLockError("x".into())).exit_code(),
-            44
+            94
         );
         assert_eq!(
             ConfigError::from(ConfigErrorKind::NotFound("x".into())).exit_code(),
-            40
+            90
         );
         assert_eq!(
             ConfigError::from(ConfigErrorKind::Invalid("x".into())).exit_code(),
-            41
+            91
         );
         assert_eq!(
             ConfigError::from(ConfigErrorKind::Permission("x".into())).exit_code(),
-            42
+            92
         );
         assert_eq!(
             ConfigError::from(ConfigErrorKind::SecuritySymlink("x".into())).exit_code(),
-            45
+            95
         );
         assert_eq!(
             ConfigError::from(ConfigErrorKind::FileTooLarge("x".into())).exit_code(),
-            46
+            96
         );
         assert_eq!(
             ConfigError::from(ConfigErrorKind::WatcherError("x".into())).exit_code(),
-            47
+            97
         );
         assert_eq!(
             ConfigError::from(ConfigErrorKind::DeadSymlink("x".into())).exit_code(),
-            48
+            98
         );
     }
 
@@ -463,7 +464,7 @@ mod tests {
     #[test]
     fn error_exit_code_delegates_to_config() {
         let err: Error = ConfigErrorKind::SecuritySymlink("sym".to_string()).into();
-        assert_eq!(err.exit_code(), 45);
+        assert_eq!(err.exit_code(), 95);
     }
 
     // ========================================================================

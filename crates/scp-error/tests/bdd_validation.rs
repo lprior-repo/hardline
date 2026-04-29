@@ -413,14 +413,20 @@ mod claim_exit_codes {
 
     #[test]
     fn exit_codes_match_expected_ranges() {
+        // ADR-007: exit codes map to category ranges via tens digit
         assert_eq!(Error::WorkspaceNotFound("".into()).exit_code(), 10);
-        assert_eq!(Error::QueueEmpty.exit_code(), 30);
-        assert_eq!(Error::VcsNotInitialized.exit_code(), 40);
-        assert_eq!(Error::ConfigNotFound("".into()).exit_code(), 60);
-        assert_eq!(Error::AgentNotFound("".into()).exit_code(), 70);
-        assert_eq!(Error::InvalidState("".into()).exit_code(), 80);
-        assert_eq!(Error::ValidationError("".into()).exit_code(), 90);
-        assert_eq!(Error::IoError("".into()).exit_code(), 100);
+        assert_eq!(Error::SessionNotFound("".into()).exit_code(), 20);
+        assert_eq!(Error::BeadNotFound("".into()).exit_code(), 30);
+        assert_eq!(Error::QueueEmpty.exit_code(), 40);
+        assert_eq!(Error::VcsNotInitialized.exit_code(), 50);
+        assert_eq!(Error::StackNotFound("".into()).exit_code(), 60);
+        assert_eq!(Error::GitHubAuthFailed("".into()).exit_code(), 70);
+        assert_eq!(Error::SnapshotNotFound("".into()).exit_code(), 80);
+        assert_eq!(Error::ConfigNotFound("".into()).exit_code(), 90);
+        assert_eq!(Error::AgentNotFound("".into()).exit_code(), 100);
+        assert_eq!(Error::InvalidState("".into()).exit_code(), 110);
+        assert_eq!(Error::ValidationError("".into()).exit_code(), 120);
+        assert_eq!(Error::IoError("".into()).exit_code(), 130);
         assert_eq!(
             Error::LockTimeout {
                 operation: "".into(),
@@ -428,10 +434,10 @@ mod claim_exit_codes {
                 retries: 0
             }
             .exit_code(),
-            110
+            140
         );
-        assert_eq!(Error::ScenarioError("".into()).exit_code(), 120);
-        assert_eq!(Error::Internal("".into()).exit_code(), 130);
+        assert_eq!(Error::ScenarioError("".into()).exit_code(), 150);
+        assert_eq!(Error::Internal("".into()).exit_code(), 200);
     }
 }
 

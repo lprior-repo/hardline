@@ -141,9 +141,9 @@ fn given_error_with_suggestion() {
 fn given_error_exit_codes() {
     assert_eq!(Error::workspace_not_found("x").exit_code(), 10);
     assert_eq!(Error::workspace_exists("x").exit_code(), 11);
-    assert_eq!(Error::queue_empty().exit_code(), 20);
-    assert_eq!(Error::vcs_not_initialized().exit_code(), 30);
-    assert_eq!(Error::validation_error("x").exit_code(), 80);
+    assert_eq!(Error::queue_empty().exit_code(), 40);
+    assert_eq!(Error::vcs_not_initialized().exit_code(), 50);
+    assert_eq!(Error::validation_error("x").exit_code(), 120);
 }
 
 #[test]

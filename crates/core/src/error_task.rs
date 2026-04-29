@@ -1,6 +1,6 @@
 //! Task-related errors.
 //!
-//! Error codes: 6xxx
+//! Error codes: 3xxx (ADR-007, aligned with Bead category)
 
 use thiserror::Error;
 
@@ -59,14 +59,15 @@ impl TaskError {
     }
 
     /// Returns exit code for CLI.
+    /// Task errors use range 30-35 (ADR-007: 3xxx, aligned with Bead).
     pub fn exit_code(&self) -> i32 {
         match self.inner {
-            TaskErrorKind::NotFound(_) => 60,
-            TaskErrorKind::AlreadyClaimed(_, _) => 61,
-            TaskErrorKind::NotClaimed(_) => 62,
-            TaskErrorKind::Locked(_) => 63,
-            TaskErrorKind::InvalidId(_) => 64,
-            TaskErrorKind::InvalidStateTransition(_, _) => 65,
+            TaskErrorKind::NotFound(_) => 30,
+            TaskErrorKind::AlreadyClaimed(_, _) => 31,
+            TaskErrorKind::NotClaimed(_) => 32,
+            TaskErrorKind::Locked(_) => 33,
+            TaskErrorKind::InvalidId(_) => 34,
+            TaskErrorKind::InvalidStateTransition(_, _) => 35,
         }
     }
 }
@@ -131,23 +132,23 @@ mod tests {
     fn task_error_exit_codes() {
         assert_eq!(
             TaskError::from(TaskErrorKind::NotFound("x".into())).exit_code(),
-            60
+            30
         );
         assert_eq!(
             TaskError::from(TaskErrorKind::AlreadyClaimed("x".into(), "y".into())).exit_code(),
-            61
+            31
         );
         assert_eq!(
             TaskError::from(TaskErrorKind::NotClaimed("x".into())).exit_code(),
-            62
+            32
         );
         assert_eq!(
             TaskError::from(TaskErrorKind::Locked("x".into())).exit_code(),
-            63
+            33
         );
         assert_eq!(
             TaskError::from(TaskErrorKind::InvalidId("x".into())).exit_code(),
-            64
+            34
         );
         assert_eq!(
             TaskError::from(TaskErrorKind::InvalidStateTransition(
@@ -155,7 +156,7 @@ mod tests {
                 "y".into()
             ))
             .exit_code(),
-            65
+            35
         );
     }
 
