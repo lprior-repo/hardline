@@ -32,7 +32,7 @@ impl SnapshotService {
         commit_hash: String,
         description: Option<String>,
     ) -> Result<Snapshot> {
-        let snapshot = Snapshot::create(branch_name, commit_hash, description);
+        let snapshot = Snapshot::create(branch_name, commit_hash, description)?;
         self.store.save(snapshot.clone())?;
         Ok(snapshot)
     }
@@ -226,7 +226,7 @@ mod tests {
     fn cleanup_expired_with_expired_snapshot() {
         let (service, temp) = make_service();
         // Create a snapshot with a past expiration by manually constructing
-        let mut snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let mut snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         snapshot.expires_at = Some(chrono::Utc::now() - chrono::Duration::hours(1));
         let store = SnapshotStore::new(temp.path());
         store.save(snapshot.clone()).expect("save expired snapshot");
@@ -246,7 +246,7 @@ mod tests {
             .create_snapshot("main".to_string(), "abc".to_string(), None)
             .expect("create normal");
         // Create an expired snapshot
-        let mut expired = Snapshot::create("dev".to_string(), "def".to_string(), None);
+        let mut expired = Snapshot::create("dev".to_string(), "def".to_string(), None).expect("valid snapshot");
         expired.expires_at = Some(chrono::Utc::now() - chrono::Duration::hours(1));
         let store = SnapshotStore::new(temp.path());
         store.save(expired.clone()).expect("save expired");

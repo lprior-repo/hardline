@@ -32,13 +32,14 @@ fn make_store(tmp: &tempfile::TempDir) -> SnapshotStore {
 fn attack_create_snapshot_empty_branch_name() {
     let (service, _tmp) = make_service();
     let result = service.create_snapshot(String::new(), "abc123".to_string(), None);
-    // FINDING: Empty branch name is accepted - no validation
     assert!(
-        result.is_ok(),
-        "Snapshot with empty branch name should succeed (no validation)"
+        result.is_err(),
+        "Snapshot with empty branch name should be rejected"
     );
-    let snap = result.expect("snap");
-    assert_eq!(snap.branch_name, "");
+    assert!(
+        matches!(result.unwrap_err(), SnapshotError::ValidationError(_)),
+        "Should be a ValidationError"
+    );
 }
 
 // ============================================================================
@@ -104,22 +105,16 @@ fn attack_list_corrupted_dir_non_json() {
 
     let store = SnapshotStore::new(tmp.path());
     let result = store.list();
-    // FINDING: Corrupt JSON in .json files causes list() to fail entirely
+    // Corrupt JSON files should be skipped, not cause failure
     assert!(
-        result.is_err(),
-        "Listing snapshots with corrupt JSON should fail"
+        result.is_ok(),
+        "Listing snapshots with corrupt JSON should succeed (corrupt files skipped)"
     );
-    match result {
-        Err(SnapshotError::DeserializationError(msg)) => {
-            assert!(
-                msg.contains("corrupt"),
-                "Error should mention the corrupt file, got: {}",
-                msg
-            );
-        }
-        Err(e) => panic!("Wrong error type: {:?}", e),
-        Ok(_) => panic!("Should have failed"),
-    }
+    let list = result.expect("list");
+    assert!(
+        list.is_empty(),
+        "Only corrupt file exists, so list should be empty"
+    );
 }
 
 // ============================================================================
@@ -155,7 +150,7 @@ fn attack_list_ignores_non_json_files() {
 fn attack_create_snapshot_empty_commit_hash() {
     let (service, _tmp) = make_service();
     let result = service.create_snapshot("main".to_string(), String::new(), None);
-    // FINDING: Empty commit hash is accepted - no validation
+    // Empty commit hash is accepted - no validation for commit hash
     assert!(
         result.is_ok(),
         "Snapshot with empty commit hash should succeed (no validation)"
@@ -170,10 +165,13 @@ fn attack_create_snapshot_path_traversal_branch() {
     let (service, _tmp) = make_service();
     let evil_name = "../../../etc/passwd";
     let result = service.create_snapshot(evil_name.to_string(), "abc".to_string(), None);
-    // FINDING: No sanitization of branch names - path traversal chars accepted
     assert!(
-        result.is_ok(),
-        "Snapshot with path traversal branch name should succeed (no sanitization)"
+        result.is_err(),
+        "Snapshot with path traversal branch name should be rejected"
+    );
+    assert!(
+        matches!(result.unwrap_err(), SnapshotError::ValidationError(_)),
+        "Should be a ValidationError"
     );
 }
 
@@ -183,11 +181,16 @@ fn attack_create_snapshot_path_traversal_branch() {
 #[test]
 fn attack_create_snapshot_null_in_branch() {
     let (service, _tmp) = make_service();
-    // Rust strings can't contain null bytes via String::new(), but we can try
     let evil_name = "evil\x00branch".to_string();
     let result = service.create_snapshot(evil_name, "abc".to_string(), None);
-    // The JSON serializer may or may not handle this
-    // FINDING: Null bytes in strings may cause serialization issues
+    assert!(
+        result.is_err(),
+        "Snapshot with null byte in branch name should be rejected"
+    );
+    assert!(
+        matches!(result.unwrap_err(), SnapshotError::ValidationError(_)),
+        "Should be a ValidationError"
+    );
 }
 
 // ============================================================================
@@ -212,36 +215,25 @@ fn attack_snapshot_id_parse_rejects_bad() {
         );
     }
 
-    // FINDING: SnapshotId::parse accepts "snap-\0null" (with null byte)
-    // Null bytes in identifiers could cause issues when used in filenames
-    // or when passing to other systems that expect clean strings.
+    // Null bytes in identifiers should be rejected
     let null_result = SnapshotId::parse("snap-\x00null");
-    // No assertion - just documenting the behavior
-    let _ = null_result;
+    assert!(
+        null_result.is_err(),
+        "SnapshotId::parse should reject null bytes"
+    );
 }
 
 // ============================================================================
-// ATTACK 11: SnapshotId accepts unusual but valid formats
+// ATTACK 11: SnapshotId rejects dangerous formats
 // ============================================================================
 #[test]
-fn attack_snapshot_id_accepts_unusual() {
-    let valid_inputs = vec![
-        "snap-a",
-        "snap-../../evil",
-        "snap-\x00",  // This might actually fail
-        "snap-"  ,     // This should fail (len == 5)
-    ];
-
-    for input in valid_inputs {
-        let result = SnapshotId::parse(input);
-        if input.len() > 5 {
-            assert!(
-                result.is_ok(),
-                "SnapshotId::parse({:?}) should succeed for len > 5",
-                input
-            );
-        }
-    }
+fn attack_snapshot_id_rejects_dangerous() {
+    // Null bytes should be rejected
+    let null_result = SnapshotId::parse("snap-\x00");
+    assert!(
+        null_result.is_err(),
+        "SnapshotId::parse should reject null bytes"
+    );
 }
 
 // ============================================================================
@@ -253,7 +245,7 @@ fn attack_cleanup_permission_denied() {
     let store = make_store(&tmp);
 
     // Create an expired snapshot
-    let mut snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+    let mut snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
     snapshot.expires_at = Some(chrono::Utc::now() - chrono::Duration::hours(1));
     store.save(snapshot.clone()).expect("save");
 
@@ -331,16 +323,16 @@ fn attack_overwrite_existing_snapshot() {
 
     let id = SnapshotId::parse("snap-overwrite-test").expect("valid id");
 
-    let mut snap1 = Snapshot::create("main".to_string(), "aaa".to_string(), None);
+    let mut snap1 = Snapshot::create("main".to_string(), "aaa".to_string(), None).expect("valid snapshot");
     snap1.id = id.clone();
     store.save(snap1).expect("save first");
 
-    let mut snap2 = Snapshot::create("evil".to_string(), "bbb".to_string(), None);
+    let mut snap2 = Snapshot::create("evil".to_string(), "bbb".to_string(), None).expect("valid snapshot");
     snap2.id = id.clone();
     store.save(snap2).expect("overwrite");
 
     let loaded = store.load(&id).expect("load");
-    // FINDING: Save silently overwrites existing snapshots with same ID
+    // Save silently overwrites existing snapshots with same ID
     assert_eq!(loaded.branch_name, "evil");
     assert_eq!(loaded.commit_hash, "bbb");
 }
@@ -377,6 +369,61 @@ fn attack_create_snapshot_json_injection_description() {
     assert_eq!(loaded.description, Some(evil_desc.to_string()));
 }
 
+// ============================================================================
+// ATTACK 17: Snapshot with backslash in branch name
+// ============================================================================
+#[test]
+fn attack_create_snapshot_backslash_branch() {
+    let (service, _tmp) = make_service();
+    let result = service.create_snapshot("evil\\branch".to_string(), "abc".to_string(), None);
+    assert!(
+        result.is_err(),
+        "Snapshot with backslash in branch name should be rejected"
+    );
+    assert!(
+        matches!(result.unwrap_err(), SnapshotError::ValidationError(_)),
+        "Should be a ValidationError"
+    );
+}
+
+// ============================================================================
+// ATTACK 18: Snapshot with double-dot in branch name
+// ============================================================================
+#[test]
+fn attack_create_snapshot_dotdot_branch() {
+    let (service, _tmp) = make_service();
+    let result = service.create_snapshot("foo..bar".to_string(), "abc".to_string(), None);
+    assert!(
+        result.is_err(),
+        "Snapshot with '..' in branch name should be rejected"
+    );
+    assert!(
+        matches!(result.unwrap_err(), SnapshotError::ValidationError(_)),
+        "Should be a ValidationError"
+    );
+}
+
+// ============================================================================
+// ATTACK 19: List skips corrupt JSON and returns valid snapshots
+// ============================================================================
+#[test]
+fn attack_list_mixed_valid_and_corrupt() {
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let store = make_store(&tmp);
+
+    // Create a valid snapshot
+    let snapshot = service::create_and_save(&store, "main", "abc", None);
+
+    // Write a corrupt JSON file
+    let snapshots_dir = tmp.path().join(".scp").join("snapshots");
+    std::fs::write(snapshots_dir.join("snap-corrupt.json"), "NOT VALID JSON {{{{")
+        .expect("write corrupt");
+
+    let list = store.list().expect("list should succeed");
+    assert_eq!(list.len(), 1, "Should return only the valid snapshot");
+    assert_eq!(list[0].id, snapshot.id);
+}
+
 // Helper module for test utilities
 mod service {
     use super::*;
@@ -386,7 +433,7 @@ mod service {
             branch.to_string(),
             commit.to_string(),
             desc.map(|d| d.to_string()),
-        );
+        ).expect("valid snapshot");
         store.save(snapshot.clone()).expect("save");
         snapshot
     }

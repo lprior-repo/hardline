@@ -111,7 +111,7 @@ pub fn pull(repo: &gix::Repository, remote: Option<&str>, rebase: bool) -> GitRe
     // Step 5: Update working tree HEAD file
     if let Some(workdir) = repo.workdir() {
         let head_path = workdir.join(".git").join("HEAD");
-        let _ = std::fs::write(head_path, format!("ref: refs/heads/{branch_name}\n"));
+        std::fs::write(&head_path, format!("ref: refs/heads/{branch_name}\n"))?;
     }
 
     let mut results = fetch_results;

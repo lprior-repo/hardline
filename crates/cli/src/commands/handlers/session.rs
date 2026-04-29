@@ -4,7 +4,11 @@
 //! delegating to existing command implementations or providing custom handling.
 
 use clap::ArgMatches;
-use scp_core::{output::Output, vcs, Error, Result};
+use scp_core::{
+    output::Output,
+    validation::domain::validate_input_name,
+    vcs, Error, Result,
+};
 
 use super::json_format::get_format;
 use crate::commands::session;
@@ -15,11 +19,9 @@ use crate::commands::session;
 
 /// Pause an active session by writing a `.hd/paused` marker file.
 pub fn pause(name: &str) -> Result<()> {
-    if name.is_empty() {
-        return Err(Error::invalid_identifier(
-            "session name cannot be empty".to_string(),
-        ));
-    }
+    validate_input_name(name).map_err(|e| {
+        Error::invalid_identifier(format!("session name '{name}' is invalid: {e}"))
+    })?;
 
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
@@ -51,11 +53,9 @@ pub fn pause(name: &str) -> Result<()> {
 
 /// Resume a paused session by removing the `.hd/paused` marker file.
 pub fn resume(name: &str) -> Result<()> {
-    if name.is_empty() {
-        return Err(Error::invalid_identifier(
-            "session name cannot be empty".to_string(),
-        ));
-    }
+    validate_input_name(name).map_err(|e| {
+        Error::invalid_identifier(format!("session name '{name}' is invalid: {e}"))
+    })?;
 
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
@@ -90,16 +90,12 @@ pub struct CloneResult {
 
 /// Clone a session.
 pub fn clone_session(source: &str, target: &str, dry_run: bool) -> Result<CloneResult> {
-    if source.is_empty() {
-        return Err(Error::invalid_identifier(
-            "source session name cannot be empty".to_string(),
-        ));
-    }
-    if target.is_empty() {
-        return Err(Error::invalid_identifier(
-            "target session name cannot be empty".to_string(),
-        ));
-    }
+    validate_input_name(source).map_err(|e| {
+        Error::invalid_identifier(format!("source session name '{source}' is invalid: {e}"))
+    })?;
+    validate_input_name(target).map_err(|e| {
+        Error::invalid_identifier(format!("target session name '{target}' is invalid: {e}"))
+    })?;
 
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;

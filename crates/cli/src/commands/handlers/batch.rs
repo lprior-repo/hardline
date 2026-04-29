@@ -13,6 +13,7 @@ use std::process::Command;
 use scp_core::{
     checkpoint::{AutoCheckpoint, CheckpointGuard, OperationRisk},
     output::Output,
+    validation::domain::validate_input_name,
     vcs::{self, VcsStatus},
     Error, Result,
 };
@@ -178,6 +179,11 @@ pub async fn execute_batch(
     // TIER 2: Validate before any I/O
     validate_batch(&commands)?;
 
+    // Validate workspace name against security threats
+    validate_input_name(workspace_name).map_err(|e| {
+        Error::invalid_identifier(format!("workspace name '{workspace_name}' is invalid: {e}"))
+    })?;
+
     // TIER 3: I/O - Get VCS backend
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
@@ -316,6 +322,11 @@ pub async fn run_batch(workspace: Option<String>, commands: Vec<String>) -> Resu
     }
 
     let workspace_name = workspace.unwrap_or_else(|| "default".to_string());
+
+    // Validate workspace name against security threats
+    validate_input_name(&workspace_name).map_err(|e| {
+        Error::invalid_identifier(format!("workspace name '{workspace_name}' is invalid: {e}"))
+    })?;
 
     // Parse all command strings into BatchCommands
     let batch_commands: Result<Vec<BatchCommand>> = commands

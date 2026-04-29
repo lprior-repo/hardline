@@ -7,6 +7,110 @@ use crate::{
     error::{GitError, GitResult},
 };
 
+/// Maximum allowed length for a branch name.
+const MAX_BRANCH_NAME_LEN: usize = 255;
+
+/// Validate a branch name to prevent path traversal, injection, and other attacks.
+///
+/// # Rules
+/// - Non-empty
+/// - Max 255 characters
+/// - Only ASCII alphanumeric, `-`, `_`, `/`
+/// - Must not contain `..`, `\`, `\0`, or spaces
+/// - Must not start with `-` or `.`
+/// - Must not end with `/`
+/// - Must not contain consecutive `//`
+pub fn validate_branch_name(name: &str) -> GitResult<()> {
+    if name.is_empty() {
+        return Err(GitError::InvalidRef {
+            name: name.to_string(),
+            reason: "Branch name must not be empty".to_string(),
+        });
+    }
+
+    if name.len() > MAX_BRANCH_NAME_LEN {
+        return Err(GitError::InvalidRef {
+            name: name.to_string(),
+            reason: format!(
+                "Branch name exceeds maximum length of {MAX_BRANCH_NAME_LEN} characters"
+            ),
+        });
+    }
+
+    if name.starts_with('-') || name.starts_with('.') {
+        return Err(GitError::InvalidRef {
+            name: name.to_string(),
+            reason: "Branch name must not start with '-' or '.'".to_string(),
+        });
+    }
+
+    if name.ends_with('/') {
+        return Err(GitError::InvalidRef {
+            name: name.to_string(),
+            reason: "Branch name must not end with '/'".to_string(),
+        });
+    }
+
+    if name.contains("..") {
+        return Err(GitError::InvalidRef {
+            name: name.to_string(),
+            reason: "Branch name must not contain '..'".to_string(),
+        });
+    }
+
+    if name.contains('\\') {
+        return Err(GitError::InvalidRef {
+            name: name.to_string(),
+            reason: "Branch name must not contain backslashes".to_string(),
+        });
+    }
+
+    if name.contains('\0') {
+        return Err(GitError::InvalidRef {
+            name: name.to_string(),
+            reason: "Branch name must not contain null bytes".to_string(),
+        });
+    }
+
+    if name.contains(' ') {
+        return Err(GitError::InvalidRef {
+            name: name.to_string(),
+            reason: "Branch name must not contain spaces".to_string(),
+        });
+    }
+
+    if name.contains("//") {
+        return Err(GitError::InvalidRef {
+            name: name.to_string(),
+            reason: "Branch name must not contain consecutive slashes".to_string(),
+        });
+    }
+
+    for ch in name.chars() {
+        if !ch.is_ascii_alphanumeric() && ch != '-' && ch != '_' && ch != '/' {
+            return Err(GitError::InvalidRef {
+                name: name.to_string(),
+                reason: format!(
+                    "Branch name contains invalid character '{ch}'; \
+                     only ASCII alphanumeric, '-', '_', '/' are allowed"
+                ),
+            });
+        }
+    }
+
+    // Validate each path component (between slashes) is non-empty
+    for component in name.split('/') {
+        if component.is_empty() {
+            return Err(GitError::InvalidRef {
+                name: name.to_string(),
+                reason: "Branch name must not contain empty path components".to_string(),
+            });
+        }
+    }
+
+    Ok(())
+}
+
 /// Get the name of the current branch.
 pub fn current(repo: &gix::Repository) -> GitResult<String> {
     let head_name = repo.head_name().map_err(|e| GitError::InvalidRef {
@@ -79,6 +183,8 @@ pub fn list(repo: &gix::Repository, all: bool) -> GitResult<Vec<Branch>> {
 
 /// Create a new branch.
 pub fn create(repo: &gix::Repository, name: &str, force: bool) -> GitResult<()> {
+    validate_branch_name(name)?;
+
     let oid = repo.head_id().map_err(|e| GitError::InvalidRef {
         name: "HEAD".to_string(),
         reason: e.to_string(),
@@ -116,6 +222,16 @@ pub fn create(repo: &gix::Repository, name: &str, force: bool) -> GitResult<()> 
 
 /// Delete a branch.
 pub fn delete(repo: &gix::Repository, name: &str, _force: bool) -> GitResult<()> {
+    // Prevent deleting the currently checked-out branch.
+    if let Ok(current) = current(repo) {
+        if current == name {
+            return Err(GitError::InvalidRef {
+                name: name.to_string(),
+                reason: "Cannot delete the currently checked-out branch".to_string(),
+            });
+        }
+    }
+
     let reference_name = format!("refs/heads/{}", name);
     let reference = repo
         .find_reference(&reference_name)
@@ -160,7 +276,7 @@ pub fn switch(repo: &gix::Repository, name: &str, _force: bool) -> GitResult<()>
     // Update working directory HEAD reference
     if let Some(workdir) = repo.workdir() {
         let head_path = workdir.join(".git").join("HEAD");
-        let _ = std::fs::write(&head_path, format!("ref: refs/heads/{}\n", name));
+        std::fs::write(&head_path, format!("ref: refs/heads/{}\n", name))?;
     }
 
     Ok(())

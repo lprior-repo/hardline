@@ -272,6 +272,97 @@ pub fn validate_absolute_path(path: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
+/// Maximum length for user-supplied names (identifiers, session names, etc.).
+pub const MAX_NAME_LENGTH: usize = 256;
+
+/// SQL keywords that must not appear as standalone words in user input.
+const SQL_INJECTION_KEYWORDS: &[&str] = &[
+    "DROP",
+    "SELECT",
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "EXEC",
+    "EXECUTE",
+];
+
+/// Validate a user-supplied name against security threats.
+///
+/// This function is the **single chokepoint** for all CLI input that enters
+/// the system as a name/identifier. It must be called **before** any
+/// operation that uses the name (filesystem, database, VCS, etc.).
+///
+/// Checks (in order):
+/// 1. Rejects empty strings (including whitespace-only).
+/// 2. Rejects strings longer than `MAX_NAME_LENGTH` (256) characters.
+/// 3. Rejects path-traversal sequences (`..`, `/`, `\`).
+/// 4. Rejects null bytes (`\0`).
+/// 5. Rejects SQL injection payloads (standalone SQL keywords like `DROP`, `SELECT`, etc.,
+///    and `';` / `--` sequences, case-insensitive).
+///
+/// # Errors
+///
+/// Returns `ValidationError::EmptyInput` if the name is empty,
+/// or `ValidationError::ShellMetacharacter` if it contains disallowed characters/patterns.
+pub fn validate_input_name(name: &str) -> Result<(), ValidationError> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(ValidationError::EmptyInput);
+    }
+    if trimmed.len() > MAX_NAME_LENGTH {
+        return Err(ValidationError::ShellMetacharacter);
+    }
+
+    // Path traversal checks
+    if trimmed.contains("..") || trimmed.contains('/') || trimmed.contains('\\') || trimmed.contains('\0')
+    {
+        return Err(ValidationError::ShellMetacharacter);
+    }
+
+    // SQL injection checks
+    // Check for `';` and `--` sequences (case-insensitive)
+    let upper = trimmed.to_uppercase();
+    if upper.contains("';") || upper.contains("--") {
+        return Err(ValidationError::ShellMetacharacter);
+    }
+
+    // Check for standalone SQL keywords (word boundary match)
+    for &keyword in SQL_INJECTION_KEYWORDS {
+        if contains_standalone_keyword(&upper, keyword) {
+            return Err(ValidationError::ShellMetacharacter);
+        }
+    }
+
+    Ok(())
+}
+
+/// Check if `haystack` contains `keyword` as a standalone word.
+///
+/// A standalone word means the keyword is either:
+/// - At the start of the string followed by a non-alphanumeric/non-underscore char
+/// - At the end of the string preceded by a non-alphanumeric/non-underscore char
+/// - In the middle surrounded by non-alphanumeric/non-underscore chars
+fn contains_standalone_keyword(haystack: &str, keyword: &str) -> bool {
+    let mut search_from = 0;
+    while let Some(idx) = haystack[search_from..].find(keyword) {
+        let abs_idx = search_from + idx;
+        let end = abs_idx + keyword.len();
+
+        let before_ok = abs_idx == 0
+            || !haystack.as_bytes()[abs_idx - 1].is_ascii_alphanumeric()
+                && haystack.as_bytes()[abs_idx - 1] != b'_';
+        let after_ok = end >= haystack.len()
+            || !haystack.as_bytes()[end].is_ascii_alphanumeric()
+                && haystack.as_bytes()[end] != b'_';
+
+        if before_ok && after_ok {
+            return true;
+        }
+        search_from = end;
+    }
+    false
+}
+
 /// Validate both session name and agent ID together.
 ///
 /// # Errors
@@ -928,5 +1019,219 @@ mod tests {
                 s
             );
         }
+    }
+
+    // ── validate_input_name: comprehensive security validation ─────────────────
+
+    #[test]
+    fn test_validate_input_name_valid() {
+        assert!(validate_input_name("my-session").is_ok());
+        assert!(validate_input_name("my_session").is_ok());
+        assert!(validate_input_name("session-123").is_ok());
+        assert!(validate_input_name("MySession").is_ok());
+    }
+
+    #[test]
+    fn test_validate_input_name_empty() {
+        assert_eq!(validate_input_name(""), Err(ValidationError::EmptyInput));
+    }
+
+    #[test]
+    fn test_validate_input_name_whitespace_only() {
+        assert_eq!(
+            validate_input_name("   "),
+            Err(ValidationError::EmptyInput)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_trims_whitespace() {
+        // Leading/trailing whitespace is trimmed before validation
+        assert!(validate_input_name("  valid-name  ").is_ok());
+    }
+
+    #[test]
+    fn test_validate_input_name_max_length() {
+        let exact = "a".repeat(MAX_NAME_LENGTH);
+        assert!(validate_input_name(&exact).is_ok());
+
+        let too_long = "a".repeat(MAX_NAME_LENGTH + 1);
+        assert_eq!(
+            validate_input_name(&too_long),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_path_traversal_dotdot() {
+        assert_eq!(
+            validate_input_name("../../etc/passwd"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+        assert_eq!(
+            validate_input_name("foo/../bar"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_path_separator_slash() {
+        assert_eq!(
+            validate_input_name("foo/bar"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+        assert_eq!(
+            validate_input_name("/etc/passwd"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_path_separator_backslash() {
+        assert_eq!(
+            validate_input_name("foo\\bar"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+        assert_eq!(
+            validate_input_name("..\\..\\windows\\system32"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_null_byte() {
+        assert_eq!(
+            validate_input_name("foo\0bar"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_sql_injection_semicolon_quote() {
+        assert_eq!(
+            validate_input_name("'; DROP TABLE sessions;"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_sql_injection_double_dash() {
+        assert_eq!(
+            validate_input_name("admin'--"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_sql_injection_drop() {
+        assert_eq!(
+            validate_input_name("DROP TABLE users"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_sql_injection_select() {
+        assert_eq!(
+            validate_input_name("SELECT * FROM sessions"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_sql_injection_insert() {
+        assert_eq!(
+            validate_input_name("INSERT INTO sessions VALUES"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_sql_injection_update() {
+        assert_eq!(
+            validate_input_name("UPDATE sessions SET name"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_sql_injection_delete() {
+        assert_eq!(
+            validate_input_name("DELETE FROM sessions"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_sql_injection_case_insensitive() {
+        assert_eq!(
+            validate_input_name("drop table users"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+        assert_eq!(
+            validate_input_name("Select * From sessions"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    #[test]
+    fn test_validate_input_name_sql_keyword_embedded_is_ok() {
+        // Keywords that are part of a larger word are fine
+        assert!(validate_input_name("dropdown").is_ok());
+        assert!(validate_input_name("selector").is_ok());
+        assert!(validate_input_name("updater").is_ok());
+        assert!(validate_input_name("deleterious").is_ok());
+    }
+
+    #[test]
+    fn test_validate_input_name_sql_keyword_with_underscore_is_part_of_word() {
+        // DROP_table is NOT standalone because _ is part of the word
+        // (no word boundary after DROP). This should be accepted.
+        assert!(validate_input_name("DROP_table").is_ok());
+    }
+
+    #[test]
+    fn test_validate_input_name_exec_keywords() {
+        assert_eq!(
+            validate_input_name("EXEC sp_help"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+        assert_eq!(
+            validate_input_name("EXECUTE immediate"),
+            Err(ValidationError::ShellMetacharacter)
+        );
+    }
+
+    // ── contains_standalone_keyword ────────────────────────────────────────────
+
+    #[test]
+    fn test_contains_standalone_keyword_basic() {
+        assert!(contains_standalone_keyword("DROP TABLE", "DROP"));
+        assert!(contains_standalone_keyword("SELECT *", "SELECT"));
+        assert!(!contains_standalone_keyword("dropdown", "DROP"));
+        assert!(!contains_standalone_keyword("my_select", "SELECT"));
+    }
+
+    #[test]
+    fn test_contains_standalone_keyword_underscore_boundary() {
+        // Underscore is treated as part of the word (not a boundary),
+        // so DROP_table is NOT a standalone DROP keyword.
+        assert!(!contains_standalone_keyword("DROP_table", "DROP"));
+        assert!(!contains_standalone_keyword("my_DROP", "DROP"));
+    }
+
+    #[test]
+    fn test_contains_standalone_keyword_multiple_occurrences() {
+        assert!(contains_standalone_keyword("DROP SELECT DROP", "SELECT"));
+    }
+
+    #[test]
+    fn test_contains_standalone_keyword_empty_haystack() {
+        assert!(!contains_standalone_keyword("", "DROP"));
+    }
+
+    #[test]
+    fn test_contains_standalone_keyword_exact_match() {
+        assert!(contains_standalone_keyword("DROP", "DROP"));
     }
 }

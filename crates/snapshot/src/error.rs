@@ -39,6 +39,9 @@ pub enum SnapshotError {
 
     #[error("Deserialization error: {0}")]
     DeserializationError(String),
+
+    #[error("Validation error: {0}")]
+    ValidationError(String),
 }
 
 impl SnapshotError {

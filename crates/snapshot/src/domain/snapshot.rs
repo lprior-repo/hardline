@@ -31,6 +31,39 @@ pub struct Snapshot {
     pub description: Option<String>,
 }
 
+/// Validate a branch name, rejecting empty strings and strings containing
+/// path traversal or separator characters that could cause security issues.
+///
+/// Rejected: empty strings, strings containing `..`, `/`, `\`, or `\0`.
+pub fn validate_branch_name(name: &str) -> std::result::Result<(), SnapshotError> {
+    if name.is_empty() {
+        return Err(SnapshotError::ValidationError(
+            "Branch name must not be empty".to_string(),
+        ));
+    }
+    if name.contains('\0') {
+        return Err(SnapshotError::ValidationError(
+            "Branch name must not contain null bytes".to_string(),
+        ));
+    }
+    if name.contains("..") {
+        return Err(SnapshotError::ValidationError(
+            "Branch name must not contain '..' (path traversal)".to_string(),
+        ));
+    }
+    if name.contains('/') {
+        return Err(SnapshotError::ValidationError(
+            "Branch name must not contain '/'".to_string(),
+        ));
+    }
+    if name.contains('\\') {
+        return Err(SnapshotError::ValidationError(
+            "Branch name must not contain backslash".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 impl Snapshot {
     /// Default TTL for snapshots: 24 hours.
     const DEFAULT_TTL_HOURS: i64 = 24;
@@ -39,7 +72,7 @@ impl Snapshot {
         branch_name: String,
         commit_hash: String,
         description: Option<String>,
-    ) -> Self {
+    ) -> Result<Self> {
         Self::create_with_type(branch_name, commit_hash, description, SnapshotType::default())
     }
 
@@ -48,8 +81,9 @@ impl Snapshot {
         commit_hash: String,
         description: Option<String>,
         snapshot_type: SnapshotType,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        validate_branch_name(&branch_name)?;
+        Ok(Self {
             id: SnapshotId::generate(),
             branch_name,
             commit_hash,
@@ -57,7 +91,7 @@ impl Snapshot {
             expires_at: Some(Utc::now() + Duration::hours(Self::DEFAULT_TTL_HOURS)),
             snapshot_type,
             description,
-        }
+        })
     }
 
     /// Returns true if this snapshot has an expiration and it has passed.
@@ -78,9 +112,15 @@ impl SnapshotId {
         Self(format!("snap-{}", uuid::Uuid::new_v4()))
     }
 
-    /// Parse a string into a SnapshotId, validating the `snap-` prefix.
+    /// Parse a string into a SnapshotId, validating the `snap-` prefix and
+    /// rejecting strings containing null bytes.
     pub fn parse(s: impl Into<String>) -> Result<Self> {
         let s = s.into();
+        if s.contains('\0') {
+            return Err(SnapshotError::InvalidSnapshot(
+                "SnapshotId must not contain null bytes".to_string(),
+            ));
+        }
         if s.starts_with("snap-") && s.len() > 5 {
             Ok(Self(s))
         } else {
@@ -249,6 +289,47 @@ mod tests {
         assert_eq!(id.as_str(), "snap-テスト-path");
     }
 
+    #[test]
+    fn snapshot_id_parse_rejects_null_bytes() {
+        let result = SnapshotId::parse("snap-test\0evil");
+        assert!(result.is_err(), "null bytes should be rejected");
+    }
+
+    // --- validate_branch_name tests ---
+
+    #[test]
+    fn validate_branch_name_accepts_normal() {
+        assert!(validate_branch_name("main").is_ok());
+        assert!(validate_branch_name("feature-branch").is_ok());
+        assert!(validate_branch_name("dev_v2").is_ok());
+    }
+
+    #[test]
+    fn validate_branch_name_rejects_empty() {
+        assert!(validate_branch_name("").is_err());
+    }
+
+    #[test]
+    fn validate_branch_name_rejects_null() {
+        assert!(validate_branch_name("main\0evil").is_err());
+    }
+
+    #[test]
+    fn validate_branch_name_rejects_dotdot() {
+        assert!(validate_branch_name("..").is_err());
+        assert!(validate_branch_name("foo..bar").is_err());
+    }
+
+    #[test]
+    fn validate_branch_name_rejects_slash() {
+        assert!(validate_branch_name("feature/foo").is_err());
+    }
+
+    #[test]
+    fn validate_branch_name_rejects_backslash() {
+        assert!(validate_branch_name("feature\\foo").is_err());
+    }
+
     // --- Snapshot tests ---
 
     #[test]
@@ -257,7 +338,7 @@ mod tests {
             "feature-branch".to_string(),
             "abc123def".to_string(),
             Some("a test snapshot".to_string()),
-        );
+        ).expect("valid snapshot");
         assert_eq!(snapshot.branch_name, "feature-branch");
         assert_eq!(snapshot.commit_hash, "abc123def");
         assert_eq!(snapshot.description, Some("a test snapshot".to_string()));
@@ -266,14 +347,14 @@ mod tests {
 
     #[test]
     fn snapshot_create_without_description() {
-        let snapshot = Snapshot::create("main".to_string(), "deadbeef".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "deadbeef".to_string(), None).expect("valid snapshot");
         assert!(snapshot.description.is_none());
     }
 
     #[test]
     fn snapshot_create_generates_unique_ids() {
-        let s1 = Snapshot::create("a".to_string(), "h1".to_string(), None);
-        let s2 = Snapshot::create("b".to_string(), "h2".to_string(), None);
+        let s1 = Snapshot::create("a".to_string(), "h1".to_string(), None).expect("valid");
+        let s2 = Snapshot::create("b".to_string(), "h2".to_string(), None).expect("valid");
         assert_ne!(s1.id, s2.id);
     }
 
@@ -283,7 +364,7 @@ mod tests {
             "dev".to_string(),
             "123".to_string(),
             Some("desc".to_string()),
-        );
+        ).expect("valid snapshot");
         let cloned = snapshot.clone();
         assert_eq!(snapshot.id, cloned.id);
         assert_eq!(snapshot.branch_name, cloned.branch_name);
@@ -296,40 +377,41 @@ mod tests {
             "x".to_string(),
             "y".to_string(),
             Some("preserved".to_string()),
-        );
+        ).expect("valid snapshot");
         let cloned = snapshot.clone();
         assert_eq!(snapshot.description, cloned.description);
     }
 
     #[test]
     fn snapshot_clone_preserves_none_description() {
-        let snapshot = Snapshot::create("x".to_string(), "y".to_string(), None);
+        let snapshot = Snapshot::create("x".to_string(), "y".to_string(), None).expect("valid snapshot");
         let cloned = snapshot.clone();
         assert!(cloned.description.is_none());
     }
 
     #[test]
-    fn snapshot_create_with_empty_branch_name() {
-        let snapshot = Snapshot::create(String::new(), "abc".to_string(), None);
-        assert_eq!(snapshot.branch_name, "");
+    fn snapshot_create_with_empty_branch_name_rejected() {
+        let result = Snapshot::create(String::new(), "abc".to_string(), None);
+        assert!(result.is_err(), "empty branch name should be rejected");
+        assert!(matches!(result.unwrap_err(), SnapshotError::ValidationError(_)));
     }
 
     #[test]
     fn snapshot_create_with_empty_commit_hash() {
-        let snapshot = Snapshot::create("main".to_string(), String::new(), None);
+        let snapshot = Snapshot::create("main".to_string(), String::new(), None).expect("valid snapshot");
         assert_eq!(snapshot.commit_hash, "");
     }
 
     #[test]
     fn snapshot_create_with_empty_description() {
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), Some(String::new()));
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), Some(String::new())).expect("valid snapshot");
         assert_eq!(snapshot.description, Some(String::new()));
     }
 
     #[test]
     fn snapshot_created_at_is_recent() {
         let before = chrono::Utc::now();
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         let after = chrono::Utc::now();
         // created_at should be between before and after
         assert!(snapshot.created_at >= before);
@@ -338,19 +420,20 @@ mod tests {
 
     #[test]
     fn snapshot_debug_contains_branch() {
-        let snapshot = Snapshot::create("debug-branch".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("debug-branch".to_string(), "abc".to_string(), None).expect("valid snapshot");
         let debug_str = format!("{snapshot:?}");
         assert!(debug_str.contains("debug-branch"));
     }
 
     #[test]
-    fn snapshot_with_special_characters_in_branch_name() {
-        let snapshot = Snapshot::create(
-            "feature/JS-123: add emojis 🎉".to_string(),
+    fn snapshot_with_slash_in_branch_name_rejected() {
+        let result = Snapshot::create(
+            "feature/JS-123".to_string(),
             "abc".to_string(),
             None,
         );
-        assert_eq!(snapshot.branch_name, "feature/JS-123: add emojis 🎉");
+        assert!(result.is_err(), "branch name with '/' should be rejected");
+        assert!(matches!(result.unwrap_err(), SnapshotError::ValidationError(_)));
     }
 
     #[test]
@@ -360,7 +443,7 @@ mod tests {
             "main".to_string(),
             "abc".to_string(),
             Some(long_desc.clone()),
-        );
+        ).expect("valid snapshot");
         assert_eq!(snapshot.description, Some(long_desc));
         assert_eq!(snapshot.description.as_ref().map(|d| d.len()), Some(10_000));
     }
@@ -368,27 +451,27 @@ mod tests {
     #[test]
     fn snapshot_with_newlines_in_description() {
         let desc = "line1\nline2\nline3".to_string();
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), Some(desc.clone()));
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), Some(desc.clone())).expect("valid snapshot");
         assert_eq!(snapshot.description, Some(desc));
     }
 
     #[test]
     fn snapshot_with_unicode_description() {
         let desc = "日本語テスト Ñoño café".to_string();
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), Some(desc.clone()));
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), Some(desc.clone())).expect("valid snapshot");
         assert_eq!(snapshot.description, Some(desc));
     }
 
     #[test]
     fn snapshot_with_whitespace_branch_name() {
-        let snapshot = Snapshot::create("   ".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("   ".to_string(), "abc".to_string(), None).expect("valid snapshot");
         assert_eq!(snapshot.branch_name, "   ");
     }
 
     #[test]
     fn snapshot_two_snapshots_same_commit_different_branches() {
-        let s1 = Snapshot::create("main".to_string(), "same-hash".to_string(), None);
-        let s2 = Snapshot::create("dev".to_string(), "same-hash".to_string(), None);
+        let s1 = Snapshot::create("main".to_string(), "same-hash".to_string(), None).expect("valid");
+        let s2 = Snapshot::create("dev".to_string(), "same-hash".to_string(), None).expect("valid");
         assert_eq!(s1.commit_hash, s2.commit_hash);
         assert_ne!(s1.id, s2.id);
         assert_ne!(s1.branch_name, s2.branch_name);
@@ -399,7 +482,7 @@ mod tests {
     #[test]
     fn snapshot_create_sets_expires_at_to_24_hours() {
         let before = chrono::Utc::now();
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         let after = chrono::Utc::now();
         let expires = snapshot.expires_at.expect("expires_at should be set");
         let expected_min = before + chrono::Duration::hours(24);
@@ -410,7 +493,7 @@ mod tests {
 
     #[test]
     fn snapshot_create_default_type_is_manual() {
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         assert_eq!(snapshot.snapshot_type, SnapshotType::Manual);
     }
 
@@ -421,7 +504,7 @@ mod tests {
             "abc".to_string(),
             None,
             SnapshotType::Checkpoint,
-        );
+        ).expect("valid snapshot");
         assert_eq!(snapshot.snapshot_type, SnapshotType::Checkpoint);
         assert!(snapshot.expires_at.is_some());
     }
@@ -433,19 +516,19 @@ mod tests {
             "abc".to_string(),
             None,
             SnapshotType::PreOperation,
-        );
+        ).expect("valid snapshot");
         assert_eq!(snapshot.snapshot_type, SnapshotType::PreOperation);
     }
 
     #[test]
     fn snapshot_is_expired_false_when_in_future() {
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         assert!(!snapshot.is_expired(), "fresh snapshot should not be expired");
     }
 
     #[test]
     fn snapshot_is_expired_false_when_no_expires_at() {
-        let mut snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let mut snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         snapshot.expires_at = None;
         assert!(!snapshot.is_expired(), "snapshot without expires_at never expires");
     }
@@ -470,7 +553,7 @@ mod tests {
 
     #[test]
     fn snapshot_serialize_deserialize_preserves_expires_at() {
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         let json = serde_json::to_string(&snapshot).expect("serialize");
         let deserialized: Snapshot = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.expires_at, snapshot.expires_at);
@@ -483,7 +566,7 @@ mod tests {
             "abc".to_string(),
             None,
             SnapshotType::PreOperation,
-        );
+        ).expect("valid snapshot");
         let json = serde_json::to_string(&snapshot).expect("serialize");
         let deserialized: Snapshot = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(deserialized.snapshot_type, SnapshotType::PreOperation);
@@ -496,7 +579,7 @@ mod tests {
             "abc".to_string(),
             Some("desc".to_string()),
             SnapshotType::Checkpoint,
-        );
+        ).expect("valid snapshot");
         let cloned = snapshot.clone();
         assert_eq!(snapshot.expires_at, cloned.expires_at);
         assert_eq!(snapshot.snapshot_type, cloned.snapshot_type);
@@ -510,7 +593,7 @@ mod tests {
             "release".to_string(),
             "abcdef".to_string(),
             Some("release snapshot".to_string()),
-        );
+        ).expect("valid snapshot");
         let json = serde_json::to_string(&snapshot).expect("serialize should succeed");
         let deserialized: Snapshot =
             serde_json::from_str(&json).expect("deserialize should succeed");
@@ -535,7 +618,7 @@ mod tests {
             "test-branch".to_string(),
             "aaaa".to_string(),
             Some("test desc".to_string()),
-        );
+        ).expect("valid snapshot");
         let json = serde_json::to_value(&snapshot).expect("serialize should succeed");
         let obj = json.as_object().expect("should be an object");
         assert!(obj.contains_key("id"));
@@ -549,7 +632,7 @@ mod tests {
 
     #[test]
     fn snapshot_serialize_without_description() {
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         let json = serde_json::to_value(&snapshot).expect("serialize should succeed");
         let obj = json.as_object().expect("should be an object");
         assert_eq!(
@@ -632,7 +715,7 @@ mod tests {
 
     #[test]
     fn snapshot_serialize_produces_valid_json() {
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         let json = serde_json::to_string(&snapshot).expect("serialize should succeed");
         // Verify it parses back as valid JSON
         let _value: serde_json::Value = serde_json::from_str(&json).expect("should be valid JSON");
@@ -640,7 +723,7 @@ mod tests {
 
     #[test]
     fn snapshot_serialize_deserialize_preserves_created_at() {
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         let json = serde_json::to_string(&snapshot).expect("serialize");
         let deserialized: Snapshot = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(snapshot.created_at, deserialized.created_at);
@@ -687,7 +770,7 @@ mod tests {
             "main".to_string(),
             "abc".to_string(),
             Some("bytes".to_string()),
-        );
+        ).expect("valid snapshot");
         let bytes = serde_json::to_vec(&snapshot).expect("to_vec should succeed");
         let deserialized: Snapshot =
             serde_json::from_slice(&bytes).expect("from_slice should succeed");
@@ -701,7 +784,7 @@ mod tests {
             "main".to_string(),
             "abc".to_string(),
             Some("pretty".to_string()),
-        );
+        ).expect("valid snapshot");
         let pretty = serde_json::to_string_pretty(&snapshot).expect("pretty print should succeed");
         let deserialized: Snapshot =
             serde_json::from_str(&pretty).expect("roundtrip should succeed");
@@ -713,20 +796,20 @@ mod tests {
     proptest! {
         #[test]
         fn snapshot_create_always_has_snap_prefix(branch in "[a-zA-Z0-9_-]{1,50}", commit in "[a-f0-9]{1,40}") {
-            let snapshot = Snapshot::create(branch, commit, None);
+            let snapshot = Snapshot::create(branch, commit, None).expect("valid snapshot");
             prop_assert!(snapshot.id.as_str().starts_with("snap-"));
         }
 
         #[test]
-        fn snapshot_create_preserves_branch_and_commit(branch in "[a-zA-Z0-9/_.-]{1,100}", commit in "[a-f0-9]{1,40}") {
-            let snapshot = Snapshot::create(branch.clone(), commit.clone(), None);
+        fn snapshot_create_preserves_branch_and_commit(branch in "[a-zA-Z0-9_.-]{1,100}", commit in "[a-f0-9]{1,40}") {
+            let snapshot = Snapshot::create(branch.clone(), commit.clone(), None).expect("valid snapshot");
             prop_assert_eq!(snapshot.branch_name, branch);
             prop_assert_eq!(snapshot.commit_hash, commit);
         }
 
         #[test]
         fn snapshot_create_preserves_description(branch in "[a-z]{1,10}", commit in "[a-f0-9]{7}", desc in "[a-zA-Z ]{0,200}") {
-            let snapshot = Snapshot::create(branch.clone(), commit.clone(), Some(desc.clone()));
+            let snapshot = Snapshot::create(branch.clone(), commit.clone(), Some(desc.clone())).expect("valid snapshot");
             prop_assert_eq!(snapshot.description, Some(desc));
         }
 
@@ -741,7 +824,7 @@ mod tests {
 
         #[test]
         fn snapshot_roundtrip_via_json(branch in "[a-zA-Z0-9_-]{1,50}", commit in "[a-f0-9]{7,40}", desc in ".{0,500}") {
-            let snapshot = Snapshot::create(branch.clone(), commit.clone(), Some(desc.clone()));
+            let snapshot = Snapshot::create(branch.clone(), commit.clone(), Some(desc.clone())).expect("valid snapshot");
             // Roundtrip
             let json = serde_json::to_string(&snapshot).expect("serialize");
             let deserialized: Snapshot = serde_json::from_str(&json).expect("deserialize");
@@ -758,8 +841,8 @@ mod tests {
 
         #[test]
         fn snapshot_create_generates_unique_ids_for_same_input(branch in "[a-z]{1,5}", commit in "[a-f0-9]{7}") {
-            let s1 = Snapshot::create(branch.clone(), commit.clone(), None);
-            let s2 = Snapshot::create(branch.clone(), commit.clone(), None);
+            let s1 = Snapshot::create(branch.clone(), commit.clone(), None).expect("valid");
+            let s2 = Snapshot::create(branch.clone(), commit.clone(), None).expect("valid");
             prop_assert_ne!(s1.id, s2.id);
         }
     }

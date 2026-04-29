@@ -80,7 +80,8 @@ pub fn is_protected_branch(name: &str) -> bool {
 ///
 /// # Errors
 ///
-/// Returns error if name is empty, contains invalid characters, or is a reserved name.
+/// Returns error if name is empty, contains invalid characters, is a reserved name,
+/// exceeds maximum length, or contains SQL injection patterns.
 pub fn validate_branch_name(name: &str) -> Result<(), String> {
     if name.is_empty() {
         return Err("Branch name cannot be empty".to_string());
@@ -88,6 +89,13 @@ pub fn validate_branch_name(name: &str) -> Result<(), String> {
 
     if name.trim().is_empty() {
         return Err("Branch name cannot be whitespace only".to_string());
+    }
+
+    if name.len() > 256 {
+        return Err(format!(
+            "Branch name too long: {} characters (max: 256)",
+            name.len()
+        ));
     }
 
     if name == "@" {
@@ -104,6 +112,10 @@ pub fn validate_branch_name(name: &str) -> Result<(), String> {
 
     if name.contains("..") {
         return Err("Branch name cannot contain '..'".to_string());
+    }
+
+    if name.contains('\0') {
+        return Err("Branch name cannot contain null bytes".to_string());
     }
 
     if name.contains("@{") {
@@ -129,6 +141,12 @@ pub fn validate_branch_name(name: &str) -> Result<(), String> {
         .is_some_and(|ext| ext.eq_ignore_ascii_case("lock"))
     {
         return Err("Branch name cannot end with '.lock'".to_string());
+    }
+
+    // SQL injection checks
+    let upper = name.to_uppercase();
+    if upper.contains("';") || upper.contains("--") {
+        return Err("Branch name contains invalid characters".to_string());
     }
 
     Ok(())
@@ -202,5 +220,34 @@ mod tests {
     fn is_protected_branch_feature() {
         assert!(!is_protected_branch("feature"));
         assert!(!is_protected_branch("release/v1.0"));
+    }
+
+    // ---- security: length, null bytes, SQL injection ----
+
+    #[test]
+    fn validate_branch_name_too_long() {
+        let long = "a".repeat(257);
+        assert!(validate_branch_name(&long).is_err());
+    }
+
+    #[test]
+    fn validate_branch_name_max_length() {
+        let exact = "a".repeat(256);
+        assert!(validate_branch_name(&exact).is_ok());
+    }
+
+    #[test]
+    fn validate_branch_name_null_byte() {
+        assert!(validate_branch_name("test\0name").is_err());
+    }
+
+    #[test]
+    fn validate_branch_name_sql_injection_semicolon_quote() {
+        assert!(validate_branch_name("'; DROP TABLE").is_err());
+    }
+
+    #[test]
+    fn validate_branch_name_sql_injection_double_dash() {
+        assert!(validate_branch_name("branch--name").is_err());
     }
 }

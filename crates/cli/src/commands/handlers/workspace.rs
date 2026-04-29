@@ -6,7 +6,10 @@
 //! command organization. This module provides handlers for workspace
 //! operations that bridge between the CLI layer and hardline's command modules.
 
-use scp_core::{Error, OutputFormat, Result};
+use scp_core::{
+    validation::domain::validate_input_name,
+    Error, OutputFormat, Result,
+};
 
 use super::json_format::get_format;
 use crate::commands::{
@@ -75,6 +78,11 @@ pub async fn handle_add(sub_m: &clap::ArgMatches) -> Result<()> {
     let name = sub_m
         .get_one::<String>("name")
         .ok_or_else(|| Error::invalid_identifier("Name is required".to_string()))?;
+
+    validate_input_name(name).map_err(|e| {
+        Error::invalid_identifier(format!("workspace name '{name}' is invalid: {e}"))
+    })?;
+
     let _bead_id = sub_m.get_one::<String>("bead").cloned();
     let _no_hooks = sub_m.get_flag("no-hooks");
     let _no_open = sub_m.get_flag("no-open");
@@ -194,6 +202,11 @@ pub async fn handle_switch(sub_m: &clap::ArgMatches) -> Result<()> {
     let name = sub_m
         .get_one::<String>("name")
         .ok_or_else(|| Error::invalid_identifier("Name is required".to_string()))?;
+
+    validate_input_name(name).map_err(|e| {
+        Error::invalid_identifier(format!("workspace name '{name}' is invalid: {e}"))
+    })?;
+
     let _show_context = sub_m.get_flag("show-context");
     let _format = get_format(sub_m);
 
@@ -221,6 +234,11 @@ pub async fn handle_spawn(sub_m: &clap::ArgMatches) -> Result<()> {
     let name = sub_m
         .get_one::<String>("name")
         .ok_or_else(|| Error::invalid_identifier("Name is required".to_string()))?;
+
+    validate_input_name(name).map_err(|e| {
+        Error::invalid_identifier(format!("workspace name '{name}' is invalid: {e}"))
+    })?;
+
     let _sync = sub_m.get_flag("sync");
 
     workspace::spawn(
@@ -257,6 +275,10 @@ pub async fn handle_work(sub_m: &clap::ArgMatches) -> Result<()> {
         .cloned()
         .ok_or_else(|| Error::invalid_identifier("Name is required".to_string()))?;
 
+    validate_input_name(&name).map_err(|e| {
+        Error::invalid_identifier(format!("session name '{name}' is invalid: {e}"))
+    })?;
+
     let mode = if sub_m.get_flag("dry-run") {
         work::WorkMode::DryRun
     } else if sub_m.get_flag("idempotent") {
@@ -290,6 +312,14 @@ pub async fn handle_rename(sub_m: &clap::ArgMatches) -> Result<()> {
         .get_one::<String>("new_name")
         .cloned()
         .ok_or_else(|| Error::invalid_identifier("new_name is required".to_string()))?;
+
+    validate_input_name(&old_name).map_err(|e| {
+        Error::invalid_identifier(format!("old session name '{old_name}' is invalid: {e}"))
+    })?;
+    validate_input_name(&new_name).map_err(|e| {
+        Error::invalid_identifier(format!("new session name '{new_name}' is invalid: {e}"))
+    })?;
+
     let options = crate::commands::handlers::rename::RenameOptions {
         old_name,
         new_name,
@@ -313,6 +343,14 @@ pub async fn handle_clone(sub_m: &clap::ArgMatches) -> Result<()> {
         .get_one::<String>("dest")
         .ok_or_else(|| Error::invalid_identifier("Target destination is required".to_string()))?
         .clone();
+
+    validate_input_name(&source).map_err(|e| {
+        Error::invalid_identifier(format!("source session '{source}' is invalid: {e}"))
+    })?;
+    validate_input_name(&target).map_err(|e| {
+        Error::invalid_identifier(format!("target session '{target}' is invalid: {e}"))
+    })?;
+
     let _dry_run = sub_m.get_flag("dry-run");
 
     let result = crate::commands::handlers::session::clone_session(&source, &target, _dry_run)
@@ -334,6 +372,10 @@ pub async fn handle_pause(sub_m: &clap::ArgMatches) -> Result<()> {
         .cloned()
         .ok_or_else(|| Error::invalid_identifier("Session name is required".to_string()))?;
 
+    validate_input_name(&session).map_err(|e| {
+        Error::invalid_identifier(format!("session name '{session}' is invalid: {e}"))
+    })?;
+
     crate::commands::handlers::session::pause(&session)
         .map_err(|e| Error::internal(e.to_string()))?;
     Ok(())
@@ -348,6 +390,10 @@ pub async fn handle_resume(sub_m: &clap::ArgMatches) -> Result<()> {
         .get_one::<String>("name")
         .cloned()
         .ok_or_else(|| Error::invalid_identifier("Session name is required".to_string()))?;
+
+    validate_input_name(&session).map_err(|e| {
+        Error::invalid_identifier(format!("session name '{session}' is invalid: {e}"))
+    })?;
 
     crate::commands::handlers::session::resume(&session)
         .map_err(|e| Error::internal(e.to_string()))?;

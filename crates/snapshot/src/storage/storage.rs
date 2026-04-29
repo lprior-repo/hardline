@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::{
-    domain::snapshot::{Snapshot, SnapshotId},
+    domain::snapshot::{validate_branch_name, Snapshot, SnapshotId},
     error::{Result, SnapshotError},
 };
 
@@ -31,6 +31,7 @@ impl SnapshotStore {
 
     /// Save a snapshot to disk as a JSON file.
     pub fn save(&self, snapshot: Snapshot) -> Result<()> {
+        validate_branch_name(&snapshot.branch_name)?;
         std::fs::create_dir_all(&self.snapshots_dir).map_err(|e| {
             SnapshotError::storage_with_source(e, format!(
                 "Failed to create snapshots directory {}",
@@ -73,6 +74,9 @@ impl SnapshotStore {
     }
 
     /// List all snapshots in the store.
+    ///
+    /// Corrupt or unreadable JSON files are skipped with a warning rather than
+    /// causing the entire operation to fail.
     pub fn list(&self) -> Result<Vec<Snapshot>> {
         if !self.snapshots_dir.exists() {
             return Ok(Vec::new());
@@ -82,24 +86,37 @@ impl SnapshotStore {
         })?;
         let mut snapshots = Vec::new();
         for entry in entries {
-            let entry = entry.map_err(|e| {
-                SnapshotError::storage_with_source(e, "Failed to read directory entry")
-            })?;
+            let entry = match entry {
+                Ok(e) => e,
+                Err(e) => {
+                    tracing::warn!("Skipping unreadable directory entry: {}", e);
+                    continue;
+                }
+            };
             let path = entry.path();
             if path.extension().and_then(|ext| ext.to_str()) == Some("json") {
-                let json = std::fs::read_to_string(&path).map_err(|e| {
-                    SnapshotError::storage_with_source(e, format!(
-                        "Failed to read snapshot file {}",
-                        path.display(),
-                    ))
-                })?;
-                let snapshot: Snapshot = serde_json::from_str(&json).map_err(|e| {
-                    SnapshotError::DeserializationError(format!(
-                        "Failed to parse snapshot {}: {}",
-                        path.display(),
-                        e,
-                    ))
-                })?;
+                let json = match std::fs::read_to_string(&path) {
+                    Ok(j) => j,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Skipping unreadable snapshot file {}: {}",
+                            path.display(),
+                            e,
+                        );
+                        continue;
+                    }
+                };
+                let snapshot: Snapshot = match serde_json::from_str(&json) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Skipping corrupt snapshot file {}: {}",
+                            path.display(),
+                            e,
+                        );
+                        continue;
+                    }
+                };
                 snapshots.push(snapshot);
             }
         }
@@ -143,7 +160,7 @@ mod tests {
             "abc123".to_string(),
             Some("test snapshot".to_string()),
             SnapshotType::Checkpoint,
-        );
+        ).expect("valid snapshot");
         let id = snapshot.id.clone();
         store.save(snapshot.clone()).expect("save should succeed");
         let loaded = store.load(&id).expect("load should succeed");
@@ -159,7 +176,7 @@ mod tests {
     fn save_creates_directory_structure() {
         let temp = make_temp_dir();
         let store = make_store(temp.path());
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         store.save(snapshot).expect("save should succeed");
         let scp_dir = temp.path().join(".scp");
         assert!(scp_dir.exists(), ".scp directory should be created");
@@ -180,7 +197,7 @@ mod tests {
     fn delete_existing_succeeds() {
         let temp = make_temp_dir();
         let store = make_store(temp.path());
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         let id = snapshot.id.clone();
         store.save(snapshot).expect("save should succeed");
         store.delete(&id).expect("delete should succeed");
@@ -209,8 +226,8 @@ mod tests {
     fn list_returns_all_saved_snapshots() {
         let temp = make_temp_dir();
         let store = make_store(temp.path());
-        let s1 = Snapshot::create("main".to_string(), "aaa".to_string(), None);
-        let s2 = Snapshot::create("dev".to_string(), "bbb".to_string(), None);
+        let s1 = Snapshot::create("main".to_string(), "aaa".to_string(), None).expect("valid snapshot");
+        let s2 = Snapshot::create("dev".to_string(), "bbb".to_string(), None).expect("valid snapshot");
         store.save(s1.clone()).expect("save s1");
         store.save(s2.clone()).expect("save s2");
         let list = store.list().expect("list should succeed");
@@ -230,10 +247,11 @@ mod tests {
             .expect("write non-json file");
         std::fs::write(snapshots_dir.join("corrupt.json"), "not valid json {")
             .expect("write corrupt json");
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         store.save(snapshot.clone()).expect("save snapshot");
-        let list = store.list();
-        assert!(list.is_err(), "corrupt json should cause list to fail");
+        let list = store.list().expect("list should succeed even with corrupt files");
+        assert_eq!(list.len(), 1, "corrupt and non-json files should be skipped");
+        assert_eq!(list[0].id, snapshot.id);
     }
 
     #[test]
@@ -241,10 +259,10 @@ mod tests {
         let temp = make_temp_dir();
         let store = make_store(temp.path());
         let id = SnapshotId::parse("snap-override-test").expect("valid id");
-        let mut s1 = Snapshot::create("main".to_string(), "aaa".to_string(), None);
+        let mut s1 = Snapshot::create("main".to_string(), "aaa".to_string(), None).expect("valid snapshot");
         s1.id = id.clone();
         store.save(s1).expect("save s1");
-        let mut s2 = Snapshot::create("dev".to_string(), "bbb".to_string(), None);
+        let mut s2 = Snapshot::create("dev".to_string(), "bbb".to_string(), None).expect("valid snapshot");
         s2.id = id.clone();
         store.save(s2.clone()).expect("save s2 overwrite");
         let loaded = store.load(&id).expect("load should succeed");
@@ -256,7 +274,7 @@ mod tests {
     fn save_preserves_expires_at() {
         let temp = make_temp_dir();
         let store = make_store(temp.path());
-        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         let expected_expires = snapshot.expires_at;
         store.save(snapshot.clone()).expect("save");
         let loaded = store.load(&snapshot.id).expect("load");
@@ -272,7 +290,7 @@ mod tests {
             "abc".to_string(),
             None,
             SnapshotType::PreOperation,
-        );
+        ).expect("valid snapshot");
         store.save(snapshot.clone()).expect("save");
         let loaded = store.load(&snapshot.id).expect("load");
         assert_eq!(loaded.snapshot_type, SnapshotType::PreOperation);
