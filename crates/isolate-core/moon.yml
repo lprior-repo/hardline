@@ -1,5 +1,0 @@
-# Moon v2 Project Configuration
-# No tasks defined - inherits from workspace-level tasks in isolate crate
-# All tasks run with --workspace flag to cover both crates
-
-$schema: "https://moonrepo.dev/schemas/project.json"
