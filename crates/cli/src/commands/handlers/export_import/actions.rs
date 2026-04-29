@@ -112,7 +112,6 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
         return Ok(());
     }
 
-    // Import each workspace
     let mut result = ImportResult {
         success: true,
         imported: 0,
@@ -126,33 +125,30 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
         overwritten_sessions: Vec::new(),
     };
 
+    import_sessions(&export_data, &existing_names, backend.as_ref() as &dyn vcs::VcsBackend, options, &mut result);
+
+    result.success = result.failed == 0;
+    report_import_result(&result);
+
+    Ok(())
+}
+
+/// Import sessions from export data into the workspace backend.
+fn import_sessions(
+    export_data: &ExportResult,
+    existing_names: &[&str],
+    backend: &dyn vcs::VcsBackend,
+    options: &ImportOptions,
+    result: &mut ImportResult,
+) {
     for session in &export_data.sessions {
         let ws_name = extract_workspace_name(session);
         if existing_names.contains(&ws_name.as_str()) {
-            if options.skip_existing {
-                result.skipped += 1;
-                result.skipped_sessions.push(ws_name);
-                continue;
-            }
-            if !options.force {
-                result.failed += 1;
-                result.errors.push(format!(
-                    "Workspace '{}' already exists (use --force or --skip-existing)",
-                    ws_name
-                ));
-                continue;
-            }
-            // force=true with existing workspace: overwrite semantics
-            // (delete + recreate is not implemented, so we skip)
-            result.overwritten += 1;
-            result.overwritten_sessions.push(ws_name);
+            handle_existing_session(&ws_name, options, result);
             continue;
         }
 
-        let branch = session
-            .branch
-            .as_deref()
-            .unwrap_or(&session.name);
+        let branch = session.branch.as_deref().unwrap_or(&session.name);
         match backend.fork_workspace(branch, &ws_name) {
             Ok(()) => {
                 result.imported += 1;
@@ -164,9 +160,31 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
             }
         }
     }
+}
 
-    result.success = result.failed == 0;
+/// Handle a session that already exists in the workspace.
+fn handle_existing_session(ws_name: &str, options: &ImportOptions, result: &mut ImportResult) {
+    if options.skip_existing {
+        result.skipped += 1;
+        result.skipped_sessions.push(ws_name.to_string());
+        return;
+    }
+    if !options.force {
+        result.failed += 1;
+        result.errors.push(format!(
+            "Workspace '{}' already exists (use --force or --skip-existing)",
+            ws_name
+        ));
+        return;
+    }
+    // force=true with existing workspace: overwrite semantics
+    // (delete + recreate is not implemented, so we skip)
+    result.overwritten += 1;
+    result.overwritten_sessions.push(ws_name.to_string());
+}
 
+/// Report the final import result to the user.
+fn report_import_result(result: &ImportResult) {
     if result.success {
         Output::success(&format!(
             "Import complete: {} imported, {} skipped, {} overwritten",
@@ -181,8 +199,6 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
             Output::error(err);
         }
     }
-
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------
