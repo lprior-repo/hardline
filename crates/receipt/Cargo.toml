@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Operation receipt and audit trail logging for the Hardline source control plane"
+readme = "README.md"
+keywords = ["receipt", "audit", "logging", "trail"]
+categories = ["development-tools"]
 
 [dependencies]
 tokio.workspace = true

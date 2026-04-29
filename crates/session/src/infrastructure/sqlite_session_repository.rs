@@ -152,13 +152,45 @@ impl SqliteSessionRepository {
 }
 
 fn escape_sql_string(s: &str) -> String {
-    s.replace('\'', "''")
+    s.replace('\\', "\\\\").replace('\'', "''")
+}
+
+/// Validates that a string is safe to use in a single-quoted SQL literal.
+/// Rejects null bytes which can cause truncation or unexpected behavior in SQL engines.
+fn validate_sql_string(s: &str) -> std::result::Result<(), String> {
+    if s.contains('\0') {
+        return Err(format!(
+            "String contains null byte which is invalid in SQL string literals: {:?}",
+            s
+        ));
+    }
+    Ok(())
 }
 
 #[async_trait]
 impl SessionRepository for SqliteSessionRepository {
     async fn save(&self, session: &Session) -> Result<()> {
         let row = SessionRow::from(session);
+
+        // Validate all fields before building SQL
+        validate_sql_string(&row.id).map_err(RepositoryError)?;
+        validate_sql_string(&row.name).map_err(RepositoryError)?;
+        validate_sql_string(&row.branch_state).map_err(RepositoryError)?;
+        validate_sql_string(&row.session_state).map_err(RepositoryError)?;
+        validate_sql_string(&row.created_at).map_err(RepositoryError)?;
+        if let Some(ref w) = row.workspace {
+            validate_sql_string(w).map_err(RepositoryError)?;
+        }
+        if let Some(ref b) = row.bead {
+            validate_sql_string(b).map_err(RepositoryError)?;
+        }
+        if let Some(ref b) = row.branch_name {
+            validate_sql_string(b).map_err(RepositoryError)?;
+        }
+        if let Some(ref s) = row.last_synced {
+            validate_sql_string(s).map_err(RepositoryError)?;
+        }
+
         let workspace = row.workspace.as_deref().map(escape_sql_string);
         let bead = row.bead.as_deref().map(escape_sql_string);
         let branch_name = row.branch_name.as_deref().map(escape_sql_string);
@@ -206,6 +238,7 @@ ON CONFLICT(id) DO UPDATE SET
             return Err(InvalidIdentifier("SessionId cannot be empty".to_string()));
         }
         let _ = SessionId::parse(id).map_err(|e| InvalidIdentifier(e.to_string()))?;
+        validate_sql_string(id).map_err(RepositoryError)?;
 
         let escaped_id = escape_sql_string(id);
         let results = self
@@ -228,6 +261,7 @@ ON CONFLICT(id) DO UPDATE SET
     }
 
     async fn find_by_name(&self, name: &SessionName) -> Result<Option<Session>> {
+        validate_sql_string(name.as_str()).map_err(RepositoryError)?;
         let escaped_name = escape_sql_string(name.as_str());
         let results = self
             .db
@@ -272,6 +306,7 @@ ON CONFLICT(id) DO UPDATE SET
             return Err(InvalidIdentifier("SessionId cannot be empty".to_string()));
         }
         let _ = SessionId::parse(id).map_err(|e| InvalidIdentifier(e.to_string()))?;
+        validate_sql_string(id).map_err(RepositoryError)?;
 
         let escaped_id = escape_sql_string(id);
         let results = self
@@ -370,6 +405,82 @@ mod tests {
         #[test]
         fn escape_sql_string_only_quotes() {
             assert_eq!(escape_sql_string("'"), "''");
+        }
+
+        #[test]
+        fn escape_sql_string_backslash_escaped() {
+            assert_eq!(escape_sql_string(r"path\to\file"), r"path\\to\\file");
+        }
+
+        #[test]
+        fn escape_sql_string_backslash_and_quote_combined() {
+            assert_eq!(
+                escape_sql_string(r"it's a \path"),
+                r"it''s a \\path"
+            );
+        }
+
+        #[test]
+        fn escape_sql_string_only_backslash() {
+            assert_eq!(escape_sql_string(r"\"), r"\\");
+        }
+
+        #[test]
+        fn escape_sql_string_backslash_quote_injection_attempt() {
+            // The classic SQL injection pattern: \' attempts to escape the quote
+            assert_eq!(
+                escape_sql_string(r"\' OR '1'='1"),
+                r"\\'' OR ''1''=''1"
+            );
+        }
+    }
+
+    // =========================================================================
+    // validate_sql_string Tests
+    // =========================================================================
+
+    mod validate_sql_tests {
+        use super::*;
+
+        #[test]
+        fn validate_sql_string_accepts_normal_string() {
+            assert!(validate_sql_string("hello world").is_ok());
+        }
+
+        #[test]
+        fn validate_sql_string_accepts_empty_string() {
+            assert!(validate_sql_string("").is_ok());
+        }
+
+        #[test]
+        fn validate_sql_string_accepts_quotes() {
+            // Quotes are handled by escaping; validation only rejects null bytes
+            assert!(validate_sql_string("it's fine").is_ok());
+        }
+
+        #[test]
+        fn validate_sql_string_rejects_null_byte() {
+            assert!(validate_sql_string("hello\0world").is_err());
+        }
+
+        #[test]
+        fn validate_sql_string_rejects_null_at_start() {
+            assert!(validate_sql_string("\0evil").is_err());
+        }
+
+        #[test]
+        fn validate_sql_string_rejects_null_at_end() {
+            assert!(validate_sql_string("evil\0").is_err());
+        }
+
+        #[test]
+        fn validate_sql_string_rejects_only_null() {
+            assert!(validate_sql_string("\0").is_err());
+        }
+
+        #[test]
+        fn validate_sql_string_rejects_embedded_null() {
+            assert!(validate_sql_string("normal\0payload").is_err());
         }
     }
 

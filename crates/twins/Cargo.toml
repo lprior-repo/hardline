@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "HTTP test doubles and mock service twins for integration testing"
+readme = "README.md"
+keywords = ["mock", "test-double", "http", "twin"]
+categories = ["development-tools::testing", "web-programming"]
 
 [dependencies]
 axum = "0.7"

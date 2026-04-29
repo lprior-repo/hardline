@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Issue and work-item tracking beads for the Hardline source control plane"
+readme = "README.md"
+keywords = ["issues", "tracking", "beads", "work-management"]
+categories = ["development-tools"]
 
 [dependencies]
 tokio.workspace = true

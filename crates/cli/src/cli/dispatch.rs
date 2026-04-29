@@ -107,7 +107,9 @@ pub fn run_command(cmd: Commands) -> Result<()> {
         Commands::Whereami => commands::context::whereami(),
         Commands::Whatif { command, args } => handle_whatif(command, args),
         Commands::Examples { command, use_case } => handle_examples(command, use_case),
-        Commands::Workspace { .. } => unreachable!("workspace commands dispatched separately"),
+        Commands::Workspace { .. } => Err(scp_core::Error::internal(
+            "workspace commands should be dispatched separately",
+        )),
         Commands::Retry { max_attempts, verbose } => handle_retry(max_attempts, verbose),
     }
 }

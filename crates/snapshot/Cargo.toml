@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Filesystem snapshot and state capture for the Hardline source control plane"
+readme = "README.md"
+keywords = ["snapshot", "state", "capture", "filesystem"]
+categories = ["development-tools", "filesystem"]
 
 [dependencies]
 scp-core = { path = "../core" }

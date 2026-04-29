@@ -260,28 +260,33 @@ fn port_registry() -> &'static RwLock<Option<Arc<dyn ConfigReadPort>>> {
     PORT_REGISTRY.get_or_init(|| RwLock::new(None))
 }
 
-#[allow(clippy::expect_used)]
-pub fn set_port(port: Arc<dyn ConfigReadPort>) {
+pub fn set_port(port: Arc<dyn ConfigReadPort>) -> Result<()> {
     let registry = port_registry();
-    let mut guard = registry.write().expect("port registry lock poisoned");
+    let mut guard = registry.write().map_err(|e| {
+        ConfigErrorKind::ConfigLockError(format!("port registry lock poisoned: {e}"))
+    })?;
     *guard = Some(port);
+    Ok(())
 }
 
-#[allow(clippy::expect_used)]
-pub fn clear_port() {
+pub fn clear_port() -> Result<()> {
     let registry = port_registry();
-    let mut guard = registry.write().expect("port registry lock poisoned");
+    let mut guard = registry.write().map_err(|e| {
+        ConfigErrorKind::ConfigLockError(format!("port registry lock poisoned: {e}"))
+    })?;
     *guard = None;
+    Ok(())
 }
 
-#[allow(clippy::expect_used)]
-pub(crate) fn get_port() -> Arc<dyn ConfigReadPort> {
+pub(crate) fn get_port() -> Result<Arc<dyn ConfigReadPort>> {
     let registry = port_registry();
-    let guard = registry.read().expect("port registry lock poisoned");
+    let guard = registry.read().map_err(|e| {
+        ConfigErrorKind::ConfigLockError(format!("port registry lock poisoned: {e}"))
+    })?;
     if let Some(port) = guard.as_ref() {
-        Arc::clone(port)
+        Ok(Arc::clone(port))
     } else {
-        Arc::new(FileConfigReadPort::new())
+        Ok(Arc::new(FileConfigReadPort::new()))
     }
 }
 
@@ -859,7 +864,7 @@ const LOCK_RETRY_INTERVAL: Duration = Duration::from_millis(100);
 
 pub async fn config_get(key: &str, _scope: ConfigScope) -> Result<ConfigGetResult> {
     let config_key = ConfigKey::try_from(key)?;
-    let port = get_port();
+    let port = get_port()?;
     let (config, scopes, paths) =
         if let Some(fp) = port.as_any().downcast_ref::<FileConfigReadPort>() {
             fp.load_with_layers(true, true)?
@@ -897,7 +902,7 @@ pub async fn config_set(key: &str, value: &str, scope: ConfigScope) -> Result<Co
         )
         .into());
     }
-    let port = get_port();
+    let port = get_port()?;
     let config_path = resolve_config_path(&*port, scope)?;
     ensure_parent_dir(&config_path)?;
     let file = open_config_file(&config_path)?;
@@ -919,7 +924,10 @@ fn resolve_config_path(port: &dyn ConfigReadPort, scope: ConfigScope) -> Result<
     match scope {
         ConfigScope::Global => port.global_config_path(),
         ConfigScope::Project => port.project_config_path(),
-        ConfigScope::Env => unreachable!(),
+        ConfigScope::Env => Err(ConfigErrorKind::ConfigScopeError(
+            "environment scope does not have a config file path".to_string(),
+        )
+        .into()),
     }
 }
 
@@ -1037,7 +1045,7 @@ fn write_config_doc(
 }
 
 pub async fn config_list(global_only: bool) -> Result<Vec<ConfigGetResult>> {
-    let port = get_port();
+    let port = get_port()?;
     let (config, scopes, paths) =
         if let Some(fp) = port.as_any().downcast_ref::<FileConfigReadPort>() {
             fp.load_with_layers(!global_only, !global_only)?

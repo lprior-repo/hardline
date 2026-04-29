@@ -28,7 +28,7 @@ struct PortGuard;
 
 impl Drop for PortGuard {
     fn drop(&mut self) {
-        clear_port();
+        let _ = clear_port();
     }
 }
 
@@ -55,21 +55,21 @@ fn install_port_with(
     global_content: &str,
     project_content: Option<&str>,
 ) -> (tempfile::TempDir, PortGuard) {
-    clear_port();
+    clear_port().expect("clear_port in test setup");
     let tmp = setup_test_dir(global_content, project_content);
     let port = FileConfigReadPort::with_paths(
         tmp.path().join("config.toml"),
         project_content.map(|_| tmp.path().join(".scp").join("config.toml")),
     );
-    set_port(Arc::new(port));
+    set_port(Arc::new(port)).expect("set_port in test setup");
     (tmp, PortGuard)
 }
 
 fn install_port_no_files() -> (tempfile::TempDir, PortGuard) {
-    clear_port();
+    clear_port().expect("clear_port in test setup");
     let tmp = tempfile::tempdir().expect("should create temp dir");
     let port = FileConfigReadPort::with_paths(tmp.path().join("nonexistent_global.toml"), None);
-    set_port(Arc::new(port));
+    set_port(Arc::new(port)).expect("set_port in test setup");
     (tmp, PortGuard)
 }
 
@@ -147,7 +147,7 @@ async fn port_load_merged_invalid_toml() {
 async fn port_load_merged_env_only() {
     std::env::set_var("SCP_WATCH_ENABLED", "true");
     let (_tmp, _port_guard) = install_port_no_files();
-    let port = crate::config::command_types::get_port();
+    let port = crate::config::command_types::get_port().expect("get_port in test");
     let config = port.load_merged().await.expect("should load from env only");
     assert_eq!(config.values.get("watch.enabled").unwrap(), "true");
     std::env::remove_var("SCP_WATCH_ENABLED");
@@ -160,7 +160,7 @@ async fn port_load_global_only_returns_no_project() {
         "[watch]\nenabled = false\n",
         Some("[watch]\nenabled = true\n"),
     );
-    let port = crate::config::command_types::get_port();
+    let port = crate::config::command_types::get_port().expect("get_port in test");
     let config = port
         .load_global_only()
         .await
@@ -287,7 +287,7 @@ async fn lock_acquired_on_write() {
         .await
         .expect("should set");
     assert_eq!(result.value, "true");
-    let port = crate::config::command_types::get_port();
+    let port = crate::config::command_types::get_port().expect("get_port in test");
     let path = port.global_config_path().expect("should get path");
     let contents = std::fs::read_to_string(&path).expect("should read");
     let doc: toml_edit::DocumentMut = contents.parse().expect("should parse TOML");
@@ -314,8 +314,8 @@ async fn lock_timeout_returns_error() {
     });
     std::thread::sleep(std::time::Duration::from_millis(200));
     let port = FileConfigReadPort::with_paths(config_path.clone(), None);
-    clear_port();
-    set_port(Arc::new(port));
+    clear_port().expect("clear_port in test");
+    set_port(Arc::new(port)).expect("set_port in test");
     let _port_guard = PortGuard;
     let err = config_set("watch.enabled", "true", ConfigScope::Global)
         .await
@@ -342,7 +342,7 @@ async fn lock_released_on_failure() {
     // scoped to the function call and never leaks).
     let result = config_set("watch.enabled", "true", ConfigScope::Global).await;
     assert!(result.is_ok(), "config_set should succeed");
-    let port = crate::config::command_types::get_port();
+    let port = crate::config::command_types::get_port().expect("get_port in test");
     let config_path = port.global_config_path().expect("should get path");
     let f = std::fs::OpenOptions::new()
         .read(true)
@@ -385,8 +385,8 @@ async fn lock_retry_behavior() {
     });
     std::thread::sleep(std::time::Duration::from_millis(50));
     let port = FileConfigReadPort::with_paths(config_path.clone(), None);
-    clear_port();
-    set_port(Arc::new(port));
+    clear_port().expect("clear_port in test");
+    set_port(Arc::new(port)).expect("set_port in test");
     let _port_guard = PortGuard;
     let start = std::time::Instant::now();
     let result = config_set("watch.enabled", "true", ConfigScope::Global).await;
@@ -430,8 +430,8 @@ async fn no_truncate_before_lock_prevents_data_loss() {
     std::thread::sleep(std::time::Duration::from_millis(200));
 
     let port = FileConfigReadPort::with_paths(config_path.clone(), None);
-    clear_port();
-    set_port(Arc::new(port));
+    clear_port().expect("clear_port in test");
+    set_port(Arc::new(port)).expect("set_port in test");
     let _port_guard = PortGuard;
 
     let err = config_set("watch.name", "lost", ConfigScope::Global)
@@ -486,7 +486,7 @@ async fn toml_types_preserved() {
     config_set("watch.name", "updated", ConfigScope::Global)
         .await
         .expect("should set");
-    let port = crate::config::command_types::get_port();
+    let port = crate::config::command_types::get_port().expect("get_port in test");
     let path = port.global_config_path().expect("should get path");
     let contents = std::fs::read_to_string(&path).expect("should read");
     let doc: toml_edit::DocumentMut = contents.parse().expect("should be valid TOML");
@@ -588,8 +588,8 @@ async fn error_lock_timeout() {
     });
     std::thread::sleep(std::time::Duration::from_millis(100));
     let port = FileConfigReadPort::with_paths(config_path.clone(), None);
-    clear_port();
-    set_port(Arc::new(port));
+    clear_port().expect("clear_port in test");
+    set_port(Arc::new(port)).expect("set_port in test");
     let _port_guard = PortGuard;
     let err = config_set("watch.enabled", "true", ConfigScope::Global)
         .await
@@ -797,7 +797,7 @@ post_merge = ["echo 'merged'"]
 "#,
         None,
     );
-    let port = crate::config::command_types::get_port();
+    let port = crate::config::command_types::get_port().expect("get_port in test");
     let config = port.load_merged().await.expect("should load");
     assert_eq!(config.hooks.post_create, vec!["echo 'created'"]);
     assert_eq!(config.hooks.pre_remove, vec!["echo 'removing'"]);
@@ -808,7 +808,7 @@ post_merge = ["echo 'merged'"]
 #[tokio::test]
 async fn hooks_default_when_missing() {
     let (_tmp, _port_guard) = install_port_with("[watch]\nenabled = true\n", None);
-    let port = crate::config::command_types::get_port();
+    let port = crate::config::command_types::get_port().expect("get_port in test");
     let config = port.load_merged().await.expect("should load");
     assert!(config.hooks.post_create.is_empty());
     assert!(config.hooks.pre_remove.is_empty());
@@ -825,7 +825,7 @@ post_create = ["echo 'only this'"]
 "#,
         None,
     );
-    let port = crate::config::command_types::get_port();
+    let port = crate::config::command_types::get_port().expect("get_port in test");
     let config = port.load_merged().await.expect("should load");
     assert_eq!(config.hooks.post_create, vec!["echo 'only this'"]);
     assert!(config.hooks.pre_remove.is_empty());

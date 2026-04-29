@@ -3,6 +3,11 @@ name = "scp-session"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Session management for tracking active work contexts in the Hardline source control plane"
+repository.workspace = true
+readme = "README.md"
+keywords = ["session", "context", "work-management"]
+categories = ["development-tools"]
 
 [dependencies]
 scp-core = { path = "../core" }

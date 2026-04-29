@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "Git worktree management crate following DDD and functional Rust patterns"
 license = "MIT"
+readme = "README.md"
+repository = "https://github.com/lprior-repo/hardline"
+keywords = ["git", "worktree", "ddd", "vcs"]
+categories = ["development-tools"]
 
 [dependencies]
 # Core functional stack

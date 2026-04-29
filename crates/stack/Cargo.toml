@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Technology stack detection and dependency graph analysis for source control"
+readme = "README.md"
+keywords = ["stack", "dependencies", "graph", "detection"]
+categories = ["development-tools"]
 
 [dependencies]
 gix = { workspace = true }

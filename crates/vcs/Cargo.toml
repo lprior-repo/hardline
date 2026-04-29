@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Version control system operations and repository management for Hardline"
+readme = "README.md"
+keywords = ["vcs", "git", "repository", "version-control"]
+categories = ["development-tools"]
 
 [dependencies]
 scp-core = { path = "../core" }

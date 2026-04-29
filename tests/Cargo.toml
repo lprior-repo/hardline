@@ -3,6 +3,11 @@ name = "tests"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Integration and architecture tests for the Hardline source control plane"
+repository.workspace = true
+readme = "README.md"
+keywords = ["testing", "integration", "architecture"]
+categories = ["development-tools::testing"]
 
 [dependencies]
 cucumber = { workspace = true }

@@ -5,14 +5,13 @@
 use std::fmt;
 
 use chrono::{DateTime, Utc};
-use once_cell::sync::Lazy;
-use regex::Regex;
 use scp_core::{error::Error, error_task::TaskErrorKind};
 use serde::{Deserialize, Serialize};
 
-/// Regex pattern for valid task IDs: alphanumeric with - or _
-static TASK_ID_PATTERN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_-]+$").expect("Invalid regex pattern"));
+/// Check whether a string is a valid task ID (alphanumeric with `-` or `_`).
+fn is_valid_task_id(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
 
 /// Task state
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,14 +31,12 @@ impl TaskId {
     /// Create a new TaskId with validation at parse time
     pub fn new(id: impl Into<String>) -> Result<Self, Error> {
         let id = id.into();
-        if id.is_empty() {
-            return Err(TaskErrorKind::InvalidId("Task ID cannot be empty".to_string()).into());
-        }
-        if !TASK_ID_PATTERN.is_match(&id) {
-            return Err(TaskErrorKind::InvalidId(format!(
-                "Task ID must be alphanumeric with - or _, got: {}",
-                id
-            ))
+        if !is_valid_task_id(&id) {
+            return Err(TaskErrorKind::InvalidId(if id.is_empty() {
+                "Task ID cannot be empty".to_string()
+            } else {
+                format!("Task ID must be alphanumeric with - or _, got: {}", id)
+            })
             .into());
         }
         Ok(Self(id))

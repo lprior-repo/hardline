@@ -69,15 +69,9 @@ fn run_git_init(cwd: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-/// Acquire the cross-process init lock file with retry and exponential backoff.
-///
-/// Returns the open `File` handle. The lock is released when the `File` is
-/// dropped (or explicitly via `release_init_lock`).
-pub fn acquire_init_lock(cwd: &std::path::Path) -> Result<std::fs::File> {
-    let lock_path = cwd.join(INIT_LOCK_FILE);
-
-    // Security: refuse to follow symlinks for lock files
-    if let Ok(meta) = std::fs::symlink_metadata(&lock_path) {
+/// Check that a lock file path is not a symlink (security guard).
+fn check_lock_symlink(lock_path: &std::path::Path) -> Result<()> {
+    if let Ok(meta) = std::fs::symlink_metadata(lock_path) {
         if meta.file_type().is_symlink() {
             return Err(scp_core::Error::io_error(format!(
                 "Lock file at {} is a symlink (refusing to follow for security reasons)",
@@ -85,6 +79,28 @@ pub fn acquire_init_lock(cwd: &std::path::Path) -> Result<std::fs::File> {
             )));
         }
     }
+    Ok(())
+}
+
+/// Write the current PID into the lock file for diagnostics.
+fn write_pid(file: &mut std::fs::File) {
+    let pid = std::process::id();
+    use std::io::Write;
+    if let Err(e) = (|| -> std::io::Result<()> {
+        file.set_len(0)?;
+        write!(file, "{pid}")
+    })() {
+        tracing::warn!("Failed to write PID to lock file: {e}");
+    }
+}
+
+/// Acquire the cross-process init lock file with retry and exponential backoff.
+///
+/// Returns the open `File` handle. The lock is released when the `File` is
+/// dropped (or explicitly via `release_init_lock`).
+pub fn acquire_init_lock(cwd: &std::path::Path) -> Result<std::fs::File> {
+    let lock_path = cwd.join(INIT_LOCK_FILE);
+    check_lock_symlink(&lock_path)?;
 
     let mut file = std::fs::OpenOptions::new()
         .create(true)
@@ -102,15 +118,7 @@ pub fn acquire_init_lock(cwd: &std::path::Path) -> Result<std::fs::File> {
     for attempt in 0..INIT_LOCK_MAX_RETRIES {
         match file.try_lock_exclusive() {
             Ok(()) => {
-                // Write PID for diagnostics
-                let pid = std::process::id();
-                use std::io::Write;
-                if let Err(e) = (|| -> std::io::Result<()> {
-                    file.set_len(0)?;
-                    write!(file, "{pid}")
-                })() {
-                    tracing::warn!("Failed to write PID to lock file: {e}");
-                }
+                write_pid(&mut file);
                 // Re-lock after write (write may have been seen as a release by some systems)
                 let _ = file.try_lock_exclusive();
                 return Ok(file);

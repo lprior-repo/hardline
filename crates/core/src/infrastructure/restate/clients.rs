@@ -24,7 +24,7 @@ use std::future::Future;
 
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::infrastructure::restate::errors::HandlerError;
+use crate::infrastructure::restate::errors::{HandlerError, TerminalError};
 
 /// Request target for service calls.
 ///
@@ -165,7 +165,9 @@ where
         self: std::pin::Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
-        todo!("Request implementation requires Restate runtime")
+        std::task::Poll::Ready(Err(
+            TerminalError::new("Request implementation requires Restate runtime").into()
+        ))
     }
 }
 

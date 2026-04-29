@@ -119,7 +119,10 @@ impl WorkspaceService {
                         state: WorkspaceState::Deleted,
                         _state: std::marker::PhantomData,
                     }),
-                    _ => unreachable!(),
+                    _ => Err(WorkspaceError::InvalidStateTransition {
+                        from: format!("{:?}", workspace.state),
+                        to: "Deleted".into(),
+                    }),
                 }
             }
             _ => Err(WorkspaceError::InvalidStateTransition {

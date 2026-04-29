@@ -624,5 +624,9 @@ pub fn run(cmd: WorkspaceCommands) -> Result<()> {
         .or_else(|| dispatch_query_events(&cmd))
         .or_else(|| dispatch_session_ops(&cmd))
         .or_else(|| dispatch_tooling(&cmd))
-        .expect("all WorkspaceCommands variants are handled")
+        .ok_or_else(|| {
+            Error::from(scp_core::error_internal::InternalErrorKind::Internal(
+                "unhandled WorkspaceCommands variant".to_string(),
+            ))
+        })?
 }

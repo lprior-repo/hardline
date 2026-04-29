@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Command-line interface for the Hardline source control plane"
+readme = "README.md"
+keywords = ["cli", "source-control", "scm", "vcs"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "hd"

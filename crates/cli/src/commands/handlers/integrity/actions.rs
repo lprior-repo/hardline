@@ -151,11 +151,14 @@ fn run_backup_restore(backup_id: &str, force: bool) -> Result<RestoreResponse> {
     })
 }
 
-fn tokio_block_on<F: std::future::Future>(fut: F) -> F::Output {
+fn tokio_block_on<F: std::future::Future<Output = Result<T>>, T>(fut: F) -> Result<T> {
     match tokio::runtime::Handle::try_current() {
         Ok(handle) => handle.block_on(fut),
         Err(_) => {
-            let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
+            let rt = tokio::runtime::Runtime::new()
+                .map_err(|e| scp_core::error_internal::InternalErrorKind::Internal(
+                    format!("Failed to create tokio runtime: {e}"),
+                ))?;
             rt.block_on(fut)
         }
     }

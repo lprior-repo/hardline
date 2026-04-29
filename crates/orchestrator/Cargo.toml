@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Workflow orchestration engine for coordinating multi-step processes"
+readme = "README.md"
+keywords = ["orchestration", "workflow", "pipeline", "coordination"]
+categories = ["development-tools"]
 
 [dependencies]
 tokio.workspace = true

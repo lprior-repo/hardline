@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Error types and error handling utilities for the Hardline source control plane"
+readme = "README.md"
+keywords = ["error", "error-handling", "types"]
+categories = ["rust-patterns"]
 
 [dependencies]
 thiserror = { workspace = true }

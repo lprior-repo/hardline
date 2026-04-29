@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Workspace management and configuration for the Hardline source control plane"
+readme = "README.md"
+keywords = ["workspace", "configuration", "project"]
+categories = ["development-tools"]
 
 [dependencies]
 chrono = { workspace = true }
