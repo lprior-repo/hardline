@@ -46,7 +46,7 @@ pub enum StateErrorKind {
 
 impl From<StateErrorKind> for Error {
     fn from(e: StateErrorKind) -> Self {
-        Error::State(e.into())
+        Self::State(e.into())
     }
 }
 
@@ -57,7 +57,7 @@ impl From<StateErrorKind> for Error {
 impl StateError {
     /// Returns a reference to the inner error kind.
     #[must_use]
-    pub fn kind(&self) -> &StateErrorKind {
+    pub const fn kind(&self) -> &StateErrorKind {
         &self.inner
     }
 
@@ -73,7 +73,7 @@ impl StateError {
 
     /// Returns exit code for CLI.
     /// State errors use range 110-112, Validation 120-122 (ADR-007: 9xxx infrastructure).
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self.inner {
             StateErrorKind::InvalidState(_) => 110,
             StateErrorKind::NotFound(_) => 111,

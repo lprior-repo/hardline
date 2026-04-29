@@ -197,9 +197,9 @@ pub enum ConfigScope {
 impl fmt::Display for ConfigScope {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConfigScope::Global => write!(f, "Global"),
-            ConfigScope::Project => write!(f, "Project"),
-            ConfigScope::Env => write!(f, "Env"),
+            Self::Global => write!(f, "Global"),
+            Self::Project => write!(f, "Project"),
+            Self::Env => write!(f, "Env"),
         }
     }
 }
@@ -518,11 +518,7 @@ impl ConfigManager {
         }
 
         // Load and check config
-        if let Ok(config) = self.load() {
-            config.get(key).cloned()
-        } else {
-            None
-        }
+        self.load().map_or(None, |config| config.get(key).cloned())
     }
 
     /// Validate configuration

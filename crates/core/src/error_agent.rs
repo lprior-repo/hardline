@@ -31,7 +31,7 @@ pub enum AgentErrorKind {
 
 impl From<AgentErrorKind> for Error {
     fn from(e: AgentErrorKind) -> Self {
-        Error::Agent(e.into())
+        Self::Agent(e.into())
     }
 }
 
@@ -99,13 +99,13 @@ mod tests {
 impl AgentError {
     /// Returns a reference to the inner error kind.
     #[must_use]
-    pub fn kind(&self) -> &AgentErrorKind {
+    pub const fn kind(&self) -> &AgentErrorKind {
         &self.inner
     }
 
     /// Returns exit code for CLI.
     /// Agent errors use range 100-102 (ADR-007: 9xxx infrastructure).
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self.inner {
             AgentErrorKind::NotFound(_) => 100,
             AgentErrorKind::Exists(_) => 101,

@@ -21,7 +21,7 @@ impl Default for ReceiptStore {
 }
 
 impl ReceiptStore {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 

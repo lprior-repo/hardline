@@ -211,6 +211,7 @@ fn spawn_reload_loop(
                         Ok(new_config) => {
                             let mut write = inner.write().await;
                             *write = new_config;
+                            drop(write);
                             tracing::info!("Config reloaded successfully");
                         }
                         Err(e) => {

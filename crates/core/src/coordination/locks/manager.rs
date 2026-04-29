@@ -25,7 +25,7 @@ pub struct LockManager {
 impl LockManager {
     /// Create a new `LockManager` with default TTL.
     #[must_use]
-    pub fn new(db: SqlitePool) -> Self {
+    pub const fn new(db: SqlitePool) -> Self {
         Self {
             db,
             ttl: Duration::seconds(DEFAULT_TTL_SECS as i64),
@@ -40,7 +40,7 @@ impl LockManager {
 
     /// Create a new `LockManager` with a custom TTL.
     #[must_use]
-    pub fn with_ttl(db: SqlitePool, ttl: Duration) -> Self {
+    pub const fn with_ttl(db: SqlitePool, ttl: Duration) -> Self {
         Self { db, ttl }
     }
 

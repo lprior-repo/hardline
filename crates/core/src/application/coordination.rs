@@ -16,7 +16,7 @@ pub struct CoordinationService<R: LockRepository> {
 impl<R: LockRepository> CoordinationService<R> {
     /// Create a new coordination service with the given repository.
     #[must_use]
-    pub fn new(repository: R) -> Self {
+    pub const fn new(repository: R) -> Self {
         Self { repository }
     }
 

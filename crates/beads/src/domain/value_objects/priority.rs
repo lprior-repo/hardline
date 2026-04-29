@@ -12,7 +12,7 @@ pub enum Priority {
 
 impl Priority {
     #[must_use]
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             Self::P0 => 0,
             Self::P1 => 1,
@@ -23,7 +23,7 @@ impl Priority {
     }
 
     #[must_use]
-    pub fn from_value(value: u8) -> Self {
+    pub const fn from_value(value: u8) -> Self {
         match value {
             0 => Self::P0,
             1 => Self::P1,

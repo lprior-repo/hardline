@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Error, Result};
 
 /// Unified event types
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Event {
     // ========================================================================
@@ -85,23 +85,23 @@ pub enum Event {
 
 impl Event {
     /// Get event type name
-    pub fn event_type(&self) -> &str {
+    pub const fn event_type(&self) -> &str {
         match self {
-            Event::WorkspaceCreated { .. } => "workspace.created",
-            Event::WorkspaceSynced { .. } => "workspace.synced",
-            Event::WorkspaceCompleted { .. } => "workspace.completed",
-            Event::WorkspaceAborted { .. } => "workspace.aborted",
-            Event::ItemEnqueued { .. } => "queue.enqueued",
-            Event::ItemDequeued { .. } => "queue.dequeued",
-            Event::ItemProcessing { .. } => "queue.processing",
-            Event::ItemProcessed { .. } => "queue.processed",
-            Event::AgentStarted { .. } => "agent.started",
-            Event::AgentStopped { .. } => "agent.stopped",
-            Event::AgentHeartbeat { .. } => "agent.heartbeat",
-            Event::VcsPushed { .. } => "vcs.pushed",
-            Event::VcsPulled { .. } => "vcs.pulled",
-            Event::VcsConflict { .. } => "vcs.conflict",
-            Event::VcsConflictResolved { .. } => "vcs.conflict_resolved",
+            Self::WorkspaceCreated { .. } => "workspace.created",
+            Self::WorkspaceSynced { .. } => "workspace.synced",
+            Self::WorkspaceCompleted { .. } => "workspace.completed",
+            Self::WorkspaceAborted { .. } => "workspace.aborted",
+            Self::ItemEnqueued { .. } => "queue.enqueued",
+            Self::ItemDequeued { .. } => "queue.dequeued",
+            Self::ItemProcessing { .. } => "queue.processing",
+            Self::ItemProcessed { .. } => "queue.processed",
+            Self::AgentStarted { .. } => "agent.started",
+            Self::AgentStopped { .. } => "agent.stopped",
+            Self::AgentHeartbeat { .. } => "agent.heartbeat",
+            Self::VcsPushed { .. } => "vcs.pushed",
+            Self::VcsPulled { .. } => "vcs.pulled",
+            Self::VcsConflict { .. } => "vcs.conflict",
+            Self::VcsConflictResolved { .. } => "vcs.conflict_resolved",
         }
     }
 }
@@ -148,11 +148,10 @@ impl EventEmitter for MemEventEmitter {
             source: "scp".to_string(),
         };
 
-        let mut events = self
-            .events
+        self.events
             .write()
-            .map_err(|e| crate::error::Error::internal(e.to_string()))?;
-        events.push(emitted);
+            .map_err(|e| crate::error::Error::internal(e.to_string()))?
+            .push(emitted);
 
         Ok(())
     }
@@ -171,11 +170,10 @@ impl EventEmitter for MemEventEmitter {
     }
 
     fn clear(&self) -> Result<()> {
-        let mut events = self
-            .events
+        self.events
             .write()
-            .map_err(|e| Error::internal(e.to_string()))?;
-        events.clear();
+            .map_err(|e| Error::internal(e.to_string()))?
+            .clear();
         Ok(())
     }
 }

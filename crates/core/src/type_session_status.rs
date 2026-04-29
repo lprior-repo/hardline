@@ -18,7 +18,7 @@ pub enum SessionStatus {
 }
 
 impl SessionStatus {
-    pub fn can_transition_to(self, next: Self) -> bool {
+    pub const fn can_transition_to(self, next: Self) -> bool {
         matches!(
             (self, next),
             (Self::Creating | Self::Paused, Self::Active)
@@ -44,7 +44,7 @@ impl SessionStatus {
     }
 
     #[must_use]
-    pub fn all_states() -> &'static [Self] {
+    pub const fn all_states() -> &'static [Self] {
         &[
             Self::Creating,
             Self::Active,

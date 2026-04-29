@@ -43,8 +43,7 @@ impl TaskRegistry {
     }
 
     pub async fn register(&self, task: JoinHandle<()>) -> Result<()> {
-        let mut tasks = self.tasks.lock().await;
-        tasks.push(task);
+        self.tasks.lock().await.push(task);
         Ok(())
     }
 

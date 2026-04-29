@@ -82,7 +82,7 @@ pub enum VcsErrorKind {
 
 impl From<VcsErrorKind> for Error {
     fn from(e: VcsErrorKind) -> Self {
-        Error::Vcs(e.into())
+        Self::Vcs(e.into())
     }
 }
 
@@ -93,7 +93,7 @@ impl From<VcsErrorKind> for Error {
 impl VcsError {
     /// Returns a reference to the inner error kind.
     #[must_use]
-    pub fn kind(&self) -> &VcsErrorKind {
+    pub const fn kind(&self) -> &VcsErrorKind {
         &self.inner
     }
 
@@ -115,7 +115,7 @@ impl VcsError {
 
     /// Returns exit code for CLI.
     /// VCS errors use range 50-58 (ADR-007: 5xxx).
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self.inner {
             VcsErrorKind::NotInitialized => 50,
             VcsErrorKind::Conflict(_, _) => 51,

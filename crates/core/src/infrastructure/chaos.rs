@@ -43,7 +43,7 @@ pub struct ChaosInjector {
 }
 
 impl ChaosInjector {
-    pub fn new(config: ChaosConfig) -> Self {
+    pub const fn new(config: ChaosConfig) -> Self {
         Self { config }
     }
 
@@ -119,7 +119,7 @@ pub struct ChaosFs {
 }
 
 impl ChaosFs {
-    pub fn new(injector: Arc<ChaosInjector>) -> Self {
+    pub const fn new(injector: Arc<ChaosInjector>) -> Self {
         Self { injector }
     }
 
@@ -150,7 +150,7 @@ pub struct ChaosDatabaseService<T: DatabaseService> {
 }
 
 impl<T: DatabaseService> ChaosDatabaseService<T> {
-    pub fn new(inner: T, injector: Arc<ChaosInjector>) -> Self {
+    pub const fn new(inner: T, injector: Arc<ChaosInjector>) -> Self {
         Self { inner, injector }
     }
 }
@@ -184,7 +184,7 @@ pub struct ChaosNetworkService<T: NetworkService> {
 }
 
 impl<T: NetworkService> ChaosNetworkService<T> {
-    pub fn new(inner: T, injector: Arc<ChaosInjector>) -> Self {
+    pub const fn new(inner: T, injector: Arc<ChaosInjector>) -> Self {
         Self { inner, injector }
     }
 }

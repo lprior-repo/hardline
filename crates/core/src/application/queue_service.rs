@@ -9,7 +9,7 @@ pub trait QueueService: Send + Sync {
 pub struct QueueServiceImpl;
 
 impl QueueServiceImpl {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 }

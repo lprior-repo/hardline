@@ -6,7 +6,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 /// Status of an operation
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum OpStatus {
     InProgress,
@@ -15,7 +15,7 @@ pub enum OpStatus {
 }
 
 /// Kind of operation
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum OpKind {
     Restack,
@@ -30,17 +30,17 @@ pub enum OpKind {
 }
 
 impl OpKind {
-    pub fn display_name(&self) -> &'static str {
+    pub const fn display_name(&self) -> &'static str {
         match self {
-            OpKind::Restack => "restack",
-            OpKind::UpstackRestack => "upstack restack",
-            OpKind::SyncRestack => "sync --restack",
-            OpKind::Submit => "submit",
-            OpKind::Reorder => "reorder",
-            OpKind::Split => "split",
-            OpKind::MergeWhenReady => "merge-when-ready",
-            OpKind::Detach => "detach",
-            OpKind::Fix => "stack fix",
+            Self::Restack => "restack",
+            Self::UpstackRestack => "upstack restack",
+            Self::SyncRestack => "sync --restack",
+            Self::Submit => "submit",
+            Self::Reorder => "reorder",
+            Self::Split => "split",
+            Self::MergeWhenReady => "merge-when-ready",
+            Self::Detach => "detach",
+            Self::Fix => "stack fix",
         }
     }
 }

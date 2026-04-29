@@ -35,7 +35,7 @@ pub enum WorkspaceErrorKind {
 
 impl From<WorkspaceErrorKind> for Error {
     fn from(e: WorkspaceErrorKind) -> Self {
-        Error::Workspace(e.into())
+        Self::Workspace(e.into())
     }
 }
 
@@ -72,7 +72,7 @@ pub enum SessionErrorKind {
 
 impl From<SessionErrorKind> for Error {
     fn from(e: SessionErrorKind) -> Self {
-        Error::Session(e.into())
+        Self::Session(e.into())
     }
 }
 
@@ -83,7 +83,7 @@ impl From<SessionErrorKind> for Error {
 impl WorkspaceError {
     /// Returns a reference to the inner error kind.
     #[must_use]
-    pub fn kind(&self) -> &WorkspaceErrorKind {
+    pub const fn kind(&self) -> &WorkspaceErrorKind {
         &self.inner
     }
 
@@ -102,7 +102,7 @@ impl WorkspaceError {
 
     /// Returns exit code for CLI.
     /// Workspace errors use range 10-13 (ADR-007: 1xxx).
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self.inner {
             WorkspaceErrorKind::NotFound(_) => 10,
             WorkspaceErrorKind::Exists(_) => 11,
@@ -115,7 +115,7 @@ impl WorkspaceError {
 impl SessionError {
     /// Returns a reference to the inner error kind.
     #[must_use]
-    pub fn kind(&self) -> &SessionErrorKind {
+    pub const fn kind(&self) -> &SessionErrorKind {
         &self.inner
     }
 
@@ -131,7 +131,7 @@ impl SessionError {
 
     /// Returns exit code for CLI.
     /// Session errors use range 20-24 (ADR-007: 2xxx).
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self.inner {
             SessionErrorKind::NotFound(_) => 20,
             SessionErrorKind::Exists(_) => 21,

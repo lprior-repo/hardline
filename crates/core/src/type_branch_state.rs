@@ -11,7 +11,7 @@ pub enum BranchState {
 }
 
 impl BranchState {
-    pub fn detached() -> Self {
+    pub const fn detached() -> Self {
         Self::Detached
     }
 
@@ -28,7 +28,7 @@ impl BranchState {
     }
 
     #[must_use]
-    pub fn is_detached(&self) -> bool {
+    pub const fn is_detached(&self) -> bool {
         matches!(self, Self::Detached)
     }
 }

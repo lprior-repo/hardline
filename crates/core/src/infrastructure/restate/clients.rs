@@ -137,7 +137,7 @@ where
     Req: Serialize + 'static,
     Res: DeserializeOwned + 'static,
 {
-    pub fn new(target: RequestTarget, req: Req) -> Self {
+    pub const fn new(target: RequestTarget, req: Req) -> Self {
         Self {
             target,
             req,
@@ -145,11 +145,11 @@ where
         }
     }
 
-    pub fn target(&self) -> &RequestTarget {
+    pub const fn target(&self) -> &RequestTarget {
         &self.target
     }
 
-    pub fn request(&self) -> &Req {
+    pub const fn request(&self) -> &Req {
         &self.req
     }
 }

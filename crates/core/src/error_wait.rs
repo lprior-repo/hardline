@@ -51,7 +51,7 @@ pub enum WaitErrorKind {
 
 impl From<WaitErrorKind> for Error {
     fn from(e: WaitErrorKind) -> Self {
-        Error::Wait(e.into())
+        Self::Wait(e.into())
     }
 }
 
@@ -62,13 +62,13 @@ impl From<WaitErrorKind> for Error {
 impl WaitError {
     /// Returns a reference to the inner error kind.
     #[must_use]
-    pub fn kind(&self) -> &WaitErrorKind {
+    pub const fn kind(&self) -> &WaitErrorKind {
         &self.inner
     }
 
     /// Returns exit code for CLI.
     /// Wait errors use range 150-154 (ADR-007: 9xxx infrastructure).
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self.inner {
             WaitErrorKind::Timeout(_, _) => 150,
             WaitErrorKind::InvalidWaitMode(_) => 151,

@@ -81,7 +81,7 @@ pub enum LockErrorKind {
 
 impl From<LockErrorKind> for crate::error::Error {
     fn from(e: LockErrorKind) -> Self {
-        crate::error::Error::Lock(LockError(e))
+        Self::Lock(LockError(e))
     }
 }
 
@@ -94,7 +94,7 @@ impl LockError {
 
     /// Returns the error code for telemetry.
     #[must_use]
-    pub fn code(&self) -> &'static str {
+    pub const fn code(&self) -> &'static str {
         match &self.0 {
             LockErrorKind::SessionNotFound { .. } => "SESSION_NOT_FOUND",
             LockErrorKind::SessionLocked { .. } => "SESSION_LOCKED",
@@ -129,7 +129,7 @@ impl LockError {
     /// Returns exit code for CLI.
     /// Lock errors use range 210-222 (ADR-007: 9xxx).
     #[must_use]
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match &self.0 {
             LockErrorKind::SessionNotFound { .. } => 210,
             LockErrorKind::SessionLocked { .. } => 211,

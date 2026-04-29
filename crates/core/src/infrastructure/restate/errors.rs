@@ -78,7 +78,7 @@ impl TerminalError {
         }
     }
 
-    pub fn code(&self) -> u16 {
+    pub const fn code(&self) -> u16 {
         self.code
     }
 
@@ -132,15 +132,15 @@ impl HandlerError {
         Self::Retryable(e.to_string())
     }
 
-    pub fn is_terminal(&self) -> bool {
-        matches!(self, HandlerError::Terminal(_))
+    pub const fn is_terminal(&self) -> bool {
+        matches!(self, Self::Terminal(_))
     }
 
-    pub fn is_retryable(&self) -> bool {
+    pub const fn is_retryable(&self) -> bool {
         !self.is_terminal()
     }
 
-    pub fn terminal(e: TerminalError) -> Self {
+    pub const fn terminal(e: TerminalError) -> Self {
         Self::Terminal(e)
     }
 }

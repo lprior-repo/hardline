@@ -16,7 +16,7 @@ pub trait VcsIntegrationService: Send + Sync {
 pub struct VcsIntegrationServiceImpl;
 
 impl VcsIntegrationServiceImpl {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 }

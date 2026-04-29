@@ -43,7 +43,7 @@ pub enum TaskErrorKind {
 
 impl From<TaskErrorKind> for Error {
     fn from(e: TaskErrorKind) -> Self {
-        Error::Task(e.into())
+        Self::Task(e.into())
     }
 }
 
@@ -54,13 +54,13 @@ impl From<TaskErrorKind> for Error {
 impl TaskError {
     /// Returns a reference to the inner error kind.
     #[must_use]
-    pub fn kind(&self) -> &TaskErrorKind {
+    pub const fn kind(&self) -> &TaskErrorKind {
         &self.inner
     }
 
     /// Returns exit code for CLI.
     /// Task errors use range 30-35 (ADR-007: 3xxx, aligned with Bead).
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self.inner {
             TaskErrorKind::NotFound(_) => 30,
             TaskErrorKind::AlreadyClaimed(_, _) => 31,

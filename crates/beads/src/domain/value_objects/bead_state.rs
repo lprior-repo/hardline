@@ -22,22 +22,22 @@ pub enum BeadState {
 
 impl BeadState {
     #[must_use]
-    pub fn is_active(&self) -> bool {
+    pub const fn is_active(&self) -> bool {
         matches!(self, Self::Open | Self::InProgress)
     }
 
     #[must_use]
-    pub fn is_blocked(&self) -> bool {
+    pub const fn is_blocked(&self) -> bool {
         matches!(self, Self::Blocked)
     }
 
     #[must_use]
-    pub fn is_closed(&self) -> bool {
+    pub const fn is_closed(&self) -> bool {
         matches!(self, Self::Closed { .. })
     }
 
     #[must_use]
-    pub fn closed_at(&self) -> Option<DateTime<Utc>> {
+    pub const fn closed_at(&self) -> Option<DateTime<Utc>> {
         match self {
             Self::Closed { closed_at } => Some(*closed_at),
             _ => None,

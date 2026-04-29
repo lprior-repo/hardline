@@ -43,7 +43,7 @@ pub enum QueueErrorKind {
 
 impl From<QueueErrorKind> for Error {
     fn from(e: QueueErrorKind) -> Self {
-        Error::Queue(e.into())
+        Self::Queue(e.into())
     }
 }
 
@@ -54,7 +54,7 @@ impl From<QueueErrorKind> for Error {
 impl QueueError {
     /// Returns a reference to the inner error kind.
     #[must_use]
-    pub fn kind(&self) -> &QueueErrorKind {
+    pub const fn kind(&self) -> &QueueErrorKind {
         &self.inner
     }
 
@@ -70,7 +70,7 @@ impl QueueError {
 
     /// Returns exit code for CLI.
     /// Queue errors use range 40-45 (ADR-007: 4xxx).
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self.inner {
             QueueErrorKind::Empty => 40,
             QueueErrorKind::ItemNotFound(_) => 41,

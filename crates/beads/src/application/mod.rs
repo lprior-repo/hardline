@@ -28,7 +28,7 @@ pub struct BeadService<R: BeadRepository> {
 
 impl<R: BeadRepository> BeadService<R> {
     /// Create a new service backed by the given repository.
-    pub fn new(repository: R) -> Self {
+    pub const fn new(repository: R) -> Self {
         Self { repository }
     }
 

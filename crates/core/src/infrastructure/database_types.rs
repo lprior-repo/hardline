@@ -77,12 +77,12 @@ impl MaxConnections {
     }
 
     /// Create with default value of 5
-    pub fn default_value() -> Self {
+    pub const fn default_value() -> Self {
         Self(5)
     }
 
     /// Get the underlying value
-    pub fn value(&self) -> u32 {
+    pub const fn value(&self) -> u32 {
         self.0
     }
 }

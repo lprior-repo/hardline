@@ -111,7 +111,7 @@ impl SqliteDatabaseService {
     }
 
     /// Create from an existing pool
-    pub fn from_pool(pool: SqlitePool) -> Self {
+    pub const fn from_pool(pool: SqlitePool) -> Self {
         Self { pool }
     }
 

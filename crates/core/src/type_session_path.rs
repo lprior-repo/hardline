@@ -21,7 +21,7 @@ impl AbsolutePath {
     }
 
     #[must_use]
-    pub fn as_path(&self) -> &PathBuf {
+    pub const fn as_path(&self) -> &PathBuf {
         &self.0
     }
 

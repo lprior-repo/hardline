@@ -34,7 +34,7 @@ impl HooksConfig {
 
     /// Create with specific hook commands.
     #[must_use]
-    pub fn with_values(
+    pub const fn with_values(
         post_create: Vec<String>,
         pre_remove: Vec<String>,
         post_merge: Vec<String>,
@@ -48,7 +48,7 @@ impl HooksConfig {
 
     /// Whether any hooks are configured.
     #[must_use]
-    pub fn has_hooks(&self) -> bool {
+    pub const fn has_hooks(&self) -> bool {
         !self.post_create.is_empty() || !self.pre_remove.is_empty() || !self.post_merge.is_empty()
     }
 }
@@ -322,7 +322,7 @@ impl VcsConfig {
         Self::default()
     }
 
-    pub fn with_forge(mut self, forge: ForgeType) -> Self {
+    pub const fn with_forge(mut self, forge: ForgeType) -> Self {
         self.forge = forge;
         self
     }
@@ -368,7 +368,7 @@ impl AuthConfig {
         Self::default()
     }
 
-    pub fn with_preferred_source(mut self, source: AuthSourceType) -> Self {
+    pub const fn with_preferred_source(mut self, source: AuthSourceType) -> Self {
         self.preferred_source = source;
         self
     }

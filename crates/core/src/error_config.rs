@@ -91,7 +91,7 @@ pub enum ConfigErrorKind {
 
 impl From<ConfigErrorKind> for Error {
     fn from(e: ConfigErrorKind) -> Self {
-        Error::Config(e.into())
+        Self::Config(e.into())
     }
 }
 
@@ -102,13 +102,13 @@ impl From<ConfigErrorKind> for Error {
 impl ConfigError {
     /// Returns a reference to the inner error kind.
     #[must_use]
-    pub fn kind(&self) -> &ConfigErrorKind {
+    pub const fn kind(&self) -> &ConfigErrorKind {
         &self.inner
     }
 
     /// Returns exit code for CLI.
     /// Config errors use range 90-94 (ADR-007: 9xxx infrastructure).
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self.inner {
             ConfigErrorKind::ConfigKeyNotFound(_) => 90,
             ConfigErrorKind::ConfigParseError(_) => 91,

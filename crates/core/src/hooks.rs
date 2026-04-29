@@ -56,7 +56,7 @@ pub enum HookEvent {
 
 impl HookEvent {
     /// Get the hook name
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         match self {
             Self::PreRebase => "pre-rebase",
             Self::PostRebase => "post-rebase",
@@ -78,7 +78,7 @@ impl HookEvent {
     }
 
     /// Get all events
-    pub fn all() -> &'static [Self] {
+    pub const fn all() -> &'static [Self] {
         &[
             Self::PreRebase,
             Self::PostRebase,
@@ -107,7 +107,7 @@ impl std::fmt::Display for HookEvent {
 }
 
 /// Hook result
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HookResult {
     pub event: HookEvent,
     pub success: bool,
@@ -174,14 +174,14 @@ impl Hook {
 
     /// Set timeout
     #[must_use]
-    pub fn timeout(mut self, ms: u64) -> Self {
+    pub const fn timeout(mut self, ms: u64) -> Self {
         self.timeout_ms = ms;
         self
     }
 
     /// Disable the hook
     #[must_use]
-    pub fn disabled(mut self) -> Self {
+    pub const fn disabled(mut self) -> Self {
         self.enabled = false;
         self
     }
@@ -270,13 +270,11 @@ impl HookRunner {
 
     /// Unregister a hook by name
     pub fn unregister(&mut self, event: HookEvent, name: &str) -> bool {
-        if let Some(hooks) = self.hooks.get_mut(&event) {
+        self.hooks.get_mut(&event).is_some_and(|hooks| {
             let initial_len = hooks.len();
             hooks.retain(|h| h.name != name);
             hooks.len() < initial_len
-        } else {
-            false
-        }
+        })
     }
 
     /// Run hooks for an event
@@ -352,14 +350,14 @@ impl Default for HookRunner {
 }
 
 /// Hook configuration for a project
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HookConfig {
     pub hooks_dir: Option<PathBuf>,
     pub disabled_events: Vec<HookEvent>,
 }
 
 impl HookConfig {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             hooks_dir: None,
             disabled_events: Vec::new(),

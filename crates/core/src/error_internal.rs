@@ -47,7 +47,7 @@ pub enum InternalErrorKind {
 
 impl From<InternalErrorKind> for Error {
     fn from(e: InternalErrorKind) -> Self {
-        Error::Internal(e.into())
+        Self::Internal(e.into())
     }
 }
 
@@ -58,13 +58,13 @@ impl From<InternalErrorKind> for Error {
 impl InternalError {
     /// Returns a reference to the inner error kind.
     #[must_use]
-    pub fn kind(&self) -> &InternalErrorKind {
+    pub const fn kind(&self) -> &InternalErrorKind {
         &self.inner
     }
 
     /// Returns exit code for CLI.
     /// Internal errors use range 200-206 (ADR-007: 9xxx).
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self.inner {
             InternalErrorKind::Internal(_) => 200,
             InternalErrorKind::Unimplemented(_) => 201,

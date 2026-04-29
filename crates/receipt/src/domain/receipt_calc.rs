@@ -12,7 +12,7 @@ pub fn can_redo(receipt: &OpReceipt) -> bool {
     receipt.local_refs.iter().any(|r| r.oid_after.is_some())
 }
 
-pub fn has_remote_changes(receipt: &OpReceipt) -> bool {
+pub const fn has_remote_changes(receipt: &OpReceipt) -> bool {
     !receipt.remote_refs.is_empty()
 }
 

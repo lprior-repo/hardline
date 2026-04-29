@@ -229,7 +229,7 @@ pub struct RepoStatus {
 impl RepoStatus {
     /// Create a clean RepoStatus
     #[must_use]
-    pub fn clean() -> Self {
+    pub const fn clean() -> Self {
         Self {
             clean: true,
             branch: None,

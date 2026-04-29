@@ -52,23 +52,23 @@ pub enum QueueSuperstate {
 
 impl QueueStatus {
     /// Returns true if this status is in the Active superstate
-    pub fn is_active(&self) -> bool {
+    pub const fn is_active(&self) -> bool {
         matches!(
             self,
-            QueueStatus::Pending | QueueStatus::Processing | QueueStatus::Retrying
+            Self::Pending | Self::Processing | Self::Retrying
         )
     }
 
     /// Returns true if this status is in the Terminal superstate
-    pub fn is_terminal(&self) -> bool {
+    pub const fn is_terminal(&self) -> bool {
         matches!(
             self,
-            QueueStatus::Completed | QueueStatus::Failed | QueueStatus::Cancelled
+            Self::Completed | Self::Failed | Self::Cancelled
         )
     }
 
     /// Returns the superstate this status belongs to
-    pub fn superstate(&self) -> QueueSuperstate {
+    pub const fn superstate(&self) -> QueueSuperstate {
         if self.is_active() {
             QueueSuperstate::Active
         } else {
@@ -241,6 +241,7 @@ impl QueueManager for MemQueue {
         item.updated_at = Utc::now();
 
         items.insert(pos, item);
+        drop(items);
         Ok(())
     }
 
@@ -251,9 +252,11 @@ impl QueueManager for MemQueue {
 
         if let Some(pos) = items.iter().position(|i| i.status == QueueStatus::Pending) {
             let mut item = items.remove(pos);
+            drop(items);
             item.start_processing();
             Ok(Some(item))
         } else {
+            drop(items);
             Ok(None)
         }
     }
@@ -286,10 +289,12 @@ impl QueueManager for MemQueue {
     }
 
     fn list_pending(&self) -> Result<Vec<QueueItem>> {
-        let items = self.items.read().map_err(|e| {
-            crate::error::Error::invalid_state(format!("Failed to acquire lock: {}", e))
-        })?;
-        let mut pending: Vec<_> = items
+        let mut pending: Vec<_> = self
+            .items
+            .read()
+            .map_err(|e| {
+                crate::error::Error::invalid_state(format!("Failed to acquire lock: {}", e))
+            })?
             .iter()
             .filter(|i| i.status == QueueStatus::Pending)
             .cloned()
@@ -318,6 +323,7 @@ impl QueueManager for MemQueue {
         })?;
         if let Some(pos) = items.iter().position(|i| i.id == item.id) {
             items[pos] = item;
+            drop(items);
             Ok(())
         } else {
             Err(QueueErrorKind::ItemNotFound(item.id).into())
@@ -341,6 +347,7 @@ impl QueueManager for MemQueue {
         item.updated_at = Utc::now();
         let pos = position.min(items.len());
         items.insert(pos, item);
+        drop(items);
         Ok(())
     }
 }

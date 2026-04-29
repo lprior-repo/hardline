@@ -498,18 +498,18 @@ impl Error {
     /// Returns a human-readable suggestion for fixing the error.
     pub fn suggestion(&self) -> Option<String> {
         match self {
-            Error::Workspace(e) => e.suggestion(),
-            Error::Session(e) => e.suggestion(),
-            Error::Queue(e) => e.suggestion(),
-            Error::Vcs(e) => e.suggestion(),
-            Error::Config(_) => None,
-            Error::Agent(_) => None,
-            Error::Io(_) => None,
-            Error::State(e) => e.suggestion(),
-            Error::Internal(_) => None,
-            Error::Task(_) => None,
-            Error::Wait(_) => None,
-            Error::Lock(e) => e.suggestion(),
+            Self::Workspace(e) => e.suggestion(),
+            Self::Session(e) => e.suggestion(),
+            Self::Queue(e) => e.suggestion(),
+            Self::Vcs(e) => e.suggestion(),
+            Self::Config(_) => None,
+            Self::Agent(_) => None,
+            Self::Io(_) => None,
+            Self::State(e) => e.suggestion(),
+            Self::Internal(_) => None,
+            Self::Task(_) => None,
+            Self::Wait(_) => None,
+            Self::Lock(e) => e.suggestion(),
         }
     }
 
@@ -519,20 +519,20 @@ impl Error {
     }
 
     /// Returns exit code for CLI.
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self {
-            Error::Workspace(e) => e.exit_code(),
-            Error::Session(e) => e.exit_code(),
-            Error::Queue(e) => e.exit_code(),
-            Error::Vcs(e) => e.exit_code(),
-            Error::Config(e) => e.exit_code(),
-            Error::Agent(e) => e.exit_code(),
-            Error::Io(e) => e.exit_code(),
-            Error::State(e) => e.exit_code(),
-            Error::Internal(e) => e.exit_code(),
-            Error::Task(e) => e.exit_code(),
-            Error::Wait(e) => e.exit_code(),
-            Error::Lock(e) => e.exit_code(),
+            Self::Workspace(e) => e.exit_code(),
+            Self::Session(e) => e.exit_code(),
+            Self::Queue(e) => e.exit_code(),
+            Self::Vcs(e) => e.exit_code(),
+            Self::Config(e) => e.exit_code(),
+            Self::Agent(e) => e.exit_code(),
+            Self::Io(e) => e.exit_code(),
+            Self::State(e) => e.exit_code(),
+            Self::Internal(e) => e.exit_code(),
+            Self::Task(e) => e.exit_code(),
+            Self::Wait(e) => e.exit_code(),
+            Self::Lock(e) => e.exit_code(),
         }
     }
 
@@ -541,20 +541,20 @@ impl Error {
     /// This code identifies the error category and variant for programmatic
     /// consumption by AI agents and tooling.
     #[must_use]
-    pub fn code(&self) -> &'static str {
+    pub const fn code(&self) -> &'static str {
         match self {
-            Error::Workspace(e) => workspace_error_code(e),
-            Error::Session(e) => session_error_code(e),
-            Error::Queue(e) => queue_error_code(e),
-            Error::Vcs(e) => vcs_error_code(e),
-            Error::Config(e) => config_error_code(e),
-            Error::Agent(e) => agent_error_code(e),
-            Error::Io(e) => io_error_code(e),
-            Error::State(e) => state_error_code(e),
-            Error::Internal(e) => internal_error_code(e),
-            Error::Task(e) => task_error_code(e),
-            Error::Wait(e) => wait_error_code(e),
-            Error::Lock(e) => e.code(),
+            Self::Workspace(e) => workspace_error_code(e),
+            Self::Session(e) => session_error_code(e),
+            Self::Queue(e) => queue_error_code(e),
+            Self::Vcs(e) => vcs_error_code(e),
+            Self::Config(e) => config_error_code(e),
+            Self::Agent(e) => agent_error_code(e),
+            Self::Io(e) => io_error_code(e),
+            Self::State(e) => state_error_code(e),
+            Self::Internal(e) => internal_error_code(e),
+            Self::Task(e) => task_error_code(e),
+            Self::Wait(e) => wait_error_code(e),
+            Self::Lock(e) => e.code(),
         }
     }
 
@@ -566,18 +566,18 @@ impl Error {
     #[must_use]
     pub fn context_map(&self) -> Option<serde_json::Value> {
         match self {
-            Error::Workspace(e) => workspace_context_map(e),
-            Error::Session(e) => session_context_map(e),
-            Error::Queue(e) => queue_context_map(e),
-            Error::Vcs(e) => vcs_context_map(e),
-            Error::Config(e) => config_context_map(e),
-            Error::Agent(e) => agent_context_map(e),
-            Error::Io(e) => io_context_map(e),
-            Error::State(e) => state_context_map(e),
-            Error::Internal(e) => internal_context_map(e),
-            Error::Task(e) => task_context_map(e),
-            Error::Wait(e) => wait_context_map(e),
-            Error::Lock(e) => lock_context_map(e),
+            Self::Workspace(e) => workspace_context_map(e),
+            Self::Session(e) => session_context_map(e),
+            Self::Queue(e) => queue_context_map(e),
+            Self::Vcs(e) => vcs_context_map(e),
+            Self::Config(e) => config_context_map(e),
+            Self::Agent(e) => agent_context_map(e),
+            Self::Io(e) => io_context_map(e),
+            Self::State(e) => state_context_map(e),
+            Self::Internal(e) => internal_context_map(e),
+            Self::Task(e) => task_context_map(e),
+            Self::Wait(e) => wait_context_map(e),
+            Self::Lock(e) => lock_context_map(e),
         }
     }
 }
@@ -586,7 +586,7 @@ impl Error {
 // Error Code Helpers (for code() method)
 // ========================================================================
 
-fn workspace_error_code(e: &super::error_workspace::WorkspaceError) -> &'static str {
+const fn workspace_error_code(e: &super::error_workspace::WorkspaceError) -> &'static str {
     use super::error_workspace::WorkspaceErrorKind;
     match e.kind() {
         WorkspaceErrorKind::NotFound(_) => "WORKSPACE_NOT_FOUND",
@@ -596,7 +596,7 @@ fn workspace_error_code(e: &super::error_workspace::WorkspaceError) -> &'static 
     }
 }
 
-fn session_error_code(e: &super::error_workspace::SessionError) -> &'static str {
+const fn session_error_code(e: &super::error_workspace::SessionError) -> &'static str {
     use super::error_workspace::SessionErrorKind;
     match e.kind() {
         SessionErrorKind::NotFound(_) => "SESSION_NOT_FOUND",
@@ -607,7 +607,7 @@ fn session_error_code(e: &super::error_workspace::SessionError) -> &'static str 
     }
 }
 
-fn queue_error_code(e: &super::error_queue::QueueError) -> &'static str {
+const fn queue_error_code(e: &super::error_queue::QueueError) -> &'static str {
     use super::error_queue::QueueErrorKind;
     match e.kind() {
         QueueErrorKind::Empty => "QUEUE_EMPTY",
@@ -619,7 +619,7 @@ fn queue_error_code(e: &super::error_queue::QueueError) -> &'static str {
     }
 }
 
-fn vcs_error_code(e: &super::error_vcs::VcsError) -> &'static str {
+const fn vcs_error_code(e: &super::error_vcs::VcsError) -> &'static str {
     use super::error_vcs::VcsErrorKind;
     match e.kind() {
         VcsErrorKind::NotInitialized => "VCS_NOT_INITIALIZED",
@@ -639,7 +639,7 @@ fn vcs_error_code(e: &super::error_vcs::VcsError) -> &'static str {
     }
 }
 
-fn config_error_code(e: &super::error_config::ConfigError) -> &'static str {
+const fn config_error_code(e: &super::error_config::ConfigError) -> &'static str {
     use super::error_config::ConfigErrorKind;
     match e.kind() {
         ConfigErrorKind::ConfigKeyNotFound(_) => "CONFIG_KEY_NOT_FOUND",
@@ -657,7 +657,7 @@ fn config_error_code(e: &super::error_config::ConfigError) -> &'static str {
     }
 }
 
-fn agent_error_code(e: &super::error_agent::AgentError) -> &'static str {
+const fn agent_error_code(e: &super::error_agent::AgentError) -> &'static str {
     use super::error_agent::AgentErrorKind;
     match e.kind() {
         AgentErrorKind::NotFound(_) => "AGENT_NOT_FOUND",
@@ -666,7 +666,7 @@ fn agent_error_code(e: &super::error_agent::AgentError) -> &'static str {
     }
 }
 
-fn io_error_code(e: &super::error_io::IoError) -> &'static str {
+const fn io_error_code(e: &super::error_io::IoError) -> &'static str {
     use super::error_io::IoErrorKind;
     match e.kind() {
         IoErrorKind::Io(_) => "IO_ERROR",
@@ -677,7 +677,7 @@ fn io_error_code(e: &super::error_io::IoError) -> &'static str {
     }
 }
 
-fn state_error_code(e: &super::error_state::StateError) -> &'static str {
+const fn state_error_code(e: &super::error_state::StateError) -> &'static str {
     use super::error_state::StateErrorKind;
     match e.kind() {
         StateErrorKind::InvalidState(_) => "INVALID_STATE",
@@ -688,7 +688,7 @@ fn state_error_code(e: &super::error_state::StateError) -> &'static str {
     }
 }
 
-fn internal_error_code(e: &super::error_internal::InternalError) -> &'static str {
+const fn internal_error_code(e: &super::error_internal::InternalError) -> &'static str {
     use super::error_internal::InternalErrorKind;
     match e.kind() {
         InternalErrorKind::Internal(_) => "INTERNAL_ERROR",
@@ -701,7 +701,7 @@ fn internal_error_code(e: &super::error_internal::InternalError) -> &'static str
     }
 }
 
-fn task_error_code(e: &super::error_task::TaskError) -> &'static str {
+const fn task_error_code(e: &super::error_task::TaskError) -> &'static str {
     use super::error_task::TaskErrorKind;
     match e.kind() {
         TaskErrorKind::NotFound(_) => "TASK_NOT_FOUND",
@@ -713,7 +713,7 @@ fn task_error_code(e: &super::error_task::TaskError) -> &'static str {
     }
 }
 
-fn wait_error_code(e: &super::error_wait::WaitError) -> &'static str {
+const fn wait_error_code(e: &super::error_wait::WaitError) -> &'static str {
     use super::error_wait::WaitErrorKind;
     match e.kind() {
         WaitErrorKind::Timeout(_, _) => "WAIT_TIMEOUT",

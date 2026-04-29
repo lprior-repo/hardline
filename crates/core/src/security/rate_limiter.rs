@@ -29,7 +29,7 @@ impl RateLimiter {
     ///
     /// Does not panic. `max_requests` of 0 will deny all requests.
     #[must_use]
-    pub fn new(max_requests: u32, window_secs: u64) -> Self {
+    pub const fn new(max_requests: u32, window_secs: u64) -> Self {
         Self {
             max_requests,
             window_secs,
@@ -46,10 +46,9 @@ impl RateLimiter {
     pub fn check(&mut self) -> bool {
         let now = Instant::now();
         let window = std::time::Duration::from_secs(self.window_secs);
-        let cutoff = match now.checked_sub(window) {
-            Some(t) => t,
-            None => Instant::now(), // window overflow, allow request
-        };
+        let cutoff = now
+            .checked_sub(window)
+            .unwrap_or_else(Instant::now);
 
         // Prune expired entries
         self.requests.retain(|&ts| ts > cutoff);
@@ -70,7 +69,7 @@ impl RateLimiter {
 
     /// Return the number of requests recorded in the current window.
     #[must_use]
-    pub fn current_count(&self) -> usize {
+    pub const fn current_count(&self) -> usize {
         self.requests.len()
     }
 

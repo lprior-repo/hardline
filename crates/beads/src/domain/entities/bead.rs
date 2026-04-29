@@ -22,19 +22,19 @@ use super::super::value_objects::{
 // ── Typestate markers ─────────────────────────────────────────────────────────
 
 /// Typestate marker: bead is open (initial state).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Open;
 /// Typestate marker: bead is in progress.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InProgress;
 /// Typestate marker: bead is blocked.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Blocked;
 /// Typestate marker: bead is deferred.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Deferred;
 /// Typestate marker: bead is closed (terminal).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Closed;
 
 // ── Bead aggregate root ───────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ pub struct Closed;
 /// let in_progress = bead.start();
 /// let closed = in_progress.close();
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bead<S = Open> {
     /// Unique identifier.
     pub id: BeadId,
@@ -125,37 +125,37 @@ impl Bead<Open> {
 impl<S> Bead<S> {
     /// Returns a reference to the bead's ID.
     #[must_use]
-    pub fn id(&self) -> &BeadId {
+    pub const fn id(&self) -> &BeadId {
         &self.id
     }
 
     /// Returns a reference to the bead's title.
     #[must_use]
-    pub fn title(&self) -> &BeadTitle {
+    pub const fn title(&self) -> &BeadTitle {
         &self.title
     }
 
     /// Returns a reference to the bead's description, if set.
     #[must_use]
-    pub fn description(&self) -> Option<&BeadDescription> {
+    pub const fn description(&self) -> Option<&BeadDescription> {
         self.description.as_ref()
     }
 
     /// Returns a reference to the bead's priority, if set.
     #[must_use]
-    pub fn priority(&self) -> Option<&Priority> {
+    pub const fn priority(&self) -> Option<&Priority> {
         self.priority.as_ref()
     }
 
     /// Returns a reference to the bead's type, if set.
     #[must_use]
-    pub fn bead_type(&self) -> Option<&BeadType> {
+    pub const fn bead_type(&self) -> Option<&BeadType> {
         self.bead_type.as_ref()
     }
 
     /// Returns a reference to the bead's labels.
     #[must_use]
-    pub fn labels(&self) -> &Labels {
+    pub const fn labels(&self) -> &Labels {
         &self.labels
     }
 
@@ -167,7 +167,7 @@ impl<S> Bead<S> {
 
     /// Returns the parent bead ID, if this is a sub-task.
     #[must_use]
-    pub fn parent(&self) -> Option<&BeadId> {
+    pub const fn parent(&self) -> Option<&BeadId> {
         self.parent.as_ref()
     }
 
@@ -185,13 +185,13 @@ impl<S> Bead<S> {
 
     /// Returns the creation timestamp.
     #[must_use]
-    pub fn created_at(&self) -> DateTime<Utc> {
+    pub const fn created_at(&self) -> DateTime<Utc> {
         self.created_at
     }
 
     /// Returns the last-update timestamp.
     #[must_use]
-    pub fn updated_at(&self) -> DateTime<Utc> {
+    pub const fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at
     }
 
@@ -216,14 +216,14 @@ impl<S> Bead<S> {
 
     /// Set the priority (builder pattern).
     #[must_use]
-    pub fn with_priority(mut self, priority: Priority) -> Self {
+    pub const fn with_priority(mut self, priority: Priority) -> Self {
         self.priority = Some(priority);
         self
     }
 
     /// Set the bead type (builder pattern).
     #[must_use]
-    pub fn with_type(mut self, bead_type: BeadType) -> Self {
+    pub const fn with_type(mut self, bead_type: BeadType) -> Self {
         self.bead_type = Some(bead_type);
         self
     }
@@ -264,13 +264,13 @@ impl<S> Bead<S> {
 
     /// Returns `true` if the bead has any blockers.
     #[must_use]
-    pub fn is_blocked(&self) -> bool {
+    pub const fn is_blocked(&self) -> bool {
         !self.blocked_by.is_empty()
     }
 
     /// Returns `true` if the bead is in the `Closed` terminal state.
     #[must_use]
-    pub fn is_terminal(&self) -> bool {
+    pub const fn is_terminal(&self) -> bool {
         matches!(self.bead_state, BeadState::Closed { .. })
     }
 

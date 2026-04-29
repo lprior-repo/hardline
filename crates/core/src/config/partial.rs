@@ -197,7 +197,7 @@ pub struct PartialAuthConfig {
 }
 
 impl super::config::AuthConfig {
-    pub fn merge_partial(&mut self, partial: PartialAuthConfig) -> Result<()> {
+    pub const fn merge_partial(&mut self, partial: PartialAuthConfig) -> Result<()> {
         if let Some(preferred_source) = partial.preferred_source {
             self.preferred_source = preferred_source;
         }

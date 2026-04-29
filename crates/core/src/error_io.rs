@@ -39,7 +39,7 @@ pub enum IoErrorKind {
 
 impl From<IoErrorKind> for Error {
     fn from(e: IoErrorKind) -> Self {
-        Error::Io(e.into())
+        Self::Io(e.into())
     }
 }
 
@@ -50,13 +50,13 @@ impl From<IoErrorKind> for Error {
 impl IoError {
     /// Returns a reference to the inner error kind.
     #[must_use]
-    pub fn kind(&self) -> &IoErrorKind {
+    pub const fn kind(&self) -> &IoErrorKind {
         &self.inner
     }
 
     /// Returns exit code for CLI.
     /// IO errors use range 130-134 (ADR-007: 9xxx infrastructure).
-    pub fn exit_code(&self) -> i32 {
+    pub const fn exit_code(&self) -> i32 {
         match self.inner {
             IoErrorKind::Io(_) => 130,
             IoErrorKind::IoError(_) => 134,

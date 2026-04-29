@@ -89,7 +89,7 @@ impl AuditLogger {
     ///
     /// The parent directory must exist.
     #[must_use]
-    pub fn new(log_path: std::path::PathBuf) -> Self {
+    pub const fn new(log_path: std::path::PathBuf) -> Self {
         Self { log_path }
     }
 

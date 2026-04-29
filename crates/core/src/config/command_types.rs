@@ -327,7 +327,7 @@ impl FileConfigReadPort {
         }
     }
 
-    pub fn with_paths(global_path: PathBuf, project_path: Option<PathBuf>) -> Self {
+    pub const fn with_paths(global_path: PathBuf, project_path: Option<PathBuf>) -> Self {
         Self {
             global_path,
             project_path,
@@ -555,7 +555,7 @@ fn apply_conflict_section(doc: &toml_edit::DocumentMut, config: &mut Config) {
         }
     }
     if let Some(lv) = ct.get("log_resolutions") {
-        if let Some(true) = lv.as_bool() {
+        if lv.as_bool() == Some(true) {
             config.conflict.log_resolutions = super::types::ValidatedBool::new(true);
         }
     }
@@ -565,7 +565,7 @@ fn apply_session_section(doc: &toml_edit::DocumentMut, config: &mut Config) {
     let Some(si) = doc.get("session") else { return };
     let Some(st) = si.as_table() else { return };
     if let Some(ac) = st.get("auto_commit") {
-        if let Some(true) = ac.as_bool() {
+        if ac.as_bool() == Some(true) {
             config.session.auto_commit = super::types::ValidatedBool::new(true);
         }
     }

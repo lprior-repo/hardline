@@ -110,7 +110,7 @@ pub enum BeadEvent {
 impl BeadEvent {
     /// Returns the ID of the bead this event relates to.
     #[must_use]
-    pub fn id(&self) -> &BeadId {
+    pub const fn id(&self) -> &BeadId {
         match self {
             Self::Created { id, .. } => id,
             Self::TitleChanged { id, .. } => id,

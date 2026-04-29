@@ -11,7 +11,7 @@ use crate::beads::types::{BeadIssue, BeadsError, IssueStatus};
 /// Returns `BeadsError::ValidationFailed` if:
 /// - ID is empty
 /// - Title is empty
-pub(crate) fn validate_bead_for_insert(issue: &BeadIssue) -> Result<(), BeadsError> {
+pub fn validate_bead_for_insert(issue: &BeadIssue) -> Result<(), BeadsError> {
     if issue.id.is_empty() {
         return Err(BeadsError::ValidationFailed(
             "ID cannot be empty".to_string(),
@@ -33,7 +33,7 @@ pub(crate) fn validate_bead_for_insert(issue: &BeadIssue) -> Result<(), BeadsErr
 }
 
 /// Serialize optional vector as comma-separated string.
-pub(crate) fn serialize_optional_vec(v: Option<&Vec<String>>) -> Option<String> {
+pub fn serialize_optional_vec(v: Option<&Vec<String>>) -> Option<String> {
     v.and_then(|items| {
         if items.is_empty() {
             None

@@ -206,6 +206,7 @@ impl AgentRegistry for MemAgentRegistry {
         }
 
         agents.insert(agent.id.clone(), agent);
+        drop(agents);
         Ok(())
     }
 
@@ -236,6 +237,7 @@ impl AgentRegistry for MemAgentRegistry {
         })?;
 
         agent.update_heartbeat();
+        drop(agents);
         Ok(())
     }
 

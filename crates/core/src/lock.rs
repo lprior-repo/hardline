@@ -37,11 +37,11 @@ pub enum LockType {
 impl std::fmt::Display for LockType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LockType::Workspace(name) => write!(f, "workspace:{}", name),
-            LockType::Session(name) => write!(f, "session:{}", name),
-            LockType::Queue(name) => write!(f, "queue:{}", name),
-            LockType::Agent(name) => write!(f, "agent:{}", name),
-            LockType::Task(name) => write!(f, "task:{}", name),
+            Self::Workspace(name) => write!(f, "workspace:{}", name),
+            Self::Session(name) => write!(f, "session:{}", name),
+            Self::Queue(name) => write!(f, "queue:{}", name),
+            Self::Agent(name) => write!(f, "agent:{}", name),
+            Self::Task(name) => write!(f, "task:{}", name),
         }
     }
 }
@@ -57,7 +57,7 @@ pub struct LockGuard {
 
 impl LockGuard {
     /// Get the type of lock being held
-    pub fn lock_type(&self) -> &LockType {
+    pub const fn lock_type(&self) -> &LockType {
         &self.lock_type
     }
 
@@ -67,7 +67,7 @@ impl LockGuard {
     }
 
     /// When this lock was acquired
-    pub fn acquired_at(&self) -> DateTime<Utc> {
+    pub const fn acquired_at(&self) -> DateTime<Utc> {
         self.acquired_at
     }
 }
@@ -210,12 +210,11 @@ impl LockManager for MemLockManager {
     }
 
     fn release(&self, lock: &LockType) -> Result<()> {
-        let mut locks = self.locks.write().map_err(|e| {
+        self.locks.write().map_err(|e| {
             crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
                 e.to_string(),
             ))
-        })?;
-        locks.remove(lock);
+        })?.remove(lock);
         Ok(())
     }
 

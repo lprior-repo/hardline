@@ -18,7 +18,7 @@ use crate::types::SessionStatus;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Input for a session sync operation
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionSyncInput {
     /// Name of the session to sync
     pub session_name: String,
@@ -33,7 +33,7 @@ pub struct SessionSyncInput {
 impl SessionSyncInput {
     /// Create a new sync input with required fields
     #[must_use]
-    pub fn new(session_name: String, workspace_path: PathBuf, main_branch: String) -> Self {
+    pub const fn new(session_name: String, workspace_path: PathBuf, main_branch: String) -> Self {
         Self {
             session_name,
             workspace_path,
@@ -44,14 +44,14 @@ impl SessionSyncInput {
 
     /// Enable dirty workspace allowance
     #[must_use]
-    pub fn with_dirty_allowed(mut self) -> Self {
+    pub const fn with_dirty_allowed(mut self) -> Self {
         self.allow_dirty = true;
         self
     }
 }
 
 /// Result of a successful sync operation
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionSyncResult {
     /// Name of the synced session
     pub session_name: String,
@@ -93,7 +93,7 @@ pub enum WorkspaceCleanStatus {
 }
 
 /// Precondition check results
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PreconditionCheck {
     /// Session exists in database
     pub session_exists: bool,
@@ -106,7 +106,7 @@ pub struct PreconditionCheck {
 impl PreconditionCheck {
     /// Check if all preconditions are met
     #[must_use]
-    pub fn is_valid(&self) -> bool {
+    pub const fn is_valid(&self) -> bool {
         self.session_exists
             && matches!(
                 self.current_status,
@@ -120,7 +120,7 @@ impl PreconditionCheck {
 
     /// Create a valid precondition check
     #[must_use]
-    pub fn valid(status: SessionStatus) -> Self {
+    pub const fn valid(status: SessionStatus) -> Self {
         Self {
             session_exists: true,
             current_status: Some(status),

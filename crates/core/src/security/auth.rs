@@ -37,7 +37,7 @@ pub enum Scope {
 impl Scope {
     /// Returns a human-readable label for this scope.
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
             Self::ReadWorkspace => "read:workspace",
             Self::WriteWorkspace => "write:workspace",

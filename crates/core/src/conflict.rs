@@ -149,7 +149,7 @@ impl Conflict {
 
     /// Check if conflict needs resolution
     #[must_use]
-    pub fn needs_resolution(&self) -> bool {
+    pub const fn needs_resolution(&self) -> bool {
         self.state.needs_resolution()
     }
 }

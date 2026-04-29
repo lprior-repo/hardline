@@ -67,6 +67,7 @@ impl BeadRepository for InMemoryBeadRepository {
             return Err(BeadError::AlreadyExists(id));
         }
         beads.insert(id, bead.clone());
+        drop(beads);
         Ok(())
     }
 
@@ -77,6 +78,7 @@ impl BeadRepository for InMemoryBeadRepository {
             return Err(BeadError::NotFound(id));
         }
         beads.insert(id, bead.clone());
+        drop(beads);
         Ok(())
     }
 
@@ -86,6 +88,7 @@ impl BeadRepository for InMemoryBeadRepository {
         if beads.remove(&id_str).is_none() {
             return Err(BeadError::NotFound(id_str));
         }
+        drop(beads);
         Ok(())
     }
 

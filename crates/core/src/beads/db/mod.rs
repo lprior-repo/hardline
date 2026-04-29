@@ -13,7 +13,7 @@ pub use schema::ensure_schema;
 pub use write::{delete_bead, insert_bead, update_bead};
 
 // Module declarations
-pub(crate) mod parsing;
+pub mod parsing;
 mod query;
 mod schema;
 mod validation;

@@ -36,7 +36,7 @@ impl std::fmt::Debug for SqliteQueue {
 }
 
 impl SqliteQueue {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub const fn new(pool: SqlitePool) -> Self {
         Self { pool }
     }
 
@@ -58,14 +58,11 @@ fn source_to_string(src: &QueueSource) -> String {
 }
 
 fn string_to_source(s: &str) -> QueueSource {
-    if let Some(name) = s.strip_prefix("workspace:") {
-        QueueSource::Workspace(name.to_string())
-    } else {
-        QueueSource::Direct
-    }
+    s.strip_prefix("workspace:")
+        .map_or(QueueSource::Direct, |name| QueueSource::Workspace(name.to_string()))
 }
 
-fn priority_to_int(p: Priority) -> i32 {
+const fn priority_to_int(p: Priority) -> i32 {
     match p {
         Priority::Critical => 0,
         Priority::High => 1,
@@ -74,7 +71,7 @@ fn priority_to_int(p: Priority) -> i32 {
     }
 }
 
-fn int_to_priority(v: i32) -> Priority {
+const fn int_to_priority(v: i32) -> Priority {
     match v {
         0 => Priority::Critical,
         1 => Priority::High,
@@ -83,7 +80,7 @@ fn int_to_priority(v: i32) -> Priority {
     }
 }
 
-fn status_to_string(s: QueueStatus) -> &'static str {
+const fn status_to_string(s: QueueStatus) -> &'static str {
     match s {
         QueueStatus::Pending => "Pending",
         QueueStatus::Processing => "Processing",
