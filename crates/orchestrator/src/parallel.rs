@@ -36,7 +36,7 @@ pub struct PhaseNode {
 
 impl PhaseNode {
     #[must_use]
-    pub fn new(phase_type: PhaseType) -> Self {
+    pub const fn new(phase_type: PhaseType) -> Self {
         Self {
             phase_type,
             dependencies: Vec::new(),
@@ -191,7 +191,7 @@ pub struct PhaseGroup {
 
 impl PhaseGroup {
     #[must_use]
-    pub fn new(phases: Vec<PhaseType>) -> Self {
+    pub const fn new(phases: Vec<PhaseType>) -> Self {
         let max_parallelism = phases.len();
         Self {
             phases,
@@ -200,7 +200,7 @@ impl PhaseGroup {
     }
 
     #[must_use]
-    pub fn with_max_parallelism(mut self, max: usize) -> Self {
+    pub const fn with_max_parallelism(mut self, max: usize) -> Self {
         self.max_parallelism = max;
         self
     }

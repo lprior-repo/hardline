@@ -122,7 +122,7 @@ pub struct StackBranch {
 }
 
 impl StackBranch {
-    pub fn new(
+    pub const fn new(
         branch_name: BranchName,
         position: u32,
         last_commit: CommitHash,
@@ -143,7 +143,7 @@ impl StackBranch {
         self
     }
 
-    pub fn transition_to(&mut self, state: BranchState) {
+    pub const fn transition_to(&mut self, state: BranchState) {
         self.state = state;
     }
 }
@@ -255,11 +255,11 @@ impl StackId {
         Self(duration.as_nanos() as u64)
     }
 
-    pub fn from_u64(id: u64) -> Self {
+    pub const fn from_u64(id: u64) -> Self {
         Self(id)
     }
 
-    pub fn to_u64(self) -> u64 {
+    pub const fn to_u64(self) -> u64 {
         self.0
     }
 }

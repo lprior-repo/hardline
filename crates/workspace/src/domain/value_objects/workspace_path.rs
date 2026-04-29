@@ -44,7 +44,7 @@ impl WorkspacePath {
         resolve_path(path_buf).map(Self)
     }
 
-    pub fn as_path(&self) -> &PathBuf {
+    pub const fn as_path(&self) -> &PathBuf {
         &self.0
     }
 

@@ -23,7 +23,7 @@ pub enum JobPriority {
 
 impl JobPriority {
     #[must_use]
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             Self::P0 => 0,
             Self::P1 => 1,
@@ -33,7 +33,7 @@ impl JobPriority {
         }
     }
 
-    pub fn from_u8(value: u8) -> Self {
+    pub const fn from_u8(value: u8) -> Self {
         match value {
             0 => Self::P0,
             1 => Self::P1,
@@ -68,17 +68,17 @@ pub enum JobState {
 
 impl JobState {
     #[must_use]
-    pub fn is_pending(&self) -> bool {
+    pub const fn is_pending(&self) -> bool {
         matches!(self, Self::Pending)
     }
 
     #[must_use]
-    pub fn is_running(&self) -> bool {
+    pub const fn is_running(&self) -> bool {
         matches!(self, Self::Running { .. })
     }
 
     #[must_use]
-    pub fn is_terminal(&self) -> bool {
+    pub const fn is_terminal(&self) -> bool {
         matches!(self, Self::Completed { .. } | Self::Failed { .. })
     }
 }

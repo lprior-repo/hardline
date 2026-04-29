@@ -10,33 +10,33 @@ pub enum LandStatus {
 }
 
 impl LandStatus {
-    pub fn is_terminal(&self) -> bool {
-        matches!(self, LandStatus::Merged | LandStatus::Failed(_))
+    pub const fn is_terminal(&self) -> bool {
+        matches!(self, Self::Merged | Self::Failed(_))
     }
 
-    pub fn is_pending(&self) -> bool {
-        matches!(self, LandStatus::Pending)
+    pub const fn is_pending(&self) -> bool {
+        matches!(self, Self::Pending)
     }
 
-    pub fn is_waiting(&self) -> bool {
-        matches!(self, LandStatus::WaitingForCi)
+    pub const fn is_waiting(&self) -> bool {
+        matches!(self, Self::WaitingForCi)
     }
 
-    pub fn is_merging(&self) -> bool {
-        matches!(self, LandStatus::Merging)
+    pub const fn is_merging(&self) -> bool {
+        matches!(self, Self::Merging)
     }
 
-    pub fn is_merged(&self) -> bool {
-        matches!(self, LandStatus::Merged)
+    pub const fn is_merged(&self) -> bool {
+        matches!(self, Self::Merged)
     }
 
-    pub fn is_failed(&self) -> bool {
-        matches!(self, LandStatus::Failed(_))
+    pub const fn is_failed(&self) -> bool {
+        matches!(self, Self::Failed(_))
     }
 
     pub fn failure_reason(&self) -> Option<&str> {
         match self {
-            LandStatus::Failed(reason) => Some(reason),
+            Self::Failed(reason) => Some(reason),
             _ => None,
         }
     }

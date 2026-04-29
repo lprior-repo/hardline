@@ -16,10 +16,10 @@ pub enum TimeoutError {
 impl std::fmt::Display for TimeoutError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TimeoutError::InvalidTimeout(msg) => {
+            Self::InvalidTimeout(msg) => {
                 write!(f, "Invalid timeout: {msg}")
             }
-            TimeoutError::TimeoutExceeded {
+            Self::TimeoutExceeded {
                 phase_id,
                 duration_ms,
                 timeout_ms,
@@ -48,7 +48,7 @@ pub enum PolicyError {
     MaxRetriesExceeded {
         phase_id: String,
         attempts: u32,
-        last_error: Box<PolicyError>,
+        last_error: Box<Self>,
     },
     CircuitBreakerOpen {
         phase_id: String,
@@ -64,13 +64,13 @@ pub enum PolicyError {
 impl std::fmt::Display for PolicyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PolicyError::InvalidTimeout(msg) => {
+            Self::InvalidTimeout(msg) => {
                 write!(f, "Invalid timeout: {msg}")
             }
-            PolicyError::InvalidRetryPolicy(msg) => {
+            Self::InvalidRetryPolicy(msg) => {
                 write!(f, "Invalid retry policy: {msg}")
             }
-            PolicyError::TimeoutExceeded {
+            Self::TimeoutExceeded {
                 phase_id,
                 duration_ms,
                 timeout_ms,
@@ -80,7 +80,7 @@ impl std::fmt::Display for PolicyError {
                     "Phase '{phase_id}' exceeded timeout of {timeout_ms}ms (took {duration_ms}ms)"
                 )
             }
-            PolicyError::MaxRetriesExceeded {
+            Self::MaxRetriesExceeded {
                 phase_id, attempts, ..
             } => {
                 write!(
@@ -88,13 +88,13 @@ impl std::fmt::Display for PolicyError {
                     "Phase '{phase_id}' failed after {attempts} attempts (retries exhausted)"
                 )
             }
-            PolicyError::CircuitBreakerOpen { phase_id, .. } => {
+            Self::CircuitBreakerOpen { phase_id, .. } => {
                 write!(f, "Circuit breaker open for phase '{phase_id}'")
             }
-            PolicyError::NonRetryableError { phase_id, cause } => {
+            Self::NonRetryableError { phase_id, cause } => {
                 write!(f, "Non-retryable error in phase '{phase_id}': {cause}")
             }
-            PolicyError::PreconditionViolation(msg) => {
+            Self::PreconditionViolation(msg) => {
                 write!(f, "Precondition violation: {msg}")
             }
         }

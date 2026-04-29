@@ -50,29 +50,29 @@ pub enum PipelineState {
 
 impl PipelineState {
     #[must_use]
-    pub fn is_terminal(&self) -> bool {
+    pub const fn is_terminal(&self) -> bool {
         matches!(
             self,
-            PipelineState::Accepted | PipelineState::Escalated | PipelineState::Failed
+            Self::Accepted | Self::Escalated | Self::Failed
         )
     }
 
     #[must_use]
-    pub fn allows_iteration(&self) -> bool {
-        matches!(self, PipelineState::AgentDevelopment)
+    pub const fn allows_iteration(&self) -> bool {
+        matches!(self, Self::AgentDevelopment)
     }
 
     #[must_use]
-    pub fn description(&self) -> &'static str {
+    pub const fn description(&self) -> &'static str {
         match self {
-            PipelineState::Pending => "Pending - awaiting start",
-            PipelineState::SpecReview => "Spec Review - running linter",
-            PipelineState::UniverseSetup => "Universe Setup - deploying twin",
-            PipelineState::AgentDevelopment => "Agent Development - working on task",
-            PipelineState::Validation => "Validation - running scenarios",
-            PipelineState::Accepted => "Accepted - all scenarios passed",
-            PipelineState::Escalated => "Escalated - human intervention needed",
-            PipelineState::Failed => "Failed - validation failed",
+            Self::Pending => "Pending - awaiting start",
+            Self::SpecReview => "Spec Review - running linter",
+            Self::UniverseSetup => "Universe Setup - deploying twin",
+            Self::AgentDevelopment => "Agent Development - working on task",
+            Self::Validation => "Validation - running scenarios",
+            Self::Accepted => "Accepted - all scenarios passed",
+            Self::Escalated => "Escalated - human intervention needed",
+            Self::Failed => "Failed - validation failed",
         }
     }
 }
@@ -201,7 +201,7 @@ impl Pipeline {
     }
 
     #[must_use]
-    pub fn can_iterate(&self) -> bool {
+    pub const fn can_iterate(&self) -> bool {
         self.iteration < self.max_iterations && self.state.allows_iteration()
     }
 
@@ -217,7 +217,7 @@ impl Pipeline {
 }
 
 /// Error when transitioning states
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TransitionError {
     InvalidTransition {
@@ -232,10 +232,10 @@ pub enum TransitionError {
 impl std::fmt::Display for TransitionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TransitionError::InvalidTransition { from, to } => {
+            Self::InvalidTransition { from, to } => {
                 write!(f, "Invalid transition from {from:?} to {to:?}")
             }
-            TransitionError::AlreadyTerminal { current } => {
+            Self::AlreadyTerminal { current } => {
                 write!(f, "Pipeline already in terminal state: {current:?}")
             }
         }
@@ -245,7 +245,7 @@ impl std::fmt::Display for TransitionError {
 impl std::error::Error for TransitionError {}
 
 /// Error during iteration
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IterationError {
     MaxIterationsReached { current: u32, max: u32 },
@@ -254,7 +254,7 @@ pub enum IterationError {
 impl std::fmt::Display for IterationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            IterationError::MaxIterationsReached { current, max } => {
+            Self::MaxIterationsReached { current, max } => {
                 write!(f, "Max iterations reached: {current} of {max}")
             }
         }

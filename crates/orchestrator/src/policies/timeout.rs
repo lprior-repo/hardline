@@ -12,7 +12,7 @@ pub struct PhaseTimeout {
 
 impl PhaseTimeout {
     /// Create a new timeout with the given duration in milliseconds
-    pub fn new(duration_ms: u64) -> Result<Self, super::ConfigError> {
+    pub const fn new(duration_ms: u64) -> Result<Self, super::ConfigError> {
         if duration_ms == 0 {
             return Err(super::ConfigError::InvalidTimeout { duration_ms });
         }
@@ -21,7 +21,7 @@ impl PhaseTimeout {
 
     /// Get the timeout duration in milliseconds
     #[must_use]
-    pub fn duration_ms(&self) -> u64 {
+    pub const fn duration_ms(&self) -> u64 {
         self.duration_ms
     }
 

@@ -27,7 +27,7 @@ impl<'repo> StackEngine<'repo> {
     ///
     /// The `trunk` parameter identifies the base branch (e.g. "main")
     /// used as the anchor for stack ancestry walks.
-    pub fn new(repo: &'repo gix::Repository, trunk: BranchName) -> Self {
+    pub const fn new(repo: &'repo gix::Repository, trunk: BranchName) -> Self {
         Self { repo, trunk }
     }
 

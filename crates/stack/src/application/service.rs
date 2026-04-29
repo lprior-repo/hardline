@@ -18,7 +18,7 @@ pub struct StackService<R, G, V> {
 }
 
 impl<R, G, V> StackService<R, G, V> {
-    pub fn new(stack_repo: R, github: G, vcs: V) -> Self {
+    pub const fn new(stack_repo: R, github: G, vcs: V) -> Self {
         Self {
             stack_repo,
             github,
@@ -55,7 +55,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
-            .ok_or(StackError::NotFound(stack_id.to_string()))?;
+            .ok_or_else(|| StackError::NotFound(stack_id.to_string()))?;
 
         for branch in &mut stack.branches {
             let pr_info = self
@@ -75,7 +75,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
-            .ok_or(StackError::NotFound(stack_id.to_string()))?;
+            .ok_or_else(|| StackError::NotFound(stack_id.to_string()))?;
 
         self.github.fetch(&stack.base_branch)?;
 
@@ -106,7 +106,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
-            .ok_or(StackError::NotFound(stack_id.to_string()))?;
+            .ok_or_else(|| StackError::NotFound(stack_id.to_string()))?;
 
         stack.state = StackState::Merging;
         stack.updated_at = Utc::now();
@@ -135,13 +135,13 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
-            .ok_or(StackError::NotFound(stack_id.to_string()))?;
+            .ok_or_else(|| StackError::NotFound(stack_id.to_string()))?;
 
         let position = stack.branches.len() as u32;
         let last_commit = self.github.get_commit_hash(&branch_name)?;
 
         let new_branch = StackBranch {
-            branch_name: branch_name.clone(),
+            branch_name,
             position,
             pr_info: None,
             state: BranchState::Open,
@@ -164,13 +164,13 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
-            .ok_or(StackError::NotFound(stack_id.to_string()))?;
+            .ok_or_else(|| StackError::NotFound(stack_id.to_string()))?;
 
         let position_to_remove = stack
             .branches
             .iter()
             .position(|b| &b.branch_name == branch_name)
-            .ok_or(StackError::BranchNotFound(branch_name.to_string()))?;
+            .ok_or_else(|| StackError::BranchNotFound(branch_name.to_string()))?;
 
         stack.branches.remove(position_to_remove);
 
@@ -188,7 +188,7 @@ impl<R: StackRepository, G: GitHubClientTrait, V: VcsClientTrait> StackService<R
         let mut stack = self
             .stack_repo
             .find_by_id(&stack_id)?
-            .ok_or(StackError::NotFound(stack_id.to_string()))?;
+            .ok_or_else(|| StackError::NotFound(stack_id.to_string()))?;
 
         for branch in &mut stack.branches {
             if let Some(pr_info) = &branch.pr_info {

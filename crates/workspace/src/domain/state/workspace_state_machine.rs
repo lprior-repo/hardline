@@ -3,7 +3,7 @@ use crate::{domain::entities::WorkspaceState, error::WorkspaceError};
 pub struct WorkspaceStateMachine;
 
 impl WorkspaceStateMachine {
-    pub fn can_transition(from: WorkspaceState, to: WorkspaceState) -> bool {
+    pub const fn can_transition(from: WorkspaceState, to: WorkspaceState) -> bool {
         matches!(
             (from, to),
             (WorkspaceState::Initializing, WorkspaceState::Active)
@@ -29,7 +29,7 @@ impl WorkspaceStateMachine {
         }
     }
 
-    pub fn is_terminal(state: WorkspaceState) -> bool {
+    pub const fn is_terminal(state: WorkspaceState) -> bool {
         matches!(state, WorkspaceState::Deleted | WorkspaceState::Corrupted)
     }
 
@@ -37,7 +37,7 @@ impl WorkspaceStateMachine {
         state == WorkspaceState::Active
     }
 
-    pub fn is_deletable(state: WorkspaceState) -> bool {
+    pub const fn is_deletable(state: WorkspaceState) -> bool {
         !Self::is_terminal(state)
     }
 }

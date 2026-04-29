@@ -23,7 +23,7 @@ impl TimeoutPolicy {
 
     /// Create a TimeoutPolicy with no timeout (infinite)
     #[must_use]
-    pub fn none() -> Self {
+    pub const fn none() -> Self {
         Self { timeout_ms: None }
     }
 
@@ -35,7 +35,7 @@ impl TimeoutPolicy {
 
     /// Returns true if no timeout is configured
     #[must_use]
-    pub fn is_none(&self) -> bool {
+    pub const fn is_none(&self) -> bool {
         self.timeout_ms.is_none()
     }
 }
@@ -48,7 +48,7 @@ pub enum TimeoutPolicyError {
 impl std::fmt::Display for TimeoutPolicyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TimeoutPolicyError::ZeroTimeout => {
+            Self::ZeroTimeout => {
                 write!(f, "timeout must be greater than 0ms")
             }
         }

@@ -52,7 +52,7 @@ pub struct Stack<S = Draft> {
 
 impl Stack<Draft> {
     #[must_use]
-    pub fn new(main_branch: BranchName) -> Self {
+    pub const fn new(main_branch: BranchName) -> Self {
         Self {
             branches: Vec::new(),
             main_branch,
@@ -214,7 +214,7 @@ impl Stack<Merging> {
 
 impl Stack<Merged> {
     #[must_use]
-    pub fn is_terminal(&self) -> bool {
+    pub const fn is_terminal(&self) -> bool {
         true
     }
 }

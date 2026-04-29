@@ -185,21 +185,21 @@ pub fn print_dashboard(branches: &[LandBranchInfo]) {
 impl LandStatus {
     pub fn symbol(&self) -> String {
         match self {
-            LandStatus::Pending => "○".to_string(),
-            LandStatus::WaitingForCi => "⏳".to_string(),
-            LandStatus::Merging => "⏳".to_string(),
-            LandStatus::Merged => "✓".to_string(),
-            LandStatus::Failed(_) => "✗".to_string(),
+            Self::Pending => "○".to_string(),
+            Self::WaitingForCi => "⏳".to_string(),
+            Self::Merging => "⏳".to_string(),
+            Self::Merged => "✓".to_string(),
+            Self::Failed(_) => "✗".to_string(),
         }
     }
 
     pub fn label(&self) -> String {
         match self {
-            LandStatus::Pending => "pending".to_string(),
-            LandStatus::WaitingForCi => "waiting for CI...".to_string(),
-            LandStatus::Merging => "merging...".to_string(),
-            LandStatus::Merged => "merged".to_string(),
-            LandStatus::Failed(reason) => format!("failed: {}", reason),
+            Self::Pending => "pending".to_string(),
+            Self::WaitingForCi => "waiting for CI...".to_string(),
+            Self::Merging => "merging...".to_string(),
+            Self::Merged => "merged".to_string(),
+            Self::Failed(reason) => format!("failed: {}", reason),
         }
     }
 }

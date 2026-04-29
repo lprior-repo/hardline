@@ -28,13 +28,13 @@ pub enum ConfigError {
 impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ConfigError::InvalidTimeout { duration_ms } => {
+            Self::InvalidTimeout { duration_ms } => {
                 write!(f, "Timeout duration must be positive, got {duration_ms}")
             }
-            ConfigError::InvalidBaseDelay { delay_ms } => {
+            Self::InvalidBaseDelay { delay_ms } => {
                 write!(f, "Base delay must be positive, got {delay_ms}")
             }
-            ConfigError::InvalidMaxDelay {
+            Self::InvalidMaxDelay {
                 max_delay_ms,
                 base_delay_ms,
             } => {
@@ -43,10 +43,10 @@ impl std::fmt::Display for ConfigError {
                     "Max delay ({max_delay_ms}) must be >= base delay ({base_delay_ms})"
                 )
             }
-            ConfigError::InvalidFailureThreshold { threshold } => {
+            Self::InvalidFailureThreshold { threshold } => {
                 write!(f, "Failure threshold must be positive, got {threshold}")
             }
-            ConfigError::InvalidRecoveryTimeout { timeout_ms } => {
+            Self::InvalidRecoveryTimeout { timeout_ms } => {
                 write!(f, "Recovery timeout must be positive, got {timeout_ms}")
             }
         }
@@ -69,7 +69,7 @@ pub enum OrchestratorError {
     RetriesExhausted {
         phase: String,
         attempts: u32,
-        last_error: Box<OrchestratorError>,
+        last_error: Box<Self>,
     },
     /// Circuit breaker is open, request rejected
     CircuitBreakerOpen {
@@ -89,7 +89,7 @@ pub enum OrchestratorError {
 impl std::fmt::Display for OrchestratorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            OrchestratorError::PhaseTimeout {
+            Self::PhaseTimeout {
                 phase,
                 timeout_ms,
                 elapsed_ms,
@@ -99,7 +99,7 @@ impl std::fmt::Display for OrchestratorError {
                     "Phase '{phase}' timed out after {elapsed_ms}ms (limit: {timeout_ms}ms)"
                 )
             }
-            OrchestratorError::RetriesExhausted {
+            Self::RetriesExhausted {
                 phase, attempts, ..
             } => {
                 write!(
@@ -107,7 +107,7 @@ impl std::fmt::Display for OrchestratorError {
                     "Phase '{phase}' failed after {attempts} attempts (retries exhausted)"
                 )
             }
-            OrchestratorError::CircuitBreakerOpen {
+            Self::CircuitBreakerOpen {
                 phase,
                 failure_count,
                 ..
@@ -117,10 +117,10 @@ impl std::fmt::Display for OrchestratorError {
                     "Circuit breaker open for phase '{phase}' after {failure_count} failures"
                 )
             }
-            OrchestratorError::DeadlineExceeded { elapsed_ms, .. } => {
+            Self::DeadlineExceeded { elapsed_ms, .. } => {
                 write!(f, "Pipeline deadline exceeded after {elapsed_ms}ms")
             }
-            OrchestratorError::PhaseExecution { phase, message } => {
+            Self::PhaseExecution { phase, message } => {
                 write!(f, "Phase '{phase}' execution failed: {message}")
             }
         }

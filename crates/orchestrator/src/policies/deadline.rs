@@ -20,13 +20,13 @@ impl Deadline {
 
     /// Create a deadline at a specific timestamp
     #[must_use]
-    pub fn at(deadline_at: DateTime<Utc>) -> Self {
+    pub const fn at(deadline_at: DateTime<Utc>) -> Self {
         Self { deadline_at }
     }
 
     /// Get the deadline timestamp
     #[must_use]
-    pub fn deadline_at(&self) -> DateTime<Utc> {
+    pub const fn deadline_at(&self) -> DateTime<Utc> {
         self.deadline_at
     }
 

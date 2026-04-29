@@ -85,7 +85,7 @@ impl<R: JobRepository> JobProcessor<R> {
     }
 
     #[must_use]
-    pub fn config(&self) -> &JobProcessorConfig {
+    pub const fn config(&self) -> &JobProcessorConfig {
         &self.config
     }
 

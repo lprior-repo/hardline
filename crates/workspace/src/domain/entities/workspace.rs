@@ -131,27 +131,27 @@ impl Workspace<Initializing> {
 
 impl<S> Workspace<S> {
     #[must_use]
-    pub fn id(&self) -> &WorkspaceId {
+    pub const fn id(&self) -> &WorkspaceId {
         &self.id
     }
 
     #[must_use]
-    pub fn name(&self) -> &WorkspaceName {
+    pub const fn name(&self) -> &WorkspaceName {
         &self.name
     }
 
     #[must_use]
-    pub fn path(&self) -> &WorkspacePath {
+    pub const fn path(&self) -> &WorkspacePath {
         &self.path
     }
 
     #[must_use]
-    pub fn created_at(&self) -> DateTime<Utc> {
+    pub const fn created_at(&self) -> DateTime<Utc> {
         self.created_at
     }
 
     #[must_use]
-    pub fn updated_at(&self) -> DateTime<Utc> {
+    pub const fn updated_at(&self) -> DateTime<Utc> {
         self.updated_at
     }
 
@@ -161,7 +161,7 @@ impl<S> Workspace<S> {
     }
 
     #[must_use]
-    pub fn config(&self) -> Option<&WorkspaceConfig> {
+    pub const fn config(&self) -> Option<&WorkspaceConfig> {
         self.config.as_ref()
     }
 
@@ -176,7 +176,7 @@ impl<S> Workspace<S> {
     }
 
     #[must_use]
-    pub fn is_terminal(&self) -> bool {
+    pub const fn is_terminal(&self) -> bool {
         self.state.is_terminal()
     }
 

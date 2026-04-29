@@ -54,25 +54,25 @@ impl RetryPolicy {
 
     /// Get the maximum number of retries
     #[must_use]
-    pub fn max_retries(&self) -> u32 {
+    pub const fn max_retries(&self) -> u32 {
         self.max_retries
     }
 
     /// Get the total number of attempts (initial + retries)
     #[must_use]
-    pub fn total_attempts(&self) -> u32 {
+    pub const fn total_attempts(&self) -> u32 {
         self.max_retries + 1
     }
 
     /// Get the base delay in milliseconds
     #[must_use]
-    pub fn base_delay_ms(&self) -> u64 {
+    pub const fn base_delay_ms(&self) -> u64 {
         self.base_delay_ms.get()
     }
 
     /// Get the exponential factor
     #[must_use]
-    pub fn factor(&self) -> f64 {
+    pub const fn factor(&self) -> f64 {
         self.factor
     }
 
@@ -96,10 +96,7 @@ impl RetryPolicy {
             .clamp(0.0, u64::MAX as f64);
         let delay = exponential as u64;
 
-        match self.max_delay_ms {
-            Some(max) => delay.min(max.get()),
-            None => delay,
-        }
+        self.max_delay_ms.map_or(delay, |max| delay.min(max.get()))
     }
 
     /// Check if an error is retryable based on its string representation
@@ -125,13 +122,13 @@ pub enum RetryPolicyError {
 impl std::fmt::Display for RetryPolicyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RetryPolicyError::InvalidBaseDelay => {
+            Self::InvalidBaseDelay => {
                 write!(f, "base_delay must be greater than 0ms")
             }
-            RetryPolicyError::InvalidFactor => {
+            Self::InvalidFactor => {
                 write!(f, "factor must be greater than 1.0")
             }
-            RetryPolicyError::InvalidMaxDelay => {
+            Self::InvalidMaxDelay => {
                 write!(f, "max_delay must be greater than 0ms and >= base_delay")
             }
         }

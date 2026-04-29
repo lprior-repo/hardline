@@ -15,11 +15,11 @@ pub enum MergeMethod {
 }
 
 impl MergeMethod {
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            MergeMethod::Squash => "squash",
-            MergeMethod::Merge => "merge",
-            MergeMethod::Rebase => "rebase",
+            Self::Squash => "squash",
+            Self::Merge => "merge",
+            Self::Rebase => "rebase",
         }
     }
 }

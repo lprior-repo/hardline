@@ -18,7 +18,7 @@ pub enum PhaseType {
 impl PhaseType {
     /// Convert from PipelineState to PhaseType
     #[must_use]
-    pub fn from_state(state: PipelineState) -> Option<Self> {
+    pub const fn from_state(state: PipelineState) -> Option<Self> {
         match state {
             PipelineState::SpecReview => Some(Self::SpecReview),
             PipelineState::UniverseSetup => Some(Self::UniverseSetup),
@@ -51,7 +51,7 @@ pub struct CleanupContext {
 
 impl CleanupContext {
     #[must_use]
-    pub fn new(pipeline_id: PipelineId, failed_phase: PhaseType) -> Self {
+    pub const fn new(pipeline_id: PipelineId, failed_phase: PhaseType) -> Self {
         Self {
             pipeline_id,
             failed_phase,
@@ -102,7 +102,7 @@ pub struct CleanupResult {
 
 impl CleanupResult {
     #[must_use]
-    pub fn success() -> Self {
+    pub const fn success() -> Self {
         Self {
             status: CleanupStatus::Success,
             cleaned_resources: Vec::new(),
@@ -131,7 +131,7 @@ impl CleanupResult {
     }
 
     #[must_use]
-    pub fn success_flag(&self) -> bool {
+    pub const fn success_flag(&self) -> bool {
         matches!(self.status, CleanupStatus::Success)
     }
 
@@ -286,19 +286,19 @@ impl CleanupManager {
     pub fn cleanup(&self, context: &CleanupContext) -> CleanupResult {
         let handler = self.get_handler(context.failed_phase);
 
-        match handler {
-            Some(h) => h.cleanup(context),
-            None => CleanupResult::success(),
-        }
+        handler.map_or_else(
+            CleanupResult::success,
+            |h| h.cleanup(context),
+        )
     }
 
     pub fn rollback(&self, context: &CleanupContext) -> CleanupResult {
         let handler = self.get_handler(context.failed_phase);
 
-        match handler {
-            Some(h) => h.rollback(context),
-            None => CleanupResult::success(),
-        }
+        handler.map_or_else(
+            CleanupResult::success,
+            |h| h.rollback(context),
+        )
     }
 }
 

@@ -58,7 +58,7 @@ impl PolicyConfig {
 
     /// Set a global deadline
     #[must_use]
-    pub fn with_deadline(mut self, deadline: Deadline) -> Self {
+    pub const fn with_deadline(mut self, deadline: Deadline) -> Self {
         self.deadline = Some(deadline);
         self
     }

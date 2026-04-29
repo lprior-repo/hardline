@@ -57,28 +57,28 @@ impl PipelineExecutor {
     }
 
     #[must_use]
-    pub fn policy_config(&self) -> &PolicyConfig {
+    pub const fn policy_config(&self) -> &PolicyConfig {
         &self.policy_config
     }
 
     #[must_use]
-    pub fn store(&self) -> &StateStore {
+    pub const fn store(&self) -> &StateStore {
         &self.store
     }
 
     #[must_use]
-    pub fn metrics(&self) -> &Metrics {
+    pub const fn metrics(&self) -> &Metrics {
         &self.metrics
     }
 
     #[must_use]
-    pub fn cleanup_manager(&self) -> &CleanupManager {
+    pub const fn cleanup_manager(&self) -> &CleanupManager {
         &self.cleanup_manager
     }
 
     /// Validate precondition P1: pipeline must be in non-terminal state
     #[must_use]
-    pub fn can_run_pipeline(&self, pipeline: &Pipeline) -> bool {
+    pub const fn can_run_pipeline(&self, pipeline: &Pipeline) -> bool {
         !pipeline.state.is_terminal()
     }
 

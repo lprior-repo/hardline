@@ -27,15 +27,17 @@ pub struct InMemoryJobRepository {
 
 impl InMemoryJobRepository {
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             jobs: sync::RwLock::new(Vec::new()),
         }
     }
 
     pub fn add_job(&self, job: Job) -> QueueResult<()> {
-        let mut jobs = self.jobs.write().unwrap_or_else(|e| e.into_inner());
-        jobs.push(job);
+        {
+            let mut jobs = self.jobs.write().unwrap_or_else(|e| e.into_inner());
+            jobs.push(job);
+        }
         Ok(())
     }
 }
@@ -48,6 +50,7 @@ impl Default for InMemoryJobRepository {
 
 #[async_trait]
 impl JobRepository for InMemoryJobRepository {
+    #[allow(clippy::significant_drop_tightening)]
     async fn poll_pending_jobs(&self, limit: usize) -> QueueResult<Vec<Job>> {
         let jobs = self.jobs.read().unwrap_or_else(|e| e.into_inner());
 

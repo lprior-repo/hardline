@@ -56,13 +56,13 @@ pub enum CircuitBreakerError {
 impl std::fmt::Display for CircuitBreakerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CircuitBreakerError::InvalidFailureThreshold => {
+            Self::InvalidFailureThreshold => {
                 write!(f, "failure_threshold must be positive")
             }
-            CircuitBreakerError::InvalidSuccessThreshold => {
+            Self::InvalidSuccessThreshold => {
                 write!(f, "success_threshold must be positive")
             }
-            CircuitBreakerError::InvalidOpenDuration => {
+            Self::InvalidOpenDuration => {
                 write!(f, "open_duration must be greater than 0")
             }
         }
@@ -128,42 +128,42 @@ impl CircuitBreaker {
 
     /// Get the current state
     #[must_use]
-    pub fn state(&self) -> CircuitBreakerState {
+    pub const fn state(&self) -> CircuitBreakerState {
         self.state
     }
 
     /// Get the failure count
     #[must_use]
-    pub fn failure_count(&self) -> u32 {
+    pub const fn failure_count(&self) -> u32 {
         self.failure_count
     }
 
     /// Get the success count
     #[must_use]
-    pub fn success_count(&self) -> u32 {
+    pub const fn success_count(&self) -> u32 {
         self.success_count
     }
 
     /// Get the failure threshold
     #[must_use]
-    pub fn failure_threshold(&self) -> u32 {
+    pub const fn failure_threshold(&self) -> u32 {
         self.failure_threshold.get()
     }
 
     /// Get the success threshold
     #[must_use]
-    pub fn success_threshold(&self) -> u32 {
+    pub const fn success_threshold(&self) -> u32 {
         self.success_threshold.get()
     }
 
     /// Get the open duration
     #[must_use]
-    pub fn open_duration(&self) -> Duration {
+    pub const fn open_duration(&self) -> Duration {
         Duration::from_millis(self.open_duration_ms.get())
     }
 
     /// Record a successful execution
-    pub fn record_success(&mut self) {
+    pub const fn record_success(&mut self) {
         match self.state {
             CircuitBreakerState::Closed => {
                 self.failure_count = 0;
@@ -225,7 +225,7 @@ impl CircuitBreaker {
     /// Returns true for Closed and HalfOpen, false for Open.
     /// Use `can_execute()` for auto-transitioning behavior.
     #[must_use]
-    pub fn is_execution_allowed(&self) -> bool {
+    pub const fn is_execution_allowed(&self) -> bool {
         matches!(
             self.state,
             CircuitBreakerState::Closed | CircuitBreakerState::HalfOpen

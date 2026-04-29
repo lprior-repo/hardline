@@ -34,12 +34,13 @@ impl Default for InMemoryWorkspaceRepository {
 
 impl WorkspaceRepository for InMemoryWorkspaceRepository {
     fn save(&self, workspace: Workspace) -> Result<Workspace> {
+        let id = workspace.id.as_str().to_string();
         let mut workspaces = self
             .workspaces
             .write()
             .map_err(|e| WorkspaceError::RepositoryError(format!("lock poisoned: {e}")))?;
-        let id = workspace.id.as_str().to_string();
         workspaces.insert(id, workspace.clone());
+        drop(workspaces);
         Ok(workspace)
     }
 
