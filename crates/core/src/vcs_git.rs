@@ -233,7 +233,18 @@ impl VcsBackend for GitBackend {
     }
 
     fn list_workspaces(&self) -> Result<Vec<Workspace>> {
-        Err(InternalErrorKind::Unimplemented("Git workspaces use worktrees instead".into()).into())
+        let output = self.run_git(&["worktree", "list", "--porcelain"])?;
+        if !output.status.success() {
+            return Err(VcsErrorKind::Conflict(
+                "worktree list".to_string(),
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            )
+            .into());
+        }
+        Ok(parse_git_worktree_list(
+            &String::from_utf8_lossy(&output.stdout),
+            &self.repo_path,
+        ))
     }
 
     fn delete_workspace(&self, _name: &str) -> Result<()> {
@@ -440,6 +451,75 @@ fn parse_git_log(stdout: &str) -> Vec<Commit> {
         }
     }
     commits
+}
+
+/// Parse `git worktree list --porcelain` output into Workspace entries.
+///
+/// Each worktree block is separated by a blank line. Relevant fields:
+/// - `worktree <path>` — absolute path to the worktree root
+/// - `branch <ref>` — e.g. `refs/heads/feature-x`
+/// - `bare` / (no `bare` line) — indicates the main worktree
+fn parse_git_worktree_list(stdout: &str, repo_path: &std::path::Path) -> Vec<Workspace> {
+    let mut workspaces = Vec::new();
+    let mut current_path: Option<String> = None;
+    let mut current_branch: Option<String> = None;
+    let mut is_bare = false;
+
+    for line in stdout.lines() {
+        let line = line.trim();
+
+        // Blank line signals end of a worktree block
+        if line.is_empty() {
+            if let Some(path) = current_path.take() {
+                let relative = make_relative(&path, repo_path);
+                let branch_name = current_branch
+                    .take()
+                    .and_then(|b| b.strip_prefix("refs/heads/").map(str::to_string))
+                    .unwrap_or_default();
+                workspaces.push(Workspace {
+                    name: relative,
+                    branch: branch_name,
+                    is_current: !is_bare,
+                });
+            }
+            current_branch = None;
+            is_bare = false;
+            continue;
+        }
+
+        if let Some(path) = line.strip_prefix("worktree ") {
+            current_path = Some(path.to_string());
+        } else if let Some(branch) = line.strip_prefix("branch ") {
+            current_branch = Some(branch.to_string());
+        } else if line == "bare" {
+            is_bare = true;
+        }
+    }
+
+    // Flush the last block if file didn't end with blank line
+    if let Some(path) = current_path.take() {
+        let relative = make_relative(&path, repo_path);
+        let branch_name = current_branch
+            .and_then(|b| b.strip_prefix("refs/heads/").map(str::to_string))
+            .unwrap_or_default();
+        workspaces.push(Workspace {
+            name: relative,
+            branch: branch_name,
+            is_current: !is_bare,
+        });
+    }
+
+    workspaces
+}
+
+/// Make a path relative to `base`, returning the original if it fails.
+fn make_relative(path: &str, base: &std::path::Path) -> String {
+    let path_buf = std::path::Path::new(path);
+    path_buf
+        .strip_prefix(base)
+        .ok()
+        .and_then(|rel| rel.to_str().map(str::to_string))
+        .unwrap_or_else(|| path.to_string())
 }
 
 #[cfg(test)]

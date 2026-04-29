@@ -27,9 +27,15 @@ pub struct ExportedSession {
     /// Workspace path (relative).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workspace_path: Option<String>,
+    /// Branch name associated with the workspace.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
     /// Created timestamp.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<String>,
+    /// Last modified timestamp (filesystem mtime).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_modified: Option<String>,
     /// Additional metadata.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
@@ -117,7 +123,9 @@ mod tests {
             name: "test".to_string(),
             status: "active".to_string(),
             workspace_path: Some("/path".to_string()),
+            branch: Some("main".to_string()),
             created_at: None,
+            last_modified: None,
             metadata: None,
         };
         let json = serde_json::to_string(&session).expect("serialize");
@@ -153,7 +161,9 @@ mod tests {
                 name: "test".to_string(),
                 status: "active".to_string(),
                 workspace_path: None,
+                branch: None,
                 created_at: None,
+                last_modified: None,
                 metadata: None,
             }],
         };
