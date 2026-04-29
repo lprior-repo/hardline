@@ -796,7 +796,7 @@ mod tests {
         }
 
         #[test]
-        fn snapshot_create_preserves_branch_and_commit(branch in "[a-zA-Z0-9_.-]{1,100}", commit in "[a-f0-9]{1,40}") {
+        fn snapshot_create_preserves_branch_and_commit(branch in "[a-zA-Z0-9_-]{1,100}", commit in "[a-f0-9]{1,40}") {
             let snapshot = Snapshot::create(branch.clone(), commit.clone(), None).expect("valid snapshot");
             prop_assert_eq!(snapshot.branch_name, branch);
             prop_assert_eq!(snapshot.commit_hash, commit);

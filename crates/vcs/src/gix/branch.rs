@@ -21,70 +21,17 @@ const MAX_BRANCH_NAME_LEN: usize = 255;
 /// - Must not end with `/`
 /// - Must not contain consecutive `//`
 pub fn validate_branch_name(name: &str) -> GitResult<()> {
-    if name.is_empty() {
-        return Err(GitError::InvalidRef {
-            name: name.to_string(),
-            reason: "Branch name must not be empty".to_string(),
-        });
-    }
-
-    if name.len() > MAX_BRANCH_NAME_LEN {
-        return Err(GitError::InvalidRef {
-            name: name.to_string(),
-            reason: format!(
-                "Branch name exceeds maximum length of {MAX_BRANCH_NAME_LEN} characters"
-            ),
-        });
-    }
-
-    if name.starts_with('-') || name.starts_with('.') {
-        return Err(GitError::InvalidRef {
-            name: name.to_string(),
-            reason: "Branch name must not start with '-' or '.'".to_string(),
-        });
-    }
-
-    if name.ends_with('/') {
-        return Err(GitError::InvalidRef {
-            name: name.to_string(),
-            reason: "Branch name must not end with '/'".to_string(),
-        });
-    }
-
-    if name.contains("..") {
-        return Err(GitError::InvalidRef {
-            name: name.to_string(),
-            reason: "Branch name must not contain '..'".to_string(),
-        });
-    }
-
-    if name.contains('\\') {
-        return Err(GitError::InvalidRef {
-            name: name.to_string(),
-            reason: "Branch name must not contain backslashes".to_string(),
-        });
-    }
-
-    if name.contains('\0') {
-        return Err(GitError::InvalidRef {
-            name: name.to_string(),
-            reason: "Branch name must not contain null bytes".to_string(),
-        });
-    }
-
-    if name.contains(' ') {
-        return Err(GitError::InvalidRef {
-            name: name.to_string(),
-            reason: "Branch name must not contain spaces".to_string(),
-        });
-    }
-
-    if name.contains("//") {
-        return Err(GitError::InvalidRef {
-            name: name.to_string(),
-            reason: "Branch name must not contain consecutive slashes".to_string(),
-        });
-    }
+    reject(name, name.is_empty(), "Branch name must not be empty")?;
+    reject(name, name.len() > MAX_BRANCH_NAME_LEN,
+        &format!("Branch name exceeds maximum length of {MAX_BRANCH_NAME_LEN} characters"))?;
+    reject(name, name.starts_with('-') || name.starts_with('.'),
+        "Branch name must not start with '-' or '.'")?;
+    reject(name, name.ends_with('/'), "Branch name must not end with '/'")?;
+    reject(name, name.contains(".."), "Branch name must not contain '..'")?;
+    reject(name, name.contains('\\'), "Branch name must not contain backslashes")?;
+    reject(name, name.contains('\0'), "Branch name must not contain null bytes")?;
+    reject(name, name.contains(' '), "Branch name must not contain spaces")?;
+    reject(name, name.contains("//"), "Branch name must not contain consecutive slashes")?;
 
     for ch in name.chars() {
         if !ch.is_ascii_alphanumeric() && ch != '-' && ch != '_' && ch != '/' {
@@ -98,16 +45,17 @@ pub fn validate_branch_name(name: &str) -> GitResult<()> {
         }
     }
 
-    // Validate each path component (between slashes) is non-empty
     for component in name.split('/') {
-        if component.is_empty() {
-            return Err(GitError::InvalidRef {
-                name: name.to_string(),
-                reason: "Branch name must not contain empty path components".to_string(),
-            });
-        }
+        reject(name, component.is_empty(), "Branch name must not contain empty path components")?;
     }
 
+    Ok(())
+}
+
+fn reject(name: &str, cond: bool, reason: &str) -> GitResult<()> {
+    if cond {
+        return Err(GitError::InvalidRef { name: name.to_string(), reason: reason.to_string() });
+    }
     Ok(())
 }
 
