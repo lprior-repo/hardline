@@ -113,9 +113,14 @@ pub fn delete(repo: &gix::Repository, name: &str, force: bool) -> GitResult<()> 
     Ok(())
 }
 
-pub fn push(_repo: &gix::Repository, _remote: &str, _tag: &str) -> GitResult<()> {
-    Err(GitError::InvalidRef {
-        name: "push".to_string(),
-        reason: "Not yet implemented with gix".to_string(),
-    })
+pub fn push(repo: &gix::Repository, remote: &str, tag: &str) -> GitResult<()> {
+    let workdir = crate::gix::cli::require_workdir(repo, "tag push")?;
+
+    let output = crate::gix::cli::run_git(workdir, &["push", remote, tag])?;
+
+    if !output.success {
+        return Err(crate::gix::cli::cli_error(&output, "tag push"));
+    }
+
+    Ok(())
 }

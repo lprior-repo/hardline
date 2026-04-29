@@ -1,8 +1,9 @@
 //! Gitoxide repository module
 //!
-//! Pure gitoxide implementation - no CLI spawning
+//! Pure gitoxide implementation with CLI fallback for unsupported operations.
 
 pub mod branch;
+pub mod cli;
 pub mod commit;
 pub mod remote;
 pub mod repository;
