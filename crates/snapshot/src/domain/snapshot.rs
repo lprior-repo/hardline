@@ -1,9 +1,24 @@
 use std::convert::TryFrom;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Result, SnapshotError};
+
+/// The type of snapshot, determining its provenance and lifecycle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SnapshotType {
+    Checkpoint,
+    Manual,
+    PreOperation,
+}
+
+impl Default for SnapshotType {
+    fn default() -> Self {
+        Self::Manual
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
@@ -11,17 +26,45 @@ pub struct Snapshot {
     pub branch_name: String,
     pub commit_hash: String,
     pub created_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub snapshot_type: SnapshotType,
     pub description: Option<String>,
 }
 
 impl Snapshot {
-    pub fn create(branch_name: String, commit_hash: String, description: Option<String>) -> Self {
+    /// Default TTL for snapshots: 24 hours.
+    const DEFAULT_TTL_HOURS: i64 = 24;
+
+    pub fn create(
+        branch_name: String,
+        commit_hash: String,
+        description: Option<String>,
+    ) -> Self {
+        Self::create_with_type(branch_name, commit_hash, description, SnapshotType::default())
+    }
+
+    pub fn create_with_type(
+        branch_name: String,
+        commit_hash: String,
+        description: Option<String>,
+        snapshot_type: SnapshotType,
+    ) -> Self {
         Self {
             id: SnapshotId::generate(),
             branch_name,
             commit_hash,
             created_at: Utc::now(),
+            expires_at: Some(Utc::now() + Duration::hours(Self::DEFAULT_TTL_HOURS)),
+            snapshot_type,
             description,
+        }
+    }
+
+    /// Returns true if this snapshot has an expiration and it has passed.
+    pub fn is_expired(&self) -> bool {
+        match self.expires_at {
+            Some(expires) => expires < Utc::now(),
+            None => false,
         }
     }
 }
@@ -351,6 +394,114 @@ mod tests {
         assert_ne!(s1.branch_name, s2.branch_name);
     }
 
+    // --- New field tests: expires_at and snapshot_type ---
+
+    #[test]
+    fn snapshot_create_sets_expires_at_to_24_hours() {
+        let before = chrono::Utc::now();
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let after = chrono::Utc::now();
+        let expires = snapshot.expires_at.expect("expires_at should be set");
+        let expected_min = before + chrono::Duration::hours(24);
+        let expected_max = after + chrono::Duration::hours(24);
+        assert!(expires >= expected_min, "expires_at too early");
+        assert!(expires <= expected_max, "expires_at too late");
+    }
+
+    #[test]
+    fn snapshot_create_default_type_is_manual() {
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        assert_eq!(snapshot.snapshot_type, SnapshotType::Manual);
+    }
+
+    #[test]
+    fn snapshot_create_with_type_checkpoint() {
+        let snapshot = Snapshot::create_with_type(
+            "main".to_string(),
+            "abc".to_string(),
+            None,
+            SnapshotType::Checkpoint,
+        );
+        assert_eq!(snapshot.snapshot_type, SnapshotType::Checkpoint);
+        assert!(snapshot.expires_at.is_some());
+    }
+
+    #[test]
+    fn snapshot_create_with_type_pre_operation() {
+        let snapshot = Snapshot::create_with_type(
+            "main".to_string(),
+            "abc".to_string(),
+            None,
+            SnapshotType::PreOperation,
+        );
+        assert_eq!(snapshot.snapshot_type, SnapshotType::PreOperation);
+    }
+
+    #[test]
+    fn snapshot_is_expired_false_when_in_future() {
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        assert!(!snapshot.is_expired(), "fresh snapshot should not be expired");
+    }
+
+    #[test]
+    fn snapshot_is_expired_false_when_no_expires_at() {
+        let mut snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        snapshot.expires_at = None;
+        assert!(!snapshot.is_expired(), "snapshot without expires_at never expires");
+    }
+
+    #[test]
+    fn snapshot_type_default() {
+        assert_eq!(SnapshotType::default(), SnapshotType::Manual);
+    }
+
+    #[test]
+    fn snapshot_type_equality() {
+        assert_eq!(SnapshotType::Checkpoint, SnapshotType::Checkpoint);
+        assert_ne!(SnapshotType::Manual, SnapshotType::PreOperation);
+    }
+
+    #[test]
+    fn snapshot_type_clone_copy() {
+        let t = SnapshotType::PreOperation;
+        let copied = t;
+        assert_eq!(t, copied);
+    }
+
+    #[test]
+    fn snapshot_serialize_deserialize_preserves_expires_at() {
+        let snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None);
+        let json = serde_json::to_string(&snapshot).expect("serialize");
+        let deserialized: Snapshot = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized.expires_at, snapshot.expires_at);
+    }
+
+    #[test]
+    fn snapshot_serialize_deserialize_preserves_snapshot_type() {
+        let snapshot = Snapshot::create_with_type(
+            "main".to_string(),
+            "abc".to_string(),
+            None,
+            SnapshotType::PreOperation,
+        );
+        let json = serde_json::to_string(&snapshot).expect("serialize");
+        let deserialized: Snapshot = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized.snapshot_type, SnapshotType::PreOperation);
+    }
+
+    #[test]
+    fn snapshot_clone_preserves_new_fields() {
+        let snapshot = Snapshot::create_with_type(
+            "main".to_string(),
+            "abc".to_string(),
+            Some("desc".to_string()),
+            SnapshotType::Checkpoint,
+        );
+        let cloned = snapshot.clone();
+        assert_eq!(snapshot.expires_at, cloned.expires_at);
+        assert_eq!(snapshot.snapshot_type, cloned.snapshot_type);
+    }
+
     // --- Serialization roundtrip ---
 
     #[test]
@@ -391,6 +542,8 @@ mod tests {
         assert!(obj.contains_key("branch_name"));
         assert!(obj.contains_key("commit_hash"));
         assert!(obj.contains_key("created_at"));
+        assert!(obj.contains_key("expires_at"));
+        assert!(obj.contains_key("snapshot_type"));
         assert!(obj.contains_key("description"));
     }
 
@@ -412,6 +565,8 @@ mod tests {
             "branch_name": "feature",
             "commit_hash": "abc123",
             "created_at": "2024-01-01T00:00:00Z",
+            "expires_at": "2024-01-02T00:00:00Z",
+            "snapshot_type": "manual",
             "description": "test"
         }"#;
         let snapshot: Snapshot = serde_json::from_str(json).expect("deserialize should succeed");
@@ -428,10 +583,13 @@ mod tests {
             "branch_name": "main",
             "commit_hash": "def456",
             "created_at": "2024-06-15T12:30:00Z",
+            "expires_at": null,
+            "snapshot_type": "manual",
             "description": null
         }"#;
         let snapshot: Snapshot = serde_json::from_str(json).expect("deserialize should succeed");
         assert!(snapshot.description.is_none());
+        assert!(snapshot.expires_at.is_none());
     }
 
     #[test]
@@ -464,6 +622,8 @@ mod tests {
             "branch_name": "main",
             "commit_hash": "abc",
             "created_at": "2024-01-01T00:00:00Z",
+            "expires_at": null,
+            "snapshot_type": "manual",
             "description": null
         }"#;
         let result: std::result::Result<Snapshot, _> = serde_json::from_str(json);
@@ -591,6 +751,9 @@ mod tests {
             prop_assert!(deserialized.id.as_str().starts_with("snap-"));
             // created_at should be preserved
             prop_assert_eq!(deserialized.created_at, snapshot.created_at);
+            // new fields should be preserved
+            prop_assert_eq!(deserialized.expires_at, snapshot.expires_at);
+            prop_assert_eq!(deserialized.snapshot_type, snapshot.snapshot_type);
         }
 
         #[test]

@@ -14,7 +14,7 @@ pub mod storage;
 pub use domain::{
     receipt::{LocalRefEntry, OpError, OpKind, OpReceipt, OpStatus, PlanSummary, RemoteRefEntry},
     receipt_calc::{can_redo, can_undo, has_remote_changes, modified_branch_count},
-    snapshot::{Snapshot, SnapshotId},
+    snapshot::{Snapshot, SnapshotId, SnapshotType},
 };
 pub use error::{Result, SnapshotError};
 pub use storage::ReceiptStore;
