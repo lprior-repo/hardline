@@ -61,7 +61,7 @@ fn handle_spawn(name: String, sync: bool) -> Result<()> {
     commands::workspace::spawn(&name, commands::workspace::SyncOption::from_bool(sync))
 }
 
-fn handle_done(
+struct HandleDoneArgs {
     name: Option<String>,
     message: Option<String>,
     keep_workspace: bool,
@@ -69,19 +69,21 @@ fn handle_done(
     dry_run: bool,
     detect_conflicts: bool,
     no_bead_update: bool,
-) -> Result<()> {
+}
+
+fn handle_done(args: HandleDoneArgs) -> Result<()> {
     let ctx = workspace_auth(vec![Scope::WriteWorkspace]);
     workspace_warn_scope(&ctx, &Scope::WriteWorkspace, "workspace.done");
-    let ws_name = name.as_deref().unwrap_or("unknown");
+    let ws_name = args.name.as_deref().unwrap_or("unknown");
     workspace_audit("workspace.done", ws_name, &ctx.agent_id);
     let options = commands::handlers::done::DoneOptions {
-        workspace: name,
-        message,
-        keep_workspace,
-        squash,
-        dry_run,
-        detect_conflicts,
-        no_bead_update,
+        workspace: args.name,
+        message: args.message,
+        keep_workspace: args.keep_workspace,
+        squash: args.squash,
+        dry_run: args.dry_run,
+        detect_conflicts: args.detect_conflicts,
+        no_bead_update: args.no_bead_update,
     };
     commands::handlers::done::run_done(&options)?;
     Ok(())
@@ -199,26 +201,28 @@ fn handle_bookmark(command: &crate::cli::workspace_args::BookmarkCommands) -> Re
     Ok(())
 }
 
-fn handle_work(
+struct HandleWorkArgs {
     name: Option<String>,
     bead: Option<String>,
     agent: Option<String>,
     no_agent: bool,
     idempotent: bool,
     dry_run: bool,
-) -> Result<()> {
-    let mode = if dry_run {
+}
+
+fn handle_work(args: HandleWorkArgs) -> Result<()> {
+    let mode = if args.dry_run {
         commands::handlers::work::WorkMode::DryRun
-    } else if idempotent {
+    } else if args.idempotent {
         commands::handlers::work::WorkMode::Idempotent
     } else {
         commands::handlers::work::WorkMode::Normal
     };
     let options = commands::handlers::work::WorkOptions {
-        name: name.unwrap_or_default(),
-        bead_id: bead,
-        agent_id: agent,
-        no_agent,
+        name: args.name.unwrap_or_default(),
+        bead_id: args.bead,
+        agent_id: args.agent,
+        no_agent: args.no_agent,
         mode,
         format: OutputFormat::Json,
     };
@@ -328,15 +332,15 @@ fn dispatch_core(cmd: &WorkspaceCommands) -> Option<Result<()>> {
             dry_run,
             detect_conflicts,
             no_bead_update,
-        } => Some(handle_done(
-            name.clone(),
-            message.clone(),
-            *keep_workspace,
-            *squash,
-            *dry_run,
-            *detect_conflicts,
-            *no_bead_update,
-        )),
+        } => Some(handle_done(HandleDoneArgs {
+            name: name.clone(),
+            message: message.clone(),
+            keep_workspace: *keep_workspace,
+            squash: *squash,
+            dry_run: *dry_run,
+            detect_conflicts: *detect_conflicts,
+            no_bead_update: *no_bead_update,
+        })),
         WorkspaceCommands::Abort { name } => Some(handle_abort(name.clone())),
         WorkspaceCommands::Log { limit } => Some(commands::workspace::log(*limit)),
         WorkspaceCommands::Diff { path } => Some(commands::workspace::diff(path.as_deref())),
@@ -555,14 +559,14 @@ fn dispatch_session_ops(cmd: &WorkspaceCommands) -> Option<Result<()>> {
             no_agent,
             idempotent,
             dry_run,
-        } => Some(handle_work(
-            name.clone(),
-            bead.clone(),
-            agent.clone(),
-            *no_agent,
-            *idempotent,
-            *dry_run,
-        )),
+        } => Some(handle_work(HandleWorkArgs {
+            name: name.clone(),
+            bead: bead.clone(),
+            agent: agent.clone(),
+            no_agent: *no_agent,
+            idempotent: *idempotent,
+            dry_run: *dry_run,
+        })),
         WorkspaceCommands::Whoami { json } => {
             let options = commands::handlers::whoami::WhoamiOptions { json: *json };
             Some(commands::handlers::whoami::run_whoami(&options))

@@ -133,14 +133,14 @@ pub async fn sync_named_session(
                 ActionStatus::Failed,
                 Some(&e.to_string()),
             )?;
-            emit_issue(
-                "sync-failed",
-                e.to_string(),
-                IssueKind::External,
-                IssueSeverity::Error,
-                Some(session_name.as_str()),
-                None,
-            )?;
+            emit_issue(EmitIssueArgs {
+                id: "sync-failed",
+                title: e.to_string(),
+                kind: IssueKind::External,
+                severity: IssueSeverity::Error,
+                session: Some(session_name.as_str()),
+                suggestion: None,
+            })?;
             Err(e)
         }
     }
@@ -322,23 +322,25 @@ fn emit_result(
     emit_stdout(&OutputLine::Result(result)).map_err(SyncError::IoError)
 }
 
-fn emit_issue(
-    id_str: &str,
-    title_str: String,
+struct EmitIssueArgs<'a> {
+    id: &'a str,
+    title: String,
     kind: IssueKind,
     severity: IssueSeverity,
-    session: Option<&str>,
-    suggestion: Option<&str>,
-) -> std::result::Result<(), SyncError> {
-    let id = IssueId::new(id_str)?;
-    let title = IssueTitle::new(title_str)?;
-    let mut issue = Issue::new(id, title, kind, severity)?;
-    if let Some(s) = session {
+    session: Option<&'a str>,
+    suggestion: Option<&'a str>,
+}
+
+fn emit_issue(args: EmitIssueArgs<'_>) -> std::result::Result<(), SyncError> {
+    let id = IssueId::new(args.id)?;
+    let title = IssueTitle::new(args.title)?;
+    let mut issue = Issue::new(id, title, args.kind, args.severity)?;
+    if let Some(s) = args.session {
         issue = issue.with_session(
             SessionName::parse(s).map_err(|e| SyncError::ConfigurationError(e.to_string()))?,
         );
     }
-    if let Some(s) = suggestion {
+    if let Some(s) = args.suggestion {
         issue = issue.with_suggestion(s.to_string());
     }
     emit_stdout(&OutputLine::Issue(issue)).map_err(SyncError::IoError)

@@ -127,22 +127,25 @@ fn git_repo_prereq(in_git_repo: bool) -> Prerequisite {
     }
 }
 
-/// Build an output from prerequisites, computing reason and fix commands.
-fn build_output(
-    action: &str,
-    resource: Option<&str>,
+/// Arguments for [`build_output`].
+struct BuildOutputArgs<'a> {
+    action: &'a str,
+    resource: Option<&'a str>,
     prerequisites: Vec<Prerequisite>,
     permitted: bool,
     reason: String,
     fix_commands: Vec<String>,
-) -> CanIOutput {
+}
+
+/// Build an output from prerequisites, computing reason and fix commands.
+fn build_output(args: BuildOutputArgs<'_>) -> CanIOutput {
     CanIOutput {
-        permitted,
-        action: action.to_string(),
-        resource: resource.map(String::from),
-        reason,
-        prerequisites,
-        fix_commands,
+        permitted: args.permitted,
+        action: args.action.to_string(),
+        resource: args.resource.map(String::from),
+        reason: args.reason,
+        prerequisites: args.prerequisites,
+        fix_commands: args.fix_commands,
     }
 }
 
@@ -192,14 +195,14 @@ fn check_can_add(resource: Option<&str>) -> CanIOutput {
     ];
     let reason = add_reason(permitted, fs.in_git_repo);
     let fix_commands = add_fix_commands(fs.in_git_repo, name_available, resource);
-    build_output(
-        "add",
+    build_output(BuildOutputArgs {
+        action: "add",
         resource,
         prerequisites,
         permitted,
         reason,
         fix_commands,
-    )
+    })
 }
 
 /// Build the name-availability prerequisite.
@@ -263,7 +266,14 @@ fn check_can_remove(resource: Option<&str>) -> CanIOutput {
 
     let permitted = fs.in_git_repo && (resource.is_none() || ws_exists);
     let reason = remove_reason(permitted, fs.in_git_repo);
-    build_output("remove", resource, prerequisites, permitted, reason, vec![])
+    build_output(BuildOutputArgs {
+        action: "remove",
+        resource,
+        prerequisites,
+        permitted,
+        reason,
+        fix_commands: vec![],
+    })
 }
 
 /// Compute reason for the remove check.
@@ -294,7 +304,14 @@ fn check_can_done(resource: Option<&str>) -> CanIOutput {
 
     let permitted = fs.in_git_repo && has_target;
     let reason = done_reason(permitted, fs.in_git_repo);
-    build_output("done", resource, prerequisites, permitted, reason, vec![])
+    build_output(BuildOutputArgs {
+        action: "done",
+        resource,
+        prerequisites,
+        permitted,
+        reason,
+        fix_commands: vec![],
+    })
 }
 
 /// Description for the workspace-or-specified prerequisite.
@@ -336,7 +353,14 @@ fn check_can_merge(resource: Option<&str>) -> CanIOutput {
 
     let permitted = fs.in_git_repo && has_target;
     let reason = done_reason(permitted, fs.in_git_repo);
-    build_output("merge", resource, prerequisites, permitted, reason, vec![])
+    build_output(BuildOutputArgs {
+        action: "merge",
+        resource,
+        prerequisites,
+        permitted,
+        reason,
+        fix_commands: vec![],
+    })
 }
 
 /// Check if the user can undo the last operation.
@@ -357,7 +381,14 @@ fn check_can_undo() -> CanIOutput {
     } else {
         "No undo log - nothing to undo".to_string()
     };
-    build_output("undo", None, prerequisites, log_exists, reason, vec![])
+    build_output(BuildOutputArgs {
+        action: "undo",
+        resource: None,
+        prerequisites,
+        permitted: log_exists,
+        reason,
+        fix_commands: vec![],
+    })
 }
 
 /// Check if the user can sync.
@@ -377,7 +408,14 @@ fn check_can_sync(resource: Option<&str>) -> CanIOutput {
 
     let permitted = fs.in_git_repo && has_target;
     let reason = sync_reason(permitted, fs.in_git_repo);
-    build_output("sync", resource, prerequisites, permitted, reason, vec![])
+    build_output(BuildOutputArgs {
+        action: "sync",
+        resource,
+        prerequisites,
+        permitted,
+        reason,
+        fix_commands: vec![],
+    })
 }
 
 /// Description for the has-worktrees prerequisite.
@@ -422,7 +460,14 @@ fn check_can_spawn(resource: Option<&str>) -> CanIOutput {
 
     let permitted = fs.in_git_repo && bead_provided;
     let reason = spawn_reason(permitted, fs.in_git_repo);
-    build_output("spawn", resource, prerequisites, permitted, reason, vec![])
+    build_output(BuildOutputArgs {
+        action: "spawn",
+        resource,
+        prerequisites,
+        permitted,
+        reason,
+        fix_commands: vec![],
+    })
 }
 
 /// Reason string for the spawn check.

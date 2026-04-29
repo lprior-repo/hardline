@@ -43,16 +43,19 @@ pub fn pull() -> Result<()> {
     Ok(())
 }
 
+/// Arguments for [`push`].
+pub struct PushArgs<'a> {
+    pub remote: &'a str,
+    pub branch: Option<&'a str>,
+    pub set_upstream: bool,
+    pub force: bool,
+    pub force_with_lease: bool,
+    pub tags: bool,
+    pub delete: bool,
+}
+
 /// Push to a remote, optionally forcing, pushing tags, or deleting a remote branch.
-pub fn push(
-    remote: &str,
-    branch: Option<&str>,
-    _set_upstream: bool,
-    force: bool,
-    _force_with_lease: bool,
-    tags: bool,
-    delete: bool,
-) -> Result<()> {
+pub fn push(args: PushArgs<'_>) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
     let vcs_type = detect_vcs(&cwd).ok_or(Error::vcs_not_initialized())?;
@@ -60,9 +63,9 @@ pub fn push(
     match vcs_type {
         scp_core::vcs::VcsType::Git => {
             let repo = repository::open(&cwd).map_err(|e| Error::vcs_push_failed(e.to_string()))?;
-            remote::push(&repo, remote, branch, force, tags, delete)
+            remote::push(&repo, args.remote, args.branch, args.force, args.tags, args.delete)
                 .map_err(|e| Error::vcs_push_failed(e.to_string()))?;
-            Output::success(&format!("Pushed to {}", remote));
+            Output::success(&format!("Pushed to {}", args.remote));
         }
     }
 
@@ -85,7 +88,7 @@ mod tests {
 
     #[test]
     fn push_accepts_all_params() {
-        let _fn: fn(&str, Option<&str>, bool, bool, bool, bool, bool) -> Result<()> = push;
+        let _fn: fn(PushArgs<'_>) -> Result<()> = push;
     }
 
     #[test]
@@ -146,7 +149,15 @@ mod tests {
             return;
         }
 
-        let result = push("origin", None, false, false, false, false, false);
+        let result = push(PushArgs {
+            remote: "origin",
+            branch: None,
+            set_upstream: false,
+            force: false,
+            force_with_lease: false,
+            tags: false,
+            delete: false,
+        });
 
         std::env::set_current_dir(&original).ok();
         assert!(result.is_err());

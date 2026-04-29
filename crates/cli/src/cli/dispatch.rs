@@ -75,7 +75,7 @@ pub(crate) fn run_command(cmd: Commands) -> Result<()> {
 
         Commands::Ai { command } => handle_ai(command),
         Commands::Work { name, bead, agent, no_agent, idempotent, dry_run } => {
-            handle_work(name, bead, agent, no_agent, idempotent, dry_run)
+            handle_work(HandleWorkArgs { name, bead, agent, no_agent, idempotent, dry_run })
         }
         Commands::Lock { command } => handle_lock(command),
         Commands::Queue { command } => handle_queue(command),
@@ -98,7 +98,7 @@ pub(crate) fn run_command(cmd: Commands) -> Result<()> {
             force_with_lease,
             tags,
             delete,
-        } => handle_push(remote, branch, set_upstream, force, force_with_lease, tags, delete),
+        } => handle_push(HandlePushArgs { remote, branch, set_upstream, force, force_with_lease, tags, delete }),
 
         Commands::Doctor { full } => handle_doctor(full),
         Commands::Status { short } => handle_status(short),
@@ -130,32 +130,34 @@ fn handle_ai(command: crate::cli::ai_args::AiCommands) -> Result<()> {
     run(&opts)
 }
 
-fn handle_work(
+struct HandleWorkArgs {
     name: Option<String>,
     bead: Option<String>,
     agent: Option<String>,
     no_agent: bool,
     idempotent: bool,
     dry_run: bool,
-) -> Result<()> {
+}
+
+fn handle_work(args: HandleWorkArgs) -> Result<()> {
     use crate::commands::handlers::work::{WorkMode, WorkOptions, run_work};
     let ctx = auth_context(vec![Scope::WriteWorkspace]);
     warn_missing_scope(&ctx, &Scope::WriteWorkspace, "work");
-    let mode = if dry_run {
+    let mode = if args.dry_run {
         WorkMode::DryRun
-    } else if idempotent {
+    } else if args.idempotent {
         WorkMode::Idempotent
     } else {
         WorkMode::Normal
     };
-    match name {
+    match args.name {
         Some(n) => {
             let opts = WorkOptions {
                 name: n,
-                bead_id: bead,
-                agent_id: agent,
+                bead_id: args.bead,
+                agent_id: args.agent,
                 mode,
-                no_agent,
+                no_agent: args.no_agent,
                 format: OutputFormat::Json,
             };
             audit_log("workspace.spawn", &opts.name, &ctx.agent_id);
@@ -351,7 +353,7 @@ fn handle_pull() -> Result<()> {
     commands::sync::pull()
 }
 
-fn handle_push(
+struct HandlePushArgs {
     remote: String,
     branch: Option<String>,
     set_upstream: bool,
@@ -359,23 +361,25 @@ fn handle_push(
     force_with_lease: bool,
     tags: bool,
     delete: bool,
-) -> Result<()> {
+}
+
+fn handle_push(args: HandlePushArgs) -> Result<()> {
     let ctx = auth_context(vec![Scope::VcsOperations]);
     warn_missing_scope(&ctx, &Scope::VcsOperations, "vcs.push");
     audit_log(
         "vcs.push",
-        branch.as_deref().unwrap_or("unknown"),
+        args.branch.as_deref().unwrap_or("unknown"),
         &ctx.agent_id,
     );
-    commands::sync::push(
-        &remote,
-        branch.as_deref(),
-        set_upstream,
-        force,
-        force_with_lease,
-        tags,
-        delete,
-    )
+    commands::sync::push(commands::sync::PushArgs {
+        remote: &args.remote,
+        branch: args.branch.as_deref(),
+        set_upstream: args.set_upstream,
+        force: args.force,
+        force_with_lease: args.force_with_lease,
+        tags: args.tags,
+        delete: args.delete,
+    })
 }
 
 fn handle_doctor(full: bool) -> Result<()> {
