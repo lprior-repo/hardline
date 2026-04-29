@@ -216,7 +216,7 @@ fn attack_serialization_roundtrip_all_variants() {
         });
 
         // Must be valid JSON
-        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap_or_else(|e| {
+        let _parsed: serde_json::Value = serde_json::from_str(&json).unwrap_or_else(|e| {
             panic!("Invalid JSON for {:?}: {}\nJSON: {}", variant, e, json)
         });
 

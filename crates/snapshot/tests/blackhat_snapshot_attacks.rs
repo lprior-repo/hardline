@@ -3,14 +3,13 @@
 //! Tests hostile inputs: empty branch names, nonexistent IDs, permission denied,
 //! huge descriptions, corrupted directories, etc.
 
-use std::path::Path;
 use std::sync::Arc;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 use scp_snapshot::application::service::SnapshotService;
-use scp_snapshot::domain::snapshot::{Snapshot, SnapshotId, SnapshotType};
+use scp_snapshot::domain::snapshot::{Snapshot, SnapshotId};
 use scp_snapshot::error::SnapshotError;
 use scp_snapshot::storage::storage::SnapshotStore;
 

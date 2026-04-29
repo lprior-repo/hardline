@@ -477,7 +477,7 @@ fn attack_load_stack_detached_head() {
     let repo2 = gix::open(tmp.path()).expect("gix open");
     let engine = StackEngine::new(&repo2, BranchName::new("main"));
 
-    let result = engine.load_stack("detached-test");
+    let _result = engine.load_stack("detached-test");
     // Should fail or handle gracefully - detached HEAD has no branch name
     // FINDING: load_stack does not handle detached HEAD explicitly
     // It may succeed by walking from HEAD to trunk, but the semantics are unclear
@@ -492,7 +492,7 @@ fn attack_create_branch_very_long_name() {
     let engine = StackEngine::new(&repo, BranchName::new("main"));
 
     let long_name = "x".repeat(5000);
-    let result = engine.create_branch(&long_name, None);
+    let _result = engine.create_branch(&long_name, None);
     // FINDING: No length limit on branch names
     // Very long names can cause filesystem issues since refs are stored as files
 }

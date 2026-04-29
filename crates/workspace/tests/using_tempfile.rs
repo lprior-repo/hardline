@@ -6,7 +6,6 @@
 use std::{
     fs::{self, File},
     io::{self, Write},
-    path::PathBuf,
 };
 
 use tempfile::{tempdir, tempdir_in, NamedTempFile, TempDir};

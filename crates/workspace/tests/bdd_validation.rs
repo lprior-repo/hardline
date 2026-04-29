@@ -43,6 +43,7 @@ impl Claim {
             verdict: Verdict::Yellow,
         }
     }
+    #[allow(dead_code)]
     fn red(id: &'static str, desc: &'static str, reason: String) -> Self {
         Self {
             id,

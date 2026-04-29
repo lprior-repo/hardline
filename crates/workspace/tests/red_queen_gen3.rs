@@ -19,7 +19,7 @@ use scp_workspace::{
         value_objects::{BranchName, LockHolder, WorkspaceName, WorkspacePath},
     },
     infrastructure::workspace_repository::InMemoryWorkspaceRepository,
-    WorkspaceError, WorkspaceRepository, WorkspaceService,
+    WorkspaceError, WorkspaceRepository,
 };
 
 // ============================================================================

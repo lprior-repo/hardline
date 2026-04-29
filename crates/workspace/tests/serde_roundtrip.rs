@@ -71,7 +71,7 @@ fn workspace_id_roundtrip() {
 
 #[test]
 fn workspace_id_empty_deserializes_but_parse_rejects() {
-    let parsed: WorkspaceId =
+    let _parsed: WorkspaceId =
         serde_json::from_str("\"\"").expect("serde deserializes empty string");
     let parse_result = WorkspaceId::parse("".into());
     assert!(
@@ -252,6 +252,7 @@ fn workspace_event_locked_deserialization() {
 #[test]
 fn workspace_config_extra_fields_ignored() {
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct WithExtra {
         config: WorkspaceConfig,
         extra: String,
@@ -264,6 +265,7 @@ fn workspace_config_extra_fields_ignored() {
 #[test]
 fn workspace_name_extra_fields_ignored() {
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct WithExtra {
         name: WorkspaceName,
         extra: i32,
@@ -276,6 +278,7 @@ fn workspace_name_extra_fields_ignored() {
 #[test]
 fn workspace_id_extra_fields_ignored() {
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct WithExtra {
         id: WorkspaceId,
         extra: bool,
@@ -288,6 +291,7 @@ fn workspace_id_extra_fields_ignored() {
 #[test]
 fn workspace_state_extra_fields_ignored() {
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct WithExtra {
         state: WorkspaceState,
         extra: Vec<String>,
@@ -300,6 +304,7 @@ fn workspace_state_extra_fields_ignored() {
 #[test]
 fn workspace_event_extra_fields_ignored() {
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct WithExtra {
         event: WorkspaceEvent,
         extra: f64,

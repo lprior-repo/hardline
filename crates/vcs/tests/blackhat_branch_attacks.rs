@@ -3,10 +3,8 @@
 //! Tests hostile inputs: empty names, ref injection, unicode, missing refs,
 //! read-only filesystem, detached HEAD, etc.
 
-use std::path::PathBuf;
 use std::process::Command;
 
-use scp_vcs::error::{GitError, GitResult};
 use scp_vcs::gix::branch;
 
 /// Helper: create a temp git repo with an initial commit, return its path and open gix repo.
@@ -51,6 +49,7 @@ fn make_repo() -> (tempfile::TempDir, gix::Repository) {
 }
 
 /// Create a bare repo (no worktree) for testing bare repo edge cases.
+#[allow(dead_code)]
 fn make_bare_repo() -> (tempfile::TempDir, gix::Repository) {
     let tmp = tempfile::TempDir::new().expect("temp dir");
     let path = tmp.path();
@@ -64,7 +63,7 @@ fn make_bare_repo() -> (tempfile::TempDir, gix::Repository) {
 
     // Bare repos need some commit. Create one by manipulating objects directly.
     // For simplicity, we use a non-bare repo and then convert.
-    drop(path);
+    let _ = path;
     std::mem::forget(tmp); // We'll use a different approach
 
     // Use a regular repo approach instead
@@ -365,7 +364,7 @@ fn attack_delete_current_branch() {
 fn attack_create_branch_flag_injection() {
     let (_tmp, repo) = make_repo();
     // Branch name starting with dash
-    let result = branch::create(&repo, "-evil", false);
+    let _result = branch::create(&repo, "-evil", false);
     // FINDING: No validation against dash-prefixed names (gix may reject)
 }
 
@@ -376,7 +375,7 @@ fn attack_create_branch_flag_injection() {
 fn attack_create_branch_very_long_name() {
     let (_tmp, repo) = make_repo();
     let long_name = "x".repeat(5000);
-    let result = branch::create(&repo, &long_name, false);
+    let _result = branch::create(&repo, &long_name, false);
     // FINDING: No length limit on branch names
     // This could cause filesystem issues since refs are stored as files
 }

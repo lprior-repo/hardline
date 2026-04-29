@@ -15,6 +15,7 @@ use twins::{
 };
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[allow(dead_code)]
 struct Person {
     name: String,
     age: u32,
@@ -440,6 +441,7 @@ fn request_record_extra_json_fields_ignored() {
 #[test]
 fn in_memory_twin_state_extra_fields_ignored() {
     #[derive(Debug, serde::Deserialize)]
+    #[allow(dead_code)]
     struct WithExtra {
         state: InMemoryTwinState,
         extra: String,
@@ -674,7 +676,6 @@ fn all_types_impl_clone() {
     assert_clone::<InMemoryTwinState>();
 }
 
-#[test]
 #[test]
 fn http_method_impl_partial_eq() {
     fn assert_partial_eq<T: PartialEq>() {}
