@@ -74,41 +74,52 @@ fn handle_create(args: &[String]) {
 
     let branch_value = branch.and_then(|r| r.ok());
 
-    match WorktreeName::new(&name) {
-        Ok(name) => {
-            match AbsolutePath::new(path) {
-                Ok(path) => {
-                    match AbsolutePath::new(parent) {
-                        Ok(parent) => {
-                            println!("Creating worktree:");
-                            println!("  Name: {}", name);
-                            println!("  Path: {}", path);
-                            println!("  Parent: {}", parent);
-                            println!("  Type: {}", worktree_type);
-                            if let Some(ref b) = branch_value {
-                                println!("  Branch: {}", b);
-                            }
-
-                            // In a real implementation, this would call the service
-                            println!("  Status: Created (simulated)");
-                        }
-                        Err(e) => {
-                            eprintln!("Error: Invalid parent path: {}", e);
-                            std::process::exit(1);
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Error: Invalid path: {}", e);
-                    std::process::exit(1);
-                }
-            }
-        }
+    let name = match WorktreeName::new(&name) {
+        Ok(n) => n,
         Err(e) => {
             eprintln!("Error: Invalid name: {}", e);
             std::process::exit(1);
         }
+    };
+
+    let path = match AbsolutePath::new(path) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Error: Invalid path: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let parent = match AbsolutePath::new(parent) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Error: Invalid parent path: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    print_worktree_summary(&name, &path, &parent, &worktree_type, branch_value.as_ref());
+}
+
+/// Print the summary of a worktree being created.
+fn print_worktree_summary(
+    name: &WorktreeName,
+    path: &AbsolutePath,
+    parent: &AbsolutePath,
+    worktree_type: &WorktreeTypeEnum,
+    branch: Option<&worktree::BranchName>,
+) {
+    println!("Creating worktree:");
+    println!("  Name: {}", name);
+    println!("  Path: {}", path);
+    println!("  Parent: {}", parent);
+    println!("  Type: {}", worktree_type);
+    if let Some(b) = branch {
+        println!("  Branch: {}", b);
     }
+
+    // In a real implementation, this would call the service
+    println!("  Status: Created (simulated)");
 }
 
 fn handle_list() {

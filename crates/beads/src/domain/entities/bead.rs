@@ -279,183 +279,56 @@ impl<S> Bead<S> {
     /// with the correct typestate.
     #[must_use]
     pub fn transition_to(&self, target_state: &BeadState) -> Option<Bead> {
-        let current_state = &self.bead_state;
         if !self.can_transition_to(target_state) {
             return None;
         }
 
-        // Don't create a new bead if states are the same
-        if current_state == target_state {
-            return Some(Bead {
-                id: self.id.clone(),
-                title: self.title.clone(),
-                description: self.description.clone(),
-                priority: self.priority,
-                bead_type: self.bead_type.clone(),
-                labels: self.labels.clone(),
-                assignee: self.assignee.clone(),
-                parent: self.parent.clone(),
-                depends_on: self.depends_on.clone(),
-                blocked_by: self.blocked_by.clone(),
-                created_at: self.created_at,
-                updated_at: Utc::now(),
-                bead_state: target_state.clone(),
-                _state: PhantomData,
-            });
-        }
+        let new_state = match (&self.bead_state, target_state) {
+            // Same-state no-op
+            (current, target) if current == target => target.clone(),
+            // Open → InProgress
+            (BeadState::Open, BeadState::InProgress) => BeadState::InProgress,
+            // InProgress → Blocked | Deferred | Closed
+            (BeadState::InProgress, BeadState::Blocked) => BeadState::Blocked,
+            (BeadState::InProgress, BeadState::Deferred) => BeadState::Deferred,
+            (BeadState::InProgress, BeadState::Closed { .. }) => {
+                BeadState::Closed { closed_at: Utc::now() }
+            }
+            // Blocked → InProgress | Deferred | Closed
+            (BeadState::Blocked, BeadState::InProgress) => BeadState::InProgress,
+            (BeadState::Blocked, BeadState::Deferred) => BeadState::Deferred,
+            (BeadState::Blocked, BeadState::Closed { .. }) => {
+                BeadState::Closed { closed_at: Utc::now() }
+            }
+            // Deferred → InProgress | Closed
+            (BeadState::Deferred, BeadState::InProgress) => BeadState::InProgress,
+            (BeadState::Deferred, BeadState::Closed { .. }) => {
+                BeadState::Closed { closed_at: Utc::now() }
+            }
+            // All other transitions are invalid (caught by can_transition_to above)
+            _ => return None,
+        };
 
-        match (current_state, target_state) {
-            (BeadState::Open, BeadState::InProgress) => Some(Bead {
-                id: self.id.clone(),
-                title: self.title.clone(),
-                description: self.description.clone(),
-                priority: self.priority,
-                bead_type: self.bead_type.clone(),
-                labels: self.labels.clone(),
-                assignee: self.assignee.clone(),
-                parent: self.parent.clone(),
-                depends_on: self.depends_on.clone(),
-                blocked_by: self.blocked_by.clone(),
-                created_at: self.created_at,
-                updated_at: Utc::now(),
-                bead_state: BeadState::InProgress,
-                _state: PhantomData,
-            }),
-            (BeadState::InProgress, BeadState::Blocked) => Some(Bead {
-                id: self.id.clone(),
-                title: self.title.clone(),
-                description: self.description.clone(),
-                priority: self.priority,
-                bead_type: self.bead_type.clone(),
-                labels: self.labels.clone(),
-                assignee: self.assignee.clone(),
-                parent: self.parent.clone(),
-                depends_on: self.depends_on.clone(),
-                blocked_by: self.blocked_by.clone(),
-                created_at: self.created_at,
-                updated_at: Utc::now(),
-                bead_state: BeadState::Blocked,
-                _state: PhantomData,
-            }),
-            (BeadState::InProgress, BeadState::Deferred) => Some(Bead {
-                id: self.id.clone(),
-                title: self.title.clone(),
-                description: self.description.clone(),
-                priority: self.priority,
-                bead_type: self.bead_type.clone(),
-                labels: self.labels.clone(),
-                assignee: self.assignee.clone(),
-                parent: self.parent.clone(),
-                depends_on: self.depends_on.clone(),
-                blocked_by: self.blocked_by.clone(),
-                created_at: self.created_at,
-                updated_at: Utc::now(),
-                bead_state: BeadState::Deferred,
-                _state: PhantomData,
-            }),
-            (BeadState::InProgress, BeadState::Closed { .. }) => Some(Bead {
-                id: self.id.clone(),
-                title: self.title.clone(),
-                description: self.description.clone(),
-                priority: self.priority,
-                bead_type: self.bead_type.clone(),
-                labels: self.labels.clone(),
-                assignee: self.assignee.clone(),
-                parent: self.parent.clone(),
-                depends_on: self.depends_on.clone(),
-                blocked_by: self.blocked_by.clone(),
-                created_at: self.created_at,
-                updated_at: Utc::now(),
-                bead_state: BeadState::Closed {
-                    closed_at: Utc::now(),
-                },
-                _state: PhantomData,
-            }),
-            (BeadState::Blocked, BeadState::InProgress) => Some(Bead {
-                id: self.id.clone(),
-                title: self.title.clone(),
-                description: self.description.clone(),
-                priority: self.priority,
-                bead_type: self.bead_type.clone(),
-                labels: self.labels.clone(),
-                assignee: self.assignee.clone(),
-                parent: self.parent.clone(),
-                depends_on: self.depends_on.clone(),
-                blocked_by: self.blocked_by.clone(),
-                created_at: self.created_at,
-                updated_at: Utc::now(),
-                bead_state: BeadState::InProgress,
-                _state: PhantomData,
-            }),
-            (BeadState::Blocked, BeadState::Deferred) => Some(Bead {
-                id: self.id.clone(),
-                title: self.title.clone(),
-                description: self.description.clone(),
-                priority: self.priority,
-                bead_type: self.bead_type.clone(),
-                labels: self.labels.clone(),
-                assignee: self.assignee.clone(),
-                parent: self.parent.clone(),
-                depends_on: self.depends_on.clone(),
-                blocked_by: self.blocked_by.clone(),
-                created_at: self.created_at,
-                updated_at: Utc::now(),
-                bead_state: BeadState::Deferred,
-                _state: PhantomData,
-            }),
-            (BeadState::Blocked, BeadState::Closed { .. }) => Some(Bead {
-                id: self.id.clone(),
-                title: self.title.clone(),
-                description: self.description.clone(),
-                priority: self.priority,
-                bead_type: self.bead_type.clone(),
-                labels: self.labels.clone(),
-                assignee: self.assignee.clone(),
-                parent: self.parent.clone(),
-                depends_on: self.depends_on.clone(),
-                blocked_by: self.blocked_by.clone(),
-                created_at: self.created_at,
-                updated_at: Utc::now(),
-                bead_state: BeadState::Closed {
-                    closed_at: Utc::now(),
-                },
-                _state: PhantomData,
-            }),
-            (BeadState::Deferred, BeadState::InProgress) => Some(Bead {
-                id: self.id.clone(),
-                title: self.title.clone(),
-                description: self.description.clone(),
-                priority: self.priority,
-                bead_type: self.bead_type.clone(),
-                labels: self.labels.clone(),
-                assignee: self.assignee.clone(),
-                parent: self.parent.clone(),
-                depends_on: self.depends_on.clone(),
-                blocked_by: self.blocked_by.clone(),
-                created_at: self.created_at,
-                updated_at: Utc::now(),
-                bead_state: BeadState::InProgress,
-                _state: PhantomData,
-            }),
-            (BeadState::Deferred, BeadState::Closed { .. }) => Some(Bead {
-                id: self.id.clone(),
-                title: self.title.clone(),
-                description: self.description.clone(),
-                priority: self.priority,
-                bead_type: self.bead_type.clone(),
-                labels: self.labels.clone(),
-                assignee: self.assignee.clone(),
-                parent: self.parent.clone(),
-                depends_on: self.depends_on.clone(),
-                blocked_by: self.blocked_by.clone(),
-                created_at: self.created_at,
-                updated_at: Utc::now(),
-                bead_state: BeadState::Closed {
-                    closed_at: Utc::now(),
-                },
-                _state: PhantomData,
-            }),
-            _ => None,
+        Some(self.clone_with_state(new_state))
+    }
+
+    /// Clone this bead with a different runtime state, bumping `updated_at`.
+    fn clone_with_state(&self, bead_state: BeadState) -> Bead {
+        Bead {
+            id: self.id.clone(),
+            title: self.title.clone(),
+            description: self.description.clone(),
+            priority: self.priority,
+            bead_type: self.bead_type.clone(),
+            labels: self.labels.clone(),
+            assignee: self.assignee.clone(),
+            parent: self.parent.clone(),
+            depends_on: self.depends_on.clone(),
+            blocked_by: self.blocked_by.clone(),
+            created_at: self.created_at,
+            updated_at: Utc::now(),
+            bead_state,
+            _state: PhantomData,
         }
     }
 }

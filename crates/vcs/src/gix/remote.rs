@@ -95,7 +95,23 @@ pub fn pull(repo: &gix::Repository, remote: Option<&str>, rebase: bool) -> GitRe
         })?
         .detach();
 
-    // Step 4: Update local branch to fast-forward to remote
+    // Step 4-5: Fast-forward local branch and update HEAD
+    fast_forward_local(repo, &branch_name, remote_name, remote_id)?;
+
+    let mut results = fetch_results;
+    results.push(format!(
+        "Fast-forwarded {branch_name} to {remote_name}/{branch_name}"
+    ));
+    Ok(results)
+}
+
+/// Update a local branch to point to a new target and refresh the working tree HEAD.
+fn fast_forward_local(
+    repo: &gix::Repository,
+    branch_name: &str,
+    remote_name: &str,
+    remote_id: gix::ObjectId,
+) -> GitResult<()> {
     let local_ref = format!("refs/heads/{branch_name}");
     repo.reference(
         local_ref.as_str(),
@@ -104,21 +120,16 @@ pub fn pull(repo: &gix::Repository, remote: Option<&str>, rebase: bool) -> GitRe
         format!("pull: fast-forward from {remote_name}/{branch_name}"),
     )
     .map_err(|e| GitError::InvalidRef {
-        name: branch_name.clone(),
+        name: branch_name.to_string(),
         reason: format!("Failed to update branch during pull: {e}"),
     })?;
 
-    // Step 5: Update working tree HEAD file
     if let Some(workdir) = repo.workdir() {
         let head_path = workdir.join(".git").join("HEAD");
         std::fs::write(&head_path, format!("ref: refs/heads/{branch_name}\n"))?;
     }
 
-    let mut results = fetch_results;
-    results.push(format!(
-        "Fast-forwarded {branch_name} to {remote_name}/{branch_name}"
-    ));
-    Ok(results)
+    Ok(())
 }
 
 /// Push to a remote.
@@ -168,6 +179,19 @@ pub fn push(
             .to_string(),
     };
 
+    let args = build_push_args(remote, &branch_name, force, tags, delete);
+
+    execute_git_push(&args, workdir, remote)
+}
+
+/// Build the argument vector for a git push command.
+fn build_push_args(
+    remote: &str,
+    branch_name: &str,
+    force: bool,
+    tags: bool,
+    delete: bool,
+) -> Vec<String> {
     let mut args = vec!["push".to_string(), remote.to_string()];
     if delete {
         args.push(format!(":{branch_name}"));
@@ -180,9 +204,13 @@ pub fn push(
     if tags && !delete {
         args.push("--tags".to_string());
     }
+    args
+}
 
+/// Execute a git push command and check the result.
+fn execute_git_push(args: &[String], workdir: &std::path::Path, remote: &str) -> GitResult<()> {
     let output = std::process::Command::new("git")
-        .args(&args)
+        .args(args)
         .current_dir(workdir)
         .output()
         .map_err(|e| GitError::Network(format!("Failed to execute git push: {e}")))?;

@@ -71,6 +71,33 @@ pub struct Metrics {
     pipeline_metrics: HashMap<String, PipelineMetrics>,
 }
 
+/// Count pipelines with a given final state.
+fn count_by_state(pipelines: &[&PipelineMetrics], state: &str) -> u32 {
+    u32::try_from(pipelines.iter().filter(|p| p.final_state == state).count()).unwrap_or(u32::MAX)
+}
+
+/// Compute average duration per phase across all pipelines.
+fn compute_average_phase_durations(pipelines: &[&PipelineMetrics]) -> HashMap<String, f64> {
+    let mut phase_durations: HashMap<String, Vec<f64>> = HashMap::new();
+    for pipeline in pipelines {
+        for phase in &pipeline.phase_metrics {
+            phase_durations
+                .entry(phase.phase.clone())
+                .or_default()
+                .push(phase.duration_secs);
+        }
+    }
+
+    phase_durations
+        .into_iter()
+        .map(|(k, v)| {
+            let sum: f64 = v.iter().sum();
+            let len = v.len() as f64;
+            (k, sum / len)
+        })
+        .collect()
+}
+
 impl Metrics {
     #[must_use]
     pub fn new() -> Self {
@@ -144,52 +171,16 @@ impl Metrics {
         }
 
         let total = u32::try_from(pipelines.len()).unwrap_or(u32::MAX);
-        let successful = u32::try_from(
-            pipelines
-                .iter()
-                .filter(|p| p.final_state == "accepted")
-                .count(),
-        )
-        .unwrap_or(u32::MAX);
-        let failed = u32::try_from(
-            pipelines
-                .iter()
-                .filter(|p| p.final_state == "failed")
-                .count(),
-        )
-        .unwrap_or(u32::MAX);
-        let escalated = u32::try_from(
-            pipelines
-                .iter()
-                .filter(|p| p.final_state == "escalated")
-                .count(),
-        )
-        .unwrap_or(u32::MAX);
+        let successful = count_by_state(&pipelines, "accepted");
+        let failed = count_by_state(&pipelines, "failed");
+        let escalated = count_by_state(&pipelines, "escalated");
 
         let total_duration: f64 = pipelines.iter().map(|p| p.total_duration_secs).sum();
         let total_iterations: u32 = pipelines.iter().map(|p| p.iteration_count).sum();
 
         let average_duration = total_duration / f64::from(total);
         let average_iterations = f64::from(total_iterations) / f64::from(total);
-
-        let mut phase_durations: HashMap<String, Vec<f64>> = HashMap::new();
-        for pipeline in &pipelines {
-            for phase in &pipeline.phase_metrics {
-                phase_durations
-                    .entry(phase.phase.clone())
-                    .or_default()
-                    .push(phase.duration_secs);
-            }
-        }
-
-        let phase_durations: HashMap<String, f64> = phase_durations
-            .into_iter()
-            .map(|(k, v)| {
-                let sum: f64 = v.iter().sum();
-                let len = v.len() as f64;
-                (k, sum / len)
-            })
-            .collect();
+        let phase_durations = compute_average_phase_durations(&pipelines);
 
         AggregatedMetrics {
             total_pipelines: total,

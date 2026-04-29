@@ -52,49 +52,45 @@ pub async fn ensure_event_store_lock_schema(pool: &SqlitePool) -> Result<(), Eve
         ))
     })?;
 
-    // Index for stream-based lock queries
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_event_store_locks_stream_id
-         ON event_store_locks(stream_id)",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| {
-        EventStoreLockError::DatabaseError(format!("Failed to create stream_id index: {e}"))
-    })?;
+    // Create supporting indexes
+    create_lock_indexes(pool).await?;
 
-    // Index for expired lock cleanup queries
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_event_store_locks_expires_at
-         ON event_store_locks(expires_at)",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| {
-        EventStoreLockError::DatabaseError(format!("Failed to create expires_at index: {e}"))
-    })?;
+    Ok(())
+}
 
-    // Index for holder-based lock queries
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_event_store_locks_holder_id
-         ON event_store_locks(holder_id)",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| {
-        EventStoreLockError::DatabaseError(format!("Failed to create holder_id index: {e}"))
-    })?;
+/// Create the supporting indexes for the event_store_locks table.
+async fn create_lock_indexes(pool: &SqlitePool) -> Result<(), EventStoreLockError> {
+    let indexes = [
+        (
+            "idx_event_store_locks_stream_id",
+            "CREATE INDEX IF NOT EXISTS idx_event_store_locks_stream_id ON event_store_locks(stream_id)",
+            "stream_id",
+        ),
+        (
+            "idx_event_store_locks_expires_at",
+            "CREATE INDEX IF NOT EXISTS idx_event_store_locks_expires_at ON event_store_locks(expires_at)",
+            "expires_at",
+        ),
+        (
+            "idx_event_store_locks_holder_id",
+            "CREATE INDEX IF NOT EXISTS idx_event_store_locks_holder_id ON event_store_locks(holder_id)",
+            "holder_id",
+        ),
+        (
+            "idx_event_store_locks_stream_seq",
+            "CREATE INDEX IF NOT EXISTS idx_event_store_locks_stream_seq ON event_store_locks(stream_id, stream_seq)",
+            "stream_seq",
+        ),
+    ];
 
-    // Index for sequence-based ordering (within stream)
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_event_store_locks_stream_seq
-         ON event_store_locks(stream_id, stream_seq)",
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| {
-        EventStoreLockError::DatabaseError(format!("Failed to create stream_seq index: {e}"))
-    })?;
+    for (_name, sql, col) in indexes {
+        sqlx::query(sql)
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                EventStoreLockError::DatabaseError(format!("Failed to create {col} index: {e}"))
+            })?;
+    }
 
     Ok(())
 }

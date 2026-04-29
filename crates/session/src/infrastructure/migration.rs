@@ -236,12 +236,8 @@ pub async fn migrate_sessions_table(pool: &SqlitePool) -> Result<(), MigrationEr
             })?;
     }
 
-    // Create sessions table
-    execute_sql(pool, sql::CREATE_SESSIONS_TABLE).await?;
-
-    // Create indexes
-    execute_sql(pool, sql::CREATE_SESSIONS_NAME_INDEX).await?;
-    execute_sql(pool, sql::CREATE_SESSIONS_CREATED_AT_INDEX).await?;
+    // Create sessions table and indexes
+    create_sessions_table_and_indexes(pool).await?;
 
     // Record migration
     sqlx::query(sql::INSERT_MIGRATION)
@@ -254,6 +250,14 @@ pub async fn migrate_sessions_table(pool: &SqlitePool) -> Result<(), MigrationEr
             source: e.to_string(),
         })?;
 
+    Ok(())
+}
+
+/// Create the sessions table along with its indexes.
+async fn create_sessions_table_and_indexes(pool: &SqlitePool) -> Result<(), MigrationError> {
+    execute_sql(pool, sql::CREATE_SESSIONS_TABLE).await?;
+    execute_sql(pool, sql::CREATE_SESSIONS_NAME_INDEX).await?;
+    execute_sql(pool, sql::CREATE_SESSIONS_CREATED_AT_INDEX).await?;
     Ok(())
 }
 

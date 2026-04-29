@@ -91,50 +91,52 @@ impl Widget for AgentsView {
             return;
         }
 
-        let items: Vec<ListItem> = self
-            .agents
-            .iter()
-            .enumerate()
-            .map(|(idx, agent)| {
-                let mut spans: Vec<Span> = Vec::new();
-
-                let (indicator, indicator_color) = Self::status_indicator(agent.status);
-                spans.push(Span::styled(
-                    format!("{} ", indicator),
-                    Style::default().fg(indicator_color),
-                ));
-
-                spans.push(Span::styled(
-                    format!("{:<16}", agent.name),
-                    Style::default().fg(Color::White),
-                ));
-
-                let (activity_str, activity_color) = Self::activity_text(&agent.activity);
-                spans.push(Span::styled(
-                    format!("{:<24}", activity_str),
-                    Style::default().fg(activity_color),
-                ));
-
-                spans.push(Span::styled(
-                    format!("{} actions", agent.actions_count),
-                    Style::default().fg(Color::DarkGray),
-                ));
-
-                let is_selected = self.selected_index == Some(idx);
-                if is_selected {
-                    let last = spans.len() - 1;
-                    spans[last] = spans[last]
-                        .clone()
-                        .style(Style::default().bg(Color::Blue));
-                }
-
-                ListItem::new(Line::from(spans))
-            })
-            .collect();
-
+        let items = build_agent_list_items(&self.agents, self.selected_index);
         let list = List::new(items).style(Style::default());
         list.render(inner_area, buf);
     }
+}
+
+/// Build the list items for each agent in the view.
+fn build_agent_list_items(agents: &[AgentEntry], selected_index: Option<usize>) -> Vec<ListItem> {
+    agents
+        .iter()
+        .enumerate()
+        .map(|(idx, agent)| {
+            let mut spans: Vec<Span> = Vec::new();
+
+            let (indicator, indicator_color) = AgentsView::status_indicator(agent.status);
+            spans.push(Span::styled(
+                format!("{} ", indicator),
+                Style::default().fg(indicator_color),
+            ));
+
+            spans.push(Span::styled(
+                format!("{:<16}", agent.name),
+                Style::default().fg(Color::White),
+            ));
+
+            let (activity_str, activity_color) = AgentsView::activity_text(&agent.activity);
+            spans.push(Span::styled(
+                format!("{:<24}", activity_str),
+                Style::default().fg(activity_color),
+            ));
+
+            spans.push(Span::styled(
+                format!("{} actions", agent.actions_count),
+                Style::default().fg(Color::DarkGray),
+            ));
+
+            if selected_index == Some(idx) {
+                let last = spans.len() - 1;
+                spans[last] = spans[last]
+                    .clone()
+                    .style(Style::default().bg(Color::Blue));
+            }
+
+            ListItem::new(Line::from(spans))
+        })
+        .collect()
 }
 
 #[cfg(test)]

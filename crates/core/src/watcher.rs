@@ -126,28 +126,7 @@ impl FileWatcher {
         .map_err(|e| Error::io_error(format!("Failed to create file watcher: {e}")))?;
 
         // Watch each workspace's beads database
-        workspaces.iter().try_for_each(|workspace| {
-            let beads_db = workspace.join(".beads/beads.db");
-            let file_watch_result = debouncer
-                .watcher()
-                .watch(&beads_db, RecursiveMode::NonRecursive);
-
-            if file_watch_result.is_err() {
-                if let Some(parent) = beads_db.parent() {
-                    let parent_watch_result = debouncer
-                        .watcher()
-                        .watch(parent, RecursiveMode::NonRecursive);
-
-                    if parent_watch_result.is_err() {
-                        tracing::debug!(
-                            "Skipping watcher for {} because neither file nor parent is watchable yet",
-                            beads_db.display()
-                        );
-                    }
-                }
-            }
-            Ok::<(), Error>(())
-        })?;
+        watch_workspaces_paths(&mut debouncer, workspaces)?;
 
         tokio::spawn(async move {
             let _debouncer = debouncer;
@@ -156,6 +135,36 @@ impl FileWatcher {
 
         Ok(rx)
     }
+}
+
+/// Register file watches for each workspace's beads database.
+fn watch_workspaces_paths(
+    debouncer: &mut notify_debouncer_mini::Debouncer<notify::RecommendedWatcher>,
+    workspaces: &[PathBuf],
+) -> Result<()> {
+    workspaces.iter().try_for_each(|workspace| {
+        let beads_db = workspace.join(".beads/beads.db");
+        let file_watch_result = debouncer
+            .watcher()
+            .watch(&beads_db, RecursiveMode::NonRecursive);
+
+        if file_watch_result.is_err() {
+            if let Some(parent) = beads_db.parent() {
+                let parent_watch_result = debouncer
+                    .watcher()
+                    .watch(parent, RecursiveMode::NonRecursive);
+
+                if parent_watch_result.is_err() {
+                    tracing::debug!(
+                        "Skipping watcher for {} because neither file nor parent is watchable yet",
+                        beads_db.display()
+                    );
+                }
+            }
+        }
+        Ok::<(), Error>(())
+    })?;
+    Ok(())
 }
 
 /// Query beads status for a workspace

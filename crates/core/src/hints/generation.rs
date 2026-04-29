@@ -28,59 +28,75 @@ pub fn generate_hints(state: &SystemState) -> Result<Vec<Hint>> {
         return Ok(hints);
     }
 
-    for session in &state.sessions {
-        if session.status == SessionStatus::Active {
-            hints.push(
-                Hint::info(format!("Session '{}' is active", session.name.as_str()))
-                    .with_command(format!("scp session status {}", session.name.as_str()))
-                    .with_rationale("Review session status regularly"),
-            );
-        }
-    }
+    hints.extend(hints_for_active_sessions(state));
+    hints.extend(hints_for_stale_completed_sessions(state));
+    hints.extend(hints_for_failed_sessions(state));
 
-    for session in state
+    Ok(hints)
+}
+
+/// Generate hints for active sessions.
+fn hints_for_active_sessions(state: &SystemState) -> Vec<Hint> {
+    state
+        .sessions
+        .iter()
+        .filter(|s| s.status == SessionStatus::Active)
+        .map(|session| {
+            Hint::info(format!("Session '{}' is active", session.name.as_str()))
+                .with_command(format!("scp session status {}", session.name.as_str()))
+                .with_rationale("Review session status regularly")
+        })
+        .collect()
+}
+
+/// Generate hints for completed sessions older than one day.
+fn hints_for_stale_completed_sessions(state: &SystemState) -> Vec<Hint> {
+    state
         .sessions
         .iter()
         .filter(|s| s.status == SessionStatus::Completed)
-    {
-        let duration = Utc::now() - session.updated_at;
-        let age = duration.num_days();
-        if age > 1 {
-            hints.push(
-                Hint::suggestion(format!(
-                    "Session '{}' completed {} day(s) ago, consider removing",
-                    session.name.as_str(),
-                    age
-                ))
-                .with_command(format!(
-                    "scp session remove {} --merge",
-                    session.name.as_str()
-                ))
-                .with_rationale("Clean up completed work")
-                .with_context(serde_json::json!({
-                    "session": session.name.as_str(),
-                    "age_days": age,
-                })),
-            );
-        }
-    }
+        .filter_map(|session| {
+            let duration = Utc::now() - session.updated_at;
+            let age = duration.num_days();
+            if age > 1 {
+                Some(
+                    Hint::suggestion(format!(
+                        "Session '{}' completed {} day(s) ago, consider removing",
+                        session.name.as_str(),
+                        age
+                    ))
+                    .with_command(format!(
+                        "scp session remove {} --merge",
+                        session.name.as_str()
+                    ))
+                    .with_rationale("Clean up completed work")
+                    .with_context(serde_json::json!({
+                        "session": session.name.as_str(),
+                        "age_days": age,
+                    })),
+                )
+            } else {
+                None
+            }
+        })
+        .collect()
+}
 
-    for session in state
+/// Generate hints for failed sessions.
+fn hints_for_failed_sessions(state: &SystemState) -> Vec<Hint> {
+    state
         .sessions
         .iter()
         .filter(|s| s.status == SessionStatus::Failed)
-    {
-        hints.push(
+        .map(|session| {
             Hint::warning(format!(
                 "Session '{}' failed during creation",
                 session.name.as_str()
             ))
             .with_command(format!("scp session remove {}", session.name.as_str()))
-            .with_rationale("Clean up failed session and retry"),
-        );
-    }
-
-    Ok(hints)
+            .with_rationale("Clean up failed session and retry")
+        })
+        .collect()
 }
 
 /// Generate hints for a specific error
@@ -181,26 +197,8 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
         });
     }
 
-    let has_completed = state
-        .sessions
-        .iter()
-        .any(|s| s.status == SessionStatus::Completed);
-
-    if has_completed {
-        let completed_name = state
-            .sessions
-            .iter()
-            .find(|s| s.status == SessionStatus::Completed)
-            .map(|s| s.name.as_str());
-
-        if let Some(name) = completed_name {
-            actions.push(NextAction {
-                action: "Clean up completed sessions".to_string(),
-                commands: vec![format!("scp session remove {name} --merge",)],
-                risk: ActionRisk::Medium,
-                description: Some("Merge and remove completed session".to_string()),
-            });
-        }
+    if let Some(action) = completed_session_action(state) {
+        actions.push(action);
     }
 
     actions.push(NextAction {
@@ -211,6 +209,31 @@ pub fn suggest_next_actions(state: &SystemState) -> Vec<NextAction> {
     });
 
     actions
+}
+
+/// Generate a cleanup action if any session is completed.
+fn completed_session_action(state: &SystemState) -> Option<NextAction> {
+    let has_completed = state
+        .sessions
+        .iter()
+        .any(|s| s.status == SessionStatus::Completed);
+
+    if !has_completed {
+        return None;
+    }
+
+    let completed_name = state
+        .sessions
+        .iter()
+        .find(|s| s.status == SessionStatus::Completed)
+        .map(|s| s.name.as_str())?;
+
+    Some(NextAction {
+        action: "Clean up completed sessions".to_string(),
+        commands: vec![format!("scp session remove {completed_name} --merge",)],
+        risk: ActionRisk::Medium,
+        description: Some("Merge and remove completed session".to_string()),
+    })
 }
 
 /// Generate complete hints response
