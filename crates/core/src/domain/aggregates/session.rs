@@ -20,8 +20,6 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 
-#[allow(unused_imports)]
-use crate::domain::contracts::{ensures, requires};
 use crate::domain::{
     identifiers::{SessionId, SessionName},
     session::BranchState,

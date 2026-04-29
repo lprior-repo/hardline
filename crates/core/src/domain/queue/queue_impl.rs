@@ -4,8 +4,7 @@
 //! where possible. This enables safe concurrent access and easy undo/redo.
 
 use super::{entry::QueueEntry, status::QueueStatus};
-#[allow(unused_imports)]
-use crate::domain::contracts::{ensures, invariant, requires};
+use crate::domain::contracts::ensures;
 use crate::domain::{
     identifiers::{QueueEntryId, SessionName},
     validation::{ValidationError, ValidationResult},
