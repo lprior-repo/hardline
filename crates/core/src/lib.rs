@@ -59,6 +59,7 @@ pub mod output_jsonl;
 pub mod queue;
 pub mod queue_sqlite;
 pub mod recovery;
+pub mod security;
 pub mod session_state;
 pub mod session_sync;
 pub mod session_sync_calculations;
@@ -130,6 +131,10 @@ pub use queue::{
 };
 pub use queue_sqlite::SqliteQueue;
 pub use recovery::{RecoveryConfig, RecoveryPolicy};
+pub use security::{
+    AgentToken, AuditEntry, AuditFilter, AuditLogger, AuditOutcome, AuditOutcomeFilter, AuthContext,
+    RateLimiter, Scope,
+};
 pub use session_state::{SessionState, SessionStateManager, StateTransition};
 pub use shutdown::{signal_channels, ShutdownCoordinator, ShutdownSignal};
 pub use taskregistry::TaskRegistry;

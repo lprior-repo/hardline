@@ -45,6 +45,9 @@ petgraph = { workspace = true }
 # VCS
 gix = { workspace = true }
 
+# Hashing
+sha2 = { workspace = true }
+
 # File system
 directories = { workspace = true }
 fs4 = { workspace = true }
