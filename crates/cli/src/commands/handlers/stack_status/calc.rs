@@ -150,6 +150,7 @@ pub fn format_tree_element(
     let col_color_idx = db.column % 8;
     let col_color = get_column_color(col_color_idx);
 
+    // Draw tree connector
     for col in 0..=db.column {
         if col == db.column {
             let circle = if is_current { "\u{25c9}" } else { "\u{25cb}" };
@@ -160,59 +161,82 @@ pub fn format_tree_element(
         }
     }
 
+    // Pad to target width
     while output.chars().count() < tree_target_width {
         output.push(' ');
     }
-
     output.push(' ');
 
-    if has_remote {
-        output.push_str(&format!("\u{2601}\u{fe0f} "));
-    } else {
-        output.push_str("   ");
-    }
-
-    if has_linked_worktree {
-        output.push_str(&format!("{}\u{21b3} ", col_color));
-    }
-
-    if is_current {
-        output.push_str(&format!("\u{1b}[1m{}{}\u{1b}[0m", col_color, db.name));
-    } else {
-        output.push_str(&format!("{}{}", col_color, db.name));
-    }
-
-    if ahead > 0 || behind > 0 {
-        if behind > 0 {
-            output.push_str(&format!(" \u{1b}[31m{} behind\u{1b}[0m", behind));
-        }
-        if ahead > 0 {
-            output.push_str(&format!(" \u{1b}[32m{} ahead\u{1b}[0m", ahead));
-        }
-    }
-
-    if needs_restack {
-        output.push_str(&format!(" \u{1b}[93m(needs restack)\u{1b}[0m"));
-    }
+    // Indicators
+    append_remote_indicator(&mut output, has_remote);
+    append_worktree_indicator(&mut output, has_linked_worktree, col_color);
+    append_branch_name(&mut output, &db.name, is_current, col_color);
+    append_ahead_behind(&mut output, ahead, behind);
+    append_restack_indicator(&mut output, needs_restack);
 
     if verbose {
-        if let Some((pr_num, pr_state, is_draft)) = pr_info {
-            let mut pr_text = format!(" PR #{}", pr_num);
-            if let Some(state) = pr_state {
-                pr_text.push_str(&format!(" {}", state.to_lowercase()));
-            }
-            if is_draft {
-                pr_text.push_str(" draft");
-            }
-            output.push_str(&format!("\u{1b}[95m{}\u{1b}[0m", pr_text));
-        }
-
-        if let Some(ci) = ci_state {
-            output.push_str(&format!("\u{1b}[96m CI:{}\u{1b}[0m", ci));
-        }
+        append_verbose_info(&mut output, pr_info, ci_state);
     }
 
     output
+}
+
+fn append_remote_indicator(output: &mut String, has_remote: bool) {
+    if has_remote {
+        output.push_str("\u{2601}\u{fe0f} ");
+    } else {
+        output.push_str("   ");
+    }
+}
+
+fn append_worktree_indicator(output: &mut String, has_linked_worktree: bool, col_color: &str) {
+    if has_linked_worktree {
+        output.push_str(&format!("{}\u{21b3} ", col_color));
+    }
+}
+
+fn append_branch_name(output: &mut String, name: &str, is_current: bool, col_color: &str) {
+    if is_current {
+        output.push_str(&format!("\u{1b}[1m{}{}\u{1b}[0m", col_color, name));
+    } else {
+        output.push_str(&format!("{}{}", col_color, name));
+    }
+}
+
+fn append_ahead_behind(output: &mut String, ahead: usize, behind: usize) {
+    if behind > 0 {
+        output.push_str(&format!(" \u{1b}[31m{} behind\u{1b}[0m", behind));
+    }
+    if ahead > 0 {
+        output.push_str(&format!(" \u{1b}[32m{} ahead\u{1b}[0m", ahead));
+    }
+}
+
+fn append_restack_indicator(output: &mut String, needs_restack: bool) {
+    if needs_restack {
+        output.push_str(" \u{1b}[93m(needs restack)\u{1b}[0m");
+    }
+}
+
+fn append_verbose_info(
+    output: &mut String,
+    pr_info: Option<(&u64, Option<&str>, bool)>,
+    ci_state: Option<&str>,
+) {
+    if let Some((pr_num, pr_state, is_draft)) = pr_info {
+        let mut pr_text = format!(" PR #{}", pr_num);
+        if let Some(state) = pr_state {
+            pr_text.push_str(&format!(" {}", state.to_lowercase()));
+        }
+        if is_draft {
+            pr_text.push_str(" draft");
+        }
+        output.push_str(&format!("\u{1b}[95m{}\u{1b}[0m", pr_text));
+    }
+
+    if let Some(ci) = ci_state {
+        output.push_str(&format!("\u{1b}[96m CI:{}\u{1b}[0m", ci));
+    }
 }
 
 pub fn format_trunk_display(
@@ -235,47 +259,26 @@ pub fn format_trunk_display(
     };
     output.push_str(&format!("{}{}", col_color, circle));
 
-    if max_column >= 1 {
-        for col in 1..=max_column {
-            let cci = col % 8;
-            let cc = get_column_color(cci);
-            if col < max_column {
-                output.push_str(&format!("{}\u{2500}\u{253b}", cc));
-            } else {
-                output.push_str(&format!("{}\u{2500}\u{252b}", cc));
-            }
+    // Draw horizontal connectors for remaining columns
+    for col in 1..=max_column {
+        let cc = get_column_color(col % 8);
+        if col < max_column {
+            output.push_str(&format!("{}\u{2500}\u{253b}", cc));
+        } else {
+            output.push_str(&format!("{}\u{2500}\u{252b}", cc));
         }
     }
 
+    // Pad to target width
     while output.chars().count() < tree_target_width {
         output.push(' ');
     }
     output.push(' ');
 
-    if has_remote {
-        output.push_str(&format!("\u{2601}\u{fe0f} "));
-    } else {
-        output.push_str("   ");
-    }
-
-    if has_linked_worktree {
-        output.push_str(&format!("{}\u{21b3} ", col_color));
-    }
-
-    if is_trunk_current {
-        output.push_str(&format!("\u{1b}[1m{}{}\u{1b}[0m", col_color, trunk));
-    } else {
-        output.push_str(&format!("{}{}", col_color, trunk));
-    }
-
-    if ahead > 0 || behind > 0 {
-        if behind > 0 {
-            output.push_str(&format!(" \u{1b}[31m{} behind\u{1b}[0m", behind));
-        }
-        if ahead > 0 {
-            output.push_str(&format!(" \u{1b}[32m{} ahead\u{1b}[0m", ahead));
-        }
-    }
+    append_remote_indicator(&mut output, has_remote);
+    append_worktree_indicator(&mut output, has_linked_worktree, col_color);
+    append_branch_name(&mut output, trunk, is_trunk_current, col_color);
+    append_ahead_behind(&mut output, ahead, behind);
 
     output
 }

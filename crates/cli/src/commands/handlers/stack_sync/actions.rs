@@ -66,90 +66,27 @@ pub fn run_stack_sync(
     )?;
     timings.push(("update_trunk".to_string(), update_start));
 
-    // 4. Detect merged branches
+    // 4. Detect and delete merged branches
     if options.delete_merged {
         let detect_start = std::time::Instant::now();
-
-        let local_merged = list_merged_branches(workdir, options.trunk_branch.as_str());
-        let remote_merged = list_merged_branches(
+        detect_and_delete_merged(
             workdir,
-            &format!("{}/{}", options.remote_name, options.trunk_branch),
+            stack,
+            options,
+            pr_states,
+            &mut result,
         );
-        let remote_branches = list_remote_branches(workdir, &options.remote_name);
-        let local_branches = list_local_branches(workdir);
-
-        let tracked: Vec<BranchName> = stack
-            .branches
-            .iter()
-            .filter(|b| b.name != options.trunk_branch)
-            .map(|b| b.name.clone())
-            .collect();
-
-        let input = MergedDetectionInput {
-            tracked_branches: tracked,
-            local_merged,
-            remote_merged,
-            pr_states: pr_states.clone(),
-            remote_branches,
-            local_branches,
-        };
-
-        let detected = detect_merged_branches(&options.trunk_branch, &input);
-
-        // 5. Delete merged branches
-        for (branch, method) in detected.iter().map(|(b, m)| (b, m)) {
-            let merged = delete_merged_branch(workdir, stack, branch, method, options);
-            result.merged_branches.push(merged);
-        }
-
         timings.push(("detect_and_delete_merged".to_string(), detect_start));
     }
 
-    // 6. Restack if requested
+    // 5. Restack if requested
     if options.restack {
         let restack_start = std::time::Instant::now();
-        let needs_restack = stack.needs_restack();
-        let order = plan_restack_order(stack, &needs_restack);
-
-        for (idx, branch) in order.iter().enumerate() {
-            let parent = stack
-                .branches
-                .iter()
-                .find(|b| &b.name == branch)
-                .and_then(|b| b.parent.clone())
-                .unwrap_or_else(|| options.trunk_branch.clone());
-
-            match rebase_onto(workdir, branch.as_str(), parent.as_str()) {
-                Ok(()) => {
-                    result.restack_results.push(RestackOutcome {
-                        branch: branch.clone(),
-                        status: RestackStatus::Success,
-                    });
-                }
-                Err(SyncError::RebaseConflict { .. }) => {
-                    let remaining = order.len() - idx - 1;
-                    result.restack_results.push(RestackOutcome {
-                        branch: branch.clone(),
-                        status: RestackStatus::Conflict { remaining },
-                    });
-                    result.had_conflicts = true;
-                    break;
-                }
-                Err(e) => {
-                    result.restack_results.push(RestackOutcome {
-                        branch: branch.clone(),
-                        status: RestackStatus::Conflict { remaining: 0 },
-                    });
-                    result.had_conflicts = true;
-                    return Err(e);
-                }
-            }
-        }
-
+        perform_restack(workdir, stack, options, &mut result)?;
         timings.push(("restack".to_string(), restack_start));
     }
 
-    // 7. Restore stash if used
+    // 6. Restore stash if used
     if result.stash_used {
         stash_pop(workdir).map_err(|e| SyncError::IoError(e.to_string()))?;
     }
@@ -161,6 +98,94 @@ pub fn run_stack_sync(
         .collect();
 
     Ok(result)
+}
+
+/// Detect merged branches and delete them, appending results.
+fn detect_and_delete_merged(
+    workdir: &Path,
+    stack: &Stack,
+    options: &StackSyncOptions,
+    pr_states: &std::collections::HashMap<BranchName, PrState>,
+    result: &mut StackSyncResult,
+) {
+    let local_merged = list_merged_branches(workdir, options.trunk_branch.as_str());
+    let remote_merged = list_merged_branches(
+        workdir,
+        &format!("{}/{}", options.remote_name, options.trunk_branch),
+    );
+    let remote_branches = list_remote_branches(workdir, &options.remote_name);
+    let local_branches = list_local_branches(workdir);
+
+    let tracked: Vec<BranchName> = stack
+        .branches
+        .iter()
+        .filter(|b| b.name != options.trunk_branch)
+        .map(|b| b.name.clone())
+        .collect();
+
+    let input = MergedDetectionInput {
+        tracked_branches: tracked,
+        local_merged,
+        remote_merged,
+        pr_states: pr_states.clone(),
+        remote_branches,
+        local_branches,
+    };
+
+    let detected = detect_merged_branches(&options.trunk_branch, &input);
+
+    for (branch, method) in detected.iter().map(|(b, m)| (b, m)) {
+        let merged = delete_merged_branch(workdir, stack, branch, method, options);
+        result.merged_branches.push(merged);
+    }
+}
+
+/// Perform restacking of branches that need it.
+fn perform_restack(
+    workdir: &Path,
+    stack: &Stack,
+    options: &StackSyncOptions,
+    result: &mut StackSyncResult,
+) -> Result<(), SyncError> {
+    let needs_restack = stack.needs_restack();
+    let order = plan_restack_order(stack, &needs_restack);
+
+    for (idx, branch) in order.iter().enumerate() {
+        let parent = stack
+            .branches
+            .iter()
+            .find(|b| &b.name == branch)
+            .and_then(|b| b.parent.clone())
+            .unwrap_or_else(|| options.trunk_branch.clone());
+
+        match rebase_onto(workdir, branch.as_str(), parent.as_str()) {
+            Ok(()) => {
+                result.restack_results.push(RestackOutcome {
+                    branch: branch.clone(),
+                    status: RestackStatus::Success,
+                });
+            }
+            Err(SyncError::RebaseConflict { .. }) => {
+                let remaining = order.len() - idx - 1;
+                result.restack_results.push(RestackOutcome {
+                    branch: branch.clone(),
+                    status: RestackStatus::Conflict { remaining },
+                });
+                result.had_conflicts = true;
+                break;
+            }
+            Err(e) => {
+                result.restack_results.push(RestackOutcome {
+                    branch: branch.clone(),
+                    status: RestackStatus::Conflict { remaining: 0 },
+                });
+                result.had_conflicts = true;
+                return Err(e);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 // ============================================================================

@@ -118,45 +118,7 @@ pub fn process_with_backend(
 
     // Pre-flight checks
     if checks {
-        println!("  Running pre-flight checks...");
-
-        match backend.status()? {
-            VcsStatus::Clean => println!("    ✓ Working copy clean"),
-            VcsStatus::Dirty => {
-                let msg = "working copy has uncommitted changes".to_string();
-                println!("    ✗ {}", msg);
-                item.fail(msg.clone());
-                queue.enqueue(item)?;
-                return Err(scp_core::Error::working_copy_dirty());
-            }
-            VcsStatus::Conflicted => {
-                let msg = "working copy has merge conflicts".to_string();
-                println!("    ✗ {}", msg);
-                item.fail(msg.clone());
-                queue.enqueue(item)?;
-                return Err(scp_core::Error::vcs_conflict("working copy", "pre-flight"));
-            }
-            VcsStatus::Detached => {
-                let msg = "detached HEAD — cannot process queue".to_string();
-                println!("    ✗ {}", msg);
-                item.fail(msg.clone());
-                queue.enqueue(item)?;
-                return Err(scp_core::Error::invalid_state(msg));
-            }
-        }
-
-        // Check target branch exists
-        let branches = backend.list_branches()?;
-        let branch_exists = branches.iter().any(|b| b.name == item.branch);
-        if !branch_exists {
-            let branch_name = item.branch.clone();
-            let msg = format!("branch '{}' not found", branch_name);
-            println!("    ✗ {}", msg);
-            item.fail(msg.clone());
-            queue.enqueue(item)?;
-            return Err(scp_core::Error::branch_not_found(branch_name));
-        }
-        println!("    ✓ Branch '{}' exists", item.branch);
+        run_preflight_checks(backend, &mut item, queue)?;
     }
 
     // Merge the branch
@@ -183,6 +145,55 @@ pub fn process_with_backend(
     println!("  ✓ Push successful");
 
     println!("✓ Processed '{}'", item.branch);
+    Ok(())
+}
+
+/// Run pre-flight checks: workspace status and branch existence.
+fn run_preflight_checks(
+    backend: &dyn scp_core::vcs::VcsBackend,
+    item: &mut QueueItem,
+    queue: &dyn scp_core::queue::QueueManager,
+) -> Result<()> {
+    println!("  Running pre-flight checks...");
+
+    match backend.status()? {
+        VcsStatus::Clean => println!("    ✓ Working copy clean"),
+        VcsStatus::Dirty => {
+            let msg = "working copy has uncommitted changes".to_string();
+            println!("    ✗ {}", msg);
+            item.fail(msg.clone());
+            queue.enqueue(item.clone())?;
+            return Err(scp_core::Error::working_copy_dirty());
+        }
+        VcsStatus::Conflicted => {
+            let msg = "working copy has merge conflicts".to_string();
+            println!("    ✗ {}", msg);
+            item.fail(msg.clone());
+            queue.enqueue(item.clone())?;
+            return Err(scp_core::Error::vcs_conflict("working copy", "pre-flight"));
+        }
+        VcsStatus::Detached => {
+            let msg = "detached HEAD — cannot process queue".to_string();
+            println!("    ✗ {}", msg);
+            item.fail(msg.clone());
+            queue.enqueue(item.clone())?;
+            return Err(scp_core::Error::invalid_state(msg));
+        }
+    }
+
+    // Check target branch exists
+    let branches = backend.list_branches()?;
+    let branch_exists = branches.iter().any(|b| b.name == item.branch);
+    if !branch_exists {
+        let branch_name = item.branch.clone();
+        let msg = format!("branch '{}' not found", branch_name);
+        println!("    ✗ {}", msg);
+        item.fail(msg.clone());
+        queue.enqueue(item.clone())?;
+        return Err(scp_core::Error::branch_not_found(branch_name));
+    }
+    println!("    ✓ Branch '{}' exists", item.branch);
+
     Ok(())
 }
 

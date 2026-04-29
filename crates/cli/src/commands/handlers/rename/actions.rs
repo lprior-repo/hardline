@@ -32,21 +32,8 @@ pub fn run_rename(options: &RenameOptions) -> Result<RenameOutput> {
         });
     }
 
-    // Validate old name against security threats
-    validate_input_name(&options.old_name).map_err(|e| {
-        Error::invalid_identifier(format!("old session name '{}' is invalid: {e}", options.old_name))
-    })?;
+    validate_rename_names(options)?;
 
-    // Validate new name against security threats
-    validate_input_name(&options.new_name).map_err(|e| {
-        Error::invalid_identifier(format!("new session name '{}' is invalid: {e}", options.new_name))
-    })?;
-
-    // Validate new name format (length and character set)
-    validate_name_length(&options.new_name).map_err(Error::validation_error)?;
-    validate_session_name(&options.new_name).map_err(Error::validation_error)?;
-
-    // Dry-run mode
     if options.dry_run {
         Output::info(&format!(
             "[dry-run] Would rename: '{}' -> '{}'",
@@ -61,8 +48,27 @@ pub fn run_rename(options: &RenameOptions) -> Result<RenameOutput> {
         });
     }
 
-    // TODO: Wire to actual session database when available
-    // For now, perform the rename via git worktree if applicable
+    perform_rename(options)
+}
+
+/// Validate both old and new session names.
+fn validate_rename_names(options: &RenameOptions) -> Result<()> {
+    validate_input_name(&options.old_name).map_err(|e| {
+        Error::invalid_identifier(format!("old session name '{}' is invalid: {e}", options.old_name))
+    })?;
+
+    validate_input_name(&options.new_name).map_err(|e| {
+        Error::invalid_identifier(format!("new session name '{}' is invalid: {e}", options.new_name))
+    })?;
+
+    validate_name_length(&options.new_name).map_err(Error::validation_error)?;
+    validate_session_name(&options.new_name).map_err(Error::validation_error)?;
+
+    Ok(())
+}
+
+/// Perform the actual filesystem rename.
+fn perform_rename(options: &RenameOptions) -> Result<RenameOutput> {
     let cwd = std::env::current_dir()?;
     let old_path = cwd.join(&options.old_name);
     let new_path = cwd.join(&options.new_name);

@@ -74,106 +74,118 @@ pub struct FlagContract {
 /// Registry of all known command contracts.
 pub fn known_contracts() -> Vec<CommandContract> {
     vec![
-        CommandContract {
-            name: "spawn".to_string(),
-            description: "Create a new workspace".to_string(),
-            required_args: vec![ArgContract {
-                name: "name".to_string(),
-                arg_type: "string".to_string(),
-                required: true,
-                description: "Workspace name or task ID".to_string(),
-                example: Some("feature-auth".to_string()),
-            }],
-            optional_args: vec![],
-            flags: vec![FlagContract {
-                name: "--sync".to_string(),
-                short: Some("-s".to_string()),
-                description: "Sync with main after creation".to_string(),
+        spawn_contract(),
+        done_contract(),
+        revert_contract(),
+    ]
+}
+
+fn spawn_contract() -> CommandContract {
+    CommandContract {
+        name: "spawn".to_string(),
+        description: "Create a new workspace".to_string(),
+        required_args: vec![ArgContract {
+            name: "name".to_string(),
+            arg_type: "string".to_string(),
+            required: true,
+            description: "Workspace name or task ID".to_string(),
+            example: Some("feature-auth".to_string()),
+        }],
+        optional_args: vec![],
+        flags: vec![FlagContract {
+            name: "--sync".to_string(),
+            short: Some("-s".to_string()),
+            description: "Sync with main after creation".to_string(),
+            default: false,
+        }],
+        output_schema: "WorkspaceInfo".to_string(),
+        side_effects: vec![
+            "Creates git worktree".to_string(),
+            "Registers workspace".to_string(),
+        ],
+        related_commands: vec!["switch".to_string(), "done".to_string()],
+        examples: vec!["scp workspace spawn feature-auth".to_string()],
+        reversible: true,
+        undo_command: Some("abort".to_string()),
+        prerequisites: vec!["Git repository initialized".to_string()],
+    }
+}
+
+fn done_contract() -> CommandContract {
+    CommandContract {
+        name: "done".to_string(),
+        description: "Complete workspace and merge".to_string(),
+        required_args: vec![],
+        optional_args: vec![ArgContract {
+            name: "name".to_string(),
+            arg_type: "string".to_string(),
+            required: false,
+            description: "Workspace name (default: current)".to_string(),
+            example: Some("feature-auth".to_string()),
+        }],
+        flags: vec![
+            FlagContract {
+                name: "--message".to_string(),
+                short: Some("-m".to_string()),
+                description: "Commit message (auto-generated if not provided)".to_string(),
                 default: false,
-            }],
-            output_schema: "WorkspaceInfo".to_string(),
-            side_effects: vec![
-                "Creates git worktree".to_string(),
-                "Registers workspace".to_string(),
-            ],
-            related_commands: vec!["switch".to_string(), "done".to_string()],
-            examples: vec!["scp workspace spawn feature-auth".to_string()],
-            reversible: true,
-            undo_command: Some("abort".to_string()),
-            prerequisites: vec!["Git repository initialized".to_string()],
-        },
-        CommandContract {
-            name: "done".to_string(),
-            description: "Complete workspace and merge".to_string(),
-            required_args: vec![],
-            optional_args: vec![ArgContract {
-                name: "name".to_string(),
-                arg_type: "string".to_string(),
-                required: false,
-                description: "Workspace name (default: current)".to_string(),
-                example: Some("feature-auth".to_string()),
-            }],
-            flags: vec![
-                FlagContract {
-                    name: "--message".to_string(),
-                    short: Some("-m".to_string()),
-                    description: "Commit message (auto-generated if not provided)".to_string(),
-                    default: false,
-                },
-                FlagContract {
-                    name: "--squash".to_string(),
-                    short: None,
-                    description: "Squash all commits into one".to_string(),
-                    default: false,
-                },
-                FlagContract {
-                    name: "--dry-run".to_string(),
-                    short: None,
-                    description: "Preview without executing".to_string(),
-                    default: false,
-                },
-            ],
-            output_schema: "DoneOutput".to_string(),
-            side_effects: vec![
-                "Merges branch into main".to_string(),
-                "Removes worktree".to_string(),
-            ],
-            related_commands: vec![
-                "spawn".to_string(),
-                "abort".to_string(),
-                "revert".to_string(),
-            ],
-            examples: vec!["scp workspace done feature-auth -m 'Add auth'".to_string()],
-            reversible: true,
-            undo_command: Some("revert".to_string()),
-            prerequisites: vec!["Workspace exists".to_string(), "On main branch".to_string()],
-        },
-        CommandContract {
-            name: "revert".to_string(),
-            description: "Revert a specific session merge".to_string(),
-            required_args: vec![ArgContract {
-                name: "name".to_string(),
-                arg_type: "string".to_string(),
-                required: true,
-                description: "Session name to revert".to_string(),
-                example: Some("feature-auth".to_string()),
-            }],
-            optional_args: vec![],
-            flags: vec![FlagContract {
+            },
+            FlagContract {
+                name: "--squash".to_string(),
+                short: None,
+                description: "Squash all commits into one".to_string(),
+                default: false,
+            },
+            FlagContract {
                 name: "--dry-run".to_string(),
                 short: None,
                 description: "Preview without executing".to_string(),
                 default: false,
-            }],
-            output_schema: "RevertOutput".to_string(),
-            side_effects: vec!["Resets HEAD to pre-merge commit".to_string()],
-            related_commands: vec!["done".to_string(), "recover".to_string()],
-            examples: vec!["scp workspace revert feature-auth".to_string()],
-            reversible: false,
-            undo_command: None,
-            prerequisites: vec!["Session merge exists in undo log".to_string()],
-        },
-    ]
+            },
+        ],
+        output_schema: "DoneOutput".to_string(),
+        side_effects: vec![
+            "Merges branch into main".to_string(),
+            "Removes worktree".to_string(),
+        ],
+        related_commands: vec![
+            "spawn".to_string(),
+            "abort".to_string(),
+            "revert".to_string(),
+        ],
+        examples: vec!["scp workspace done feature-auth -m 'Add auth'".to_string()],
+        reversible: true,
+        undo_command: Some("revert".to_string()),
+        prerequisites: vec!["Workspace exists".to_string(), "On main branch".to_string()],
+    }
+}
+
+fn revert_contract() -> CommandContract {
+    CommandContract {
+        name: "revert".to_string(),
+        description: "Revert a specific session merge".to_string(),
+        required_args: vec![ArgContract {
+            name: "name".to_string(),
+            arg_type: "string".to_string(),
+            required: true,
+            description: "Session name to revert".to_string(),
+            example: Some("feature-auth".to_string()),
+        }],
+        optional_args: vec![],
+        flags: vec![FlagContract {
+            name: "--dry-run".to_string(),
+            short: None,
+            description: "Preview without executing".to_string(),
+            default: false,
+        }],
+        output_schema: "RevertOutput".to_string(),
+        side_effects: vec!["Resets HEAD to pre-merge commit".to_string()],
+        related_commands: vec!["done".to_string(), "recover".to_string()],
+        examples: vec!["scp workspace revert feature-auth".to_string()],
+        reversible: false,
+        undo_command: None,
+        prerequisites: vec!["Session merge exists in undo log".to_string()],
+    }
 }
 
 #[cfg(test)]

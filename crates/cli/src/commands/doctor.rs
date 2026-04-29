@@ -247,34 +247,7 @@ pub fn run(full: bool) -> Result<()> {
     }
 
     if full {
-        println!("\n[{}] Running full diagnostics...", check_count + 1);
-
-        let cwd = get_current_dir()?;
-
-        if let Some(disk) = gather_disk_usage(&cwd) {
-            println!("\nDisk usage:");
-            disk.lines().skip(1).for_each(print_diagnostic_line);
-        }
-
-        let lock_files = check_lock_files(&cwd);
-        if !lock_files.is_empty() {
-            println!("\nLock files found:");
-            for lock in lock_files {
-                print_diagnostic_line(&format!("⚠ Found lock file: {}", lock));
-            }
-        }
-
-        if let Some(status) = check_vcs_status(&cwd) {
-            match status {
-                VcsStatus::Conflicted => {
-                    println!("\n  ✗ Working copy has conflicts!");
-                }
-                VcsStatus::Dirty => {
-                    println!("\n  ⚠ Working copy has uncommitted changes");
-                }
-                _ => {}
-            }
-        }
+        run_full_diagnostics(check_count)?;
     } else {
         println!(
             "\n[{}] Skipping full diagnostics (use --full)",
@@ -291,6 +264,40 @@ pub fn run(full: bool) -> Result<()> {
         println!("✗ Some checks failed - see above for details");
         Err(Error::internal("Diagnostics failed"))
     }
+}
+
+/// Run full diagnostics (disk usage, lock files, VCS status).
+fn run_full_diagnostics(check_count: usize) -> Result<()> {
+    println!("\n[{}] Running full diagnostics...", check_count + 1);
+
+    let cwd = get_current_dir()?;
+
+    if let Some(disk) = gather_disk_usage(&cwd) {
+        println!("\nDisk usage:");
+        disk.lines().skip(1).for_each(print_diagnostic_line);
+    }
+
+    let lock_files = check_lock_files(&cwd);
+    if !lock_files.is_empty() {
+        println!("\nLock files found:");
+        for lock in lock_files {
+            print_diagnostic_line(&format!("⚠ Found lock file: {}", lock));
+        }
+    }
+
+    if let Some(status) = check_vcs_status(&cwd) {
+        match status {
+            VcsStatus::Conflicted => {
+                println!("\n  ✗ Working copy has conflicts!");
+            }
+            VcsStatus::Dirty => {
+                println!("\n  ⚠ Working copy has uncommitted changes");
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -240,47 +240,53 @@ async fn list_database_backups(
     let mut backups = Vec::new();
 
     while let Ok(Some(entry)) = entries.next_entry().await {
-        let path = entry.path();
-
-        // Only process .db files (skip .json metadata files)
-        if path.extension().and_then(|s| s.to_str()) != Some("db") {
-            continue;
+        let backup = parse_backup_entry(entry.path()).await?;
+        if let Some(info) = backup {
+            backups.push(info);
         }
-
-        let filename = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .ok_or_else(|| Error::internal("Invalid backup filename"))?;
-
-        let Ok(timestamp) = parse_backup_filename(filename) else {
-            continue; // Skip unparseable filenames
-        };
-
-        let size_bytes = fs::metadata(&path).await.map_or(0, |m| m.len());
-
-        // Try to load metadata
-        let metadata_path = path.with_extension("json");
-        let metadata = if metadata_path.exists() {
-            fs::read_to_string(&metadata_path)
-                .await
-                .ok()
-                .and_then(|json| serde_json::from_str::<BackupMetadata>(&json).ok())
-        } else {
-            None
-        };
-
-        backups.push(BackupInfo {
-            path,
-            timestamp,
-            metadata,
-            size_bytes,
-        });
     }
 
     // Sort newest first
     backups.sort_by_key(|b| std::cmp::Reverse(b.timestamp));
 
     Ok(backups)
+}
+
+/// Parse a single backup entry from the filesystem.
+async fn parse_backup_entry(path: std::path::PathBuf) -> Result<Option<BackupInfo>> {
+    // Only process .db files (skip .json metadata files)
+    if path.extension().and_then(|s| s.to_str()) != Some("db") {
+        return Ok(None);
+    }
+
+    let filename = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| Error::internal("Invalid backup filename"))?;
+
+    let Ok(timestamp) = parse_backup_filename(filename) else {
+        return Ok(None); // Skip unparseable filenames
+    };
+
+    let size_bytes = fs::metadata(&path).await.map_or(0, |m| m.len());
+
+    // Try to load metadata
+    let metadata_path = path.with_extension("json");
+    let metadata = if metadata_path.exists() {
+        fs::read_to_string(&metadata_path)
+            .await
+            .ok()
+            .and_then(|json| serde_json::from_str::<BackupMetadata>(&json).ok())
+    } else {
+        None
+    };
+
+    Ok(Some(BackupInfo {
+        path,
+        timestamp,
+        metadata,
+        size_bytes,
+    }))
 }
 
 // ============================================================================

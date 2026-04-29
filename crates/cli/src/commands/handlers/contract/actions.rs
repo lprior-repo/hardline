@@ -23,46 +23,7 @@ pub fn run_contract(options: &ContractOptions) -> Result<()> {
                     Error::not_found(format!("No contract found for command '{command_name}'"))
                 })?;
 
-            Output::info(&format!("Contract for '{}':", contract.name));
-            Output::info(&format!("  Description: {}", contract.description));
-            Output::info(&format!("  Output: {}", contract.output_schema));
-            Output::info(&format!(
-                "  Reversible: {}",
-                if contract.reversible { "yes" } else { "no" }
-            ));
-
-            if !contract.required_args.is_empty() {
-                Output::info("  Required args:");
-                for arg in &contract.required_args {
-                    Output::info(&format!("    {} ({})", arg.name, arg.arg_type));
-                }
-            }
-
-            if !contract.flags.is_empty() {
-                Output::info("  Flags:");
-                for flag in &contract.flags {
-                    Output::info(&format!(
-                        "    {} - {} (default: {})",
-                        flag.name,
-                        flag.description,
-                        if flag.default { "true" } else { "false" }
-                    ));
-                }
-            }
-
-            if !contract.side_effects.is_empty() {
-                Output::info(&format!(
-                    "  Side effects: {}",
-                    contract.side_effects.join(", ")
-                ));
-            }
-
-            if !contract.examples.is_empty() {
-                Output::info("  Examples:");
-                for example in &contract.examples {
-                    Output::info(&format!("    {example}"));
-                }
-            }
+            display_single_contract(contract);
         }
         None => {
             Output::info(&format!("Available contracts ({}):", contracts.len()));
@@ -73,6 +34,50 @@ pub fn run_contract(options: &ContractOptions) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Display details of a single contract.
+fn display_single_contract(contract: &super::data::CommandContract) {
+    Output::info(&format!("Contract for '{}':", contract.name));
+    Output::info(&format!("  Description: {}", contract.description));
+    Output::info(&format!("  Output: {}", contract.output_schema));
+    Output::info(&format!(
+        "  Reversible: {}",
+        if contract.reversible { "yes" } else { "no" }
+    ));
+
+    if !contract.required_args.is_empty() {
+        Output::info("  Required args:");
+        for arg in &contract.required_args {
+            Output::info(&format!("    {} ({})", arg.name, arg.arg_type));
+        }
+    }
+
+    if !contract.flags.is_empty() {
+        Output::info("  Flags:");
+        for flag in &contract.flags {
+            Output::info(&format!(
+                "    {} - {} (default: {})",
+                flag.name,
+                flag.description,
+                if flag.default { "true" } else { "false" }
+            ));
+        }
+    }
+
+    if !contract.side_effects.is_empty() {
+        Output::info(&format!(
+            "  Side effects: {}",
+            contract.side_effects.join(", ")
+        ));
+    }
+
+    if !contract.examples.is_empty() {
+        Output::info("  Examples:");
+        for example in &contract.examples {
+            Output::info(&format!("    {example}"));
+        }
+    }
 }
 
 #[cfg(test)]

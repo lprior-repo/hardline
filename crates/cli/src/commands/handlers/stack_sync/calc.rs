@@ -53,7 +53,22 @@ pub fn detect_merged_branches(
     let mut merged: Vec<(BranchName, MergedDetectionMethod)> = Vec::new();
     let mut seen: HashSet<BranchName> = HashSet::new();
 
-    // Method 1: git branch --merged <trunk>
+    detect_via_local_merged(trunk, input, &mut seen, &mut merged);
+    detect_via_remote_merged(trunk, input, &mut seen, &mut merged);
+    detect_via_pr_state(trunk, input, &mut seen, &mut merged);
+    detect_via_remote_deleted(trunk, input, &mut seen, &mut merged);
+    detect_via_orphaned(trunk, input, &mut seen, &mut merged);
+
+    merged
+}
+
+/// Method 1: git branch --merged <trunk>
+fn detect_via_local_merged(
+    trunk: &BranchName,
+    input: &MergedDetectionInput,
+    seen: &mut HashSet<BranchName>,
+    merged: &mut Vec<(BranchName, MergedDetectionMethod)>,
+) {
     for branch in &input.local_merged {
         if branch == trunk || !input.tracked_branches.contains(branch) || seen.contains(branch) {
             continue;
@@ -61,8 +76,15 @@ pub fn detect_merged_branches(
         seen.insert(branch.clone());
         merged.push((branch.clone(), MergedDetectionMethod::GitBranchMerged));
     }
+}
 
-    // Method 1b: git branch --merged origin/<trunk>
+/// Method 1b: git branch --merged origin/<trunk>
+fn detect_via_remote_merged(
+    trunk: &BranchName,
+    input: &MergedDetectionInput,
+    seen: &mut HashSet<BranchName>,
+    merged: &mut Vec<(BranchName, MergedDetectionMethod)>,
+) {
     for branch in &input.remote_merged {
         if branch == trunk || !input.tracked_branches.contains(branch) || seen.contains(branch) {
             continue;
@@ -70,8 +92,15 @@ pub fn detect_merged_branches(
         seen.insert(branch.clone());
         merged.push((branch.clone(), MergedDetectionMethod::GitBranchMergedRemote));
     }
+}
 
-    // Method 2: PR state check
+/// Method 2: PR state check
+fn detect_via_pr_state(
+    trunk: &BranchName,
+    input: &MergedDetectionInput,
+    seen: &mut HashSet<BranchName>,
+    merged: &mut Vec<(BranchName, MergedDetectionMethod)>,
+) {
     for (branch, state) in &input.pr_states {
         if branch == trunk || !input.tracked_branches.contains(branch) || seen.contains(branch) {
             continue;
@@ -84,40 +113,51 @@ pub fn detect_merged_branches(
         seen.insert(branch.clone());
         merged.push((branch.clone(), method));
     }
+}
 
-    // Method 4: Remote branch deleted (had PR)
-    // Only check if remote_branches was actually populated
-    if !input.remote_branches.is_empty() {
-        for branch in &input.tracked_branches {
-            if branch == trunk || seen.contains(branch) {
-                continue;
-            }
-            let has_pr = input.pr_states.contains_key(branch);
-            if has_pr && !input.remote_branches.contains(branch) {
-                seen.insert(branch.clone());
-                merged.push((branch.clone(), MergedDetectionMethod::RemoteBranchDeleted));
-            }
+/// Method 4: Remote branch deleted (had PR)
+fn detect_via_remote_deleted(
+    trunk: &BranchName,
+    input: &MergedDetectionInput,
+    seen: &mut HashSet<BranchName>,
+    merged: &mut Vec<(BranchName, MergedDetectionMethod)>,
+) {
+    if input.remote_branches.is_empty() {
+        return;
+    }
+    for branch in &input.tracked_branches {
+        if branch == trunk || seen.contains(branch) {
+            continue;
+        }
+        let has_pr = input.pr_states.contains_key(branch);
+        if has_pr && !input.remote_branches.contains(branch) {
+            seen.insert(branch.clone());
+            merged.push((branch.clone(), MergedDetectionMethod::RemoteBranchDeleted));
         }
     }
+}
 
-    // Method 5: Orphaned branches (no local, no remote)
-    // Only detect as orphaned if local and remote branch lists were actually
-    // populated (non-empty). Empty sets mean "didn't check", not "confirmed absent".
-    if !input.local_branches.is_empty() || !input.remote_branches.is_empty() {
-        for branch in &input.tracked_branches {
-            if branch == trunk || seen.contains(branch) {
-                continue;
-            }
-            let local_exists = input.local_branches.contains(branch);
-            let remote_exists = input.remote_branches.contains(branch);
-            if !local_exists && !remote_exists {
-                seen.insert(branch.clone());
-                merged.push((branch.clone(), MergedDetectionMethod::OrphanedBranch));
-            }
+/// Method 5: Orphaned branches (no local, no remote)
+fn detect_via_orphaned(
+    trunk: &BranchName,
+    input: &MergedDetectionInput,
+    seen: &mut HashSet<BranchName>,
+    merged: &mut Vec<(BranchName, MergedDetectionMethod)>,
+) {
+    if input.local_branches.is_empty() && input.remote_branches.is_empty() {
+        return;
+    }
+    for branch in &input.tracked_branches {
+        if branch == trunk || seen.contains(branch) {
+            continue;
+        }
+        let local_exists = input.local_branches.contains(branch);
+        let remote_exists = input.remote_branches.contains(branch);
+        if !local_exists && !remote_exists {
+            seen.insert(branch.clone());
+            merged.push((branch.clone(), MergedDetectionMethod::OrphanedBranch));
         }
     }
-
-    merged
 }
 
 // ============================================================================

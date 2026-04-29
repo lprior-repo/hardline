@@ -221,7 +221,27 @@ async fn sync_session_internal(
 
     let target = options.target_branch.as_deref().map_or("main", |v| v);
 
-    // Rebase with retries
+    let attempts = rebase_with_retries(backend, name, target, options).await?;
+
+    let final_status = backend.status()?;
+    let had_conflicts = final_status == VcsStatus::Conflicted;
+
+    Ok(SyncSummary {
+        sessions_synced: vec![
+            SessionName::parse(name).map_err(|e| SyncError::ConfigurationError(e.to_string()))?
+        ],
+        total_operations: attempts,
+        had_conflicts,
+    })
+}
+
+/// Perform rebase with exponential backoff retries.
+async fn rebase_with_retries(
+    backend: &dyn VcsBackend,
+    name: &str,
+    target: &str,
+    options: &SyncOptions,
+) -> std::result::Result<u32, SyncError> {
     let mut attempts = 0;
     let max_attempts = options.retry_config.max_attempts;
     let mut delay = Duration::from_millis(options.retry_config.initial_delay_ms);
@@ -229,7 +249,7 @@ async fn sync_session_internal(
     loop {
         attempts += 1;
         match backend.rebase(target) {
-            Ok(()) => break,
+            Ok(()) => return Ok(attempts),
             Err(e) if attempts < max_attempts => {
                 sleep(delay).await;
                 delay *= 2;
@@ -255,17 +275,6 @@ async fn sync_session_internal(
             }
         }
     }
-
-    let final_status = backend.status()?;
-    let had_conflicts = final_status == VcsStatus::Conflicted;
-
-    Ok(SyncSummary {
-        sessions_synced: vec![
-            SessionName::parse(name).map_err(|e| SyncError::ConfigurationError(e.to_string()))?
-        ],
-        total_operations: attempts,
-        had_conflicts,
-    })
 }
 
 fn find_git_root(path: &Path) -> Option<PathBuf> {

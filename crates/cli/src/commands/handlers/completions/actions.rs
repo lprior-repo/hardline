@@ -109,9 +109,13 @@ complete -F _scp scp
 }
 
 fn generate_zsh_completions() -> String {
-    r#"#compdef scp
+    let commands = zsh_command_list();
+    let args_block = zsh_args_block();
+    let sessions_fn = zsh_sessions_fn();
+    format!(
+        r#"#compdef scp
 
-_scp() {
+_scp() {{
     local line state
 
     _arguments -C \
@@ -121,51 +125,76 @@ _scp() {
     case $state in
         command)
             _values 'scp commands' \
-                'init[Initialize scp in a repository]' \
-                'add[Create session for manual work]' \
-                'list[List all sessions]' \
-                'remove[Remove a session]' \
-                'focus[Switch to session workspace]' \
-                'status[Show detailed session status]' \
-                'sync[Sync workspace with main]' \
-                'done[Complete work and merge]' \
-                'undo[Revert last done operation]' \
-                'revert[Revert specific session merge]' \
-                'spawn[Create session for automated agent work]' \
-                'work[Start working on a task]' \
-                'abort[Abandon workspace without merging]' \
-                'agents[List and manage agents]' \
-                'ai[AI-first entry point]' \
-                'checkpoint[Save and restore session state]' \
-                'clean[Remove stale sessions]' \
-                'config[View or modify configuration]' \
-                'context[Show complete environment context]' \
-                'diff[Show diff between session and main]' \
-                'doctor[Run system health checks]' \
-                'introspect[Discover scp capabilities]' \
-                'query[Query system state]' \
-                'whereami[Quick location query]' \
-                'whoami[Agent identity query]' \
-                'contract[Show command contracts]' \
-                'examples[Show usage examples]' \
-                'validate[Pre-validate inputs]' \
-                'whatif[Preview what a command would do]' \
-                'claim[Claim a session lock]' \
-                'yield[Release a session lock]' \
-                'events[Show or stream events]' \
-                'batch[Execute multiple commands]' \
-                'completions[Generate shell completions]' \
-                'integrity[Check workspace integrity]' \
-                'recover[Recover workspace state]' \
-                'bookmark[Manage bookmarks]' \
-                'schema[Show schema information]' \
-                'backup[Backup workspace]' \
-                'task[Manage tasks]' \
-                'wait[Wait for condition]' \
-                'can_i[Check permissions]' \
-                'prune[Prune stale resources]'
+{commands}
             ;;
-        args)
+{args_block}
+    esac
+}}
+
+{sessions_fn}
+
+_scp "$@"
+"#,
+        commands = commands,
+        args_block = args_block,
+        sessions_fn = sessions_fn,
+    )
+}
+
+fn zsh_command_list() -> String {
+    [
+        "init[Initialize scp in a repository]",
+        "add[Create session for manual work]",
+        "list[List all sessions]",
+        "remove[Remove a session]",
+        "focus[Switch to session workspace]",
+        "status[Show detailed session status]",
+        "sync[Sync workspace with main]",
+        "done[Complete work and merge]",
+        "undo[Revert last done operation]",
+        "revert[Revert specific session merge]",
+        "spawn[Create session for automated agent work]",
+        "work[Start working on a task]",
+        "abort[Abandon workspace without merging]",
+        "agents[List and manage agents]",
+        "ai[AI-first entry point]",
+        "checkpoint[Save and restore session state]",
+        "clean[Remove stale sessions]",
+        "config[View or modify configuration]",
+        "context[Show complete environment context]",
+        "diff[Show diff between session and main]",
+        "doctor[Run system health checks]",
+        "introspect[Discover scp capabilities]",
+        "query[Query system state]",
+        "whereami[Quick location query]",
+        "whoami[Agent identity query]",
+        "contract[Show command contracts]",
+        "examples[Show usage examples]",
+        "validate[Pre-validate inputs]",
+        "whatif[Preview what a command would do]",
+        "claim[Claim a session lock]",
+        "yield[Release a session lock]",
+        "events[Show or stream events]",
+        "batch[Execute multiple commands]",
+        "completions[Generate shell completions]",
+        "integrity[Check workspace integrity]",
+        "recover[Recover workspace state]",
+        "bookmark[Manage bookmarks]",
+        "schema[Show schema information]",
+        "backup[Backup workspace]",
+        "task[Manage tasks]",
+        "wait[Wait for condition]",
+        "can_i[Check permissions]",
+        "prune[Prune stale resources]",
+    ]
+    .iter()
+    .map(|cmd| format!("                '{}'", cmd))
+    .collect::<Vec<_>>()
+    .join(" \\\n")
+}
+
+fn zsh_args_block() -> String {
+    r#"        args)
             case $line[1] in
                 focus|remove|status|sync|diff|claim|yield|rename|pause|resume|clone)
                     _scp_sessions
@@ -175,70 +204,22 @@ _scp() {
                     ;;
             esac
             ;;
-    esac
+"#.to_string()
 }
 
-_scp_sessions() {
+fn zsh_sessions_fn() -> String {
+    r#"_scp_sessions() {
     local sessions
     sessions=(${(f)"$(scp list --json 2>/dev/null | jq -r '.data[].name' 2>/dev/null)"})
     _describe 'sessions' sessions
-}
-
-_scp "$@"
-"#
+}"#
     .to_string()
 }
 
 fn generate_fish_completions() -> String {
-    r#"# scp fish completion
-
-# Disable file completion by default
-complete -c scp -f
-
-# Commands
-complete -c scp -n "__fish_use_subcommand" -a init -d "Initialize scp"
-complete -c scp -n "__fish_use_subcommand" -a add -d "Create session"
-complete -c scp -n "__fish_use_subcommand" -a list -d "List sessions"
-complete -c scp -n "__fish_use_subcommand" -a remove -d "Remove session"
-complete -c scp -n "__fish_use_subcommand" -a focus -d "Switch to session"
-complete -c scp -n "__fish_use_subcommand" -a status -d "Show status"
-complete -c scp -n "__fish_use_subcommand" -a sync -d "Sync with main"
-complete -c scp -n "__fish_use_subcommand" -a done -d "Complete and merge"
-complete -c scp -n "__fish_use_subcommand" -a undo -d "Revert last done"
-complete -c scp -n "__fish_use_subcommand" -a revert -d "Revert specific merge"
-complete -c scp -n "__fish_use_subcommand" -a spawn -d "Spawn agent"
-complete -c scp -n "__fish_use_subcommand" -a work -d "Start working"
-complete -c scp -n "__fish_use_subcommand" -a abort -d "Abandon workspace"
-complete -c scp -n "__fish_use_subcommand" -a agents -d "Manage agents"
-complete -c scp -n "__fish_use_subcommand" -a ai -d "AI entry point"
-complete -c scp -n "__fish_use_subcommand" -a checkpoint -d "Manage checkpoints"
-complete -c scp -n "__fish_use_subcommand" -a clean -d "Remove stale sessions"
-complete -c scp -n "__fish_use_subcommand" -a config -d "Manage config"
-complete -c scp -n "__fish_use_subcommand" -a context -d "Show context"
-complete -c scp -n "__fish_use_subcommand" -a diff -d "Show diff"
-complete -c scp -n "__fish_use_subcommand" -a doctor -d "Health checks"
-complete -c scp -n "__fish_use_subcommand" -a introspect -d "Discover capabilities"
-complete -c scp -n "__fish_use_subcommand" -a query -d "Query state"
-complete -c scp -n "__fish_use_subcommand" -a whereami -d "Location query"
-complete -c scp -n "__fish_use_subcommand" -a whoami -d "Identity query"
-complete -c scp -n "__fish_use_subcommand" -a contract -d "Show contracts"
-complete -c scp -n "__fish_use_subcommand" -a examples -d "Show examples"
-complete -c scp -n "__fish_use_subcommand" -a validate -d "Validate inputs"
-complete -c scp -n "__fish_use_subcommand" -a whatif -d "Preview command"
-complete -c scp -n "__fish_use_subcommand" -a claim -d "Claim lock"
-complete -c scp -n "__fish_use_subcommand" -a yield -d "Release lock"
-complete -c scp -n "__fish_use_subcommand" -a events -d "Show events"
-complete -c scp -n "__fish_use_subcommand" -a batch -d "Batch execute"
-complete -c scp -n "__fish_use_subcommand" -a completions -d "Generate completions"
-complete -c scp -n "__fish_use_subcommand" -a integrity -d "Check integrity"
-complete -c scp -n "__fish_use_subcommand" -a recover -d "Recover state"
-complete -c scp -n "__fish_use_subcommand" -a bookmark -d "Manage bookmarks"
-complete -c scp -n "__fish_use_subcommand" -a schema -d "Show schema"
-complete -c scp -n "__fish_use_subcommand" -a backup -d "Backup workspace"
-complete -c scp -n "__fish_use_subcommand" -a task -d "Manage tasks"
-complete -c scp -n "__fish_use_subcommand" -a wait -d "Wait for condition"
-complete -c scp -n "__fish_use_subcommand" -a can_i -d "Check permissions"
-complete -c scp -n "__fish_use_subcommand" -a prune -d "Prune stale resources"
+    let header = "# scp fish completion\n\n# Disable file completion by default\ncomplete -c scp -f";
+    let command_lines = fish_command_lines();
+    let session_completion = r#"
 
 # Session name completion for relevant commands
 function __fish_scp_sessions
@@ -249,8 +230,62 @@ complete -c scp -n "__fish_seen_subcommand_from focus remove status sync diff cl
 
 # Global flags
 complete -c scp -l json -d "Output as JSON"
-complete -c scp -l help -d "Show help"
-"#.to_string()
+complete -c scp -l help -d "Show help""#;
+
+    format!("{}\n{}\n{}", header, command_lines, session_completion)
+}
+
+fn fish_command_lines() -> String {
+    let commands = [
+        ("init", "Initialize scp"),
+        ("add", "Create session"),
+        ("list", "List sessions"),
+        ("remove", "Remove session"),
+        ("focus", "Switch to session"),
+        ("status", "Show status"),
+        ("sync", "Sync with main"),
+        ("done", "Complete and merge"),
+        ("undo", "Revert last done"),
+        ("revert", "Revert specific merge"),
+        ("spawn", "Spawn agent"),
+        ("work", "Start working"),
+        ("abort", "Abandon workspace"),
+        ("agents", "Manage agents"),
+        ("ai", "AI entry point"),
+        ("checkpoint", "Manage checkpoints"),
+        ("clean", "Remove stale sessions"),
+        ("config", "Manage config"),
+        ("context", "Show context"),
+        ("diff", "Show diff"),
+        ("doctor", "Health checks"),
+        ("introspect", "Discover capabilities"),
+        ("query", "Query state"),
+        ("whereami", "Location query"),
+        ("whoami", "Identity query"),
+        ("contract", "Show contracts"),
+        ("examples", "Show examples"),
+        ("validate", "Validate inputs"),
+        ("whatif", "Preview command"),
+        ("claim", "Claim lock"),
+        ("yield", "Release lock"),
+        ("events", "Show events"),
+        ("batch", "Batch execute"),
+        ("completions", "Generate completions"),
+        ("integrity", "Check integrity"),
+        ("recover", "Recover state"),
+        ("bookmark", "Manage bookmarks"),
+        ("schema", "Show schema"),
+        ("backup", "Backup workspace"),
+        ("task", "Manage tasks"),
+        ("wait", "Wait for condition"),
+        ("can_i", "Check permissions"),
+        ("prune", "Prune stale resources"),
+    ];
+    commands
+        .iter()
+        .map(|(cmd, desc)| format!("complete -c scp -n \"__fish_use_subcommand\" -a {} -d \"{}\"", cmd, desc))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn generate_powershell_completions() -> String {

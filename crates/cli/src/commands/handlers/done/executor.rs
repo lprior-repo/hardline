@@ -129,26 +129,13 @@ pub fn detect_conflicts(
 ) -> std::result::Result<ConflictDetectionResult, ExecutorError> {
     let start = std::time::Instant::now();
 
-    // Step 1: Check for existing conflicts
     let existing_conflicts = check_existing_conflicts(executor)?;
     let has_existing = !existing_conflicts.is_empty();
 
-    // Step 2: Find merge base
     let merge_base = find_merge_base(executor)?;
-
-    // Step 3: Get workspace modified files
     let workspace_files = get_workspace_modified_files(executor)?;
+    let trunk_files = get_trunk_files(executor, &merge_base)?;
 
-    // Step 4: Get trunk modified files
-    let trunk_files = if let Some(ref base) = merge_base {
-        get_trunk_modified_files(executor, base)?
-    } else {
-        // If no merge base found, get diff between @ and trunk()
-        let output = executor.run(&["diff", "--from", "@", "--to", "trunk()", "--summary"])?;
-        parse_diff_summary(&output)
-    };
-
-    // Step 5: Compute overlapping files
     let overlapping: Vec<String> = workspace_files
         .intersection(&trunk_files)
         .cloned()
@@ -157,24 +144,8 @@ pub fn detect_conflicts(
     let workspace_only: Vec<String> = workspace_files.difference(&trunk_files).cloned().collect();
     let main_only: Vec<String> = trunk_files.difference(&workspace_files).cloned().collect();
 
-    // Step 6: Determine if merge is safe
     let merge_likely_safe = !has_existing && overlapping.is_empty();
-
-    // Step 7: Generate summary
-    let summary = if has_existing {
-        format!(
-            "Existing conflicts in {} files - resolve before merging",
-            existing_conflicts.len()
-        )
-    } else if !overlapping.is_empty() {
-        format!(
-            "Potential conflicts in {} files: {}",
-            overlapping.len(),
-            overlapping.join(", ")
-        )
-    } else {
-        "No conflicts detected - merge is safe".to_string()
-    };
+    let summary = build_conflict_summary(&existing_conflicts, &overlapping);
 
     #[allow(clippy::cast_possible_truncation)]
     let detection_time_ms = start.elapsed().as_millis() as u64;
@@ -191,6 +162,40 @@ pub fn detect_conflicts(
         files_analyzed: workspace_files.len() + trunk_files.len(),
         detection_time_ms,
     })
+}
+
+/// Get trunk modified files, using merge base if available.
+fn get_trunk_files(
+    executor: &dyn GitExecutor,
+    merge_base: &Option<String>,
+) -> std::result::Result<HashSet<String>, ExecutorError> {
+    if let Some(ref base) = merge_base {
+        get_trunk_modified_files(executor, base)
+    } else {
+        let output = executor.run(&["diff", "--from", "@", "--to", "trunk()", "--summary"])?;
+        Ok(parse_diff_summary(&output))
+    }
+}
+
+/// Build a human-readable conflict summary.
+fn build_conflict_summary(
+    existing_conflicts: &[String],
+    overlapping: &[String],
+) -> String {
+    if !existing_conflicts.is_empty() {
+        format!(
+            "Existing conflicts in {} files - resolve before merging",
+            existing_conflicts.len()
+        )
+    } else if !overlapping.is_empty() {
+        format!(
+            "Potential conflicts in {} files: {}",
+            overlapping.len(),
+            overlapping.join(", ")
+        )
+    } else {
+        "No conflicts detected - merge is safe".to_string()
+    }
 }
 
 /// Check for existing Git conflicts in the workspace.

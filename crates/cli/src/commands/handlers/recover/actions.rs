@@ -80,47 +80,12 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<RollbackOutput> {
     let backend = vcs::create_backend(&cwd)?;
     let executor = RealGitExecutor::new();
 
-    // Resolve workspace path from workspace name
-    let workspace_path_buf = resolve_workspace_path(&cwd, backend.as_ref(), &options.session)?;
-    let workspace_path = workspace_path_buf
-        .to_str()
-        .ok_or_else(|| Error::invalid_state("workspace path contains invalid UTF-8"))?;
+    let workspace_path = resolve_and_validate_workspace(&cwd, backend.as_ref(), &options.session)?;
 
-    // Verify the workspace directory exists
-    if !Path::new(workspace_path).exists() {
-        return Ok(RollbackOutput {
-            session: options.session.clone(),
-            commit: options.commit.clone(),
-            dry_run: options.dry_run,
-            succeeded: false,
-            message: format!("Workspace directory '{}' does not exist", workspace_path),
-        });
-    }
-
-    // Verify the commit exists in the workspace
     let verify_result =
-        executor.run_in_workspace(&["cat-file", "-t", &options.commit], workspace_path);
-
-    match verify_result {
-        Ok(output) if output.trim() == "commit" => {}
-        Ok(_) => {
-            return Ok(RollbackOutput {
-                session: options.session.clone(),
-                commit: options.commit.clone(),
-                dry_run: options.dry_run,
-                succeeded: false,
-                message: format!("'{}' is not a valid commit", options.commit),
-            });
-        }
-        Err(_) => {
-            return Ok(RollbackOutput {
-                session: options.session.clone(),
-                commit: options.commit.clone(),
-                dry_run: options.dry_run,
-                succeeded: false,
-                message: format!("Commit '{}' not found in workspace", options.commit),
-            });
-        }
+        verify_commit_in_workspace(&executor, &options.commit, &workspace_path)?;
+    if let Some(output) = verify_result {
+        return Ok(output);
     }
 
     if options.dry_run {
@@ -136,9 +101,66 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<RollbackOutput> {
         });
     }
 
-    // Perform the rollback using git reset --hard
-    let reset_result =
-        executor.run_in_workspace(&["reset", "--hard", &options.commit], workspace_path);
+    execute_rollback(&executor, &options.commit, &workspace_path, options)
+}
+
+/// Resolve workspace path and verify it exists.
+fn resolve_and_validate_workspace(
+    cwd: &Path,
+    backend: &dyn vcs::VcsBackend,
+    session: &str,
+) -> Result<String> {
+    let workspace_path_buf = resolve_workspace_path(cwd, backend, session)?;
+    let workspace_path = workspace_path_buf
+        .to_str()
+        .ok_or_else(|| Error::invalid_state("workspace path contains invalid UTF-8"))?
+        .to_string();
+
+    if !Path::new(&workspace_path).exists() {
+        return Err(Error::invalid_state(format!(
+            "Workspace directory '{}' does not exist",
+            workspace_path
+        )));
+    }
+
+    Ok(workspace_path)
+}
+
+/// Verify a commit exists in the workspace. Returns Some(RollbackOutput) on failure.
+fn verify_commit_in_workspace(
+    executor: &RealGitExecutor,
+    commit: &str,
+    workspace_path: &str,
+) -> Result<Option<RollbackOutput>> {
+    let verify_result = executor.run_in_workspace(&["cat-file", "-t", commit], workspace_path);
+
+    match verify_result {
+        Ok(output) if output.trim() == "commit" => Ok(None),
+        Ok(_) => Ok(Some(RollbackOutput {
+            session: String::new(),
+            commit: commit.to_string(),
+            dry_run: false,
+            succeeded: false,
+            message: format!("'{}' is not a valid commit", commit),
+        })),
+        Err(_) => Ok(Some(RollbackOutput {
+            session: String::new(),
+            commit: commit.to_string(),
+            dry_run: false,
+            succeeded: false,
+            message: format!("Commit '{}' not found in workspace", commit),
+        })),
+    }
+}
+
+/// Execute the actual git reset --hard rollback.
+fn execute_rollback(
+    executor: &RealGitExecutor,
+    commit: &str,
+    workspace_path: &str,
+    options: &RollbackOptions,
+) -> Result<RollbackOutput> {
+    let reset_result = executor.run_in_workspace(&["reset", "--hard", commit], workspace_path);
 
     match reset_result {
         Ok(_) => Ok(RollbackOutput {

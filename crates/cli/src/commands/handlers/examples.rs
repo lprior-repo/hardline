@@ -85,37 +85,42 @@ pub fn run_examples(options: &ExamplesOptions) -> Result<()> {
             .map_err(|e| Error::io_error(format!("Failed to serialize examples: {e}")))?;
         println!("{json}");
     } else {
-        for example in &response.examples {
-            Output::info(&format!("# {}", example.name));
-            Output::info(&format!("# {}", example.description));
-            if !example.prerequisites.is_empty() {
-                Output::info(&format!(
-                    "# Prerequisites: {}",
-                    example.prerequisites.join(", ")
-                ));
-            }
-            println!();
-            for cmd in &example.commands {
-                println!("{cmd}");
-            }
-            if let Some(output) = &example.expected_output {
-                println!();
-                Output::info("# Expected output:");
-                for line in output.lines() {
-                    println!("# {line}");
-                }
-            }
-            if let Some(note) = &example.notes {
-                println!();
-                Output::info(&format!("# Note: {note}"));
-            }
-            println!();
-            println!("---");
-            println!();
-        }
+        display_examples_text(&response.examples);
     }
 
     Ok(())
+}
+
+/// Display examples in human-readable text format.
+fn display_examples_text(examples: &[Example]) {
+    for example in examples {
+        Output::info(&format!("# {}", example.name));
+        Output::info(&format!("# {}", example.description));
+        if !example.prerequisites.is_empty() {
+            Output::info(&format!(
+                "# Prerequisites: {}",
+                example.prerequisites.join(", ")
+            ));
+        }
+        println!();
+        for cmd in &example.commands {
+            println!("{cmd}");
+        }
+        if let Some(output) = &example.expected_output {
+            println!();
+            Output::info("# Expected output:");
+            for line in output.lines() {
+                println!("# {line}");
+            }
+        }
+        if let Some(note) = &example.notes {
+            println!();
+            Output::info(&format!("# Note: {note}"));
+        }
+        println!();
+        println!("---");
+        println!();
+    }
 }
 
 /// Build the complete catalog of examples
