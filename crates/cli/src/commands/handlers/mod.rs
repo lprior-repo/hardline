@@ -88,6 +88,7 @@ pub mod prune;
 pub mod query;
 pub mod recover;
 pub mod rename;
+pub mod retry;
 pub mod revert;
 pub mod schema;
 pub mod session;

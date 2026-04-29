@@ -6,15 +6,15 @@
 use clap::{Parser, Subcommand};
 
 use crate::cli::{
-    agent_args::AgentCommands, batch_args::BatchCommands, config_args::ConfigCommands,
-    lock_args::LockCommands, queue_args::QueueCommands, session_args::SessionCommands,
-    stash_args::StashCommands, tag_args::TagCommands, task_args::TaskCommands,
-    workspace_args::WorkspaceCommands,
+    ai_args::AiCommands, agent_args::AgentCommands, batch_args::BatchCommands,
+    config_args::ConfigCommands, lock_args::LockCommands, queue_args::QueueCommands,
+    session_args::SessionCommands, stash_args::StashCommands, tag_args::TagCommands,
+    task_args::TaskCommands, workspace_args::WorkspaceCommands,
 };
 
 /// Main CLI entry point
 #[derive(Parser)]
-#[command(name = "scp")]
+#[command(name = "hd")]
 #[command(about = "Source Control Plane - Unified workspace and queue management", long_about = None)]
 #[command(version = "0.5.0")]
 pub struct Cli {
@@ -46,6 +46,33 @@ pub enum Commands {
         /// VCS type to use (git only)
         #[arg(long, default_value = "git")]
         vcs: String,
+    },
+
+    /// AI-assisted development workflow
+    Ai {
+        #[command(subcommand)]
+        command: AiCommands,
+    },
+
+    /// Work on a workspace
+    Work {
+        /// Workspace name to work on
+        name: Option<String>,
+        /// Bead ID to work on
+        #[arg(long)]
+        bead: Option<String>,
+        /// Agent ID
+        #[arg(long)]
+        agent: Option<String>,
+        /// Run without agent
+        #[arg(long)]
+        no_agent: bool,
+        /// Idempotent mode
+        #[arg(long)]
+        idempotent: bool,
+        /// Dry run mode
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Workspace management (from Isolate)
@@ -204,6 +231,16 @@ pub enum Commands {
         #[arg(long)]
         use_case: Option<String>,
     },
+
+    /// Retry the last failed VCS operation
+    Retry {
+        /// Maximum retry attempts
+        #[arg(long, default_value_t = 3)]
+        max_attempts: u32,
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 #[cfg(test)]
@@ -214,7 +251,7 @@ mod tests {
 
     #[test]
     fn parse_no_args_fails_requires_subcommand() {
-        let result = Cli::try_parse_from(["scp"]);
+        let result = Cli::try_parse_from(["hd"]);
         assert!(
             result.is_err(),
             "CLI should require a subcommand, but parsing succeeded"
@@ -223,52 +260,52 @@ mod tests {
 
     #[test]
     fn parse_verbose_flag() {
-        let cli = Cli::parse_from(["scp", "-v", "status"]);
+        let cli = Cli::parse_from(["hd", "-v", "status"]);
         assert!(cli.verbose);
         assert!(!cli.quiet);
     }
 
     #[test]
     fn parse_quiet_flag() {
-        let cli = Cli::parse_from(["scp", "--quiet", "status"]);
+        let cli = Cli::parse_from(["hd", "--quiet", "status"]);
         assert!(cli.quiet);
         assert!(!cli.verbose);
     }
 
     #[test]
     fn parse_format_flag_default() {
-        let cli = Cli::parse_from(["scp", "status"]);
+        let cli = Cli::parse_from(["hd", "status"]);
         assert_eq!(cli.format, "human");
     }
 
     #[test]
     fn parse_format_flag_custom() {
-        let cli = Cli::parse_from(["scp", "-f", "json", "status"]);
+        let cli = Cli::parse_from(["hd", "-f", "json", "status"]);
         assert_eq!(cli.format, "json");
     }
 
     #[test]
     fn parse_format_flag_long() {
-        let cli = Cli::parse_from(["scp", "--format", "yaml", "status"]);
+        let cli = Cli::parse_from(["hd", "--format", "yaml", "status"]);
         assert_eq!(cli.format, "yaml");
     }
 
     #[test]
     fn parse_database_flag() {
-        let cli = Cli::parse_from(["scp", "--database", "/tmp/test.db", "status"]);
+        let cli = Cli::parse_from(["hd", "--database", "/tmp/test.db", "status"]);
         assert_eq!(cli.database, Some("/tmp/test.db".to_string()));
     }
 
     #[test]
     fn parse_database_flag_absent() {
-        let cli = Cli::parse_from(["scp", "status"]);
+        let cli = Cli::parse_from(["hd", "status"]);
         assert_eq!(cli.database, None);
     }
 
     // -- Init command --
     #[test]
     fn parse_init_default_vcs() {
-        let cli = Cli::parse_from(["scp", "init"]);
+        let cli = Cli::parse_from(["hd", "init"]);
         match cli.command {
             Commands::Init { vcs } => assert_eq!(vcs, "git"),
             other => panic!("Expected Init, got {:?}", std::mem::discriminant(&other)),
@@ -277,7 +314,7 @@ mod tests {
 
     #[test]
     fn parse_init_with_vcs_git() {
-        let cli = Cli::parse_from(["scp", "init", "--vcs", "git"]);
+        let cli = Cli::parse_from(["hd", "init", "--vcs", "git"]);
         match cli.command {
             Commands::Init { vcs } => assert_eq!(vcs, "git"),
             other => panic!("Expected Init, got {:?}", std::mem::discriminant(&other)),
@@ -287,7 +324,7 @@ mod tests {
     // -- Status command --
     #[test]
     fn parse_status_short_flag() {
-        let cli = Cli::parse_from(["scp", "status", "-s"]);
+        let cli = Cli::parse_from(["hd", "status", "-s"]);
         match cli.command {
             Commands::Status { short } => assert!(short),
             other => panic!("Expected Status, got {:?}", std::mem::discriminant(&other)),
@@ -296,7 +333,7 @@ mod tests {
 
     #[test]
     fn parse_status_default() {
-        let cli = Cli::parse_from(["scp", "status"]);
+        let cli = Cli::parse_from(["hd", "status"]);
         match cli.command {
             Commands::Status { short } => assert!(!short),
             other => panic!("Expected Status, got {:?}", std::mem::discriminant(&other)),
@@ -306,7 +343,7 @@ mod tests {
     // -- Doctor command --
     #[test]
     fn parse_doctor_defaults() {
-        let cli = Cli::parse_from(["scp", "doctor"]);
+        let cli = Cli::parse_from(["hd", "doctor"]);
         match cli.command {
             Commands::Doctor { full } => assert!(!full),
             other => panic!("Expected Doctor, got {:?}", std::mem::discriminant(&other)),
@@ -315,7 +352,7 @@ mod tests {
 
     #[test]
     fn parse_doctor_full() {
-        let cli = Cli::parse_from(["scp", "doctor", "--full"]);
+        let cli = Cli::parse_from(["hd", "doctor", "--full"]);
         match cli.command {
             Commands::Doctor { full } => assert!(full),
             other => panic!("Expected Doctor, got {:?}", std::mem::discriminant(&other)),
@@ -325,7 +362,7 @@ mod tests {
     // -- Fetch command --
     #[test]
     fn parse_fetch_defaults() {
-        let cli = Cli::parse_from(["scp", "fetch"]);
+        let cli = Cli::parse_from(["hd", "fetch"]);
         match cli.command {
             Commands::Fetch {
                 remote,
@@ -344,7 +381,7 @@ mod tests {
 
     #[test]
     fn parse_fetch_with_remote() {
-        let cli = Cli::parse_from(["scp", "fetch", "upstream"]);
+        let cli = Cli::parse_from(["hd", "fetch", "upstream"]);
         match cli.command {
             Commands::Fetch { remote, .. } => {
                 assert_eq!(remote, Some("upstream".to_string()));
@@ -355,7 +392,7 @@ mod tests {
 
     #[test]
     fn parse_fetch_with_all_flags() {
-        let cli = Cli::parse_from(["scp", "fetch", "-p", "-t", "-a"]);
+        let cli = Cli::parse_from(["hd", "fetch", "-p", "-t", "-a"]);
         match cli.command {
             Commands::Fetch {
                 prune, tags, all, ..
@@ -371,7 +408,7 @@ mod tests {
     // -- Push command --
     #[test]
     fn parse_push_defaults() {
-        let cli = Cli::parse_from(["scp", "push"]);
+        let cli = Cli::parse_from(["hd", "push"]);
         match cli.command {
             Commands::Push {
                 remote,
@@ -396,7 +433,7 @@ mod tests {
 
     #[test]
     fn parse_push_with_force() {
-        let cli = Cli::parse_from(["scp", "push", "--force"]);
+        let cli = Cli::parse_from(["hd", "push", "--force"]);
         match cli.command {
             Commands::Push { force, .. } => assert!(force),
             other => panic!("Expected Push, got {:?}", std::mem::discriminant(&other)),
@@ -406,7 +443,7 @@ mod tests {
     #[test]
     fn parse_push_with_all_flags() {
         let cli = Cli::parse_from([
-            "scp",
+            "hd",
             "push",
             "-r",
             "upstream",
@@ -443,7 +480,7 @@ mod tests {
     // -- Pull command --
     #[test]
     fn parse_pull() {
-        let cli = Cli::parse_from(["scp", "pull"]);
+        let cli = Cli::parse_from(["hd", "pull"]);
         match cli.command {
             Commands::Pull => {}
             other => panic!("Expected Pull, got {:?}", std::mem::discriminant(&other)),
@@ -453,20 +490,20 @@ mod tests {
     // -- Context / Whereami --
     #[test]
     fn parse_context() {
-        let cli = Cli::parse_from(["scp", "context"]);
+        let cli = Cli::parse_from(["hd", "context"]);
         assert!(matches!(cli.command, Commands::Context));
     }
 
     #[test]
     fn parse_whereami() {
-        let cli = Cli::parse_from(["scp", "whereami"]);
+        let cli = Cli::parse_from(["hd", "whereami"]);
         assert!(matches!(cli.command, Commands::Whereami));
     }
 
     // -- Switch (top-level alias) --
     #[test]
     fn parse_switch() {
-        let cli = Cli::parse_from(["scp", "switch", "my-workspace"]);
+        let cli = Cli::parse_from(["hd", "switch", "my-workspace"]);
         match cli.command {
             Commands::Switch { name } => assert_eq!(name, "my-workspace"),
             other => panic!("Expected Switch, got {:?}", std::mem::discriminant(&other)),
@@ -476,7 +513,7 @@ mod tests {
     // -- Global flags combine with subcommands --
     #[test]
     fn global_flags_combine_with_subcommand() {
-        let cli = Cli::parse_from(["scp", "-v", "--format", "json", "--quiet", "status"]);
+        let cli = Cli::parse_from(["hd", "-v", "--format", "json", "--quiet", "status"]);
         assert!(cli.verbose);
         assert!(cli.quiet);
         assert_eq!(cli.format, "json");
@@ -485,68 +522,68 @@ mod tests {
     // -- Discriminant checks: every top-level command parses correctly --
     #[test]
     fn parse_workspace_subcommand() {
-        let cli = Cli::parse_from(["scp", "workspace", "list"]);
+        let cli = Cli::parse_from(["hd", "workspace", "list"]);
         assert!(matches!(cli.command, Commands::Workspace { .. }));
     }
 
     #[test]
     fn parse_lock_subcommand() {
-        let cli = Cli::parse_from(["scp", "lock", "list"]);
+        let cli = Cli::parse_from(["hd", "lock", "list"]);
         assert!(matches!(cli.command, Commands::Lock { .. }));
     }
 
     #[test]
     fn parse_queue_subcommand() {
-        let cli = Cli::parse_from(["scp", "queue", "list"]);
+        let cli = Cli::parse_from(["hd", "queue", "list"]);
         assert!(matches!(cli.command, Commands::Queue { .. }));
     }
 
     #[test]
     fn parse_agent_subcommand() {
-        let cli = Cli::parse_from(["scp", "agent", "list"]);
+        let cli = Cli::parse_from(["hd", "agent", "list"]);
         assert!(matches!(cli.command, Commands::Agent { .. }));
     }
 
     #[test]
     fn parse_session_subcommand() {
-        let cli = Cli::parse_from(["scp", "session", "list"]);
+        let cli = Cli::parse_from(["hd", "session", "list"]);
         assert!(matches!(cli.command, Commands::Session { .. }));
     }
 
     #[test]
     fn parse_task_subcommand() {
-        let cli = Cli::parse_from(["scp", "task", "list"]);
+        let cli = Cli::parse_from(["hd", "task", "list"]);
         assert!(matches!(cli.command, Commands::Task { .. }));
     }
 
     #[test]
     fn parse_config_subcommand() {
-        let cli = Cli::parse_from(["scp", "config", "list"]);
+        let cli = Cli::parse_from(["hd", "config", "list"]);
         assert!(matches!(cli.command, Commands::Config { .. }));
     }
 
     #[test]
     fn parse_stash_subcommand() {
-        let cli = Cli::parse_from(["scp", "stash", "list"]);
+        let cli = Cli::parse_from(["hd", "stash", "list"]);
         assert!(matches!(cli.command, Commands::Stash { .. }));
     }
 
     #[test]
     fn parse_tag_subcommand() {
-        let cli = Cli::parse_from(["scp", "tag", "list"]);
+        let cli = Cli::parse_from(["hd", "tag", "list"]);
         assert!(matches!(cli.command, Commands::Tag { .. }));
     }
 
     #[test]
     fn parse_batch_subcommand() {
-        let cli = Cli::parse_from(["scp", "batch", "run", "echo", "hello"]);
+        let cli = Cli::parse_from(["hd", "batch", "run", "echo", "hello"]);
         assert!(matches!(cli.command, Commands::Batch { .. }));
     }
 
     // -- Required positional args --
     #[test]
     fn parse_switch_requires_name() {
-        let result = Cli::try_parse_from(["scp", "switch"]);
+        let result = Cli::try_parse_from(["hd", "switch"]);
         assert!(result.is_err());
     }
 }

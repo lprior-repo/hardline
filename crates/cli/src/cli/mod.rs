@@ -3,6 +3,7 @@
 //! Contains argument definitions and main execution logic.
 
 pub mod agent_args;
+pub mod ai_args;
 pub mod alias_handler;
 pub mod args;
 pub mod batch_args;

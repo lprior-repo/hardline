@@ -8,6 +8,48 @@ pub(crate) fn run_command(cmd: Commands) -> Result<()> {
     match cmd {
         Commands::Init { vcs } => commands::init::run(&vcs),
 
+        Commands::Ai { command } => {
+            use crate::cli::ai_args::AiCommands;
+            use crate::commands::handlers::ai::{AiOptions, AiSubcommand, run};
+            let subcmd = match command {
+                AiCommands::Status => AiSubcommand::Status,
+                AiCommands::Workflow => AiSubcommand::Workflow,
+                AiCommands::QuickStart => AiSubcommand::QuickStart,
+                AiCommands::Next => AiSubcommand::Next,
+                AiCommands::Default => AiSubcommand::Default,
+            };
+            let opts = AiOptions { subcommand: subcmd };
+            run(&opts)
+        }
+
+        Commands::Work { name, bead, agent, no_agent, idempotent, dry_run } => {
+            use crate::commands::handlers::work::{WorkMode, WorkOptions, run_work};
+            let mode = if dry_run {
+                WorkMode::DryRun
+            } else if idempotent {
+                WorkMode::Idempotent
+            } else {
+                WorkMode::Normal
+            };
+            match name {
+                Some(n) => {
+                    let opts = WorkOptions {
+                        name: n,
+                        bead_id: bead,
+                        agent_id: agent,
+                        mode,
+                        no_agent,
+                        format: OutputFormat::Json,
+                    };
+                    run_work(&opts)
+                }
+                None => {
+                    use scp_core::Error;
+                    Err(Error::validation_error("work requires a workspace name"))
+                }
+            }
+        }
+
         Commands::Lock { command } => match command {
             crate::cli::lock_args::LockCommands::Acquire {
                 session,
@@ -238,5 +280,13 @@ pub(crate) fn run_command(cmd: Commands) -> Result<()> {
         }
 
         Commands::Workspace { .. } => unreachable!("workspace commands dispatched separately"),
+
+        Commands::Retry { max_attempts, verbose } => {
+            use crate::commands::handlers::retry::{run_retry, RetryOptions};
+            let opts = RetryOptions { max_attempts, verbose };
+            let output = run_retry(opts)?;
+            println!("{}", if output.success { "Retry succeeded" } else { &output.message });
+            Ok(())
+        }
     }
 }
