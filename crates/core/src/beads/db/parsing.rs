@@ -44,37 +44,12 @@ pub fn parse_bead_row(row: &sqlx::sqlite::SqliteRow) -> Result<BeadIssue, BeadsE
         .map_err(|e: sqlx::Error| BeadsError::QueryFailed(format!("Field 'status' error: {e}")))?;
     let status = parse_status(&status_str)?;
 
-    let priority_str: Option<String> = row.try_get("priority").map_err(|e: sqlx::Error| {
-        BeadsError::QueryFailed(format!("Field 'priority' error: {e}"))
-    })?;
-    let priority = priority_str
-        .and_then(|p: String| p.strip_prefix('P').and_then(|n| n.parse::<u32>().ok()))
-        .and_then(Priority::from_u32);
+    let priority = parse_priority(row)?;
+    let issue_type = parse_optional_string_field(row, "type")?.and_then(|s| s.parse().ok());
+    let labels = parse_comma_separated_field(row, "labels")?;
+    let depends_on = parse_comma_separated_field(row, "depends_on")?;
+    let blocked_by = parse_comma_separated_field(row, "blocked_by")?;
 
-    let issue_type_str: Option<String> = row
-        .try_get("type")
-        .map_err(|e: sqlx::Error| BeadsError::QueryFailed(format!("Field 'type' error: {e}")))?;
-    let issue_type = issue_type_str.and_then(|s: String| s.parse().ok());
-
-    let labels_str: Option<String> = row
-        .try_get("labels")
-        .map_err(|e: sqlx::Error| BeadsError::QueryFailed(format!("Field 'labels' error: {e}")))?;
-    let labels =
-        labels_str.map(|s: String| s.split(',').map(String::from).collect::<Vec<String>>());
-
-    let depends_on_str: Option<String> = row.try_get("depends_on").map_err(|e: sqlx::Error| {
-        BeadsError::QueryFailed(format!("Field 'depends_on' error: {e}"))
-    })?;
-    let depends_on =
-        depends_on_str.map(|s: String| s.split(',').map(String::from).collect::<Vec<String>>());
-
-    let blocked_by_str: Option<String> = row.try_get("blocked_by").map_err(|e: sqlx::Error| {
-        BeadsError::QueryFailed(format!("Field 'blocked_by' error: {e}"))
-    })?;
-    let blocked_by =
-        blocked_by_str.map(|s: String| s.split(',').map(String::from).collect::<Vec<String>>());
-
-    // Required datetime fields - fail if missing or invalid
     let created_at_str: Option<String> = row.try_get("created_at").map_err(|e: sqlx::Error| {
         BeadsError::QueryFailed(format!("Field 'created_at' error: {e}"))
     })?;
@@ -85,17 +60,7 @@ pub fn parse_bead_row(row: &sqlx::sqlite::SqliteRow) -> Result<BeadIssue, BeadsE
     })?;
     let updated_at = parse_datetime(updated_at_str)?;
 
-    // Optional datetime field
-    let closed_at_str: Option<String> = row.try_get("closed_at").map_err(|e: sqlx::Error| {
-        BeadsError::QueryFailed(format!("Field 'closed_at' error: {e}"))
-    })?;
-    let closed_at: Option<DateTime<Utc>> = closed_at_str
-        .map(|s: String| {
-            DateTime::parse_from_rfc3339(&s)
-                .map(|dt| dt.with_timezone(&Utc))
-                .map_err(|e| BeadsError::QueryFailed(format!("Invalid closed_at datetime: {e}")))
-        })
-        .transpose()?;
+    let closed_at = parse_optional_datetime(row, "closed_at")?;
 
     Ok(BeadIssue {
         id: row
@@ -123,4 +88,47 @@ pub fn parse_bead_row(row: &sqlx::sqlite::SqliteRow) -> Result<BeadIssue, BeadsE
         updated_at,
         closed_at,
     })
+}
+
+/// Parse the priority field from a row.
+fn parse_priority(row: &sqlx::sqlite::SqliteRow) -> Result<Option<Priority>, BeadsError> {
+    let priority_str: Option<String> = row.try_get("priority").map_err(|e: sqlx::Error| {
+        BeadsError::QueryFailed(format!("Field 'priority' error: {e}"))
+    })?;
+    Ok(priority_str
+        .and_then(|p: String| p.strip_prefix('P').and_then(|n| n.parse::<u32>().ok()))
+        .and_then(Priority::from_u32))
+}
+
+/// Parse an optional string field from a row.
+fn parse_optional_string_field(
+    row: &sqlx::sqlite::SqliteRow,
+    field: &str,
+) -> Result<Option<String>, BeadsError> {
+    row.try_get(field)
+        .map_err(|e: sqlx::Error| BeadsError::QueryFailed(format!("Field '{field}' error: {e}")))
+}
+
+/// Parse a comma-separated optional string field from a row.
+fn parse_comma_separated_field(
+    row: &sqlx::sqlite::SqliteRow,
+    field: &str,
+) -> Result<Option<Vec<String>>, BeadsError> {
+    let value = parse_optional_string_field(row, field)?;
+    Ok(value.map(|s| s.split(',').map(String::from).collect()))
+}
+
+/// Parse an optional datetime field from a row.
+fn parse_optional_datetime(
+    row: &sqlx::sqlite::SqliteRow,
+    field: &str,
+) -> Result<Option<DateTime<Utc>>, BeadsError> {
+    let value = parse_optional_string_field(row, field)?;
+    value
+        .map(|s| {
+            DateTime::parse_from_rfc3339(&s)
+                .map(|dt| dt.with_timezone(&Utc))
+                .map_err(|e| BeadsError::QueryFailed(format!("Invalid {field} datetime: {e}")))
+        })
+        .transpose()
 }

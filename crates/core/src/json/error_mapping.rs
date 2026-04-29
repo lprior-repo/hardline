@@ -59,7 +59,7 @@ pub fn map_error_to_parts(err: &crate::error::Error) -> (ErrorCode, String, Opti
     let message = err.to_string();
     let suggestion = err.suggestion();
 
-    let error_code = match err {
+    match err {
         // Workspace errors
         Error::Workspace(e) => {
             let msg = e.to_string();
@@ -77,47 +77,9 @@ pub fn map_error_to_parts(err: &crate::error::Error) -> (ErrorCode, String, Opti
             }
         }
         // Queue errors
-        Error::Queue(e) => {
-            let msg = e.to_string();
-            match e.exit_code() {
-                20 => (ErrorCode::Unknown, msg, suggestion),
-                _ => (ErrorCode::Unknown, msg, suggestion),
-            }
-        }
+        Error::Queue(e) => (ErrorCode::Unknown, e.to_string(), suggestion),
         // VCS errors
-        Error::Vcs(e) => {
-            let msg = e.to_string();
-            let suggestion = e.suggestion();
-            use crate::error_vcs::VcsErrorKind;
-            match e.kind() {
-                VcsErrorKind::NotInitialized => (
-                    ErrorCode::NotGitRepository,
-                    "VCS not initialized".to_string(),
-                    Some("Run 'scp init' to initialize VCS".to_string()),
-                ),
-                VcsErrorKind::Conflict(_, _) => (
-                    ErrorCode::Unknown,
-                    msg,
-                    Some("Resolve conflicts before continuing".to_string()),
-                ),
-                VcsErrorKind::PushFailed(_) => (ErrorCode::Unknown, msg, suggestion),
-                VcsErrorKind::PullFailed(_) => (ErrorCode::Unknown, msg, suggestion),
-                VcsErrorKind::RebaseFailed(_) => (ErrorCode::Unknown, msg, suggestion),
-                VcsErrorKind::BranchNotFound(_) => (ErrorCode::SpawnBeadNotFound, msg, None),
-                VcsErrorKind::BranchExists(_) => (ErrorCode::Unknown, msg, suggestion),
-                VcsErrorKind::CommitNotFound(_) => (ErrorCode::Unknown, msg, suggestion),
-                VcsErrorKind::WorkingCopyDirty => (
-                    ErrorCode::Unknown,
-                    msg,
-                    Some("Commit or stash your changes before continuing".to_string()),
-                ),
-                VcsErrorKind::CommitFailed(_) => (ErrorCode::Unknown, msg, suggestion),
-                VcsErrorKind::CheckoutFailed(_) => (ErrorCode::Unknown, msg, suggestion),
-                VcsErrorKind::DiffFailed(_) => (ErrorCode::Unknown, msg, suggestion),
-                VcsErrorKind::MergeNoCommitId => (ErrorCode::Unknown, msg, suggestion),
-                VcsErrorKind::InitFailed { .. } => (ErrorCode::Unknown, msg, suggestion),
-            }
-        }
+        Error::Vcs(e) => map_vcs_error(e),
         // Config errors
         Error::Config(_) => (
             ErrorCode::ConfigParseError,
@@ -138,9 +100,42 @@ pub fn map_error_to_parts(err: &crate::error::Error) -> (ErrorCode, String, Opti
         Error::Wait(_) => (ErrorCode::Unknown, message, suggestion),
         // Lock errors
         Error::Lock(_) => (ErrorCode::Unknown, message, suggestion),
-    };
+    }
+}
 
-    error_code
+/// Map a VCS error to its error code, message, and suggestion.
+fn map_vcs_error(e: &crate::error_vcs::VcsError) -> (ErrorCode, String, Option<String>) {
+    let msg = e.to_string();
+    let suggestion = e.suggestion();
+    use crate::error_vcs::VcsErrorKind;
+    match e.kind() {
+        VcsErrorKind::NotInitialized => (
+            ErrorCode::NotGitRepository,
+            "VCS not initialized".to_string(),
+            Some("Run 'scp init' to initialize VCS".to_string()),
+        ),
+        VcsErrorKind::Conflict(_, _) => (
+            ErrorCode::Unknown,
+            msg,
+            Some("Resolve conflicts before continuing".to_string()),
+        ),
+        VcsErrorKind::PushFailed(_) => (ErrorCode::Unknown, msg, suggestion),
+        VcsErrorKind::PullFailed(_) => (ErrorCode::Unknown, msg, suggestion),
+        VcsErrorKind::RebaseFailed(_) => (ErrorCode::Unknown, msg, suggestion),
+        VcsErrorKind::BranchNotFound(_) => (ErrorCode::SpawnBeadNotFound, msg, None),
+        VcsErrorKind::BranchExists(_) => (ErrorCode::Unknown, msg, suggestion),
+        VcsErrorKind::CommitNotFound(_) => (ErrorCode::Unknown, msg, suggestion),
+        VcsErrorKind::WorkingCopyDirty => (
+            ErrorCode::Unknown,
+            msg,
+            Some("Commit or stash your changes before continuing".to_string()),
+        ),
+        VcsErrorKind::CommitFailed(_) => (ErrorCode::Unknown, msg, suggestion),
+        VcsErrorKind::CheckoutFailed(_) => (ErrorCode::Unknown, msg, suggestion),
+        VcsErrorKind::DiffFailed(_) => (ErrorCode::Unknown, msg, suggestion),
+        VcsErrorKind::MergeNoCommitId => (ErrorCode::Unknown, msg, suggestion),
+        VcsErrorKind::InitFailed { .. } => (ErrorCode::Unknown, msg, suggestion),
+    }
 }
 
 #[cfg(test)]

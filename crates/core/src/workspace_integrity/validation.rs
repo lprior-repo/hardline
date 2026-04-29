@@ -59,13 +59,12 @@ impl IntegrityValidator {
         let start = SystemTime::now();
         let workspace_path = resolve_workspace_path(&self.workspaces_root, workspace_name);
 
-        let mut issues = Vec::new();
-
         // Check 1: Directory exists
         let path_exists = tokio::fs::try_exists(&workspace_path)
             .await
             .map_err(|e| Error::io_error(e.to_string()))?;
         if !path_exists {
+            let mut issues = Vec::new();
             issues.push(
                 IntegrityIssue::new(
                     CorruptionType::MissingDirectory,
@@ -76,77 +75,20 @@ impl IntegrityValidator {
                 )
                 .with_path(&workspace_path),
             );
-
-            // Can't continue validation if directory is missing
-            let duration = start
-                .elapsed()
-                .map_err(|e| Error::invalid_state(format!("Failed to measure duration: {e}")))
-                .and_then(|d| {
-                    u64::try_from(d.as_millis()).map_err(|_| {
-                        Error::invalid_state(
-                            "Duration overflow - operation took too long".to_string(),
-                        )
-                    })
-                })?;
+            let duration = measure_duration(&start)?;
             return Ok(
                 ValidationResult::invalid(workspace_name, &workspace_path, issues)
                     .with_duration(duration),
             );
         }
 
-        // Check 2: Directory is readable
-        if let Err(e) = tokio::fs::read_dir(&workspace_path).await {
-            issues.push(
-                IntegrityIssue::new(
-                    CorruptionType::PermissionDenied,
-                    format!("Cannot read workspace directory: {e}"),
-                )
-                .with_path(&workspace_path)
-                .with_context(e.to_string()),
-            );
-        }
+        let mut issues = Vec::new();
+        Self::check_readability(&workspace_path, &mut issues).await;
+        Self::check_git_dir(&workspace_path, &mut issues).await;
+        Self::check_config_file(&workspace_path, &mut issues).await;
+        Self::check_locks(&workspace_path, &mut issues).await;
 
-        // Check 3: .git directory exists
-        let git_dir = workspace_path.join(".git");
-        let git_dir_exists = tokio::fs::try_exists(&git_dir)
-            .await
-            .map_err(|e| Error::io_error(e.to_string()))?;
-        if git_dir_exists {
-            // Check 4: .git directory is valid
-            if let Some(issue) = validate_git_dir_for_issue(&git_dir).await {
-                issues.push(issue);
-            }
-        } else {
-            issues.push(
-                IntegrityIssue::new(
-                    CorruptionType::MissingGitDir,
-                    format!(
-                        ".git directory missing from workspace: {}",
-                        workspace_path.display()
-                    ),
-                )
-                .with_path(&git_dir),
-            );
-        }
-
-        // Check 5: Config file integrity (TOML validation)
-        if let Ok(Some(issue)) = check_config_file(&workspace_path).await {
-            issues.push(issue);
-        }
-
-        // Check 6: Lock files
-        if let Ok(Some(issue)) = check_stale_locks(&workspace_path).await {
-            issues.push(issue);
-        }
-
-        let duration = start
-            .elapsed()
-            .map_err(|e| Error::invalid_state(format!("Failed to measure duration: {e}")))
-            .and_then(|d| {
-                u64::try_from(d.as_millis()).map_err(|_| {
-                    Error::invalid_state("Duration overflow - operation took too long".to_string())
-                })
-            })?;
+        let duration = measure_duration(&start)?;
 
         if issues.is_empty() {
             Ok(ValidationResult::valid(workspace_name, &workspace_path).with_duration(duration))
@@ -180,4 +122,72 @@ impl IntegrityValidator {
         // Run concurrently but preserve order (try_join_all maintains input order)
         try_join_all(futures).await
     }
+
+    /// Check 2: Directory is readable
+    async fn check_readability(workspace_path: &PathBuf, issues: &mut Vec<IntegrityIssue>) {
+        if let Err(e) = tokio::fs::read_dir(workspace_path).await {
+            issues.push(
+                IntegrityIssue::new(
+                    CorruptionType::PermissionDenied,
+                    format!("Cannot read workspace directory: {e}"),
+                )
+                .with_path(workspace_path)
+                .with_context(e.to_string()),
+            );
+        }
+    }
+
+    /// Check 3-4: .git directory exists and is valid
+    async fn check_git_dir(workspace_path: &PathBuf, issues: &mut Vec<IntegrityIssue>) {
+        let git_dir = workspace_path.join(".git");
+        let git_dir_exists = tokio::fs::try_exists(&git_dir)
+            .await
+            .map_err(|e| Error::io_error(e.to_string()));
+        match git_dir_exists {
+            Ok(true) => {
+                if let Some(issue) = validate_git_dir_for_issue(&git_dir).await {
+                    issues.push(issue);
+                }
+            }
+            Ok(false) => {
+                issues.push(
+                    IntegrityIssue::new(
+                        CorruptionType::MissingGitDir,
+                        format!(
+                            ".git directory missing from workspace: {}",
+                            workspace_path.display()
+                        ),
+                    )
+                    .with_path(&git_dir),
+                );
+            }
+            Err(_) => {}
+        }
+    }
+
+    /// Check 5: Config file integrity (TOML validation)
+    async fn check_config_file(workspace_path: &PathBuf, issues: &mut Vec<IntegrityIssue>) {
+        if let Ok(Some(issue)) = check_config_file(workspace_path).await {
+            issues.push(issue);
+        }
+    }
+
+    /// Check 6: Lock files
+    async fn check_locks(workspace_path: &PathBuf, issues: &mut Vec<IntegrityIssue>) {
+        if let Ok(Some(issue)) = check_stale_locks(workspace_path).await {
+            issues.push(issue);
+        }
+    }
+}
+
+/// Measure elapsed time since `start`, returning milliseconds.
+fn measure_duration(start: &SystemTime) -> Result<u64> {
+    start
+        .elapsed()
+        .map_err(|e| Error::invalid_state(format!("Failed to measure duration: {e}")))
+        .and_then(|d| {
+            u64::try_from(d.as_millis()).map_err(|_| {
+                Error::invalid_state("Duration overflow - operation took too long".to_string())
+            })
+        })
 }

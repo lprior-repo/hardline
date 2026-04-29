@@ -64,7 +64,22 @@ pub async fn insert_conflict_resolution(
     pool: &SqlitePool,
     resolution: &ConflictResolution,
 ) -> Result<i64> {
-    // Validate inputs
+    validate_resolution(resolution)?;
+
+    let id = execute_insert(pool, resolution).await?;
+
+    tracing::debug!(
+        "Inserted conflict resolution for file '{}' in session '{}' (id: {id}, decider: {})",
+        resolution.file,
+        resolution.session,
+        resolution.decider
+    );
+
+    Ok(id)
+}
+
+/// Validate all fields of a conflict resolution before insertion.
+fn validate_resolution(resolution: &ConflictResolution) -> Result<()> {
     validate_decider(&resolution.decider).map_err(|e| {
         crate::Error::validation_field_error(
             "decider",
@@ -105,7 +120,14 @@ pub async fn insert_conflict_resolution(
         )
     })?;
 
-    // Insert record
+    Ok(())
+}
+
+/// Execute the SQL insert for a conflict resolution.
+async fn execute_insert(
+    pool: &SqlitePool,
+    resolution: &ConflictResolution,
+) -> Result<i64> {
     let result = sqlx::query(
         r"
         INSERT INTO conflict_resolutions (
@@ -133,15 +155,5 @@ pub async fn insert_conflict_resolution(
             .to_string(),
     })?;
 
-    let id = result.last_insert_rowid();
-
-    // Log success
-    tracing::debug!(
-        "Inserted conflict resolution for file '{}' in session '{}' (id: {id}, decider: {})",
-        resolution.file,
-        resolution.session,
-        resolution.decider
-    );
-
-    Ok(id)
+    Ok(result.last_insert_rowid())
 }

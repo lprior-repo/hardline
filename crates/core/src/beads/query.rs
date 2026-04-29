@@ -59,6 +59,29 @@ pub fn matches_filter(issue: &BeadIssue, filter: &BeadFilter) -> bool {
         })
 }
 
+/// Sort issues by a simple key with direction awareness.
+fn sort_by_key<K>(
+    issues: &[BeadIssue],
+    key_fn: impl Fn(&BeadIssue) -> K,
+    direction: SortDirection,
+) -> Vec<BeadIssue>
+where
+    K: Ord,
+{
+    match direction {
+        SortDirection::Asc => issues
+            .iter()
+            .sorted_by_key(|i| key_fn(i))
+            .cloned()
+            .collect(),
+        SortDirection::Desc => issues
+            .iter()
+            .sorted_by_key(|i| Reverse(key_fn(i)))
+            .cloned()
+            .collect(),
+    }
+}
+
 /// Sort issues based on the given sort field and direction.
 #[must_use]
 pub fn sort_issues(
@@ -67,97 +90,19 @@ pub fn sort_issues(
     direction: SortDirection,
 ) -> Vec<BeadIssue> {
     match sort {
-        BeadSort::Priority => match direction {
-            SortDirection::Asc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| {
-                    (i.priority.map_or(5, Priority::to_u32), i.updated_at)
-                })
-                .cloned()
-                .collect(),
-            SortDirection::Desc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| {
-                    (
-                        Reverse(i.priority.map_or(5, Priority::to_u32)),
-                        Reverse(i.updated_at),
-                    )
-                })
-                .cloned()
-                .collect(),
-        },
-        BeadSort::Created => match direction {
-            SortDirection::Asc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| i.created_at)
-                .cloned()
-                .collect(),
-            SortDirection::Desc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| Reverse(i.created_at))
-                .cloned()
-                .collect(),
-        },
-        BeadSort::Updated => match direction {
-            SortDirection::Asc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| i.updated_at)
-                .cloned()
-                .collect(),
-            SortDirection::Desc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| Reverse(i.updated_at))
-                .cloned()
-                .collect(),
-        },
-        BeadSort::Closed => match direction {
-            SortDirection::Asc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| i.closed_at)
-                .cloned()
-                .collect(),
-            SortDirection::Desc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| Reverse(i.closed_at))
-                .cloned()
-                .collect(),
-        },
-        BeadSort::Status => match direction {
-            SortDirection::Asc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| i.status)
-                .cloned()
-                .collect(),
-            SortDirection::Desc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| Reverse(i.status))
-                .cloned()
-                .collect(),
-        },
-        BeadSort::Title => match direction {
-            SortDirection::Asc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| i.title.to_lowercase())
-                .cloned()
-                .collect(),
-            SortDirection::Desc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| Reverse(i.title.to_lowercase()))
-                .cloned()
-                .collect(),
-        },
-        BeadSort::Id => match direction {
-            SortDirection::Asc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| i.id.to_lowercase())
-                .cloned()
-                .collect(),
-            SortDirection::Desc => issues
-                .iter()
-                .sorted_by_key(|i: &&BeadIssue| Reverse(i.id.to_lowercase()))
-                .cloned()
-                .collect(),
-        },
+        BeadSort::Priority => sort_by_key(
+            issues,
+            |i: &BeadIssue| (i.priority.map_or(5, Priority::to_u32), i.updated_at),
+            direction,
+        ),
+        BeadSort::Created => sort_by_key(issues, |i: &BeadIssue| i.created_at, direction),
+        BeadSort::Updated => sort_by_key(issues, |i: &BeadIssue| i.updated_at, direction),
+        BeadSort::Closed => sort_by_key(issues, |i: &BeadIssue| i.closed_at, direction),
+        BeadSort::Status => sort_by_key(issues, |i: &BeadIssue| i.status, direction),
+        BeadSort::Title => {
+            sort_by_key(issues, |i: &BeadIssue| i.title.to_lowercase(), direction)
+        }
+        BeadSort::Id => sort_by_key(issues, |i: &BeadIssue| i.id.to_lowercase(), direction),
     }
 }
 

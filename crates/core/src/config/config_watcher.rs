@@ -103,86 +103,15 @@ impl HotReloadConfigManager {
             inner: Arc::new(RwLock::new(HotReloadInner { config }.config)),
         };
 
-        // Spawn the config watcher task
         let inner = instance.inner.clone();
         let config_paths = collect_config_paths(&manager);
 
         if config_paths.is_empty() {
-            // Nothing to watch; skip spawning the task.
             tracing::debug!("No config paths to watch; hot-reload disabled");
             return Ok(instance);
         }
 
-        let (tx, mut rx) = mpsc::channel::<()>(4);
-
-        // Set up notify watcher
-        let watcher_result = notify::recommended_watcher(
-            move |res: std::result::Result<notify::Event, notify::Error>| {
-                if let Ok(event) = res {
-                    if event.kind.is_modify() || event.kind.is_create() {
-                        // Best-effort send; if the channel is full we simply
-                        // coalesce into the next event.
-                        let _ = tx.blocking_send(());
-                    }
-                }
-            },
-        )
-        .map_err(|e| {
-            crate::error::Error::from(ConfigErrorKind::WatcherError(format!(
-                "Failed to create file watcher: {e}"
-            )))
-        })?;
-
-        let mut watcher = watcher_result;
-
-        // Register paths with the watcher.
-        for path in &config_paths {
-            let watch_result = watcher.watch(path, notify::RecursiveMode::NonRecursive);
-
-            // If the file does not exist yet, fall back to watching the parent
-            // directory so we can detect creation events.
-            if watch_result.is_err() {
-                if let Some(parent) = path.parent() {
-                    let _ = watcher.watch(parent, notify::RecursiveMode::NonRecursive);
-                }
-            }
-        }
-
-        // Spawn the reload loop.
-        tokio::spawn(async move {
-            loop {
-                tokio::select! {
-                    Some(()) = rx.recv() => {
-                        // Debounce: small delay before reloading.
-                        tokio::time::sleep(Duration::from_millis(DEBOUNCE_MS)).await;
-
-                        // Drain any queued events that arrived during the
-                        // debounce window so we only reload once.
-                        while rx.try_recv().is_ok() {}
-
-                        // Reload config.
-                        match manager.load() {
-                            Ok(new_config) => {
-                                let mut write = inner.write().await;
-                                *write = new_config;
-                                tracing::info!("Config reloaded successfully");
-                            }
-                            Err(e) => {
-                                tracing::warn!(
-                                    "Config reload failed: {e}; using previous config"
-                                );
-                            }
-                        }
-                    }
-                    else => break,
-                }
-            }
-        });
-
-        tracing::info!(
-            paths = ?config_paths,
-            "Hot-reload config watcher started"
-        );
+        spawn_config_watcher(manager, inner, config_paths)?;
 
         Ok(instance)
     }
@@ -200,6 +129,102 @@ impl HotReloadConfigManager {
 // ═══════════════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════════════
+
+/// Set up the notify file watcher and spawn the config reload loop.
+fn spawn_config_watcher(
+    manager: ConfigManager,
+    inner: Arc<RwLock<Config>>,
+    config_paths: Vec<PathBuf>,
+) -> Result<()> {
+    let (tx, rx) = mpsc::channel::<()>(4);
+
+    let mut watcher = create_file_watcher(tx)?;
+
+    register_watch_paths(&mut watcher, &config_paths);
+
+    spawn_reload_loop(manager, inner, rx);
+
+    tracing::info!(
+        paths = ?config_paths,
+        "Hot-reload config watcher started"
+    );
+
+    Ok(())
+}
+
+/// Create a notify file watcher that sends events on config changes.
+fn create_file_watcher(
+    tx: mpsc::Sender<()>,
+) -> Result<notify::RecommendedWatcher> {
+    notify::recommended_watcher(
+        move |res: std::result::Result<notify::Event, notify::Error>| {
+            if let Ok(event) = res {
+                if event.kind.is_modify() || event.kind.is_create() {
+                    // Best-effort send; if the channel is full we simply
+                    // coalesce into the next event.
+                    let _ = tx.blocking_send(());
+                }
+            }
+        },
+    )
+    .map_err(|e| {
+        crate::error::Error::from(ConfigErrorKind::WatcherError(format!(
+            "Failed to create file watcher: {e}"
+        )))
+    })
+}
+
+/// Register paths with the watcher, falling back to parent directories for missing files.
+fn register_watch_paths(
+    watcher: &mut notify::RecommendedWatcher,
+    config_paths: &[PathBuf],
+) {
+    for path in config_paths {
+        let watch_result = watcher.watch(path, notify::RecursiveMode::NonRecursive);
+        if watch_result.is_err() {
+            if let Some(parent) = path.parent() {
+                let _ = watcher.watch(parent, notify::RecursiveMode::NonRecursive);
+            }
+        }
+    }
+}
+
+/// Spawn the async reload loop that debounces events and reloads config.
+fn spawn_reload_loop(
+    manager: ConfigManager,
+    inner: Arc<RwLock<Config>>,
+    mut rx: mpsc::Receiver<()>,
+) {
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                Some(()) = rx.recv() => {
+                    // Debounce: small delay before reloading.
+                    tokio::time::sleep(Duration::from_millis(DEBOUNCE_MS)).await;
+
+                    // Drain any queued events that arrived during the
+                    // debounce window so we only reload once.
+                    while rx.try_recv().is_ok() {}
+
+                    // Reload config.
+                    match manager.load() {
+                        Ok(new_config) => {
+                            let mut write = inner.write().await;
+                            *write = new_config;
+                            tracing::info!("Config reloaded successfully");
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                "Config reload failed: {e}; using previous config"
+                            );
+                        }
+                    }
+                }
+                else => break,
+            }
+        }
+    });
+}
 
 /// Collect all config file paths from a [`ConfigManager`].
 fn collect_config_paths(manager: &ConfigManager) -> Vec<PathBuf> {

@@ -33,7 +33,7 @@ pub async fn insert_operation_log(
     let created_at_str = entry.created_at.to_rfc3339();
 
     // Execute insert
-    let result = sqlx::query(
+    sqlx::query(
         "INSERT INTO operation_log (event_type, payload, stream_id, stream_version, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5)",
     )
@@ -43,56 +43,52 @@ pub async fn insert_operation_log(
     .bind(entry.stream_version)
     .bind(&created_at_str)
     .execute(pool)
-    .await;
+    .await
+    .map_err(|e| {
+        OperationLogError::DatabaseError(format!("Failed to insert operation log entry: {e}"))
+    })?;
 
-    match result {
-        Ok(_) => {
-            // Get the last inserted ID using a separate query
-            // Note: last_insert_rowid() is connection-specific in SQLite
-            let row = sqlx::query("SELECT last_insert_rowid() as id")
-                .fetch_one(pool)
-                .await
-                .map_err(|e| {
-                    OperationLogError::DatabaseError(format!("Failed to get insert ID: {e}"))
-                })?;
+    let final_id = retrieve_inserted_id(pool).await?;
 
-            // If last_insert_rowid returns 0, query for the max id instead
-            // (this handles cases where the connection was reused)
-            let id: i64 = row
-                .try_get("id")
-                .map_err(|e| OperationLogError::QueryFailed(format!("Field 'id' error: {e}")))?;
+    Ok(OperationLogEntry {
+        id: final_id,
+        event_type: entry.event_type.clone(),
+        payload: entry.payload.clone(),
+        stream_id: entry.stream_id.clone(),
+        stream_version: entry.stream_version,
+        created_at: entry.created_at,
+    })
+}
 
-            let final_id = if id == 0 {
-                // Fallback: get the max id from the table
-                let max_row = sqlx::query("SELECT MAX(id) as max_id FROM operation_log")
-                    .fetch_one(pool)
-                    .await
-                    .map_err(|e| {
-                        OperationLogError::DatabaseError(format!("Failed to get max ID: {e}"))
-                    })?;
+/// Retrieve the ID of the most recently inserted row.
+///
+/// Uses `last_insert_rowid()` with a fallback to `MAX(id)` for cases
+/// where the connection was reused.
+async fn retrieve_inserted_id(pool: &SqlitePool) -> Result<i64, OperationLogError> {
+    let row = sqlx::query("SELECT last_insert_rowid() as id")
+        .fetch_one(pool)
+        .await
+        .map_err(|e| OperationLogError::DatabaseError(format!("Failed to get insert ID: {e}")))?;
 
-                max_row
-                    .try_get::<Option<i64>, _>("max_id")
-                    .map_err(|e| {
-                        OperationLogError::QueryFailed(format!("Field 'max_id' error: {e}"))
-                    })?
-                    .unwrap_or(1)
-            } else {
-                id
-            };
+    let id: i64 = row
+        .try_get("id")
+        .map_err(|e| OperationLogError::QueryFailed(format!("Field 'id' error: {e}")))?;
 
-            Ok(OperationLogEntry {
-                id: final_id,
-                event_type: entry.event_type.clone(),
-                payload: entry.payload.clone(),
-                stream_id: entry.stream_id.clone(),
-                stream_version: entry.stream_version,
-                created_at: entry.created_at,
-            })
-        }
-        Err(e) => Err(OperationLogError::DatabaseError(format!(
-            "Failed to insert operation log entry: {e}"
-        ))),
+    if id == 0 {
+        // Fallback: get the max id from the table
+        let max_row = sqlx::query("SELECT MAX(id) as max_id FROM operation_log")
+            .fetch_one(pool)
+            .await
+            .map_err(|e| {
+                OperationLogError::DatabaseError(format!("Failed to get max ID: {e}"))
+            })?;
+
+        Ok(max_row
+            .try_get::<Option<i64>, _>("max_id")
+            .map_err(|e| OperationLogError::QueryFailed(format!("Field 'max_id' error: {e}")))?
+            .unwrap_or(1))
+    } else {
+        Ok(id)
     }
 }
 

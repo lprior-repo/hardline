@@ -483,18 +483,82 @@ impl Error {
     #[must_use]
     pub const fn code(&self) -> &'static str {
         match self {
-            // Workspace (1xxx)
+            Self::WorkspaceNotFound(_)
+            | Self::WorkspaceExists(_)
+            | Self::WorkspaceLocked(_, _)
+            | Self::WorkspaceConflict(_) => self.code_workspace(),
+            Self::SessionNotFound(_)
+            | Self::SessionExists(_)
+            | Self::SessionLocked(_, _)
+            | Self::NotLockHolder(_, _)
+            | Self::SessionInvalidState(_, _, _) => self.code_session(),
+            Self::BeadNotFound(_)
+            | Self::BeadAlreadyExists(_)
+            | Self::InvalidBeadId(_)
+            | Self::InvalidBeadTitle(_)
+            | Self::BeadInvalidStateTransition { .. }
+            | Self::BeadDependencyCycle(_)
+            | Self::BeadBlockedBy(_)
+            | Self::BeadInvalidDependency(_) => self.code_bead(),
+            Self::QueueEmpty
+            | Self::QueueItemNotFound(_)
+            | Self::QueueLocked(_)
+            | Self::QueueProcessing
+            | Self::QueueInvalidPosition(_)
+            | Self::QueueFull(_) => self.code_queue(),
+            Self::VcsNotInitialized
+            | Self::VcsConflict(_, _)
+            | Self::VcsPushFailed(_)
+            | Self::VcsPullFailed(_)
+            | Self::VcsRebaseFailed(_)
+            | Self::BranchNotFound(_)
+            | Self::BranchExists(_)
+            | Self::CommitNotFound(_)
+            | Self::WorkingCopyDirty => self.code_vcs(),
+            Self::StackNotFound(_)
+            | Self::StackOrphaned(_)
+            | Self::StackCyclicDependency
+            | Self::StackInvalidState(_)
+            | Self::StackPrNotFound(_) => self.code_stack(),
+            Self::GitHubAuthFailed(_)
+            | Self::GitHubTokenExpired
+            | Self::GitHubRateLimited(_)
+            | Self::GitHubPrClosed(_)
+            | Self::GitHubPrNotFound(_)
+            | Self::GitHubApiError { .. }
+            | Self::GitHubCiFailed(_) => self.code_github(),
+            Self::SnapshotNotFound(_)
+            | Self::SnapshotCorrupted(_)
+            | Self::SnapshotExpired(_)
+            | Self::SnapshotLimitExceeded(_)
+            | Self::SnapshotRestoreFailed(_) => self.code_snapshot(),
+            _ => self.code_infrastructure(),
+        }
+    }
+
+    const fn code_workspace(&self) -> &'static str {
+        match self {
             Self::WorkspaceNotFound(_) => "WORKSPACE_NOT_FOUND",
             Self::WorkspaceExists(_) => "WORKSPACE_EXISTS",
             Self::WorkspaceLocked(_, _) => "WORKSPACE_LOCKED",
             Self::WorkspaceConflict(_) => "WORKSPACE_CONFLICT",
-            // Session (2xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn code_session(&self) -> &'static str {
+        match self {
             Self::SessionNotFound(_) => "SESSION_NOT_FOUND",
             Self::SessionExists(_) => "SESSION_EXISTS",
             Self::SessionLocked(_, _) => "SESSION_LOCKED",
             Self::NotLockHolder(_, _) => "NOT_LOCK_HOLDER",
             Self::SessionInvalidState(_, _, _) => "SESSION_INVALID_STATE",
-            // Bead (3xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn code_bead(&self) -> &'static str {
+        match self {
             Self::BeadNotFound(_) => "BEAD_NOT_FOUND",
             Self::BeadAlreadyExists(_) => "BEAD_ALREADY_EXISTS",
             Self::InvalidBeadId(_) => "INVALID_BEAD_ID",
@@ -503,14 +567,24 @@ impl Error {
             Self::BeadDependencyCycle(_) => "BEAD_DEPENDENCY_CYCLE",
             Self::BeadBlockedBy(_) => "BEAD_BLOCKED_BY",
             Self::BeadInvalidDependency(_) => "BEAD_INVALID_DEPENDENCY",
-            // Queue (4xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn code_queue(&self) -> &'static str {
+        match self {
             Self::QueueEmpty => "QUEUE_EMPTY",
             Self::QueueItemNotFound(_) => "QUEUE_ITEM_NOT_FOUND",
             Self::QueueLocked(_) => "QUEUE_LOCKED",
             Self::QueueProcessing => "QUEUE_PROCESSING",
             Self::QueueInvalidPosition(_) => "QUEUE_INVALID_POSITION",
             Self::QueueFull(_) => "QUEUE_FULL",
-            // VCS (5xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn code_vcs(&self) -> &'static str {
+        match self {
             Self::VcsNotInitialized => "VCS_NOT_INITIALIZED",
             Self::VcsConflict(_, _) => "VCS_CONFLICT",
             Self::VcsPushFailed(_) => "VCS_PUSH_FAILED",
@@ -520,13 +594,23 @@ impl Error {
             Self::BranchExists(_) => "BRANCH_EXISTS",
             Self::CommitNotFound(_) => "COMMIT_NOT_FOUND",
             Self::WorkingCopyDirty => "WORKING_COPY_DIRTY",
-            // Stack (6xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn code_stack(&self) -> &'static str {
+        match self {
             Self::StackNotFound(_) => "STACK_NOT_FOUND",
             Self::StackOrphaned(_) => "STACK_ORPHANED",
             Self::StackCyclicDependency => "STACK_CYCLIC_DEPENDENCY",
             Self::StackInvalidState(_) => "STACK_INVALID_STATE",
             Self::StackPrNotFound(_) => "STACK_PR_NOT_FOUND",
-            // GitHub (7xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn code_github(&self) -> &'static str {
+        match self {
             Self::GitHubAuthFailed(_) => "GITHUB_AUTH_FAILED",
             Self::GitHubTokenExpired => "GITHUB_TOKEN_EXPIRED",
             Self::GitHubRateLimited(_) => "GITHUB_RATE_LIMITED",
@@ -534,52 +618,56 @@ impl Error {
             Self::GitHubPrNotFound(_) => "GITHUB_PR_NOT_FOUND",
             Self::GitHubApiError { .. } => "GITHUB_API_ERROR",
             Self::GitHubCiFailed(_) => "GITHUB_CI_FAILED",
-            // Snapshot (8xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn code_snapshot(&self) -> &'static str {
+        match self {
             Self::SnapshotNotFound(_) => "SNAPSHOT_NOT_FOUND",
             Self::SnapshotCorrupted(_) => "SNAPSHOT_CORRUPTED",
             Self::SnapshotExpired(_) => "SNAPSHOT_EXPIRED",
             Self::SnapshotLimitExceeded(_) => "SNAPSHOT_LIMIT_EXCEEDED",
             Self::SnapshotRestoreFailed(_) => "SNAPSHOT_RESTORE_FAILED",
-            // Config (9xxx - infrastructure)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn code_infrastructure(&self) -> &'static str {
+        match self {
             Self::ConfigNotFound(_) => "CONFIG_NOT_FOUND",
             Self::ConfigInvalid(_) => "CONFIG_INVALID",
             Self::ConfigPermission(_) => "CONFIG_PERMISSION",
             Self::InvalidConfig(_) => "INVALID_CONFIG",
             Self::InvalidRepoUrl(_) => "INVALID_REPO_URL",
-            // Agent (9xxx - infrastructure)
             Self::AgentNotFound(_) => "AGENT_NOT_FOUND",
             Self::AgentExists(_) => "AGENT_EXISTS",
             Self::AgentTimeout(_) => "AGENT_TIMEOUT",
-            // State/Conflict (9xxx - infrastructure)
             Self::InvalidState(_) => "INVALID_STATE",
             Self::NotFound(_) => "NOT_FOUND",
             Self::InvalidOperation(_) => "INVALID_OPERATION",
-            // Validation (9xxx - infrastructure)
             Self::ValidationError(_) => "VALIDATION_ERROR",
             Self::ValidationFieldError { .. } => "VALIDATION_FIELD_ERROR",
             Self::InvalidIdentifier(_) => "INVALID_IDENTIFIER",
-            // IO/Storage (9xxx - infrastructure)
             Self::IoError(_) => "IO_ERROR",
             Self::JsonParseError(_) => "JSON_PARSE_ERROR",
             Self::YamlParseError(_) => "YAML_PARSE_ERROR",
             Self::Database(_) => "DATABASE_ERROR",
             Self::Serialization(_) => "SERIALIZATION_ERROR",
-            // Orchestration/Workflow (9xxx - infrastructure)
             Self::LockTimeout { .. } => "LOCK_TIMEOUT",
             Self::CloneFailed(_) => "CLONE_FAILED",
             Self::RecordFailed(_) => "RECORD_FAILED",
             Self::Persistence(_) => "PERSISTENCE_ERROR",
             Self::StateTransition(_) => "STATE_TRANSITION_ERROR",
-            // Scenario/Execution (9xxx - infrastructure)
             Self::ScenarioError(_) => "SCENARIO_ERROR",
             Self::RunnerError(_) => "RUNNER_ERROR",
             Self::DefinitionError(_) => "DEFINITION_ERROR",
             Self::ServerError(_) => "SERVER_ERROR",
             Self::SyncError(_) => "SYNC_ERROR",
-            // Internal (9xxx)
             Self::Internal(_) => "INTERNAL_ERROR",
             Self::Unimplemented(_) => "NOT_IMPLEMENTED",
             Self::InvariantViolation(_) => "INVARIANT_VIOLATION",
+            _ => panic!("unhandled variant"),
         }
     }
 
@@ -598,18 +686,82 @@ impl Error {
     #[must_use]
     pub const fn numeric_code(&self) -> u16 {
         match self {
-            // Workspace (1xxx)
+            Self::WorkspaceNotFound(_)
+            | Self::WorkspaceExists(_)
+            | Self::WorkspaceLocked(_, _)
+            | Self::WorkspaceConflict(_) => self.numeric_code_workspace(),
+            Self::SessionNotFound(_)
+            | Self::SessionExists(_)
+            | Self::SessionLocked(_, _)
+            | Self::NotLockHolder(_, _)
+            | Self::SessionInvalidState(_, _, _) => self.numeric_code_session(),
+            Self::BeadNotFound(_)
+            | Self::BeadAlreadyExists(_)
+            | Self::InvalidBeadId(_)
+            | Self::InvalidBeadTitle(_)
+            | Self::BeadInvalidStateTransition { .. }
+            | Self::BeadDependencyCycle(_)
+            | Self::BeadBlockedBy(_)
+            | Self::BeadInvalidDependency(_) => self.numeric_code_bead(),
+            Self::QueueEmpty
+            | Self::QueueItemNotFound(_)
+            | Self::QueueLocked(_)
+            | Self::QueueProcessing
+            | Self::QueueInvalidPosition(_)
+            | Self::QueueFull(_) => self.numeric_code_queue(),
+            Self::VcsNotInitialized
+            | Self::VcsConflict(_, _)
+            | Self::VcsPushFailed(_)
+            | Self::VcsPullFailed(_)
+            | Self::VcsRebaseFailed(_)
+            | Self::BranchNotFound(_)
+            | Self::BranchExists(_)
+            | Self::CommitNotFound(_)
+            | Self::WorkingCopyDirty => self.numeric_code_vcs(),
+            Self::StackNotFound(_)
+            | Self::StackOrphaned(_)
+            | Self::StackCyclicDependency
+            | Self::StackInvalidState(_)
+            | Self::StackPrNotFound(_) => self.numeric_code_stack(),
+            Self::GitHubAuthFailed(_)
+            | Self::GitHubTokenExpired
+            | Self::GitHubRateLimited(_)
+            | Self::GitHubPrClosed(_)
+            | Self::GitHubPrNotFound(_)
+            | Self::GitHubApiError { .. }
+            | Self::GitHubCiFailed(_) => self.numeric_code_github(),
+            Self::SnapshotNotFound(_)
+            | Self::SnapshotCorrupted(_)
+            | Self::SnapshotExpired(_)
+            | Self::SnapshotLimitExceeded(_)
+            | Self::SnapshotRestoreFailed(_) => self.numeric_code_snapshot(),
+            _ => self.numeric_code_infrastructure(),
+        }
+    }
+
+    const fn numeric_code_workspace(&self) -> u16 {
+        match self {
             Self::WorkspaceNotFound(_) => 1001,
             Self::WorkspaceExists(_) => 1002,
             Self::WorkspaceLocked(_, _) => 1003,
             Self::WorkspaceConflict(_) => 1004,
-            // Session (2xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn numeric_code_session(&self) -> u16 {
+        match self {
             Self::SessionNotFound(_) => 2001,
             Self::SessionExists(_) => 2002,
             Self::SessionLocked(_, _) => 2003,
             Self::NotLockHolder(_, _) => 2004,
             Self::SessionInvalidState(_, _, _) => 2005,
-            // Bead (3xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn numeric_code_bead(&self) -> u16 {
+        match self {
             Self::BeadNotFound(_) => 3001,
             Self::BeadAlreadyExists(_) => 3002,
             Self::InvalidBeadId(_) => 3003,
@@ -618,14 +770,24 @@ impl Error {
             Self::BeadDependencyCycle(_) => 3006,
             Self::BeadBlockedBy(_) => 3007,
             Self::BeadInvalidDependency(_) => 3008,
-            // Queue (4xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn numeric_code_queue(&self) -> u16 {
+        match self {
             Self::QueueEmpty => 4001,
             Self::QueueItemNotFound(_) => 4002,
             Self::QueueLocked(_) => 4003,
             Self::QueueProcessing => 4004,
             Self::QueueInvalidPosition(_) => 4005,
             Self::QueueFull(_) => 4006,
-            // VCS (5xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn numeric_code_vcs(&self) -> u16 {
+        match self {
             Self::VcsNotInitialized => 5001,
             Self::VcsConflict(_, _) => 5002,
             Self::VcsPushFailed(_) => 5003,
@@ -635,13 +797,23 @@ impl Error {
             Self::BranchExists(_) => 5007,
             Self::CommitNotFound(_) => 5008,
             Self::WorkingCopyDirty => 5009,
-            // Stack (6xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn numeric_code_stack(&self) -> u16 {
+        match self {
             Self::StackNotFound(_) => 6001,
             Self::StackOrphaned(_) => 6002,
             Self::StackCyclicDependency => 6003,
             Self::StackInvalidState(_) => 6004,
             Self::StackPrNotFound(_) => 6005,
-            // GitHub (7xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn numeric_code_github(&self) -> u16 {
+        match self {
             Self::GitHubAuthFailed(_) => 7001,
             Self::GitHubTokenExpired => 7002,
             Self::GitHubRateLimited(_) => 7003,
@@ -649,52 +821,56 @@ impl Error {
             Self::GitHubPrNotFound(_) => 7005,
             Self::GitHubApiError { .. } => 7006,
             Self::GitHubCiFailed(_) => 7007,
-            // Snapshot (8xxx)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn numeric_code_snapshot(&self) -> u16 {
+        match self {
             Self::SnapshotNotFound(_) => 8001,
             Self::SnapshotCorrupted(_) => 8002,
             Self::SnapshotExpired(_) => 8003,
             Self::SnapshotLimitExceeded(_) => 8004,
             Self::SnapshotRestoreFailed(_) => 8005,
-            // Config (9xxx - infrastructure)
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn numeric_code_infrastructure(&self) -> u16 {
+        match self {
             Self::ConfigNotFound(_) => 9101,
             Self::ConfigInvalid(_) => 9102,
             Self::ConfigPermission(_) => 9103,
             Self::InvalidConfig(_) => 9104,
             Self::InvalidRepoUrl(_) => 9105,
-            // Agent (9xxx - infrastructure)
             Self::AgentNotFound(_) => 9201,
             Self::AgentExists(_) => 9202,
             Self::AgentTimeout(_) => 9203,
-            // State/Conflict (9xxx - infrastructure)
             Self::InvalidState(_) => 9301,
             Self::NotFound(_) => 9302,
             Self::InvalidOperation(_) => 9303,
-            // Validation (9xxx - infrastructure)
             Self::ValidationError(_) => 9401,
             Self::ValidationFieldError { .. } => 9402,
             Self::InvalidIdentifier(_) => 9403,
-            // IO/Storage (9xxx - infrastructure)
             Self::IoError(_) => 9501,
             Self::JsonParseError(_) => 9502,
             Self::YamlParseError(_) => 9503,
             Self::Database(_) => 9504,
             Self::Serialization(_) => 9505,
-            // Orchestration/Workflow (9xxx - infrastructure)
             Self::LockTimeout { .. } => 9601,
             Self::CloneFailed(_) => 9602,
             Self::RecordFailed(_) => 9603,
             Self::Persistence(_) => 9604,
             Self::StateTransition(_) => 9605,
-            // Scenario/Execution (9xxx - infrastructure)
             Self::ScenarioError(_) => 9701,
             Self::RunnerError(_) => 9702,
             Self::DefinitionError(_) => 9703,
             Self::ServerError(_) => 9704,
             Self::SyncError(_) => 9705,
-            // Internal (9xxx)
             Self::Internal(_) => 9001,
             Self::Unimplemented(_) => 9002,
             Self::InvariantViolation(_) => 9003,
+            _ => panic!("unhandled variant"),
         }
     }
 
@@ -759,6 +935,12 @@ impl Error {
             | Self::SnapshotLimitExceeded(_)
             | Self::SnapshotRestoreFailed(_) => ErrorCategory::Snapshot,
 
+            _ => self.category_infrastructure(),
+        }
+    }
+
+    const fn category_infrastructure(&self) -> ErrorCategory {
+        match self {
             Self::ConfigNotFound(_)
             | Self::ConfigInvalid(_)
             | Self::ConfigPermission(_)
@@ -791,6 +973,7 @@ impl Error {
             | Self::Internal(_)
             | Self::Unimplemented(_)
             | Self::InvariantViolation(_) => ErrorCategory::Internal,
+            _ => panic!("unhandled variant"),
         }
     }
 
@@ -1291,18 +1474,82 @@ impl Error {
     #[must_use]
     pub const fn exit_code(&self) -> i32 {
         match self {
-            // Workspace (1xxx) -> 10-19
+            Self::WorkspaceNotFound(_)
+            | Self::WorkspaceExists(_)
+            | Self::WorkspaceLocked(_, _)
+            | Self::WorkspaceConflict(_) => self.exit_code_workspace(),
+            Self::SessionNotFound(_)
+            | Self::SessionExists(_)
+            | Self::SessionLocked(_, _)
+            | Self::NotLockHolder(_, _)
+            | Self::SessionInvalidState(_, _, _) => self.exit_code_session(),
+            Self::BeadNotFound(_)
+            | Self::BeadAlreadyExists(_)
+            | Self::InvalidBeadId(_)
+            | Self::InvalidBeadTitle(_)
+            | Self::BeadInvalidStateTransition { .. }
+            | Self::BeadDependencyCycle(_)
+            | Self::BeadBlockedBy(_)
+            | Self::BeadInvalidDependency(_) => self.exit_code_bead(),
+            Self::QueueEmpty
+            | Self::QueueItemNotFound(_)
+            | Self::QueueLocked(_)
+            | Self::QueueProcessing
+            | Self::QueueInvalidPosition(_)
+            | Self::QueueFull(_) => self.exit_code_queue(),
+            Self::VcsNotInitialized
+            | Self::VcsConflict(_, _)
+            | Self::VcsPushFailed(_)
+            | Self::VcsPullFailed(_)
+            | Self::VcsRebaseFailed(_)
+            | Self::BranchNotFound(_)
+            | Self::BranchExists(_)
+            | Self::CommitNotFound(_)
+            | Self::WorkingCopyDirty => self.exit_code_vcs(),
+            Self::StackNotFound(_)
+            | Self::StackOrphaned(_)
+            | Self::StackCyclicDependency
+            | Self::StackInvalidState(_)
+            | Self::StackPrNotFound(_) => self.exit_code_stack(),
+            Self::GitHubAuthFailed(_)
+            | Self::GitHubTokenExpired
+            | Self::GitHubRateLimited(_)
+            | Self::GitHubPrClosed(_)
+            | Self::GitHubPrNotFound(_)
+            | Self::GitHubApiError { .. }
+            | Self::GitHubCiFailed(_) => self.exit_code_github(),
+            Self::SnapshotNotFound(_)
+            | Self::SnapshotCorrupted(_)
+            | Self::SnapshotExpired(_)
+            | Self::SnapshotLimitExceeded(_)
+            | Self::SnapshotRestoreFailed(_) => self.exit_code_snapshot(),
+            _ => self.exit_code_infrastructure(),
+        }
+    }
+
+    const fn exit_code_workspace(&self) -> i32 {
+        match self {
             Self::WorkspaceNotFound(_) => 10,
             Self::WorkspaceExists(_) => 11,
             Self::WorkspaceLocked(_, _) => 12,
             Self::WorkspaceConflict(_) => 13,
-            // Session (2xxx) -> 20-29
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn exit_code_session(&self) -> i32 {
+        match self {
             Self::SessionNotFound(_) => 20,
             Self::SessionExists(_) => 21,
             Self::SessionLocked(_, _) => 22,
             Self::NotLockHolder(_, _) => 23,
             Self::SessionInvalidState(_, _, _) => 24,
-            // Bead (3xxx) -> 30-39
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn exit_code_bead(&self) -> i32 {
+        match self {
             Self::BeadNotFound(_) => 30,
             Self::BeadAlreadyExists(_) => 31,
             Self::InvalidBeadId(_) => 32,
@@ -1311,14 +1558,24 @@ impl Error {
             Self::BeadDependencyCycle(_) => 35,
             Self::BeadBlockedBy(_) => 36,
             Self::BeadInvalidDependency(_) => 37,
-            // Queue (4xxx) -> 40-49
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn exit_code_queue(&self) -> i32 {
+        match self {
             Self::QueueEmpty => 40,
             Self::QueueItemNotFound(_) => 41,
             Self::QueueLocked(_) => 42,
             Self::QueueProcessing => 43,
             Self::QueueInvalidPosition(_) => 44,
             Self::QueueFull(_) => 45,
-            // VCS (5xxx) -> 50-59
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn exit_code_vcs(&self) -> i32 {
+        match self {
             Self::VcsNotInitialized => 50,
             Self::VcsConflict(_, _) => 51,
             Self::VcsPushFailed(_) => 52,
@@ -1328,13 +1585,23 @@ impl Error {
             Self::BranchExists(_) => 56,
             Self::CommitNotFound(_) => 57,
             Self::WorkingCopyDirty => 58,
-            // Stack (6xxx) -> 60-64
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn exit_code_stack(&self) -> i32 {
+        match self {
             Self::StackNotFound(_) => 60,
             Self::StackOrphaned(_) => 61,
             Self::StackCyclicDependency => 62,
             Self::StackInvalidState(_) => 63,
             Self::StackPrNotFound(_) => 64,
-            // GitHub (7xxx) -> 70-76
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn exit_code_github(&self) -> i32 {
+        match self {
             Self::GitHubAuthFailed(_) => 70,
             Self::GitHubTokenExpired => 71,
             Self::GitHubRateLimited(_) => 72,
@@ -1342,52 +1609,56 @@ impl Error {
             Self::GitHubPrNotFound(_) => 74,
             Self::GitHubApiError { .. } => 75,
             Self::GitHubCiFailed(_) => 76,
-            // Snapshot (8xxx) -> 80-84
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn exit_code_snapshot(&self) -> i32 {
+        match self {
             Self::SnapshotNotFound(_) => 80,
             Self::SnapshotCorrupted(_) => 81,
             Self::SnapshotExpired(_) => 82,
             Self::SnapshotLimitExceeded(_) => 83,
             Self::SnapshotRestoreFailed(_) => 84,
-            // Config (9xxx infra) -> 90-94
+            _ => panic!("unhandled variant"),
+        }
+    }
+
+    const fn exit_code_infrastructure(&self) -> i32 {
+        match self {
             Self::ConfigNotFound(_) => 90,
             Self::ConfigInvalid(_) => 91,
             Self::ConfigPermission(_) => 92,
             Self::InvalidConfig(_) => 93,
             Self::InvalidRepoUrl(_) => 94,
-            // Agent (9xxx infra) -> 100-102
             Self::AgentNotFound(_) => 100,
             Self::AgentExists(_) => 101,
             Self::AgentTimeout(_) => 102,
-            // State/Conflict (9xxx infra) -> 110-112
             Self::InvalidState(_) => 110,
             Self::NotFound(_) => 111,
             Self::InvalidOperation(_) => 112,
-            // Validation (9xxx infra) -> 120-122
             Self::ValidationError(_) => 120,
             Self::ValidationFieldError { .. } => 121,
             Self::InvalidIdentifier(_) => 122,
-            // IO/Storage (9xxx infra) -> 130-134
             Self::IoError(_) => 130,
             Self::JsonParseError(_) => 131,
             Self::YamlParseError(_) => 132,
             Self::Database(_) => 133,
             Self::Serialization(_) => 134,
-            // Orchestration (9xxx infra) -> 140-144
             Self::LockTimeout { .. } => 140,
             Self::CloneFailed(_) => 141,
             Self::RecordFailed(_) => 142,
             Self::Persistence(_) => 143,
             Self::StateTransition(_) => 144,
-            // Scenario (9xxx infra) -> 150-154
             Self::ScenarioError(_) => 150,
             Self::RunnerError(_) => 151,
             Self::DefinitionError(_) => 152,
             Self::ServerError(_) => 153,
             Self::SyncError(_) => 154,
-            // Internal (9xxx) -> 200-202
             Self::Internal(_) => 200,
             Self::Unimplemented(_) => 201,
             Self::InvariantViolation(_) => 202,
+            _ => panic!("unhandled variant"),
         }
     }
 }

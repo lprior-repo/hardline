@@ -104,6 +104,14 @@ impl ErrorCode {
     /// resolution hint exists, or `None` when no generic suggestion applies.
     #[must_use]
     pub const fn suggest_resolution(self) -> Option<&'static str> {
+        self.suggest_infrastructure_resolution()
+            .or_else(|| self.suggest_spawn_resolution())
+            .or_else(|| self.suggest_generic_resolution())
+    }
+
+    /// Suggest resolutions for infrastructure-related errors (session, workspace, VCS, etc.).
+    #[must_use]
+    const fn suggest_infrastructure_resolution(self) -> Option<&'static str> {
         match self {
             // Session errors
             Self::SessionNotFound => {
@@ -115,7 +123,6 @@ impl ErrorCode {
             Self::SessionNameInvalid => {
                 Some("Session names must be 1-64 chars, start with a letter, and contain only alphanumeric, dash, underscore")
             }
-
             // Workspace errors
             Self::WorkspaceCreationFailed => {
                 Some("Check Git is working: git status, or try: scp doctor")
@@ -123,7 +130,6 @@ impl ErrorCode {
             Self::WorkspaceNotFound => {
                 Some("Use 'scp workspace list' to see available workspaces, or 'scp doctor' to check system health")
             }
-
             // VCS errors
             Self::VcsNotInstalled => {
                 Some("Install Git: https://git-scm.com/downloads or use your package manager")
@@ -134,7 +140,6 @@ impl ErrorCode {
             Self::NotGitRepository => {
                 Some("Run 'scp init' to initialize a Git repository in this directory")
             }
-
             // Zellij errors
             Self::ZellijNotRunning => {
                 Some("Start a Zellij session: zellij attach <session> or zellij new <session>")
@@ -142,7 +147,6 @@ impl ErrorCode {
             Self::ZellijCommandFailed => {
                 Some("Ensure Zellij is installed and accessible: zellij --version")
             }
-
             // Config errors
             Self::ConfigNotFound => {
                 Some("Run 'scp init' to create default configuration")
@@ -153,7 +157,6 @@ impl ErrorCode {
             Self::ConfigKeyNotFound => {
                 Some("Check available keys with 'scp config show', or reset with 'scp config reset <key>'")
             }
-
             // Hook errors
             Self::HookFailed => {
                 Some("Check hook scripts in .scp/hooks/, or use --no-hooks to skip")
@@ -161,7 +164,6 @@ impl ErrorCode {
             Self::HookExecutionError => {
                 Some("Verify hook script permissions (chmod +x) and shebang lines, or use --no-hooks to skip")
             }
-
             // State errors
             Self::StateDbCorrupted => {
                 Some("Try running 'scp doctor --fix' to repair the database, or delete .scp/state.db to reset")
@@ -169,7 +171,6 @@ impl ErrorCode {
             Self::StateDbLocked => {
                 Some("Another process holds the database lock. Wait for it to finish, or check for stuck processes")
             }
-
             // Undo errors
             Self::ReadUndoLogFailed => {
                 Some("The undo log may be corrupted. Try 'scp doctor --fix' to repair")
@@ -177,8 +178,14 @@ impl ErrorCode {
             Self::WriteUndoLogFailed => {
                 Some("Check disk space and write permissions, or try 'scp doctor --fix'")
             }
+            _ => None,
+        }
+    }
 
-            // Spawn errors
+    /// Suggest resolutions for spawn-related errors.
+    #[must_use]
+    const fn suggest_spawn_resolution(self) -> Option<&'static str> {
+        match self {
             Self::SpawnNotOnMain => {
                 Some("Switch to main branch: git checkout main")
             }
@@ -209,14 +216,21 @@ impl ErrorCode {
             Self::SpawnVcsCommandFailed => {
                 Some("Check Git is working: git status, or run: scp doctor")
             }
+            _ => None,
+        }
+    }
 
-            // Generic errors
+    /// Suggest resolutions for generic errors.
+    #[must_use]
+    const fn suggest_generic_resolution(self) -> Option<&'static str> {
+        match self {
             Self::InvalidArgument => {
                 Some("Use 'scp context' to see current state, or check command help: scp <command> --help")
             }
             Self::Unknown => {
                 Some("Run 'scp doctor' to check system health and configuration")
             }
+            _ => None,
         }
     }
 }

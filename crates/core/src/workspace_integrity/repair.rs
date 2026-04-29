@@ -97,8 +97,19 @@ impl RepairExecutor {
             ));
         }
 
-        // Determine the overall repair strategy
-        // We pick the most aggressive (highest risk) strategy among all issues
+        let strategy = Self::determine_strategy(validation)?;
+        let result = self.execute_repair(validation, strategy).await?;
+        let backup_id = self.create_backup_if_needed(&validation.workspace).await?;
+
+        Ok(if let Some(id) = backup_id {
+            result.with_backup(id)
+        } else {
+            result
+        })
+    }
+
+    /// Determine the most aggressive repair strategy from validation issues.
+    fn determine_strategy(validation: &ValidationResult) -> Result<RepairStrategy> {
         let strategy = validation
             .issues
             .iter()
@@ -118,6 +129,23 @@ impl RepairExecutor {
             strategy,
             RepairStrategy::NoRepair | RepairStrategy::NoRepairPossible
         ) {
+            return Ok(RepairStrategy::NoRepair);
+        }
+
+        Ok(strategy)
+    }
+
+    /// Execute the repair strategy against the workspace.
+    async fn execute_repair(
+        &self,
+        validation: &ValidationResult,
+        strategy: RepairStrategy,
+    ) -> Result<RepairResult> {
+        // No-repair cases
+        if matches!(
+            strategy,
+            RepairStrategy::NoRepair | RepairStrategy::NoRepairPossible
+        ) {
             return Ok(RepairResult::failure(
                 &validation.workspace,
                 RepairStrategy::NoRepair,
@@ -125,8 +153,7 @@ impl RepairExecutor {
             ));
         }
 
-        // CRITICAL: Check if workspace directory exists before attempting repair
-        // For missing directories, we cannot repair automatically
+        // Check if workspace directory exists before attempting repair
         let workspace_exists = tokio::fs::try_exists(&validation.path)
             .await
             .map_err(|e| Error::io_error(e.to_string()))?;
@@ -141,40 +168,35 @@ impl RepairExecutor {
             ));
         }
 
-        // Create backup if configured (ADVERSARIAL: type-safe backup guarantee)
-        let backup_id = match &self.backup_config {
-            BackupConfig::WithBackup(manager) => {
-                let meta = manager
-                    .create_backup(&validation.workspace, "Auto-repair")
-                    .await?;
-                Some(meta.id)
-            }
-            BackupConfig::NoBackup => None,
-        };
-
-        // Execute the repair
-        let result = match strategy {
+        match strategy {
             RepairStrategy::ClearLocks => Self::clear_locks(&validation.path).await.map(|()| {
                 RepairResult::success(&validation.workspace, strategy, "Cleared stale lock files")
             }),
             RepairStrategy::RemoveAndReclone => {
                 Self::remove_and_reclone(&validation.workspace, &validation.path).await
             }
-            _ => {
-                // Not fully implemented yet
-                Ok(RepairResult::failure(
-                    &validation.workspace,
-                    strategy,
-                    format!("Repair strategy '{strategy}' not yet implemented"),
-                ))
-            }
-        }?;
+            _ => Ok(RepairResult::failure(
+                &validation.workspace,
+                strategy,
+                format!("Repair strategy '{strategy}' not yet implemented"),
+            )),
+        }
+    }
 
-        Ok(if let Some(id) = backup_id {
-            result.with_backup(id)
-        } else {
-            result
-        })
+    /// Create a backup if configured.
+    async fn create_backup_if_needed(
+        &self,
+        workspace_name: &str,
+    ) -> Result<Option<String>> {
+        match &self.backup_config {
+            BackupConfig::WithBackup(manager) => {
+                let meta = manager
+                    .create_backup(workspace_name, "Auto-repair")
+                    .await?;
+                Ok(Some(meta.id))
+            }
+            BackupConfig::NoBackup => Ok(None),
+        }
     }
 
     /// Clear lock files in a workspace

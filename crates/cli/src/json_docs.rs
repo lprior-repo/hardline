@@ -380,8 +380,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for hardline work command
-    pub const fn work() -> &'static str {
-        r#"AI CONTRACT for hardline work:
+    const WORK_CONTRACT: &str = r#"AI CONTRACT for hardline work:
 {
   "command": "hardline work",
   "intent": "Create or reuse a named workspace and optionally register an agent",
@@ -461,7 +460,10 @@ pub mod ai_contracts {
     "hardline checkpoint create",
     "hardline status"
   ]
-}"#
+}"#;
+
+    pub const fn work() -> &'static str {
+        WORK_CONTRACT
     }
 
     /// Machine-readable contract for hardline spawn command
@@ -561,8 +563,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for hardline sync command
-    pub const fn sync() -> &'static str {
-        r#"AI CONTRACT for hardline sync:
+    const SYNC_CONTRACT: &str = r#"AI CONTRACT for hardline sync:
 {
   "command": "hardline sync",
   "intent": "Sync session workspace with main branch by rebasing onto latest main",
@@ -630,12 +631,14 @@ pub mod ai_contracts {
     "hardline diff",
     "hardline status"
   ]
-}"#
+}"#;
+
+    pub const fn sync() -> &'static str {
+        SYNC_CONTRACT
     }
 
     /// Machine-readable contract for hardline abort command
-    pub const fn abort() -> &'static str {
-        r#"AI CONTRACT for hardline abort:
+    const ABORT_CONTRACT: &str = r#"AI CONTRACT for hardline abort:
 {
   "command": "hardline abort",
   "intent": "Abandon workspace without merging, discarding all changes",
@@ -695,12 +698,14 @@ pub mod ai_contracts {
     "hardline abort --keep-workspace",
     "hardline abort --dry-run"
   ]
-}"#
+}"#;
+
+    pub const fn abort() -> &'static str {
+        ABORT_CONTRACT
     }
 
     /// Machine-readable contract for hardline remove command
-    pub const fn remove() -> &'static str {
-        r#"AI CONTRACT for hardline remove:
+    const REMOVE_CONTRACT: &str = r#"AI CONTRACT for hardline remove:
 {
   "command": "hardline remove",
   "intent": "Remove a session and its workspace, optionally merging changes first",
@@ -783,7 +788,10 @@ pub mod ai_contracts {
     "hardline add <name>",
     "hardline clean"
   ]
-}"#
+}"#;
+
+    pub const fn remove() -> &'static str {
+        REMOVE_CONTRACT
     }
 
     /// Machine-readable contract for hardline status command
@@ -837,8 +845,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for hardline ai command
-    pub const fn ai() -> &'static str {
-        r#"AI CONTRACT for hardline ai:
+    const AI_CONTRACT: &str = r#"AI CONTRACT for hardline ai:
 {
   "command": "hardline ai",
   "intent": "AI-first entry point providing status, workflows, and guidance for AI agents",
@@ -898,7 +905,10 @@ pub mod ai_contracts {
     "hardline ai next",
     "hardline ai --json"
   ]
-}"#
+}"#;
+
+    pub const fn ai() -> &'static str {
+        AI_CONTRACT
     }
 
     /// Machine-readable contract for hardline contract command
@@ -1059,8 +1069,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for hardline diff command
-    pub const fn diff() -> &'static str {
-        r#"AI CONTRACT for hardline diff:
+    const DIFF_CONTRACT: &str = r#"AI CONTRACT for hardline diff:
 {
   "command": "hardline diff",
   "intent": "Show changes between session workspace and main branch",
@@ -1123,12 +1132,14 @@ pub mod ai_contracts {
     "hardline status",
     "hardline sync"
   ]
-}"#
+}"#;
+
+    pub const fn diff() -> &'static str {
+        DIFF_CONTRACT
     }
 
     /// Machine-readable contract for hardline list command
-    pub const fn list() -> &'static str {
-        r#"AI CONTRACT for hardline list:
+    const LIST_CONTRACT: &str = r#"AI CONTRACT for hardline list:
 {
   "command": "hardline list",
   "intent": "Query all sessions in the repository to see status and metadata",
@@ -1213,7 +1224,10 @@ pub mod ai_contracts {
     "hardline add <name>",
     "hardline work <bead_id>"
   ]
-}"#
+}"#;
+
+    pub const fn list() -> &'static str {
+        LIST_CONTRACT
     }
 
     /// Machine-readable contract for hardline focus command
@@ -1270,8 +1284,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for hardline context command
-    pub const fn context() -> &'static str {
-        r#"AI CONTRACT for hardline context:
+    const CONTEXT_CONTRACT: &str = r#"AI CONTRACT for hardline context:
 {
   "command": "hardline context",
   "intent": "Show complete environment context for AI agents and programmatic access",
@@ -1358,13 +1371,14 @@ pub mod ai_contracts {
     "hardline status",
     "hardline work"
   ]
-}"#
+}"#;
+
+    pub const fn context() -> &'static str {
+        CONTEXT_CONTRACT
     }
 
     /// Machine-readable contract for hardline introspect command
-    #[allow(clippy::too_many_lines)]
-    pub const fn introspect() -> &'static str {
-        r#"AI CONTRACT for hardline introspect:
+    const INTROSPECT_CONTRACT: &str = r#"AI CONTRACT for hardline introspect:
 {
   "command": "hardline introspect",
   "intent": "Discover hardline capabilities, command details, and system state for AI agent understanding",
@@ -1491,12 +1505,14 @@ pub mod ai_contracts {
     "hardline context",
     "hardline ai"
   ]
-}"#
+}"#;
+
+    pub const fn introspect() -> &'static str {
+        INTROSPECT_CONTRACT
     }
 
     /// Machine-readable contract for hardline examples command
-    pub const fn examples() -> &'static str {
-        r#"AI CONTRACT for hardline examples:
+    const EXAMPLES_CONTRACT: &str = r#"AI CONTRACT for hardline examples:
 {
   "command": "hardline examples",
   "intent": "Show copy-pastable usage examples for commands, useful for AI agents and users",
@@ -1556,7 +1572,10 @@ pub mod ai_contracts {
     "hardline ai quick-start",
     "hardline context"
   ]
-}"#
+}"#;
+
+    pub const fn examples() -> &'static str {
+        EXAMPLES_CONTRACT
     }
 
     /// Machine-readable contract for hardline validate command
@@ -1605,8 +1624,7 @@ pub mod ai_contracts {
     }
 
     /// Machine-readable contract for hardline whatif command
-    pub const fn whatif() -> &'static str {
-        r#"AI CONTRACT for hardline whatif:
+    const WHATIF_CONTRACT: &str = r#"AI CONTRACT for hardline whatif:
 {
   "command": "hardline whatif",
   "intent": "Preview what a command would do without executing it, showing steps, resources, and reversibility",
@@ -1701,12 +1719,14 @@ pub mod ai_contracts {
     "hardline remove",
     "hardline spawn"
   ]
-}"#
+}"#;
+
+    pub const fn whatif() -> &'static str {
+        WHATIF_CONTRACT
     }
 
     /// Machine-readable contract for hardline whereami command
-    pub const fn whereami() -> &'static str {
-        r#"AI CONTRACT for hardline whereami:
+    const WHEREAMI_CONTRACT: &str = r#"AI CONTRACT for hardline whereami:
 {
   "command": "hardline whereami",
   "intent": "Quick location query returning simple location identifier for AI agent orientation",
@@ -1765,13 +1785,14 @@ pub mod ai_contracts {
     "hardline status",
     "hardline work"
   ]
-}"#
+}"#;
+
+    pub const fn whereami() -> &'static str {
+        WHEREAMI_CONTRACT
     }
 
     /// Machine-readable contract for hardline query command
-    #[allow(clippy::too_many_lines)]
-    pub const fn query() -> &'static str {
-        r#"AI CONTRACT for hardline query:
+    const QUERY_CONTRACT: &str = r#"AI CONTRACT for hardline query:
 {
   "command": "hardline query",
   "intent": "Query system state programmatically for AI agents and automation",
@@ -1888,7 +1909,10 @@ pub mod ai_contracts {
     "hardline status",
     "hardline introspect"
   ]
-}"#
+}"#;
+
+    pub const fn query() -> &'static str {
+        QUERY_CONTRACT
     }
 
     /// Machine-readable contract for hardline whoami command
