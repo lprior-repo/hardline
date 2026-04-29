@@ -50,16 +50,11 @@ rand = "0.9"
 
 # Collections & functional
 im = { version = "15.1", features = ["serde"] }
-rpds = "1.2"
 itertools = "0.13"
-either = "1.13"
 tap = "1.0"
 
 # String utilities
 strum = { version = "0.26", features = ["derive"] }
-
-# Templating
-askama = "0.12"
 
 # File system
 directories = "6"
@@ -70,7 +65,6 @@ walkdir = "2"
 
 # Parsing
 regex = "1.11"
-kdl = "4.7"
 
 # Process
 which = "6.0"
@@ -78,18 +72,11 @@ which = "6.0"
 # Graph algorithms
 petgraph = "0.6"
 
-# Hex encoding/decoding
-hex = "0.4"
-faster-hex = "0.10"
-
 # Git
 gix = { version = "0.78", features = ["status", "blocking-network-client"] }
 git2 = "0.20"
 
-# Jujutsu VCS
-jj-lib = "0.38"
 uuid = { version = "1", features = ["v4", "serde"] }
-uuid-no-serde = { version = "1", features = ["v4"] }
 
 # Path utilities
 pathdiff = "0.2"

@@ -13,7 +13,6 @@ serde = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
 gix = { workspace = true }
-hex = { workspace = true }
 sqlx = { workspace = true }
 url = { workspace = true }
 

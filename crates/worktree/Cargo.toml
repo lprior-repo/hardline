@@ -10,9 +10,6 @@ license = "MIT"
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 
-# Persistent state (if needed)
-rpds = { workspace = true }
-
 # Iteration utilities
 itertools = { workspace = true }
 

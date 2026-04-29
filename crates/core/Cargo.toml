@@ -39,7 +39,6 @@ chrono = { workspace = true }
 # Collections
 im = { workspace = true }
 itertools = { workspace = true }
-either = { workspace = true }
 tap = { workspace = true }
 petgraph = { workspace = true }
 
@@ -56,9 +55,7 @@ notify-debouncer-mini = { workspace = true }
 regex = { workspace = true }
 strum = { workspace = true }
 
-# Hex
-hex = { workspace = true }
-faster-hex = { workspace = true }
+# Random
 rand = { workspace = true }
 uuid = { workspace = true }
 
