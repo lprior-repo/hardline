@@ -19,6 +19,25 @@ Three projects converge into hardline:
 - **DDD**: Strict domain/application/infrastructure layers per ADR-009.
 - **Functional Rust**: Zero unwrap/panic in src/. Data->Calc->Actions pattern.
 - **Binary name**: `hd`
+- **Minimal footprint**: Remove every dead library. Add nothing without justification.
+- **Holzmann NASA rules**: All code follows the Power of Ten (see Appendix).
+
+## Holzmann Rules (Rust Adaptation)
+
+All production code (`src/`) must satisfy:
+
+| # | Rule | Rust Enforcement |
+|---|------|-----------------|
+| 1 | Simple control flow, no recursion | Max 3 nesting levels. No recursive calls. Use iterative approaches. |
+| 2 | Fixed loop upper-bounds | All `while`/`loop` must have iteration counter with hard upper bound. `for` over bounded collections is OK. |
+| 3 | No dynamic allocation after init | `Vec::with_capacity(n)` at init. Use stack allocation, `ArrayVec<T,N>`, fixed-size types. Avoid runtime `Box<dyn Trait>`. |
+| 4 | Functions ≤ 60 lines | `clippy.toml`: `too-many-lines-threshold = 60`. Extract helpers when exceeded. |
+| 5 | ≥ 2 assertions per function | `assert!`, `debug_assert!`, pre/post conditions. Prefer `Result<T,E>` returns for recovery paths. |
+| 6 | Smallest possible scope | Block scoping, RAII, declare near use. No module-level `static` except for truly global state. |
+| 7 | Check all return values | No `.unwrap()` or `.expect()` in `src/`. Use `?` operator. `#[must_use]` on public return types. Parse, don't validate. |
+| 8 | Limit macros | Prefer `const fn` over `macro_rules!`. No recursive/token-pasting macros. Derive macros OK. |
+| 9 | No function pointers, max 1 dereference | Use generics + trait bounds, not `fn()`. `&T` OK, `&&T` avoid, `&&&T` forbidden. No `Box<dyn>` in hot paths. |
+| 10 | All warnings, all analyzers | `#![deny(warnings)]`. clippy pedantic. `cargo fmt --check`. `cargo audit`. Zero warnings. |
 
 ## Phase 1: Excision
 
@@ -30,15 +49,30 @@ Remove dead weight with zero compile risk.
 - Remove `crates/isolate-core/` — only consumed by the deleted scp-isolate
 - Workspace `members = ["crates/*"]` glob auto-excludes deleted directories
 
-### 1.2 Remove vestigial dependencies from workspace Cargo.toml
+### 1.2 Remove dead dependencies from workspace Cargo.toml
 
 | Library | Reason |
 |---------|--------|
 | jj-lib 0.38 | Post-JJ rip-out, no crate uses it |
 | git2 0.20 | Replaced by gix, no crate uses it |
-| uuid-no-serde 1 | Unify with standard uuid crate |
+| uuid-no-serde 1 | No crate references it, standard uuid covers all needs |
+| rpds 1.2 | Listed in workspace + worktree/isolate-core, zero `use rpds` in any source file. `im` covers all persistent data structure needs |
+| hex 0.4 | No `hex::encode/decode` calls anywhere. gix uses faster-hex transitively |
+| faster-hex 0.10 | No direct usage. gix brings it transitively; removing direct dep saves nothing but removes confusion |
+| dbc (contracts) 0.6 | Imported with `#[allow(unused_imports)]` in 3 files, never actually invoked. Project has its own contract system in `core/src/contracts/` |
+| askama 0.12 | Listed only in isolate-core Cargo.toml. Zero templates, zero `#[template]`, zero `use askama` |
+| either 1.13 | Listed in workspace + core/isolate-core. Zero `use either` in any source file |
+| kdl 4.7 | Listed only in isolate-core. Zero `use kdl` in any source file. No .kdl files exist |
 
-### 1.3 Clean up stale references
+### 1.3 Remove redundant direct dependencies
+
+| Library | From | Reason |
+|---------|------|--------|
+| hyper | twins Cargo.toml | Zero `use hyper` anywhere. Axum provides it transitively |
+| bincode | workspace Cargo.toml | Dev-only (tests in workspace crate). Move to `[dev-dependencies]` |
+| im | scenarios Cargo.toml | Zero `use im` in scenarios source files |
+
+### 1.4 Clean up stale references
 
 - Update doc comments in `core/src/domain/` that reference `isolate_core`
 - Delete empty `ISOLATE_VS_HARDLINE.md`
@@ -54,22 +88,22 @@ All tests must pass. No warnings.
 
 ## Phase 2: Library Consolidation
 
-### 2.1 Libraries to ADD
+### 2.1 Libraries to ADD (only if needed during implementation)
 
-| Library | Version | Purpose | Origin |
-|---------|---------|---------|--------|
-| fs4 | 0.11+ (tokio feat) | Async-aware file locking, replaces fs2 | From isolate |
-| tar | 0.4 | Archive creation for snapshots/export | From isolate |
-| flate2 | 1.0 | gzip compression for archives | From isolate |
+| Library | Version | Purpose | When to add |
+|---------|---------|---------|-------------|
+| fs4 | 0.11+ (tokio feat) | Async-aware file locking, replaces fs2 | When migrating fs2 call sites |
+| tar | 0.4 | Archive creation for snapshots/export | When implementing snapshot archive feature |
+| flate2 | 1.0 | gzip compression for archives | When implementing snapshot archive feature |
 
-Note: `hostname`, `is-terminal`, `num-traits` were in isolate but may not be needed — verify during porting before adding.
+**Do not add until needed.** No speculative dependencies. `hostname`, `is-terminal`, `num-traits` from isolate are NOT needed — Rust stdlib provides `isatty` via `std::io::IsTerminal` (stable since 1.70).
 
-### 2.2 Libraries to REMOVE (after Phase 1)
+### 2.2 Libraries to REMOVE
 
 | Library | Reason |
 |---------|--------|
-| fs2 | Replaced by fs4 |
-| rusqlite | scp-queue uses rusqlite; migrate to sqlx for consistency |
+| fs2 | Replaced by fs4 (async-aware, tokio-compatible) |
+| rusqlite | scp-queue is the only user; migrate to sqlx for consistency |
 
 ### 2.3 Libraries to UNIFY
 
@@ -254,9 +288,70 @@ Phase 6 depends on everything else.
 
 - [ ] `moon run :ci` passes with zero warnings
 - [ ] No jj-lib, git2, rusqlite, fs2 in Cargo.toml
+- [ ] No dead dependencies (rpds, hex, faster-hex, dbc, askama, either, kdl, uuid-no-serde)
 - [ ] `isolate` and `isolate-core` crates removed
 - [ ] All 52 isolate commands have `hd` equivalents
 - [ ] `hd init` creates a Git repo (not JJ)
 - [ ] `hd workspace spawn` creates isolated workspace via gix clone
 - [ ] Stack engine operations return real results (not stubs)
 - [ ] Binary named `hd`
+- [ ] All functions ≤ 60 lines (clippy enforced)
+- [ ] Zero `.unwrap()` in `src/`
+- [ ] `#![deny(warnings)]` on all crates
+
+## Retained Libraries (justified)
+
+Every kept library earns its place:
+
+| Library | Why it stays |
+|---------|-------------|
+| gix 0.78 | Pure Rust Git. No C bindings, no shelling out. Core VCS backend. |
+| sqlx 0.8 | Async SQLite. Type-checked queries. All persistence. |
+| tokio 1 | Async runtime. Required by sqlx, gix network ops. |
+| clap 4 | CLI parsing. Standard Rust CLI framework. |
+| serde + serde_json + serde_yaml | Serialization. serde_json for AI output, serde_yaml for twins/scenarios. |
+| octocrab 0.44 | GitHub API. Required for stacked PRs. Pure Rust. |
+| ratatui + crossterm | TUI. Required for dashboard view. Pure Rust. |
+| axum + tower + tower-http | HTTP server for twins testing. Used in tests. |
+| im 15.1 | Persistent data structures. Used in 6 crates for immutable state. |
+| petgraph 0.6 | Graph algorithms for branch DAG. Essential for stack operations. |
+| thiserror 1.0 | Error derive. Standard Rust error handling. |
+| tracing 0.1 | Structured logging. Observability per ADR-014. |
+| notify + notify-debouncer-mini | File watching for config changes. Used in core. |
+| shell-words | Batch command parsing. Used in CLI batch handler. |
+| tap | Pipe trait for functional composition. Used in 5 files. |
+| fs2 → fs4 | File locking. Cross-process safety for init/config. |
+| chrono 0.4 | Timestamps. Used across all domain types. |
+| uuid 1 | Identity generation. Session/workspace/bead IDs. |
+| strum 0.26 | Enum string conversion. State machine display. |
+| toml + toml_edit | Config file parsing/writing. |
+| reqwest 0.12 | HTTP client. GitHub API fallback. |
+| walkdir 2 | Directory traversal. Workspace scanning. |
+| regex 1.11 | Pattern matching. Validation rules. |
+| pathdiff 0.2 | Relative path computation. Workspace path resolution. |
+| rand 0.9 | Random generation. Token/ID generation. |
+| sha2 0.10 | Hashing. Token hashing per ADR-015. |
+
+## Appendix: Holzmann Power of Ten (Full Rust Adaptation)
+
+Gerard Holzmann, NASA/JPL. Applied to all `src/` code in this project.
+
+**Rule 1 — Simple control flow**: No goto, no recursion, max 3 nesting levels. Early returns OK.
+
+**Rule 2 — Bounded loops**: All `while`/`loop` have iteration counter with hard upper bound. `for` over collections OK (bounded by collection size).
+
+**Rule 3 — No runtime allocation**: Pre-allocate with `Vec::with_capacity(n)`. Use stack: `[T; N]`, `ArrayVec<T,N>`. Allocate `Box<dyn>` once at init, never in hot paths.
+
+**Rule 4 — Functions ≤ 60 lines**: Enforced by `clippy.toml` `too-many-lines-threshold = 60`. Extract helpers.
+
+**Rule 5 — Assertions ≥ 2 per function**: `assert!`, `debug_assert!`, custom `invariant!` macro. Side-effect-free only. Prefer `Result<T,E>` for recoverable failures.
+
+**Rule 6 — Smallest scope**: Block scoping `{ let x = ...; }`. RAII. Declare near use. No premature module-level state.
+
+**Rule 7 — Check all returns**: `?` operator. No `.unwrap()`/`.expect()` in `src/`. `#[must_use]` on public types. Parse, don't validate.
+
+**Rule 8 — Limit macros**: `const fn` over `macro_rules!`. No recursive macros. Derive macros OK. `include_str!` OK.
+
+**Rule 9 — No function pointers**: Generics + trait bounds, not `fn()`. `&T` OK, `&&T` avoid. No `Box<dyn>` in loops.
+
+**Rule 10 — Zero warnings**: `#![deny(warnings)]`. clippy pedantic. `cargo fmt --check`. `cargo audit`. If tool warns, rewrite the code.
