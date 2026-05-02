@@ -7,9 +7,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::agent::AgentId;
-use crate::error::Result;
-use crate::error_internal::InternalErrorKind;
+use crate::{agent::AgentId, error::Result, error_internal::InternalErrorKind};
 
 // ========================================================================
 // Scope
@@ -74,10 +72,7 @@ impl AgentToken {
     pub fn new(raw_token: &str, ttl: Duration) -> Result<Self> {
         if raw_token.is_empty() {
             return Err(
-                InternalErrorKind::InvalidOperation(
-                    "Token must not be empty".into(),
-                )
-                .into(),
+                InternalErrorKind::InvalidOperation("Token must not be empty".into()).into(),
             );
         }
 
@@ -135,11 +130,10 @@ fn make_local_token(now: DateTime<Utc>) -> AgentToken {
     let ttl = Duration::try_days(365 * 100)
         .or_else(|| Duration::try_seconds(31_536_000_000))
         .unwrap_or(Duration::seconds(31_536_000_000));
-    AgentToken::new("local-only", ttl)
-        .unwrap_or_else(|_| AgentToken {
-            token_hash: hash_token("local-only-fallback"),
-            expires_at: now + ttl,
-        })
+    AgentToken::new("local-only", ttl).unwrap_or_else(|_| AgentToken {
+        token_hash: hash_token("local-only-fallback"),
+        expires_at: now + ttl,
+    })
 }
 
 /// Authentication context for request-scoped identity.
@@ -164,18 +158,12 @@ impl AuthContext {
     /// # Errors
     ///
     /// Returns an error if the token is already expired.
-    pub fn new(
-        agent_id: AgentId,
-        token: AgentToken,
-        scopes: Vec<Scope>,
-    ) -> Result<Self> {
+    pub fn new(agent_id: AgentId, token: AgentToken, scopes: Vec<Scope>) -> Result<Self> {
         if token.is_expired() {
-            return Err(
-                InternalErrorKind::InvalidOperation(
-                    "Cannot create AuthContext with expired token".into(),
-                )
-                .into(),
-            );
+            return Err(InternalErrorKind::InvalidOperation(
+                "Cannot create AuthContext with expired token".into(),
+            )
+            .into());
         }
 
         Ok(Self {
@@ -235,22 +223,32 @@ impl AuthContext {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::TimeDelta;
+
+    use super::*;
 
     #[test]
     fn test_agent_token_new_hashes_correctly() {
-        let token = AgentToken::new("secret123", TimeDelta::try_seconds(3600).expect("valid duration"))
-            .expect("should create token");
+        let token = AgentToken::new(
+            "secret123",
+            TimeDelta::try_seconds(3600).expect("valid duration"),
+        )
+        .expect("should create token");
 
         // Same input should produce same hash
-        let token2 = AgentToken::new("secret123", TimeDelta::try_seconds(3600).expect("valid duration"))
-            .expect("should create token");
+        let token2 = AgentToken::new(
+            "secret123",
+            TimeDelta::try_seconds(3600).expect("valid duration"),
+        )
+        .expect("should create token");
         assert_eq!(token.token_hash, token2.token_hash);
 
         // Different input should produce different hash
-        let token3 = AgentToken::new("secret456", TimeDelta::try_seconds(3600).expect("valid duration"))
-            .expect("should create token");
+        let token3 = AgentToken::new(
+            "secret456",
+            TimeDelta::try_seconds(3600).expect("valid duration"),
+        )
+        .expect("should create token");
         assert_ne!(token.token_hash, token3.token_hash);
     }
 
@@ -262,8 +260,11 @@ mod tests {
 
     #[test]
     fn test_agent_token_verify() {
-        let token = AgentToken::new("my-token", TimeDelta::try_seconds(3600).expect("valid duration"))
-            .expect("should create token");
+        let token = AgentToken::new(
+            "my-token",
+            TimeDelta::try_seconds(3600).expect("valid duration"),
+        )
+        .expect("should create token");
 
         assert!(token.verify("my-token"));
         assert!(!token.verify("wrong-token"));
@@ -276,16 +277,18 @@ mod tests {
             .expect("should create token");
         assert!(!token.is_expired());
 
-        let expired = AgentToken::new("tok", TimeDelta::zero())
-            .expect("should create token");
+        let expired = AgentToken::new("tok", TimeDelta::zero()).expect("should create token");
         // Tokens with 0 TTL expire immediately (or very soon)
         assert!(expired.is_expired());
     }
 
     #[test]
     fn test_token_hash_is_hex_sha256() {
-        let token = AgentToken::new("test", TimeDelta::try_seconds(3600).expect("valid duration"))
-            .expect("should create token");
+        let token = AgentToken::new(
+            "test",
+            TimeDelta::try_seconds(3600).expect("valid duration"),
+        )
+        .expect("should create token");
         // SHA-256 hex digest is 64 characters
         assert_eq!(token.token_hash.len(), 64);
         assert!(token.token_hash.chars().all(|c| c.is_ascii_hexdigit()));
@@ -308,8 +311,7 @@ mod tests {
     #[test]
     fn test_auth_context_new_rejects_expired() {
         let agent_id = AgentId::new("agent-1");
-        let expired = AgentToken::new("tok", TimeDelta::zero())
-            .expect("should create token");
+        let expired = AgentToken::new("tok", TimeDelta::zero()).expect("should create token");
 
         let result = AuthContext::new(agent_id, expired, vec![Scope::ReadWorkspace]);
         assert!(result.is_err());
@@ -340,8 +342,8 @@ mod tests {
         let token = AgentToken::new("tok", TimeDelta::try_seconds(3600).expect("valid duration"))
             .expect("should create token");
 
-        let ctx = AuthContext::new(agent_id, token, vec![Scope::Admin])
-            .expect("should create context");
+        let ctx =
+            AuthContext::new(agent_id, token, vec![Scope::Admin]).expect("should create context");
 
         assert!(ctx.has_scope(&Scope::Admin));
         assert!(ctx.has_scope(&Scope::ReadWorkspace));
@@ -363,10 +365,8 @@ mod tests {
 
     #[test]
     fn test_anonymous_with_scopes_basic() {
-        let ctx = AuthContext::anonymous_with_scopes(
-            "cli-user".to_string(),
-            vec![Scope::ReadWorkspace],
-        );
+        let ctx =
+            AuthContext::anonymous_with_scopes("cli-user".to_string(), vec![Scope::ReadWorkspace]);
         assert_eq!(ctx.agent_id.as_str(), "cli-user");
         assert!(ctx.is_anonymous());
         assert!(ctx.is_valid());
@@ -376,10 +376,7 @@ mod tests {
 
     #[test]
     fn test_anonymous_with_scopes_admin_grants_all() {
-        let ctx = AuthContext::anonymous_with_scopes(
-            "admin-user".to_string(),
-            vec![Scope::Admin],
-        );
+        let ctx = AuthContext::anonymous_with_scopes("admin-user".to_string(), vec![Scope::Admin]);
         assert!(ctx.is_anonymous());
         assert!(ctx.has_scope(&Scope::ReadWorkspace));
         assert!(ctx.has_scope(&Scope::VcsOperations));
@@ -388,8 +385,11 @@ mod tests {
     #[test]
     fn test_authenticated_context_not_anonymous() {
         let agent_id = AgentId::new("real-agent");
-        let token = AgentToken::new("real-tok", TimeDelta::try_seconds(3600).expect("valid duration"))
-            .expect("should create token");
+        let token = AgentToken::new(
+            "real-tok",
+            TimeDelta::try_seconds(3600).expect("valid duration"),
+        )
+        .expect("should create token");
         let ctx = AuthContext::new(agent_id, token, vec![Scope::ReadWorkspace])
             .expect("should create context");
         assert!(!ctx.is_anonymous());

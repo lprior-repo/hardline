@@ -1021,5 +1021,8 @@ fn claim30_adversarial_gix_worktree_remove() {
     let wt_path = PathBuf::from("/tmp/wt-nonexistent");
     let result = scp_vcs::gix::worktree::remove(&repo, &wt_path, false);
     // worktree remove now uses CLI fallback — should fail on nonexistent path
-    assert!(result.is_err(), "worktree remove should fail on nonexistent path");
+    assert!(
+        result.is_err(),
+        "worktree remove should fail on nonexistent path"
+    );
 }

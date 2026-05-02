@@ -4,11 +4,7 @@
 //! delegating to existing command implementations or providing custom handling.
 
 use clap::ArgMatches;
-use scp_core::{
-    output::Output,
-    validation::domain::validate_input_name,
-    vcs, Error, Result,
-};
+use scp_core::{output::Output, validation::domain::validate_input_name, vcs, Error, Result};
 
 use super::json_format::get_format;
 use crate::commands::session;
@@ -19,9 +15,8 @@ use crate::commands::session;
 
 /// Pause an active session by writing a `.hd/paused` marker file.
 pub fn pause(name: &str) -> Result<()> {
-    validate_input_name(name).map_err(|e| {
-        Error::invalid_identifier(format!("session name '{name}' is invalid: {e}"))
-    })?;
+    validate_input_name(name)
+        .map_err(|e| Error::invalid_identifier(format!("session name '{name}' is invalid: {e}")))?;
 
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
@@ -37,9 +32,7 @@ pub fn pause(name: &str) -> Result<()> {
 
     let paused_path = hd_dir.join("paused");
     if paused_path.exists() {
-        return Err(Error::session(
-            "session is already paused".to_string(),
-        ));
+        return Err(Error::session("session is already paused".to_string()));
     }
 
     let timestamp = chrono::Utc::now().to_rfc3339();
@@ -53,9 +46,8 @@ pub fn pause(name: &str) -> Result<()> {
 
 /// Resume a paused session by removing the `.hd/paused` marker file.
 pub fn resume(name: &str) -> Result<()> {
-    validate_input_name(name).map_err(|e| {
-        Error::invalid_identifier(format!("session name '{name}' is invalid: {e}"))
-    })?;
+    validate_input_name(name)
+        .map_err(|e| Error::invalid_identifier(format!("session name '{name}' is invalid: {e}")))?;
 
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
@@ -67,9 +59,7 @@ pub fn resume(name: &str) -> Result<()> {
 
     let paused_path = cwd.join(".hd").join("paused");
     if !paused_path.exists() {
-        return Err(Error::session(
-            "no paused session found".to_string(),
-        ));
+        return Err(Error::session("no paused session found".to_string()));
     }
 
     std::fs::remove_file(&paused_path)

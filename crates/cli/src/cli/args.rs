@@ -6,7 +6,7 @@
 use clap::{Parser, Subcommand};
 
 use crate::cli::{
-    ai_args::AiCommands, agent_args::AgentCommands, batch_args::BatchCommands,
+    agent_args::AgentCommands, ai_args::AiCommands, batch_args::BatchCommands,
     config_args::ConfigCommands, lock_args::LockCommands, queue_args::QueueCommands,
     session_args::SessionCommands, stash_args::StashCommands, tag_args::TagCommands,
     task_args::TaskCommands, workspace_args::WorkspaceCommands,

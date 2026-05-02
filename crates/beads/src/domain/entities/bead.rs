@@ -291,20 +291,20 @@ impl<S> Bead<S> {
             // InProgress → Blocked | Deferred | Closed
             (BeadState::InProgress, BeadState::Blocked) => BeadState::Blocked,
             (BeadState::InProgress, BeadState::Deferred) => BeadState::Deferred,
-            (BeadState::InProgress, BeadState::Closed { .. }) => {
-                BeadState::Closed { closed_at: Utc::now() }
-            }
+            (BeadState::InProgress, BeadState::Closed { .. }) => BeadState::Closed {
+                closed_at: Utc::now(),
+            },
             // Blocked → InProgress | Deferred | Closed
             (BeadState::Blocked, BeadState::InProgress) => BeadState::InProgress,
             (BeadState::Blocked, BeadState::Deferred) => BeadState::Deferred,
-            (BeadState::Blocked, BeadState::Closed { .. }) => {
-                BeadState::Closed { closed_at: Utc::now() }
-            }
+            (BeadState::Blocked, BeadState::Closed { .. }) => BeadState::Closed {
+                closed_at: Utc::now(),
+            },
             // Deferred → InProgress | Closed
             (BeadState::Deferred, BeadState::InProgress) => BeadState::InProgress,
-            (BeadState::Deferred, BeadState::Closed { .. }) => {
-                BeadState::Closed { closed_at: Utc::now() }
-            }
+            (BeadState::Deferred, BeadState::Closed { .. }) => BeadState::Closed {
+                closed_at: Utc::now(),
+            },
             // All other transitions are invalid (caught by can_transition_to above)
             _ => return None,
         };

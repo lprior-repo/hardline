@@ -112,7 +112,10 @@ pub fn resolve_workspace_name(
     backend: &dyn VcsBackend,
     name: Option<&str>,
 ) -> Result<String, Error> {
-    name.map_or_else(|| get_current_workspace_name(backend), |n| Ok(n.to_string()))
+    name.map_or_else(
+        || get_current_workspace_name(backend),
+        |n| Ok(n.to_string()),
+    )
 }
 
 /// Helper: Complete workspace workflow (sync + push)

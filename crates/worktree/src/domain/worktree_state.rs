@@ -74,10 +74,7 @@ impl WorktreeState {
     /// Check if state is transient (intermediate states)
     #[must_use]
     pub const fn is_transient(self) -> bool {
-        matches!(
-            self,
-            Self::Creating | Self::Incomplete | Self::Removing
-        )
+        matches!(self, Self::Creating | Self::Incomplete | Self::Removing)
     }
 
     /// Get valid next states from this state
@@ -85,11 +82,7 @@ impl WorktreeState {
     pub fn valid_next_states(self) -> Vec<Self> {
         match self {
             Self::Creating => vec![Self::Active, Self::Removed],
-            Self::Incomplete => vec![
-                Self::Active,
-                Self::Suspended,
-                Self::Removed,
-            ],
+            Self::Incomplete => vec![Self::Active, Self::Suspended, Self::Removed],
             Self::Active => vec![Self::Suspended, Self::Removing],
             Self::Suspended => vec![Self::Active, Self::Removing],
             Self::Removing => vec![Self::Removed],
@@ -121,10 +114,7 @@ impl TryFrom<u8> for WorktreeState {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         Self::from_u8(value).ok_or({
-            super::WorktreeDomainError::InvalidStateTransition(
-                Self::Active,
-                Self::Active,
-            )
+            super::WorktreeDomainError::InvalidStateTransition(Self::Active, Self::Active)
         })
     }
 }

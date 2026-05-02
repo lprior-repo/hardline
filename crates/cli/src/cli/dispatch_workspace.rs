@@ -4,12 +4,11 @@
 //! mutations. Scope violations are advisory (warnings only) in
 //! local-only / anonymous mode.
 
-use tracing::warn;
-
 use scp_core::{
     output::Output, AuditEntry, AuditLogger, AuditOutcome, AuthContext, Error, OutputFormat,
     Result, Scope,
 };
+use tracing::warn;
 
 use crate::{cli::workspace_args::WorkspaceCommands, commands};
 
@@ -152,9 +151,8 @@ fn handle_query(
     status: Option<String>,
     agent: Option<String>,
 ) -> Result<()> {
-    let qt = commands::handlers::query::data::QueryType::from_str(&query_type).ok_or_else(|| {
-        Error::validation_error(format!("Unknown query type: {query_type}"))
-    })?;
+    let qt = commands::handlers::query::data::QueryType::from_str(&query_type)
+        .ok_or_else(|| Error::validation_error(format!("Unknown query type: {query_type}")))?;
     let options = commands::handlers::query::QueryOptions {
         query_type: qt,
         argument,
@@ -184,7 +182,10 @@ fn handle_bookmark(command: &crate::cli::workspace_args::BookmarkCommands) -> Re
     use commands::handlers::bookmark::BookmarkSubcommand;
     let subcmd = match command {
         crate::cli::workspace_args::BookmarkCommands::Create { name } => {
-            BookmarkSubcommand::Create { name: name.clone(), push: false }
+            BookmarkSubcommand::Create {
+                name: name.clone(),
+                push: false,
+            }
         }
         crate::cli::workspace_args::BookmarkCommands::List => {
             BookmarkSubcommand::List { show_all: false }
@@ -192,9 +193,10 @@ fn handle_bookmark(command: &crate::cli::workspace_args::BookmarkCommands) -> Re
         crate::cli::workspace_args::BookmarkCommands::Delete { name } => {
             BookmarkSubcommand::Delete { name: name.clone() }
         }
-        crate::cli::workspace_args::BookmarkCommands::Track { name } => {
-            BookmarkSubcommand::Track { name: name.clone(), remote: None }
-        }
+        crate::cli::workspace_args::BookmarkCommands::Track { name } => BookmarkSubcommand::Track {
+            name: name.clone(),
+            remote: None,
+        },
     };
     let options = commands::handlers::bookmark::BookmarkOptions { subcommand: subcmd };
     commands::handlers::bookmark::run_bookmark(&options)?;
@@ -267,7 +269,9 @@ fn handle_checkpoint(command: &crate::cli::workspace_args::CheckpointCommands) -
             }
         }
         crate::cli::workspace_args::CheckpointCommands::Restore { id } => {
-            CheckpointAction::Restore { checkpoint_id: id.clone() }
+            CheckpointAction::Restore {
+                checkpoint_id: id.clone(),
+            }
         }
         crate::cli::workspace_args::CheckpointCommands::List => CheckpointAction::List,
     };
@@ -315,9 +319,7 @@ fn handle_schema(name: Option<String>, list: bool, all: bool) -> Result<()> {
 /// log, diff, uncommitted, commit.
 fn dispatch_core(cmd: &WorkspaceCommands) -> Option<Result<()>> {
     match cmd {
-        WorkspaceCommands::Spawn { name, sync } => {
-            Some(handle_spawn(name.clone(), *sync))
-        }
+        WorkspaceCommands::Spawn { name, sync } => Some(handle_spawn(name.clone(), *sync)),
         WorkspaceCommands::Switch { name } => Some(commands::workspace::switch(name)),
         WorkspaceCommands::List => Some(commands::workspace::list()),
         WorkspaceCommands::Status => Some(commands::workspace::status()),
@@ -408,11 +410,11 @@ fn dispatch_workspace_ops(cmd: &WorkspaceCommands) -> Option<Result<()>> {
 /// Integrity operations: validate, repair, backup list, backup restore.
 fn dispatch_integrity(cmd: &WorkspaceCommands) -> Option<Result<()>> {
     let subcommand = match cmd {
-        WorkspaceCommands::IntegrityValidate { workspace } => {
-            Some(commands::handlers::integrity::IntegritySubcommand::Validate {
+        WorkspaceCommands::IntegrityValidate { workspace } => Some(
+            commands::handlers::integrity::IntegritySubcommand::Validate {
                 workspace: workspace.clone(),
-            })
-        }
+            },
+        ),
         WorkspaceCommands::IntegrityRepair { workspace, force } => {
             Some(commands::handlers::integrity::IntegritySubcommand::Repair {
                 workspace: workspace.clone(),
@@ -422,12 +424,12 @@ fn dispatch_integrity(cmd: &WorkspaceCommands) -> Option<Result<()>> {
         WorkspaceCommands::IntegrityBackupList => {
             Some(commands::handlers::integrity::IntegritySubcommand::BackupList)
         }
-        WorkspaceCommands::IntegrityBackupRestore { backup_id, force } => {
-            Some(commands::handlers::integrity::IntegritySubcommand::BackupRestore {
+        WorkspaceCommands::IntegrityBackupRestore { backup_id, force } => Some(
+            commands::handlers::integrity::IntegritySubcommand::BackupRestore {
                 backup_id: backup_id.clone(),
                 force: *force,
-            })
-        }
+            },
+        ),
         _ => return None,
     };
     Some(handle_integrity(subcommand.unwrap()))

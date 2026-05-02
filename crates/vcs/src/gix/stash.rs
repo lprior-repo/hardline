@@ -4,8 +4,10 @@
 //! not yet provide native stash support.  `list()` uses the gix reference
 //! log for `refs/stash` where possible.
 
-use crate::error::{GitError, GitResult};
-use crate::gix::cli::{cli_error, require_workdir, run_git};
+use crate::{
+    error::{GitError, GitResult},
+    gix::cli::{cli_error, require_workdir, run_git},
+};
 
 // -- public API ---------------------------------------------------------------
 
@@ -123,9 +125,7 @@ fn list_via_gix(repo: &gix::Repository) -> GitResult<Vec<StashEntry>> {
             reason: format!("failed to read reflog entry {i}: {e}"),
         })?;
 
-        let message = String::from_utf8_lossy(&entry.message)
-            .trim()
-            .to_string();
+        let message = String::from_utf8_lossy(&entry.message).trim().to_string();
 
         entries.push(StashEntry { index: i, message });
     }
@@ -161,12 +161,10 @@ fn parse_stash_list(stdout: &str) -> GitResult<Vec<StashEntry>> {
         }
 
         // Extract index from "stash@{N}:"
-        let colon_pos = trimmed
-            .find(':')
-            .ok_or_else(|| GitError::InvalidRef {
-                name: "stash".to_string(),
-                reason: format!("malformed stash line: {trimmed}"),
-            })?;
+        let colon_pos = trimmed.find(':').ok_or_else(|| GitError::InvalidRef {
+            name: "stash".to_string(),
+            reason: format!("malformed stash line: {trimmed}"),
+        })?;
 
         let index_part = &trimmed[..colon_pos];
         let index = parse_stash_index(index_part)?;

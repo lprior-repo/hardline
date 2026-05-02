@@ -73,11 +73,7 @@ pub struct FlagContract {
 
 /// Registry of all known command contracts.
 pub fn known_contracts() -> Vec<CommandContract> {
-    vec![
-        spawn_contract(),
-        done_contract(),
-        revert_contract(),
-    ]
+    vec![spawn_contract(), done_contract(), revert_contract()]
 }
 
 fn spawn_contract() -> CommandContract {

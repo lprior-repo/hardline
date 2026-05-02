@@ -204,7 +204,8 @@ fn zsh_args_block() -> String {
                     ;;
             esac
             ;;
-"#.to_string()
+"#
+    .to_string()
 }
 
 fn zsh_sessions_fn() -> String {
@@ -217,7 +218,8 @@ fn zsh_sessions_fn() -> String {
 }
 
 fn generate_fish_completions() -> String {
-    let header = "# scp fish completion\n\n# Disable file completion by default\ncomplete -c scp -f";
+    let header =
+        "# scp fish completion\n\n# Disable file completion by default\ncomplete -c scp -f";
     let command_lines = fish_command_lines();
     let session_completion = r#"
 
@@ -283,7 +285,12 @@ fn fish_command_lines() -> String {
     ];
     commands
         .iter()
-        .map(|(cmd, desc)| format!("complete -c scp -n \"__fish_use_subcommand\" -a {} -d \"{}\"", cmd, desc))
+        .map(|(cmd, desc)| {
+            format!(
+                "complete -c scp -n \"__fish_use_subcommand\" -a {} -d \"{}\"",
+                cmd, desc
+            )
+        })
         .collect::<Vec<_>>()
         .join("\n")
 }

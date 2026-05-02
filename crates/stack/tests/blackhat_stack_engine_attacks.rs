@@ -5,9 +5,9 @@
 
 use std::process::Command;
 
-use scp_stack::domain::value_objects::BranchName;
-use scp_stack::engine::stack_engine::StackEngine;
-use scp_stack::error::StackError;
+use scp_stack::{
+    domain::value_objects::BranchName, engine::stack_engine::StackEngine, error::StackError,
+};
 
 /// Helper: create a temp git repo with an initial commit on "main".
 fn make_repo() -> (tempfile::TempDir, gix::Repository) {
@@ -70,10 +70,7 @@ fn attack_load_stack_not_git_repo() {
     // Don't git init - just a plain directory
     let result = gix::open(tmp.path());
     // gix::open on non-git dir should fail
-    assert!(
-        result.is_err(),
-        "Opening non-git directory should fail"
-    );
+    assert!(result.is_err(), "Opening non-git directory should fail");
 }
 
 // ============================================================================
@@ -111,10 +108,7 @@ fn attack_create_branch_whitespace_name() {
     let engine = StackEngine::new(&repo, BranchName::new("main"));
 
     let result = engine.create_branch("evil branch", None);
-    assert!(
-        result.is_err(),
-        "Creating branch with space should fail"
-    );
+    assert!(result.is_err(), "Creating branch with space should fail");
 }
 
 // ============================================================================
@@ -126,10 +120,7 @@ fn attack_create_branch_tab_name() {
     let engine = StackEngine::new(&repo, BranchName::new("main"));
 
     let result = engine.create_branch("evil\tbranch", None);
-    assert!(
-        result.is_err(),
-        "Creating branch with tab should fail"
-    );
+    assert!(result.is_err(), "Creating branch with tab should fail");
 }
 
 // ============================================================================
@@ -141,10 +132,7 @@ fn attack_create_branch_newline_name() {
     let engine = StackEngine::new(&repo, BranchName::new("main"));
 
     let result = engine.create_branch("evil\nbranch", None);
-    assert!(
-        result.is_err(),
-        "Creating branch with newline should fail"
-    );
+    assert!(result.is_err(), "Creating branch with newline should fail");
 }
 
 // ============================================================================
@@ -171,10 +159,7 @@ fn attack_delete_nonexistent_branch() {
     let engine = StackEngine::new(&repo, BranchName::new("main"));
 
     let result = engine.delete_branch("nonexistent-branch-xyz");
-    assert!(
-        result.is_err(),
-        "Deleting nonexistent branch should fail"
-    );
+    assert!(result.is_err(), "Deleting nonexistent branch should fail");
     match result {
         Err(StackError::BranchNotFound(msg)) => {
             assert!(
@@ -197,10 +182,7 @@ fn attack_sync_no_remote() {
     let engine = StackEngine::new(&repo, BranchName::new("main"));
 
     let result = engine.sync_stack("test-stack");
-    assert!(
-        result.is_err(),
-        "Sync with no remote should fail"
-    );
+    assert!(result.is_err(), "Sync with no remote should fail");
     match result {
         Err(StackError::GitError(msg)) => {
             assert!(
@@ -304,12 +286,11 @@ fn attack_create_duplicate_branch_via_engine() {
     let (_tmp, repo) = make_repo();
     let engine = StackEngine::new(&repo, BranchName::new("main"));
 
-    engine.create_branch("dup-test", None).expect("first create");
+    engine
+        .create_branch("dup-test", None)
+        .expect("first create");
     let result = engine.create_branch("dup-test", None);
-    assert!(
-        result.is_err(),
-        "Creating duplicate branch should fail"
-    );
+    assert!(result.is_err(), "Creating duplicate branch should fail");
     match result {
         Err(StackError::InvalidBranchName(msg)) => {
             assert!(
@@ -404,10 +385,7 @@ fn attack_create_delete_delete() {
     engine.create_branch("transient", None).expect("create");
     engine.delete_branch("transient").expect("first delete");
     let result = engine.delete_branch("transient");
-    assert!(
-        result.is_err(),
-        "Double-delete should fail"
-    );
+    assert!(result.is_err(), "Double-delete should fail");
 }
 
 // ============================================================================

@@ -7,17 +7,15 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::error::{GitError, GitResult};
-use crate::gix::cli::{cli_error, require_workdir, run_git};
+use crate::{
+    error::{GitError, GitResult},
+    gix::cli::{cli_error, require_workdir, run_git},
+};
 
 /// Add a worktree.
 ///
 /// Uses `git worktree add` because gix lacks worktree management support.
-pub fn add(
-    repo: &gix::Repository,
-    path: &Path,
-    branch: Option<&str>,
-) -> GitResult<()> {
+pub fn add(repo: &gix::Repository, path: &Path, branch: Option<&str>) -> GitResult<()> {
     let workdir = require_workdir(repo, "worktree add")?;
 
     let mut args: Vec<&str> = vec!["worktree", "add"];
@@ -176,5 +174,7 @@ fn read_worktree_head(wt_entry_dir: &std::path::Path) -> Option<String> {
     let trimmed = content.trim();
 
     // HEAD is typically "ref: refs/heads/<branch>\n"
-    trimmed.strip_prefix("ref: refs/heads/").map(|rest| rest.trim().to_string())
+    trimmed
+        .strip_prefix("ref: refs/heads/")
+        .map(|rest| rest.trim().to_string())
 }

@@ -44,10 +44,16 @@ impl PolicyConfig {
     pub fn new(opts: PolicyOpts) -> Result<Self, ConfigError> {
         Ok(Self {
             timeout: PhaseTimeout::new(opts.timeout_ms)?,
-            retry: RetryPolicy::new(opts.max_retries, opts.base_delay_ms, 2.0, Some(opts.max_delay_ms), vec![])
-                .map_err(|_| ConfigError::InvalidBaseDelay {
-                    delay_ms: opts.base_delay_ms,
-                })?,
+            retry: RetryPolicy::new(
+                opts.max_retries,
+                opts.base_delay_ms,
+                2.0,
+                Some(opts.max_delay_ms),
+                vec![],
+            )
+            .map_err(|_| ConfigError::InvalidBaseDelay {
+                delay_ms: opts.base_delay_ms,
+            })?,
             circuit_breaker: CircuitBreaker::with_recovery_timeout(
                 opts.failure_threshold,
                 opts.recovery_timeout_ms,
@@ -70,7 +76,14 @@ mod tests {
 
     #[test]
     fn test_policy_config_new_valid() {
-        let config = PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 100, max_delay_ms: 1000, failure_threshold: 3, recovery_timeout_ms: 5000 })
+        let config = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 1000,
+            max_retries: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 1000,
+            failure_threshold: 3,
+            recovery_timeout_ms: 5000,
+        })
         .expect("should create config");
         assert_eq!(config.timeout.duration_ms(), 1000);
         assert_eq!(config.retry.max_retries(), 3);
@@ -79,9 +92,16 @@ mod tests {
 
     #[test]
     fn test_policy_config_with_deadline() {
-        let config = PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 100, max_delay_ms: 1000, failure_threshold: 3, recovery_timeout_ms: 5000 })
-            .expect("should create config")
-            .with_deadline(Deadline::from_now(60000));
+        let config = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 1000,
+            max_retries: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 1000,
+            failure_threshold: 3,
+            recovery_timeout_ms: 5000,
+        })
+        .expect("should create config")
+        .with_deadline(Deadline::from_now(60000));
 
         assert!(config.deadline.is_some());
         assert!(!config.deadline.as_ref().unwrap().is_exceeded());
@@ -89,37 +109,80 @@ mod tests {
 
     #[test]
     fn test_policy_config_default_no_deadline() {
-        let config = PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 100, max_delay_ms: 1000, failure_threshold: 3, recovery_timeout_ms: 5000 }).expect("should create config");
+        let config = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 1000,
+            max_retries: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 1000,
+            failure_threshold: 3,
+            recovery_timeout_ms: 5000,
+        })
+        .expect("should create config");
         assert!(config.deadline.is_none());
     }
 
     #[test]
     fn test_policy_config_invalid_timeout_zero() {
-        let result = PolicyConfig::new(PolicyOpts { timeout_ms: 0, max_retries: 3, base_delay_ms: 100, max_delay_ms: 1000, failure_threshold: 3, recovery_timeout_ms: 5000 });
+        let result = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 0,
+            max_retries: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 1000,
+            failure_threshold: 3,
+            recovery_timeout_ms: 5000,
+        });
         assert!(result.is_err());
     }
 
     #[test]
     fn test_policy_config_invalid_base_delay_zero() {
-        let result = PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 0, max_delay_ms: 1000, failure_threshold: 3, recovery_timeout_ms: 5000 });
+        let result = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 1000,
+            max_retries: 3,
+            base_delay_ms: 0,
+            max_delay_ms: 1000,
+            failure_threshold: 3,
+            recovery_timeout_ms: 5000,
+        });
         assert!(result.is_err());
     }
 
     #[test]
     fn test_policy_config_invalid_max_delay_less_than_base() {
-        let result = PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 500, max_delay_ms: 100, failure_threshold: 3, recovery_timeout_ms: 5000 });
+        let result = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 1000,
+            max_retries: 3,
+            base_delay_ms: 500,
+            max_delay_ms: 100,
+            failure_threshold: 3,
+            recovery_timeout_ms: 5000,
+        });
         assert!(result.is_err());
     }
 
     #[test]
     fn test_policy_config_invalid_failure_threshold_zero() {
-        let result = PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 100, max_delay_ms: 1000, failure_threshold: 0, recovery_timeout_ms: 5000 });
+        let result = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 1000,
+            max_retries: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 1000,
+            failure_threshold: 0,
+            recovery_timeout_ms: 5000,
+        });
         assert!(result.is_err());
     }
 
     #[test]
     fn test_policy_config_invalid_recovery_timeout_zero() {
-        let result = PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 100, max_delay_ms: 1000, failure_threshold: 3, recovery_timeout_ms: 0 });
+        let result = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 1000,
+            max_retries: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 1000,
+            failure_threshold: 3,
+            recovery_timeout_ms: 0,
+        });
         assert!(result.is_err());
     }
 }

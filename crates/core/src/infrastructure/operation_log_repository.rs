@@ -79,9 +79,7 @@ async fn retrieve_inserted_id(pool: &SqlitePool) -> Result<i64, OperationLogErro
         let max_row = sqlx::query("SELECT MAX(id) as max_id FROM operation_log")
             .fetch_one(pool)
             .await
-            .map_err(|e| {
-                OperationLogError::DatabaseError(format!("Failed to get max ID: {e}"))
-            })?;
+            .map_err(|e| OperationLogError::DatabaseError(format!("Failed to get max ID: {e}")))?;
 
         Ok(max_row
             .try_get::<Option<i64>, _>("max_id")

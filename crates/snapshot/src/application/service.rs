@@ -152,7 +152,10 @@ mod tests {
         let id = SnapshotId::generate();
         let result = service.get_snapshot(&id);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SnapshotError::StorageError { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            SnapshotError::StorageError { .. }
+        ));
     }
 
     #[test]
@@ -226,7 +229,8 @@ mod tests {
     fn cleanup_expired_with_expired_snapshot() {
         let (service, temp) = make_service();
         // Create a snapshot with a past expiration by manually constructing
-        let mut snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
+        let mut snapshot =
+            Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
         snapshot.expires_at = Some(chrono::Utc::now() - chrono::Duration::hours(1));
         let store = SnapshotStore::new(temp.path());
         store.save(snapshot.clone()).expect("save expired snapshot");
@@ -246,7 +250,8 @@ mod tests {
             .create_snapshot("main".to_string(), "abc".to_string(), None)
             .expect("create normal");
         // Create an expired snapshot
-        let mut expired = Snapshot::create("dev".to_string(), "def".to_string(), None).expect("valid snapshot");
+        let mut expired =
+            Snapshot::create("dev".to_string(), "def".to_string(), None).expect("valid snapshot");
         expired.expires_at = Some(chrono::Utc::now() - chrono::Duration::hours(1));
         let store = SnapshotStore::new(temp.path());
         store.save(expired.clone()).expect("save expired");
@@ -266,10 +271,7 @@ mod tests {
         let id = SnapshotId::generate();
         let err = service.get_snapshot(&id).expect_err("should fail");
         let source = std::error::Error::source(&err);
-        assert!(
-            source.is_some(),
-            "source chain must be preserved"
-        );
+        assert!(source.is_some(), "source chain must be preserved");
     }
 
     #[test]

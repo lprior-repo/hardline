@@ -35,8 +35,9 @@ impl GitHubClientImpl {
     }
 
     fn block_on<F: std::future::Future>(&self, f: F) -> Result<F::Output> {
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| StackError::GitHubError(format!("Failed to create tokio runtime: {}", e)))?;
+        let rt = tokio::runtime::Runtime::new().map_err(|e| {
+            StackError::GitHubError(format!("Failed to create tokio runtime: {}", e))
+        })?;
         Ok(rt.block_on(f))
     }
 }

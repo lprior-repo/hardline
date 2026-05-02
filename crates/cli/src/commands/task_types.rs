@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 
 /// Check whether a string is a valid task ID (alphanumeric with `-` or `_`).
 fn is_valid_task_id(s: &str) -> bool {
-    !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    !s.is_empty()
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 /// Task state

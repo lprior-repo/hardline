@@ -190,8 +190,7 @@ impl GitWorktreeAdapter {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::process::Command;
+    use std::{fs, process::Command};
 
     use tempfile::TempDir;
 

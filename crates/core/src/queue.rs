@@ -53,18 +53,12 @@ pub enum QueueSuperstate {
 impl QueueStatus {
     /// Returns true if this status is in the Active superstate
     pub const fn is_active(&self) -> bool {
-        matches!(
-            self,
-            Self::Pending | Self::Processing | Self::Retrying
-        )
+        matches!(self, Self::Pending | Self::Processing | Self::Retrying)
     }
 
     /// Returns true if this status is in the Terminal superstate
     pub const fn is_terminal(&self) -> bool {
-        matches!(
-            self,
-            Self::Completed | Self::Failed | Self::Cancelled
-        )
+        matches!(self, Self::Completed | Self::Failed | Self::Cancelled)
     }
 
     /// Returns the superstate this status belongs to

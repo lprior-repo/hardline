@@ -138,19 +138,12 @@ fn attack_save_and_list_stash() {
             // Re-read the repo to refresh gix's view
             let repo2 = gix::open(_tmp.path()).expect("reopen");
             let list = stash::list(&repo2);
-            assert!(
-                list.is_ok(),
-                "List after reopen should succeed: {:?}",
-                list
-            );
+            assert!(list.is_ok(), "List after reopen should succeed: {:?}", list);
             return;
         }
     }
 
-    assert!(
-        result.is_ok(),
-        "Saving stash should succeed"
-    );
+    assert!(result.is_ok(), "Saving stash should succeed");
 
     let entry = result.expect("entry");
     assert!(

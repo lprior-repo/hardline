@@ -82,8 +82,7 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<RollbackOutput> {
 
     let workspace_path = resolve_and_validate_workspace(&cwd, backend.as_ref(), &options.session)?;
 
-    let verify_result =
-        verify_commit_in_workspace(&executor, &options.commit, &workspace_path)?;
+    let verify_result = verify_commit_in_workspace(&executor, &options.commit, &workspace_path)?;
     if let Some(output) = verify_result {
         return Ok(output);
     }

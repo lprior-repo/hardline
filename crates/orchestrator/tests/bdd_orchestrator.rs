@@ -1050,12 +1050,43 @@ mod policies {
     // CLAIM: PolicyConfig validates all sub-configs
     #[test]
     fn claim_policy_config_validation() {
-        let result = PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 100, max_delay_ms: 5000, failure_threshold: 5, recovery_timeout_ms: 30000 });
+        let result = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 1000,
+            max_retries: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 5000,
+            failure_threshold: 5,
+            recovery_timeout_ms: 30000,
+        });
         assert!(result.is_ok());
 
-        assert!(PolicyConfig::new(PolicyOpts { timeout_ms: 0, max_retries: 3, base_delay_ms: 100, max_delay_ms: 5000, failure_threshold: 5, recovery_timeout_ms: 30000 }).is_err());
-        assert!(PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 0, max_delay_ms: 5000, failure_threshold: 5, recovery_timeout_ms: 30000 }).is_err());
-        assert!(PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 100, max_delay_ms: 5000, failure_threshold: 0, recovery_timeout_ms: 30000 }).is_err());
+        assert!(PolicyConfig::new(PolicyOpts {
+            timeout_ms: 0,
+            max_retries: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 5000,
+            failure_threshold: 5,
+            recovery_timeout_ms: 30000
+        })
+        .is_err());
+        assert!(PolicyConfig::new(PolicyOpts {
+            timeout_ms: 1000,
+            max_retries: 3,
+            base_delay_ms: 0,
+            max_delay_ms: 5000,
+            failure_threshold: 5,
+            recovery_timeout_ms: 30000
+        })
+        .is_err());
+        assert!(PolicyConfig::new(PolicyOpts {
+            timeout_ms: 1000,
+            max_retries: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 5000,
+            failure_threshold: 0,
+            recovery_timeout_ms: 30000
+        })
+        .is_err());
     }
 }
 

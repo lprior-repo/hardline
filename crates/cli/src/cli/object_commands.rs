@@ -696,11 +696,36 @@ fn legacy_add_cmd() -> ClapCommand {
         .arg(json_arg())
         .arg(contract_arg())
         .arg(ai_hints_arg())
-        .arg(Arg::new("bead").long("bead").short('b').value_name("BEAD_ID"))
-        .arg(Arg::new("no-open").long("no-open").action(clap::ArgAction::SetTrue).default_value("false"))
-        .arg(Arg::new("no-hooks").long("no-hooks").action(clap::ArgAction::SetTrue).default_value("false"))
-        .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue).default_value("false"))
-        .arg(Arg::new("example-json").long("example-json").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(
+            Arg::new("bead")
+                .long("bead")
+                .short('b')
+                .value_name("BEAD_ID"),
+        )
+        .arg(
+            Arg::new("no-open")
+                .long("no-open")
+                .action(clap::ArgAction::SetTrue)
+                .default_value("false"),
+        )
+        .arg(
+            Arg::new("no-hooks")
+                .long("no-hooks")
+                .action(clap::ArgAction::SetTrue)
+                .default_value("false"),
+        )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .default_value("false"),
+        )
+        .arg(
+            Arg::new("example-json")
+                .long("example-json")
+                .action(clap::ArgAction::SetTrue)
+                .default_value("false"),
+        )
 }
 
 /// Legacy command: `scp list`
@@ -711,8 +736,19 @@ fn legacy_list_cmd() -> ClapCommand {
         .arg(json_arg())
         .arg(contract_arg())
         .arg(ai_hints_arg())
-        .arg(Arg::new("all").long("all").action(clap::ArgAction::SetTrue).default_value("false"))
-        .arg(Arg::new("verbose").short('v').long("verbose").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(
+            Arg::new("all")
+                .long("all")
+                .action(clap::ArgAction::SetTrue)
+                .default_value("false"),
+        )
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .long("verbose")
+                .action(clap::ArgAction::SetTrue)
+                .default_value("false"),
+        )
         .arg(Arg::new("bead").long("bead").value_name("BEAD_ID"))
         .arg(Arg::new("agent").long("agent").value_name("AGENT"))
         .arg(Arg::new("state").long("state").value_name("STATE"))
@@ -724,11 +760,34 @@ fn legacy_remove_cmd() -> ClapCommand {
     ClapCommand::new("remove")
         .about("Remove session")
         .arg(Arg::new("name").required(true))
-        .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("merge").short('m').long("merge").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("keep-branch").short('k').long("keep-branch").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+        .arg(
+            Arg::new("force")
+                .short('f')
+                .long("force")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("merge")
+                .short('m')
+                .long("merge")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("keep-branch")
+                .short('k')
+                .long("keep-branch")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue),
+        )
         .arg(json_arg())
         .arg(contract_arg())
         .arg(ai_hints_arg())
@@ -744,13 +803,44 @@ fn legacy_spawn_cmd() -> ClapCommand {
         .arg(json_arg())
         .arg(contract_arg())
         .arg(ai_hints_arg())
-        .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue).default_value("false"))
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue)
+                .default_value("false"),
+        )
         .arg(Arg::new("agent").long("agent").value_name("AGENT"))
-        .arg(Arg::new("no-auto-merge").long("no-auto-merge").action(clap::ArgAction::SetTrue).default_value("false"))
-        .arg(Arg::new("no-auto-cleanup").long("no-auto-cleanup").action(clap::ArgAction::SetTrue).default_value("false"))
-        .arg(Arg::new("background").short('b').long("background").action(clap::ArgAction::SetTrue).default_value("false"))
-        .arg(Arg::new("timeout").long("timeout").value_name("SECONDS").default_value("14400"))
-        .arg(Arg::new("agent-command").long("agent-command").value_name("COMMAND").default_value("claude"))
+        .arg(
+            Arg::new("no-auto-merge")
+                .long("no-auto-merge")
+                .action(clap::ArgAction::SetTrue)
+                .default_value("false"),
+        )
+        .arg(
+            Arg::new("no-auto-cleanup")
+                .long("no-auto-cleanup")
+                .action(clap::ArgAction::SetTrue)
+                .default_value("false"),
+        )
+        .arg(
+            Arg::new("background")
+                .short('b')
+                .long("background")
+                .action(clap::ArgAction::SetTrue)
+                .default_value("false"),
+        )
+        .arg(
+            Arg::new("timeout")
+                .long("timeout")
+                .value_name("SECONDS")
+                .default_value("14400"),
+        )
+        .arg(
+            Arg::new("agent-command")
+                .long("agent-command")
+                .value_name("COMMAND")
+                .default_value("claude"),
+        )
         .arg(Arg::new("agent-args").long("agent-args").num_args(0..))
 }
 
@@ -764,14 +854,48 @@ fn legacy_done_cmd() -> ClapCommand {
         .arg(contract_arg())
         .arg(ai_hints_arg())
         .arg(Arg::new("name").required(false))
-        .arg(Arg::new("workspace").short('w').long("workspace").value_name("NAME"))
-        .arg(Arg::new("message").short('m').long("message").value_name("MSG"))
-        .arg(Arg::new("keep-workspace").long("keep-workspace").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("no-keep").long("no-keep").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("squash").long("squash").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("detect-conflicts").long("detect-conflicts").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("no-bead-update").long("no-bead-update").action(clap::ArgAction::SetTrue))
+        .arg(
+            Arg::new("workspace")
+                .short('w')
+                .long("workspace")
+                .value_name("NAME"),
+        )
+        .arg(
+            Arg::new("message")
+                .short('m')
+                .long("message")
+                .value_name("MSG"),
+        )
+        .arg(
+            Arg::new("keep-workspace")
+                .long("keep-workspace")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("no-keep")
+                .long("no-keep")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("squash")
+                .long("squash")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("detect-conflicts")
+                .long("detect-conflicts")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("no-bead-update")
+                .long("no-bead-update")
+                .action(clap::ArgAction::SetTrue),
+        )
 }
 
 /// Legacy command: `scp work`
@@ -782,9 +906,21 @@ fn legacy_work_cmd() -> ClapCommand {
         .arg(Arg::new("bead").required(false))
         .arg(Arg::new("name").required(false))
         .arg(Arg::new("agent-id").long("agent-id").value_name("ID"))
-        .arg(Arg::new("no-agent").long("no-agent").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("idempotent").long("idempotent").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+        .arg(
+            Arg::new("no-agent")
+                .long("no-agent")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("idempotent")
+                .long("idempotent")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue),
+        )
         .arg(json_arg())
         .arg(contract_arg())
         .arg(ai_hints_arg())
@@ -796,11 +932,33 @@ fn legacy_abort_cmd() -> ClapCommand {
     ClapCommand::new("abort")
         .about("Abort work")
         .arg(Arg::new("name").required(false))
-        .arg(Arg::new("workspace").short('w').long("workspace").value_name("NAME"))
-        .arg(Arg::new("force").short('f').long("force").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("no-bead-update").long("no-bead-update").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("keep-workspace").long("keep-workspace").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+        .arg(
+            Arg::new("workspace")
+                .short('w')
+                .long("workspace")
+                .value_name("NAME"),
+        )
+        .arg(
+            Arg::new("force")
+                .short('f')
+                .long("force")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("no-bead-update")
+                .long("no-bead-update")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("keep-workspace")
+                .long("keep-workspace")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue),
+        )
         .arg(json_arg())
         .arg(contract_arg())
         .arg(ai_hints_arg())
@@ -871,9 +1029,24 @@ fn apply_legacy_query_cmds(cmd: ClapCommand) -> ClapCommand {
             .arg(json_arg())
             .arg(contract_arg())
             .arg(ai_hints_arg())
-            .arg(Arg::new("field").long("field").value_name("PATH").help("Extract single field (e.g., --field=repository.branch)"))
-            .arg(Arg::new("no-beads").long("no-beads").action(clap::ArgAction::SetTrue).help("Skip beads database query (faster)"))
-            .arg(Arg::new("no-health").long("no-health").action(clap::ArgAction::SetTrue).help("Skip health checks (faster)")),
+            .arg(
+                Arg::new("field")
+                    .long("field")
+                    .value_name("PATH")
+                    .help("Extract single field (e.g., --field=repository.branch)"),
+            )
+            .arg(
+                Arg::new("no-beads")
+                    .long("no-beads")
+                    .action(clap::ArgAction::SetTrue)
+                    .help("Skip beads database query (faster)"),
+            )
+            .arg(
+                Arg::new("no-health")
+                    .long("no-health")
+                    .action(clap::ArgAction::SetTrue)
+                    .help("Skip health checks (faster)"),
+            ),
     )
 }
 
@@ -889,15 +1062,28 @@ fn apply_legacy_misc_cmds(cmd: ClapCommand) -> ClapCommand {
     .subcommand(
         ClapCommand::new("undo")
             .about("Undo last operation")
-            .arg(Arg::new("list").short('l').long("list").action(clap::ArgAction::SetTrue))
-            .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+            .arg(
+                Arg::new("list")
+                    .short('l')
+                    .long("list")
+                    .action(clap::ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("dry-run")
+                    .long("dry-run")
+                    .action(clap::ArgAction::SetTrue),
+            )
             .arg(json_arg()),
     )
     .subcommand(
         ClapCommand::new("revert")
             .about("Revert changes")
             .arg(Arg::new("name").required(true))
-            .arg(Arg::new("dry-run").long("dry-run").action(clap::ArgAction::SetTrue))
+            .arg(
+                Arg::new("dry-run")
+                    .long("dry-run")
+                    .action(clap::ArgAction::SetTrue),
+            )
             .arg(json_arg()),
     )
 }

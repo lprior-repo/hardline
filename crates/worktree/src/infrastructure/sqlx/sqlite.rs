@@ -171,9 +171,7 @@ impl WorktreeRepository for SqliteWorktreeRepository {
             .bind(name)
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to check name: {e}"))
-            })?;
+            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to check name: {e}")))?;
 
         Ok(count > 0)
     }

@@ -277,13 +277,7 @@ pub const MAX_NAME_LENGTH: usize = 256;
 
 /// SQL keywords that must not appear as standalone words in user input.
 const SQL_INJECTION_KEYWORDS: &[&str] = &[
-    "DROP",
-    "SELECT",
-    "INSERT",
-    "UPDATE",
-    "DELETE",
-    "EXEC",
-    "EXECUTE",
+    "DROP", "SELECT", "INSERT", "UPDATE", "DELETE", "EXEC", "EXECUTE",
 ];
 
 /// Validate a user-supplied name against security threats.
@@ -297,8 +291,8 @@ const SQL_INJECTION_KEYWORDS: &[&str] = &[
 /// 2. Rejects strings longer than `MAX_NAME_LENGTH` (256) characters.
 /// 3. Rejects path-traversal sequences (`..`, `/`, `\`).
 /// 4. Rejects null bytes (`\0`).
-/// 5. Rejects SQL injection payloads (standalone SQL keywords like `DROP`, `SELECT`, etc.,
-///    and `';` / `--` sequences, case-insensitive).
+/// 5. Rejects SQL injection payloads (standalone SQL keywords like `DROP`, `SELECT`, etc., and `';`
+///    / `--` sequences, case-insensitive).
 ///
 /// # Errors
 ///
@@ -314,7 +308,10 @@ pub fn validate_input_name(name: &str) -> Result<(), ValidationError> {
     }
 
     // Path traversal checks
-    if trimmed.contains("..") || trimmed.contains('/') || trimmed.contains('\\') || trimmed.contains('\0')
+    if trimmed.contains("..")
+        || trimmed.contains('/')
+        || trimmed.contains('\\')
+        || trimmed.contains('\0')
     {
         return Err(ValidationError::ShellMetacharacter);
     }
@@ -1038,10 +1035,7 @@ mod tests {
 
     #[test]
     fn test_validate_input_name_whitespace_only() {
-        assert_eq!(
-            validate_input_name("   "),
-            Err(ValidationError::EmptyInput)
-        );
+        assert_eq!(validate_input_name("   "), Err(ValidationError::EmptyInput));
     }
 
     #[test]

@@ -148,11 +148,7 @@ pub struct ErrorFix {
 
 impl ErrorFix {
     /// Creates a new fix suggestion.
-    pub fn new(
-        command: impl Into<String>,
-        description: impl Into<String>,
-        risk: FixRisk,
-    ) -> Self {
+    pub fn new(command: impl Into<String>, description: impl Into<String>, risk: FixRisk) -> Self {
         Self {
             command: command.into(),
             description: description.into(),
@@ -1113,9 +1109,9 @@ impl Error {
             | Self::ConfigPermission(_)
             | Self::InvalidConfig(_)
             | Self::InvalidRepoUrl(_) => self.context_config(),
-            Self::AgentNotFound(_)
-            | Self::AgentExists(_)
-            | Self::AgentTimeout(_) => self.context_agent(),
+            Self::AgentNotFound(_) | Self::AgentExists(_) | Self::AgentTimeout(_) => {
+                self.context_agent()
+            }
             Self::InvalidState(_)
             | Self::NotFound(_)
             | Self::InvalidOperation(_)
@@ -1431,11 +1427,11 @@ impl Error {
                 "timeout_ms": timeout_ms,
                 "retries": retries,
             }),
-            Self::CloneFailed(msg)
-            | Self::RecordFailed(msg)
-            | Self::Persistence(msg) => serde_json::json!({
-                "error": msg,
-            }),
+            Self::CloneFailed(msg) | Self::RecordFailed(msg) | Self::Persistence(msg) => {
+                serde_json::json!({
+                    "error": msg,
+                })
+            }
             Self::StateTransition(msg) => serde_json::json!({
                 "transition": msg,
             }),
@@ -2776,7 +2772,10 @@ mod tests {
     fn numeric_code_workspace_range() {
         assert_eq!(Error::WorkspaceNotFound("x".into()).numeric_code(), 1001);
         assert_eq!(Error::WorkspaceExists("x".into()).numeric_code(), 1002);
-        assert_eq!(Error::WorkspaceLocked("x".into(), "y".into()).numeric_code(), 1003);
+        assert_eq!(
+            Error::WorkspaceLocked("x".into(), "y".into()).numeric_code(),
+            1003
+        );
         assert_eq!(Error::WorkspaceConflict("x".into()).numeric_code(), 1004);
     }
 
@@ -2784,8 +2783,14 @@ mod tests {
     fn numeric_code_session_range() {
         assert_eq!(Error::SessionNotFound("x".into()).numeric_code(), 2001);
         assert_eq!(Error::SessionExists("x".into()).numeric_code(), 2002);
-        assert_eq!(Error::SessionLocked("x".into(), "y".into()).numeric_code(), 2003);
-        assert_eq!(Error::NotLockHolder("x".into(), "y".into()).numeric_code(), 2004);
+        assert_eq!(
+            Error::SessionLocked("x".into(), "y".into()).numeric_code(),
+            2003
+        );
+        assert_eq!(
+            Error::NotLockHolder("x".into(), "y".into()).numeric_code(),
+            2004
+        );
         assert_eq!(
             Error::SessionInvalidState("a".into(), "b".into(), "c".into()).numeric_code(),
             2005
@@ -2808,7 +2813,10 @@ mod tests {
         );
         assert_eq!(Error::BeadDependencyCycle("x".into()).numeric_code(), 3006);
         assert_eq!(Error::BeadBlockedBy("x".into()).numeric_code(), 3007);
-        assert_eq!(Error::BeadInvalidDependency("x".into()).numeric_code(), 3008);
+        assert_eq!(
+            Error::BeadInvalidDependency("x".into()).numeric_code(),
+            3008
+        );
     }
 
     #[test]
@@ -2869,8 +2877,14 @@ mod tests {
         assert_eq!(Error::SnapshotNotFound("x".into()).numeric_code(), 8001);
         assert_eq!(Error::SnapshotCorrupted("x".into()).numeric_code(), 8002);
         assert_eq!(Error::SnapshotExpired("x".into()).numeric_code(), 8003);
-        assert_eq!(Error::SnapshotLimitExceeded("x".into()).numeric_code(), 8004);
-        assert_eq!(Error::SnapshotRestoreFailed("x".into()).numeric_code(), 8005);
+        assert_eq!(
+            Error::SnapshotLimitExceeded("x".into()).numeric_code(),
+            8004
+        );
+        assert_eq!(
+            Error::SnapshotRestoreFailed("x".into()).numeric_code(),
+            8005
+        );
     }
 
     #[test]
@@ -2941,25 +2955,46 @@ mod tests {
 
     #[test]
     fn category_workspace() {
-        assert_eq!(Error::WorkspaceNotFound("x".into()).category(), ErrorCategory::Workspace);
-        assert_eq!(Error::WorkspaceExists("x".into()).category(), ErrorCategory::Workspace);
+        assert_eq!(
+            Error::WorkspaceNotFound("x".into()).category(),
+            ErrorCategory::Workspace
+        );
+        assert_eq!(
+            Error::WorkspaceExists("x".into()).category(),
+            ErrorCategory::Workspace
+        );
         assert_eq!(
             Error::WorkspaceLocked("x".into(), "y".into()).category(),
             ErrorCategory::Workspace
         );
-        assert_eq!(Error::WorkspaceConflict("x".into()).category(), ErrorCategory::Workspace);
+        assert_eq!(
+            Error::WorkspaceConflict("x".into()).category(),
+            ErrorCategory::Workspace
+        );
     }
 
     #[test]
     fn category_session() {
-        assert_eq!(Error::SessionNotFound("x".into()).category(), ErrorCategory::Session);
-        assert_eq!(Error::SessionExists("x".into()).category(), ErrorCategory::Session);
+        assert_eq!(
+            Error::SessionNotFound("x".into()).category(),
+            ErrorCategory::Session
+        );
+        assert_eq!(
+            Error::SessionExists("x".into()).category(),
+            ErrorCategory::Session
+        );
     }
 
     #[test]
     fn category_bead() {
-        assert_eq!(Error::BeadNotFound("x".into()).category(), ErrorCategory::Bead);
-        assert_eq!(Error::BeadAlreadyExists("x".into()).category(), ErrorCategory::Bead);
+        assert_eq!(
+            Error::BeadNotFound("x".into()).category(),
+            ErrorCategory::Bead
+        );
+        assert_eq!(
+            Error::BeadAlreadyExists("x".into()).category(),
+            ErrorCategory::Bead
+        );
     }
 
     #[test]
@@ -2974,27 +3009,51 @@ mod tests {
 
     #[test]
     fn category_stack() {
-        assert_eq!(Error::StackNotFound("x".into()).category(), ErrorCategory::Stack);
-        assert_eq!(Error::StackCyclicDependency.category(), ErrorCategory::Stack);
+        assert_eq!(
+            Error::StackNotFound("x".into()).category(),
+            ErrorCategory::Stack
+        );
+        assert_eq!(
+            Error::StackCyclicDependency.category(),
+            ErrorCategory::Stack
+        );
     }
 
     #[test]
     fn category_github() {
-        assert_eq!(Error::GitHubAuthFailed("x".into()).category(), ErrorCategory::GitHub);
+        assert_eq!(
+            Error::GitHubAuthFailed("x".into()).category(),
+            ErrorCategory::GitHub
+        );
         assert_eq!(Error::GitHubTokenExpired.category(), ErrorCategory::GitHub);
     }
 
     #[test]
     fn category_snapshot() {
-        assert_eq!(Error::SnapshotNotFound("x".into()).category(), ErrorCategory::Snapshot);
+        assert_eq!(
+            Error::SnapshotNotFound("x".into()).category(),
+            ErrorCategory::Snapshot
+        );
     }
 
     #[test]
     fn category_internal() {
-        assert_eq!(Error::Internal("x".into()).category(), ErrorCategory::Internal);
-        assert_eq!(Error::ConfigNotFound("x".into()).category(), ErrorCategory::Internal);
-        assert_eq!(Error::AgentNotFound("x".into()).category(), ErrorCategory::Internal);
-        assert_eq!(Error::IoError("x".into()).category(), ErrorCategory::Internal);
+        assert_eq!(
+            Error::Internal("x".into()).category(),
+            ErrorCategory::Internal
+        );
+        assert_eq!(
+            Error::ConfigNotFound("x".into()).category(),
+            ErrorCategory::Internal
+        );
+        assert_eq!(
+            Error::AgentNotFound("x".into()).category(),
+            ErrorCategory::Internal
+        );
+        assert_eq!(
+            Error::IoError("x".into()).category(),
+            ErrorCategory::Internal
+        );
     }
 
     // =========================================================================
@@ -3006,14 +3065,12 @@ mod tests {
         assert!(Error::VcsPushFailed("x".into()).is_retryable());
         assert!(Error::VcsPullFailed("x".into()).is_retryable());
         assert!(Error::GitHubRateLimited("60s".into()).is_retryable());
-        assert!(
-            Error::LockTimeout {
-                operation: "x".into(),
-                timeout_ms: 5000,
-                retries: 3
-            }
-            .is_retryable()
-        );
+        assert!(Error::LockTimeout {
+            operation: "x".into(),
+            timeout_ms: 5000,
+            retries: 3
+        }
+        .is_retryable());
     }
 
     #[test]
@@ -3033,14 +3090,18 @@ mod tests {
 
     #[test]
     fn fix_workspace_not_found() {
-        let fix = Error::WorkspaceNotFound("x".into()).fix().expect("should have fix");
+        let fix = Error::WorkspaceNotFound("x".into())
+            .fix()
+            .expect("should have fix");
         assert_eq!(fix.command, "scp workspace list");
         assert_eq!(fix.risk, FixRisk::Safe);
     }
 
     #[test]
     fn fix_session_not_found() {
-        let fix = Error::SessionNotFound("x".into()).fix().expect("should have fix");
+        let fix = Error::SessionNotFound("x".into())
+            .fix()
+            .expect("should have fix");
         assert_eq!(fix.command, "scp session list");
         assert_eq!(fix.risk, FixRisk::Safe);
     }
@@ -3088,37 +3149,63 @@ mod tests {
 
     #[test]
     fn display_stack_variants() {
-        assert!(Error::StackNotFound("s".into()).to_string().contains("Stack not found"));
-        assert!(Error::StackOrphaned("p".into()).to_string().contains("orphaned"));
+        assert!(Error::StackNotFound("s".into())
+            .to_string()
+            .contains("Stack not found"));
+        assert!(Error::StackOrphaned("p".into())
+            .to_string()
+            .contains("orphaned"));
         assert!(Error::StackCyclicDependency.to_string().contains("cyclic"));
-        assert!(Error::StackInvalidState("bad".into()).to_string().contains("invalid state"));
-        assert!(Error::StackPrNotFound("123".into()).to_string().contains("PR not found"));
+        assert!(Error::StackInvalidState("bad".into())
+            .to_string()
+            .contains("invalid state"));
+        assert!(Error::StackPrNotFound("123".into())
+            .to_string()
+            .contains("PR not found"));
     }
 
     #[test]
     fn display_github_variants() {
-        assert!(Error::GitHubAuthFailed("fail".into()).to_string().contains("auth"));
-        assert!(Error::GitHubTokenExpired.to_string().contains("expired"));
-        assert!(Error::GitHubRateLimited("60s".into()).to_string().contains("rate limited"));
-        assert!(Error::GitHubPrClosed("123".into()).to_string().contains("closed"));
-        assert!(Error::GitHubPrNotFound("123".into()).to_string().contains("not found"));
-        assert!(
-            Error::GitHubApiError {
-                status: 502,
-                message: "bad".into()
-            }
+        assert!(Error::GitHubAuthFailed("fail".into())
             .to_string()
-            .contains("502")
-        );
-        assert!(Error::GitHubCiFailed(vec!["ci".into()]).to_string().contains("CI"));
+            .contains("auth"));
+        assert!(Error::GitHubTokenExpired.to_string().contains("expired"));
+        assert!(Error::GitHubRateLimited("60s".into())
+            .to_string()
+            .contains("rate limited"));
+        assert!(Error::GitHubPrClosed("123".into())
+            .to_string()
+            .contains("closed"));
+        assert!(Error::GitHubPrNotFound("123".into())
+            .to_string()
+            .contains("not found"));
+        assert!(Error::GitHubApiError {
+            status: 502,
+            message: "bad".into()
+        }
+        .to_string()
+        .contains("502"));
+        assert!(Error::GitHubCiFailed(vec!["ci".into()])
+            .to_string()
+            .contains("CI"));
     }
 
     #[test]
     fn display_snapshot_variants() {
-        assert!(Error::SnapshotNotFound("s".into()).to_string().contains("not found"));
-        assert!(Error::SnapshotCorrupted("bad".into()).to_string().contains("corrupted"));
-        assert!(Error::SnapshotExpired("old".into()).to_string().contains("expired"));
-        assert!(Error::SnapshotLimitExceeded("max".into()).to_string().contains("exceeded"));
-        assert!(Error::SnapshotRestoreFailed("err".into()).to_string().contains("restore failed"));
+        assert!(Error::SnapshotNotFound("s".into())
+            .to_string()
+            .contains("not found"));
+        assert!(Error::SnapshotCorrupted("bad".into())
+            .to_string()
+            .contains("corrupted"));
+        assert!(Error::SnapshotExpired("old".into())
+            .to_string()
+            .contains("expired"));
+        assert!(Error::SnapshotLimitExceeded("max".into())
+            .to_string()
+            .contains("exceeded"));
+        assert!(Error::SnapshotRestoreFailed("err".into())
+            .to_string()
+            .contains("restore failed"));
     }
 }

@@ -1,7 +1,6 @@
 //! Black-hat attack tests for VCS worktree operations.
 
-use std::path::PathBuf;
-use std::process::Command;
+use std::{path::PathBuf, process::Command};
 
 use scp_vcs::gix::worktree;
 
@@ -104,10 +103,7 @@ fn attack_list_worktrees_normal_repo() {
         !wt_list.is_empty(),
         "Normal repo should have at least main worktree"
     );
-    assert!(
-        wt_list[0].is_main,
-        "First worktree should be main"
-    );
+    assert!(wt_list[0].is_main, "First worktree should be main");
 }
 
 // ============================================================================

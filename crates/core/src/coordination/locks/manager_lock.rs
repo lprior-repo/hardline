@@ -36,7 +36,10 @@ impl LockManager {
         let now = Utc::now();
         let now_str = now.to_rfc3339();
 
-        if let Some(response) = self.check_existing_lock(session, agent_id, &now_str, now).await? {
+        if let Some(response) = self
+            .check_existing_lock(session, agent_id, &now_str, now)
+            .await?
+        {
             return Ok(response);
         }
 
@@ -148,11 +151,7 @@ impl LockManager {
     }
 
     /// Remove expired lock rows for a session.
-    async fn cleanup_expired_locks(
-        &self,
-        session: &str,
-        now_str: &str,
-    ) -> Result<()> {
+    async fn cleanup_expired_locks(&self, session: &str, now_str: &str) -> Result<()> {
         sqlx::query("DELETE FROM session_locks WHERE session = ? AND expires_at < ?")
             .bind(session)
             .bind(now_str)
@@ -200,9 +199,9 @@ impl LockManager {
                 .fetch_optional(&self.db)
                 .await
                 .map_err(|db_err| {
-                    crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(
-                        format!("Failed to query lock holder after conflict: {db_err}"),
-                    ))
+                    crate::error::Error::from(super::errors::LockErrorKind::DatabaseError(format!(
+                        "Failed to query lock holder after conflict: {db_err}"
+                    )))
                 })?;
 
         let holder_agent_id = holder.map_or_else(|| "unknown".to_string(), |(id,)| id);

@@ -414,10 +414,7 @@ mod tests {
 
         #[test]
         fn escape_sql_string_backslash_and_quote_combined() {
-            assert_eq!(
-                escape_sql_string(r"it's a \path"),
-                r"it''s a \\path"
-            );
+            assert_eq!(escape_sql_string(r"it's a \path"), r"it''s a \\path");
         }
 
         #[test]
@@ -428,10 +425,7 @@ mod tests {
         #[test]
         fn escape_sql_string_backslash_quote_injection_attempt() {
             // The classic SQL injection pattern: \' attempts to escape the quote
-            assert_eq!(
-                escape_sql_string(r"\' OR '1'='1"),
-                r"\\'' OR ''1''=''1"
-            );
+            assert_eq!(escape_sql_string(r"\' OR '1'='1"), r"\\'' OR ''1''=''1");
         }
     }
 

@@ -2,11 +2,7 @@
 //!
 //! I/O operations that orchestrate session renaming.
 
-use scp_core::{
-    output::Output,
-    validation::domain::validate_input_name,
-    Error, Result,
-};
+use scp_core::{output::Output, validation::domain::validate_input_name, Error, Result};
 
 use super::data::{validate_name_length, validate_session_name, RenameOptions, RenameOutput};
 
@@ -54,11 +50,17 @@ pub fn run_rename(options: &RenameOptions) -> Result<RenameOutput> {
 /// Validate both old and new session names.
 fn validate_rename_names(options: &RenameOptions) -> Result<()> {
     validate_input_name(&options.old_name).map_err(|e| {
-        Error::invalid_identifier(format!("old session name '{}' is invalid: {e}", options.old_name))
+        Error::invalid_identifier(format!(
+            "old session name '{}' is invalid: {e}",
+            options.old_name
+        ))
     })?;
 
     validate_input_name(&options.new_name).map_err(|e| {
-        Error::invalid_identifier(format!("new session name '{}' is invalid: {e}", options.new_name))
+        Error::invalid_identifier(format!(
+            "new session name '{}' is invalid: {e}",
+            options.new_name
+        ))
     })?;
 
     validate_name_length(&options.new_name).map_err(Error::validation_error)?;

@@ -178,10 +178,7 @@ fn get_trunk_files(
 }
 
 /// Build a human-readable conflict summary.
-fn build_conflict_summary(
-    existing_conflicts: &[String],
-    overlapping: &[String],
-) -> String {
+fn build_conflict_summary(existing_conflicts: &[String], overlapping: &[String]) -> String {
     if !existing_conflicts.is_empty() {
         format!(
             "Existing conflicts in {} files - resolve before merging",

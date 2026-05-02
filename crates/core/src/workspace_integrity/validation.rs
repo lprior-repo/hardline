@@ -2,7 +2,11 @@
 //!
 //! Provides the IntegrityValidator for detecting workspace corruption.
 
-use std::{path::{Path, PathBuf}, sync::Arc, time::SystemTime};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::SystemTime,
+};
 
 use futures::future::try_join_all;
 

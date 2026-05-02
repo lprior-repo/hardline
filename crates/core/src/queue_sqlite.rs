@@ -59,7 +59,9 @@ fn source_to_string(src: &QueueSource) -> String {
 
 fn string_to_source(s: &str) -> QueueSource {
     s.strip_prefix("workspace:")
-        .map_or(QueueSource::Direct, |name| QueueSource::Workspace(name.to_string()))
+        .map_or(QueueSource::Direct, |name| {
+            QueueSource::Workspace(name.to_string())
+        })
 }
 
 const fn priority_to_int(p: Priority) -> i32 {
@@ -438,8 +440,9 @@ impl QueueManager for SqliteQueue {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use sqlx::SqlitePool;
+
+    use super::*;
 
     async fn make_queue() -> SqliteQueue {
         let dir = tempfile::tempdir().unwrap();

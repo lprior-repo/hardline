@@ -46,9 +46,7 @@ impl RateLimiter {
     pub fn check(&mut self) -> bool {
         let now = Instant::now();
         let window = std::time::Duration::from_secs(self.window_secs);
-        let cutoff = now
-            .checked_sub(window)
-            .unwrap_or_else(Instant::now);
+        let cutoff = now.checked_sub(window).unwrap_or_else(Instant::now);
 
         // Prune expired entries
         self.requests.retain(|&ts| ts > cutoff);

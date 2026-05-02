@@ -44,23 +44,25 @@ impl PostgresWorktreeRow {
             // SAFETY: /tmp is always an absolute path without traversal
             unsafe { AbsolutePath::new_unchecked("/tmp") }
         });
-        let state = WorktreeState::from_u8(u8::try_from(self.state).unwrap_or_default()).unwrap_or_else(|| {
-            eprintln!(
-                "Invalid state value {}: {}",
-                self.state,
-                WorktreeDomainError::InvalidPath("Unknown state code".to_string())
-            );
-            WorktreeState::Creating
-        });
-        let worktree_type =
-            WorktreeTypeEnum::from_u8(u8::try_from(self.worktree_type).unwrap_or_default()).unwrap_or_else(|| {
+        let state = WorktreeState::from_u8(u8::try_from(self.state).unwrap_or_default())
+            .unwrap_or_else(|| {
                 eprintln!(
-                    "Invalid type value {}: {}",
-                    self.worktree_type,
-                    WorktreeDomainError::InvalidPath("Unknown type code".to_string())
+                    "Invalid state value {}: {}",
+                    self.state,
+                    WorktreeDomainError::InvalidPath("Unknown state code".to_string())
                 );
-                WorktreeTypeEnum::Development
+                WorktreeState::Creating
             });
+        let worktree_type =
+            WorktreeTypeEnum::from_u8(u8::try_from(self.worktree_type).unwrap_or_default())
+                .unwrap_or_else(|| {
+                    eprintln!(
+                        "Invalid type value {}: {}",
+                        self.worktree_type,
+                        WorktreeDomainError::InvalidPath("Unknown type code".to_string())
+                    );
+                    WorktreeTypeEnum::Development
+                });
         let branch = self.branch.as_ref().and_then(|b| BranchName::new(b).ok());
 
         // Deserialize metadata from JSON
@@ -193,9 +195,7 @@ impl WorktreeRepository for PostgresWorktreeRepository {
             .bind(name)
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| {
-                WorktreeDomainError::InvalidPath(format!("Failed to check name: {e}"))
-            })?;
+            .map_err(|e| WorktreeDomainError::InvalidPath(format!("Failed to check name: {e}")))?;
 
         Ok(count > 0)
     }
@@ -245,10 +245,9 @@ impl PostgresWorktreeRepository {
         let _ = sqlx::query(r"CREATE INDEX IF NOT EXISTS idx_worktrees_name ON worktrees(name);")
             .execute(&pool)
             .await;
-        let _ =
-            sqlx::query(r"CREATE INDEX IF NOT EXISTS idx_worktrees_state ON worktrees(state);")
-                .execute(&pool)
-                .await;
+        let _ = sqlx::query(r"CREATE INDEX IF NOT EXISTS idx_worktrees_state ON worktrees(state);")
+            .execute(&pool)
+            .await;
         let _ = sqlx::query(
             r"CREATE INDEX IF NOT EXISTS idx_worktrees_type ON worktrees(worktree_type);",
         )
@@ -293,10 +292,9 @@ impl PostgresWorktreeRepository {
         let _ = sqlx::query(r"CREATE INDEX IF NOT EXISTS idx_worktrees_name ON worktrees(name);")
             .execute(&pool)
             .await;
-        let _ =
-            sqlx::query(r"CREATE INDEX IF NOT EXISTS idx_worktrees_state ON worktrees(state);")
-                .execute(&pool)
-                .await;
+        let _ = sqlx::query(r"CREATE INDEX IF NOT EXISTS idx_worktrees_state ON worktrees(state);")
+            .execute(&pool)
+            .await;
         let _ = sqlx::query(
             r"CREATE INDEX IF NOT EXISTS idx_worktrees_type ON worktrees(worktree_type);",
         )

@@ -69,13 +69,7 @@ pub fn run_stack_sync(
     // 4. Detect and delete merged branches
     if options.delete_merged {
         let detect_start = std::time::Instant::now();
-        detect_and_delete_merged(
-            workdir,
-            stack,
-            options,
-            pr_states,
-            &mut result,
-        );
+        detect_and_delete_merged(workdir, stack, options, pr_states, &mut result);
         timings.push(("detect_and_delete_merged".to_string(), detect_start));
     }
 

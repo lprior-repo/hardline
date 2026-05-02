@@ -63,8 +63,15 @@ pub fn push(args: PushArgs<'_>) -> Result<()> {
     match vcs_type {
         scp_core::vcs::VcsType::Git => {
             let repo = repository::open(&cwd).map_err(|e| Error::vcs_push_failed(e.to_string()))?;
-            remote::push(&repo, args.remote, args.branch, args.force, args.tags, args.delete)
-                .map_err(|e| Error::vcs_push_failed(e.to_string()))?;
+            remote::push(
+                &repo,
+                args.remote,
+                args.branch,
+                args.force,
+                args.tags,
+                args.delete,
+            )
+            .map_err(|e| Error::vcs_push_failed(e.to_string()))?;
             Output::success(&format!("Pushed to {}", args.remote));
         }
     }

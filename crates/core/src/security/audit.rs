@@ -6,9 +6,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::agent::AgentId;
-use crate::error::Result;
-use crate::error_io::IoErrorKind;
+use crate::{agent::AgentId, error::Result, error_io::IoErrorKind};
 
 // ========================================================================
 // AuditEntry
@@ -105,10 +103,11 @@ impl AuditLogger {
             .open(&self.log_path)
             .map_err(IoErrorKind::Io)?;
 
-        let line = serde_json::to_string(entry)
-            .map_err(|e| IoErrorKind::Io(std::io::Error::other(format!(
+        let line = serde_json::to_string(entry).map_err(|e| {
+            IoErrorKind::Io(std::io::Error::other(format!(
                 "Audit serialization failed: {e}"
-            ))))?;
+            )))
+        })?;
 
         use std::io::Write;
         writeln!(file, "{line}").map_err(IoErrorKind::Io)?;
@@ -122,8 +121,7 @@ impl AuditLogger {
     ///
     /// Returns an error if the file cannot be read or parsed.
     pub fn query(&self, filter: &AuditFilter) -> Result<Vec<AuditEntry>> {
-        let contents = std::fs::read_to_string(&self.log_path)
-            .map_err(IoErrorKind::Io)?;
+        let contents = std::fs::read_to_string(&self.log_path).map_err(IoErrorKind::Io)?;
 
         let mut entries = Vec::new();
 
@@ -133,10 +131,9 @@ impl AuditLogger {
                 continue;
             }
 
-            let entry: AuditEntry = serde_json::from_str(trimmed)
-                .map_err(|e| IoErrorKind::Io(std::io::Error::other(format!(
-                    "Audit parse failed: {e}"
-                ))))?;
+            let entry: AuditEntry = serde_json::from_str(trimmed).map_err(|e| {
+                IoErrorKind::Io(std::io::Error::other(format!("Audit parse failed: {e}")))
+            })?;
 
             if matches_filter(&entry, filter) {
                 entries.push(entry);
@@ -182,8 +179,9 @@ fn matches_filter(entry: &AuditEntry, filter: &AuditFilter) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::NamedTempFile;
+
+    use super::*;
 
     fn make_entry(agent: &str, action: &str, outcome: AuditOutcome) -> AuditEntry {
         AuditEntry {
@@ -219,10 +217,18 @@ mod tests {
             .log(&make_entry("a1", "read", AuditOutcome::Success))
             .expect("should log");
         logger
-            .log(&make_entry("a2", "write", AuditOutcome::Denied("no perm".into())))
+            .log(&make_entry(
+                "a2",
+                "write",
+                AuditOutcome::Denied("no perm".into()),
+            ))
             .expect("should log");
         logger
-            .log(&make_entry("a3", "delete", AuditOutcome::Error("io err".into())))
+            .log(&make_entry(
+                "a3",
+                "delete",
+                AuditOutcome::Error("io err".into()),
+            ))
             .expect("should log");
 
         let results = logger.query(&AuditFilter::default()).expect("should query");
@@ -283,10 +289,18 @@ mod tests {
             .log(&make_entry("a1", "read", AuditOutcome::Success))
             .expect("should log");
         logger
-            .log(&make_entry("a1", "write", AuditOutcome::Denied("nope".into())))
+            .log(&make_entry(
+                "a1",
+                "write",
+                AuditOutcome::Denied("nope".into()),
+            ))
             .expect("should log");
         logger
-            .log(&make_entry("a1", "delete", AuditOutcome::Error("fail".into())))
+            .log(&make_entry(
+                "a1",
+                "delete",
+                AuditOutcome::Error("fail".into()),
+            ))
             .expect("should log");
 
         let denied_filter = AuditFilter {

@@ -124,10 +124,7 @@ fn validate_resolution(resolution: &ConflictResolution) -> Result<()> {
 }
 
 /// Execute the SQL insert for a conflict resolution.
-async fn execute_insert(
-    pool: &SqlitePool,
-    resolution: &ConflictResolution,
-) -> Result<i64> {
+async fn execute_insert(pool: &SqlitePool, resolution: &ConflictResolution) -> Result<i64> {
     let result = sqlx::query(
         r"
         INSERT INTO conflict_resolutions (

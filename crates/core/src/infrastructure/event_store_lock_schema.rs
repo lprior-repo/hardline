@@ -84,12 +84,9 @@ async fn create_lock_indexes(pool: &SqlitePool) -> Result<(), EventStoreLockErro
     ];
 
     for (_name, sql, col) in indexes {
-        sqlx::query(sql)
-            .execute(pool)
-            .await
-            .map_err(|e| {
-                EventStoreLockError::DatabaseError(format!("Failed to create {col} index: {e}"))
-            })?;
+        sqlx::query(sql).execute(pool).await.map_err(|e| {
+            EventStoreLockError::DatabaseError(format!("Failed to create {col} index: {e}"))
+        })?;
     }
 
     Ok(())

@@ -49,15 +49,15 @@ fn decode_platform_commit(commit: &gix::Commit<'_>) -> GitResult<Commit> {
     })?;
     let datetime = parse_timestamp(time.seconds)?;
 
-    let parent_ids: Vec<String> =
-        commit.parent_ids().map(|id| id.to_string()).collect();
+    let parent_ids: Vec<String> = commit.parent_ids().map(|id| id.to_string()).collect();
 
     let message = commit.message_raw().map_err(|e| GitError::InvalidRef {
         name: "message".to_string(),
         reason: e.to_string(),
     })?;
-    let message_str =
-        String::from_utf8_lossy(message.as_bytes()).trim().to_string();
+    let message_str = String::from_utf8_lossy(message.as_bytes())
+        .trim()
+        .to_string();
 
     let author = commit.author().map_err(|e| GitError::InvalidRef {
         name: "author".to_string(),

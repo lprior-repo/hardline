@@ -82,7 +82,10 @@ pub fn push(tag: Option<&str>, remote: &str, _force: bool) -> Result<()> {
 
     detect_vcs(&cwd).ok_or_else(Error::vcs_not_initialized)?;
 
-    tag.map_or_else(|| push_all_tags(&cwd, remote), |t| push_single_tag(&cwd, t, remote))
+    tag.map_or_else(
+        || push_all_tags(&cwd, remote),
+        |t| push_single_tag(&cwd, t, remote),
+    )
 }
 
 /// Push a single tag to a remote using the gix native path.

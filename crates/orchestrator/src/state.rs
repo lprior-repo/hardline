@@ -51,10 +51,7 @@ pub enum PipelineState {
 impl PipelineState {
     #[must_use]
     pub const fn is_terminal(&self) -> bool {
-        matches!(
-            self,
-            Self::Accepted | Self::Escalated | Self::Failed
-        )
+        matches!(self, Self::Accepted | Self::Escalated | Self::Failed)
     }
 
     #[must_use]

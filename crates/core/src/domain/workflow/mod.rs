@@ -38,13 +38,13 @@ pub use executor::{
     DurableExecutionError, DurableExecutor, DurableResult, DurableTimer, RecoveryScanner,
     StepOutput,
 };
+pub use journal::SqliteJournal;
 pub use pipeline::{
     IterationLimitError, Pipeline, PipelineConfig, PipelineId, PipelineTransitionError,
 };
 pub use records::{
     CompensationAction, JournalEntry, OperationRecord, RecoveryReport, RecoveryTask, StepRecord,
 };
-pub use journal::SqliteJournal;
 pub use states::{
     CompensationState, JournalState, OperationState, OperationStatus, PipelineState, StepStatus,
 };

@@ -213,8 +213,8 @@ mod tests {
         // Default behavior: no env vars set. This test is inherently racy
         // under parallel execution because env vars are process-global.
         // If we can't get a clean result, just skip.
-        let has_interference = std::env::var("SCP_STATE_DB").is_ok()
-            || std::env::var("SCP_DATABASE_PATH").is_ok();
+        let has_interference =
+            std::env::var("SCP_STATE_DB").is_ok() || std::env::var("SCP_DATABASE_PATH").is_ok();
         if has_interference {
             return;
         }

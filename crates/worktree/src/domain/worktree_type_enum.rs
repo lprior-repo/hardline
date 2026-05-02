@@ -81,10 +81,7 @@ impl WorktreeTypeEnum {
     /// Check if this type is for troubleshooting
     #[must_use]
     pub const fn is_troubleshooting_focused(self) -> bool {
-        matches!(
-            self,
-            Self::Debugging | Self::Research
-        )
+        matches!(self, Self::Debugging | Self::Research)
     }
 }
 

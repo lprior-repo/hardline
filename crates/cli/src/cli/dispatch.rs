@@ -4,11 +4,8 @@
 //! dispatched command. Scope violations are advisory (warnings only)
 //! when running in local-only / anonymous mode.
 
+use scp_core::{AuditEntry, AuditLogger, AuditOutcome, AuthContext, OutputFormat, Result, Scope};
 use tracing::warn;
-
-use scp_core::{
-    AuditEntry, AuditLogger, AuditOutcome, AuthContext, OutputFormat, Result, Scope,
-};
 
 use crate::{cli::args::Commands, commands};
 
@@ -74,9 +71,21 @@ pub fn run_command(cmd: Commands) -> Result<()> {
         Commands::Init { vcs } => commands::init::run(&vcs),
 
         Commands::Ai { command } => handle_ai(command),
-        Commands::Work { name, bead, agent, no_agent, idempotent, dry_run } => {
-            handle_work(HandleWorkArgs { name, bead, agent, no_agent, idempotent, dry_run })
-        }
+        Commands::Work {
+            name,
+            bead,
+            agent,
+            no_agent,
+            idempotent,
+            dry_run,
+        } => handle_work(HandleWorkArgs {
+            name,
+            bead,
+            agent,
+            no_agent,
+            idempotent,
+            dry_run,
+        }),
         Commands::Lock { command } => handle_lock(command),
         Commands::Queue { command } => handle_queue(command),
         Commands::Agent { command } => handle_agent(command),
@@ -86,9 +95,12 @@ pub fn run_command(cmd: Commands) -> Result<()> {
         Commands::Stash { command } => handle_stash(command),
         Commands::Tag { command } => handle_tag(command),
         Commands::Batch { command } => handle_batch(command),
-        Commands::Fetch { remote, prune, tags, all } => {
-            handle_fetch(remote, prune, tags, all)
-        }
+        Commands::Fetch {
+            remote,
+            prune,
+            tags,
+            all,
+        } => handle_fetch(remote, prune, tags, all),
         Commands::Pull => handle_pull(),
         Commands::Push {
             remote,
@@ -98,7 +110,15 @@ pub fn run_command(cmd: Commands) -> Result<()> {
             force_with_lease,
             tags,
             delete,
-        } => handle_push(HandlePushArgs { remote, branch, set_upstream, force, force_with_lease, tags, delete }),
+        } => handle_push(HandlePushArgs {
+            remote,
+            branch,
+            set_upstream,
+            force,
+            force_with_lease,
+            tags,
+            delete,
+        }),
 
         Commands::Doctor { full } => handle_doctor(full),
         Commands::Status { short } => handle_status(short),
@@ -110,7 +130,10 @@ pub fn run_command(cmd: Commands) -> Result<()> {
         Commands::Workspace { .. } => Err(scp_core::Error::internal(
             "workspace commands should be dispatched separately",
         )),
-        Commands::Retry { max_attempts, verbose } => handle_retry(max_attempts, verbose),
+        Commands::Retry {
+            max_attempts,
+            verbose,
+        } => handle_retry(max_attempts, verbose),
     }
 }
 
@@ -119,8 +142,10 @@ pub fn run_command(cmd: Commands) -> Result<()> {
 // ========================================================================
 
 fn handle_ai(command: crate::cli::ai_args::AiCommands) -> Result<()> {
-    use crate::cli::ai_args::AiCommands;
-    use crate::commands::handlers::ai::{AiOptions, AiSubcommand, run};
+    use crate::{
+        cli::ai_args::AiCommands,
+        commands::handlers::ai::{run, AiOptions, AiSubcommand},
+    };
     let subcmd = match command {
         AiCommands::Status => AiSubcommand::Status,
         AiCommands::Workflow => AiSubcommand::Workflow,
@@ -142,7 +167,7 @@ struct HandleWorkArgs {
 }
 
 fn handle_work(args: HandleWorkArgs) -> Result<()> {
-    use crate::commands::handlers::work::{WorkMode, WorkOptions, run_work};
+    use crate::commands::handlers::work::{run_work, WorkMode, WorkOptions};
     let ctx = auth_context(vec![Scope::WriteWorkspace]);
     warn_missing_scope(&ctx, &Scope::WriteWorkspace, "work");
     let mode = if args.dry_run {
@@ -175,13 +200,13 @@ fn handle_work(args: HandleWorkArgs) -> Result<()> {
 fn handle_lock(command: crate::cli::lock_args::LockCommands) -> Result<()> {
     use crate::cli::lock_args::LockCommands;
     match command {
-        LockCommands::Acquire { session, agent, ttl } => {
-            commands::lock::acquire(&session, &agent, ttl)
-        }
+        LockCommands::Acquire {
+            session,
+            agent,
+            ttl,
+        } => commands::lock::acquire(&session, &agent, ttl),
         LockCommands::Release { session, agent } => commands::lock::release(&session, &agent),
-        LockCommands::Heartbeat { session, agent } => {
-            commands::lock::heartbeat(&session, &agent)
-        }
+        LockCommands::Heartbeat { session, agent } => commands::lock::heartbeat(&session, &agent),
         LockCommands::Status { session } => commands::lock::status(&session),
         LockCommands::List => commands::lock::list(),
     }
@@ -238,7 +263,11 @@ fn handle_session(command: crate::cli::session_args::SessionCommands) -> Result<
         SessionCommands::List => commands::session::list(),
         SessionCommands::Status => commands::session::status(),
         SessionCommands::Focus { name } => commands::session::focus(&name),
-        SessionCommands::Submit { name, auto_commit, message } => {
+        SessionCommands::Submit {
+            name,
+            auto_commit,
+            message,
+        } => {
             warn_missing_scope(&ctx, &Scope::ManageSessions, "session.submit");
             audit_log(
                 "session.submit",
@@ -254,7 +283,11 @@ fn handle_session(command: crate::cli::session_args::SessionCommands) -> Result<
         }
         SessionCommands::Pause { name } => commands::handlers::session::pause(&name),
         SessionCommands::Resume { name } => commands::handlers::session::resume(&name),
-        SessionCommands::Clone { source, target, dry_run } => {
+        SessionCommands::Clone {
+            source,
+            target,
+            dry_run,
+        } => {
             commands::handlers::session::clone_session(&source, &target, dry_run)?;
             Ok(())
         }
@@ -304,9 +337,11 @@ fn handle_config(command: crate::cli::config_args::ConfigCommands) -> Result<()>
 fn handle_stash(command: crate::cli::stash_args::StashCommands) -> Result<()> {
     use crate::cli::stash_args::StashCommands;
     match command {
-        StashCommands::Save { message, include_untracked, patch } => {
-            commands::stash::save(message.as_deref(), include_untracked, patch)
-        }
+        StashCommands::Save {
+            message,
+            include_untracked,
+            patch,
+        } => commands::stash::save(message.as_deref(), include_untracked, patch),
         StashCommands::Pop { stash, index } => commands::stash::pop(stash.as_deref(), index),
         StashCommands::List => commands::stash::list(),
         StashCommands::Drop { stash, force } => commands::stash::drop(&stash, force),
@@ -317,9 +352,12 @@ fn handle_stash(command: crate::cli::stash_args::StashCommands) -> Result<()> {
 fn handle_tag(command: crate::cli::tag_args::TagCommands) -> Result<()> {
     use crate::cli::tag_args::TagCommands;
     match command {
-        TagCommands::Create { name, message, commit, force } => {
-            commands::tag::create(&name, message.as_deref(), commit.as_deref(), force)
-        }
+        TagCommands::Create {
+            name,
+            message,
+            commit,
+            force,
+        } => commands::tag::create(&name, message.as_deref(), commit.as_deref(), force),
         TagCommands::List { pattern, sort } => {
             commands::tag::list(pattern.as_deref(), sort.as_deref())
         }
@@ -333,17 +371,15 @@ fn handle_tag(command: crate::cli::tag_args::TagCommands) -> Result<()> {
 fn handle_batch(command: crate::cli::batch_args::BatchCommands) -> Result<()> {
     use crate::cli::batch_args::BatchCommands;
     match command {
-        BatchCommands::Run { workspace, commands } => tokio::runtime::Handle::current()
+        BatchCommands::Run {
+            workspace,
+            commands,
+        } => tokio::runtime::Handle::current()
             .block_on(commands::batch::execute(workspace, commands)),
     }
 }
 
-fn handle_fetch(
-    remote: Option<String>,
-    prune: bool,
-    tags: bool,
-    all: bool,
-) -> Result<()> {
+fn handle_fetch(remote: Option<String>, prune: bool, tags: bool, all: bool) -> Result<()> {
     let ctx = auth_context(vec![Scope::VcsOperations]);
     warn_missing_scope(&ctx, &Scope::VcsOperations, "vcs.fetch");
     commands::sync::fetch(remote.as_deref(), prune, tags, all)
@@ -414,8 +450,18 @@ fn handle_examples(command: Option<String>, use_case: Option<String>) -> Result<
 
 fn handle_retry(max_attempts: u32, verbose: bool) -> Result<()> {
     use crate::commands::handlers::retry::{run_retry, RetryOptions};
-    let opts = RetryOptions { max_attempts, verbose };
+    let opts = RetryOptions {
+        max_attempts,
+        verbose,
+    };
     let output = run_retry(opts)?;
-    println!("{}", if output.success { "Retry succeeded" } else { &output.message });
+    println!(
+        "{}",
+        if output.success {
+            "Retry succeeded"
+        } else {
+            &output.message
+        }
+    );
     Ok(())
 }

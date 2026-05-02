@@ -165,9 +165,10 @@ where
         self: std::pin::Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
-        std::task::Poll::Ready(Err(
-            TerminalError::new("Request implementation requires Restate runtime").into()
-        ))
+        std::task::Poll::Ready(Err(TerminalError::new(
+            "Request implementation requires Restate runtime",
+        )
+        .into()))
     }
 }
 

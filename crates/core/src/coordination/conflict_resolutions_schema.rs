@@ -79,13 +79,16 @@ async fn create_index(pool: &SqlitePool, sql: &str) -> Result<()> {
 }
 
 pub async fn init_conflict_resolutions_schema(pool: &SqlitePool) -> Result<()> {
-    let create_table = sqlx::query(CREATE_TABLE_SQL).execute(pool).await.map_err(|e| {
-        crate::Error::from(ConflictResolutionError::SchemaInitializationError {
-            operation: "CREATE TABLE conflict_resolutions".to_string(),
-            source: e.to_string(),
-            recovery: "Check database permissions and connection".to_string(),
-        })
-    })?;
+    let create_table = sqlx::query(CREATE_TABLE_SQL)
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            crate::Error::from(ConflictResolutionError::SchemaInitializationError {
+                operation: "CREATE TABLE conflict_resolutions".to_string(),
+                source: e.to_string(),
+                recovery: "Check database permissions and connection".to_string(),
+            })
+        })?;
 
     for sql in INDEX_SQL {
         create_index(pool, sql).await?;

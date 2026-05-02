@@ -184,15 +184,10 @@ impl RepairExecutor {
     }
 
     /// Create a backup if configured.
-    async fn create_backup_if_needed(
-        &self,
-        workspace_name: &str,
-    ) -> Result<Option<String>> {
+    async fn create_backup_if_needed(&self, workspace_name: &str) -> Result<Option<String>> {
         match &self.backup_config {
             BackupConfig::WithBackup(manager) => {
-                let meta = manager
-                    .create_backup(workspace_name, "Auto-repair")
-                    .await?;
+                let meta = manager.create_backup(workspace_name, "Auto-repair").await?;
                 Ok(Some(meta.id))
             }
             BackupConfig::NoBackup => Ok(None),

@@ -99,9 +99,7 @@ pub fn sort_issues(
         BeadSort::Updated => sort_by_key(issues, |i: &BeadIssue| i.updated_at, direction),
         BeadSort::Closed => sort_by_key(issues, |i: &BeadIssue| i.closed_at, direction),
         BeadSort::Status => sort_by_key(issues, |i: &BeadIssue| i.status, direction),
-        BeadSort::Title => {
-            sort_by_key(issues, |i: &BeadIssue| i.title.to_lowercase(), direction)
-        }
+        BeadSort::Title => sort_by_key(issues, |i: &BeadIssue| i.title.to_lowercase(), direction),
         BeadSort::Id => sort_by_key(issues, |i: &BeadIssue| i.id.to_lowercase(), direction),
     }
 }

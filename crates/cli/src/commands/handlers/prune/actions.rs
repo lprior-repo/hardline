@@ -8,7 +8,7 @@ use std::io::{self, BufRead, Write};
 
 use scp_core::{output::Output, vcs, Error, Result};
 
-use super::data::{PruneMode, PruneOptions, PruneOutput, PrunableItem};
+use super::data::{PrunableItem, PruneMode, PruneOptions, PruneOutput};
 
 /// Execute the prune command with the given options.
 ///
@@ -87,11 +87,7 @@ fn discover_stale_workspaces() -> Result<Vec<PrunableItem>> {
 ///
 /// Uses `git branch --merged <target>` via the VCS backend's
 /// `list_branches` combined with a subprocess call.
-fn branch_is_merged(
-    branch: &str,
-    target: &str,
-    _backend: &dyn vcs::VcsBackend,
-) -> Result<bool> {
+fn branch_is_merged(branch: &str, target: &str, _backend: &dyn vcs::VcsBackend) -> Result<bool> {
     let output = std::process::Command::new("git")
         .args(["branch", "--merged", target])
         .output()
@@ -207,7 +203,11 @@ mod tests {
             .env("GIT_COMMITTER_EMAIL", "test@test.com")
             .output()
             .expect("git init");
-        assert!(output.status.success(), "git init failed: {:?}", output.stderr);
+        assert!(
+            output.status.success(),
+            "git init failed: {:?}",
+            output.stderr
+        );
 
         let commit = std::process::Command::new("git")
             .args(["commit", "--allow-empty", "-m", "init"])
@@ -218,7 +218,11 @@ mod tests {
             .env("GIT_COMMITTER_EMAIL", "test@test.com")
             .output()
             .expect("git commit");
-        assert!(commit.status.success(), "git commit failed: {:?}", commit.stderr);
+        assert!(
+            commit.status.success(),
+            "git commit failed: {:?}",
+            commit.stderr
+        );
     }
 
     #[test]
@@ -270,8 +274,12 @@ mod tests {
     #[test]
     fn run_prune_dry_run_with_no_vcs() {
         let Ok(dir) = tempfile::tempdir() else { return };
-        let Ok(original) = std::env::current_dir() else { return };
-        if std::env::set_current_dir(dir.path()).is_err() { return }
+        let Ok(original) = std::env::current_dir() else {
+            return;
+        };
+        if std::env::set_current_dir(dir.path()).is_err() {
+            return;
+        }
 
         let opts = PruneOptions {
             mode: PruneMode::DryRun,

@@ -329,9 +329,15 @@ mod tests {
     #[test]
     fn check_vcs_available_detects_git_dir() {
         let Ok(dir) = tempfile::tempdir() else { return };
-        if std::fs::create_dir(dir.path().join(".git")).is_err() { return }
-        let Ok(original) = std::env::current_dir() else { return };
-        if std::env::set_current_dir(dir.path()).is_err() { return }
+        if std::fs::create_dir(dir.path().join(".git")).is_err() {
+            return;
+        }
+        let Ok(original) = std::env::current_dir() else {
+            return;
+        };
+        if std::env::set_current_dir(dir.path()).is_err() {
+            return;
+        }
 
         let result = check_vcs_available();
 
@@ -349,28 +355,41 @@ mod tests {
         }
     }
 
-
     #[test]
     fn check_vcs_available_detects_git_file() {
         // Git worktrees use a .git file, not directory
         let Ok(dir) = tempfile::tempdir() else { return };
-        if std::fs::write(dir.path().join(".git"), "ref: some-ref").is_err() { return }
-        let Ok(original) = std::env::current_dir() else { return };
-        if std::env::set_current_dir(dir.path()).is_err() { return }
+        if std::fs::write(dir.path().join(".git"), "ref: some-ref").is_err() {
+            return;
+        }
+        let Ok(original) = std::env::current_dir() else {
+            return;
+        };
+        if std::env::set_current_dir(dir.path()).is_err() {
+            return;
+        }
 
         let result = check_vcs_available();
 
         let _ = std::env::set_current_dir(&original);
         if let Ok(r) = result {
-            assert_eq!(r.status, CheckStatus::Pass, ".git file (worktree) should be detected");
+            assert_eq!(
+                r.status,
+                CheckStatus::Pass,
+                ".git file (worktree) should be detected"
+            );
         }
     }
 
     #[test]
     fn check_vcs_available_returns_false_without_git() {
         let Ok(dir) = tempfile::tempdir() else { return };
-        let Ok(original) = std::env::current_dir() else { return };
-        if std::env::set_current_dir(dir.path()).is_err() { return }
+        let Ok(original) = std::env::current_dir() else {
+            return;
+        };
+        if std::env::set_current_dir(dir.path()).is_err() {
+            return;
+        }
 
         let result = check_vcs_available();
 

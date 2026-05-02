@@ -59,9 +59,7 @@ fn handle_create(args: &[String]) {
 
     // Warn if an unrecognized type was provided
     if !is_known_type(type_str) {
-        eprintln!(
-            "Warning: Unknown type '{type_str}', defaulting to Development"
-        );
+        eprintln!("Warning: Unknown type '{type_str}', defaulting to Development");
     }
 
     let branch = parse_branch(args, 4);

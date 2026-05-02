@@ -243,7 +243,10 @@ mod tests {
         let (mut executor, _tmp) = setup_executor();
         let mut pipeline = pipeline_in_state(PipelineState::SpecReview);
         let result = executor.execute_parallel_phases(&mut pipeline);
-        assert!(result.is_ok(), "SpecReview -> UniverseSetup -> AgentDevelopment should succeed");
+        assert!(
+            result.is_ok(),
+            "SpecReview -> UniverseSetup -> AgentDevelopment should succeed"
+        );
         assert_eq!(pipeline.state, PipelineState::AgentDevelopment);
     }
 

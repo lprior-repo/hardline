@@ -286,19 +286,13 @@ impl CleanupManager {
     pub fn cleanup(&self, context: &CleanupContext) -> CleanupResult {
         let handler = self.get_handler(context.failed_phase);
 
-        handler.map_or_else(
-            CleanupResult::success,
-            |h| h.cleanup(context),
-        )
+        handler.map_or_else(CleanupResult::success, |h| h.cleanup(context))
     }
 
     pub fn rollback(&self, context: &CleanupContext) -> CleanupResult {
         let handler = self.get_handler(context.failed_phase);
 
-        handler.map_or_else(
-            CleanupResult::success,
-            |h| h.rollback(context),
-        )
+        handler.map_or_else(CleanupResult::success, |h| h.rollback(context))
     }
 }
 

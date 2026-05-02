@@ -153,9 +153,7 @@ fn spawn_config_watcher(
 }
 
 /// Create a notify file watcher that sends events on config changes.
-fn create_file_watcher(
-    tx: mpsc::Sender<()>,
-) -> Result<notify::RecommendedWatcher> {
+fn create_file_watcher(tx: mpsc::Sender<()>) -> Result<notify::RecommendedWatcher> {
     notify::recommended_watcher(
         move |res: std::result::Result<notify::Event, notify::Error>| {
             if let Ok(event) = res {
@@ -175,10 +173,7 @@ fn create_file_watcher(
 }
 
 /// Register paths with the watcher, falling back to parent directories for missing files.
-fn register_watch_paths(
-    watcher: &mut notify::RecommendedWatcher,
-    config_paths: &[PathBuf],
-) {
+fn register_watch_paths(watcher: &mut notify::RecommendedWatcher, config_paths: &[PathBuf]) {
     for path in config_paths {
         let watch_result = watcher.watch(path, notify::RecursiveMode::NonRecursive);
         if watch_result.is_err() {

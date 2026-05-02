@@ -132,8 +132,8 @@ pub use queue::{
 pub use queue_sqlite::SqliteQueue;
 pub use recovery::{RecoveryConfig, RecoveryPolicy};
 pub use security::{
-    AgentToken, AuditEntry, AuditFilter, AuditLogger, AuditOutcome, AuditOutcomeFilter, AuthContext,
-    RateLimiter, Scope,
+    AgentToken, AuditEntry, AuditFilter, AuditLogger, AuditOutcome, AuditOutcomeFilter,
+    AuthContext, RateLimiter, Scope,
 };
 pub use session_state::{SessionState, SessionStateManager, StateTransition};
 pub use shutdown::{signal_channels, ShutdownCoordinator, ShutdownSignal};

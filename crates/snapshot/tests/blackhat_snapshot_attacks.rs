@@ -3,15 +3,16 @@
 //! Tests hostile inputs: empty branch names, nonexistent IDs, permission denied,
 //! huge descriptions, corrupted directories, etc.
 
-use std::sync::Arc;
-
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::sync::Arc;
 
-use scp_snapshot::application::service::SnapshotService;
-use scp_snapshot::domain::snapshot::{Snapshot, SnapshotId};
-use scp_snapshot::error::SnapshotError;
-use scp_snapshot::storage::storage::SnapshotStore;
+use scp_snapshot::{
+    application::service::SnapshotService,
+    domain::snapshot::{Snapshot, SnapshotId},
+    error::SnapshotError,
+    storage::storage::SnapshotStore,
+};
 
 fn make_service() -> (SnapshotService, tempfile::TempDir) {
     let tmp = tempfile::TempDir::new().expect("temp dir");
@@ -63,10 +64,7 @@ fn attack_delete_nonexistent_snapshot() {
     let (service, _tmp) = make_service();
     let fake_id = SnapshotId::generate();
     let result = service.delete_snapshot(&fake_id);
-    assert!(
-        result.is_err(),
-        "Deleting nonexistent snapshot should fail"
-    );
+    assert!(result.is_err(), "Deleting nonexistent snapshot should fail");
 }
 
 // ============================================================================
@@ -99,8 +97,11 @@ fn attack_list_corrupted_dir_non_json() {
     std::fs::create_dir_all(&snapshots_dir).expect("create dir");
 
     // Write a non-JSON file with .json extension
-    std::fs::write(snapshots_dir.join("snap-corrupt.json"), "NOT VALID JSON {{{{")
-        .expect("write corrupt");
+    std::fs::write(
+        snapshots_dir.join("snap-corrupt.json"),
+        "NOT VALID JSON {{{{",
+    )
+    .expect("write corrupt");
 
     let store = SnapshotStore::new(tmp.path());
     let result = store.list();
@@ -134,10 +135,7 @@ fn attack_list_ignores_non_json_files() {
     std::fs::write(snapshots_dir.join("script.sh"), "#!/bin/bash\nevil").expect("write sh");
 
     let result = store.list();
-    assert!(
-        result.is_ok(),
-        "Listing should ignore non-JSON files"
-    );
+    assert!(result.is_ok(), "Listing should ignore non-JSON files");
     let list = result.expect("list");
     assert_eq!(list.len(), 1, "Should only find the one valid snapshot");
 }
@@ -197,13 +195,7 @@ fn attack_create_snapshot_null_in_branch() {
 // ============================================================================
 #[test]
 fn attack_snapshot_id_parse_rejects_bad() {
-    let bad_inputs = vec![
-        "",
-        "snap-",
-        "not-a-snap",
-        "SNAP-uppercase",
-        "snap",
-    ];
+    let bad_inputs = vec!["", "snap-", "not-a-snap", "SNAP-uppercase", "snap"];
 
     for input in bad_inputs {
         let result = SnapshotId::parse(input);
@@ -244,12 +236,16 @@ fn attack_cleanup_permission_denied() {
     let store = make_store(&tmp);
 
     // Create an expired snapshot
-    let mut snapshot = Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
+    let mut snapshot =
+        Snapshot::create("main".to_string(), "abc".to_string(), None).expect("valid snapshot");
     snapshot.expires_at = Some(chrono::Utc::now() - chrono::Duration::hours(1));
     store.save(snapshot.clone()).expect("save");
 
     // Make the snapshot file read-only (not deletable on some systems)
-    let file_path = tmp.path().join(".scp").join("snapshots")
+    let file_path = tmp
+        .path()
+        .join(".scp")
+        .join("snapshots")
         .join(format!("{}.json", snapshot.id.as_str()));
 
     #[cfg(unix)]
@@ -293,18 +289,19 @@ fn attack_concurrent_operations() {
     let service = SnapshotService::new(store.clone());
 
     // Create a snapshot
-    let snap = service.create_snapshot("main".to_string(), "abc".to_string(), None)
+    let snap = service
+        .create_snapshot("main".to_string(), "abc".to_string(), None)
         .expect("create");
 
     // Load it concurrently from multiple threads
     let id = snap.id.clone();
-    let handles: Vec<_> = (0..4).map(|_| {
-        let store = store.clone();
-        let id = id.clone();
-        std::thread::spawn(move || {
-            store.load(&id)
+    let handles: Vec<_> = (0..4)
+        .map(|_| {
+            let store = store.clone();
+            let id = id.clone();
+            std::thread::spawn(move || store.load(&id))
         })
-    }).collect();
+        .collect();
 
     for handle in handles {
         let result = handle.join().expect("thread join");
@@ -322,11 +319,13 @@ fn attack_overwrite_existing_snapshot() {
 
     let id = SnapshotId::parse("snap-overwrite-test").expect("valid id");
 
-    let mut snap1 = Snapshot::create("main".to_string(), "aaa".to_string(), None).expect("valid snapshot");
+    let mut snap1 =
+        Snapshot::create("main".to_string(), "aaa".to_string(), None).expect("valid snapshot");
     snap1.id = id.clone();
     store.save(snap1).expect("save first");
 
-    let mut snap2 = Snapshot::create("evil".to_string(), "bbb".to_string(), None).expect("valid snapshot");
+    let mut snap2 =
+        Snapshot::create("evil".to_string(), "bbb".to_string(), None).expect("valid snapshot");
     snap2.id = id.clone();
     store.save(snap2).expect("overwrite");
 
@@ -360,7 +359,10 @@ fn attack_create_snapshot_json_injection_description() {
         "abc".to_string(),
         Some(evil_desc.to_string()),
     );
-    assert!(result.is_ok(), "Should handle JSON-like strings in description");
+    assert!(
+        result.is_ok(),
+        "Should handle JSON-like strings in description"
+    );
 
     let snap = result.expect("snap");
     let loaded = service.get_snapshot(&snap.id).expect("load");
@@ -415,8 +417,11 @@ fn attack_list_mixed_valid_and_corrupt() {
 
     // Write a corrupt JSON file
     let snapshots_dir = tmp.path().join(".scp").join("snapshots");
-    std::fs::write(snapshots_dir.join("snap-corrupt.json"), "NOT VALID JSON {{{{")
-        .expect("write corrupt");
+    std::fs::write(
+        snapshots_dir.join("snap-corrupt.json"),
+        "NOT VALID JSON {{{{",
+    )
+    .expect("write corrupt");
 
     let list = store.list().expect("list should succeed");
     assert_eq!(list.len(), 1, "Should return only the valid snapshot");
@@ -427,12 +432,18 @@ fn attack_list_mixed_valid_and_corrupt() {
 mod service {
     use super::*;
 
-    pub fn create_and_save(store: &SnapshotStore, branch: &str, commit: &str, desc: Option<&str>) -> Snapshot {
+    pub fn create_and_save(
+        store: &SnapshotStore,
+        branch: &str,
+        commit: &str,
+        desc: Option<&str>,
+    ) -> Snapshot {
         let snapshot = Snapshot::create(
             branch.to_string(),
             commit.to_string(),
             desc.map(|d| d.to_string()),
-        ).expect("valid snapshot");
+        )
+        .expect("valid snapshot");
         store.save(snapshot.clone()).expect("save");
         snapshot
     }

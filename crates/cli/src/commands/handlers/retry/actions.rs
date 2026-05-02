@@ -99,9 +99,8 @@ fn read_last_operation() -> Result<LastOperation> {
         )));
     }
 
-    let contents = std::fs::read_to_string(path).map_err(|e| {
-        Error::io_error(format!("Failed to read {}: {e}", path.display()))
-    })?;
+    let contents = std::fs::read_to_string(path)
+        .map_err(|e| Error::io_error(format!("Failed to read {}: {e}", path.display())))?;
 
     serde_json::from_str(&contents).map_err(|e| {
         Error::internal(format!(

@@ -28,8 +28,15 @@ impl PipelineExecutor {
             .context("Failed to initialize state store")
             .map_err(|e| anyhow::anyhow!(e))?;
 
-        let policy_config = PolicyConfig::new(PolicyOpts { timeout_ms: 30_000, max_retries: 3, base_delay_ms: 100, max_delay_ms: 5_000, failure_threshold: 5, recovery_timeout_ms: 30_000 })
-            .context("Failed to create default policy config")?;
+        let policy_config = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 30_000,
+            max_retries: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 5_000,
+            failure_threshold: 5,
+            recovery_timeout_ms: 30_000,
+        })
+        .context("Failed to create default policy config")?;
 
         Ok(Self {
             store,

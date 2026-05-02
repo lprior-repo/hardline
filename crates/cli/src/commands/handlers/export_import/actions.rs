@@ -33,10 +33,7 @@ pub fn run_export(options: &ExportOptions) -> Result<()> {
 
     // Filter to a single session if requested
     let sessions = match &options.session {
-        Some(target) => sessions
-            .into_iter()
-            .filter(|s| s.name == *target)
-            .collect(),
+        Some(target) => sessions.into_iter().filter(|s| s.name == *target).collect(),
         None => sessions,
     };
 
@@ -125,7 +122,13 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
         overwritten_sessions: Vec::new(),
     };
 
-    import_sessions(&export_data, &existing_names, backend.as_ref() as &dyn vcs::VcsBackend, options, &mut result);
+    import_sessions(
+        &export_data,
+        &existing_names,
+        backend.as_ref() as &dyn vcs::VcsBackend,
+        options,
+        &mut result,
+    );
 
     result.success = result.failed == 0;
     report_import_result(&result);
@@ -156,7 +159,9 @@ fn import_sessions(
             }
             Err(e) => {
                 result.failed += 1;
-                result.errors.push(format!("Failed to create workspace '{}': {e}", ws_name));
+                result
+                    .errors
+                    .push(format!("Failed to create workspace '{}': {e}", ws_name));
             }
         }
     }
@@ -282,7 +287,11 @@ mod tests {
             .env("GIT_COMMITTER_EMAIL", "test@test.com")
             .output()
             .expect("git init");
-        assert!(output.status.success(), "git init failed: {:?}", output.stderr);
+        assert!(
+            output.status.success(),
+            "git init failed: {:?}",
+            output.stderr
+        );
 
         let commit = std::process::Command::new("git")
             .args(["commit", "--allow-empty", "-m", "init"])
@@ -293,15 +302,23 @@ mod tests {
             .env("GIT_COMMITTER_EMAIL", "test@test.com")
             .output()
             .expect("git commit");
-        assert!(commit.status.success(), "git commit failed: {:?}", commit.stderr);
+        assert!(
+            commit.status.success(),
+            "git commit failed: {:?}",
+            commit.stderr
+        );
     }
 
     #[test]
     fn run_export_to_stdout() {
         let Ok(dir) = tempfile::tempdir() else { return };
         git_init(dir.path());
-        let Ok(original) = std::env::current_dir() else { return };
-        if std::env::set_current_dir(dir.path()).is_err() { return }
+        let Ok(original) = std::env::current_dir() else {
+            return;
+        };
+        if std::env::set_current_dir(dir.path()).is_err() {
+            return;
+        }
 
         let options = ExportOptions {
             session: None,
@@ -326,8 +343,12 @@ mod tests {
             session: None,
             output: Some(output_path.to_string_lossy().to_string()),
         };
-        let Ok(original) = std::env::current_dir() else { return };
-        if std::env::set_current_dir(&dir_path).is_err() { return }
+        let Ok(original) = std::env::current_dir() else {
+            return;
+        };
+        if std::env::set_current_dir(&dir_path).is_err() {
+            return;
+        }
 
         assert!(run_export(&options).is_ok());
         assert!(output_path.exists());
@@ -389,8 +410,12 @@ mod tests {
             skip_existing: false,
             dry_run: true,
         };
-        let Ok(original) = std::env::current_dir() else { return };
-        if std::env::set_current_dir(dir.path()).is_err() { return }
+        let Ok(original) = std::env::current_dir() else {
+            return;
+        };
+        if std::env::set_current_dir(dir.path()).is_err() {
+            return;
+        }
 
         assert!(run_import(&options).is_ok());
 

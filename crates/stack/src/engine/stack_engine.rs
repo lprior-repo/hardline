@@ -37,21 +37,22 @@ impl<'repo> StackEngine<'repo> {
     /// reached. Each local branch whose tip falls on this chain becomes
     /// a stack branch, ordered base-first (trunk-adjacent first).
     pub fn load_stack(&self, name: &str) -> Result<Stack> {
-        let head_id = self.repo.head_id().map_err(|e| StackError::GitError(e.to_string()))?;
+        let head_id = self
+            .repo
+            .head_id()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
         let trunk_id = self.resolve_branch_id(self.trunk.as_str())?;
 
         let stack_branches = self.walk_ancestry(head_id.detach(), trunk_id)?;
 
-        let stack = Stack::new(
-            StackId::new(),
-            StackName::new(name),
-            self.trunk.clone(),
-        )
-        .with_branches(stack_branches);
+        let stack = Stack::new(StackId::new(), StackName::new(name), self.trunk.clone())
+            .with_branches(stack_branches);
 
-        debug_assert!(stack.branches_ordered().iter().enumerate().all(
-            |(i, b)| b.position == i as u32
-        ));
+        debug_assert!(stack
+            .branches_ordered()
+            .iter()
+            .enumerate()
+            .all(|(i, b)| b.position == i as u32));
 
         Ok(stack)
     }
@@ -64,7 +65,10 @@ impl<'repo> StackEngine<'repo> {
     pub fn create_branch(&self, name: &str, parent: Option<&str>) -> Result<StackBranch> {
         self.validate_branch_name(name)?;
 
-        let head_id = self.repo.head_id().map_err(|e| StackError::GitError(e.to_string()))?;
+        let head_id = self
+            .repo
+            .head_id()
+            .map_err(|e| StackError::GitError(e.to_string()))?;
         let ref_name = format!("refs/heads/{name}");
 
         // Prevent overwriting an existing branch
@@ -228,14 +232,9 @@ impl<'repo> StackEngine<'repo> {
             .peel_to_commit()
             .map_err(|e| StackError::GitError(e.to_string()))?;
 
-        let parent_id = commit
-            .parent_ids()
-            .next()
-            .map(|id| id.detach());
+        let parent_id = commit.parent_ids().next().map(|id| id.detach());
 
-        parent_id.ok_or_else(|| {
-            StackError::GitError(format!("Commit {commit_id} has no parents"))
-        })
+        parent_id.ok_or_else(|| StackError::GitError(format!("Commit {commit_id} has no parents")))
     }
 
     /// Resolve a branch name to its commit object ID.
@@ -294,9 +293,8 @@ impl<'repo> StackEngine<'repo> {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::state::BranchState;
-
     use super::*;
+    use crate::domain::state::BranchState;
 
     #[test]
     fn test_restack_branch_returns_unsupported_error() {
@@ -343,9 +341,7 @@ mod tests {
 
     #[test]
     fn test_create_branch_error_on_empty_name() {
-        let err = StackError::InvalidBranchName(
-            "Branch name cannot be empty".to_string(),
-        );
+        let err = StackError::InvalidBranchName("Branch name cannot be empty".to_string());
         assert!(matches!(err, StackError::InvalidBranchName(_)));
     }
 

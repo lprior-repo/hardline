@@ -230,9 +230,15 @@ mod tests {
 
         // Second call fails: Accepted is terminal, AlreadyTerminal error
         let result = exec.finalize_acceptance(&id);
-        assert!(result.is_err(), "second finalize_acceptance should fail on terminal state");
         assert!(
-            matches!(result.unwrap_err(), super::super::types::PhaseError::InvalidStateTransition(_)),
+            result.is_err(),
+            "second finalize_acceptance should fail on terminal state"
+        );
+        assert!(
+            matches!(
+                result.unwrap_err(),
+                super::super::types::PhaseError::InvalidStateTransition(_)
+            ),
             "expected InvalidStateTransition error"
         );
 
@@ -248,9 +254,15 @@ mod tests {
         // mutate_and_persist returns Err(StoreError::NotFound) for missing pipelines,
         // which is mapped to PhaseError::PersistenceFailed
         let result = exec.finalize_acceptance(&missing_id);
-        assert!(result.is_err(), "nonexistent pipeline should return an error");
         assert!(
-            matches!(result.unwrap_err(), super::super::types::PhaseError::PersistenceFailed(_)),
+            result.is_err(),
+            "nonexistent pipeline should return an error"
+        );
+        assert!(
+            matches!(
+                result.unwrap_err(),
+                super::super::types::PhaseError::PersistenceFailed(_)
+            ),
             "expected PersistenceFailed error"
         );
     }
@@ -305,7 +317,10 @@ mod tests {
         let result = exec.escalate(&id, "escalate from failed");
         assert!(result.is_err(), "escalate from terminal state should fail");
         assert!(
-            matches!(result.unwrap_err(), super::super::types::PhaseError::InvalidStateTransition(_)),
+            matches!(
+                result.unwrap_err(),
+                super::super::types::PhaseError::InvalidStateTransition(_)
+            ),
             "expected InvalidStateTransition error"
         );
 
@@ -322,9 +337,15 @@ mod tests {
         // mutate_and_persist returns Err(StoreError::NotFound) for missing pipelines,
         // which is mapped to PhaseError::PersistenceFailed
         let result = exec.escalate(&missing_id, "reason");
-        assert!(result.is_err(), "nonexistent pipeline should return an error");
         assert!(
-            matches!(result.unwrap_err(), super::super::types::PhaseError::PersistenceFailed(_)),
+            result.is_err(),
+            "nonexistent pipeline should return an error"
+        );
+        assert!(
+            matches!(
+                result.unwrap_err(),
+                super::super::types::PhaseError::PersistenceFailed(_)
+            ),
             "expected PersistenceFailed error"
         );
     }
@@ -385,9 +406,15 @@ mod tests {
         // transition_to(Failed) from Failed returns AlreadyTerminal error,
         // and the ? operator returns early so set_error is never called
         let result = exec.fail(&id, "double fail");
-        assert!(result.is_err(), "fail from terminal state should return error");
         assert!(
-            matches!(result.unwrap_err(), super::super::types::PhaseError::InvalidStateTransition(_)),
+            result.is_err(),
+            "fail from terminal state should return error"
+        );
+        assert!(
+            matches!(
+                result.unwrap_err(),
+                super::super::types::PhaseError::InvalidStateTransition(_)
+            ),
             "expected InvalidStateTransition error"
         );
 
@@ -404,9 +431,15 @@ mod tests {
         // mutate_and_persist returns Err(StoreError::NotFound) for missing pipelines,
         // which is mapped to PhaseError::PersistenceFailed
         let result = exec.fail(&missing_id, "reason");
-        assert!(result.is_err(), "nonexistent pipeline should return an error");
         assert!(
-            matches!(result.unwrap_err(), super::super::types::PhaseError::PersistenceFailed(_)),
+            result.is_err(),
+            "nonexistent pipeline should return an error"
+        );
+        assert!(
+            matches!(
+                result.unwrap_err(),
+                super::super::types::PhaseError::PersistenceFailed(_)
+            ),
             "expected PersistenceFailed error"
         );
     }

@@ -214,7 +214,9 @@ pub async fn execute_batch(
     let checkpoint_id = guard.id().to_string();
 
     // Execute commands sequentially
-    let results = execute_commands_sequentially(commands, &cwd, workspace_name, &guard, &checkpoint_id).await?;
+    let results =
+        execute_commands_sequentially(commands, &cwd, workspace_name, &guard, &checkpoint_id)
+            .await?;
 
     // All commands succeeded - commit the checkpoint
     commit_checkpoint(guard, checkpoint_id, results).await
@@ -239,21 +241,16 @@ async fn execute_commands_sequentially(
                 let failed = !cmd_result.success;
                 results.push(cmd_result);
                 if failed {
-                    return handle_command_failure(
-                        index,
-                        &results,
-                        guard,
-                        checkpoint_id,
-                    )
-                    .await
-                    .and_then(|rb| match rb {
-                        BatchResult::RolledBack {
-                            partial_results, ..
-                        } => Ok(partial_results),
-                        _ => Err(Error::internal(
-                            "handle_command_failure returned unexpected variant",
-                        )),
-                    });
+                    return handle_command_failure(index, &results, guard, checkpoint_id)
+                        .await
+                        .and_then(|rb| match rb {
+                            BatchResult::RolledBack {
+                                partial_results, ..
+                            } => Ok(partial_results),
+                            _ => Err(Error::internal(
+                                "handle_command_failure returned unexpected variant",
+                            )),
+                        });
                 }
             }
             Err(e) => {
@@ -279,15 +276,14 @@ async fn handle_command_failure(
     guard: &CheckpointGuard,
     checkpoint_id: &str,
 ) -> Result<BatchResult> {
-    let failed_result = results.last().ok_or_else(|| {
-        Error::internal("batch result missing after push — invariant violation")
-    })?;
+    let failed_result = results
+        .last()
+        .ok_or_else(|| Error::internal("batch result missing after push — invariant violation"))?;
 
     if let Err(rollback_err) = rollback_with_error(guard, checkpoint_id).await {
         return Err(Error::batch_rollback_failed(format!(
             "Rollback failed after command {} failed: {}. Workspace may be in indeterminate state.",
-            index,
-            rollback_err
+            index, rollback_err
         )));
     }
 

@@ -17,15 +17,16 @@
 use std::time::Duration;
 
 use sqlx::SqlitePool;
-
 #[cfg(test)]
 use tempfile::NamedTempFile;
 
-use crate::domain::workflow::{
-    records::{OperationRecord, RecoveryTask, StepRecord},
-    states::{OperationState, StepStatus},
+use crate::{
+    domain::workflow::{
+        records::{OperationRecord, RecoveryTask, StepRecord},
+        states::{OperationState, StepStatus},
+    },
+    Error,
 };
-use crate::Error;
 
 // ---------------------------------------------------------------------------
 // SQL schema
@@ -179,11 +180,7 @@ impl SqliteJournal {
     /// # Errors
     ///
     /// Returns an error if the INSERT fails.
-    pub async fn save_step(
-        &self,
-        operation_id: &str,
-        step: &StepRecord,
-    ) -> Result<(), Error> {
+    pub async fn save_step(&self, operation_id: &str, step: &StepRecord) -> Result<(), Error> {
         self.ensure_operation(operation_id).await?;
 
         sqlx::query(
@@ -218,10 +215,7 @@ impl SqliteJournal {
     /// # Errors
     ///
     /// Returns an error if the query fails.
-    pub async fn load_steps(
-        &self,
-        operation_id: &str,
-    ) -> Result<Vec<StepRecord>, Error> {
+    pub async fn load_steps(&self, operation_id: &str) -> Result<Vec<StepRecord>, Error> {
         let rows: Vec<StepRow> = sqlx::query_as(
             "SELECT operation_id, step_order, step_name, status,
                     event_revision, created_at, started_at, completed_at,
@@ -233,16 +227,9 @@ impl SqliteJournal {
         .bind(operation_id)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| {
-            Error::database(format!(
-                "Failed to load steps for '{operation_id}': {e}"
-            ))
-        })?;
+        .map_err(|e| Error::database(format!("Failed to load steps for '{operation_id}': {e}")))?;
 
-        Ok(rows
-            .into_iter()
-            .filter_map(StepRow::into_record)
-            .collect())
+        Ok(rows.into_iter().filter_map(StepRow::into_record).collect())
     }
 
     /// Load all operations that are not in a terminal state.
@@ -260,14 +247,9 @@ impl SqliteJournal {
         )
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| {
-            Error::database(format!("Failed to load pending operations: {e}"))
-        })?;
+        .map_err(|e| Error::database(format!("Failed to load pending operations: {e}")))?;
 
-        Ok(rows
-            .into_iter()
-            .filter_map(OpRow::into_record)
-            .collect())
+        Ok(rows.into_iter().filter_map(OpRow::into_record).collect())
     }
 
     /// Mark an operation as completed and record its final state.
@@ -275,10 +257,7 @@ impl SqliteJournal {
     /// # Errors
     ///
     /// Returns an error if the UPDATE fails.
-    pub async fn mark_operation_completed(
-        &self,
-        operation_id: &str,
-    ) -> Result<(), Error> {
+    pub async fn mark_operation_completed(&self, operation_id: &str) -> Result<(), Error> {
         sqlx::query(
             "UPDATE operation_journal
              SET status = 'completed',
@@ -354,10 +333,7 @@ impl SqliteJournal {
     /// # Errors
     ///
     /// Returns an error if the DELETE fails.
-    pub async fn cleanup_old_operations(
-        &self,
-        older_than: Duration,
-    ) -> Result<u64, Error> {
+    pub async fn cleanup_old_operations(&self, older_than: Duration) -> Result<u64, Error> {
         let cutoff_secs = i64::try_from(older_than.as_secs())
             .map_err(|_| Error::database("Duration too large for i64".to_string()))?;
 
@@ -370,9 +346,7 @@ impl SqliteJournal {
         .bind(cutoff_secs)
         .execute(&self.pool)
         .await
-        .map_err(|e| {
-            Error::database(format!("Failed to cleanup old operations: {e}"))
-        })?;
+        .map_err(|e| Error::database(format!("Failed to cleanup old operations: {e}")))?;
 
         Ok(result.rows_affected())
     }
@@ -392,9 +366,7 @@ impl SqliteJournal {
         .execute(&self.pool)
         .await
         .map_err(|e| {
-            Error::database(format!(
-                "Failed to ensure operation '{operation_id}': {e}"
-            ))
+            Error::database(format!("Failed to ensure operation '{operation_id}': {e}"))
         })?;
         Ok(())
     }
@@ -408,19 +380,12 @@ impl SqliteJournal {
         .bind(operation_id)
         .execute(&self.pool)
         .await
-        .map_err(|e| {
-            Error::database(format!(
-                "Failed to touch operation '{operation_id}': {e}"
-            ))
-        })?;
+        .map_err(|e| Error::database(format!("Failed to touch operation '{operation_id}': {e}")))?;
         Ok(())
     }
 
     /// Find the index of the last completed step, or 0 if none.
-    async fn last_completed_step_index(
-        &self,
-        operation_id: &str,
-    ) -> Result<u32, Error> {
+    async fn last_completed_step_index(&self, operation_id: &str) -> Result<u32, Error> {
         let row: MaxResult = sqlx::query_as(
             "SELECT MAX(step_order) AS max_step_order FROM step_journal
              WHERE operation_id = ? AND status = 'completed'",
@@ -434,9 +399,7 @@ impl SqliteJournal {
             ))
         })?;
 
-        let last = row
-            .max_step_order
-            .and_then(|idx| u32::try_from(idx).ok());
+        let last = row.max_step_order.and_then(|idx| u32::try_from(idx).ok());
 
         // Resume from the step *after* the last completed one.
         Ok(last.map_or(0, |idx| idx.saturating_add(1)))
@@ -463,10 +426,7 @@ mod tests {
             .await
             .expect("connect to temp db");
         let journal = SqliteJournal::new(pool.clone());
-        journal
-            .init()
-            .await
-            .expect("init journal tables");
+        journal.init().await.expect("init journal tables");
         // Keep the temp file alive for the pool's lifetime.
         std::mem::forget(tmp);
         pool
@@ -675,10 +635,16 @@ mod tests {
 
         assert_eq!(tasks.len(), 2);
 
-        let t1 = tasks.iter().find(|t| t.operation_id == op1).expect("find op1");
+        let t1 = tasks
+            .iter()
+            .find(|t| t.operation_id == op1)
+            .expect("find op1");
         assert_eq!(t1.resume_from_step, 2); // after step-1 (index 1)
 
-        let t2 = tasks.iter().find(|t| t.operation_id == op2).expect("find op2");
+        let t2 = tasks
+            .iter()
+            .find(|t| t.operation_id == op2)
+            .expect("find op2");
         assert_eq!(t2.resume_from_step, 0); // no completed steps
     }
 
@@ -797,10 +763,7 @@ mod tests {
         let loaded = journal.load_steps(op_id).await.expect("load");
         assert_eq!(loaded.len(), 5);
         for (i, expected) in statuses.iter().enumerate() {
-            assert_eq!(
-                loaded[i].status, *expected,
-                "status mismatch at index {i}"
-            );
+            assert_eq!(loaded[i].status, *expected, "status mismatch at index {i}");
         }
     }
 

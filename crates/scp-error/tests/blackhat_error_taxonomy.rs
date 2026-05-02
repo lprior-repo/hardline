@@ -3,8 +3,8 @@
 //! Tests: Display non-empty for every variant, exit codes unique, numeric codes
 //! in correct ranges, fix suggestions have non-empty commands, serialization roundtrips.
 
-use serde_json;
 use scp_error::{Error, ErrorCategory, ErrorFix, FixRisk};
+use serde_json;
 
 /// Build one of every variant for exhaustive testing.
 fn all_variants() -> Vec<Error> {
@@ -211,14 +211,12 @@ fn attack_fix_commands_non_empty() {
 #[test]
 fn attack_serialization_roundtrip_all_variants() {
     for variant in all_variants() {
-        let json = serde_json::to_string(&variant).unwrap_or_else(|e| {
-            panic!("Serialize failed for {:?}: {}", variant, e)
-        });
+        let json = serde_json::to_string(&variant)
+            .unwrap_or_else(|e| panic!("Serialize failed for {:?}: {}", variant, e));
 
         // Must be valid JSON
-        let _parsed: serde_json::Value = serde_json::from_str(&json).unwrap_or_else(|e| {
-            panic!("Invalid JSON for {:?}: {}\nJSON: {}", variant, e, json)
-        });
+        let _parsed: serde_json::Value = serde_json::from_str(&json)
+            .unwrap_or_else(|e| panic!("Invalid JSON for {:?}: {}\nJSON: {}", variant, e, json));
 
         // Unit variants (QueueEmpty, etc.) serialize as plain strings, not objects.
         // Tuple variants and struct variants serialize as objects or arrays.
@@ -229,7 +227,10 @@ fn attack_serialization_roundtrip_all_variants() {
 
         // Roundtrip: deserialize back
         let deserialized: Error = serde_json::from_str(&json).unwrap_or_else(|e| {
-            panic!("Deserialize failed for {:?}: {}\nJSON: {}", variant, e, json)
+            panic!(
+                "Deserialize failed for {:?}: {}\nJSON: {}",
+                variant, e, json
+            )
         });
 
         // Verify roundtrip preserves code
@@ -286,10 +287,7 @@ fn attack_context_map_valid_json_all_variants() {
 fn attack_codes_screaming_snake() {
     for variant in all_variants() {
         let code = variant.code();
-        assert!(
-            !code.is_empty(),
-            "Code should not be empty"
-        );
+        assert!(!code.is_empty(), "Code should not be empty");
         assert!(
             code.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
             "Code '{}' is not SCREAMING_SNAKE_CASE for {:?}",
@@ -310,28 +308,64 @@ fn attack_codes_screaming_snake() {
 #[test]
 fn attack_category_consistency() {
     // Workspace errors should map to Workspace category
-    assert_eq!(Error::WorkspaceNotFound("x".into()).category(), ErrorCategory::Workspace);
-    assert_eq!(Error::WorkspaceExists("x".into()).category(), ErrorCategory::Workspace);
-    assert_eq!(Error::WorkspaceLocked("x".into(), "y".into()).category(), ErrorCategory::Workspace);
+    assert_eq!(
+        Error::WorkspaceNotFound("x".into()).category(),
+        ErrorCategory::Workspace
+    );
+    assert_eq!(
+        Error::WorkspaceExists("x".into()).category(),
+        ErrorCategory::Workspace
+    );
+    assert_eq!(
+        Error::WorkspaceLocked("x".into(), "y".into()).category(),
+        ErrorCategory::Workspace
+    );
 
     // VCS errors should map to Vcs category
     assert_eq!(Error::VcsNotInitialized.category(), ErrorCategory::Vcs);
-    assert_eq!(Error::BranchNotFound("x".into()).category(), ErrorCategory::Vcs);
+    assert_eq!(
+        Error::BranchNotFound("x".into()).category(),
+        ErrorCategory::Vcs
+    );
     assert_eq!(Error::WorkingCopyDirty.category(), ErrorCategory::Vcs);
 
     // Stack errors should map to Stack category
-    assert_eq!(Error::StackNotFound("x".into()).category(), ErrorCategory::Stack);
-    assert_eq!(Error::StackCyclicDependency.category(), ErrorCategory::Stack);
+    assert_eq!(
+        Error::StackNotFound("x".into()).category(),
+        ErrorCategory::Stack
+    );
+    assert_eq!(
+        Error::StackCyclicDependency.category(),
+        ErrorCategory::Stack
+    );
 
     // Snapshot errors should map to Snapshot category
-    assert_eq!(Error::SnapshotNotFound("x".into()).category(), ErrorCategory::Snapshot);
-    assert_eq!(Error::SnapshotCorrupted("x".into()).category(), ErrorCategory::Snapshot);
+    assert_eq!(
+        Error::SnapshotNotFound("x".into()).category(),
+        ErrorCategory::Snapshot
+    );
+    assert_eq!(
+        Error::SnapshotCorrupted("x".into()).category(),
+        ErrorCategory::Snapshot
+    );
 
     // Infrastructure errors should map to Internal category
-    assert_eq!(Error::Internal("x".into()).category(), ErrorCategory::Internal);
-    assert_eq!(Error::ConfigNotFound("x".into()).category(), ErrorCategory::Internal);
-    assert_eq!(Error::IoError("x".into()).category(), ErrorCategory::Internal);
-    assert_eq!(Error::Database("x".into()).category(), ErrorCategory::Internal);
+    assert_eq!(
+        Error::Internal("x".into()).category(),
+        ErrorCategory::Internal
+    );
+    assert_eq!(
+        Error::ConfigNotFound("x".into()).category(),
+        ErrorCategory::Internal
+    );
+    assert_eq!(
+        Error::IoError("x".into()).category(),
+        ErrorCategory::Internal
+    );
+    assert_eq!(
+        Error::Database("x".into()).category(),
+        ErrorCategory::Internal
+    );
 }
 
 // ============================================================================
@@ -391,7 +425,10 @@ fn attack_unicode_strings() {
 fn attack_very_long_strings() {
     let long_msg = "x".repeat(70000);
     let err = Error::Internal(long_msg.clone());
-    assert_eq!(err.to_string().len(), long_msg.len() + "Internal error: ".len());
+    assert_eq!(
+        err.to_string().len(),
+        long_msg.len() + "Internal error: ".len()
+    );
 
     // Serialization should handle long strings
     let json = serde_json::to_string(&err).expect("serialize long string");
@@ -409,7 +446,7 @@ fn attack_error_fix_serialization() {
         ErrorFix::new("cmd", "desc", FixRisk::Moderate),
         ErrorFix::new("cmd", "desc", FixRisk::Dangerous),
         ErrorFix::safe("safe-cmd", "safe-desc"),
-        ErrorFix::new("", "", FixRisk::Safe),       // empty strings
+        ErrorFix::new("", "", FixRisk::Safe), // empty strings
         ErrorFix::new("cmd\x00null", "desc\x00null", FixRisk::Dangerous), // null bytes
     ];
 

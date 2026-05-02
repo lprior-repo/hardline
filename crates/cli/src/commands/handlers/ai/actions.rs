@@ -86,7 +86,9 @@ fn build_default_status() -> AiStatusOutput {
         .or_else(|| std::env::var("ISOLATE_AGENT_ID").ok());
 
     let cwd = std::env::current_dir();
-    let (location, workspace) = cwd.as_ref().map_or((Location::Unknown, None), |path| detect_location_from_path(path));
+    let (location, workspace) = cwd.as_ref().map_or((Location::Unknown, None), |path| {
+        detect_location_from_path(path)
+    });
 
     let initialized = check_initialized();
     let (ready, suggestion, next_command) = determine_ready_state(initialized, &location);
@@ -106,7 +108,9 @@ fn build_default_status() -> AiStatusOutput {
 /// Build a default next action for the current environment.
 fn build_default_next_action() -> NextActionOutput {
     let cwd = std::env::current_dir();
-    let (location, workspace) = cwd.as_ref().map_or((Location::Unknown, None), |path| detect_location_from_path(path));
+    let (location, workspace) = cwd.as_ref().map_or((Location::Unknown, None), |path| {
+        detect_location_from_path(path)
+    });
 
     let initialized = check_initialized();
     determine_next_action(initialized, &location, workspace.as_deref(), 0)

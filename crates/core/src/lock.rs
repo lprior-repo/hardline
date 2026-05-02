@@ -210,11 +210,14 @@ impl LockManager for MemLockManager {
     }
 
     fn release(&self, lock: &LockType) -> Result<()> {
-        self.locks.write().map_err(|e| {
-            crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
-                e.to_string(),
-            ))
-        })?.remove(lock);
+        self.locks
+            .write()
+            .map_err(|e| {
+                crate::error::Error::from(crate::error_internal::InternalErrorKind::Internal(
+                    e.to_string(),
+                ))
+            })?
+            .remove(lock);
         Ok(())
     }
 

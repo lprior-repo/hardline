@@ -155,10 +155,11 @@ fn tokio_block_on<F: std::future::Future<Output = Result<T>>, T>(fut: F) -> Resu
     match tokio::runtime::Handle::try_current() {
         Ok(handle) => handle.block_on(fut),
         Err(_) => {
-            let rt = tokio::runtime::Runtime::new()
-                .map_err(|e| scp_core::error_internal::InternalErrorKind::Internal(
-                    format!("Failed to create tokio runtime: {e}"),
-                ))?;
+            let rt = tokio::runtime::Runtime::new().map_err(|e| {
+                scp_core::error_internal::InternalErrorKind::Internal(format!(
+                    "Failed to create tokio runtime: {e}"
+                ))
+            })?;
             rt.block_on(fut)
         }
     }

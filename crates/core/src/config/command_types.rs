@@ -96,10 +96,9 @@ fn validate_key_format(key: &str) -> Result<()> {
         .into());
     }
     if key.contains('\0') {
-        return Err(ConfigErrorKind::ConfigParseError(
-            "config key contains null byte".to_string(),
-        )
-        .into());
+        return Err(
+            ConfigErrorKind::ConfigParseError("config key contains null byte".to_string()).into(),
+        );
     }
     if !key.is_ascii() {
         return Err(ConfigErrorKind::ConfigParseError(
@@ -538,12 +537,13 @@ fn apply_structured_sections(doc: &toml_edit::DocumentMut, config: &mut Config) 
 }
 
 fn apply_conflict_section(doc: &toml_edit::DocumentMut, config: &mut Config) {
-    let Some(ci) = doc.get("conflict_resolution") else { return };
+    let Some(ci) = doc.get("conflict_resolution") else {
+        return;
+    };
     let Some(ct) = ci.as_table() else { return };
     if let Some(mv) = ct.get("mode") {
         if let Some(s) = mv.as_str() {
-            config.conflict.mode =
-                super::types::ConflictMode::from_str(s).unwrap_or_default();
+            config.conflict.mode = super::types::ConflictMode::from_str(s).unwrap_or_default();
         }
     }
     if let Some(av) = ct.get("autonomy") {
@@ -987,10 +987,7 @@ fn acquire_config_file_lock(file: std::fs::File, config_path: &Path) -> Result<s
 }
 
 /// Read and parse the TOML document from a locked config file.
-fn read_config_doc(
-    file: &std::fs::File,
-    config_path: &Path,
-) -> Result<toml_edit::DocumentMut> {
+fn read_config_doc(file: &std::fs::File, config_path: &Path) -> Result<toml_edit::DocumentMut> {
     let mut contents = String::new();
     std::io::Read::read_to_string(&mut &*file, &mut contents).map_err(|e| {
         ConfigErrorKind::ConfigWriteError(format!(

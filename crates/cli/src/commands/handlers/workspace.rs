@@ -6,10 +6,7 @@
 //! command organization. This module provides handlers for workspace
 //! operations that bridge between the CLI layer and hardline's command modules.
 
-use scp_core::{
-    validation::domain::validate_input_name,
-    Error, OutputFormat, Result,
-};
+use scp_core::{validation::domain::validate_input_name, Error, OutputFormat, Result};
 
 use super::json_format::get_format;
 use crate::commands::{
@@ -275,9 +272,8 @@ pub async fn handle_work(sub_m: &clap::ArgMatches) -> Result<()> {
         .cloned()
         .ok_or_else(|| Error::invalid_identifier("Name is required".to_string()))?;
 
-    validate_input_name(&name).map_err(|e| {
-        Error::invalid_identifier(format!("session name '{name}' is invalid: {e}"))
-    })?;
+    validate_input_name(&name)
+        .map_err(|e| Error::invalid_identifier(format!("session name '{name}' is invalid: {e}")))?;
 
     let mode = if sub_m.get_flag("dry-run") {
         work::WorkMode::DryRun

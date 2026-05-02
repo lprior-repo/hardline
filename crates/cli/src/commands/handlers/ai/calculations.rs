@@ -237,7 +237,10 @@ pub fn format_status_human(output: &AiStatusOutput) -> Vec<String> {
     let safe_suggestion = sanitize_newlines(&output.suggestion);
     let safe_next_command = sanitize_newlines(&output.next_command);
 
-    let agent_line = output.agent_id.as_ref().map_or_else(|| "Agent ID:      (not registered)".to_string(), |agent| format!("Agent ID:      {agent}"));
+    let agent_line = output.agent_id.as_ref().map_or_else(
+        || "Agent ID:      (not registered)".to_string(),
+        |agent| format!("Agent ID:      {agent}"),
+    );
 
     vec![
         "AI Agent Status".to_string(),

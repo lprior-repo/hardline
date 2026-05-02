@@ -1037,19 +1037,40 @@ mod policies_adversarial {
     // --- PolicyConfig ---
     #[test]
     fn adv_c5_policy_config_all_zeros() {
-        let result = PolicyConfig::new(PolicyOpts { timeout_ms: 0, max_retries: 0, base_delay_ms: 0, max_delay_ms: 0, failure_threshold: 0, recovery_timeout_ms: 0 });
+        let result = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 0,
+            max_retries: 0,
+            base_delay_ms: 0,
+            max_delay_ms: 0,
+            failure_threshold: 0,
+            recovery_timeout_ms: 0,
+        });
         assert!(result.is_err());
     }
 
     #[test]
     fn adv_c5_policy_config_very_large_values() {
-        let result = PolicyConfig::new(PolicyOpts { timeout_ms: u64::MAX, max_retries: u32::MAX, base_delay_ms: 1, max_delay_ms: u64::MAX, failure_threshold: u32::MAX, recovery_timeout_ms: u64::MAX });
+        let result = PolicyConfig::new(PolicyOpts {
+            timeout_ms: u64::MAX,
+            max_retries: u32::MAX,
+            base_delay_ms: 1,
+            max_delay_ms: u64::MAX,
+            failure_threshold: u32::MAX,
+            recovery_timeout_ms: u64::MAX,
+        });
         assert!(result.is_ok());
     }
 
     #[test]
     fn adv_c5_policy_config_max_equals_base_delay() {
-        let result = PolicyConfig::new(PolicyOpts { timeout_ms: 1000, max_retries: 3, base_delay_ms: 100, max_delay_ms: 100, failure_threshold: 3, recovery_timeout_ms: 5000 });
+        let result = PolicyConfig::new(PolicyOpts {
+            timeout_ms: 1000,
+            max_retries: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 100,
+            failure_threshold: 3,
+            recovery_timeout_ms: 5000,
+        });
         assert!(result.is_ok());
     }
 
