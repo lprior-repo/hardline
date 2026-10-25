@@ -1,3 +1,5 @@
+use criterion::criterion_main;
+
 mod bench_dag;
 mod bench_queue;
 mod bench_types;
