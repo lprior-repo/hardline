@@ -314,7 +314,7 @@ pub enum WorkspaceCommands {
         event_type: Option<String>,
 
         /// Follow mode (stream new events)
-        /// Note: no short flag — `-f` is the global `--format` flag.
+        // No short flag: `-f` is the global `--format` flag.
         #[arg(long)]
         follow: bool,
 
