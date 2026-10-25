@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn widget_structs_in_vec() {
-        let _widgets: Vec<&str> = vec![];
+        let _widgets: Vec<&str> = Vec::new();
         let _s = vec![
             StackTreeWidget::new(Vec::new()),
             StackTreeWidget::new(Vec::new()),
@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn widget_structs_have_distinct_type_names() {
-        let names = vec![
+        let names = [
             std::any::type_name::<StackTreeWidget>(),
             std::any::type_name::<DiffView>(),
             std::any::type_name::<DetailsView>(),

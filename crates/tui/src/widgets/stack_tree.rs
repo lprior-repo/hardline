@@ -399,7 +399,7 @@ mod tests {
         let has_content = buf
             .content
             .iter()
-            .any(|cell| cell.symbol().is_empty() == false);
+            .any(|cell| !cell.symbol().is_empty());
         assert!(has_content, "buffer should have rendered content");
     }
 

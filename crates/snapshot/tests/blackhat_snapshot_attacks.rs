@@ -131,7 +131,7 @@ fn attack_list_ignores_non_json_files() {
     // Add non-JSON files to the snapshots dir
     let snapshots_dir = tmp.path().join(".scp").join("snapshots");
     std::fs::write(snapshots_dir.join("readme.txt"), "not json").expect("write txt");
-    std::fs::write(snapshots_dir.join("data.bin"), &[0u8, 1, 2, 3]).expect("write bin");
+    std::fs::write(snapshots_dir.join("data.bin"), [0u8, 1, 2, 3]).expect("write bin");
     std::fs::write(snapshots_dir.join("script.sh"), "#!/bin/bash\nevil").expect("write sh");
 
     let result = store.list();
@@ -273,7 +273,7 @@ fn attack_cleanup_permission_denied() {
         // On Unix, deletion of read-only files may succeed (owner can always delete)
         // The important thing is no panic
         assert!(
-            report.failed == 0 || report.failed > 0,
+            report.failed >= 0,
             "Cleanup should complete without panic"
         );
     }

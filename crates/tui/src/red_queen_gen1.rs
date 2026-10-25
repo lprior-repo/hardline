@@ -662,7 +662,7 @@ mod error_contract_adversarial {
         let errors = vec![
             TuiError::Error("e".into()),
             TuiError::TerminalError("t".into()),
-            TuiError::IoError(std::io::Error::new(std::io::ErrorKind::Other, "io")),
+            TuiError::IoError(std::io::Error::other("io")),
         ];
         for err in errors {
             match &err {
@@ -761,7 +761,7 @@ mod diff_line_adversarial {
         let a = DiffLine::new("x", DiffLineKind::Add);
         let d = DiffLine::new("x", DiffLineKind::Remove);
         let c = DiffLine::new("x", DiffLineKind::Context);
-        let all = vec![&h, &hh, &a, &d, &c];
+        let all = [&h, &hh, &a, &d, &c];
         for i in 0..all.len() {
             for j in (i + 1)..all.len() {
                 assert_ne!(all[i].kind, all[j].kind);

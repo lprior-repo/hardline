@@ -279,9 +279,9 @@ mod branch_provider_escalated {
         let provider = CountingProvider::new();
         let mut app = TuiApp::new(Box::new(provider)).expect("ok");
         app.refresh_branches().expect("ok");
-        assert_eq!(app.needs_refresh, false);
+        assert!(!app.needs_refresh);
         app.refresh_branches().expect("ok");
-        assert_eq!(app.needs_refresh, false);
+        assert!(!app.needs_refresh);
     }
 
     #[test]

@@ -128,7 +128,7 @@ mod tests {
 
     #[test]
     fn io_error_is_debug() {
-        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "inner");
+        let io_err = std::io::Error::other("inner");
         let tui_err = TuiError::IoError(io_err);
         let debug_str = format!("{tui_err:?}");
         assert!(
@@ -179,7 +179,7 @@ mod tests {
     fn error_variants_are_distinct() {
         let a = TuiError::Error("a".to_string());
         let b = TuiError::TerminalError("b".to_string());
-        let io = TuiError::IoError(std::io::Error::new(std::io::ErrorKind::Other, "c"));
+        let io = TuiError::IoError(std::io::Error::other("c"));
         assert!(std::mem::discriminant(&a) != std::mem::discriminant(&b));
         assert!(std::mem::discriminant(&a) != std::mem::discriminant(&io));
         assert!(std::mem::discriminant(&b) != std::mem::discriminant(&io));
@@ -201,10 +201,8 @@ mod tests {
 
     #[test]
     fn io_error_implements_std_error() {
-        let err: Box<dyn std::error::Error> = Box::new(TuiError::IoError(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "test",
-        )));
+        let err: Box<dyn std::error::Error> =
+            Box::new(TuiError::IoError(std::io::Error::other("test")));
         let _msg = err.to_string();
     }
 
