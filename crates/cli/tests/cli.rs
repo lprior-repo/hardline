@@ -4,7 +4,7 @@ use tempfile::TempDir;
 
 #[test]
 fn test_help() {
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.arg("--help")
         .assert()
         .success()
@@ -16,7 +16,7 @@ fn test_queue_persists_across_cli_invocations() {
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("test.db");
 
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.env("SCP_DATABASE_PATH", &db_path)
         .arg("queue")
         .arg("list")
@@ -24,7 +24,7 @@ fn test_queue_persists_across_cli_invocations() {
         .success()
         .stdout(predicate::str::contains("Queue is empty"));
 
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.env("SCP_DATABASE_PATH", &db_path)
         .arg("queue")
         .arg("enqueue")
@@ -33,7 +33,7 @@ fn test_queue_persists_across_cli_invocations() {
         .success()
         .stdout(predicate::str::contains("feature-persist-test"));
 
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.env("SCP_DATABASE_PATH", &db_path)
         .arg("queue")
         .arg("list")
@@ -41,7 +41,7 @@ fn test_queue_persists_across_cli_invocations() {
         .success()
         .stdout(predicate::str::contains("feature-persist-test"));
 
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.env("SCP_DATABASE_PATH", &db_path)
         .arg("queue")
         .arg("status")
@@ -55,7 +55,7 @@ fn test_queue_dequeue_persists_state() {
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("test.db");
 
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.env("SCP_DATABASE_PATH", &db_path)
         .arg("queue")
         .arg("enqueue")
@@ -63,7 +63,7 @@ fn test_queue_dequeue_persists_state() {
         .assert()
         .success();
 
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.env("SCP_DATABASE_PATH", &db_path)
         .arg("queue")
         .arg("enqueue")
@@ -71,7 +71,7 @@ fn test_queue_dequeue_persists_state() {
         .assert()
         .success();
 
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.env("SCP_DATABASE_PATH", &db_path)
         .arg("queue")
         .arg("list")
@@ -79,7 +79,7 @@ fn test_queue_dequeue_persists_state() {
         .success()
         .stdout(predicate::str::contains("2 items"));
 
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.env("SCP_DATABASE_PATH", &db_path)
         .arg("queue")
         .arg("dequeue")
@@ -87,7 +87,7 @@ fn test_queue_dequeue_persists_state() {
         .success()
         .stdout(predicate::str::contains("dequeue-me"));
 
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.env("SCP_DATABASE_PATH", &db_path)
         .arg("queue")
         .arg("status")
@@ -101,7 +101,7 @@ fn test_queue_database_flag_sets_path() {
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("flag-test.db");
 
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.arg("--database")
         .arg(&db_path)
         .arg("queue")
@@ -110,7 +110,7 @@ fn test_queue_database_flag_sets_path() {
         .assert()
         .success();
 
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.arg("--database")
         .arg(&db_path)
         .arg("queue")
@@ -122,19 +122,19 @@ fn test_queue_database_flag_sets_path() {
 
 #[test]
 fn test_init_help() {
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.arg("init").arg("--help").assert().success();
 }
 
 #[test]
 fn test_status_help() {
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.arg("status").arg("--help").assert().success();
 }
 
 #[test]
 fn test_workspace_add_help() {
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.arg("workspace")
         .arg("add")
         .arg("--help")
@@ -144,7 +144,7 @@ fn test_workspace_add_help() {
 
 #[test]
 fn test_workspace_commit_help() {
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.arg("workspace")
         .arg("commit")
         .arg("--help")
@@ -154,7 +154,7 @@ fn test_workspace_commit_help() {
 
 #[test]
 fn test_stash_save_help() {
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.arg("stash")
         .arg("save")
         .arg("--help")

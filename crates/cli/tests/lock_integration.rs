@@ -2,7 +2,7 @@ use assert_cmd::Command;
 use tempfile::NamedTempFile;
 
 fn scp_cmd(db_path: &str) -> Command {
-    let mut cmd = Command::cargo_bin("scp-cli").unwrap();
+    let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.env("SCP_DATABASE_PATH", db_path);
     cmd
 }
