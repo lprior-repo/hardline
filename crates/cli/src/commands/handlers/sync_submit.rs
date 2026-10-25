@@ -7,9 +7,18 @@
 
 use anyhow::Result;
 use clap::ArgMatches;
-use scp_core::OutputFormat;
+use scp_core::{
+    domain::SessionName,
+    vcs::{create_backend, CommitId, VcsBackend},
+    OutputFormat,
+};
 
-use crate::commands::handlers::json_format::get_format;
+use crate::commands::handlers::{
+    json_format::get_format,
+    sync::{
+        sync_all_sessions, sync_current_workspace, sync_named_session, RetryConfig, SyncOptions,
+    },
+};
 
 /// Print contract documentation via the introspect system.
 ///
@@ -56,17 +65,56 @@ pub async fn handle_sync(sub_m: &ArgMatches) -> Result<()> {
         return Ok(());
     }
 
-    let _name = sub_m.get_one::<String>("name").map(String::as_str);
-    let _all = sub_m.get_flag("all");
-    let _dry_run = sub_m.get_flag("dry-run");
+    let name = sub_m.get_one::<String>("name").map(String::as_str);
+    let all = sub_m.get_flag("all");
+    let dry_run = sub_m.get_flag("dry-run");
     let _format = get_format(sub_m);
 
-    // Hardline's sync is handled by the existing sync.rs in handlers
-    // which provides VCS-based session synchronization
-    // TODO: Integrate with existing sync module properly
-    Err(anyhow::anyhow!(
-        "sync command integration with VCS sync not yet complete"
-    ))
+    // The sync module has no dry-run mode, so a dry run reports the plan
+    // and performs no rebase rather than silently syncing for real.
+    if dry_run {
+        if all {
+            println!("[dry-run] Would sync all sessions");
+        } else if let Some(name) = name {
+            println!("[dry-run] Would sync session '{name}'");
+        } else {
+            println!("[dry-run] Would sync the current workspace");
+        }
+        return Ok(());
+    }
+
+    let options = SyncOptions {
+        allow_dirty: false,
+        target_branch: None,
+        lock_timeout_secs: 30,
+        retry_config: RetryConfig {
+            max_attempts: 3,
+            initial_delay_ms: 100,
+        },
+    };
+
+    let summary = if all {
+        sync_all_sessions(options).await
+    } else if let Some(name) = name {
+        let session_name = SessionName::parse(name)
+            .map_err(|e| anyhow::anyhow!("Invalid session name '{name}': {e}"))?;
+        sync_named_session(session_name, options).await
+    } else {
+        sync_current_workspace(options).await
+    }
+    .map_err(|e| anyhow::anyhow!("sync failed: {e}"))?;
+
+    println!(
+        "Synced {} session(s) in {} operation(s){}",
+        summary.sessions_synced.len(),
+        summary.total_operations,
+        if summary.had_conflicts {
+            " (conflicts detected)"
+        } else {
+            ""
+        }
+    );
+    Ok(())
 }
 
 /// Handle the submit command.
@@ -98,25 +146,63 @@ pub async fn handle_diff(sub_m: &ArgMatches) -> Result<()> {
     }
 
     let name = sub_m.get_one::<String>("name").map(String::as_str);
-    let _stat = sub_m.get_flag("stat");
+    let stat = sub_m.get_flag("stat");
     let _format = get_format(sub_m);
 
-    // Hardline doesn't have a diff command module yet
-    // Route to introspect for documentation
-    if name.is_some() {
-        // TODO: Implement actual diff using VCS backend
-        eprintln!("diff command not fully implemented in hardline");
-        let options = crate::commands::handlers::introspect::data::IntrospectOptions {
-            target: crate::commands::handlers::introspect::data::IntrospectTarget::Specific(
-                "diff".to_string(),
-            ),
-        };
-        crate::commands::handlers::introspect::run_introspect(&options)?;
+    let name = match name {
+        Some(name) => name,
+        None => return Err(anyhow::anyhow!("diff requires a session name")),
+    };
+
+    let cwd = std::env::current_dir()?;
+    let backend = create_backend(&cwd)?;
+    let workspaces = backend.list_workspaces()?;
+    let workspace = workspaces
+        .iter()
+        .find(|w| w.name == name)
+        .ok_or_else(|| anyhow::anyhow!("session not found: {name}"))?;
+
+    // The backend's diff passes its arguments straight to `git diff`, so
+    // branch names resolve as revisions there. There is no branch-tip
+    // lookup on the trait, so this is the trait's own diff path rather
+    // than a shell-out around it.
+    let from = CommitId::from_unchecked("main");
+    let to = CommitId::from_unchecked(workspace.branch.clone());
+    let diff = backend.diff(&from, &to)?;
+
+    if stat {
+        for path in diff_file_paths(&diff) {
+            println!(" {path}");
+        }
     } else {
-        return Err(anyhow::anyhow!("diff requires a session name"));
+        print!("{diff}");
+        if !diff.ends_with('\n') {
+            println!();
+        }
     }
 
     Ok(())
+}
+
+/// Extract the changed file paths from a unified diff.
+///
+/// Pure function over `diff --git a/<path> b/<path>` headers, used for the
+/// `--stat` form of the diff command (the VCS trait exposes full diffs
+/// only, not a stat mode).
+fn diff_file_paths(diff: &str) -> Vec<String> {
+    let mut paths = Vec::new();
+    for line in diff.lines() {
+        if let Some(rest) = line.strip_prefix("diff --git ") {
+            if let Some(path) = rest.split_whitespace().nth(1) {
+                let path = match path.strip_prefix("b/") {
+                    Some(stripped) => stripped,
+                    None => path,
+                };
+                paths.push(path.to_string());
+            }
+        }
+    }
+    paths
 }
 
 /// Handle the done command.
@@ -193,5 +279,20 @@ mod tests {
         let json_bool = true;
         let format = OutputFormat::from_json_flag(json_bool);
         assert!(format.is_json());
+    }
+
+    #[test]
+    fn test_diff_file_paths_extracts_changed_files() {
+        let diff = "diff --git a/src/main.rs b/src/main.rs\n--- a/src/main.rs\n+++ b/src/main.rs\n@@ -1 +1 @@\ndiff --git a/README.md b/README.md\n";
+        assert_eq!(
+            super::diff_file_paths(diff),
+            vec!["src/main.rs".to_string(), "README.md".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_diff_file_paths_empty_diff() {
+        assert!(super::diff_file_paths("").is_empty());
+        assert!(super::diff_file_paths("no diff headers here").is_empty());
     }
 }

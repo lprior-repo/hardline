@@ -149,6 +149,30 @@ impl SqliteSessionRepository {
 
         Ok(())
     }
+
+    /// List raw session rows, including the stored `session_state` string.
+    ///
+    /// The domain `Session` type always reads back in the `Created`
+    /// typestate (`TryFrom<SessionRow>` discards the stored state), so
+    /// callers that need the state as stored — query status filters,
+    /// blockers, checkpoint snapshots — read rows through this method
+    /// instead of `SessionRepository::list`.
+    pub async fn list_rows(&self) -> Result<Vec<SessionRow>> {
+        let results = self
+            .db
+            .query(
+                "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at
+                 FROM sessions ORDER BY created_at DESC",
+            )
+            .await
+            .map_err(|e| DatabaseError(format!("Failed to list session rows: {}", e)))?;
+
+        let mut rows = Vec::with_capacity(results.len());
+        for cols in &results {
+            rows.push(Self::row_from_cols(cols)?);
+        }
+        Ok(rows)
+    }
 }
 
 #[async_trait]
@@ -286,19 +310,23 @@ ON CONFLICT(id) DO UPDATE SET
 
 impl SqliteSessionRepository {
     fn row_to_session_row(&self, result: Vec<Vec<String>>) -> Result<SessionRow> {
-        if result.len() != 1 || result[0].len() != 9 {
+        if result.len() != 1 {
             return Err(RepositoryError(format!(
-                "Expected single row with 9 columns, got {} rows with {} columns",
-                result.len(),
-                if result.is_empty() {
-                    0
-                } else {
-                    result[0].len()
-                }
+                "Expected a single row, got {} rows",
+                result.len()
+            )));
+        }
+        Self::row_from_cols(&result[0])
+    }
+
+    fn row_from_cols(cols: &[String]) -> Result<SessionRow> {
+        if cols.len() != 9 {
+            return Err(RepositoryError(format!(
+                "Expected a row with 9 columns, got {} columns",
+                cols.len()
             )));
         }
 
-        let cols = &result[0];
         // NULL columns come back as "" from the string-based query layer,
         // so empty means absent and any non-empty value is real data.
         fn opt_col(s: &str) -> Option<String> {
