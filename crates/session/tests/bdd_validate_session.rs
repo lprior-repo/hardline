@@ -1322,7 +1322,7 @@ fn xcut05_workspace_serde_roundtrip_through_lifecycle() {
 fn stress01_bulk_session_creation() {
     let mut ids = HashSet::new();
     for i in 0..100 {
-        let name = SessionName::parse(&format!("stress-{i}")).unwrap();
+        let name = SessionName::parse(format!("stress-{i}")).unwrap();
         let session = Session::<Created>::create(name).unwrap();
         assert!(
             ids.insert(session.id.as_str().to_string()),
@@ -1335,8 +1335,8 @@ fn stress01_bulk_session_creation() {
 fn stress02_bulk_bead_creation_and_lifecycle() {
     for i in 0..50 {
         let bead = Bead::create(
-            BeadId::new(&format!("bd-stress-{i}")).unwrap(),
-            BeadTitle::new(&format!("Stress Bead {i}")).unwrap(),
+            BeadId::new(format!("bd-stress-{i}")).unwrap(),
+            BeadTitle::new(format!("Stress Bead {i}")).unwrap(),
             None,
         );
         let in_progress = bead.transition(BeadState::InProgress).unwrap();
