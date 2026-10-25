@@ -1,11 +1,10 @@
 # Isolate Rust Toolchain Configuration
-# Uses latest nightly for maximum functional programming features
-# and unstable feature gates for cutting-edge patterns
+# Pinned to stable 1.99.1 (released 2026-10-13). The codebase uses no
+# nightly feature gates, so a stable pin ends nightly-drift CI failures.
+# The same version is set in .github/workflows/ci.yml.
 
 [toolchain]
-channel = "nightly"
-# Pinning to a specific nightly is optional - remove the date to always use the latest
-# date = "2024-01-08"
+channel = "1.99.1"
 
 # Components
 components = ["rustfmt", "clippy", "rust-analyzer"]
