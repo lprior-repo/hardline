@@ -314,7 +314,8 @@ pub enum WorkspaceCommands {
         event_type: Option<String>,
 
         /// Follow mode (stream new events)
-        #[arg(short, long)]
+        /// Note: no short flag — `-f` is the global `--format` flag.
+        #[arg(long)]
         follow: bool,
 
         /// Maximum events to show
