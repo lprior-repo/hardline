@@ -57,68 +57,12 @@ impl StackTreeWidget {
         if self.branches.is_empty() {
             return Vec::new();
         }
-        let mut nodes = Vec::new();
-        self.collect_root_nodes(&mut nodes, 0, &[]);
-        nodes
-    }
-
-    fn collect_root_nodes(
-        &self,
-        nodes: &mut Vec<TreeNode>,
-        depth: usize,
-        ancestor_is_last: &[bool],
-    ) {
-        let roots: Vec<&StackBranch> = self
-            .branches
-            .iter()
-            .filter(|b| b.parent.is_none())
-            .collect();
-
-        let total = roots.len();
-        for (idx, root) in roots.iter().enumerate() {
-            let is_last = idx == total - 1;
-            let mut new_ancestor = ancestor_is_last.to_vec();
-            new_ancestor.push(is_last);
-
-            nodes.push(TreeNode {
-                branch: (*root).clone(),
-                depth,
-                is_last_child: is_last,
-                ancestor_is_last: new_ancestor.clone(),
-            });
-
-            self.collect_children_of(root, nodes, depth + 1, &new_ancestor);
-        }
-    }
-
-    fn collect_children_of(
-        &self,
-        parent: &StackBranch,
-        nodes: &mut Vec<TreeNode>,
-        depth: usize,
-        ancestor_is_last: &[bool],
-    ) {
-        let children: Vec<&StackBranch> = self
-            .branches
-            .iter()
-            .filter(|b| b.parent.as_ref() == Some(&parent.name))
-            .collect();
-
-        let total = children.len();
-        for (idx, child) in children.iter().enumerate() {
-            let is_last = idx == total - 1;
-            let mut new_ancestor = ancestor_is_last.to_vec();
-            new_ancestor.push(is_last);
-
-            nodes.push(TreeNode {
-                branch: (*child).clone(),
-                depth,
-                is_last_child: is_last,
-                ancestor_is_last: new_ancestor.clone(),
-            });
-
-            self.collect_children_of(child, nodes, depth + 1, &new_ancestor);
-        }
+        let mut ctx = CollectCtx {
+            nodes: Vec::new(),
+            visited: std::collections::HashSet::new(),
+        };
+        collect_root_nodes(&self.branches, &mut ctx, 0, &[]);
+        ctx.nodes
     }
 
     pub(crate) fn branch_indicator(branch: &StackBranch) -> (&'static str, Color) {
@@ -149,6 +93,81 @@ impl StackTreeWidget {
             pr_info.number,
             Self::pr_state_symbol(&pr_info.state)
         )
+    }
+}
+
+/// Traversal state for [`StackTreeWidget::build_tree_nodes`], kept separate
+/// from the branch list so the recursion stays under clippy's argument
+/// limit. `visited` holds indices into the branch list: a branch is
+/// emitted once even when duplicate names (or a name cycle) would make it
+/// reachable again, which previously recursed until stack overflow.
+struct CollectCtx {
+    nodes: Vec<TreeNode>,
+    visited: std::collections::HashSet<usize>,
+}
+
+fn collect_root_nodes(
+    branches: &[StackBranch],
+    ctx: &mut CollectCtx,
+    depth: usize,
+    ancestor_is_last: &[bool],
+) {
+    let roots: Vec<(usize, &StackBranch)> = branches
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| b.parent.is_none())
+        .collect();
+
+    let total = roots.len();
+    for (idx, (branch_idx, root)) in roots.iter().enumerate() {
+        if !ctx.visited.insert(*branch_idx) {
+            continue;
+        }
+        let is_last = idx == total - 1;
+        let mut new_ancestor = ancestor_is_last.to_vec();
+        new_ancestor.push(is_last);
+
+        ctx.nodes.push(TreeNode {
+            branch: (*root).clone(),
+            depth,
+            is_last_child: is_last,
+            ancestor_is_last: new_ancestor.clone(),
+        });
+
+        collect_children_of(branches, ctx, root, depth + 1, &new_ancestor);
+    }
+}
+
+fn collect_children_of(
+    branches: &[StackBranch],
+    ctx: &mut CollectCtx,
+    parent: &StackBranch,
+    depth: usize,
+    ancestor_is_last: &[bool],
+) {
+    let children: Vec<(usize, &StackBranch)> = branches
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| b.parent.as_ref() == Some(&parent.name))
+        .collect();
+
+    let total = children.len();
+    for (idx, (branch_idx, child)) in children.iter().enumerate() {
+        if !ctx.visited.insert(*branch_idx) {
+            continue;
+        }
+        let is_last = idx == total - 1;
+        let mut new_ancestor = ancestor_is_last.to_vec();
+        new_ancestor.push(is_last);
+
+        ctx.nodes.push(TreeNode {
+            branch: (*child).clone(),
+            depth,
+            is_last_child: is_last,
+            ancestor_is_last: new_ancestor.clone(),
+        });
+
+        collect_children_of(branches, ctx, child, depth + 1, &new_ancestor);
     }
 }
 

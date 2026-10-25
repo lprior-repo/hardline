@@ -282,10 +282,12 @@ mod input_navigation {
     #[test]
     fn unhandled_keys() {
         let mut handler = InputHandler::new();
+        // NOTE: Tab and Enter are deliberately NOT in this list: the pinned
+        // keymap tests in input/mod.rs assert Tab -> SwitchPane and
+        // Enter -> Confirm in Normal mode. Only genuinely unmapped keys
+        // belong here.
         let unhandled = vec![
             KeyCode::F(1),
-            KeyCode::Enter,
-            KeyCode::Tab,
             KeyCode::Backspace,
             KeyCode::Delete,
             KeyCode::Home,

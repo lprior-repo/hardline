@@ -130,7 +130,16 @@ impl TuiApp {
     }
 
     pub fn refresh_branches(&mut self) -> Result<()> {
+        if !self.needs_refresh {
+            return Ok(());
+        }
         self.needs_refresh = false;
+        if let Some(provider) = &self.branch_provider {
+            match provider.load_branches() {
+                Ok(branches) => self.stack_branches = branches,
+                Err(err) => self.status_message = err,
+            }
+        }
         Ok(())
     }
 
