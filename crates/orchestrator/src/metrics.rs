@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use im::Vector;
+use imbl::Vector;
 use serde::{Deserialize, Serialize};
 
 /// A single scenario test result

@@ -3,7 +3,7 @@
 #![deny(clippy::arithmetic_side_effects)]
 
 use chrono::{Duration, Utc};
-use im::HashMap;
+use imbl::HashMap;
 use itertools::Itertools;
 
 use super::{

@@ -1,6 +1,6 @@
 //! Builder types for constructing contracts
 
-use im::HashMap;
+use imbl::HashMap;
 
 use super::types::{Constraint, ContextualHint, FieldContract, TypeContract};
 

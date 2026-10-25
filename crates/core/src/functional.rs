@@ -29,13 +29,13 @@ where
         .try_fold(item, |acc, transform| transform(acc))
 }
 
-pub fn group_by<T, K, F>(items: Vec<T>, key_fn: F) -> im::HashMap<K, Vec<T>>
+pub fn group_by<T, K, F>(items: Vec<T>, key_fn: F) -> imbl::HashMap<K, Vec<T>>
 where
     K: std::hash::Hash + Eq + Clone,
     T: Clone,
     F: Fn(&T) -> K,
 {
-    items.into_iter().fold(im::HashMap::new(), |mut map, item| {
+    items.into_iter().fold(imbl::HashMap::new(), |mut map, item| {
         let key = key_fn(&item);
         #[allow(clippy::unnecessary_option_map_or_else)]
         let mut group = map

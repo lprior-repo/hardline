@@ -11,9 +11,6 @@ readme = "README.md"
 keywords = ["domain", "core", "source-control", "ddd"]
 categories = ["development-tools"]
 
-[features]
-default = []
-
 [dependencies]
 # Async runtime
 tokio = { workspace = true }
@@ -41,7 +38,7 @@ sqlx = { workspace = true }
 chrono = { workspace = true }
 
 # Collections
-im = { workspace = true }
+imbl = { workspace = true }
 itertools = { workspace = true }
 tap = { workspace = true }
 petgraph = { workspace = true }

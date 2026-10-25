@@ -3,7 +3,7 @@
 //! This module provides the fundamental data structures for capability
 //! introspection and system state reporting.
 
-use im::HashMap;
+use imbl::HashMap;
 use serde::{Deserialize, Serialize};
 
 /// Complete introspection output

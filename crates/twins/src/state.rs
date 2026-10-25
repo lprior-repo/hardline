@@ -12,7 +12,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use im::Vector;
+use imbl::Vector;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -353,7 +353,7 @@ mod tests {
         );
         let state = state.add_record(r);
         let mut records = state.get_records();
-        // im::Vector clone should be independent
+        // imbl::Vector clone should be independent
         records.clear();
         assert_eq!(
             state.record_count(),

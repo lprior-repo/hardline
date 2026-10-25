@@ -73,7 +73,7 @@ impl TypeContract {
             constraints: Vec::new(),
             hints: Vec::new(),
             examples: Vec::new(),
-            fields: im::HashMap::new(),
+            fields: imbl::HashMap::new(),
         }
     }
 }

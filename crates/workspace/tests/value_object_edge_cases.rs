@@ -1,7 +1,7 @@
 //! Exhaustive edge case tests for workspace value objects.
 //!
 //! Covers: path traversal, null bytes, unicode, hash behavior,
-//! bincode serialization, serde negative tests, boundary conditions.
+//! postcard serialization, serde negative tests, boundary conditions.
 
 use std::collections::{HashMap, HashSet};
 
@@ -145,18 +145,18 @@ fn workspace_name_hash_set_deduplication() {
 }
 
 #[test]
-fn workspace_name_bincode_roundtrip() {
-    let name = WorkspaceName::new("bincode-test_123".into()).unwrap();
-    let encoded = bincode::serialize(&name).unwrap();
-    let decoded: WorkspaceName = bincode::deserialize(&encoded).unwrap();
+fn workspace_name_postcard_roundtrip() {
+    let name = WorkspaceName::new("postcard-test_123".into()).unwrap();
+    let encoded = postcard::to_allocvec(&name).unwrap();
+    let decoded: WorkspaceName = postcard::from_bytes(&encoded).unwrap();
     assert_eq!(name, decoded);
 }
 
 #[test]
-fn workspace_name_bincode_preserves_value() {
+fn workspace_name_postcard_preserves_value() {
     let name = WorkspaceName::new("preserve-me".into()).unwrap();
-    let encoded = bincode::serialize(&name).unwrap();
-    let decoded: WorkspaceName = bincode::deserialize(&encoded).unwrap();
+    let encoded = postcard::to_allocvec(&name).unwrap();
+    let decoded: WorkspaceName = postcard::from_bytes(&encoded).unwrap();
     assert_eq!(decoded.as_str(), "preserve-me");
 }
 
@@ -241,18 +241,18 @@ fn workspace_path_trailing_slash() {
 }
 
 #[test]
-fn workspace_path_bincode_roundtrip() {
-    let path = WorkspacePath::new("/tmp/bincode-test".into()).unwrap();
-    let encoded = bincode::serialize(&path).unwrap();
-    let decoded: WorkspacePath = bincode::deserialize(&encoded).unwrap();
+fn workspace_path_postcard_roundtrip() {
+    let path = WorkspacePath::new("/tmp/postcard-test".into()).unwrap();
+    let encoded = postcard::to_allocvec(&path).unwrap();
+    let decoded: WorkspacePath = postcard::from_bytes(&encoded).unwrap();
     assert_eq!(path, decoded);
 }
 
 #[test]
-fn workspace_path_bincode_preserves_value() {
+fn workspace_path_postcard_preserves_value() {
     let path = WorkspacePath::new("/tmp/preserve-me".into()).unwrap();
-    let encoded = bincode::serialize(&path).unwrap();
-    let decoded: WorkspacePath = bincode::deserialize(&encoded).unwrap();
+    let encoded = postcard::to_allocvec(&path).unwrap();
+    let decoded: WorkspacePath = postcard::from_bytes(&encoded).unwrap();
     assert_eq!(decoded.as_str(), Some("/tmp/preserve-me"));
 }
 
@@ -367,18 +367,18 @@ fn lock_holder_hash_set_deduplication() {
 }
 
 #[test]
-fn lock_holder_bincode_roundtrip() {
-    let holder = LockHolder::new("bincode-agent_42".into()).unwrap();
-    let encoded = bincode::serialize(&holder).unwrap();
-    let decoded: LockHolder = bincode::deserialize(&encoded).unwrap();
+fn lock_holder_postcard_roundtrip() {
+    let holder = LockHolder::new("postcard-agent_42".into()).unwrap();
+    let encoded = postcard::to_allocvec(&holder).unwrap();
+    let decoded: LockHolder = postcard::from_bytes(&encoded).unwrap();
     assert_eq!(holder, decoded);
 }
 
 #[test]
-fn lock_holder_bincode_preserves_value() {
+fn lock_holder_postcard_preserves_value() {
     let holder = LockHolder::new("preserve-me".into()).unwrap();
-    let encoded = bincode::serialize(&holder).unwrap();
-    let decoded: LockHolder = bincode::deserialize(&encoded).unwrap();
+    let encoded = postcard::to_allocvec(&holder).unwrap();
+    let decoded: LockHolder = postcard::from_bytes(&encoded).unwrap();
     assert_eq!(decoded.as_str(), "preserve-me");
 }
 

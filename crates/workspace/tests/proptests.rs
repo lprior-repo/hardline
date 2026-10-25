@@ -56,12 +56,12 @@ proptest! {
     }
 
     #[test]
-    fn proptest_workspace_name_bincode_roundtrip(
+    fn proptest_workspace_name_postcard_roundtrip(
         input in "[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}",
     ) {
         let name = WorkspaceName::new(input)?;
-        let encoded = bincode::serialize(&name).unwrap();
-        let decoded: WorkspaceName = bincode::deserialize(&encoded).unwrap();
+        let encoded = postcard::to_allocvec(&name).unwrap();
+        let decoded: WorkspaceName = postcard::from_bytes(&encoded).unwrap();
         prop_assert_eq!(name, decoded);
     }
 
@@ -108,13 +108,13 @@ proptest! {
     }
 
     #[test]
-    fn proptest_workspace_path_bincode_roundtrip(
+    fn proptest_workspace_path_postcard_roundtrip(
         segments in proptest::collection::vec("[a-zA-Z0-9_-]{1,20}", 1..5)
     ) {
         let path_str = format!("/{}", segments.join("/"));
         let path = WorkspacePath::new(path_str)?;
-        let encoded = bincode::serialize(&path).unwrap();
-        let decoded: WorkspacePath = bincode::deserialize(&encoded).unwrap();
+        let encoded = postcard::to_allocvec(&path).unwrap();
+        let decoded: WorkspacePath = postcard::from_bytes(&encoded).unwrap();
         prop_assert_eq!(path, decoded);
     }
 
@@ -159,10 +159,10 @@ proptest! {
     }
 
     #[test]
-    fn proptest_lock_holder_bincode_roundtrip(holder in "[a-zA-Z0-9_-]{1,100}") {
+    fn proptest_lock_holder_postcard_roundtrip(holder in "[a-zA-Z0-9_-]{1,100}") {
         let lh = LockHolder::new(holder)?;
-        let encoded = bincode::serialize(&lh).unwrap();
-        let decoded: LockHolder = bincode::deserialize(&encoded).unwrap();
+        let encoded = postcard::to_allocvec(&lh).unwrap();
+        let decoded: LockHolder = postcard::from_bytes(&encoded).unwrap();
         prop_assert_eq!(lh, decoded);
     }
 
@@ -219,12 +219,12 @@ proptest! {
     }
 
     #[test]
-    fn proptest_workspace_branch_name_bincode_roundtrip(
+    fn proptest_workspace_branch_name_postcard_roundtrip(
         input in "[a-zA-Z0-9/_.-]{1,100}",
     ) {
         let name = BranchName::new(input)?;
-        let encoded = bincode::serialize(&name).unwrap();
-        let decoded: BranchName = bincode::deserialize(&encoded).unwrap();
+        let encoded = postcard::to_allocvec(&name).unwrap();
+        let decoded: BranchName = postcard::from_bytes(&encoded).unwrap();
         prop_assert_eq!(name, decoded);
     }
 }

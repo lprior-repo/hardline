@@ -12,9 +12,9 @@ keywords = ["snapshot", "state", "capture", "filesystem"]
 categories = ["development-tools", "filesystem"]
 
 [dependencies]
-scp-core = { path = "../core" }
-scp-receipt = { path = "../receipt" }
-scp-vcs = { path = "../vcs" }
+scp-core = { path = "../core", version = "0.5.0" }
+scp-receipt = { path = "../receipt", version = "0.5.0" }
+scp-vcs = { path = "../vcs", version = "0.5.0" }
 tokio.workspace = true
 thiserror.workspace = true
 chrono.workspace = true

@@ -6,7 +6,7 @@
 //! - Dependencies between fields
 //! - Machine-readable schemas
 
-use im::HashMap;
+use imbl::HashMap;
 use serde::{Deserialize, Serialize};
 
 // ═══════════════════════════════════════════════════════════════════════════

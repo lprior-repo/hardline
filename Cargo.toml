@@ -49,7 +49,7 @@ clap = { version = "4", features = ["derive"] }
 rand = "0.9"
 
 # Collections & functional
-im = { version = "15.1", features = ["serde"] }
+imbl = { version = "7", features = ["serde"] }
 itertools = "0.13"
 tap = "1.0"
 
