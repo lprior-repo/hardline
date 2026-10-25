@@ -96,7 +96,7 @@ fn c3_http_method_from_str() {
     ] {
         let result = input
             .parse::<HttpMethod>()
-            .expect(&format!("C3 FAIL: {input}"));
+            .unwrap_or_else(|_| panic!("C3 FAIL: {input}"));
         assert_eq!(result, expected, "C3 FAIL: {input}");
     }
     println!("C3 PASS: HttpMethod::from_str parses all 7 methods (case-insensitive)");

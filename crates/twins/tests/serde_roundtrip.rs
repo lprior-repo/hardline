@@ -190,7 +190,7 @@ fn twin_definition_complex_body_roundtrip() {
                     "nested": {"deep": {"value": "string"}},
                     "bool": true,
                     "null": null,
-                    "number": 3.14
+                    "number": std::f64::consts::PI
                 }),
                 headers: HashMap::new(),
             },
@@ -487,7 +487,8 @@ fn http_method_all_json_variants() {
         ("\"HEAD\"", HttpMethod::HEAD),
     ];
     for (json, expected) in test_cases {
-        let parsed: HttpMethod = serde_json::from_str(json).expect(&format!("parse {json}"));
+        let parsed: HttpMethod =
+            serde_json::from_str(json).unwrap_or_else(|_| panic!("parse {json}"));
         assert_eq!(parsed, expected, "json: {json}");
     }
 }
