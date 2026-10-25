@@ -1,7 +1,7 @@
 use scp_core::infrastructure::database::SqliteDatabaseService;
 
 use crate::{
-    domain::{entities::Session, value_objects::SessionName},
+    domain::{entities::{BranchState, Session}, value_objects::SessionName},
     infrastructure::{
         repository::SessionRepository, sqlite_session_repository::SqliteSessionRepository,
     },
@@ -135,6 +135,54 @@ async fn test_p3_violation_empty_session_id() {
         Err(e) => panic!("Expected InvalidIdentifier, got {:?}", e),
         Ok(_) => panic!("Expected error, got Ok"),
     }
+}
+
+#[tokio::test]
+async fn test_save_stores_hostile_branch_name_verbatim() {
+    // Branch names are free-form strings, unlike validated session names,
+    // so they are the realistic injection surface for save(). With bind
+    // parameters the classic `' OR '1'='1` payload must round-trip as data:
+    // find_by_id returns exactly that branch name, and list() still sees
+    // only the one saved session.
+    let repo = test_repository().await;
+    let session = Session::create(SessionName::parse("hostile-branch").unwrap()).unwrap();
+    let hostile = "x' OR '1'='1".to_string();
+    let branched = session
+        .transition_branch(BranchState::OnBranch { name: hostile.clone() })
+        .unwrap();
+
+    repo.save(&branched).await.expect("save failed");
+    let found = repo
+        .find_by_id(branched.id.as_str())
+        .await
+        .expect("find failed")
+        .expect("session must be found");
+    assert_eq!(found.branch.branch_name(), Some(hostile.as_str()));
+
+    let list = repo.list().await.expect("list failed");
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0].branch.branch_name(), Some(hostile.as_str()));
+}
+
+#[tokio::test]
+async fn test_save_stores_backslash_and_quote_verbatim() {
+    // The old manual escaping doubled backslashes even though SQLite
+    // string literals treat them literally, corrupting values on save.
+    // Bind parameters store the value verbatim.
+    let repo = test_repository().await;
+    let session = Session::create(SessionName::parse("backslash-branch").unwrap()).unwrap();
+    let name = r"a\b'c".to_string();
+    let branched = session
+        .transition_branch(BranchState::OnBranch { name: name.clone() })
+        .unwrap();
+
+    repo.save(&branched).await.expect("save failed");
+    let found = repo
+        .find_by_id(branched.id.as_str())
+        .await
+        .expect("find failed")
+        .expect("session must be found");
+    assert_eq!(found.branch.branch_name(), Some(name.as_str()));
 }
 
 #[tokio::test]

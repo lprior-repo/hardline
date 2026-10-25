@@ -66,6 +66,19 @@ pub trait DatabaseService: Send + Sync + 'static {
     /// Execute a query that returns rows
     async fn query(&self, query: &str) -> Result<Vec<Vec<String>>>;
 
+    /// Execute a query that doesn't return rows, binding `params` positionally
+    /// to `?` placeholders. `None` binds SQL NULL. Values are never
+    /// interpolated into the SQL text.
+    async fn execute_params(&self, query: &str, params: &[Option<String>]) -> Result<()>;
+
+    /// Execute a query that returns rows, binding `params` positionally
+    /// to `?` placeholders. `None` binds SQL NULL.
+    async fn query_params(
+        &self,
+        query: &str,
+        params: &[Option<String>],
+    ) -> Result<Vec<Vec<String>>>;
+
     /// Get a reference to the underlying connection pool
     fn pool(&self) -> &SqlitePool;
 }
@@ -174,6 +187,33 @@ impl DatabaseService for SqliteDatabaseService {
 
     async fn query(&self, query: &str) -> Result<Vec<Vec<String>>> {
         let rows = sqlx::query(query)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| Error::database(e.to_string()))?;
+        rows.iter().map(parse_row_values).collect()
+    }
+
+    async fn execute_params(&self, query: &str, params: &[Option<String>]) -> Result<()> {
+        let mut q = sqlx::query(query);
+        for param in params {
+            q = q.bind(param.as_deref());
+        }
+        q.execute(&self.pool)
+            .await
+            .map_err(|e| Error::database(e.to_string()))?;
+        Ok(())
+    }
+
+    async fn query_params(
+        &self,
+        query: &str,
+        params: &[Option<String>],
+    ) -> Result<Vec<Vec<String>>> {
+        let mut q = sqlx::query(query);
+        for param in params {
+            q = q.bind(param.as_deref());
+        }
+        let rows = q
             .fetch_all(&self.pool)
             .await
             .map_err(|e| Error::database(e.to_string()))?;

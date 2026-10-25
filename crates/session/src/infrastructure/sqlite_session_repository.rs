@@ -151,54 +151,29 @@ impl SqliteSessionRepository {
     }
 }
 
-fn escape_sql_string(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('\'', "''")
-}
-
-/// Validates that a string is safe to use in a single-quoted SQL literal.
-/// Rejects null bytes which can cause truncation or unexpected behavior in SQL engines.
-fn validate_sql_string(s: &str) -> std::result::Result<(), String> {
-    if s.contains('\0') {
-        return Err(format!(
-            "String contains null byte which is invalid in SQL string literals: {:?}",
-            s
-        ));
-    }
-    Ok(())
-}
-
 #[async_trait]
 impl SessionRepository for SqliteSessionRepository {
     async fn save(&self, session: &Session) -> Result<()> {
         let row = SessionRow::from(session);
-
-        // Validate all fields before building SQL
-        validate_sql_string(&row.id).map_err(RepositoryError)?;
-        validate_sql_string(&row.name).map_err(RepositoryError)?;
-        validate_sql_string(&row.branch_state).map_err(RepositoryError)?;
-        validate_sql_string(&row.session_state).map_err(RepositoryError)?;
-        validate_sql_string(&row.created_at).map_err(RepositoryError)?;
-        if let Some(ref w) = row.workspace {
-            validate_sql_string(w).map_err(RepositoryError)?;
-        }
-        if let Some(ref b) = row.bead {
-            validate_sql_string(b).map_err(RepositoryError)?;
-        }
-        if let Some(ref b) = row.branch_name {
-            validate_sql_string(b).map_err(RepositoryError)?;
-        }
-        if let Some(ref s) = row.last_synced {
-            validate_sql_string(s).map_err(RepositoryError)?;
-        }
-
-        let workspace = row.workspace.as_deref().map(escape_sql_string);
-        let bead = row.bead.as_deref().map(escape_sql_string);
-        let branch_name = row.branch_name.as_deref().map(escape_sql_string);
-        let last_synced = row.last_synced.as_deref().map(escape_sql_string);
-
-        let query = format!(
-            r#"INSERT INTO sessions (id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at)
-VALUES ('{}', '{}', {}, {}, '{}', {}, '{}', {}, '{}')
+        // All values are bound as parameters, never interpolated into SQL.
+        // `None` binds SQL NULL. This also stores backslashes and quotes
+        // verbatim, which the old manual escaping corrupted (it doubled
+        // backslashes even though SQLite string literals treat them literally).
+        let params = [
+            Some(row.id),
+            Some(row.name),
+            row.workspace,
+            row.bead,
+            Some(row.branch_state),
+            row.branch_name,
+            Some(row.session_state),
+            row.last_synced,
+            Some(row.created_at),
+        ];
+        self.db
+            .execute_params(
+                r#"INSERT INTO sessions (id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     workspace = excluded.workspace,
@@ -208,26 +183,8 @@ ON CONFLICT(id) DO UPDATE SET
     session_state = excluded.session_state,
     last_synced = excluded.last_synced,
     created_at = excluded.created_at"#,
-            escape_sql_string(&row.id),
-            escape_sql_string(&row.name),
-            workspace
-                .map(|w| format!("'{}'", w))
-                .unwrap_or_else(|| "NULL".to_string()),
-            bead.map(|b| format!("'{}'", b))
-                .unwrap_or_else(|| "NULL".to_string()),
-            escape_sql_string(&row.branch_state),
-            branch_name
-                .map(|b| format!("'{}'", b))
-                .unwrap_or_else(|| "NULL".to_string()),
-            escape_sql_string(&row.session_state),
-            last_synced
-                .map(|s| format!("'{}'", s))
-                .unwrap_or_else(|| "NULL".to_string()),
-            escape_sql_string(&row.created_at),
-        );
-
-        self.db
-            .execute(&query)
+                &params,
+            )
             .await
             .map_err(|e| DatabaseError(format!("Failed to save session: {}", e)))?;
         Ok(())
@@ -238,16 +195,14 @@ ON CONFLICT(id) DO UPDATE SET
             return Err(InvalidIdentifier("SessionId cannot be empty".to_string()));
         }
         let _ = SessionId::parse(id).map_err(|e| InvalidIdentifier(e.to_string()))?;
-        validate_sql_string(id).map_err(RepositoryError)?;
 
-        let escaped_id = escape_sql_string(id);
         let results = self
             .db
-            .query(&format!(
+            .query_params(
                 "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at
-                 FROM sessions WHERE id = '{}'",
-                escaped_id
-            ))
+                 FROM sessions WHERE id = ?",
+                &[Some(id.to_string())],
+            )
             .await
             .map_err(|e| DatabaseError(format!("Failed to find session: {}", e)))?;
 
@@ -261,15 +216,13 @@ ON CONFLICT(id) DO UPDATE SET
     }
 
     async fn find_by_name(&self, name: &SessionName) -> Result<Option<Session>> {
-        validate_sql_string(name.as_str()).map_err(RepositoryError)?;
-        let escaped_name = escape_sql_string(name.as_str());
         let results = self
             .db
-            .query(&format!(
+            .query_params(
                 "SELECT id, name, workspace, bead, branch_state, branch_name, session_state, last_synced, created_at
-                 FROM sessions WHERE name = '{}'",
-                escaped_name
-            ))
+                 FROM sessions WHERE name = ?",
+                &[Some(name.as_str().to_string())],
+            )
             .await
             .map_err(|e| DatabaseError(format!("Failed to find session by name: {}", e)))?;
 
@@ -306,15 +259,13 @@ ON CONFLICT(id) DO UPDATE SET
             return Err(InvalidIdentifier("SessionId cannot be empty".to_string()));
         }
         let _ = SessionId::parse(id).map_err(|e| InvalidIdentifier(e.to_string()))?;
-        validate_sql_string(id).map_err(RepositoryError)?;
 
-        let escaped_id = escape_sql_string(id);
         let results = self
             .db
-            .query(&format!(
-                "SELECT id FROM sessions WHERE id = '{}'",
-                escaped_id
-            ))
+            .query_params(
+                "SELECT id FROM sessions WHERE id = ?",
+                &[Some(id.to_string())],
+            )
             .await
             .map_err(|e| DatabaseError(format!("Failed to delete session: {}", e)))?;
 
@@ -323,7 +274,10 @@ ON CONFLICT(id) DO UPDATE SET
         }
 
         self.db
-            .execute(&format!("DELETE FROM sessions WHERE id = '{}'", escaped_id))
+            .execute_params(
+                "DELETE FROM sessions WHERE id = ?",
+                &[Some(id.to_string())],
+            )
             .await
             .map_err(|e| DatabaseError(format!("Failed to delete session: {}", e)))?;
         Ok(())
@@ -345,27 +299,24 @@ impl SqliteSessionRepository {
         }
 
         let cols = &result[0];
+        // NULL columns come back as "" from the string-based query layer,
+        // so empty means absent and any non-empty value is real data.
+        fn opt_col(s: &str) -> Option<String> {
+            if s.is_empty() {
+                None
+            } else {
+                Some(s.to_string())
+            }
+        }
         Ok(SessionRow {
             id: cols[0].clone(),
             name: cols[1].clone(),
-            workspace: cols[2]
-                .is_empty()
-                .then_some(cols[2].clone())
-                .filter(|s| !s.is_empty()),
-            bead: cols[3]
-                .is_empty()
-                .then_some(cols[3].clone())
-                .filter(|s| !s.is_empty()),
+            workspace: opt_col(&cols[2]),
+            bead: opt_col(&cols[3]),
             branch_state: cols[4].clone(),
-            branch_name: cols[5]
-                .is_empty()
-                .then_some(cols[5].clone())
-                .filter(|s| !s.is_empty()),
+            branch_name: opt_col(&cols[5]),
             session_state: cols[6].clone(),
-            last_synced: cols[7]
-                .is_empty()
-                .then_some(cols[7].clone())
-                .filter(|s| !s.is_empty()),
+            last_synced: opt_col(&cols[7]),
             created_at: cols[8].clone(),
         })
     }
@@ -374,109 +325,6 @@ impl SqliteSessionRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // =========================================================================
-    // escape_sql_string Tests
-    // =========================================================================
-
-    mod escape_sql_tests {
-        use super::*;
-
-        #[test]
-        fn escape_sql_string_no_quotes() {
-            assert_eq!(escape_sql_string("hello world"), "hello world");
-        }
-
-        #[test]
-        fn escape_sql_string_single_quote_escaped() {
-            assert_eq!(escape_sql_string("it's"), "it''s");
-        }
-
-        #[test]
-        fn escape_sql_string_multiple_quotes() {
-            assert_eq!(escape_sql_string("a'b'c"), "a''b''c");
-        }
-
-        #[test]
-        fn escape_sql_string_empty() {
-            assert_eq!(escape_sql_string(""), "");
-        }
-
-        #[test]
-        fn escape_sql_string_only_quotes() {
-            assert_eq!(escape_sql_string("'"), "''");
-        }
-
-        #[test]
-        fn escape_sql_string_backslash_escaped() {
-            assert_eq!(escape_sql_string(r"path\to\file"), r"path\\to\\file");
-        }
-
-        #[test]
-        fn escape_sql_string_backslash_and_quote_combined() {
-            assert_eq!(escape_sql_string(r"it's a \path"), r"it''s a \\path");
-        }
-
-        #[test]
-        fn escape_sql_string_only_backslash() {
-            assert_eq!(escape_sql_string(r"\"), r"\\");
-        }
-
-        #[test]
-        fn escape_sql_string_backslash_quote_injection_attempt() {
-            // The classic SQL injection pattern: \' attempts to escape the quote
-            assert_eq!(escape_sql_string(r"\' OR '1'='1"), r"\\'' OR ''1''=''1");
-        }
-    }
-
-    // =========================================================================
-    // validate_sql_string Tests
-    // =========================================================================
-
-    mod validate_sql_tests {
-        use super::*;
-
-        #[test]
-        fn validate_sql_string_accepts_normal_string() {
-            assert!(validate_sql_string("hello world").is_ok());
-        }
-
-        #[test]
-        fn validate_sql_string_accepts_empty_string() {
-            assert!(validate_sql_string("").is_ok());
-        }
-
-        #[test]
-        fn validate_sql_string_accepts_quotes() {
-            // Quotes are handled by escaping; validation only rejects null bytes
-            assert!(validate_sql_string("it's fine").is_ok());
-        }
-
-        #[test]
-        fn validate_sql_string_rejects_null_byte() {
-            assert!(validate_sql_string("hello\0world").is_err());
-        }
-
-        #[test]
-        fn validate_sql_string_rejects_null_at_start() {
-            assert!(validate_sql_string("\0evil").is_err());
-        }
-
-        #[test]
-        fn validate_sql_string_rejects_null_at_end() {
-            assert!(validate_sql_string("evil\0").is_err());
-        }
-
-        #[test]
-        fn validate_sql_string_rejects_only_null() {
-            assert!(validate_sql_string("\0").is_err());
-        }
-
-        #[test]
-        fn validate_sql_string_rejects_embedded_null() {
-            assert!(validate_sql_string("normal\0payload").is_err());
-        }
-    }
 
     // =========================================================================
     // parse_session_state Tests

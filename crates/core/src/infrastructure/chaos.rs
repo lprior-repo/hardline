@@ -167,6 +167,20 @@ impl<T: DatabaseService + 'static> DatabaseService for ChaosDatabaseService<T> {
         self.inner.query(query).await
     }
 
+    async fn execute_params(&self, query: &str, params: &[Option<String>]) -> Result<()> {
+        self.injector.inject_db_error()?;
+        self.inner.execute_params(query, params).await
+    }
+
+    async fn query_params(
+        &self,
+        query: &str,
+        params: &[Option<String>],
+    ) -> Result<Vec<Vec<String>>> {
+        self.injector.inject_db_error()?;
+        self.inner.query_params(query, params).await
+    }
+
     fn pool(&self) -> &SqlitePool {
         self.inner.pool()
     }
