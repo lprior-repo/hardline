@@ -611,6 +611,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::manual_string_new)]
     fn test_display_invalid_timestamp_error() {
         let err = ConflictResolutionError::InvalidTimestampError {
             timestamp: "".to_string(),

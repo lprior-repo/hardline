@@ -252,6 +252,7 @@ mod tests {
     // ── JsonlWriter emit ─────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::needless_borrow)]
     fn test_jsonl_writer_emits_valid_json() {
         let buf: Vec<u8> = Vec::new();
         let mut writer = JsonlWriter::new(buf);
@@ -288,6 +289,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::needless_borrow)]
     fn test_jsonl_writer_pretty_mode() {
         let config = JsonlConfig::new().with_pretty(true);
         let buf: Vec<u8> = Vec::new();
@@ -301,6 +303,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_jsonl_writer_no_flush_mode() {
         let config = JsonlConfig::new().with_flush_on_emit(false);
         let buf: Vec<u8> = Vec::new();
@@ -323,6 +326,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_jsonl_writer_emit_all_empty() {
         let buf: Vec<u8> = Vec::new();
         let mut writer = JsonlWriter::new(buf);
@@ -344,6 +348,7 @@ mod tests {
     // ── JsonlWriter into_inner ───────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_jsonl_writer_into_inner() {
         let buf: Vec<u8> = Vec::new();
         let mut writer = JsonlWriter::new(buf);
@@ -355,6 +360,7 @@ mod tests {
     // ── emit function ────────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::needless_borrow)]
     fn test_emit_function() {
         let mut buf: Vec<u8> = Vec::new();
         emit(&mut buf, &make_test_line()).expect("emit ok");

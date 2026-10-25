@@ -98,6 +98,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::useless_vec)]
     fn widget_structs_in_vec() {
         let _widgets: Vec<&str> = Vec::new();
         let _s = vec![

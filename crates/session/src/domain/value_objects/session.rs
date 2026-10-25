@@ -151,6 +151,7 @@ mod tests {
     use super::*;
 
     proptest! {
+        #[allow(clippy::unnecessary_map_or)]
         fn prop_session_value_object_name_adversarial(s in ".*") {
             let res = SessionName::parse(s.clone());
             let trimmed = s.trim();

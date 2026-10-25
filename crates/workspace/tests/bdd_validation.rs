@@ -1017,6 +1017,7 @@ fn claim_repo_10_default_is_empty() {
 // ─── CLAIM SHEET: WorkspaceEvent ────────────────────────────────────────────
 
 #[test]
+#[allow(clippy::useless_vec)]
 fn claim_event_01_all_variants_constructible() {
     let ts = chrono::Utc::now();
     let events = vec![
@@ -1483,6 +1484,7 @@ fn adversarial_16_full_matrix_invalid_state_machine() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn adversarial_17_manager_is_placeholder() {
     // The manager.rs is a placeholder — verify it exists but has no logic
     // This is a YELLOW finding: placeholder module exists

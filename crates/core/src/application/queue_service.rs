@@ -49,6 +49,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::default_constructed_unit_structs)]
     fn given_default_when_called_then_same_as_new() {
         let from_new = QueueServiceImpl::new();
         let from_default = QueueServiceImpl::default();

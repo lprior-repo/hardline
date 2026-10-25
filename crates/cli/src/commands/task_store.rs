@@ -157,6 +157,7 @@ pub fn get_task_store() -> Arc<TaskStore> {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use std::io::Write;
 

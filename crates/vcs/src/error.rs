@@ -333,6 +333,7 @@ mod tests {
     // -- Result types --
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn git_result_type() {
         let ok: GitResult<i32> = Ok(42);
         assert_eq!(ok.unwrap(), 42);
@@ -341,6 +342,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_type() {
         let ok: Result<i32> = Ok(42);
         assert_eq!(ok.unwrap(), 42);

@@ -64,6 +64,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn whoami_output_serialization_roundtrip() {
         let output = WhoamiOutput {
             registered: true,

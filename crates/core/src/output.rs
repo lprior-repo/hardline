@@ -179,6 +179,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn verbosity_clone() {
         let v = Verbosity::Quiet;
         let cloned = v.clone();

@@ -1515,6 +1515,7 @@ mod tests {
     // ── Complex Cycle Detection (Transitive Cycles) ───────────────────────────
 
     #[tokio::test]
+    #[allow(clippy::let_unit_value)]
     async fn blackhat_transitive_cycle_a_b_c_a_should_be_rejected() {
         let service = make_service();
         service.create_bead("cycle-a", "A", None).await.unwrap();
@@ -1561,6 +1562,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::let_unit_value)]
     async fn blackhat_cycle_via_longer_chain() {
         let service = make_service();
         for i in 0..10 {
@@ -1769,6 +1771,7 @@ mod tests {
     // ── Dependency Graph Edge Cases ──────────────────────────────────────────
 
     #[tokio::test]
+    #[allow(clippy::let_unit_value)]
     async fn blackhat_duplicate_dependency_is_idempotent() {
         let service = make_service();
         service.create_bead("dup-a", "A", None).await.unwrap();
@@ -1962,6 +1965,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::let_unit_value)]
     async fn blackhat_unicode_in_id_should_be_rejected_but_isnt() {
         let service = make_service();
         let result = service.create_bead("test-日本語", "Unicode ID", None).await;

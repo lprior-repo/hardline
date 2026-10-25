@@ -1098,6 +1098,7 @@ mod tests {
     /// Validates that from a given state, attempting to transition to each
     /// state in `invalid_targets` yields an InvalidTransition error (not
     /// AlreadyTerminal, since the source is non-terminal).
+    #[allow(clippy::doc_markdown)]
     fn assert_invalid_transitions(from: PipelineState, invalid_targets: &[PipelineState]) {
         for target in invalid_targets {
             let mut p = fresh_pipeline();

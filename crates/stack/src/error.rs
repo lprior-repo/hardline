@@ -55,6 +55,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn test_result_type_ok() {
         let result: Result<i32> = Ok(42);
         assert!(result.is_ok());
@@ -91,6 +92,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::useless_vec)]
     fn test_stack_error_all_variants_distinct_display() {
         let variants = vec![
             StackError::NotFound("a".to_string()),

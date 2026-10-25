@@ -337,6 +337,7 @@ fn test_session_name_try_from_str() {
 }
 
 #[test]
+#[allow(clippy::redundant_clone)]
 fn test_session_name_into_string_conversion() {
     let name = SessionName::parse("convert-me").expect("valid");
     let s: String = name.clone().into();

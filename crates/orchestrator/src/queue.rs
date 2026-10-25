@@ -606,6 +606,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::needless_range_loop)]
     fn test_sort_reverse_sorted() {
         let mut jobs = vec![
             create_test_job("p4", JobPriority::P4),

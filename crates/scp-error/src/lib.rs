@@ -1689,6 +1689,8 @@ mod tests {
     use super::*;
 
     // Helper to build one of every variant for exhaustive iteration.
+    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::manual_string_new)]
     fn all_variants() -> Vec<Error> {
         vec![
             Error::WorkspaceNotFound("ws".into()),
@@ -1792,6 +1794,7 @@ mod tests {
     // ── Display / Debug ──────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_display_all_variants() {
         let variants = all_variants();
         for v in &variants {
@@ -1805,6 +1808,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_debug_all_variants() {
         let variants = all_variants();
         for v in &variants {
@@ -1814,6 +1818,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::single_char_pattern)]
     fn test_display_contains_key_fields() {
         assert!(Error::WorkspaceNotFound("my-ws".into())
             .to_string()
@@ -1837,6 +1842,7 @@ mod tests {
     // ── Suggestions ──────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_suggestion_bearing_variants() {
         let suggesters = [
             Error::WorkspaceNotFound("x".into()),
@@ -1856,6 +1862,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_no_suggestion_variants() {
         let non_suggesters = [
             Error::Internal("x".into()),
@@ -1891,6 +1898,7 @@ mod tests {
     // ── Exit codes ───────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_exit_codes_all_nonzero() {
         for v in all_variants() {
             assert!(v.exit_code() > 0, "Exit code must be nonzero for {:?}", v);
@@ -1898,6 +1906,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::redundant_closure_for_method_calls)]
+    #[allow(clippy::stable_sort_primitive)]
     fn test_exit_codes_unique() {
         let variants = all_variants();
         let codes: Vec<i32> = variants.iter().map(|v| v.exit_code()).collect();
@@ -1912,6 +1922,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::uninlined_format_args)]
     fn test_exit_codes_match_documented_block() {
         // Verify each variant's exit code is in the correct documented block
         // per ADR-007 category mapping:
@@ -2030,6 +2042,7 @@ mod tests {
     // ── Serialization ────────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_serialize_all_variants_produces_valid_json() {
         for v in all_variants() {
             let json = serde_json::to_string(&v)
@@ -2040,6 +2053,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::manual_string_new)]
     fn test_serialize_struct_variants_includes_fields() {
         let err = Error::BeadInvalidStateTransition {
             from: "open".into(),
@@ -2083,6 +2097,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_error_source_is_none() {
         // All variants are plain data — no wrapped std::error::Error sources.
         for v in all_variants() {
@@ -2146,6 +2161,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[allow(clippy::manual_string_new)]
     fn empty_string_in_display() {
         assert_eq!(Error::NotFound("".into()).to_string(), "Not found: ");
         assert_eq!(
@@ -2171,6 +2187,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::redundant_clone)]
     fn very_long_string_in_display() {
         let long = "x".repeat(10_000);
         let result = Error::Internal(long.clone()).to_string();
@@ -2921,6 +2938,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::redundant_closure_for_method_calls)]
+    #[allow(clippy::stable_sort_primitive)]
     fn numeric_code_all_unique() {
         let codes: Vec<u16> = all_variants().iter().map(|v| v.numeric_code()).collect();
         let mut sorted = codes.clone();

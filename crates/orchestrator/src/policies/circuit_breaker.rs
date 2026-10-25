@@ -951,6 +951,7 @@ mod tests {
 
         /// check_and_transition never transitions from Closed or HalfOpen
         #[test]
+        #[allow(clippy::manual_range_patterns)]
         fn prop_check_and_transition_only_works_from_open(
             initial_state_op in 0u8..6u8,
             elapsed in 0u64..100_000u64,

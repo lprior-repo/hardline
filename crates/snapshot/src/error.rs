@@ -308,6 +308,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::io_other_error)]
     fn snapshot_error_source_chain_depth() {
         let deep = std::io::Error::new(std::io::ErrorKind::Other, "deep error");
         let mid = SnapshotError::storage_with_source(deep, "mid layer");
@@ -380,6 +381,7 @@ mod tests {
     // --- Type alias tests ---
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_type_ok() {
         let val: Result<i32> = Ok(42);
         assert_eq!(val.expect("should be Ok"), 42);
@@ -392,6 +394,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn repo_result_type_ok() {
         let val: RepoResult<String> = Ok("hello".to_string());
         assert_eq!(val.expect("should be Ok"), "hello");
@@ -404,6 +407,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn storage_result_type_ok() {
         let val: StorageResult<bool> = Ok(true);
         assert!(val.expect("should be Ok"));
@@ -449,6 +453,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_type_unwrap_or() {
         let val: Result<i32> = Err(SnapshotError::NotFound("x".to_string()));
         assert_eq!(val.unwrap_or(0), 0);
@@ -507,6 +512,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::unnecessary_literal_unwrap)]
         fn result_type_ok_roundtrip(val in "[a-zA-Z0-9 ]{0,100}") {
             let r: Result<String> = Ok(val.clone());
             prop_assert!(r.is_ok());

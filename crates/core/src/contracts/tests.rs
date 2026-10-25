@@ -1,6 +1,7 @@
 //! Tests for contract validation
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use crate::contracts::types::Constraint;
 

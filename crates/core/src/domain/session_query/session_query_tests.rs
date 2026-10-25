@@ -51,6 +51,7 @@ fn create_test_sessions() -> Vec<Session> {
 // ============================================================================
 
 #[test]
+#[allow(clippy::needless_collect)]
 fn test_empty_filter_matches_all() {
     let sessions = create_test_sessions();
     let filter = SessionFilter::new();
@@ -68,6 +69,7 @@ fn test_filter_by_name_contains() {
 }
 
 #[test]
+#[allow(clippy::needless_collect)]
 fn test_filter_by_name_case_insensitive() {
     let sessions = create_test_sessions();
     let filter = SessionFilter::new().with_name_contains("ALPHA");
@@ -103,6 +105,7 @@ fn test_filter_by_branch_name() {
 }
 
 #[test]
+#[allow(clippy::needless_collect)]
 fn test_filter_combined() {
     let sessions = create_test_sessions();
     let filter = SessionFilter::new()

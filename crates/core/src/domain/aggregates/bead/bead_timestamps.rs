@@ -44,6 +44,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::no_effect_underscore_binding)]
     fn new_is_copy() {
         let now = Utc::now();
         let ts = BeadTimestamps::new(now, now);

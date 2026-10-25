@@ -80,6 +80,7 @@ mod tests {
     // ---- Clone & Copy ----
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn clone_produces_equal_value() {
         let a = SyncOption::WithSync;
         let b = a.clone();
@@ -134,6 +135,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::clone_on_copy)]
         fn proptest_clone_eq(opt in proptest::sample::select(vec![SyncOption::NoSync, SyncOption::WithSync])) {
             prop_assert_eq!(opt, opt.clone());
         }

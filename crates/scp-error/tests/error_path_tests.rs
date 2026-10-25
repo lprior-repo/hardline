@@ -206,6 +206,7 @@ mod error_chaining {
     }
 
     #[test]
+    #[allow(clippy::io_other_error)]
     fn io_error_conversion_preserves_category() {
         let io_err = std::io::Error::new(std::io::ErrorKind::Other, "custom io error");
         let err: Error = io_err.into();
@@ -675,12 +676,14 @@ mod result_type_verification {
     use super::*;
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_ok_maps_correctly() {
         let r: Result<i32> = Ok(42);
         assert_eq!(r.unwrap(), 42);
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_err_maps_correctly() {
         let r: Result<i32> = Err(Error::Internal("boom".into()));
         assert!(r.is_err());
@@ -688,6 +691,7 @@ mod result_type_verification {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_err_with_io_error() {
         let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
         let r: Result<String> = Err(io_err.into());

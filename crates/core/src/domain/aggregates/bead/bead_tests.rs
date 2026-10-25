@@ -227,6 +227,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::collapsible_else_if, clippy::significant_drop_tightening, clippy::uninlined_format_args)]
     fn test_concurrent_state_transitions() {
         use std::{
             sync::{Arc, Mutex},

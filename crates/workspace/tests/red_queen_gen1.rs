@@ -327,6 +327,7 @@ fn rq_repository_list_active_includes_only_active_state() {
 // ============================================================================
 
 #[test]
+#[allow(clippy::unnecessary_cast)]
 fn rq_concurrent_save_and_get_thread_safety() {
     let repo = Arc::new(InMemoryWorkspaceRepository::new());
     let num_threads = 8;

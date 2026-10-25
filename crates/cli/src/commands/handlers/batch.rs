@@ -1087,6 +1087,7 @@ mod tests {
     // -- MAX_BATCH_SIZE constant --
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_max_batch_size_is_reasonable() {
         assert!(MAX_BATCH_SIZE > 0, "max batch size must be positive");
         assert!(

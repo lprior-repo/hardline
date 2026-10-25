@@ -134,6 +134,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::default_constructed_unit_structs)]
     fn store_default_creates_instance() {
         let _store = ReceiptStore::default();
     }

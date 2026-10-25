@@ -288,6 +288,7 @@ mod tests {
         BranchName::new(name.to_string())
     }
 
+    #[allow(clippy::redundant_closure)]
     fn make_stack(branches: Vec<(&str, Option<&str>)>) -> Stack {
         let main = bn("main");
         let mut stack = Stack::new(main.clone());
@@ -307,6 +308,7 @@ mod tests {
         stack
     }
 
+    #[allow(clippy::redundant_closure)]
     fn make_stack_with_restack(branches: Vec<(&str, Option<&str>, bool)>) -> Stack {
         let main = bn("main");
         let mut stack = Stack::new(main);

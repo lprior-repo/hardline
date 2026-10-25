@@ -13,6 +13,7 @@ use scp_core::{lock::LockManager, *};
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn claim_session_name_valid_inputs() {
     // Simple valid
     assert!(SessionName::parse("valid-name").is_ok());
@@ -33,6 +34,7 @@ fn claim_session_name_valid_inputs() {
 }
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn claim_session_name_invalid_inputs() {
     // Empty
     assert!(SessionName::parse("").is_err());
@@ -61,6 +63,7 @@ fn claim_session_name_invalid_inputs() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn claim_session_id_valid_inputs() {
     assert!(SessionId::parse("abc123").is_ok());
     assert!(SessionId::parse("session-123").is_ok());
@@ -549,6 +552,7 @@ fn claim_session_serde_roundtrip() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
+#[allow(clippy::unnecessary_literal_unwrap)]
 fn claim_error_system() {
     // Error creation
     let err = Error::invalid_state("test error");
@@ -866,6 +870,7 @@ fn adversarial_large_queue_items() -> Result<()> {
 }
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn adversarial_boundary_session_name() {
     // Exactly at boundary
     assert!(SessionName::parse(&"a".repeat(63)).is_ok());
@@ -881,6 +886,7 @@ fn adversarial_boundary_session_name() {
 }
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn adversarial_boundary_session_id() {
     // Very long ID
     assert!(SessionId::parse(&"a".repeat(100000)).is_ok());

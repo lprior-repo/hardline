@@ -19,6 +19,7 @@ use worktree::{
 const POSTGRES_TEST_DB_ENV: &str = "HARDLINE_TEST_POSTGRES_URL";
 
 /// Helper to create a test worktree with unique name using test prefix
+#[allow(clippy::too_many_arguments)]
 fn create_test_worktree(
     test_name: &str,
     name: &str,
@@ -38,6 +39,7 @@ fn create_test_worktree(
 }
 
 /// Helper to create a test worktree with the exact name (no suffix)
+#[allow(clippy::too_many_arguments)]
 fn create_test_worktree_exact(
     test_name: &str,
     name: &str,

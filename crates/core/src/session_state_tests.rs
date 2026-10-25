@@ -165,6 +165,7 @@ fn given_two_different_states_when_compare_then_not_equal() {
 }
 
 #[test]
+#[allow(clippy::clone_on_copy)]
 fn given_state_when_clone_then_independent() {
     let state1 = SessionState::Created;
     let state2 = state1.clone();

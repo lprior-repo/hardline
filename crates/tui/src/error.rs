@@ -140,6 +140,7 @@ mod tests {
     // ── Result type ──
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_type_ok() {
         let ok: Result<i32> = Ok(42);
         assert!(ok.is_ok());
@@ -159,6 +160,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_type_string_ok() {
         let ok: Result<String> = Ok("hello".to_string());
         assert_eq!(ok.expect("ok"), "hello");
@@ -358,6 +360,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bind_instead_of_map)]
     fn result_and_then_on_err() {
         let err: Result<i32> = Err(TuiError::Error("fail".into()));
         let result = err.and_then(|v| Ok(v * 2));
@@ -365,24 +368,29 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_unwrap_or_on_ok() {
         let ok: Result<i32> = Ok(42);
         assert_eq!(ok.unwrap_or(0), 42);
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_unwrap_or_on_err() {
         let err: Result<i32> = Err(TuiError::Error("fail".into()));
         assert_eq!(err.unwrap_or(0), 0);
     }
 
     #[test]
+    #[allow(clippy::unnecessary_lazy_evaluations)]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_unwrap_or_else_on_err() {
         let err: Result<i32> = Err(TuiError::Error("fail".into()));
         assert_eq!(err.unwrap_or_else(|_| 99), 99);
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_unwrap_or_default() {
         let ok: Result<i32> = Ok(42);
         let err: Result<i32> = Err(TuiError::Error("fail".into()));
@@ -497,6 +505,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::unnecessary_literal_unwrap)]
         fn prop_result_unwrap_or_default_matches(
             val in proptest::num::i32::ANY,
         ) {

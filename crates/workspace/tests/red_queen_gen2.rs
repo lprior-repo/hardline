@@ -101,6 +101,7 @@ fn rq_mutation_is_lockable_only_active() {
 }
 
 #[test]
+#[allow(clippy::err_expect)]
 fn rq_mutation_validate_transition_error_content() {
     // Ensure error messages contain the actual state names
     let result = WorkspaceStateMachine::validate_transition(

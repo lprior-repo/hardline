@@ -90,6 +90,7 @@ impl GitExecutor for RealGitExecutor {
 }
 
 /// Execute a Git command synchronously.
+#[allow(clippy::map_or_identity)]
 fn run_git_command(
     args: &[&str],
     working_dir: Option<&str>,
@@ -527,6 +528,7 @@ mod tests {
     // ---- detect_conflicts with mock ----
 
     #[test]
+    #[allow(clippy::double_comparisons)]
     fn detect_conflicts_no_conflicts_with_mock() {
         let mock = MockGitExecutor::new()
             .with_response("diff --name-only --diff-filter=U", "")

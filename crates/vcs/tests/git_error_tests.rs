@@ -15,6 +15,7 @@ mod tests {
 
     #[test]
     fn test_result_alias() {
+        #[allow(clippy::result_large_err)]
         fn some_fn() -> GitResult<i32> {
             Ok(42)
         }

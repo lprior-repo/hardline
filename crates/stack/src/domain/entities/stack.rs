@@ -394,6 +394,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::err_expect)]
     fn test_add_branch_validates_parent() {
         let main = BranchName::new("main".to_string());
         let mut stack = Stack::<Draft>::new(main.clone());
@@ -963,6 +964,7 @@ mod tests {
     // ── End exhaustive topological_order tests ──
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_ancestors_from_root() {
         let stack = create_test_stack();
         // main has no ancestors (no parent)
@@ -971,6 +973,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_ancestors_nonexistent_branch() {
         let stack = create_test_stack();
         let ancestors = stack.ancestors(&BranchName::new("no-such-branch".to_string()));
@@ -978,6 +981,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_descendants_from_leaf() {
         let stack = create_test_stack();
         // feature-a-2 has no children
@@ -986,6 +990,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_descendants_nonexistent_branch() {
         let stack = create_test_stack();
         let descendants = stack.descendants(&BranchName::new("nope".to_string()));
@@ -1015,6 +1020,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_needs_restack_none_needed() {
         let main = BranchName::new("main".to_string());
         let mut stack = Stack::<Draft>::new(main);
@@ -1095,6 +1101,7 @@ mod tests {
 
     // ── PrInfo exhaustive tests ──────────────────────────────────────────
 
+    #[allow(clippy::doc_markdown)]
     /// Helper: canonical PrInfo for reuse across tests.
     fn make_pr_info(number: u32) -> PrInfo {
         PrInfo {
@@ -1149,6 +1156,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_pr_info_construction_empty_strings() {
         let pr = PrInfo {
             number: 1,
@@ -1749,6 +1757,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_stack_empty_ancestors_descendants_current_stack() {
         let main = BranchName::new("main".to_string());
         let stack = Stack::<Draft>::new(main);
@@ -1913,6 +1922,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::manual_string_new)]
     fn test_stack_add_branch_empty_name() {
         let main = BranchName::new("main".to_string());
         let mut stack = Stack::<Draft>::new(main.clone());
@@ -1955,6 +1965,7 @@ mod proptests {
 
     proptest! {
         #[test]
+        #[allow(clippy::uninlined_format_args)]
         fn prop_pr_info_serde_roundtrip(num in 1u32..1_000_000u32) {
             let pr = PrInfo {
                 number: num,

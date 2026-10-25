@@ -1,4 +1,5 @@
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod insert_tests {
     use chrono::Utc;
     use sqlx::SqlitePool;

@@ -173,6 +173,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::manual_string_new)]
     fn try_from_empty_fails() {
         assert!(SessionId::try_from("".to_string()).is_err());
     }

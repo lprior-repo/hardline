@@ -68,6 +68,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_type_ok() {
         let val: Result<i32> = Ok(42);
         assert_eq!(val.expect("should be Ok"), 42);

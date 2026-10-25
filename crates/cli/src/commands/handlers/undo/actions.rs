@@ -147,6 +147,7 @@ fn history_entry_from_undo(entry: &UndoEntry, now_seconds: u64) -> UndoHistoryEn
 }
 
 /// Format a unix timestamp as a human-readable UTC string.
+#[allow(clippy::map_or_identity)]
 fn format_timestamp(timestamp: u64) -> String {
     chrono::DateTime::from_timestamp(i64::try_from(timestamp).map_or(0, |t| t), 0).map_or_else(
         || timestamp.to_string(),
@@ -329,6 +330,7 @@ mod tests {
     // ---- find_first_eligible_entry tests ----
 
     #[test]
+    #[allow(clippy::useless_vec)]
     fn find_first_eligible_entry_finds_eligible() {
         let now = 2_000u64;
         let history = vec![UndoEntry {

@@ -10,12 +10,14 @@ mod claim_result_type_alias {
     use super::*;
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_ok_variants_work() {
         let r: Result<i32> = Ok(42);
         assert_eq!(r.unwrap(), 42);
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_err_variants_work() {
         let r: Result<i32> = Err(Error::Internal("boom".into()));
         assert!(r.is_err());
@@ -142,6 +144,7 @@ mod claim_debug_serialize {
     }
 
     #[test]
+    #[allow(clippy::expect_fun_call)]
     fn all_variants_implement_serialize() {
         let variants: Vec<Error> = vec![
             Error::WorkspaceNotFound("ws".into()),

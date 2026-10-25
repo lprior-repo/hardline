@@ -228,6 +228,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_removed_rejects_all() {
         for &state in &WorkspaceState::all() {
             assert!(
@@ -249,6 +250,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_valid_transitions_removed_is_empty() {
         assert!(WorkspaceState::Removed.valid_transitions().is_empty());
     }

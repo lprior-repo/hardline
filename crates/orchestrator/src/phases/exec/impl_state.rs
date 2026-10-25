@@ -176,6 +176,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::single_match)]
     fn recover_pipeline_from_non_terminal_calls_run_pipeline() {
         // Pending state is non-terminal, so recover_pipeline calls run_pipeline.
         // run_pipeline will try spec_review which we don't mock here,

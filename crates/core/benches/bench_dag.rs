@@ -117,6 +117,7 @@ fn bench_dag_ancestors(c: &mut Criterion) {
     });
 }
 
+#[allow(clippy::if_same_then_else)]
 fn bench_dag_topological_sort(c: &mut Criterion) {
     c.bench_function("dag_topological_sort", |b| {
         b.iter(|| {

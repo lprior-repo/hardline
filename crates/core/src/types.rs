@@ -60,6 +60,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::needless_borrows_for_generic_args)]
     fn test_session_name_rejects_invalid() {
         assert!(SessionName::parse("invalid name").is_err());
         assert!(SessionName::parse("123-start-with-number").is_err());
@@ -257,6 +258,7 @@ mod tests {
 
     proptest! {
         #[test]
+        #[allow(clippy::unnecessary_map_or)]
         fn prop_session_name_adversarial(s in ".*") {
             let res = SessionName::parse(s.clone());
 

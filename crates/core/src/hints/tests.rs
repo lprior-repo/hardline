@@ -1,6 +1,7 @@
 //! Tests for hints module
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use chrono::Utc;
 

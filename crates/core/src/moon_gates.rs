@@ -531,6 +531,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn test_moon_gate_clone_and_copy() {
         let gate = MoonGate::Quick;
         let copied = gate;
@@ -673,6 +674,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::redundant_clone)]
     fn test_gates_outcome_construction_quick_failed() {
         let quick = GateResult::failed(MoonGate::Quick, 1, String::new(), String::new());
         let outcome = GatesOutcome {

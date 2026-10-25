@@ -448,6 +448,7 @@ mod tests {
     // =========================================================================
 
     #[tokio::test]
+    #[allow(clippy::bool_comparison)]
     async fn given_chaos_db_when_pool_then_delegates() {
         let config = ChaosConfig::default();
         let injector = Arc::new(ChaosInjector::new(config));

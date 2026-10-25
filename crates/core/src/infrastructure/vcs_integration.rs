@@ -84,6 +84,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::default_constructed_unit_structs)]
     fn given_default_when_called_then_same_as_new() {
         let _from_new = VcsIntegrationServiceImpl::new();
         let _from_default = VcsIntegrationServiceImpl::default();
@@ -209,6 +210,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::default_constructed_unit_structs)]
     fn given_default_when_detect_backend_on_this_repo_then_succeeds() {
         let service = VcsIntegrationServiceImpl::default();
         let result = service.detect_and_create_backend(&repo_root());

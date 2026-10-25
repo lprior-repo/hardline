@@ -63,6 +63,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::default_constructed_unit_structs)]
     fn vcs_service_impl_default() {
         let _service = VcsServiceImpl::default();
     }

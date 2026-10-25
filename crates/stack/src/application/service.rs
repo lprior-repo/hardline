@@ -689,6 +689,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::err_expect)]
     fn test_publish_stack_not_found() {
         let repo = Arc::new(MockRepo::new());
         let github = Arc::new(MockGitHub);

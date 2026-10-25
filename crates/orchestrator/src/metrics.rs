@@ -961,6 +961,7 @@ mod tests {
 
     proptest! {
         #[test]
+        #[allow(clippy::manual_range_contains)]
         fn prop_success_rate_between_0_and_100(
             accepted in 0u32..20u32,
             failed in 0u32..20u32,
@@ -989,6 +990,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::manual_range_contains)]
         fn prop_scenario_pass_rate_between_0_and_100(
             passed_count in 0u32..20u32,
             failed_count in 1u32..20u32,
@@ -1583,6 +1585,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)]
     fn test_scenario_result_json_structure() {
         let r = ScenarioResult {
             name: "struct_test".into(),

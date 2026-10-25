@@ -151,6 +151,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_type_works_with_ok() {
         let result: Result<i32> = Ok(42);
         assert_eq!(result.unwrap(), 42);

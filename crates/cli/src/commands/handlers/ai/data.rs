@@ -268,6 +268,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn schema_constants_are_non_empty() {
         assert!(!AI_STATUS_RESPONSE.is_empty());
         assert!(!AI_WORKFLOW_RESPONSE.is_empty());
@@ -286,6 +287,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn schema_version_is_non_empty() {
         assert!(!SCHEMA_VERSION.is_empty());
     }
@@ -602,6 +604,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[allow(clippy::no_effect_underscore_binding)]
     fn subcommand_is_copy() {
         let cmd = AiSubcommand::Status;
         let _copy = cmd;
@@ -734,12 +737,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::no_effect_underscore_binding)]
     fn priority_is_copy() {
         let p = Priority::High;
         let _copy = p;
     }
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn priority_clone_works() {
         let p = Priority::Medium;
         let cloned = p.clone();

@@ -16,6 +16,7 @@ use crate::commands::lock;
 ///
 /// In hardline, "claim" is not a separate concept - agents just acquire locks.
 /// This handler is a stub that acquires a lock on the resource.
+#[allow(clippy::map_or_identity)]
 pub async fn handle_claim(sub_m: &ArgMatches) -> Result<()> {
     let format = get_format(sub_m);
     let resource = sub_m

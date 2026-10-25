@@ -26,6 +26,7 @@ pub fn run_events(options: &EventsOptions) -> Result<()> {
 }
 
 /// List recent events, optionally filtered.
+#[allow(clippy::map_or_identity)]
 fn run_list(options: &EventsOptions) -> Result<()> {
     let limit = options.limit.map_or(DEFAULT_LIMIT, |l| l);
     let output = load_events_output(options, limit)?;
@@ -39,6 +40,7 @@ fn run_list(options: &EventsOptions) -> Result<()> {
 /// Note: Full streaming (infinite poll loop) is not implemented in this
 /// synchronous handler. This outputs the current batch and a message
 /// indicating that streaming would continue in a real async context.
+#[allow(clippy::map_or_identity)]
 fn run_follow(options: &EventsOptions) -> Result<()> {
     let limit = options.limit.map_or(DEFAULT_LIMIT, |l| l);
     let output = load_events_output(options, limit)?;

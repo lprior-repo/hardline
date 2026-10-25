@@ -34,6 +34,7 @@ fn workspace_state_all_variants_serde_roundtrip() {
 }
 
 #[test]
+#[allow(clippy::expect_fun_call)]
 fn workspace_state_snake_case_serialization() {
     let states = [
         ("\"initializing\"", WorkspaceState::Initializing),
@@ -81,6 +82,7 @@ fn workspace_id_empty_deserializes_but_parse_rejects() {
 }
 
 #[test]
+#[allow(clippy::single_element_loop)]
 fn vcs_type_roundtrip() {
     for vcs in [VcsType::Git] {
         let json = serde_json::to_string(&vcs).expect("serialize");
@@ -302,6 +304,7 @@ fn workspace_state_extra_fields_ignored() {
 }
 
 #[test]
+#[allow(clippy::approx_constant)]
 fn workspace_event_extra_fields_ignored() {
     #[derive(Debug, serde::Deserialize)]
     #[allow(dead_code)]

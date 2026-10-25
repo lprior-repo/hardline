@@ -4,6 +4,7 @@ use scp_vcs::gix::{branch, repository};
 use tempfile::TempDir;
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn test_gix_branch_switch_works() {
     let temp_dir = TempDir::new().unwrap();
     let repo_path = temp_dir.path().to_path_buf();

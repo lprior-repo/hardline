@@ -515,6 +515,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::assert_is_empty)]
         fn session_id_generate_produces_valid_id() {
             let id = SessionId::generate();
             assert!(id.as_str().starts_with("session-"));
@@ -541,6 +542,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::manual_string_new)]
         fn session_id_try_from_empty_string_fails() {
             let result = SessionId::try_from("".to_string());
             assert!(result.is_err());
@@ -614,6 +616,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::uninlined_format_args)]
         fn session_state_serde_serialize_deserialize_roundtrip() {
             let states = [
                 SessionState::Created,
@@ -757,6 +760,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::assert_is_empty)]
         fn session_create_generates_non_empty_id() {
             let name = SessionName::parse("test").expect("valid");
             let session = Session::<Created>::create(name).expect("created");
@@ -764,6 +768,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::redundant_closure_for_method_calls)]
         fn session_from_parts_preserves_values() {
             let id = SessionId::parse("preset-id").expect("valid");
             let name = SessionName::parse("preset-name").expect("valid");
@@ -1009,6 +1014,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::uninlined_format_args)]
         fn session_detached_to_detached_branch_rejects() {
             let name = SessionName::parse("test").expect("valid");
             let session = Session::<Created>::create(name).expect("created");
@@ -1479,6 +1485,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::redundant_closure_for_method_calls)]
         fn session_from_parts_with_all_fields() {
             let id = SessionId::parse("preset-id").expect("valid");
             let name = SessionName::parse("preset-name").expect("valid");

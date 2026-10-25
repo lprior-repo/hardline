@@ -54,10 +54,16 @@ jobs:
       - name: Install clang and lld
         run: sudo apt-get update && sudo apt-get install -y clang lld
       - uses: Swatinem/rust-cache@v2
+      # The workspace suite runs without scp-fuzz: its three libFuzzer
+      # binaries run unbounded under plain `cargo test` (their main is
+      # libFuzzer's), so they get their own bounded step below instead
+      # of being excluded outright — fuzz coverage stays, the hang goes.
       - name: cargo test
         env:
           HARDLINE_TEST_POSTGRES_URL: postgres://postgres:postgres@localhost:5432/worktree_test
-        run: cargo test --all-targets --all-features
+        run: cargo test --workspace --exclude scp-fuzz --all-targets --all-features
+      - name: cargo test (scp-fuzz, time-bounded)
+        run: cargo test -p scp-fuzz --all-targets --all-features -- -max_total_time=120
 
   clippy:
     name: cargo clippy

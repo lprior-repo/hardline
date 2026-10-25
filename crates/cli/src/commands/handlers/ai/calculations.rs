@@ -319,6 +319,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn ready_state_main_initialized_has_suggestion() {
         let (ready, suggestion, next_cmd) = determine_ready_state(true, &Location::Main);
         assert!(ready);
@@ -358,6 +359,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn workflow_name_is_not_empty() {
         let workflow = build_workflow();
         assert!(!workflow.name.is_empty());

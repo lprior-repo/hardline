@@ -250,6 +250,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn done_output_serialization_roundtrip_json() {
         let mut output = DoneOutput::default();
         output.workspace_name = "feature-xyz".to_string();
@@ -266,6 +267,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn done_output_with_error_field_serializes() {
         let mut output = DoneOutput::default();
         output.error = Some("workspace not found".to_string());

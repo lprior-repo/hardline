@@ -173,17 +173,20 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn timeout_is_reasonable() {
         assert!(INIT_LOCK_TIMEOUT_MS >= 1000);
         assert!(INIT_LOCK_TIMEOUT_MS <= 30_000);
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn max_retries_is_positive() {
         assert!(INIT_LOCK_MAX_RETRIES >= 1);
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn backoff_base_is_reasonable() {
         assert!(INIT_LOCK_BASE_BACKOFF_MS >= 10);
         assert!(INIT_LOCK_BASE_BACKOFF_MS <= 1000);

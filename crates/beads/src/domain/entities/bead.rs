@@ -490,6 +490,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn bead_when_created_then_has_empty_labels() {
         let bead = make_bead();
         assert!(bead.labels().as_slice().is_empty());
@@ -508,12 +509,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn bead_when_created_then_has_empty_dependencies() {
         let bead = make_bead();
         assert!(bead.depends_on().is_empty());
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn bead_when_created_then_has_empty_blocked_by() {
         let bead = make_bead();
         assert!(bead.blocked_by().is_empty());
@@ -872,6 +875,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::used_underscore_binding)]
     fn can_transition_blocked_to_in_progress() {
         let _bead = make_bead().start().block();
         assert!(_bead.can_transition_to(&BeadState::InProgress));

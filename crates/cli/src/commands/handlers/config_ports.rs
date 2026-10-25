@@ -203,6 +203,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cmp_owned, clippy::unnecessary_map_or)]
     fn test_resolve_state_db_default() {
         // Skip if cwd doesn't exist (parallel test env issue)
         let cwd = match std::env::current_dir() {
@@ -234,6 +235,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cmp_owned)]
     fn test_resolve_state_db_from_env() {
         // Skip if cwd doesn't exist (parallel test env issue)
         let cwd = match std::env::current_dir() {

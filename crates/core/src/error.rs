@@ -1179,6 +1179,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_map_or)]
     fn test_context_map_validation_field_error_no_value() {
         let err = Error::validation_field_error("name", "required", None);
         let ctx = err.context_map().expect("should have context");

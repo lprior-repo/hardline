@@ -399,6 +399,7 @@ mod tests {
     // ---- update_undo_history (serialization logic) tests ----
 
     #[test]
+    #[allow(clippy::useless_vec)]
     fn update_undo_history_marks_entry_as_reverted() {
         let history = vec![
             UndoEntry {

@@ -956,6 +956,7 @@ mod mode_clone_equality_deep {
     }
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn input_action_copy_semantics() {
         // InputAction is Copy, so clone should be identical
         let a = InputAction::Rename;

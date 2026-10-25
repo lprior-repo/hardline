@@ -18,6 +18,7 @@ use crate::error::Error;
 /// cannot construct outside their defining modules. Instead we use the
 /// public constructor methods on `Error` and the `From<XErrorKind> for Error`
 /// conversions that are available via `use`.
+#[allow(clippy::vec_init_then_push)]
 fn all_error_variants() -> Vec<Error> {
     use crate::{
         coordination::locks::errors::LockErrorKind,
@@ -484,6 +485,7 @@ fn exhaustive_all_codes_are_screaming_snake_case() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn exhaustive_suggestion_never_panics() {
     let errors = all_error_variants();
     for (i, err) in errors.iter().enumerate() {
@@ -494,6 +496,7 @@ fn exhaustive_suggestion_never_panics() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn exhaustive_context_map_never_panics() {
     let errors = all_error_variants();
     for (i, err) in errors.iter().enumerate() {

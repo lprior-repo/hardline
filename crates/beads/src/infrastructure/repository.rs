@@ -699,6 +699,7 @@ mod tests {
     // ── Exists edge cases ────────────────────────────────────────────────────
 
     #[tokio::test]
+    #[allow(clippy::needless_borrows_for_generic_args)]
     async fn exists_returns_true_for_many_ids() {
         let repo = make_repo();
         for i in 0..50 {

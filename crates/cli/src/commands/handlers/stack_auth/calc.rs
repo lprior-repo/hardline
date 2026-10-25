@@ -71,6 +71,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn test_resolve_active_source_priority() {
         let mut status = AuthStatus::default();
 
@@ -124,6 +125,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn test_should_use_gh_cli() {
         let mut options = AuthOptions::default();
 
@@ -144,6 +146,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn test_determine_auth_resolution_order() {
         let mut status = AuthStatus::default();
         status.use_gh_cli = true;

@@ -360,6 +360,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::manual_string_new)]
     fn workspace_id_parse_rejects_empty() {
         let result = WorkspaceId::parse("".into());
         assert!(result.is_err());
@@ -390,6 +391,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::uninlined_format_args, clippy::assert_is_empty)]
     fn workspace_state_serializes_to_snake_case() {
         let states = vec![
             WorkspaceState::Initializing,
@@ -521,6 +523,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::borrow_as_ptr, clippy::manual_assert_eq, clippy::bool_comparison)]
     fn workspace_accessors_return_expected_values() {
         let ws = Workspace::<Initializing>::create(
             WorkspaceName::new("accessor-test".into()).unwrap(),
@@ -586,6 +589,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::single_element_loop)]
     fn vcs_type_serialization_roundtrip() {
         for vcs in [VcsType::Git] {
             let json = serde_json::to_string(&vcs).unwrap();
@@ -595,6 +599,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn workspace_state_debug_format() {
         for state in [
             WorkspaceState::Initializing,
@@ -874,6 +879,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::single_element_loop, clippy::assert_is_empty)]
     fn vcs_type_debug_format() {
         for vcs in [VcsType::Git] {
             let debug_str = format!("{vcs:?}");
@@ -912,6 +918,7 @@ mod tests {
             }
 
             #[test]
+            #[allow(clippy::uninlined_format_args)]
             fn workspace_name_invalid_with_special_chars(name in "[a-zA-Z0-9_-]*[. ][a-zA-Z0-9_-]*") {
                 // Ensure the string is non-empty and contains a dot or space
                 let non_empty = format!("x{}", name);
@@ -973,6 +980,7 @@ mod tests {
             }
 
             #[test]
+            #[allow(clippy::uninlined_format_args)]
             fn workspace_config_serialization_roundtrip_arbitrary(
                 vcs_idx in 0usize..1,
                 auto_sync in proptest::bool::ANY,

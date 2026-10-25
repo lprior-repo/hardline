@@ -1,6 +1,7 @@
 //! Tests for workspace integrity module
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use std::path::PathBuf;
 

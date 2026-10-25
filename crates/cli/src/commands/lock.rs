@@ -35,6 +35,7 @@ pub fn acquire(session: &str, agent: &str, ttl: Option<u64>) -> Result<()> {
 }
 
 /// Internal acquire with explicit path for testing
+#[allow(clippy::map_or_identity)]
 pub fn acquire_with_path(
     session: &str,
     agent: &str,

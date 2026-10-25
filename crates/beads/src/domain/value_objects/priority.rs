@@ -184,6 +184,8 @@ mod tests {
             }
 
             #[test]
+            #[allow(clippy::bool_assert_comparison)]
+            #[allow(clippy::double_comparisons)]
             fn priority_ordering_is_total(a in 0u8..=4, b in 0u8..=4) {
                 let pa = Priority::from_value(a);
                 let pb = Priority::from_value(b);

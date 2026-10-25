@@ -536,6 +536,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn git_backend_is_initialized_true_when_git_exists() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::create_dir(dir.path().join(".git")).expect("create .git");
@@ -544,6 +545,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn git_backend_is_initialized_false_when_no_git() {
         let dir = tempfile::tempdir().expect("tempdir");
         let backend = GitBackend::new(dir.path().to_path_buf());

@@ -80,6 +80,7 @@ mod claim_branch_name {
     }
 
     #[test]
+    #[allow(clippy::useless_vec)]
     fn happy_ordering() {
         let a = scp_stack::BranchName::new("alpha");
         let b = scp_stack::BranchName::new("beta");
@@ -705,6 +706,7 @@ mod claim_typestate_stack {
     // ─── Adversarial ───
 
     #[test]
+    #[allow(clippy::err_expect)]
     fn attack_orphan_parent_rejected() {
         let mut stack = scp_stack::Stack::new(scp_stack::BranchName::new("main"));
         let result = stack.add_branch(branch("orphan", Some("nonexistent")));
@@ -806,6 +808,7 @@ mod claim_typestate_stack {
 
 mod claim_stack_error {
     #[test]
+    #[allow(clippy::useless_vec)]
     fn happy_all_variants_distinct_display() {
         let variants = vec![
             scp_stack::StackError::NotFound("stack-1".into()),

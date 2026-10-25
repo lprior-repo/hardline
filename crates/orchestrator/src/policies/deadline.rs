@@ -54,6 +54,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::manual_range_contains)]
     fn test_deadline_remaining_ms() {
         let deadline = Deadline::from_now(5000);
         let remaining = deadline.remaining_ms();

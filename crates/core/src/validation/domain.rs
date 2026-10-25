@@ -792,6 +792,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_validate_task_id_metacharacters() {
         // Test all shell metacharacters produce ShellMetacharacter error
         for ch in SHELL_METACHARACTERS {
@@ -823,6 +824,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_validate_absolute_path_shell_chars() {
         for ch in SHELL_METACHARACTERS {
             if *ch == '/' {
@@ -982,6 +984,7 @@ mod tests {
     // ── contains_shell_metachar comprehensive ────────────────────────────────
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_contains_shell_metachar_all_metacharacters() {
         for &ch in SHELL_METACHARACTERS {
             let input = format!("middle{}end", ch);
@@ -994,6 +997,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_contains_shell_metachar_no_metacharacters() {
         let safe_strings = [
             "hello-world",

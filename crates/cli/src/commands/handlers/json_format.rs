@@ -217,6 +217,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn test_output_format_clone() {
         let format = OutputFormat::from_json_flag(true);
         let cloned = format.clone();

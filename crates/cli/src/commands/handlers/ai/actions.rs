@@ -369,6 +369,7 @@ mod tests {
 
     #[test]
     #[serial]
+    #[allow(clippy::manual_let_else)]
     fn check_initialized_returns_true_in_git_repo() {
         let original_dir = match std::env::current_dir() {
             Ok(p) => p,
@@ -392,6 +393,7 @@ mod tests {
 
     #[test]
     #[serial]
+    #[allow(clippy::manual_let_else)]
     fn check_initialized_returns_false_in_plain_dir() {
         let original_dir = match std::env::current_dir() {
             Ok(p) => p,
@@ -414,6 +416,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn build_default_status_returns_structured_output() {
         let output = build_default_status();
         // Verify all fields are populated
@@ -425,6 +428,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn build_default_next_action_returns_structured_output() {
         let output = build_default_next_action();
         assert!(!output.action.is_empty());

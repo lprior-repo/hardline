@@ -651,6 +651,7 @@ mod error_contract_adversarial {
     }
 
     #[test]
+    #[allow(clippy::unnecessary_literal_unwrap)]
     fn result_into_dyn_error_send_sync() {
         fn takes_dyn(err: Box<dyn Error + Send + Sync>) -> String {
             err.to_string()

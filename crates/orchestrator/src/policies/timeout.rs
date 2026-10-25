@@ -69,6 +69,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::manual_range_contains)]
     fn test_phase_timeout_elapsed_ms() {
         let timeout = PhaseTimeout::new(1000).expect("should create timeout");
         let started = Utc::now() - chrono::Duration::milliseconds(200);

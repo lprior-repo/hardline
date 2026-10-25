@@ -160,6 +160,7 @@ pub fn build_git_diff_command(cwd: &Path, path: Option<&str>) -> Command {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use scp_core::vcs::Workspace;
 

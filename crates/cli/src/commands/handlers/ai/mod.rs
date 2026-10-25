@@ -31,12 +31,14 @@ mod data;
 mod tests;
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod mod_tests {
     // =========================================================================
     // Module re-exports: verify all public types are accessible from this module
     // =========================================================================
 
     #[test]
+    #[allow(clippy::no_effect_underscore_binding)]
     fn data_types_are_accessible_via_super() {
         // Verify all public data types can be referenced from the parent module path
         use crate::commands::handlers::ai::data::{

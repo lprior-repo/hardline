@@ -322,6 +322,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::uninlined_format_args)]
     fn test_pr_state_display_matches_from_str_roundtrip() {
         let states = [
             PrState::Open,
@@ -374,6 +375,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::err_expect)]
     fn test_pr_state_from_str_unknown_returns_error() {
         let result = "unknown".parse::<PrState>();
         assert!(result.is_err());
@@ -687,6 +689,7 @@ mod proptests {
         }
 
         #[test]
+        #[allow(clippy::uninlined_format_args)]
         fn prop_pr_state_display_from_str_roundtrip(idx in 0u8..4u8) {
             let all_states = [PrState::Open, PrState::Closed, PrState::Merged, PrState::Draft];
             let s = &all_states[idx as usize];

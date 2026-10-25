@@ -3,6 +3,7 @@
 //! Tests for introspection types, health checks, and name suggestion.
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use crate::{
         introspection::{

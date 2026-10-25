@@ -297,6 +297,7 @@ async fn lock_acquired_on_write() {
 
 #[serial]
 #[tokio::test]
+#[allow(clippy::suspicious_open_options)]
 async fn lock_timeout_returns_error() {
     let tmp = tempfile::tempdir().expect("should create temp dir");
     let config_path = tmp.path().join("config.toml");
@@ -336,6 +337,7 @@ async fn lock_timeout_returns_error() {
 
 #[serial]
 #[tokio::test]
+#[allow(clippy::suspicious_open_options)]
 async fn lock_released_on_failure() {
     let (_tmp, _port_guard) = install_port_with("# header\n[watch]\nenabled = false\n", None);
     // Verify the lock is released after a successful write (lock lifetime is
@@ -368,6 +370,7 @@ async fn lock_verified_held_during_write() {
 
 #[serial]
 #[tokio::test]
+#[allow(clippy::suspicious_open_options)]
 async fn lock_retry_behavior() {
     let tmp = tempfile::tempdir().expect("should create temp dir");
     let config_path = tmp.path().join("config.toml");
@@ -405,6 +408,7 @@ async fn lock_retry_behavior() {
 
 #[serial]
 #[tokio::test]
+#[allow(clippy::suspicious_open_options)]
 async fn no_truncate_before_lock_prevents_data_loss() {
     // Regression test for P0 data-loss bug: if the file is opened with
     // truncate(true) before acquiring the lock, a crash between open and
@@ -459,6 +463,7 @@ async fn no_truncate_before_lock_prevents_data_loss() {
 
 #[serial]
 #[tokio::test]
+#[allow(clippy::bool_assert_comparison)]
 async fn toml_valid_after_set() {
     let (_tmp, _port_guard) = install_port_with(
         "# top comment\n[watch]\nenabled = false\ninterval = 5\n",
@@ -478,6 +483,7 @@ async fn toml_valid_after_set() {
 
 #[serial]
 #[tokio::test]
+#[allow(clippy::bool_assert_comparison)]
 async fn toml_types_preserved() {
     let (_tmp, _port_guard) = install_port_with(
         "[watch]\nenabled = true\ninterval = 5\nname = \"test\"\ntags = [\"a\", \"b\"]\n",
@@ -571,6 +577,7 @@ async fn error_scope_no_project() {
 
 #[serial]
 #[tokio::test]
+#[allow(clippy::suspicious_open_options)]
 async fn error_lock_timeout() {
     let tmp = tempfile::tempdir().expect("should create temp dir");
     let config_path = tmp.path().join("config.toml");

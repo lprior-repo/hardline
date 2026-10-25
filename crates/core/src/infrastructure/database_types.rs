@@ -276,6 +276,7 @@ mod tests {
     // =========================================================================
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn given_max_connections_when_cloned_then_equal() {
         let mc = MaxConnections::new(10).unwrap();
         let cloned = mc.clone();

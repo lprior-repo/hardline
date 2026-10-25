@@ -520,6 +520,7 @@ fn test_dequeue_all_entries() {
 // =========================================================================
 
 #[test]
+#[allow(clippy::redundant_clone)]
 fn test_enqueue_preserves_original() {
     let queue = Queue::new();
     let entry = QueueEntry::new("test-1", "session-1", 10).unwrap();
@@ -606,6 +607,7 @@ fn test_update_status_invalid_transition_returns_error() {
 // =========================================================================
 
 #[test]
+#[allow(clippy::uninlined_format_args)]
 fn test_invariant_priority_order_maintained_after_enqueues() {
     let queue = Queue::new();
     let queue = (0..10).rev().fold(queue, |acc, i| {
@@ -716,6 +718,7 @@ fn test_session_name_empty() {
 }
 
 #[test]
+#[allow(clippy::uninlined_format_args)]
 fn test_session_name_rejects_shell_metacharacters() {
     let invalid_chars = ["$", "`", "|", "&", "<", ">", "\n", "\r", "\x00"];
     for c in invalid_chars {

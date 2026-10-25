@@ -5,6 +5,7 @@ use std::process::Command;
 use scp_vcs::{GitCliBackend, VcsBackend, VcsError, VcsStatus};
 use tempfile::TempDir;
 
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn create_test_repo() -> TempDir {
     let temp_dir = TempDir::new().unwrap();
     let path = temp_dir.path();
@@ -77,6 +78,7 @@ fn test_status_returns_dirty_on_repository_with_changes() {
 }
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn test_log_returns_commits_in_reverse_chronological_order() {
     let temp_dir = create_test_repo();
     std::fs::write(temp_dir.path().join("test2.txt"), "more content").unwrap();
@@ -211,6 +213,7 @@ fn test_special_characters_in_branch_name() {
 }
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn test_status_with_binary_file() {
     let temp_dir = create_test_repo();
     let backend = GitCliBackend::new_from_path(temp_dir.path());
@@ -225,6 +228,7 @@ fn test_status_with_binary_file() {
 }
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn test_log_with_unicode_message() {
     let temp_dir = TempDir::new().unwrap();
     let path = temp_dir.path();
@@ -288,6 +292,7 @@ fn test_concurrent_operations() {
 }
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn test_deeply_nested_path() {
     let temp_dir = TempDir::new().unwrap();
     let path = temp_dir.path();
@@ -333,6 +338,7 @@ fn test_deeply_nested_path() {
 }
 
 #[test]
+#[allow(clippy::needless_borrows_for_generic_args)]
 fn test_large_number_of_commits() {
     let temp_dir = TempDir::new().unwrap();
     let path = temp_dir.path();

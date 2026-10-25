@@ -410,6 +410,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn test_fix_impact_clone_and_copy() {
         let impact = FixImpact::High;
         let copied = impact;

@@ -247,6 +247,7 @@ fn workflow_contains_exactly_seven_steps() {
 }
 
 #[test]
+#[allow(clippy::unnecessary_map_or)]
 fn workflow_step_one_is_orientation() {
     let workflow = build_workflow();
     let first = workflow.steps.first();
@@ -258,6 +259,7 @@ fn workflow_step_one_is_orientation() {
 }
 
 #[test]
+#[allow(clippy::unnecessary_map_or)]
 fn workflow_step_seven_is_completion() {
     let workflow = build_workflow();
     let last = workflow.steps.last();
@@ -349,12 +351,14 @@ fn quick_start_has_at_least_four_essential_commands() {
 }
 
 #[test]
+#[allow(clippy::assert_is_empty)]
 fn quick_start_has_orientation_commands() {
     let qs = build_quick_start();
     assert!(!qs.orientation.is_empty());
 }
 
 #[test]
+#[allow(clippy::assert_is_empty)]
 fn quick_start_has_workflow_commands() {
     let qs = build_quick_start();
     assert!(!qs.workflow.is_empty());
@@ -397,12 +401,14 @@ fn overview_has_at_least_four_subcommands() {
 }
 
 #[test]
+#[allow(clippy::assert_is_empty)]
 fn overview_has_quick_commands() {
     let overview = build_overview();
     assert!(!overview.quick_commands.is_empty());
 }
 
 #[test]
+#[allow(clippy::assert_is_empty)]
 fn overview_message_is_not_empty() {
     let overview = build_overview();
     assert!(!overview.message.is_empty());
@@ -969,6 +975,7 @@ mod workflow_behavior {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn workflow_step_two_has_actionable_command() {
         let workflow = build_workflow();
         match workflow.steps.get(1) {
@@ -981,6 +988,7 @@ mod workflow_behavior {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn workflow_step_three_has_actionable_command() {
         let workflow = build_workflow();
         match workflow.steps.get(2) {
@@ -993,6 +1001,7 @@ mod workflow_behavior {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn workflow_step_five_has_actionable_command() {
         let workflow = build_workflow();
         match workflow.steps.get(4) {
@@ -1005,6 +1014,7 @@ mod workflow_behavior {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn workflow_step_six_has_actionable_command() {
         let workflow = build_workflow();
         match workflow.steps.get(5) {
@@ -1193,6 +1203,7 @@ mod red_queen_adversarial {
 
     /// ATTACK: Huge session count in determine_next_action.
     #[test]
+    #[allow(clippy::doc_markdown)]
     fn adversarial_next_action_huge_session_count() {
         let output = determine_next_action(true, &Location::Main, None, usize::MAX);
         assert!(
@@ -1203,6 +1214,7 @@ mod red_queen_adversarial {
 
     /// ATTACK: Workspace name injection in determine_next_action.
     #[test]
+    #[allow(clippy::doc_markdown)]
     fn adversarial_next_action_workspace_name_injection() {
         let ws = "test'; rm -rf /; echo '";
         let output = determine_next_action(true, &Location::Workspace(ws.to_string()), Some(ws), 0);
@@ -1216,6 +1228,7 @@ mod red_queen_adversarial {
 
     /// ATTACK: AiEnvelope schema field special characters are JSON-escaped.
     #[test]
+    #[allow(clippy::doc_markdown)]
     fn adversarial_envelope_schema_name_injection_is_escaped() {
         let status = AiStatusOutput {
             location: Location::Main,
@@ -1243,6 +1256,7 @@ mod red_queen_adversarial {
 
     /// ATTACK: AiStatusOutput with usize::MAX active_sessions serializes.
     #[test]
+    #[allow(clippy::doc_markdown)]
     fn adversarial_status_output_serializes_extreme_sessions() {
         let status = AiStatusOutput {
             location: Location::Main,

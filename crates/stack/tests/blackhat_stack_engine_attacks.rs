@@ -245,6 +245,7 @@ fn attack_restack_branch_unsupported() {
 // ATTACK 11: Create branch with ".." in name
 // ============================================================================
 #[test]
+#[allow(clippy::useless_format)]
 fn attack_create_branch_dotdot_name() {
     let (_tmp, repo) = make_repo();
     let engine = StackEngine::new(&repo, BranchName::new("main"));

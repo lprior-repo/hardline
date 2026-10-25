@@ -421,6 +421,7 @@ mod tests {
     // ── Conflict construction ────────────────────────────────────────────────
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_conflict_new() {
         let conflict = Conflict::new("feature-branch", "Merge conflict in main.rs");
         assert_eq!(conflict.branch_id, "feature-branch");
@@ -760,6 +761,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assert_is_empty)]
     fn test_conflict_serde_with_empty_vecs() {
         let conflict = Conflict::new("branch", "conflict");
         assert!(conflict.conflicting_commits.is_empty());
@@ -778,6 +780,7 @@ mod tests {
 
     proptest! {
         #[test]
+        #[allow(clippy::uninlined_format_args)]
         fn prop_conflict_state_is_terminal_matches_needs_resolution(
             state in 0u8..5u8
         ) {

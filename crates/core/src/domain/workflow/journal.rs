@@ -419,6 +419,7 @@ mod tests {
     ///
     /// Each call creates a fresh temporary file so that parallel tokio tests
     /// are fully isolated.
+    #[allow(clippy::doc_markdown)]
     async fn test_pool() -> SqlitePool {
         let tmp = NamedTempFile::new().expect("create temp file");
         let db_url = format!("sqlite:{}", tmp.path().display());
@@ -491,6 +492,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::assert_is_empty)]
     async fn load_steps_empty_for_unknown_operation() {
         let pool = test_pool().await;
         let journal = SqliteJournal::new(pool);
@@ -526,6 +528,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::assert_is_empty)]
     async fn load_pending_excludes_completed() {
         let pool = test_pool().await;
         let journal = SqliteJournal::new(pool);
@@ -550,6 +553,7 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[tokio::test]
+    #[allow(clippy::assert_is_empty)]
     async fn mark_completed_updates_state() {
         let pool = test_pool().await;
         let journal = SqliteJournal::new(pool);
@@ -571,6 +575,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::assert_is_empty)]
     async fn mark_failed_updates_state() {
         let pool = test_pool().await;
         let journal = SqliteJournal::new(pool.clone());
@@ -649,6 +654,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::assert_is_empty)]
     async fn recovery_tasks_excludes_completed_operations() {
         let pool = test_pool().await;
         let journal = SqliteJournal::new(pool);
@@ -670,6 +676,7 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[tokio::test]
+    #[allow(clippy::assert_is_empty)]
     async fn cleanup_removes_old_completed_operations() {
         let pool = test_pool().await;
         let journal = SqliteJournal::new(pool.clone());

@@ -4,6 +4,7 @@
 //! in correct ranges, fix suggestions have non-empty commands, serialization roundtrips.
 
 use scp_error::{Error, ErrorCategory, ErrorFix, FixRisk};
+#[allow(clippy::single_component_path_imports)]
 use serde_json;
 
 /// Build one of every variant for exhaustive testing.

@@ -96,6 +96,7 @@ mod tests {
 // Exit Code
 // ========================================================================
 
+#[allow(clippy::items_after_test_module)]
 impl AgentError {
     /// Returns a reference to the inner error kind.
     #[must_use]

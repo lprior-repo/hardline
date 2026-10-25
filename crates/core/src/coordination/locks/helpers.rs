@@ -23,6 +23,7 @@ pub fn is_constraint_conflict_error(error: &sqlx::Error) -> bool {
 #[cfg(test)]
 mod tests {
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn test_constraint_error_codes() {
         // These would need actual sqlx errors to test properly
         // This is a placeholder to show the test structure

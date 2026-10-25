@@ -146,6 +146,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn test_recovery_policy_clone() {
         let policy = RecoveryPolicy::Panic;
         let cloned = policy.clone();

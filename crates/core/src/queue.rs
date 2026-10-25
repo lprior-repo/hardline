@@ -512,6 +512,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn test_queue_status_clone_semantics() {
         let status = QueueStatus::Processing;
         let cloned = status.clone();
@@ -1763,6 +1764,7 @@ mod tests {
 
         /// MAJOR: Enqueue 50 items with same priority — verify FIFO order.
         #[test]
+        #[allow(clippy::needless_borrows_for_generic_args)]
         fn same_priority_preserves_fifo_order() -> Result<()> {
             let queue = make_queue();
             let count = 50;
@@ -1840,6 +1842,7 @@ mod tests {
 
         /// MINOR: Two QueueItems created in rapid succession have different IDs.
         #[test]
+        #[allow(clippy::needless_borrows_for_generic_args)]
         fn rapid_queue_items_have_unique_ids() {
             let items: Vec<QueueItem> = (0..100)
                 .map(|i| QueueItem::direct(&format!("rapid-{}", i)))

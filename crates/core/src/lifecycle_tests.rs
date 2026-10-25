@@ -1108,6 +1108,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::needless_range_loop)]
     fn concurrent_managers_thread_safe() {
         use std::thread;
 

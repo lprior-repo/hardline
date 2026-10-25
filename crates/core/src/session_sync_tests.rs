@@ -164,6 +164,7 @@ fn test_validate_preconditions_session_not_found() {
 }
 
 #[test]
+#[allow(clippy::assert_is_empty)]
 fn test_parse_rebase_output_with_revision() {
     let output = "Rebased 3 commits\nabc123def4567890123456789012345678901\nWorking copy now at: abc123def4567890123456789012345678901";
     let (revision, conflicts) = parse_rebase_output(output);
@@ -173,6 +174,7 @@ fn test_parse_rebase_output_with_revision() {
 }
 
 #[test]
+#[allow(clippy::assert_is_empty)]
 fn test_parse_rebase_output_with_conflicts() {
     let output = "Rebase caused conflicts in 2 files:\n  file1.txt\n  file2.txt\nSome conflicts";
     let (revision, conflicts) = parse_rebase_output(output);
@@ -488,6 +490,7 @@ fn test_determine_workspace_status_files_keyword() {
 // ========================================================================
 
 #[test]
+#[allow(clippy::assert_is_empty)]
 fn test_parse_rebase_output_empty() {
     let (rev, conflicts) = parse_rebase_output("");
     assert!(rev.is_none());

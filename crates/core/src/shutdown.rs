@@ -227,6 +227,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::clone_on_copy)]
     fn test_shutdown_signal_clone() {
         let sig = ShutdownSignal::Force;
         let cloned = sig.clone();
