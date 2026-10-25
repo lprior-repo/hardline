@@ -422,12 +422,12 @@ mod tests {
             Ok(String::new()),
             Ok(String::new()),
             Ok("mergebase123\n".to_string()),
-            Ok("M shared.rs\nM unique.rs\n".to_string()),
-            Ok("M shared.rs\n".to_string()),
+            Ok("shared.rs\nunique.rs\n".to_string()),
+            Ok("shared.rs\n".to_string()),
             Ok(String::new()),
             Ok("mergebase123\n".to_string()),
-            Ok("M shared.rs\nM unique.rs\n".to_string()),
-            Ok("M shared.rs\n".to_string()),
+            Ok("shared.rs\nunique.rs\n".to_string()),
+            Ok("shared.rs\n".to_string()),
         ]);
 
         let options = DoneOptions {
@@ -450,9 +450,9 @@ mod tests {
     #[test]
     fn test_run_dry_run_without_conflict_detection() {
         let executor = MockGitExecutor::new(vec![
-            // get_uncommitted_files: "status --no-pager"
+            // get_uncommitted_files: "status --porcelain"
             Ok("M src/lib.rs\n".to_string()),
-            // get_commits_to_merge: "log -r @..@- ..."
+            // get_commits_to_merge: "log main..HEAD --format=..."
             Ok(String::new()),
             // get_potential_conflicts -> detect_conflicts: 4 responses
             Ok(String::new()), // check_existing_conflicts

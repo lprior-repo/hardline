@@ -65,9 +65,13 @@ pub fn get_workspace_path(
 // ============================================================================
 
 /// Get list of uncommitted files via Git status.
+///
+/// Uses `--porcelain`: the previous `status --no-pager` invocation is
+/// not valid git (the `--no-pager` flag must precede the subcommand),
+/// so it exited 129 and every dry-run failed here.
 pub fn get_uncommitted_files(executor: &dyn GitExecutor) -> Result<Vec<String>> {
     let output = executor
-        .run(&["status", "--no-pager"])
+        .run(&["status", "--porcelain"])
         .map_err(Error::from)?;
 
     Ok(parse_status_lines(&output))
@@ -75,33 +79,67 @@ pub fn get_uncommitted_files(executor: &dyn GitExecutor) -> Result<Vec<String>> 
 
 /// Parse Git status output lines into file names.
 ///
-/// Recognised prefixes: `A ` (added), `M ` (modified), `D ` (deleted),
-/// `R ` (renamed).  Everything else is ignored.
+/// Two formats are recognised, both yielding the same file lists:
+/// - Porcelain (`status --porcelain`): two status columns `XY` followed
+///   by a space and the path, e.g. ` M src/lib.rs`, `MM src/both.rs`,
+///   `R  old.rs -> new.rs` (rename yields the new name). Untracked
+///   (`??`) entries are ignored, as before.
+/// - Single-letter lines (`M path`, `A path`, `D path`, `R path`) as
+///   produced by jj-style status output and used by the older tests.
+///   Everything else is ignored.
 fn parse_status_lines(output: &str) -> Vec<String> {
     output
         .lines()
-        .map(str::trim)
-        .filter(|line| {
-            line.starts_with("A ")
-                || line.starts_with("M ")
-                || line.starts_with("D ")
-                || line.starts_with("R ")
+        .filter_map(|line| {
+            let trimmed = line.trim_start();
+            let chars: Vec<char> = trimmed.chars().collect();
+            let is_status = |c: char| matches!(c, 'A' | 'M' | 'D' | 'R');
+            // Porcelain: XY + space + path (e.g. "MM file", "R  old -> new").
+            let path_part = if chars.len() >= 3
+                && is_status(chars[0])
+                && (chars[1] == ' ' || is_status(chars[1]))
+                && chars[2] == ' '
+            {
+                trimmed.get(3..)
+            // Single-letter: X + space + path (e.g. "M file").
+            } else if chars.len() >= 2 && is_status(chars[0]) && chars[1] == ' ' {
+                trimmed.get(2..)
+            } else {
+                None
+            };
+            let path_part = path_part?;
+            // Renames report "old -> new": the merged file is the new name.
+            if let Some(idx) = path_part.rfind(" -> ") {
+                Some(path_part[idx + 4..].to_string())
+            } else {
+                // Single-letter format keeps the old token behaviour:
+                // only the first whitespace-delimited token is a file.
+                // Porcelain paths are taken verbatim (spaces preserved)
+                // when the line came from the XY branch.
+                if chars.len() >= 3 && chars[2] == ' ' {
+                    Some(path_part.trim().to_string())
+                } else {
+                    path_part
+                        .split_ascii_whitespace()
+                        .next()
+                        .map(std::string::ToString::to_string)
+                }
+            }
         })
-        .filter_map(|line| line.split_ascii_whitespace().nth(1))
-        .map(String::from)
         .collect()
 }
 
 /// Get commits that will be merged.
+///
+/// Commits reachable from HEAD but not from `main` — the git
+/// equivalent of the workspace's unmerged changes. Git has no
+/// change-id concept, so `change_id` mirrors the full commit hash.
 pub fn get_commits_to_merge(executor: &dyn GitExecutor) -> Result<Vec<CommitInfo>> {
     let output = executor
         .run(&[
             "log",
-            "-r",
-            "@..@-",
-            "--no-graph",
-            "-T",
-            r#"change_id ++ "\n" ++ commit_id ++ "\n" ++ description ++ "\n" ++ committer.timestamp() ++ "\n""#,
+            "main..HEAD",
+            "--format=%H%n%H%n%s%n%cI",
         ])
         .map_err(Error::from)?;
 
@@ -166,7 +204,7 @@ pub fn log_undo_history(
     let undo_log_path = cwd.join(".scp/undo.log");
 
     let pre_merge_commit_id = executor
-        .run(&["log", "-r", "@", "--no-graph", "-T", "commit_id"])
+        .run(&["rev-parse", "HEAD"])
         .unwrap_or_default();
 
     let timestamp = SystemTime::now()
@@ -327,6 +365,63 @@ mod tests {
         assert!(files.is_empty(), "tab-separated lines should not be parsed");
     }
 
+    #[test]
+    fn test_parse_status_lines_porcelain() {
+        let output = " M src/lib.rs\nA  src/new.rs\nD  src/old.rs\n?? untracked.rs\n";
+        let files = parse_status_lines(output);
+        assert_eq!(
+            files,
+            vec!["src/lib.rs", "src/new.rs", "src/old.rs"]
+        );
+    }
+
+    #[test]
+    fn test_parse_status_lines_porcelain_both_columns() {
+        // Staged + unstaged modification shows as "MM".
+        let output = "MM src/both.rs\nAM src/added_modified.rs\n";
+        let files = parse_status_lines(output);
+        assert_eq!(files, vec!["src/both.rs", "src/added_modified.rs"]);
+    }
+
+    #[test]
+    fn test_parse_status_lines_porcelain_rename_yields_new_name() {
+        let output = "R  src/old.rs -> src/new.rs\n";
+        let files = parse_status_lines(output);
+        assert_eq!(files, vec!["src/new.rs"]);
+    }
+
+    #[test]
+    fn test_parse_status_lines_porcelain_path_with_spaces() {
+        // Porcelain paths are taken verbatim, unlike the single-letter
+        // format which only keeps the first token.
+        let output = "M  path with spaces/file.txt\n";
+        let files = parse_status_lines(output);
+        assert_eq!(files, vec!["path with spaces/file.txt"]);
+    }
+
+    #[test]
+    fn test_get_uncommitted_files_porcelain_input() {
+        let executor = MockGitExecutor::new(vec![Ok(
+            " M src/lib.rs\nA  src/new.rs\n?? untracked.rs\n".to_string(),
+        )]);
+        let files = get_uncommitted_files(&executor).expect("should succeed");
+        assert_eq!(files, vec!["src/lib.rs", "src/new.rs"]);
+        let calls = executor.run_calls();
+        assert_eq!(calls[0].0, "status --porcelain");
+    }
+
+    #[test]
+    fn test_get_commits_to_merge_uses_main_dotdot_head() {
+        let executor = MockGitExecutor::new(vec![Ok(
+            "abc\ndef\nfeat: x\n2024-01-15T10:00:00+00:00\n".to_string(),
+        )]);
+        let commits = get_commits_to_merge(&executor).expect("should succeed");
+        assert_eq!(commits.len(), 1);
+        assert_eq!(commits[0].commit_id, "def");
+        let calls = executor.run_calls();
+        assert_eq!(calls[0].0, "log main..HEAD --format=%H%n%H%n%s%n%cI");
+    }
+
     // -----------------------------------------------------------------------
     // parse_commits_output
     // -----------------------------------------------------------------------
@@ -432,12 +527,12 @@ mod tests {
         let mock = MockGitExecutor::new(vec![Ok("result".to_string())]);
         let ws = WorkspaceGitExecutor::new(&mock, "/tmp/workspace");
 
-        let result = ws.run(&["status", "--no-pager"]);
+        let result = ws.run(&["status", "--porcelain"]);
         assert_eq!(result.unwrap(), "result");
 
         let calls = mock.run_calls();
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].0, "status --no-pager");
+        assert_eq!(calls[0].0, "status --porcelain");
         assert_eq!(calls[0].1.as_deref(), Some("/tmp/workspace"));
     }
 

@@ -211,6 +211,9 @@ impl scp_core::VcsBackend for MockVcsBackend {
 // ============================================================================
 
 /// Clean workspace with no conflicts.
+///
+/// In `detect_conflicts` call order: unmerged files, merge base,
+/// workspace files, trunk files — all `git diff --name-only` output.
 pub fn no_conflict_responses() -> Vec<std::result::Result<String, ExecutorError>> {
     vec![
         Ok(String::new()),
@@ -223,11 +226,10 @@ pub fn no_conflict_responses() -> Vec<std::result::Result<String, ExecutorError>
 /// Workspace with existing conflicts.
 pub fn existing_conflict_responses() -> Vec<std::result::Result<String, ExecutorError>> {
     vec![
-        Ok("CONFLICT\n".to_string()),
         Ok("src/conflicted.rs\n".to_string()),
-        Ok(String::new()),
-        Ok("M src/conflicted.rs\n".to_string()),
-        Ok("M trunk_file.rs\n".to_string()),
+        Ok("abc123\n".to_string()),
+        Ok("src/conflicted.rs\n".to_string()),
+        Ok("trunk_file.rs\n".to_string()),
     ]
 }
 
@@ -236,8 +238,8 @@ pub fn overlapping_conflict_responses() -> Vec<std::result::Result<String, Execu
     vec![
         Ok(String::new()),
         Ok("abc123merge\n".to_string()),
-        Ok("M shared.rs\n".to_string()),
-        Ok("M shared.rs\n".to_string()),
+        Ok("shared.rs\n".to_string()),
+        Ok("shared.rs\n".to_string()),
     ]
 }
 
@@ -247,7 +249,7 @@ pub fn empty_diff_responses() -> Vec<std::result::Result<String, ExecutorError>>
         Ok(String::new()),
         Ok("abc123\n".to_string()),
         Ok(String::new()),
-        Ok("M trunk_only.rs\n".to_string()),
+        Ok("trunk_only.rs\n".to_string()),
     ]
 }
 
@@ -256,7 +258,7 @@ pub fn workspace_with_changes_responses() -> Vec<std::result::Result<String, Exe
     vec![
         Ok(String::new()),
         Ok("base123\n".to_string()),
-        Ok("M src/new_feature.rs\nA src/new_file.rs\n".to_string()),
-        Ok("M trunk_change.rs\n".to_string()),
+        Ok("src/new_feature.rs\nsrc/new_file.rs\n".to_string()),
+        Ok("trunk_change.rs\n".to_string()),
     ]
 }

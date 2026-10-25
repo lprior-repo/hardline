@@ -133,7 +133,7 @@ pub fn detect_conflicts(
     let has_existing = !existing_conflicts.is_empty();
 
     let merge_base = find_merge_base(executor)?;
-    let workspace_files = get_workspace_modified_files(executor)?;
+    let workspace_files = get_workspace_modified_files(executor, &merge_base)?;
     let trunk_files = get_trunk_files(executor, &merge_base)?;
 
     let overlapping: Vec<String> = workspace_files
@@ -165,6 +165,11 @@ pub fn detect_conflicts(
 }
 
 /// Get trunk modified files, using merge base if available.
+///
+/// With a merge base, this is the set of files changed on `main` since
+/// the base. Without one (no common ancestor), it falls back to the
+/// files differing between HEAD and `main`, matching the old
+/// endpoint-to-endpoint fallback semantics.
 fn get_trunk_files(
     executor: &dyn GitExecutor,
     merge_base: &Option<String>,
@@ -172,8 +177,8 @@ fn get_trunk_files(
     if let Some(ref base) = merge_base {
         get_trunk_modified_files(executor, base)
     } else {
-        let output = executor.run(&["diff", "--from", "@", "--to", "trunk()", "--summary"])?;
-        Ok(parse_diff_summary(&output))
+        let output = executor.run(&["diff", "--name-only", "HEAD", "main"])?;
+        Ok(parse_name_only(&output))
     }
 }
 
@@ -196,51 +201,29 @@ fn build_conflict_summary(existing_conflicts: &[String], overlapping: &[String])
 }
 
 /// Check for existing Git conflicts in the workspace.
+///
+/// `git diff --name-only --diff-filter=U` lists exactly the paths with
+/// unresolved merge conflicts, and exits 0 with empty output when there
+/// is no merge in progress. (The previous implementation ran jj
+/// revset/template syntax through the git binary, which always failed;
+/// callers swallowed that failure, so conflict detection silently
+/// reported no conflicts.)
 fn check_existing_conflicts(
     executor: &dyn GitExecutor,
 ) -> std::result::Result<Vec<String>, ExecutorError> {
-    let output = executor.run(&[
-        "log",
-        "-r",
-        "@",
-        "--no-graph",
-        "-T",
-        r#"if(conflict, "CONFLICT\n", "")"#,
-    ])?;
-
-    if output.contains("CONFLICT") {
-        let resolve_output = executor.run(&["resolve", "--list"])?;
-
-        let conflicts: Vec<String> = resolve_output
-            .lines()
-            .filter(|line: &&str| !line.trim().is_empty())
-            .map(|line: &str| {
-                line.split_whitespace()
-                    .next()
-                    .map_or_else(|| line.trim().to_string(), str::to_string)
-            })
-            .collect();
-
-        Ok(conflicts)
-    } else {
-        Ok(Vec::new())
-    }
+    let output = executor.run(&["diff", "--name-only", "--diff-filter=U"])?;
+    Ok(parse_name_only(&output).into_iter().collect())
 }
 
 /// Find the merge base (common ancestor) between workspace and trunk.
+///
+/// The trunk is the `main` branch: the done workflow rebases onto
+/// `main` and the VCS backend switches back to `main` on cleanup, so
+/// this is the same trunk the rest of the handler assumes.
 fn find_merge_base(
     executor: &dyn GitExecutor,
 ) -> std::result::Result<Option<String>, ExecutorError> {
-    let output = executor.run(&[
-        "log",
-        "-r",
-        "heads(::@ & ::trunk())",
-        "--no-graph",
-        "-T",
-        "commit_id ++ \"\\n\"",
-        "--limit",
-        "1",
-    ])?;
+    let output = executor.run(&["merge-base", "HEAD", "main"])?;
 
     let commit_id = output.trim();
     if commit_id.is_empty() {
@@ -251,11 +234,20 @@ fn find_merge_base(
 }
 
 /// Get files modified in workspace since branching from trunk.
+///
+/// With a merge base, this is the files changed on HEAD since the base.
+/// Without one, it falls back to the files differing between `main`
+/// and HEAD (see `get_trunk_files`).
 fn get_workspace_modified_files(
     executor: &dyn GitExecutor,
+    merge_base: &Option<String>,
 ) -> std::result::Result<HashSet<String>, ExecutorError> {
-    let output = executor.run(&["diff", "--from", "trunk()", "--to", "@", "--summary"])?;
-    Ok(parse_diff_summary(&output))
+    let output = if let Some(ref base) = merge_base {
+        executor.run(&["diff", "--name-only", base, "HEAD"])?
+    } else {
+        executor.run(&["diff", "--name-only", "main", "HEAD"])?
+    };
+    Ok(parse_name_only(&output))
 }
 
 /// Get files modified in trunk since the merge base.
@@ -263,37 +255,20 @@ fn get_trunk_modified_files(
     executor: &dyn GitExecutor,
     merge_base: &str,
 ) -> std::result::Result<HashSet<String>, ExecutorError> {
-    let output = executor.run(&["diff", "--from", merge_base, "--to", "trunk()", "--summary"])?;
-    Ok(parse_diff_summary(&output))
+    let output = executor.run(&["diff", "--name-only", merge_base, "main"])?;
+    Ok(parse_name_only(&output))
 }
 
-/// Parse Git diff --summary output to extract file paths.
+/// Parse `git diff --name-only` output into a set of file paths.
 ///
-/// Format: "M path/to/file" or "A path" or "D path" or "R old -> new"
-pub fn parse_diff_summary(output: &str) -> HashSet<String> {
+/// One path per line; `git diff --name-only` reports the new name for
+/// renames, and paths containing spaces are preserved verbatim.
+pub fn parse_name_only(output: &str) -> HashSet<String> {
     output
         .lines()
-        .filter_map(|line: &str| {
-            let trimmed = line.trim();
-            if trimmed.is_empty() {
-                return None;
-            }
-
-            let parts: Vec<&str> = trimmed.splitn(2, ' ').collect();
-            let status_opt = parts.first().copied();
-            let file_part_opt = parts.get(1).copied();
-
-            match (status_opt, file_part_opt) {
-                (Some(status), Some(file_part)) if status == "R" && file_part.contains(" -> ") => {
-                    file_part
-                        .split(" -> ")
-                        .last()
-                        .map(std::string::ToString::to_string)
-                }
-                (Some(_), Some(file_part)) => Some(file_part.to_string()),
-                _ => None,
-            }
-        })
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(std::string::ToString::to_string)
         .collect()
 }
 
@@ -379,87 +354,43 @@ mod tests {
         assert!(msg.contains("executor"));
     }
 
-    // ---- parse_diff_summary ----
+    // ---- parse_name_only ----
 
     #[test]
-    fn parse_diff_summary_empty_input() {
-        let result = parse_diff_summary("");
+    fn parse_name_only_empty_input() {
+        let result = parse_name_only("");
         assert!(result.is_empty());
     }
 
     #[test]
-    fn parse_diff_summary_whitespace_only() {
-        let result = parse_diff_summary("   \n  \n");
+    fn parse_name_only_whitespace_only() {
+        let result = parse_name_only("   \n  \n");
         assert!(result.is_empty());
     }
 
     #[test]
-    fn parse_diff_summary_modified_files() {
-        let input = "M src/main.rs\nM src/lib.rs";
-        let result = parse_diff_summary(input);
+    fn parse_name_only_paths() {
+        let input = "src/main.rs\nsrc/lib.rs";
+        let result = parse_name_only(input);
         assert_eq!(result.len(), 2);
         assert!(result.contains("src/main.rs"));
         assert!(result.contains("src/lib.rs"));
     }
 
     #[test]
-    fn parse_diff_summary_added_files() {
-        let input = "A new_file.rs\nA another.rs";
-        let result = parse_diff_summary(input);
-        assert_eq!(result.len(), 2);
-        assert!(result.contains("new_file.rs"));
-        assert!(result.contains("another.rs"));
-    }
-
-    #[test]
-    fn parse_diff_summary_deleted_files() {
-        let input = "D old_file.rs";
-        let result = parse_diff_summary(input);
-        assert_eq!(result.len(), 1);
-        assert!(result.contains("old_file.rs"));
-    }
-
-    #[test]
-    fn parse_diff_summary_renamed_files_extracts_new_name() {
-        let input = "R old_name.rs -> new_name.rs";
-        let result = parse_diff_summary(input);
-        assert_eq!(result.len(), 1);
-        assert!(result.contains("new_name.rs"));
-        assert!(!result.contains("old_name.rs"));
-    }
-
-    #[test]
-    fn parse_diff_summary_mixed_statuses() {
-        let input = "M src/main.rs\nA src/new.rs\nD src/old.rs\nR old.rs -> renamed.rs";
-        let result = parse_diff_summary(input);
-        assert_eq!(result.len(), 4);
-        assert!(result.contains("src/main.rs"));
-        assert!(result.contains("src/new.rs"));
-        assert!(result.contains("src/old.rs"));
-        assert!(result.contains("renamed.rs"));
-    }
-
-    #[test]
-    fn parse_diff_summary_ignores_empty_lines() {
-        let input = "M file.rs\n\n\nA other.rs\n";
-        let result = parse_diff_summary(input);
+    fn parse_name_only_ignores_empty_lines() {
+        let input = "file.rs\n\n\nother.rs\n";
+        let result = parse_name_only(input);
         assert_eq!(result.len(), 2);
     }
 
     #[test]
-    fn parse_diff_summary_handles_leading_trailing_whitespace() {
-        let input = "  M file.rs  \n  A other.rs  ";
-        let result = parse_diff_summary(input);
+    fn parse_name_only_handles_leading_trailing_whitespace() {
+        let input = "  file.rs  \n  other.rs  ";
+        let result = parse_name_only(input);
         assert_eq!(result.len(), 2);
-    }
-
-    #[test]
-    fn parse_diff_summary_no_file_part_is_skipped() {
-        // Line with just status letter, no file path
-        let input = "M\nA file.rs";
-        let result = parse_diff_summary(input);
-        assert_eq!(result.len(), 1);
         assert!(result.contains("file.rs"));
+        assert!(result.contains("other.rs"));
     }
 
     // ---- Mock GitExecutor ----
@@ -525,89 +456,37 @@ mod tests {
         assert_eq!(result, "log output");
     }
 
-    // ---- parse_diff_summary additional edge cases ----
+    // ---- parse_name_only additional edge cases ----
 
     #[test]
-    fn parse_diff_summary_path_with_spaces() {
-        let input = "M path/with spaces/file.rs";
-        let result = parse_diff_summary(input);
+    fn parse_name_only_path_with_spaces() {
+        // --name-only preserves paths with spaces verbatim, unlike the
+        // old "M path" summary format which split on the first space.
+        let input = "path/with spaces/file.rs";
+        let result = parse_name_only(input);
         assert_eq!(result.len(), 1);
         assert!(result.contains("path/with spaces/file.rs"));
     }
 
     #[test]
-    fn parse_diff_summary_deeply_nested_paths() {
-        let input = "M a/b/c/d/e/f/g/h.rs";
-        let result = parse_diff_summary(input);
+    fn parse_name_only_deeply_nested_paths() {
+        let input = "a/b/c/d/e/f/g/h.rs";
+        let result = parse_name_only(input);
         assert_eq!(result.len(), 1);
         assert!(result.contains("a/b/c/d/e/f/g/h.rs"));
     }
 
     #[test]
-    fn parse_diff_summary_multiple_renames() {
-        let input = "R old_a.rs -> new_a.rs\nR old_b.rs -> new_b.rs";
-        let result = parse_diff_summary(input);
-        assert_eq!(result.len(), 2);
-        assert!(result.contains("new_a.rs"));
-        assert!(result.contains("new_b.rs"));
-        assert!(!result.contains("old_a.rs"));
-        assert!(!result.contains("old_b.rs"));
-    }
-
-    #[test]
-    fn parse_diff_summary_line_without_status_prefix() {
-        // Line that doesn't start with a recognized status letter
-        // "garbage line" -> splitn gives status="garbage", file="line"
-        // This is captured by the generic branch.
-        let input = "garbage line\nM valid.rs";
-        let result = parse_diff_summary(input);
-        assert_eq!(result.len(), 2);
-        assert!(result.contains("valid.rs"));
-        assert!(result.contains("line"));
-    }
-
-    #[test]
-    fn parse_diff_summary_copies_treated_as_files() {
-        // 'C' (copy) is not a recognized special status, so it falls through
-        // to the generic `(Some(_), Some(file_part))` branch.
-        // splitn(2, ' ') on "C original.rs copy.rs" gives ["C", "original.rs copy.rs"]
-        let input = "C original.rs copy.rs";
-        let result = parse_diff_summary(input);
-        assert_eq!(result.len(), 1);
-        assert!(result.contains("original.rs copy.rs"));
-    }
-
-    #[test]
-    fn parse_diff_summary_single_newline() {
-        let result = parse_diff_summary("\n");
+    fn parse_name_only_single_newline() {
+        let result = parse_name_only("\n");
         assert!(result.is_empty());
     }
 
     #[test]
-    fn parse_diff_summary_tabs_in_path() {
-        let input = "M path\twith\ttabs.rs";
-        let result = parse_diff_summary(input);
+    fn parse_name_only_deduplicates_same_path() {
+        let input = "file.rs\nfile.rs";
+        let result = parse_name_only(input);
         assert_eq!(result.len(), 1);
-        // The tab is part of the file portion after the first space split
-    }
-
-    #[test]
-    fn parse_diff_summary_deduplicates_same_path() {
-        // If the same file appears twice (e.g., modified then modified again),
-        // the HashSet deduplicates
-        let input = "M file.rs\nM file.rs";
-        let result = parse_diff_summary(input);
-        assert_eq!(result.len(), 1);
-    }
-
-    #[test]
-    fn parse_diff_summary_rename_with_arrow_in_filename() {
-        // Edge case: filename that itself contains " -> "
-        let input = "R old -> name -> new.rs";
-        let result = parse_diff_summary(input);
-        assert_eq!(result.len(), 1);
-        // Should extract the last part after " -> "
-        assert!(result.contains("new.rs"));
     }
 
     // ---- ExecutorError inequality ----
@@ -650,22 +529,10 @@ mod tests {
     #[test]
     fn detect_conflicts_no_conflicts_with_mock() {
         let mock = MockGitExecutor::new()
-            .with_response(
-                "log -r @ --no-graph -T if(conflict, \"CONFLICT\\n\", \"\")",
-                "",
-            )
-            .with_response(
-                "log -r heads(::@ & ::trunk()) --no-graph -T commit_id ++ \"\\n\" --limit 1",
-                "abc123\n",
-            )
-            .with_response(
-                "diff --from trunk() --to @ --summary",
-                "M workspace_file.rs",
-            )
-            .with_response(
-                "diff --from abc123 --to trunk() --summary",
-                "M trunk_file.rs",
-            );
+            .with_response("diff --name-only --diff-filter=U", "")
+            .with_response("merge-base HEAD main", "abc123\n")
+            .with_response("diff --name-only abc123 HEAD", "workspace_file.rs")
+            .with_response("diff --name-only abc123 main", "trunk_file.rs");
 
         let result = detect_conflicts(&mock).expect("should succeed");
         assert!(result.merge_likely_safe);
@@ -679,16 +546,12 @@ mod tests {
     fn detect_conflicts_existing_conflicts_with_mock() {
         let mock = MockGitExecutor::new()
             .with_response(
-                "log -r @ --no-graph -T if(conflict, \"CONFLICT\\n\", \"\")",
-                "CONFLICT\n",
+                "diff --name-only --diff-filter=U",
+                "file_a.rs\nfile_b.rs\n",
             )
-            .with_response("resolve --list", "file_a.rs  normal\nfile_b.rs  text")
-            .with_response(
-                "log -r heads(::@ & ::trunk()) --no-graph -T commit_id ++ \"\\n\" --limit 1",
-                "def456\n",
-            )
-            .with_response("diff --from trunk() --to @ --summary", "")
-            .with_response("diff --from def456 --to trunk() --summary", "");
+            .with_response("merge-base HEAD main", "def456\n")
+            .with_response("diff --name-only def456 HEAD", "")
+            .with_response("diff --name-only def456 main", "");
 
         let result = detect_conflicts(&mock).expect("should succeed");
         assert!(!result.merge_likely_safe);
@@ -699,21 +562,15 @@ mod tests {
     #[test]
     fn detect_conflicts_overlapping_files_with_mock() {
         let mock = MockGitExecutor::new()
+            .with_response("diff --name-only --diff-filter=U", "")
+            .with_response("merge-base HEAD main", "\n") // empty = no merge base
             .with_response(
-                "log -r @ --no-graph -T if(conflict, \"CONFLICT\\n\", \"\")",
-                "",
+                "diff --name-only main HEAD",
+                "shared.rs\nworkspace_only.rs",
             )
             .with_response(
-                "log -r heads(::@ & ::trunk()) --no-graph -T commit_id ++ \"\\n\" --limit 1",
-                "\n", // empty = no merge base
-            )
-            .with_response(
-                "diff --from trunk() --to @ --summary",
-                "M shared.rs\nM workspace_only.rs",
-            )
-            .with_response(
-                "diff --from @ --to trunk() --summary",
-                "M shared.rs\nM trunk_only.rs",
+                "diff --name-only HEAD main",
+                "shared.rs\ntrunk_only.rs",
             );
 
         let result = detect_conflicts(&mock).expect("should succeed");
