@@ -86,11 +86,40 @@ fn check_healthy() -> Result<(bool, Option<String>)> {
 
 /// Check if a session exists.
 ///
-/// Currently returns not-found since session DB integration is not yet wired.
+/// Reads the session database (`SCP_STATE_DB`, `SCP_DATABASE_PATH`,
+/// else `<cwd>/.scp/state.db` — the same database `hd work` registers
+/// into and `workspace query` reads). A missing database means no
+/// sessions exist yet, which is a plain not-found, not an error.
 fn check_session_exists(name: &str) -> Result<(bool, Option<String>)> {
-    // Placeholder: session DB not yet wired in hardline.
-    // Once session infrastructure is connected, this will query the session store.
-    Ok((false, Some(format!("not_found:{name}"))))
+    let cwd = std::env::current_dir()
+        .map_err(|e| Error::io_error(format!("Failed to determine current directory: {e}")))?;
+    let db_path = crate::commands::handlers::config_ports::resolve_state_db_path(&cwd)?;
+    if !db_path.exists() {
+        return Ok((false, Some(format!("not_found:{name}"))));
+    }
+    let runtime = tokio::runtime::Runtime::new()
+        .map_err(|e| Error::internal(format!("Failed to create runtime: {e}")))?;
+    let exists = runtime.block_on(async {
+        use scp_core::infrastructure::database::{DatabaseConfig, SqliteDatabaseService};
+        use scp_session::infrastructure::SqliteSessionRepository;
+
+        let config = DatabaseConfig::new(db_path.to_string_lossy().to_string())?;
+        let service = SqliteDatabaseService::new(config).await?;
+        let repo = SqliteSessionRepository::new(service);
+        repo.init_schema()
+            .await
+            .map_err(|e| Error::database(e.to_string()))?;
+        let rows = repo
+            .list_rows()
+            .await
+            .map_err(|e| Error::database(e.to_string()))?;
+        Ok::<bool, Error>(rows.iter().any(|row| row.name == name))
+    })?;
+    if exists {
+        Ok((true, Some(format!("found:{name}"))))
+    } else {
+        Ok((false, Some(format!("not_found:{name}"))))
+    }
 }
 
 /// Check if a session is unlocked.
