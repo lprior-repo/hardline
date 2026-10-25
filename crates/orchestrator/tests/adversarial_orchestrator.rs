@@ -1352,7 +1352,7 @@ mod queue_adversarial {
                 "null": null,
                 "string": "test",
                 "bool": true,
-                "number": 3.14
+                "number": std::f64::consts::PI
             }),
         };
         let json = serde_json::to_string(&payload).unwrap();
@@ -1769,11 +1769,8 @@ mod integration_adversarial {
         let decision = executor.run_pipeline(&pipeline.id);
         // The run_pipeline goes through: spec_review -> universe_setup -> agent_dev -> validation
         // Since run_linter returns 85 (hardcoded) and threshold is 80, it should pass
-        if !decision.is_ok() {
-            eprintln!(
-                "Pipeline decision error: {:?}",
-                decision.as_ref().unwrap_err()
-            );
+        if let Err(err) = decision.as_ref() {
+            eprintln!("Pipeline decision error: {:?}", err);
         }
         assert!(decision.is_ok());
     }
