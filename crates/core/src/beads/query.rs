@@ -111,7 +111,7 @@ pub fn paginate(
     offset: Option<usize>,
     limit: Option<usize>,
 ) -> Vec<BeadIssue> {
-    let offset = offset.map_or(0, |v| v);
+    let offset = offset.unwrap_or(0);
     #[allow(clippy::unnecessary_lazy_evaluations)]
     let limit = limit.unwrap_or_else(|| issues.len());
     issues.iter().skip(offset).take(limit).cloned().collect()

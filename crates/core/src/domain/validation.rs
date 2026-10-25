@@ -229,10 +229,7 @@ pub fn validate_range(value: u32, min: u32, max: u32, field: &str) -> Validation
 pub fn validate_all<T>(results: Vec<ValidationResult<T>>) -> ValidationResult<Vec<T>> {
     let mut ok_values = Vec::with_capacity(results.len());
     for result in results {
-        match result {
-            Ok(value) => ok_values.push(value),
-            Err(e) => return Err(e),
-        }
+        ok_values.push(result?);
     }
     Ok(ok_values)
 }

@@ -44,7 +44,7 @@ pub fn suggest_name(pattern: &str, existing_names: &[String]) -> Result<SuggestN
 
     let next_n = (1..=used_numbers.len() + 2)
         .find(|n| !used_numbers.contains(n))
-        .map_or(1, |n| n);
+        .unwrap_or(1);
 
     let suggested = pattern.replace("{n}", &next_n.to_string());
 
