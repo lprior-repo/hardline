@@ -714,13 +714,13 @@ fn parse_git_log(stdout: &str) -> Vec<Commit> {
     commits
 }
 
-/// Parse `git worktree list --porcelain` output into Workspace entries.
+/// Parse `git worktree list --porcelain` into Workspace entries.
 ///
 /// Each worktree block is separated by a blank line. Relevant fields:
+///
 /// - `worktree <path>` — absolute path to the worktree root
 /// - `branch <ref>` — e.g. `refs/heads/feature-x`
-/// - `bare` / (no `bare` line) — indicates the main worktree
-/// Parse `git worktree list --porcelain` into workspaces.
+/// - `bare` — marks a bare worktree entry
 ///
 /// `name` is the worktree path relative to `repo_path` (the main worktree's
 /// name is empty, since its path IS the repo path). `is_current` marks
