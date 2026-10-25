@@ -124,14 +124,11 @@ Git provides a solid, battle-tested foundation for workspace isolation:
 
 ## Installation
 
-```bash
-cargo install hardline
-```
-
-Or build from source:
+Build from source (the binary is `hd`; the package is `hd` in `crates/cli` —
+there is no published `hardline` package yet):
 
 ```bash
-cargo install --path crates/hardline
+cargo install --path crates/cli
 ```
 
 ## Getting Started
@@ -163,4 +160,4 @@ See the `docs/` directory for:
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](./LICENSE).
