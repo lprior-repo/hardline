@@ -89,7 +89,7 @@ fn perform_rename(options: &RenameOptions) -> Result<RenameOutput> {
     if work_path.exists() {
         rename_work_session(&cwd, &work_path, options)?;
     } else if plain_path.exists() {
-        std::fs::rename(&plain_path, &cwd.join(&options.new_name)).map_err(|e| {
+        std::fs::rename(&plain_path, cwd.join(&options.new_name)).map_err(|e| {
             Error::io_error(format!(
                 "Failed to rename '{}' to '{}': {e}",
                 plain_path.display(),
