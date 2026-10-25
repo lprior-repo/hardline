@@ -8,7 +8,7 @@ fn test_help() {
     cmd.arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Usage: scp"));
+        .stdout(predicate::str::contains("Usage: hd"));
 }
 
 #[test]
