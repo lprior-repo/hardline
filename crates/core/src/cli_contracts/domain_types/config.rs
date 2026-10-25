@@ -62,6 +62,15 @@ impl TryFrom<&str> for ConfigKey {
     }
 }
 
+impl std::str::FromStr for ConfigKey {
+    type Err = ContractError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::validate(value)?;
+        Ok(Self(value.to_string()))
+    }
+}
+
 impl Display for ConfigKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -95,6 +104,15 @@ impl TryFrom<&str> for ConfigValue {
     type Error = ContractError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::validate(value)?;
+        Ok(Self(value.to_string()))
+    }
+}
+
+impl std::str::FromStr for ConfigValue {
+    type Err = ContractError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         Self::validate(value)?;
         Ok(Self(value.to_string()))
     }

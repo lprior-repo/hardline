@@ -55,6 +55,17 @@ impl TryFrom<&str> for TaskId {
     }
 }
 
+impl std::str::FromStr for TaskId {
+    type Err = ContractError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.trim().is_empty() {
+            return Err(ContractError::invalid_input("task_id", "cannot be empty"));
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+
 impl Display for TaskId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)

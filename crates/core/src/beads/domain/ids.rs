@@ -85,6 +85,14 @@ impl TryFrom<&str> for IssueId {
     }
 }
 
+impl std::str::FromStr for IssueId {
+    type Err = DomainError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::new(value)
+    }
+}
+
 /// An assignee identifier (username or email).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Assignee(String);

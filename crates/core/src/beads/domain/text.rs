@@ -75,6 +75,14 @@ impl TryFrom<&str> for Title {
     }
 }
 
+impl std::str::FromStr for Title {
+    type Err = DomainError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::new(value)
+    }
+}
+
 /// A validated issue description.
 ///
 /// Optional field with length limits.
@@ -133,6 +141,14 @@ impl TryFrom<&str> for Description {
     type Error = DomainError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl std::str::FromStr for Description {
+    type Err = DomainError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         Self::new(value)
     }
 }

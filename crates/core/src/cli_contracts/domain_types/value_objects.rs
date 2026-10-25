@@ -44,6 +44,15 @@ impl TryFrom<&str> for NonEmptyString {
     }
 }
 
+impl std::str::FromStr for NonEmptyString {
+    type Err = ContractError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::validate(value)?;
+        Ok(Self(value.trim().to_string()))
+    }
+}
+
 impl Display for NonEmptyString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)

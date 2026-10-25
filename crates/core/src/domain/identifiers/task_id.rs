@@ -49,6 +49,14 @@ impl TryFrom<&str> for TaskId {
     }
 }
 
+impl std::str::FromStr for TaskId {
+    type Err = IdentifierError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s)
+    }
+}
+
 impl std::fmt::Display for TaskId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -188,6 +196,14 @@ impl TryFrom<&str> for BeadId {
     type Error = IdentifierError;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
+        Self::parse(s)
+    }
+}
+
+impl std::str::FromStr for BeadId {
+    type Err = IdentifierError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::parse(s)
     }
 }
