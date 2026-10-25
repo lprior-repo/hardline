@@ -96,8 +96,14 @@ pub fn execute_done_workflow(
         ));
     }
 
-    // Step 2: Rebase onto main (merge workspace changes)
+    // Step 2: Rebase onto main, then really merge the workspace branch
+    // into main. The old code printed "Merged workspace to main" right
+    // after the rebase — a rebase is not a merge, parent main never moved,
+    // and the step after it (delete) was an unimplemented stub, so done
+    // claimed success and then failed 201. Nothing is printed as merged
+    // until merge_workspace succeeds.
     backend.rebase("main")?;
+    backend.merge_workspace(workspace_name)?;
     Output::success("Merged workspace to main");
 
     // Step 3: Push to remote

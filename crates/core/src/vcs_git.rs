@@ -9,8 +9,11 @@ use super::{
     VcsBackend,
 };
 use crate::{
-    error::Result, error_internal::InternalErrorKind, error_io::IoErrorKind,
-    error_vcs::VcsErrorKind, error_workspace::WorkspaceErrorKind,
+    error::{Error, Result},
+    error_internal::InternalErrorKind,
+    error_io::IoErrorKind,
+    error_vcs::VcsErrorKind,
+    error_workspace::WorkspaceErrorKind,
 };
 
 pub struct GitBackend {
@@ -23,12 +26,143 @@ impl GitBackend {
     }
 
     fn run_git(&self, args: &[&str]) -> Result<std::process::Output> {
+        self.run_git_in(&self.repo_path, args)
+    }
+
+    fn run_git_in(
+        &self,
+        dir: &std::path::Path,
+        args: &[&str],
+    ) -> Result<std::process::Output> {
         Command::new("git")
             .args(args)
-            .current_dir(&self.repo_path)
+            .current_dir(dir)
             .output()
             .map_err(|e| IoErrorKind::IoError(e.to_string()).into())
     }
+
+    /// The main worktree of this repo: the parent of the common git dir.
+    /// Merge and delete must run here, not in whichever linked worktree the
+    /// caller happens to stand in (git refuses to check out `main` inside a
+    /// linked worktree, and refuses to remove the worktree it runs from).
+    fn main_worktree_path(&self) -> Result<std::path::PathBuf> {
+        let output = self.run_git(&[
+            "rev-parse",
+            "--path-format=absolute",
+            "--git-common-dir",
+        ])?;
+        if !output.status.success() {
+            return Err(VcsErrorKind::Conflict(
+                "git rev-parse".into(),
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            )
+            .into());
+        }
+        let common = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        std::path::Path::new(&common)
+            .parent()
+            .map(std::path::Path::to_path_buf)
+            .ok_or_else(|| {
+                Error::invalid_state("git common dir has no parent directory")
+            })
+    }
+
+    /// `(absolute path, branch)` for every worktree, parsed from
+    /// `git worktree list --porcelain` (paths survive spaces; the branch is
+    /// empty for a detached HEAD).
+    fn worktree_entries(&self) -> Result<Vec<(std::path::PathBuf, String)>> {
+        let output = self.run_git(&["worktree", "list", "--porcelain"])?;
+        if !output.status.success() {
+            return Err(VcsErrorKind::Conflict(
+                "worktree list".into(),
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            )
+            .into());
+        }
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut entries: Vec<(std::path::PathBuf, String)> = Vec::new();
+        let mut current_path: Option<std::path::PathBuf> = None;
+        let mut current_branch = String::new();
+        for line in stdout.lines() {
+            if let Some(path) = line.strip_prefix("worktree ") {
+                if let Some(prev) = current_path.take() {
+                    entries.push((prev, std::mem::take(&mut current_branch)));
+                }
+                current_path = Some(std::path::PathBuf::from(path));
+                current_branch = String::new();
+            } else if let Some(branch) = line.strip_prefix("branch refs/heads/") {
+                current_branch = branch.to_string();
+            }
+        }
+        if let Some(prev) = current_path.take() {
+            entries.push((prev, current_branch));
+        }
+        Ok(entries)
+    }
+
+    /// Resolve a workspace name to its worktree path and branch. A name
+    /// matches, in order: the exact path under this repo, the path relative
+    /// to this repo, or the worktree directory's file name (so a workspace
+    /// resolves even when the caller stands in a sibling worktree). An empty
+    /// name means the worktree this backend stands in.
+    fn resolve_worktree(&self, name: &str) -> Result<(std::path::PathBuf, String)> {
+        let entries = self.worktree_entries()?;
+        if name.is_empty() {
+            return entries
+                .into_iter()
+                .find(|(path, _)| path == &self.repo_path)
+                .ok_or_else(|| WorkspaceErrorKind::NotFound(name.to_string()).into());
+        }
+        let joined = self.repo_path.join(name);
+        if let Some(found) = entries.iter().find(|(path, _)| path == &joined) {
+            return Ok(found.clone());
+        }
+        if let Some(found) = entries.iter().find(|(path, _)| {
+            make_relative(&path.to_string_lossy(), &self.repo_path) == name
+        }) {
+            return Ok(found.clone());
+        }
+        entries
+            .into_iter()
+            .find(|(path, _)| {
+                path.file_name().is_some_and(|f| f == name)
+            })
+            .ok_or_else(|| WorkspaceErrorKind::NotFound(name.to_string()).into())
+    }
+
+    fn branch_exists(&self, branch: &str) -> Result<bool> {
+        let output = self.run_git(&[
+            "show-ref",
+            "--verify",
+            "--quiet",
+            &format!("refs/heads/{branch}"),
+        ])?;
+        Ok(output.status.success())
+    }
+
+    fn branch_checked_out(&self, branch: &str) -> Result<bool> {
+        Ok(self
+            .list_workspaces()?
+            .iter()
+            .any(|ws| ws.branch == branch))
+    }
+}
+
+/// A worktree target name must be a single directory name: an empty name, a
+/// path separator, or `.`/`..` would escape the repo layout or collide with
+/// the main worktree.
+fn validate_workspace_target_name(name: &str) -> Result<()> {
+    if name.is_empty() {
+        return Err(Error::invalid_identifier(
+            "workspace name must not be empty",
+        ));
+    }
+    if name.contains('/') || name.contains('\\') || name == "." || name == ".." {
+        return Err(Error::invalid_identifier(format!(
+            "workspace name '{name}' must be a single directory name"
+        )));
+    }
+    Ok(())
 }
 
 impl VcsBackend for GitBackend {
@@ -224,8 +358,44 @@ impl VcsBackend for GitBackend {
         })
     }
 
-    fn create_workspace(&self, _name: &str) -> Result<()> {
-        Err(InternalErrorKind::Unimplemented("Git workspaces use worktrees instead".into()).into())
+    fn create_workspace(&self, name: &str) -> Result<()> {
+        validate_workspace_target_name(name)?;
+        let worktree_path = self.repo_path.join(name);
+        let worktree_path_str = worktree_path.to_string_lossy();
+        if worktree_path.exists() {
+            return Err(WorkspaceErrorKind::Exists(name.to_string()).into());
+        }
+        // A fresh workspace gets its own branch at HEAD. If a branch of that
+        // name already exists and is free, check it out instead of failing
+        // on `-b`; if it is already checked out elsewhere, fail honestly.
+        let args: Vec<&str> = if self.branch_exists(name)? {
+            if self.branch_checked_out(name)? {
+                return Err(VcsErrorKind::Conflict(
+                    "worktree add".into(),
+                    format!("branch '{name}' is already checked out in another worktree"),
+                )
+                .into());
+            }
+            vec!["worktree", "add", &worktree_path_str, name]
+        } else {
+            vec![
+                "worktree",
+                "add",
+                "-b",
+                name,
+                &worktree_path_str,
+                "HEAD",
+            ]
+        };
+        let output = self.run_git(&args)?;
+        if !output.status.success() {
+            return Err(VcsErrorKind::Conflict(
+                "worktree add".into(),
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            )
+            .into());
+        }
+        Ok(())
     }
 
     fn switch_workspace(&self, _name: &str) -> Result<()> {
@@ -247,14 +417,72 @@ impl VcsBackend for GitBackend {
         ))
     }
 
-    fn delete_workspace(&self, _name: &str) -> Result<()> {
-        Err(InternalErrorKind::Unimplemented("Git workspaces use worktrees instead".into()).into())
+    fn delete_workspace(&self, name: &str) -> Result<()> {
+        let (path, _) = self.resolve_worktree(name)?;
+        let main = self.main_worktree_path()?;
+        if path == main {
+            return Err(Error::invalid_state(
+                "cannot delete the main workspace",
+            ));
+        }
+        // Run from the main worktree: git refuses to remove the worktree the
+        // command runs from, which is exactly the done-from-inside case.
+        // --force: a merged workspace may still hold untracked files, and a
+        // refused remove after a successful merge would be a false failure.
+        let output = self.run_git_in(&main, &[
+            "worktree",
+            "remove",
+            "--force",
+            &path.to_string_lossy(),
+        ])?;
+        if !output.status.success() {
+            return Err(VcsErrorKind::Conflict(
+                "worktree remove".into(),
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            )
+            .into());
+        }
+        Ok(())
     }
 
     fn fork_workspace(&self, source: &str, target: &str) -> Result<()> {
+        validate_workspace_target_name(target)?;
+        if source.is_empty() {
+            return Err(Error::invalid_identifier(
+                "fork source must not be empty",
+            ));
+        }
         let worktree_path = self.repo_path.join(target);
-        let output =
-            self.run_git(&["worktree", "add", &worktree_path.to_string_lossy(), source])?;
+        let worktree_path_str = worktree_path.to_string_lossy();
+        if worktree_path.exists() {
+            return Err(WorkspaceErrorKind::Exists(target.to_string()).into());
+        }
+        // The old code always ran `worktree add <path> <source>`, which
+        // fails when the source branch is already checked out anywhere —
+        // the fork-from-main bug, and the import happy-path bug (import
+        // forks branch "main"). When the source is checked out, fork onto
+        // a new branch named after the target instead; otherwise check
+        // the source branch out in the new worktree as before.
+        let args: Vec<&str> = if self.branch_checked_out(source)? {
+            if self.branch_exists(target)? {
+                return Err(VcsErrorKind::Conflict(
+                    "worktree add".into(),
+                    format!("branch '{target}' already exists; cannot fork '{source}' into it"),
+                )
+                .into());
+            }
+            vec![
+                "worktree",
+                "add",
+                "-b",
+                target,
+                &worktree_path_str,
+                source,
+            ]
+        } else {
+            vec!["worktree", "add", &worktree_path_str, source]
+        };
+        let output = self.run_git(&args)?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             if stderr.contains("already exists") {
@@ -268,20 +496,53 @@ impl VcsBackend for GitBackend {
     }
 
     fn merge_workspace(&self, name: &str) -> Result<()> {
-        let worktree_path = self.repo_path.join(name);
-        if !worktree_path.exists() {
-            return Err(WorkspaceErrorKind::NotFound(name.to_string()).into());
-        }
-        self.switch_branch("main")?;
-        let output = self.run_git(&["merge", name])?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            if stderr.contains("conflict") {
-                return Err(VcsErrorKind::Conflict("merge".to_string(), stderr.to_string()).into());
+        // Merge the worktree's real branch, not its directory name: a fork
+        // keeps its source branch unless it was created with `-b`. An empty
+        // name means the worktree this backend stands in.
+        let branch = if name.is_empty() {
+            let current = self.current_branch()?;
+            if current.is_empty() || current == "HEAD" {
+                return Err(Error::invalid_state(
+                    "current workspace is detached; cannot merge",
+                ));
             }
-            return Err(VcsErrorKind::Conflict("merge".to_string(), stderr.to_string()).into());
+            current
+        } else {
+            let (_, branch) = self.resolve_worktree(name)?;
+            if branch.is_empty() {
+                return Err(Error::invalid_state(format!(
+                    "workspace '{name}' is detached; cannot merge"
+                )));
+            }
+            branch
+        };
+        if branch == "main" {
+            return Err(Error::invalid_state(
+                "cannot merge 'main' into itself",
+            ));
         }
-        self.push()?;
+        // Merge inside the main worktree: checking out `main` is impossible
+        // from a linked worktree, and the merge must land on main's HEAD.
+        // No push here: pushing is a separate, non-fatal done step, and a
+        // push-less local repo must not turn a successful merge into a
+        // failure.
+        let main = self.main_worktree_path()?;
+        let checkout = self.run_git_in(&main, &["checkout", "main"])?;
+        if !checkout.status.success() {
+            return Err(VcsErrorKind::Conflict(
+                "checkout main".into(),
+                String::from_utf8_lossy(&checkout.stderr).to_string(),
+            )
+            .into());
+        }
+        let output = self.run_git_in(&main, &["merge", &branch])?;
+        if !output.status.success() {
+            return Err(VcsErrorKind::Conflict(
+                "merge".into(),
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            )
+            .into());
+        }
         Ok(())
     }
 
@@ -459,8 +720,19 @@ fn parse_git_log(stdout: &str) -> Vec<Commit> {
 /// - `worktree <path>` — absolute path to the worktree root
 /// - `branch <ref>` — e.g. `refs/heads/feature-x`
 /// - `bare` / (no `bare` line) — indicates the main worktree
+/// Parse `git worktree list --porcelain` into workspaces.
+///
+/// `name` is the worktree path relative to `repo_path` (the main worktree's
+/// name is empty, since its path IS the repo path). `is_current` marks
+/// exactly one worktree: the one containing `repo_path` — the longest
+/// worktree path that is a prefix of it. The old code marked every
+/// non-bare worktree current, so "current workspace" resolution always
+/// returned the first entry (the main worktree) no matter where the
+/// caller stood — which made `done` inside a forked worktree resolve to
+/// the parent repo and then fail merging main into itself.
 fn parse_git_worktree_list(stdout: &str, repo_path: &std::path::Path) -> Vec<Workspace> {
-    let mut workspaces = Vec::new();
+    // (absolute path, branch, bare)
+    let mut entries: Vec<(String, String, bool)> = Vec::new();
     let mut current_path: Option<String> = None;
     let mut current_branch: Option<String> = None;
     let mut is_bare = false;
@@ -471,16 +743,11 @@ fn parse_git_worktree_list(stdout: &str, repo_path: &std::path::Path) -> Vec<Wor
         // Blank line signals end of a worktree block
         if line.is_empty() {
             if let Some(path) = current_path.take() {
-                let relative = make_relative(&path, repo_path);
                 let branch_name = current_branch
                     .take()
                     .and_then(|b| b.strip_prefix("refs/heads/").map(str::to_string))
                     .unwrap_or_default();
-                workspaces.push(Workspace {
-                    name: relative,
-                    branch: branch_name,
-                    is_current: !is_bare,
-                });
+                entries.push((path, branch_name, is_bare));
             }
             current_branch = None;
             is_bare = false;
@@ -498,18 +765,29 @@ fn parse_git_worktree_list(stdout: &str, repo_path: &std::path::Path) -> Vec<Wor
 
     // Flush the last block if file didn't end with blank line
     if let Some(path) = current_path.take() {
-        let relative = make_relative(&path, repo_path);
         let branch_name = current_branch
             .and_then(|b| b.strip_prefix("refs/heads/").map(str::to_string))
             .unwrap_or_default();
-        workspaces.push(Workspace {
-            name: relative,
-            branch: branch_name,
-            is_current: !is_bare,
-        });
+        entries.push((path, branch_name, is_bare));
     }
 
-    workspaces
+    let current_idx = entries
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, _, bare))| !bare)
+        .filter(|(_, (path, _, _))| repo_path.starts_with(std::path::Path::new(path)))
+        .max_by_key(|(_, (path, _, _))| path.len())
+        .map(|(idx, _)| idx);
+
+    entries
+        .into_iter()
+        .enumerate()
+        .map(|(idx, (path, branch, _))| Workspace {
+            name: make_relative(&path, repo_path),
+            branch,
+            is_current: Some(idx) == current_idx,
+        })
+        .collect()
 }
 
 /// Make a path relative to `base`, returning the original if it fails.
@@ -856,5 +1134,140 @@ mod tests {
         assert_eq!(VcsStatus::Dirty, VcsStatus::Dirty);
         assert_eq!(VcsStatus::Conflicted, VcsStatus::Conflicted);
         assert_eq!(VcsStatus::Detached, VcsStatus::Detached);
+    }
+}
+
+#[cfg(test)]
+mod workspace_ops_tests {
+    use super::*;
+
+    fn git(dir: &std::path::Path, args: &[&str]) -> std::process::Output {
+        Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .expect("git command runs")
+    }
+
+    fn git_ok(dir: &std::path::Path, args: &[&str]) {
+        let output = git(dir, args);
+        assert!(
+            output.status.success(),
+            "git {} failed: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn commit_file(dir: &std::path::Path, name: &str, content: &str, message: &str) {
+        std::fs::write(dir.join(name), content).expect("write file");
+        git_ok(dir, &["add", "."]);
+        git_ok(
+            dir,
+            &[
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "user.name=t",
+                "commit",
+                "-m",
+                message,
+            ],
+        );
+    }
+
+    fn init_repo() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("tempdir");
+        git_ok(dir.path(), &["init", "-b", "main"]);
+        commit_file(dir.path(), "f.txt", "one\n", "init");
+        dir
+    }
+
+    #[test]
+    fn create_workspace_creates_worktree_on_own_branch() {
+        let dir = init_repo();
+        let backend = GitBackend::new(dir.path().to_path_buf());
+        backend.create_workspace("ws1").expect("create");
+        assert!(dir.path().join("ws1").exists(), "worktree dir exists");
+        let workspaces = backend.list_workspaces().expect("list");
+        let found = workspaces.iter().find(|w| w.name == "ws1");
+        assert!(found.is_some(), "ws1 listed");
+        assert_eq!(found.expect("found").branch, "ws1");
+    }
+
+    #[test]
+    fn fork_checked_out_source_creates_new_branch() {
+        let dir = init_repo();
+        let backend = GitBackend::new(dir.path().to_path_buf());
+        backend.fork_workspace("main", "fk").expect("fork from main");
+        assert!(dir.path().join("fk").exists(), "fork worktree exists");
+        assert!(
+            backend.branch_exists("fk").expect("branch check"),
+            "fork gets its own branch"
+        );
+        assert_eq!(
+            backend.current_branch().expect("branch"),
+            "main",
+            "main stays checked out in the main worktree"
+        );
+    }
+
+    #[test]
+    fn fork_free_branch_checks_it_out() {
+        let dir = init_repo();
+        let backend = GitBackend::new(dir.path().to_path_buf());
+        backend.create_branch("other").expect("branch");
+        backend.fork_workspace("other", "fk2").expect("fork");
+        let workspaces = backend.list_workspaces().expect("list");
+        let found = workspaces.iter().find(|w| w.name == "fk2");
+        assert!(found.is_some(), "fk2 listed");
+        assert_eq!(found.expect("found").branch, "other");
+    }
+
+    #[test]
+    fn merge_workspace_lands_branch_on_main() {
+        let dir = init_repo();
+        let backend = GitBackend::new(dir.path().to_path_buf());
+        backend.create_workspace("feat").expect("create");
+        commit_file(&dir.path().join("feat"), "g.txt", "two\n", "feat change");
+        backend.merge_workspace("feat").expect("merge");
+        let content =
+            std::fs::read_to_string(dir.path().join("g.txt")).expect("read merged file");
+        assert_eq!(content, "two\n", "feat commit reached main");
+    }
+
+    #[test]
+    fn delete_workspace_removes_worktree() {
+        let dir = init_repo();
+        let backend = GitBackend::new(dir.path().to_path_buf());
+        backend.create_workspace("gone").expect("create");
+        backend.delete_workspace("gone").expect("delete");
+        assert!(!dir.path().join("gone").exists(), "worktree dir gone");
+        assert!(
+            backend
+                .list_workspaces()
+                .expect("list")
+                .iter()
+                .all(|w| w.name != "gone"),
+            "gone no longer listed"
+        );
+    }
+
+    #[test]
+    fn merge_workspace_refuses_current_main() {
+        let dir = init_repo();
+        let backend = GitBackend::new(dir.path().to_path_buf());
+        assert!(
+            backend.merge_workspace("").is_err(),
+            "merging the current main workspace must fail"
+        );
+        assert!(
+            backend.merge_workspace("no-such-workspace").is_err(),
+            "merging an unknown workspace must fail"
+        );
+        assert!(
+            backend.fork_workspace("no-such-branch", "fkx").is_err(),
+            "forking an unknown ref must fail"
+        );
     }
 }

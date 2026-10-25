@@ -38,6 +38,12 @@ pub fn resolve_workspace(
 }
 
 /// Get the workspace path for a given workspace name.
+///
+/// The fork/spawn layout puts a workspace at `<repo>/<name>`, so that
+/// directory — when it exists — is the workspace path. The old fallback
+/// returned `.git/worktrees/<name>`, which is git's metadata directory,
+/// not the worktree; it only ever "worked" because the old current-flag
+/// bug made every workspace look current and short-circuited to cwd.
 pub fn get_workspace_path(
     cwd: &Path,
     workspace_name: &str,
@@ -48,12 +54,12 @@ pub fn get_workspace_path(
         .iter()
         .any(|w| w.name == workspace_name && w.is_current);
 
-    if is_current {
+    if is_current || workspace_name.is_empty() {
         Ok(cwd.to_path_buf())
     } else {
-        let workspace_path = cwd.join(".git").join("worktrees").join(workspace_name);
-        if workspace_path.exists() {
-            Ok(workspace_path)
+        let worktree_dir = cwd.join(workspace_name);
+        if worktree_dir.is_dir() {
+            Ok(worktree_dir)
         } else {
             Ok(cwd.to_path_buf())
         }

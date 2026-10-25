@@ -65,13 +65,36 @@ pub fn find_prev_workspace(workspaces: &[vcs::Workspace]) -> Result<String, Erro
 }
 
 /// Helper: Create workspace with optional sync
-pub fn spawn_with_sync(backend: &dyn VcsBackend, name: &str, sync: bool) -> Result<(), Error> {
+///
+/// Sync rebases the NEW worktree's branch onto main from inside the new
+/// worktree. The old code switched the caller's workspace to the new one
+/// and rebased there — `switch_workspace` is an unimplemented stub, and
+/// switching the caller's worktree is the wrong worktree anyway.
+pub fn spawn_with_sync(
+    backend: &dyn VcsBackend,
+    name: &str,
+    sync: bool,
+    parent: &Path,
+) -> Result<(), Error> {
     backend.create_workspace(name)?;
-    Output::success(&format!("Created workspace '{}'", name));
+    Output::success(&format!("Created workspace '{name}'"));
 
     if sync {
-        backend.switch_workspace(name)?;
-        backend.rebase("main")?;
+        let worktree_path = parent.join(name);
+        let output = Command::new("git")
+            .args([
+                "-C",
+                &worktree_path.to_string_lossy(),
+                "rebase",
+                "main",
+            ])
+            .output()?;
+        if !output.status.success() {
+            return Err(Error::vcs_conflict(
+                "rebase",
+                String::from_utf8_lossy(&output.stderr),
+            ));
+        }
         Output::success("Synced with main");
     }
 

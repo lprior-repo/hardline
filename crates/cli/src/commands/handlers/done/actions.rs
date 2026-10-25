@@ -30,8 +30,16 @@ pub fn run_done(options: &DoneOptions) -> Result<DoneOutput> {
     // Phase 1: Validate and resolve workspace
     let workspace_name = resolve_workspace(backend.as_ref(), options.workspace.as_deref())?;
 
-    // Ensure not main workspace
-    if workspace_name == "main" {
+    // Ensure not main workspace. An empty resolved name means "the
+    // worktree I stand in": that is the main workspace exactly when the
+    // current branch is main (a branch can only be checked out once, so a
+    // linked worktree can never be on main while main is checked out).
+    // Without this, `done` in the parent repo "completes" the main
+    // workspace and then fails in the delete step.
+    if workspace_name == "main"
+        || (workspace_name.is_empty()
+            && backend.current_branch().is_ok_and(|b| b == "main"))
+    {
         return Err(Error::invalid_state("cannot complete the main workspace"));
     }
 

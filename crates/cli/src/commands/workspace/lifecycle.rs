@@ -22,7 +22,7 @@ pub fn spawn(name: &str, sync: SyncOption) -> Result<(), Error> {
         return Err(Error::workspace_exists(name));
     }
 
-    spawn_with_sync(backend.as_ref(), name, sync.is_sync())
+    spawn_with_sync(backend.as_ref(), name, sync.is_sync(), &cwd)
 }
 
 /// Switch to a workspace
