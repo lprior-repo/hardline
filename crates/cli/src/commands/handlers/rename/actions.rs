@@ -70,19 +70,37 @@ fn validate_rename_names(options: &RenameOptions) -> Result<()> {
 }
 
 /// Perform the actual filesystem rename.
+///
+/// A session that does not exist is an error, not a success: the old code
+/// printed "Renamed" even when the old path was absent. A `hd work`
+/// session lives at `.scp/workspaces/<name>`; renaming one moves the real
+/// git worktree with `git worktree move` (a plain directory rename would
+/// orphan the worktree metadata) and renames its session-database row.
+/// A plain directory under the current directory keeps the old behaviour
+/// of a direct filesystem rename.
 fn perform_rename(options: &RenameOptions) -> Result<RenameOutput> {
     let cwd = std::env::current_dir()?;
-    let old_path = cwd.join(&options.old_name);
-    let new_path = cwd.join(&options.new_name);
+    let work_path = cwd
+        .join(".scp")
+        .join("workspaces")
+        .join(&options.old_name);
+    let plain_path = cwd.join(&options.old_name);
 
-    if old_path.exists() {
-        std::fs::rename(&old_path, &new_path).map_err(|e| {
+    if work_path.exists() {
+        rename_work_session(&cwd, &work_path, options)?;
+    } else if plain_path.exists() {
+        std::fs::rename(&plain_path, &cwd.join(&options.new_name)).map_err(|e| {
             Error::io_error(format!(
                 "Failed to rename '{}' to '{}': {e}",
-                old_path.display(),
-                new_path.display()
+                plain_path.display(),
+                options.new_name
             ))
         })?;
+    } else {
+        return Err(Error::not_found(format!(
+            "Session '{}' not found",
+            options.old_name
+        )));
     }
 
     Output::success(&format!(
@@ -97,6 +115,83 @@ fn perform_rename(options: &RenameOptions) -> Result<RenameOutput> {
         dry_run: false,
         error: None,
     })
+}
+
+/// Rename a `hd work` session: move its git worktree, then rename its
+/// session-database row (name and workspace path) so `query` keeps finding
+/// it under the new name. A worktree-move failure aborts before any row
+/// change, so the rename never half-applies.
+fn rename_work_session(
+    cwd: &std::path::Path,
+    work_path: &std::path::Path,
+    options: &RenameOptions,
+) -> Result<()> {
+    let new_path = cwd
+        .join(".scp")
+        .join("workspaces")
+        .join(&options.new_name);
+    if new_path.exists() {
+        return Err(Error::session_exists(options.new_name.clone()));
+    }
+    let output = std::process::Command::new("git")
+        .args([
+            "worktree",
+            "move",
+            &work_path.to_string_lossy(),
+            &new_path.to_string_lossy(),
+        ])
+        .current_dir(cwd)
+        .output()
+        .map_err(|e| Error::io_error(format!("Failed to run git worktree move: {e}")))?;
+    if !output.status.success() {
+        return Err(Error::io_error(format!(
+            "Failed to move worktree: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    rename_session_row(cwd, options)
+}
+
+/// Rename the session-database row for a work session, if one exists.
+/// A missing row (or missing database) is not an error: the worktree move
+/// above is the rename, and older sessions may have no row yet.
+fn rename_session_row(cwd: &std::path::Path, options: &RenameOptions) -> Result<()> {
+    let db_path = match crate::commands::handlers::config_ports::resolve_state_db_path(cwd) {
+        Ok(path) => path,
+        Err(_) => return Ok(()),
+    };
+    if !db_path.exists() {
+        return Ok(());
+    }
+    let new_workspace = format!(".scp/workspaces/{}", options.new_name);
+    rename_session_row_with_db(&db_path, options, &new_workspace)
+}
+
+fn rename_session_row_with_db(
+    db_path: &std::path::Path,
+    options: &RenameOptions,
+    new_workspace: &str,
+) -> Result<()> {
+    use scp_core::infrastructure::database::{DatabaseConfig, DatabaseService};
+
+    let runtime = tokio::runtime::Runtime::new()
+        .map_err(|e| Error::internal(format!("Failed to create runtime: {e}")))?;
+    runtime.block_on(async {
+        let config = DatabaseConfig::new(db_path.to_string_lossy().to_string())?;
+        let service = scp_core::infrastructure::database::SqliteDatabaseService::new(config).await?;
+        service
+            .execute_params(
+                "UPDATE sessions SET name = ?, workspace = ? WHERE name = ?",
+                &[
+                    Some(options.new_name.clone()),
+                    Some(new_workspace.to_string()),
+                    Some(options.old_name.clone()),
+                ],
+            )
+            .await?;
+        Ok::<(), Error>(())
+    })?;
+    Ok(())
 }
 
 #[cfg(test)]

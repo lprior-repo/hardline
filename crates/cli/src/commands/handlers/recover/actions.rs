@@ -410,32 +410,65 @@ fn find_default_branch(executor: &dyn GitExecutor) -> Option<String> {
 // Helpers
 // ============================================================================
 
-/// Resolve a workspace name to its filesystem path.
+/// Resolve a workspace/session name to its filesystem path.
 ///
-/// Follows the same pattern as the done handler:
-/// - If the workspace is the current one, returns cwd.
-/// - Otherwise, looks for `<cwd>/.git/worktrees/<name>`.
+/// A name resolves only to a worktree the VCS backend actually lists:
+/// - a directly listed name resolves to `cwd.join(name)` (the main
+///   worktree's listed name is empty, so it resolves to `cwd` itself);
+/// - a short session name also resolves to a listed worktree whose
+///   relative path ends in that name, so `hd work` sessions living at
+///   `.scp/workspaces/<name>` resolve by their short name.
+/// - anything else is a `not_found` error.
+///
+/// There is deliberately NO fallback to `cwd` here: the old fallback made
+/// rollback of a nonexistent session "succeed" by resetting the main
+/// repo — the exact false success the command matrix caught — and it
+/// sent rollback of a forked worktree at the main repo instead of the fork.
 fn resolve_workspace_path(
     cwd: &Path,
     backend: &dyn vcs::VcsBackend,
     workspace_name: &str,
 ) -> Result<PathBuf> {
     let workspaces = backend.list_workspaces()?;
-    let is_current = workspaces
-        .iter()
-        .any(|w| w.name == workspace_name && w.is_current);
 
-    if is_current {
-        Ok(cwd.to_path_buf())
-    } else {
-        // For non-current workspaces, the path is typically <repo>/.git/worktrees/<name>
-        let workspace_path = cwd.join(".git").join("worktrees").join(workspace_name);
-        if workspace_path.exists() {
-            Ok(workspace_path)
-        } else {
-            Ok(cwd.to_path_buf())
+    if let Some(ws) = workspaces.iter().find(|w| w.name == workspace_name) {
+        if ws.name.is_empty() {
+            return Ok(cwd.to_path_buf());
+        }
+        let path = cwd.join(&ws.name);
+        if path.exists() {
+            return Ok(path);
         }
     }
+
+    let short_matches: Vec<&str> = workspaces
+        .iter()
+        .filter(|w| !w.name.is_empty())
+        .filter(|w| {
+            std::path::Path::new(&w.name)
+                .file_name()
+                .is_some_and(|base| base == workspace_name)
+        })
+        .map(|w| w.name.as_str())
+        .collect();
+    match short_matches.as_slice() {
+        [only] => {
+            let path = cwd.join(only);
+            if path.exists() {
+                return Ok(path);
+            }
+        }
+        [_, _, ..] => {
+            return Err(Error::invalid_state(format!(
+                "Session '{workspace_name}' is ambiguous: matches multiple workspaces"
+            )));
+        }
+        [] => {}
+    }
+
+    Err(Error::not_found(format!(
+        "Session '{workspace_name}' not found"
+    )))
 }
 
 #[cfg(test)]

@@ -26,8 +26,13 @@ pub fn run_export(options: &ExportOptions) -> Result<()> {
         .list_workspaces()
         .map_err(|e| Error::internal(format!("Failed to list workspaces: {e}")))?;
 
+    // The main worktree's relative name is empty (its path IS the repo path),
+    // and it is not a session created by hd — exporting it as a session
+    // named "" is the phantom-session bug, so it is skipped here.
+
     let sessions: Vec<ExportedSession> = workspaces
         .iter()
+        .filter(|ws| !ws.name.is_empty())
         .filter_map(|ws| build_exported_session(ws, &cwd))
         .collect();
 
@@ -262,12 +267,18 @@ fn count_importable(
 }
 
 /// Extract the workspace name from an exported session, falling back to the
-/// session name when `workspace_path` is absent.
+/// session name when `workspace_path` is absent or blank.
+///
+/// A blank `workspace_path` must NOT win over the name: an export file that
+/// carries `{"name":"imported1","workspace_path":""}` names the session
+/// `imported1`, and treating the blank path as the name used to make import
+/// chase the phantom `""` session (the main worktree's empty relative name)
+/// instead of the file's session.
 fn extract_workspace_name(session: &ExportedSession) -> String {
-    session
-        .workspace_path
-        .clone()
-        .unwrap_or_else(|| session.name.clone())
+    match session.workspace_path.as_deref() {
+        Some(path) if !path.trim().is_empty() => path.to_string(),
+        _ => session.name.clone(),
+    }
 }
 
 #[cfg(test)]
@@ -420,6 +431,20 @@ mod tests {
         assert!(run_import(&options).is_ok());
 
         let _ = std::env::set_current_dir(&original);
+    }
+
+    #[test]
+    fn extract_workspace_name_falls_back_on_blank_path() {
+        let session = ExportedSession {
+            name: "imported1".to_string(),
+            status: "active".to_string(),
+            workspace_path: Some(String::new()),
+            branch: Some("main".to_string()),
+            created_at: None,
+            last_modified: None,
+            metadata: None,
+        };
+        assert_eq!(extract_workspace_name(&session), "imported1");
     }
 
     #[test]
