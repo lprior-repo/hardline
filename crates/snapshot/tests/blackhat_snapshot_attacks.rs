@@ -268,15 +268,12 @@ fn attack_cleanup_permission_denied() {
         let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755));
     }
 
-    // Should handle gracefully - either succeed or report failures
-    if let Ok(report) = result {
-        // On Unix, deletion of read-only files may succeed (owner can always delete)
-        // The important thing is no panic
-        assert!(
-            report.failed >= 0,
-            "Cleanup should complete without panic"
-        );
-    }
+    // Should handle gracefully - either succeed or report failures.
+    // On Unix, deletion of read-only files may succeed (owner can always delete).
+    // The important thing is no panic; reaching this point proves it.
+    // (The previous assert here was vacuous: it could never fail, and no
+    // clippy-clean formulation of it exists for an unsigned count.)
+    let _ = result;
 }
 
 // ============================================================================
