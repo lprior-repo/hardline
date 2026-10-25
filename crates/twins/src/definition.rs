@@ -138,6 +138,7 @@ impl TwinDefinition {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Write;
     use std::str::FromStr;
 
     use super::*;
@@ -342,7 +343,8 @@ endpoints:
         ];
         for m in &all {
             let s = m.to_string();
-            let reparsed = HttpMethod::from_str(&s).expect(&format!("reparse {s}"));
+            let reparsed =
+                HttpMethod::from_str(&s).unwrap_or_else(|_| panic!("reparse {s}"));
             assert_eq!(*m, reparsed, "Display→FromStr roundtrip for {s}");
         }
     }
@@ -442,8 +444,7 @@ endpoints:
 
     #[test]
     fn test_max_valid_port() {
-        let yaml = format!(
-            r"
+        let yaml = r"
 name: test
 port: 65535
 endpoints:
@@ -451,9 +452,9 @@ endpoints:
     method: GET
     response:
       status: 200
-      body: {{}}
+      body: {}
 "
-        );
+        .to_string();
         let def = TwinDefinition::from_yaml(&yaml);
         assert!(def.is_ok(), "Port 65535 should be valid");
     }
@@ -462,9 +463,10 @@ endpoints:
     fn test_large_number_of_endpoints() {
         let mut endpoints = String::new();
         for i in 0..100 {
-            endpoints.push_str(&format!(
+            let _ = write!(
+                endpoints,
                 "  - path: /ep{i}\n    method: GET\n    response:\n      status: 200\n      body: {{}}\n"
-            ));
+            );
         }
         let yaml = format!("name: bulk\nport: 3001\nendpoints:\n{endpoints}");
         let def = TwinDefinition::from_yaml(&yaml).expect("Should parse 100 endpoints");

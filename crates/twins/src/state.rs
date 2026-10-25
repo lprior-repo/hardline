@@ -243,7 +243,7 @@ mod tests {
             None,
         );
         assert_ne!(r1.id, r2.id, "Each record must have a unique ID");
-        assert!(!r1.id.is_empty());
+        assert_ne!(r1.id, "");
     }
 
     #[test]
