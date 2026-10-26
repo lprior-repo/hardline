@@ -82,7 +82,7 @@ fn version_cmp(a: &str, b: &str) -> std::cmp::Ordering {
     pa.len().cmp(&pb.len())
 }
 
-fn sort_tags(tags: &mut Vec<String>, key: &str) -> Result<()> {
+fn sort_tags(tags: &mut [String], key: &str) -> Result<()> {
     let (descending, base) = match key.strip_prefix('-') {
         Some(rest) => (true, rest),
         None => (false, key),
