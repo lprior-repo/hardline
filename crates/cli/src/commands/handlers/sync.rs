@@ -100,6 +100,13 @@ impl From<SyncError> for Error {
 }
 
 /// Sync a specific session by name.
+///
+/// The session's worktree is found via `git worktree list` and the sync
+/// runs with a backend rooted at that worktree. The old code called
+/// `backend.switch_workspace(name)`, which is an unimplemented stub —
+/// and switching the caller's checkout would be the wrong worktree
+/// anyway, since the session's branch is already checked out in its
+/// worktree (see `spawn_with_sync`).
 pub async fn sync_named_session(
     session_name: SessionName,
     options: SyncOptions,
@@ -109,8 +116,11 @@ pub async fn sync_named_session(
     // 1. Emit Action: Syncing
     emit_action("sync", "session", ActionStatus::InProgress, None)?;
 
-    // 2. Create backend
-    let backend = create_backend(&cwd)?;
+    // 2. Resolve the session's worktree and root a backend there
+    let entries = crate::commands::handlers::worktrees::list_worktrees(&cwd)?;
+    let entry = crate::commands::handlers::worktrees::find_worktree(&entries, session_name.as_str())
+        .ok_or_else(|| SyncError::WorkspaceNotFound(cwd.join(session_name.as_str())))?;
+    let backend = create_backend(&entry.path)?;
 
     // 3. Perform sync
     let result = sync_session_internal(backend.as_ref(), session_name.as_str(), &options).await;
@@ -147,33 +157,44 @@ pub async fn sync_named_session(
 }
 
 /// Sync all eligible sessions.
+///
+/// Every linked worktree except the main one is synced in place (backend
+/// rooted at the worktree); the old code iterated backend workspace names
+/// (relative paths, never valid session names) and silently synced nothing.
 pub async fn sync_all_sessions(
     options: SyncOptions,
 ) -> std::result::Result<SyncSummary, SyncError> {
     let cwd = std::env::current_dir().map_err(SyncError::IoError)?;
-    let backend = create_backend(&cwd)?;
-
-    let workspaces = backend.list_workspaces()?;
+    let entries = crate::commands::handlers::worktrees::list_worktrees(&cwd)?;
+    let main_path = crate::commands::handlers::worktrees::main_worktree(&entries)
+        .map(|m| m.path.clone());
 
     let mut sessions_synced = Vec::new();
     let mut total_operations = 0;
     let mut had_conflicts = false;
 
-    for ws in workspaces {
-        if ws.name == "main" {
+    for entry in entries.iter().filter(|e| !e.bare) {
+        if main_path.as_deref() == Some(entry.path.as_path()) {
             continue;
         }
-
-        if let Ok(session_name) = SessionName::parse(&ws.name) {
-            match sync_session_internal(backend.as_ref(), session_name.as_str(), &options).await {
-                Ok(summary) => {
-                    sessions_synced.extend(summary.sessions_synced);
-                    total_operations += summary.total_operations;
-                    had_conflicts |= summary.had_conflicts;
-                }
-                Err(e) => {
-                    tracing::error!("Failed to sync session {}: {}", ws.name, e);
-                }
+        let Some(dir_name) = entry.path.file_name().and_then(|f| f.to_str()) else {
+            continue;
+        };
+        let Ok(session_name) = SessionName::parse(dir_name) else {
+            continue;
+        };
+        let Ok(backend) = create_backend(&entry.path) else {
+            tracing::error!("Failed to create backend for session {}", dir_name);
+            continue;
+        };
+        match sync_session_internal(backend.as_ref(), session_name.as_str(), &options).await {
+            Ok(summary) => {
+                sessions_synced.extend(summary.sessions_synced);
+                total_operations += summary.total_operations;
+                had_conflicts |= summary.had_conflicts;
+            }
+            Err(e) => {
+                tracing::error!("Failed to sync session {}: {}", dir_name, e);
             }
         }
     }
@@ -186,18 +207,34 @@ pub async fn sync_all_sessions(
 }
 
 /// Sync the session associated with the current workspace.
+///
+/// The caller must stand inside a linked worktree: syncing from the main
+/// worktree has no workspace branch to rebase, so it is a clean error
+/// instead of the old empty-identifier failure.
 pub async fn sync_current_workspace(
     options: SyncOptions,
 ) -> std::result::Result<SyncSummary, SyncError> {
     let cwd = std::env::current_dir().map_err(SyncError::IoError)?;
-    let backend = create_backend(&cwd)?;
-
-    let workspaces = backend.list_workspaces()?;
-    let current_ws = workspaces.iter().find(|w| w.is_current).ok_or_else(|| {
-        SyncError::ConfigurationError("No current workspace detected".to_string())
-    })?;
-
-    let session_name = SessionName::parse(&current_ws.name)?;
+    let entries = crate::commands::handlers::worktrees::list_worktrees(&cwd)?;
+    let current = crate::commands::handlers::worktrees::current_worktree(&entries, &cwd)
+        .ok_or_else(|| {
+            SyncError::ConfigurationError("No current workspace detected".to_string())
+        })?;
+    let is_main = crate::commands::handlers::worktrees::main_worktree(&entries)
+        .is_some_and(|m| m.path == current.path);
+    if is_main {
+        return Err(SyncError::ConfigurationError(
+            "cannot sync the main worktree: it has no workspace branch to rebase".to_string(),
+        ));
+    }
+    let dir_name = current
+        .path
+        .file_name()
+        .and_then(|f| f.to_str())
+        .ok_or_else(|| {
+            SyncError::ConfigurationError("current worktree has no directory name".to_string())
+        })?;
+    let session_name = SessionName::parse(dir_name)?;
     sync_named_session(session_name, options).await
 }
 
@@ -210,9 +247,9 @@ async fn sync_session_internal(
     name: &str,
     options: &SyncOptions,
 ) -> std::result::Result<SyncSummary, SyncError> {
-    // Switch to workspace
-    backend.switch_workspace(name)?;
-
+    // No switch_workspace call: the caller roots the backend at the target
+    // worktree (see sync_named_session). Switching the caller's checkout
+    // is both unimplemented and the wrong worktree.
     // Check status
     let status = backend.status()?;
     if status == VcsStatus::Dirty && !options.allow_dirty {
@@ -299,6 +336,11 @@ fn emit_action(
     status: ActionStatus,
     result_str: Option<&str>,
 ) -> std::result::Result<(), SyncError> {
+    // In -f json mode the caller prints one summary object instead; the
+    // JSONL stream would break the single-document contract.
+    if scp_core::output::Output::json_output() {
+        return Ok(());
+    }
     let verb = ActionVerb::new(verb_str)?;
     let target = ActionTarget::new(target_str)?;
     let mut action = Action::new(verb, target, status);
@@ -313,6 +355,9 @@ fn emit_result(
     kind: ResultKind,
     message_str: &str,
 ) -> std::result::Result<(), SyncError> {
+    if scp_core::output::Output::json_output() {
+        return Ok(());
+    }
     let message = Message::new(message_str)?;
     let result = if success {
         ResultOutput::success(kind, message)
@@ -332,6 +377,9 @@ struct EmitIssueArgs<'a> {
 }
 
 fn emit_issue(args: EmitIssueArgs<'_>) -> std::result::Result<(), SyncError> {
+    if scp_core::output::Output::json_output() {
+        return Ok(());
+    }
     let id = IssueId::new(args.id)?;
     let title = IssueTitle::new(args.title)?;
     let mut issue = Issue::new(id, title, args.kind, args.severity)?;

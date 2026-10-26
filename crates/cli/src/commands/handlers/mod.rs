@@ -104,6 +104,7 @@ pub mod whatif;
 pub mod whoami;
 pub mod work;
 pub mod workspace;
+pub mod worktrees;
 
 /// Command exit error type for CLI-specific exit codes.
 ///

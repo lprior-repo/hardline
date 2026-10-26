@@ -123,9 +123,11 @@ pub fn sync(name: Option<&str>, all: bool) -> Result<(), Error> {
         },
     };
 
-    let handle = tokio::runtime::Handle::try_current()
-        .map_err(|_| Error::io_error("no tokio runtime in context"))?;
-    handle.block_on(async {
+    // The CLI entry point is synchronous, so there is normally no tokio
+    // runtime in context. Reuse one when present (e.g. under test), else
+    // build a private runtime — the previous try_current-or-error path made
+    // every live `workspace sync` fail with "no tokio runtime in context".
+    let fut = async {
         if all {
             crate::commands::handlers::sync::sync_all_sessions(options).await
         } else if let Some(n) = name {
@@ -136,8 +138,27 @@ pub fn sync(name: Option<&str>, all: bool) -> Result<(), Error> {
         } else {
             crate::commands::handlers::sync::sync_current_workspace(options).await
         }
-    })?;
-
+    };
+    let summary = match tokio::runtime::Handle::try_current() {
+        Ok(handle) => handle.block_on(fut)?,
+        Err(_) => {
+            let rt = tokio::runtime::Runtime::new().map_err(|e| {
+                Error::io_error(format!("Failed to create tokio runtime: {e}"))
+            })?;
+            rt.block_on(fut)?
+        }
+    };
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "sessions_synced": summary
+                .sessions_synced
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>(),
+            "total_operations": summary.total_operations,
+            "had_conflicts": summary.had_conflicts,
+        }));
+    }
     Ok(())
 }
 

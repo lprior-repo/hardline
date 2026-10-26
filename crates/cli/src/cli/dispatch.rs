@@ -374,8 +374,23 @@ fn handle_batch(command: crate::cli::batch_args::BatchCommands) -> Result<()> {
         BatchCommands::Run {
             workspace,
             commands,
-        } => tokio::runtime::Handle::current()
-            .block_on(commands::batch::execute(workspace, commands)),
+        } => {
+            // The CLI entry point is synchronous, so Handle::current()
+            // panics here ("there is no reactor running"). Reuse a
+            // runtime when present, else build a private one.
+            let fut = commands::batch::execute(workspace, commands);
+            match tokio::runtime::Handle::try_current() {
+                Ok(handle) => handle.block_on(fut),
+                Err(_) => {
+                    let rt = tokio::runtime::Runtime::new().map_err(|e| {
+                        scp_core::Error::io_error(format!(
+                            "Failed to create tokio runtime: {e}"
+                        ))
+                    })?;
+                    rt.block_on(fut)
+                }
+            }
+        }
     }
 }
 

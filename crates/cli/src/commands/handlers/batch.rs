@@ -184,17 +184,18 @@ pub async fn execute_batch(
         Error::invalid_identifier(format!("workspace name '{workspace_name}' is invalid: {e}"))
     })?;
 
-    // TIER 3: I/O - Get VCS backend
+    // TIER 3: I/O - resolve the workspace to its worktree directory.
+    // The backend's workspace names are paths relative to its root, so
+    // they can never equal a short workspace name; `git worktree list`
+    // gives the absolute path directly, from any cwd.
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
-    let backend = vcs::create_backend(&cwd)?;
+    let entries = crate::commands::handlers::worktrees::list_worktrees(&cwd)?;
+    let entry = crate::commands::handlers::worktrees::find_worktree(&entries, workspace_name)
+        .ok_or_else(|| Error::workspace_not_found(workspace_name.to_string()))?;
+    let workspace_path = entry.path.clone();
 
-    // Check workspace exists
-    let workspaces = backend.list_workspaces()?;
-    if !workspaces.iter().any(|w| w.name == workspace_name) {
-        return Err(Error::workspace_not_found(workspace_name.to_string()));
-    }
-
-    // Check workspace status is ready
+    // Check workspace status is ready (in the worktree, not the caller's repo)
+    let backend = vcs::create_backend(&workspace_path)?;
     let status = backend.status()?;
     check_workspace_ready(status)?;
 
@@ -215,7 +216,7 @@ pub async fn execute_batch(
 
     // Execute commands sequentially
     let results =
-        execute_commands_sequentially(commands, &cwd, workspace_name, &guard, &checkpoint_id)
+        execute_commands_sequentially(commands, &workspace_path, &guard, &checkpoint_id)
             .await?;
 
     // All commands succeeded - commit the checkpoint
@@ -225,16 +226,14 @@ pub async fn execute_batch(
 /// Execute commands sequentially, rolling back on failure.
 async fn execute_commands_sequentially(
     commands: Vec<BatchCommand>,
-    cwd: &std::path::Path,
-    workspace_name: &str,
+    workspace_path: &std::path::Path,
     guard: &CheckpointGuard,
     checkpoint_id: &str,
 ) -> Result<Vec<CommandResult>> {
     let mut results: Vec<CommandResult> = Vec::new();
 
     for (index, command) in commands.into_iter().enumerate() {
-        let workspace_path = find_workspace_path(cwd, workspace_name)?;
-        let result = command.execute(&workspace_path);
+        let result = command.execute(workspace_path);
 
         match result {
             Ok(cmd_result) => {
@@ -323,14 +322,6 @@ async fn rollback_with_error(guard: &CheckpointGuard, checkpoint_id: &str) -> Re
             checkpoint_id, e
         ))
     })
-}
-
-/// Find the path to a workspace
-fn find_workspace_path(cwd: &std::path::Path, workspace_name: &str) -> Result<std::path::PathBuf> {
-    // For Git, workspaces are typically in .git/worktrees or similar
-    // The cwd is already the repo root, so we use it directly
-    let _ = workspace_name;
-    Ok(cwd.to_path_buf())
 }
 
 /// Get the database pool for checkpointing.
