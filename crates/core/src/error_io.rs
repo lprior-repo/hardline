@@ -55,14 +55,17 @@ impl IoError {
     }
 
     /// Returns exit code for CLI.
-    /// IO errors use range 130-134 (ADR-007: 9xxx infrastructure).
+    /// IO errors use range 160-164. Exit codes must never fall in
+    /// 128-159: that range is indistinguishable from signal deaths
+    /// (128 + signal number), so e.g. 134 reads as SIGABRT to any
+    /// caller even when the process exited normally.
     pub const fn exit_code(&self) -> i32 {
         match self.inner {
-            IoErrorKind::Io(_) => 130,
-            IoErrorKind::IoError(_) => 134,
-            IoErrorKind::JsonParse(_) => 131,
-            IoErrorKind::YamlParse(_) => 132,
-            IoErrorKind::Database(_) => 133,
+            IoErrorKind::Io(_) => 160,
+            IoErrorKind::IoError(_) => 161,
+            IoErrorKind::JsonParse(_) => 162,
+            IoErrorKind::YamlParse(_) => 163,
+            IoErrorKind::Database(_) => 164,
         }
     }
 }
@@ -89,13 +92,14 @@ mod tests {
 
     #[test]
     fn io_error_exit_codes() {
+        // Codes live above the 128-159 signal range; see exit_code().
         assert_eq!(
             IoError::from(IoErrorKind::IoError("x".into())).exit_code(),
-            134
+            161
         );
         assert_eq!(
             IoError::from(IoErrorKind::Database("x".into())).exit_code(),
-            133
+            164
         );
         assert_eq!(
             IoError::from(IoErrorKind::Io(std::io::Error::new(
@@ -103,22 +107,34 @@ mod tests {
                 "missing",
             )))
             .exit_code(),
-            130
+            160
         );
         assert_eq!(
             IoError::from(IoErrorKind::JsonParse(
                 serde_json::from_str::<serde_json::Value>("bad").expect_err("parse err"),
             ))
             .exit_code(),
-            131
+            162
         );
         assert_eq!(
             IoError::from(IoErrorKind::YamlParse(
                 serde_yaml::from_str::<serde_yaml::Value>(": bad").expect_err("parse err"),
             ))
             .exit_code(),
-            132
+            163
         );
+        // No IO exit code may ever fall in the signal range 128-159.
+        for code in [
+            IoError::from(IoErrorKind::IoError("x".into())).exit_code(),
+            IoError::from(IoErrorKind::Database("x".into())).exit_code(),
+            IoError::from(IoErrorKind::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "missing",
+            )))
+            .exit_code(),
+        ] {
+            assert!(code < 128 || code > 159, "exit code {code} is in the signal range");
+        }
     }
 
     #[test]

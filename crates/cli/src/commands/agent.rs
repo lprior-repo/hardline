@@ -10,6 +10,24 @@ use scp_core::{
 
 const HEARTBEAT_FILE: &str = ".scp/heartbeat";
 
+/// Final path segment of a workspace name, e.g. `.scp/workspaces/alpha`
+/// becomes `alpha`. Returns "" for an empty name or a name ending in a
+/// separator (the main worktree, whose list name is empty, falls here).
+fn workspace_short_name(name: &str) -> &str {
+    match name.rsplit('/').next() {
+        Some(segment) => segment,
+        None => "",
+    }
+}
+
+/// A session argument matches a workspace when it equals the workspace's
+/// full name or the final path segment (short name) of that name, so
+/// `--session alpha` finds a work-created workspace listed as
+/// `.scp/workspaces/alpha` while exact-path matches keep working.
+fn workspace_matches(name: &str, query: &str) -> bool {
+    name == query || workspace_short_name(name) == query
+}
+
 /// The agent registry for CLI processes. The in-memory singleton cannot
 /// survive across processes, so `create`/`list`/`status`/`kill` use a
 /// file-backed registry: `<cwd>/.scp/agents.json` by default (next to the
@@ -214,16 +232,26 @@ pub fn register(session: Option<&str>) -> Result<()> {
                     "session name cannot be empty",
                 ));
             }
-            if !workspaces.iter().any(|w| w.name == s) {
+            if !workspaces.iter().any(|w| workspace_matches(&w.name, s)) {
                 return Err(Error::workspace_not_found(s));
             }
             s.to_string()
         }
-        None => workspaces
-            .iter()
-            .find(|w| w.is_current)
-            .map(|w| w.name.clone())
-            .ok_or_else(|| Error::workspace_not_found("no current session"))?,
+        None => {
+            let current = workspaces.iter().find(|w| w.is_current);
+            match current {
+                Some(workspace) => {
+                    let short = workspace_short_name(&workspace.name);
+                    if short.is_empty() {
+                        return Err(Error::workspace_not_found("no current session"));
+                    }
+                    short.to_string()
+                }
+                None => {
+                    return Err(Error::workspace_not_found("no current session"));
+                }
+            }
+        }
     };
 
     let heartbeat_dir = cwd.join(".scp");
@@ -264,16 +292,26 @@ pub fn heartbeat(session: Option<&str>) -> Result<()> {
                     "session name cannot be empty",
                 ));
             }
-            if !workspaces.iter().any(|w| w.name == s) {
+            if !workspaces.iter().any(|w| workspace_matches(&w.name, s)) {
                 return Err(Error::workspace_not_found(s));
             }
             s.to_string()
         }
-        None => workspaces
-            .iter()
-            .find(|w| w.is_current)
-            .map(|w| w.name.clone())
-            .ok_or_else(|| Error::workspace_not_found("no current session"))?,
+        None => {
+            let current = workspaces.iter().find(|w| w.is_current);
+            match current {
+                Some(workspace) => {
+                    let short = workspace_short_name(&workspace.name);
+                    if short.is_empty() {
+                        return Err(Error::workspace_not_found("no current session"));
+                    }
+                    short.to_string()
+                }
+                None => {
+                    return Err(Error::workspace_not_found("no current session"));
+                }
+            }
+        }
     };
 
     let heartbeat_path = cwd.join(".scp").join("heartbeat");
@@ -387,6 +425,28 @@ mod tests {
         let parts: Vec<&str> = read.trim().splitn(2, ':').collect();
         assert_eq!(parts[0], session);
         assert_eq!(parts[1], ts);
+    }
+
+    #[test]
+    fn workspace_short_name_basename() {
+        assert_eq!(workspace_short_name(".scp/workspaces/alpha"), "alpha");
+        assert_eq!(workspace_short_name("alpha"), "alpha");
+        assert_eq!(workspace_short_name(""), "");
+        assert_eq!(workspace_short_name(".scp/workspaces/alpha/"), "");
+    }
+
+    #[test]
+    fn workspace_matches_exact_and_short() {
+        assert!(workspace_matches(
+            ".scp/workspaces/alpha",
+            ".scp/workspaces/alpha"
+        ));
+        assert!(workspace_matches(".scp/workspaces/alpha", "alpha"));
+        assert!(!workspace_matches(".scp/workspaces/alpha", "beta"));
+        assert!(!workspace_matches(
+            ".scp/workspaces/alpha",
+            ".scp/workspaces/beta"
+        ));
     }
 
     #[test]

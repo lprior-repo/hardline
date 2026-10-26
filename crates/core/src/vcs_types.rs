@@ -32,6 +32,31 @@ pub struct Workspace {
     pub is_current: bool,
 }
 
+/// Whether a user-supplied query identifies a workspace listed under
+/// `listed`.
+///
+/// `list_workspaces` names a worktree by its path relative to the repo
+/// root, so a work-created session `alpha` lists as
+/// `.scp/workspaces/alpha` while the main worktree lists as `""`. A query
+/// matches when it equals the listed name exactly, or when it equals the
+/// final path segment (basename) of the listed name. Branch names are
+/// deliberately NOT matched: two worktrees could share a branch. An empty
+/// query matches nothing (callers reject empty names before this check),
+/// so the main worktree's empty name never matches a non-empty query.
+#[must_use]
+pub fn workspace_name_matches(listed: &str, query: &str) -> bool {
+    if query.is_empty() {
+        return false;
+    }
+    if listed == query {
+        return true;
+    }
+    listed
+        .rsplit(|c| c == '/' || c == '\\')
+        .find(|segment| !segment.is_empty())
+        .is_some_and(|basename| basename == query)
+}
+
 /// Status of working copy
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VcsStatus {
@@ -1353,6 +1378,39 @@ mod tests {
         };
         let cloned = ws.clone();
         assert_eq!(cloned.name, "feature");
+    }
+
+    #[test]
+    fn workspace_name_matches_exact() {
+        assert!(workspace_name_matches(".scp/workspaces/alpha", ".scp/workspaces/alpha"));
+        assert!(workspace_name_matches("alpha", "alpha"));
+    }
+
+    #[test]
+    fn workspace_name_matches_basename() {
+        assert!(workspace_name_matches(".scp/workspaces/alpha", "alpha"));
+    }
+
+    #[test]
+    fn workspace_name_matches_rejects_non_match() {
+        assert!(!workspace_name_matches(".scp/workspaces/alpha", "beta"));
+        assert!(!workspace_name_matches(".scp/workspaces/alpha", "workspaces"));
+        assert!(!workspace_name_matches(".scp/workspaces/alpha", "scp"));
+        assert!(!workspace_name_matches(".scp/workspaces/alpha", "alpha/beta"));
+        assert!(!workspace_name_matches("alpha", "alph"));
+    }
+
+    #[test]
+    fn workspace_name_matches_main_empty_name_never_matches_non_empty_query() {
+        assert!(!workspace_name_matches("", "alpha"));
+        assert!(!workspace_name_matches("", "main"));
+    }
+
+    #[test]
+    fn workspace_name_matches_empty_query_matches_nothing() {
+        assert!(!workspace_name_matches("", ""));
+        assert!(!workspace_name_matches("alpha", ""));
+        assert!(!workspace_name_matches(".scp/workspaces/alpha", ""));
     }
 
     // ========================================================================

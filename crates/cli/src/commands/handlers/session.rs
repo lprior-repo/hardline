@@ -22,7 +22,10 @@ pub fn pause(name: &str) -> Result<()> {
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;
-    if !workspaces.iter().any(|w| w.name == name) {
+    if !workspaces
+        .iter()
+        .any(|w| vcs::workspace_name_matches(&w.name, name))
+    {
         return Err(Error::session(format!("session '{name}' not found")));
     }
 
@@ -61,7 +64,10 @@ pub fn resume(name: &str) -> Result<()> {
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;
-    if !workspaces.iter().any(|w| w.name == name) {
+    if !workspaces
+        .iter()
+        .any(|w| vcs::workspace_name_matches(&w.name, name))
+    {
         return Err(Error::session(format!("session '{name}' not found")));
     }
 
@@ -104,12 +110,18 @@ pub fn clone_session(source: &str, target: &str, dry_run: bool) -> Result<CloneR
 
     // Check source exists
     let workspaces = backend.list_workspaces()?;
-    if !workspaces.iter().any(|w| w.name == source) {
+    if !workspaces
+        .iter()
+        .any(|w| vcs::workspace_name_matches(&w.name, source))
+    {
         return Err(Error::workspace_not_found(source.to_string()));
     }
 
-    // Check target doesn't exist
-    if workspaces.iter().any(|w| w.name == target) {
+    // Check target doesn't exist (a basename collision still rejects)
+    if workspaces
+        .iter()
+        .any(|w| vcs::workspace_name_matches(&w.name, target))
+    {
         return Err(Error::workspace_exists(target.to_string()));
     }
 

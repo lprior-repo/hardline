@@ -41,8 +41,15 @@ pub fn switch(name: &str) -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
-    // Check if workspace exists and working copy is clean
-    if !workspace_exists(backend.as_ref(), name)? {
+    // Check if workspace exists and working copy is clean. The existence
+    // check must accept a worktree's basename too: list_workspaces names
+    // a work-created session by its path (`.scp/workspaces/alpha`), so an
+    // exact-equality check rejects the short name the user types.
+    let workspaces = backend.list_workspaces()?;
+    if !workspaces
+        .iter()
+        .any(|w| vcs::workspace_name_matches(&w.name, name))
+    {
         return Err(Error::workspace_not_found(name));
     }
     // The forked worktree directory itself shows up as untracked in the

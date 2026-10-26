@@ -1078,7 +1078,7 @@ mod tests {
     #[test]
     fn test_backwards_compat_constructors() {
         let err = Error::database("test");
-        assert_eq!(err.exit_code(), 133);
+        assert_eq!(err.exit_code(), 164);
 
         let err = Error::invalid_identifier("test");
         assert_eq!(err.exit_code(), 122);

@@ -82,7 +82,10 @@ pub fn focus(name: &str) -> Result<()> {
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;
-    if !workspaces.iter().any(|w| w.name == name) {
+    if !workspaces
+        .iter()
+        .any(|w| vcs::workspace_name_matches(&w.name, name))
+    {
         return Err(Error::workspace_not_found(name.to_string()));
     }
 
@@ -197,7 +200,10 @@ pub fn remove(name: &str, _force: bool, merge: bool) -> Result<()> {
     let backend = vcs::create_backend(&cwd)?;
 
     let workspaces = backend.list_workspaces()?;
-    if !workspaces.iter().any(|w| w.name == name) {
+    if !workspaces
+        .iter()
+        .any(|w| vcs::workspace_name_matches(&w.name, name))
+    {
         return Err(Error::workspace_not_found(name.to_string()));
     }
 

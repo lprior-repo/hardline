@@ -14,8 +14,8 @@ mod vcs_git_repo;
 
 pub use trait_::VcsBackend;
 pub use types::{
-    detect_vcs, Branch, BranchName, ChangeId, Commit, CommitId, RepoStatus, VcsStatus, VcsType,
-    Workspace,
+    detect_vcs, workspace_name_matches, Branch, BranchName, ChangeId, Commit, CommitId, RepoStatus,
+    VcsStatus, VcsType, Workspace,
 };
 pub use vcs_git::GitBackend;
 pub use vcs_git_repo::GitRepo;

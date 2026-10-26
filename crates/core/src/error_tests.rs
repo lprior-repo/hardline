@@ -309,8 +309,8 @@ fn test_error_exit_codes_validation() {
 
 #[test]
 fn test_error_exit_codes_io() {
-    assert_eq!(Error::io_error("test").exit_code(), 134);
-    assert_eq!(Error::io_error("invalid json").exit_code(), 134);
+    assert_eq!(Error::io_error("test").exit_code(), 161);
+    assert_eq!(Error::io_error("invalid json").exit_code(), 161);
 }
 
 // ========================================================================

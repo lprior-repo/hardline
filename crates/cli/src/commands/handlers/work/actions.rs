@@ -15,7 +15,13 @@
 //! would create worktrees, branches, and database rows inside the checkout
 //! the test suite itself runs in.
 
-use scp_core::{output::Output, validation::domain::validate_session_name, Error, Result};
+use scp_core::{
+    agent::{Agent, AgentId, AgentRegistry, FileAgentRegistry},
+    error_agent::AgentErrorKind,
+    output::Output,
+    validation::domain::validate_session_name,
+    Error, Result,
+};
 
 use super::data::{build_env_vars, generate_short_id, WorkMode, WorkOptions, WorkOutput};
 
@@ -33,6 +39,18 @@ pub trait WorkEnvironment {
     fn remove_workspace(&self, workspace_path: &str);
     /// Insert the session-database row for this session.
     fn register_session(&self, options: &WorkOptions, workspace_path: &str) -> Result<()>;
+    /// Register `agent_id` in the file-backed agent registry (the same
+    /// registry `agent list` reads). Returns `Ok(true)` when this call
+    /// newly registered the id and `Ok(false)` when the id was already
+    /// registered (an already-registered id is success, not failure:
+    /// the printed `Agent:` claim is still true). Any other error is
+    /// a real error. An empty id registers nothing and returns
+    /// `Ok(false)`.
+    fn register_agent(&self, agent_id: &str) -> Result<bool>;
+    /// Best-effort removal of an agent from the file-backed registry
+    /// (used only to unwind an id this run newly registered; a
+    /// pre-existing id must never be passed here).
+    fn unregister_agent(&self, agent_id: &str);
 }
 
 /// The real [`WorkEnvironment`]: git worktrees plus the session database.
@@ -114,6 +132,50 @@ impl WorkEnvironment for RealWorkEnvironment {
                 .args(["worktree", "remove", "--force", workspace_path])
                 .current_dir(&cwd)
                 .output();
+        }
+    }
+
+    fn register_agent(&self, agent_id: &str) -> Result<bool> {
+        if agent_id.is_empty() {
+            return Ok(false);
+        }
+        // Same path rule as `agent list` (see commands/agent.rs
+        // `file_registry`): `SCP_AGENTS_PATH` when set and non-empty,
+        // else `<cwd>/.scp/agents.json`. Registering anywhere else
+        // would leave `agent list` still reporting "No agents
+        // registered" — the phantom-agent bug this exists to fix.
+        let path = match std::env::var("SCP_AGENTS_PATH") {
+            Ok(value) if !value.is_empty() => std::path::PathBuf::from(value),
+            _ => Self::cwd()?.join(".scp").join("agents.json"),
+        };
+        let registry = FileAgentRegistry::new(path);
+        let id = AgentId::new_checked(agent_id)?;
+        match registry.register(Agent::new(id)) {
+            Ok(()) => Ok(true),
+            Err(error) => {
+                if matches!(
+                    error,
+                    Error::Agent(ref agent_error)
+                        if matches!(agent_error.kind(), AgentErrorKind::Exists(_))
+                ) {
+                    Ok(false)
+                } else {
+                    Err(error)
+                }
+            }
+        }
+    }
+
+    fn unregister_agent(&self, agent_id: &str) {
+        if agent_id.is_empty() {
+            return;
+        }
+        if let Ok(path) = match std::env::var("SCP_AGENTS_PATH") {
+            Ok(value) if !value.is_empty() => Ok(std::path::PathBuf::from(value)),
+            _ => Self::cwd().map(|cwd| cwd.join(".scp").join("agents.json")),
+        } {
+            let registry = FileAgentRegistry::new(path);
+            let _ = registry.unregister(&AgentId::new(agent_id));
         }
     }
 
@@ -234,12 +296,48 @@ fn build_work_output(options: &WorkOptions, agent_id: Option<String>) -> Result<
     })
 }
 
+/// Register the resolved agent id, if any. Returns `true` when this
+/// run newly registered the id (and therefore owns its unwind),
+/// `false` for no-agent, empty-id, and already-registered cases. An
+/// empty `--agent` value registers nothing and is not an error.
+fn register_agent_if_needed(
+    env: &dyn WorkEnvironment,
+    agent_id: Option<&str>,
+) -> Result<bool> {
+    match agent_id {
+        Some(id) if !id.is_empty() => env.register_agent(id),
+        _ => Ok(false),
+    }
+}
+
+/// Unwind a newly-registered agent id; a no-op unless this run newly
+/// registered it, so a pre-existing id is always left alone.
+fn unwind_agent_if_newly_registered(
+    env: &dyn WorkEnvironment,
+    agent_id: Option<&str>,
+    newly_registered: bool,
+) {
+    if newly_registered {
+        if let Some(id) = agent_id {
+            env.unregister_agent(id);
+        }
+    }
+}
+
 /// Execute a normal or idempotent work command.
 ///
 /// Normal mode fails when the session already exists; idempotent mode
-/// reports the existing session instead of recreating it. On a
-/// registration failure the just-created worktree is removed again, so a
-/// failed `work` never leaves a half-created session behind.
+/// reports the existing session instead of recreating it.
+///
+/// Ordering leaves no orphan, in either direction:
+/// - The agent is registered BEFORE the worktree is created, because
+///   `output_result` prints `Agent: <id>` (in normal and idempotent
+///   output alike) and that claim must be true by the time it prints.
+/// - On failure the unwind runs in reverse creation order: a session
+///   failure removes the worktree first, then unregisters the agent;
+///   a worktree failure unregisters the agent. Only an id this run
+///   newly registered is ever unregistered.
+/// - Dry-run mode never reaches this function and creates nothing.
 fn execute_work(options: &WorkOptions, env: &dyn WorkEnvironment) -> Result<()> {
     let workspace_path = format!(".scp/workspaces/{}", options.name);
     let exists = env.session_exists(&options.name)?
@@ -248,6 +346,7 @@ fn execute_work(options: &WorkOptions, env: &dyn WorkEnvironment) -> Result<()> 
     if exists {
         if matches!(options.mode, WorkMode::Idempotent) {
             let agent_id = resolve_agent_id(options)?;
+            register_agent_if_needed(env, agent_id.as_deref())?;
             let mut output = build_work_output(options, agent_id)?;
             output.created = false;
             return output_result(&output);
@@ -255,13 +354,18 @@ fn execute_work(options: &WorkOptions, env: &dyn WorkEnvironment) -> Result<()> 
         return Err(Error::session_exists(options.name.clone()));
     }
 
-    env.create_workspace(&options.name, &workspace_path)?;
+    let agent_id = resolve_agent_id(options)?;
+    let newly_registered = register_agent_if_needed(env, agent_id.as_deref())?;
+    if let Err(error) = env.create_workspace(&options.name, &workspace_path) {
+        unwind_agent_if_newly_registered(env, agent_id.as_deref(), newly_registered);
+        return Err(error);
+    }
     if let Err(error) = env.register_session(options, &workspace_path) {
         env.remove_workspace(&workspace_path);
+        unwind_agent_if_newly_registered(env, agent_id.as_deref(), newly_registered);
         return Err(error);
     }
 
-    let agent_id = resolve_agent_id(options)?;
     let output = build_work_output(options, agent_id)?;
     output_result(&output)
 }
@@ -369,10 +473,19 @@ mod tests {
     }
 
     /// Stub environment: records effects, touches nothing on disk.
+    /// `registered_agents` is the recording implementation for agent
+    /// registration: `register_agent` adds the id (unless it was
+    /// already registered), `unregister_agent` removes it, so tests
+    /// can prove register-then-unregister unwind instead of trusting
+    /// the call log alone.
     struct StubEnv {
         exists: bool,
         fail_register: bool,
+        fail_create: bool,
+        fail_register_agent: bool,
+        agent_already_registered: bool,
         calls: RefCell<Vec<String>>,
+        registered_agents: RefCell<Vec<String>>,
     }
 
     impl StubEnv {
@@ -380,7 +493,11 @@ mod tests {
             Self {
                 exists: false,
                 fail_register: false,
+                fail_create: false,
+                fail_register_agent: false,
+                agent_already_registered: false,
                 calls: RefCell::new(Vec::new()),
+                registered_agents: RefCell::new(Vec::new()),
             }
         }
     }
@@ -396,6 +513,9 @@ mod tests {
 
         fn create_workspace(&self, _name: &str, _workspace_path: &str) -> Result<()> {
             self.calls.borrow_mut().push("create".to_string());
+            if self.fail_create {
+                return Err(Error::io_error("stub worktree failure"));
+            }
             Ok(())
         }
 
@@ -410,6 +530,29 @@ mod tests {
             }
             Ok(())
         }
+
+        fn register_agent(&self, agent_id: &str) -> Result<bool> {
+            self.calls.borrow_mut().push("register-agent".to_string());
+            if self.fail_register_agent {
+                return Err(Error::io_error("stub agent registration failure"));
+            }
+            if self.agent_already_registered
+                || self.registered_agents.borrow().iter().any(|id| id == agent_id)
+            {
+                return Ok(false);
+            }
+            self.registered_agents
+                .borrow_mut()
+                .push(agent_id.to_string());
+            Ok(true)
+        }
+
+        fn unregister_agent(&self, agent_id: &str) {
+            self.calls.borrow_mut().push("unregister-agent".to_string());
+            self.registered_agents
+                .borrow_mut()
+                .retain(|id| id != agent_id);
+        }
     }
 
     #[test]
@@ -419,8 +562,8 @@ mod tests {
         assert!(run_work_with_env(&options, &env).is_ok());
         assert_eq!(
             env.calls.borrow().as_slice(),
-            ["create", "register"],
-            "normal work creates the worktree and registers the session"
+            ["register-agent", "create", "register"],
+            "normal work registers the agent before creating the worktree and session"
         );
     }
 
@@ -604,9 +747,10 @@ mod tests {
             ..StubEnv::fresh()
         };
         assert!(run_work_with_env(&options, &env).is_ok());
-        assert!(
-            env.calls.borrow().is_empty(),
-            "idempotent reuse must not recreate anything"
+        assert_eq!(
+            env.calls.borrow().as_slice(),
+            ["register-agent"],
+            "idempotent reuse registers the agent it prints, but recreates no worktree or session"
         );
     }
 
@@ -620,8 +764,159 @@ mod tests {
         assert!(run_work_with_env(&options, &env).is_err());
         assert_eq!(
             env.calls.borrow().as_slice(),
-            ["create", "register", "remove"],
-            "a failed registration must roll back the worktree"
+            [
+                "register-agent",
+                "create",
+                "register",
+                "remove",
+                "unregister-agent"
+            ],
+            "a failed registration must roll back the worktree and the newly registered agent, in reverse order"
+        );
+        assert!(
+            env.registered_agents.borrow().is_empty(),
+            "the newly registered agent must not be left behind"
+        );
+    }
+
+    #[test]
+    fn run_work_worktree_failure_unregisters_newly_registered_agent() {
+        let options = WorkOptions {
+            name: "unwind-session".to_string(),
+            bead_id: None,
+            agent_id: Some("agent-unwind".to_string()),
+            no_agent: false,
+            mode: WorkMode::Normal,
+            format: OutputFormat::Json,
+        };
+        let env = StubEnv {
+            fail_create: true,
+            ..StubEnv::fresh()
+        };
+        assert!(run_work_with_env(&options, &env).is_err());
+        assert_eq!(
+            env.calls.borrow().as_slice(),
+            ["register-agent", "create", "unregister-agent"],
+            "register-then-unregister unwind: a worktree failure must remove the agent this run registered"
+        );
+        assert!(
+            env.registered_agents.borrow().is_empty(),
+            "the agent must be gone after the unwind"
+        );
+    }
+
+    #[test]
+    fn run_work_session_failure_keeps_preexisting_agent() {
+        let options = WorkOptions {
+            name: "keep-agent-session".to_string(),
+            bead_id: None,
+            agent_id: Some("agent-shared".to_string()),
+            no_agent: false,
+            mode: WorkMode::Normal,
+            format: OutputFormat::Json,
+        };
+        let env = StubEnv {
+            fail_register: true,
+            agent_already_registered: true,
+            ..StubEnv::fresh()
+        };
+        assert!(run_work_with_env(&options, &env).is_err());
+        assert_eq!(
+            env.calls.borrow().as_slice(),
+            ["register-agent", "create", "register", "remove"],
+            "a pre-existing agent must never be unregistered on failure"
+        );
+        assert!(
+            !env.calls.borrow().iter().any(|call| call == "unregister-agent"),
+            "unwind must not touch an id this run did not newly register"
+        );
+    }
+
+    #[test]
+    fn run_work_agent_registration_exists_is_ok() {
+        let options = WorkOptions {
+            name: "exists-session".to_string(),
+            bead_id: None,
+            agent_id: Some("agent-shared".to_string()),
+            no_agent: false,
+            mode: WorkMode::Idempotent,
+            format: OutputFormat::Json,
+        };
+        let env = StubEnv {
+            exists: true,
+            agent_already_registered: true,
+            ..StubEnv::fresh()
+        };
+        assert!(run_work_with_env(&options, &env).is_ok());
+        assert_eq!(
+            env.calls.borrow().as_slice(),
+            ["register-agent"],
+            "Exists is success: idempotent reuse with an already-registered agent still succeeds"
+        );
+        assert!(
+            !env.calls.borrow().iter().any(|call| call == "unregister-agent"),
+            "no unwind on the success path"
+        );
+    }
+
+    #[test]
+    fn run_work_agent_registration_failure_creates_nothing() {
+        let options = test_options("agent-fail-session");
+        let env = StubEnv {
+            fail_register_agent: true,
+            ..StubEnv::fresh()
+        };
+        assert!(run_work_with_env(&options, &env).is_err());
+        assert_eq!(
+            env.calls.borrow().as_slice(),
+            ["register-agent"],
+            "an agent registration error is real: no worktree or session may follow it"
+        );
+    }
+
+    #[test]
+    fn run_work_empty_agent_id_skips_registration() {
+        let options = WorkOptions {
+            name: "empty-agent-session".to_string(),
+            bead_id: None,
+            agent_id: Some(String::new()),
+            no_agent: false,
+            mode: WorkMode::Normal,
+            format: OutputFormat::Json,
+        };
+        let env = StubEnv::fresh();
+        assert!(run_work_with_env(&options, &env).is_ok());
+        assert_eq!(
+            env.calls.borrow().as_slice(),
+            ["create", "register"],
+            "an empty --agent value registers nothing and is not an error"
+        );
+        assert!(
+            env.registered_agents.borrow().is_empty(),
+            "no agent id was registered for the empty value"
+        );
+    }
+
+    #[test]
+    fn run_work_no_agent_registers_nothing() {
+        let options = WorkOptions {
+            name: "no-agent-check".to_string(),
+            bead_id: None,
+            agent_id: None,
+            no_agent: true,
+            mode: WorkMode::Normal,
+            format: OutputFormat::Json,
+        };
+        let env = StubEnv::fresh();
+        assert!(run_work_with_env(&options, &env).is_ok());
+        assert_eq!(
+            env.calls.borrow().as_slice(),
+            ["create", "register"],
+            "--no-agent must not register an agent"
+        );
+        assert!(
+            env.registered_agents.borrow().is_empty(),
+            "no agent id was registered for --no-agent"
         );
     }
 }
