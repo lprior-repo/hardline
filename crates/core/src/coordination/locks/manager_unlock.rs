@@ -32,7 +32,9 @@ impl LockManager {
     /// Release a lock held by the caller.
     ///
     /// Returns `NotLockHolder` error if agent does not hold the lock.
-    /// Returns `Ok(())` for double-unlock with audit warning.
+    /// Returns `NotFound` error if no active lock exists (including a
+    /// double-unlock: the attempt is still logged as an audit warning,
+    /// but it must not report success for a lock that does not exist).
     pub async fn unlock(&self, session: &str, agent_id: &str) -> Result<()> {
         let now_str = Utc::now().to_rfc3339();
         let mut tx = self.db.begin().await.map_err(db_err)?;
@@ -69,7 +71,7 @@ impl LockManager {
                     .execute(&mut *tx).await.map_err(db_err)?;
 
                 tx.commit().await.map_err(db_err)?;
-                Ok(())
+                Err(not_found_error(session))
             }
         }
     }

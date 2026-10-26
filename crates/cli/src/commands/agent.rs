@@ -190,15 +190,24 @@ pub fn register(session: Option<&str>) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
-    let session_name = if let Some(s) = session {
-        s.to_string()
-    } else {
-        let workspaces = backend.list_workspaces()?;
-        workspaces
+    let workspaces = backend.list_workspaces()?;
+    let session_name = match session {
+        Some(s) => {
+            if s.is_empty() {
+                return Err(Error::invalid_identifier(
+                    "session name cannot be empty",
+                ));
+            }
+            if !workspaces.iter().any(|w| w.name == s) {
+                return Err(Error::workspace_not_found(s));
+            }
+            s.to_string()
+        }
+        None => workspaces
             .iter()
             .find(|w| w.is_current)
             .map(|w| w.name.clone())
-            .ok_or_else(|| Error::workspace_not_found("no current session"))?
+            .ok_or_else(|| Error::workspace_not_found("no current session"))?,
     };
 
     let heartbeat_dir = cwd.join(".scp");
@@ -231,15 +240,24 @@ pub fn heartbeat(session: Option<&str>) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
 
-    let session_name = if let Some(s) = session {
-        s.to_string()
-    } else {
-        let workspaces = backend.list_workspaces()?;
-        workspaces
+    let workspaces = backend.list_workspaces()?;
+    let session_name = match session {
+        Some(s) => {
+            if s.is_empty() {
+                return Err(Error::invalid_identifier(
+                    "session name cannot be empty",
+                ));
+            }
+            if !workspaces.iter().any(|w| w.name == s) {
+                return Err(Error::workspace_not_found(s));
+            }
+            s.to_string()
+        }
+        None => workspaces
             .iter()
             .find(|w| w.is_current)
             .map(|w| w.name.clone())
-            .ok_or_else(|| Error::workspace_not_found("no current session"))?
+            .ok_or_else(|| Error::workspace_not_found("no current session"))?,
     };
 
     let heartbeat_path = cwd.join(".scp").join("heartbeat");

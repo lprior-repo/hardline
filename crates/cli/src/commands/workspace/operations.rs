@@ -130,6 +130,68 @@ pub fn require_clean_working_copy(backend: &dyn VcsBackend) -> Result<(), Error>
     Ok(())
 }
 
+/// Whether one `git status --porcelain` line is just a registered workspace's
+/// own worktree directory showing up as untracked in the current repo.
+///
+/// Worktrees are created as subdirectories of the repo root, so from the
+/// main worktree `git status --porcelain` always reports `?? <name>/` for
+/// every linked worktree. That is not dirty state: it is the workspace
+/// itself. Only the first path segment is compared, so a file merely
+/// sharing a workspace name's prefix (e.g. `ws1file`) still counts as dirty.
+#[must_use]
+pub fn porcelain_line_is_worktree_dir(line: &str, workspace_names: &[String]) -> bool {
+    let Some(path_field) = line.get(3..) else {
+        return false;
+    };
+    let path_field = path_field.trim_matches('"');
+    let first_segment = path_field.split('/').next().map_or("", |segment| segment);
+    // Rename/copy lines report `old -> new`; the old side is what git
+    // reports for a path, and a worktree dir never appears on either side
+    // of a rename, so the first segment is the right comparison either way.
+    workspace_names
+        .iter()
+        .any(|name| !name.is_empty() && first_segment == name)
+}
+
+/// Whether `git status --porcelain` output contains any dirty state other
+/// than registered worktree directories.
+#[must_use]
+pub fn porcelain_has_real_dirty_state(porcelain: &str, workspace_names: &[String]) -> bool {
+    porcelain
+        .lines()
+        .any(|line| !line.is_empty() && !porcelain_line_is_worktree_dir(line, workspace_names))
+}
+
+/// Helper: Validate clean working copy, ignoring registered workspace
+/// worktree directories.
+///
+/// `workspace switch` runs from the main worktree, where every forked
+/// worktree directory is untracked by construction. Treating those
+/// directories as dirty state self-blocks every switch, so the guard here
+/// scopes to real dirty state: modified, staged, conflicting, or untracked
+/// paths that are not a registered workspace's directory. If the porcelain
+/// query itself fails, fall back to the strict backend status so a failure
+/// to inspect never silently passes the guard.
+pub fn require_clean_working_copy_excluding_worktrees(
+    backend: &dyn VcsBackend,
+) -> Result<(), Error> {
+    let workspaces = backend.list_workspaces()?;
+    let names: Vec<String> = workspaces.into_iter().map(|ws| ws.name).collect();
+    let output = Command::new("git")
+        .args(["status", "--porcelain"])
+        .output();
+    match output {
+        Ok(output) if output.status.success() => {
+            let porcelain = String::from_utf8_lossy(&output.stdout);
+            if porcelain_has_real_dirty_state(&porcelain, &names) {
+                return Err(Error::working_copy_dirty());
+            }
+            Ok(())
+        }
+        _ => require_clean_working_copy(backend),
+    }
+}
+
 /// Helper to get current workspace name from backend
 #[must_use]
 pub fn get_current_workspace_name(backend: &dyn VcsBackend) -> Result<String, Error> {
@@ -415,6 +477,102 @@ mod tests {
     fn build_git_diff_cwd_is_set() {
         let _cmd = build_git_diff_command(std::path::Path::new("/test/dir"), None);
     }
+
+    // ---- porcelain worktree-dir filtering (workspace switch guard) ----
+
+    fn ws_names(names: &[&str]) -> Vec<String> {
+        names.iter().map(|n| n.to_string()).collect()
+    }
+
+    #[test]
+    fn porcelain_empty_is_clean() {
+        assert!(!porcelain_has_real_dirty_state("", &ws_names(&["ws1"])));
+    }
+
+    #[test]
+    fn porcelain_worktree_dir_only_is_not_dirty() {
+        assert!(!porcelain_has_real_dirty_state(
+            "?? ws1/\n",
+            &ws_names(&["ws1"])
+        ));
+    }
+
+    #[test]
+    fn porcelain_file_under_worktree_dir_is_not_dirty() {
+        assert!(!porcelain_has_real_dirty_state(
+            "?? ws1/nested.txt\n",
+            &ws_names(&["ws1"])
+        ));
+    }
+
+    #[test]
+    fn porcelain_real_modified_file_is_dirty() {
+        assert!(porcelain_has_real_dirty_state(
+            " M src/main.rs\n",
+            &ws_names(&["ws1"])
+        ));
+    }
+
+    #[test]
+    fn porcelain_conflict_is_dirty() {
+        assert!(porcelain_has_real_dirty_state(
+            "UU src/main.rs\n",
+            &ws_names(&["ws1"])
+        ));
+    }
+
+    #[test]
+    fn porcelain_other_untracked_dir_is_dirty() {
+        assert!(porcelain_has_real_dirty_state(
+            "?? other/\n",
+            &ws_names(&["ws1"])
+        ));
+    }
+
+    #[test]
+    fn porcelain_name_prefix_only_is_dirty() {
+        // A file sharing the workspace name's prefix is not the worktree dir.
+        assert!(porcelain_has_real_dirty_state(
+            "?? ws1file.txt\n",
+            &ws_names(&["ws1"])
+        ));
+    }
+
+    #[test]
+    fn porcelain_worktree_dir_plus_real_change_is_dirty() {
+        assert!(porcelain_has_real_dirty_state(
+            "?? ws1/\n M src/main.rs\n",
+            &ws_names(&["ws1"])
+        ));
+    }
+
+    #[test]
+    fn porcelain_empty_workspace_name_ignores_nothing() {
+        // The main worktree reports an empty name; it must not match anything.
+        assert!(porcelain_has_real_dirty_state(
+            "?? ws1/\n",
+            &ws_names(&[""])
+        ));
+    }
+}
+
+/// Current local branch names, or `None` if git cannot list them.
+/// Used only to diff branch state around a fallible `worktree add`.
+fn list_git_branches() -> Option<Vec<String>> {
+    let output = Command::new("git")
+        .args(["branch", "--format=%(refname:short)"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(|line| line.trim().to_string())
+            .filter(|line| !line.is_empty())
+            .collect(),
+    )
 }
 
 /// Split workspace by creating a new branch from current state
@@ -445,9 +603,30 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
         }
     }
 
+    // `git worktree add <path>` with no branch creates a branch named after
+    // the path's basename BEFORE checking the directory out, so adding a
+    // populated path fails but leaves that branch behind. Fail cleanly
+    // up front instead: a non-empty directory can never become a worktree
+    // by this path, and no branch is created to clean up.
+    let path_non_empty = match std::fs::read_dir(workspace_path) {
+        Ok(mut entries) => entries.next().is_some(),
+        Err(_) => false,
+    };
+    if path_non_empty {
+        return Err(Error::invalid_state(format!(
+            "Path is not empty, cannot add workspace there: {canonical_path}"
+        )));
+    }
+
     if !Output::json_output() {
         Output::info(&format!("Adding workspace at '{}'...", canonical_path));
     }
+
+    // Backstop for any other worktree-add failure that happens after git
+    // creates the basename branch: remove exactly the branches that did
+    // not exist before, so a failed add never leaves a stray branch.
+    // A pre-existing branch of the same name is never touched.
+    let branches_before = list_git_branches();
 
     let output = Command::new("git")
         .args(["worktree", "add", canonical_path.as_ref()])
@@ -455,6 +634,18 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
+        if let Some(before) = branches_before {
+            if let Some(after) = list_git_branches() {
+                for branch in after.iter().filter(|b| !before.contains(b)) {
+                    let _ = Command::new("git")
+                        .args(["branch", "-D", branch])
+                        .output();
+                }
+                let _ = Command::new("git")
+                    .args(["worktree", "prune"])
+                    .output();
+            }
+        }
         return Err(Error::vcs_conflict("worktree add", stderr));
     }
 

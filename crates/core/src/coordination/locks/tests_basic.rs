@@ -184,9 +184,11 @@ async fn test_relock_same_agent_idempotent() -> Result<(), Error> {
     Ok(())
 }
 
-// EARS: Double unlock MUST be logged as warning in audit trail
+// EARS: Double unlock MUST be logged as warning in audit trail AND
+// MUST fail: releasing a lock that does not exist is a not-found
+// error, not a success.
 #[tokio::test]
-async fn test_double_unlock_logs_warning() -> Result<(), Error> {
+async fn test_double_unlock_fails_and_logs_warning() -> Result<(), Error> {
     let mgr = setup().await?;
     let _ = mgr.lock("session-1", "agent-a").await?;
 
@@ -206,7 +208,11 @@ async fn test_double_unlock_logs_warning() -> Result<(), Error> {
     assert_eq!(audit_log[1].operation, LockOperation::Unlock);
     assert_eq!(audit_log[1].agent_id, "agent-a");
 
-    mgr.unlock("session-1", "agent-a").await?;
+    let second_unlock = mgr.unlock("session-1", "agent-a").await;
+    assert!(
+        second_unlock.is_err(),
+        "Releasing a nonexistent lock must fail, not succeed"
+    );
 
     let audit_log2 = mgr.get_lock_audit_log("session-1").await?;
     assert_eq!(

@@ -128,8 +128,13 @@ pub fn drop(stash_ref: &str, _force: bool) -> Result<()> {
     Ok(())
 }
 
-/// Show the diff contents of a stash entry.
-pub fn show(stash_ref: Option<&str>, _stat: bool) -> Result<()> {
+/// Show the diff contents of a stash entry, or its diffstat with `--stat`.
+///
+/// The native stash path only produces a full diff, so `--stat` must not
+/// fall through to it (that silently ignored the flag). With `--stat`,
+/// show the diffstat via `git stash show --stat` instead, and surface any
+/// git failure loudly.
+pub fn show(stash_ref: Option<&str>, stat: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
     let vcs_type = detect_vcs(&cwd).ok_or_else(Error::vcs_not_initialized)?;
@@ -148,8 +153,12 @@ pub fn show(stash_ref: Option<&str>, _stat: bool) -> Result<()> {
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(0);
 
-    let output = stash::show(&repo, index)
-        .map_err(|e| Error::vcs_conflict("git stash show", e.to_string()))?;
+    let output = if stat {
+        show_stat(&cwd, index)?
+    } else {
+        stash::show(&repo, index)
+            .map_err(|e| Error::vcs_conflict("git stash show", e.to_string()))?
+    };
 
     if Output::json_output() {
         Output::json(&serde_json::json!({"stash": stash_ref, "index": index, "diff": output}));
@@ -158,6 +167,20 @@ pub fn show(stash_ref: Option<&str>, _stat: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Diffstat for a stash entry via `git stash show --stat`.
+fn show_stat(workdir: &std::path::Path, index: usize) -> Result<String> {
+    let stash_arg = format!("stash@{{{index}}}");
+    let output = scp_vcs::gix::cli::run_git(workdir, &["stash", "show", "--stat", &stash_arg])
+        .map_err(|e| Error::vcs_conflict("git stash show", e.to_string()))?;
+
+    if !output.success {
+        let git_err = scp_vcs::gix::cli::cli_error(&output, "git stash show");
+        return Err(Error::vcs_conflict("git stash show", git_err.to_string()));
+    }
+
+    Ok(output.stdout)
 }
 
 /// Parse a stash reference string (e.g., "stash@{0}") into a numeric index.

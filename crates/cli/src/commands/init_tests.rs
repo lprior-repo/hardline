@@ -198,10 +198,11 @@ proptest! {
 }
 
 proptest! {
-    /// Property: Double-unlock is idempotent (unlocked -> unlocked is valid).
-    /// The system must not error on unlocking an already-unlocked session.
+    /// Property: Releasing a lock that does not exist must fail.
+    /// A second release after a successful release finds no lock, so it
+    /// errors with not-found instead of reporting success.
     #[test]
-    fn prop_lock_state_machine_double_unlock_is_idempotent(
+    fn prop_lock_state_machine_double_unlock_fails(
         session in "[a-z0-9_-]{1,255}",
         agent in "[a-z0-9_-]{1,100}"
     ) {
@@ -212,9 +213,9 @@ proptest! {
         acquire_with_path(&session, &agent, None, path).expect("first acquire");
         release_with_path(&session, &agent, path).expect("first release");
 
-        // Second release (double-unlock) must succeed
+        // Second release (double-unlock) must fail: no lock exists
         let double_release = release_with_path(&session, &agent, path);
-        prop_assert!(double_release.is_ok(), "Double-unlock should be idempotent: {:?}", double_release);
+        prop_assert!(double_release.is_err(), "Double-unlock must fail with not-found: {:?}", double_release);
     }
 }
 
@@ -540,10 +541,11 @@ proptest! {
 // ========================================================================
 
 proptest! {
-    /// Property: Releasing a lock that was never acquired is idempotent (no error).
-    /// This prevents errors from race conditions or double-init scenarios.
+    /// Property: Releasing a lock that was never acquired must fail.
+    /// Reporting success for a lock that does not exist is a false
+    /// success: callers must see a not-found error instead.
     #[test]
-    fn prop_release_nonexistent_lock_is_idempotent(
+    fn prop_release_nonexistent_lock_fails(
         session in "[a-z0-9_-]{1,255}",
         agent in "[a-z0-9_-]{1,100}"
     ) {
@@ -551,7 +553,7 @@ proptest! {
         let path = db.path().to_str().expect("path utf8");
 
         let res = release_with_path(&session, &agent, path);
-        prop_assert!(res.is_ok(), "Releasing a nonexistent lock should be idempotent: {:?}", res);
+        prop_assert!(res.is_err(), "Releasing a nonexistent lock must fail with not-found: {:?}", res);
     }
 }
 
@@ -723,6 +725,26 @@ fn test_acquire_init_lock_refuses_symlink() {
         contents, "critical data",
         "Target file must not be corrupted"
     );
+}
+
+#[test]
+fn test_lock_list_succeeds_with_missing_db_parent_dir() {
+    let tmp_dir = TempDir::new().expect("Failed to create temp dir");
+    // Nested path whose parent directories do not exist yet.
+    let db_path = tmp_dir
+        .path()
+        .join("missing")
+        .join("deep")
+        .join("hardline.db");
+    let db_path_str = db_path.to_str().expect("path utf8");
+
+    let result = list_with_path(db_path_str);
+    assert!(
+        result.is_ok(),
+        "lock list must create the DB directory and list an empty store: {:?}",
+        result.err()
+    );
+    assert!(db_path.exists(), "database file should have been created");
 }
 
 #[test]

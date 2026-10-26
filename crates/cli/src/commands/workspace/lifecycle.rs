@@ -45,7 +45,10 @@ pub fn switch(name: &str) -> Result<(), Error> {
     if !workspace_exists(backend.as_ref(), name)? {
         return Err(Error::workspace_not_found(name));
     }
-    require_clean_working_copy(backend.as_ref())?;
+    // The forked worktree directory itself shows up as untracked in the
+    // current repo; that must not block the switch (see
+    // require_clean_working_copy_excluding_worktrees).
+    require_clean_working_copy_excluding_worktrees(backend.as_ref())?;
 
     backend.switch_workspace(name)?;
     if Output::json_output() {

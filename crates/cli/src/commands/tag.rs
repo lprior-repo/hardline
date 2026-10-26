@@ -3,8 +3,14 @@
 use scp_core::{output::Output, vcs::detect_vcs, Error, Result};
 use scp_vcs::gix::{repository, tag};
 
-/// List tags, optionally filtered by a glob pattern.
-pub fn list(pattern: Option<&str>, _sort: Option<&str>) -> Result<()> {
+/// List tags, optionally filtered by a glob pattern and sorted by key.
+///
+/// `--sort` is honored, not ignored: `refname` sorts lexicographically,
+/// `version:refname` sorts version-aware (numeric segments compare
+/// numerically, so v10 sorts after v9), and a leading `-` reverses either.
+/// Any other key is a validation error naming the bad value — silently
+/// ignoring a user-passed sort key is how a wrong order looks correct.
+pub fn list(pattern: Option<&str>, sort: Option<&str>) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
     detect_vcs(&cwd).ok_or_else(Error::vcs_not_initialized)?;
@@ -12,8 +18,12 @@ pub fn list(pattern: Option<&str>, _sort: Option<&str>) -> Result<()> {
     let repo = repository::open(&cwd)
         .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
 
-    let tags =
+    let mut tags =
         tag::list(&repo, pattern).map_err(|e| Error::vcs_conflict("list tags", e.to_string()))?;
+
+    if let Some(key) = sort {
+        sort_tags(&mut tags, key)?;
+    }
 
     if Output::json_output() {
         Output::json(&serde_json::json!({"tags": tags}));
@@ -27,21 +37,134 @@ pub fn list(pattern: Option<&str>, _sort: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+/// Compare two tag names version-aware: split on non-alphanumeric
+/// boundaries and compare numeric runs numerically, other runs
+/// lexicographically. Non-numeric input degrades to plain ordering.
+fn version_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let split = |s: &str| -> Vec<String> {
+        let mut parts = Vec::new();
+        let mut cur = String::new();
+        let mut cur_numeric: Option<bool> = None;
+        for ch in s.chars() {
+            if ch.is_ascii_digit() {
+                if cur_numeric == Some(false) {
+                    parts.push(std::mem::take(&mut cur));
+                }
+                cur_numeric = Some(true);
+                cur.push(ch);
+            } else if ch.is_ascii_alphanumeric() {
+                if cur_numeric == Some(true) {
+                    parts.push(std::mem::take(&mut cur));
+                }
+                cur_numeric = Some(false);
+                cur.push(ch);
+            } else if !cur.is_empty() {
+                parts.push(std::mem::take(&mut cur));
+                cur_numeric = None;
+            }
+        }
+        if !cur.is_empty() {
+            parts.push(cur);
+        }
+        parts
+    };
+    let (pa, pb) = (split(a), split(b));
+    for (x, y) in pa.iter().zip(pb.iter()) {
+        let ord = match (x.parse::<u64>(), y.parse::<u64>()) {
+            (Ok(nx), Ok(ny)) => nx.cmp(&ny),
+            _ => x.cmp(y),
+        };
+        if ord != Ordering::Equal {
+            return ord;
+        }
+    }
+    pa.len().cmp(&pb.len())
+}
+
+fn sort_tags(tags: &mut Vec<String>, key: &str) -> Result<()> {
+    let (descending, base) = match key.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, key),
+    };
+    let cmp: fn(&str, &str) -> std::cmp::Ordering = match base {
+        "refname" => |a, b| a.cmp(b),
+        "version:refname" => version_cmp,
+        _ => {
+            return Err(Error::invalid_identifier(format!(
+                "invalid sort key '{}': expected one of refname, -refname, version:refname, -version:refname",
+                key
+            )));
+        }
+    };
+    tags.sort_by(|a, b| {
+        let ord = cmp(a, b);
+        if descending { ord.reverse() } else { ord }
+    });
+    Ok(())
+}
+
 /// Create a new Git tag, optionally with an annotated message.
-pub fn create(name: &str, message: Option<&str>, _commit: Option<&str>, force: bool) -> Result<()> {
+///
+/// A message (`-m`) requests an annotated tag. The native gix path below
+/// always creates a lightweight ref and drops the message, so a message
+/// must never flow through it: with a message, create the tag with
+/// `git tag -a` instead, and surface any git failure loudly rather than
+/// silently downgrading to a lightweight tag.
+pub fn create(name: &str, message: Option<&str>, commit: Option<&str>, force: bool) -> Result<()> {
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
 
     detect_vcs(&cwd).ok_or_else(Error::vcs_not_initialized)?;
 
+    if let Some(msg) = message {
+        return create_annotated(&cwd, name, msg, commit, force);
+    }
+
     let repo = repository::open(&cwd)
         .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
 
-    let msg = message.unwrap_or("");
-    tag::create(&repo, name, msg, force)
+    tag::create(&repo, name, "", force)
         .map_err(|e| Error::vcs_conflict("create tag", e.to_string()))?;
 
     if Output::json_output() {
-        Output::json(&serde_json::json!({"created": true, "tag": name, "message": msg}));
+        Output::json(&serde_json::json!({"created": true, "tag": name, "message": ""}));
+    } else {
+        Output::success(&format!("Created tag: {}", name));
+    }
+    Ok(())
+}
+
+/// Create an annotated tag with `git tag -a`, so the tag object carries
+/// the message. Any git failure is returned as an error, never downgraded.
+fn create_annotated(
+    workdir: &std::path::Path,
+    name: &str,
+    message: &str,
+    commit: Option<&str>,
+    force: bool,
+) -> Result<()> {
+    let mut args: Vec<&str> = vec!["tag"];
+    if force {
+        args.push("-f");
+    }
+    args.push("-a");
+    args.push(name);
+    args.push("-m");
+    args.push(message);
+    if let Some(target) = commit {
+        args.push(target);
+    }
+
+    let output = scp_vcs::gix::cli::run_git(workdir, &args)
+        .map_err(|e| Error::vcs_conflict("create tag", e.to_string()))?;
+
+    if !output.success {
+        let git_err = scp_vcs::gix::cli::cli_error(&output, "create tag");
+        return Err(Error::vcs_conflict("create tag", git_err.to_string()));
+    }
+
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"created": true, "tag": name, "message": message}));
     } else {
         Output::success(&format!("Created tag: {}", name));
     }
@@ -140,6 +263,37 @@ mod tests {
     #[test]
     fn list_accepts_none_params() {
         let _fn: fn(Option<&str>, Option<&str>) -> Result<()> = list;
+    }
+
+    #[test]
+    fn sort_version_orders_numeric_segments_numerically() {
+        let mut tags = vec![
+            "v10".to_string(),
+            "v2".to_string(),
+            "v1".to_string(),
+        ];
+        sort_tags(&mut tags, "version:refname").unwrap();
+        assert_eq!(tags, vec!["v1", "v2", "v10"]);
+    }
+
+    #[test]
+    fn sort_refname_is_lexicographic() {
+        let mut tags = vec!["b".to_string(), "a".to_string()];
+        sort_tags(&mut tags, "refname").unwrap();
+        assert_eq!(tags, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn sort_descending_reverses() {
+        let mut tags = vec!["v1".to_string(), "v2".to_string()];
+        sort_tags(&mut tags, "-version:refname").unwrap();
+        assert_eq!(tags, vec!["v2", "v1"]);
+    }
+
+    #[test]
+    fn sort_unknown_key_is_an_error() {
+        let mut tags = vec!["v1".to_string()];
+        assert!(sort_tags(&mut tags, "bogus-sort-value").is_err());
     }
 
     #[test]

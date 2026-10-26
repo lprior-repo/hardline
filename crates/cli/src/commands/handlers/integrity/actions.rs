@@ -162,6 +162,16 @@ fn run_backup_restore(backup_id: &str, force: bool) -> Result<RestoreResponse> {
     let manager = BackupManager::new(&cwd);
     let workspace_path = Path::new(".");
 
+    // A restore must name a backup that actually exists. The store's own
+    // listing is the source of truth: restoring an unknown id previously
+    // reported success unconditionally.
+    let backups = manager.list_backups("")?;
+    if !backups.iter().any(|backup| backup.id == backup_id) {
+        return Err(Error::not_found(format!(
+            "Backup '{backup_id}' not found"
+        )));
+    }
+
     let result = manager.restore_backup(backup_id, "", workspace_path)?;
 
     Ok(RestoreResponse {
@@ -226,6 +236,19 @@ mod tests {
             subcommand: IntegritySubcommand::BackupList,
         };
         assert!(matches!(opts.subcommand, IntegritySubcommand::BackupList));
+    }
+
+    #[test]
+    fn backup_restore_unknown_id_fails_with_not_found() {
+        // The store lists no backups, so any id is unknown and the
+        // restore must fail instead of reporting success.
+        let result = run_backup_restore("no-such-backup", true);
+        assert!(result.is_err(), "restoring an unknown backup must fail");
+        let message = result.unwrap_err().to_string();
+        assert!(
+            message.contains("not found"),
+            "error must be a clean not-found error: {message}"
+        );
     }
 
     #[test]

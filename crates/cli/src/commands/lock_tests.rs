@@ -66,12 +66,12 @@ mod tests {
     }
 
     #[test]
-    fn release_nonexistent_lock_succeeds_idempotent() {
+    fn release_nonexistent_lock_fails_with_not_found() {
         let db = get_temp_db();
         let path = db.path().to_str().expect("path utf8");
 
         let res = release_with_path("ghost", "a1", path);
-        assert!(res.is_ok(), "Expected Ok, got {:?}", res);
+        assert!(res.is_err(), "Expected not-found error, got {:?}", res);
     }
 
     #[test]

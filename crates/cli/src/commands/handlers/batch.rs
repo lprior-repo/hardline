@@ -215,12 +215,28 @@ pub async fn execute_batch(
     let checkpoint_id = guard.id().to_string();
 
     // Execute commands sequentially
-    let results =
+    let outcome =
         execute_commands_sequentially(commands, &workspace_path, &guard, &checkpoint_id)
             .await?;
 
-    // All commands succeeded - commit the checkpoint
-    commit_checkpoint(guard, checkpoint_id, results).await
+    match outcome {
+        // All commands succeeded - commit the checkpoint
+        SequentialOutcome::Succeeded(results) => {
+            commit_checkpoint(guard, checkpoint_id, results).await
+        }
+        // A command failed and the checkpoint was already rolled back:
+        // never commit, so a failed batch is reported as rolled back
+        // instead of (incorrectly) committed.
+        SequentialOutcome::RolledBack(result) => Ok(result),
+    }
+}
+
+/// Outcome of running the batch commands, before the checkpoint decision.
+enum SequentialOutcome {
+    /// Every command succeeded; the results are ready to commit.
+    Succeeded(Vec<CommandResult>),
+    /// A command failed and the checkpoint was already rolled back.
+    RolledBack(BatchResult),
 }
 
 /// Execute commands sequentially, rolling back on failure.
@@ -229,7 +245,7 @@ async fn execute_commands_sequentially(
     workspace_path: &std::path::Path,
     guard: &CheckpointGuard,
     checkpoint_id: &str,
-) -> Result<Vec<CommandResult>> {
+) -> Result<SequentialOutcome> {
     let mut results: Vec<CommandResult> = Vec::new();
 
     for (index, command) in commands.into_iter().enumerate() {
@@ -240,16 +256,13 @@ async fn execute_commands_sequentially(
                 let failed = !cmd_result.success;
                 results.push(cmd_result);
                 if failed {
+                    // The checkpoint is rolled back inside
+                    // handle_command_failure; the RolledBack result is
+                    // returned as-is so the caller cannot mistake it for
+                    // a success and commit it.
                     return handle_command_failure(index, &results, guard, checkpoint_id)
                         .await
-                        .and_then(|rb| match rb {
-                            BatchResult::RolledBack {
-                                partial_results, ..
-                            } => Ok(partial_results),
-                            _ => Err(Error::internal(
-                                "handle_command_failure returned unexpected variant",
-                            )),
-                        });
+                        .map(SequentialOutcome::RolledBack);
                 }
             }
             Err(e) => {
@@ -265,7 +278,7 @@ async fn execute_commands_sequentially(
         }
     }
 
-    Ok(results)
+    Ok(SequentialOutcome::Succeeded(results))
 }
 
 /// Handle a failed command by rolling back and returning a RolledBack result.
@@ -364,11 +377,16 @@ pub async fn run_batch(workspace: Option<String>, commands: Vec<String>) -> Resu
 
     let batch_commands = batch_commands?;
 
-    Output::info(&format!(
-        "Executing batch of {} commands on workspace '{}'...",
-        batch_commands.len(),
-        workspace_name
-    ));
+    // Progress chatter is suppressed in JSON mode so the success path
+    // emits a single JSON document; failure paths report via the error
+    // return below (stderr), as other JSON-mode commands do.
+    if !Output::json_output() {
+        Output::info(&format!(
+            "Executing batch of {} commands on workspace '{}'...",
+            batch_commands.len(),
+            workspace_name
+        ));
+    }
 
     let result = execute_batch(&workspace_name, batch_commands).await?;
     report_batch_result(&result)
@@ -381,6 +399,22 @@ fn report_batch_result(result: &BatchResult) -> Result<()> {
             checkpoint_id,
             results,
         } => {
+            if Output::json_output() {
+                Output::json(&serde_json::json!({
+                    "result": "committed",
+                    "checkpoint_id": checkpoint_id,
+                    "commands": results.iter().enumerate().map(|(index, cmd_result)| {
+                        serde_json::json!({
+                            "index": index,
+                            "command": cmd_result.command.name,
+                            "args": cmd_result.command.args,
+                            "success": cmd_result.success,
+                            "exit_code": cmd_result.exit_code,
+                        })
+                    }).collect::<Vec<_>>(),
+                }));
+                return Ok(());
+            }
             Output::success(&format!(
                 "Batch committed with checkpoint '{}'",
                 checkpoint_id
@@ -402,10 +436,36 @@ fn report_batch_result(result: &BatchResult) -> Result<()> {
             error,
             partial_results,
         } => {
+            if Output::json_output() {
+                Output::json(&serde_json::json!({
+                    "result": "rolled_back",
+                    "failed_at": failed_at,
+                    "error": error,
+                    "commands": partial_results.iter().enumerate().map(|(index, cmd_result)| {
+                        serde_json::json!({
+                            "index": index,
+                            "command": cmd_result.command.name,
+                            "args": cmd_result.command.args,
+                            "success": cmd_result.success,
+                            "exit_code": cmd_result.exit_code,
+                        })
+                    }).collect::<Vec<_>>(),
+                }));
+                return Err(Error::batch_command_failed(error.clone()));
+            }
             Output::error(&format!("Batch rolled back at command {}", failed_at));
             Output::error(error);
             for (i, cmd_result) in partial_results.iter().enumerate() {
-                Output::info(&format!("  [{}] {}: executed", i, cmd_result.command.name));
+                // Keep the FAILED line for the command that actually
+                // failed; earlier commands ran before the rollback.
+                if i == *failed_at || !cmd_result.success {
+                    Output::info(&format!(
+                        "  [{}] {}: FAILED (exit {})",
+                        i, cmd_result.command.name, cmd_result.exit_code
+                    ));
+                } else {
+                    Output::info(&format!("  [{}] {}: executed", i, cmd_result.command.name));
+                }
             }
             Err(Error::batch_command_failed(error.clone()))
         }

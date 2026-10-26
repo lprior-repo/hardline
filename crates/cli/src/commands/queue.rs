@@ -78,12 +78,7 @@ pub fn enqueue(branch: &str, priority: Option<&str>) -> Result<()> {
     let mut item = QueueItem::direct(branch);
 
     if let Some(p) = priority {
-        item.priority = match p.to_lowercase().as_str() {
-            "low" => Priority::Low,
-            "high" => Priority::High,
-            "critical" => Priority::Critical,
-            _ => Priority::Normal,
-        };
+        item.priority = parse_priority(p)?;
     }
 
     let priority_str = format!("{:?}", item.priority);
@@ -121,6 +116,39 @@ pub fn dequeue() -> Result<()> {
     }
 }
 
+/// Persist a dequeued item's terminal state.
+///
+/// The two queue stores disagree about what dequeue() leaves behind:
+/// SqliteQueue keeps the row (marked Processing), while MemQueue removes
+/// the item outright. update() is therefore the correct write for the
+/// SQLite store, and enqueue() the correct write for the in-memory
+/// store. Trying update() first and falling back to enqueue() records
+/// the terminal state on both — and never issues the INSERT that used
+/// to collide with the retained SQLite row's id (UNIQUE constraint
+/// failed: queue_items.id), which left the item stuck at Processing.
+fn record_processed(queue: &dyn scp_core::queue::QueueManager, item: QueueItem) -> Result<()> {
+    match queue.update(item.clone()) {
+        Ok(()) => Ok(()),
+        Err(_) => queue.enqueue(item),
+    }
+}
+
+/// Record a terminal state without letting a persistence failure mask
+/// the processing outcome: the caller keeps its original result, and a
+/// clean warning (no raw database text) goes to stderr.
+fn record_processed_best_effort(
+    queue: &dyn scp_core::queue::QueueManager,
+    item: QueueItem,
+    state: &str,
+) {
+    if record_processed(queue, item.clone()).is_err() {
+        eprintln!(
+            "warning: failed to record queue item '{}' as {}; it may still show as Processing",
+            item.branch, state
+        );
+    }
+}
+
 /// Process next item in queue using a provided VCS backend (testable core).
 pub fn process_with_backend(
     queue: &dyn scp_core::queue::QueueManager,
@@ -152,7 +180,7 @@ pub fn process_with_backend(
         println!("  ✗ {}", msg);
         let _ = backend.merge("--abort");
         item.fail(msg);
-        queue.enqueue(item)?;
+        record_processed_best_effort(queue, item, "failed");
         return Err(e);
     }
     if !Output::json_output() {
@@ -167,11 +195,24 @@ pub fn process_with_backend(
         let msg = format!("push failed: {}", e);
         println!("  ✗ {}", msg);
         item.fail(msg);
-        queue.enqueue(item)?;
+        record_processed_best_effort(queue, item, "failed");
         return Err(e);
     }
     if !Output::json_output() {
         println!("  ✓ Push successful");
+    }
+
+    // Reach a terminal state: without this the SQLite row dequeued
+    // above stays Processing forever, even after a successful process.
+    // A persistence failure here is a real failure, not a success, so
+    // it is reported (cleanly, without raw database text) instead of
+    // printing "Processed" over an unrecorded item.
+    item.complete();
+    if record_processed(queue, item.clone()).is_err() {
+        return Err(scp_core::Error::invalid_state(format!(
+            "processed '{}' but failed to record its completion; it may still show as Processing",
+            item.branch
+        )));
     }
 
     if Output::json_output() {
@@ -205,21 +246,21 @@ fn run_preflight_checks(
             let msg = "working copy has uncommitted changes".to_string();
             println!("    ✗ {}", msg);
             item.fail(msg);
-            queue.enqueue(item.clone())?;
+            record_processed_best_effort(queue, item.clone(), "failed");
             return Err(scp_core::Error::working_copy_dirty());
         }
         VcsStatus::Conflicted => {
             let msg = "working copy has merge conflicts".to_string();
             println!("    ✗ {}", msg);
             item.fail(msg);
-            queue.enqueue(item.clone())?;
+            record_processed_best_effort(queue, item.clone(), "failed");
             return Err(scp_core::Error::vcs_conflict("working copy", "pre-flight"));
         }
         VcsStatus::Detached => {
             let msg = "detached HEAD — cannot process queue".to_string();
             println!("    ✗ {}", msg);
             item.fail(msg.clone());
-            queue.enqueue(item.clone())?;
+            record_processed_best_effort(queue, item.clone(), "failed");
             return Err(scp_core::Error::invalid_state(msg));
         }
     }
@@ -232,7 +273,7 @@ fn run_preflight_checks(
         let msg = format!("branch '{}' not found", branch_name);
         println!("    ✗ {}", msg);
         item.fail(msg);
-        queue.enqueue(item.clone())?;
+        record_processed_best_effort(queue, item.clone(), "failed");
         return Err(scp_core::Error::branch_not_found(branch_name));
     }
     if !Output::json_output() {
@@ -325,13 +366,20 @@ pub fn status() -> Result<()> {
     Ok(())
 }
 
-/// Parse a priority string into a Priority enum (pure function for testing)
-pub fn parse_priority(priority: &str) -> Priority {
+/// Parse a priority string into a Priority enum (pure function for testing).
+/// Unknown values are a validation error naming the bad value — they must
+/// never silently normalize to Normal, or a typo'd `--priority` looks like
+/// it worked while the item lands at the wrong priority.
+pub fn parse_priority(priority: &str) -> Result<Priority> {
     match priority.to_lowercase().as_str() {
-        "low" => Priority::Low,
-        "high" => Priority::High,
-        "critical" => Priority::Critical,
-        _ => Priority::Normal,
+        "low" => Ok(Priority::Low),
+        "normal" => Ok(Priority::Normal),
+        "high" => Ok(Priority::High),
+        "critical" => Ok(Priority::Critical),
+        _ => Err(scp_core::Error::invalid_identifier(format!(
+            "invalid priority '{}': expected one of low, normal, high, critical",
+            priority
+        ))),
     }
 }
 
@@ -514,6 +562,29 @@ mod tests {
     }
 
     #[test]
+    fn process_success_records_completed_terminal_state() {
+        // Regression test for the SQLite defect where a successfully
+        // processed item lingered as Processing forever: the success
+        // path must record a terminal state, not just drop the item.
+        // (MemQueue's dequeue removes the item, so the helper must
+        // re-insert it as Completed; SqliteQueue's dequeue retains the
+        // row, so the helper updates it in place.)
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "completed-state-test");
+        let backend = MockVcsBackend::clean_with_branch("completed-state-test");
+
+        process_with_backend(queue.as_ref(), &backend, false).unwrap();
+
+        let all = queue.list().unwrap();
+        assert_eq!(all.len(), 1, "processed item must still be recorded");
+        assert_eq!(
+            all[0].status,
+            scp_core::queue::QueueStatus::Completed,
+            "processed item must reach the Completed terminal state, not linger as Processing"
+        );
+    }
+
+    #[test]
     fn process_empty_queue_returns_error() {
         let queue = make_queue();
         let backend = MockVcsBackend::clean_with_branch("any");
@@ -676,73 +747,73 @@ mod tests {
 
     #[test]
     fn parse_priority_low() {
-        assert_eq!(parse_priority("low"), Priority::Low);
+        assert_eq!(parse_priority("low").unwrap(), Priority::Low);
     }
 
     #[test]
     fn parse_priority_low_uppercase() {
-        assert_eq!(parse_priority("LOW"), Priority::Low);
+        assert_eq!(parse_priority("LOW").unwrap(), Priority::Low);
     }
 
     #[test]
     fn parse_priority_low_mixed_case() {
-        assert_eq!(parse_priority("LoW"), Priority::Low);
+        assert_eq!(parse_priority("LoW").unwrap(), Priority::Low);
     }
 
     #[test]
     fn parse_priority_high() {
-        assert_eq!(parse_priority("high"), Priority::High);
+        assert_eq!(parse_priority("high").unwrap(), Priority::High);
     }
 
     #[test]
     fn parse_priority_critical() {
-        assert_eq!(parse_priority("critical"), Priority::Critical);
+        assert_eq!(parse_priority("critical").unwrap(), Priority::Critical);
     }
 
     #[test]
     fn parse_priority_critical_uppercase() {
-        assert_eq!(parse_priority("CRITICAL"), Priority::Critical);
+        assert_eq!(parse_priority("CRITICAL").unwrap(), Priority::Critical);
     }
 
     #[test]
     fn parse_priority_normal() {
-        assert_eq!(parse_priority("normal"), Priority::Normal);
+        assert_eq!(parse_priority("normal").unwrap(), Priority::Normal);
     }
 
     #[test]
-    fn parse_priority_unknown_falls_back_to_normal() {
-        assert_eq!(parse_priority("unknown"), Priority::Normal);
+    fn parse_priority_unknown_is_an_error() {
+        assert!(parse_priority("unknown").is_err());
     }
 
     #[test]
-    fn parse_priority_empty_string_falls_back_to_normal() {
-        assert_eq!(parse_priority(""), Priority::Normal);
+    fn parse_priority_empty_string_is_an_error() {
+        assert!(parse_priority("").is_err());
     }
 
     #[test]
-    fn parse_priority_whitespace_falls_back_to_normal() {
-        assert_eq!(parse_priority("  "), Priority::Normal);
+    fn parse_priority_whitespace_is_an_error() {
+        assert!(parse_priority("  ").is_err());
     }
 
     #[test]
-    fn parse_priority_partial_match_high_is_not_higher() {
+    fn parse_priority_partial_match_high_is_an_error() {
         // "higher" should not match "high"
-        assert_eq!(parse_priority("higher"), Priority::Normal);
+        assert!(parse_priority("higher").is_err());
     }
 
     #[test]
-    fn parse_priority_partial_match_crit_is_not_critical() {
-        assert_eq!(parse_priority("crit"), Priority::Normal);
+    fn parse_priority_partial_match_crit_is_an_error() {
+        assert!(parse_priority("crit").is_err());
     }
 
     #[test]
-    fn parse_priority_number_falls_back_to_normal() {
-        assert_eq!(parse_priority("42"), Priority::Normal);
+    fn parse_priority_number_is_an_error() {
+        assert!(parse_priority("42").is_err());
     }
 
     #[test]
-    fn parse_priority_medium_falls_back_to_normal() {
-        assert_eq!(parse_priority("medium"), Priority::Normal);
+    fn parse_priority_medium_is_an_error() {
+        assert!(parse_priority("medium").is_err());
     }
 
     #[test]

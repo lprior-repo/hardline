@@ -19,6 +19,21 @@ fn get_db_path() -> String {
     })
 }
 
+/// Ensure the parent directory of the database path exists, mirroring
+/// queue's `get_queue()`. Without this, opening a database under a
+/// missing directory fails (SQLite "unable to open database file")
+/// instead of listing an empty store.
+fn ensure_db_parent_dir(db_path: &str) -> Result<()> {
+    if let Some(parent) = std::path::Path::new(db_path).parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                scp_core::Error::io_error(format!("Failed to create database directory: {e}"))
+            })?;
+        }
+    }
+    Ok(())
+}
+
 /// Helper to run async code in a temporary runtime
 fn run_async<F, T>(f: F) -> Result<T>
 where
@@ -42,6 +57,7 @@ pub fn acquire_with_path(
     ttl: Option<u64>,
     db_path: &str,
 ) -> Result<()> {
+    ensure_db_parent_dir(db_path)?;
     run_async(async {
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
@@ -77,6 +93,7 @@ pub fn release(session: &str, agent: &str) -> Result<()> {
 
 /// Internal release with explicit path for testing
 pub fn release_with_path(session: &str, agent: &str, db_path: &str) -> Result<()> {
+    ensure_db_parent_dir(db_path)?;
     run_async(async {
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
@@ -104,6 +121,7 @@ pub fn heartbeat(session: &str, agent: &str) -> Result<()> {
 
 /// Internal heartbeat with explicit path for testing
 pub fn heartbeat_with_path(session: &str, agent: &str, db_path: &str) -> Result<()> {
+    ensure_db_parent_dir(db_path)?;
     run_async(async {
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
@@ -135,6 +153,7 @@ pub fn status(session: &str) -> Result<()> {
 
 /// Internal status with explicit path for testing
 pub fn status_with_path(session: &str, db_path: &str) -> Result<()> {
+    ensure_db_parent_dir(db_path)?;
     run_async(async {
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
@@ -195,6 +214,7 @@ pub fn list() -> Result<()> {
 
 /// Internal list with explicit path for testing
 pub fn list_with_path(db_path: &str) -> Result<()> {
+    ensure_db_parent_dir(db_path)?;
     run_async(async {
         let config = DatabaseConfig::new(db_path.to_string())?;
         let db_service = SqliteDatabaseService::new(config).await?;
