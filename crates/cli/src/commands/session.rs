@@ -122,15 +122,25 @@ pub fn submit(name: Option<&str>, auto_commit: bool, message: Option<&str>) -> R
         if auto_commit {
             if let Some(msg) = message {
                 let output = std::process::Command::new("git")
-                    .args(["commit", "-m", msg])
+                    .args(["commit", "-a", "-m", msg])
                     .current_dir(&cwd)
                     .output()
                     .map_err(|e| Error::io_error(e.to_string()))?;
                 if !output.status.success() {
-                    return Err(Error::vcs_conflict(
-                        "commit",
-                        String::from_utf8_lossy(&output.stderr).to_string(),
-                    ));
+                    // Git writes commit failure text (e.g. "nothing to
+                    // commit, working tree clean") to stdout, not stderr.
+                    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                    let detail = if !stderr.is_empty() {
+                        stderr
+                    } else {
+                        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                        if !stdout.is_empty() {
+                            stdout
+                        } else {
+                            "git commit failed".to_string()
+                        }
+                    };
+                    return Err(Error::vcs_conflict("commit", detail));
                 }
             } else {
                 return Err(Error::invalid_state(

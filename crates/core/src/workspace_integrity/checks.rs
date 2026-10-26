@@ -36,7 +36,109 @@ pub fn resolve_workspace_path(workspaces_root: &Path, workspace_name: &str) -> P
 }
 
 /// Validate the .git directory structure
+///
+/// A linked git worktree's `.git` is a file containing `gitdir: <path>`,
+/// not a directory. In that case the pointed-at gitdir is validated
+/// instead: HEAD lives in the gitdir itself, while objects/refs live in
+/// the common dir when the gitdir contains a `commondir` file (its
+/// contents, relative to the gitdir, point at the common dir), and in
+/// the gitdir itself otherwise. A real `.git` directory is validated
+/// exactly as before.
 async fn validate_git_directory(git_dir: &Path) -> std::result::Result<(), IntegrityIssue> {
+    // Linked worktree: `.git` is a pointer file, not a directory.
+    if let Ok(metadata) = tokio::fs::metadata(git_dir).await {
+        if metadata.is_file() {
+            return validate_linked_worktree_gitdir(git_dir).await;
+        }
+    }
+
+    validate_git_dir_contents(git_dir, git_dir).await
+}
+
+/// Resolve a linked-worktree `.git` pointer file and validate its gitdir.
+async fn validate_linked_worktree_gitdir(
+    git_file: &Path,
+) -> std::result::Result<(), IntegrityIssue> {
+    let contents = tokio::fs::read_to_string(git_file).await.map_err(|e| {
+        IntegrityIssue::new(
+            CorruptionType::PermissionDenied,
+            format!("Cannot read .git pointer file: {e}"),
+        )
+        .with_path(git_file)
+    })?;
+    let pointer = match contents.trim().strip_prefix("gitdir:") {
+        Some(rest) => rest.trim(),
+        None => {
+            return Err(IntegrityIssue::new(
+                CorruptionType::CorruptedGitDir,
+                "Git worktree pointer file is malformed (expected 'gitdir: <path>')",
+            )
+            .with_path(git_file));
+        }
+    };
+    if pointer.is_empty() {
+        return Err(IntegrityIssue::new(
+            CorruptionType::CorruptedGitDir,
+            "Git worktree pointer file is malformed (empty 'gitdir:' path)",
+        )
+        .with_path(git_file));
+    }
+    let pointer_path = Path::new(pointer);
+    let resolved_gitdir = if pointer_path.is_absolute() {
+        pointer_path.to_path_buf()
+    } else {
+        match git_file.parent() {
+            Some(worktree_root) => worktree_root.join(pointer_path),
+            None => {
+                return Err(IntegrityIssue::new(
+                    CorruptionType::CorruptedGitDir,
+                    "Git worktree pointer file has no parent directory to resolve its relative path against",
+                )
+                .with_path(git_file));
+            }
+        }
+    };
+
+    // objects/refs live in the common dir when a commondir file is present.
+    let commondir_path = resolved_gitdir.join("commondir");
+    let commondir_exists = match tokio::fs::try_exists(&commondir_path).await {
+        Ok(exists) => exists,
+        Err(_) => false,
+    };
+    let objects_refs_base = if commondir_exists {
+        let common_contents =
+            tokio::fs::read_to_string(&commondir_path)
+                .await
+                .map_err(|e| {
+                    IntegrityIssue::new(
+                        CorruptionType::PermissionDenied,
+                        format!("Cannot read commondir file: {e}"),
+                    )
+                    .with_path(&commondir_path)
+                })?;
+        let common_pointer = common_contents.trim();
+        if common_pointer.is_empty() {
+            resolved_gitdir.clone()
+        } else {
+            let common_path = Path::new(common_pointer);
+            if common_path.is_absolute() {
+                common_path.to_path_buf()
+            } else {
+                resolved_gitdir.join(common_path)
+            }
+        }
+    } else {
+        resolved_gitdir.clone()
+    };
+
+    validate_git_dir_contents(&resolved_gitdir, &objects_refs_base).await
+}
+
+/// Check HEAD in `git_dir` and objects/refs in `objects_refs_base`.
+async fn validate_git_dir_contents(
+    git_dir: &Path,
+    objects_refs_base: &Path,
+) -> std::result::Result<(), IntegrityIssue> {
     // Check for HEAD file (required for a valid Git repository)
     let head_path = git_dir.join("HEAD");
     let head_exists = tokio::fs::try_exists(&head_path).await.map_err(|e| {
@@ -55,7 +157,7 @@ async fn validate_git_directory(git_dir: &Path) -> std::result::Result<(), Integ
     }
 
     // Check for objects directory (required for a valid Git repository)
-    let objects_path = git_dir.join("objects");
+    let objects_path = objects_refs_base.join("objects");
     let objects_exists = tokio::fs::try_exists(&objects_path).await.map_err(|e| {
         IntegrityIssue::new(
             CorruptionType::PermissionDenied,
@@ -72,7 +174,7 @@ async fn validate_git_directory(git_dir: &Path) -> std::result::Result<(), Integ
     }
 
     // Check for refs directory (required for a valid Git repository)
-    let refs_path = git_dir.join("refs");
+    let refs_path = objects_refs_base.join("refs");
     let refs_exists = tokio::fs::try_exists(&refs_path).await.map_err(|e| {
         IntegrityIssue::new(
             CorruptionType::PermissionDenied,

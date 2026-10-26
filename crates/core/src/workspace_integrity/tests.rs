@@ -359,6 +359,138 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_integrity_validator_real_git_dir_still_passes() -> Result<()> {
+        let root = create_test_root()?;
+        let workspace_path = root.path().join("real-ws");
+        tokio::fs::create_dir_all(workspace_path.join(".git").join("objects")).await?;
+        tokio::fs::create_dir_all(workspace_path.join(".git").join("refs")).await?;
+        tokio::fs::write(
+            workspace_path.join(".git").join("HEAD"),
+            "ref: refs/heads/main\n",
+        )
+        .await?;
+
+        let validator = IntegrityValidator::new(root.path());
+        let result = validator.validate("real-ws").await?;
+
+        assert!(result.is_valid);
+        assert_eq!(result.issues.len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_integrity_validator_linked_worktree_passes() -> Result<()> {
+        // Fake linked-worktree layout, as git creates it:
+        //   linked-ws/.git is a file: "gitdir: <abs path to gitdir>"
+        //   gitdir holds HEAD + a commondir file pointing at the common dir
+        //   the common dir holds objects/refs (not the gitdir itself).
+        let root = create_test_root()?;
+        let workspace_path = root.path().join("linked-ws");
+        tokio::fs::create_dir(&workspace_path).await?;
+        let common_dir = root.path().join("repo-git");
+        let gitdir = common_dir.join("worktrees").join("linked-ws");
+        tokio::fs::create_dir_all(common_dir.join("objects")).await?;
+        tokio::fs::create_dir_all(common_dir.join("refs")).await?;
+        tokio::fs::create_dir_all(&gitdir).await?;
+        tokio::fs::write(gitdir.join("HEAD"), "ref: refs/heads/main\n").await?;
+        tokio::fs::write(gitdir.join("commondir"), "../..\n").await?;
+        tokio::fs::write(
+            workspace_path.join(".git"),
+            format!("gitdir: {}\n", gitdir.display()),
+        )
+        .await?;
+
+        let validator = IntegrityValidator::new(root.path());
+        let result = validator.validate("linked-ws").await?;
+
+        assert!(result.is_valid, "issues: {:?}", result.issues);
+        assert_eq!(result.issues.len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_integrity_validator_linked_worktree_relative_gitdir_passes() -> Result<()> {
+        // Same layout, but the .git file's gitdir pointer is relative to
+        // the worktree root, as the task requires it to be resolved.
+        let root = create_test_root()?;
+        let workspace_path = root.path().join("linked-rel");
+        tokio::fs::create_dir(&workspace_path).await?;
+        let common_dir = root.path().join("repo-git");
+        let gitdir = common_dir.join("worktrees").join("linked-rel");
+        tokio::fs::create_dir_all(common_dir.join("objects")).await?;
+        tokio::fs::create_dir_all(common_dir.join("refs")).await?;
+        tokio::fs::create_dir_all(&gitdir).await?;
+        tokio::fs::write(gitdir.join("HEAD"), "ref: refs/heads/main\n").await?;
+        tokio::fs::write(gitdir.join("commondir"), "../..\n").await?;
+        tokio::fs::write(
+            workspace_path.join(".git"),
+            "gitdir: ../repo-git/worktrees/linked-rel\n",
+        )
+        .await?;
+
+        let validator = IntegrityValidator::new(root.path());
+        let result = validator.validate("linked-rel").await?;
+
+        assert!(result.is_valid, "issues: {:?}", result.issues);
+        assert_eq!(result.issues.len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_integrity_validator_linked_worktree_without_commondir_passes() -> Result<()> {
+        // No commondir file: objects/refs are checked in the gitdir itself.
+        let root = create_test_root()?;
+        let workspace_path = root.path().join("linked-nocommon");
+        tokio::fs::create_dir(&workspace_path).await?;
+        let gitdir = root.path().join("standalone-gitdir");
+        tokio::fs::create_dir_all(gitdir.join("objects")).await?;
+        tokio::fs::create_dir_all(gitdir.join("refs")).await?;
+        tokio::fs::write(gitdir.join("HEAD"), "ref: refs/heads/main\n").await?;
+        tokio::fs::write(
+            workspace_path.join(".git"),
+            format!("gitdir: {}\n", gitdir.display()),
+        )
+        .await?;
+
+        let validator = IntegrityValidator::new(root.path());
+        let result = validator.validate("linked-nocommon").await?;
+
+        assert!(result.is_valid, "issues: {:?}", result.issues);
+        assert_eq!(result.issues.len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_integrity_validator_linked_worktree_missing_head_fails() -> Result<()> {
+        // Guards against a vacuous pass: a linked worktree whose gitdir
+        // lacks HEAD must still be reported as corrupted.
+        let root = create_test_root()?;
+        let workspace_path = root.path().join("linked-bad");
+        tokio::fs::create_dir(&workspace_path).await?;
+        let common_dir = root.path().join("repo-git");
+        let gitdir = common_dir.join("worktrees").join("linked-bad");
+        tokio::fs::create_dir_all(common_dir.join("objects")).await?;
+        tokio::fs::create_dir_all(common_dir.join("refs")).await?;
+        tokio::fs::create_dir_all(&gitdir).await?;
+        tokio::fs::write(gitdir.join("commondir"), "../..\n").await?;
+        tokio::fs::write(
+            workspace_path.join(".git"),
+            format!("gitdir: {}\n", gitdir.display()),
+        )
+        .await?;
+
+        let validator = IntegrityValidator::new(root.path());
+        let result = validator.validate("linked-bad").await?;
+
+        assert!(!result.is_valid);
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| i.corruption_type == CorruptionType::CorruptedGitDir));
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_integrity_validator_missing_git_dir() -> Result<()> {
         let root = create_test_root()?;
         let workspace_path = root.path().join("no-git");

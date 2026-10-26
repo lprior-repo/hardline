@@ -4,9 +4,47 @@ use std::process::Command;
 
 use scp_core::{output::Output, Error};
 
+/// Detail for a failed `git commit`.
+///
+/// Git writes failure text such as "nothing to commit, working tree clean"
+/// to stdout, not stderr, so stderr alone is often empty. Prefer stderr,
+/// fall back to stdout, and only then to a short generic sentence.
+fn git_commit_detail(output: &std::process::Output) -> String {
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !stderr.is_empty() {
+        return stderr;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !stdout.is_empty() {
+        return stdout;
+    }
+    "git commit failed".to_string()
+}
+
+/// Fail cleanly when the cwd is not inside a git work tree.
+///
+/// Without this guard, `git diff` outside a repo falls into --no-index
+/// mode and dumps ~200 lines of usage text to stderr, which callers
+/// would otherwise surface verbatim as the error.
+fn ensure_git_repo(cwd: &std::path::Path) -> Result<(), Error> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--git-dir"])
+        .current_dir(cwd)
+        .output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(Error::vcs_conflict(
+            "diff",
+            "not a git repository (or any of the parent directories)",
+        ))
+    }
+}
+
 /// Show diff
 pub fn diff(path: Option<&str>) -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
+    ensure_git_repo(&cwd)?;
 
     let mut cmd = super::operations::build_git_diff_command(&cwd, path);
     let output = cmd.output()?;
@@ -35,6 +73,7 @@ pub fn diff(path: Option<&str>) -> Result<(), Error> {
 /// Show uncommitted changes
 pub fn uncommitted() -> Result<(), Error> {
     let cwd = std::env::current_dir()?;
+    ensure_git_repo(&cwd)?;
 
     let output = Command::new("git")
         .args(["diff"])
@@ -68,8 +107,7 @@ pub fn commit(message: &str) -> Result<(), Error> {
         .output()?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::vcs_conflict("commit", stderr));
+        return Err(Error::vcs_conflict("commit", git_commit_detail(&output)));
     }
 
     if Output::json_output() {

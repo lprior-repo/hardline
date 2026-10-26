@@ -98,21 +98,14 @@ pub fn run_branch_delete(options: &BranchDeleteOptions) -> Result<()> {
         .output()?;
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    if !output.status.success() {
+    if output.status.success() {
         if Output::json_output() {
-            // The git stderr text is never printed on this path (the
-            // success line discards it, the info line only runs when it
-            // is empty), so there is nothing to fold in; emit the same
-            // JSON shape on both human sub-branches.
             Output::json(&serde_json::json!({
                 "branch": options.name,
                 "result": "deleted",
             }));
-        } else if !stderr.is_empty() {
-            Output::success(&format!("Deleted branch '{}'", options.name));
         } else {
-            // Git returned non-zero but with info in stderr
-            Output::info(&stderr);
+            Output::success(&format!("Deleted branch '{}'", options.name));
         }
         Ok(())
     } else {

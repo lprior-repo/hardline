@@ -35,6 +35,13 @@ pub fn run_integrity(subcommand: &IntegritySubcommand) -> Result<()> {
                 ));
                 if response.issue_count > 0 {
                     Output::info(&format!("  Issues found: {}", response.issue_count));
+                    for issue in &response.validation.issues {
+                        let mut line = format!("  - {}", issue.description);
+                        if let Some(path) = &issue.affected_path {
+                            line.push_str(&format!(" ({})", path.display()));
+                        }
+                        Output::info(&line);
+                    }
                 }
             }
             Ok(())
