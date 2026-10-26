@@ -25,19 +25,25 @@ pub fn run_integrity(subcommand: &IntegritySubcommand) -> Result<()> {
     match subcommand {
         IntegritySubcommand::Validate { workspace } => {
             let response = run_validate(workspace)?;
-            Output::info(&format!(
-                "Workspace '{}' validation: {}",
-                response.workspace,
-                if response.is_valid { "PASS" } else { "FAIL" }
-            ));
-            if response.issue_count > 0 {
-                Output::info(&format!("  Issues found: {}", response.issue_count));
+            if Output::json_output() {
+                Output::json(&response);
+            } else {
+                Output::info(&format!(
+                    "Workspace '{}' validation: {}",
+                    response.workspace,
+                    if response.is_valid { "PASS" } else { "FAIL" }
+                ));
+                if response.issue_count > 0 {
+                    Output::info(&format!("  Issues found: {}", response.issue_count));
+                }
             }
             Ok(())
         }
         IntegritySubcommand::Repair { workspace, force } => {
             let response = run_repair(workspace, *force)?;
-            if response.success {
+            if Output::json_output() {
+                Output::json(&response);
+            } else if response.success {
                 Output::success(&format!(
                     "Workspace '{}' repaired: {}",
                     response.workspace, response.summary
@@ -52,16 +58,24 @@ pub fn run_integrity(subcommand: &IntegritySubcommand) -> Result<()> {
         }
         IntegritySubcommand::BackupList => {
             let response = run_backup_list()?;
-            Output::info(&format!("Backups available: {}", response.count));
+            if Output::json_output() {
+                Output::json(&response);
+            } else {
+                Output::info(&format!("Backups available: {}", response.count));
+            }
             Ok(())
         }
         IntegritySubcommand::BackupRestore { backup_id, force } => {
             let response = run_backup_restore(backup_id, *force)?;
             if response.success {
-                Output::success(&format!(
-                    "Workspace '{}' restored from backup '{}': {}",
-                    response.workspace, response.backup_id, response.summary
-                ));
+                if Output::json_output() {
+                    Output::json(&response);
+                } else {
+                    Output::success(&format!(
+                        "Workspace '{}' restored from backup '{}': {}",
+                        response.workspace, response.backup_id, response.summary
+                    ));
+                }
             } else {
                 return Err(Error::invalid_state(format!(
                     "Restore failed: {}",
@@ -95,7 +109,7 @@ fn run_validate(workspace: &str) -> Result<ValidationResponse> {
 
 /// Repair a corrupted workspace.
 fn run_repair(workspace: &str, force: bool) -> Result<RepairResponse> {
-    if !force {
+    if !force && !Output::json_output() {
         Output::info(&format!(
             "Repairing workspace '{}' (use --force to skip confirmation)",
             workspace
@@ -130,7 +144,7 @@ fn run_backup_list() -> Result<BackupListResponse> {
 
 /// Restore from a backup.
 fn run_backup_restore(backup_id: &str, force: bool) -> Result<RestoreResponse> {
-    if !force {
+    if !force && !Output::json_output() {
         Output::info(&format!(
             "Restoring backup '{}' (use --force to skip confirmation)",
             backup_id

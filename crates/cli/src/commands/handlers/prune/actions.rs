@@ -22,9 +22,13 @@ pub fn run_prune(options: &PruneOptions) -> Result<PruneOutput> {
     let stale = discover_stale_workspaces()?;
 
     match options.mode {
-        PruneMode::DryRun => Ok(PruneOutput::dry_run(
-            stale.into_iter().map(|i| i.name).collect(),
-        )),
+        PruneMode::DryRun => {
+            let output = PruneOutput::dry_run(stale.into_iter().map(|i| i.name).collect());
+            if Output::json_output() {
+                Output::json(&output);
+            }
+            Ok(output)
+        }
         PruneMode::Confirm => prune_confirmed(stale),
         PruneMode::Interactive => prune_interactive(stale),
     }
@@ -122,21 +126,37 @@ fn prune_confirmed(items: Vec<PrunableItem>) -> Result<PruneOutput> {
         }
     }
 
-    Ok(PruneOutput::completed(names, removed))
+    let output = PruneOutput::completed(names, removed);
+    if Output::json_output() {
+        Output::json(&output);
+    }
+    Ok(output)
 }
 
 /// Remove stale workspaces interactively, prompting for each.
+///
+/// In JSON mode the listing and per-item success prose are suppressed and a
+/// single `PruneOutput` object is emitted at the end; the [y/N] prompts
+/// themselves stay on stdout (they are the interactive input channel), so
+/// interactive+JSON is not machine-parseable by design — dry-run and confirm
+/// are the parseable modes. Failure warnings go to stderr in all modes.
 fn prune_interactive(items: Vec<PrunableItem>) -> Result<PruneOutput> {
     if items.is_empty() {
-        Output::info("No stale workspaces found");
+        if Output::json_output() {
+            Output::json(&PruneOutput::empty());
+        } else {
+            Output::info("No stale workspaces found");
+        }
         return Ok(PruneOutput::empty());
     }
 
-    Output::info(&format!("Found {} stale workspace(s):", items.len()));
-    for (i, item) in items.iter().enumerate() {
-        println!("  [{}] {} ({})", i + 1, item.name, item.workspace_path);
+    if !Output::json_output() {
+        Output::info(&format!("Found {} stale workspace(s):", items.len()));
+        for (i, item) in items.iter().enumerate() {
+            println!("  [{}] {} ({})", i + 1, item.name, item.workspace_path);
+        }
+        println!();
     }
-    println!();
 
     let names: Vec<String> = items.iter().map(|i| i.name.clone()).collect();
     let mut removed = 0;
@@ -146,14 +166,20 @@ fn prune_interactive(items: Vec<PrunableItem>) -> Result<PruneOutput> {
             match remove_workspace(item) {
                 Ok(()) => {
                     removed += 1;
-                    Output::success(&format!("Removed '{}'", item.name));
+                    if !Output::json_output() {
+                        Output::success(&format!("Removed '{}'", item.name));
+                    }
                 }
                 Err(e) => Output::warn(&format!("Failed to remove '{}': {e}", item.name)),
             }
         }
     }
 
-    Ok(PruneOutput::completed(names, removed))
+    let output = PruneOutput::completed(names, removed);
+    if Output::json_output() {
+        Output::json(&output);
+    }
+    Ok(output)
 }
 
 /// Prompt the user with a yes/no question, returning the answer.

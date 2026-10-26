@@ -17,29 +17,44 @@ use super::data::{
 pub fn run_validate(options: &ValidateOptions) -> Result<()> {
     let output = validate_command(&options.command, &options.args);
 
-    if options.dry_run {
+    // JSON mode covers the invalid report too: the report is the command's
+    // stdout payload, and the returned Err / exit code below are unchanged.
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "valid": output.valid,
+            "command": &output.command,
+            "args": &output.args,
+            "errors": &output.errors,
+            "warnings": &output.warnings,
+            "suggestions": &output.suggestions,
+            "dry_run": options.dry_run,
+        }));
+    } else if options.dry_run {
         Output::info("[dry-run] Validation preview:");
     }
 
-    if output.valid {
-        Output::success(&format!("All inputs valid for '{}'", output.command));
-    } else {
-        Output::info(&format!("Validation failed for '{}'", output.command));
-        for arg in &output.args {
-            if arg.valid {
-                Output::info(&format!("  {}: {}", arg.name, arg.value));
-            } else {
-                Output::info(&format!("  {}: {} (INVALID)", arg.name, arg.value));
-                if let Some(err) = &arg.error {
-                    Output::info(&format!("    Error: {err}"));
-                }
-                if let Some(sugg) = &arg.suggestion {
-                    Output::info(&format!("    Suggestion: {sugg}"));
+    // Human prose only; JSON mode emitted the object above.
+    if !Output::json_output() {
+        if output.valid {
+            Output::success(&format!("All inputs valid for '{}'", output.command));
+        } else {
+            Output::info(&format!("Validation failed for '{}'", output.command));
+            for arg in &output.args {
+                if arg.valid {
+                    Output::info(&format!("  {}: {}", arg.name, arg.value));
+                } else {
+                    Output::info(&format!("  {}: {} (INVALID)", arg.name, arg.value));
+                    if let Some(err) = &arg.error {
+                        Output::info(&format!("    Error: {err}"));
+                    }
+                    if let Some(sugg) = &arg.suggestion {
+                        Output::info(&format!("    Suggestion: {sugg}"));
+                    }
                 }
             }
-        }
-        for err in &output.errors {
-            Output::info(&format!("  Error: {err}"));
+            for err in &output.errors {
+                Output::info(&format!("  Error: {err}"));
+            }
         }
     }
 

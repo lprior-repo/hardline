@@ -31,10 +31,18 @@ pub fn run_introspect(options: &IntrospectOptions) -> Result<()> {
                     "Unknown command '{command_name}'. Use 'scp introspect' to list all commands."
                 ))
             })?;
-            print_command_detail(&cmd);
+            if Output::json_output() {
+                Output::json(&cmd);
+            } else {
+                print_command_detail(&cmd);
+            }
         }
         IntrospectTarget::All => {
-            print_all_commands();
+            if Output::json_output() {
+                Output::json(&known_commands());
+            } else {
+                print_all_commands();
+            }
         }
     }
     Ok(())

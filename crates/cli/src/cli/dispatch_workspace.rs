@@ -120,7 +120,7 @@ fn handle_recover(
         verbose,
     };
     let output = commands::handlers::recover::run_recover(&options)?;
-    if verbose {
+    if verbose && !Output::json_output() {
         Output::info(&format!("Status: {}", output.status));
         Output::info(&format!(
             "Fixed: {}, Remaining: {}",
@@ -137,6 +137,9 @@ fn handle_rollback(session: String, commit: String, dry_run: bool) -> Result<()>
         dry_run,
     };
     let output = commands::handlers::recover::run_rollback(&options)?;
+    if Output::json_output() {
+        return Ok(());
+    }
     if output.succeeded {
         Output::success(&output.message);
     } else {
@@ -169,7 +172,7 @@ fn handle_clean(dry_run: bool, force: bool, verbose: bool) -> Result<()> {
         verbose,
     };
     let output = commands::handlers::clean::run_clean(&options)?;
-    if verbose {
+    if verbose && !Output::json_output() {
         Output::info(&format!(
             "Removed {} of {} stale items",
             output.removed_count, output.stale_count
@@ -285,7 +288,7 @@ fn handle_checkpoint(command: &crate::cli::workspace_args::CheckpointCommands) -
 fn handle_prune(yes: bool, dry_run: bool) -> Result<()> {
     let options = commands::handlers::prune::PruneOptions::from_cli(yes, dry_run);
     let output = commands::handlers::prune::run_prune(&options)?;
-    if dry_run {
+    if dry_run && !Output::json_output() {
         Output::info(&format!(
             "Would prune {} invalid items",
             output.invalid_count

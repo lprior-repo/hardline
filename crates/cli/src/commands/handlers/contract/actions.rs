@@ -23,9 +23,17 @@ pub fn run_contract(options: &ContractOptions) -> Result<()> {
                     Error::not_found(format!("No contract found for command '{command_name}'"))
                 })?;
 
-            display_single_contract(contract);
+            if Output::json_output() {
+                Output::json(contract);
+            } else {
+                display_single_contract(contract);
+            }
         }
         None => {
+            if Output::json_output() {
+                Output::json(&contracts);
+                return Ok(());
+            }
             Output::info(&format!("Available contracts ({}):", contracts.len()));
             for contract in &contracts {
                 Output::info(&format!("  {} - {}", contract.name, contract.description));

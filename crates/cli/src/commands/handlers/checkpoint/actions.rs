@@ -331,6 +331,10 @@ fn run_list_with_db(db_path: &Path) -> Result<CheckpointOutput> {
 
 /// Output a checkpoint result to the user.
 fn output_checkpoint(output: &CheckpointOutput) {
+    if scp_core::output::Output::json_output() {
+        scp_core::output::Output::json(output);
+        return;
+    }
     match output {
         CheckpointOutput::Created {
             checkpoint_id,

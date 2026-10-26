@@ -143,13 +143,14 @@ fn run_session_exists_with_db(options: &QueryOptions, db_path: &Path) -> Result<
         }),
     };
 
-    if exists {
+    if Output::json_output() {
+        Output::json(&output);
+    } else if exists {
         Output::success(&format!("Session '{name}' exists"));
     } else {
         Output::info(&format!("Session '{name}' does not exist"));
     }
 
-    let _ = output; // Available for JSON output when needed
     Ok(())
 }
 
@@ -159,16 +160,29 @@ fn run_sessions_with_db(options: &QueryOptions, db_path: &Path) -> Result<()> {
         .map(to_session_info)
         .collect();
 
-    Output::info("Sessions query:");
-
     let mut filtered: Vec<&SessionInfo> = sessions.iter().collect();
     if let Some(status) = &options.status_filter {
-        Output::info(&format!("  Filter: status={status}"));
         filtered.retain(|s| s.status.as_str() == status);
     }
     if let Some(agent) = &options.agent_filter {
-        Output::info(&format!("  Filter: agent={agent}"));
         filtered.retain(|s| s.agent.as_deref() == Some(agent));
+    }
+
+    if Output::json_output() {
+        Output::json(&QueryOutput {
+            success: true,
+            query_type: "sessions".to_string(),
+            data: serde_json::json!(filtered),
+        });
+        return Ok(());
+    }
+
+    Output::info("Sessions query:");
+    if let Some(status) = &options.status_filter {
+        Output::info(&format!("  Filter: status={status}"));
+    }
+    if let Some(agent) = &options.agent_filter {
+        Output::info(&format!("  Filter: agent={agent}"));
     }
 
     if filtered.is_empty() {
@@ -199,6 +213,14 @@ fn run_session_info_with_db(options: &QueryOptions, db_path: &Path) -> Result<()
         Some(info) => info,
         None => return Err(Error::not_found(format!("Session not found: {name}"))),
     };
+    if Output::json_output() {
+        Output::json(&QueryOutput {
+            success: true,
+            query_type: "session-info".to_string(),
+            data: serde_json::json!(info),
+        });
+        return Ok(());
+    }
     Output::info(&format!("Session info for '{}':", info.name));
     Output::info(&format!("  Status: {}", info.status.as_str()));
     if let Some(workspace) = &info.workspace_path {
@@ -217,6 +239,14 @@ fn run_blockers_with_db(db_path: &Path) -> Result<()> {
         .filter(|s| s.status == SessionStatus::Aborted)
         .collect();
 
+    if Output::json_output() {
+        Output::json(&QueryOutput {
+            success: true,
+            query_type: "blockers".to_string(),
+            data: serde_json::json!(blockers),
+        });
+        return Ok(());
+    }
     Output::info("Blockers query:");
     if blockers.is_empty() {
         Output::info("  No blockers found");
@@ -231,11 +261,30 @@ fn run_blockers_with_db(db_path: &Path) -> Result<()> {
 fn run_session_count_with_db(db_path: &Path) -> Result<()> {
     let count = load_rows(db_path)?.len();
 
+    if Output::json_output() {
+        Output::json(&QueryOutput {
+            success: true,
+            query_type: "session-count".to_string(),
+            data: serde_json::json!({ "count": count }),
+        });
+        return Ok(());
+    }
     Output::info(&format!("Session count: {count}"));
     Ok(())
 }
 
 fn run_help() -> Result<()> {
+    if Output::json_output() {
+        Output::json(&QueryOutput {
+            success: true,
+            query_type: "help".to_string(),
+            data: serde_json::json!({
+                "query_types": QueryType::all_names(),
+                "usage": "scp query <type> [argument] [options]",
+            }),
+        });
+        return Ok(());
+    }
     Output::info("Available query types:");
     for name in QueryType::all_names() {
         Output::info(&format!("  {name}"));

@@ -158,6 +158,10 @@ fn build_output(
 
 /// Print success output.
 fn print_success(output: &WaitOutput) {
+    if Output::json_output() {
+        Output::json(output);
+        return;
+    }
     Output::info(&format!("Condition met: {}", output.condition));
     if let Some(ref state) = output.final_state {
         Output::info(&format!("Final state: {state}"));
@@ -166,6 +170,10 @@ fn print_success(output: &WaitOutput) {
 
 /// Print timeout output.
 fn print_timeout(output: &WaitOutput) {
+    if Output::json_output() {
+        Output::json(output);
+        return;
+    }
     Output::info(&format!(
         "Timeout: {} not met after {}ms",
         output.condition, output.elapsed_ms

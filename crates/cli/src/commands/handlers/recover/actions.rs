@@ -11,7 +11,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use scp_core::{vcs, Error, Result};
+use scp_core::{output::Output, vcs, Error, Result};
 
 use super::data::{
     compute_status, count_fixed, count_remaining, Issue, RecoverOptions, RecoverOutput,
@@ -58,12 +58,20 @@ pub fn run_recover(options: &RecoverOptions) -> Result<RecoverOutput> {
     let remaining_count = count_remaining(&issues);
     let status = compute_status(&issues);
 
-    Ok(RecoverOutput {
+    let output = RecoverOutput {
         issues,
         fixed_count,
         remaining_count,
         status,
-    })
+    };
+    // The recover action prints nothing itself; under the global `-f json`
+    // flag this is the command's single JSON object. The human path stays
+    // silent here (callers print their own summaries), so this changes
+    // stdout only in JSON mode.
+    if Output::json_output() {
+        Output::json(&output);
+    }
+    Ok(output)
 }
 
 /// Execute the rollback command with the given options.
@@ -83,12 +91,10 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<RollbackOutput> {
     let workspace_path = resolve_and_validate_workspace(&cwd, backend.as_ref(), &options.session)?;
 
     let verify_result = verify_commit_in_workspace(&executor, &options.commit, &workspace_path)?;
-    if let Some(output) = verify_result {
-        return Ok(output);
-    }
-
-    if options.dry_run {
-        return Ok(RollbackOutput {
+    let output = if let Some(output) = verify_result {
+        output
+    } else if options.dry_run {
+        RollbackOutput {
             session: options.session.clone(),
             commit: options.commit.clone(),
             dry_run: true,
@@ -97,10 +103,17 @@ pub fn run_rollback(options: &RollbackOptions) -> Result<RollbackOutput> {
                 "Would roll back session '{}' to commit '{}'",
                 options.session, options.commit
             ),
-        });
+        }
+    } else {
+        execute_rollback(&executor, &options.commit, &workspace_path, options)?
+    };
+    // Same single-object rule as run_recover: the Ok result (including a
+    // succeeded=false result) is the JSON object in JSON mode. Error
+    // returns still propagate untouched, as before.
+    if Output::json_output() {
+        Output::json(&output);
     }
-
-    execute_rollback(&executor, &options.commit, &workspace_path, options)
+    Ok(output)
 }
 
 /// Resolve workspace path and verify it exists.

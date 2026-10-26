@@ -46,7 +46,12 @@ fn run_follow(options: &EventsOptions) -> Result<()> {
     let output = load_events_output(options, limit)?;
 
     print_events(&output);
-    Output::info("Following events... (streaming requires async runtime)");
+    // In JSON mode the single EventsOutput object above is the whole stdout
+    // payload; the streaming note is human chatter and would break parsing.
+    // (Follow is not a true stream here: it prints one current batch.)
+    if !Output::json_output() {
+        Output::info("Following events... (streaming requires async runtime)");
+    }
     Ok(())
 }
 
@@ -148,7 +153,16 @@ fn resolve_events_file_path() -> Result<std::path::PathBuf> {
 }
 
 /// Print events to stdout using the Output facade.
+///
+/// In JSON mode, emits the single `EventsOutput` object (one JSON document
+/// for list and follow alike: follow prints one current batch, not a true
+/// stream, so no JSON-lines form is needed).
 fn print_events(output: &EventsOutput) {
+    if Output::json_output() {
+        Output::json(output);
+        return;
+    }
+
     if output.events.is_empty() {
         Output::info("No events found.");
         return;

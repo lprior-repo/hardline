@@ -25,20 +25,41 @@ pub fn run_clean(options: &CleanOptions) -> Result<CleanOutput> {
     let stale_sessions = detect_stale_worktrees(&worktree_entries);
 
     if stale_sessions.is_empty() {
-        Output::success("No stale sessions found");
-        Output::info("  All sessions have valid workspaces");
-        return Ok(CleanOutput::no_stale());
+        let output = CleanOutput::no_stale();
+        if Output::json_output() {
+            Output::json(&output);
+        } else {
+            Output::success("No stale sessions found");
+            Output::info("  All sessions have valid workspaces");
+        }
+        return Ok(output);
     }
 
     if options.dry_run {
-        report_dry_run(&stale_sessions);
-        return Ok(CleanOutput::dry_run(stale_sessions));
+        let output = CleanOutput::dry_run(stale_sessions);
+        if Output::json_output() {
+            Output::json(&output);
+        } else {
+            report_dry_run(&output.stale_sessions);
+        }
+        return Ok(output);
     }
 
-    report_verbose_stale(options.verbose, &stale_sessions);
+    if !Output::json_output() {
+        report_verbose_stale(options.verbose, &stale_sessions);
+    }
     let removed_count = execute_prune()?;
-    report_results(removed_count, options.verbose, &stale_sessions);
-    Ok(CleanOutput::cleaned(removed_count, stale_sessions))
+    let output = CleanOutput::cleaned(removed_count, stale_sessions);
+    if Output::json_output() {
+        Output::json(&output);
+    } else {
+        report_results(
+            output.removed_count,
+            options.verbose,
+            &output.stale_sessions,
+        );
+    }
+    Ok(output)
 }
 
 /// Filter worktree entries to find those whose directories no longer exist.

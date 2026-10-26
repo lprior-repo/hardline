@@ -42,31 +42,38 @@ fn run_create(name: &str, push: bool) -> Result<BookmarkOutput> {
         push_bookmark(name)?;
     }
 
-    Output::success(&format!(
-        "Created bookmark '{}' at revision {}",
-        name, revision
-    ));
-    if push {
-        Output::info("Pushed to remote");
-    }
-
-    Ok(BookmarkOutput::Create(BookmarkCreateOutput {
+    let output = BookmarkCreateOutput {
         name: name.to_string(),
         revision,
         pushed: push,
-    }))
+    };
+    if Output::json_output() {
+        Output::json(&output);
+    } else {
+        Output::success(&format!(
+            "Created bookmark '{}' at revision {}",
+            output.name, output.revision
+        ));
+        if push {
+            Output::info("Pushed to remote");
+        }
+    }
+
+    Ok(BookmarkOutput::Create(output))
 }
 
 /// List bookmarks.
 fn run_list(show_all: bool) -> Result<BookmarkOutput> {
     let bookmarks = list_bookmarks(show_all)?;
-    format_bookmark_list(&bookmarks);
 
     let count = bookmarks.len();
-    Ok(BookmarkOutput::List(BookmarkListOutput {
-        bookmarks,
-        count,
-    }))
+    let output = BookmarkListOutput { bookmarks, count };
+    if Output::json_output() {
+        Output::json(&output);
+    } else {
+        format_bookmark_list(&output.bookmarks);
+    }
+    Ok(BookmarkOutput::List(output))
 }
 
 /// Delete a bookmark.
@@ -80,11 +87,16 @@ fn run_delete(name: &str) -> Result<BookmarkOutput> {
 
     delete_bookmark(name)?;
 
-    Output::success(&format!("Deleted bookmark '{}'", name));
-
-    Ok(BookmarkOutput::Delete(BookmarkDeleteOutput {
+    let output = BookmarkDeleteOutput {
         name: name.to_string(),
-    }))
+    };
+    if Output::json_output() {
+        Output::json(&output);
+    } else {
+        Output::success(&format!("Deleted bookmark '{}'", output.name));
+    }
+
+    Ok(BookmarkOutput::Delete(output))
 }
 
 /// Track a remote bookmark (set upstream).
@@ -95,15 +107,20 @@ fn run_track(name: &str, remote: Option<&str>) -> Result<BookmarkOutput> {
 
     set_upstream(name, remote_name)?;
 
-    Output::success(&format!(
-        "Bookmark '{}' now tracking '{}/{}'",
-        name, remote_name, name
-    ));
-
-    Ok(BookmarkOutput::Track(BookmarkTrackOutput {
+    let output = BookmarkTrackOutput {
         name: name.to_string(),
         remote: remote_name.to_string(),
-    }))
+    };
+    if Output::json_output() {
+        Output::json(&output);
+    } else {
+        Output::success(&format!(
+            "Bookmark '{}' now tracking '{}/{}'",
+            output.name, output.remote, output.name
+        ));
+    }
+
+    Ok(BookmarkOutput::Track(output))
 }
 
 // ============================================================================

@@ -54,12 +54,21 @@ fn run_execute(is_dry_run: bool) -> Result<UndoOutput> {
 
 /// Build dry-run output and print a preview.
 fn format_dry_run_output(entry: &UndoEntry) -> Result<UndoOutput> {
-    Output::info(&format!(
-        "Dry-run: would undo session '{}'",
-        entry.session_name
-    ));
-    Output::info(&format!("  Commit to undo: {}", entry.commit_id));
-    Output::info(&format!("  Would reset to: {}", entry.pre_merge_commit_id));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "session_name": entry.session_name,
+            "commit_id": entry.commit_id,
+            "pre_merge_commit_id": entry.pre_merge_commit_id,
+            "dry_run": true,
+        }));
+    } else {
+        Output::info(&format!(
+            "Dry-run: would undo session '{}'",
+            entry.session_name
+        ));
+        Output::info(&format!("  Commit to undo: {}", entry.commit_id));
+        Output::info(&format!("  Would reset to: {}", entry.pre_merge_commit_id));
+    }
 
     Ok(UndoOutput {
         session_name: entry.session_name.clone(),
@@ -71,14 +80,23 @@ fn format_dry_run_output(entry: &UndoEntry) -> Result<UndoOutput> {
 
 /// Print confirmation output after a successful undo.
 fn format_undo_output(entry: &UndoEntry) -> Result<UndoOutput> {
-    Output::success(&format!(
-        "Undone merge from session '{}'",
-        entry.session_name
-    ));
-    Output::info(&format!("  Reset to commit: {}", entry.pre_merge_commit_id));
-    Output::info("NEXT: Verify changes and re-commit if needed:");
-    Output::info("  git status");
-    Output::info(&format!("  git commit -m 'Revert: {}'", entry.session_name));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "session_name": entry.session_name,
+            "commit_id": entry.commit_id,
+            "pre_merge_commit_id": entry.pre_merge_commit_id,
+            "dry_run": false,
+        }));
+    } else {
+        Output::success(&format!(
+            "Undone merge from session '{}'",
+            entry.session_name
+        ));
+        Output::info(&format!("  Reset to commit: {}", entry.pre_merge_commit_id));
+        Output::info("NEXT: Verify changes and re-commit if needed:");
+        Output::info("  git status");
+        Output::info(&format!("  git commit -m 'Revert: {}'", entry.session_name));
+    }
 
     Ok(UndoOutput {
         session_name: entry.session_name.clone(),
@@ -97,7 +115,15 @@ fn run_list() -> Result<UndoOutput> {
     let history = read_undo_history()?;
 
     if history.is_empty() {
-        Output::info("No undo history available.");
+        if Output::json_output() {
+            Output::json(&UndoHistoryOutput {
+                total: 0,
+                can_undo: false,
+                entries: Vec::new(),
+            });
+        } else {
+            Output::info("No undo history available.");
+        }
         return Ok(UndoOutput::default());
     }
 
@@ -111,7 +137,11 @@ fn run_list() -> Result<UndoOutput> {
         entries: display_entries,
     };
 
-    print_history(&history_output);
+    if Output::json_output() {
+        Output::json(&history_output);
+    } else {
+        print_history(&history_output);
+    }
 
     Ok(UndoOutput::default())
 }

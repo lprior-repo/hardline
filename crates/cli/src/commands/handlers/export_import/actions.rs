@@ -56,13 +56,26 @@ pub fn run_export(options: &ExportOptions) -> Result<()> {
         Some(output_path) => {
             std::fs::write(output_path, &json_output)
                 .map_err(|e| Error::io_error(format!("Failed to write export file: {e}")))?;
-            Output::success(&format!(
-                "Exported {} workspace(s) to {}",
-                result.count, output_path
-            ));
+            if Output::json_output() {
+                Output::json(&serde_json::json!({
+                    "exported": result.count,
+                    "output": output_path,
+                }));
+            } else {
+                Output::success(&format!(
+                    "Exported {} workspace(s) to {}",
+                    result.count, output_path
+                ));
+            }
         }
         None => {
-            println!("{json_output}");
+            // Stdout export is already a single JSON document in both modes;
+            // JSON mode routes it through Output::json so --quiet is honored.
+            if Output::json_output() {
+                Output::json(&result);
+            } else {
+                println!("{json_output}");
+            }
         }
     }
 
@@ -107,10 +120,17 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
     // Dry-run mode: report what would happen
     if options.dry_run {
         let to_import = count_importable(&export_data, &existing_names, options.skip_existing);
-        Output::info(&format!(
-            "[dry-run] Would import {} workspace(s) from file",
-            to_import
-        ));
+        if Output::json_output() {
+            Output::json(&serde_json::json!({
+                "dry_run": true,
+                "would_import": to_import,
+            }));
+        } else {
+            Output::info(&format!(
+                "[dry-run] Would import {} workspace(s) from file",
+                to_import
+            ));
+        }
         return Ok(());
     }
 
@@ -194,7 +214,20 @@ fn handle_existing_session(ws_name: &str, options: &ImportOptions, result: &mut 
 }
 
 /// Report the final import result to the user.
+///
+/// In JSON mode stdout carries the single `ImportResult` object; per-error
+/// lines stay on stderr exactly as before (they never touch stdout parsing).
 fn report_import_result(result: &ImportResult) {
+    if Output::json_output() {
+        Output::json(result);
+        if !result.success {
+            for err in &result.errors {
+                Output::error(err);
+            }
+        }
+        return;
+    }
+
     if result.success {
         Output::success(&format!(
             "Import complete: {} imported, {} skipped, {} overwritten",

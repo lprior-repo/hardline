@@ -27,6 +27,10 @@ pub fn run_can_i(options: &CanIOptions) -> Result<()> {
 
 /// Display the permission check result to the user.
 fn display_result(output: &CanIOutput) {
+    if Output::json_output() {
+        Output::json(output);
+        return;
+    }
     if output.permitted {
         Output::success(&format!("Yes, you can: {}", output.action));
     } else {
