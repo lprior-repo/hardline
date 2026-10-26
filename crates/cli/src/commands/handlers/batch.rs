@@ -61,9 +61,32 @@ impl BatchCommand {
         cmd.args(&self.args);
         cmd.current_dir(cwd);
 
-        let output = cmd
-            .output()
-            .map_err(|e| Error::io_error(format!("Failed to execute {}: {}", self.name, e)))?;
+        // A batch naming this tool itself (`hd status`) must work even
+        // when `hd` is not on PATH: only on a spawn NotFound for the
+        // tool's own current/former names, retry via this executable.
+        // Anything actually on PATH is never shadowed — the fallback
+        // runs only after the plain spawn failed.
+        let output = match cmd.output() {
+            Ok(output) => output,
+            Err(e)
+                if e.kind() == std::io::ErrorKind::NotFound
+                    && (self.name == "hd" || self.name == "scp") =>
+            {
+                let exe = std::env::current_exe()
+                    .map_err(|e| Error::io_error(format!("Failed to execute {}: {}", self.name, e)))?;
+                Command::new(exe)
+                    .args(&self.args)
+                    .current_dir(cwd)
+                    .output()
+                    .map_err(|e| Error::io_error(format!("Failed to execute {}: {}", self.name, e)))?
+            }
+            Err(e) => {
+                return Err(Error::io_error(format!(
+                    "Failed to execute {}: {}",
+                    self.name, e
+                )));
+            }
+        };
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -418,13 +441,22 @@ pub async fn run_batch(workspace: Option<String>, commands: Vec<String>) -> Resu
         Error::invalid_identifier(format!("workspace name '{workspace_name}' is invalid: {e}"))
     })?;
 
-    // Parse all command strings into BatchCommands
-    let batch_commands: Result<Vec<BatchCommand>> = commands
-        .iter()
-        .map(|cmd_str| BatchCommand::parse(cmd_str))
-        .collect();
-
-    let batch_commands = batch_commands?;
+    // The trailing_var_arg tail is ONE command's argv, not one command
+    // per word: the shell already tokenized it, so re-splitting would
+    // lose grouping (`batch run echo "hello world"` must keep its one
+    // argument). A single string is still shell-words parsed, so the
+    // quoted form (`batch run 'echo hi'`) keeps working identically.
+    // Multiple commands are not expressible as bare positionals — the
+    // old per-word reading executed each word as a bare binary, so a
+    // normal command with arguments could never run through batch.
+    let batch_commands: Vec<BatchCommand> = if commands.len() == 1 {
+        vec![BatchCommand::parse(&commands[0])?]
+    } else {
+        vec![BatchCommand {
+            name: commands[0].clone(),
+            args: commands[1..].to_vec(),
+        }]
+    };
 
     // Progress chatter is suppressed in JSON mode so the success path
     // emits a single JSON document; failure paths report via the error
@@ -471,6 +503,12 @@ fn report_batch_result(result: &BatchResult) -> Result<()> {
             for (i, cmd_result) in results.iter().enumerate() {
                 if cmd_result.success {
                     Output::info(&format!("  [{}] {}: OK", i, cmd_result.command.name));
+                    // A batch that swallows a command's output hides
+                    // whether its arguments ran at all (`echo hi` must
+                    // show `hi`); print the captured stdout verbatim.
+                    if !cmd_result.stdout.trim().is_empty() {
+                        Output::info(cmd_result.stdout.trim_end());
+                    }
                 } else {
                     Output::info(&format!(
                         "  [{}] {}: FAILED (exit {})",

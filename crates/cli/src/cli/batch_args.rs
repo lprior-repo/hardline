@@ -12,7 +12,9 @@ pub enum BatchCommands {
         #[arg(short, long)]
         workspace: Option<String>,
 
-        /// Commands to execute
+        /// Command to execute: the trailing words form one command's
+        /// argv (e.g. `batch run echo hi` runs `echo hi`); quote a
+        /// whole command to pass it as one argument
         #[arg(trailing_var_arg = true)]
         commands: Vec<String>,
     },
