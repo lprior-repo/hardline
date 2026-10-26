@@ -87,13 +87,18 @@ fn test_queue_dequeue_persists_state() {
         .success()
         .stdout(predicate::str::contains("dequeue-me"));
 
+    // Dequeue means discard: the item leaves the queue (the matrix
+    // counted the old "stays, flipped to [Processing]" behavior as a
+    // failure, and MemQueue already removed it outright). What this test
+    // pins is the cross-process part: a third process's status reflects
+    // the dequeue — 1 item left, the surviving one next.
     let mut cmd = Command::cargo_bin("hd").unwrap();
     cmd.env("SCP_DATABASE_PATH", &db_path)
         .arg("queue")
         .arg("status")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Total items: 2"));
+        .stdout(predicate::str::contains("Total items: 1"));
 }
 
 #[test]
