@@ -356,13 +356,62 @@ async fn get_database_pool() -> Result<SqlitePool> {
         .map_err(|e| Error::database(e.to_string()))
 }
 
+/// Resolve the default workspace: the worktree containing the caller's cwd,
+/// by the longest-prefix rule in `worktrees::current_worktree` (the same
+/// rule `sync_current_workspace` uses). The CLI help promises
+/// "default: current workspace", so a missing `-w` must not demand a
+/// workspace literally named `default`.
+///
+/// The resolved name is one that `find_worktree` maps back to that same
+/// entry: the worktree's directory name first, else its branch. If neither
+/// round-trips (e.g. two worktrees sharing a directory name), this is a
+/// clean error, never a batch run in the wrong worktree.
+fn resolve_default_workspace_name() -> Result<String> {
+    let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
+    let entries = crate::commands::handlers::worktrees::list_worktrees(&cwd)?;
+    let current = crate::commands::handlers::worktrees::current_worktree(&entries, &cwd)
+        .ok_or_else(|| Error::workspace_not_found("current workspace".to_string()))?;
+    match default_workspace_candidate(current, &entries) {
+        Some(candidate) => Ok(candidate),
+        None => Err(Error::workspace_not_found(
+            "current workspace".to_string(),
+        )),
+    }
+}
+
+/// Pure choice of the default-workspace name for `current`: the directory
+/// name first, else the branch — whichever `find_worktree` maps back to
+/// that same entry. Returns `None` when neither round-trips, so the
+/// caller errors instead of running a batch in the wrong worktree.
+fn default_workspace_candidate(
+    current: &crate::commands::handlers::worktrees::WorktreeEntry,
+    entries: &[crate::commands::handlers::worktrees::WorktreeEntry],
+) -> Option<String> {
+    let mut candidates: Vec<String> = Vec::new();
+    if let Some(dir_name) = current.path.file_name().and_then(|f| f.to_str()) {
+        candidates.push(dir_name.to_string());
+    }
+    if !current.branch.is_empty() {
+        candidates.push(current.branch.clone());
+    }
+    candidates.into_iter().find(|candidate| {
+        crate::commands::handlers::worktrees::find_worktree(entries, candidate)
+            .is_some_and(|found| found.path == current.path)
+    })
+}
+
 /// Run batch command from CLI
 pub async fn run_batch(workspace: Option<String>, commands: Vec<String>) -> Result<()> {
     if commands.is_empty() {
         return Err(Error::batch_empty());
     }
 
-    let workspace_name = workspace.unwrap_or_else(|| "default".to_string());
+    let workspace_name = match workspace {
+        Some(name) => name,
+        // An explicit `-w default` still names a workspace literally
+        // called `default`; only a missing `-w` means "current workspace".
+        None => resolve_default_workspace_name()?,
+    };
 
     // Validate workspace name against security threats
     validate_input_name(&workspace_name).map_err(|e| {
@@ -1479,5 +1528,74 @@ mod tests {
                 prop_assert_eq!(result.stderr, cloned.stderr);
             }
         }
+    }
+
+    // ── Default-workspace candidate ─────────────────────────────────────
+
+    fn sample_entries() -> Vec<crate::commands::handlers::worktrees::WorktreeEntry> {
+        crate::commands::handlers::worktrees::parse_worktree_list(
+            "worktree /repo\n\
+             branch refs/heads/main\n\
+             \n\
+             worktree /repo/.scp/workspaces/probe1\n\
+             branch refs/heads/probe1\n",
+        )
+    }
+
+    #[test]
+    fn default_candidate_prefers_dir_name() {
+        let entries = sample_entries();
+        let current = entries[1].clone();
+        assert_eq!(
+            default_workspace_candidate(&current, &entries).as_deref(),
+            Some("probe1")
+        );
+    }
+
+    #[test]
+    fn default_candidate_prefers_dir_name_for_main_worktree() {
+        let entries = sample_entries();
+        let current = entries[0].clone();
+        assert_eq!(
+            default_workspace_candidate(&current, &entries).as_deref(),
+            Some("repo")
+        );
+    }
+
+    #[test]
+    fn default_candidate_falls_back_to_branch_on_dir_name_collision() {
+        // Another worktree listed first shares the dir name, so the dir
+        // name would resolve to the wrong entry; the branch (distinct
+        // from any dir name) still maps back to the current one.
+        let entries = crate::commands::handlers::worktrees::parse_worktree_list(
+            "worktree /elsewhere/wt\n\
+             branch refs/heads/other\n\
+             \n\
+             worktree /repo/.scp/workspaces/wt\n\
+             branch refs/heads/feature-x\n",
+        );
+        let current = entries[1].clone();
+        assert_eq!(
+            default_workspace_candidate(&current, &entries).as_deref(),
+            Some("feature-x")
+        );
+    }
+
+    #[test]
+    fn default_candidate_is_none_when_nothing_round_trips() {
+        let entries = crate::commands::handlers::worktrees::parse_worktree_list(
+            "worktree /elsewhere/probe1\n\
+             branch refs/heads/other\n\
+             \n\
+             worktree /elsewhere/wt\n\
+             branch refs/heads/other2\n",
+        );
+        // A current entry that is not in the list at all cannot round-trip.
+        let orphan = crate::commands::handlers::worktrees::WorktreeEntry {
+            path: std::path::PathBuf::from("/repo/.scp/workspaces/probe1"),
+            branch: "probe1".to_string(),
+            bare: false,
+        };
+        assert_eq!(default_workspace_candidate(&orphan, &entries), None);
     }
 }

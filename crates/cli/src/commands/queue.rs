@@ -97,11 +97,30 @@ pub fn enqueue(branch: &str, priority: Option<&str>) -> Result<()> {
 }
 
 /// Remove front item from queue
+///
+/// Dequeue means discard, not process: the item must actually leave the
+/// queue. The stores disagree about what `dequeue()` leaves behind —
+/// SqliteQueue only marks the row Processing, so without the delete below
+/// a dequeued item lingers in `queue list` forever; MemQueue removes it
+/// outright. Deleting the row after dequeue therefore unifies both stores
+/// on "gone". A removal failure is only ignored when the row is verifiably
+/// already gone (the MemQueue case); a row that survives, or a list
+/// failure that leaves that unverified, is a real error, never a printed
+/// "Dequeued" over an item that is still there.
 pub fn dequeue() -> Result<()> {
     let queue = get_queue()?;
 
     match queue.dequeue()? {
         Some(item) => {
+            if let Err(e) = queue.remove(&item.id) {
+                let still_there = match queue.list() {
+                    Ok(items) => items.iter().any(|i| i.id == item.id),
+                    Err(_) => true,
+                };
+                if still_there {
+                    return Err(e);
+                }
+            }
             if Output::json_output() {
                 Output::json(&serde_json::json!({
                     "branch": item.branch,
@@ -149,21 +168,63 @@ fn record_processed_best_effort(
     }
 }
 
+/// Take the next item for processing: a Pending item first, else the
+/// oldest Failed item.
+///
+/// A failed attempt records Failed with its error (see the merge/push/
+/// pre-flight paths below), but Failed must stay retryable: without this
+/// fallback the next `queue process` reports "Queue is empty" while failed
+/// work sits in the queue. Pending-first preserves existing processing
+/// order; the retry branch only runs when no Pending item exists. The
+/// retry transition is a pure `update()` (no INSERT), so it cannot
+/// collide with the retained row the way the old enqueue-based recording
+/// did. Returns the item and whether it is a retry of a failed item.
+fn take_next_item(
+    queue: &dyn scp_core::queue::QueueManager,
+) -> Result<Option<(QueueItem, bool)>> {
+    if let Some(item) = queue.dequeue()? {
+        return Ok(Some((item, false)));
+    }
+    let Some(mut item) = queue
+        .list()?
+        .into_iter()
+        .find(|i| i.status == QueueStatus::Failed)
+    else {
+        return Ok(None);
+    };
+    item.start_processing();
+    queue.update(item.clone())?;
+    Ok(Some((item, true)))
+}
+
 /// Process next item in queue using a provided VCS backend (testable core).
 pub fn process_with_backend(
     queue: &dyn scp_core::queue::QueueManager,
     backend: &dyn scp_core::vcs::VcsBackend,
     checks: bool,
 ) -> Result<()> {
-    let mut item = match queue.dequeue()? {
-        Some(i) => i,
+    let (mut item, is_retry) = match take_next_item(queue)? {
+        Some(pair) => pair,
         None => return Err(scp_core::Error::queue_empty()),
     };
 
     // Progress chatter is suppressed in JSON mode so the success path emits
     // a single JSON object; failure prints below are error paths and stay.
     if !Output::json_output() {
-        println!("Processing '{}'...", item.branch);
+        if is_retry {
+            match item.last_error.as_deref() {
+                Some(prev) => println!(
+                    "Retrying '{}' (attempt {}, previous error: {})...",
+                    item.branch, item.attempt_count, prev
+                ),
+                None => println!(
+                    "Retrying '{}' (attempt {})...",
+                    item.branch, item.attempt_count
+                ),
+            }
+        } else {
+            println!("Processing '{}'...", item.branch);
+        }
     }
 
     // Pre-flight checks
@@ -207,6 +268,9 @@ pub fn process_with_backend(
     // A persistence failure here is a real failure, not a success, so
     // it is reported (cleanly, without raw database text) instead of
     // printing "Processed" over an unrecorded item.
+    // A retried item's previous failure must not linger on its Completed
+    // record: success clears the error it superseded.
+    item.last_error = None;
     item.complete();
     if record_processed(queue, item.clone()).is_err() {
         return Err(scp_core::Error::invalid_state(format!(
@@ -680,6 +744,83 @@ mod tests {
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].status, scp_core::queue::QueueStatus::Failed);
         assert!(all[0].last_error.is_some());
+    }
+
+    // ── Failed items are retryable ────────────────────────────────────
+
+    #[test]
+    fn process_failed_item_is_retried_by_next_process() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "retry-me");
+        let mut failing = MockVcsBackend::clean_with_branch("retry-me");
+        failing.merge_should_fail = true;
+
+        let first = process_with_backend(queue.as_ref(), &failing, false);
+        assert!(first.is_err(), "first attempt must fail");
+        let all = queue.list().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].status, scp_core::queue::QueueStatus::Failed);
+        assert!(all[0].last_error.is_some());
+
+        // The next process must retry the failed item, not report an
+        // empty queue — and a successful retry completes it cleanly.
+        let succeeding = MockVcsBackend::clean_with_branch("retry-me");
+        let second = process_with_backend(queue.as_ref(), &succeeding, false);
+        assert!(second.is_ok(), "retry must succeed: {:?}", second.err());
+        let all = queue.list().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].status, scp_core::queue::QueueStatus::Completed);
+        assert_eq!(
+            all[0].last_error, None,
+            "a successful retry must not carry the superseded failure"
+        );
+        assert_eq!(all[0].attempt_count, 2, "first attempt + retry");
+    }
+
+    #[test]
+    fn process_failed_item_can_fail_again_and_stay_retryable() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "retry-fail-twice");
+        let mut failing = MockVcsBackend::clean_with_branch("retry-fail-twice");
+        failing.merge_should_fail = true;
+
+        assert!(process_with_backend(queue.as_ref(), &failing, false).is_err());
+        // Second attempt fails again: still Failed with a fresh error,
+        // still present — never silently dropped, never claimed success.
+        let mut failing_again = MockVcsBackend::clean_with_branch("retry-fail-twice");
+        failing_again.merge_should_fail = true;
+        assert!(process_with_backend(queue.as_ref(), &failing_again, false).is_err());
+        let all = queue.list().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].status, scp_core::queue::QueueStatus::Failed);
+        assert!(all[0].last_error.is_some());
+        assert_eq!(all[0].attempt_count, 2);
+    }
+
+    #[test]
+    fn take_next_item_prefers_pending_over_failed() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "failed-first");
+        let mut failing = MockVcsBackend::clean_with_branch("failed-first");
+        failing.merge_should_fail = true;
+        let _ = process_with_backend(queue.as_ref(), &failing, false);
+
+        enqueue_branch(queue.as_ref(), "pending-second");
+        let (item, is_retry) = take_next_item(queue.as_ref()).unwrap().unwrap();
+        assert_eq!(item.branch, "pending-second");
+        assert!(!is_retry, "a Pending item must win over a Failed one");
+    }
+
+    #[test]
+    fn take_next_item_returns_none_when_only_completed() {
+        let queue = make_queue();
+        enqueue_branch(queue.as_ref(), "done-item");
+        let backend = MockVcsBackend::clean_with_branch("done-item");
+        process_with_backend(queue.as_ref(), &backend, false).unwrap();
+
+        assert!(take_next_item(queue.as_ref()).unwrap().is_none());
+        let result = process_with_backend(queue.as_ref(), &backend, false);
+        assert!(result.is_err(), "completed items are not retried");
     }
 
     #[test]

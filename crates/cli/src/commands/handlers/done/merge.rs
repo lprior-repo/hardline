@@ -10,7 +10,8 @@ use super::{
     data::{DoneOptions, DoneOutput, DonePreview},
     executor::{detect_conflicts, GitExecutor},
     vcs_ops::{
-        get_commits_to_merge, get_potential_conflicts, get_uncommitted_files, log_undo_history,
+        capture_merge_undo_basis, get_commits_to_merge, get_potential_conflicts,
+        get_uncommitted_files, log_undo_history, undo_log_path, undo_session_name_for,
         update_workspace_state, WorkspaceGitExecutor,
     },
 };
@@ -87,6 +88,18 @@ pub fn execute_done_workflow(
 ) -> Result<DoneOutput> {
     let ws_executor = WorkspaceGitExecutor::new(executor, workspace_path);
 
+    // Undo history must be captured BEFORE the merge and the workspace
+    // delete: main's pre-merge HEAD is `main`'s ref before the merge
+    // moves it, the merged tip is the workspace HEAD before it is
+    // deleted, and the log path must resolve while the caller's
+    // directory still exists (done-from-inside deletes the caller's own
+    // directory, after which even `current_dir()` fails and the old
+    // swallowed log error meant no entry was ever written).
+    let (pre_merge_commit_id, merged_tip, workspace_branch) =
+        capture_merge_undo_basis(workspace_path);
+    let undo_session = undo_session_name_for(workspace_name, &workspace_branch);
+    let undo_path = undo_log_path(std::path::Path::new(workspace_path));
+
     // Step 1: Check for conflicts
     let conflicts = get_potential_conflicts(&ws_executor);
     if !conflicts.is_empty() {
@@ -128,8 +141,22 @@ pub fn execute_done_workflow(
         true
     };
 
-    // Step 5: Log undo history
-    let _ = log_undo_history(workspace_name, &ws_executor, pushed_to_remote);
+    // Step 5: Log undo history. A failed write is a loud warning, not a
+    // failed done (the merge already happened) — but it is never
+    // swallowed silently, which is how revert became unexercisable. An
+    // entry without a pre-merge id is not written at all: it could never
+    // drive a revert.
+    if pre_merge_commit_id.is_empty() {
+        Output::warn("Could not record undo history: pre-merge commit unknown; revert will not be available for this merge");
+    } else if let Err(e) = log_undo_history(
+        &undo_path,
+        undo_session,
+        &pre_merge_commit_id,
+        &merged_tip,
+        pushed_to_remote,
+    ) {
+        Output::warn(&format!("Failed to record undo history: {e}"));
+    }
 
     // Step 6: Update workspace state to Merged (if applicable)
     let session_updated = update_workspace_state(workspace_name);

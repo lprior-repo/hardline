@@ -3,8 +3,6 @@
 //! I/O operations that orchestrate reverting the most recent session merge.
 //! Uses `git reset --hard` (no JJ dependency).
 
-use std::path::Path;
-
 use scp_core::{output::Output, Error, Result};
 
 use super::data::{
@@ -12,8 +10,10 @@ use super::data::{
     UndoMode, UndoOptions, UndoOutput, UndoStatus, WORKSPACE_RETENTION_SECONDS,
 };
 
-/// Path to the undo log relative to the project root.
-const UNDO_LOG_PATH: &str = ".scp/undo.log";
+// The undo log path is resolved through the done handler's
+// `undo_log_path_for_cwd` (main worktree's `.scp/undo.log`); there is no
+// separate undo-side path, so the writer and both readers cannot drift
+// apart again.
 
 // ============================================================================
 // Public API
@@ -240,18 +240,19 @@ fn parse_log_lines(content: &str) -> Result<Vec<UndoEntry>> {
         .collect::<Result<Vec<_>>>()
 }
 
-/// Read undo history from `.scp/undo.log` in most-recent-first order.
+/// Read undo history from the main worktree's `.scp/undo.log` in
+/// most-recent-first order.
 ///
 /// The log file stores entries in chronological order (oldest first).
 /// Uses `.rev()` on the iterator to avoid `let mut`.
 fn read_undo_history() -> Result<Vec<UndoEntry>> {
-    let undo_log_path = Path::new(UNDO_LOG_PATH);
+    let undo_log_path = crate::commands::handlers::done::vcs_ops::undo_log_path_for_cwd();
 
     if !undo_log_path.exists() {
         return Err(Error::not_found("No undo history found. Cannot undo."));
     }
 
-    let content = std::fs::read_to_string(undo_log_path)
+    let content = std::fs::read_to_string(&undo_log_path)
         .map_err(|e| Error::io_error(format!("Failed to read undo log: {e}")))?;
 
     let entries = parse_log_lines(&content)?;
@@ -272,9 +273,17 @@ fn find_eligible_entry(history: &[UndoEntry]) -> Result<UndoEntry> {
 }
 
 /// Execute `git reset --hard` to revert to the pre-merge commit.
+///
+/// The reset runs in the main worktree: the merge landed on main, so
+/// resetting any other worktree would move the wrong branch. Falls back
+/// to the caller's directory when the repo cannot be resolved.
 fn execute_reset(entry: &UndoEntry) -> Result<()> {
-    let output = std::process::Command::new("git")
-        .args(["reset", "--hard", &entry.pre_merge_commit_id])
+    let mut command = std::process::Command::new("git");
+    command.args(["reset", "--hard", &entry.pre_merge_commit_id]);
+    if let Some(main) = crate::commands::handlers::done::vcs_ops::main_worktree_path_for_cwd() {
+        command.current_dir(main);
+    }
+    let output = command
         .output()
         .map_err(|e| Error::io_error(format!("Failed to run git reset: {e}")))?;
 
@@ -330,12 +339,13 @@ fn serialize_updated_history(history: &[UndoEntry], target: &UndoEntry) -> Resul
 
 /// Update undo history after a successful undo.
 ///
-/// Reverses the most-recent-first order back to chronological before writing.
+/// Reverses the most-recent-first order back to chronological before
+/// writing, to the same main-worktree log the history was read from.
 fn update_undo_history(history: &[UndoEntry], entry: &UndoEntry) -> Result<()> {
-    let undo_log_path = Path::new(UNDO_LOG_PATH);
+    let undo_log_path = crate::commands::handlers::done::vcs_ops::undo_log_path_for_cwd();
     let new_content = serialize_updated_history(history, entry)?;
 
-    std::fs::write(undo_log_path, &new_content)
+    std::fs::write(&undo_log_path, &new_content)
         .map_err(|e| Error::io_error(format!("Failed to write undo log: {e}")))?;
 
     Ok(())

@@ -6,6 +6,20 @@ use scp_core::{output::Output, validation::domain::validate_input_name, Error, R
 
 use super::data::{validate_name_length, validate_session_name, RenameOptions, RenameOutput};
 
+/// Emit a successful rename result: a single JSON object in JSON mode
+/// (the global `-f json` switch, via [`Output::json_output`]), the exact
+/// previous human prose otherwise. `success_mark` selects the `✓`
+/// success form versus the plain info form of the human message.
+fn emit_rename(output: &RenameOutput, human: &str, success_mark: bool) {
+    if Output::json_output() {
+        Output::json(output);
+    } else if success_mark {
+        Output::success(human);
+    } else {
+        Output::info(human);
+    }
+}
+
 /// Execute the rename command with the given options.
 ///
 /// # Errors
@@ -15,33 +29,43 @@ use super::data::{validate_name_length, validate_session_name, RenameOptions, Re
 pub fn run_rename(options: &RenameOptions) -> Result<RenameOutput> {
     // Edge case: rename to same name is a no-op
     if options.old_name == options.new_name {
-        Output::info(&format!(
-            "Session '{}' already has that name (no-op)",
-            options.old_name
-        ));
-        return Ok(RenameOutput {
+        let output = RenameOutput {
             success: true,
             old_name: options.old_name.clone(),
             new_name: options.new_name.clone(),
             dry_run: options.dry_run,
             error: None,
-        });
+        };
+        emit_rename(
+            &output,
+            &format!(
+                "Session '{}' already has that name (no-op)",
+                options.old_name
+            ),
+            false,
+        );
+        return Ok(output);
     }
 
     validate_rename_names(options)?;
 
     if options.dry_run {
-        Output::info(&format!(
-            "[dry-run] Would rename: '{}' -> '{}'",
-            options.old_name, options.new_name
-        ));
-        return Ok(RenameOutput {
+        let output = RenameOutput {
             success: true,
             old_name: options.old_name.clone(),
             new_name: options.new_name.clone(),
             dry_run: true,
             error: None,
-        });
+        };
+        emit_rename(
+            &output,
+            &format!(
+                "[dry-run] Would rename: '{}' -> '{}'",
+                options.old_name, options.new_name
+            ),
+            false,
+        );
+        return Ok(output);
     }
 
     perform_rename(options)
@@ -103,35 +127,101 @@ fn perform_rename(options: &RenameOptions) -> Result<RenameOutput> {
         )));
     }
 
-    Output::success(&format!(
-        "Renamed session '{}' -> '{}'",
-        options.old_name, options.new_name
-    ));
-
-    Ok(RenameOutput {
+    let output = RenameOutput {
         success: true,
         old_name: options.old_name.clone(),
         new_name: options.new_name.clone(),
         dry_run: false,
         error: None,
-    })
+    };
+    emit_rename(
+        &output,
+        &format!(
+            "Renamed session '{}' -> '{}'",
+            options.old_name, options.new_name
+        ),
+        true,
+    );
+
+    Ok(output)
 }
 
-/// Rename a `hd work` session: move its git worktree, then rename its
+/// Which branch, if any, a session rename should rename.
+///
+/// A `hd work` session's worktree checks out a branch named after the
+/// session, so that branch follows the session name. Any other checked-out
+/// branch (a shared branch such as `main`, or a branch the session did not
+/// create) is never renamed: renaming `main` because a worktree happened
+/// to sit on it would be a destructive surprise, and a detached HEAD has
+/// no branch to rename.
+fn branch_to_rename<'a>(checked_out_branch: &'a str, old_name: &str) -> Option<&'a str> {
+    if checked_out_branch.is_empty() || checked_out_branch != old_name {
+        None
+    } else {
+        Some(checked_out_branch)
+    }
+}
+
+/// The branch currently checked out in a worktree, or an empty string for
+/// a detached HEAD or a git failure (callers treat both as "no branch").
+fn checked_out_branch(work_path: &std::path::Path) -> String {
+    match std::process::Command::new("git")
+        .args([
+            "-C",
+            &work_path.to_string_lossy(),
+            "branch",
+            "--show-current",
+        ])
+        .output()
+    {
+        Ok(output) => String::from_utf8_lossy(&output.stdout).trim().to_string(),
+        Err(_) => String::new(),
+    }
+}
+
+/// Whether a local branch of this name exists.
+fn branch_exists(cwd: &std::path::Path, branch: &str) -> bool {
+    match std::process::Command::new("git")
+        .args([
+            "show-ref",
+            "--verify",
+            "--quiet",
+            &format!("refs/heads/{branch}"),
+        ])
+        .current_dir(cwd)
+        .output()
+    {
+        Ok(output) => output.status.success(),
+        Err(_) => false,
+    }
+}
+
+/// Rename a `hd work` session: move its git worktree, rename the session's
+/// own branch when it is named after the session, then rename its
 /// session-database row (name and workspace path) so `query` keeps finding
 /// it under the new name. A worktree-move failure aborts before any row
-/// change, so the rename never half-applies.
+/// change, and a branch-rename failure moves the worktree back, so the
+/// rename never half-applies and never claims success it did not achieve.
+/// `git branch -m` runs from the main worktree: it renames a branch even
+/// when that branch is checked out in a linked worktree.
 fn rename_work_session(
     cwd: &std::path::Path,
     work_path: &std::path::Path,
     options: &RenameOptions,
 ) -> Result<()> {
-    let new_path = cwd
-        .join(".scp")
-        .join("workspaces")
-        .join(&options.new_name);
+    let new_path = cwd.join(".scp").join("workspaces").join(&options.new_name);
     if new_path.exists() {
         return Err(Error::session_exists(options.new_name.clone()));
+    }
+    let checked_out = checked_out_branch(work_path);
+    let branch = branch_to_rename(&checked_out, &options.old_name);
+    if branch.is_some() {
+        if branch_exists(cwd, &options.new_name) {
+            return Err(Error::vcs_conflict(
+                "branch rename",
+                format!("branch '{}' already exists", options.new_name),
+            ));
+        }
     }
     let output = std::process::Command::new("git")
         .args([
@@ -148,6 +238,31 @@ fn rename_work_session(
             "Failed to move worktree: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         )));
+    }
+    if let Some(branch) = branch {
+        let output = std::process::Command::new("git")
+            .args(["branch", "-m", branch, &options.new_name])
+            .current_dir(cwd)
+            .output()
+            .map_err(|e| Error::io_error(format!("Failed to run git branch -m: {e}")))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            // Roll the worktree move back so a failed branch rename does
+            // not leave dir and branch disagreeing about the session name.
+            let _ = std::process::Command::new("git")
+                .args([
+                    "worktree",
+                    "move",
+                    &new_path.to_string_lossy(),
+                    &work_path.to_string_lossy(),
+                ])
+                .current_dir(cwd)
+                .output();
+            return Err(Error::io_error(format!(
+                "Failed to rename branch '{branch}' to '{}': {stderr}",
+                options.new_name
+            )));
+        }
     }
     rename_session_row(cwd, options)
 }
@@ -223,6 +338,24 @@ mod tests {
         let result = run_rename(&options).expect("should succeed");
         assert!(result.success);
         assert!(result.dry_run);
+    }
+
+    #[test]
+    fn branch_to_rename_follows_session_named_branch() {
+        assert_eq!(branch_to_rename("old1", "old1"), Some("old1"));
+    }
+
+    #[test]
+    fn branch_to_rename_skips_detached_head() {
+        assert_eq!(branch_to_rename("", "old1"), None);
+    }
+
+    #[test]
+    fn branch_to_rename_never_renames_a_different_branch() {
+        // A worktree sitting on main (or any branch the session did not
+        // create) keeps its branch: renaming it would be destructive.
+        assert_eq!(branch_to_rename("main", "old1"), None);
+        assert_eq!(branch_to_rename("feature-x", "old1"), None);
     }
 
     #[test]

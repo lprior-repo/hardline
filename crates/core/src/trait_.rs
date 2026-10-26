@@ -85,6 +85,9 @@ pub trait VcsBackend: Send + Sync {
     /// Merge a workspace into main
     fn merge_workspace(&self, name: &str) -> Result<()>;
 
-    /// Abort workspace - restore working copy to last commit, discarding uncommitted changes
+    /// Abort workspace - remove the target worktree (discarding its
+    /// uncommitted changes). Errors for unknown names and refuses the
+    /// main worktree; an empty name means the worktree this backend
+    /// stands in.
     fn abort_workspace(&self, name: &str) -> Result<()>;
 }

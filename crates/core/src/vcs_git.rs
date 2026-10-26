@@ -552,17 +552,18 @@ impl VcsBackend for GitBackend {
         Ok(())
     }
 
-    fn abort_workspace(&self, _name: &str) -> Result<()> {
-        // Abort workspace by restoring working copy to last commit
-        // This uses git checkout -- . to discard uncommitted changes
-        let output = self.run_git(&["checkout", "--", "."])?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(
-                VcsErrorKind::Conflict("git checkout".to_string(), stderr.to_string()).into(),
-            );
-        }
-        Ok(())
+    fn abort_workspace(&self, name: &str) -> Result<()> {
+        // Abort means the worktree goes away, not just its uncommitted
+        // changes: the old `git checkout -- .` ignored `name` entirely and
+        // reported success for nonexistent workspaces while leaving the
+        // target worktree in place. Deleting via delete_workspace runs
+        // `git worktree remove --force` from the main worktree (git
+        // refuses to remove the worktree it runs from, which is exactly
+        // the abort-from-inside case), errors for unknown names, and
+        // refuses the main worktree. An empty name resolves to the
+        // worktree this backend stands in, so aborting from inside a
+        // linked worktree removes that worktree.
+        self.delete_workspace(name)
     }
 }
 

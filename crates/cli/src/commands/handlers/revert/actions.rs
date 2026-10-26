@@ -12,8 +12,10 @@ use super::{
     executor::{GitExecutor, RealGitExecutor},
 };
 
-/// Path to the undo log relative to the project root.
-const UNDO_LOG_PATH: &str = ".scp/undo.log";
+// The undo log path is resolved through the done handler's
+// `undo_log_path_for_cwd` (main worktree's `.scp/undo.log`); there is no
+// separate revert-side path, so the writer and both readers cannot drift
+// apart again.
 
 // ============================================================================
 // Public API
@@ -92,17 +94,20 @@ pub fn run_revert(options: &RevertOptions) -> Result<RevertOutput> {
 // Internal Helpers
 // ============================================================================
 
-/// Read undo history from `.scp/undo.log`.
+/// Read undo history from the main worktree's `.scp/undo.log`.
 ///
-/// Returns an empty vector if the file does not exist.
+/// The log lives in the main worktree (that is where `done` writes it),
+/// not in whichever worktree the caller stands in — reading the caller's
+/// own `.scp/undo.log` is how a real merge's entry stayed invisible to
+/// revert. Returns an empty vector if the file does not exist.
 fn read_undo_history() -> Result<Vec<UndoEntry>> {
-    let undo_log_path = Path::new(UNDO_LOG_PATH);
+    let undo_log_path = crate::commands::handlers::done::vcs_ops::undo_log_path_for_cwd();
 
     if !undo_log_path.exists() {
         return Ok(Vec::new());
     }
 
-    let content = std::fs::read_to_string(undo_log_path)
+    let content = std::fs::read_to_string(&undo_log_path)
         .map_err(|e| Error::io_error(format!("Failed to read undo log: {e}")))?;
 
     let entries = content
@@ -125,10 +130,22 @@ fn read_undo_history() -> Result<Vec<UndoEntry>> {
 /// Find a specific session entry in the undo history.
 ///
 /// Looks for an entry matching the session name with status "completed".
+/// An exact match wins; failing that, an entry whose stored name has the
+/// session name as its last path component matches, so entries written
+/// before `done` filed them under the short session name (stored as
+/// `.scp/workspaces/<name>`) still revert by `<name>`.
 fn find_session_entry(history: &[UndoEntry], session_name: &str) -> Result<UndoEntry> {
     history
         .iter()
         .find(|entry| entry.session_name == session_name && entry.status == "completed")
+        .or_else(|| {
+            history.iter().find(|entry| {
+                entry.status == "completed"
+                    && Path::new(&entry.session_name)
+                        .file_name()
+                        .is_some_and(|name| name == session_name)
+            })
+        })
         .cloned()
         .ok_or_else(|| {
             Error::not_found(format!(
@@ -152,19 +169,32 @@ fn validate_revert_possible(entry: &UndoEntry) -> Result<()> {
 }
 
 /// Execute the revert by running `git reset --hard` to the pre-merge commit.
+///
+/// The reset runs in the main worktree: the merge landed on main, so
+/// resetting any other worktree would move the wrong branch. Falls back
+/// to the caller's directory when the repo cannot be resolved.
 fn execute_revert(entry: &UndoEntry, executor: &dyn GitExecutor) -> Result<()> {
-    executor
-        .run(&["reset", "--hard", &entry.pre_merge_commit_id])
-        .map_err(Error::from)?;
+    let args = ["reset", "--hard", entry.pre_merge_commit_id.as_str()];
+    match crate::commands::handlers::done::vcs_ops::main_worktree_path_for_cwd() {
+        Some(main) => {
+            executor
+                .run_in_workspace(&args, &main.to_string_lossy())
+                .map_err(Error::from)?;
+        }
+        None => {
+            executor.run(&args).map_err(Error::from)?;
+        }
+    }
 
     Ok(())
 }
 
 /// Update undo history after a successful revert.
 ///
-/// Marks the matching entry's status as "reverted".
+/// Marks the matching entry's status as "reverted". Writes back to the
+/// same main-worktree log the history was read from.
 fn update_undo_history(history: &[UndoEntry], entry: &UndoEntry) -> Result<()> {
-    let undo_log_path = Path::new(UNDO_LOG_PATH);
+    let undo_log_path = crate::commands::handlers::done::vcs_ops::undo_log_path_for_cwd();
 
     let new_content = history
         .iter()
@@ -274,6 +304,50 @@ mod tests {
 
         let result = find_session_entry(&history, "feature-x");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn find_session_entry_matches_stored_path_by_short_name() {
+        // Entries written before done filed short session names carry the
+        // full worktree path; reverting by the short name still finds them.
+        let history = vec![UndoEntry {
+            session_name: ".scp/workspaces/feature-x".to_string(),
+            commit_id: "abc123".to_string(),
+            pre_merge_commit_id: "def456".to_string(),
+            timestamp: 100,
+            pushed_to_remote: false,
+            status: "completed".to_string(),
+        }];
+
+        let result = find_session_entry(&history, "feature-x");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().commit_id, "abc123");
+    }
+
+    #[test]
+    fn find_session_entry_prefers_exact_match_over_basename() {
+        let history = vec![
+            UndoEntry {
+                session_name: ".scp/workspaces/feature-x".to_string(),
+                commit_id: "path-entry".to_string(),
+                pre_merge_commit_id: "base1".to_string(),
+                timestamp: 100,
+                pushed_to_remote: false,
+                status: "completed".to_string(),
+            },
+            UndoEntry {
+                session_name: "feature-x".to_string(),
+                commit_id: "exact-entry".to_string(),
+                pre_merge_commit_id: "base2".to_string(),
+                timestamp: 200,
+                pushed_to_remote: false,
+                status: "completed".to_string(),
+            },
+        ];
+
+        let result = find_session_entry(&history, "feature-x");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().commit_id, "exact-entry");
     }
 
     #[test]

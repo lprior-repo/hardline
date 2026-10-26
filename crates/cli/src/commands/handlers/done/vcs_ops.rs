@@ -200,28 +200,144 @@ pub fn get_potential_conflicts(executor: &dyn GitExecutor) -> Vec<String> {
 // Undo History
 // ============================================================================
 
-/// Log undo history to `.scp/undo.log`.
+/// The main worktree of the repo containing `path_inside_repo`: the
+/// parent of the common git dir. Every undo-log reader and writer must
+/// agree on this path: the log lives in the main worktree, not in
+/// whichever worktree the caller happens to stand in.
+pub fn main_worktree_path(path_inside_repo: &Path) -> Option<PathBuf> {
+    let output = std::process::Command::new("git")
+        .args([
+            "-C",
+            &path_inside_repo.to_string_lossy(),
+            "rev-parse",
+            "--path-format=absolute",
+            "--git-common-dir",
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let common = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Path::new(&common).parent().map(Path::to_path_buf)
+}
+
+/// Main worktree of the repo the caller stands in, if resolvable.
+pub fn main_worktree_path_for_cwd() -> Option<PathBuf> {
+    std::env::current_dir()
+        .ok()
+        .and_then(|cwd| main_worktree_path(&cwd))
+}
+
+/// Undo log path for the repo the caller stands in.
+pub fn undo_log_path_for_cwd() -> PathBuf {
+    match std::env::current_dir() {
+        Ok(cwd) => undo_log_path(&cwd),
+        Err(_) => PathBuf::from(".scp/undo.log"),
+    }
+}
+
+/// Path of the undo log for the repo containing `path_inside_repo`: the
+/// main worktree's `.scp/undo.log`, falling back to the caller's
+/// `.scp/undo.log` when git cannot resolve the repo (outside a repo the
+/// readers fail with "no history" exactly as before).
+pub fn undo_log_path(path_inside_repo: &Path) -> PathBuf {
+    match main_worktree_path(path_inside_repo) {
+        Some(main) => main.join(".scp/undo.log"),
+        None => match std::env::current_dir() {
+            Ok(cwd) => cwd.join(".scp/undo.log"),
+            Err(_) => PathBuf::from(".scp/undo.log"),
+        },
+    }
+}
+
+/// Capture the undo basis for a merge before it runs: main's pre-merge
+/// HEAD, the workspace branch tip, and the workspace's checked-out branch.
+///
+/// This runs `git -C <workspace>` directly instead of through the
+/// workflow executor on purpose: the capture is bookkeeping about refs,
+/// not a workflow step, and it must never perturb the executor's command
+/// stream (in tests the executor is a positional mock, and a capture
+/// that consumed its responses would shift every later workflow call).
+/// It is also what keeps test runs from writing undo entries: outside a
+/// real repo both queries fail and the caller skips the log write.
+/// `rev-parse main` is repo-wide, so it reads main's HEAD from the
+/// workspace even though main is checked out elsewhere.
+pub fn capture_merge_undo_basis(workspace_path: &str) -> (String, String, String) {
+    fn rev_parse(workspace_path: &str, args: &[&str]) -> String {
+        let mut full_args = vec!["-C", workspace_path, "rev-parse"];
+        full_args.extend_from_slice(args);
+        match std::process::Command::new("git").args(&full_args).output() {
+            Ok(output) if output.status.success() => {
+                String::from_utf8_lossy(&output.stdout).trim().to_string()
+            }
+            _ => String::new(),
+        }
+    }
+    (
+        rev_parse(workspace_path, &["main"]),
+        rev_parse(workspace_path, &["HEAD"]),
+        rev_parse(workspace_path, &["--abbrev-ref", "HEAD"]),
+    )
+}
+
+/// The session name an undo entry is filed under.
+///
+/// `done`'s workspace name is a worktree path relative to the repo root,
+/// so an `hd work` session arrives as `.scp/workspaces/<name>` while the
+/// user knows it as `<name>` — and `revert <name>` matches on the session
+/// name. The last path component is the session name in both layouts (a
+/// spawn-layout workspace `ws1` is already just `ws1`).
+pub fn undo_session_name(workspace_name: &str) -> &str {
+    Path::new(workspace_name)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(workspace_name)
+}
+
+/// The session name an undo entry is filed under, given the workspace
+/// name `done` resolved and the workspace's checked-out branch.
+///
+/// Done-from-inside resolves the workspace name to the empty string (a
+/// worktree's listed name is its path relative to itself), which would
+/// file the entry under no name at all and make it unrevertable. In that
+/// case the checked-out branch is the session name: an `hd work` session
+/// checks out a branch named after itself, and so does a spawn-layout
+/// workspace. A detached HEAD (`HEAD`) or an empty branch carries no
+/// name, so it keeps the (empty) workspace name rather than inventing one.
+pub fn undo_session_name_for<'a>(workspace_name: &'a str, workspace_branch: &'a str) -> &'a str {
+    if workspace_name.is_empty() && !workspace_branch.is_empty() && workspace_branch != "HEAD" {
+        workspace_branch
+    } else {
+        undo_session_name(workspace_name)
+    }
+}
+
+/// Append one entry to the undo log at `undo_log_path`.
+///
+/// The caller supplies the pre-merge commit and the merged tip captured
+/// BEFORE the merge: capturing them here, after the merge and after the
+/// workspace was deleted, used to yield an empty pre-merge id (rev-parse
+/// in a deleted worktree fails) and a post-merge HEAD, so the entry could
+/// never drive a real revert. Callers must not write an entry with an
+/// empty pre-merge id — it is worse than no entry, because `revert` then
+/// fails inside git instead of reporting "not found".
 pub fn log_undo_history(
-    workspace_name: &str,
-    executor: &dyn GitExecutor,
+    undo_log_path: &Path,
+    session_name: &str,
+    pre_merge_commit_id: &str,
+    commit_id: &str,
     pushed_to_remote: bool,
 ) -> Result<()> {
-    let cwd = std::env::current_dir()?;
-    let undo_log_path = cwd.join(".scp/undo.log");
-
-    let pre_merge_commit_id = executor
-        .run(&["rev-parse", "HEAD"])
-        .unwrap_or_default();
-
     let timestamp = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
     let undo_entry = UndoEntry {
-        session_name: workspace_name.to_string(),
-        commit_id: String::new(),
-        pre_merge_commit_id: pre_merge_commit_id.trim().to_string(),
+        session_name: session_name.to_string(),
+        commit_id: commit_id.to_string(),
+        pre_merge_commit_id: pre_merge_commit_id.to_string(),
         timestamp,
         pushed_to_remote,
         status: "completed".to_string(),
@@ -230,7 +346,7 @@ pub fn log_undo_history(
     let json = serde_json::to_string(&undo_entry).map_err(|e| Error::io_error(e.to_string()))?;
 
     let mut content = if undo_log_path.exists() {
-        std::fs::read_to_string(&undo_log_path)
+        std::fs::read_to_string(undo_log_path)
             .map_err(|e| Error::io_error(format!("Failed to read undo log: {e}")))?
     } else {
         String::new()
@@ -243,7 +359,7 @@ pub fn log_undo_history(
             .map_err(|e| Error::io_error(format!("Failed to create undo log directory: {e}")))?;
     }
 
-    std::fs::write(&undo_log_path, &content)
+    std::fs::write(undo_log_path, &content)
         .map_err(|e| Error::io_error(format!("Failed to write undo log: {e}")))?;
 
     Ok(())
@@ -294,6 +410,47 @@ impl GitExecutor for WorkspaceGitExecutor<'_> {
 mod tests {
     use super::*;
     use crate::commands::handlers::done::test_support::*;
+
+    // -----------------------------------------------------------------------
+    // parse_status_lines
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    // undo_session_name
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn undo_session_name_strips_work_session_path() {
+        assert_eq!(undo_session_name(".scp/workspaces/feat2"), "feat2");
+    }
+
+    #[test]
+    fn undo_session_name_keeps_spawn_layout_name() {
+        assert_eq!(undo_session_name("ws1"), "ws1");
+    }
+
+    #[test]
+    fn undo_session_name_empty_stays_empty() {
+        assert_eq!(undo_session_name(""), "");
+    }
+
+    #[test]
+    fn undo_session_name_for_empty_uses_branch() {
+        assert_eq!(undo_session_name_for("", "feat3"), "feat3");
+    }
+
+    #[test]
+    fn undo_session_name_for_detached_head_keeps_empty() {
+        assert_eq!(undo_session_name_for("", "HEAD"), "");
+    }
+
+    #[test]
+    fn undo_session_name_for_named_ignores_branch() {
+        assert_eq!(
+            undo_session_name_for(".scp/workspaces/feat2", "other-branch"),
+            "feat2"
+        );
+    }
 
     // -----------------------------------------------------------------------
     // parse_status_lines

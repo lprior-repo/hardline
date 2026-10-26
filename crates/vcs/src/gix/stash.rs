@@ -29,6 +29,13 @@ pub fn save(
 ) -> GitResult<StashEntry> {
     let workdir = require_workdir(repo, "stash save")?;
 
+    // Capture the stash list BEFORE pushing. `git stash push` exits 0 on a
+    // clean tree ("No local changes to save") without creating an entry,
+    // so success cannot be inferred from the exit status, nor from a
+    // non-empty list afterwards: with a pre-existing entry, taking the
+    // top entry would falsely report the old stash as newly saved.
+    let before_count = list(repo)?.len();
+
     let mut args: Vec<&str> = vec!["stash", "push"];
     if include_untracked {
         args.push("--include-untracked");
@@ -44,9 +51,18 @@ pub fn save(
         return Err(cli_error(&output, "stash save"));
     }
 
-    // After a successful push, re-read the list to find the new entry at
-    // index 0 and return it.
+    // After a successful push, re-read the list. A new entry must exist at
+    // index 0: the count must have grown. If it did not, nothing was
+    // stashed (clean tree) and reporting success would be a false success,
+    // so fail the same way the empty-list path below does.
     let entries = list(repo)?;
+    if entries.len() <= before_count {
+        return Err(GitError::InvalidRef {
+            name: "stash".to_string(),
+            reason: "stash save created no new stash entry: no local changes to save"
+                .to_string(),
+        });
+    }
     entries
         .into_iter()
         .next()

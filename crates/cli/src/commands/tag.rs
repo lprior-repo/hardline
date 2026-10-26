@@ -5,9 +5,11 @@ use scp_vcs::gix::{repository, tag};
 
 /// List tags, optionally filtered by a glob pattern and sorted by key.
 ///
-/// `--sort` is honored, not ignored: `refname` sorts lexicographically,
-/// `version:refname` sorts version-aware (numeric segments compare
-/// numerically, so v10 sorts after v9), and a leading `-` reverses either.
+/// `--sort` is honored, not ignored: `refname` (alias `name`) sorts
+/// lexicographically, `version:refname` sorts version-aware (numeric
+/// segments compare numerically, so v10 sorts after v9), and a leading
+/// `-` reverses either (so `-name` is an alias for `-refname`, passed as
+/// `--sort=-name` since a bare `-name` value parses as short flags).
 /// Any other key is a validation error naming the bad value — silently
 /// ignoring a user-passed sort key is how a wrong order looks correct.
 pub fn list(pattern: Option<&str>, sort: Option<&str>) -> Result<()> {
@@ -88,11 +90,13 @@ fn sort_tags(tags: &mut [String], key: &str) -> Result<()> {
         None => (false, key),
     };
     let cmp: fn(&str, &str) -> std::cmp::Ordering = match base {
-        "refname" => |a, b| a.cmp(b),
+        // `name` is the matrix-era alias for `refname`; the leading `-`
+        // is stripped above, so `-name` maps to `-refname` the same way.
+        "refname" | "name" => |a, b| a.cmp(b),
         "version:refname" => version_cmp,
         _ => {
             return Err(Error::invalid_identifier(format!(
-                "invalid sort key '{}': expected one of refname, -refname, version:refname, -version:refname",
+                "invalid sort key '{}': expected one of refname, -refname, name, -name, version:refname, -version:refname",
                 key
             )));
         }
@@ -294,6 +298,30 @@ mod tests {
     fn sort_unknown_key_is_an_error() {
         let mut tags = vec!["v1".to_string()];
         assert!(sort_tags(&mut tags, "bogus-sort-value").is_err());
+    }
+
+    #[test]
+    fn sort_name_is_alias_for_refname() {
+        let mut tags = vec!["b".to_string(), "a".to_string()];
+        sort_tags(&mut tags, "name").unwrap();
+        assert_eq!(tags, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn sort_dash_name_is_alias_for_dash_refname() {
+        let mut tags = vec!["a".to_string(), "b".to_string()];
+        sort_tags(&mut tags, "-name").unwrap();
+        assert_eq!(tags, vec!["b", "a"]);
+    }
+
+    #[test]
+    fn sort_name_matches_refname_ordering() {
+        let mut by_name = vec!["v2".to_string(), "v10".to_string(), "v1".to_string()];
+        let mut by_refname = by_name.clone();
+        sort_tags(&mut by_name, "name").unwrap();
+        sort_tags(&mut by_refname, "refname").unwrap();
+        assert_eq!(by_name, by_refname);
+        assert_eq!(by_name, vec!["v1", "v10", "v2"]);
     }
 
     #[test]

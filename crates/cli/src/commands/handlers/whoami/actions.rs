@@ -2,7 +2,7 @@
 //!
 //! I/O operations that determine and display agent identity.
 
-use scp_core::{output::Output, Error, Result};
+use scp_core::{output::Output, Result};
 
 use super::data::{WhoamiOptions, WhoamiOutput};
 
@@ -10,16 +10,15 @@ use super::data::{WhoamiOptions, WhoamiOutput};
 ///
 /// Reads environment variables to determine agent identity and context.
 ///
-/// # Errors
-///
-/// Returns an error if serialization fails in JSON mode.
+/// The per-command `--json` flag and the global `-f json` switch both
+/// select JSON output: the global switch is what `Output::json_output`
+/// reports, and a handler that only checked its own flag silently
+/// ignored it, printing prose under `-f json`.
 pub fn run_whoami(options: &WhoamiOptions) -> Result<()> {
     let output = build_identity();
 
-    if options.json {
-        let json_str = serde_json::to_string_pretty(&output)
-            .map_err(|e| Error::io_error(format!("Failed to serialize whoami output: {e}")))?;
-        Output::info(&json_str);
+    if options.json || Output::json_output() {
+        Output::json(&output);
     } else {
         Output::info(&output.simple);
     }
