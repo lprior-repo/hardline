@@ -4,6 +4,20 @@
 
 use scp_core::{output::Output, Error, Result};
 
+/// Whether a local branch exists, via the same git the real rename path
+/// shells out to. A missing ref (or a git failure) means "does not exist".
+fn branch_exists(cwd: &std::path::Path, name: &str) -> bool {
+    let reference = format!("refs/heads/{name}");
+    match std::process::Command::new("git")
+        .args(["show-ref", "--verify", "--quiet", &reference])
+        .current_dir(cwd)
+        .output()
+    {
+        Ok(output) => output.status.success(),
+        Err(_) => false,
+    }
+}
+
 use super::data::{
     validate_branch_name, BranchCreateOptions, BranchCreateOutput, BranchDeleteOptions,
     BranchRenameOptions,
@@ -148,6 +162,23 @@ pub fn run_branch_rename(options: &BranchRenameOptions) -> Result<()> {
     }
 
     if options.dry_run {
+        // A dry-run must predict the real rename, not bless it: the
+        // real path fails 51 when the source branch does not exist or
+        // the target already exists, so the dry-run fails the same way
+        // instead of printing a success for a rename that cannot happen.
+        let cwd = std::env::current_dir()?;
+        if !branch_exists(&cwd, &options.old_name) {
+            return Err(Error::vcs_conflict(
+                "branch rename",
+                format!("error: branch '{}' not found", options.old_name),
+            ));
+        }
+        if branch_exists(&cwd, &options.new_name) {
+            return Err(Error::vcs_conflict(
+                "branch rename",
+                format!("error: A branch named '{}' already exists", options.new_name),
+            ));
+        }
         if Output::json_output() {
             Output::json(&serde_json::json!({
                 "old_name": options.old_name,
