@@ -77,7 +77,9 @@ pub fn spawn_with_sync(
     parent: &Path,
 ) -> Result<(), Error> {
     backend.create_workspace(name)?;
-    Output::success(&format!("Created workspace '{name}'"));
+    if !Output::json_output() {
+        Output::success(&format!("Created workspace '{name}'"));
+    }
 
     if sync {
         let worktree_path = parent.join(name);
@@ -95,7 +97,17 @@ pub fn spawn_with_sync(
                 String::from_utf8_lossy(&output.stderr),
             ));
         }
-        Output::success("Synced with main");
+        if !Output::json_output() {
+            Output::success("Synced with main");
+        }
+    }
+
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "workspace": name,
+            "result": "created",
+            "synced": sync,
+        }));
     }
 
     Ok(())
@@ -165,7 +177,14 @@ pub fn ensure_not_main_workspace(name: &str) -> Result<(), Error> {
 /// Execute workspace abort workflow
 pub fn execute_workspace_abort(backend: &dyn VcsBackend, name: &str) -> Result<(), Error> {
     backend.abort_workspace(name)?;
-    Output::success(&format!("Aborted workspace '{}'", name));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "workspace": name,
+            "result": "aborted",
+        }));
+    } else {
+        Output::success(&format!("Aborted workspace '{}'", name));
+    }
     Ok(())
 }
 
@@ -426,7 +445,9 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
         }
     }
 
-    Output::info(&format!("Adding workspace at '{}'...", canonical_path));
+    if !Output::json_output() {
+        Output::info(&format!("Adding workspace at '{}'...", canonical_path));
+    }
 
     let output = Command::new("git")
         .args(["worktree", "add", canonical_path.as_ref()])
@@ -437,7 +458,14 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
         return Err(Error::vcs_conflict("worktree add", stderr));
     }
 
-    Output::success(&format!("Added workspace at '{}'", canonical_path));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "workspace": canonical_path,
+            "result": "added",
+        }));
+    } else {
+        Output::success(&format!("Added workspace at '{}'", canonical_path));
+    }
 
     Ok(())
 }

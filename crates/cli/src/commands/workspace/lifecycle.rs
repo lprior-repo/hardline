@@ -11,7 +11,9 @@ pub fn spawn(name: &str, sync: SyncOption) -> Result<(), Error> {
         return Err(err);
     }
 
-    Output::info(&format!("Creating workspace '{}'...", name));
+    if !Output::json_output() {
+        Output::info(&format!("Creating workspace '{}'...", name));
+    }
 
     let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
@@ -32,7 +34,9 @@ pub fn switch(name: &str) -> Result<(), Error> {
         return Err(Error::invalid_identifier("workspace name cannot be empty"));
     }
 
-    Output::info(&format!("Switching to workspace '{}'...", name));
+    if !Output::json_output() {
+        Output::info(&format!("Switching to workspace '{}'...", name));
+    }
 
     let cwd = std::env::current_dir()?;
     let backend = vcs::create_backend(&cwd)?;
@@ -44,7 +48,14 @@ pub fn switch(name: &str) -> Result<(), Error> {
     require_clean_working_copy(backend.as_ref())?;
 
     backend.switch_workspace(name)?;
-    Output::success(&format!("Switched to '{}'", name));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "workspace": name,
+            "result": "switched",
+        }));
+    } else {
+        Output::success(&format!("Switched to '{}'", name));
+    }
     Ok(())
 }
 
@@ -55,7 +66,18 @@ pub fn list() -> Result<(), Error> {
     let backend = vcs::create_backend(&cwd)?;
     let workspaces = backend.list_workspaces()?;
 
-    if workspaces.is_empty() {
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "workspaces": workspaces
+                .iter()
+                .map(|ws| serde_json::json!({
+                    "name": ws.name,
+                    "branch": ws.branch,
+                    "current": ws.is_current,
+                }))
+                .collect::<Vec<_>>(),
+        }));
+    } else if workspaces.is_empty() {
         Output::info("No workspaces found");
     } else {
         Output::info("Workspaces:");
@@ -76,8 +98,15 @@ pub fn status() -> Result<(), Error> {
     let branch = backend.current_branch()?;
     let vcs_status = backend.status()?;
 
-    Output::info(&format!("Current branch: {}", branch));
-    Output::info(&format!("Status: {}", vcs_status));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "branch": branch,
+            "status": vcs_status.to_string(),
+        }));
+    } else {
+        Output::info(&format!("Current branch: {}", branch));
+        Output::info(&format!("Status: {}", vcs_status));
+    }
 
     Ok(())
 }

@@ -38,7 +38,9 @@ pub fn abort(name: Option<&str>) -> Result<(), Error> {
     // Resolve workspace name: if None, get current workspace
     let workspace_name = resolve_workspace_name(backend.as_ref(), name)?;
 
-    Output::info(&format!("Aborting workspace '{}'...", workspace_name));
+    if !Output::json_output() {
+        Output::info(&format!("Aborting workspace '{}'...", workspace_name));
+    }
 
     execute_workspace_abort(backend.as_ref(), &workspace_name)?;
 

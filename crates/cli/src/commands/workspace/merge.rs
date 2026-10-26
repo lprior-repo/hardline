@@ -55,9 +55,17 @@ pub fn fork(name: &str, from: Option<&str>) -> Result<(), Error> {
         return Err(Error::vcs_conflict("worktree add", stderr));
     }
 
-    Output::success(&format!(
-        "Forked workspace '{name}' from '{from_branch}'"
-    ));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "workspace": name,
+            "from": from_branch,
+            "result": "forked",
+        }));
+    } else {
+        Output::success(&format!(
+            "Forked workspace '{name}' from '{from_branch}'"
+        ));
+    }
 
     Ok(())
 }
@@ -77,7 +85,14 @@ pub fn merge(name: &str) -> Result<(), Error> {
     // merges the worktree's branch into main; print only after it succeeds.
     backend.merge_workspace(name)?;
 
-    Output::success(&format!("Merged workspace '{name}'"));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "workspace": name,
+            "result": "merged",
+        }));
+    } else {
+        Output::success(&format!("Merged workspace '{name}'"));
+    }
 
     Ok(())
 }

@@ -17,7 +17,17 @@ pub fn diff(path: Option<&str>) -> Result<(), Error> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    Output::info(&stdout);
+    if Output::json_output() {
+        let mut value = serde_json::json!({
+            "diff": stdout,
+        });
+        if let Some(p) = path {
+            value["path"] = serde_json::json!(p);
+        }
+        Output::json(&value);
+    } else {
+        Output::info(&stdout);
+    }
 
     Ok(())
 }
@@ -37,7 +47,13 @@ pub fn uncommitted() -> Result<(), Error> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    Output::info(&stdout);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "diff": stdout,
+        }));
+    } else {
+        Output::info(&stdout);
+    }
 
     Ok(())
 }
@@ -56,7 +72,14 @@ pub fn commit(message: &str) -> Result<(), Error> {
         return Err(Error::vcs_conflict("commit", stderr));
     }
 
-    Output::success("Committed changes");
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "result": "committed",
+            "message": message,
+        }));
+    } else {
+        Output::success("Committed changes");
+    }
 
     Ok(())
 }
@@ -81,7 +104,14 @@ pub fn log(limit: Option<usize>) -> Result<(), Error> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    Output::info(&stdout);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "log": stdout,
+            "limit": limit,
+        }));
+    } else {
+        Output::info(&stdout);
+    }
 
     Ok(())
 }

@@ -22,7 +22,17 @@ pub fn branches() -> Result<()> {
     let backend = scp_core::vcs::create_backend(&cwd)?;
     let branch_list = backend.list_branches()?;
 
-    if branch_list.is_empty() {
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "branches": branch_list
+                .iter()
+                .map(|b| serde_json::json!({
+                    "name": b.name,
+                    "current": b.is_current,
+                }))
+                .collect::<Vec<_>>(),
+        }));
+    } else if branch_list.is_empty() {
         Output::info("No branches found");
     } else {
         for b in &branch_list {
@@ -58,6 +68,12 @@ pub fn branch_current() -> Result<()> {
     let cwd = std::env::current_dir()?;
     let backend = scp_core::vcs::create_backend(&cwd)?;
     let branch_name = backend.current_branch()?;
-    Output::info(&format!("Current branch: {}", branch_name));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "branch": branch_name,
+        }));
+    } else {
+        Output::info(&format!("Current branch: {}", branch_name));
+    }
     Ok(())
 }

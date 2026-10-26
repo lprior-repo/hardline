@@ -18,10 +18,18 @@ pub fn run_branch_create(options: &BranchCreateOptions) -> Result<BranchCreateOu
     validate_branch_name(&options.name).map_err(Error::validation_error)?;
 
     if options.dry_run {
-        Output::info(&format!(
-            "[dry-run] Would create branch: '{}'",
-            options.name
-        ));
+        if Output::json_output() {
+            Output::json(&serde_json::json!({
+                "branch": options.name,
+                "result": "created",
+                "dry_run": true,
+            }));
+        } else {
+            Output::info(&format!(
+                "[dry-run] Would create branch: '{}'",
+                options.name
+            ));
+        }
         return Ok(BranchCreateOutput {
             success: true,
             branch_name: options.name.clone(),
@@ -34,7 +42,14 @@ pub fn run_branch_create(options: &BranchCreateOptions) -> Result<BranchCreateOu
     let backend = scp_core::vcs::create_backend(&cwd)?;
     backend.create_branch(&options.name)?;
 
-    Output::success(&format!("Created branch '{}'", options.name));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "branch": options.name,
+            "result": "created",
+        }));
+    } else {
+        Output::success(&format!("Created branch '{}'", options.name));
+    }
 
     Ok(BranchCreateOutput {
         success: true,
@@ -60,10 +75,18 @@ pub fn run_branch_delete(options: &BranchDeleteOptions) -> Result<()> {
     }
 
     if options.dry_run {
-        Output::info(&format!(
-            "[dry-run] Would delete branch: '{}'",
-            options.name
-        ));
+        if Output::json_output() {
+            Output::json(&serde_json::json!({
+                "branch": options.name,
+                "result": "deleted",
+                "dry_run": true,
+            }));
+        } else {
+            Output::info(&format!(
+                "[dry-run] Would delete branch: '{}'",
+                options.name
+            ));
+        }
         return Ok(());
     }
 
@@ -76,7 +99,16 @@ pub fn run_branch_delete(options: &BranchDeleteOptions) -> Result<()> {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     if !output.status.success() {
-        if !stderr.is_empty() {
+        if Output::json_output() {
+            // The git stderr text is never printed on this path (the
+            // success line discards it, the info line only runs when it
+            // is empty), so there is nothing to fold in; emit the same
+            // JSON shape on both human sub-branches.
+            Output::json(&serde_json::json!({
+                "branch": options.name,
+                "result": "deleted",
+            }));
+        } else if !stderr.is_empty() {
             Output::success(&format!("Deleted branch '{}'", options.name));
         } else {
             // Git returned non-zero but with info in stderr
@@ -107,18 +139,35 @@ pub fn run_branch_rename(options: &BranchRenameOptions) -> Result<()> {
 
     // Edge case: rename to same name is a no-op
     if options.old_name == options.new_name {
-        Output::info(&format!(
-            "Branch '{}' already has that name (no-op)",
-            options.old_name
-        ));
+        if Output::json_output() {
+            Output::json(&serde_json::json!({
+                "old_name": options.old_name,
+                "new_name": options.new_name,
+                "result": "no-op",
+            }));
+        } else {
+            Output::info(&format!(
+                "Branch '{}' already has that name (no-op)",
+                options.old_name
+            ));
+        }
         return Ok(());
     }
 
     if options.dry_run {
-        Output::info(&format!(
-            "[dry-run] Would rename branch: '{}' -> '{}'",
-            options.old_name, options.new_name
-        ));
+        if Output::json_output() {
+            Output::json(&serde_json::json!({
+                "old_name": options.old_name,
+                "new_name": options.new_name,
+                "result": "renamed",
+                "dry_run": true,
+            }));
+        } else {
+            Output::info(&format!(
+                "[dry-run] Would rename branch: '{}' -> '{}'",
+                options.old_name, options.new_name
+            ));
+        }
         return Ok(());
     }
 
@@ -130,7 +179,16 @@ pub fn run_branch_rename(options: &BranchRenameOptions) -> Result<()> {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     if output.status.success() {
-        if !stderr.is_empty() || stderr.contains("Renamed") {
+        if Output::json_output() {
+            // As in delete: the stderr text is never printed on this
+            // path (the success line discards it, the info line only
+            // runs when it is empty), so there is nothing to fold in.
+            Output::json(&serde_json::json!({
+                "old_name": options.old_name,
+                "new_name": options.new_name,
+                "result": "renamed",
+            }));
+        } else if !stderr.is_empty() || stderr.contains("Renamed") {
             Output::success(&format!(
                 "Renamed branch '{}' -> '{}'",
                 options.old_name, options.new_name
