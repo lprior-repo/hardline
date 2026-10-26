@@ -122,8 +122,24 @@ fn attack_show_nonexistent_stash() {
 fn attack_save_and_list_stash() {
     let (_tmp, repo) = make_repo();
 
-    // Make dirty working copy
+    // Make dirty working copy: the file must be TRACKED for `git stash
+    // push` (without --include-untracked) to stash it. Writing an
+    // untracked file alone stashes nothing and `save` correctly errors
+    // (no new entry) — the old setup only passed via the race-workaround
+    // branch below, never actually round-tripping a stash.
     std::fs::write(_tmp.path().join("dirty.txt"), "dirty content").expect("write dirty file");
+    Command::new("git")
+        .args(["add", "dirty.txt"])
+        .current_dir(_tmp.path())
+        .output()
+        .expect("git add dirty file");
+    Command::new("git")
+        .args(["commit", "-m", "dirty file"])
+        .current_dir(_tmp.path())
+        .output()
+        .expect("git commit dirty file");
+    std::fs::write(_tmp.path().join("dirty.txt"), "dirty content modified")
+        .expect("modify dirty file");
     let result = stash::save(&repo, Some("test-stash-msg"), false);
 
     // FINDING: stash::save() calls run_git("stash push") then immediately calls
