@@ -13,11 +13,9 @@ const HEARTBEAT_FILE: &str = ".scp/heartbeat";
 /// Final path segment of a workspace name, e.g. `.scp/workspaces/alpha`
 /// becomes `alpha`. Returns "" for an empty name or a name ending in a
 /// separator (the main worktree, whose list name is empty, falls here).
+/// `rsplit` always yields at least one segment, so this cannot panic.
 fn workspace_short_name(name: &str) -> &str {
-    match name.rsplit('/').next() {
-        Some(segment) => segment,
-        None => "",
-    }
+    name.rsplit('/').next().unwrap_or_default()
 }
 
 /// A session argument matches a workspace when it equals the workspace's
