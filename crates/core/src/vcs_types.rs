@@ -52,7 +52,7 @@ pub fn workspace_name_matches(listed: &str, query: &str) -> bool {
         return true;
     }
     listed
-        .rsplit(|c| c == '/' || c == '\\')
+        .rsplit(['/', '\\'])
         .find(|segment| !segment.is_empty())
         .is_some_and(|basename| basename == query)
 }

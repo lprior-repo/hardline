@@ -133,7 +133,10 @@ mod tests {
             )))
             .exit_code(),
         ] {
-            assert!(code < 128 || code > 159, "exit code {code} is in the signal range");
+            assert!(
+                !(128..=159).contains(&code),
+                "exit code {code} is in the signal range"
+            );
         }
     }
 
