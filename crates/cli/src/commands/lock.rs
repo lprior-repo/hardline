@@ -5,7 +5,7 @@ use std::{env, path::PathBuf};
 use scp_core::{
     coordination::locks::manager::LockManager,
     infrastructure::database::{DatabaseConfig, DatabaseService, SqliteDatabaseService},
-    Result,
+    Output, Result,
 };
 use tokio::runtime::Runtime;
 
@@ -51,10 +51,21 @@ pub fn acquire_with_path(
         let res = mgr
             .lock_with_ttl(session, agent, ttl.map_or(0, |v| v))
             .await?;
-        println!(
-            "Lock acquired: {} for agent {} (expires: {})",
-            res.session, res.agent_id, res.expires_at
-        );
+        if Output::json_output() {
+            Output::json(&serde_json::json!({
+                "session": res.session,
+                "agent": res.agent_id,
+                "result": "acquired",
+                "lock_id": res.lock_id,
+                "acquired_at": res.acquired_at.to_string(),
+                "expires_at": res.expires_at.to_string(),
+            }));
+        } else {
+            println!(
+                "Lock acquired: {} for agent {} (expires: {})",
+                res.session, res.agent_id, res.expires_at
+            );
+        }
         Ok(())
     })
 }
@@ -73,7 +84,15 @@ pub fn release_with_path(session: &str, agent: &str, db_path: &str) -> Result<()
         mgr.init().await?;
 
         mgr.unlock(session, agent).await?;
-        println!("Lock released: {}", session);
+        if Output::json_output() {
+            Output::json(&serde_json::json!({
+                "session": session,
+                "agent": agent,
+                "result": "released",
+            }));
+        } else {
+            println!("Lock released: {}", session);
+        }
         Ok(())
     })
 }
@@ -92,10 +111,19 @@ pub fn heartbeat_with_path(session: &str, agent: &str, db_path: &str) -> Result<
         mgr.init().await?;
 
         let res = mgr.heartbeat(session, agent).await?;
-        println!(
-            "Heartbeat sent: {} (new expiration: {})",
-            session, res.expires_at
-        );
+        if Output::json_output() {
+            Output::json(&serde_json::json!({
+                "session": session,
+                "agent": agent,
+                "result": "heartbeat",
+                "expires_at": res.expires_at.to_string(),
+            }));
+        } else {
+            println!(
+                "Heartbeat sent: {} (new expiration: {})",
+                session, res.expires_at
+            );
+        }
         Ok(())
     })
 }
@@ -116,18 +144,45 @@ pub fn status_with_path(session: &str, db_path: &str) -> Result<()> {
         let res = mgr.get_lock_state(session).await?;
         match (res.holder, res.expires_at) {
             (Some(agent), Some(expires_at)) => {
-                println!(
-                    "Locked: session {} held by {} (expires: {})",
-                    session, agent, expires_at
-                );
+                if Output::json_output() {
+                    Output::json(&serde_json::json!({
+                        "session": session,
+                        "locked": true,
+                        "agent": agent,
+                        "expires_at": expires_at.to_string(),
+                    }));
+                } else {
+                    println!(
+                        "Locked: session {} held by {} (expires: {})",
+                        session, agent, expires_at
+                    );
+                }
             }
             (Some(agent), None) => {
-                println!(
-                    "Locked: session {} held by {} (no expiration)",
-                    session, agent
-                );
+                if Output::json_output() {
+                    Output::json(&serde_json::json!({
+                        "session": session,
+                        "locked": true,
+                        "agent": agent,
+                        "expires_at": serde_json::Value::Null,
+                    }));
+                } else {
+                    println!(
+                        "Locked: session {} held by {} (no expiration)",
+                        session, agent
+                    );
+                }
             }
-            _ => println!("Unlocked: session {}", session),
+            _ => {
+                if Output::json_output() {
+                    Output::json(&serde_json::json!({
+                        "session": session,
+                        "locked": false,
+                    }));
+                } else {
+                    println!("Unlocked: session {}", session);
+                }
+            }
         }
         Ok(())
     })
@@ -147,7 +202,20 @@ pub fn list_with_path(db_path: &str) -> Result<()> {
         mgr.init().await?;
 
         let locks = mgr.get_all_locks().await?;
-        if locks.is_empty() {
+        if Output::json_output() {
+            Output::json(&serde_json::json!({
+                "locks": locks
+                    .iter()
+                    .map(|lock| serde_json::json!({
+                        "session": lock.session,
+                        "agent": lock.agent_id,
+                        "lock_id": lock.lock_id,
+                        "acquired_at": lock.acquired_at.to_string(),
+                        "expires_at": lock.expires_at.to_string(),
+                    }))
+                    .collect::<Vec<_>>(),
+            }));
+        } else if locks.is_empty() {
             println!("No active locks");
         } else {
             println!("{:<20} {:<20} {:<25}", "SESSION", "AGENT", "EXPIRES");

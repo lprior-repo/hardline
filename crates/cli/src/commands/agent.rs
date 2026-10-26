@@ -2,6 +2,7 @@
 
 use scp_core::{
     agent::{get_agent_registry, Agent, AgentId},
+    output::Output,
     vcs, Error, Result,
 };
 
@@ -16,7 +17,11 @@ pub fn create(name: &str) -> Result<()> {
 
     registry.register(agent)?;
 
-    println!("✓ Agent '{}' created", name);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({ "agent": name, "created": true }));
+    } else {
+        println!("✓ Agent '{}' created", name);
+    }
     Ok(())
 }
 
@@ -25,6 +30,28 @@ pub fn list() -> Result<()> {
     let registry = get_agent_registry();
 
     let agents = registry.list()?;
+
+    if Output::json_output() {
+        let agents_json: Vec<serde_json::Value> = agents
+            .iter()
+            .map(|agent| match &agent.activity {
+                scp_core::agent::AgentActivity::Idle => serde_json::json!({
+                    "id": agent.id.as_str(),
+                    "status": agent.status().to_string(),
+                    "activity": "idle",
+                }),
+                scp_core::agent::AgentActivity::Working { session, command } => {
+                    serde_json::json!({
+                        "id": agent.id.as_str(),
+                        "status": agent.status().to_string(),
+                        "activity": { "session": session, "command": command },
+                    })
+                }
+            })
+            .collect();
+        Output::json(&serde_json::json!({ "agents": agents_json }));
+        return Ok(());
+    }
 
     if agents.is_empty() {
         println!("No agents registered");
@@ -57,7 +84,11 @@ pub fn kill(id: &str) -> Result<()> {
 
     match registry.unregister(&agent_id) {
         Ok(_) => {
-            println!("✓ Agent '{}' killed", id);
+            if Output::json_output() {
+                Output::json(&serde_json::json!({ "agent": id, "killed": true }));
+            } else {
+                println!("✓ Agent '{}' killed", id);
+            }
             Ok(())
         }
         Err(e) => {
@@ -76,6 +107,26 @@ pub fn status(id: Option<&str>) -> Result<()> {
 
         match registry.get(&aid)? {
             Some(agent) => {
+                if Output::json_output() {
+                    let activity = match &agent.activity {
+                        scp_core::agent::AgentActivity::Idle => {
+                            serde_json::json!("idle")
+                        }
+                        scp_core::agent::AgentActivity::Working { session, command } => {
+                            serde_json::json!({ "session": session, "command": command })
+                        }
+                    };
+                    Output::json(&serde_json::json!({
+                        "agent": agent_id,
+                        "status": agent.status().to_string(),
+                        "registered_at": agent.registered_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+                        "last_seen": agent.last_seen.format("%Y-%m-%d %H:%M:%S").to_string(),
+                        "actions_count": agent.actions_count,
+                        "activity": activity,
+                    }));
+                    return Ok(());
+                }
+
                 println!("Agent '{}':", agent_id);
                 println!("  Status: {}", agent.status());
                 println!(
@@ -107,6 +158,17 @@ pub fn status(id: Option<&str>) -> Result<()> {
     } else {
         let agents = registry.list()?;
         let active = registry.list_active()?;
+
+        if Output::json_output() {
+            let active_ids: Vec<&str> =
+                active.iter().map(|agent| agent.id.as_str()).collect();
+            Output::json(&serde_json::json!({
+                "total": agents.len(),
+                "active": active.len(),
+                "active_agents": active_ids,
+            }));
+            return Ok(());
+        }
 
         println!("Agent Status:");
         println!("  Total: {}", agents.len());
@@ -152,7 +214,15 @@ pub fn register(session: Option<&str>) -> Result<()> {
     let content = format!("{}:{}\n", session_name, timestamp);
     std::fs::write(&heartbeat_path, content)?;
 
-    println!("✓ Registered agent for session '{}'", session_name);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "session": session_name,
+            "registered": true,
+            "timestamp": timestamp,
+        }));
+    } else {
+        println!("✓ Registered agent for session '{}'", session_name);
+    }
     Ok(())
 }
 
@@ -182,7 +252,15 @@ pub fn heartbeat(session: Option<&str>) -> Result<()> {
     let content = format!("{}:{}\n", session_name, timestamp);
     std::fs::write(&heartbeat_path, content)?;
 
-    println!("✓ Heartbeat sent for session '{}'", session_name);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "session": session_name,
+            "heartbeat": true,
+            "timestamp": timestamp,
+        }));
+    } else {
+        println!("✓ Heartbeat sent for session '{}'", session_name);
+    }
     Ok(())
 }
 

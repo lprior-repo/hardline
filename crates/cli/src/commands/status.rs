@@ -1,6 +1,6 @@
 //! Status command - shows current workspace/session status
 
-use scp_core::Result;
+use scp_core::{output::Output, Result};
 
 use crate::commands::session as sess;
 
@@ -22,14 +22,18 @@ fn short_status() -> Result<()> {
     let branch = backend.current_branch()?;
     let vcs_status = backend.status()?;
 
-    let status_char = match vcs_status {
+    let status_char = match &vcs_status {
         scp_core::vcs::VcsStatus::Clean => "✓",
         scp_core::vcs::VcsStatus::Dirty => "◐",
         scp_core::vcs::VcsStatus::Conflicted => "✗",
         scp_core::vcs::VcsStatus::Detached => "⚙",
     };
 
-    println!("{} {} {}", status_char, branch, cwd.display());
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"status": vcs_status.to_string(), "branch": branch, "path": cwd.display().to_string()}));
+    } else {
+        println!("{} {} {}", status_char, branch, cwd.display());
+    }
 
     Ok(())
 }

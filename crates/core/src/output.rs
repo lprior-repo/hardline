@@ -2,9 +2,19 @@
 //!
 //! Provides verbosity-aware output functions that respect --verbose and --quiet flags.
 
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 static VERBOSITY: AtomicU8 = AtomicU8::new(0);
+static JSON_OUTPUT: AtomicBool = AtomicBool::new(false);
+
+/// Global JSON-output switch, set once from the CLI's `--format` flag.
+///
+/// Default is human output. When set, command handlers that support it emit
+/// structured JSON (via [`Output::json`]) instead of their human prose. This
+/// is deliberately separate from [`crate::OutputFormat`], which is a
+/// single-variant always-JSON marker from the AI-first design and carries no
+/// human-vs-JSON distinction. Handlers must branch on [`Output::json_output`]
+/// at each print site; nothing here rewrites prose into JSON.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Verbosity {
@@ -94,6 +104,32 @@ impl Output {
 
     pub fn set_verbose(verbose: bool, quiet: bool) {
         Verbosity::set(verbose, quiet);
+    }
+
+    /// Set the global JSON-output switch (from the CLI `--format` flag).
+    pub fn set_json_output(json: bool) {
+        JSON_OUTPUT.store(json, Ordering::SeqCst);
+    }
+
+    /// Whether command output should be structured JSON.
+    #[must_use]
+    pub fn json_output() -> bool {
+        JSON_OUTPUT.load(Ordering::SeqCst)
+    }
+
+    /// Print a value as pretty JSON, unless output is quiet.
+    ///
+    /// Serialization failure prints a minimal error object to stderr rather
+    /// than panicking; callers pass only serializable values, so this is a
+    /// belt-and-braces path, not an expected outcome.
+    pub fn json(value: &impl serde::Serialize) {
+        if Verbosity::current().is_quiet() {
+            return;
+        }
+        match serde_json::to_string_pretty(value) {
+            Ok(text) => println!("{text}"),
+            Err(_) => eprintln!("{{\"error\": \"failed to serialize output\"}}"),
+        }
     }
 
     pub fn current_verbosity() -> Verbosity {

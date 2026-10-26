@@ -288,6 +288,20 @@ fn output_dry_run(options: &WorkOptions) -> Result<()> {
 
 /// Print the dry-run summary to stdout.
 fn print_dry_run_summary(options: &WorkOptions, output: &WorkOutput) -> Result<()> {
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "dry_run": true,
+            "name": output.name,
+            "workspace_path": output.workspace_path,
+            "created": output.created,
+            "agent_id": output.agent_id,
+            "bead_id": options.bead_id,
+            "env_vars": output.env_vars,
+            "enter_command": output.enter_command,
+        }));
+        return Ok(());
+    }
+
     Output::info(&format!("[DRY RUN] Would create session '{}'", output.name));
     Output::info(&format!("  Workspace: {}", output.workspace_path));
 
@@ -305,6 +319,19 @@ fn output_result(output: &WorkOutput) -> Result<()> {
     } else {
         "Using existing"
     };
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "status": status,
+            "name": output.name,
+            "workspace_path": output.workspace_path,
+            "created": output.created,
+            "agent_id": output.agent_id,
+            "bead_id": output.bead_id,
+            "env_vars": output.env_vars,
+            "enter_command": output.enter_command,
+        }));
+        return Ok(());
+    }
     Output::info(&format!("{status} session '{}'", output.name));
     Output::info(&format!("  Workspace: {}", output.workspace_path));
 

@@ -69,6 +69,11 @@ fn execute_list(status_filter: Option<&str>, include_all: bool) -> scp_core::Res
         tasks: filtered,
     };
 
+    if Output::json_output() {
+        Output::json(&result);
+        return Ok(());
+    }
+
     if result.tasks.is_empty() {
         Output::info("No tasks found.");
         return Ok(());
@@ -97,6 +102,11 @@ fn execute_show(task_id: &TaskId) -> scp_core::Result<()> {
         .ok_or_else(|| Error::from(TaskErrorKind::NotFound(task_id.to_string())))?;
 
     let output = task_to_output(&task);
+
+    if Output::json_output() {
+        Output::json(&output);
+        return Ok(());
+    }
 
     Output::info(&format!("Task: {}", output.id));
     Output::info(&format!("  Title: {}", output.title));
@@ -129,7 +139,15 @@ fn execute_claim(
     let updated = transition_to_claimed(task, agent_id.as_str());
     store.update(updated)?;
 
-    Output::success(&format!("Claimed task '{}'", task_id));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "task": task_id.to_string(),
+            "claimed": true,
+            "agent": agent_id.as_str(),
+        }));
+    } else {
+        Output::success(&format!("Claimed task '{}'", task_id));
+    }
     Ok(())
 }
 
@@ -148,7 +166,15 @@ fn execute_yield(
     let updated = transition_to_yielded(task);
     store.update(updated)?;
 
-    Output::success(&format!("Yielded task '{}'", task_id));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "task": task_id.to_string(),
+            "yielded": true,
+            "agent": agent_id.as_str(),
+        }));
+    } else {
+        Output::success(&format!("Yielded task '{}'", task_id));
+    }
     Ok(())
 }
 
@@ -170,8 +196,17 @@ fn execute_start(
     store.update(started)?;
 
     let workspace = format!(".scp/workspaces/{task_id}");
-    Output::success(&format!("Started task '{task_id}'"));
-    Output::info(&format!("  Workspace: {workspace}"));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "task": task_id.to_string(),
+            "started": true,
+            "agent": agent_id.as_str(),
+            "workspace": workspace,
+        }));
+    } else {
+        Output::success(&format!("Started task '{task_id}'"));
+        Output::info(&format!("  Workspace: {workspace}"));
+    }
 
     Ok(())
 }
@@ -198,9 +233,19 @@ fn execute_done(
             .ok_or_else(|| Error::internal("Task disappeared after completion"))?,
     );
 
-    Output::success(&format!("Completed task '{task_id}'"));
-    Output::info(&format!("  Title: {}", output.title));
-    Output::info(&format!("  Status: {}", output.status));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "task": task_id.to_string(),
+            "completed": true,
+            "agent": agent_id.as_str(),
+            "title": output.title,
+            "status": output.status,
+        }));
+    } else {
+        Output::success(&format!("Completed task '{task_id}'"));
+        Output::info(&format!("  Title: {}", output.title));
+        Output::info(&format!("  Status: {}", output.status));
+    }
 
     Ok(())
 }

@@ -9,7 +9,9 @@ pub fn list() -> Result<()> {
     let backend = vcs::create_backend(&cwd)?;
     let workspaces = backend.list_workspaces()?;
 
-    if workspaces.is_empty() {
+    if Output::json_output() {
+        Output::json(&serde_json::json!({ "sessions": workspaces }));
+    } else if workspaces.is_empty() {
         println!("No sessions found");
     } else {
         println!("Sessions:");
@@ -38,17 +40,25 @@ pub fn status() -> Result<()> {
         scp_core::vcs::VcsStatus::Detached => "detached",
     };
 
-    println!("Session Status:");
-    println!("  Branch: {}", branch);
-    println!("  State: {}", state);
-
     let log = backend.log(5)?;
-    if !log.is_empty() {
-        println!("  Recent commits:");
-        for commit in log.iter().take(3) {
-            println!("    - {}", commit.id.chars().take(8).collect::<String>());
-            if !commit.message.is_empty() {
-                println!("      {}", commit.message.lines().next().unwrap_or(""));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "branch": branch,
+            "state": state,
+            "recent_commits": log.iter().take(3).collect::<Vec<_>>(),
+        }));
+    } else {
+        println!("Session Status:");
+        println!("  Branch: {}", branch);
+        println!("  State: {}", state);
+
+        if !log.is_empty() {
+            println!("  Recent commits:");
+            for commit in log.iter().take(3) {
+                println!("    - {}", commit.id.chars().take(8).collect::<String>());
+                if !commit.message.is_empty() {
+                    println!("      {}", commit.message.lines().next().unwrap_or(""));
+                }
             }
         }
     }
@@ -64,7 +74,9 @@ pub fn focus(name: &str) -> Result<()> {
         ));
     }
 
-    Output::info(&format!("Focusing session '{}'...", name));
+    if !Output::json_output() {
+        Output::info(&format!("Focusing session '{}'...", name));
+    }
 
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
@@ -75,7 +87,11 @@ pub fn focus(name: &str) -> Result<()> {
     }
 
     backend.switch_workspace(name)?;
-    Output::success(&format!("Focused session '{}'", name));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({ "session": name, "focused": true }));
+    } else {
+        Output::success(&format!("Focused session '{}'", name));
+    }
     Ok(())
 }
 
@@ -97,7 +113,9 @@ pub fn submit(name: Option<&str>, auto_commit: bool, message: Option<&str>) -> R
             .ok_or_else(|| Error::workspace_not_found("no current session".to_string()))?
     };
 
-    Output::info(&format!("Submitting session '{}'...", workspace_name));
+    if !Output::json_output() {
+        Output::info(&format!("Submitting session '{}'...", workspace_name));
+    }
 
     let vcs_status = backend.status()?;
     if vcs_status == scp_core::vcs::VcsStatus::Dirty {
@@ -125,9 +143,16 @@ pub fn submit(name: Option<&str>, auto_commit: bool, message: Option<&str>) -> R
     }
 
     backend.push()?;
-    Output::success("Pushed to remote");
-
-    println!("✓ Submitted session '{}'", workspace_name);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "session": workspace_name,
+            "submitted": true,
+            "pushed": true,
+        }));
+    } else {
+        Output::success("Pushed to remote");
+        println!("✓ Submitted session '{}'", workspace_name);
+    }
     Ok(())
 }
 
@@ -145,7 +170,9 @@ pub fn remove(name: &str, _force: bool, merge: bool) -> Result<()> {
         ));
     }
 
-    Output::info(&format!("Removing session '{}'...", name));
+    if !Output::json_output() {
+        Output::info(&format!("Removing session '{}'...", name));
+    }
 
     let cwd = std::env::current_dir().map_err(|e| Error::io_error(e.to_string()))?;
     let backend = vcs::create_backend(&cwd)?;
@@ -157,11 +184,21 @@ pub fn remove(name: &str, _force: bool, merge: bool) -> Result<()> {
 
     if merge {
         backend.rebase("main")?;
-        Output::success("Merged with main");
+        if !Output::json_output() {
+            Output::success("Merged with main");
+        }
     }
 
     backend.delete_workspace(name)?;
-    Output::success(&format!("Removed session '{}'", name));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "session": name,
+            "removed": true,
+            "merged": merge,
+        }));
+    } else {
+        Output::success(&format!("Removed session '{}'", name));
+    }
     Ok(())
 }
 

@@ -10,12 +10,33 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::cli::args::Cli;
 
+/// Routes tracing log lines to stderr while JSON output is active, so
+/// stdout stays one parseable JSON document; human mode keeps the
+/// previous stdout destination unchanged.
+struct JsonAwareWriter;
+
+impl<'a> tracing_subscriber::fmt::writer::MakeWriter<'a> for JsonAwareWriter {
+    type Writer = Box<dyn std::io::Write + 'a>;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        if Output::json_output() {
+            Box::new(std::io::stderr())
+        } else {
+            Box::new(std::io::stdout())
+        }
+    }
+}
+
 /// Main entry point for the CLI
 pub fn main() -> ExitCode {
     let cli = Cli::parse();
 
     // Set up verbosity for output module
     Output::set_verbose(cli.verbose, cli.quiet);
+
+    // Honor the global --format flag: only "json" switches handlers to
+    // structured JSON output; any other value keeps the human default.
+    Output::set_json_output(cli.format.eq_ignore_ascii_case("json"));
 
     // Set database path if provided via flag
     if let Some(db_path) = &cli.database {
@@ -35,7 +56,7 @@ pub fn main() -> ExitCode {
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or(log_level),
         ))
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_writer(JsonAwareWriter))
         .init();
 
     // Run the appropriate command

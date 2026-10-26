@@ -15,7 +15,9 @@ pub fn list(pattern: Option<&str>, _sort: Option<&str>) -> Result<()> {
     let tags =
         tag::list(&repo, pattern).map_err(|e| Error::vcs_conflict("list tags", e.to_string()))?;
 
-    if tags.is_empty() {
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"tags": tags}));
+    } else if tags.is_empty() {
         Output::info("No tags found");
     } else {
         for t in tags {
@@ -38,7 +40,11 @@ pub fn create(name: &str, message: Option<&str>, _commit: Option<&str>, force: b
     tag::create(&repo, name, msg, force)
         .map_err(|e| Error::vcs_conflict("create tag", e.to_string()))?;
 
-    Output::success(&format!("Created tag: {}", name));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"created": true, "tag": name, "message": msg}));
+    } else {
+        Output::success(&format!("Created tag: {}", name));
+    }
     Ok(())
 }
 
@@ -58,7 +64,11 @@ pub fn delete(name: &str, remote: bool) -> Result<()> {
     tag::delete(&repo, name, false)
         .map_err(|e| Error::vcs_conflict("delete tag", e.to_string()))?;
 
-    Output::success(&format!("Deleted local tag: {}", name));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"deleted": true, "tag": name, "remote": false}));
+    } else {
+        Output::success(&format!("Deleted local tag: {}", name));
+    }
     Ok(())
 }
 
@@ -72,7 +82,11 @@ fn delete_remote_tag(workdir: &std::path::Path, name: &str) -> Result<()> {
         return Err(Error::vcs_push_failed(git_err.to_string()));
     }
 
-    Output::success(&format!("Deleted remote tag: {}", name));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"deleted": true, "tag": name, "remote": true}));
+    } else {
+        Output::success(&format!("Deleted remote tag: {}", name));
+    }
     Ok(())
 }
 
@@ -93,7 +107,11 @@ fn push_single_tag(workdir: &std::path::Path, tag_name: &str, remote: &str) -> R
     let repo = repository::open(workdir)
         .map_err(|e| Error::vcs_conflict(format!("Failed to open repo: {}", e), e.to_string()))?;
     tag::push(&repo, remote, tag_name).map_err(|e| Error::vcs_push_failed(e.to_string()))?;
-    Output::success(&format!("Pushed tag {} to {}", tag_name, remote));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"pushed": true, "tag": tag_name, "remote": remote}));
+    } else {
+        Output::success(&format!("Pushed tag {} to {}", tag_name, remote));
+    }
     Ok(())
 }
 
@@ -107,7 +125,11 @@ fn push_all_tags(workdir: &std::path::Path, remote: &str) -> Result<()> {
         return Err(Error::vcs_push_failed(git_err.to_string()));
     }
 
-    Output::success(&format!("Pushed all tags to {}", remote));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"pushed": true, "all": true, "remote": remote}));
+    } else {
+        Output::success(&format!("Pushed all tags to {}", remote));
+    }
     Ok(())
 }
 

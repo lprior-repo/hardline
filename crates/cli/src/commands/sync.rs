@@ -18,7 +18,11 @@ pub fn fetch(remote: Option<&str>, prune: bool, tags: bool, all: bool) -> Result
             let repo = repository::open(&cwd).map_err(|e| Error::vcs_pull_failed(e.to_string()))?;
             let _output = remote::fetch(&repo, remote, prune, tags, all)
                 .map_err(|e| Error::vcs_pull_failed(e.to_string()))?;
-            Output::success("Fetched from remote(s)");
+            if Output::json_output() {
+                Output::json(&serde_json::json!({"fetched": true, "remote": remote, "prune": prune, "tags": tags, "all": all}));
+            } else {
+                Output::success("Fetched from remote(s)");
+            }
         }
     }
 
@@ -36,7 +40,11 @@ pub fn pull() -> Result<()> {
             let repo = repository::open(&cwd).map_err(|e| Error::vcs_pull_failed(e.to_string()))?;
             let _output = remote::pull(&repo, None, false)
                 .map_err(|e| Error::vcs_pull_failed(e.to_string()))?;
-            Output::success("Pulled from remote");
+            if Output::json_output() {
+                Output::json(&serde_json::json!({"pulled": true}));
+            } else {
+                Output::success("Pulled from remote");
+            }
         }
     }
 
@@ -72,7 +80,11 @@ pub fn push(args: PushArgs<'_>) -> Result<()> {
                 args.delete,
             )
             .map_err(|e| Error::vcs_push_failed(e.to_string()))?;
-            Output::success(&format!("Pushed to {}", args.remote));
+            if Output::json_output() {
+                Output::json(&serde_json::json!({"pushed": true, "remote": args.remote, "branch": args.branch, "set_upstream": args.set_upstream, "force": args.force, "force_with_lease": args.force_with_lease, "tags": args.tags, "delete": args.delete}));
+            } else {
+                Output::success(&format!("Pushed to {}", args.remote));
+            }
         }
     }
 

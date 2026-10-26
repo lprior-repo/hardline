@@ -8,7 +8,7 @@ use scp_core::{
     queue::{MemQueue, Priority, QueueItem, QueueManager, QueueStatus},
     queue_sqlite::SqliteQueue,
     vcs::{self, VcsStatus},
-    Result,
+    Output, Result,
 };
 use tokio::runtime::Runtime;
 
@@ -55,7 +55,9 @@ pub fn list() -> Result<()> {
     let queue = get_queue()?;
     let items = queue.list()?;
 
-    if items.is_empty() {
+    if Output::json_output() {
+        Output::json(&serde_json::json!({ "items": items }));
+    } else if items.is_empty() {
         println!("Queue is empty");
     } else {
         println!("Queue ({} items):", items.len());
@@ -84,8 +86,17 @@ pub fn enqueue(branch: &str, priority: Option<&str>) -> Result<()> {
         };
     }
 
+    let priority_str = format!("{:?}", item.priority);
     queue.enqueue(item)?;
-    println!("✓ Added '{}' to queue", branch);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "branch": branch,
+            "result": "enqueued",
+            "priority": priority_str,
+        }));
+    } else {
+        println!("✓ Added '{}' to queue", branch);
+    }
 
     Ok(())
 }
@@ -96,7 +107,14 @@ pub fn dequeue() -> Result<()> {
 
     match queue.dequeue()? {
         Some(item) => {
-            println!("✓ Dequeued '{}'", item.branch);
+            if Output::json_output() {
+                Output::json(&serde_json::json!({
+                    "branch": item.branch,
+                    "result": "dequeued",
+                }));
+            } else {
+                println!("✓ Dequeued '{}'", item.branch);
+            }
             Ok(())
         }
         None => Err(scp_core::Error::queue_empty()),
@@ -114,7 +132,11 @@ pub fn process_with_backend(
         None => return Err(scp_core::Error::queue_empty()),
     };
 
-    println!("Processing '{}'...", item.branch);
+    // Progress chatter is suppressed in JSON mode so the success path emits
+    // a single JSON object; failure prints below are error paths and stay.
+    if !Output::json_output() {
+        println!("Processing '{}'...", item.branch);
+    }
 
     // Pre-flight checks
     if checks {
@@ -122,7 +144,9 @@ pub fn process_with_backend(
     }
 
     // Merge the branch
-    println!("  Merging '{}'...", item.branch);
+    if !Output::json_output() {
+        println!("  Merging '{}'...", item.branch);
+    }
     if let Err(e) = backend.merge(&item.branch) {
         let msg = format!("merge failed: {}", e);
         println!("  ✗ {}", msg);
@@ -131,10 +155,14 @@ pub fn process_with_backend(
         queue.enqueue(item)?;
         return Err(e);
     }
-    println!("  ✓ Merge successful");
+    if !Output::json_output() {
+        println!("  ✓ Merge successful");
+    }
 
     // Push
-    println!("  Pushing...");
+    if !Output::json_output() {
+        println!("  Pushing...");
+    }
     if let Err(e) = backend.push() {
         let msg = format!("push failed: {}", e);
         println!("  ✗ {}", msg);
@@ -142,9 +170,18 @@ pub fn process_with_backend(
         queue.enqueue(item)?;
         return Err(e);
     }
-    println!("  ✓ Push successful");
+    if !Output::json_output() {
+        println!("  ✓ Push successful");
+    }
 
-    println!("✓ Processed '{}'", item.branch);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "branch": item.branch,
+            "result": "processed",
+        }));
+    } else {
+        println!("✓ Processed '{}'", item.branch);
+    }
     Ok(())
 }
 
@@ -154,10 +191,16 @@ fn run_preflight_checks(
     item: &mut QueueItem,
     queue: &dyn scp_core::queue::QueueManager,
 ) -> Result<()> {
-    println!("  Running pre-flight checks...");
+    if !Output::json_output() {
+        println!("  Running pre-flight checks...");
+    }
 
     match backend.status()? {
-        VcsStatus::Clean => println!("    ✓ Working copy clean"),
+        VcsStatus::Clean => {
+            if !Output::json_output() {
+                println!("    ✓ Working copy clean");
+            }
+        }
         VcsStatus::Dirty => {
             let msg = "working copy has uncommitted changes".to_string();
             println!("    ✗ {}", msg);
@@ -192,7 +235,9 @@ fn run_preflight_checks(
         queue.enqueue(item.clone())?;
         return Err(scp_core::Error::branch_not_found(branch_name));
     }
-    println!("    ✓ Branch '{}' exists", item.branch);
+    if !Output::json_output() {
+        println!("    ✓ Branch '{}' exists", item.branch);
+    }
 
     Ok(())
 }
@@ -218,7 +263,15 @@ pub fn insert(position: usize, branch: &str) -> Result<()> {
     let item = QueueItem::direct(branch);
     queue.insert_at(position, item)?;
 
-    println!("✓ Inserted '{}' at position {}", branch, position);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "branch": branch,
+            "position": position,
+            "result": "inserted",
+        }));
+    } else {
+        println!("✓ Inserted '{}' at position {}", branch, position);
+    }
     Ok(())
 }
 
@@ -234,7 +287,14 @@ pub fn remove(branch: &str) -> Result<()> {
         .ok_or_else(|| scp_core::Error::queue_item_not_found(branch.to_string()))?;
 
     queue.remove(&item.id)?;
-    println!("✓ Removed '{}' from queue", branch);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "branch": branch,
+            "result": "removed",
+        }));
+    } else {
+        println!("✓ Removed '{}' from queue", branch);
+    }
 
     Ok(())
 }
@@ -246,12 +306,20 @@ pub fn status() -> Result<()> {
     let len = queue.len()?;
     let pending = queue.list_pending()?;
 
-    println!("Queue Status:");
-    println!("  Total items: {}", len);
-    println!("  Pending: {}", pending.len());
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "total": len,
+            "pending": pending.len(),
+            "next": pending.first().map(|item| item.branch.as_str()),
+        }));
+    } else {
+        println!("Queue Status:");
+        println!("  Total items: {}", len);
+        println!("  Pending: {}", pending.len());
 
-    if !pending.is_empty() {
-        println!("  Next: {}", pending[0].branch);
+        if !pending.is_empty() {
+            println!("  Next: {}", pending[0].branch);
+        }
     }
 
     Ok(())

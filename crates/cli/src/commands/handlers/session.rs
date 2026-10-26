@@ -40,7 +40,15 @@ pub fn pause(name: &str) -> Result<()> {
     std::fs::write(&paused_path, content)
         .map_err(|e| Error::io_error(format!("failed to write paused marker: {e}")))?;
 
-    Output::success(&format!("Session '{name}' paused at {timestamp}"));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "session": name,
+            "paused": true,
+            "paused_at": timestamp,
+        }));
+    } else {
+        Output::success(&format!("Session '{name}' paused at {timestamp}"));
+    }
     Ok(())
 }
 
@@ -65,7 +73,11 @@ pub fn resume(name: &str) -> Result<()> {
     std::fs::remove_file(&paused_path)
         .map_err(|e| Error::io_error(format!("failed to remove paused marker: {e}")))?;
 
-    Output::success(&format!("Session '{name}' resumed"));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({ "session": name, "resumed": true }));
+    } else {
+        Output::success(&format!("Session '{name}' resumed"));
+    }
     Ok(())
 }
 
@@ -102,10 +114,19 @@ pub fn clone_session(source: &str, target: &str, dry_run: bool) -> Result<CloneR
     }
 
     if dry_run {
-        Output::info(&format!(
-            "[dry-run] Would clone '{}' to '{}'",
-            source, target
-        ));
+        if Output::json_output() {
+            Output::json(&serde_json::json!({
+                "source": source,
+                "target": target,
+                "success": true,
+                "dry_run": true,
+            }));
+        } else {
+            Output::info(&format!(
+                "[dry-run] Would clone '{}' to '{}'",
+                source, target
+            ));
+        }
         return Ok(CloneResult {
             success: true,
             source: source.to_string(),
@@ -114,11 +135,22 @@ pub fn clone_session(source: &str, target: &str, dry_run: bool) -> Result<CloneR
         });
     }
 
-    Output::info(&format!("Cloning '{}' to '{}'...", source, target));
+    if !Output::json_output() {
+        Output::info(&format!("Cloning '{}' to '{}'...", source, target));
+    }
 
     backend.fork_workspace(source, target)?;
 
-    Output::success(&format!("Cloned '{}' to '{}'", source, target));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "source": source,
+            "target": target,
+            "success": true,
+            "dry_run": false,
+        }));
+    } else {
+        Output::success(&format!("Cloned '{}' to '{}'", source, target));
+    }
     Ok(CloneResult {
         success: true,
         source: source.to_string(),
@@ -199,7 +231,9 @@ async fn handle_session_pause(args: &ArgMatches) -> Result<()> {
 
     pause(name)?;
 
-    if format.is_json() {
+    // pause() already emitted the global-JSON object when -f json is set;
+    // only emit this legacy block otherwise, to avoid a duplicate object.
+    if format.is_json() && !Output::json_output() {
         let json = serde_json::json!({
             "command": "session pause",
             "session": name,
@@ -221,7 +255,8 @@ async fn handle_session_resume(args: &ArgMatches) -> Result<()> {
 
     resume(name)?;
 
-    if format.is_json() {
+    // resume() already emitted the global-JSON object when -f json is set.
+    if format.is_json() && !Output::json_output() {
         let json = serde_json::json!({
             "command": "session resume",
             "session": name,
@@ -249,7 +284,8 @@ async fn handle_session_clone(args: &ArgMatches) -> Result<()> {
 
     let result = clone_session(source, &target, dry_run)?;
 
-    if format.is_json() {
+    // clone_session() already emitted the global-JSON object when -f json is set.
+    if format.is_json() && !Output::json_output() {
         let json = serde_json::json!({
             "command": "session clone",
             "source": result.source,
@@ -282,7 +318,8 @@ async fn handle_session_focus(args: &ArgMatches) -> Result<()> {
 
     session::focus(name)?;
 
-    if format.is_json() {
+    // session::focus() already emitted the global-JSON object when -f json is set.
+    if format.is_json() && !Output::json_output() {
         let json = serde_json::json!({
             "command": "session focus",
             "session": name,

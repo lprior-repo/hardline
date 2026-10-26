@@ -19,10 +19,14 @@ pub fn run() -> Result<()> {
     let branch = backend.current_branch()?;
     let vcs_status = backend.status()?;
 
-    Output::info("Current Context:");
-    Output::info(&format!("  Workspace: {}", workspace_name));
-    Output::info(&format!("  Branch: {}", branch));
-    Output::info(&format!("  Status: {}", vcs_status));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"workspace": workspace_name, "branch": branch, "status": vcs_status.to_string()}));
+    } else {
+        Output::info("Current Context:");
+        Output::info(&format!("  Workspace: {}", workspace_name));
+        Output::info(&format!("  Branch: {}", branch));
+        Output::info(&format!("  Status: {}", vcs_status));
+    }
 
     Ok(())
 }

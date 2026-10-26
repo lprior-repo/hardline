@@ -2,7 +2,7 @@
 
 use std::{fs, path::PathBuf};
 
-use scp_core::{Error, Result};
+use scp_core::{Error, Output, Result};
 
 /// Get the config directory
 fn get_config_dir() -> Result<PathBuf> {
@@ -77,7 +77,14 @@ pub fn get(key: &str) -> Result<()> {
             Err(Error::config_not_found(key.to_string()))
         },
         |value| {
-            println!("{} = {}", key, value);
+            if Output::json_output() {
+                Output::json(&serde_json::json!({
+                    "key": key,
+                    "value": value,
+                }));
+            } else {
+                println!("{} = {}", key, value);
+            }
             Ok(())
         },
     )
@@ -95,7 +102,15 @@ pub fn set(key: &str, value: &str) -> Result<()> {
     config.insert(key.to_string(), value.to_string());
     save_config(&config)?;
 
-    println!("✓ Set {} = {}", key, value);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "key": key,
+            "value": value,
+            "result": "set",
+        }));
+    } else {
+        println!("✓ Set {} = {}", key, value);
+    }
     Ok(())
 }
 
@@ -103,7 +118,19 @@ pub fn set(key: &str, value: &str) -> Result<()> {
 pub fn list() -> Result<()> {
     let config = load_config()?;
 
-    if config.is_empty() {
+    if Output::json_output() {
+        let mut entries: Vec<(&String, &String)> = config.iter().collect();
+        entries.sort_by(|a, b| a.0.cmp(b.0));
+        Output::json(&serde_json::json!({
+            "entries": entries
+                .iter()
+                .map(|(key, value)| serde_json::json!({
+                    "key": key,
+                    "value": value,
+                }))
+                .collect::<Vec<_>>(),
+        }));
+    } else if config.is_empty() {
         println!("No configuration found");
         println!("Run 'scp config set <key> <value>' to add settings");
     } else {

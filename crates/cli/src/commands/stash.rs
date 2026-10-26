@@ -25,7 +25,11 @@ pub fn save(message: Option<&str>, include_untracked: bool, _patch: bool) -> Res
         .map_err(|e| Error::vcs_conflict("git stash", e.to_string()))?;
 
     let msg = message.unwrap_or("changes");
-    Output::success(&format!("Stashed: {}", msg));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"stashed": true, "message": msg}));
+    } else {
+        Output::success(&format!("Stashed: {}", msg));
+    }
 
     Ok(())
 }
@@ -52,7 +56,11 @@ pub fn pop(stash_ref: Option<&str>, _restore_index: bool) -> Result<()> {
 
     stash::pop(&repo, index).map_err(|e| Error::vcs_conflict("git stash pop", e.to_string()))?;
 
-    Output::success("Applied stash and removed from stash list");
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"applied": true, "stash": stash_ref}));
+    } else {
+        Output::success("Applied stash and removed from stash list");
+    }
 
     Ok(())
 }
@@ -75,7 +83,9 @@ pub fn list() -> Result<()> {
     let entries =
         stash::list(&repo).map_err(|e| Error::vcs_conflict("git stash list", e.to_string()))?;
 
-    if entries.is_empty() {
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"stashes": entries.iter().map(|entry| serde_json::json!({"index": entry.index, "message": entry.message})).collect::<Vec<_>>() }));
+    } else if entries.is_empty() {
         Output::info("No stashed changes");
     } else {
         for entry in entries {
@@ -109,7 +119,11 @@ pub fn drop(stash_ref: &str, _force: bool) -> Result<()> {
 
     stash::drop(&repo, index).map_err(|e| Error::vcs_conflict("git stash drop", e.to_string()))?;
 
-    Output::success(&format!("Dropped stash: {}", stash_ref));
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"dropped": true, "stash": stash_ref}));
+    } else {
+        Output::success(&format!("Dropped stash: {}", stash_ref));
+    }
 
     Ok(())
 }
@@ -137,7 +151,11 @@ pub fn show(stash_ref: Option<&str>, _stat: bool) -> Result<()> {
     let output = stash::show(&repo, index)
         .map_err(|e| Error::vcs_conflict("git stash show", e.to_string()))?;
 
-    print!("{}", output);
+    if Output::json_output() {
+        Output::json(&serde_json::json!({"stash": stash_ref, "index": index, "diff": output}));
+    } else {
+        print!("{}", output);
+    }
 
     Ok(())
 }

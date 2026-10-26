@@ -8,6 +8,7 @@
 use scp_core::{
     config::ConfigManager,
     introspection::doctor::{CheckStatus, DoctorCheck},
+    output::Output,
     vcs::{self, VcsStatus},
     Error, Result,
 };
@@ -225,7 +226,9 @@ fn all_critical_passed(checks: &[&DoctorCheck]) -> bool {
 
 /// Run health checks
 pub fn run(full: bool) -> Result<()> {
-    println!("Running SCP diagnostics...\n");
+    if !Output::json_output() {
+        println!("Running SCP diagnostics...\n");
+    }
 
     let vcs_check = check_vcs_available()?;
     let git_check = check_git_dependency()?;
@@ -240,6 +243,34 @@ pub fn run(full: bool) -> Result<()> {
         &config_valid_check,
         &workspaces_check,
     ];
+
+    if Output::json_output() {
+        // Same diagnostics data the human path prints, gathered without
+        // printing: disk usage, lock files, and VCS status only when --full.
+        let (disk_usage, lock_files, vcs_status) = if full {
+            let cwd = get_current_dir()?;
+            (
+                gather_disk_usage(&cwd),
+                check_lock_files(&cwd),
+                check_vcs_status(&cwd).map(|status| status.to_string()),
+            )
+        } else {
+            (None, Vec::new(), None)
+        };
+        let passed = all_critical_passed(&all_checks);
+        Output::json(&serde_json::json!({
+            "checks": all_checks,
+            "full": full,
+            "disk_usage": disk_usage,
+            "lock_files": lock_files,
+            "vcs_status": vcs_status,
+            "all_critical_passed": passed,
+        }));
+        if passed {
+            return Ok(());
+        }
+        return Err(Error::internal("Diagnostics failed"));
+    }
 
     let check_count = all_checks.len();
     for (i, check) in all_checks.iter().enumerate() {
