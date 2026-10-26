@@ -138,21 +138,33 @@ pub fn require_clean_working_copy(backend: &dyn VcsBackend) -> Result<(), Error>
 /// Worktrees are created as subdirectories of the repo root, so from the
 /// main worktree `git status --porcelain` always reports `?? <name>/` for
 /// every linked worktree. That is not dirty state: it is the workspace
-/// itself. Only the first path segment is compared, so a file merely
-/// sharing a workspace name's prefix (e.g. `ws1file`) still counts as dirty.
+/// itself. A line counts as worktree-owned when its path equals a
+/// workspace name, lies under one, or is an ancestor of one: git collapses
+/// a fully-untracked directory to its highest untracked ancestor, so a
+/// worktree at `.scp/workspaces/ws1` shows up as `?? .scp/workspaces/`
+/// (comparing only the first segment, `.scp`, missed that and self-blocked
+/// every switch for the `hd work` layout). Segment boundaries are exact,
+/// so a file merely sharing a workspace name's prefix (e.g. `ws1file`)
+/// still counts as dirty.
 #[must_use]
 pub fn porcelain_line_is_worktree_dir(line: &str, workspace_names: &[String]) -> bool {
     let Some(path_field) = line.get(3..) else {
         return false;
     };
-    let path_field = path_field.trim_matches('"');
-    let first_segment = path_field.split('/').next().map_or("", |segment| segment);
+    let path_field = path_field.trim_matches('"').trim_end_matches('/');
     // Rename/copy lines report `old -> new`; the old side is what git
     // reports for a path, and a worktree dir never appears on either side
-    // of a rename, so the first segment is the right comparison either way.
-    workspace_names
-        .iter()
-        .any(|name| !name.is_empty() && first_segment == name)
+    // of a rename, so the old side is the right comparison either way.
+    let path = match path_field.split(" -> ").next() {
+        Some(part) => part,
+        None => path_field,
+    };
+    workspace_names.iter().any(|name| {
+        !name.is_empty()
+            && (path == name
+                || path.starts_with(&format!("{name}/"))
+                || name.starts_with(&format!("{path}/")))
+    })
 }
 
 /// Whether `git status --porcelain` output contains any dirty state other
@@ -545,6 +557,40 @@ mod tests {
         assert!(porcelain_has_real_dirty_state(
             "?? ws1/\n M src/main.rs\n",
             &ws_names(&["ws1"])
+        ));
+    }
+
+    #[test]
+    fn porcelain_nested_worktree_collapsed_parent_is_not_dirty() {
+        // git collapses the `hd work` layout's untracked worktree to its
+        // parent dir; that parent must not self-block a switch.
+        assert!(!porcelain_has_real_dirty_state(
+            "?? .scp/workspaces/\n",
+            &ws_names(&[".scp/workspaces/ws1"])
+        ));
+    }
+
+    #[test]
+    fn porcelain_nested_worktree_file_is_not_dirty() {
+        assert!(!porcelain_has_real_dirty_state(
+            "?? .scp/workspaces/ws1/file.txt\n",
+            &ws_names(&[".scp/workspaces/ws1"])
+        ));
+    }
+
+    #[test]
+    fn porcelain_sibling_under_worktree_root_is_dirty() {
+        assert!(porcelain_has_real_dirty_state(
+            "?? .scp/other.txt\n",
+            &ws_names(&[".scp/workspaces/ws1"])
+        ));
+    }
+
+    #[test]
+    fn porcelain_nested_prefix_only_is_dirty() {
+        assert!(porcelain_has_real_dirty_state(
+            "?? .scp/workspaces-ws1/\n",
+            &ws_names(&[".scp/workspaces/ws1"])
         ));
     }
 
