@@ -66,8 +66,12 @@ pub trait VcsBackend: Send + Sync {
     /// Create a new workspace
     fn create_workspace(&self, name: &str) -> Result<()>;
 
-    /// Switch to a workspace
-    fn switch_workspace(&self, name: &str) -> Result<()>;
+    /// Switch to a workspace. Returns the target worktree's absolute path:
+    /// a child process cannot change its parent shell's directory, so a
+    /// "switch" is only real if the caller surfaces this path (with a `cd`
+    /// hint) for the user or agent to move to. An unknown name errors;
+    /// resolving the path without moving anywhere is the honest contract.
+    fn switch_workspace(&self, name: &str) -> Result<std::path::PathBuf>;
 
     /// List workspaces
     fn list_workspaces(&self) -> Result<Vec<Workspace>>;

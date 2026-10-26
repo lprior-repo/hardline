@@ -256,6 +256,145 @@ impl AgentRegistry for MemAgentRegistry {
     }
 }
 
+/// File-backed agent registry: agents are stored as a JSON array in one
+/// file, so a `create` in one process is visible to `list` in the next.
+/// Every operation re-reads the file (and every mutation rewrites it
+/// atomically via a sibling temp file plus rename), because CLI processes
+/// are short-lived and the in-memory singleton cannot survive them.
+/// A missing file reads as empty; a corrupt file is an error, never a
+/// silent empty list — silently dropping registered agents would be
+/// another false success.
+#[derive(Debug)]
+pub struct FileAgentRegistry {
+    path: std::path::PathBuf,
+}
+
+impl FileAgentRegistry {
+    /// Create a registry rooted at `path`. The file is created lazily by
+    /// the first mutation; reads of a missing file return an empty list.
+    pub fn new(path: impl Into<std::path::PathBuf>) -> Self {
+        Self { path: path.into() }
+    }
+
+    /// The backing file path.
+    #[must_use]
+    pub fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+
+    fn load(&self) -> Result<HashMap<AgentId, Agent>> {
+        let content = match std::fs::read_to_string(&self.path) {
+            Ok(content) => content,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(HashMap::new()),
+            Err(e) => {
+                return Err(crate::error::Error::io_error(format!(
+                    "failed to read agent registry {}: {e}",
+                    self.path.display()
+                )));
+            }
+        };
+        if content.trim().is_empty() {
+            return Ok(HashMap::new());
+        }
+        let agents: Vec<Agent> = serde_json::from_str(&content).map_err(|e| {
+            crate::error::Error::invalid_state(format!(
+                "agent registry {} is corrupt: {e}",
+                self.path.display()
+            ))
+        })?;
+        let mut map = HashMap::new();
+        for agent in agents {
+            map.insert(agent.id.clone(), agent);
+        }
+        Ok(map)
+    }
+
+    fn save(&self, agents: &HashMap<AgentId, Agent>) -> Result<()> {
+        let mut sorted: Vec<&Agent> = agents.values().collect();
+        sorted.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+        let content = serde_json::to_string_pretty(&sorted).map_err(|e| {
+            crate::error::Error::invalid_state(format!("failed to serialize agents: {e}"))
+        })?;
+        if let Some(parent) = self.path.parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    crate::error::Error::io_error(format!(
+                        "failed to create agent registry dir {}: {e}",
+                        parent.display()
+                    ))
+                })?;
+            }
+        }
+        let tmp = self.path.with_extension("tmp");
+        std::fs::write(&tmp, &content).map_err(|e| {
+            crate::error::Error::io_error(format!(
+                "failed to write agent registry {}: {e}",
+                tmp.display()
+            ))
+        })?;
+        std::fs::rename(&tmp, &self.path).map_err(|e| {
+            crate::error::Error::io_error(format!(
+                "failed to install agent registry {}: {e}",
+                self.path.display()
+            ))
+        })?;
+        Ok(())
+    }
+}
+
+impl AgentRegistry for FileAgentRegistry {
+    fn register(&self, agent: Agent) -> Result<()> {
+        let mut agents = self.load()?;
+        if agents.contains_key(&agent.id) {
+            return Err(AgentErrorKind::Exists(agent.id.to_string()).into());
+        }
+        agents.insert(agent.id.clone(), agent);
+        self.save(&agents)
+    }
+
+    fn unregister(&self, id: &AgentId) -> Result<Agent> {
+        let mut agents = self.load()?;
+        let removed = agents
+            .remove(id)
+            .ok_or_else(|| -> crate::error::Error {
+                AgentErrorKind::NotFound(id.to_string()).into()
+            })?;
+        self.save(&agents)?;
+        Ok(removed)
+    }
+
+    fn get(&self, id: &AgentId) -> Result<Option<Agent>> {
+        Ok(self.load()?.get(id).cloned())
+    }
+
+    fn heartbeat(&self, id: &AgentId) -> Result<()> {
+        let mut agents = self.load()?;
+        let agent = agents
+            .get_mut(id)
+            .ok_or_else(|| -> crate::error::Error {
+                AgentErrorKind::NotFound(id.to_string()).into()
+            })?;
+        agent.update_heartbeat();
+        self.save(&agents)
+    }
+
+    fn list(&self) -> Result<Vec<Agent>> {
+        let mut agents: Vec<Agent> = self.load()?.into_values().collect();
+        agents.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+        Ok(agents)
+    }
+
+    fn list_active(&self) -> Result<Vec<Agent>> {
+        let mut agents: Vec<Agent> = self
+            .load()?
+            .into_values()
+            .filter(|a| a.is_active())
+            .collect();
+        agents.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+        Ok(agents)
+    }
+}
+
 // Global registry for CLI
 use std::sync::OnceLock;
 static AGENT_REGISTRY: OnceLock<Arc<dyn AgentRegistry>> = OnceLock::new();
@@ -991,6 +1130,93 @@ mod tests {
         let json = serde_json::to_string(&activity).expect("serialize ok");
         let deserialized: AgentActivity = serde_json::from_str(&json).expect("deserialize ok");
         assert_eq!(activity, deserialized);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // FileAgentRegistry tests: persistence across registry instances
+    // (the two-process case the CLI hits) is the whole point.
+    // ═══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_file_registry_persists_across_instances() -> Result<()> {
+        let dir = tempfile::tempdir().map_err(|e| {
+            crate::error::Error::io_error(format!("tempdir failed: {e}"))
+        })?;
+        let path = dir.path().join(".scp").join("agents.json");
+        let first = FileAgentRegistry::new(&path);
+        first.register(Agent::new(AgentId::new("persisted")))?;
+
+        // A second instance over the same file (a second process) sees it.
+        let second = FileAgentRegistry::new(&path);
+        let found = second.get(&AgentId::new("persisted"))?;
+        assert!(found.is_some());
+        assert_eq!(second.list()?.len(), 1);
+
+        // And an unregister from the second instance is visible to a third.
+        second.unregister(&AgentId::new("persisted"))?;
+        let third = FileAgentRegistry::new(&path);
+        assert!(third.list()?.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_registry_missing_file_lists_empty() -> Result<()> {
+        let dir = tempfile::tempdir().map_err(|e| {
+            crate::error::Error::io_error(format!("tempdir failed: {e}"))
+        })?;
+        let registry = FileAgentRegistry::new(dir.path().join("agents.json"));
+        assert!(registry.list()?.is_empty());
+        assert!(registry.get(&AgentId::new("nobody"))?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_registry_duplicate_register_fails_and_keeps_first() -> Result<()> {
+        let dir = tempfile::tempdir().map_err(|e| {
+            crate::error::Error::io_error(format!("tempdir failed: {e}"))
+        })?;
+        let path = dir.path().join("agents.json");
+        let registry = FileAgentRegistry::new(&path);
+        let mut first = Agent::new(AgentId::new("dup"));
+        first.start_work("sess-1", "build");
+        registry.register(first)?;
+        assert!(registry
+            .register(Agent::new(AgentId::new("dup")))
+            .is_err());
+        let kept = registry
+            .get(&AgentId::new("dup"))?
+            .expect("first registration kept");
+        assert!(kept.activity.is_working());
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_registry_corrupt_file_errors_not_empty() -> Result<()> {
+        let dir = tempfile::tempdir().map_err(|e| {
+            crate::error::Error::io_error(format!("tempdir failed: {e}"))
+        })?;
+        let path = dir.path().join("agents.json");
+        std::fs::write(&path, "{not json").map_err(|e| {
+            crate::error::Error::io_error(format!("write failed: {e}"))
+        })?;
+        let registry = FileAgentRegistry::new(&path);
+        assert!(registry.list().is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_file_registry_heartbeat_persists() -> Result<()> {
+        let dir = tempfile::tempdir().map_err(|e| {
+            crate::error::Error::io_error(format!("tempdir failed: {e}"))
+        })?;
+        let path = dir.path().join("agents.json");
+        let registry = FileAgentRegistry::new(&path);
+        registry.register(Agent::new(AgentId::new("hb")))?;
+        registry.heartbeat(&AgentId::new("hb"))?;
+        let other = FileAgentRegistry::new(&path);
+        let agent = other.get(&AgentId::new("hb"))?.expect("registered");
+        assert!(agent.is_active());
+        Ok(())
     }
 
     #[test]

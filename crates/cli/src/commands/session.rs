@@ -86,11 +86,20 @@ pub fn focus(name: &str) -> Result<()> {
         return Err(Error::workspace_not_found(name.to_string()));
     }
 
-    backend.switch_workspace(name)?;
+    let path = backend.switch_workspace(name)?;
     if Output::json_output() {
-        Output::json(&serde_json::json!({ "session": name, "focused": true }));
+        Output::json(&serde_json::json!({
+            "session": name,
+            "focused": true,
+            "path": path.display().to_string(),
+        }));
     } else {
         Output::success(&format!("Focused session '{}'", name));
+        Output::info(&format!("Path: {}", path.display()));
+        Output::info(&format!(
+            "Run `cd {}` to move your shell there.",
+            path.display()
+        ));
     }
     Ok(())
 }

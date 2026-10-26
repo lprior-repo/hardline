@@ -103,10 +103,11 @@ impl From<SyncError> for Error {
 ///
 /// The session's worktree is found via `git worktree list` and the sync
 /// runs with a backend rooted at that worktree. The old code called
-/// `backend.switch_workspace(name)`, which is an unimplemented stub —
-/// and switching the caller's checkout would be the wrong worktree
-/// anyway, since the session's branch is already checked out in its
-/// worktree (see `spawn_with_sync`).
+/// `backend.switch_workspace(name)` — and switching the caller's
+/// checkout would be the wrong worktree anyway, since the session's
+/// branch is already checked out in its worktree (see `spawn_with_sync`).
+/// `switch_workspace` now resolves a target path for the CLI to print;
+/// it still does not move a checkout, so sync still roots itself here.
 pub async fn sync_named_session(
     session_name: SessionName,
     options: SyncOptions,

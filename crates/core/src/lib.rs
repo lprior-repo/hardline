@@ -98,7 +98,8 @@ mod types_tests;
 
 // Re-exports
 pub use agent::{
-    get_agent_registry, Agent, AgentActivity, AgentId, AgentRegistry, AgentStatus, MemAgentRegistry,
+    get_agent_registry, Agent, AgentActivity, AgentId, AgentRegistry, AgentStatus, FileAgentRegistry,
+    MemAgentRegistry,
 };
 pub use application::{
     create_coordination_service, create_queue_service, CoordinationService, QueueService,

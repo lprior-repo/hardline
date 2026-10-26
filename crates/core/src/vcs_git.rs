@@ -10,7 +10,6 @@ use super::{
 };
 use crate::{
     error::{Error, Result},
-    error_internal::InternalErrorKind,
     error_io::IoErrorKind,
     error_vcs::VcsErrorKind,
     error_workspace::WorkspaceErrorKind,
@@ -398,8 +397,15 @@ impl VcsBackend for GitBackend {
         Ok(())
     }
 
-    fn switch_workspace(&self, _name: &str) -> Result<()> {
-        Err(InternalErrorKind::Unimplemented("Git workspaces use worktrees instead".into()).into())
+    fn switch_workspace(&self, name: &str) -> Result<std::path::PathBuf> {
+        // Workspaces are git worktrees, so there is no branch to check out
+        // in the caller's repo — the target branch is already checked out
+        // in its own worktree. Resolve the target (unknown names error
+        // via resolve_worktree) and return its absolute path; the CLI
+        // prints that path with a `cd` hint, because no child process
+        // can move the parent shell's directory for the user.
+        let (path, _) = self.resolve_worktree(name)?;
+        Ok(path)
     }
 
     fn list_workspaces(&self) -> Result<Vec<Workspace>> {

@@ -177,8 +177,8 @@ impl scp_core::VcsBackend for MockVcsBackend {
         Ok(())
     }
 
-    fn switch_workspace(&self, _name: &str) -> scp_core::Result<()> {
-        Ok(())
+    fn switch_workspace(&self, _name: &str) -> scp_core::Result<std::path::PathBuf> {
+        Ok(std::path::PathBuf::new())
     }
 
     fn list_workspaces(&self) -> scp_core::Result<Vec<scp_core::Workspace>> {

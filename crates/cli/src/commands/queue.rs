@@ -483,8 +483,8 @@ mod tests {
         fn create_workspace(&self, _name: &str) -> scp_core::Result<()> {
             Ok(())
         }
-        fn switch_workspace(&self, _name: &str) -> scp_core::Result<()> {
-            Ok(())
+        fn switch_workspace(&self, _name: &str) -> scp_core::Result<std::path::PathBuf> {
+            Ok(std::path::PathBuf::new())
         }
         fn list_workspaces(&self) -> scp_core::Result<Vec<Workspace>> {
             Ok(vec![])

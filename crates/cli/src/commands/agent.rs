@@ -1,16 +1,32 @@
 //! Agent commands
 
+use std::sync::Arc;
+
 use scp_core::{
-    agent::{get_agent_registry, Agent, AgentId},
+    agent::{Agent, AgentId, FileAgentRegistry},
     output::Output,
     vcs, Error, Result,
 };
 
 const HEARTBEAT_FILE: &str = ".scp/heartbeat";
 
+/// The agent registry for CLI processes. The in-memory singleton cannot
+/// survive across processes, so `create`/`list`/`status`/`kill` use a
+/// file-backed registry: `<cwd>/.scp/agents.json` by default (next to the
+/// session heartbeat file), or `SCP_AGENTS_PATH` when set. The session
+/// `register`/`heartbeat` commands below do not use this registry; they
+/// write the `.scp/heartbeat` file and are unchanged.
+fn file_registry() -> Result<Arc<dyn scp_core::agent::AgentRegistry>> {
+    let path = match std::env::var("SCP_AGENTS_PATH") {
+        Ok(value) if !value.is_empty() => std::path::PathBuf::from(value),
+        _ => std::env::current_dir()?.join(".scp").join("agents.json"),
+    };
+    Ok(Arc::new(FileAgentRegistry::new(path)))
+}
+
 /// Create an agent
 pub fn create(name: &str) -> Result<()> {
-    let registry = get_agent_registry();
+    let registry = file_registry()?;
 
     let agent_id = AgentId::new_checked(name)?;
     let agent = Agent::new(agent_id);
@@ -27,7 +43,7 @@ pub fn create(name: &str) -> Result<()> {
 
 /// List agents
 pub fn list() -> Result<()> {
-    let registry = get_agent_registry();
+    let registry = file_registry()?;
 
     let agents = registry.list()?;
 
@@ -78,7 +94,7 @@ pub fn list() -> Result<()> {
 
 /// Kill an agent
 pub fn kill(id: &str) -> Result<()> {
-    let registry = get_agent_registry();
+    let registry = file_registry()?;
 
     let agent_id = AgentId::new_checked(id)?;
 
@@ -100,7 +116,7 @@ pub fn kill(id: &str) -> Result<()> {
 
 /// Show agent status
 pub fn status(id: Option<&str>) -> Result<()> {
-    let registry = get_agent_registry();
+    let registry = file_registry()?;
 
     if let Some(agent_id) = id {
         let aid = AgentId::new_checked(agent_id)?;

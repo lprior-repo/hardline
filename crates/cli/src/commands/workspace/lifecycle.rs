@@ -50,14 +50,23 @@ pub fn switch(name: &str) -> Result<(), Error> {
     // require_clean_working_copy_excluding_worktrees).
     require_clean_working_copy_excluding_worktrees(backend.as_ref())?;
 
-    backend.switch_workspace(name)?;
+    // The returned path is the actionable part of a switch: this process
+    // cannot move the caller's shell, so the path plus a `cd` hint is
+    // what makes the switch real instead of a printed claim.
+    let path = backend.switch_workspace(name)?;
     if Output::json_output() {
         Output::json(&serde_json::json!({
             "workspace": name,
             "result": "switched",
+            "path": path.display().to_string(),
         }));
     } else {
         Output::success(&format!("Switched to '{}'", name));
+        Output::info(&format!("Path: {}", path.display()));
+        Output::info(&format!(
+            "Run `cd {}` to move your shell there.",
+            path.display()
+        ));
     }
     Ok(())
 }

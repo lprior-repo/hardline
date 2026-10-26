@@ -68,8 +68,10 @@ pub fn find_prev_workspace(workspaces: &[vcs::Workspace]) -> Result<String, Erro
 ///
 /// Sync rebases the NEW worktree's branch onto main from inside the new
 /// worktree. The old code switched the caller's workspace to the new one
-/// and rebased there — `switch_workspace` is an unimplemented stub, and
-/// switching the caller's worktree is the wrong worktree anyway.
+/// and rebased there — switching the caller's checkout is the wrong
+/// worktree anyway, since the new branch is already checked out in its
+/// own worktree (`switch_workspace` now resolves a target path for the
+/// CLI to print, it does not move a checkout).
 pub fn spawn_with_sync(
     backend: &dyn VcsBackend,
     name: &str,
