@@ -180,6 +180,17 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
     result.success = result.failed == 0;
     report_import_result(&result);
 
+    // A partial import is a failure, not a success: reporting "1
+    // error(s)" and then exiting 0 told scripts the import worked.
+    // The report above already printed the per-error lines; this only
+    // turns the exit code non-zero. A clean import still returns Ok.
+    if result.failed > 0 {
+        return Err(Error::invalid_state(format!(
+            "Import completed with {} error(s): {} imported, {} failed",
+            result.failed, result.imported, result.failed
+        )));
+    }
+
     Ok(())
 }
 
