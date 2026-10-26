@@ -167,15 +167,15 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
         overwritten_sessions: Vec::new(),
     };
 
-    import_sessions(
-        &export_data,
-        &existing,
-        &existing_names,
-        backend.as_ref() as &dyn vcs::VcsBackend,
+    import_sessions(ImportRun {
+        export_data: &export_data,
+        existing_workspaces: &existing,
+        existing_names: &existing_names,
+        backend: backend.as_ref() as &dyn vcs::VcsBackend,
         options,
-        &mut result,
-        &cwd,
-    );
+        result: &mut result,
+        cwd: &cwd,
+    });
 
     result.success = result.failed == 0;
     report_import_result(&result);
@@ -194,15 +194,29 @@ pub fn run_import(options: &ImportOptions) -> Result<()> {
 /// branch the new worktree actually checks out. A registration failure
 /// removes the just-forked worktree and counts as a failed import, so
 /// a half-imported session is never reported as imported.
-fn import_sessions(
-    export_data: &ExportResult,
-    existing_workspaces: &[vcs::Workspace],
-    existing_names: &[String],
-    backend: &dyn vcs::VcsBackend,
-    options: &ImportOptions,
-    result: &mut ImportResult,
-    cwd: &Path,
-) {
+/// The inputs an import run threads through every session: grouping them
+/// keeps `import_sessions` under clippy's argument limit without hiding
+/// any of them behind a global.
+struct ImportRun<'a> {
+    export_data: &'a ExportResult,
+    existing_workspaces: &'a [vcs::Workspace],
+    existing_names: &'a [String],
+    backend: &'a dyn vcs::VcsBackend,
+    options: &'a ImportOptions,
+    result: &'a mut ImportResult,
+    cwd: &'a Path,
+}
+
+fn import_sessions(run: ImportRun<'_>) {
+    let ImportRun {
+        export_data,
+        existing_workspaces,
+        existing_names,
+        backend,
+        options,
+        result,
+        cwd,
+    } = run;
     for session in &export_data.sessions {
         let ws_name = extract_workspace_name(session);
         if existing_names.iter().any(|name| name == &ws_name) {
@@ -357,24 +371,24 @@ fn load_session_names(cwd: &Path) -> Vec<String> {
         Ok(runtime) => runtime,
         Err(_) => return Vec::new(),
     };
-    match runtime.block_on(async {
+    runtime.block_on(async {
         use scp_session::infrastructure::SqliteSessionRepository;
 
-        let config = DatabaseConfig::new(db_path.to_string_lossy().to_string())?;
-        let service = SqliteDatabaseService::new(config).await?;
+        let Ok(config) = DatabaseConfig::new(db_path.to_string_lossy().to_string()) else {
+            return Vec::new();
+        };
+        let Ok(service) = SqliteDatabaseService::new(config).await else {
+            return Vec::new();
+        };
         let repo = SqliteSessionRepository::new(service);
-        repo.init_schema()
-            .await
-            .map_err(|e| Error::database(e.to_string()))?;
-        let rows = repo
-            .list_rows()
-            .await
-            .map_err(|e| Error::database(e.to_string()))?;
-        Ok::<Vec<String>, Error>(rows.iter().map(|row| row.name.clone()).collect())
-    }) {
-        Ok(names) => names,
-        Err(_) => Vec::new(),
-    }
+        if repo.init_schema().await.is_err() {
+            return Vec::new();
+        }
+        let Ok(rows) = repo.list_rows().await else {
+            return Vec::new();
+        };
+        rows.iter().map(|row| row.name.clone()).collect()
+    })
 }
 
 /// Handle a session that already exists in the workspace.

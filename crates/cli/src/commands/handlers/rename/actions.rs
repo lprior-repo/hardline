@@ -215,13 +215,11 @@ fn rename_work_session(
     }
     let checked_out = checked_out_branch(work_path);
     let branch = branch_to_rename(&checked_out, &options.old_name);
-    if branch.is_some() {
-        if branch_exists(cwd, &options.new_name) {
-            return Err(Error::vcs_conflict(
-                "branch rename",
-                format!("branch '{}' already exists", options.new_name),
-            ));
-        }
+    if branch.is_some() && branch_exists(cwd, &options.new_name) {
+        return Err(Error::vcs_conflict(
+            "branch rename",
+            format!("branch '{}' already exists", options.new_name),
+        ));
     }
     let output = std::process::Command::new("git")
         .args([
