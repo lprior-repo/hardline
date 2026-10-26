@@ -43,8 +43,21 @@ pub fn run_done(options: &DoneOptions) -> Result<DoneOutput> {
         return Err(Error::invalid_state("cannot complete the main workspace"));
     }
 
-    // Check workspace exists
+    // Check workspace exists. A work-created session lists under its
+    // path key (`.scp/workspaces/<name>`) while the user types the
+    // short name, so canonicalize a short name to the listed key first
+    // (the same match session focus/remove use); the path resolution
+    // below then finds the real worktree instead of falling back to
+    // the caller's directory. An unmatched name is kept as-is, so the
+    // check below still fails cleanly for unknown workspaces.
     let workspaces = backend.list_workspaces()?;
+    let workspace_name = match workspaces
+        .iter()
+        .find(|w| vcs::workspace_name_matches(&w.name, &workspace_name))
+    {
+        Some(w) => w.name.clone(),
+        None => workspace_name,
+    };
     if !workspaces.iter().any(|w| w.name == workspace_name) {
         return Err(Error::workspace_not_found(workspace_name));
     }
