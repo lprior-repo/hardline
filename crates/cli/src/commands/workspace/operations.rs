@@ -697,6 +697,39 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
         return Err(Error::vcs_conflict("worktree add", stderr));
     }
 
+    // A worktree without a session row is invisible to `query sessions`
+    // / `session-exists` while `work` refuses the name as "already
+    // exists" — the same two-views contradiction import had. Register
+    // the row (name and branch are the basename git just checked out)
+    // before claiming success; a registration failure unwinds the
+    // worktree and any branch git created, so a failed add leaves
+    // nothing behind.
+    let basename = match Path::new(canonical_path.as_ref())
+        .file_name()
+        .and_then(|name| name.to_str())
+    {
+        Some(name) => name.to_string(),
+        None => String::new(),
+    };
+    if let Err(e) = register_added_session(&basename, &basename) {
+        let _ = Command::new("git")
+            .args(["worktree", "remove", "--force", canonical_path.as_ref()])
+            .output();
+        if let Some(before) = &branches_before {
+            if let Some(after) = list_git_branches() {
+                for branch in after.iter().filter(|b| !before.contains(b)) {
+                    let _ = Command::new("git")
+                        .args(["branch", "-D", branch])
+                        .output();
+                }
+            }
+        }
+        let _ = Command::new("git")
+            .args(["worktree", "prune"])
+            .output();
+        return Err(e);
+    }
+
     if Output::json_output() {
         Output::json(&serde_json::json!({
             "workspace": canonical_path,
@@ -707,4 +740,56 @@ pub fn split_workspace(backend: &dyn VcsBackend, path: &str) -> Result<(), Error
     }
 
     Ok(())
+}
+
+/// Register an added workspace in the session database, mirroring
+/// import's registration: a `Created` session named `name`, whose
+/// workspace is the short name and whose branch is the branch the
+/// worktree actually checks out.
+fn register_added_session(name: &str, branch: &str) -> Result<(), Error> {
+    use scp_core::infrastructure::database::{DatabaseConfig, DatabaseService, SqliteDatabaseService};
+
+    let cwd = std::env::current_dir()?;
+    let db_path = crate::commands::handlers::config_ports::resolve_state_db_path(&cwd)?;
+    let runtime = tokio::runtime::Runtime::new()
+        .map_err(|e| Error::internal(format!("Failed to create runtime: {e}")))?;
+    runtime.block_on(async move {
+        use scp_session::{
+            domain::{
+                entities::{BranchState, Session},
+                value_objects::{SessionName, WorkspaceId},
+            },
+            infrastructure::{SessionRepository, SqliteSessionRepository},
+        };
+
+        if let Some(parent) = db_path.parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    Error::io_error(format!("Failed to create {}: {e}", parent.display()))
+                })?;
+            }
+        }
+        let config = DatabaseConfig::new(db_path.to_string_lossy().to_string())?;
+        let service = SqliteDatabaseService::new(config).await?;
+        let repo = SqliteSessionRepository::new(service);
+        repo.init_schema()
+            .await
+            .map_err(|e| Error::database(e.to_string()))?;
+
+        let session_name = SessionName::parse(name)
+            .map_err(|e| Error::validation_error(format!("Invalid session name: {e:?}")))?;
+        let mut session = Session::create(session_name)
+            .map_err(|e| Error::validation_error(format!("Invalid session: {e}")))?;
+        session.workspace = Some(
+            WorkspaceId::parse(name)
+                .map_err(|e| Error::validation_error(format!("Invalid workspace: {e:?}")))?,
+        );
+        session.branch = BranchState::OnBranch {
+            name: branch.to_string(),
+        };
+        repo.save(&session)
+            .await
+            .map_err(|e| Error::database(e.to_string()))?;
+        Ok::<(), Error>(())
+    })
 }
