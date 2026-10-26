@@ -101,10 +101,10 @@ async fn validate_linked_worktree_gitdir(
 
     // objects/refs live in the common dir when a commondir file is present.
     let commondir_path = resolved_gitdir.join("commondir");
-    let commondir_exists = match tokio::fs::try_exists(&commondir_path).await {
-        Ok(exists) => exists,
-        Err(_) => false,
-    };
+    let commondir_exists = matches!(
+        tokio::fs::try_exists(&commondir_path).await,
+        Ok(true)
+    );
     let objects_refs_base = if commondir_exists {
         let common_contents =
             tokio::fs::read_to_string(&commondir_path)
