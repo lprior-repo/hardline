@@ -160,9 +160,7 @@ impl TaskStore {
             .map_err(|e| Error::internal(e.to_string()))?;
         *tasks = Self::read_file(&self.tasks_file)?;
         if tasks.contains_key(task.id.as_str()) {
-            return Err(
-                TaskErrorKind::AlreadyClaimed(task.id.to_string(), "exists".to_string()).into(),
-            );
+            return Err(TaskErrorKind::AlreadyExists(task.id.to_string()).into());
         }
         tasks.insert(task.id.to_string(), task);
         drop(tasks);

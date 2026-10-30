@@ -703,6 +703,7 @@ const fn task_error_code(e: &super::error_task::TaskError) -> &'static str {
     match e.kind() {
         TaskErrorKind::NotFound(_) => "TASK_NOT_FOUND",
         TaskErrorKind::AlreadyClaimed(_, _) => "TASK_ALREADY_CLAIMED",
+        TaskErrorKind::AlreadyExists(_) => "TASK_ALREADY_EXISTS",
         TaskErrorKind::NotClaimed(_) => "TASK_NOT_CLAIMED",
         TaskErrorKind::Locked(_) => "TASK_LOCKED",
         TaskErrorKind::InvalidId(_) => "TASK_INVALID_ID",
@@ -970,6 +971,7 @@ fn task_context_map(e: &super::error_task::TaskError) -> Option<serde_json::Valu
         TaskErrorKind::NotFound(id)
         | TaskErrorKind::Locked(id)
         | TaskErrorKind::InvalidId(id)
+        | TaskErrorKind::AlreadyExists(id)
         | TaskErrorKind::NotClaimed(id) => Some(serde_json::json!({
             "task_id": id,
         })),

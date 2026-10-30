@@ -24,6 +24,10 @@ pub enum TaskErrorKind {
     #[error("Task '{0}' is already claimed by '{1}'")]
     AlreadyClaimed(String, String),
 
+    /// Task already exists (duplicate create, not a claim conflict)
+    #[error("Task '{0}' already exists")]
+    AlreadyExists(String),
+
     /// Task not claimed
     #[error("Task '{0}' is not claimed")]
     NotClaimed(String),
@@ -59,7 +63,7 @@ impl TaskError {
     }
 
     /// Returns exit code for CLI.
-    /// Task errors use range 30-35 (ADR-007: 3xxx, aligned with Bead).
+    /// Task errors use range 30-36 (ADR-007: 3xxx, aligned with Bead).
     pub const fn exit_code(&self) -> i32 {
         match self.inner {
             TaskErrorKind::NotFound(_) => 30,
@@ -68,6 +72,7 @@ impl TaskError {
             TaskErrorKind::Locked(_) => 33,
             TaskErrorKind::InvalidId(_) => 34,
             TaskErrorKind::InvalidStateTransition(_, _) => 35,
+            TaskErrorKind::AlreadyExists(_) => 36,
         }
     }
 }
@@ -91,6 +96,15 @@ mod tests {
         assert!(msg.contains("task-1"));
         assert!(msg.contains("agent-1"));
         assert!(msg.contains("already claimed"));
+    }
+
+    #[test]
+    fn task_error_kind_already_exists_display() {
+        let err = TaskErrorKind::AlreadyExists("task-1".to_string());
+        let msg = format!("{err}");
+        assert!(msg.contains("task-1"));
+        assert!(msg.contains("already exists"));
+        assert!(!msg.contains("claimed"));
     }
 
     #[test]
@@ -157,6 +171,10 @@ mod tests {
             ))
             .exit_code(),
             35
+        );
+        assert_eq!(
+            TaskError::from(TaskErrorKind::AlreadyExists("x".into())).exit_code(),
+            36
         );
     }
 
