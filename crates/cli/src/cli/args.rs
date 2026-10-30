@@ -54,7 +54,9 @@ pub enum Commands {
         command: AiCommands,
     },
 
-    /// Work on a workspace
+    /// Work on a session-tracked workspace (under .scp/workspaces;
+    /// compare `workspace spawn`, which makes a standalone workspace
+    /// next to the repo)
     Work {
         /// Workspace name to work on
         name: Option<String>,

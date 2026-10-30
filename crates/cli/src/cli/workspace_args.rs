@@ -6,7 +6,9 @@ use clap::Subcommand;
 
 #[derive(Subcommand)]
 pub enum WorkspaceCommands {
-    /// Create a new workspace
+    /// Create a new standalone workspace (sibling directory next to the
+    /// repo; compare `work`, which makes a session-tracked workspace
+    /// under .scp/workspaces)
     Spawn {
         /// Workspace name or task ID
         name: String,
