@@ -165,6 +165,17 @@ pub trait QueueManager: Send + Sync {
     /// Remove and return front item
     fn dequeue(&self) -> Result<Option<QueueItem>>;
 
+    /// Atomically claim a failed item for retry processing.
+    ///
+    /// Returns the claimed item with status Processing, or None when the
+    /// item is no longer Failed. Backends must implement this as a single
+    /// conditional write (or under their write lock) so two concurrent
+    /// claimants cannot both receive the same item. This is the retry
+    /// counterpart of `dequeue`: `queue process` falls back to failed
+    /// items when no Pending item exists, and that fallback must claim
+    /// atomically too.
+    fn claim_failed(&self, id: &str) -> Result<Option<QueueItem>>;
+
     /// Get item by ID
     fn get(&self, id: &str) -> Result<Option<QueueItem>>;
 
@@ -253,6 +264,20 @@ impl QueueManager for MemQueue {
             drop(items);
             Ok(None)
         }
+    }
+
+    fn claim_failed(&self, id: &str) -> Result<Option<QueueItem>> {
+        let mut items = self.items.write().map_err(|e| {
+            crate::error::Error::invalid_state(format!("Failed to acquire write lock: {}", e))
+        })?;
+        let Some(item) = items.iter_mut().find(|i| i.id == id) else {
+            return Ok(None);
+        };
+        if item.status != QueueStatus::Failed {
+            return Ok(None);
+        }
+        item.start_processing();
+        Ok(Some(item.clone()))
     }
 
     fn get(&self, id: &str) -> Result<Option<QueueItem>> {

@@ -175,26 +175,27 @@ fn record_processed_best_effort(
 /// pre-flight paths below), but Failed must stay retryable: without this
 /// fallback the next `queue process` reports "Queue is empty" while failed
 /// work sits in the queue. Pending-first preserves existing processing
-/// order; the retry branch only runs when no Pending item exists. The
-/// retry transition is a pure `update()` (no INSERT), so it cannot
-/// collide with the retained row the way the old enqueue-based recording
-/// did. Returns the item and whether it is a retry of a failed item.
+/// order. Both claims are atomic: `dequeue` claims a Pending row in one
+/// statement, and the retry branch claims a Failed row with
+/// `claim_failed`, trying each Failed candidate in list order until one
+/// claim succeeds, so two concurrent `queue process` invocations cannot
+/// both receive the same item. Returns the item and whether it is a retry
+/// of a failed item.
 fn take_next_item(
     queue: &dyn scp_core::queue::QueueManager,
 ) -> Result<Option<(QueueItem, bool)>> {
     if let Some(item) = queue.dequeue()? {
         return Ok(Some((item, false)));
     }
-    let Some(mut item) = queue
-        .list()?
-        .into_iter()
-        .find(|i| i.status == QueueStatus::Failed)
-    else {
-        return Ok(None);
-    };
-    item.start_processing();
-    queue.update(item.clone())?;
-    Ok(Some((item, true)))
+    for candidate in queue.list()? {
+        if candidate.status != QueueStatus::Failed {
+            continue;
+        }
+        if let Some(item) = queue.claim_failed(&candidate.id)? {
+            return Ok(Some((item, true)));
+        }
+    }
+    Ok(None)
 }
 
 /// Process next item in queue using a provided VCS backend (testable core).

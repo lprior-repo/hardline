@@ -181,32 +181,58 @@ impl QueueManager for SqliteQueue {
                 .map_err(|e| crate::error::Error::internal(format!("Runtime: {}", e)))?;
 
             rt.block_on(async {
-                let row = sqlx::query_as::<_, (String,)>(
-                    "SELECT id FROM queue_items WHERE status = 'Pending' ORDER BY priority ASC, created_at ASC LIMIT 1"
+                // Atomic claim: one UPDATE statement both selects the
+                // highest-priority Pending row and transitions it to
+                // Processing. The previous SELECT-then-UPDATE let two
+                // processes SELECT the same id before either UPDATE ran,
+                // so one item was handed out multiple times under
+                // concurrency. A single statement serializes on SQLite's
+                // write lock (WAL + busy_timeout in production), so
+                // exactly one caller receives the row and the rest get
+                // None.
+                let now = chrono::Utc::now().to_rfc3339();
+                let row = sqlx::query(
+                    "UPDATE queue_items SET status = 'Processing', updated_at = ?, attempt_count = attempt_count + 1
+                     WHERE id = (SELECT id FROM queue_items WHERE status = 'Pending' ORDER BY priority ASC, created_at ASC LIMIT 1)
+                     RETURNING *",
                 )
+                .bind(&now)
                 .fetch_optional(&pool)
                 .await
                 .map_err(|e| crate::error::Error::database(e.to_string()))?;
 
-                let Some((id,)) = row else { return Ok::<_, crate::error::Error>(None) };
+                Ok(row.as_ref().map(row_to_item))
+            })
+        })
+    }
 
+    fn claim_failed(&self, id: &str) -> Result<Option<QueueItem>> {
+        let pool = self.pool.clone();
+        let id = id.to_string();
+
+        tokio::task::block_in_place(|| {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| crate::error::Error::internal(format!("Runtime: {}", e)))?;
+
+            rt.block_on(async {
+                // Same atomic-claim shape as dequeue: the status guard in
+                // the WHERE clause means exactly one concurrent claimant
+                // transitions the row, so the rest get None.
                 let now = chrono::Utc::now().to_rfc3339();
-                sqlx::query(
-                    "UPDATE queue_items SET status = 'Processing', updated_at = ?, attempt_count = attempt_count + 1 WHERE id = ?"
+                let row = sqlx::query(
+                    "UPDATE queue_items SET status = 'Processing', updated_at = ?, attempt_count = attempt_count + 1
+                     WHERE id = ? AND status = 'Failed'
+                     RETURNING *",
                 )
                 .bind(&now)
                 .bind(&id)
-                .execute(&pool)
+                .fetch_optional(&pool)
                 .await
                 .map_err(|e| crate::error::Error::database(e.to_string()))?;
 
-                let item = sqlx::query("SELECT * FROM queue_items WHERE id = ?")
-                    .bind(&id)
-                    .fetch_one(&pool)
-                    .await
-                    .map_err(|e| crate::error::Error::database(e.to_string()))?;
-
-                Ok(Some(row_to_item(&item)))
+                Ok(row.as_ref().map(row_to_item))
             })
         })
     }
@@ -574,5 +600,95 @@ mod tests {
         assert!(queue.is_empty().unwrap());
         queue.enqueue(QueueItem::direct("x")).unwrap();
         assert!(!queue.is_empty().unwrap());
+    }
+
+    /// Production-shaped pool: WAL + busy timeout, like the CLI's
+    /// DatabaseService, so concurrent writers serialize instead of
+    /// failing with "database is locked".
+    async fn make_queue_wal() -> SqliteQueue {
+        use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("test_queue_wal.db");
+        let options = SqliteConnectOptions::new()
+            .filename(&db_path)
+            .create_if_missing(true)
+            .journal_mode(SqliteJournalMode::Wal)
+            .busy_timeout(std::time::Duration::from_secs(5));
+        let pool = SqlitePoolOptions::new()
+            .connect_with(options)
+            .await
+            .unwrap();
+        let queue = SqliteQueue::new(pool);
+        queue.init().await.unwrap();
+        // Leak the tempdir so it persists for the test lifetime
+        std::mem::forget(dir);
+        queue
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_dequeue_concurrent_single_winner() {
+        use std::sync::Arc;
+        let queue = Arc::new(make_queue_wal().await);
+        queue.enqueue(QueueItem::direct("only-item")).unwrap();
+        let mut handles = Vec::new();
+        for _ in 0..8 {
+            let q = Arc::clone(&queue);
+            handles.push(tokio::spawn(async move { q.dequeue() }));
+        }
+        let mut winners = 0;
+        for handle in handles {
+            if handle.await.unwrap().unwrap().is_some() {
+                winners += 1;
+            }
+        }
+        assert_eq!(winners, 1, "exactly one concurrent dequeue must win");
+        let items = queue.list().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].status, QueueStatus::Processing);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_claim_failed() {
+        let queue = make_queue().await;
+        let item = QueueItem::direct("retry-me");
+        let id = item.id.clone();
+        queue.enqueue(item).unwrap();
+        // Pending items are not claimable as failed.
+        assert!(queue.claim_failed(&id).unwrap().is_none());
+        // Mark it failed, then claim.
+        let mut failed = queue.get(&id).unwrap().unwrap();
+        failed.status = QueueStatus::Failed;
+        queue.update(failed).unwrap();
+        let claimed = queue.claim_failed(&id).unwrap().unwrap();
+        assert_eq!(claimed.branch, "retry-me");
+        assert_eq!(claimed.status, QueueStatus::Processing);
+        // Second claim loses, as does an unknown id.
+        assert!(queue.claim_failed(&id).unwrap().is_none());
+        assert!(queue.claim_failed("no-such-id").unwrap().is_none());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_claim_failed_concurrent_single_winner() {
+        use std::sync::Arc;
+        let queue = Arc::new(make_queue_wal().await);
+        let item = QueueItem::direct("retry-item");
+        let id = item.id.clone();
+        queue.enqueue(item).unwrap();
+        let mut failed = queue.get(&id).unwrap().unwrap();
+        failed.status = QueueStatus::Failed;
+        queue.update(failed).unwrap();
+        let mut handles = Vec::new();
+        for _ in 0..8 {
+            let q = Arc::clone(&queue);
+            let claim_id = id.clone();
+            handles.push(tokio::spawn(async move { q.claim_failed(&claim_id) }));
+        }
+        let mut winners = 0;
+        for handle in handles {
+            if handle.await.unwrap().unwrap().is_some() {
+                winners += 1;
+            }
+        }
+        assert_eq!(winners, 1, "exactly one concurrent failed-claim must win");
     }
 }
