@@ -41,6 +41,7 @@ once_cell = { workspace = true }
 
 # File system
 directories = { workspace = true }
+fs2 = "0.4"
 
 # Serialization
 serde = { workspace = true }

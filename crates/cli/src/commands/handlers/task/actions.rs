@@ -13,11 +13,10 @@ use super::{
 };
 use crate::commands::{
     task_store::get_task_store,
-    task_types::TaskId,
+    task_types::{Task, TaskId, Title},
     task_validation::{
-        acquire_task_lock, transition_to_claimed, transition_to_done, transition_to_started,
-        transition_to_yielded, validate_claimed_by_user, validate_not_claimed_by_other,
-        validate_not_closed, validate_task_exists,
+        acquire_task_lock, transition_to_done, transition_to_started, transition_to_yielded,
+        validate_claimed_by_user, validate_not_closed, validate_task_exists,
     },
 };
 
@@ -46,7 +45,25 @@ pub fn execute_task_command(cmd: &TaskCommand, lock: &dyn LockManager) -> scp_co
             let resolved_id = resolve_task_id(task_id.as_ref())?;
             execute_done(&resolved_id, agent_id, lock)
         }
+        TaskCommand::Create { task_id, title } => execute_create(task_id, title),
     }
+}
+
+/// Execute the task create subcommand.
+fn execute_create(task_id: &TaskId, title: &Title) -> scp_core::Result<()> {
+    let store = get_task_store();
+    let task = Task::new(task_id.clone(), title.clone());
+    store.insert(task)?;
+    if Output::json_output() {
+        Output::json(&serde_json::json!({
+            "task": task_id.to_string(),
+            "created": true,
+            "title": title.as_str(),
+        }));
+    } else {
+        Output::success(&format!("Created task '{}'", task_id));
+    }
+    Ok(())
 }
 
 /// Execute the task list subcommand.
@@ -133,11 +150,11 @@ fn execute_claim(
     let store = get_task_store();
     let _guard = acquire_task_lock(lock, task_id.as_str(), agent_id.as_str())?;
 
-    let task = validate_task_exists(store.get(task_id.as_str()), task_id.as_str())?;
-    validate_not_claimed_by_other(&task, agent_id.as_str())?;
-
-    let updated = transition_to_claimed(task, agent_id.as_str());
-    store.update(updated)?;
+    // Atomic claim: store.claim reloads under the file lock, so a
+    // concurrent claimer cannot slip in between the check and the write
+    // (the old get + validate + update read a snapshot from process
+    // start and let every concurrent claimant print success).
+    let _claimed = store.claim(task_id.as_str(), agent_id.as_str())?;
 
     if Output::json_output() {
         Output::json(&serde_json::json!({
@@ -187,11 +204,8 @@ fn execute_start(
     let store = get_task_store();
     let _guard = acquire_task_lock(lock, task_id.as_str(), agent_id.as_str())?;
 
-    // First claim the task
-    let task = validate_task_exists(store.get(task_id.as_str()), task_id.as_str())?;
-    validate_not_claimed_by_other(&task, agent_id.as_str())?;
-
-    let claimed = transition_to_claimed(task, agent_id.as_str());
+    // First claim the task, atomically (see execute_claim).
+    let claimed = store.claim(task_id.as_str(), agent_id.as_str())?;
     let started = transition_to_started(claimed);
     store.update(started)?;
 

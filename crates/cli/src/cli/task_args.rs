@@ -58,6 +58,16 @@ pub enum TaskCommands {
         #[arg(long, default_value = "current-user")]
         user: String,
     },
+
+    /// Create a new task (the only way to add tasks to the store that
+    /// `task claim` reads; without it bead claiming has nothing to claim)
+    Create {
+        /// Task ID
+        task_id: String,
+
+        /// Task title
+        title: String,
+    },
 }
 
 #[cfg(test)]
@@ -132,6 +142,24 @@ mod tests {
     #[test]
     fn claim_requires_task_id() {
         let result = TaskParser::try_parse_from(["scp", "claim"]);
+        assert!(result.is_err());
+    }
+
+    // -- Create (required task_id and title) --
+    #[test]
+    fn create_parses_id_and_title() {
+        match parse(&["create", "hl-0g4", "Fix the queue race"]) {
+            TaskCommands::Create { task_id, title } => {
+                assert_eq!(task_id, "hl-0g4");
+                assert_eq!(title, "Fix the queue race");
+            }
+            other => panic!("Expected Create, got {:?}", std::mem::discriminant(&other)),
+        }
+    }
+
+    #[test]
+    fn create_requires_title() {
+        let result = TaskParser::try_parse_from(["scp", "create", "hl-0g4"]);
         assert!(result.is_err());
     }
 

@@ -38,6 +38,7 @@ pub fn validate_task_command(cmd: &TaskCommand) -> scp_core::Result<()> {
             }
             validate_agent_id(agent_id)
         }
+        TaskCommand::Create { task_id, .. } => validate_task_id_format(task_id, "create"),
     }
 }
 

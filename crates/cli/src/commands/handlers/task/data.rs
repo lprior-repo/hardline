@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 pub use scp_core::cli_contracts::domain_types::TaskStatus;
 use serde::{Deserialize, Serialize};
 
-use crate::commands::task_types::TaskId;
+use crate::commands::task_types::{TaskId, Title};
 
 /// Task command variants (CLI subcommand representation).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,6 +50,13 @@ pub enum TaskCommand {
         task_id: Option<TaskId>,
         /// Agent completing the task
         agent_id: AgentId,
+    },
+    /// Create a new task in the store
+    Create {
+        /// Task/bead ID to create
+        task_id: TaskId,
+        /// Task title
+        title: Title,
     },
 }
 

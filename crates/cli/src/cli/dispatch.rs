@@ -320,6 +320,10 @@ fn handle_task(command: crate::cli::task_args::TaskCommands) -> Result<()> {
             task_id: Some(parse_task_id(&task_id)?),
             agent_id: AgentId::new(&user)?,
         },
+        crate::cli::task_args::TaskCommands::Create { task_id, title } => TaskCommand::Create {
+            task_id: parse_task_id(&task_id)?,
+            title: crate::commands::task_types::Title::new(title),
+        },
     };
     run_task_command(&cmd)
 }
